@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { act, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BuilderPreviewCanvas } from './builder-preview-canvas';
 
@@ -9,17 +10,26 @@ vi.mock('@/components/storefront/render-builder-config', () => ({
   RenderBuilderConfig: ({
     config,
     merchantContext,
+    onRendered,
   }: {
     config: { content: Array<{ props: { id: string } }> };
     merchantContext: { basePath: string };
-  }) => (
-    <output
-      data-base-path={merchantContext.basePath}
-      data-testid="builder-preview-render"
-    >
-      {config.content[0]?.props.id}
-    </output>
-  ),
+    onRendered: () => void;
+  }) => {
+    if (config.content[0]?.props.id === 'render-failure')
+      throw new Error('Preview renderer failed');
+    useEffect(() => {
+      onRendered();
+    }, [onRendered]);
+    return (
+      <output
+        data-base-path={merchantContext.basePath}
+        data-testid="builder-preview-render"
+      >
+        {config.content[0]?.props.id}
+      </output>
+    );
+  },
 }));
 
 const validMessage = (revision: number, id = 'text-1') => ({
@@ -92,6 +102,38 @@ describe('BuilderPreviewCanvas', () => {
         expect.stringContaining('"revision":3')
       )
     );
+  });
+
+  it('acknowledges a valid candidate only after its preview renderer commits', async () => {
+    const postMessage = installBridge();
+    render(<BuilderPreviewCanvas />);
+    expect(postMessage).toHaveBeenCalledTimes(1);
+
+    send(validMessage(8));
+
+    expect(
+      await screen.findByTestId('builder-preview-render')
+    ).toBeInTheDocument();
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(postMessage.mock.calls[1][0])).toEqual({
+      revision: 8,
+      type: 'baci.builder-preview.rendered',
+      version: 1,
+    });
+  });
+
+  it('returns a bounded error when the mounted renderer fails', async () => {
+    const postMessage = installBridge();
+    render(<BuilderPreviewCanvas />);
+
+    send(validMessage(9, 'render-failure'));
+
+    await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
+    expect(JSON.parse(postMessage.mock.calls[1][0])).toEqual({
+      code: 'render_failed',
+      type: 'baci.builder-preview.error',
+      version: 1,
+    });
   });
 
   it('ignores stale and lower revisions after accepting a newer candidate', async () => {

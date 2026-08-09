@@ -1,7 +1,12 @@
 'use client';
 
-import { type Data, Render } from '@puckeditor/core';
-import type { CSSProperties, ReactNode } from 'react';
+import {
+  type Config,
+  type Data,
+  type PuckContext,
+  Render,
+} from '@puckeditor/core';
+import { type CSSProperties, type ReactNode, useEffect } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { StorefrontProvider } from '@/contexts/storefront-context';
 import { CartContext } from '@/hooks/cart/cart-context';
@@ -10,6 +15,7 @@ import { MerchantContext } from '@/hooks/merchant/merchant-context';
 import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 import { getCuratedThemeTokenProjection } from '@/lib/storefront-defaults/curated-theme-token-projection';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
+import { PreviewProductGrid } from './preview-product-grid';
 
 type PreviewMerchantContext = {
   basePath: string;
@@ -31,6 +37,7 @@ type BuilderPreviewConfig = {
 type RenderBuilderConfigProps = {
   config: BuilderPreviewConfig;
   merchantContext: PreviewMerchantContext;
+  onRendered?: () => void;
 };
 
 const previewCart: CartContextType = {
@@ -81,32 +88,73 @@ function getPreviewTheme(config: BuilderPreviewConfig): ThemeConfiguration {
   ) as unknown as ThemeConfiguration;
 }
 
-function markHeaderBlocksAsPreview(config: BuilderPreviewConfig): Data {
+function markHeaderBlocksAsPreview(blocks: unknown[]): unknown[] {
+  return blocks.map((block) => {
+    if (
+      typeof block !== 'object' ||
+      block === null ||
+      !Object.hasOwn(block, 'type') ||
+      !Object.hasOwn(block, 'props')
+    ) {
+      return block;
+    }
+    const candidate = block as { props: unknown; type: unknown };
+    if (typeof candidate.props !== 'object' || candidate.props === null)
+      return block;
+    return {
+      ...block,
+      props:
+        candidate.type === 'Header'
+          ? { ...candidate.props, isPreview: true }
+          : candidate.props,
+    };
+  });
+}
+
+function getPreviewData(config: BuilderPreviewConfig): Data {
   return {
     ...config,
-    content: config.content.map((block) => {
-      if (
-        typeof block !== 'object' ||
-        block === null ||
-        !Object.hasOwn(block, 'type') ||
-        !Object.hasOwn(block, 'props')
-      ) {
-        return block;
-      }
-      const candidate = block as { props: unknown; type: unknown };
-      if (
-        candidate.type !== 'Header' ||
-        typeof candidate.props !== 'object' ||
-        candidate.props === null
-      )
-        return block;
-      return {
-        ...block,
-        props: { ...candidate.props, isPreview: true },
-      };
-    }),
+    content: markHeaderBlocksAsPreview(config.content),
+    zones: config.zones
+      ? Object.fromEntries(
+          Object.entries(config.zones).map(([zone, blocks]) => [
+            zone,
+            Array.isArray(blocks) ? markHeaderBlocksAsPreview(blocks) : blocks,
+          ])
+        )
+      : undefined,
   } as Data;
 }
+
+function PreviewFlex({ puck }: { puck: PuckContext }) {
+  return (
+    <div data-testid="builder-preview-flex">
+      {puck.renderDropZone({ zone: 'children' })}
+    </div>
+  );
+}
+
+const previewBuilderConfig = {
+  ...builderConfig,
+  components: {
+    ...builderConfig.components,
+    Flex: { render: PreviewFlex },
+    ProductGrid: {
+      ...builderConfig.components.ProductGrid,
+      render: ({
+        columns,
+        limit,
+        title,
+      }: {
+        columns?: number;
+        limit?: number;
+        title?: string;
+      }) => (
+        <PreviewProductGrid columns={columns} limit={limit} title={title} />
+      ),
+    },
+  },
+} as unknown as Config;
 
 function getPreviewMerchant(context: PreviewMerchantContext): MerchantData {
   return {
@@ -157,12 +205,18 @@ function PreviewContext({
   );
 }
 
+function RenderCommit({ onRendered }: { onRendered: () => void }) {
+  useEffect(() => onRendered(), [onRendered]);
+  return null;
+}
+
 export function RenderBuilderConfig({
   config,
   merchantContext,
+  onRendered,
 }: RenderBuilderConfigProps) {
   const theme = getPreviewTheme(config);
-  const previewConfig = markHeaderBlocksAsPreview(config);
+  const previewData = getPreviewData(config);
   return (
     <PreviewContext merchantContext={merchantContext}>
       <div
@@ -170,7 +224,8 @@ export function RenderBuilderConfig({
         data-testid="builder-preview-surface"
         style={getCuratedThemeTokenProjection(theme) as CSSProperties}
       >
-        <Render config={builderConfig} data={previewConfig} />
+        <Render config={previewBuilderConfig} data={previewData} />
+        {onRendered ? <RenderCommit onRendered={onRendered} /> : null}
       </div>
     </PreviewContext>
   );

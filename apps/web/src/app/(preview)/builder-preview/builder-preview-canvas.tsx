@@ -5,7 +5,7 @@ import {
   builderDesignCapabilities,
   builderPreviewResponseSchema,
 } from '@baci/shared/contracts';
-import { useEffect, useState } from 'react';
+import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { RenderBuilderConfig } from '@/components/storefront/render-builder-config';
 import { parseBuilderPreviewEvent } from './parse-builder-preview-event';
 
@@ -18,6 +18,29 @@ type PreviewState = {
 type NativePreviewBridge = {
   postMessage: (message: string) => void;
 };
+
+class PreviewRenderFailureBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch() {
+    this.props.onError();
+  }
+
+  render() {
+    return this.state.failed ? (
+      <div role="alert">Preview unavailable.</div>
+    ) : (
+      this.props.children
+    );
+  }
+}
 
 function postPreviewResponse(response: BuilderPreviewResponse): void {
   const parsed = builderPreviewResponseSchema.safeParse(response);
@@ -34,6 +57,7 @@ function postPreviewResponse(response: BuilderPreviewResponse): void {
 
 export function BuilderPreviewCanvas() {
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const responseRevision = useRef<number | null>(null);
 
   useEffect(() => {
     postPreviewResponse({
@@ -55,11 +79,6 @@ export function BuilderPreviewCanvas() {
       }
       setPreview((current) => {
         if (current && message.revision <= current.revision) return current;
-        postPreviewResponse({
-          revision: message.revision,
-          type: 'baci.builder-preview.rendered',
-          version: 1,
-        });
         return {
           config: message.candidateConfig,
           merchantContext: {
@@ -77,10 +96,33 @@ export function BuilderPreviewCanvas() {
   }, []);
 
   if (!preview) return null;
+  const postRenderResult = (type: 'rendered' | 'error') => {
+    if (responseRevision.current === preview.revision) return;
+    responseRevision.current = preview.revision;
+    postPreviewResponse(
+      type === 'rendered'
+        ? {
+            revision: preview.revision,
+            type: 'baci.builder-preview.rendered',
+            version: 1,
+          }
+        : {
+            code: 'render_failed',
+            type: 'baci.builder-preview.error',
+            version: 1,
+          }
+    );
+  };
   return (
-    <RenderBuilderConfig
-      config={preview.config}
-      merchantContext={preview.merchantContext}
-    />
+    <PreviewRenderFailureBoundary
+      key={preview.revision}
+      onError={() => postRenderResult('error')}
+    >
+      <RenderBuilderConfig
+        config={preview.config}
+        merchantContext={preview.merchantContext}
+        onRendered={() => postRenderResult('rendered')}
+      />
+    </PreviewRenderFailureBoundary>
   );
 }
