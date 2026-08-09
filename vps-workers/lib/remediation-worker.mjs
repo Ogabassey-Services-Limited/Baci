@@ -1,41 +1,20 @@
-import { createHash } from 'node:crypto';
 import { join, resolve as resolvePath } from 'node:path';
 import { createRemediationCaseState } from './remediation-case-state.mjs';
 import { redactCodexError } from './remediation-codex-output.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 import { retryRemediationNotifications } from './remediation-notification-retry.mjs';
-import {
-  buildCodexRemediationPrompt,
-  evaluateMergePolicy,
-} from './remediation-policy.mjs';
+import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
 import { createRemediationPrJournal } from './remediation-pr-journal.mjs';
 import { writeRemediationPrompt } from './remediation-prompt-file.mjs';
-import {
-  buildRemediationReport,
-  sendRemediationReportEmail,
-} from './remediation-report.mjs';
 import { createRemediationState } from './remediation-state.mjs';
 import { recordRemediationOutcome } from './remediation-worker-candidate-state.mjs';
 import {
   readPositiveInt,
   statePathForMode,
 } from './remediation-worker-config.mjs';
+import { finalizeRemediationWorkerReport } from './remediation-worker-reporting.mjs';
 
-function notificationIdFor(workerName, candidates) {
-  return createHash('sha256')
-    .update(
-      JSON.stringify({
-        candidates: candidates.map((candidate) => [
-          candidate.caseKey || candidate.fingerprint,
-          candidate.lastSeen || candidate.occurrences,
-        ]),
-        workerName,
-      })
-    )
-    .digest('hex')
-    .slice(0, 20);
-}
 export async function runRemediationWorker({
   autofixRunner = runRemediationAutofix,
   candidateEnricher,
@@ -102,7 +81,7 @@ export async function runRemediationWorker({
     workerName,
   });
   const actions = retriedNotifications.actions;
-  let email = retriedNotifications.email;
+  const email = retriedNotifications.email;
   const maximumCandidates = Math.min(
     readPositiveInt(env.BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN, 1),
     10
@@ -236,66 +215,15 @@ export async function runRemediationWorker({
     }
     if (result.type === 'pr_opened') prJournal.clear(candidate.caseKey);
   }
-  const policy = evaluateMergePolicy({
-    changedFiles: [],
-    checksPassed: false,
-    hasHighSeverityReview: false,
-    hasUnresolvedThreads: false,
-  });
-  const reportCandidates = [...candidates, ...lifecycleCandidates];
-  let report = buildRemediationReport({
+  return finalizeRemediationWorkerReport({
     actions,
-    candidates: reportCandidates,
+    candidates: [...candidates, ...lifecycleCandidates],
+    email,
+    env,
+    fetchFn,
+    logger,
     mode,
-    policy,
-    source: workerName,
+    state,
+    workerName,
   });
-  if (reportCandidates.length === 0) {
-    return {
-      actions,
-      candidates: reportCandidates,
-      email,
-      mode,
-      policy,
-      report,
-    };
-  }
-  const notificationId = notificationIdFor(workerName, reportCandidates);
-  if (!state.complete({ notification: { id: notificationId, report } })) {
-    throw new Error('remediation state is busy');
-  }
-  try {
-    email = await sendRemediationReportEmail({ env, fetchFn, report });
-    if (email.skipped) {
-      actions.push({ detail: notificationId, type: 'email_skipped' });
-      report = buildRemediationReport({
-        actions,
-        candidates: reportCandidates,
-        mode,
-        policy,
-        source: workerName,
-      });
-      if (!state.complete({ notification: { id: notificationId, report } })) {
-        throw new Error('remediation state is busy');
-      }
-    } else {
-      state.acknowledgeNotification(notificationId);
-    }
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : String(error);
-    logger.error(`[${workerName}] report email failed:`, error);
-    actions.push({ detail, type: 'email_failed' });
-    report = buildRemediationReport({
-      actions,
-      candidates: reportCandidates,
-      mode,
-      policy,
-      source: workerName,
-    });
-    if (!state.complete({ notification: { id: notificationId, report } })) {
-      throw new Error('remediation state is busy');
-    }
-    email = { error: detail, skipped: true };
-  }
-  return { actions, candidates: reportCandidates, email, mode, policy, report };
 }
