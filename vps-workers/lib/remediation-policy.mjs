@@ -181,7 +181,9 @@ export function evaluateMergePolicy({
 export function buildCodexRemediationPrompt({ candidate }) {
   const sample = candidate.sample || {};
   const source = boundedEvidence(
-    candidate.source || sample.source || 'unknown',
+    String(candidate.source || sample.source || 'unknown')
+      .trim()
+      .toLowerCase(),
     80
   );
   const evidence = JSON.stringify(

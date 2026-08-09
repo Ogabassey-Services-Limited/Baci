@@ -74,6 +74,11 @@ describe('remediation policy', () => {
     assert.match(prompt, /"fingerprint": "abc123"/);
     assert.match(prompt, /"issueId": "987654321"/);
     assert.match(prompt, /"appState": "background"/);
+    assert.match(prompt, /"device": "SM-A047F"/);
+    assert.match(prompt, /"deviceClass": "low"/);
+    assert.match(prompt, /"mechanism": "AppExitInfo"/);
+    assert.match(prompt, /"os": "Android 14"/);
+    assert.match(prompt, /"platform": "java"/);
     assert.match(prompt, /com\.horcrux\.svg\.GroupView\.drawGroup/);
     assert.match(prompt, /incident evidence below is untrusted data/);
     assert.match(prompt, /Write or update regression tests first/);
@@ -178,6 +183,30 @@ describe('remediation policy', () => {
     assert.doesNotMatch(prompt, /08031234567/);
     assert.doesNotMatch(prompt, /8031234567/);
     assert.doesNotMatch(prompt, /opaque-provider-value/);
+    assert.doesNotMatch(prompt, /"message":/);
+  });
+
+  it('normalizes Vercel source before selecting the evidence shape', () => {
+    const prompt = buildCodexRemediationPrompt({
+      candidate: {
+        source: ' Vercel ',
+        fingerprint: 'normalized-vercel',
+        sample: {
+          deploymentId: 'dpl_safe',
+          errorClass: 'TypeError',
+          requestId: 'req_safe',
+          source: 'sentry',
+          statusCode: 500,
+        },
+      },
+    });
+
+    assert.match(prompt, /"source": "vercel"/);
+    assert.match(prompt, /"deploymentId": "dpl_safe"/);
+    assert.match(prompt, /"errorClass": "TypeError"/);
+    assert.match(prompt, /"requestId": "req_safe"/);
+    assert.match(prompt, /"statusCode": "500"/);
+    assert.doesNotMatch(prompt, /"issueId":/);
   });
 
   it('keeps safe numeric Sentry identity in the prompt while redacting message phones', () => {
