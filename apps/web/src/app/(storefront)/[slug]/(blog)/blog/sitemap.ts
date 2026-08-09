@@ -15,8 +15,6 @@ import {
 
 export const preferredRegion = 'dub1';
 
-export const dynamic = 'force-dynamic';
-
 const MIN_CATEGORY_HUB_POSTS = 3;
 
 interface BlogCategorySitemapPost {

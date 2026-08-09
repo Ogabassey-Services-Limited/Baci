@@ -16,10 +16,6 @@ export const size = {
   height: 630,
 };
 export const contentType = 'image/png';
-// Keep the route response dynamic so transient image-load fallbacks can retry on the next crawler request.
-export const revalidate = 0;
-export const runtime = 'nodejs';
-
 type ImageProps = { params: Promise<{ slug: string; postSlug: string }> };
 type ImageResponseFallback = { element: ReactElement; noStore: boolean };
 

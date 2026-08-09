@@ -77,6 +77,10 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.experimental).not.toHaveProperty('viewTransition');
   });
 
+  it('keeps Next on the TypeScript API path for the workspace compiler alias', () => {
+    expect(nextConfig.experimental?.useTypeScriptCli).toBe(false);
+  });
+
   it('publishes only public PostHog release context envs to the browser bundle', () => {
     expect(nextConfig.env).toEqual(
       expect.not.objectContaining({

@@ -345,6 +345,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '2mb',
     },
 
+    // Next 16.3 defaults to the TypeScript CLI, but this monorepo intentionally
+    // resolves the TypeScript 6 compiler through its API-compatible alias.
+    // Keep Next on the API path until the workspace can expose a standard tsc
+    // binary without changing the repository-wide compiler contract.
+    useTypeScriptCli: false,
+
     // Bundle optimization - tree-shake large libraries
     optimizePackageImports: [
       'lucide-react',
