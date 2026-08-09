@@ -238,6 +238,7 @@ describe('remediation Codex canary', () => {
           BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
           BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
           BACI_REPO_DIR: repoDir,
+          BACI_REMEDIATION_GLOBAL_FLOCK_HELD: '1',
           BACI_REMEDIATION_NOTIFY_EMAILS: '',
           DOCKER_BIN: '/does-not-exist/authored-docker',
           ZEPTOMAIL_TOKEN: '',
