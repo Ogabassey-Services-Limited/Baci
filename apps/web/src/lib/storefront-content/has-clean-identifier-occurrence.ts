@@ -84,15 +84,13 @@ function hasNumericModelContext(
       index < startIndex &&
       ['against', 'and', 'or', 'versus', 'vs'].includes(token)
   );
-  const precedingComparisonSegment = tokens.slice(
-    0,
-    previousComparisonBoundary >= 0 ? previousComparisonBoundary : startIndex
-  );
+  const precedingComparisonSegment =
+    previousComparisonBoundary >= 0
+      ? tokens.slice(0, previousComparisonBoundary)
+      : [];
   return (
     brandTokens.includes(previousToken) ||
-    tokens
-      .slice(Math.max(0, startIndex - 2), startIndex)
-      .some((token) => NUMERIC_MODEL_CONTEXT_TOKENS.has(token)) ||
+    NUMERIC_MODEL_CONTEXT_TOKENS.has(previousToken) ||
     precedingComparisonSegment.some((token) =>
       NUMERIC_MODEL_CONTEXT_TOKENS.has(token)
     )
