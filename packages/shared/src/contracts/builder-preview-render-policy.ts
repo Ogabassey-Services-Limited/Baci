@@ -1,7 +1,10 @@
+import type { BuilderData } from './builder-ai-edit';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
+const MAX_CAROUSEL_SLIDES = 5;
+const PREVIEW_CAROUSEL_IMAGE = '/placeholder.png';
 const componentIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const componentSlotZoneKeyPattern =
   /^([A-Za-z0-9][A-Za-z0-9_-]{0,119}):([A-Za-z][A-Za-z0-9_-]{0,79})$/;
@@ -17,6 +20,13 @@ const animationTypes = new Set([
   'slide-right',
   'zoom-in',
   'scale-up',
+]);
+const animatedComponentTypes = new Set([
+  'Hero',
+  'Text',
+  'Features',
+  'FAQ',
+  'LegalSection',
 ]);
 const gradientColor =
   '(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\\))';
@@ -55,11 +65,69 @@ function isSafeGradient(value: unknown): boolean {
   );
 }
 
+function isAnimationProp(
+  componentType: string,
+  property: string,
+  value: unknown
+): boolean | undefined {
+  if (!animatedComponentTypes.has(componentType)) return undefined;
+  if (property === 'animationType')
+    return typeof value === 'string' && animationTypes.has(value);
+  if (property === 'animationDuration')
+    return value === 'fast' || value === 'normal' || value === 'slow';
+  if (property === 'animationDelay')
+    return typeof value === 'number' && value >= 0 && value <= 5;
+  if (property === 'animationTrigger')
+    return value === 'immediate' || value === 'scroll' || value === 'onload';
+  return undefined;
+}
+
+function isPreviewCarouselSlide(value: unknown): boolean {
+  if (!isRecord(value) || Object.keys(value).length === 0) return false;
+  const specialProps =
+    builderDesignCapabilityAdapter.getSpecialProps(
+      'HeroCarousel',
+      'updateCarouselSlide'
+    ) ?? {};
+  return (
+    Object.keys(value).some((key) => Object.keys(specialProps).includes(key)) &&
+    Object.entries(value).every(([property, propValue]) => {
+      if (propValue === undefined) return false;
+      if (property === 'image') return isSafeAssetPath(propValue);
+      return builderDesignCapabilityAdapter.isSpecialPropValue(
+        'HeroCarousel',
+        'updateCarouselSlide',
+        property,
+        propValue
+      );
+    })
+  );
+}
+
+function isPreviewCarouselProp(property: string, value: unknown): boolean {
+  if (property === 'autoplayDelay')
+    return (
+      typeof value === 'number' &&
+      Number.isInteger(value) &&
+      value >= 1_000 &&
+      value <= 10_000
+    );
+  return (
+    property === 'slides' &&
+    Array.isArray(value) &&
+    value.length > 0 &&
+    value.length <= MAX_CAROUSEL_SLIDES &&
+    value.every(isPreviewCarouselSlide)
+  );
+}
+
 function isCuratedRenderProp(
   componentType: string,
   property: string,
   value: unknown
 ): boolean {
+  const animation = isAnimationProp(componentType, property, value);
+  if (animation !== undefined) return animation;
   if (componentType === 'Header') {
     if (property === 'backgroundColor' || property === 'textColor')
       return isSafeColor(value);
@@ -69,6 +137,8 @@ function isCuratedRenderProp(
       return isSafeAssetPath(value);
     return property === 'showAccount' && typeof value === 'boolean';
   }
+  if (componentType === 'HeroCarousel')
+    return isPreviewCarouselProp(property, value);
   if (componentType === 'ProductGrid') {
     return (
       property === 'sortBy' &&
@@ -97,16 +167,7 @@ function isCuratedRenderProp(
     return ['h1', 'h2', 'div'].includes(String(value));
   if (property === 'backgroundImage') return isSafeAssetPath(value);
   if (property === 'backgroundGradient') return isSafeGradient(value);
-  if (property === 'animationType')
-    return typeof value === 'string' && animationTypes.has(value);
-  if (property === 'animationDuration')
-    return ['fast', 'normal', 'slow'].includes(String(value));
-  if (property === 'animationDelay')
-    return typeof value === 'number' && value >= 0 && value <= 5;
-  return (
-    property === 'animationTrigger' &&
-    (value === 'immediate' || value === 'scroll')
-  );
+  return false;
 }
 
 function isReviewedProp(
@@ -172,6 +233,47 @@ function allowsPuckZoneSlot(type: string, slot: string): boolean {
   return type === 'Flex' && slot === 'children';
 }
 
+function projectPreviewCarouselComponent(
+  component: BuilderData['content'][number]
+): BuilderData['content'][number] {
+  if (
+    component.type !== 'HeroCarousel' ||
+    !Array.isArray(component.props.slides)
+  )
+    return component;
+  return {
+    ...component,
+    props: {
+      ...component.props,
+      slides: component.props.slides.map((slide) => {
+        if (!isRecord(slide)) return slide;
+        const { image: _image, ...reviewed } = slide;
+        return { ...reviewed, image: PREVIEW_CAROUSEL_IMAGE };
+      }),
+    },
+  };
+}
+
+function projectPreviewCandidate(value: BuilderData): BuilderData {
+  const zones = value.zones;
+  return {
+    ...value,
+    content: value.content.map(projectPreviewCarouselComponent),
+    ...(zones === undefined
+      ? {}
+      : {
+          zones: Object.fromEntries(
+            Object.entries(zones).map(([key, collection]) => [
+              key,
+              Array.isArray(collection)
+                ? collection.map(projectPreviewCarouselComponent)
+                : collection,
+            ])
+          ),
+        }),
+  };
+}
+
 export const previewRenderPolicy = {
   allowsPuckZoneSlot,
   getPuckComponentIdentity,
@@ -183,4 +285,5 @@ export const previewRenderPolicy = {
   },
   isPuckZoneKey: (value: string) => parsePuckZoneKey(value) !== undefined,
   parsePuckZoneKey,
+  projectPreviewCandidate,
 };

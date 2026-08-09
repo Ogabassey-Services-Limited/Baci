@@ -280,8 +280,10 @@ function isPreviewCandidate(value: unknown): value is BuilderData {
 
 export const builderPreviewCandidateConfigSchema = z.preprocess(
   normalizePreviewRoot,
-  z.custom<BuilderData>(
-    isPreviewCandidate,
-    'Expected a bounded render-safe Puck configuration'
-  )
+  z
+    .custom<BuilderData>(
+      isPreviewCandidate,
+      'Expected a bounded render-safe Puck configuration'
+    )
+    .transform(previewRenderPolicy.projectPreviewCandidate)
 );
