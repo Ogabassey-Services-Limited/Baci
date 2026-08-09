@@ -65,7 +65,14 @@ function isValueForProp(
       (!descriptor.wholeNumber || Number.isInteger(value))
     );
   }
-  if (descriptor.type === 'safe-link') return isSafeUrl(value);
+  if (descriptor.type === 'safe-link') {
+    return (
+      typeof value === 'string' &&
+      (descriptor.maximumLength === undefined ||
+        value.length <= descriptor.maximumLength) &&
+      isSafeUrl(value)
+    );
+  }
   if (descriptor.type === 'safe-media') return false;
   if (descriptor.type === 'feature-icon') {
     return (

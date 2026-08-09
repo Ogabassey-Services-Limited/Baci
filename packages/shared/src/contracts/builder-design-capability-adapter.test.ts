@@ -21,6 +21,13 @@ describe('builder design capability adapter', () => {
       builderDesignCapabilityAdapter.isPropValue('Button', 'link', '/products')
     ).toBe(true);
     expect(
+      builderDesignCapabilityAdapter.isPropValue(
+        'Button',
+        'link',
+        `/${'a'.repeat(512)}`
+      )
+    ).toBe(false);
+    expect(
       builderDesignCapabilityAdapter.isPropValue('FAQ', 'items', [
         { answer: 'One', question: 'Shipping?' },
         { answer: 'Two', question: 'Shipping?' },

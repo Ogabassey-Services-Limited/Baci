@@ -1,23 +1,14 @@
 import { z } from 'zod';
-import { type BuilderData, builderDataSchema } from './builder-ai-edit';
-import { validateBuilderAiEditComplexity } from './builder-ai-edit/complexity-validator';
 import { builderDesignCapabilities } from './builder-design-capabilities';
-import { previewRenderPolicy } from './builder-preview-render-policy';
+import { builderPreviewCandidateConfigSchema } from './builder-preview-candidate-config';
 
 const MAX_MERCHANT_IDENTIFIER_LENGTH = 128;
 const MAX_BASE_PATH_LENGTH = 240;
 const MAX_STOREFRONT_ORIGIN_LENGTH = 2_048;
 const MAX_REVISION = 2_147_483_647;
 const MAX_ERROR_CODE_LENGTH = 64;
-const candidateConfigKeys = new Set(['content', 'root', 'theme', 'zones']);
-const sensitiveKeyPattern =
-  /(?:api[-_]?key|authorization|credential|password|private[-_]?key|secret|token)/i;
 const basePathPattern = /^\/(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)?$/;
 const errorCodePattern = /^[a-z][a-z0-9_]*$/;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 function isStorefrontOrigin(value: string): boolean {
   try {
@@ -33,75 +24,6 @@ function isStorefrontOrigin(value: string): boolean {
     return false;
   }
 }
-
-function hasSensitiveField(
-  value: unknown,
-  visited = new WeakSet<object>()
-): boolean {
-  if (!value || typeof value !== 'object') return false;
-  if (visited.has(value)) return false;
-  visited.add(value);
-  return Object.entries(value).some(
-    ([key, entry]) =>
-      sensitiveKeyPattern.test(key) || hasSensitiveField(entry, visited)
-  );
-}
-
-function hasValidPuckCollections(value: BuilderData): boolean {
-  const componentIds = new Set<string>();
-  if (Object.keys(value).some((key) => !candidateConfigKeys.has(key))) {
-    return false;
-  }
-  if (
-    !isRecord(value.root) ||
-    (value.theme !== undefined && !isRecord(value.theme))
-  ) {
-    return false;
-  }
-  if (
-    !value.content.every((component) =>
-      previewRenderPolicy.isPuckComponent(component, componentIds)
-    )
-  ) {
-    return false;
-  }
-  if (value.zones === undefined) return true;
-  return (
-    isRecord(value.zones) &&
-    Object.entries(value.zones).every(
-      ([zoneKey, collection]) =>
-        previewRenderPolicy.isPuckZoneKey(zoneKey) &&
-        Array.isArray(collection) &&
-        collection.every((component) =>
-          previewRenderPolicy.isPuckComponent(component, componentIds)
-        )
-    )
-  );
-}
-
-const candidateConfigSchema = builderDataSchema.superRefine(
-  (value, context) => {
-    if (!hasValidPuckCollections(value)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Expected a known Puck configuration',
-      });
-    }
-    if (hasSensitiveField(value)) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Preview configuration must not include secret-shaped fields',
-      });
-    }
-    const complexity = validateBuilderAiEditComplexity(value);
-    if (!complexity.success) {
-      context.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Preview configuration exceeds supported complexity',
-      });
-    }
-  }
-);
 
 const merchantSchema = z.strictObject({
   basePath: z
@@ -128,7 +50,7 @@ const merchantSchema = z.strictObject({
 });
 
 export const builderPreviewMessageSchema = z.strictObject({
-  candidateConfig: candidateConfigSchema,
+  candidateConfig: builderPreviewCandidateConfigSchema,
   capabilityHash: z.literal(builderDesignCapabilities.capabilityHash),
   capabilityVersion: z.literal(builderDesignCapabilities.capabilityVersion),
   merchant: merchantSchema,

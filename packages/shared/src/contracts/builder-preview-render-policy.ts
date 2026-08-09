@@ -1,17 +1,14 @@
-import { safeStorefrontUrlSchema } from './builder-ai-edit/safe-storefront-url';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 
-const MAX_COMPONENT_ID_LENGTH = 120;
-const MAX_COLOR_LENGTH = 64;
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
 const componentIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const rootZoneKeyPattern = /^[a-z][a-z0-9_-]{0,79}$/;
 const componentSlotZoneKeyPattern =
-  /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}:[A-Za-z][A-Za-z0-9_-]{0,79}$/;
-const colorPattern = /^(?:#[0-9a-fA-F]{3,8}|var\(--[a-z][a-z0-9-]{0,48}\))$/;
-const gradientPattern = /^(?:linear|radial)-gradient\([^\\;{}]{1,480}\)$/;
-const animationTypes = [
+  /^([A-Za-z0-9][A-Za-z0-9_-]{0,119}):([A-Za-z][A-Za-z0-9_-]{0,79})$/;
+const colorPattern =
+  /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\))$/;
+const assetPathPattern = /^\/(?!\/)[A-Za-z0-9._~!$&*+,=@%/-]{1,480}$/;
+const animationTypes = new Set([
   'none',
   'fade-in',
   'slide-up',
@@ -20,7 +17,14 @@ const animationTypes = [
   'slide-right',
   'zoom-in',
   'scale-up',
-];
+]);
+const gradientColor =
+  '(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\\))';
+const gradientPattern = new RegExp(
+  `^(?:linear-gradient\\((?:[0-9]{1,3}deg, )?${gradientColor}(?:, ${gradientColor}){1,7}\\)|radial-gradient\\(${gradientColor}(?:, ${gradientColor}){1,7}\\))$`
+);
+
+type PreviewComponentIdentity = { id: string; type: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -36,16 +40,11 @@ function isBoundedText(value: unknown, maximum: number): boolean {
 }
 
 function isSafeColor(value: unknown): boolean {
-  return (
-    typeof value === 'string' &&
-    value.length <= MAX_COLOR_LENGTH &&
-    colorPattern.test(value)
-  );
+  return typeof value === 'string' && colorPattern.test(value);
 }
 
-function isSafeAssetUrl(value: unknown): boolean {
-  const parsed = safeStorefrontUrlSchema.safeParse(value);
-  return parsed.success && !parsed.data.startsWith('#');
+function isSafeAssetPath(value: unknown): boolean {
+  return typeof value === 'string' && assetPathPattern.test(value);
 }
 
 function isSafeGradient(value: unknown): boolean {
@@ -62,38 +61,52 @@ function isCuratedRenderProp(
   value: unknown
 ): boolean {
   if (componentType === 'Header') {
-    if (property === 'backgroundColor' || property === 'textColor') {
+    if (property === 'backgroundColor' || property === 'textColor')
       return isSafeColor(value);
-    }
-    if (property === 'storeName') {
+    if (property === 'storeName')
       return isBoundedText(value, MAX_STORE_NAME_LENGTH);
-    }
-    if (property === 'logoUrl' || property === 'backgroundImage') {
-      return isSafeAssetUrl(value);
-    }
+    if (property === 'logoUrl' || property === 'backgroundImage')
+      return isSafeAssetPath(value);
     return property === 'showAccount' && typeof value === 'boolean';
   }
-  if (componentType === 'Hero') {
-    if (property === 'headingLevel') {
-      return value === 'h1' || value === 'h2' || value === 'div';
-    }
-    if (property === 'backgroundImage') return isSafeAssetUrl(value);
-    if (property === 'backgroundGradient') return isSafeGradient(value);
-    if (property === 'animationType') {
-      return typeof value === 'string' && animationTypes.includes(value);
-    }
-    if (property === 'animationDuration') {
-      return value === 'fast' || value === 'normal' || value === 'slow';
-    }
-    if (property === 'animationDelay') {
-      return typeof value === 'number' && value >= 0 && value <= 5;
-    }
+  if (componentType === 'ProductGrid') {
     return (
-      property === 'animationTrigger' &&
-      (value === 'immediate' || value === 'scroll')
+      property === 'sortBy' &&
+      (value === 'newest' ||
+        value === 'price-low' ||
+        value === 'price-high' ||
+        value === 'name')
     );
   }
-  return false;
+  if (componentType === 'Footer') {
+    if (
+      property === 'brandName' ||
+      property === 'quickLinksLabel' ||
+      property === 'socialLinksLabel'
+    ) {
+      return isBoundedText(value, MAX_STORE_NAME_LENGTH);
+    }
+    return (
+      property === 'socialLinks' &&
+      isRecord(value) &&
+      Object.keys(value).length === 0
+    );
+  }
+  if (componentType !== 'Hero') return false;
+  if (property === 'headingLevel')
+    return ['h1', 'h2', 'div'].includes(String(value));
+  if (property === 'backgroundImage') return isSafeAssetPath(value);
+  if (property === 'backgroundGradient') return isSafeGradient(value);
+  if (property === 'animationType')
+    return typeof value === 'string' && animationTypes.has(value);
+  if (property === 'animationDuration')
+    return ['fast', 'normal', 'slow'].includes(String(value));
+  if (property === 'animationDelay')
+    return typeof value === 'number' && value >= 0 && value <= 5;
+  return (
+    property === 'animationTrigger' &&
+    (value === 'immediate' || value === 'scroll')
+  );
 }
 
 function isReviewedProp(
@@ -101,58 +114,73 @@ function isReviewedProp(
   property: string,
   value: unknown
 ): boolean {
+  if (value === undefined) return false;
   const capability =
     builderDesignCapabilityAdapter.getCapability(componentType);
   if (!capability) return false;
-  if (Object.keys(capability.props).includes(property)) {
+  if (Object.keys(capability.props).includes(property))
     return builderDesignCapabilityAdapter.isPropValue(
       componentType,
       property,
       value
     );
+  if (
+    capability.initialProps &&
+    Object.keys(capability.initialProps).includes(property) &&
+    Object.is(capability.initialProps[property], value)
+  ) {
+    return true;
   }
-  if (Object.is(capability.initialProps?.[property], value)) return true;
   return isCuratedRenderProp(componentType, property, value);
 }
 
-function isPreviewRenderSafePuckComponent(
-  value: unknown,
-  componentIds: Set<string>
-): boolean {
-  if (!isRecord(value)) return false;
-  if (Object.keys(value).some((key) => key !== 'props' && key !== 'type')) {
-    return false;
-  }
-  const componentType = value.type;
-  if (typeof componentType !== 'string' || !isRecord(value.props)) {
-    return false;
-  }
-  const capability =
-    builderDesignCapabilityAdapter.getCapability(componentType);
-  if (!capability?.renderable || capability.refused) return false;
-  const id = value.props.id;
+function getPuckComponentIdentity(
+  value: unknown
+): PreviewComponentIdentity | undefined {
   if (
-    typeof id !== 'string' ||
-    id.length > MAX_COMPONENT_ID_LENGTH ||
-    !componentIdPattern.test(id) ||
-    componentIds.has(id)
-  ) {
-    return false;
+    !isRecord(value) ||
+    Object.keys(value).some((key) => key !== 'props' && key !== 'type')
+  )
+    return;
+  const type = value.type;
+  if (typeof type !== 'string' || !isRecord(value.props)) return;
+  const id = value.props.id;
+  if (typeof id !== 'string' || !componentIdPattern.test(id)) return;
+  if (type === 'Flex') {
+    return Object.keys(value.props).every((key) => key === 'id')
+      ? { id, type }
+      : undefined;
   }
-  componentIds.add(id);
+  const capability = builderDesignCapabilityAdapter.getCapability(type);
+  if (!capability?.renderable || capability.refused) return;
   return Object.entries(value.props).every(
     ([property, propValue]) =>
-      property === 'id' || isReviewedProp(componentType, property, propValue)
-  );
+      property === 'id' || isReviewedProp(type, property, propValue)
+  )
+    ? { id, type }
+    : undefined;
 }
 
-function isPreviewRenderSafePuckZoneKey(value: string): boolean {
-  return (
-    rootZoneKeyPattern.test(value) || componentSlotZoneKeyPattern.test(value)
-  );
+function parsePuckZoneKey(
+  value: string
+): { parentId: string; slot: string } | undefined {
+  const match = componentSlotZoneKeyPattern.exec(value);
+  return match ? { parentId: match[1], slot: match[2] } : undefined;
+}
+
+function allowsPuckZoneSlot(type: string, slot: string): boolean {
+  return type === 'Flex' && slot === 'children';
 }
 
 export const previewRenderPolicy = {
-  isPuckComponent: isPreviewRenderSafePuckComponent,
-  isPuckZoneKey: isPreviewRenderSafePuckZoneKey,
+  allowsPuckZoneSlot,
+  getPuckComponentIdentity,
+  isPuckComponent: (value: unknown, componentIds: Set<string>) => {
+    const identity = getPuckComponentIdentity(value);
+    if (!identity || componentIds.has(identity.id)) return false;
+    componentIds.add(identity.id);
+    return true;
+  },
+  isPuckZoneKey: (value: string) => parsePuckZoneKey(value) !== undefined,
+  parsePuckZoneKey,
 };

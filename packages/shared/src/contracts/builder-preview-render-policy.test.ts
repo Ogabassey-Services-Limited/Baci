@@ -2,13 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { previewRenderPolicy } from './builder-preview-render-policy';
 
 describe('preview render policy', () => {
-  it('accepts established Puck dropzone keys while rejecting unsafe keys', () => {
+  it('parses compound Puck dropzone keys while rejecting inert and unsafe keys', () => {
     expect(previewRenderPolicy.isPuckZoneKey('Flex-1234:children')).toBe(true);
-    expect(previewRenderPolicy.isPuckZoneKey('aside')).toBe(true);
+    expect(previewRenderPolicy.isPuckZoneKey('aside')).toBe(false);
     expect(previewRenderPolicy.isPuckZoneKey('Flex-1234:<script>')).toBe(false);
     expect(previewRenderPolicy.isPuckZoneKey('Flex-1234:children:next')).toBe(
       false
     );
+  });
+
+  it('rejects malformed CSS colors and unsafe asset or gradient values', () => {
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: { backgroundColor: '#12345', id: 'header-1' },
+          type: 'Header',
+        },
+        new Set()
+      )
+    ).toBe(false);
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: { backgroundColor: '#1234567', id: 'header-1' },
+          type: 'Header',
+        },
+        new Set()
+      )
+    ).toBe(false);
   });
 
   it('accepts bounded curated render props without allowing unreviewed props', () => {
