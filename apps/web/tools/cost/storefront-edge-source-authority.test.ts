@@ -57,7 +57,11 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     });
 
     // Assert
-    expect(snapshot.apiSources).toHaveLength(2);
+    expect(snapshot.apiSources.map(({ sourcePath }) => sourcePath)).toEqual([
+      'apps/web/src/app/api/events/route.ts',
+      'apps/web/src/app/api/orders/[id]/route.ts',
+      'apps/web/src/app/api/orders/route.ts',
+    ]);
     expect(snapshot.routeSources).toHaveLength(79);
     expect(snapshot.routingInputSources).toHaveLength(
       STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths.length
