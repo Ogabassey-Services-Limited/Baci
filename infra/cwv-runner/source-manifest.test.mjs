@@ -39,7 +39,7 @@ function repository() {
     join(root, 'infra/cwv-runner/source-manifest.mjs'),
     readFileSync(join(here, 'source-manifest.mjs'))
   );
-  for (const name of ['canonical-json.mjs', 'policy.schema.mjs'])
+  for (const name of ['canonical-json.mjs', 'policy.schema.mjs', 'source-manifest-git.mjs', 'source-manifest-objects.mjs', 'source-manifest-tree.mjs'])
     writeFileSync(
       join(root, 'infra/cwv-runner', name),
       readFileSync(join(here, name))

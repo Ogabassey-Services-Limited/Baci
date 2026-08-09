@@ -34,6 +34,9 @@ test('ignores Git replacement refs while freezing the literal reviewed commit', 
       'policy.schema.mjs',
       'source-archive.mjs',
       'source-manifest.mjs',
+      'source-manifest-git.mjs',
+      'source-manifest-objects.mjs',
+      'source-manifest-tree.mjs',
     ])
       writeFileSync(
         join(fixture, 'infra/cwv-runner', name),

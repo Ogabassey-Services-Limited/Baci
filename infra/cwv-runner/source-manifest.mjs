@@ -12,7 +12,9 @@ import { fileURLToPath } from 'node:url';
 
 import { canonicalJson, canonicalSha256 } from './canonical-json.mjs';
 import { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
-import { git, objectBytes, verifyObjects } from './source-manifest-git.mjs';
+import { git } from './source-manifest-git.mjs';
+import { verifyGitObjects } from './source-manifest-objects.mjs';
+import { authenticatedTreeRows } from './source-manifest-tree.mjs';
 
 export { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 
@@ -41,6 +43,13 @@ function checkedMode(mode) {
   return mode;
 }
 
+function objectBytes(cwd, objectId) {
+  if (!/^[0-9a-f]{40,64}$/.test(objectId)) fail('invalid Git object id');
+  const object = verifyGitObjects(cwd, [objectId]).get(`${cwd}\0${objectId}`);
+  if (!object || object.type !== 'blob') fail('invalid Git blob');
+  return Buffer.from(object.bytes);
+}
+
 function treeRows(cwd, sha, prefix = '') {
   checkedSha(sha, 'tree SHA');
   const output = git(cwd, ['ls-tree', '-r', '-z', sha, '--', prefix], null, null);
@@ -60,7 +69,7 @@ function treeRows(cwd, sha, prefix = '') {
       if (!match) fail('malformed Git tree row');
       return match[2];
     });
-  verifyObjects(cwd, [sha, tree, ...directories, ...rows.map(({ objectId }) => objectId)]);
+  verifyGitObjects(cwd, [sha, tree, ...directories, ...rows.map(({ objectId }) => objectId)]);
   return rows.sort((left, right) => pathCompare(left.path, right.path));
 }
 
@@ -76,7 +85,7 @@ function verifyTreeClosure(cwd, sha) {
   }
   const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
   ids.push(tree);
-  const verifiedObjects = verifyObjects(cwd, ids);
+  const verifiedObjects = verifyGitObjects(cwd, ids);
   const object = verifiedObjects.get(`${cwd}\0${sha}`);
   if (!object || object.type !== 'commit') fail('source SHA must name a commit');
 }
@@ -91,29 +100,35 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   checkedSha(baseSha, 'base SHA');
   checkedSha(reviewedHeadSha, 'reviewed head SHA');
   checkedSha(mergeSha, 'merge SHA');
-  const verifiedObjects = verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
+  const verifiedObjects = verifyGitObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
   for (const sha of [baseSha, reviewedHeadSha, mergeSha]) {
     const object = verifiedObjects.get(`${cwd}\0${sha}`);
     if (!object || object.type !== 'commit') fail('source SHA must name a commit');
     verifyTreeClosure(cwd, sha);
   }
-  const output = git(cwd, ['diff', '--name-status', '-z', '--no-renames', baseSha, reviewedHeadSha], null, null);
+  const baseRows = authenticatedTreeRows(cwd, baseSha);
+  const reviewedRows = authenticatedTreeRows(cwd, reviewedHeadSha);
+  const mergedRows = authenticatedTreeRows(cwd, mergeSha);
+  const baseByPath = new Map(baseRows.map((row) => [row.path, row]));
+  const reviewedByPath = new Map(reviewedRows.map((row) => [row.path, row]));
+  const mergedByPath = new Map(mergedRows.map((row) => [row.path, row]));
   const entries = [];
-  for (let index = 0, fields = output.toString('utf8').split('\0'); index < fields.length - 1; index += 2) {
-    const [status, path] = [fields[index], fields[index + 1]];
-    if (!status || !path || !/^[AMD]$/.test(status)) fail('ambiguous changed-path status');
-    checkedPath(path);
+  const paths = [...new Set([...baseByPath.keys(), ...reviewedByPath.keys()])].sort(pathCompare);
+  for (const path of paths) {
+    const base = baseByPath.get(path);
+    const reviewed = reviewedByPath.get(path);
+    if (base && reviewed && base.mode === reviewed.mode && base.objectId === reviewed.objectId) continue;
+    const status = !reviewed ? 'D' : !base ? 'A' : 'M';
     if (status === 'D') {
-      if (treeRows(cwd, mergeSha, path).length) fail('deleted path remains in merge tree');
+      if (mergedByPath.has(path)) fail('deleted path remains in merge tree');
       entries.push({ path, status, absent: true });
       continue;
     }
-    const reviewed = treeRows(cwd, reviewedHeadSha, path);
-    const merged = treeRows(cwd, mergeSha, path);
-    if (reviewed.length !== 1 || merged.length !== 1 || reviewed[0].path !== path || merged[0].path !== path) fail('ambiguous changed path');
-    const entry = blobEntry(cwd, reviewed[0]);
-    const mergedBytes = objectBytes(cwd, merged[0].objectId);
-    if (entry.mode !== merged[0].mode || entry.blobSha256 !== sha256(mergedBytes)) fail('merge tree differs from reviewed path');
+    const merged = mergedByPath.get(path);
+    if (!reviewed || !merged || merged.path !== path) fail('ambiguous changed path');
+    const entry = blobEntry(cwd, reviewed);
+    const mergedBytes = objectBytes(cwd, merged.objectId);
+    if (entry.mode !== merged.mode || entry.blobSha256 !== sha256(mergedBytes)) fail('merge tree differs from reviewed path');
     entries.push({ path, status, mode: entry.mode, blobSha256: entry.blobSha256 });
   }
   return entries.sort((left, right) => pathCompare(left.path, right.path));

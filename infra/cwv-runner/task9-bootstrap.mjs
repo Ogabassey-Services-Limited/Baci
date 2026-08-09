@@ -15,7 +15,7 @@ const object = (value) => value !== null && typeof value === 'object' && !Array.
 const sameKeys = (actual, expected) => actual.length === expected.length && actual.every((key,index) => key === expected[index]);
 const exact = (value, keys) => object(value) && sameKeys(Object.keys(value).sort(),[...keys].sort());
 const digest = (value) => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-const sha = (value) => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
+const sha = (value) => typeof value === 'string' && /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(value);
 const same = (left, right) => left.dev === right.dev && left.ino === right.ino;
 const native = (mode) => Number.parseInt(mode.slice(3), 8);
 const publications = new WeakMap();
