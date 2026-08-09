@@ -80,7 +80,7 @@ describe('remediation global lock', () => {
     );
     const holder = spawn(
       'flock',
-      ['-n', lockPath, process.execPath, workerPath, 'holder'],
+      ['-n', '-F', lockPath, process.execPath, workerPath, 'holder'],
       {
         stdio: ['ignore', 'pipe', 'inherit'],
       }
