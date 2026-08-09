@@ -4,6 +4,7 @@ import {
   redactCodexError,
 } from './remediation-codex-output.mjs';
 import { buildRemediationPrBody } from './remediation-pr-body.mjs';
+import { remediationObservationFor } from './remediation-state-key.mjs';
 
 const branchSegment = (value, fallback) => {
   const segment = String(value || fallback)
@@ -40,9 +41,7 @@ function branchNameFor(candidate) {
   const caseIdentity = String(
     candidate.caseKey || `${source}:${category}:${fingerprint}`
   );
-  const observation = String(
-    candidate.observationMarker || candidate.lastSeen || ''
-  );
+  const observation = remediationObservationFor(candidate);
   const caseToken = createHash('sha256')
     .update(`${caseIdentity}\n${observation}`)
     .digest('hex')
