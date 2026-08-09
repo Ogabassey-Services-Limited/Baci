@@ -44,6 +44,7 @@ import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
 import { stripVolatileProductPriceSentences } from './storefront-product-description';
 import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
+import { getProductSpecFamily } from './storefront-specs/spec-family-classifier';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -779,6 +780,8 @@ export function generateProductSchema(
   const keySpecs = product.product_key_specs;
 
   if (keySpecs && !Array.isArray(keySpecs)) {
+    const isCameraFamily = getProductSpecFamily(categoryName) === 'camera';
+
     interface SpecMapping {
       key: string;
       name: string;
@@ -833,7 +836,8 @@ export function generateProductSchema(
         name: 'Card Slot',
         check: () =>
           typeof keySpecs.card_slot_type === 'string' &&
-          keySpecs.card_slot_type.trim().length > 0,
+          keySpecs.card_slot_type.trim().length > 0 &&
+          (isCameraFamily || keySpecs.has_card_slot === true),
       },
 
       // Camera

@@ -370,6 +370,31 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
   });
 
+  it('does not emit a mobile card slot when the explicit capability flag is false', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        category: 'Mobile Phones',
+        product_key_specs: {
+          card_slot_type: 'microSDXC',
+          has_card_slot: false,
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).not.toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Card Slot',
+          value: 'microSDXC',
+        },
+      ])
+    );
+  });
+
   it('uses the enriched product description for Product schema instead of a generic meta description', () => {
     const schema = generateProductSchema(
       makeProduct({
