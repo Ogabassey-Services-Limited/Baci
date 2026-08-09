@@ -57,8 +57,7 @@ function createSupabase(options?: {
 describe('updateAdminNotification', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('rejects malformed JSON before attempting an update', async () => {
-    mocks.createClient.mockResolvedValue(createSupabase());
+  it('rejects malformed JSON before constructing a database client', async () => {
     const malformed = new Request('http://localhost', {
       body: '{',
       method: 'PATCH',
@@ -70,6 +69,17 @@ describe('updateAdminNotification', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Invalid JSON body',
     });
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects schema-invalid input before constructing a database client', async () => {
+    const response = await updateAdminNotification(request({}), notificationId);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+    });
+    expect(mocks.createClient).not.toHaveBeenCalled();
   });
 
   it('refuses changes once notification delivery has started', async () => {

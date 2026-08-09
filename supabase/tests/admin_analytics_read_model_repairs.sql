@@ -50,9 +50,15 @@ CREATE TABLE public.email_send_attempts (
   provider_error_code text, attempt_count integer, status text,
   created_at timestamptz, updated_at timestamptz
 );
-CREATE TABLE public.push_notification_attempts (status text);
+CREATE TABLE public.push_notification_attempts (
+  id uuid PRIMARY KEY, status text, created_at timestamptz
+);
 CREATE TABLE public.order_notification_outbox (status text, locked_at timestamptz);
 CREATE TABLE public.shipment_tracking_notification_outbox (status text, locked_at timestamptz);
+CREATE TABLE public.admin_notification_audience_snapshot (
+  notification_id uuid NOT NULL, claim_token uuid NOT NULL, merchant_id uuid NOT NULL,
+  PRIMARY KEY (notification_id, claim_token, merchant_id)
+);
 
 CREATE FUNCTION public.get_admin_merchant_360(uuid) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
@@ -117,12 +123,18 @@ INSERT INTO public.email_send_attempts (
   'zeptomail', 'order_confirmation', 1, 'failed',
   clock_timestamp() - interval '2 days', clock_timestamp() - interval '2 days'
 );
+INSERT INTO public.push_notification_attempts (id, status, created_at)
+VALUES (
+  '00000000-0000-0000-0000-000000000050', 'failed',
+  clock_timestamp() - interval '2 days'
+);
 
 \ir ../migrations/20260809154414_repair_admin_analytics_read_models.sql
 \ir ../migrations/20260809154415_repair_admin_merchant_360_readiness.sql
 \ir ../migrations/20260809154416_repair_admin_reconciliation_currencyless_activity.sql
 \ir ../migrations/20260809154417_repair_admin_system_health_email_freshness.sql
 \ir ../migrations/20260809154917_repair_admin_operations_stale_email_attempts.sql
+\ir ../migrations/20260809170137_repair_admin_push_health_and_audience_snapshot_index.sql
 \ir ../migrations/20260805151570_harden_admin_error_code_projections.sql
 
 -- The production v2 projection migration commits its own transaction.
@@ -157,7 +169,10 @@ BEGIN
 
   v_health := public.get_admin_system_health_v1();
   IF v_health #>> '{health,0,status}' <> 'healthy' THEN
-    RAISE EXCEPTION 'historical failed email still degrades system health';
+    RAISE EXCEPTION 'historical failed email or push still degrades system health';
+  END IF;
+  IF to_regclass('public.admin_notification_audience_snapshot_merchant_id_idx') IS NULL THEN
+    RAISE EXCEPTION 'merchant-leading notification-audience snapshot index is missing';
   END IF;
 
   INSERT INTO public.email_send_attempts (
@@ -185,6 +200,18 @@ BEGIN
   END IF;
   IF v_health::text LIKE '%00000000-0000-0000-0000-000000000042%' THEN
     RAISE EXCEPTION 'fresh pending email incorrectly appears in operations incidents';
+  END IF;
+
+  DELETE FROM public.email_send_attempts
+  WHERE id = '00000000-0000-0000-0000-000000000041';
+  INSERT INTO public.push_notification_attempts (id, status, created_at)
+  VALUES (
+    '00000000-0000-0000-0000-000000000051', 'partial_failure', clock_timestamp()
+  );
+  v_health := public.get_admin_system_health_v1();
+  IF v_health #>> '{health,0,status}' <> 'warning'
+    OR v_health #>> '{health,0,details,pushFailureWindow}' <> '24 hours' THEN
+    RAISE EXCEPTION 'fresh failed or partial push does not degrade system health';
   END IF;
 END;
 $$;

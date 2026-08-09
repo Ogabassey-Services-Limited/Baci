@@ -15,6 +15,7 @@ const formData: CreateNotificationInput = {
 
 function renderAudience(overrides: Partial<CreateNotificationInput> = {}) {
   const props = {
+    canTargetSpecificMerchants: true,
     expiresEnabled: false,
     formData: { ...formData, ...overrides },
     minDateTime: '2026-08-05T12:00',
@@ -31,6 +32,32 @@ function renderAudience(overrides: Partial<CreateNotificationInput> = {}) {
 }
 
 describe('CreateNotificationAudienceDelivery', () => {
+  it('hides specific merchant targeting when the operator cannot read merchants', () => {
+    const { props, rerender } = renderAudience({ target_type: 'all' });
+
+    rerender(
+      <CreateNotificationAudienceDelivery
+        {...props}
+        canTargetSpecificMerchants={false}
+        formData={{ ...formData, target_type: 'all' }}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText(/target/i));
+    expect(
+      screen.queryByRole('option', { name: /specific merchants/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Specific merchant targeting requires merchant read permission.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/target/i)).toHaveAttribute(
+      'aria-describedby',
+      'specific-merchant-targeting-help'
+    );
+  });
+
   it('clears stale targeting details when switching to all merchants', () => {
     const { props } = renderAudience({
       target_merchant_ids: ['merchant-1'],

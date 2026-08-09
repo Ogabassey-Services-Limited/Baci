@@ -8,6 +8,16 @@ import {
 } from '@/schemas/notifications';
 
 export async function updateAdminNotification(request: Request, id: string) {
+  const json = await parseRequestBody(request);
+  if (json instanceof NextResponse) return json;
+  const parsed = updateNotificationSchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: z.flattenError(parsed.error) },
+      { status: 400 }
+    );
+  }
+
   try {
     const supabase = await createClient();
     const { data: existing, error: fetchError } = await supabase
@@ -30,15 +40,6 @@ export async function updateAdminNotification(request: Request, id: string) {
       );
     }
 
-    const json = await parseRequestBody(request);
-    if (json instanceof NextResponse) return json;
-    const parsed = updateNotificationSchema.safeParse(json);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: z.flattenError(parsed.error) },
-        { status: 400 }
-      );
-    }
     const body = parsed.data;
     const effectiveTargeting = normalizeEffectiveTargeting(existing, body);
     const validationResponse = await validateEffectiveUpdate(

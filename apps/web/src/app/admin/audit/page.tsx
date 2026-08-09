@@ -1,7 +1,7 @@
 'use client';
 
 import { Download, Loader2, RefreshCw, ShieldCheck } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,40 +17,8 @@ import type { AdminAuditEvent, AdminAuditTimeline } from '@/lib/admin-audit';
 import { formatAdminAuditDate } from '@/lib/admin-audit-format';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { ADMIN_AUDIT_MAX_ROWS_PER_REQUEST } from '@/schemas/admin-audit-query';
+import { type AuditFilters, loadAuditEvents } from './audit-events-data';
 import { AuditEventsTable } from './audit-events-table';
-
-const PAGE_LIMIT = 50;
-
-interface AuditFilters {
-  action: string;
-  resourceType: string;
-  source: 'all' | 'canonical' | 'platform';
-}
-
-interface AuditApiResponse {
-  data: AdminAuditTimeline;
-  generatedAt: string;
-}
-async function loadAuditEvents(
-  filters: AuditFilters,
-  cursor?: AdminAuditTimeline['nextCursor']
-): Promise<AuditApiResponse> {
-  const params = new URLSearchParams({
-    limit: PAGE_LIMIT.toString(),
-    source: filters.source,
-  });
-  if (filters.action) params.set('action', filters.action);
-  if (filters.resourceType) params.set('resourceType', filters.resourceType);
-  if (cursor) {
-    params.set('beforeOccurredAt', cursor.occurredAt);
-    params.set('beforeSource', cursor.source);
-    params.set('beforeId', cursor.id);
-  }
-
-  const response = await fetch(`/api/admin/audit-events?${params}`);
-  if (!response.ok) throw new Error('Failed to load platform audit events');
-  return (await response.json()) as AuditApiResponse;
-}
 
 export default function AdminAuditPage() {
   const { toast } = useToast();
@@ -69,16 +37,18 @@ export default function AdminAuditPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activityStatus, setActivityStatus] = useState('');
   const [asyncError, setAsyncError] = useState<string | null>(null);
+  const latestLoadId = useRef(0);
 
   useEffect(() => {
-    let active = true;
+    const loadId = ++latestLoadId.current;
     setIsLoading(true);
+    setIsLoadingMore(false);
     setLoadError(null);
     setAsyncError(null);
     setActivityStatus('');
     loadAuditEvents(filters)
       .then((result) => {
-        if (!active) return;
+        if (latestLoadId.current !== loadId) return;
         setEvents(result.data.events);
         setCursor(result.data.nextCursor);
         setGeneratedAt(result.generatedAt);
@@ -87,7 +57,7 @@ export default function AdminAuditPage() {
         );
       })
       .catch((error: unknown) => {
-        if (!active) return;
+        if (latestLoadId.current !== loadId) return;
         console.error('Admin audit load failed:', error);
         setEvents([]);
         setCursor(null);
@@ -95,31 +65,35 @@ export default function AdminAuditPage() {
         setActivityStatus('');
       })
       .finally(() => {
-        if (active) setIsLoading(false);
+        if (latestLoadId.current === loadId) setIsLoading(false);
       });
-    return () => {
-      active = false;
-    };
   }, [filters]);
+
+  const replaceFilters = (nextFilters: AuditFilters) => {
+    latestLoadId.current += 1;
+    setFilters(nextFilters);
+  };
 
   const applyFilters = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFilters({
+    replaceFilters({
       action: draftFilters.action.trim(),
       resourceType: draftFilters.resourceType.trim(),
       source: draftFilters.source,
     });
   };
 
-  const refresh = () => setFilters({ ...filters });
+  const refresh = () => replaceFilters({ ...filters });
 
   const loadMore = async () => {
     if (!cursor) return;
+    const loadId = latestLoadId.current;
     setIsLoadingMore(true);
     setAsyncError(null);
     setActivityStatus('Loading more audit events.');
     try {
       const result = await loadAuditEvents(filters, cursor);
+      if (latestLoadId.current !== loadId) return;
       setEvents((current) => [...current, ...result.data.events]);
       setCursor(result.data.nextCursor);
       setGeneratedAt(result.generatedAt);
@@ -129,6 +103,7 @@ export default function AdminAuditPage() {
           : 'No more audit events are available.'
       );
     } catch (error) {
+      if (latestLoadId.current !== loadId) return;
       console.error('Admin audit pagination failed:', error);
       setAsyncError('Could not load more audit events. Please try again.');
       setActivityStatus('');
@@ -138,7 +113,7 @@ export default function AdminAuditPage() {
         variant: 'destructive',
       });
     } finally {
-      setIsLoadingMore(false);
+      if (latestLoadId.current === loadId) setIsLoadingMore(false);
     }
   };
 

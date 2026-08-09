@@ -32,6 +32,7 @@ const formData: CreateNotificationInput = {
 
 function renderForm(overrides: Partial<CreateNotificationInput> = {}) {
   const props = {
+    canTargetSpecificMerchants: true,
     expiresEnabled: false,
     formData: { ...formData, ...overrides },
     isSubmitting: false,

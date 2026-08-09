@@ -29,4 +29,9 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260809154917_repair_admin_operations_stale_email_attempts.sql',
     sha256: '55fa417ee42614449dbbc199ab1203f60883b7af524c4161f0be678483551e5b',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809170137_repair_admin_push_health_and_audience_snapshot_index.sql',
+    sha256: 'c8cc6c2442428696877fb73c026fa056881bbfdb70c276f001d15fea1aaf26ac',
+  },
 ] as const;

@@ -25,6 +25,7 @@ import { CreateNotificationSelect } from './create-notification-select';
 import { getNotificationTypePresentation } from './notification-presentation';
 
 interface CreateNotificationFormProps {
+  canTargetSpecificMerchants: boolean;
   expiresEnabled: boolean;
   formData: CreateNotificationInput;
   isSubmitting: boolean;
@@ -39,6 +40,7 @@ interface CreateNotificationFormProps {
 
 export function CreateNotificationForm(props: CreateNotificationFormProps) {
   const {
+    canTargetSpecificMerchants,
     expiresEnabled,
     formData,
     isSubmitting,
@@ -163,6 +165,7 @@ export function CreateNotificationForm(props: CreateNotificationFormProps) {
           </CardContent>
         </Card>
         <CreateNotificationAudienceDelivery
+          canTargetSpecificMerchants={canTargetSpecificMerchants}
           expiresEnabled={expiresEnabled}
           formData={formData}
           minDateTime={minDateTime}

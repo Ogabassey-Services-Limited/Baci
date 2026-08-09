@@ -24,7 +24,7 @@ vi.mock('@/lib/api-client', () => ({
   apiPost: (...args: unknown[]) => mockApiPost(...args),
 }));
 
-import CreateNotificationPage from './page';
+import { CreateNotificationPageClient } from './create-notification-page-client';
 
 describe('CreateNotificationPage', () => {
   beforeEach(() => {
@@ -60,7 +60,7 @@ describe('CreateNotificationPage', () => {
   });
 
   it('submits notifications through the CSRF-aware admin API client', async () => {
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: 'Maintenance window' },
@@ -99,7 +99,7 @@ describe('CreateNotificationPage', () => {
   it('shows an error toast and does not navigate when notification creation fails', async () => {
     mockApiPost.mockRejectedValueOnce(new Error('CSRF token missing'));
 
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: 'Maintenance window' },
@@ -123,7 +123,7 @@ describe('CreateNotificationPage', () => {
   });
 
   it('uses the shared schema to reject whitespace-only content', async () => {
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: '   ' },
@@ -144,7 +144,7 @@ describe('CreateNotificationPage', () => {
   });
 
   it('converts scheduled datetime-local input to an explicit UTC timestamp', async () => {
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: 'Maintenance window' },
@@ -171,7 +171,7 @@ describe('CreateNotificationPage', () => {
   });
 
   it('does not submit when an action label is clicked in the preview', () => {
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: 'Maintenance window' },
@@ -188,7 +188,7 @@ describe('CreateNotificationPage', () => {
   });
 
   it('submits after an optional action URL is cleared', async () => {
-    render(<CreateNotificationPage />);
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
 
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: 'Maintenance window' },

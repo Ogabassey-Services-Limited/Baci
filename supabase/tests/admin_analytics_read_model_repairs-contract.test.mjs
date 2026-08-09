@@ -67,6 +67,26 @@ test('system health only considers recent failed email attempts', async () => {
   );
 });
 
+test('system health bounds terminal push failures and indexes audience-member cascades', async () => {
+  const sql = await migration(
+    '20260809170137_repair_admin_push_health_and_audience_snapshot_index.sql'
+  );
+
+  assert.match(
+    sql,
+    /ALTER FUNCTION public\.get_admin_system_health_v1\(\)\n {2}RENAME TO get_admin_system_health_v1_email_freshness/
+  );
+  assert.match(
+    sql,
+    /push_attempt\.status IN \('failed', 'partial_failure'\)\n {6}AND push_attempt\.created_at >= v_now - interval '24 hours'/
+  );
+  assert.match(sql, /'pushFailureWindow', '24 hours'/);
+  assert.match(
+    sql,
+    /CREATE INDEX IF NOT EXISTS admin_notification_audience_snapshot_merchant_id_idx\n {2}ON public\.admin_notification_audience_snapshot \(merchant_id\)/
+  );
+});
+
 test('operations repair includes stale pending emails in its incident projection', async () => {
   const sql = await migration(
     '20260809154917_repair_admin_operations_stale_email_attempts.sql'

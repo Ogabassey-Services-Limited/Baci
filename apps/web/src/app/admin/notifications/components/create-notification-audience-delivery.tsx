@@ -33,6 +33,7 @@ const segments: Array<{ value: TargetSegment; label: string }> = [
 ];
 
 export function CreateNotificationAudienceDelivery({
+  canTargetSpecificMerchants,
   expiresEnabled,
   formData,
   minDateTime,
@@ -42,6 +43,7 @@ export function CreateNotificationAudienceDelivery({
   onUpdate,
   scheduleEnabled,
 }: {
+  canTargetSpecificMerchants: boolean;
   expiresEnabled: boolean;
   formData: CreateNotificationInput;
   minDateTime: string;
@@ -77,15 +79,33 @@ export function CreateNotificationAudienceDelivery({
                 );
               }}
             >
-              <SelectTrigger id="target-type" aria-label="Target">
+              <SelectTrigger
+                id="target-type"
+                aria-describedby={
+                  canTargetSpecificMerchants
+                    ? undefined
+                    : 'specific-merchant-targeting-help'
+                }
+                aria-label="Target"
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Merchants</SelectItem>
                 <SelectItem value="segment">Merchant Segment</SelectItem>
-                <SelectItem value="specific">Specific Merchants</SelectItem>
+                {canTargetSpecificMerchants && (
+                  <SelectItem value="specific">Specific Merchants</SelectItem>
+                )}
               </SelectContent>
             </Select>
+            {!canTargetSpecificMerchants && (
+              <p
+                id="specific-merchant-targeting-help"
+                className="text-xs text-muted-foreground"
+              >
+                Specific merchant targeting requires merchant read permission.
+              </p>
+            )}
           </div>
           {formData.target_type === 'segment' && (
             <div className="space-y-2">
