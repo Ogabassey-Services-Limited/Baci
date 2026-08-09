@@ -9,7 +9,7 @@ describe('STOREFRONT_EDGE_NEXT_REDIRECT_ROWS', () => {
         ({ decision, methods, reason }) =>
           decision === 'edge_redirect' &&
           reason === 'next_config_redirect' &&
-          methods.join(',') === 'GET,HEAD'
+          methods.join(',') === 'ANY'
       )
     ).toBe(true);
     expect(STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.map(({ id }) => id)).toEqual(

@@ -65,7 +65,6 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         .map(({ id }) => id)
     ).toEqual([
       'proxy:api-prefix-passthrough',
-      'proxy:platform-admin',
       'proxy:custom-domain-platform-route',
     ]);
     expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
@@ -179,6 +178,23 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       ])
     );
     expect(queryRows).toHaveLength(9);
+    expect(
+      queryRows.find(
+        (row) => row.id === 'request-override:query-dependent-blog-root'
+      )?.requestCondition?.anyQueryKeyPresent
+    ).toContain('category');
+    expect(byId.get('request-override:storefront-auth-session')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        requestCondition: expect.objectContaining({
+          anyCookieNameContains: ['auth-token'],
+          anyHeaderMatch: [
+            { name: 'authorization' },
+            { name: 'x-supabase-auth-token' },
+          ],
+        }),
+      })
+    );
     expect(
       queryRows.every(
         (row) =>

@@ -53,6 +53,26 @@ const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
   },
 ];
 
+const AUTH_SESSION_ROWS: readonly InventoryRow[] = [
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:storefront-auth-session',
+    methods: ['GET', 'HEAD'],
+    reason: 'storefront_auth_session_requires_origin',
+    requestCondition: {
+      anyCookieNameContains: ['auth-token'],
+      anyHeaderMatch: [
+        { name: 'authorization' },
+        { name: 'x-supabase-auth-token' },
+      ],
+      precedence: 'before_path_decision',
+    },
+    routePattern: '/{*storefrontPath?}',
+    sourceKind: 'request_override',
+    sourcePath: 'apps/web/src/proxy.ts',
+  },
+];
+
 const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
   '/',
   '/{storefrontIdentifier}',
@@ -144,6 +164,7 @@ const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
           'color',
           'colors',
           'condition',
+          'category',
           'displaySize',
           'displayType',
           'maxPrice',
@@ -211,6 +232,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     API_TERMINAL_ROW,
     ...DRAFT_MODE_ROWS,
     ...ROUTER_DATA_ROWS,
+    ...AUTH_SESSION_ROWS,
     ...MARKDOWN_NEGOTIATION_ROWS,
     ...QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,

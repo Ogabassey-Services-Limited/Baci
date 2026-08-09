@@ -44,6 +44,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
   reason: string;
   requestCondition?: Readonly<{
     anyCookiePresent?: readonly string[];
+    anyCookieNameContains?: readonly string[];
     anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
     anyQueryPresent?: true;
     anyQueryKeyPresent?: readonly string[];

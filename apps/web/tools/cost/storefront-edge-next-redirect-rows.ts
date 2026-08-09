@@ -81,7 +81,7 @@ export const STOREFRONT_EDGE_NEXT_REDIRECT_ROWS: readonly InventoryRow[] =
     createStorefrontEdgeProxyClass(
       id,
       routePattern,
-      ['GET', 'HEAD'],
+      ['ANY'],
       'edge_redirect',
       'next_config_redirect',
       OGABASSEY_REDIRECT_IDS.has(id)
