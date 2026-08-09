@@ -20,6 +20,7 @@ import {
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
+import { cleanupRemediationWorktree } from './remediation-worktree-cleanup.mjs';
 
 function defaultRunner(command, args, options) {
   return spawnSync(command, args, {
@@ -83,15 +84,6 @@ function sanitizeRunId(value) {
 function readPositiveInt(value, fallback) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
-
-function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
-  if (!worktreeDir) return;
-  runner('git', ['worktree', 'remove', '--force', worktreeDir], {
-    cwd: repoDir,
-    env: childEnv,
-    shell: false,
-  });
 }
 
 export function runRemediationAutofix({
@@ -295,7 +287,7 @@ export function runRemediationAutofix({
     };
   } finally {
     if (worktreeCreated && cleanupCompletedWorktree) {
-      cleanupWorktree({ childEnv, repoDir, runner, worktreeDir });
+      cleanupRemediationWorktree({ childEnv, repoDir, runner, worktreeDir });
     }
   }
 }
