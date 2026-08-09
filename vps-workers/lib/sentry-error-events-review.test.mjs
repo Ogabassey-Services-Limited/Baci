@@ -62,4 +62,18 @@ describe('Sentry event enrichment review regressions', () => {
     assert.equal(enriched.sample.route, 'MainActivity');
     assert.deepEqual(enriched.sample.stackSummary, []);
   });
+
+  it('ignores object-shaped event tags while enriching a candidate', async () => {
+    const enriched = await enrichSentryRemediationCandidate({
+      candidate,
+      env: environment,
+      fetchFn: async () =>
+        new Response(
+          JSON.stringify({ entries: [], tags: { device: 'Pixel' } })
+        ),
+    });
+
+    assert.equal(enriched.sample.route, 'MainActivity');
+    assert.equal(enriched.sample.device, '');
+  });
 });

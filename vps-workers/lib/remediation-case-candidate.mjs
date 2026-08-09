@@ -24,7 +24,7 @@ const safeVercelId = (value, prefix) => {
   return new RegExp(`^${prefix}_[A-Za-z0-9_-]{1,80}$`).test(id) ? id : '';
 };
 const redactCompactPhone = (value) =>
-  value.replace(/\b(?:0\d{10}|\d{10,15})\b/g, '[REDACTED_PHONE]');
+  value.replace(/(?<!\d)\d{10,19}(?!\d)/g, '[REDACTED_PHONE]');
 
 function canonicalVercelRoute(value) {
   const route = String(value || '').split(/[?#]/, 1)[0];
@@ -56,7 +56,7 @@ export function createRemediationCaseCandidateNormalizer() {
   }
 
   function sanitizeHumanText(value, length) {
-    return redactCompactPhone(sanitize(value, length));
+    return redactCompactPhone(sanitize(value, length)).slice(0, length);
   }
 
   function sourceFor(candidate) {

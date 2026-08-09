@@ -49,6 +49,7 @@ it('prefers canonical case identity and requires an exact legacy observation', (
 
 it('distinguishes occurrence growth observed at the same timestamp', () => {
   const firstObservation = {
+    caseKey: 'vercel:vercel_http_5xx:shared',
     lastSeen: '2026-08-09T10:00:00.000Z',
     occurrences: 2,
   };
@@ -68,4 +69,21 @@ it('distinguishes occurrence growth observed at the same timestamp', () => {
     '2026-08-09T10:00:00.000Z:2'
   );
   assert.equal(matchingHandledEntry(handled, recurrence), null);
+  assert.deepEqual(
+    matchingHandledEntry(handled, firstObservation),
+    handled['vercel:vercel_http_5xx:shared']
+  );
+});
+
+it('does not assign a shared key to candidates without an identity', () => {
+  const candidate = { lastSeen: '2026-08-09T10:00:00.000Z', occurrences: 2 };
+
+  assert.equal(remediationStateKeyFor(candidate), '');
+  assert.equal(
+    matchingHandledEntry(
+      { unknown: { observation: remediationObservationFor(candidate) } },
+      candidate
+    ),
+    null
+  );
 });

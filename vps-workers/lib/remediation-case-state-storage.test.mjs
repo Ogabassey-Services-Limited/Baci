@@ -235,6 +235,29 @@ describe('remediation case state storage', () => {
     assert.deepEqual(JSON.parse(readFileSync(lockPath, 'utf8')), replacement);
   });
 
+  it('preserves a replacement lock with malformed owner data without failing release', () => {
+    const path = join(
+      mkdtempSync(join(tmpdir(), 'baci-case-storage-malformed-owner-')),
+      'state.json'
+    );
+    const lockPath = `${path}.lock`;
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      path,
+    });
+
+    assert.equal(
+      storage.withLock(Date.now(), null, () => {
+        unlinkSync(lockPath);
+        writeFileSync(lockPath, '{not json');
+        return 'released';
+      }),
+      'released'
+    );
+    assert.equal(readFileSync(lockPath, 'utf8'), '{not json');
+  });
+
   it('preserves an action error even when it has an EEXIST code', () => {
     const path = join(
       mkdtempSync(join(tmpdir(), 'baci-case-storage-action-error-')),

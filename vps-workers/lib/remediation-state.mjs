@@ -135,6 +135,7 @@ export function createRemediationState({
           if (selected.length >= limit) break;
           const observation = observationFor(candidate);
           const key = remediationStateKeyFor(candidate);
+          if (!key) continue;
           if (
             state.handled[key]?.observation !== observation &&
             state.reservations[key]?.observation !== observation
@@ -168,6 +169,7 @@ export function createRemediationState({
         const recordedAt = new Date(nowMs).toISOString();
         for (const candidate of handledCandidates) {
           const key = remediationStateKeyFor(candidate);
+          if (!key) continue;
           state.handled[key] = {
             observation: observationFor(candidate),
             recordedAt,
@@ -175,11 +177,14 @@ export function createRemediationState({
           delete state.reservations[key];
         }
         for (const candidate of releaseCandidates) {
-          delete state.reservations[remediationStateKeyFor(candidate)];
+          const key = remediationStateKeyFor(candidate);
+          if (key) delete state.reservations[key];
         }
         const retryAt = new Date(nowMs + retryDelayMs).toISOString();
         for (const candidate of deferCandidates) {
-          state.reservations[remediationStateKeyFor(candidate)] = {
+          const key = remediationStateKeyFor(candidate);
+          if (!key) continue;
+          state.reservations[key] = {
             expiresAt: retryAt,
             observation: observationFor(candidate),
             recordedAt,
@@ -213,7 +218,9 @@ export function createRemediationState({
     recordHandledFallback(candidates) {
       const recordedAt = new Date(now()).toISOString();
       for (const candidate of candidates) {
-        fallbackStore.persist(candidate, recordedAt);
+        if (remediationStateKeyFor(candidate)) {
+          fallbackStore.persist(candidate, recordedAt);
+        }
       }
     },
     mark(candidates) {

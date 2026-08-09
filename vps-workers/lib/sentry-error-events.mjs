@@ -71,7 +71,12 @@ const safeTechnicalValue = (value, length) =>
     .trim();
 
 const tagValue = (event, key) =>
-  boundedString(event?.tags?.find((tag) => tag?.key === key)?.value, 160);
+  boundedString(
+    (Array.isArray(event?.tags) ? event.tags : []).find(
+      (tag) => tag?.key === key
+    )?.value,
+    160
+  );
 
 const eventFrames = (event) => {
   const frames = [];

@@ -44,6 +44,19 @@ describe('remediation state', () => {
     ]);
   });
 
+  it('does not reserve or mark candidates without a state identity', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'remediation-state-unkeyed-'));
+    const path = join(directory, 'handled.json');
+    const unkeyed = { lastSeen: candidate.lastSeen, occurrences: 2 };
+    const state = createRemediationState({ path });
+
+    assert.deepEqual(state.pending([unkeyed]), []);
+    assert.equal(state.complete({ handledCandidates: [unkeyed] }), true);
+    const persisted = JSON.parse(readFileSync(path, 'utf8'));
+    assert.deepEqual(persisted.handled, {});
+    assert.deepEqual(persisted.reservations, {});
+  });
+
   it('keeps fallback evidence until reconciled state is persisted', () => {
     const directory = mkdtempSync(join(tmpdir(), 'remediation-state-'));
     const path = join(directory, 'handled.json');

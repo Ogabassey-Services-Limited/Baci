@@ -28,7 +28,6 @@ export function createRemediationCaseStateValidator({
 }) {
   const sampleFields = new Set([
     'appState',
-    'appLocation',
     'deploymentId',
     'device',
     'deviceClass',
@@ -104,8 +103,8 @@ export function createRemediationCaseStateValidator({
         isIsoDate(draftPr.openedAt) &&
         (draftPr.branch === undefined ||
           isBoundedString(draftPr.branch, 160)) &&
-        draftPr.url.length > 0 &&
-        isBoundedString(draftPr.url, 500))
+        isBoundedString(draftPr.url, 500) &&
+        draftPr.url.length > 0)
     );
   }
 

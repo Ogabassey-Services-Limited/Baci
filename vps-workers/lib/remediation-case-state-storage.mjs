@@ -173,11 +173,26 @@ export function createRemediationCaseStateStorage({
         actionError = error;
       }
       let releaseError;
+      let owner;
+      let ownerContent;
       try {
-        const owner = JSON.parse(readFileSync(lockPath, 'utf8'));
-        if (owner.token === token) unlink(lockPath);
+        ownerContent = readFileSync(lockPath, 'utf8');
       } catch (error) {
         if (error?.code !== 'ENOENT') releaseError = error;
+      }
+      if (ownerContent !== undefined) {
+        try {
+          owner = JSON.parse(ownerContent);
+        } catch {
+          owner = null;
+        }
+      }
+      if (owner?.token === token) {
+        try {
+          unlink(lockPath);
+        } catch (error) {
+          if (error?.code !== 'ENOENT') releaseError ||= error;
+        }
       }
       try {
         unlink(ownerPath);

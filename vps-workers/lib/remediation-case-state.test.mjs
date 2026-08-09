@@ -118,6 +118,45 @@ describe('remediation case state', () => {
     assert.equal(stored.totalObservations, 5);
   });
 
+  it('does not select an already-observed open case without a new observation', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-stale-selection-'));
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:04:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+
+    state.reconcile([candidate()]);
+    state.recordOutcome(candidate(), { type: 'no_changes' });
+
+    assert.deepEqual(state.reconcile([candidate()]), []);
+  });
+
+  it('treats a timestamp-free occurrence reset as a new observation epoch', () => {
+    const directory = mkdtempSync(
+      join(tmpdir(), 'baci-case-occurrence-reset-')
+    );
+    const state = createRemediationCaseState({
+      now: () => Date.parse('2026-08-01T10:04:00.000Z'),
+      path: join(directory, 'cases.json'),
+    });
+    const timestampFree = candidate({
+      lastSeen: '',
+      occurrences: 8,
+      source: 'vercel',
+      sample: { source: 'vercel' },
+    });
+
+    state.reconcile([timestampFree]);
+    const reset = state.reconcile([{ ...timestampFree, occurrences: 2 }]);
+
+    assert.equal(reset.length, 1);
+    assert.equal(reset[0].occurrences, 2);
+    assert.equal(
+      state.snapshot().cases['vercel:sentry_issue:issue-42'].recurrenceCount,
+      1
+    );
+  });
+
   it('collapses stale and newer paginated snapshots before selection', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-paginated-'));
     const state = createRemediationCaseState({

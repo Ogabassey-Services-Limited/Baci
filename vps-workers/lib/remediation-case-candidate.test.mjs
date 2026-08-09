@@ -131,4 +131,20 @@ describe('remediation case candidate normalizer', () => {
     assert.equal(result[0].lastSeen, '2026-08-09T10:02:00.000Z');
     assert.equal(result[0].sample.message, 'newer');
   });
+
+  it('redacts long compact digit runs and keeps redacted evidence bounded', () => {
+    const normalized = createRemediationCaseCandidateNormalizer().normalize({
+      fingerprint: 'long-digits',
+      occurrences: 2,
+      sample: {
+        message: Array.from({ length: 300 }, () => '9'.repeat(16)).join(' '),
+        source: 'sentry',
+      },
+      source: 'sentry',
+    });
+
+    assert.equal(normalized.sample.message.length <= 1_000, true);
+    assert.equal(normalized.sample.message.includes('9'.repeat(16)), false);
+    assert.match(normalized.sample.message, /\[REDACTED_PHONE\]/);
+  });
 });

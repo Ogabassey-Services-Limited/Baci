@@ -60,10 +60,7 @@ function observationAdvanced(item, candidate) {
     );
   }
   if (candidate.lastSeen && !item.lastSeen) return true;
-  return (
-    candidate.observationMarker !== item.observationMarker &&
-    candidate.occurrences > Number(item.observedOccurrences || 0)
-  );
+  return candidate.observationMarker !== item.observationMarker;
 }
 
 function capCases(state) {
@@ -139,7 +136,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
         quietStaleCases(state, nowMs);
         capCases(state);
         storage.persist(state);
-        const selectableCandidates = normalized.filter((candidate) => {
+        const selectableCandidates = observedCandidates.filter((candidate) => {
           const item = state.cases[candidate.caseKey];
           if (!item) return false;
           return (

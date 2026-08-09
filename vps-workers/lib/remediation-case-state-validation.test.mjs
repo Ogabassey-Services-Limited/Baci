@@ -147,6 +147,30 @@ describe('remediation case state validation', () => {
           },
         },
       },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: {
+            ...record,
+            draftPr: { openedAt: record.draftPr.openedAt },
+          },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: { ...record, draftPr: { ...record.draftPr, url: '' } },
+        },
+      },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: {
+            ...record,
+            samples: [{ source: 'sentry', appLocation: 'private' }],
+          },
+        },
+      },
     ];
 
     for (const invalid of invalidStates)
