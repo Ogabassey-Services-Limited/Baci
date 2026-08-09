@@ -35,6 +35,7 @@ function repository() {
   writeFileSync(join(root, 'infra/cwv-runner/policy.json'), policy);
   writeFileSync(join(root, 'infra/cwv-runner/a.mjs'), 'export const a = 1;\n');
   writeFileSync(join(root, 'README.md'), 'base\n');
+  symlinkSync('README.md', join(root, 'unrelated-link'));
   writeFileSync(
     join(root, 'infra/cwv-runner/source-manifest.mjs'),
     readFileSync(join(here, 'source-manifest.mjs'))

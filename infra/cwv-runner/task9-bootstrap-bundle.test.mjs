@@ -20,7 +20,7 @@ function frozenInputs() {
   const root = mkdtempSync(join(tmpdir(), 'task9-generator-input-'));
   chmodSync(root, 0o700);
   const reviewedSha = git('rev-parse', 'HEAD');
-  const baseSha = reviewedSha;
+  const baseSha = git('rev-parse', 'HEAD^');
   const paths = {
     manifest: join(root, 'frozen-manifest.json'),
     manifestDigest: join(root, 'frozen-manifest.sha256'),
@@ -57,10 +57,20 @@ function frozenInputs() {
   const nodePath = join(root, 'node');
   const nodeArchivePath = join(root, 'node.tar.xz');
   const nodeProvenance = join(root, 'node-provenance.json');
+  const prMetadataPath = join(root, 'pr-metadata.json');
+  const prMetadataDigestPath = join(root, 'pr-metadata.sha256');
+  const prMetadata = Buffer.from(canonicalJson({
+    baseSha,
+    headRef: 'codex/h0-cwv-integration',
+    number: 3297,
+    reviewedHeadSha: reviewedSha,
+  }));
+  writeFileSync(prMetadataPath, prMetadata, { mode: 0o600 });
+  writeFileSync(prMetadataDigestPath, `${hash(prMetadata)}\n`, { mode: 0o600 });
   writeFileSync(nodePath, node, { mode: 0o500 });
   writeFileSync(nodeArchivePath, 'test archive bytes', { mode: 0o400 });
   writeFileSync(nodeProvenance, canonicalJson(provenance), { mode: 0o400 });
-  return { baseSha, nodeArchivePath, nodePath, nodeProvenance, paths, reviewedSha, root };
+  return { baseSha, nodeArchivePath, nodePath, nodeProvenance, paths, prMetadataDigestPath, prMetadataPath, reviewedSha, root };
 }
 
 function input(fixture, outputRoot) {
@@ -75,6 +85,8 @@ function input(fixture, outputRoot) {
     nodePath: fixture.nodePath,
     nodeProvenancePath: fixture.nodeProvenance,
     outputRoot,
+    prMetadataDigestPath: fixture.prMetadataDigestPath,
+    prMetadataPath: fixture.prMetadataPath,
     sourceArchiveDigestPath: fixture.paths.sourceArchiveDigest,
     sourceArchivePath: fixture.paths.sourceArchive,
     sourceManifestDigestPath: fixture.paths.manifestDigest,
@@ -109,9 +121,13 @@ function clonedInputs() {
   const nodePath = join(root, 'node');
   const nodeArchivePath = join(root, 'node.tar.xz');
   const nodeProvenance = join(root, 'node-provenance.json');
+  const prMetadataPath = join(root, 'pr-metadata.json');
+  const prMetadataDigestPath = join(root, 'pr-metadata.sha256');
   cpSync(source.nodePath, nodePath);
   cpSync(source.nodeArchivePath, nodeArchivePath);
   cpSync(source.nodeProvenance, nodeProvenance);
+  cpSync(source.prMetadataPath, prMetadataPath);
+  cpSync(source.prMetadataDigestPath, prMetadataDigestPath);
   chmodSync(nodePath, 0o500);
   chmodSync(nodeArchivePath, 0o400);
   chmodSync(nodeProvenance, 0o400);
@@ -121,6 +137,8 @@ function clonedInputs() {
     nodePath,
     nodeProvenance,
     paths,
+    prMetadataDigestPath,
+    prMetadataPath,
     reviewedSha: source.reviewedSha,
     root,
   };

@@ -8,27 +8,34 @@ const sha64 = 'b'.repeat(64);
 const digest = 'c'.repeat(64);
 const manifest = {
   baseSha: sha40,
-  mergeSha: sha64,
+  mergeSha: 'd'.repeat(40),
   prNumber: 3302,
-  reviewedHeadSha: sha40,
+  reviewedHeadSha: 'e'.repeat(40),
 };
 const policy = { repository: { id: 123, name: 'ogabasseyy/Baci' } };
 const input = {
   admissionId: digest,
-  deploymentSha: sha64,
+  deploymentSha: manifest.mergeSha,
   headRef: 'feature/task9',
   workflowId: 42,
 };
+const metadata = {
+  baseSha: manifest.baseSha,
+  headRef: input.headRef,
+  number: manifest.prNumber,
+  reviewedHeadSha: manifest.reviewedHeadSha,
+};
 
-test('accepts SHA-1 and SHA-256 identities with a valid ref', () => {
-  const result = checkedTask9Identity(input, manifest, policy);
-  assert.equal(result.mergeSha, sha64);
+test('accepts a preserved SHA-1 PR identity with a valid ref', () => {
+  const result = checkedTask9Identity(input, manifest, policy, metadata);
+  assert.equal(result.mergeSha, manifest.mergeSha);
   assert.equal(result.pullRequest.headRef, 'feature/task9');
 });
 
 test('rejects malformed repository and authority fields', () => {
   for (const invalid of [
     { ...input, deploymentSha: sha40 },
+    { ...input, deploymentSha: sha64 },
     { ...input, workflowId: 0 },
     { ...input, admissionId: 'not-a-digest' },
     { ...input, headRef: '../bad' },
@@ -45,15 +52,38 @@ test('rejects malformed repository and authority fields', () => {
     { ...input, headRef: 'feature/task9.lock/next' },
   ]) {
     assert.throws(
-      () => checkedTask9Identity(invalid, manifest, policy),
+      () => checkedTask9Identity(invalid, manifest, policy, metadata),
       /invalid source identity/
     );
   }
   assert.throws(
     () =>
-      checkedTask9Identity(input, manifest, {
-        repository: { id: 0, name: 'bad' },
-      }),
+      checkedTask9Identity(
+        input,
+        manifest,
+        {
+          repository: { id: 0, name: 'bad' },
+        },
+        metadata
+      ),
     /invalid repository identity/
+  );
+  assert.throws(
+    () =>
+      checkedTask9Identity(
+        input,
+        { ...manifest, baseSha: manifest.reviewedHeadSha },
+        policy,
+        metadata
+      ),
+    /invalid source identity/
+  );
+  assert.throws(
+    () =>
+      checkedTask9Identity(input, manifest, policy, {
+        ...metadata,
+        reviewedHeadSha: sha40,
+      }),
+    /invalid source identity/
   );
 });

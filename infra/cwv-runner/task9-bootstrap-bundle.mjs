@@ -1,16 +1,19 @@
 // biome-ignore-all format: compact fail-closed generator stays below the 300-line limit
 import { createHash, randomBytes } from 'node:crypto';
-import { closeSync, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, realpathSync, writeFileSync } from 'node:fs';
+import { chmodSync, closeSync, constants, fchmodSync, fsyncSync, lstatSync, mkdirSync, openSync, realpathSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { verifySourceManifest } from './source-manifest.mjs';
 import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
+import { checkedTask9Provenance } from './task9-bootstrap-provenance.mjs';
 import { fsyncTask9Directory } from './task9-fsync-directory.mjs';
+import { withHeldTask9Checkout } from './task9-held-checkout.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
 import { verifyTask9NodeArchive } from './task9-node-archive.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
+import { readTask9PrMetadata } from './task9-pr-metadata.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -20,47 +23,22 @@ const MODES = TASK9_PAYLOAD_FILES;
 const CHECKOUT_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const fail = (message) => { throw new TypeError(message); };
-const exact = (value, keys) =>
-  value &&
-  typeof value === 'object' &&
-  !Array.isArray(value) &&
-  canonicalJson(Object.keys(value).sort()) === canonicalJson([...keys].sort());
-
-function checkedProvenance(bytes, nodeBytes, nodeArchiveBytes, policy, verifyNodeArchive) {
-  let value;
-  try {
-    value = JSON.parse(bytes);
-  } catch {
-    fail('invalid Node provenance');
-  }
-  if (
-    canonicalJson(value) !== bytes.toString() ||
-    !exact(value, ['archiveSha256', 'artifact', 'checksumSha256', 'executableSha256', 'keyringSha256', 'schemaVersion', 'sha256', 'signatureSha256', 'version']) ||
-    value.artifact !== 'node' ||
-    value.schemaVersion !== 1 ||
-    value.sha256 !== hash(nodeBytes) ||
-    value.executableSha256 !== hash(nodeBytes) ||
-    value.archiveSha256 !== policy.supplyChain?.node?.ownerDarwinArm64Sha256 ||
-    value.version !== policy.supplyChain?.node?.version ||
-    value.checksumSha256 !== policy.supplyChainProvenance?.node?.checksumsSha256 ||
-    value.keyringSha256 !== policy.supplyChainProvenance?.node?.keyringSha256 ||
-    value.signatureSha256 !== policy.supplyChainProvenance?.node?.signatureSha256
-  )
-    fail('invalid Node provenance');
-  verifyNodeArchive({
-    archiveBytes: nodeArchiveBytes,
-    nodeBytes,
-    archiveSha256: value.archiveSha256,
-    version: value.version,
-  });
-  return value;
-}
-
 function writeExclusive(path, bytes, mode) {
   const fd = openSync(path, 'wx', mode);
   try {
     writeFileSync(fd, bytes);
     fchmodSync(fd, mode);
+    fsyncSync(fd);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function normalizeDirectory(path) {
+  chmodSync(path, 0o700);
+  const fd = openSync(path, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
+  try {
+    fchmodSync(fd, 0o700);
     fsyncSync(fd);
   } finally {
     closeSync(fd);
@@ -81,7 +59,7 @@ function checkedTransactionId(supplied) {
 
 export function generateTask9BootstrapBundle(
   input,
-  { afterPayloadRead = () => undefined, beforeVerify = () => undefined, makeOutputDirectory = mkdirSync, outputParent = '/private/tmp', verifyNodeArchive = verifyTask9NodeArchive } = {}
+  { afterPayloadRead = () => undefined, beforeFinalValidation = () => undefined, beforeVerify = () => undefined, makeOutputDirectory, outputParent = '/private/tmp', verifyNodeArchive = verifyTask9NodeArchive } = {}
 ) {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     fail('invalid Task 9 bundle input');
@@ -98,6 +76,7 @@ export function generateTask9BootstrapBundle(
   try { checkout = realpathSync(input.cwd); }
   catch { fail('unsafe Task 9 checkout'); }
   if (checkout !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
+  return withHeldTask9Checkout(checkout, CHECKOUT_ROOT, (checkoutHandle) => {
   const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600);
   const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600);
   const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600);
@@ -105,6 +84,7 @@ export function generateTask9BootstrapBundle(
   const node = readHeldTask9File(input.nodePath, 0o500);
   const nodeArchive = readHeldTask9File(input.nodeArchivePath, 0o400);
   const nodeProvenance = readHeldTask9File(input.nodeProvenancePath, 0o400);
+  const prMetadata = readTask9PrMetadata(input.prMetadataPath, input.prMetadataDigestPath);
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||
     manifestDigestInput.bytes.toString() !==
@@ -138,18 +118,10 @@ export function generateTask9BootstrapBundle(
   } catch {
     fail('invalid Task 9 policy');
   }
-  const identity = checkedTask9Identity(input, manifest, policy);
-  const provenance = checkedProvenance(
-    nodeProvenance.bytes,
-    node.bytes,
-    nodeArchive.bytes,
-    policy,
-    verifyNodeArchive
-  );
   beforeVerify();
   const verifiedManifest = verifySourceManifest({
     baseSha: manifest.baseSha,
-    cwd: checkout,
+    cwd: checkoutHandle,
     input: manifestInput.path,
     inputDigest: manifestDigestInput.path,
     mergeSha: manifest.mergeSha,
@@ -160,6 +132,15 @@ export function generateTask9BootstrapBundle(
   });
   if (canonicalJson(verifiedManifest) !== canonicalJson(manifest))
     fail('held source changed during verification');
+  checkoutHandle.guard();
+  const identity = checkedTask9Identity(input, manifest, policy, prMetadata);
+  const provenance = checkedTask9Provenance(
+    nodeProvenance.bytes,
+    node.bytes,
+    nodeArchive.bytes,
+    policy,
+    verifyNodeArchive
+  );
   if (!Number.isSafeInteger(input.generation) || input.generation < 0)
     fail('invalid generation');
   const payload = {
@@ -223,9 +204,14 @@ export function generateTask9BootstrapBundle(
     reviewedEnvelopeSha256: envelopeSha256,
   });
   const payloadDirectory = join(outputRoot, 'payload');
+  let heldEnvelope;
+  let heldEnvelopeDigest;
+  let heldPayload;
+  try {
   return withTask9OutputDirectory(outputRoot, () => {
     fsyncTask9Directory(dirname(outputRoot));
     mkdirSync(payloadDirectory, { mode: 0o700 });
+    normalizeDirectory(payloadDirectory);
     for (const name of BUNDLE_ENTRIES)
       writeExclusive(
         join(payloadDirectory, name),
@@ -239,42 +225,51 @@ export function generateTask9BootstrapBundle(
     writeExclusive(envelopeSha256Path, `${envelopeSha256}\n`, 0o400);
     fsyncTask9Directory(outputRoot);
     fsyncTask9Directory(dirname(outputRoot));
-    const heldEnvelope = readHeldTask9File(envelopePath, 0o400);
-    const heldEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400);
+    heldEnvelope = readHeldTask9File(envelopePath, 0o400, { hold: true });
+    heldEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400, { hold: true });
     if (
       !heldEnvelope.bytes.equals(envelopeBytes) ||
       heldEnvelopeDigest.bytes.toString() !== `${envelopeSha256}\n`
     )
       fail('published envelope changed');
-    const heldPayload = readPublishedTask9Files(payloadDirectory, process.getuid(), { afterRead: afterPayloadRead });
-    try {
-      authorizeTask9Bundle({
-        bundleId,
-        envelopeBytes: heldEnvelope.bytes,
-        envelopeSha256,
-        files: heldPayload.files,
-        owner: process.getuid(),
-        reviewedEnvelopeSha256: envelopeSha256,
-      });
-      heldPayload.verify();
-      const finalEnvelope = readHeldTask9File(envelopePath, 0o400);
-      const finalEnvelopeDigest = readHeldTask9File(envelopeSha256Path, 0o400);
+    heldPayload = readPublishedTask9Files(payloadDirectory, process.getuid(), { afterRead: afterPayloadRead });
+    authorizeTask9Bundle({
+      bundleId,
+      envelopeBytes: heldEnvelope.bytes,
+      envelopeSha256,
+      files: heldPayload.files,
+      owner: process.getuid(),
+      reviewedEnvelopeSha256: envelopeSha256,
+    });
+    heldPayload.verify();
+    return Object.freeze({
+      bundleId,
+      envelopePath,
+      envelopeSha256,
+      envelopeSha256Path,
+      outputRoot,
+      payloadDirectory,
+      transactionId,
+    });
+  }, {
+    afterPublishValidation() {
+      beforeFinalValidation();
+      checkoutHandle.guard();
+      heldPayload?.verify();
+      heldEnvelope?.verify();
+      heldEnvelopeDigest?.verify();
       if (
-        !finalEnvelope.bytes.equals(heldEnvelope.bytes) ||
-        !finalEnvelopeDigest.bytes.equals(heldEnvelopeDigest.bytes)
+        !heldEnvelope?.bytes.equals(envelopeBytes) ||
+        !heldEnvelopeDigest?.bytes.equals(Buffer.from(`${envelopeSha256}\n`))
       )
         fail('published envelope changed');
-      return Object.freeze({
-        bundleId,
-        envelopePath,
-        envelopeSha256,
-        envelopeSha256Path,
-        outputRoot,
-        payloadDirectory,
-        transactionId,
-      });
-    } finally {
-      heldPayload.close();
-    }
-  }, { makeDirectory: makeOutputDirectory });
+    },
+    makeDirectory: makeOutputDirectory,
+  });
+  } finally {
+    heldPayload?.close();
+    heldEnvelope?.close();
+    heldEnvelopeDigest?.close();
+  }
+  });
 }

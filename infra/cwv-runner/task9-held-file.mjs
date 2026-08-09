@@ -5,6 +5,7 @@ import {
   lstatSync,
   openSync,
   readFileSync,
+  readSync,
 } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -22,10 +23,17 @@ const fail = (cause) => {
 export function readHeldTask9File(
   path,
   expectedMode,
-  { afterRead = () => undefined } = {}
+  { afterRead = () => undefined, hold = false } = {}
 ) {
   const absolute = resolve(path);
   let fd;
+  let closed = false;
+  const close = () => {
+    if (fd !== undefined && !closed) {
+      closeSync(fd);
+      closed = true;
+    }
+  };
   try {
     fd = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
     const before = fstatSync(fd);
@@ -39,21 +47,41 @@ export function readHeldTask9File(
       fail();
     const bytes = readFileSync(fd);
     afterRead();
-    const after = fstatSync(fd);
-    const current = lstatSync(absolute);
-    if (
-      !Buffer.isBuffer(bytes) ||
-      bytes.length !== before.size ||
-      current.isSymbolicLink() ||
-      !current.isFile() ||
-      !same(before, after) ||
-      !same(after, current)
-    )
-      fail();
-    return { bytes: Buffer.from(bytes), path: absolute };
+    const verify = () => {
+      if (closed) fail();
+      const currentBytes = Buffer.alloc(before.size);
+      for (let offset = 0; offset < currentBytes.length; ) {
+        const count = readSync(
+          fd,
+          currentBytes,
+          offset,
+          currentBytes.length - offset,
+          offset
+        );
+        if (count < 1) fail();
+        offset += count;
+      }
+      const after = fstatSync(fd);
+      const current = lstatSync(absolute, { throwIfNoEntry: false });
+      if (
+        !current ||
+        current.isSymbolicLink() ||
+        !current.isFile() ||
+        !same(before, after) ||
+        !same(after, current) ||
+        !currentBytes.equals(bytes)
+      )
+        fail();
+      return Buffer.from(currentBytes);
+    };
+    verify();
+    const result = { bytes: Buffer.from(bytes), path: absolute };
+    if (hold) return { ...result, close, verify };
+    return result;
   } catch (error) {
+    close();
     fail(error);
   } finally {
-    if (fd !== undefined) closeSync(fd);
+    if (!hold) close();
   }
 }

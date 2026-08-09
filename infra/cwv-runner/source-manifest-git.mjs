@@ -17,12 +17,38 @@ function trustedGitEnvironment() {
 }
 
 export function git(cwd, args, input, encoding = 'utf8') {
-  return execFileSync(TRUSTED_GIT, args, {
-    cwd,
-    encoding,
-    input,
-    env: trustedGitEnvironment(),
-    timeout: 120_000,
-    maxBuffer: 512 * 1024 * 1024,
-  });
+  const guarded =
+    typeof cwd === 'object' && cwd !== null && typeof cwd.path === 'string'
+      ? cwd
+      : { path: cwd };
+  guarded.guard?.();
+  try {
+    const options = {
+      cwd: guarded.path,
+      encoding,
+      input,
+      env: trustedGitEnvironment(),
+      timeout: 120_000,
+      maxBuffer: 512 * 1024 * 1024,
+    };
+    let executable = TRUSTED_GIT;
+    let commandArgs = args;
+    if (process.platform === 'linux' && Number.isSafeInteger(guarded.fd)) {
+      executable = '/bin/sh';
+      commandArgs = [
+        '-c',
+        'cd /proc/self/fd/3 && exec /usr/bin/git "$@"',
+        'git',
+        ...args,
+      ];
+      options.cwd = '/';
+      options.stdio = ['pipe', 'pipe', 'pipe', guarded.fd];
+    }
+    const result = execFileSync(executable, commandArgs, options);
+    guarded.guard?.();
+    return result;
+  } catch (error) {
+    guarded.guard?.();
+    throw error;
+  }
 }

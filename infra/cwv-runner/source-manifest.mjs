@@ -31,6 +31,7 @@ function checkedSha(value, field) {
 }
 
 function blobEntry(cwd, row, verified) {
+  if (row.mode !== '100644' && row.mode !== '100755') fail('unsupported Git tree mode');
   const bytes = verified?.get(`${cwd}\0${row.objectId}`)?.bytes;
   if (!bytes) fail('invalid Git blob');
   if (bytes.length > LIMITS.member) fail('source member exceeds size limit');

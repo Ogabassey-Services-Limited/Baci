@@ -16,6 +16,8 @@ const FIELDS = Object.freeze(
     '--node-archive': 'nodeArchivePath',
     '--node-provenance': 'nodeProvenancePath',
     '--output-root': 'outputRoot',
+    '--pr-metadata': 'prMetadataPath',
+    '--pr-metadata-sha256': 'prMetadataDigestPath',
     '--source-archive': 'sourceArchivePath',
     '--source-archive-sha256': 'sourceArchiveDigestPath',
     '--source-manifest': 'sourceManifestPath',

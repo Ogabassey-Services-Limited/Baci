@@ -40,7 +40,7 @@ test('walks authenticated nested tree bytes', () => {
   }
 });
 
-test('rejects non-commit, malformed-commit, and unsupported-mode objects', () => {
+test('rejects non-commit and malformed-commit objects while authenticating symlinks', () => {
   const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-invalid-'));
   try {
     execFileSync('/usr/bin/git', ['init', '-q', root]);
@@ -98,9 +98,12 @@ test('rejects non-commit, malformed-commit, and unsupported-mode objects', () =>
       ['-C', root, 'commit-tree', tree],
       { input: 'tree\n', encoding: 'utf8' }
     ).trim();
-    assert.throws(
-      () => authenticatedTreeRows(root, commit),
-      /unsupported Git tree mode/
+    assert.deepEqual(
+      authenticatedTreeRows(root, commit).map(({ mode, path }) => ({
+        mode,
+        path,
+      })),
+      [{ mode: '120000', path: 'link' }]
     );
   } finally {
     rmSync(root, { recursive: true, force: true });

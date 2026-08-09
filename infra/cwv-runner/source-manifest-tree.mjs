@@ -41,7 +41,7 @@ function listedTree(cwd, sha) {
     checkedPath(path);
     ids.push(objectId);
     if (type === 'blob') {
-      if (mode !== '100644' && mode !== '100755')
+      if (mode !== '100644' && mode !== '100755' && mode !== '120000')
         fail('unsupported Git tree mode');
       leaves.push({ mode, objectId, path });
     } else {
@@ -76,7 +76,7 @@ function walk(cwd, objects, objectId, prefix, leaves, trees) {
       if (child.type !== 'tree') fail('malformed Git tree object');
       trees.push({ mode, objectId: childId, path });
       walk(cwd, objects, childId, path, leaves, trees);
-    } else if (mode === '100644' || mode === '100755') {
+    } else if (mode === '100644' || mode === '100755' || mode === '120000') {
       if (child.type !== 'blob') fail('malformed Git tree leaf');
       leaves.push({ mode, objectId: childId, path });
     } else fail('unsupported Git tree mode');

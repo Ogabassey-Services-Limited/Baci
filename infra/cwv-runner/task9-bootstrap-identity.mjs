@@ -1,7 +1,7 @@
 import { canonicalJson } from './canonical-json.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
-const SHA = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
+const SHA = /^[a-f0-9]{40}$/;
 const fail = (message) => {
   throw new TypeError(message);
 };
@@ -31,7 +31,7 @@ function validRef(value) {
     );
 }
 
-export function checkedTask9Identity(input, manifest, policy) {
+export function checkedTask9Identity(input, manifest, policy, prMetadata) {
   const repository = policy.repository;
   if (
     !repository ||
@@ -44,11 +44,20 @@ export function checkedTask9Identity(input, manifest, policy) {
     fail('invalid repository identity');
   if (
     !SHA.test(input.deploymentSha) ||
+    !SHA.test(manifest.baseSha) ||
+    !SHA.test(manifest.reviewedHeadSha) ||
+    !SHA.test(manifest.mergeSha) ||
     input.deploymentSha !== manifest.mergeSha ||
+    manifest.baseSha === manifest.reviewedHeadSha ||
     !validRef(input.headRef) ||
     !Number.isSafeInteger(input.workflowId) ||
     input.workflowId < 1 ||
-    !DIGEST.test(input.admissionId)
+    !DIGEST.test(input.admissionId) ||
+    !prMetadata ||
+    prMetadata.baseSha !== manifest.baseSha ||
+    prMetadata.reviewedHeadSha !== manifest.reviewedHeadSha ||
+    prMetadata.number !== manifest.prNumber ||
+    prMetadata.headRef !== input.headRef
   )
     fail('invalid source identity');
   return {

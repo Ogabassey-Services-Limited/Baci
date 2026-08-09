@@ -41,6 +41,10 @@ const flags = [
   'b'.repeat(64),
   '--output-root',
   '/private/tmp/baci-cwv-task9-bootstrap-task9-transaction-1',
+  '--pr-metadata',
+  '/input/pr-metadata.json',
+  '--pr-metadata-sha256',
+  '/input/pr-metadata.sha256',
 ];
 
 test('composes closed scalar flags and returns canonical secret-free output', () => {

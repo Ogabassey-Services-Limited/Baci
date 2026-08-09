@@ -2,6 +2,7 @@ import {
   closeSync,
   constants,
   fchmodSync,
+  fstatSync,
   fsyncSync,
   lstatSync,
   mkdirSync,
@@ -26,40 +27,62 @@ const exactDirectory = (left, right) =>
   right.mode === left.mode &&
   (right.mode & 0o777) === 0o700;
 
-export function withTask9OutputDirectory(
-  outputRoot,
-  publish,
-  { makeDirectory = mkdirSync } = {}
-) {
-  makeDirectory(outputRoot, { mode: 0o700 });
-  const directoryFd = openSync(
-    outputRoot,
+function createDirectory(path, options) {
+  mkdirSync(path, options);
+  const fd = openSync(
+    path,
     constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW
   );
   try {
-    fchmodSync(directoryFd, 0o700);
-    fsyncSync(directoryFd);
-  } finally {
-    closeSync(directoryFd);
+    fchmodSync(fd, 0o700);
+    fsyncSync(fd);
+    return { fd, identity: fstatSync(fd) };
+  } catch (error) {
+    closeSync(fd);
+    throw error;
   }
-  const created = lstatSync(outputRoot);
-  if (
-    created.isSymbolicLink() ||
-    !created.isDirectory() ||
-    created.uid !== process.getuid() ||
-    (created.mode & 0o777) !== 0o700
-  )
-    throw new TypeError('unsafe Task 9 output directory');
-  const result = publish();
-  if (
-    !exactDirectory(created, lstatSync(outputRoot, { throwIfNoEntry: false }))
-  )
-    throw new TypeError('Task 9 output directory changed');
-  const entries = readdirSync(outputRoot).sort();
-  if (
-    entries.length !== OUTPUT_ENTRIES.length ||
-    entries.some((entry, index) => entry !== OUTPUT_ENTRIES[index])
-  )
-    throw new TypeError('Task 9 output entry set changed');
-  return result;
+}
+
+export function withTask9OutputDirectory(
+  outputRoot,
+  publish,
+  {
+    afterPublishValidation = () => undefined,
+    makeDirectory = createDirectory,
+  } = {}
+) {
+  let directoryFd;
+  try {
+    const createdHandle = makeDirectory(outputRoot, { mode: 0o700 });
+    if (
+      !createdHandle ||
+      !Number.isSafeInteger(createdHandle.fd) ||
+      !createdHandle.identity
+    )
+      throw new TypeError('unsafe Task 9 output directory');
+    directoryFd = createdHandle.fd;
+    const created = createdHandle.identity;
+    if (
+      !created.isDirectory() ||
+      created.uid !== process.getuid() ||
+      (created.mode & 0o777) !== 0o700
+    )
+      throw new TypeError('unsafe Task 9 output directory');
+    const result = publish();
+    if (
+      !exactDirectory(created, fstatSync(directoryFd)) ||
+      !exactDirectory(created, lstatSync(outputRoot, { throwIfNoEntry: false }))
+    )
+      throw new TypeError('Task 9 output directory changed');
+    const entries = readdirSync(outputRoot).sort();
+    if (
+      entries.length !== OUTPUT_ENTRIES.length ||
+      entries.some((entry, index) => entry !== OUTPUT_ENTRIES[index])
+    )
+      throw new TypeError('Task 9 output entry set changed');
+    afterPublishValidation();
+    return result;
+  } finally {
+    if (directoryFd !== undefined) closeSync(directoryFd);
+  }
 }
