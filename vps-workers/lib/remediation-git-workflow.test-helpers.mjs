@@ -7,9 +7,16 @@ const candidate = {
   },
 };
 
-function makeRunner({ changedFiles, statusOutput } = {}) {
+function makeRunner({
+  changedFiles,
+  cleanupResult,
+  remediationResult,
+  statusOutput,
+  verificationResult,
+} = {}) {
   const calls = [];
   const environments = [];
+  const registeredWorktrees = new Map();
   return {
     calls,
     environments,
@@ -22,6 +29,29 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
         timeout: options?.timeout,
       });
       const joined = [command, ...args].join(' ');
+      if (command === 'git' && joined === 'git worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: [...registeredWorktrees]
+            .map(
+              ([directory, branch]) =>
+                `worktree ${directory}\nHEAD deadbeef\nbranch refs/heads/${branch}\n`
+            )
+            .join('\n'),
+          stderr: '',
+        };
+      }
+      if (command === 'git' && args[0] === 'worktree' && args[1] === 'add') {
+        registeredWorktrees.set(args[2], args[args.indexOf('-b') + 1]);
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'git' && args[0] === 'worktree' && args[1] === 'remove') {
+        registeredWorktrees.delete(args.at(-1));
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (joined.includes('rev-list --count origin/main..HEAD')) {
+        return { status: 0, stdout: '0\n', stderr: '' };
+      }
       if (joined.includes('status --porcelain')) {
         return {
           status: 0,
@@ -35,12 +65,39 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
           stderr: '',
         };
       }
+      if (joined.includes('pr list')) {
+        return { status: 0, stdout: '[]\n', stderr: '' };
+      }
       if (joined.includes('pr create')) {
         return {
           status: 0,
           stdout: 'https://github.com/ogabasseyy/Baci/pull/999\n',
           stderr: '',
         };
+      }
+      if (command === 'codex') {
+        return (
+          remediationResult ?? {
+            status: 0,
+            stdout: '{"type":"turn.completed"}\n',
+            stderr: '',
+          }
+        );
+      }
+      if (command === 'bash') {
+        return verificationResult ?? { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'docker') {
+        if (args[0] === 'rm') {
+          return cleanupResult ?? { status: 0, stdout: '', stderr: '' };
+        }
+        return args.includes('--dangerously-bypass-approvals-and-sandbox')
+          ? (remediationResult ?? {
+              status: 0,
+              stdout: '{"type":"turn.completed"}\n',
+              stderr: '',
+            })
+          : (verificationResult ?? { status: 0, stdout: '', stderr: '' });
       }
       return { status: 0, stdout: '', stderr: '' };
     },

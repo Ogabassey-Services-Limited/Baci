@@ -46,4 +46,184 @@ describe('remediation worker', () => {
     assert.deepEqual(attempted, ['candidate-0', 'candidate-1']);
     assert.equal(result.candidates.length, 2);
   });
+
+  it('passes the recorded investigating lifecycle into autofix', async () => {
+    const directory = mkdtempSync(
+      join(tmpdir(), 'baci-worker-lifecycle-state-')
+    );
+    let received;
+
+    await runRemediationWorker({
+      autofixRunner: ({ candidate }) => {
+        received = candidate;
+        return { type: 'no_changes' };
+      },
+      candidateLoader: async () => [
+        {
+          fingerprint: 'lifecycle-state',
+          occurrences: 2,
+          sample: { source: 'sentry' },
+        },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.equal(received.status, 'investigating');
+    assert.deepEqual(received.history, []);
+  });
+
+  it('reports the persisted draft PR lifecycle after opening a PR', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-pr-report-'));
+
+    const result = await runRemediationWorker({
+      autofixRunner: () => ({
+        branch: 'codex/fix-pr-report',
+        prUrl: 'https://github.com/baci/baci/pull/77',
+        type: 'pr_opened',
+      }),
+      candidateLoader: async () => [
+        {
+          fingerprint: 'pr-report',
+          occurrences: 2,
+          sample: { source: 'sentry' },
+        },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.match(result.report.text, /lifecycle=pr_open/);
+    assert.match(
+      result.report.text,
+      /draftPr=https:\/\/github\.com\/baci\/baci\/pull\/77/
+    );
+  });
+
+  it('enriches only pending candidates before handing evidence to autofix', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-enrichment-'));
+    const enriched = [];
+    const attempted = [];
+
+    await runRemediationWorker({
+      autofixRunner: ({ candidate }) => {
+        attempted.push(candidate.sample.release);
+        return { type: 'no_changes' };
+      },
+      candidateEnricher: ({ candidate }) => {
+        enriched.push(candidate.fingerprint);
+        return {
+          ...candidate,
+          sample: { ...candidate.sample, release: 'build-769' },
+        };
+      },
+      candidateLoader: async () => [
+        { fingerprint: 'first', occurrences: 3, sample: { source: 'sentry' } },
+        { fingerprint: 'second', occurrences: 3, sample: { source: 'sentry' } },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(enriched, ['first']);
+    assert.deepEqual(attempted, ['build-769']);
+  });
+
+  it('caps candidate enrichment in dry-run mode', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-enrichment-'));
+    const enriched = [];
+
+    const result = await runRemediationWorker({
+      candidateEnricher: ({ candidate }) => {
+        enriched.push(candidate.fingerprint);
+        return candidate;
+      },
+      candidateLoader: async () => [
+        { fingerprint: 'first', occurrences: 3, sample: { source: 'sentry' } },
+        { fingerprint: 'second', occurrences: 3, sample: { source: 'sentry' } },
+      ],
+      env: {
+        BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(enriched, ['first']);
+    assert.equal(result.candidates.length, 1);
+  });
+
+  it('defers a candidate when evidence enrichment fails', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-enrichment-'));
+    let attempted = false;
+
+    const result = await runRemediationWorker({
+      autofixRunner: () => {
+        attempted = true;
+        return { type: 'no_changes' };
+      },
+      candidateEnricher: () => {
+        throw new Error('latest event unavailable');
+      },
+      candidateLoader: async () => [
+        { fingerprint: 'anr', occurrences: 3, sample: { source: 'sentry' } },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      logger: { error: () => undefined, log: () => undefined },
+      workerName: 'test-remediator',
+    });
+
+    assert.equal(attempted, false);
+    assert.deepEqual(
+      result.actions.find(
+        (action) => action.type === 'candidate_enrichment_failed'
+      ),
+      {
+        detail: 'latest event unavailable',
+        fingerprint: 'anr',
+        type: 'candidate_enrichment_failed',
+      }
+    );
+  });
+
+  it('uses the pending candidate when evidence enrichment returns no object', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-enrichment-'));
+    const attempted = [];
+
+    await runRemediationWorker({
+      autofixRunner: ({ candidate }) => {
+        attempted.push(candidate.fingerprint);
+        return { type: 'no_changes' };
+      },
+      candidateEnricher: () => undefined,
+      candidateLoader: async () => [
+        {
+          fingerprint: 'fallback',
+          occurrences: 3,
+          sample: { source: 'sentry' },
+        },
+      ],
+      env: {
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: directory,
+      },
+      logger: { error: () => undefined, log: () => undefined },
+      workerName: 'test-remediator',
+    });
+
+    assert.deepEqual(attempted, ['fallback']);
+  });
 });

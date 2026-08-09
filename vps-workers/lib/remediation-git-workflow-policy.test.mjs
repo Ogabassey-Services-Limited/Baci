@@ -89,11 +89,13 @@ describe('remediation git workflow policy and configuration', () => {
   });
 
   it('preserves a changed worktree when verification fails', () => {
-    const { calls, runner: baseRunner } = makeRunner();
-    const runner = (command, args, options) =>
-      command === 'bash'
-        ? { status: 1, stdout: '', stderr: 'focused regression failed' }
-        : baseRunner(command, args, options);
+    const { calls, runner } = makeRunner({
+      verificationResult: {
+        status: 1,
+        stderr: 'focused regression failed',
+        stdout: '',
+      },
+    });
 
     assert.throws(
       () =>

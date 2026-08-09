@@ -1,7 +1,10 @@
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
 import { runRemediationWorker } from '../lib/remediation-worker.mjs';
-import { fetchSentryRemediationCandidates } from '../lib/sentry-error-events.mjs';
+import {
+  enrichSentryRemediationCandidate,
+  fetchSentryRemediationCandidates,
+} from '../lib/sentry-error-events.mjs';
 
 export function runSentryMobileErrorRemediator({
   autofixRunner,
@@ -22,6 +25,7 @@ export function runSentryMobileErrorRemediator({
 
   return runRemediationWorker({
     autofixRunner,
+    candidateEnricher: enrichSentryRemediationCandidate,
     candidateLoader: fetchSentryRemediationCandidates,
     env: remediatorEnvironment,
     fetchFn,
