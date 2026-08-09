@@ -69,4 +69,16 @@ describe('runProviderSmoke transport adapter', () => {
     await expect(runProviderSmoke(provider, controller.signal)).resolves.toBe(false);
     expect(vi.mocked(generateText).mock.calls[0]?.[0]).not.toHaveProperty('schema');
   });
+
+  it('fails before provider transport when the shared output budget is not approved', async () => {
+    vi.mocked(generateText).mockClear();
+    vi.spyOn(builderAiPlanOutputBudget, 'isApproved').mockReturnValue(false);
+    const { runProviderSmoke } = await loadSmokeModule();
+    const controller = new AbortController();
+
+    await expect(runProviderSmoke(provider, controller.signal)).rejects.toThrow(
+      'Builder AI output budget is not approved'
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
 });
