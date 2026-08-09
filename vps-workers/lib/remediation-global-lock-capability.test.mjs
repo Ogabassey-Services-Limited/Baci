@@ -7,7 +7,7 @@ import {
 } from './remediation-global-lock.mjs';
 
 describe('remediation global lock capability', () => {
-  it('does not mint a test capability outside node:test', () => {
+  it('does not mint a test capability when NODE_TEST_CONTEXT is forged', () => {
     const moduleUrl = new URL('./remediation-global-lock.mjs', import.meta.url)
       .href;
     const result = spawnSync(
@@ -15,16 +15,16 @@ describe('remediation global lock capability', () => {
       [
         '--input-type=module',
         '--eval',
-        `import { createTestRemediationGlobalLockCapability } from '${moduleUrl}'; createTestRemediationGlobalLockCapability();`,
+        `import * as lock from '${moduleUrl}'; if ('createTestRemediationGlobalLockCapability' in lock) process.exitCode = 99;`,
       ],
       {
         encoding: 'utf8',
-        env: { ...process.env, NODE_TEST_CONTEXT: '' },
+        env: { ...process.env, NODE_TEST_CONTEXT: 'child-v8' },
       }
     );
 
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /requires node:test/);
+    assert.equal(result.status, 0);
+    assert.equal(result.stderr, '');
   });
 
   it('does not treat a forged environment marker as lock ownership', () => {

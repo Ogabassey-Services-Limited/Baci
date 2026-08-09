@@ -132,11 +132,12 @@ export function createRemediationCaseStateStorage({
   processStartedAt: startedAt = processStartedAt,
   stat = statSync,
   unlink = unlinkSync,
+  lockCapabilityValidator = hasRemediationGlobalLockCapability,
   remediationLock,
 }) {
   if (
     remediationLock !== undefined &&
-    !hasRemediationGlobalLockCapability(remediationLock)
+    !lockCapabilityValidator(remediationLock)
   ) {
     throw new Error('global remediation lock capability is required');
   }

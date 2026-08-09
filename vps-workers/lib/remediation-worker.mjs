@@ -24,6 +24,7 @@ export async function runRemediationWorker({
   draftPrStatusResolver,
   env = process.env,
   fetchFn = fetch,
+  lockCapabilityValidator = hasRemediationGlobalLockCapability,
   logger = console,
   now = () => Date.now(),
   remediationLock,
@@ -35,7 +36,7 @@ export async function runRemediationWorker({
   if (!workerName) throw new Error('workerName is required');
   const mode =
     env.BACI_REMEDIATION_AUTOFIX_ENABLED === '1' ? 'autofix' : 'dry-run';
-  const hasGlobalLock = hasRemediationGlobalLockCapability(remediationLock);
+  const hasGlobalLock = lockCapabilityValidator(remediationLock);
   if ((env.NODE_ENV === 'production' || mode === 'autofix') && !hasGlobalLock) {
     throw new Error(
       'global remediation flock must be held for production or autofix'
@@ -75,6 +76,7 @@ export async function runRemediationWorker({
     ),
   });
   const caseState = createRemediationCaseState({
+    lockCapabilityValidator,
     now,
     path: remediationCaseStatePath,
     remediationLock,

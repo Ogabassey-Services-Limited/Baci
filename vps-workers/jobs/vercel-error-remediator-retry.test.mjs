@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { createTestRemediationGlobalLockCapability } from '../lib/remediation-global-lock.mjs';
+import { withTestRemediationLock } from '../lib/remediation-worker.test-harness.mjs';
 import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
 
 const silentLogger = {
@@ -46,19 +46,19 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       fetchFn: () => new Response('down', { status: 503 }),
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
     const delivered = await runVercelErrorRemediator({
       autofixRunner,
       env,
       logger: silentLogger,
       fetchFn: () => new Response('', { status: 200 }),
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
     const deduplicated = await runVercelErrorRemediator({
       env,
       logger: silentLogger,
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
 
     assert.equal(failed.candidates.length, 1);
@@ -93,7 +93,7 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
     nowMs += 49;
     const retried = await runVercelErrorRemediator({
@@ -101,7 +101,7 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
     nowMs += 2;
     const eligibleAgain = await runVercelErrorRemediator({
@@ -109,7 +109,7 @@ describe('vercel error remediator retries', () => {
       env,
       logger: silentLogger,
       now,
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
 
     assert.equal(blocked.candidates.length, 1);

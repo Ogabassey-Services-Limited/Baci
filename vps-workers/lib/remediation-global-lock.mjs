@@ -48,15 +48,6 @@ export const hasCurrentRemediationGlobalLock = (lockPath) => ownsLock(lockPath);
 export const hasRemediationGlobalLockCapability = (value) =>
   typeof value === 'object' && value !== null && capabilities.has(value);
 
-export function createTestRemediationGlobalLockCapability() {
-  if (process.env.NODE_TEST_CONTEXT !== 'child-v8') {
-    throw new Error('remediation lock test capability requires node:test');
-  }
-  const capability = {};
-  capabilities.add(capability);
-  return capability;
-}
-
 export function enterRemediationGlobalLock({
   argv = process.argv.slice(2),
   env = process.env,

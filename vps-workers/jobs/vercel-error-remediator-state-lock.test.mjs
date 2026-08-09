@@ -9,7 +9,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { createTestRemediationGlobalLockCapability } from '../lib/remediation-global-lock.mjs';
+import { withTestRemediationLock } from '../lib/remediation-worker.test-harness.mjs';
 import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
 
 const silentLogger = {
@@ -55,7 +55,7 @@ describe('vercel remediator state lock', () => {
         env,
         logger: silentLogger,
         now: () => nowMs,
-        remediationLock: createTestRemediationGlobalLockCapability(),
+        ...withTestRemediationLock(),
       }),
       /remediation state is busy/
     );
@@ -67,7 +67,7 @@ describe('vercel remediator state lock', () => {
       env,
       logger: silentLogger,
       now: () => nowMs,
-      remediationLock: createTestRemediationGlobalLockCapability(),
+      ...withTestRemediationLock(),
     });
     assert.equal(retry.candidates.length, 1);
     assert.equal(retry.candidates[0].lifecycleEvent, 'pr_recovered');

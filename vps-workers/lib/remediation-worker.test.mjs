@@ -3,15 +3,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { createTestRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 import { runRemediationWorker as runWorker } from './remediation-worker.mjs';
-
-const runRemediationWorker = (options = {}) =>
-  runWorker({
-    ...options,
-    remediationLock:
-      options.remediationLock ?? createTestRemediationGlobalLockCapability(),
-  });
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 describe('remediation worker', () => {
   it('requires an explicit incident candidate loader', async () => {
