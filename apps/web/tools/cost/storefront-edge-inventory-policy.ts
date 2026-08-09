@@ -206,6 +206,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/app/agent/auth/[action]/route.ts',
     'apps/web/src/app/layout.tsx',
     'apps/web/src/app/root-dynamic-body.tsx',
+    'apps/web/src/app/sitemap.ts',
     'apps/web/src/proxy.ts',
     'apps/web/src/components/analytics/deferred-platform-insights.tsx',
     'apps/web/src/components/analytics/posthog-client-bootstrap.tsx',
