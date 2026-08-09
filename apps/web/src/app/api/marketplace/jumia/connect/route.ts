@@ -16,6 +16,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
@@ -394,7 +395,10 @@ export async function GET(request: NextRequest) {
       const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
       // Generate state for CSRF protection
-      const state = crypto.randomBytes(16).toString('hex');
+      const state = jumiaOAuthDiagnostic.bindState(
+        crypto.randomBytes(16).toString('hex'),
+        diagnosticRequested
+      );
 
       const redirectUrl = getJumiaAuthUrl({
         clientId: jumiaClientId,

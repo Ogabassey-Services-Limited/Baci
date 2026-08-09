@@ -120,9 +120,9 @@ describe('Jumia OAuth connect diagnostic', () => {
       expect.objectContaining({
         diagnostic_id: expect.any(String),
         message: '[Jumia OAuth Diagnostic] Authorization started',
-        oauth_max_age: null,
-        oauth_prompt: 'login',
-        oauth_scope: 'openid',
+        requested_max_age: null,
+        requested_prompt: 'login',
+        requested_scope: 'openid',
         variant: 'F',
       })
     );
@@ -157,7 +157,7 @@ describe('Jumia OAuth connect diagnostic', () => {
     const [{ state }] = mockGetJumiaAuthUrl.mock.calls[0] as [
       { state: string },
     ];
-    expect(state).toMatch(/^[0-9a-f]{32}$/);
+    expect(state).toMatch(/^jumia-diagnostic-[0-9a-f]{32}$/);
     expect(JSON.stringify(mockLoggerInfo.mock.calls)).not.toContain(state);
   });
 

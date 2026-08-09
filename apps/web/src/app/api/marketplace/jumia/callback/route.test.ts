@@ -285,16 +285,17 @@ describe('Jumia callback route', () => {
     );
   });
 
-  it('ignores a malformed diagnostic cookie and persists ordinary OAuth', async () => {
+  it('fails closed on a malformed diagnostic cookie without persisting OAuth', async () => {
     const response = await GET(
       makeCallbackRequest({ diagnosticCookie: 'not-a-uuid' })
     );
 
     expect(response.headers.get('location')).toContain(
-      'success=jumia_connected'
+      'error=diagnostic_invalid'
     );
-    expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
-    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockUpsert).not.toHaveBeenCalled();
   });
 
   it('redirects with only newly activated shops after upsert', async () => {

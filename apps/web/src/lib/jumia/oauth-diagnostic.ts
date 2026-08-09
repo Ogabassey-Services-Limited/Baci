@@ -3,6 +3,7 @@ import type { JumiaTokenResponse } from '@/schemas/jumia';
 
 const COOKIE_NAME = 'jumia_oauth_diagnostic';
 const QUERY_VALUE = 'token-shape';
+const STATE_PREFIX = 'jumia-diagnostic-';
 
 function buildEvidence(tokens: JumiaTokenResponse) {
   return {
@@ -67,21 +68,27 @@ function getAuthorizationEvidence(authorizationUrl: string) {
     client_id_sha256_12: clientIdFingerprint(
       url.searchParams.get('client_id') ?? ''
     ),
-    oauth_host: url.hostname,
-    oauth_max_age: url.searchParams.get('max_age'),
-    oauth_prompt: url.searchParams.get('prompt'),
-    oauth_scope: url.searchParams.get('scope'),
+    provider_host: url.hostname,
+    requested_max_age: url.searchParams.get('max_age'),
+    requested_prompt: url.searchParams.get('prompt'),
+    requested_scope: url.searchParams.get('scope'),
     redirect_host: hostnameOf(url.searchParams.get('redirect_uri')),
     response_type: url.searchParams.get('response_type'),
   };
 }
 
 export const jumiaOAuthDiagnostic = {
+  bindState(state: string, diagnosticRequested: boolean): string {
+    return diagnosticRequested ? `${STATE_PREFIX}${state}` : state;
+  },
   buildEvidence,
   buildRedirectQuery,
   cookieName: COOKIE_NAME,
   getAuthorizationEvidence,
   isRequested(searchParams: URLSearchParams): boolean {
     return searchParams.get('diagnostic') === QUERY_VALUE;
+  },
+  isStateBound(state: string): boolean {
+    return state.startsWith(STATE_PREFIX);
   },
 };

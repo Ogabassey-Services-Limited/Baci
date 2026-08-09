@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
+import { logger } from '@/lib/logger';
 
 describe('Jumia OAuth diagnostic evidence', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
   it('reports refresh-token presence without exposing credential values', () => {
     const evidence = jumiaOAuthDiagnostic.buildEvidence({
       access_token: 'access-token-must-never-escape',
@@ -92,13 +96,51 @@ describe('Jumia OAuth diagnostic evidence', () => {
       'https://vendor-api.jumia.com/login?client_id=client-id-must-never-escape&prompt=login&redirect_uri=https%3A%2F%2Fusebaci.com%2Fapi%2Fmarketplace%2Fjumia%2Fcallback&response_type=code&scope=openid'
     );
 
-    expect(evidence.oauth_prompt).toBe('login');
-    expect(evidence.oauth_scope).toBe('openid');
+    expect(evidence.requested_prompt).toBe('login');
+    expect(evidence.requested_scope).toBe('openid');
     expect(evidence.redirect_host).toBe('usebaci.com');
     expect(evidence.client_id_sha256_12).toHaveLength(12);
     expect(JSON.stringify(evidence)).not.toContain(
       'client-id-must-never-escape'
     );
+  });
+
+  it('emits authorization metadata through the real logger without redaction', () => {
+    const infoSpy = vi
+      .spyOn(console, 'info')
+      .mockImplementation(() => undefined);
+    const evidence = jumiaOAuthDiagnostic.getAuthorizationEvidence(
+      'https://vendor-api.jumia.com/login?client_id=client-id&max_age=0&prompt=login&scope=openid'
+    );
+
+    logger.info({
+      message: '[Jumia OAuth Diagnostic] Authorization started',
+      ...evidence,
+    });
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        provider_host: 'vendor-api.jumia.com',
+        requested_max_age: '0',
+        requested_prompt: 'login',
+        requested_scope: 'openid',
+      })
+    );
+    expect(JSON.stringify(infoSpy.mock.calls)).not.toContain('[REDACTED]');
+  });
+
+  it('binds diagnostic mode to OAuth state without changing ordinary state', () => {
+    expect(jumiaOAuthDiagnostic.bindState('random-state', true)).toBe(
+      'jumia-diagnostic-random-state'
+    );
+    expect(jumiaOAuthDiagnostic.bindState('random-state', false)).toBe(
+      'random-state'
+    );
+    expect(
+      jumiaOAuthDiagnostic.isStateBound('jumia-diagnostic-random-state')
+    ).toBe(true);
+    expect(jumiaOAuthDiagnostic.isStateBound('random-state')).toBe(false);
   });
 
   it.each([

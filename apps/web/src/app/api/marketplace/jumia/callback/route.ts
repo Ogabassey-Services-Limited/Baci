@@ -99,6 +99,18 @@ export async function GET(request: NextRequest) {
 
     const diagnosticIdResult =
       jumiaOAuthDiagnosticIdSchema.safeParse(diagnosticId);
+    const diagnosticStateBound = jumiaOAuthDiagnostic.isStateBound(storedState);
+    const diagnosticMarkerPresent = diagnosticId !== undefined;
+    if (
+      (diagnosticStateBound || diagnosticMarkerPresent) &&
+      !(diagnosticStateBound && diagnosticIdResult.success)
+    ) {
+      return jumiaOAuthCallbackRedirect.clear(
+        jumiaOAuthCallbackRedirect.create(request, {
+          error: 'diagnostic_invalid',
+        })
+      );
+    }
     const validatedDiagnosticId = diagnosticIdResult.success
       ? diagnosticIdResult.data
       : undefined;

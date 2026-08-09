@@ -71,12 +71,13 @@ vi.mock('@/lib/platform-admin-auth', () => ({
 import { GET } from './route';
 
 function makeRequest() {
+  const state = 'jumia-diagnostic-oauth-state';
   return new NextRequest(
-    'https://usebaci.com/api/marketplace/jumia/callback?code=auth-code-must-never-be-logged&state=oauth-state',
+    `https://usebaci.com/api/marketplace/jumia/callback?code=auth-code-must-never-be-logged&state=${state}`,
     {
       headers: {
         cookie: [
-          'jumia_oauth_state=oauth-state',
+          `jumia_oauth_state=${state}`,
           'jumia_merchant_id=merchant-1',
           'jumia_oauth_variant=F',
           'jumia_oauth_diagnostic=11111111-1111-4111-8111-111111111111',
@@ -164,6 +165,28 @@ describe('Jumia OAuth callback diagnostic', () => {
     expect(response.headers.get('location')).toContain(
       'error=diagnostic_forbidden'
     );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockSupabaseFrom).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a bound diagnostic state has no marker cookie', async () => {
+    const state = 'jumia-diagnostic-oauth-state';
+    const response = await GET(
+      new NextRequest(
+        `https://usebaci.com/api/marketplace/jumia/callback?code=auth-code&state=${state}`,
+        {
+          headers: {
+            cookie: `jumia_oauth_state=${state}; jumia_merchant_id=merchant-1`,
+          },
+        }
+      )
+    );
+
+    expect(response.headers.get('location')).toContain(
+      'error=diagnostic_invalid'
+    );
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockGetMerchantFeatureAccess).not.toHaveBeenCalled();
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockSupabaseFrom).not.toHaveBeenCalled();
   });
