@@ -52,13 +52,6 @@ describe('validateStorefrontEdgeInventory', () => {
     )
       throw new Error('checked-in inventory source authority is missing');
     const sourceSha = artifact.originMainSha;
-    const { stdout: currentSha } = await execFileAsync(
-      'git',
-      ['-C', repoRoot, 'rev-parse', 'HEAD'],
-      { encoding: 'utf8' }
-    );
-    if (currentSha.trim() !== sourceSha) return;
-
     // Act
     const result = await validateStorefrontEdgeInventory({
       repoRoot,

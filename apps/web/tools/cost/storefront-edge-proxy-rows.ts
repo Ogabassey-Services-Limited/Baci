@@ -26,6 +26,23 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:root-domain-retired-slug-markdown',
+    '/{retiredSlug}/{*storefrontMarkdownPath}.md',
+    ['GET', 'HEAD', 'OPTIONS'],
+    'edge_redirect',
+    'retired_storefront_alias_redirect',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'retired_storefront_slug_prefix',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:markdown-mirror',
     '/{*storefrontMarkdownPath}.md',
     ['GET', 'HEAD', 'OPTIONS'],
@@ -79,7 +96,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:blog-category-canonical',
     '/blog/{legacyCategory}/{legacyPostSlug}',
-    ['GET', 'HEAD'],
+    ['ANY'],
     'edge_redirect',
     'legacy_blog_category_permalink_redirect',
     {

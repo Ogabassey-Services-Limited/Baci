@@ -59,12 +59,10 @@ export async function createStorefrontEdgeInventory(
   const pilotCandidateHostnames = normalizeHostnames(
     options.pilotCandidateHostnames
   );
-  const extraRows = [
-    ...STOREFRONT_EDGE_INVENTORY_POLICY.extraRows,
-    ...createStorefrontEdgePosthogRelayRows(
-      options.posthogRelayPath ?? '/baci-relay'
-    ),
-  ];
+  const relayRows = createStorefrontEdgePosthogRelayRows(
+    options.posthogRelayPath ?? '/baci-relay'
+  );
+  const extraRows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
   const { apiSources, routeSources, routingInputSources } =
     await readStorefrontEdgeSourceAuthority({
       apiRoot: API_ROOT,
@@ -119,7 +117,7 @@ export async function createStorefrontEdgeInventory(
   );
   // Preserve reviewed source order: proxy rows are precedence-sensitive, so
   // canonicalization must not reorder them by identifier.
-  const rows = [...apiRows, ...entrypointRows, ...extraRows];
+  const rows = [...apiRows, ...relayRows, ...entrypointRows, ...extraRows];
   if (new Set(rows.map(({ id }) => id)).size !== rows.length)
     throw new Error('storefront edge inventory contains duplicate row IDs');
   const payload = {

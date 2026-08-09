@@ -61,6 +61,12 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
         routePattern: '/{*storefrontMarkdownPath}.md',
       })
     );
+    expect(byId.get('proxy:root-domain-retired-slug-markdown')).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        hostCondition: { hostKind: 'platform_root_domain' },
+      })
+    );
     expect(byId.get('proxy:auth-confirm')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',

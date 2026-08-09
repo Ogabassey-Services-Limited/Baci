@@ -14,5 +14,6 @@ describe('STOREFRONT_EDGE_PROXY_TAIL_ROWS', () => {
     expect(ids.indexOf('proxy:unknown-document')).toBeGreaterThan(
       ids.indexOf('proxy:root-sitemap')
     );
+    expect(ids).toContain('proxy:platform-root-slug-sitemap');
   });
 });

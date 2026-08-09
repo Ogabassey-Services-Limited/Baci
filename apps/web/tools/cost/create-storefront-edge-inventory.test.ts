@@ -187,6 +187,11 @@ describe('createStorefrontEdgeInventory', () => {
     expect(new Set(inventory.rows.map((row) => row.id)).size).toBe(
       inventory.rows.length
     );
+    expect(
+      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+    ).toBeLessThan(
+      inventory.rows.findIndex(({ id }) => id === 'proxy:unsupported-method')
+    );
     for (const requiredId of [
       'api-route:events/route.ts',
       'api-route:orders/[id]/route.ts',
