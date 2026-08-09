@@ -57,4 +57,10 @@ describe('getBuilderDesignCapabilityHash', () => {
       })
     ).toBe(getBuilderDesignCapabilityHash({ nested: { alpha: 1, beta: 2 } }));
   });
+
+  it('orders Unicode keys by deterministic UTF-16 code units', () => {
+    expect(getBuilderDesignCapabilityHash({ ä: 2, z: 1 })).toBe(
+      '7832a5d6150a56da1a4f0c8fa00c26a7350389b0fc8696707cd2abbbd32be0c1'
+    );
+  });
 });

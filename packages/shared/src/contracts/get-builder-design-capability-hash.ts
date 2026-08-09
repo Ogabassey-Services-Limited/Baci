@@ -3,7 +3,7 @@ function canonicalize(value: unknown): string {
   if (value && typeof value === 'object') {
     return `{${Object.entries(value as Record<string, unknown>)
       .filter(([key]) => key !== 'capabilityHash')
-      .sort(([left], [right]) => left.localeCompare(right))
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
       .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalize(entry)}`)
       .join(',')}}`;
   }
