@@ -19,6 +19,7 @@ export async function getCachedProductSeoLinkData(
   categorySlug: string,
   productId: string,
   productSlug: string,
+  productName: string,
   productBrand: string | null | undefined,
   blogEnabled: boolean
 ): Promise<ProductSeoLinkData> {
@@ -41,6 +42,7 @@ export async function getCachedProductSeoLinkData(
     pageKind: 'product',
     categorySlug,
     brands: productBrand ? [productBrand] : [],
+    productNames: productName ? [productName] : [],
     productSlugs: productSlug ? [productSlug] : [],
   });
   const enrichment = unwrapStorefrontReadResultForCache(

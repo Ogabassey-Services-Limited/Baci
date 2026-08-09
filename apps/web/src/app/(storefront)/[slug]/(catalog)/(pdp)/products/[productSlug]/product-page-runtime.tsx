@@ -168,6 +168,7 @@ export async function ProductPageBelowFold({
             pageKind: 'product',
             categorySlug: supportedClusterCategory,
             brands: product.brand ? [product.brand] : undefined,
+            productNames: [product.name],
             productSlugs: product.slug ? [product.slug] : undefined,
           })
         : Promise.resolve([]),

@@ -63,6 +63,7 @@ describe('getCachedProductSeoLinkData', () => {
       'laptops',
       'prod-1',
       'legion-5',
+      'Lenovo Legion 5',
       'Lenovo',
       true
     );
@@ -80,7 +81,7 @@ describe('getCachedProductSeoLinkData', () => {
       expect.objectContaining({
         clusterRequest: expect.objectContaining({
           p_category_slug: 'laptops',
-          p_search_query: expect.stringContaining('"lenovo"'),
+          p_search_query: expect.stringContaining('"lenovo legion 5"'),
         }),
         includeGuides: true,
         merchantId: 'merchant-1',
@@ -100,6 +101,7 @@ describe('getCachedProductSeoLinkData', () => {
         'laptops',
         'prod-1',
         'legion-5',
+        'Lenovo Legion 5',
         'Lenovo',
         true
       )
@@ -123,6 +125,7 @@ describe('getCachedProductSeoLinkData', () => {
         'laptops',
         'prod-1',
         'legion-5',
+        'Lenovo Legion 5',
         'Lenovo',
         true
       )
@@ -142,6 +145,7 @@ describe('getCachedProductSeoLinkData', () => {
         'laptops',
         'missing-product',
         'missing-product',
+        'Missing Product',
         null,
         true
       )

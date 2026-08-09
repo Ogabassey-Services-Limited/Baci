@@ -2,12 +2,15 @@ import {
   CONTENT_CLUSTER_SUPPORT,
   CONTENT_KIND_TOKENS,
 } from '@/config/storefront-content-clusters';
+import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type {
   ContentClusterKind,
   InferredContentClusterContext,
   PublishedClusterPost,
   SupportedClusterCategory,
 } from './content-cluster-types';
+import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
+import { tokenizeContentText } from './tokenize-content-text';
 
 interface InferContentClusterContextInput
   extends Pick<
@@ -16,25 +19,27 @@ interface InferContentClusterContextInput
   > {}
 
 function normalizeText(value: string | null | undefined) {
-  return value?.toLowerCase().trim() ?? '';
+  return normalizeContentCurrencyTokens(
+    applyJoinedTitleCorrections(value?.toLowerCase().trim() ?? '')
+  );
 }
 
 function tokenize(values: Array<string | null | undefined>) {
-  return Array.from(
-    new Set(
-      values
-        .map(normalizeText)
-        .join(' ')
-        .split(/[^a-z0-9]+/i)
-        .map((token) => token.trim())
-        .filter(Boolean)
-    )
-  );
+  return Array.from(new Set(values.flatMap(tokenizeContentText)));
 }
 
 function hasPhrase(haystack: string, needle: string) {
   const normalizedNeedle = normalizeText(needle);
-  return normalizedNeedle.length > 0 && haystack.includes(normalizedNeedle);
+  if (normalizedNeedle.length === 0) {
+    return false;
+  }
+  const escapedNeedle = normalizedNeedle.replace(
+    /[.*+?^${}()|[\]\\]/gu,
+    '\\$&'
+  );
+  return new RegExp(`(?:^|[^a-z0-9])${escapedNeedle}(?:$|[^a-z0-9])`, 'u').test(
+    haystack
+  );
 }
 
 function inferCategorySlug(
