@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import task1aInventory from '../../../../docs/superpowers/evidence/storefront-edge/task-1a-inventory.json';
 import { STOREFRONT_AGENT_ROUTES } from '../../src/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '../../src/config/storefront-feed-routes';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
@@ -19,26 +18,6 @@ function matchesRoutePattern(routePattern: string, pathname: string) {
         segment === pathSegments[index]
     )
   );
-}
-
-function resolveQueryDecision(pathname: string) {
-  const baseRow = task1aInventory.rows.find(
-    (row) => row.routePattern === pathname && !('requestCondition' in row)
-  );
-  if (!baseRow) throw new Error(`missing exact base row for ${pathname}`);
-  const override = task1aInventory.rows.find((row) => {
-    if (
-      !('requestCondition' in row) ||
-      row.requestCondition.anyQueryPresent !== true ||
-      !matchesRoutePattern(row.routePattern, pathname)
-    )
-      return false;
-    return (
-      !('matchedStorefrontEntrypointId' in row.requestCondition) ||
-      row.requestCondition.matchedStorefrontEntrypointId === baseRow.id
-    );
-  });
-  return override?.decision ?? baseRow.decision;
 }
 
 describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
@@ -284,5 +263,4 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       })
     );
   });
-
 });
