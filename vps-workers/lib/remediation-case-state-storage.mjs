@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { reclaimStaleLock } from './remediation-case-state-lock-reclaim.mjs';
+import { hasRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 
 const STALE_LOCK_MS = 2 * 60 * 1_000;
 const LOCK_TOKEN_PATTERN =
@@ -68,6 +69,16 @@ const removeOwnerPath = (ownerPath, unlink) => {
   }
 };
 
+const isLegacyLockArtifact = (entry, prefix) => {
+  if (!entry.startsWith(prefix)) return false;
+  const suffix = entry.slice(prefix.length);
+  return (
+    (suffix.startsWith('owner-') && LOCK_TOKEN_PATTERN.test(suffix.slice(6))) ||
+    suffix === 'reclaim-ownerless' ||
+    (suffix.startsWith('reclaim-') && LOCK_TOKEN_PATTERN.test(suffix.slice(8)))
+  );
+};
+
 const removeLegacyLockArtifacts = (lockPath, unlink) => {
   removeOwnerPath(lockPath, unlink);
   const prefix = `${basename(lockPath)}.`;
@@ -79,10 +90,7 @@ const removeLegacyLockArtifacts = (lockPath, unlink) => {
     throw error;
   }
   for (const entry of entries) {
-    if (
-      entry.startsWith(`${prefix}owner-`) ||
-      entry.startsWith(`${prefix}reclaim-`)
-    ) {
+    if (isLegacyLockArtifact(entry, prefix)) {
       removeOwnerPath(join(dirname(lockPath), entry), unlink);
     }
   }
@@ -122,10 +130,17 @@ export function createRemediationCaseStateStorage({
   path,
   processIsAlive: isAlive = processIsAlive,
   processStartedAt: startedAt = processStartedAt,
-  externallyLocked = false,
   stat = statSync,
   unlink = unlinkSync,
+  remediationLock,
 }) {
+  if (
+    remediationLock !== undefined &&
+    !hasRemediationGlobalLockCapability(remediationLock)
+  ) {
+    throw new Error('global remediation lock capability is required');
+  }
+  const externallyLocked = remediationLock !== undefined;
   const localProcessStartedAt = startedAt(process.pid);
 
   function read() {

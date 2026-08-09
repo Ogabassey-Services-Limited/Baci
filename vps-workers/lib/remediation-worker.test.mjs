@@ -20,11 +20,15 @@ describe('remediation worker', () => {
     );
   });
 
-  it('rejects an unwrapped production remediation worker invocation', async () => {
+  it('rejects a forged global-lock environment marker in production', async () => {
     await assert.rejects(
       runRemediationWorker({
         candidateLoader: async () => [],
-        env: { NODE_ENV: 'production' },
+        env: {
+          BACI_REMEDIATION_GLOBAL_FLOCK_HELD: '1',
+          NODE_ENV: 'production',
+        },
+        remediationLock: {},
         workerName: 'test-remediator',
       }),
       /global remediation flock/

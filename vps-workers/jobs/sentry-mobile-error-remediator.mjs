@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
-import { ensureRemediationGlobalLock } from '../lib/remediation-global-lock.mjs';
+import { runRemediationJobWithGlobalLock } from '../lib/remediation-global-lock.mjs';
 import { runRemediationWorker } from '../lib/remediation-worker.mjs';
 import {
   enrichSentryRemediationCandidate,
@@ -12,6 +12,7 @@ export function runSentryMobileErrorRemediator({
   env = process.env,
   fetchFn = fetch,
   logger = console,
+  remediationLock,
 } = {}) {
   const outputDir =
     env.BACI_SENTRY_REMEDIATION_OUTPUT_DIR ||
@@ -31,14 +32,15 @@ export function runSentryMobileErrorRemediator({
     env: remediatorEnvironment,
     fetchFn,
     logger,
+    remediationLock,
     workerName: 'sentry-mobile-error-remediator',
   });
 }
 
-async function main() {
+async function main(remediationLock) {
   config({ path: new URL('../.env', import.meta.url) });
   try {
-    const result = await runSentryMobileErrorRemediator();
+    const result = await runSentryMobileErrorRemediator({ remediationLock });
     console.log(
       JSON.stringify(
         {
@@ -61,7 +63,9 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  if (!ensureRemediationGlobalLock({ scriptPath: process.argv[1] })) {
-    await main();
-  }
+  const exitCode = await runRemediationJobWithGlobalLock({
+    main,
+    scriptPath: process.argv[1],
+  });
+  if (exitCode !== null) process.exitCode = exitCode;
 }

@@ -68,16 +68,16 @@ function capCases(state) {
 }
 
 export function createRemediationCaseState({
-  externallyLocked = false,
   now = () => Date.now(),
   path,
+  remediationLock,
 }) {
   const candidateNormalizer = createRemediationCaseCandidateNormalizer();
   const storage = createRemediationCaseStateStorage({
     createEmptyState: emptyState,
-    externallyLocked,
     isValidState,
     path,
+    remediationLock,
   });
   const reconcileDraftPrs = createStoredDraftPrReconciler({
     maxOutcomes: MAX_OUTCOMES,

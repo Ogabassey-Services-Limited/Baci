@@ -223,7 +223,9 @@ describe('remediation Codex canary', () => {
     assert.equal(calls[0].options.timeout, 60_000);
   });
 
-  it('does not misclassify an authoring failure as authentication', (t) => {
+  it('does not misclassify an authoring failure as authentication', {
+    skip: process.platform !== 'linux',
+  }, (t) => {
     const repoDir = mkdtempSync(join(tmpdir(), 'baci-canary-repo-'));
     t.after(() => rmSync(repoDir, { force: true, recursive: true }));
     const result = spawnSync(

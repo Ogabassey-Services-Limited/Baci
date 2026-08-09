@@ -7,7 +7,7 @@ import {
   redactCodexError,
 } from '../lib/remediation-codex-output.mjs';
 import { buildRemediationEnvironments } from '../lib/remediation-environments.mjs';
-import { ensureRemediationGlobalLock } from '../lib/remediation-global-lock.mjs';
+import { runRemediationJobWithGlobalLock } from '../lib/remediation-global-lock.mjs';
 import {
   buildRemediationReport,
   sendRemediationReportEmail,
@@ -134,7 +134,10 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  if (!ensureRemediationGlobalLock({ scriptPath: process.argv[1] })) {
-    await main();
-  }
+  const exitCode = await runRemediationJobWithGlobalLock({
+    main,
+    scriptPath: process.argv[1],
+    waitSeconds: 600,
+  });
+  if (exitCode !== null) process.exitCode = exitCode;
 }

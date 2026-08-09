@@ -13,6 +13,19 @@ import { describe, it } from 'node:test';
 import { createRemediationCaseStateStorage } from './remediation-case-state-storage.mjs';
 
 describe('remediation case state storage', () => {
+  it('rejects a forged global-lock capability', () => {
+    assert.throws(
+      () =>
+        createRemediationCaseStateStorage({
+          createEmptyState: () => ({ version: 1 }),
+          isValidState: (state) => state?.version === 1,
+          path: '/tmp/baci-forged-remediation-lock.json',
+          remediationLock: {},
+        }),
+      /global remediation lock capability/
+    );
+  });
+
   it('atomically persists a validated lifecycle snapshot', () => {
     const path = join(
       mkdtempSync(join(tmpdir(), 'baci-case-storage-')),

@@ -1,111 +1,127 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
-import { ensureRemediationGlobalLock } from './remediation-global-lock.mjs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import { hasCurrentRemediationGlobalLock } from './remediation-global-lock.mjs';
 
-describe('remediation global lock', () => {
-  it('wraps every direct remediation job before it can call main', () => {
-    const jobDirectory = join(
-      dirname(fileURLToPath(import.meta.url)),
-      '..',
-      'jobs'
-    );
-    for (const job of [
-      'remediation-codex-canary.mjs',
-      'sentry-mobile-error-remediator.mjs',
-      'vercel-error-remediator.mjs',
-    ]) {
-      const source = readFileSync(join(jobDirectory, job), 'utf8');
-      assert.match(source, /ensureRemediationGlobalLock/);
-      assert.match(
-        source,
-        /if \(!ensureRemediationGlobalLock\(\{ scriptPath: process\.argv\[1\] \}\)\) \{\s+await main\(\);/
-      );
-    }
-  });
-
-  it('re-execs a direct entrypoint through flock with its held marker', () => {
-    let invocation;
-    const reexecuted = ensureRemediationGlobalLock({
-      env: {},
-      runner(command, arguments_, options) {
-        invocation = { arguments_, command, options };
-        return { status: 0 };
-      },
-      scriptPath: '/srv/baci/vps-workers/jobs/vercel-error-remediator.mjs',
-    });
-
-    assert.equal(reexecuted, true);
-    assert.deepEqual(invocation, {
-      arguments_: [
-        '-n',
-        '/srv/baci/vps-workers/locks/error-remediator-global.lock',
-        'env',
-        'BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1',
-        process.execPath,
-        '/srv/baci/vps-workers/jobs/vercel-error-remediator.mjs',
-      ],
-      command: 'flock',
-      options: { env: {}, stdio: 'inherit' },
-    });
-  });
-
-  it('does not reacquire the global lock in the marked child process', () => {
-    assert.equal(
-      ensureRemediationGlobalLock({
-        env: { BACI_REMEDIATION_GLOBAL_FLOCK_HELD: '1' },
-        runner() {
-          throw new Error('runner must not execute');
-        },
-        scriptPath: '/srv/baci/vps-workers/jobs/vercel-error-remediator.mjs',
-      }),
-      false
-    );
-  });
-
-  it('skips a direct run while another process owns the kernel lock, then recovers after it is killed', {
-    skip: process.platform !== 'linux',
-  }, async () => {
-    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-flock-'));
+describe('remediation global lock ownership', () => {
+  it('does not accept an unlocked lock file as the current process capability', (t) => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediation-lock-'));
+    t.after(() => rmSync(directory, { force: true, recursive: true }));
     const lockPath = join(directory, 'global.lock');
-    const workerPath = join(directory, 'holder.mjs');
+    writeFileSync(lockPath, '');
+
+    assert.equal(hasCurrentRemediationGlobalLock(lockPath), false);
+  });
+
+  it('reexecutes under the exact Linux FLOCK owner and releases it when the Node owner dies', {
+    skip: process.platform !== 'linux',
+  }, async (t) => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediation-lock-'));
+    t.after(() => rmSync(directory, { force: true, recursive: true }));
+    const lockPath = join(directory, 'global.lock');
+    const moduleUrl = pathToFileURL(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        'remediation-global-lock.mjs'
+      )
+    ).href;
+    const jobPath = join(directory, 'job.mjs');
     writeFileSync(
-      workerPath,
-      "process.stdout.write(process.argv[2] + '\\n'); if (process.argv[2] === 'holder') setInterval(() => {}, 1_000);"
+      jobPath,
+      `import { hasRemediationGlobalLockCapability, runRemediationJobWithGlobalLock } from '${moduleUrl}';\nconst exitCode = await runRemediationJobWithGlobalLock({ main(lock) { if (!hasRemediationGlobalLockCapability(lock)) process.exitCode = 99; else process.stdout.write('entered\\n'); }, scriptPath: process.argv[1] });\nif (exitCode !== null) process.exitCode = exitCode;`
+    );
+
+    const entered = spawnSync(process.execPath, [jobPath], {
+      encoding: 'utf8',
+      env: { ...process.env, BACI_REMEDIATION_GLOBAL_LOCK_PATH: lockPath },
+    });
+    assert.equal(entered.status, 0);
+    assert.equal(entered.stdout, 'entered\n');
+    const failedPath = join(directory, 'failed-job.mjs');
+    writeFileSync(
+      failedPath,
+      `import { runRemediationJobWithGlobalLock } from '${moduleUrl}';\nconst exitCode = await runRemediationJobWithGlobalLock({ main() { process.exitCode = 23; }, scriptPath: process.argv[1] });\nif (exitCode !== null) process.exitCode = exitCode;`
+    );
+    const failed = spawnSync(process.execPath, [failedPath], {
+      encoding: 'utf8',
+      env: { ...process.env, BACI_REMEDIATION_GLOBAL_LOCK_PATH: lockPath },
+    });
+    assert.equal(failed.status, 23);
+
+    const holderPath = join(directory, 'holder.mjs');
+    const unrelatedPath = join(directory, 'unrelated.mjs');
+    writeFileSync(
+      unrelatedPath,
+      `import { hasCurrentRemediationGlobalLock } from '${moduleUrl}';\nprocess.stdout.write(String(hasCurrentRemediationGlobalLock(process.argv[2])));`
+    );
+    writeFileSync(
+      holderPath,
+      `import { spawn } from 'node:child_process';\nimport { hasCurrentRemediationGlobalLock } from '${moduleUrl}';\nif (!hasCurrentRemediationGlobalLock(process.argv[2])) process.exit(99);\nconst child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1_000)'], { stdio: 'ignore' });\nprocess.stdout.write(String(child.pid) + '\\n');\nsetInterval(() => {}, 1_000);`
     );
     const holder = spawn(
       'flock',
-      ['-n', '-F', lockPath, process.execPath, workerPath, 'holder'],
-      {
-        stdio: ['ignore', 'pipe', 'inherit'],
-      }
+      [
+        '-F',
+        '-n',
+        '-E',
+        '75',
+        lockPath,
+        process.execPath,
+        holderPath,
+        lockPath,
+      ],
+      { stdio: ['ignore', 'pipe', 'inherit'] }
     );
-    try {
-      const [output] = await once(holder.stdout, 'data');
-      assert.equal(output.toString(), 'holder\n');
-      const contender = spawnSync(
-        'flock',
-        ['-n', lockPath, process.execPath, workerPath, 'contender'],
-        { encoding: 'utf8' }
-      );
-      assert.equal(contender.status, 1);
-      holder.kill('SIGKILL');
-      await once(holder, 'exit');
-      const recovered = spawnSync(
-        'flock',
-        ['-n', lockPath, process.execPath, workerPath, 'recovered'],
-        { encoding: 'utf8' }
-      );
-      assert.equal(recovered.status, 0);
-      assert.equal(recovered.stdout, 'recovered\n');
-    } finally {
-      holder.kill('SIGKILL');
-      rmSync(directory, { force: true, recursive: true });
-    }
+    const [output] = await once(holder.stdout, 'data');
+    const childPid = Number(output.toString().trim());
+    assert.ok(Number.isSafeInteger(childPid));
+    const contender = spawnSync(process.execPath, [jobPath], {
+      encoding: 'utf8',
+      env: { ...process.env, BACI_REMEDIATION_GLOBAL_LOCK_PATH: lockPath },
+    });
+    assert.equal(contender.status, 75);
+    assert.equal(contender.stdout, '');
+    const unrelated = spawnSync(process.execPath, [unrelatedPath, lockPath], {
+      encoding: 'utf8',
+    });
+    assert.equal(unrelated.status, 0);
+    assert.equal(unrelated.stdout, 'false');
+    holder.kill('SIGKILL');
+    await once(holder, 'exit');
+    const recovered = spawnSync('flock', ['-n', '-E', '75', lockPath, 'true']);
+    assert.equal(recovered.status, 0);
+    process.kill(childPid, 'SIGKILL');
+  });
+
+  it('fails closed when the locked inode is replaced before verification', {
+    skip: process.platform !== 'linux',
+  }, (t) => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediation-lock-'));
+    t.after(() => rmSync(directory, { force: true, recursive: true }));
+    const lockPath = join(directory, 'global.lock');
+    const moduleUrl = pathToFileURL(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        'remediation-global-lock.mjs'
+      )
+    ).href;
+    const probePath = join(directory, 'replacement.mjs');
+    writeFileSync(
+      probePath,
+      `import { unlinkSync, writeFileSync } from 'node:fs';\nimport { hasCurrentRemediationGlobalLock } from '${moduleUrl}';\nconst path = process.argv[2];\nprocess.stdout.write(String(hasCurrentRemediationGlobalLock(path)) + ' ');\nunlinkSync(path); writeFileSync(path, '');\nprocess.stdout.write(String(hasCurrentRemediationGlobalLock(path)));`
+    );
+    const result = spawnSync(
+      'flock',
+      ['-F', '-n', '-E', '75', lockPath, process.execPath, probePath, lockPath],
+      { encoding: 'utf8' }
+    );
+
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout, 'true false');
   });
 });

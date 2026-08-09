@@ -3,6 +3,7 @@ import { createRemediationCaseState } from './remediation-case-state.mjs';
 import { redactCodexError } from './remediation-codex-output.mjs';
 import { createRemediationDraftPrStatusResolver } from './remediation-draft-pr-status.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
+import { hasRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 import { retryRemediationNotifications } from './remediation-notification-retry.mjs';
 import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
@@ -25,16 +26,15 @@ export async function runRemediationWorker({
   fetchFn = fetch,
   logger = console,
   now = () => Date.now(),
+  remediationLock,
   workerName,
 } = {}) {
   if (typeof candidateLoader !== 'function') {
     throw new Error('candidateLoader is required');
   }
   if (!workerName) throw new Error('workerName is required');
-  if (
-    env.NODE_ENV === 'production' &&
-    env.BACI_REMEDIATION_GLOBAL_FLOCK_HELD !== '1'
-  ) {
+  const hasGlobalLock = hasRemediationGlobalLockCapability(remediationLock);
+  if (env.NODE_ENV === 'production' && !hasGlobalLock) {
     throw new Error('global remediation flock must be held in production');
   }
   const outputDir = env.BACI_REMEDIATION_OUTPUT_DIR || `logs/${workerName}`;
@@ -73,9 +73,9 @@ export async function runRemediationWorker({
     ),
   });
   const caseState = createRemediationCaseState({
-    externallyLocked: env.BACI_REMEDIATION_GLOBAL_FLOCK_HELD === '1',
     now,
     path: remediationCaseStatePath,
+    remediationLock,
   });
   const prJournal = createRemediationPrJournal({
     now,
