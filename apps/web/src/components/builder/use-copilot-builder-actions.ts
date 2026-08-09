@@ -143,7 +143,10 @@ export function useCopilotBuilderActions({
       }
 
       setData({ ...data, content: newContent });
-      return `Added ${componentType} at position ${position === -1 ? 'bottom' : position}.`;
+      return [
+        ...sanitized.warnings,
+        `Added ${componentType} at position ${position === -1 ? 'bottom' : position}.`,
+      ].join(' ');
     },
   });
 

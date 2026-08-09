@@ -86,6 +86,40 @@ describe('useCopilotBuilderActions defaults', () => {
     });
   });
 
+  it('reports discarded add props while inserting safe Hero defaults', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: { content: [], root: { props: {} } } as Data,
+        setData,
+      })
+    );
+
+    expect(
+      getRegisteredAction('addComponent').handler({
+        componentType: 'Hero',
+        props:
+          '{"backgroundImage":"https://cdn.example.test/hero.png","ctaLink":"javascript:alert(1)","subtitle":"Seasonal collection","unreviewed":"value"}',
+      })
+    ).toBe(
+      'Media changes require Baci manual asset controls. Ignored unsafe Hero URL. Ignored unsupported Hero fields. Added Hero at position bottom.'
+    );
+    expect(setData).toHaveBeenCalledWith({
+      content: [
+        {
+          props: expect.objectContaining({
+            ctaLink: '/products',
+            id: 'Hero-1234',
+            subtitle: 'Seasonal collection',
+            title: 'Featured collection',
+          }),
+          type: 'Hero',
+        },
+      ],
+      root: { props: {} },
+    });
+  });
+
   it.each([
     [
       'media-only props',

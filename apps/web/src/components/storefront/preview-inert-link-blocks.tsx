@@ -6,10 +6,20 @@ type PreviewLink = {
 
 type PreviewHeaderProps = {
   ctaButton?: { show: boolean; text: string };
+  layout?: PreviewHeaderLayout;
   navigationLinks?: PreviewLink[];
+  showCart?: boolean;
   showLogo?: boolean;
+  showMenu?: boolean;
+  showSearch?: boolean;
+  sticky?: boolean;
   storeName?: string;
 };
+
+type PreviewHeaderLayout =
+  | 'logo-left-nav-center'
+  | 'logo-left-nav-right'
+  | 'logo-center';
 
 type PreviewHeroProps = {
   ctaText?: string;
@@ -26,9 +36,17 @@ type PreviewButtonProps = {
 };
 
 type PreviewFooterProps = {
+  backgroundColor?: string;
   brandName?: string;
   quickLinks?: PreviewLink[];
   showQuickLinks?: boolean;
+  textColor?: string;
+};
+
+const previewHeaderLayoutClasses: Record<PreviewHeaderLayout, string> = {
+  'logo-center': 'grid grid-cols-3 items-center gap-3',
+  'logo-left-nav-center': 'grid grid-cols-[auto_1fr_auto] items-center gap-3',
+  'logo-left-nav-right': 'flex items-center gap-3',
 };
 
 function InertAction({ children }: { children: ReactNode }) {
@@ -41,19 +59,60 @@ function InertAction({ children }: { children: ReactNode }) {
 
 function PreviewHeader({
   ctaButton,
+  layout = 'logo-left-nav-center',
   navigationLinks = [],
+  showCart = false,
   showLogo = true,
+  showMenu = false,
+  showSearch = false,
+  sticky = false,
   storeName = 'Preview Store',
 }: PreviewHeaderProps) {
+  const isCenteredLayout = layout === 'logo-center';
   return (
-    <header data-testid="builder-preview-inert-header">
-      {showLogo ? <strong>{storeName}</strong> : null}
-      <nav aria-label="Preview navigation">
-        {navigationLinks.map((link) => (
-          <span key={link.label}>{link.label}</span>
-        ))}
-      </nav>
-      {ctaButton?.show ? <InertAction>{ctaButton.text}</InertAction> : null}
+    <header
+      className={`${previewHeaderLayoutClasses[layout]}${
+        sticky ? ' sticky top-0 z-10' : ''
+      }`}
+      data-layout={layout}
+      data-sticky={String(sticky)}
+      data-testid="builder-preview-inert-header"
+    >
+      {showLogo ? (
+        <strong
+          className={
+            isCenteredLayout ? 'col-start-2 justify-self-center' : undefined
+          }
+        >
+          {storeName}
+        </strong>
+      ) : null}
+      {navigationLinks.length > 0 ? (
+        <nav
+          aria-label="Preview navigation"
+          className={
+            layout === 'logo-left-nav-right'
+              ? 'ml-auto'
+              : isCenteredLayout
+                ? 'col-start-2 row-start-2 justify-self-center'
+                : 'justify-self-center'
+          }
+        >
+          {navigationLinks.map((link) => (
+            <span key={link.label}>{link.label}</span>
+          ))}
+        </nav>
+      ) : null}
+      <div
+        className={
+          isCenteredLayout ? 'col-start-3 justify-self-end' : 'flex gap-2'
+        }
+      >
+        {showSearch ? <InertAction>Search</InertAction> : null}
+        {showCart ? <InertAction>Cart</InertAction> : null}
+        {showMenu ? <InertAction>Menu</InertAction> : null}
+        {ctaButton?.show ? <InertAction>{ctaButton.text}</InertAction> : null}
+      </div>
     </header>
   );
 }
@@ -69,14 +128,16 @@ function PreviewHero({ ctaText, subtitle, title }: PreviewHeroProps) {
 }
 
 function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
-  const firstSlide = slides[0];
   return (
     <section aria-label="Preview hero carousel">
-      <h2>{firstSlide?.title}</h2>
-      {firstSlide?.subtitle ? <p>{firstSlide.subtitle}</p> : null}
-      {firstSlide?.ctaText ? (
-        <InertAction>{firstSlide.ctaText}</InertAction>
-      ) : null}
+      {slides.map((slide, index) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: Bounded preview slides are static and have no intrinsic IDs.
+        <article key={index}>
+          <h2>{slide.title}</h2>
+          {slide.subtitle ? <p>{slide.subtitle}</p> : null}
+          {slide.ctaText ? <InertAction>{slide.ctaText}</InertAction> : null}
+        </article>
+      ))}
     </section>
   );
 }
@@ -86,14 +147,19 @@ function PreviewButton({ text }: PreviewButtonProps) {
 }
 
 function PreviewFooter({
+  backgroundColor,
   brandName = 'Preview Store',
   quickLinks = [],
   showQuickLinks = true,
+  textColor,
 }: PreviewFooterProps) {
   return (
-    <footer data-testid="builder-preview-inert-footer">
+    <footer
+      data-testid="builder-preview-inert-footer"
+      style={{ backgroundColor, color: textColor }}
+    >
       <strong>{brandName}</strong>
-      {showQuickLinks ? (
+      {showQuickLinks && quickLinks.length > 0 ? (
         <nav aria-label="Preview footer navigation">
           {quickLinks.map((link) => (
             <span key={link.label}>{link.label}</span>

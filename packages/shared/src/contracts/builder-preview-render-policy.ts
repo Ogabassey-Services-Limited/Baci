@@ -140,6 +140,8 @@ function isCuratedRenderProp(
     );
   }
   if (componentType === 'Footer') {
+    if (property === 'backgroundColor' || property === 'textColor')
+      return isSafeColor(value);
     if (
       property === 'brandName' ||
       property === 'quickLinksLabel' ||

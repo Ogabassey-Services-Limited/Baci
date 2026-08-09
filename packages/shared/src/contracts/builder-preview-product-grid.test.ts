@@ -14,6 +14,18 @@ function candidate(category: unknown) {
   });
 }
 
+function candidateWithColumns(columns: unknown) {
+  return builderPreviewCandidateConfigSchema.safeParse({
+    content: [
+      {
+        props: { columns, id: 'products-1', title: 'Featured products' },
+        type: 'ProductGrid',
+      },
+    ],
+    root: { props: { title: 'Home' } },
+  });
+}
+
 describe('saved ProductGrid category preview compatibility', () => {
   it('preserves a bounded saved category without making it AI-editable', () => {
     const result = candidate('Phones & Tablets');
@@ -34,5 +46,16 @@ describe('saved ProductGrid category preview compatibility', () => {
     expect(candidate(' Phones ').success).toBe(false);
     expect(candidate('x'.repeat(121)).success).toBe(false);
     expect(candidate({ name: 'Phones' }).success).toBe(false);
+  });
+
+  it('aligns one-column grids with the live builder bound', () => {
+    expect(candidateWithColumns(1).success).toBe(true);
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('ProductGrid', 'columns', 1)
+    ).toBe(true);
+    expect(candidateWithColumns(0).success).toBe(false);
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('ProductGrid', 'columns', 0)
+    ).toBe(false);
   });
 });

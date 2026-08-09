@@ -114,7 +114,9 @@ describe('useCopilotBuilderActions', () => {
         '{"ctaLink":"javascript:alert(1)","id":"model-id","title":"Safe title","unknown":"ignored"}',
     });
 
-    expect(result).toBe('Added Hero at position bottom.');
+    expect(result).toBe(
+      'Ignored unsafe Hero URL. Ignored unsupported Hero fields. Added Hero at position bottom.'
+    );
     expect(setData).toHaveBeenCalledWith({
       content: [
         {
