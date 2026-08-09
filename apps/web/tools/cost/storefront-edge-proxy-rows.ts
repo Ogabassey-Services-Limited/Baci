@@ -12,7 +12,7 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   proxyClass(
     'proxy:auth-confirm',
     '/auth/confirm',
-    ['GET', 'HEAD'],
+    ['GET', 'HEAD', 'OPTIONS'],
     'origin_dynamic',
     'custom_domain_auth_confirmation',
     {

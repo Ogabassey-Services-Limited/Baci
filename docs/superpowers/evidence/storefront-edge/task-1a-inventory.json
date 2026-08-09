@@ -5430,7 +5430,8 @@
       "id": "proxy:auth-confirm",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "custom_domain_auth_confirmation",
       "routePattern": "/auth/confirm",
@@ -5917,7 +5918,8 @@
       "id": "proxy:root-sitemap",
       "methods": [
         "GET",
-        "HEAD"
+        "HEAD",
+        "OPTIONS"
       ],
       "reason": "storefront_root_sitemap_rewrite",
       "routePattern": "/sitemap.xml",
@@ -7401,5 +7403,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "5514bed81afb3e276e6f2e7688edd694b8b3808973ede0d769b3b27ae1869c2c"
+  "inventorySha256": "b174734db769e0c81591e330b6d563b68adf16530d781185bdf8abd103c6483b"
 }

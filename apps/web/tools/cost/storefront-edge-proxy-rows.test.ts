@@ -60,7 +60,7 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
     expect(byId.get('proxy:auth-confirm')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        methods: ['GET', 'HEAD'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
         routePattern: '/auth/confirm',
         hostCondition: {
           hostKind: 'custom_domain',
