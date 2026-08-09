@@ -8,16 +8,9 @@ import {
   readSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 
-const ENTRIES = Object.freeze({
-  'manifest.json': '100400',
-  'manifest.sha256': '100400',
-  'source.tar': '100400',
-  'source.tar.sha256': '100400',
-  'task9-bootstrap.mjs': '100400',
-  node: '100500',
-  'node-provenance.json': '100400',
-});
+const ENTRIES = TASK9_PAYLOAD_FILES;
 const MAX_ENTRY_BYTES = 16_777_216;
 const MAX_NODE_BYTES = 268_435_456;
 const same = (left, right) =>

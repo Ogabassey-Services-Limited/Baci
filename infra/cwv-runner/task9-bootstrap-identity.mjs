@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 import { canonicalJson } from './canonical-json.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
-const SHA = /^[a-f0-9]{40}$/;
-const REF_PART = /^[A-Za-z0-9._/-]+$/;
+const SHA = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
+const REF_PART = /^(?!\/)(?!.*\/$)(?!-)(?!.*\.\.)(?!.*\.lock$)(?!.*@\{)[A-Za-z0-9._/-]+$/;
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const fail = (message) => {
   throw new TypeError(message);

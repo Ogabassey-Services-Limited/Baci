@@ -1,5 +1,4 @@
 // biome-ignore-all format: The Task 5 fixed-tool parser is intentionally compact to remain within the 300-line runtime cap.
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   lstatSync,
@@ -13,62 +12,17 @@ import { fileURLToPath } from 'node:url';
 
 import { canonicalJson, canonicalSha256 } from './canonical-json.mjs';
 import { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
+import { git, objectBytes, verifyObjects } from './source-manifest-git.mjs';
 
 export { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 
 const PREFIX = 'infra/cwv-runner/';
 const LIMITS = { archive: 16_777_216, members: 1024, member: 1_048_576 };
-const TRUSTED_GIT = '/usr/bin/git';
-function trustedGitEnvironment() {
-  const env = {
-    PATH: '/usr/bin:/bin',
-    GIT_CONFIG_GLOBAL: '/dev/null',
-    GIT_CONFIG_NOSYSTEM: '1',
-    GIT_NO_REPLACE_OBJECTS: '1',
-  };
-  for (const key of ['HOME', 'LANG', 'LC_ALL', 'TZ']) {
-    if (typeof process.env[key] === 'string') env[key] = process.env[key];
-  }
-  return env;
-}
-
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => {
   throw new TypeError(message);
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
-
-function git(cwd, args, input, encoding = 'utf8') {
-  return execFileSync(TRUSTED_GIT, args, {
-    cwd,
-    encoding,
-    input,
-    env: trustedGitEnvironment(),
-    maxBuffer: 512 * 1024 * 1024,
-  });
-}
-
-const verifiedObjects = new Map();
-function verifyObjects(cwd, objectIds) {
-  const ids = [...new Set(objectIds)].filter((id) => !verifiedObjects.has(`${cwd}\0${id}`));
-  if (!ids.length) return;
-  const output = git(cwd, ['cat-file', '--batch'], `${ids.join('\n')}\n`, null);
-  let offset = 0;
-  for (const objectId of ids) {
-    const headerEnd = output.indexOf(0x0a, offset);
-    if (headerEnd < 0) fail('malformed Git object response');
-    const [reported, type, sizeText] = output.subarray(offset, headerEnd).toString('utf8').split(' ');
-    const size = Number(sizeText);
-    const start = headerEnd + 1;
-    if (reported !== objectId || !/^(blob|commit|tree|tag)$/.test(type) || !Number.isSafeInteger(size) || size < 0 || output.length < start + size + 1) fail('malformed Git object response');
-    const bytes = output.subarray(start, start + size);
-    const algorithm = objectId.length === 64 ? 'sha256' : 'sha1';
-    const actual = createHash(algorithm).update(Buffer.concat([Buffer.from(`${type} ${size}\0`), bytes])).digest('hex');
-    if (actual !== objectId) fail('Git object hash mismatch');
-    verifiedObjects.set(`${cwd}\0${objectId}`, { type, bytes: Buffer.from(bytes) });
-    offset = start + size + 1;
-  }
-}
 
 function checkedSha(value, field) {
   if (typeof value !== 'string' || !/^[0-9a-f]{40,64}$/.test(value)) fail(`invalid ${field}`);
@@ -85,15 +39,6 @@ function checkedPath(value) {
 function checkedMode(mode) {
   if (mode !== '100644' && mode !== '100755') fail('unsupported Git mode');
   return mode;
-}
-
-function objectBytes(cwd, objectId) {
-  if (!/^[0-9a-f]{40,64}$/.test(objectId)) fail('invalid Git object id');
-  const key = `${cwd}\0${objectId}`;
-  if (!verifiedObjects.has(key)) verifyObjects(cwd, [objectId]);
-  const object = verifiedObjects.get(key);
-  if (!object || object.type !== 'blob') fail('invalid Git blob');
-  return Buffer.from(object.bytes);
 }
 
 function treeRows(cwd, sha, prefix = '') {
@@ -131,7 +76,7 @@ function verifyTreeClosure(cwd, sha) {
   }
   const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
   ids.push(tree);
-  verifyObjects(cwd, ids);
+  const verifiedObjects = verifyObjects(cwd, ids);
   const object = verifiedObjects.get(`${cwd}\0${sha}`);
   if (!object || object.type !== 'commit') fail('source SHA must name a commit');
 }
@@ -146,7 +91,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   checkedSha(baseSha, 'base SHA');
   checkedSha(reviewedHeadSha, 'reviewed head SHA');
   checkedSha(mergeSha, 'merge SHA');
-  verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
+  const verifiedObjects = verifyObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
   for (const sha of [baseSha, reviewedHeadSha, mergeSha]) {
     const object = verifiedObjects.get(`${cwd}\0${sha}`);
     if (!object || object.type !== 'commit') fail('source SHA must name a commit');

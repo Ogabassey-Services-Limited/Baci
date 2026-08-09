@@ -11,19 +11,12 @@ import { readHeldTask9File } from './task9-held-file.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
 import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
+import { TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
 const ID = /^[a-z0-9][a-z0-9._-]{0,127}$/;
 const TRANSACTION_ID = /^[a-z0-9][a-z0-9-]{0,62}$/;
-const MODES = Object.freeze({
-  'manifest.json': '100400',
-  'manifest.sha256': '100400',
-  'node-provenance.json': '100400',
-  node: '100500',
-  'source.tar': '100400',
-  'source.tar.sha256': '100400',
-  'task9-bootstrap.mjs': '100400',
-});
+const MODES = TASK9_PAYLOAD_FILES;
 const CHECKOUT_ROOT = realpathSync(resolve(dirname(fileURLToPath(import.meta.url)), '../..'));
 const hash = (value) => createHash('sha256').update(value).digest('hex');
 const fail = (message) => { throw new TypeError(message); };
