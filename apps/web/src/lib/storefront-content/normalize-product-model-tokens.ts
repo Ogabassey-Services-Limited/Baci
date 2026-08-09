@@ -2,6 +2,7 @@ import { PRODUCT_VARIANT_COLOR_TOKENS } from '@/config/product-variant-color-tok
 import { isProductVariantRegionToken } from './is-product-variant-region-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { stripModelMetadataSuffixes } from './strip-model-metadata-suffixes';
+import { stripTrailingWirelessAudioDescriptor } from './strip-trailing-wireless-audio-descriptor';
 import { stripUsedDeviceConditionMetadata } from './strip-used-device-condition-metadata';
 
 const MERCHANDISING_ONLY_TOKENS = new Set([
@@ -276,8 +277,11 @@ export function normalizeProductModelTokens(
     stripTerminalDisplay
   );
   const withoutFeature = stripOptionalFeatureSuffix(withoutDisplaySuffix);
-  const withoutConditionMetadata =
-    stripUsedDeviceConditionMetadata(withoutFeature);
+  const withoutWirelessDescriptor =
+    stripTrailingWirelessAudioDescriptor(withoutFeature);
+  const withoutConditionMetadata = stripUsedDeviceConditionMetadata(
+    withoutWirelessDescriptor
+  );
   const withoutSplitCapacity = stripModelMetadataSuffixes(
     withoutConditionMetadata
   );

@@ -1,11 +1,10 @@
 import { CONTENT_CLUSTER_SUPPORT } from '@/config/storefront-content-clusters';
 import type { BuildCommercialGuideLinksContext } from './content-cluster-types';
+import { isProductModelMetadataToken } from './is-product-model-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 
 const { isDimensionToken } = modelTokenMatchers;
 
-const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:intel|ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
@@ -81,7 +80,7 @@ export function getExcludedModelIdentifierTokens(
           return false;
         }
         return (
-          !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
+          !isProductModelMetadataToken(token, context.categorySlug) &&
           !YEAR_TOKEN_PATTERN.test(token) &&
           !isDimensionToken(slugTokens, index)
         );
@@ -90,7 +89,7 @@ export function getExcludedModelIdentifierTokens(
         (token, index) =>
           !excludedTokens.has(token) &&
           !aliasTokens.includes(token) &&
-          !MODEL_METADATA_TOKEN_PATTERN.test(token) &&
+          !isProductModelMetadataToken(token, context.categorySlug) &&
           !YEAR_TOKEN_PATTERN.test(token) &&
           !isDimensionToken(slugTokens, index)
       );

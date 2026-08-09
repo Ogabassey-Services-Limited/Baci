@@ -7,6 +7,8 @@ import { getProductModelIdentifiersFromSources } from './get-product-model-ident
 import { getProtectedModelFamilyTokens } from './get-protected-model-family-tokens';
 import { hasConsoleProductDescriptor } from './has-console-product-descriptor';
 import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
+import { isGameProduct } from './is-game-product';
+import { isProductModelMetadataToken } from './is-product-model-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
@@ -31,8 +33,6 @@ function tokenize(value: string) {
       (token) => token.length > 1 || /\d/u.test(token) || /^[a-z]$/u.test(token)
     );
 }
-const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:intel|ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'buds',
@@ -74,7 +74,11 @@ function stripLeadingFillerTokens(tokens: string[]) {
   );
   return tokens.slice(firstModelToken < 0 ? tokens.length : firstModelToken);
 }
-function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
+function stripLeadingDisplaySize(
+  tokens: string[],
+  sourceTokens: string[],
+  categorySlug: string
+) {
   if (!DISPLAY_SIZE_CATEGORY_SLUGS.has(categorySlug)) {
     return tokens;
   }
@@ -90,10 +94,10 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     /^\d{2}$/u.test(firstToken) &&
     displaySize >= 10 &&
     displaySize <= 20 &&
+    !isDimensionToken(tokens, 1) &&
     (nextToken === 'inch' ||
-      nextToken === 'macbook' ||
-      nextToken === 'pro' ||
-      isDimensionToken(tokens, 1)) &&
+      sourceTokens.includes('macbook') ||
+      sourceTokens.includes('ipad')) &&
     !['intel', 'amd', 'core', 'ryzen'].includes(nextToken);
   const isDecimalDisplayPrefix =
     /^\d{1,2}$/u.test(firstToken) &&
@@ -110,11 +114,6 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
   const displayPrefixLength = isDecimalDisplayPrefix ? 2 : 1;
   const hasExplicitDisplayMarker = tokens[displayPrefixLength] === 'inch';
   return tokens.slice(displayPrefixLength + (hasExplicitDisplayMarker ? 1 : 0));
-}
-function isModelMetadataToken(token: string, categorySlug: string) {
-  return (
-    categorySlug !== 'printers' && MODEL_METADATA_TOKEN_PATTERN.test(token)
-  );
 }
 const SEPARATED_MODEL_METADATA_UNITS = new Set([
   'gb',
@@ -194,11 +193,15 @@ function getModelTokens(
   const tokens = GAME_CATEGORY_PATTERN.test(categorySlug)
     ? platformStrippedTokens
     : stripGeneratedCollisionSuffix(
-        stripLeadingDisplaySize(platformStrippedTokens, categorySlug)
+        stripLeadingDisplaySize(
+          platformStrippedTokens,
+          sourceTokens,
+          categorySlug
+        )
       );
   const modelTokens = tokens.filter(
     (token, index) =>
-      !isModelMetadataToken(token, categorySlug) &&
+      !isProductModelMetadataToken(token, categorySlug) &&
       !isSeparatedModelMetadataToken(tokens, index) &&
       !isBareCapacityMetadataToken(tokens, index) &&
       token !== 'inch' &&
@@ -233,32 +236,7 @@ export function getProductModelIdentifiers(
     context.productNames ?? context.productSlugs ?? [],
     tokenize
   );
-  const gameHardwareMarkers = new Set([
-    'adapter',
-    'cable',
-    'charger',
-    'controller',
-    'dock',
-    'headset',
-    'keyboard',
-    'remote',
-    'speaker',
-    'stand',
-  ]);
-  const isGameProduct =
-    isGameCategory &&
-    (!new Set([
-      'gaming',
-      'portable-gaming',
-      'playstation-4',
-      'playstation-5',
-      'nintendo-switch',
-      'nintendo-switch-2',
-      'xbox',
-    ]).has(context.categorySlug) ||
-      !(context.productNames ?? context.productSlugs ?? [])
-        .flatMap(tokenize)
-        .some((token) => gameHardwareMarkers.has(token)));
+  const preserveGameTitleTokens = isGameProduct(context, tokenize);
   const baseExcludedTokens = new Set(
     [
       ...(context.brands ?? []).flatMap(tokenize),
@@ -296,9 +274,9 @@ export function getProductModelIdentifiers(
             tokenize
           ),
           context.categorySlug,
-          isGameProduct
+          preserveGameTitleTokens
         ),
-        isGameProduct
+        preserveGameTitleTokens
       )
   );
 }

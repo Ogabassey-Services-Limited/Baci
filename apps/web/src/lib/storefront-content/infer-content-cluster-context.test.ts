@@ -151,6 +151,18 @@ describe('inferContentClusterContext', () => {
     );
   });
 
+  it('applies joined-title corrections before alias-only brand inference', () => {
+    expect(
+      inferContentClusterContext({
+        title: 'AirPod 2 Buyer Guide',
+        excerpt: 'Which generation should you buy?',
+        category: 'Audio',
+        tags: [],
+        keywords: [],
+      }).brands
+    ).toContain('apple');
+  });
+
   it('prefers the most specific explicit category alias over generic parent aliases', () => {
     expect(
       inferContentClusterContext({

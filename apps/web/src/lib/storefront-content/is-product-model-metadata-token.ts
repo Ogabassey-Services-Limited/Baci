@@ -1,0 +1,17 @@
+const MODEL_METADATA_TOKEN_PATTERN =
+  /^(?:intel|ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
+const MONITOR_RESOLUTION_TOKENS = new Set(['4k', '8k', 'fhd', 'qhd', 'uhd']);
+
+/** Identifies catalog specifications that should not become product identity. */
+export function isProductModelMetadataToken(
+  token: string,
+  categorySlug: string
+) {
+  if (categorySlug === 'printers') {
+    return false;
+  }
+  return (
+    MODEL_METADATA_TOKEN_PATTERN.test(token) ||
+    (categorySlug === 'monitors' && MONITOR_RESOLUTION_TOKENS.has(token))
+  );
+}

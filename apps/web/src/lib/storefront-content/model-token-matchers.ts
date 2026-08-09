@@ -34,9 +34,25 @@ function isDimensionToken(tokens: string[], index: number) {
 
 const LAPTOP_CATEGORY_SLUGS = new Set(['gaming-laptops', 'laptops']);
 const NUMERIC_PROCESSOR_SUFFIX_PATTERN = /^\d{3,}[uhtpkgfy]$/u;
+const TRAILING_HARDWARE_METADATA_PATTERN =
+  /^(?:ram|vram|\d+(?:gb|tb|mb|hz|w))$/u;
 
 function isNumericLaptopProcessorSuffix(tokens: string[], index: number) {
   return NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index] ?? '');
+}
+
+function isHardwareOnlyTail(tokens: string[]) {
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index] ?? '';
+    if (token === 'rtx' && /^\d+$/u.test(tokens[index + 1] ?? '')) {
+      index += 1;
+      continue;
+    }
+    if (!TRAILING_HARDWARE_METADATA_PATTERN.test(token)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function stripTrailingLaptopProcessorTier(
@@ -56,22 +72,25 @@ function stripTrailingLaptopProcessorTier(
         NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '')) ||
       (token === 'ryzen' &&
         /^\d{1,2}$/u.test(tokens[index + 1] ?? '') &&
-        NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '')) ||
+        (NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[index + 2] ?? '') ||
+          tokens[index + 2] === 'rtx' ||
+          index + 2 === tokens.length)) ||
       /^i[3579]$/u.test(token) ||
       isNumericLaptopProcessorSuffix(tokens, index)
   );
   if (processorIndex < 1) {
     return tokens;
   }
-  const processorEndIndex = ['core', 'ryzen', 'ultra', 'rtx'].includes(
-    tokens[processorIndex] ?? ''
-  )
-    ? processorIndex + 2
-    : processorIndex + 1;
+  const processorToken = tokens[processorIndex] ?? '';
+  const hasExtendedProcessorSuffix =
+    (processorToken === 'core' || processorToken === 'ryzen') &&
+    NUMERIC_PROCESSOR_SUFFIX_PATTERN.test(tokens[processorIndex + 2] ?? '');
+  const processorEndIndex = hasExtendedProcessorSuffix
+    ? processorIndex + 3
+    : ['core', 'ryzen', 'ultra', 'rtx'].includes(processorToken)
+      ? processorIndex + 2
+      : processorIndex + 1;
   const trailingTokens = tokens.slice(processorEndIndex);
-  const hasModelCodeAfterProcessor = trailingTokens.some((token) =>
-    /^\d{3,}$/u.test(token)
-  );
   let processorStartIndex = processorIndex;
   if (
     tokens[processorIndex] === 'ultra' &&
@@ -105,7 +124,7 @@ function stripTrailingLaptopProcessorTier(
         ? processorIndex - 2
         : processorIndex - 1;
   }
-  if (hasModelCodeAfterProcessor) {
+  if (trailingTokens.length > 0 && !isHardwareOnlyTail(trailingTokens)) {
     return [
       ...tokens.slice(0, processorStartIndex),
       ...tokens.slice(processorEndIndex),

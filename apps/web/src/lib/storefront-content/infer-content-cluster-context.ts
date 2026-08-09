@@ -2,6 +2,7 @@ import {
   CONTENT_CLUSTER_SUPPORT,
   CONTENT_KIND_TOKENS,
 } from '@/config/storefront-content-clusters';
+import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import type {
   ContentClusterKind,
   InferredContentClusterContext,
@@ -18,7 +19,9 @@ interface InferContentClusterContextInput
   > {}
 
 function normalizeText(value: string | null | undefined) {
-  return normalizeContentCurrencyTokens(value?.toLowerCase().trim() ?? '');
+  return normalizeContentCurrencyTokens(
+    applyJoinedTitleCorrections(value?.toLowerCase().trim() ?? '')
+  );
 }
 
 function tokenize(values: Array<string | null | undefined>) {
