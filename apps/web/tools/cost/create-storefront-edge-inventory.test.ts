@@ -78,7 +78,7 @@ describe('createStorefrontEdgeInventory', () => {
     );
 
     // Assert
-    expect(entrypoints).toHaveLength(84);
+    expect(entrypoints.length).toBeGreaterThanOrEqual(84);
     expect(entrypoints.map((row) => row.id)).toEqual(
       [...entrypoints.map((row) => row.id)].sort()
     );

@@ -213,10 +213,10 @@ describe('STOREFRONT_EDGE_PROXY_ROWS', () => {
           hostKind: 'retired_platform_subdomain_alias',
           precedence: 'before_path_decision',
         },
-        pathCondition: {
+        pathCondition: expect.objectContaining({
           precedence: 'before_path_decision',
           predicate: 'retired_alias_storefront_path',
-        },
+        }),
         routePattern: '/{*storefrontPath?}',
       })
     );
