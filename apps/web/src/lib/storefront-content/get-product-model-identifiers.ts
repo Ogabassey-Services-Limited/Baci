@@ -32,7 +32,7 @@ function tokenize(value: string) {
     );
 }
 const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
+  /^(?:intel|ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
   'buds',
@@ -90,7 +90,11 @@ function stripLeadingDisplaySize(tokens: string[], categorySlug: string) {
     /^\d{2}$/u.test(firstToken) &&
     displaySize >= 10 &&
     displaySize <= 20 &&
-    !isDimensionToken(tokens, 1);
+    (nextToken === 'inch' ||
+      nextToken === 'macbook' ||
+      nextToken === 'pro' ||
+      isDimensionToken(tokens, 1)) &&
+    !['intel', 'amd', 'core', 'ryzen'].includes(nextToken);
   const isDecimalDisplayPrefix =
     /^\d{1,2}$/u.test(firstToken) &&
     /^\d$/u.test(nextToken) &&

@@ -5,7 +5,7 @@ import { modelTokenMatchers } from './model-token-matchers';
 const { isDimensionToken } = modelTokenMatchers;
 
 const MODEL_METADATA_TOKEN_PATTERN =
-  /^(?:ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
+  /^(?:intel|ram|vram|(?:\d+(?:gb|tb|mb)){2,}|\d+(?:gb|tb|mb|g|inch|in|hz|mah|mp|w|v|mm|cm|kg|ms)|\d{4,}[a-z]{2,})$/u;
 const YEAR_TOKEN_PATTERN = /^(?:19|20)\d{2}$/u;
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
@@ -22,8 +22,12 @@ const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'watch',
   'xps',
   'inspiron',
+  'omen',
+  'optiplex',
+  'fire',
 ]);
 const NUMERIC_MODEL_FAMILY_ALIAS_TOKENS = new Set(['fire', 'omen', 'optiplex']);
+const HARDWARE_METADATA_TOKEN_PATTERN = /^(?:rtx|core|i[3579]|\d{3,4})$/u;
 
 export function getExcludedModelIdentifierTokens(
   context: Omit<BuildCommercialGuideLinksContext, 'pageKind'>,
@@ -92,7 +96,9 @@ export function getExcludedModelIdentifierTokens(
       );
       const leavesOnlyNumericModel =
         remainingModelTokens.length > 0 &&
-        remainingModelTokens.every((token) => /^\d+$/u.test(token)) &&
+        remainingModelTokens
+          .filter((token) => !HARDWARE_METADATA_TOKEN_PATTERN.test(token))
+          .every((token) => /^\d+$/u.test(token)) &&
         aliasTokens.some((token) =>
           NUMERIC_MODEL_FAMILY_ALIAS_TOKENS.has(token)
         );

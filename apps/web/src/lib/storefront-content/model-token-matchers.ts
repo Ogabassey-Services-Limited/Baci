@@ -63,6 +63,15 @@ function stripTrailingLaptopProcessorTier(
   if (processorIndex < 1) {
     return tokens;
   }
+  const processorEndIndex = ['core', 'ryzen', 'ultra', 'rtx'].includes(
+    tokens[processorIndex] ?? ''
+  )
+    ? processorIndex + 2
+    : processorIndex + 1;
+  const trailingTokens = tokens.slice(processorEndIndex);
+  const hasModelCodeAfterProcessor = trailingTokens.some((token) =>
+    /^\d{3,}$/u.test(token)
+  );
   let processorStartIndex = processorIndex;
   if (
     tokens[processorIndex] === 'ultra' &&
@@ -87,6 +96,20 @@ function stripTrailingLaptopProcessorTier(
     /^\d{1,2}$/u.test(tokens[processorIndex - 1] ?? '')
   ) {
     processorStartIndex = processorIndex - 1;
+  } else if (
+    /^i[3579]$/u.test(tokens[processorIndex] ?? '') &&
+    tokens[processorIndex - 1] === 'core'
+  ) {
+    processorStartIndex =
+      tokens[processorIndex - 2] === 'intel'
+        ? processorIndex - 2
+        : processorIndex - 1;
+  }
+  if (hasModelCodeAfterProcessor) {
+    return [
+      ...tokens.slice(0, processorStartIndex),
+      ...tokens.slice(processorEndIndex),
+    ];
   }
   return tokens.slice(0, processorStartIndex);
 }

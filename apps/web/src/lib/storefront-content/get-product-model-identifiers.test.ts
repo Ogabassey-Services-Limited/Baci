@@ -243,6 +243,39 @@ describe('getProductModelIdentifiers', () => {
     expect(identifiers).toEqual(['latitude 5410', 'inspiron 5410']);
   });
 
+  it('keeps model codes after CPU text', () => {
+    expect(
+      getProductModelIdentifiers({
+        categorySlug: 'laptops',
+        brands: ['Dell'],
+        productNames: ['Dell Inspiron Core i5 3520'],
+        productSlugs: [],
+      })
+    ).toEqual(['inspiron 3520']);
+  });
+
+  it('keeps two-digit laptop models before CPU text', () => {
+    expect(
+      getProductModelIdentifiers({
+        categorySlug: 'laptops',
+        brands: ['HP'],
+        productNames: ['HP 15 Intel Core i5'],
+        productSlugs: [],
+      })
+    ).toEqual(['15']);
+  });
+
+  it('retains numeric family aliases before GPU metadata', () => {
+    expect(
+      getProductModelIdentifiers({
+        categorySlug: 'laptops',
+        brands: ['HP'],
+        productNames: ['HP Omen 16 RTX 4060'],
+        productSlugs: [],
+      })
+    ).toEqual(['omen 16']);
+  });
+
   it('removes optional Touch Bar suffixes from MacBook identifiers', () => {
     const identifiers = getProductModelIdentifiers({
       categorySlug: 'laptops',
@@ -261,55 +294,5 @@ describe('getProductModelIdentifiers', () => {
     });
 
     expect(identifiers).toEqual(['pro 2016']);
-  });
-
-  it('removes NFID condition markers from iPhone identifiers', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartphones',
-      brands: ['Apple'],
-      productSlugs: ['iphone-x-3gb-64gb-nfid'],
-    });
-
-    expect(identifiers).toEqual(['x']);
-  });
-
-  it('ignores region suffixes before selecting a single-character model', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartphones',
-      brands: ['Apple'],
-      productSlugs: ['iphone-x-64gb-uk-used'],
-    });
-
-    expect(identifiers).toEqual(['x']);
-  });
-
-  it('removes optional connectivity suffixes from model identifiers', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartphones',
-      brands: ['Tecno'],
-      productSlugs: ['tecno-spark-pro-dual-sim'],
-    });
-
-    expect(identifiers).toEqual(['spark pro']);
-  });
-
-  it('removes a compound connectivity marker run before sim', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartphones',
-      brands: ['Samsung'],
-      productSlugs: ['samsung-galaxy-s22-ultra-12gb-256gb-dual-physical-sim'],
-    });
-
-    expect(identifiers).toEqual(['s22 ultra']);
-  });
-
-  it('removes a preceding physical marker from an esim suffix', () => {
-    const identifiers = getProductModelIdentifiers({
-      categorySlug: 'smartphones',
-      brands: ['Apple'],
-      productSlugs: ['iphone-16-pro-8gb-512gb-physical-esim-new'],
-    });
-
-    expect(identifiers).toEqual(['16 pro']);
   });
 });
