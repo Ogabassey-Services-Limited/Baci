@@ -273,15 +273,18 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     ['/sitemap.xml', 'edge_release'],
     ['/blog/sitemap.xml', 'edge_release'],
     ['/terms', 'edge_release'],
-  ] as const)('keeps the special route %s on its base decision when a query is present', (pathname, expectedDecision) => {
-    // Arrange: the query is represented by selecting query-conditioned rows.
+  ] as const)(
+    'keeps the special route %s on its base decision when a query is present',
+    (pathname, expectedDecision) => {
+      // Arrange: the query is represented by selecting query-conditioned rows.
 
-    // Act
-    const decision = resolveQueryDecision(pathname);
+      // Act
+      const decision = resolveQueryDecision(pathname);
 
-    // Assert
-    expect(decision).toBe(expectedDecision);
-  });
+      // Assert
+      expect(decision).toBe(expectedDecision);
+    }
+  );
 
   it('defines a closed nonzero eligible denominator', () => {
     // Arrange and act

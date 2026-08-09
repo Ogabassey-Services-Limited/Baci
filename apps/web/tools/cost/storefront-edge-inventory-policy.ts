@@ -53,6 +53,23 @@ const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
   },
 ];
 
+const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
+  '/',
+  '/{storefrontIdentifier}',
+].map((routePattern, index) => ({
+  decision: 'origin_dynamic',
+  id: `request-override:markdown-negotiation-${index === 0 ? 'root' : 'storefront'}`,
+  methods: ['GET', 'HEAD'],
+  reason: 'next_markdown_content_negotiation_rewrite',
+  requestCondition: {
+    anyHeaderMatch: [{ name: 'accept', value: 'text/markdown' }],
+    precedence: 'before_path_decision',
+  },
+  routePattern,
+  sourceKind: 'request_override',
+  sourcePath: 'next.config.ts',
+}));
+
 const QUERY_DEPENDENT_ENTRYPOINTS = [
   {
     id: 'blog-root',
@@ -138,6 +155,8 @@ const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
           'search',
           'simType',
           'storage',
+          'variantId',
+          'variant_id',
         ],
         matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
           STOREFRONT_ROUTE_SOURCE_PREFIX.length
@@ -192,6 +211,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     API_TERMINAL_ROW,
     ...DRAFT_MODE_ROWS,
     ...ROUTER_DATA_ROWS,
+    ...MARKDOWN_NEGOTIATION_ROWS,
     ...QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
