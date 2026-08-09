@@ -161,3 +161,32 @@ test('applies the exact output mode despite a restrictive umask', () => {
     rmSync(parent, { force: true, recursive: true });
   }
 });
+
+test('rechecks the output entry set after final validation', () => {
+  const parent = mkdtempSync(join(tmpdir(), 'task9-output-final-entry-'));
+  const output = join(parent, 'output');
+  try {
+    assert.throws(
+      () =>
+        withTask9OutputDirectory(
+          output,
+          () => {
+            writeFileSync(join(output, 'bootstrap-review-envelope.json'), '{}');
+            writeFileSync(
+              join(output, 'bootstrap-review-envelope.sha256'),
+              'digest\n'
+            );
+            mkdirSync(join(output, 'payload'));
+          },
+          {
+            afterPublishValidation() {
+              writeFileSync(join(output, 'unexpected'), 'race');
+            },
+          }
+        ),
+      /output entry set changed/
+    );
+  } finally {
+    rmSync(parent, { force: true, recursive: true });
+  }
+});

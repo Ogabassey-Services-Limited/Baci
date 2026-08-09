@@ -53,6 +53,14 @@ export function withTask9OutputDirectory(
 ) {
   let directoryFd;
   try {
+    const assertEntries = () => {
+      const entries = readdirSync(outputRoot).sort();
+      if (
+        entries.length !== OUTPUT_ENTRIES.length ||
+        entries.some((entry, index) => entry !== OUTPUT_ENTRIES[index])
+      )
+        throw new TypeError('Task 9 output entry set changed');
+    };
     const createdHandle = makeDirectory(outputRoot, { mode: 0o700 });
     if (
       !createdHandle ||
@@ -74,13 +82,14 @@ export function withTask9OutputDirectory(
       !exactDirectory(created, lstatSync(outputRoot, { throwIfNoEntry: false }))
     )
       throw new TypeError('Task 9 output directory changed');
-    const entries = readdirSync(outputRoot).sort();
-    if (
-      entries.length !== OUTPUT_ENTRIES.length ||
-      entries.some((entry, index) => entry !== OUTPUT_ENTRIES[index])
-    )
-      throw new TypeError('Task 9 output entry set changed');
+    assertEntries();
     afterPublishValidation();
+    if (
+      !exactDirectory(created, fstatSync(directoryFd)) ||
+      !exactDirectory(created, lstatSync(outputRoot, { throwIfNoEntry: false }))
+    )
+      throw new TypeError('Task 9 output directory changed');
+    assertEntries();
     return result;
   } finally {
     if (directoryFd !== undefined) closeSync(directoryFd);
