@@ -23,14 +23,25 @@ describe('remediation deploy crontab', () => {
 
   it('runs the opt-in Codex canary once daily behind the same global lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+    const canaryCronLine = deployScript
+      .split('\n')
+      .find((line) => line.includes('jobs/remediation-codex-canary.mjs'));
 
+    assert.ok(canaryCronLine);
     assert.match(
-      deployScript,
-      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_REMEDIATION_CANARY_ENABLED=1/
+      canaryCronLine,
+      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=/
     );
-    assert.match(deployScript, /jobs\/remediation-codex-canary\.mjs/);
+    assert.doesNotMatch(
+      canaryCronLine,
+      /BACI_REMEDIATION_CANARY_ENABLED=/
+    );
     assert.match(
-      deployScript,
+      canaryCronLine,
+      /jobs\/remediation-codex-canary\.mjs/
+    );
+    assert.match(
+      canaryCronLine,
       />> \$REMOTE_DIR\/logs\/remediation-codex-canary\.log 2>&1/
     );
   });

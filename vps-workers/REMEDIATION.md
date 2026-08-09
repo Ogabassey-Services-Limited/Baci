@@ -53,7 +53,7 @@ authoritative; its GitHub token must not bypass required checks or reviews.
 `jobs/remediation-codex-canary.mjs` is a daily, Docker-only read-only check of
 the Codex toolchain. It shares the global remediation lock and writes its own
 `logs/remediation-codex-canary.log`. Set `BACI_REMEDIATION_CANARY_ENABLED=1`
-explicitly to run it; otherwise it emits a single sanitized skipped JSONL
+explicitly in the operator-managed `.env` to run it; otherwise it emits a single sanitized skipped JSONL
 record. Toolchain, quota, and authorization failures emit a sanitized JSONL
 failure record and use the configured remediation notification email when
 available. The canary never reads incident providers, creates a worktree,
