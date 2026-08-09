@@ -49,6 +49,7 @@ export function buildCodexRemediationPrompt({ candidate }) {
       firstSeen: String(candidate.firstSeen || '').slice(0, 80),
       lastSeen: String(candidate.lastSeen || '').slice(0, 80),
       source: String(sample.source || 'vercel').slice(0, 80),
+      category: String(sample.category || '').slice(0, 120),
       route: String(sample.route || '').slice(0, 240),
       deploymentId: String(sample.deploymentId || '').slice(0, 120),
       requestId: String(sample.requestId || '').slice(0, 120),

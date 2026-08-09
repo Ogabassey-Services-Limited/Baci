@@ -33,6 +33,8 @@ export function buildRemediationReport({
     return [
       `fingerprint=${candidate.fingerprint}`,
       `occurrences=${candidate.occurrences}`,
+      `source=${sample.source || '(unknown)'}`,
+      `category=${sample.category || '(unknown)'}`,
       `route=${sample.route || '(unknown)'}`,
       `deployment=${sample.deploymentId || '(unknown)'}`,
       `sentryIssue=${sample.issueId || '(unknown)'}`,

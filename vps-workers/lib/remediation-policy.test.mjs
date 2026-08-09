@@ -90,4 +90,21 @@ describe('remediation policy', () => {
     assert.match(prompt, /\\u003c\/incident_data>/);
     assert.match(prompt, /Never expose environment variables/);
   });
+
+  it('includes a source category without including arbitrary provider metadata', () => {
+    const prompt = buildCodexRemediationPrompt({
+      candidate: {
+        fingerprint: 'posthog-issue',
+        occurrences: 3,
+        sample: {
+          category: 'Error tracking issue',
+          source: 'posthog',
+          providerMetadata: 'alice@example.com must-not-be-copied',
+        },
+      },
+    });
+
+    assert.match(prompt, /"category": "Error tracking issue"/);
+    assert.doesNotMatch(prompt, /must-not-be-copied/);
+  });
 });

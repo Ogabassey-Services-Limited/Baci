@@ -8,10 +8,13 @@ service. Expose only an HTTPS reverse proxy path to this local listener.
 
 `jobs/vercel-error-remediator.mjs` handles repeated Vercel runtime/build errors.
 `jobs/sentry-mobile-error-remediator.mjs` polls unresolved native mobile issues
-from the dedicated Sentry project every five minutes. It copies only bounded,
-classified issue metadata rather than event payloads or user data. Both workers
-reserve and persist last-seen observations so concurrent cron ticks do not wake
-Codex twice for the same incident.
+from the dedicated Sentry project every five minutes. `jobs/posthog-error-remediator.mjs`
+polls active PostHog Error Tracking issue summaries on a bounded 15-minute
+schedule. The API source copies only a fixed category, stable issue identity,
+timestamps, and occurrence count; it never copies error text, stack frames,
+event properties, sessions, or users. All workers reserve and persist last-seen
+observations so concurrent cron ticks do not wake Codex twice for the same
+incident.
 
 In dry-run mode the workers write remediation prompts and email operator reports.
 Run them manually with:
@@ -20,7 +23,16 @@ Run them manually with:
 cd /home/bassey/baci-workers
 node jobs/vercel-error-remediator.mjs
 node jobs/sentry-mobile-error-remediator.mjs
+node jobs/posthog-error-remediator.mjs
 ```
+
+The PostHog worker requires `POSTHOG_REMEDIATION_HOST`,
+`POSTHOG_REMEDIATION_PROJECT_ID`, and a separate
+`POSTHOG_REMEDIATION_PERSONAL_API_KEY` limited to `error_tracking:read`. Do not
+use a `phc_` project ingestion key or the source-map upload credential as a
+read credential. It uses the documented Error Tracking issues endpoint with
+offset pagination, reads at most 100 summaries per page, defaults to one page,
+and fails closed if the configured page ceiling would leave a measurement gap.
 
 Autofix mode is off by default. With `BACI_REMEDIATION_AUTOFIX_ENABLED=1`, the
 worker creates an isolated worktree from the full checkout at `BACI_REPO_DIR`,
