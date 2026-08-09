@@ -1,9 +1,10 @@
 import { applyJoinedTitleCorrections } from './apply-joined-title-corrections';
 import { modelTokenMatchers } from './model-token-matchers';
+import { normalizeCompactModelTierTokens } from './normalize-compact-model-tier-tokens';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 
 export function tokenizeContentText(value: string | null | undefined) {
-  return normalizeContentCurrencyTokens(
+  const tokens = normalizeContentCurrencyTokens(
     applyJoinedTitleCorrections(value ?? '')
   )
     .toLowerCase()
@@ -14,4 +15,5 @@ export function tokenizeContentText(value: string | null | undefined) {
       modelTokenMatchers.expandMixedGameCodeToken(token.trim())
     )
     .filter(Boolean);
+  return normalizeCompactModelTierTokens(tokens);
 }

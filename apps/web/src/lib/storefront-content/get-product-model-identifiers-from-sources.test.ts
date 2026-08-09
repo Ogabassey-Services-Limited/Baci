@@ -45,4 +45,14 @@ describe('getProductModelIdentifiersFromSources', () => {
 
     expect(identifiers).toEqual(['xps 13']);
   });
+
+  it('does not replace a clean name identifier with SEO slug words', () => {
+    const identifiers = getProductModelIdentifiersFromSources(
+      ['Apple iPhone 15'],
+      ['buy-iphone-15-online'],
+      (source) => (source.includes('buy') ? 'buy 15 online' : '15')
+    );
+
+    expect(identifiers).toEqual(['15']);
+  });
 });

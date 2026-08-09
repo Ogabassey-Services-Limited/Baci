@@ -208,4 +208,24 @@ describe('hasDistinctCompareIdentifierOccurrences', () => {
       )
     ).toBe(false);
   });
+
+  it('allows display metadata between compare identifier tokens', () => {
+    const result = hasDistinctCompareIdentifierOccurrences(
+      {
+        slug: 'macbook-air-vs-pro',
+        title:
+          'Apple MacBook Air 13-inch M4 versus Apple MacBook Pro 14-inch M4',
+        excerpt: null,
+        category: 'Laptops',
+        tags: null,
+        keywords: ['comparison'],
+        featured_image_url: null,
+        published_at: null,
+        reading_time_minutes: null,
+      },
+      ['air m4', 'pro m4']
+    );
+
+    expect(result).toBe(true);
+  });
 });

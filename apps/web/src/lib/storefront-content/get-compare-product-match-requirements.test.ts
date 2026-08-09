@@ -151,6 +151,21 @@ describe('getCompareProductMatchRequirements', () => {
     ]);
   });
 
+  it('canonicalizes configured alias brands before raw compare brands', () => {
+    const requirements = getCompareProductMatchRequirements({
+      pageKind: 'compare',
+      categorySlug: 'playstation-5',
+      brands: ['Sony', 'Microsoft'],
+      productBrands: ['Sony', 'Microsoft'],
+      productNames: ['Sony DualSense Edge', 'Microsoft Xbox Series X'],
+    });
+
+    expect(requirements.map(({ brand }) => brand)).toEqual([
+      'playstation',
+      'xbox',
+    ]);
+  });
+
   it('retains brands when nonnumeric model phrases collide by guide wording', () => {
     const requirements = getCompareProductMatchRequirements({
       pageKind: 'compare',

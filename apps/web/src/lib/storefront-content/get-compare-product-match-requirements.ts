@@ -51,13 +51,12 @@ function getBrandCandidates(context: BuildCommercialGuideLinksContext) {
     markers: [brand, ...aliases],
   }));
 
-  return [
-    ...configured,
-    ...(context.brands ?? []).map((brand) => ({
-      brand: generateSlug(brand),
-      markers: [brand],
-    })),
-  ];
+  const contextual = (context.brands ?? []).map((brand) => ({
+    brand: generateSlug(brand),
+    markers: [brand],
+  }));
+
+  return { configured, contextual };
 }
 
 function inferSourceBrand(
@@ -65,30 +64,36 @@ function inferSourceBrand(
   context: BuildCommercialGuideLinksContext,
   explicitBrand?: string | null
 ) {
-  const candidates = getBrandCandidates(context);
+  const { configured, contextual } = getBrandCandidates(context);
   if (explicitBrand) {
     const explicitTokens = new Set(tokenize(explicitBrand));
     return (
-      candidates.find(({ brand }) =>
+      configured.find(({ brand }) =>
         tokenize(brand).every((token) => explicitTokens.has(token))
       )?.brand ??
-      candidates.find(({ markers }) =>
+      configured.find(({ markers }) =>
         markers.some((marker) =>
           tokenize(marker).every((token) => explicitTokens.has(token))
         )
+      )?.brand ??
+      contextual.find(({ brand }) =>
+        tokenize(brand).every((token) => explicitTokens.has(token))
       )?.brand ??
       generateSlug(explicitBrand)
     );
   }
   const sourceTokens = new Set(tokenize(source));
   return (
-    candidates.find(({ brand }) =>
+    configured.find(({ brand }) =>
       tokenize(brand).every((token) => sourceTokens.has(token))
     )?.brand ??
-    candidates.find(({ markers }) =>
+    configured.find(({ markers }) =>
       markers.some((marker) =>
         tokenize(marker).every((token) => sourceTokens.has(token))
       )
+    )?.brand ??
+    contextual.find(({ brand }) =>
+      tokenize(brand).every((token) => sourceTokens.has(token))
     )?.brand ??
     null
   );

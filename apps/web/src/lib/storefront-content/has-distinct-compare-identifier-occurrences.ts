@@ -1,4 +1,5 @@
 import type { PublishedClusterPost } from './content-cluster-types';
+import { findCleanIdentifierEnd } from './find-clean-identifier-end';
 import { getPostTokenGroups } from './get-post-token-groups';
 import { isVariantOnlyComparisonSegment } from './is-variant-only-comparison-segment';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
@@ -24,8 +25,9 @@ function countIdentifierOccurrences(tokens: string[], identifier: string) {
     return 0;
   }
 
-  return tokens.filter((_, index) =>
-    identifierTokens.every((token, offset) => tokens[index + offset] === token)
+  return tokens.filter(
+    (_, index) =>
+      findCleanIdentifierEnd(tokens, identifierTokens, index) !== null
   ).length;
 }
 
@@ -36,14 +38,18 @@ function isIdentifierInternalBoundary(
 ) {
   return identifiers.some((identifier) => {
     const identifierTokens = tokenizeIdentifier(identifier);
-    return identifierTokens.some(
-      (token, offset) =>
-        token === tokens[boundaryIndex] &&
-        identifierTokens.every(
-          (expected, identifierOffset) =>
-            tokens[boundaryIndex - offset + identifierOffset] === expected
-        )
-    );
+    return tokens.some((_, startIndex) => {
+      const identifierEnd = findCleanIdentifierEnd(
+        tokens,
+        identifierTokens,
+        startIndex
+      );
+      return (
+        identifierEnd !== null &&
+        startIndex <= boundaryIndex &&
+        boundaryIndex < identifierEnd - 1
+      );
+    });
   });
 }
 

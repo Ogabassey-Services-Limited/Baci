@@ -26,4 +26,15 @@ describe('tokenizeContentText', () => {
       'guide',
     ]);
   });
+
+  it('splits compact model tiers like conventional guide titles', () => {
+    expect(tokenizeContentText('Samsung Galaxy S24FE Buyer Guide')).toEqual([
+      'samsung',
+      'galaxy',
+      's24',
+      'fe',
+      'buyer',
+      'guide',
+    ]);
+  });
 });

@@ -10,6 +10,7 @@ import { isBareCapacityMetadataToken } from './is-bare-capacity-metadata-token';
 import { isGameProduct } from './is-game-product';
 import { isProductModelMetadataToken } from './is-product-model-metadata-token';
 import { modelTokenMatchers } from './model-token-matchers';
+import { normalizeCompactModelTierTokens } from './normalize-compact-model-tier-tokens';
 import { normalizeContentCurrencyTokens } from './normalize-content-currency-tokens';
 import { normalizeProductModelTokens } from './normalize-product-model-tokens';
 import { selectProductModelIdentifier } from './select-product-model-identifier';
@@ -21,7 +22,7 @@ const {
 } = modelTokenMatchers;
 
 function tokenize(value: string) {
-  return normalizeContentCurrencyTokens(value)
+  const tokens = normalizeContentCurrencyTokens(value)
     .replace(/(\d{1,2}(?:\.\d+)?)\s*["″”]/gu, '$1 inch')
     .toLowerCase()
     .replace(/[’']s\b/gu, '')
@@ -32,6 +33,7 @@ function tokenize(value: string) {
     .filter(
       (token) => token.length > 1 || /\d/u.test(token) || /^[a-z]$/u.test(token)
     );
+  return normalizeCompactModelTierTokens(tokens);
 }
 const MODEL_FAMILY_ALIAS_TOKENS = new Set([
   'airpods',
