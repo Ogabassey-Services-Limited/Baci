@@ -1,13 +1,56 @@
-function canonicalize(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .filter(([key]) => key !== 'capabilityHash')
-      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${canonicalize(entry)}`)
-      .join(',')}}`;
+function rejectNonJsonValue(): never {
+  throw new Error('Expected JSON-compatible capability data');
+}
+
+function canonicalize(
+  value: unknown,
+  isRoot = true,
+  ancestors = new Set<object>()
+): string {
+  if (
+    value === null ||
+    typeof value === 'string' ||
+    typeof value === 'boolean'
+  ) {
+    return JSON.stringify(value);
   }
-  return JSON.stringify(value);
+  if (typeof value === 'number') {
+    return Number.isFinite(value)
+      ? JSON.stringify(value)
+      : rejectNonJsonValue();
+  }
+  if (Array.isArray(value)) {
+    if (ancestors.has(value)) return rejectNonJsonValue();
+    ancestors.add(value);
+    const entries = Array.from({ length: value.length }, (_, index) => {
+      if (!Object.keys(value).includes(String(index))) {
+        return rejectNonJsonValue();
+      }
+      return canonicalize(value[index], false, ancestors);
+    });
+    ancestors.delete(value);
+    return `[${entries.join(',')}]`;
+  }
+  if (
+    typeof value !== 'object' ||
+    Object.getPrototypeOf(value) !== Object.prototype
+  ) {
+    return rejectNonJsonValue();
+  }
+  if (ancestors.has(value)) return rejectNonJsonValue();
+  if (Object.getOwnPropertySymbols(value).length > 0)
+    return rejectNonJsonValue();
+  ancestors.add(value);
+  const result = `{${Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !isRoot || key !== 'capabilityHash')
+    .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    .map(
+      ([key, entry]) =>
+        `${JSON.stringify(key)}:${canonicalize(entry, false, ancestors)}`
+    )
+    .join(',')}}`;
+  ancestors.delete(value);
+  return result;
 }
 
 const roundConstants = [

@@ -49,18 +49,64 @@ describe('getBuilderDesignCapabilityHash', () => {
     );
   });
 
-  it('preserves recursive canonical key order while excluding capabilityHash', () => {
+  it('excludes capabilityHash only at the root level', () => {
     expect(
       getBuilderDesignCapabilityHash({
         nested: { beta: 2, alpha: 1 },
         capabilityHash: 'stale',
       })
     ).toBe(getBuilderDesignCapabilityHash({ nested: { alpha: 1, beta: 2 } }));
+    expect(
+      getBuilderDesignCapabilityHash({ nested: { capabilityHash: 'first' } })
+    ).not.toBe(
+      getBuilderDesignCapabilityHash({ nested: { capabilityHash: 'second' } })
+    );
   });
 
   it('orders Unicode keys by deterministic UTF-16 code units', () => {
     expect(getBuilderDesignCapabilityHash({ ä: 2, z: 1 })).toBe(
       '7832a5d6150a56da1a4f0c8fa00c26a7350389b0fc8696707cd2abbbd32be0c1'
+    );
+  });
+
+  it.each([
+    [
+      { emoji: '😀' },
+      '4525cb52c6a0122eacc150bacd11eb4a1d4615485ca8a5639c28d70f1c240193',
+    ],
+    [
+      { x: 'a'.repeat(47) },
+      '02ba17f0ecc41d4bf8ea87b4119cbf5723e3d82d9584b0c81613d61362eb260f',
+    ],
+    [
+      { x: 'a'.repeat(48) },
+      'a50ce99268758d8860c127a5218ddbfbdcefb1d8aca94fa1a5c87886729551a4',
+    ],
+    [
+      { x: 'a'.repeat(55) },
+      'e3bf771ac4144826ee5114dd6e3bdf8ad3578a60a82603effc01e794edebffba',
+    ],
+    [
+      { x: 'a'.repeat(56) },
+      'cbfe309710dfddfd92f968127a31ece329232735822976115285805f5d47391a',
+    ],
+  ])('matches an independently generated UTF-8 SHA-256 vector', (value, hash) => {
+    expect(getBuilderDesignCapabilityHash(value)).toBe(hash);
+  });
+
+  it.each([
+    [undefined],
+    [[undefined]],
+    [{ value: undefined }],
+    [{ value: Number.NaN }],
+    [{ value: Number.POSITIVE_INFINITY }],
+    [{ value: 1n }],
+    [{ value: () => undefined }],
+    [{ value: Symbol('value') }],
+    [new Date()],
+  ])('rejects non-JSON-compatible capability input: %o', (value) => {
+    expect(() => getBuilderDesignCapabilityHash(value)).toThrow(
+      'Expected JSON-compatible capability data'
     );
   });
 });
