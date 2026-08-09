@@ -109,4 +109,27 @@ describe('getBuilderDesignCapabilityHash', () => {
       'Expected JSON-compatible capability data'
     );
   });
+
+  it.each([
+    (() => {
+      const value: unknown[] & { extra?: string } = [];
+      value.extra = 'ignored';
+      return value;
+    })(),
+    (() => {
+      const value = [] as unknown as unknown[] & Record<PropertyKey, unknown>;
+      value[Symbol('ignored')] = 'ignored';
+      return value;
+    })(),
+    (() => {
+      const value = { visible: true };
+      Object.defineProperty(value, 'hidden', { value: true });
+      return value;
+    })(),
+    Object.defineProperty({}, 'computed', { get: () => 'must not read' }),
+  ])('rejects lossy own properties before serialization: %o', (value) => {
+    expect(() => getBuilderDesignCapabilityHash(value)).toThrow(
+      'Expected JSON-compatible capability data'
+    );
+  });
 });

@@ -2,6 +2,30 @@ function rejectNonJsonValue(): never {
   throw new Error('Expected JSON-compatible capability data');
 }
 
+function getDataDescriptor(
+  value: object,
+  key: PropertyKey
+): PropertyDescriptor {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (!descriptor?.enumerable) {
+    return rejectNonJsonValue();
+  }
+  if (!('value' in descriptor)) {
+    return rejectNonJsonValue();
+  }
+  return descriptor;
+}
+
+function isArrayIndex(key: string, length: number): boolean {
+  const index = Number(key);
+  return (
+    Number.isInteger(index) &&
+    index >= 0 &&
+    index < length &&
+    String(index) === key
+  );
+}
+
 function canonicalize(
   value: unknown,
   isRoot = true,
@@ -21,12 +45,17 @@ function canonicalize(
   }
   if (Array.isArray(value)) {
     if (ancestors.has(value)) return rejectNonJsonValue();
-    ancestors.add(value);
-    const entries = Array.from({ length: value.length }, (_, index) => {
-      if (!Object.keys(value).includes(String(index))) {
+    for (const key of Reflect.ownKeys(value)) {
+      if (key === 'length') continue;
+      if (typeof key !== 'string' || !isArrayIndex(key, value.length)) {
         return rejectNonJsonValue();
       }
-      return canonicalize(value[index], false, ancestors);
+      getDataDescriptor(value, key);
+    }
+    ancestors.add(value);
+    const entries = Array.from({ length: value.length }, (_, index) => {
+      const descriptor = getDataDescriptor(value, String(index));
+      return canonicalize(descriptor.value, false, ancestors);
     });
     ancestors.delete(value);
     return `[${entries.join(',')}]`;
@@ -38,10 +67,12 @@ function canonicalize(
     return rejectNonJsonValue();
   }
   if (ancestors.has(value)) return rejectNonJsonValue();
-  if (Object.getOwnPropertySymbols(value).length > 0)
-    return rejectNonJsonValue();
+  const entries = Reflect.ownKeys(value).map((key) => {
+    if (typeof key !== 'string') return rejectNonJsonValue();
+    return [key, getDataDescriptor(value, key).value] as const;
+  });
   ancestors.add(value);
-  const result = `{${Object.entries(value as Record<string, unknown>)
+  const result = `{${entries
     .filter(([key]) => !isRoot || key !== 'capabilityHash')
     .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
     .map(
