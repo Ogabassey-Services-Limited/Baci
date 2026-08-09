@@ -1,6 +1,7 @@
 import { join, resolve as resolvePath } from 'node:path';
 import { createRemediationCaseState } from './remediation-case-state.mjs';
 import { redactCodexError } from './remediation-codex-output.mjs';
+import { createRemediationDraftPrStatusResolver } from './remediation-draft-pr-status.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 import { retryRemediationNotifications } from './remediation-notification-retry.mjs';
@@ -19,6 +20,7 @@ export async function runRemediationWorker({
   autofixRunner = runRemediationAutofix,
   candidateEnricher,
   candidateLoader,
+  draftPrStatusResolver,
   env = process.env,
   fetchFn = fetch,
   logger = console,
@@ -86,6 +88,17 @@ export async function runRemediationWorker({
     readPositiveInt(env.BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN, 1),
     10
   );
+  if (mode === 'autofix') {
+    const reconciliation = caseState.reconcileDraftPrs({
+      candidates: loadedCandidates,
+      limit: maximumCandidates,
+      resolveDraftPrStatus:
+        draftPrStatusResolver || createRemediationDraftPrStatusResolver(),
+    });
+    if (reconciliation.failed > 0) {
+      actions.push({ type: 'draft_pr_reconciliation_failed' });
+    }
+  }
   const reconciledCandidates = reconcileRemediationLifecycle({
     candidates: loadedCandidates,
     caseState,
