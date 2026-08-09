@@ -30,6 +30,7 @@ function readPositiveInt(value, fallback) {
 
 export function runRemediationCodexCanary({
   env = process.env,
+  logger = console,
   runner = defaultRunner,
 } = {}) {
   if (env.BACI_REMEDIATION_CANARY_ENABLED !== '1') {
@@ -73,11 +74,18 @@ export function runRemediationCodexCanary({
     return { type: 'canary_completed' };
   } finally {
     if (command.cleanup) {
-      runner(command.cleanup.command, command.cleanup.args, {
-        cwd: repoDir,
-        env: childEnv,
-        shell: false,
-      });
+      try {
+        const cleanup = runner(command.cleanup.command, command.cleanup.args, {
+          cwd: repoDir,
+          env: childEnv,
+          shell: false,
+        });
+        if (cleanup?.error || cleanup?.status !== 0) {
+          logger.error(JSON.stringify({ type: 'canary_cleanup_failed' }));
+        }
+      } catch {
+        logger.error(JSON.stringify({ type: 'canary_cleanup_failed' }));
+      }
     }
   }
 }

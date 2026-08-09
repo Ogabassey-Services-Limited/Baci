@@ -30,7 +30,7 @@ describe('remediation deploy crontab', () => {
     assert.ok(canaryCronLine);
     assert.match(
       canaryCronLine,
-      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -n \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=/
+      /22 4\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/remediation-codex-canary\.lock flock -w 600 \$REMOTE_DIR\/locks\/error-remediator-global\.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=/
     );
     assert.doesNotMatch(canaryCronLine, /BACI_REMEDIATION_CANARY_ENABLED=/);
     assert.match(canaryCronLine, /jobs\/remediation-codex-canary\.mjs/);

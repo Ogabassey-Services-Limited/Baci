@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
@@ -130,6 +132,7 @@ describe('remediation Codex canary', () => {
             CODEX_HOME: '/home/worker/.codex',
             HOME: '/home/worker',
           },
+          logger: { error: () => undefined },
           runner() {
             return { error: new Error(`Authorization: Bearer ${token}`) };
           },
@@ -140,6 +143,62 @@ describe('remediation Codex canary', () => {
         return true;
       }
     );
+  });
+
+  it('keeps the primary canary failure when cleanup throws', () => {
+    const logged = [];
+    let calls = 0;
+
+    assert.throws(
+      () =>
+        runRemediationCodexCanary({
+          env: {
+            BACI_REMEDIATION_CANARY_ENABLED: '1',
+            BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+            BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+            BACI_REPO_DIR: '/repo',
+          },
+          logger: { error: (message) => logged.push(message) },
+          runner() {
+            calls += 1;
+            if (calls === 1) {
+              return {
+                status: 1,
+                stderr: 'primary execution failure',
+                stdout: '',
+              };
+            }
+            throw new Error('cleanup failure');
+          },
+        }),
+      /primary execution failure/
+    );
+
+    assert.deepEqual(logged, ['{"type":"canary_cleanup_failed"}']);
+  });
+
+  it('reports a nonzero cleanup result after a successful canary', () => {
+    const logged = [];
+    let calls = 0;
+
+    const result = runRemediationCodexCanary({
+      env: {
+        BACI_REMEDIATION_CANARY_ENABLED: '1',
+        BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+        BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+        BACI_REPO_DIR: '/repo',
+      },
+      logger: { error: (message) => logged.push(message) },
+      runner() {
+        calls += 1;
+        return calls === 1
+          ? { status: 0, stderr: '', stdout: '{"type":"turn.completed"}\n' }
+          : { status: 1, stderr: 'cleanup failed', stdout: '' };
+      },
+    });
+
+    assert.equal(result.type, 'canary_completed');
+    assert.deepEqual(logged, ['{"type":"canary_cleanup_failed"}']);
   });
 
   it('uses the default timeout for a non-integer canary timeout', () => {
@@ -164,7 +223,9 @@ describe('remediation Codex canary', () => {
     assert.equal(calls[0].options.timeout, 60_000);
   });
 
-  it('does not misclassify an authoring failure as authentication', () => {
+  it('does not misclassify an authoring failure as authentication', (t) => {
+    const repoDir = mkdtempSync(join(tmpdir(), 'baci-canary-repo-'));
+    t.after(() => rmSync(repoDir, { force: true, recursive: true }));
     const result = spawnSync(
       process.execPath,
       ['jobs/remediation-codex-canary.mjs'],
@@ -176,7 +237,7 @@ describe('remediation Codex canary', () => {
           BACI_REMEDIATION_CANARY_ENABLED: '1',
           BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
           BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
-          BACI_REPO_DIR: '/repo',
+          BACI_REPO_DIR: repoDir,
           BACI_REMEDIATION_NOTIFY_EMAILS: '',
           DOCKER_BIN: '/does-not-exist/authored-docker',
           ZEPTOMAIL_TOKEN: '',
