@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readdirSync,
   readFileSync,
+  rmSync,
   statSync,
   unlinkSync,
   utimesSync,
@@ -32,8 +33,9 @@ const writeOwner = (path, value) => {
   return ownerPath;
 };
 
-const createClaimResidue = ({ claimContent, claimOwner, claimMtimeMs }) => {
+const createClaimResidue = (t, { claimContent, claimOwner, claimMtimeMs }) => {
   const directory = mkdtempSync(join(tmpdir(), 'baci-case-storage-claim-'));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
   const path = join(directory, 'state.json');
   const lockPath = `${path}.lock`;
   const lockOwnerPath = writeOwner(lockPath, owner(101, lockToken));
@@ -49,14 +51,17 @@ const createClaimResidue = ({ claimContent, claimOwner, claimMtimeMs }) => {
   return { claimPath, directory, path };
 };
 
-const runClaimCase = ({
-  claimContent,
-  claimMtimeMs = staleAtMs,
-  claimOwner,
-  processIsAlive,
-  processStartedAt,
-}) => {
-  const fixture = createClaimResidue({
+const runClaimCase = (
+  t,
+  {
+    claimContent,
+    claimMtimeMs = staleAtMs,
+    claimOwner,
+    processIsAlive,
+    processStartedAt,
+  }
+) => {
+  const fixture = createClaimResidue(t, {
     claimContent,
     claimMtimeMs,
     claimOwner,
@@ -79,8 +84,8 @@ const runClaimCase = ({
 const readFileNames = (directory) => readdirSync(directory);
 
 describe('remediation case state storage claim recovery', () => {
-  it('keeps a complete live claimant busy', () => {
-    const fixture = runClaimCase({
+  it('keeps a complete live claimant busy', (t) => {
+    const fixture = runClaimCase(t, {
       claimOwner: owner(202, claimToken, 'live-process'),
       processIsAlive: (pid) => pid === 202,
       processStartedAt: () => 'live-process',
@@ -94,8 +99,8 @@ describe('remediation case state storage claim recovery', () => {
     );
   });
 
-  it('reclaims a complete dead claimant with one action and no remnants', () => {
-    const fixture = runClaimCase({
+  it('reclaims a complete dead claimant with one action and no remnants', (t) => {
+    const fixture = runClaimCase(t, {
       claimOwner: owner(202, claimToken),
       processIsAlive: () => false,
       processStartedAt: () => null,
@@ -106,8 +111,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.deepEqual(readFileNames(fixture.directory), []);
   });
 
-  it('reclaims a complete PID-reused claimant with one action and no remnants', () => {
-    const fixture = runClaimCase({
+  it('reclaims a complete PID-reused claimant with one action and no remnants', (t) => {
+    const fixture = runClaimCase(t, {
       claimOwner: owner(202, claimToken, 'original-process'),
       processIsAlive: (pid) => pid === 202,
       processStartedAt: (pid) => (pid === 202 ? 'replacement-process' : null),
@@ -118,8 +123,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.deepEqual(readFileNames(fixture.directory), []);
   });
 
-  it('keeps a recent malformed claimant busy', () => {
-    const fixture = runClaimCase({
+  it('keeps a recent malformed claimant busy', (t) => {
+    const fixture = runClaimCase(t, {
       claimContent: '{not json',
       claimMtimeMs: nowMs,
       processIsAlive: () => false,
@@ -131,8 +136,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.equal(readFileSync(fixture.claimPath, 'utf8'), '{not json');
   });
 
-  it('keeps a recent ownerless claimant busy', () => {
-    const fixture = runClaimCase({
+  it('keeps a recent ownerless claimant busy', (t) => {
+    const fixture = runClaimCase(t, {
       claimContent: '',
       claimMtimeMs: nowMs,
       processIsAlive: () => false,
@@ -144,8 +149,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.equal(readFileSync(fixture.claimPath, 'utf8'), '');
   });
 
-  it('reclaims an aged malformed claimant with one action and no remnants', () => {
-    const fixture = runClaimCase({
+  it('reclaims an aged malformed claimant with one action and no remnants', (t) => {
+    const fixture = runClaimCase(t, {
       claimContent: '{not json',
       processIsAlive: () => false,
       processStartedAt: () => null,
@@ -156,8 +161,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.deepEqual(readFileNames(fixture.directory), []);
   });
 
-  it('reclaims an aged ownerless claimant with one action and no remnants', () => {
-    const fixture = runClaimCase({
+  it('reclaims an aged ownerless claimant with one action and no remnants', (t) => {
+    const fixture = runClaimCase(t, {
       claimContent: '',
       processIsAlive: () => false,
       processStartedAt: () => null,
@@ -168,8 +173,8 @@ describe('remediation case state storage claim recovery', () => {
     assert.deepEqual(readFileNames(fixture.directory), []);
   });
 
-  it('does not unlink a malformed claimant replaced between stable snapshots', () => {
-    const fixture = createClaimResidue({
+  it('does not unlink a malformed claimant replaced between stable snapshots', (t) => {
+    const fixture = createClaimResidue(t, {
       claimContent: '{not json',
       claimMtimeMs: staleAtMs,
     });
@@ -200,5 +205,43 @@ describe('remediation case state storage claim recovery', () => {
     );
     assert.equal(actions, 0);
     assert.equal(readFileSync(fixture.claimPath, 'utf8'), replacement);
+  });
+
+  it('does not remove a stale third-party claim on the final retry', (t) => {
+    const fixture = createClaimResidue(t, {
+      claimContent: '{first claimant',
+      claimMtimeMs: staleAtMs,
+    });
+    const replacementToken = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const replacementOwner = owner(303, replacementToken);
+    const replacementOwnerPath = writeOwner(fixture.path, replacementOwner);
+    const replacementContent = JSON.stringify(replacementOwner);
+    let claimRemovals = 0;
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      path: fixture.path,
+      processIsAlive: () => false,
+      processStartedAt: () => null,
+      unlink(target) {
+        if (target === fixture.claimPath && claimRemovals++ === 0) {
+          unlinkSync(target);
+          writeFileSync(fixture.claimPath, replacementContent);
+          utimesSync(fixture.claimPath, staleAtMs / 1_000, staleAtMs / 1_000);
+          return;
+        }
+        unlinkSync(target);
+      },
+    });
+
+    assert.equal(
+      storage.withLock(nowMs, 'busy', () => 'entered'),
+      'busy'
+    );
+    assert.equal(readFileSync(fixture.claimPath, 'utf8'), replacementContent);
+    assert.equal(
+      readFileSync(replacementOwnerPath, 'utf8'),
+      replacementContent
+    );
   });
 });

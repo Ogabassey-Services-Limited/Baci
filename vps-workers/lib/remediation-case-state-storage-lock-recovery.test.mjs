@@ -3,6 +3,8 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
+  statSync,
   unlinkSync,
   utimesSync,
   writeFileSync,
@@ -12,12 +14,15 @@ import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { createRemediationCaseStateStorage } from './remediation-case-state-storage.mjs';
 
+const createStatePath = (t, prefix) => {
+  const directory = mkdtempSync(join(tmpdir(), prefix));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
+  return join(directory, 'state.json');
+};
+
 describe('remediation case state storage lock recovery', () => {
-  it('retries after a stale lock disappears during concurrent cleanup', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-stale-')),
-      'state.json'
-    );
+  it('retries after a stale lock disappears during concurrent cleanup', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-stale-');
     const lockPath = `${path}.lock`;
     writeFileSync(
       lockPath,
@@ -55,11 +60,8 @@ describe('remediation case state storage lock recovery', () => {
     );
   });
 
-  it('recovers an aged empty lock when a worker crashes after opening it', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-ownerless-')),
-      'state.json'
-    );
+  it('recovers an aged empty lock when a worker crashes after opening it', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-ownerless-');
     const lockPath = `${path}.lock`;
     const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
     writeFileSync(lockPath, '');
@@ -80,11 +82,8 @@ describe('remediation case state storage lock recovery', () => {
     assert.equal(existsSync(lockPath), false);
   });
 
-  it('keeps a recent partial lock busy while its owner metadata may still be written', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-partial-lock-')),
-      'state.json'
-    );
+  it('keeps a recent partial lock busy while its owner metadata may still be written', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-partial-lock-');
     const lockPath = `${path}.lock`;
     const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
     writeFileSync(lockPath, '{"createdAt":');
@@ -102,11 +101,8 @@ describe('remediation case state storage lock recovery', () => {
     assert.equal(readFileSync(lockPath, 'utf8'), '{"createdAt":');
   });
 
-  it('recovers an aged partial lock with no usable owner identity', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-partial-ownerless-')),
-      'state.json'
-    );
+  it('recovers an aged partial lock with no usable owner identity', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-partial-ownerless-');
     const lockPath = `${path}.lock`;
     const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
     writeFileSync(
@@ -131,11 +127,39 @@ describe('remediation case state storage lock recovery', () => {
     );
   });
 
-  it('keeps an aged live lock when process start time cannot be read', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-live-owner-')),
-      'state.json'
+  it('keeps a replacement partial lock after an ownerless stale snapshot', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-ownerless-replacement-');
+    const lockPath = `${path}.lock`;
+    const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
+    const staleAt = nowMs - 3 * 60 * 1_000;
+    writeFileSync(lockPath, '');
+    utimesSync(lockPath, staleAt / 1_000, staleAt / 1_000);
+    let replaced = false;
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      path,
+      stat(target, options) {
+        const metadata = statSync(target, options);
+        if (target === lockPath && !replaced) {
+          replaced = true;
+          writeFileSync(lockPath, '{partial replacement');
+          utimesSync(lockPath, nowMs / 1_000, nowMs / 1_000);
+        }
+        return metadata;
+      },
+    });
+
+    assert.equal(
+      storage.withLock(nowMs, 'busy', () => 'entered'),
+      'busy'
     );
+    assert.equal(replaced, true);
+    assert.equal(readFileSync(lockPath, 'utf8'), '{partial replacement');
+  });
+
+  it('keeps an aged live lock when process start time cannot be read', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-live-owner-');
     const lockPath = `${path}.lock`;
     const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
     writeFileSync(
@@ -162,11 +186,8 @@ describe('remediation case state storage lock recovery', () => {
     assert.equal(existsSync(lockPath), true);
   });
 
-  it('reclaims a stale case-state lock after its PID has been reused', () => {
-    const path = join(
-      mkdtempSync(join(tmpdir(), 'baci-case-storage-pid-reuse-')),
-      'state.json'
-    );
+  it('reclaims a stale case-state lock after its PID has been reused', (t) => {
+    const path = createStatePath(t, 'baci-case-storage-pid-reuse-');
     const token = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
     writeFileSync(
       `${path}.lock`,

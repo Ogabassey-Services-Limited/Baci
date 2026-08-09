@@ -10,6 +10,12 @@ describe('quiet stale remediation cases', () => {
           lastSeen: '2026-08-01T00:00:00.000Z',
           status: 'legacy_handled',
         },
+        malformed: { lastSeen: 'not-a-date', status: 'open' },
+        quiet: { lastSeen: '2026-08-01T00:00:00.000Z', status: 'quiet' },
+        recentOpen: {
+          lastSeen: '2026-08-01T00:00:00.001Z',
+          status: 'open',
+        },
         staleOpen: { lastSeen: '2026-08-01T00:00:00.000Z', status: 'open' },
       },
     };
@@ -18,5 +24,8 @@ describe('quiet stale remediation cases', () => {
 
     assert.equal(state.cases.staleOpen.status, 'quiet');
     assert.equal(state.cases.legacyHandled.status, 'legacy_handled');
+    assert.equal(state.cases.recentOpen.status, 'open');
+    assert.equal(state.cases.quiet.status, 'quiet');
+    assert.equal(state.cases.malformed.status, 'open');
   });
 });

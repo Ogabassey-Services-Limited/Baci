@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { it } from 'node:test';
 import { createRemediationCaseStateStorage } from './remediation-case-state-storage.mjs';
 
-it('serializes stale lock reclamation so only one contender enters its action', () => {
-  const path = join(
-    mkdtempSync(join(tmpdir(), 'baci-case-storage-stale-claim-')),
-    'state.json'
+it('serializes stale lock reclamation so only one contender enters its action', (t) => {
+  const directory = mkdtempSync(
+    join(tmpdir(), 'baci-case-storage-stale-claim-')
   );
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
+  const path = join(directory, 'state.json');
   const lockPath = `${path}.lock`;
   const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
   const token = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

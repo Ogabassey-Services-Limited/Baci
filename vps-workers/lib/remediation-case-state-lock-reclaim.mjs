@@ -34,6 +34,12 @@ const sameClaimSnapshot = (expected, current) =>
   expected.mtimeMs === current.mtimeMs &&
   expected.size === current.size;
 
+const sameLockIdentity = (expected, current) =>
+  current &&
+  expected?.dev === current.dev &&
+  expected.ino === current.ino &&
+  expected.mtimeMs === current.mtimeMs;
+
 function acquireRecoverableClaim({
   claimPath,
   lockPath,
@@ -70,6 +76,7 @@ function acquireRecoverableClaim({
     ) {
       return false;
     }
+    if (attempt === 1) return false;
     try {
       unlink(claimPath);
     } catch (error) {
@@ -84,6 +91,7 @@ function acquireRecoverableClaim({
 
 export function reclaimStaleLock({
   lockPath,
+  lockIdentity,
   owner,
   ownerPath,
   nowMs,
@@ -120,7 +128,10 @@ export function reclaimStaleLock({
   let reclaimed = false;
   let reclaimError;
   try {
-    if (sameLockOwner(owner, readLockOwner(lockPath))) {
+    const matchesStaleLock =
+      completeOwner(owner) ||
+      sameLockIdentity(lockIdentity, stat(lockPath, { throwIfNoEntry: false }));
+    if (matchesStaleLock && sameLockOwner(owner, readLockOwner(lockPath))) {
       try {
         unlink(lockPath);
       } catch (error) {

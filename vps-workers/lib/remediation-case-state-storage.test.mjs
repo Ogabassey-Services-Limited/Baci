@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -24,6 +25,30 @@ describe('remediation case state storage', () => {
         }),
       /global remediation lock capability/
     );
+  });
+
+  it('removes legacy lock artifacts only once with an external global lock', (t) => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-case-storage-legacy-'));
+    t.after(() => rmSync(directory, { force: true, recursive: true }));
+    const path = join(directory, 'state.json');
+    const lockPath = `${path}.lock`;
+    let lockCleanupAttempts = 0;
+    const storage = createRemediationCaseStateStorage({
+      createEmptyState: () => ({ version: 1 }),
+      isValidState: (state) => state?.version === 1,
+      lockCapabilityValidator: () => true,
+      path,
+      remediationLock: {},
+      unlink(target) {
+        if (target === lockPath) lockCleanupAttempts += 1;
+        unlinkSync(target);
+      },
+    });
+
+    storage.withLock(Date.now(), null, (state) => state);
+    storage.withLock(Date.now(), null, (state) => state);
+
+    assert.equal(lockCleanupAttempts, 1);
   });
 
   it('atomically persists a validated lifecycle snapshot', () => {

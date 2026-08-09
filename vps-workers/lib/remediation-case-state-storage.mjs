@@ -3,14 +3,14 @@ import { randomUUID } from 'node:crypto';
 import {
   linkSync,
   mkdirSync,
-  readdirSync,
   readFileSync,
   renameSync,
   statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { dirname } from 'node:path';
+import { removeLegacyRemediationLockArtifacts } from './remediation-case-state-legacy-lock-cleanup.mjs';
 import { reclaimStaleLock } from './remediation-case-state-lock-reclaim.mjs';
 import { hasRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 
@@ -69,33 +69,6 @@ const removeOwnerPath = (ownerPath, unlink) => {
   }
 };
 
-const isLegacyLockArtifact = (entry, prefix) => {
-  if (!entry.startsWith(prefix)) return false;
-  const suffix = entry.slice(prefix.length);
-  return (
-    (suffix.startsWith('owner-') && LOCK_TOKEN_PATTERN.test(suffix.slice(6))) ||
-    suffix === 'reclaim-ownerless' ||
-    (suffix.startsWith('reclaim-') && LOCK_TOKEN_PATTERN.test(suffix.slice(8)))
-  );
-};
-
-const removeLegacyLockArtifacts = (lockPath, unlink) => {
-  removeOwnerPath(lockPath, unlink);
-  const prefix = `${basename(lockPath)}.`;
-  let entries;
-  try {
-    entries = readdirSync(dirname(lockPath));
-  } catch (error) {
-    if (error?.code === 'ENOENT') return;
-    throw error;
-  }
-  for (const entry of entries) {
-    if (isLegacyLockArtifact(entry, prefix)) {
-      removeOwnerPath(join(dirname(lockPath), entry), unlink);
-    }
-  }
-};
-
 const isStaleLock = ({
   lockPath,
   stat,
@@ -143,6 +116,7 @@ export function createRemediationCaseStateStorage({
   }
   const externallyLocked = remediationLock !== undefined;
   const localProcessStartedAt = startedAt(process.pid);
+  let legacyArtifactsRemoved = false;
 
   function read() {
     let content;
@@ -190,7 +164,10 @@ export function createRemediationCaseStateStorage({
     const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
     if (externallyLocked) {
-      removeLegacyLockArtifacts(lockPath, unlink);
+      if (!legacyArtifactsRemoved) {
+        removeLegacyRemediationLockArtifacts(lockPath, unlink);
+        legacyArtifactsRemoved = true;
+      }
       return action(read());
     }
     for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -216,24 +193,35 @@ export function createRemediationCaseStateStorage({
         let reclaimed = false;
         try {
           const owner = readLockOwner(lockPath);
-          reclaimed =
-            attempt === 0 &&
-            isStaleLock({ lockPath, owner, nowMs, isAlive, startedAt, stat }) &&
-            reclaimStaleLock({
-              lockPath,
-              owner,
-              ownerPath,
-              nowMs,
-              isAlive,
-              startedAt,
-              stat,
-              unlink,
-              completeOwner,
-              readLockOwner,
-              sameLockOwner,
-              removeOwnerPath,
-              isStaleLock,
-            });
+          if (attempt === 0) {
+            const lockIdentity = stat(lockPath, { throwIfNoEntry: false });
+            reclaimed =
+              isStaleLock({
+                lockPath,
+                modifiedAt: lockIdentity?.mtimeMs,
+                owner,
+                nowMs,
+                isAlive,
+                startedAt,
+                stat,
+              }) &&
+              reclaimStaleLock({
+                lockPath,
+                lockIdentity,
+                owner,
+                ownerPath,
+                nowMs,
+                isAlive,
+                startedAt,
+                stat,
+                unlink,
+                completeOwner,
+                readLockOwner,
+                sameLockOwner,
+                removeOwnerPath,
+                isStaleLock,
+              });
+          }
         } catch {
           reclaimed = false;
         } finally {

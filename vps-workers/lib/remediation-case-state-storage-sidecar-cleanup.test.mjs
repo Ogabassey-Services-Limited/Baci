@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   mkdtempSync,
   readdirSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -14,8 +15,9 @@ import { createRemediationCaseStateStorage } from './remediation-case-state-stor
 const nowMs = Date.parse('2026-08-09T10:05:00.000Z');
 const staleToken = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
-const createStaleLock = () => {
+const createStaleLock = (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'baci-case-storage-sidecar-'));
+  t.after(() => rmSync(directory, { force: true, recursive: true }));
   const path = join(directory, 'state.json');
   const lockPath = `${path}.lock`;
   const owner = JSON.stringify({
@@ -32,8 +34,8 @@ const ownerSidecars = (directory) =>
   readdirSync(directory).filter((entry) => entry.includes('.lock.owner-'));
 
 describe('remediation case state storage sidecar cleanup', () => {
-  it('returns busy and removes its owner sidecar when the stale lock disappears before stat', () => {
-    const { directory, lockPath, path } = createStaleLock();
+  it('returns busy and removes its owner sidecar when the stale lock disappears before stat', (t) => {
+    const { directory, lockPath, path } = createStaleLock(t);
     const storage = createRemediationCaseStateStorage({
       createEmptyState: () => ({ version: 1 }),
       isValidState: (state) => state?.version === 1,
@@ -59,8 +61,8 @@ describe('remediation case state storage sidecar cleanup', () => {
     ]);
   });
 
-  it('returns busy and removes its owner sidecar when stale-lock reclamation fails', () => {
-    const { directory, lockPath, path } = createStaleLock();
+  it('returns busy and removes its owner sidecar when stale-lock reclamation fails', (t) => {
+    const { directory, lockPath, path } = createStaleLock(t);
     const storage = createRemediationCaseStateStorage({
       createEmptyState: () => ({ version: 1 }),
       isValidState: (state) => state?.version === 1,
