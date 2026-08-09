@@ -100,6 +100,28 @@ describe('Jumia OAuth callback diagnostic', () => {
     expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
   });
 
+  it.each([
+    'unauthenticated',
+    'forbidden',
+  ] as const)('rejects the %s platform-admin status before token exchange', async (status) => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({ status });
+
+    const response = await runJumiaOAuthCallbackDiagnostic(baseInput);
+
+    expect(response.headers.get('location')).toContain(
+      'error=diagnostic_forbidden'
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+  });
+
+  it('does not report OAuth state matching as hard-coded evidence', async () => {
+    await runJumiaOAuthCallbackDiagnostic(baseInput);
+
+    expect(JSON.stringify(mockLoggerInfo.mock.calls)).not.toContain(
+      'oauth_state_match'
+    );
+  });
+
   it('redacts provider credentials when token exchange fails', async () => {
     mockExchangeJumiaCode.mockRejectedValueOnce(
       Object.assign(new Error('Token exchange failed'), {

@@ -29,6 +29,8 @@ const KNOWN_OAUTH_ERRORS = new Set([
   'temporarily_unavailable',
   'invalid_scope',
 ]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- OAuth providers call callbacks with GET; state cookie, authenticated merchant, and merchant-cookie checks gate persistence.
 export async function GET(request: NextRequest) {
@@ -174,7 +176,7 @@ export async function GET(request: NextRequest) {
     // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
     const variant = request.cookies.get('jumia_oauth_variant')?.value;
 
-    if (diagnosticId) {
+    if (diagnosticId && UUID_PATTERN.test(diagnosticId)) {
       return runJumiaOAuthCallbackDiagnostic({
         apiUserId: auth.user.id,
         clientId: jumiaClientId,

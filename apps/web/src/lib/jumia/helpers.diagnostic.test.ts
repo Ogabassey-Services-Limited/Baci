@@ -20,6 +20,18 @@ describe('Jumia OAuth documented-baseline diagnostic variant', () => {
     expect(url.searchParams.get('scope')).toBe('openid');
     expect(url.searchParams.get('prompt')).toBe('login');
     expect(url.searchParams.has('max_age')).toBe(false);
+    expect([...url.searchParams.keys()].sort()).toEqual(
+      [
+        'client_id',
+        'prompt',
+        'redirect_uri',
+        'response_type',
+        'scope',
+        'state',
+      ].sort()
+    );
     expect(isJumiaAuthUrlVariant('F')).toBe(true);
+    expect(isJumiaAuthUrlVariant('f')).toBe(false);
+    expect(isJumiaAuthUrlVariant('unknown')).toBe(false);
   });
 });

@@ -137,11 +137,14 @@ const MERCHANT_CTX = {
 const INTEGRATION_ID = '00000000-0000-4000-8000-000000000010';
 const OTHER_INTEGRATION_ID = '00000000-0000-4000-8000-000000000011';
 
-function makePostRequest(body: unknown) {
+function makePostRequest(body: unknown, cookie?: string) {
   return new NextRequest('http://localhost/api/marketplace/jumia/connect', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cookie ? { cookie } : {}),
+    },
   });
 }
 
@@ -429,6 +432,23 @@ describe('Connect POST', () => {
         redirectUri: PUBLIC_CALLBACK_URL,
       })
     );
+  });
+
+  it('clears stale diagnostic context when ordinary POST OAuth starts', async () => {
+    setupAuth();
+
+    const res = await POST(
+      makePostRequest(
+        { connectionType: 'oauth' },
+        'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile'
+      )
+    );
+    const setCookie = res.headers.get('set-cookie') ?? '';
+
+    expect(res.status).toBe(200);
+    expect(setCookie).toContain('jumia_oauth_diagnostic=;');
+    expect(setCookie).toContain('jumia_oauth_variant=;');
+    expect(setCookie).toContain('jumia_oauth_platform=;');
   });
 });
 

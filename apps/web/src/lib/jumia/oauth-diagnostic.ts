@@ -48,6 +48,18 @@ function clientIdFingerprint(clientId: string): string {
   return createHash('sha256').update(clientId).digest('hex').slice(0, 12);
 }
 
+function hostnameOf(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return null;
+  }
+}
+
 function getAuthorizationEvidence(authorizationUrl: string) {
   const url = new URL(authorizationUrl);
 
@@ -59,9 +71,7 @@ function getAuthorizationEvidence(authorizationUrl: string) {
     oauth_max_age: url.searchParams.get('max_age'),
     oauth_prompt: url.searchParams.get('prompt'),
     oauth_scope: url.searchParams.get('scope'),
-    redirect_host: new URL(
-      url.searchParams.get('redirect_uri') ?? 'https://invalid.local'
-    ).hostname,
+    redirect_host: hostnameOf(url.searchParams.get('redirect_uri')),
     response_type: url.searchParams.get('response_type'),
   };
 }

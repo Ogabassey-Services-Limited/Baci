@@ -45,4 +45,21 @@ describe('Jumia OAuth callback redirect', () => {
       'baciadmin://sales-channels?code=code+with+spaces&ticketId=ticket%2F1'
     );
   });
+
+  it('clears diagnostic state and disables caching on a mobile redirect', () => {
+    const response = jumiaOAuthCallbackRedirect.create(
+      makeRequest(
+        `jumia_oauth_platform=mobile; ${jumiaOAuthDiagnostic.cookieName}=diagnostic-id`
+      ),
+      { jumia_diagnostic: 'complete' }
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'baciadmin://sales-channels?jumia_diagnostic=complete'
+    );
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('set-cookie')).toContain(
+      `${jumiaOAuthDiagnostic.cookieName}=;`
+    );
+  });
 });

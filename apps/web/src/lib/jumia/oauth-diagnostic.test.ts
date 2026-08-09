@@ -86,4 +86,35 @@ describe('Jumia OAuth diagnostic evidence', () => {
       jumiaOAuthDiagnostic.isRequested(new URLSearchParams('diagnostic=true'))
     ).toBe(false);
   });
+
+  it('extracts safe authorization metadata and fingerprints the client id', () => {
+    const evidence = jumiaOAuthDiagnostic.getAuthorizationEvidence(
+      'https://vendor-api.jumia.com/login?client_id=client-id-must-never-escape&prompt=login&redirect_uri=https%3A%2F%2Fusebaci.com%2Fapi%2Fmarketplace%2Fjumia%2Fcallback&response_type=code&scope=openid'
+    );
+
+    expect(evidence.oauth_prompt).toBe('login');
+    expect(evidence.oauth_scope).toBe('openid');
+    expect(evidence.redirect_host).toBe('usebaci.com');
+    expect(evidence.client_id_sha256_12).toHaveLength(12);
+    expect(JSON.stringify(evidence)).not.toContain(
+      'client-id-must-never-escape'
+    );
+  });
+
+  it.each([
+    null,
+    '',
+    '/relative/callback',
+    'not a url',
+  ])('reports null redirect_host for malformed redirect_uri %s', (redirectUri) => {
+    const url = new URL('https://vendor-api.jumia.com/login');
+    if (redirectUri !== null) {
+      url.searchParams.set('redirect_uri', redirectUri);
+    }
+
+    expect(
+      jumiaOAuthDiagnostic.getAuthorizationEvidence(url.toString())
+        .redirect_host
+    ).toBeNull();
+  });
 });

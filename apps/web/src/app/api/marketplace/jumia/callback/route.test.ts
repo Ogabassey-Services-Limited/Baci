@@ -138,6 +138,7 @@ function makeCallbackRequest({
   state = 'test-state',
   cookieState = 'test-state',
   merchantCookie = '00000000-0000-4000-8000-000000000001',
+  diagnosticCookie,
   ticketCookie,
   platform,
 }: {
@@ -145,6 +146,7 @@ function makeCallbackRequest({
   state?: string;
   cookieState?: string;
   merchantCookie?: string | null;
+  diagnosticCookie?: string;
   ticketCookie?: string | null;
   platform?: 'mobile';
 } = {}) {
@@ -164,6 +166,9 @@ function makeCallbackRequest({
   }
   if (ticketCookie != null) {
     cookieParts.push(`jumia_ticket_id=${ticketCookie}`);
+  }
+  if (diagnosticCookie) {
+    cookieParts.push(`jumia_oauth_diagnostic=${diagnosticCookie}`);
   }
 
   return new NextRequest(url, {
@@ -278,6 +283,18 @@ describe('Jumia callback route', () => {
         redirectUri: PUBLIC_CALLBACK_URL,
       })
     );
+  });
+
+  it('ignores a malformed diagnostic cookie and persists ordinary OAuth', async () => {
+    const response = await GET(
+      makeCallbackRequest({ diagnosticCookie: 'not-a-uuid' })
+    );
+
+    expect(response.headers.get('location')).toContain(
+      'success=jumia_connected'
+    );
+    expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).toHaveBeenCalledTimes(1);
   });
 
   it('redirects with only newly activated shops after upsert', async () => {

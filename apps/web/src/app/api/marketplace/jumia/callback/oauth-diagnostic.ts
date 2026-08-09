@@ -49,7 +49,6 @@ export async function runJumiaOAuthCallbackDiagnostic({
     callback_host: callbackUrl.hostname,
     callback_path: callbackUrl.pathname,
     diagnostic_id: diagnosticId,
-    oauth_state_match: true,
     redirect_host: configuredRedirectUrl.hostname,
     redirect_path: configuredRedirectUrl.pathname,
     variant: variant ?? 'default',

@@ -175,29 +175,25 @@ export async function POST(request: NextRequest) {
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
+      const redirectUrl = getJumiaAuthUrl({
+        clientId: jumiaClientId,
+        redirectUri: jumiaRedirectUri,
+        state,
+      });
 
       // Store state in cookie for verification on callback
       const response = NextResponse.json({
         success: true,
-        redirectUrl: getJumiaAuthUrl({
-          clientId: jumiaClientId,
-          redirectUri: jumiaRedirectUri,
-          state,
-        }),
+        redirectUrl,
       });
 
-      response.cookies.set('jumia_oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-
-      response.cookies.set('jumia_merchant_id', merchantId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
+      jumiaOAuthInitiationDiagnostic.applyResponse({
+        diagnosticRequested: false,
+        merchantId,
+        platform: null,
+        redirectUrl,
+        response,
+        state,
       });
 
       return response;
