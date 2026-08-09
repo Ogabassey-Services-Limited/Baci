@@ -159,6 +159,9 @@ describe('useAnalyticsDetail', () => {
       expect.stringContaining('product_variants(cost_price)')
     );
     expect(orderItemsSelect).toEqual(
+      expect.stringContaining('order_item_unit_costs(cost_price, unit_index)')
+    );
+    expect(orderItemsSelect).toEqual(
       expect.stringContaining('products(cost_price)')
     );
     expect(orderItemsSelect).not.toEqual(

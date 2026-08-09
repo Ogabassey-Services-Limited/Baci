@@ -29,4 +29,10 @@ describe('resolveOrderItemAnalyticsLineProfit', () => {
 
     expect(resolveOrderItemAnalyticsLineProfit(line, 2)).toBe(25);
   });
+
+  it('ignores fractional unit indexes instead of applying malformed costs', () => {
+    const line = item(1, [{ cost_price: 10, unit_index: 0.5 }]);
+
+    expect(resolveOrderItemAnalyticsLineProfit(line, 1)).toBe(0);
+  });
 });

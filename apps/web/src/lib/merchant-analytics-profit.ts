@@ -49,6 +49,7 @@ export function resolveOrderItemAnalyticsLineProfit(
     const unitCostPrice = toFiniteNumberOrNull(unit.cost_price);
     if (
       index == null ||
+      !Number.isInteger(index) ||
       index < 0 ||
       index >= quantity ||
       countedIndexes.has(index) ||

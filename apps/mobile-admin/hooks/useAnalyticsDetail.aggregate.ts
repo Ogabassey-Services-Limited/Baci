@@ -19,22 +19,62 @@ interface AggregateAnalyticsDetailArgs {
   timezone: string;
 }
 
-function resolveOrderItemCostPrice(item: OrderItemWithJoins) {
+function toFiniteCost(value: number | string | null | undefined) {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) {
+    return null;
+  }
+
+  const cost = Number(value);
+  return Number.isFinite(cost) ? cost : null;
+}
+
+function resolveOrderItemFallbackCost(item: OrderItemWithJoins) {
   const variant = getJoinedRecord(item.product_variants);
   const product = getJoinedRecord(item.products);
-  const toFiniteCost = (value: number | string | null | undefined) => {
-    if (value == null || (typeof value === 'string' && value.trim() === '')) {
-      return null;
-    }
-
-    const cost = Number(value);
-    return Number.isFinite(cost) ? cost : null;
-  };
 
   return (
     toFiniteCost(item.cost_price) ??
     toFiniteCost(variant?.cost_price) ??
     toFiniteCost(product?.cost_price)
+  );
+}
+
+function resolveOrderItemProfit(item: OrderItemWithJoins, quantity: number) {
+  const fallbackUnitCost = resolveOrderItemFallbackCost(item);
+  const unitPrice = toFiniteCost(item.price) ?? 0;
+  const unitCosts = item.order_item_unit_costs ?? [];
+  if (unitCosts.length === 0 || quantity <= 0) {
+    return fallbackUnitCost == null
+      ? 0
+      : (unitPrice - fallbackUnitCost) * Math.max(quantity, 0);
+  }
+
+  let recordedProfit = 0;
+  const countedIndexes = new Set<number>();
+  for (const unit of unitCosts) {
+    const index = unit.unit_index;
+    const unitCostPrice = toFiniteCost(unit.cost_price);
+    if (
+      index == null ||
+      !Number.isInteger(index) ||
+      index < 0 ||
+      index >= quantity ||
+      countedIndexes.has(index) ||
+      unitCostPrice == null
+    ) {
+      continue;
+    }
+
+    countedIndexes.add(index);
+    recordedProfit += unitPrice - unitCostPrice;
+  }
+
+  const remainingUnits = quantity - countedIndexes.size;
+  return (
+    recordedProfit +
+    (fallbackUnitCost == null
+      ? 0
+      : remainingUnits * (unitPrice - fallbackUnitCost))
   );
 }
 
@@ -85,10 +125,9 @@ export function aggregateAnalyticsDetail({
       const bucketIndex = getBucketIndex(date, granularity, timezone);
 
       if (bucketIndex >= 0 && bucketIndex < data.length) {
-        const revenue = (item.price || 0) * (item.quantity || 1);
-        const costPrice = resolveOrderItemCostPrice(item);
-        const profit =
-          costPrice == null ? 0 : revenue - costPrice * (item.quantity || 1);
+        const quantity = item.quantity || 1;
+        const revenue = (item.price || 0) * quantity;
+        const profit = resolveOrderItemProfit(item, quantity);
 
         if (metric === 'profits') {
           data[bucketIndex].value += profit;
