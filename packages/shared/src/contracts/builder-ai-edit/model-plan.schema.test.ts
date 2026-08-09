@@ -54,6 +54,17 @@ function assertSupportedKeywords(value: unknown): void {
   Object.keys(record).forEach((key) => {
     expect(supported.has(key), `unsupported schema key: ${key}`).toBe(true);
   });
+  if (typeof record.type === 'string') {
+    expect([
+      'object',
+      'array',
+      'string',
+      'number',
+      'integer',
+      'boolean',
+      'null',
+    ]).toContain(record.type);
+  }
   Object.values((record.properties ?? {}) as Record<string, unknown>).forEach(
     assertSupportedKeywords
   );
