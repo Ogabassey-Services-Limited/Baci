@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
+import { createTestRemediationGlobalLockCapability } from '../lib/remediation-global-lock.mjs';
 import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
 
 const silentLogger = {
@@ -113,6 +114,7 @@ describe('vercel error remediator worker', () => {
       },
       env: { ...baseEnv, BACI_REMEDIATION_AUTOFIX_ENABLED: '1' },
       logger: silentLogger,
+      remediationLock: createTestRemediationGlobalLockCapability(),
     });
 
     assert.equal(autofix.candidates.length, 1);
@@ -210,6 +212,7 @@ describe('vercel error remediator worker', () => {
         BACI_REMEDIATION_OUTPUT_DIR: join(directory, 'out'),
       },
       logger: silentLogger,
+      remediationLock: createTestRemediationGlobalLockCapability(),
       autofixRunner() {
         calls += 1;
         if (calls === 1) {

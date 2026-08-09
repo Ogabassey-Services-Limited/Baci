@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { describe, it } from 'node:test';
 import {
   enterRemediationGlobalLock,
@@ -6,6 +7,26 @@ import {
 } from './remediation-global-lock.mjs';
 
 describe('remediation global lock capability', () => {
+  it('does not mint a test capability outside node:test', () => {
+    const moduleUrl = new URL('./remediation-global-lock.mjs', import.meta.url)
+      .href;
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `import { createTestRemediationGlobalLockCapability } from '${moduleUrl}'; createTestRemediationGlobalLockCapability();`,
+      ],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, NODE_TEST_CONTEXT: '' },
+      }
+    );
+
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /requires node:test/);
+  });
+
   it('does not treat a forged environment marker as lock ownership', () => {
     let invocation;
     const result = enterRemediationGlobalLock({

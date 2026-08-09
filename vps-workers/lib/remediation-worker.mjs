@@ -33,13 +33,15 @@ export async function runRemediationWorker({
     throw new Error('candidateLoader is required');
   }
   if (!workerName) throw new Error('workerName is required');
-  const hasGlobalLock = hasRemediationGlobalLockCapability(remediationLock);
-  if (env.NODE_ENV === 'production' && !hasGlobalLock) {
-    throw new Error('global remediation flock must be held in production');
-  }
-  const outputDir = env.BACI_REMEDIATION_OUTPUT_DIR || `logs/${workerName}`;
   const mode =
     env.BACI_REMEDIATION_AUTOFIX_ENABLED === '1' ? 'autofix' : 'dry-run';
+  const hasGlobalLock = hasRemediationGlobalLockCapability(remediationLock);
+  if ((env.NODE_ENV === 'production' || mode === 'autofix') && !hasGlobalLock) {
+    throw new Error(
+      'global remediation flock must be held for production or autofix'
+    );
+  }
+  const outputDir = env.BACI_REMEDIATION_OUTPUT_DIR || `logs/${workerName}`;
   const remediationStatePath = statePathForMode(
     env.BACI_REMEDIATION_STATE_PATH || join(outputDir, 'handled-state.json'),
     mode

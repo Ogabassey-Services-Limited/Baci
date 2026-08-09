@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { it } from 'node:test';
 import { createRemediationState } from './remediation-state.mjs';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 it('acknowledges a queued notification before propagating a provider loader outage', async (t) => {
   const directory = mkdtempSync(join(tmpdir(), 'baci-worker-notification-'));

@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
-  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 function createTestDirectory(t, prefix) {
   const directory = mkdtempSync(join(tmpdir(), prefix));
@@ -149,7 +149,7 @@ describe('remediation worker lifecycle', () => {
     assert.equal(attempts, 1);
   });
 
-  it('records fallback handling before a lifecycle checkpoint crash after opening a PR', async (t) => {
+  it('cleans a legacy lifecycle lock after opening a PR under the global lock', async (t) => {
     const directory = createTestDirectory(t, 'baci-worker-pr-crash-');
     const lifecycleLock = join(directory, 'case-state.autofix.json.lock');
     let attempts = 0;
@@ -177,17 +177,14 @@ describe('remediation worker lifecycle', () => {
       },
     ];
 
-    await assert.rejects(
-      runRemediationWorker({
-        autofixRunner: runner,
-        candidateLoader,
-        env,
-        now: () => Date.parse('2026-08-01T10:01:00.000Z'),
-        workerName: 'test-remediator',
-      }),
-      /remediation case state is busy/
-    );
-    unlinkSync(lifecycleLock);
+    await runRemediationWorker({
+      autofixRunner: runner,
+      candidateLoader,
+      env,
+      now: () => Date.parse('2026-08-01T10:01:00.000Z'),
+      workerName: 'test-remediator',
+    });
+    assert.equal(existsSync(lifecycleLock), false);
     await runRemediationWorker({
       autofixRunner: runner,
       candidateLoader,
