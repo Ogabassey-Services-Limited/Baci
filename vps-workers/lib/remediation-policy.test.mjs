@@ -155,6 +155,7 @@ describe('remediation policy', () => {
     assert.doesNotMatch(prompt, /oldest/);
     assert.doesNotMatch(prompt, /malformed-date/);
     assert.match(prompt, /recent-4/);
+    assert.equal(prompt.match(/"fingerprint": "recent-\d"/g)?.length, 5);
     assert.match(prompt, /"detail": "outcome detail withheld"/);
     assert.doesNotMatch(prompt, /javascript:alert/);
   });

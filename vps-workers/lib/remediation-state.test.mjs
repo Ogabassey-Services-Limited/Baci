@@ -107,6 +107,7 @@ describe('remediation state', () => {
 
     assert.deepEqual(state.pending([candidate]), []);
     assert.equal(state.complete({ handledCandidates: [candidate] }), false);
+    assert.equal(state.handledCandidates([candidate]), false);
   });
 
   it('recovers a candidate after a state lock becomes stale', () => {

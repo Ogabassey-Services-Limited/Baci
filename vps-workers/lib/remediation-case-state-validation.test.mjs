@@ -98,6 +98,12 @@ describe('remediation case state validation', () => {
           [caseKey]: { ...record, statusCode: { value: '500' } },
         },
       },
+      {
+        ...valid,
+        cases: {
+          [caseKey]: { ...record, statusCode: '500' },
+        },
+      },
       { ...valid, cases: [] },
       { ...valid, cases: { [caseKey]: { key: caseKey } } },
       {
@@ -143,7 +149,8 @@ describe('remediation case state validation', () => {
       },
     ];
 
-    for (const invalid of invalidStates) assert.equal(validator(invalid), false);
+    for (const invalid of invalidStates)
+      assert.equal(validator(invalid), false);
   });
 
   it('rejects prototype-polluted maps and non-scalar status codes', () => {

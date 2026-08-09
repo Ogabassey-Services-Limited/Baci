@@ -17,5 +17,6 @@ it('writes a fingerprint-scoped remediation prompt', () => {
     outputDir,
   });
 
+  assert.equal(path, join(outputDir, 'issue-1.prompt.md'));
   assert.equal(existsSync(path), true);
 });

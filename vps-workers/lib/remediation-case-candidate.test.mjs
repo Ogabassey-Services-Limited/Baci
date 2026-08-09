@@ -34,7 +34,7 @@ describe('remediation case candidate normalizer', () => {
 
   it('accepts only finite nonnegative integer occurrences and approved fields', () => {
     const normalize = createRemediationCaseCandidateNormalizer().normalize;
-    for (const occurrences of [-1, 1.5, Infinity, '2']) {
+    for (const occurrences of [-1, 1.5, Number.POSITIVE_INFINITY, '2']) {
       assert.equal(
         normalize({
           fingerprint: 'safe',
@@ -70,5 +70,16 @@ describe('remediation case candidate normalizer', () => {
 
     assert.equal(normalized.firstSeen, '2026-08-09T10:00:00.000Z');
     assert.equal(normalized.lastSeen, '2026-08-09T10:01:00.000Z');
+  });
+
+  it('uses a neutral category for candidates with an unknown source', () => {
+    const normalized = createRemediationCaseCandidateNormalizer().normalize({
+      fingerprint: 'unknown-source',
+      sample: { source: 'unrecognized-provider' },
+      source: 'unrecognized-provider',
+    });
+
+    assert.equal(normalized.category, 'unknown_error');
+    assert.equal(normalized.caseKey, 'unknown:unknown_error:unknown-source');
   });
 });

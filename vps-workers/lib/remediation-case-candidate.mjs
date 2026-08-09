@@ -2,6 +2,7 @@ import { redactCodexOutput } from './remediation-codex-output.mjs';
 
 const CATEGORIES = new Set([
   'sentry_issue',
+  'unknown_error',
   'vercel_http_5xx',
   'vercel_runtime_exception',
   'vercel_timeout',
@@ -64,7 +65,8 @@ export function createRemediationCaseCandidateNormalizer() {
   function categoryFor(candidate, source) {
     const category = sanitize(candidate?.category, 80);
     if (CATEGORIES.has(category)) return category;
-    return source === 'sentry' ? 'sentry_issue' : 'vercel_runtime_exception';
+    if (source === 'sentry') return 'sentry_issue';
+    return source === 'vercel' ? 'vercel_runtime_exception' : 'unknown_error';
   }
 
   function sampleFor(candidate, source) {
@@ -135,8 +137,7 @@ export function createRemediationCaseCandidateNormalizer() {
     if (!fingerprint) return null;
     const category = categoryFor(candidate, source);
     const occurrences =
-      Number.isSafeInteger(candidate?.occurrences) &&
-      candidate.occurrences >= 0
+      Number.isSafeInteger(candidate?.occurrences) && candidate.occurrences >= 0
         ? candidate.occurrences
         : 0;
     const lastSeen = isIsoDate(candidate?.lastSeen)

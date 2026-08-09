@@ -215,6 +215,8 @@ describe('remediation case state', () => {
     state.reconcile([candidate()]);
     const valid = JSON.parse(readFileSync(path, 'utf8'));
     const caseKey = Object.keys(valid.cases)[0];
+    assert.ok(valid.cases[caseKey].samples.length > 0);
+    assert.doesNotThrow(() => state.snapshot());
     const invalidStates = [
       { ...valid, unexpected: true },
       {

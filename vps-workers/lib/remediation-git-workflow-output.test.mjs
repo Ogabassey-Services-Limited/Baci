@@ -168,4 +168,39 @@ describe('remediation git workflow output', () => {
       /You have reached your Codex usage limits for code reviews\./
     );
   });
+
+  it('redacts a bearer token that crosses the bounded stderr tail', () => {
+    const { runner: baseRunner } = makeRunner();
+    const token = 'z'.repeat(80);
+    const context = 'quota exceeded\n';
+    const prefix = 'x'.repeat(
+      2_000 - context.length - 'Authorization: Bearer '.length - 8
+    );
+    const runner = (command, args, options) =>
+      command === 'codex'
+        ? {
+            status: 1,
+            stderr: `${prefix}${context}Authorization: Bearer ${token}`,
+            stdout: '',
+          }
+        : baseRunner(command, args, options);
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      (error) => {
+        assert.match(error.message, /quota exceeded/);
+        assert.doesNotMatch(error.message, new RegExp(token.slice(8)));
+        return true;
+      }
+    );
+  });
 });

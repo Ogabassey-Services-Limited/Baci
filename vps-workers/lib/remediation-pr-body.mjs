@@ -11,7 +11,10 @@ export function buildRemediationPrBody(candidate) {
   const draftPrUrl = (() => {
     try {
       const url = new URL(String(candidate.draftPr?.url || '').trim());
-      return url.protocol === 'https:' && url.hostname && !url.username && !url.password
+      return url.protocol === 'https:' &&
+        url.hostname &&
+        !url.username &&
+        !url.password
         ? `${url.origin}${url.pathname}`.slice(0, 500)
         : '';
     } catch {

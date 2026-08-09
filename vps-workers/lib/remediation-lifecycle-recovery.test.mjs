@@ -3,6 +3,23 @@ import { describe, it } from 'node:test';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 
 describe('remediation lifecycle recovery', () => {
+  it('fails closed when the handled-state read cannot acquire its lock', () => {
+    assert.throws(
+      () =>
+        reconcileRemediationLifecycle({
+          candidates: [],
+          caseState: {
+            migrateLegacyHandled: () => {
+              throw new Error('must not migrate from an unlocked state read');
+            },
+          },
+          journal: { entries: () => [] },
+          state: { handledCandidates: () => false },
+        }),
+      /remediation state is busy/
+    );
+  });
+
   it('clears a PR journal entry only after lifecycle and legacy checkpoints succeed', () => {
     const candidate = { caseKey: 'sentry:sentry_issue:1', fingerprint: '1' };
     const calls = [];

@@ -4,7 +4,11 @@ export function reconcileRemediationLifecycle({
   journal,
   state,
 }) {
-  if (!caseState.migrateLegacyHandled(state.handledCandidates(candidates))) {
+  const handledCandidates = state.handledCandidates(candidates);
+  if (!handledCandidates) {
+    throw new Error('remediation state is busy');
+  }
+  if (!caseState.migrateLegacyHandled(handledCandidates)) {
     throw new Error('remediation case state is busy');
   }
   const recovered = caseState.reconcile(candidates);

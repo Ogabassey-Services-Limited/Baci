@@ -238,9 +238,10 @@ export function createRemediationState({
       return this.complete({ handledCandidates: candidates });
     },
     handledCandidates(candidates) {
-      const { handled } = readState(path);
-      return candidates.filter((candidate) =>
-        Boolean(matchingHandledEntry(handled, candidate))
+      return withStateLock(path, now(), false, ({ handled }) =>
+        candidates.filter((candidate) =>
+          Boolean(matchingHandledEntry(handled, candidate))
+        )
       );
     },
     notifications() {

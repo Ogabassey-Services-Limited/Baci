@@ -62,7 +62,6 @@ export function createRemediationCaseStateValidator({
     'samples',
     'source',
     'status',
-    'statusCode',
     'totalObservations',
   ]);
   const outcomeFields = new Set(['at', 'detail', 'prUrl', 'type']);
@@ -122,7 +121,6 @@ export function createRemediationCaseStateValidator({
       (item.firstSeen === '' || isIsoDate(item.firstSeen)) &&
       (item.lastSeen === '' || isIsoDate(item.lastSeen)) &&
       isBoundedString(item.observationMarker, 120) &&
-      (item.statusCode === undefined || isBoundedString(item.statusCode, 12)) &&
       caseStatuses.has(item.status) &&
       isNonnegativeInteger(item.totalObservations) &&
       isNonnegativeInteger(item.observedOccurrences) &&

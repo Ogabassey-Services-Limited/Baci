@@ -67,9 +67,12 @@ describe('remediation report', () => {
 
   it('bounds an accepted HTTPS draft PR URL', () => {
     const report = buildRemediationReport({
-      candidates: [{ draftPr: { url: `https://example.test/${'x'.repeat(600)}` } }],
+      candidates: [
+        { draftPr: { url: `https://example.test/${'x'.repeat(600)}` } },
+      ],
     });
 
+    assert.match(report.text, /https:\/\/example\.test\/x{100}/);
     assert.doesNotMatch(report.text, /x{501}/);
   });
 
@@ -141,11 +144,9 @@ describe('remediation report', () => {
   });
 
   it('uses only an HTTP status when ZeptoMail rejects a report', async () => {
-    const stripeLikeToken = [
-      'sk',
-      'live',
-      'abcdefghijklmnopqrstuvwxyz',
-    ].join('_');
+    const stripeLikeToken = ['sk', 'live', 'abcdefghijklmnopqrstuvwxyz'].join(
+      '_'
+    );
     const providerBody = `customer@example.test Authorization: Bearer ${stripeLikeToken}`;
 
     await assert.rejects(
