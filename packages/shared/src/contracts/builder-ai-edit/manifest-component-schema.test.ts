@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { builderDesignCapabilities } from '../builder-design-capabilities';
+import { builderDesignCapabilityAdapter } from '../builder-design-capability-adapter';
 import { getManifestComponentSchema } from './manifest-component-schema';
 
 describe('manifest component schema', () => {
@@ -45,6 +46,31 @@ describe('manifest component schema', () => {
       );
     } finally {
       descriptor.type = originalType;
+    }
+  });
+
+  it('rejects an enum-bearing descriptor whose type is not recognized', () => {
+    const button = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'Button'
+    );
+    const descriptor = button?.props.align;
+    if (!descriptor) throw new Error('Expected Button align descriptor');
+    const originalType = descriptor.type;
+    const originalEnum = descriptor.enum;
+
+    try {
+      descriptor.type = 'unreviewed-descriptor';
+      descriptor.enum = ['center'];
+
+      expect(() => getManifestComponentSchema('edit')).toThrow(
+        'Unsupported manifest descriptor type: unreviewed-descriptor'
+      );
+      expect(
+        builderDesignCapabilityAdapter.isPropValue('Button', 'align', 'center')
+      ).toBe(false);
+    } finally {
+      descriptor.type = originalType;
+      descriptor.enum = originalEnum;
     }
   });
 });

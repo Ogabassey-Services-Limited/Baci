@@ -5,6 +5,18 @@ import type {
   BuilderDesignProp,
 } from './builder-design-capability-props';
 
+const supportedDescriptorTypes = new Set([
+  'array',
+  'boolean',
+  'enum',
+  'feature-icon',
+  'number',
+  'object',
+  'safe-link',
+  'safe-media',
+  'string',
+]);
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -31,10 +43,15 @@ function isSafeUrl(value: unknown): value is string {
   }
 }
 
+function isDescriptorType(type: string): boolean {
+  return supportedDescriptorTypes.has(type);
+}
+
 function isValueForProp(
   descriptor: BuilderDesignProp,
   value: unknown
 ): boolean {
+  if (!isDescriptorType(descriptor.type)) return false;
   if (descriptor.enum) {
     return typeof value === 'string' && descriptor.enum.includes(value);
   }
@@ -162,6 +179,7 @@ export const builderDesignCapabilityAdapter = {
   getCapability,
   getDefaults,
   getSpecialProps,
+  isDescriptorType,
   isPropValue,
   isSpecialPropValue,
   isSafeUrl,

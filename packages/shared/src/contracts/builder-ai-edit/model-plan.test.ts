@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { builderDesignCapabilities } from '../builder-design-capabilities';
 import {
   builderAiEditContract,
   builderAiModelPlanSchema,
+  createBuilderAiModelOperationSchema,
   MAX_AI_CANONICAL_SCHEMA_BYTES,
   MAX_AI_CANONICAL_SCHEMA_DEPTH,
   validateBuilderAiEditPlanLimits,
@@ -275,6 +277,29 @@ describe('builder AI edit closed model plan', () => {
         ],
       }).success
     ).toBe(false);
+  });
+
+  it('parses a newly manifest-authorized carousel special field', () => {
+    const manifest = structuredClone(builderDesignCapabilities);
+    const carousel = manifest.components.find(
+      ({ componentType }) => componentType === 'HeroCarousel'
+    );
+    if (!carousel?.specialOperations?.updateCarouselSlide) {
+      throw new Error('Expected carousel special operation');
+    }
+    carousel.specialOperations.updateCarouselSlide.eyebrow = {
+      maximumLength: 120,
+      type: 'string',
+    };
+
+    expect(
+      createBuilderAiModelOperationSchema(manifest).safeParse({
+        componentId: 'carousel-1',
+        eyebrow: 'New season',
+        kind: 'update_carousel_slide',
+        slideIndex: 0,
+      }).success
+    ).toBe(true);
   });
 
   it('limits a plan to 20 operations and five inserts', () => {

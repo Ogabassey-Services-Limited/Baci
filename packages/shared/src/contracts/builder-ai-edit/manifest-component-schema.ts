@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { builderDesignCapabilities } from '../builder-design-capabilities';
+import {
+  type BuilderDesignCapabilityManifest,
+  builderDesignCapabilities,
+} from '../builder-design-capabilities';
+import { builderDesignCapabilityAdapter } from '../builder-design-capability-adapter';
 import type {
   BuilderDesignItem,
   BuilderDesignProp,
@@ -7,7 +11,6 @@ import type {
 } from '../builder-design-capability-props';
 import { builderAiFeatureIconNames } from './feature-icons';
 import { safeStorefrontUrlSchema } from './safe-storefront-url';
-import { manifestBuilderAiCapability } from './validate-manifest-capability';
 
 type ManifestComponent = { componentType: string } & Record<string, unknown>;
 type ManifestSchemaMode = 'edit' | 'insert';
@@ -42,6 +45,9 @@ function compileItem(item: BuilderDesignItem) {
 }
 
 function compileProp(descriptor: BuilderDesignProp): z.ZodType {
+  if (!builderDesignCapabilityAdapter.isDescriptorType(descriptor.type)) {
+    throw new Error(`Unsupported manifest descriptor type: ${descriptor.type}`);
+  }
   if (descriptor.enum) {
     return z.enum(descriptor.enum as [string, ...string[]]);
   }
@@ -100,8 +106,11 @@ function compileComponentSchema(
     : schema;
 }
 
-export function getManifestComponentSchema(mode: ManifestSchemaMode) {
-  const capabilities = builderDesignCapabilities.components.filter(
+export function getManifestComponentSchema(
+  mode: ManifestSchemaMode,
+  manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
+) {
+  const capabilities = manifest.components.filter(
     (capability) =>
       capability.aiEditable && (mode === 'edit' || capability.aiInsertable)
   );
@@ -111,10 +120,15 @@ export function getManifestComponentSchema(mode: ManifestSchemaMode) {
   const schema = z.union(
     schemas as unknown as [z.ZodType, z.ZodType, ...z.ZodType[]]
   );
-  return schema.refine(
-    mode === 'edit'
-      ? manifestBuilderAiCapability.isComponentPatch
-      : manifestBuilderAiCapability.isInsert,
-    'Expected manifest-authorized component fields'
-  ) as z.ZodType<ManifestComponent>;
+  return schema as z.ZodType<ManifestComponent>;
+}
+
+export function getManifestNamedComponentPatchSchema(
+  componentType: string,
+  manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
+) {
+  return getManifestComponentSchema('edit', manifest).refine(
+    (value) => value.componentType === componentType,
+    `Expected a ${componentType} patch`
+  );
 }

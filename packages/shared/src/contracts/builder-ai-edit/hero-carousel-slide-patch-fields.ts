@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { builderDesignCapabilityAdapter } from '../builder-design-capability-adapter';
+import {
+  type BuilderDesignCapabilityManifest,
+  builderDesignCapabilities,
+} from '../builder-design-capabilities';
 import { safeStorefrontUrlSchema } from './safe-storefront-url';
 
 function compileField(descriptor: { maximumLength?: number; type: string }) {
@@ -18,16 +21,20 @@ function compileField(descriptor: { maximumLength?: number; type: string }) {
   );
 }
 
-const props =
-  builderDesignCapabilityAdapter.getCapability('HeroCarousel')
-    ?.specialOperations?.updateCarouselSlide;
-if (!props)
-  throw new Error('Missing HeroCarousel updateCarouselSlide contract');
-
-export const heroCarouselSlidePatchFields: Record<string, z.ZodType> =
-  Object.fromEntries(
+export function getHeroCarouselSlidePatchFields(
+  manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
+): Record<string, z.ZodType> {
+  const props = manifest.components.find(
+    ({ componentType }) => componentType === 'HeroCarousel'
+  )?.specialOperations?.updateCarouselSlide;
+  if (!props)
+    throw new Error('Missing HeroCarousel updateCarouselSlide contract');
+  return Object.fromEntries(
     Object.entries(props).map(([property, descriptor]) => [
       property,
       compileField(descriptor),
     ])
   );
+}
+
+export const heroCarouselSlidePatchFields = getHeroCarouselSlidePatchFields();

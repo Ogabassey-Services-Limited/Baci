@@ -1,8 +1,9 @@
-import { getManifestComponentSchema } from './manifest-component-schema';
+import {
+  getManifestComponentSchema,
+  getManifestNamedComponentPatchSchema,
+} from './manifest-component-schema';
 
-export const productGridPatchSchema = getManifestComponentSchema('edit').refine(
-  (value) => value.componentType === 'ProductGrid',
-  'Expected a ProductGrid patch'
-);
+export const productGridPatchSchema =
+  getManifestNamedComponentPatchSchema('ProductGrid');
 
 export const insertableComponentSchema = getManifestComponentSchema('insert');

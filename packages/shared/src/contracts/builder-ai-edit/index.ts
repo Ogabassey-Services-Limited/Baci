@@ -19,6 +19,7 @@ export * from './button-patch';
 export * from './candidate';
 export * from './catalog';
 export * from './complexity-validator';
+export { createBuilderAiModelOperationSchema } from './create-builder-ai-model-operation-schema';
 export * from './faq-patch';
 export * from './feature-icons';
 export * from './legal-section-patch';

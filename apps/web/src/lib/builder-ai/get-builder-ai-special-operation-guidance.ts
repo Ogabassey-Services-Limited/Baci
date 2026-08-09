@@ -1,28 +1,33 @@
 import {
+  type BuilderDesignCapabilityManifest,
   builderDesignCapabilities,
-  builderDesignCapabilityAdapter,
 } from '@baci/shared/contracts';
 
-function projectProps(componentType: string, operation: string) {
+function projectProps(
+  manifest: BuilderDesignCapabilityManifest,
+  componentType: string,
+  operation: string
+) {
   const props =
-    builderDesignCapabilityAdapter.getCapability(componentType)
-      ?.specialOperations?.[operation] ?? {};
+    manifest.components.find(
+      (capability) => capability.componentType === componentType
+    )?.specialOperations?.[operation] ?? {};
   return Object.fromEntries(
     Object.entries(props).map(([property, descriptor]) => [
       property,
-      descriptor.maximumLength
-        ? { maximumLength: descriptor.maximumLength }
-        : {},
+      { ...descriptor },
     ])
   );
 }
 
-export function getBuilderAiSpecialOperationGuidance() {
+export function getBuilderAiSpecialOperationGuidance(
+  manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
+) {
   return {
     updateCarouselSlide: {
-      ...projectProps('HeroCarousel', 'updateCarouselSlide'),
+      ...projectProps(manifest, 'HeroCarousel', 'updateCarouselSlide'),
       mediaMutation: {
-        message: builderDesignCapabilities.refusalCodes['media-review'],
+        message: manifest.refusalCodes['media-review'],
         refusalCode: 'media-review',
       },
     },
