@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -132,6 +132,64 @@ describe('remediation worker draft PR reconciliation', () => {
       lifecycle.cases['sentry:sentry_issue:issue-draft-api-failure'];
     assert.equal(stored.status, 'pr_open');
     assert.equal(stored.draftPr.url, 'https://github.com/baci/baci/pull/60');
+  });
+
+  it('uses GH_BIN for the default draft PR status resolver', async (t) => {
+    const directory = createTestDirectory(t, 'baci-worker-custom-gh-');
+    const configuredGh = join(directory, 'configured-gh');
+    writeFileSync(
+      configuredGh,
+      '#!/bin/sh\nprintf \'{"state":"CLOSED","mergedAt":null}\'\n',
+      { mode: 0o700 }
+    );
+    const env = {
+      BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+      BACI_REMEDIATION_OUTPUT_DIR: directory,
+      GH_BIN: configuredGh,
+    };
+    let attempts = 0;
+    let observedAt = '2026-08-01T10:00:00.000Z';
+    const candidateLoader = async () => [
+      {
+        category: 'sentry_issue',
+        fingerprint: 'configured-gh-draft',
+        lastSeen: observedAt,
+        occurrences: observedAt.endsWith('00.000Z') ? 2 : 3,
+        sample: { issueId: 'configured-gh', source: 'sentry' },
+        source: 'sentry',
+      },
+    ];
+    const autofixRunner = () => {
+      attempts += 1;
+      return {
+        branch: `codex/fix-configured-gh-${attempts}`,
+        prUrl: `https://github.com/baci/baci/pull/${80 + attempts}`,
+        type: 'pr_opened',
+      };
+    };
+    const originalPath = process.env.PATH;
+    process.env.PATH = directory;
+    try {
+      await runRemediationWorker({
+        autofixRunner,
+        candidateLoader,
+        env,
+        now: () => Date.parse('2026-08-01T10:02:00.000Z'),
+        workerName: 'test-remediator',
+      });
+      observedAt = '2026-08-01T10:01:00.000Z';
+      await runRemediationWorker({
+        autofixRunner,
+        candidateLoader,
+        env,
+        now: () => Date.parse('2026-08-01T10:03:00.000Z'),
+        workerName: 'test-remediator',
+      });
+    } finally {
+      process.env.PATH = originalPath;
+    }
+
+    assert.equal(attempts, 2);
   });
 
   it('reconciles an older closed draft even when a newer draft stays open', async (t) => {

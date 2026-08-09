@@ -100,7 +100,10 @@ export async function runRemediationWorker({
       candidates: loadedCandidates,
       limit: maximumDraftPrReconciliations,
       resolveDraftPrStatus:
-        draftPrStatusResolver || createRemediationDraftPrStatusResolver(),
+        draftPrStatusResolver ||
+        createRemediationDraftPrStatusResolver({
+          ghBin: env.GH_BIN || 'gh',
+        }),
     });
     if (reconciliation.failed > 0) {
       actions.push({ type: 'draft_pr_reconciliation_failed' });
