@@ -136,7 +136,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
         quietStaleCases(state, nowMs);
         capCases(state);
         storage.persist(state);
-        const selectableCandidates = observedCandidates.filter((candidate) => {
+        const selectableCandidates = normalized.filter((candidate) => {
           const item = state.cases[candidate.caseKey];
           if (!item) return false;
           return (

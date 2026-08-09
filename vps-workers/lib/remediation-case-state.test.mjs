@@ -118,19 +118,19 @@ describe('remediation case state', () => {
     assert.equal(stored.totalObservations, 5);
   });
 
-  it('does not select an already-observed open case without a new observation', () => {
+  it('keeps a stable open case available for state retries without a recurrence', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-case-stale-selection-'));
     const state = createRemediationCaseState({
       now: () => Date.parse('2026-08-01T10:04:00.000Z'),
       path: join(directory, 'cases.json'),
     });
-
     state.reconcile([candidate()]);
-    state.recordOutcome(candidate(), { type: 'no_changes' });
-
-    assert.deepEqual(state.reconcile([candidate()]), []);
+    state.recordOutcome(candidate(), { type: 'configuration_blocked' });
+    assert.equal(state.reconcile([candidate()]).length, 1);
+    const stored = state.snapshot().cases['sentry:sentry_issue:issue-42'];
+    const counts = [stored.recurrenceCount, stored.totalObservations];
+    assert.deepEqual(counts, [0, 3]);
   });
-
   it('treats a timestamp-free occurrence reset as a new observation epoch', () => {
     const directory = mkdtempSync(
       join(tmpdir(), 'baci-case-occurrence-reset-')
