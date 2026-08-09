@@ -42,7 +42,8 @@ interface EnvironmentPage {
 
 function config(environment: Environment): BootstrapConfig | null {
   const projectId = environment.VERCEL_PROJECT_ID?.trim();
-  const teamId = environment.VERCEL_TEAM_ID?.trim();
+  const teamId =
+    environment.VERCEL_TEAM_ID?.trim() || environment.VERCEL_ORG_ID?.trim();
   const token = environment.VERCEL_API_TOKEN?.trim();
   return projectId && teamId && token ? { projectId, teamId, token } : null;
 }

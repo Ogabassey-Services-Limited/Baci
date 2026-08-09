@@ -12,6 +12,44 @@ const environment = {
 const runId = '11111111-1111-4111-8111-111111111111';
 
 describe('createBuilderAiVercelBootstrapClient', () => {
+  it('uses VERCEL_ORG_ID when an explicit team id is absent', async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            envs: [
+              {
+                comment: builderAiBootstrapComment(runId),
+                id: 'row',
+                key: 'BUILDER_AI_ATTEST_SMOKE_TOKEN_SHA256',
+                target: ['production'],
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    const client = createBuilderAiVercelBootstrapClient(
+      {
+        VERCEL_API_TOKEN: 'secret',
+        VERCEL_ORG_ID: 'org',
+        VERCEL_PROJECT_ID: 'project',
+      },
+      fetcher
+    );
+
+    expect(client).not.toBeNull();
+    if (!client) throw new Error('Expected a Vercel bootstrap client');
+    await expect(client.claimToken(runId)).resolves.toBe(true);
+    expect(fetcher).toHaveBeenNthCalledWith(
+      1,
+      'https://api.vercel.com/v10/projects/project/env?teamId=org',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
   it('claims only one token metadata row using fixed Vercel URLs', async () => {
     const fetcher = vi
       .fn()
