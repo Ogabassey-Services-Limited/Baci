@@ -16,6 +16,7 @@ function makeRunner({
 } = {}) {
   const calls = [];
   const environments = [];
+  const registeredWorktrees = new Map();
   return {
     calls,
     environments,
@@ -28,6 +29,26 @@ function makeRunner({
         timeout: options?.timeout,
       });
       const joined = [command, ...args].join(' ');
+      if (command === 'git' && joined === 'git worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: [...registeredWorktrees]
+            .map(
+              ([directory, branch]) =>
+                `worktree ${directory}\nHEAD deadbeef\nbranch refs/heads/${branch}\n`
+            )
+            .join('\n'),
+          stderr: '',
+        };
+      }
+      if (command === 'git' && args[0] === 'worktree' && args[1] === 'add') {
+        registeredWorktrees.set(args[2], args[args.indexOf('-b') + 1]);
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'git' && args[0] === 'worktree' && args[1] === 'remove') {
+        registeredWorktrees.delete(args.at(-1));
+        return { status: 0, stdout: '', stderr: '' };
+      }
       if (joined.includes('rev-list --count origin/main..HEAD')) {
         return { status: 0, stdout: '0\n', stderr: '' };
       }

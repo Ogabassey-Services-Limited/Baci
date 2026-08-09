@@ -8,6 +8,12 @@ describe('committed remediation branch resume', () => {
     const runner = (command, args, options) => {
       calls.push({ args, command, options });
       if (args[0] === 'rev-list') return { status: 0, stdout: '1\n' };
+      if (args.join(' ') === 'worktree list --porcelain') {
+        return {
+          status: 0,
+          stdout: 'worktree /worktrees/abc123\n',
+        };
+      }
       return { status: 0, stdout: '' };
     };
     const result = resumeCommittedRemediationBranch({
@@ -30,11 +36,15 @@ describe('committed remediation branch resume', () => {
     });
 
     assert.equal(result.type, 'pr_opened');
-    assert.equal(
-      calls.at(-1).args.join(' '),
-      'worktree remove --force /worktrees/abc123'
+    assert.deepEqual(
+      calls.slice(-3).map(({ args }) => args.join(' ')),
+      [
+        'worktree list --porcelain',
+        'worktree remove --force /worktrees/abc123',
+        'worktree prune',
+      ]
     );
-    assert.deepEqual(calls.at(-1).options, {
+    assert.deepEqual(calls.at(-3).options, {
       cwd: '/repo',
       env: { PATH: '/safe/bin' },
       shell: false,
