@@ -1,24 +1,49 @@
+import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
-  closeSync,
+  linkSync,
   mkdirSync,
-  openSync,
   readFileSync,
   renameSync,
+  statSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { dirname } from 'node:path';
 
 const STALE_LOCK_MS = 2 * 60 * 1_000;
+const LOCK_TOKEN_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const processIsAlive = (pid) => {
-  try { process.kill(pid, 0); return true; } catch (error) { return error?.code !== 'ESRCH'; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return error?.code !== 'ESRCH';
+  }
 };
 const processStartedAt = (pid) => {
-  try { return execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], { encoding: 'utf8', timeout: 1_000 }).trim() || null; } catch { return null; }
+  try {
+    return (
+      execFileSync('ps', ['-o', 'lstart=', '-p', String(pid)], {
+        encoding: 'utf8',
+        timeout: 1_000,
+      }).trim() || null
+    );
+  } catch {
+    return null;
+  }
 };
+
+const completeOwner = (owner) =>
+  owner &&
+  Number.isSafeInteger(owner.pid) &&
+  owner.pid > 0 &&
+  typeof owner.createdAt === 'string' &&
+  Number.isFinite(Date.parse(owner.createdAt)) &&
+  typeof owner.token === 'string' &&
+  LOCK_TOKEN_PATTERN.test(owner.token);
 
 export function createRemediationCaseStateStorage({
   createEmptyState,
@@ -74,38 +99,92 @@ export function createRemediationCaseStateStorage({
     const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      let descriptor;
       const token = randomUUID();
+      const ownerPath = `${lockPath}.owner-${token}`;
+      writeFileSync(
+        ownerPath,
+        JSON.stringify({
+          createdAt: new Date(nowMs).toISOString(),
+          pid: process.pid,
+          processStartedAt: startedAt(process.pid),
+          token,
+        }),
+        { flag: 'wx', mode: 0o600 }
+      );
       try {
-        descriptor = openSync(lockPath, 'wx', 0o600);
+        linkSync(ownerPath, lockPath);
       } catch (error) {
+        try {
+          unlink(ownerPath);
+        } catch (cleanupError) {
+          if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+        }
         if (error?.code !== 'EEXIST') throw error;
         let owner;
-        try { owner = JSON.parse(readFileSync(lockPath, 'utf8')); } catch { owner = null; }
-        const stale = owner && nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS &&
-          (!isAlive(owner.pid) || (typeof owner.processStartedAt === 'string' && startedAt(owner.pid) !== owner.processStartedAt));
+        try {
+          owner = JSON.parse(readFileSync(lockPath, 'utf8'));
+        } catch {
+          owner = null;
+        }
+        const modifiedAt = statSync(lockPath, {
+          throwIfNoEntry: false,
+        })?.mtimeMs;
+        let stale = false;
+        if (
+          completeOwner(owner) &&
+          nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
+        ) {
+          if (!isAlive(owner.pid)) {
+            stale = true;
+          } else if (typeof owner.processStartedAt === 'string') {
+            const currentProcessStartedAt = startedAt(owner.pid);
+            stale =
+              typeof currentProcessStartedAt === 'string' &&
+              currentProcessStartedAt !== owner.processStartedAt;
+          }
+        } else if (!completeOwner(owner)) {
+          stale =
+            Number.isFinite(modifiedAt) && nowMs - modifiedAt > STALE_LOCK_MS;
+        }
         if (attempt === 0 && stale) {
           try {
             unlink(lockPath);
           } catch (cleanupError) {
             if (cleanupError?.code !== 'ENOENT') throw cleanupError;
           }
+          if (completeOwner(owner)) {
+            try {
+              unlink(`${lockPath}.owner-${owner.token}`);
+            } catch (cleanupError) {
+              if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+            }
+          }
           continue;
         }
         return fallback;
       }
-      writeFileSync(descriptor, JSON.stringify({ createdAt: new Date(nowMs).toISOString(), pid: process.pid, processStartedAt: startedAt(process.pid), token }));
+      let result;
+      let actionError;
       try {
-        return action(read());
-      } finally {
-        closeSync(descriptor);
-        try {
-          const owner = JSON.parse(readFileSync(lockPath, 'utf8'));
-          if (owner.token === token) unlink(lockPath);
-        } catch (error) {
-          if (error?.code !== 'ENOENT') throw error;
-        }
+        result = action(read());
+      } catch (error) {
+        actionError = error;
       }
+      let releaseError;
+      try {
+        const owner = JSON.parse(readFileSync(lockPath, 'utf8'));
+        if (owner.token === token) unlink(lockPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') releaseError = error;
+      }
+      try {
+        unlink(ownerPath);
+      } catch (error) {
+        if (error?.code !== 'ENOENT' && !releaseError) releaseError = error;
+      }
+      if (actionError) throw actionError;
+      if (releaseError) throw releaseError;
+      return result;
     }
     return fallback;
   }
