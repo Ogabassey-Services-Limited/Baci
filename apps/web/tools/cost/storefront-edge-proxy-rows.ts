@@ -1,7 +1,7 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redirect-rows';
-import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { STOREFRONT_EDGE_PROXY_BLOG_QUERY_ROWS } from './storefront-edge-proxy-blog-query-rows';
+import { STOREFRONT_EDGE_PROXY_BLOG_STATUS_ROWS } from './storefront-edge-proxy-blog-status-rows';
 import { createStorefrontEdgeProxyClass } from './storefront-edge-proxy-class';
 import { STOREFRONT_EDGE_PROXY_TAIL_ROWS } from './storefront-edge-proxy-tail-rows';
 
@@ -130,18 +130,56 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
-    'proxy:legacy-terms-alias',
+    'proxy:legacy-terms-alias-custom-domain',
     '/terms-and-conditions',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'canonical_terms_alias'
+    'canonical_terms_alias',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+    }
   ),
   proxyClass(
-    'proxy:legacy-terms-of-service',
+    'proxy:legacy-terms-alias-platform-subdomain',
+    '/terms-and-conditions',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'canonical_terms_alias',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:legacy-terms-of-service-custom-domain',
     '/terms-of-service',
     ['GET', 'HEAD'],
     'edge_redirect',
-    'canonical_terms_alias'
+    'canonical_terms_alias',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+    }
+  ),
+  proxyClass(
+    'proxy:legacy-terms-of-service-platform-subdomain',
+    '/terms-of-service',
+    ['GET', 'HEAD'],
+    'edge_redirect',
+    'canonical_terms_alias',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+    }
   ),
   proxyClass(
     'proxy:lowercase-document',

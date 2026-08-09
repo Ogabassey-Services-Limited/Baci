@@ -109,7 +109,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         }),
       ])
     );
-    expect(draftRows).toHaveLength(2);
+    expect(draftRows).toHaveLength(4);
     expect(draftRows.every((row) => row.decision === 'origin_dynamic')).toBe(
       true
     );
@@ -175,19 +175,33 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       })
     );
     expect(
-      queryRows.every(
-        (row) =>
-          row.decision === 'origin_dynamic' &&
-          row.requestCondition?.anyQueryKeyPresent?.includes('page') &&
-          row.requestCondition.matchedStorefrontEntrypointId ===
-            `storefront:${row.sourcePath?.replace(
-              'apps/web/src/app/(storefront)/[slug]/',
-              ''
-            )}` &&
-          row.requestCondition.precedence ===
-            'after_entrypoint_resolution_before_decision'
-      )
+      queryRows
+        .filter(
+          (row) =>
+            row.id !== 'request-override:query-dependent-compare-root' &&
+            row.id !== 'request-override:query-dependent-category-compare'
+        )
+        .every(
+          (row) =>
+            row.decision === 'origin_dynamic' &&
+            row.requestCondition?.anyQueryKeyPresent?.includes('page') &&
+            row.requestCondition.matchedStorefrontEntrypointId ===
+              `storefront:${row.sourcePath?.replace(
+                'apps/web/src/app/(storefront)/[slug]/',
+                ''
+              )}` &&
+            row.requestCondition.precedence ===
+              'after_entrypoint_resolution_before_decision'
+        )
     ).toBe(true);
+    expect(byId.get('request-override:query-dependent-compare-root')).toEqual(
+      expect.objectContaining({
+        requestCondition: expect.objectContaining({
+          anyQueryPresent: true,
+          anyQueryPresentExcept: ['__baci_metadata_cache_bucket'],
+        }),
+      })
+    );
     expect(byId.get('machine:ads')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
@@ -210,6 +224,9 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         'apps/web/src/components/storefront/RepairBookingWizard.tsx',
         'apps/web/src/app/ads.txt/route.ts',
         'apps/web/src/app/auth/confirm/route.ts',
+        'apps/web/src/lib/storefront-internal-preflight.ts',
+        'apps/web/src/lib/storefront-preflight-rpc.ts',
+        'apps/web/src/lib/storefront-slug-safety.ts',
       ])
     );
   });

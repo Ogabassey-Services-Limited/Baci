@@ -204,7 +204,7 @@ describe('createStorefrontEdgeInventory', () => {
       'proxy:cache-safe-punctuation',
       'proxy:legacy-analytics-conversion',
       'proxy:legacy-klump-webhook',
-      'proxy:legacy-terms-alias',
+      'proxy:legacy-terms-alias-custom-domain',
       'proxy:lowercase-document',
       'proxy:retired-slug-api',
       'proxy:retired-slug-document',

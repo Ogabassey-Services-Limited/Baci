@@ -17,10 +17,17 @@ const API_TERMINAL_ROW: InventoryRow = {
   sourceKind: 'api_family',
 };
 
-const DRAFT_MODE_ROWS: readonly InventoryRow[] = ['/blog', '/blog/{*path}'].map(
-  (routePattern, index) => ({
+const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
+  '/blog',
+  '/blog/{*path}',
+  '/{storefrontIdentifier}/blog',
+  '/{storefrontIdentifier}/blog/{*path}',
+].map((routePattern, index) => {
+  const scope = ['root', 'nested', 'slug-root', 'slug-nested'][index];
+  if (!scope) throw new Error('draft-mode path has no stable identifier');
+  return {
     decision: 'origin_dynamic',
-    id: `request-override:draft-mode-${index === 0 ? 'root' : 'nested'}`,
+    id: `request-override:draft-mode-${scope}`,
     methods: ['GET', 'HEAD'],
     reason: 'next_draft_mode_cookie_requires_origin',
     requestCondition: {
@@ -29,8 +36,8 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = ['/blog', '/blog/{*path}'].map(
     },
     routePattern,
     sourceKind: 'request_override',
-  })
-);
+  };
+});
 
 const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
   {
@@ -152,33 +159,41 @@ const QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
       throw new Error(
         `query-dependent entrypoint is outside the storefront route root: ${sourcePath}`
       );
+    const isCompareHub = id === 'compare-root' || id === 'category-compare';
     return {
       decision: 'origin_dynamic',
       id: `request-override:query-dependent-${id}`,
       methods: ['GET', 'HEAD'],
       reason: 'query_dependent_storefront_render',
       requestCondition: {
-        anyQueryKeyPresent: [
-          'brand',
-          'brands',
-          'color',
-          'colors',
-          'condition',
-          'category',
-          'displaySize',
-          'displayType',
-          'maxPrice',
-          'minPrice',
-          'page',
-          'q',
-          'query',
-          'ram',
-          'search',
-          'simType',
-          'storage',
-          'variantId',
-          'variant_id',
-        ],
+        ...(isCompareHub
+          ? {
+              anyQueryPresent: true as const,
+              anyQueryPresentExcept: ['__baci_metadata_cache_bucket'],
+            }
+          : {
+              anyQueryKeyPresent: [
+                'brand',
+                'brands',
+                'color',
+                'colors',
+                'condition',
+                'category',
+                'displaySize',
+                'displayType',
+                'maxPrice',
+                'minPrice',
+                'page',
+                'q',
+                'query',
+                'ram',
+                'search',
+                'simType',
+                'storage',
+                'variantId',
+                'variant_id',
+              ],
+            }),
         matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
           STOREFRONT_ROUTE_SOURCE_PREFIX.length
         )}`,
@@ -268,6 +283,9 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/storefront-blog-listing-verdict.ts',
     'apps/web/src/lib/storefront-blog-post-status.ts',
     'apps/web/src/lib/storefront-compare-hub-status.ts',
+    'apps/web/src/lib/storefront-internal-preflight.ts',
+    'apps/web/src/lib/storefront-preflight-rpc.ts',
+    'apps/web/src/lib/storefront-slug-safety.ts',
     'apps/web/src/lib/storefront-document-home-path-rules.ts',
     'apps/web/src/lib/storefront-document-home-path.ts',
     'apps/web/src/lib/storefront-document-navigation.ts',

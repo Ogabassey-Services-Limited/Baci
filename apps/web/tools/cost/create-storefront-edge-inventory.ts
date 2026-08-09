@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createStorefrontEdgeApiRows } from './create-storefront-edge-api-rows';
 import { createStorefrontEdgeEntrypointRows } from './create-storefront-edge-entrypoint-rows';
+import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-allowlist';
 import { canonicalizeStorefrontEdgeInventoryValue } from './storefront-edge-canonical-json';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
@@ -76,7 +77,12 @@ export async function createStorefrontEdgeInventory(
     ROUTE_ROOT,
     routeSources
   );
-  const apiRows = createStorefrontEdgeApiRows(API_ROOT, apiSources);
+  const apiRows = createStorefrontEdgeApiRows(
+    API_ROOT,
+    apiSources.filter(({ sourcePath }) =>
+      isStorefrontRequiredApiSourcePath(sourcePath)
+    )
+  );
   const verifiedSourcePaths = new Set(
     [...apiSources, ...routeSources, ...routingInputSources].map(
       ({ sourcePath }) => sourcePath

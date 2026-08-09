@@ -60,12 +60,18 @@ const REDIRECTS = [
   ['next:slug-privacy-policy', '/{slug}/privacy-policy'],
 ] as const;
 
-const OGABASSEY_HOSTS = ['ogabassey.com', 'www.ogabassey.com'] as const;
-const OGABASSEY_REDIRECT_IDS = new Set([
+const OGABASSEY_APEX_ONLY_HOSTS = ['ogabassey.com'] as const;
+const OGABASSEY_APEX_ONLY_REDIRECT_IDS = new Set([
   'next:macbook',
   'next:samsung',
   'next:phones',
   'next:oppo',
+]);
+const OGABASSEY_APEX_AND_WWW_HOSTS = [
+  'ogabassey.com',
+  'www.ogabassey.com',
+] as const;
+const OGABASSEY_APEX_AND_WWW_REDIRECT_IDS = new Set([
   'next:product-category-accessories',
   'next:product-category-headphones',
   'next:product-category-smartwatches',
@@ -77,21 +83,26 @@ const OGABASSEY_REDIRECT_IDS = new Set([
 
 /** Reviewed redirect surfaces declared by apps/web/next.config.ts. */
 export const STOREFRONT_EDGE_NEXT_REDIRECT_ROWS: readonly InventoryRow[] =
-  REDIRECTS.map(([id, routePattern]) =>
-    createStorefrontEdgeProxyClass(
+  REDIRECTS.map(([id, routePattern]) => {
+    const hostnameIn = OGABASSEY_APEX_ONLY_REDIRECT_IDS.has(id)
+      ? OGABASSEY_APEX_ONLY_HOSTS
+      : OGABASSEY_APEX_AND_WWW_REDIRECT_IDS.has(id)
+        ? OGABASSEY_APEX_AND_WWW_HOSTS
+        : undefined;
+    return createStorefrontEdgeProxyClass(
       id,
       routePattern,
       ['ANY'],
       'edge_redirect',
       'next_config_redirect',
-      OGABASSEY_REDIRECT_IDS.has(id)
+      hostnameIn
         ? {
             hostCondition: {
               hostKind: 'custom_domain',
-              hostnameIn: OGABASSEY_HOSTS,
+              hostnameIn,
               precedence: 'before_path_decision',
             },
           }
         : {}
-    )
-  );
+    );
+  });

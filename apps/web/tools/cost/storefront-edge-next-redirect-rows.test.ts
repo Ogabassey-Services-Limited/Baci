@@ -15,5 +15,14 @@ describe('STOREFRONT_EDGE_NEXT_REDIRECT_ROWS', () => {
     expect(STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.map(({ id }) => id)).toEqual(
       expect.arrayContaining(['next:user-legacy', 'next:blog-wwdc'])
     );
+    expect(
+      STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.find(({ id }) => id === 'next:macbook')
+        ?.hostCondition?.hostnameIn
+    ).toEqual(['ogabassey.com']);
+    expect(
+      STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.find(
+        ({ id }) => id === 'next:product-category'
+      )?.hostCondition?.hostnameIn
+    ).toEqual(['ogabassey.com', 'www.ogabassey.com']);
   });
 });

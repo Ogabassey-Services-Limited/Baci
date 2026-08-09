@@ -128,7 +128,7 @@ export function createStorefrontEdgeEntrypointRows(
       return [
         row,
         {
-          decision: 'edge_release',
+          decision: 'origin_dynamic',
           id: `${row.id}:options`,
           methods: ['OPTIONS'],
           reason: 'automatic_options_response',
