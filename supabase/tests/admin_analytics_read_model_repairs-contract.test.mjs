@@ -30,6 +30,28 @@ test('Merchant 360 readiness does not require custom-domain verification', async
   assert.doesNotMatch(sql, /primary_domain\.ssl_status/);
 });
 
+test('Merchant 360 withholds GMV unless the display currency is known', async () => {
+  const sql = await migration(
+    '20260809173200_repair_admin_merchant_360_unknown_currency_gmv.sql'
+  );
+
+  assert.match(
+    sql,
+    /ALTER FUNCTION public\.get_admin_merchant_360_v2\(uuid\)\n {2}RENAME TO get_admin_merchant_360_v2_currency_ambiguous/
+  );
+  assert.match(sql, /money_context\.display_currency IS NOT NULL/);
+  assert.match(
+    sql,
+    /paid_orders\.order_currency = money_context\.display_currency/
+  );
+  assert.match(sql, /money_context\.display_currency IS NULL/);
+  assert.match(
+    sql,
+    /paid_orders\.order_currency IS DISTINCT FROM money_context\.display_currency/
+  );
+  assert.match(sql, /<> 'UNK'/);
+});
+
 test('reconciliation repair retains currency-less settlement activity without money labels', async () => {
   const sql = await migration(
     '20260809154416_repair_admin_reconciliation_currencyless_activity.sql'
@@ -184,10 +206,18 @@ test('isolated replay exercises the production operations v2 projection', async 
     sql,
     /\\ir \.\.\/migrations\/20260809173100_index_platform_admin_membership_actors\.sql/
   );
+  assert.match(
+    sql,
+    /\\ir \.\.\/migrations\/20260809173200_repair_admin_merchant_360_unknown_currency_gmv\.sql/
+  );
   assert.match(sql, /public\.get_admin_operations_v2\('financial', 25, 0\)/);
   assert.match(
     sql,
     /operations settlement projection still exposes currencyless money or lost incident metadata/
   );
   assert.match(sql, /recent returned shipment is absent from system health/);
+  assert.match(
+    sql,
+    /Merchant 360 counted unknown-currency paid orders as GMV instead of excluding them/
+  );
 });

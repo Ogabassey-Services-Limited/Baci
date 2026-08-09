@@ -73,7 +73,10 @@ CREATE TABLE public.shipping_webhook_events (
 CREATE FUNCTION public.get_admin_merchant_360(uuid) RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = '' AS $$
   SELECT jsonb_build_object(
-    'moneyCurrency', 'NGN',
+    'moneyCurrency', CASE
+      WHEN $1 = '00000000-0000-0000-0000-000000000011'::uuid THEN 'UNK'
+      ELSE 'NGN'
+    END,
     'readiness', jsonb_build_object(
       'hasStorefrontSlug', TRUE, 'isPublished', TRUE,
       'paymentConfigured', TRUE, 'shippingConfigured', TRUE,
@@ -138,7 +141,9 @@ VALUES
 INSERT INTO public.orders (id, merchant_id, total, currency, payment_status, created_at)
 VALUES
   ('00000000-0000-0000-0000-000000000020', '00000000-0000-0000-0000-000000000010', 100, 'NGN', 'paid', clock_timestamp()),
-  ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000011', 200, 'NGN', 'paid', clock_timestamp());
+  ('00000000-0000-0000-0000-000000000021', '00000000-0000-0000-0000-000000000011', 200, 'NGN', 'paid', clock_timestamp()),
+  ('00000000-0000-0000-0000-000000000022', '00000000-0000-0000-0000-000000000011', 300, NULL, 'paid', clock_timestamp()),
+  ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000011', 400, '  ', 'paid', clock_timestamp());
 INSERT INTO public.merchant_settlements (id, merchant_id, status, net_amount, gateway, created_at)
 VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000010', 'pending', 95, 'paystack', clock_timestamp());
 INSERT INTO public.email_send_attempts (
@@ -169,6 +174,7 @@ VALUES (
 \ir ../migrations/20260805151570_harden_admin_error_code_projections.sql
 \ir ../migrations/20260809173000_repair_admin_operations_currency_and_health_indexes.sql
 \ir ../migrations/20260809173100_index_platform_admin_membership_actors.sql
+\ir ../migrations/20260809173200_repair_admin_merchant_360_unknown_currency_gmv.sql
 
 -- The production v2 projection migration commits its own transaction.
 BEGIN;
@@ -177,6 +183,7 @@ DO $$
 DECLARE
   v_directory_id uuid;
   v_detail jsonb;
+  v_unknown_currency_detail jsonb;
   v_reconciliation jsonb;
   v_health jsonb;
   v_operations jsonb;
@@ -191,6 +198,17 @@ BEGIN
   v_detail := public.get_admin_merchant_360_v2('00000000-0000-0000-0000-000000000010');
   IF (v_detail #>> '{readiness,storefrontReady}') IS DISTINCT FROM 'true' THEN
     RAISE EXCEPTION 'Merchant 360 still requires a custom domain for storefront readiness';
+  END IF;
+  v_unknown_currency_detail := public.get_admin_merchant_360_v2(
+    '00000000-0000-0000-0000-000000000011'
+  );
+  IF (v_unknown_currency_detail #>> '{sales,paidGmv}') IS DISTINCT FROM '0'
+    OR (v_unknown_currency_detail #>> '{sales,displayCurrencyPaidOrders}')
+      IS DISTINCT FROM '0'
+    OR (v_unknown_currency_detail #>> '{sales,excludedNonDisplayCurrencyPaidOrders}')
+      IS DISTINCT FROM '3'
+    OR (v_unknown_currency_detail #>> '{sales,paidOrders}') IS DISTINCT FROM '3' THEN
+    RAISE EXCEPTION 'Merchant 360 counted unknown-currency paid orders as GMV instead of excluding them';
   END IF;
 
   v_reconciliation := public.get_admin_reconciliation_v3('30d', 'NGN', NULL, 'all', 'all', NULL, NULL, 50);

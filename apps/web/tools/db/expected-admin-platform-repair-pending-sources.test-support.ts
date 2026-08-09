@@ -44,4 +44,19 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260809173100_index_platform_admin_membership_actors.sql',
     sha256: '3f27e3467a21b5958009c13b79b1e5ef78890b5ec43c57183c0ff731bc077ce7',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809173200_repair_admin_merchant_360_unknown_currency_gmv.sql',
+    sha256: 'c8af6124f602775358edf9e4d7cf161306aa548906be0a79f904c09695dcb2a3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809182751_blog_post_ownership_scope_invariance.sql',
+    sha256: 'b6385b3d930d80f2e227d753af6ef111e82caf2e47eb4a5b6b1da07dc9e58e79',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260809184000_repair_admin_notification_dashboard_literal_search.sql',
+    sha256: '15454bebdba3b375870e5a0d61c5659a396d8efa18fcdbea0b5ad8ec20f3a2b6',
+  },
 ] as const;

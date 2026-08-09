@@ -23,7 +23,7 @@ export async function updateAdminNotification(request: Request, id: string) {
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
       .select(
-        'id, sent_at, delivery_state, target_type, target_merchant_ids, target_segment, scheduled_for, expires_at'
+        'id, sent_at, delivery_state, target_type, target_segment, scheduled_for, expires_at'
       )
       .eq('id', id)
       .single();
@@ -104,7 +104,6 @@ async function validateEffectiveUpdate(
   supabase: Awaited<ReturnType<typeof createClient>>,
   existing: {
     target_type: 'all' | 'specific' | 'segment' | null;
-    target_merchant_ids: string[] | null;
     target_segment: 'new' | 'active' | 'at_risk' | null;
     scheduled_for: string | null;
     expires_at: string | null;
@@ -176,18 +175,12 @@ type EffectiveTargeting = {
 function normalizeEffectiveTargeting(
   existing: {
     target_type: 'all' | 'specific' | 'segment' | null;
-    target_merchant_ids: string[] | null;
     target_segment: 'new' | 'active' | 'at_risk' | null;
   },
   body: ReturnType<typeof updateNotificationSchema.parse>
 ): EffectiveTargeting {
   const target_type = body.target_type ?? existing.target_type ?? undefined;
-  const target_merchant_ids =
-    body.target_type === 'specific'
-      ? (body.target_merchant_ids ?? null)
-      : body.target_merchant_ids !== undefined
-        ? body.target_merchant_ids
-        : existing.target_merchant_ids;
+  const target_merchant_ids = body.target_merchant_ids ?? null;
   const target_segment =
     body.target_type === 'segment'
       ? (body.target_segment ?? null)

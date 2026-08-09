@@ -16,6 +16,7 @@ const notificationMigrationNames = [
   '20260805151330_harden_admin_notification_recipient_delivery.sql',
   '20260805151360_harden_merchant_notification_table_privileges.sql',
   '20260805151370_mark_all_visible_merchant_notifications_read.sql',
+  '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -51,6 +52,7 @@ describe('admin notification foundation migration contract', () => {
       '20260805151330_harden_admin_notification_recipient_delivery.sql',
       '20260805151360_harden_merchant_notification_table_privileges.sql',
       '20260805151370_mark_all_visible_merchant_notifications_read.sql',
+      '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -60,6 +62,20 @@ describe('admin notification foundation migration contract', () => {
       );
       expect(sql.split('\n').length - 1).toBeLessThanOrEqual(300);
     }
+  });
+
+  it('keeps dashboard totals search literal with an explicit LIKE escape', () => {
+    const sql = readMigrations([
+      '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
+    ]);
+    const escapedSearch = String.raw`replace(replace(replace(p_search, e'\\', e'\\\\'), '%', e'\\%'), '_', e'\\_')`;
+    const escapeClause = String.raw`escape e'\\'`;
+
+    expect(sql).toContain(escapedSearch);
+    expect(sql.split(escapeClause)).toHaveLength(3);
+    expect(sql).toContain(
+      'grant execute on function public.get_admin_notification_dashboard(text, text, text, text)\n  to authenticated'
+    );
   });
 
   it('uses narrow authenticated admin RPCs rather than a broad table bypass', () => {

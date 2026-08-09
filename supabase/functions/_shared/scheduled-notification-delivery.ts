@@ -20,6 +20,13 @@ interface WorkerClient {
 }
 type Outcome = 'sent' | 'retry' | 'expired';
 
+class NotificationClaimLostError extends Error {
+  constructor() {
+    super('Notification claim was lost');
+    this.name = 'NotificationClaimLostError';
+  }
+}
+
 function pageIds(data: unknown): string[] | null {
   if (!Array.isArray(data)) return null;
   const ids = data.flatMap((row) =>
@@ -48,7 +55,7 @@ async function renew(
     p_claim_token: notification.delivery_claim_token,
     p_notification_id: notification.id,
   });
-  if (data !== true) throw new Error('Notification claim was lost');
+  if (data !== true) throw new NotificationClaimLostError();
 }
 
 export function parseExpoTicketResults(
@@ -258,6 +265,7 @@ export async function processScheduledNotificationClaims(
       results.push({ id: notification.id, recipients, status: 'sent' });
     } catch (error) {
       if (!notification) throw error;
+      if (error instanceof NotificationClaimLostError) continue;
       await finalize(
         client,
         notification,

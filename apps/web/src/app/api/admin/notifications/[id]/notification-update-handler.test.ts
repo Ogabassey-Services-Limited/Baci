@@ -116,6 +116,10 @@ describe('updateAdminNotification', () => {
 
     expect(response.status).toBe(200);
     expect(supabase.updates).toEqual([{ title: 'Updated title' }]);
+    expect(supabase.query.select).toHaveBeenNthCalledWith(
+      1,
+      expect.not.stringContaining('target_merchant_ids')
+    );
     expect(supabase.query.eq).toHaveBeenCalledWith('delivery_state', 'pending');
     expect(supabase.query.is).toHaveBeenCalledWith('sent_at', null);
   });
