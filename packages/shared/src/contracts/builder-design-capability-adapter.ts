@@ -28,7 +28,7 @@ function isSafeUrl(value: unknown): value is string {
     if (code <= 31 || code === 127) return false;
   }
   if (value.startsWith('/')) return !value.startsWith('//');
-  if (value.startsWith('#')) return value.length > 1;
+  if (value.startsWith('#')) return true;
   if (!value.toLowerCase().startsWith('https://')) return false;
   try {
     const parsed = new URL(value);
@@ -83,7 +83,7 @@ function isValueForProp(
   if (descriptor.type === 'string') {
     return (
       typeof value === 'string' &&
-      value.trim().length > 0 &&
+      (descriptor.required !== true || value.trim().length > 0) &&
       (descriptor.maximumLength === undefined ||
         value.length <= descriptor.maximumLength)
     );

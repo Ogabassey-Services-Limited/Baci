@@ -85,4 +85,48 @@ describe('createBuilderAiModelOperationSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts the safe live Button anchor default while rejecting unsafe links', () => {
+    const schema = createBuilderAiModelOperationSchema();
+
+    expect(
+      schema.safeParse({
+        initialContent: { componentType: 'Button', link: '#' },
+        kind: 'insert_component',
+        placement: { position: 'first_content' },
+      }).success
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        initialContent: {
+          componentType: 'Button',
+          link: 'javascript:alert(1)',
+        },
+        kind: 'insert_component',
+        placement: { position: 'first_content' },
+      }).success
+    ).toBe(false);
+  });
+
+  it('allows clearing optional copy while keeping required Feature copy nonempty', () => {
+    const schema = createBuilderAiModelOperationSchema();
+
+    expect(
+      schema.safeParse({
+        componentId: 'features-1',
+        kind: 'update_component',
+        patch: { componentType: 'Features', subtitle: '' },
+      }).success
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        componentId: 'features-1',
+        kind: 'update_component',
+        patch: {
+          componentType: 'Features',
+          features: [{ description: '', title: 'Shipping' }],
+        },
+      }).success
+    ).toBe(false);
+  });
 });

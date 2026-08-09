@@ -21,6 +21,9 @@ describe('builder design capability adapter', () => {
       builderDesignCapabilityAdapter.isPropValue('Button', 'link', '/products')
     ).toBe(true);
     expect(
+      builderDesignCapabilityAdapter.isPropValue('Button', 'link', '#')
+    ).toBe(true);
+    expect(
       builderDesignCapabilityAdapter.isPropValue(
         'Button',
         'link',
@@ -58,6 +61,17 @@ describe('builder design capability adapter', () => {
           icon: undefined,
           title: 'Shipping',
         },
+      ])
+    ).toBe(false);
+  });
+
+  it('allows clearing optional copy while keeping required Feature copy nonempty', () => {
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('Features', 'subtitle', '')
+    ).toBe(true);
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('Features', 'features', [
+        { description: '', title: 'Shipping' },
       ])
     ).toBe(false);
   });

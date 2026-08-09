@@ -26,11 +26,11 @@ function withBounds(schema: z.ZodType, descriptor: BuilderDesignProp) {
     return bounded;
   }
   if (descriptor.type === 'string') {
-    return z
+    const bounded = z
       .string()
       .trim()
-      .min(1)
       .max(descriptor.maximumLength ?? Number.MAX_SAFE_INTEGER);
+    return descriptor.required ? bounded.min(1) : bounded;
   }
   return schema;
 }

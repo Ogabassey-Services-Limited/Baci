@@ -129,6 +129,8 @@ function isCuratedRenderProp(
   if (componentType === 'HeroCarousel')
     return isPreviewCarouselProp(property, value);
   if (componentType === 'ProductGrid') {
+    if (property === 'category')
+      return isBoundedText(value, MAX_STORE_NAME_LENGTH);
     return (
       property === 'sortBy' &&
       (value === 'newest' ||
