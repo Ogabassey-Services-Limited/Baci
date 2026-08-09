@@ -222,4 +222,31 @@ describe('buildProductSpecData general families', () => {
       { label: 'Storage', value: '256GB' },
     ]);
   });
+
+  it('filters unsupported negative card-slot rows for general and accessory PDPs', () => {
+    for (const category of ['Gaming', 'Phone Accessories']) {
+      const result = buildProductSpecData({
+        category,
+        specifications: [
+          {
+            category: 'Details',
+            items: [{ label: 'Card Slot', value: 'No' }],
+          },
+        ],
+        specs: [{ label: 'Card Slot', value: 'No' }],
+      });
+
+      expect(result.detailedSpecs).toEqual([
+        {
+          category: 'General',
+          items: [
+            { label: 'Brand', value: 'Generic' },
+            { label: 'Condition', value: 'New' },
+            { label: 'Category', value: category },
+          ],
+        },
+      ]);
+      expect(result.specs).toEqual([]);
+    }
+  });
 });

@@ -29,4 +29,10 @@ describe('normalizeSpecItems', () => {
       { label: 'Internal Storage', value: '256GB' },
     ]);
   });
+
+  it('retains explicit negative capability rows for category-aware filtering', () => {
+    expect(normalizeSpecItems([{ label: 'Card Slot', value: 'No' }])).toEqual([
+      { label: 'Card Slot', value: 'No' },
+    ]);
+  });
 });

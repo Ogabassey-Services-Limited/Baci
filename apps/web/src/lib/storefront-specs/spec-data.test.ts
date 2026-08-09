@@ -243,4 +243,25 @@ describe('buildProductSpecData', () => {
       ])
     );
   });
+
+  it('keeps a mobile negative card-slot capability after normalization', () => {
+    const result = buildProductSpecData({
+      category: 'Smartphones',
+      specifications: [
+        {
+          category: 'Memory',
+          items: [{ label: 'Card Slot', value: 'No' }],
+        },
+      ],
+      specs: [{ label: 'Card Slot', value: 'No' }],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Memory',
+        items: [{ label: 'Card Slot', value: 'No' }],
+      },
+    ]);
+    expect(result.specs).toEqual([{ label: 'Card Slot', value: 'No' }]);
+  });
 });

@@ -73,6 +73,7 @@ const PHONE_ONLY_SPEC_KEYS = new Set([
   'has_headphone_jack',
   'has_nfc',
   'has_stereo_speakers',
+  'network_technology',
   'sim_type',
 ]);
 
@@ -224,18 +225,23 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (
-    candidate.key &&
-    CAMERA_ONLY_SPEC_KEYS.has(candidate.key) &&
+    canonicalSpecKey &&
+    CAMERA_ONLY_SPEC_KEYS.has(canonicalSpecKey) &&
     !hasCameraCategory &&
     !categoryNames.some(isPhoneTabletLaptopCategory)
   ) {
     return false;
   }
 
-  if (candidate.key && PHONE_ONLY_SPEC_KEYS.has(candidate.key)) {
-    if (AUDIO_CAPABILITY_SPEC_KEYS.has(candidate.key)) {
+  if (canonicalSpecKey && PHONE_ONLY_SPEC_KEYS.has(canonicalSpecKey)) {
+    if (AUDIO_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)) {
       return true;
     }
+
+    if (canonicalSpecKey === 'android_version' && isOperatingSystemLabel) {
+      return true;
+    }
+
     return false;
   }
 

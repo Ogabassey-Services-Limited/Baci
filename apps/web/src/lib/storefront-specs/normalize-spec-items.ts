@@ -21,7 +21,6 @@ export function normalizeSpecItems(value: unknown): ProductSpecItem[] {
       const itemValue = normalizeSpecValueText(item.value);
 
       return label && itemValue ? [{ label, value: itemValue }] : [];
-    }),
-    { omitUnsupportedValues: true }
+    })
   );
 }
