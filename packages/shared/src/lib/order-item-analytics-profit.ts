@@ -1,10 +1,28 @@
-import type { AnalyticsOrderItemRow } from '@/lib/merchant-analytics-utils';
+type AnalyticsCostValue = number | string | null | undefined;
 
-function getJoinedRecord<T>(value: T | T[] | null | undefined) {
+interface AnalyticsCostRecord {
+  cost_price?: AnalyticsCostValue;
+}
+
+interface AnalyticsUnitCostRecord extends AnalyticsCostRecord {
+  unit_index?: number | null;
+}
+
+export interface AnalyticsProfitOrderItem extends AnalyticsCostRecord {
+  order_item_unit_costs?: readonly AnalyticsUnitCostRecord[] | null;
+  price?: AnalyticsCostValue;
+  product_variants?:
+    | AnalyticsCostRecord
+    | readonly AnalyticsCostRecord[]
+    | null;
+  products?: AnalyticsCostRecord | readonly AnalyticsCostRecord[] | null;
+}
+
+function getJoinedRecord<T>(value: T | readonly T[] | null | undefined) {
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
-function toFiniteNumberOrNull(value: number | string | null | undefined) {
+function toFiniteNumberOrNull(value: AnalyticsCostValue) {
   if (value == null || (typeof value === 'string' && value.trim() === '')) {
     return null;
   }
@@ -13,7 +31,7 @@ function toFiniteNumberOrNull(value: number | string | null | undefined) {
   return Number.isFinite(number) ? number : null;
 }
 
-function resolveFallbackCost(item: AnalyticsOrderItemRow) {
+function resolveFallbackCost(item: AnalyticsProfitOrderItem) {
   const variant = getJoinedRecord(item.product_variants);
   const product = getJoinedRecord(item.products);
 
@@ -29,8 +47,8 @@ function resolveFallbackCost(item: AnalyticsOrderItemRow) {
  * contribute zero until their cost is set, instead of treating the selling
  * price as profit.
  */
-export function resolveOrderItemAnalyticsLineProfit(
-  item: AnalyticsOrderItemRow,
+export function resolveKnownOrderItemProfit(
+  item: AnalyticsProfitOrderItem,
   quantity: number
 ) {
   const fallbackUnitCost = resolveFallbackCost(item);
@@ -57,6 +75,7 @@ export function resolveOrderItemAnalyticsLineProfit(
     ) {
       continue;
     }
+
     countedIndexes.add(index);
     recordedProfit += unitPrice - unitCostPrice;
   }

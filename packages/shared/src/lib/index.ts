@@ -13,6 +13,7 @@ export * from './negotiation-contact';
 export * from './negotiation-email';
 export * from './negotiation-item-info';
 export * from './negotiation-policy';
+export * from './order-item-analytics-profit';
 export * from './order-item-display';
 export * from './parse-santa-action';
 export * from './product-condition';

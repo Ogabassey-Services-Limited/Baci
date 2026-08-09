@@ -1,8 +1,8 @@
-import type {
-  MerchantAnalyticsNamedValue,
-  MerchantAnalyticsTopProduct,
+import {
+  type MerchantAnalyticsNamedValue,
+  type MerchantAnalyticsTopProduct,
+  resolveKnownOrderItemProfit,
 } from '@baci/shared';
-import { resolveOrderItemAnalyticsLineProfit } from '@/lib/merchant-analytics-profit';
 import { sanitizeText } from '@/lib/sanitize-core';
 
 export interface AnalyticsOrderRow {
@@ -166,7 +166,7 @@ export function buildTopEntities(orderItems: AnalyticsOrderItemRow[]) {
     const revenue = quantity * price;
     const joinedProduct = getJoinedAnalyticsRecord(item.products);
     const brand = joinedProduct?.brand?.trim() || 'Unknown';
-    totalProfit += resolveOrderItemAnalyticsLineProfit(item, quantity);
+    totalProfit += resolveKnownOrderItemProfit(item, quantity);
     totalUnitsSold += quantity;
 
     if (item.product_id) {

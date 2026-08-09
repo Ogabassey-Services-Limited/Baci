@@ -1,5 +1,7 @@
-import type { MerchantAnalyticsChartPoint } from '@baci/shared';
-import { resolveOrderItemAnalyticsLineProfit } from '@/lib/merchant-analytics-profit';
+import {
+  type MerchantAnalyticsChartPoint,
+  resolveKnownOrderItemProfit,
+} from '@baci/shared';
 import {
   type AnalyticsOrderItemRow,
   type AnalyticsOrderRow,
@@ -111,8 +113,7 @@ export function buildChartData(
 
     const quantity = asNumber(item.quantity ?? 1);
     bucket.profit =
-      asNumber(bucket.profit) +
-      resolveOrderItemAnalyticsLineProfit(item, quantity);
+      asNumber(bucket.profit) + resolveKnownOrderItemProfit(item, quantity);
   }
 
   return Array.from(buckets.values());
