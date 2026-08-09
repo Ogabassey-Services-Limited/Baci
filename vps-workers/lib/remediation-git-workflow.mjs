@@ -13,6 +13,7 @@ import {
 } from './remediation-codex-output.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
+import { hasRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import {
   buildCodexRemediationPrompt,
   evaluateMergePolicy,
@@ -35,9 +36,7 @@ function runChecked(command, args, options) {
     shell: options.shell || false,
     timeout: options.timeout,
   });
-  if (result.error) {
-    throw redactCodexError(result.error);
-  }
+  if (result.error) throw redactCodexError(result.error);
   if (result.status !== 0) {
     throw new Error(
       `${command} ${args.join(' ')} failed: ${formatBoundedSubprocessOutput(result)}`
@@ -87,9 +86,7 @@ function readPositiveInt(value, fallback) {
 }
 
 function cleanupWorktree({ childEnv, repoDir, runner, worktreeDir }) {
-  if (!worktreeDir) {
-    return;
-  }
+  if (!worktreeDir) return;
   runner('git', ['worktree', 'remove', '--force', worktreeDir], {
     cwd: repoDir,
     env: childEnv,
@@ -171,12 +168,21 @@ export function runRemediationAutofix({
         worktreeDir,
       };
     }
-    runChecked(
-      'git',
-      ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
-      rootCommandOptions
-    );
-    worktreeCreated = true;
+    const retainedWorktree = hasRetainedRemediationWorktree({
+      branch,
+      childEnv,
+      repoDir,
+      runner,
+      worktreeDir,
+    });
+    if (!retainedWorktree) {
+      runChecked(
+        'git',
+        ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
+        rootCommandOptions
+      );
+      worktreeCreated = true;
+    }
     const codexCommand = buildRemediationCodexCommand({
       codexBin,
       env: commandEnv,
