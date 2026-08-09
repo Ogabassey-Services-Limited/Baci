@@ -63,7 +63,11 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       dynamicRows
         .filter((row) => row.methods.includes('ANY'))
         .map(({ id }) => id)
-    ).toEqual(['proxy:platform-admin', 'proxy:custom-domain-platform-route']);
+    ).toEqual([
+      'proxy:platform-admin',
+      'proxy:custom-domain-platform-route',
+      'proxy:api-prefix-passthrough',
+    ]);
     expect(rows.find((row) => row.id === 'api:unlisted')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
@@ -179,7 +183,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       queryRows.every(
         (row) =>
           row.decision === 'origin_dynamic' &&
-          row.requestCondition?.anyQueryPresent === true &&
+          row.requestCondition?.anyQueryKeyPresent?.includes('page') &&
           row.requestCondition.matchedStorefrontEntrypointId ===
             `storefront:${row.sourcePath?.replace(
               'apps/web/src/app/(storefront)/[slug]/',
@@ -200,7 +204,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(byId.get('proxy:auth-confirm')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
-        methods: ['GET', 'HEAD'],
+        methods: ['GET', 'HEAD', 'OPTIONS'],
         routePattern: '/auth/confirm',
         sourcePath: 'apps/web/src/app/auth/confirm/route.ts',
       })
@@ -269,15 +273,18 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     ['/sitemap.xml', 'edge_release'],
     ['/blog/sitemap.xml', 'edge_release'],
     ['/terms', 'edge_release'],
-  ] as const)('keeps the special route %s on its base decision when a query is present', (pathname, expectedDecision) => {
-    // Arrange: the query is represented by selecting query-conditioned rows.
+  ] as const)(
+    'keeps the special route %s on its base decision when a query is present',
+    (pathname, expectedDecision) => {
+      // Arrange: the query is represented by selecting query-conditioned rows.
 
-    // Act
-    const decision = resolveQueryDecision(pathname);
+      // Act
+      const decision = resolveQueryDecision(pathname);
 
-    // Assert
-    expect(decision).toBe(expectedDecision);
-  });
+      // Assert
+      expect(decision).toBe(expectedDecision);
+    }
+  );
 
   it('defines a closed nonzero eligible denominator', () => {
     // Arrange and act

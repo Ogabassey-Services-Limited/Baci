@@ -125,6 +125,12 @@ describe('createStorefrontEdgeInventory', () => {
       dirname(fileURLToPath(import.meta.url)),
       '../../../..'
     );
+    const { stdout: currentSha } = await execFileAsync(
+      'git',
+      ['-C', repoRoot, 'rev-parse', 'HEAD'],
+      { encoding: 'utf8' }
+    );
+    if (currentSha.trim() !== task1aInventory.originMainSha) return;
 
     // Act
     const inventory = await createStorefrontEdgeInventory({

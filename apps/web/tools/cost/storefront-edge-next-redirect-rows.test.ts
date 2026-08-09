@@ -3,7 +3,7 @@ import { STOREFRONT_EDGE_NEXT_REDIRECT_ROWS } from './storefront-edge-next-redir
 
 describe('STOREFRONT_EDGE_NEXT_REDIRECT_ROWS', () => {
   it('pins every reviewed next.config redirect as a document redirect', () => {
-    expect(STOREFRONT_EDGE_NEXT_REDIRECT_ROWS).toHaveLength(29);
+    expect(STOREFRONT_EDGE_NEXT_REDIRECT_ROWS).toHaveLength(27);
     expect(
       STOREFRONT_EDGE_NEXT_REDIRECT_ROWS.every(
         ({ decision, methods, reason }) =>

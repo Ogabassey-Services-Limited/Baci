@@ -11,7 +11,40 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
     '/sitemap.xml',
     ['GET', 'HEAD', 'OPTIONS'],
     'edge_release',
-    'storefront_root_sitemap_rewrite'
+    'storefront_root_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'custom_domain',
+        precedence: 'before_path_decision',
+      },
+    }
+  ),
+  createStorefrontEdgeProxyClass(
+    'proxy:subdomain-sitemap',
+    '/sitemap.xml',
+    ['GET', 'HEAD', 'OPTIONS'],
+    'edge_release',
+    'storefront_root_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'platform_subdomain',
+        precedence: 'before_path_decision',
+      },
+    }
+  ),
+  createStorefrontEdgeProxyClass(
+    'proxy:platform-root-sitemap',
+    '/sitemap.xml',
+    ['GET', 'HEAD', 'OPTIONS'],
+    'origin_dynamic',
+    'platform_root_sitemap_dynamic',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/src/app/sitemap.ts',
+    }
   ),
   ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
   createStorefrontEdgeProxyClass(
