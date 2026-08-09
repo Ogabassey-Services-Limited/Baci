@@ -33,6 +33,7 @@ interface SpecDataSource {
     | Array<{ name?: string | null; slug?: string | null }>
     | null;
   category?: string | null;
+  category_slug?: string | null;
   condition?: string | null;
   description?: string | null;
   detailedSpecs?: ProductSpecSection[] | null;
@@ -54,6 +55,7 @@ function resolveSourceCategory(source: SpecDataSource) {
   const name = resolveStorefrontProductCategoryName({
     categories: relation,
     category: source.category,
+    category_slug: source.category_slug,
   });
 
   return { hasCategory: Boolean(name), name: name || 'General' };
@@ -178,7 +180,7 @@ function buildSummarySpecsFromSections(
     }
   }
 
-  return items.slice(0, MAX_SUMMARY_SPECS);
+  return items;
 }
 
 export function buildProductSpecData(source: SpecDataSource) {
@@ -248,7 +250,7 @@ export function buildProductSpecData(source: SpecDataSource) {
   const specs = dedupeSpecItems([
     ...summarySpecifications,
     ...buildSummarySpecsFromSections(detailedSpecs),
-  ]);
+  ]).slice(0, MAX_SUMMARY_SPECS);
 
   return {
     detailedSpecs,

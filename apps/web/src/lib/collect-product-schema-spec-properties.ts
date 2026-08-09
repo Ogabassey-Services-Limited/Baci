@@ -1,7 +1,7 @@
 import { createProductSchemaAdditionalPropertyCollector } from './product-schema-additional-properties';
 import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
 import type { Product } from './products';
-import { hasSupportedCardSlotType } from './storefront-specs/spec-category-families';
+import { hasSupportedCardSlotType } from './storefront-specs/has-supported-card-slot-type';
 
 interface SpecMapping {
   key: string;
@@ -35,6 +35,11 @@ export function collectProductSchemaSpecProperties(product: Product) {
       {
         key: 'has_nfc',
         name: 'NFC',
+        format: (value) => (value ? 'Yes' : 'No'),
+      },
+      {
+        key: 'has_ois',
+        name: 'OIS',
         format: (value) => (value ? 'Yes' : 'No'),
       },
       { key: 'dimensions_mm', name: 'Dimensions' },

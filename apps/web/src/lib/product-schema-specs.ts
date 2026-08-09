@@ -1,11 +1,9 @@
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
+import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
-import {
-  getKeySpecCategoriesForFamily,
-  isComputerExcludedSpecKey,
-} from './storefront-specs/spec-category-families';
+import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 import {
   getProductSpecFamily,
   isCameraLikeCategory,
@@ -14,6 +12,7 @@ import {
 type ProductCategorySource = {
   categories?: { name?: string | null; slug?: string | null } | null;
   category?: string | null;
+  category_slug?: string | null;
   product_key_specs?: { has_card_slot?: boolean } | null;
 };
 
@@ -24,6 +23,7 @@ interface ProductSchemaSpecCandidate {
 }
 
 const CAMERA_ONLY_SPEC_KEYS = new Set([
+  'has_ois',
   'main_camera_mp',
   'rear_camera_features',
   'rear_camera_video',
@@ -81,6 +81,8 @@ const AUDIO_CAPABILITY_SPEC_KEYS = new Set([
   'has_headphone_jack',
   'has_stereo_speakers',
 ]);
+
+const COMPUTER_CELLULAR_SPEC_KEYS = new Set(['has_5g', 'has_nfc', 'sim_type']);
 
 const PHONE_ONLY_SPEC_LABELS = new Set([
   '3 5mm headphone jack',
@@ -184,6 +186,7 @@ export function shouldIncludeProductSchemaSpec(
       ? PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)
       : false,
     normalizedLabel,
+    productFamily,
     value: candidate.value,
   });
   if (valueDecision !== 'defer') {
@@ -218,6 +221,10 @@ export function shouldIncludeProductSchemaSpec(
     ) {
       return false;
     }
+
+    if (canonicalSpecKey && COMPUTER_CELLULAR_SPEC_KEYS.has(canonicalSpecKey)) {
+      return true;
+    }
   }
 
   const inferredCameraSpecKey =
@@ -238,7 +245,7 @@ export function shouldIncludeProductSchemaSpec(
     canonicalSpecKey &&
     CAMERA_ONLY_SPEC_KEYS.has(canonicalSpecKey) &&
     !hasCameraCategory &&
-    !categoryNames.some(isPhoneTabletLaptopCategory)
+    !isMobileCategory
   ) {
     return false;
   }

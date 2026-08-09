@@ -114,7 +114,7 @@ describe('buildProductSpecData', () => {
     );
   });
 
-  it('keeps zero-valued numeric specs and formats them consistently', () => {
+  it('omits zero-valued numeric measurement placeholders', () => {
     const result = buildProductSpecData({
       category: 'Smartphones',
       product_key_specs: {
@@ -124,28 +124,13 @@ describe('buildProductSpecData', () => {
       },
     });
 
-    expect(result.detailedSpecs).toEqual(
-      expect.arrayContaining([
-        {
-          category: 'Memory',
-          items: [
-            { label: 'Internal Storage', value: '0GB' },
-            { label: 'RAM', value: '0GB' },
-          ],
-        },
-        {
-          category: 'Battery',
-          items: [{ label: 'Capacity', value: '0mAh' }],
-        },
-      ])
+    const values = result.detailedSpecs.flatMap((section) =>
+      section.items.map((item) => item.value)
     );
-    expect(result.specs).toEqual(
-      expect.arrayContaining([
-        { label: 'RAM', value: '0GB' },
-        { label: 'Storage', value: '0GB' },
-        { label: 'Battery', value: '0mAh' },
-      ])
-    );
+
+    expect(values).not.toContain('0GB');
+    expect(values).not.toContain('0mAh');
+    expect(result.specs).toEqual([]);
   });
 
   it('handles empty variant attributes with a safe General fallback', () => {

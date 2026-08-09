@@ -32,26 +32,41 @@ function isUnknownSpecValue(value: string) {
   return value.trim().toLowerCase() === 'unknown';
 }
 
+function getSpecValueQuality(value: string) {
+  if (!(isUnsupportedSpecValue(value) || isUnknownSpecValue(value))) {
+    return 2;
+  }
+
+  return ['false', 'no'].includes(value.trim().toLowerCase()) ? 1 : 0;
+}
+
 export function dedupeSpecItems(
   items: ProductSpecItem[],
   options: DedupeSpecItemsOptions = {}
 ): ProductSpecItem[] {
-  const labels = new Set<string>();
+  const itemIndexes = new Map<string, number>();
+  const dedupedItems: ProductSpecItem[] = [];
 
-  return items.filter((item) => {
-    if (
-      options.omitUnsupportedValues &&
-      (isUnsupportedSpecValue(item.value) || isUnknownSpecValue(item.value))
-    ) {
-      return false;
+  for (const item of items) {
+    const itemValueQuality = getSpecValueQuality(item.value);
+    const unsupportedValue = itemValueQuality < 2;
+    if (options.omitUnsupportedValues && unsupportedValue) {
+      continue;
     }
 
     const identity = getSpecItemIdentity(item.label, options.section);
-    if (labels.has(identity)) {
-      return false;
+    const existingIndex = itemIndexes.get(identity);
+    if (existingIndex === undefined) {
+      itemIndexes.set(identity, dedupedItems.length);
+      dedupedItems.push(item);
+      continue;
     }
 
-    labels.add(identity);
-    return true;
-  });
+    const existingItem = dedupedItems[existingIndex];
+    if (itemValueQuality > getSpecValueQuality(existingItem.value)) {
+      dedupedItems[existingIndex] = item;
+    }
+  }
+
+  return dedupedItems;
 }

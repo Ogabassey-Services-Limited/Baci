@@ -68,7 +68,7 @@ describe('generateProductSchema category-specific fields', () => {
     expect(schemas[1]?.['@type']).toBe('ProductGroup');
   });
 
-  it('excludes phone-only fields from laptop Product and ProductGroup schemas', () => {
+  it('keeps verified cellular laptop capabilities while excluding stale phone OS and camera fields', () => {
     const product = makeSeoProduct({
       category: 'Laptops',
       product_key_specs: {
@@ -76,7 +76,8 @@ describe('generateProductSchema category-specific fields', () => {
         ram_gb: 32,
         has_5g: true,
         has_nfc: true,
-        sim_type: 'Nano-SIM',
+        sim_type: 'eSIM',
+        has_headphone_jack: false,
         android_version: '16',
         main_camera_mp: 50,
         front_camera_mp: 12,
@@ -111,18 +112,24 @@ describe('generateProductSchema category-specific fields', () => {
             value: 'Intel Core Ultra 7',
           },
           { '@type': 'PropertyValue', name: 'RAM', value: '32GB' },
+          { '@type': 'PropertyValue', name: '5G Support', value: 'Yes' },
+          { '@type': 'PropertyValue', name: 'NFC', value: 'Yes' },
+          { '@type': 'PropertyValue', name: 'SIM Type', value: 'eSIM' },
+          {
+            '@type': 'PropertyValue',
+            name: '3.5mm Headphone Jack',
+            value: 'No',
+          },
         ])
       );
-      expect(properties.map((property) => property.name)).not.toEqual(
-        expect.arrayContaining([
-          '5G Support',
-          'NFC',
-          'SIM Type',
-          'Operating System',
-          'Main Camera',
-          'Selfie Camera',
-        ])
-      );
+      const propertyNames = properties.map((property) => property.name);
+      for (const excludedName of [
+        'Operating System',
+        'Main Camera',
+        'Selfie Camera',
+      ]) {
+        expect(propertyNames).not.toContain(excludedName);
+      }
     }
     expect(schemas[1]?.['@type']).toBe('ProductGroup');
   });

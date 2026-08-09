@@ -48,12 +48,12 @@ export async function ProductPageRuntime({
   product,
   slug,
 }: ProductPageRuntimeProps) {
-  const categoryName =
-    resolveStorefrontProductCategoryName(product) || 'All Products';
+  const resolvedCategoryName = resolveStorefrontProductCategoryName(product);
+  const categoryName = resolvedCategoryName || 'All Products';
   const categorySlug =
     product.categories?.slug ||
     product.category_slug ||
-    generateSlug(categoryName);
+    (resolvedCategoryName ? generateSlug(resolvedCategoryName) : 'products');
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const currency = resolveMerchantCurrencyConfig(merchant).code;

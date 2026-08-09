@@ -35,4 +35,28 @@ describe('normalizeSpecItems', () => {
       { label: 'Card Slot', value: 'No' },
     ]);
   });
+
+  it('prefers a later supported value over an earlier placeholder for the same canonical label', () => {
+    const items = [
+      { label: 'Card Slot', value: 'N/A' },
+      { label: 'Memory Card Slot', value: 'CFexpress Type B' },
+    ];
+
+    const result = normalizeSpecItems(items);
+
+    expect(result).toEqual([
+      { label: 'Memory Card Slot', value: 'CFexpress Type B' },
+    ]);
+  });
+
+  it('treats a later explicit No capability as stronger evidence than N/A', () => {
+    const items = [
+      { label: 'Card Slot', value: 'N/A' },
+      { label: 'Card Slot', value: 'No' },
+    ];
+
+    const result = normalizeSpecItems(items);
+
+    expect(result).toEqual([{ label: 'Card Slot', value: 'No' }]);
+  });
 });

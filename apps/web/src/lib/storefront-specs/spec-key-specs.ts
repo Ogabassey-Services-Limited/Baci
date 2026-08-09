@@ -1,4 +1,4 @@
-import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
+import { getProductSchemaSpecValueDecision } from '../product-schema-spec-value-policy';
 import { getKeySpecCategoriesForFamily } from './spec-category-families';
 import type { ProductSpecSection } from './spec-data';
 import type {
@@ -21,8 +21,14 @@ export function buildDetailedSpecsFromKeySpecs(
             value !== null &&
             value !== undefined &&
             (typeof value !== 'string' || value.trim().length > 0) &&
-            ((family !== 'general' && family !== 'camera') ||
-              !isUnsupportedSpecValue(value)) &&
+            getProductSchemaSpecValueDecision({
+              canonicalSpecKey: key,
+              hasCategory: family !== 'general' || Boolean(categoryName),
+              isMobileCategory: family === 'mobile',
+              isPhoneOnlyLabel: false,
+              productFamily: family,
+              value,
+            }) !== 'exclude' &&
             (!condition || condition(keySpecs))
           );
         })

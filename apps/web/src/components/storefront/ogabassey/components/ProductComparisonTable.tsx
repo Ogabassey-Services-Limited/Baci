@@ -78,6 +78,7 @@ export function ProductComparisonTable({
         const specData = buildProductSpecData({
             brand: rawProduct.brand,
             category: rawProduct.category,
+            category_slug: rawProduct.category_slug,
             categories: rawProduct.categories,
             condition: rawProduct.condition,
             description: rawProduct.description,

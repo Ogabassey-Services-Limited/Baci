@@ -42,6 +42,10 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     }
   });
 
+  it('maps the public OIS label to has_ois', () => {
+    expect(getProductSchemaSpecKeyForLabel('OIS')).toBe('has_ois');
+  });
+
   it('leaves product-specific labels available to the legacy label path', () => {
     expect(getProductSchemaSpecKeyForLabel('Sensor')).toBeUndefined();
     expect(getProductSchemaSpecKeyForLabel('Focal Length')).toBeUndefined();

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Product } from './products';
 import { generateProductSchema } from './seo-utils';
 import { makeSeoProduct } from './seo-utils-product-schema-test-helper';
 
@@ -118,21 +119,52 @@ describe('generateProductSchema non-phone specifications', () => {
     );
   });
 
-  it('emits verified positive NFC for camera Product schema', () => {
-    const schema = generateProductSchema(
+  it('emits verified positive NFC and OIS for camera Product schema', () => {
+    const verifiedSchema = generateProductSchema(
       makeSeoProduct({
         category: 'Action Cameras',
-        product_key_specs: { has_nfc: true },
+        product_key_specs: { has_nfc: true, has_ois: true },
       }),
       'Ogabassey',
       'NGN',
       'NG'
     );
+    const unsupportedSchemas = [
+      generateProductSchema(
+        makeSeoProduct({
+          category: 'Action Cameras',
+          product_key_specs: { has_nfc: false, has_ois: false },
+        }),
+        'Ogabassey',
+        'NGN',
+        'NG'
+      ),
+      generateProductSchema(
+        makeSeoProduct({
+          category: 'Action Cameras',
+          product_key_specs: {
+            has_nfc: 'N/A',
+            has_ois: 'N/A',
+          } as unknown as NonNullable<Product['product_key_specs']>,
+        }),
+        'Ogabassey',
+        'NGN',
+        'NG'
+      ),
+    ];
 
-    expect(schema.additionalProperty).toEqual(
+    expect(verifiedSchema.additionalProperty).toEqual(
       expect.arrayContaining([
         { '@type': 'PropertyValue', name: 'NFC', value: 'Yes' },
+        { '@type': 'PropertyValue', name: 'OIS', value: 'Yes' },
       ])
     );
+    for (const unsupportedSchema of unsupportedSchemas) {
+      for (const name of ['NFC', 'OIS']) {
+        expect(unsupportedSchema.additionalProperty).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ name })])
+        );
+      }
+    }
   });
 });

@@ -40,6 +40,31 @@ describe('getProductSchemaSpecValueDecision', () => {
     ).toBe('exclude');
   });
 
+  it('keeps explicit computer audio negatives without accepting camera capability negatives', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'has_headphone_jack',
+        hasCategory: true,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: true,
+        normalizedLabel: 'headphone jack',
+        productFamily: 'computer',
+        value: false,
+      })
+    ).toBe('include');
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'has_ois',
+        hasCategory: true,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: true,
+        normalizedLabel: 'ois',
+        productFamily: 'camera',
+        value: false,
+      })
+    ).toBe('exclude');
+  });
+
   it('defers meaningful unrelated negative facts to category policy', () => {
     expect(
       getProductSchemaSpecValueDecision({

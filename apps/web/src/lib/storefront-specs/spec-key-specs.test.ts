@@ -65,7 +65,7 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
     ]);
   });
 
-  it('omits zero placeholders from camera key specs without changing mobile behavior', () => {
+  it('omits zero and placeholder measurements from every device family', () => {
     const cameraSections = buildDetailedSpecsFromKeySpecs(
       {
         main_camera_mp: 0,
@@ -76,6 +76,14 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
       },
       'camera'
     );
+    const mobileSections = buildDetailedSpecsFromKeySpecs(
+      { storage_gb: 0, battery_mah: 0, display_resolution: 'N/A' },
+      'mobile'
+    );
+    const computerSections = buildDetailedSpecsFromKeySpecs(
+      { ram_gb: 0, screen_size_inches: 0, display_resolution: 'N/A' },
+      'computer'
+    );
 
     expect(cameraSections).toEqual([
       {
@@ -83,22 +91,25 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
         items: [{ label: 'Type', value: 'LCD' }],
       },
     ]);
+    expect(mobileSections).toEqual([]);
+    expect(computerSections).toEqual([]);
+  });
 
-    const mobileSections = buildDetailedSpecsFromKeySpecs(
-      { storage_gb: 0, battery_mah: 0 },
-      'mobile'
-    );
-    expect(mobileSections).toEqual(
+  it('retains explicit negative capability facts by field', () => {
+    expect(
+      buildDetailedSpecsFromKeySpecs(
+        { has_5g: false, has_headphone_jack: false },
+        'mobile'
+      )
+    ).toEqual(
       expect.arrayContaining([
         {
-          category: 'Memory',
-          items: expect.arrayContaining([
-            { label: 'Internal Storage', value: '0GB' },
-          ]),
+          category: 'Network',
+          items: [{ label: '5G Support', value: 'No' }],
         },
         {
-          category: 'Battery',
-          items: [{ label: 'Capacity', value: '0mAh' }],
+          category: 'Sound',
+          items: [{ label: '3.5mm Jack', value: 'No' }],
         },
       ])
     );

@@ -25,9 +25,9 @@ describe('buildProductSpecData invalid values', () => {
         section.items.map((item) => item.value)
       );
 
-      expect(values).not.toEqual(
-        expect.arrayContaining(['0GB', '0mAh', '0 inches', 'N/A'])
-      );
+      for (const prohibitedValue of ['0GB', '0mAh', '0 inches', 'N/A']) {
+        expect(values).not.toContain(prohibitedValue);
+      }
     }
   });
 });

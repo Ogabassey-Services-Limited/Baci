@@ -1,4 +1,5 @@
 import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
+import type { ProductSpecFamily } from './storefront-specs/spec-taxonomy';
 
 type ProductSchemaSpecValueDecision = 'defer' | 'exclude' | 'include';
 
@@ -8,6 +9,7 @@ interface ProductSchemaSpecValuePolicyInput {
   isMobileCategory: boolean;
   isPhoneOnlyLabel: boolean;
   normalizedLabel?: string;
+  productFamily?: ProductSpecFamily;
   value: unknown;
 }
 
@@ -43,6 +45,11 @@ const MEASUREMENT_SPEC_KEYS = new Set([
   'wireless_charging_watt',
 ]);
 
+const COMPUTER_EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS = new Set([
+  'has_headphone_jack',
+  'has_stereo_speakers',
+]);
+
 function isExplicitNegativeSpecValue(value: unknown) {
   return (
     value === false ||
@@ -71,6 +78,7 @@ export function getProductSchemaSpecValueDecision({
   isMobileCategory,
   isPhoneOnlyLabel,
   normalizedLabel,
+  productFamily,
   value,
 }: ProductSchemaSpecValuePolicyInput): ProductSchemaSpecValueDecision {
   if (
@@ -101,10 +109,19 @@ export function getProductSchemaSpecValueDecision({
     return 'exclude';
   }
   if (canonicalSpecKey) {
-    return isMobileCategory &&
+    if (
+      isMobileCategory &&
       EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)
-      ? 'include'
-      : 'exclude';
+    ) {
+      return 'include';
+    }
+    if (
+      productFamily === 'computer' &&
+      COMPUTER_EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)
+    ) {
+      return 'include';
+    }
+    return 'exclude';
   }
   if (!normalizedLabel) {
     return 'exclude';

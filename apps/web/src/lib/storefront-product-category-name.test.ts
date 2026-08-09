@@ -17,4 +17,14 @@ describe('resolveStorefrontProductCategoryName', () => {
       })
     ).toBe('action-cameras');
   });
+
+  it('uses canonical category_slug before stale legacy text when the join is missing', () => {
+    expect(
+      resolveStorefrontProductCategoryName({
+        categories: null,
+        category_slug: 'action-cameras',
+        category: 'Smartphones',
+      })
+    ).toBe('action-cameras');
+  });
 });

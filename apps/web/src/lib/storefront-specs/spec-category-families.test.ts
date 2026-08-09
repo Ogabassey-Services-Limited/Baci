@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getKeySpecCategoriesForFamily,
-  hasSupportedCardSlotType,
-} from './spec-category-families';
+import { hasSupportedCardSlotType } from './has-supported-card-slot-type';
+import { getKeySpecCategoriesForFamily } from './spec-category-families';
 
 describe('category-specific key spec families', () => {
   it('provides camera NFC without unrelated phone-only network fields', () => {

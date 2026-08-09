@@ -6,6 +6,7 @@ type StorefrontProductNamedCategory = {
 type StorefrontProductCategoryNameInput = {
   categories?: StorefrontProductNamedCategory;
   category?: string | null;
+  category_slug?: string | null;
 };
 
 /**
@@ -24,6 +25,11 @@ export function resolveStorefrontProductCategoryName(
   const directSlug = product.categories?.slug?.trim();
   if (directSlug) {
     return directSlug;
+  }
+
+  const canonicalSlug = product.category_slug?.trim();
+  if (canonicalSlug) {
+    return canonicalSlug;
   }
 
   return product.category?.trim() || null;

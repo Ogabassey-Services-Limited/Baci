@@ -223,4 +223,33 @@ describe('ProductPageRuntime critical shell', () => {
       categorySlug: 'action-cameras',
     });
   });
+
+  it('uses /products for an uncategorized product instead of inventing /all-products', async () => {
+    const tree = (await ProductPageRuntime({
+      merchant,
+      product: {
+        ...(product as ProductPageRuntimeProduct),
+        category: undefined,
+        category_slug: undefined,
+        categories: null,
+      },
+      slug: 'ogabassey',
+    })) as ReactElement;
+
+    expect(generateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'All Products',
+          url: 'https://ogabassey.com/products',
+        }),
+      ])
+    );
+
+    const suspense = directChildren(tree).find(
+      (child) => child.type === Suspense
+    );
+    const deferredChild = (suspense?.props as { children?: ReactElement })
+      .children;
+    expect(deferredChild?.props).toMatchObject({ categorySlug: 'products' });
+  });
 });

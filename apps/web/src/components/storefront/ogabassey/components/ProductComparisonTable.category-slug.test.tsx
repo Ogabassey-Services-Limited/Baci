@@ -55,7 +55,7 @@ describe('ProductComparisonTable API category slug', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses category_slug for a comparison link when the API omits categories.slug', async () => {
+  it('uses category_slug for both the comparison link and spec family when joined category data is missing', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => ({
@@ -69,9 +69,10 @@ describe('ProductComparisonTable API category slug', () => {
               slug: 'action-camera',
               price: 500000,
               image: 'https://example.com/camera.jpg',
-              category: 'Cameras',
+              category: 'Smartphones',
               category_slug: 'action-cameras',
               condition: 'new',
+              product_key_specs: { main_camera_mp: 40, has_5g: true },
             },
           ],
         }),
@@ -97,6 +98,9 @@ describe('ProductComparisonTable API category slug', () => {
       'href',
       '/ogabassey/action-cameras/action-camera'
     );
+    expect(await screen.findByText('Effective Resolution')).toBeInTheDocument();
+    expect(screen.getAllByText('40MP')).not.toHaveLength(0);
+    expect(screen.queryByText('5G Support')).not.toBeInTheDocument();
   });
 
   it('uses a slug-only camera join instead of stale phone text for comparison specs', async () => {

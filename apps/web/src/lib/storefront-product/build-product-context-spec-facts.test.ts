@@ -24,6 +24,7 @@ describe('buildProductContextSpecFacts', () => {
           chipset: 'AMD Ryzen 7',
           gpu: 'RTX 4060',
           platform: 'PlayStation 5',
+          format: 'Physical Blu-ray disc',
           camera_score: 88,
           battery_score: 91,
           gaming_score: 95,
@@ -35,6 +36,7 @@ describe('buildProductContextSpecFacts', () => {
       'Processor: AMD Ryzen 7',
       'GPU: RTX 4060',
       'Platform: PlayStation 5',
+      'Format: Physical Blu-ray disc',
     ]);
   });
 
@@ -53,6 +55,18 @@ describe('buildProductContextSpecFacts', () => {
     ).toEqual(['Chipset: Apple M4']);
   });
 
+  it('keeps verified cellular laptop facts in customer crawl copy', () => {
+    const productKeySpecs = {
+      has_5g: true,
+      sim_type: 'eSIM',
+      has_nfc: true,
+    };
+
+    const facts = buildProductContextSpecFacts(productKeySpecs, 'Laptops');
+
+    expect(facts).toEqual(['5G Support: Yes', 'SIM: eSIM', 'NFC: Yes']);
+  });
+
   it('uses mobile facts for a slug-only google-pixel context category', () => {
     expect(
       buildProductContextSpecFacts({ has_5g: true, ram_gb: 12 }, 'google-pixel')
@@ -63,5 +77,24 @@ describe('buildProductContextSpecFacts', () => {
     expect(
       buildProductContextSpecFacts({ has_nfc: true }, 'Action Cameras')
     ).toEqual(['NFC: Yes']);
+  });
+
+  it('retains positive camera OIS while suppressing false and placeholder values', () => {
+    const verifiedFacts = buildProductContextSpecFacts(
+      { has_ois: true },
+      'Action Cameras'
+    );
+    const negativeFacts = buildProductContextSpecFacts(
+      { has_ois: false },
+      'Action Cameras'
+    );
+    const placeholderFacts = buildProductContextSpecFacts(
+      { has_ois: 'N/A' },
+      'Action Cameras'
+    );
+
+    expect(verifiedFacts).toEqual(['OIS: Yes']);
+    expect(negativeFacts).toEqual([]);
+    expect(placeholderFacts).toEqual([]);
   });
 });

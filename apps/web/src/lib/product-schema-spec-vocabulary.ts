@@ -31,6 +31,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   'memory card slot': 'card_slot_type',
   models: 'model_numbers',
   nfc: 'has_nfc',
+  ois: 'has_ois',
   'network technology': 'network_technology',
   technology: 'network_technology',
   'operating system': 'android_version',

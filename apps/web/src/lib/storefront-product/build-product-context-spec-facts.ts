@@ -33,6 +33,7 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
     has_ois: 'OIS',
   },
   general: {
+    format: 'Format',
     platform: 'Platform',
   },
 };
