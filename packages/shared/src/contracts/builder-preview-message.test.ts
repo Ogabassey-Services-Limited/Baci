@@ -174,6 +174,69 @@ describe('builder preview bridge contract', () => {
     ).toBe(false);
   });
 
+  it('accepts bounded Puck component-slot dropzones and rejects unsafe keys', () => {
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [{ props: { id: 'text-1' }, type: 'Text' }],
+          root: {},
+          zones: {
+            'Flex-1234:children': [
+              {
+                props: { id: 'zone-text-1', title: 'Nested copy' },
+                type: 'Text',
+              },
+            ],
+          },
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [{ props: { id: 'text-1' }, type: 'Text' }],
+          root: {},
+          zones: {
+            'Flex-1234:<script>': [
+              { props: { id: 'zone-text-1' }, type: 'Text' },
+            ],
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it('accepts reviewed curated renderer props without broadening AI mutation props', () => {
+    expect(
+      builderPreviewMessageSchema.safeParse({
+        ...validMessage,
+        candidateConfig: {
+          content: [
+            {
+              props: {
+                backgroundColor: '#111111',
+                id: 'header-1',
+                storeName: 'Acme Store',
+              },
+              type: 'Header',
+            },
+            {
+              props: {
+                headingLevel: 'h1',
+                id: 'hero-1',
+                title: 'Welcome',
+              },
+              type: 'Hero',
+            },
+          ],
+          root: {},
+        },
+      }).success
+    ).toBe(true);
+  });
+
   it('accepts a bounded base path and optional secure storefront origin', () => {
     expect(
       builderPreviewMessageSchema.safeParse({

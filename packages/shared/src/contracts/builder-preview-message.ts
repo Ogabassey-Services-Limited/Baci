@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { type BuilderData, builderDataSchema } from './builder-ai-edit';
 import { validateBuilderAiEditComplexity } from './builder-ai-edit/complexity-validator';
 import { builderDesignCapabilities } from './builder-design-capabilities';
-import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
+import { previewRenderPolicy } from './builder-preview-render-policy';
 
 const MAX_MERCHANT_IDENTIFIER_LENGTH = 128;
 const MAX_BASE_PATH_LENGTH = 240;
@@ -14,8 +14,6 @@ const sensitiveKeyPattern =
   /(?:api[-_]?key|authorization|credential|password|private[-_]?key|secret|token)/i;
 const basePathPattern = /^\/(?:[a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)?$/;
 const errorCodePattern = /^[a-z][a-z0-9_]*$/;
-const puckComponentIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
-const puckZoneKeyPattern = /^[a-z][a-z0-9_-]{0,79}$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -49,57 +47,6 @@ function hasSensitiveField(
   );
 }
 
-function isReviewedPuckProp(
-  componentType: string,
-  property: string,
-  value: unknown
-): boolean {
-  if (property === 'id') {
-    return (
-      typeof value === 'string' &&
-      puckComponentIdPattern.test(value) &&
-      value.trim() === value
-    );
-  }
-  const capability =
-    builderDesignCapabilityAdapter.getCapability(componentType);
-  if (!capability) return false;
-  if (Object.keys(capability.props).includes(property)) {
-    return builderDesignCapabilityAdapter.isPropValue(
-      componentType,
-      property,
-      value
-    );
-  }
-  return Object.is(capability.initialProps?.[property], value);
-}
-
-function isKnownPuckComponent(
-  value: unknown,
-  componentIds: Set<string>
-): boolean {
-  if (!isRecord(value)) return false;
-  if (Object.keys(value).some((key) => key !== 'props' && key !== 'type')) {
-    return false;
-  }
-  const componentType = value.type;
-  if (typeof componentType !== 'string' || !isRecord(value.props)) {
-    return false;
-  }
-  const capability =
-    builderDesignCapabilityAdapter.getCapability(componentType);
-  if (!capability?.renderable || capability.refused) {
-    return false;
-  }
-  const id = value.props.id;
-  if (typeof id !== 'string') return false;
-  if (componentIds.has(id)) return false;
-  componentIds.add(id);
-  return Object.entries(value.props).every(([property, propValue]) =>
-    isReviewedPuckProp(componentType, property, propValue)
-  );
-}
-
 function hasValidPuckCollections(value: BuilderData): boolean {
   const componentIds = new Set<string>();
   if (Object.keys(value).some((key) => !candidateConfigKeys.has(key))) {
@@ -113,7 +60,7 @@ function hasValidPuckCollections(value: BuilderData): boolean {
   }
   if (
     !value.content.every((component) =>
-      isKnownPuckComponent(component, componentIds)
+      previewRenderPolicy.isPuckComponent(component, componentIds)
     )
   ) {
     return false;
@@ -123,10 +70,10 @@ function hasValidPuckCollections(value: BuilderData): boolean {
     isRecord(value.zones) &&
     Object.entries(value.zones).every(
       ([zoneKey, collection]) =>
-        puckZoneKeyPattern.test(zoneKey) &&
+        previewRenderPolicy.isPuckZoneKey(zoneKey) &&
         Array.isArray(collection) &&
         collection.every((component) =>
-          isKnownPuckComponent(component, componentIds)
+          previewRenderPolicy.isPuckComponent(component, componentIds)
         )
     )
   );
