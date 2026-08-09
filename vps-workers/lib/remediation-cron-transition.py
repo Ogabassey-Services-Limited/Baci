@@ -21,6 +21,7 @@ BARRIER_FILES = (
 )
 BLOCK_START = '# >>> baci-remediation-transition >>>'
 BLOCK_END = '# <<< baci-remediation-transition <<<'
+SAFE_NODE_FLAGS = frozenset({'--no-warnings', '--enable-source-maps', '--trace-warnings'})
 
 
 class TransitionError(RuntimeError):
@@ -110,8 +111,19 @@ def restore_entrypoints(remote_dir, backup_dir, captured, installed):
             destination.unlink()
 
 
+def node_entry_script(arguments):
+    for argument in arguments[1:]:
+        if argument in SAFE_NODE_FLAGS:
+            continue
+        if argument.startswith('-'):
+            return None
+        return argument
+    return None
+
+
 def legacy_processes(remote_dir, proc_root):
     targets = {str((remote_dir / 'jobs' / f'{name}.mjs').resolve()) for name, _, _ in TARGETS}
+    relative_targets = {f'jobs/{name}.mjs' for name, _, _ in TARGETS}
     active = []
     try:
         process_entries = list(proc_root.iterdir())
@@ -125,9 +137,25 @@ def legacy_processes(remote_dir, proc_root):
         except OSError:
             continue
         arguments = [part.decode(errors='surrogateescape') for part in argv if part]
-        if len(arguments) < 2 or arguments[1].startswith('-'):
+        try:
+            executable = os.path.basename(os.readlink(process / 'exe'))
+        except OSError as error:
+            raise TransitionError(
+                f'unable to inspect executable for possible legacy remediation process {process.name}: {error}'
+            ) from error
+        if executable not in {'node', 'nodejs'}:
             continue
-        entry = arguments[1]
+        entry = node_entry_script(arguments)
+        if entry is None:
+            if any(
+                argument in relative_targets
+                or (os.path.isabs(argument) and str(Path(argument).resolve()) in targets)
+                for argument in arguments[1:]
+            ):
+                raise TransitionError(
+                    f'cannot safely identify possible legacy remediation process {process.name}'
+                )
+            continue
         if os.path.isabs(entry):
             target = str(Path(entry).resolve())
         elif entry.startswith('jobs/'):
@@ -141,14 +169,7 @@ def legacy_processes(remote_dir, proc_root):
             continue
         if target not in targets:
             continue
-        try:
-            executable = os.path.basename(os.readlink(process / 'exe'))
-        except OSError as error:
-            raise TransitionError(
-                f'unable to inspect executable for possible legacy remediation process {process.name}: {error}'
-            ) from error
-        if executable in {'node', 'nodejs'}:
-            active.append(process.name)
+        active.append(process.name)
     return active
 
 
@@ -161,10 +182,16 @@ def wait_for_legacy_processes(remote_dir, proc_root, timeout_seconds):
 
 
 def is_legacy_owned(line, remote_dir, node_bin):
-    for name, schedule, _ in TARGETS:
+    for name, schedule, wait in TARGETS:
         prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock bash -lc '"
         suffix = f"{node_bin} {remote_dir}/jobs/{name}.mjs' >> {remote_dir}/logs/{name}.log 2>&1"
         if line.startswith(prefix) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
+            return True
+        prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock flock {wait}"
+        if (
+            line.startswith(f'{prefix} {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
+            or line.startswith(f'{prefix} -E 75 {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
+        ) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
             return True
     return False
 

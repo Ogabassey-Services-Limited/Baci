@@ -31,6 +31,20 @@ describe('remediation cron transition', () => {
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
   });
 
+  it('drains a pre-barrier Node job with a documented no-warnings flag', () => {
+    const outcome = runTransition('flag-direct-exit');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+  });
+
+  it('fails closed for a remediation path used as an ambiguous Node option value', () => {
+    const outcome = runTransition('unsafe-option-target');
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(outcome.result.stderr, /cannot safely identify/i);
+    assert.equal(outcome.crontab, '');
+  });
+
   it('aborts and restores the barrier entrypoint when a legacy direct job does not drain', () => {
     const outcome = runTransition('direct-timeout');
 
@@ -51,6 +65,21 @@ describe('remediation cron transition', () => {
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.match(outcome.crontab, /watchdog mentions/);
+    assert.match(
+      outcome.crontab,
+      /jobs\/watchdog\.mjs jobs\/vercel-error-remediator\.mjs/
+    );
+  });
+
+  it('replaces exact live two-flock remediation cron entries without touching watchdog lines', () => {
+    const outcome = runTransition('legacy-two-flock');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.doesNotMatch(
+      outcome.crontab,
+      /BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1/
+    );
+    assert.match(outcome.crontab, /keep this watchdog note/);
     assert.match(
       outcome.crontab,
       /jobs\/watchdog\.mjs jobs\/vercel-error-remediator\.mjs/

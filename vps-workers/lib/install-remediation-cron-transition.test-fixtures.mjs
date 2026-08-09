@@ -1,4 +1,10 @@
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 export function writeExecutable(path, source) {
@@ -8,6 +14,15 @@ export function writeExecutable(path, source) {
 
 export function writeJob(path, source = 'process.exitCode = 0;\n') {
   writeFileSync(path, source);
+}
+
+export function waitFor(path) {
+  const waiter = new Int32Array(new SharedArrayBuffer(4));
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (existsSync(path)) return;
+    Atomics.wait(waiter, 0, 0, 10);
+  }
+  throw new Error(`timed out waiting for ${path}`);
 }
 
 export function writeStage(

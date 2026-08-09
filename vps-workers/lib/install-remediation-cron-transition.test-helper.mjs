@@ -4,6 +4,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -12,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  waitFor,
   writeExecutable,
   writeJob,
   writeStage,
@@ -29,15 +31,6 @@ const transactionSource = join(
   dirname(fileURLToPath(import.meta.url)),
   'remediation-cron-transition.py'
 );
-
-function waitFor(path) {
-  const waiter = new Int32Array(new SharedArrayBuffer(4));
-  for (let attempt = 0; attempt < 100; attempt += 1) {
-    if (existsSync(path)) return;
-    Atomics.wait(waiter, 0, 0, 10);
-  }
-  throw new Error(`timed out waiting for ${path}`);
-}
 
 export function runTransition(scenario) {
   const directory = mkdtempSync(join(tmpdir(), 'baci-cron-transition-'));
@@ -121,6 +114,13 @@ if [ "$1" = "-l" ]; then
       echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
       echo "*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       ;;
+    legacy-two-flock)
+      echo "# keep this watchdog note about remediation"
+      echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 BACI_CODEX_DOCKER_IMAGE=baci/codex:live && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
+      echo "*/5 *  * * * flock -n $CANONICAL_REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1"
+      echo "22 4   * * * flock -n $CANONICAL_REMOTE_DIR/locks/remediation-codex-canary.lock flock -w 600 -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/remediation-codex-canary.mjs' >> $CANONICAL_REMOTE_DIR/logs/remediation-codex-canary.log 2>&1"
+      ;;
     *)
       echo "0 1 * * * /usr/local/bin/unrelated-worker"
       ;;
@@ -134,7 +134,7 @@ fi
 if [ "$TEST_SCENARIO" = "rollback" ]; then
   exit 91
 fi
-if { [ "$TEST_SCENARIO" = "direct-exit" ] || [ "$TEST_SCENARIO" = "alternate-node-exit" ]; } && [ -d "$PROC_ENTRY" ]; then
+if { [ "$TEST_SCENARIO" = "direct-exit" ] || [ "$TEST_SCENARIO" = "alternate-node-exit" ] || [ "$TEST_SCENARIO" = "flag-direct-exit" ]; } && [ -d "$PROC_ENTRY" ]; then
   echo "legacy direct process was still active at crontab rewrite" >&2
   exit 89
 fi
@@ -154,6 +154,8 @@ fi
       scenario === 'direct-exit' ||
       scenario === 'direct-timeout' ||
       scenario === 'alternate-node-exit' ||
+      scenario === 'flag-direct-exit' ||
+      scenario === 'unsafe-option-target' ||
       scenario === 'unrelated-process' ||
       scenario === 'watchdog-argument'
     ) {
@@ -166,7 +168,9 @@ fi
       const exitTimer =
         scenario === 'direct-timeout'
           ? 'setTimeout(() => {}, 5000);'
-          : 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 1500);';
+          : scenario === 'flag-direct-exit'
+            ? 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 5000);'
+            : 'setTimeout(() => rmSync(process.env.PROC_ENTRY, { force: true, recursive: true }), 1500);';
       writeJob(
         job,
         `import { rmSync, writeFileSync } from 'node:fs'; writeFileSync(process.env.DIRECT_READY, String(process.pid)); ${exitTimer}`
@@ -201,11 +205,14 @@ fi
       mkdirSync(processDirectory);
       writeFileSync(
         join(processDirectory, 'cmdline'),
-        `node\0${scenario === 'watchdog-argument' ? 'jobs/watchdog.mjs\0jobs/vercel-error-remediator.mjs' : 'jobs/vercel-error-remediator.mjs'}\0`
+        `node\0${scenario === 'watchdog-argument' ? 'jobs/watchdog.mjs\0jobs/vercel-error-remediator.mjs' : scenario === 'flag-direct-exit' ? '--no-warnings\0jobs/vercel-error-remediator.mjs' : scenario === 'unsafe-option-target' ? '--require\0jobs/vercel-error-remediator.mjs' : 'jobs/vercel-error-remediator.mjs'}\0`
       );
       symlinkSync(remoteDirectory, join(processDirectory, 'cwd'));
       symlinkSync(join(binDirectory, 'node'), join(processDirectory, 'exe'));
-      if (scenario === 'watchdog-argument') {
+      if (
+        scenario === 'watchdog-argument' ||
+        scenario === 'unsafe-option-target'
+      ) {
         writeFileSync(directReady, '0');
       } else {
         directProcess = spawn(command, args, {
@@ -237,6 +244,7 @@ fi
           BARRIER_MARKER: barrierMarker,
           CODEX_CONTAINER_BIN: '/usr/local/bin/codex',
           CODEX_REMEDIATOR_IMAGE: 'baci/codex:test',
+          CANONICAL_REMOTE_DIR: realpathSync(remoteDirectory),
           CRONTAB_MARKER: crontabMarker,
           DIRECT_PROCESS_PID: directProcessPid ?? '',
           LOCK_MARKER: lockMarker,
@@ -249,8 +257,12 @@ fi
           REMOTE_DIR: remoteDirectory,
           STAGING_DIR: stageDirectory,
           BACI_REMEDIATION_LEGACY_DRAIN_TIMEOUT_SECONDS:
-            scenario === 'direct-exit' || scenario === 'alternate-node-exit'
-              ? '5'
+            scenario === 'direct-exit' ||
+            scenario === 'alternate-node-exit' ||
+            scenario === 'flag-direct-exit'
+              ? scenario === 'flag-direct-exit'
+                ? '7'
+                : '5'
               : '1',
           BACI_REMEDIATION_PROC_ROOT:
             scenario === 'proc-unavailable'
