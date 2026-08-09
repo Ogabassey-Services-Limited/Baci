@@ -73,7 +73,6 @@ function capHandledEntries(handled) {
 }
 const isIsoDate = (value) =>
   typeof value === 'string' && Number.isFinite(Date.parse(value));
-
 function normalizeObservedEntries(value, timeField) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
@@ -90,7 +89,6 @@ function normalizeObservedEntries(value, timeField) {
     )
   );
 }
-
 function normalizeNotifications(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return {};
@@ -110,7 +108,6 @@ function normalizeNotifications(value) {
     })
   );
 }
-
 function readState(path) {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8'));
@@ -126,7 +123,6 @@ function readState(path) {
     return { handled: {}, notifications: {}, reservations: {} };
   }
 }
-
 function persistState(path, state) {
   mkdirSync(dirname(path), { recursive: true });
   const temporaryPath = `${path}.${process.pid}.tmp`;
@@ -280,6 +276,10 @@ export function createRemediationState({
     },
     mark(candidates) {
       return this.complete({ handledCandidates: candidates });
+    },
+    handledCandidates(candidates) {
+      const { handled } = readState(path);
+      return candidates.filter((candidate) => Boolean(handled[candidate.fingerprint]));
     },
     notifications() {
       return Object.entries(readState(path).notifications).map(

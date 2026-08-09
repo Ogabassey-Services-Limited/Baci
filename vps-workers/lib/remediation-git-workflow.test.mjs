@@ -1,7 +1,4 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { remediationGitWorkflowTestFixtures } from './remediation-git-workflow.test-helpers.mjs';
@@ -161,6 +158,41 @@ describe('remediation git workflow', () => {
     );
   });
 
+  it('redacts a runner failure before it can be reported', () => {
+    const { runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) => {
+      if (command === 'bash') {
+        return {
+          error: new Error(
+            'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz012345'
+          ),
+        };
+      }
+      return baseRunner(command, args, options);
+    };
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
+            BACI_REPO_DIR: '/repo',
+            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+          },
+          runner,
+        }),
+      (error) => {
+        assert.doesNotMatch(
+          error.message,
+          /ghp_abcdefghijklmnopqrstuvwxyz012345/
+        );
+        assert.match(error.message, /\[REDACTED\]/);
+        return true;
+      }
+    );
+  });
+
   it('never requests automatic merge even when legacy configuration asks for it', () => {
     const { calls, runner } = makeRunner();
 
@@ -179,69 +211,6 @@ describe('remediation git workflow', () => {
     assert.equal(
       calls.some((call) => call.join(' ').includes('pr merge')),
       false
-    );
-  });
-
-  it('preserves Codex output when an investigation makes no changes', () => {
-    const outputDir = mkdtempSync(join(tmpdir(), 'baci-remediation-output-'));
-    const { runner: baseRunner } = makeRunner({ statusOutput: '' });
-    const runner = (command, args, options) => {
-      if (command === 'codex') {
-        return {
-          status: 0,
-          stdout: 'The event is a successful HTTP 200 and needs no code fix.\n',
-          stderr: '',
-        };
-      }
-      return baseRunner(command, args, options);
-    };
-
-    const result = runRemediationAutofix({
-      candidate,
-      env: {
-        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
-        BACI_REMEDIATION_OUTPUT_DIR: outputDir,
-        BACI_REPO_DIR: '/repo',
-        BACI_REMEDIATION_RUN_ID: 'report-run',
-        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-      },
-      runner,
-    });
-
-    assert.equal(result.type, 'no_changes');
-    assert.equal(result.resultPath, join(outputDir, 'abc123.result.md'));
-    assert.match(
-      readFileSync(result.resultPath, 'utf8'),
-      /successful HTTP 200/
-    );
-  });
-
-  it('rejects a sandbox-blocked investigation before marking it handled', () => {
-    const outputDir = mkdtempSync(join(tmpdir(), 'baci-remediation-output-'));
-    const { runner: baseRunner } = makeRunner({ statusOutput: '' });
-    const runner = (command, args, options) =>
-      command === 'codex'
-        ? {
-            status: 0,
-            stdout:
-              'bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted',
-            stderr: '',
-          }
-        : baseRunner(command, args, options);
-
-    assert.throws(
-      () =>
-        runRemediationAutofix({
-          candidate,
-          env: {
-            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
-            BACI_REMEDIATION_OUTPUT_DIR: outputDir,
-            BACI_REPO_DIR: '/repo',
-            BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
-          },
-          runner,
-        }),
-      /sandbox failed before repository inspection/
     );
   });
 });

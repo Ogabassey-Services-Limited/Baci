@@ -1,3 +1,5 @@
+import { redactCodexOutput } from './remediation-codex-output.mjs';
+
 const PROTECTED_PATH_PATTERNS = [
   /^apps\/web\/src\/proxy\.ts$/,
   /^apps\/web\/src\/app\/api\/payments\//,
@@ -9,6 +11,135 @@ const PROTECTED_PATH_PATTERNS = [
   /(^|\/)\.env/,
   /(^|\/)secrets?\./,
 ];
+
+const boundedEvidence = (value, length) =>
+  redactCodexOutput(String(value || '')).slice(0, length);
+const boundedRoute = (value) => boundedEvidence(value, 240).split(/[?#]/, 1)[0];
+const MAX_LIFECYCLE_CONTEXT = 5;
+const boundedSentryIdentity = (value, length) => {
+  const identity = String(value || '')
+    .trim()
+    .slice(0, length);
+  return /^[A-Za-z0-9._-]+$/.test(identity) ? identity : '';
+};
+const safeHttpsUrl = (value) => {
+  try {
+    const url = new URL(String(value || '').trim());
+    return url.protocol === 'https:' && url.hostname && !url.username && !url.password
+      ? `${url.origin}${url.pathname}`.slice(0, 500)
+      : '';
+  } catch {
+    return '';
+  }
+};
+const SAFE_OUTCOME_DETAILS = {
+  autofix_failed: 'autofix failed before a verified change',
+  candidate_enrichment_failed: 'candidate enrichment did not complete',
+  legacy_handled: 'legacy handled record has no known outcome',
+  no_changes: 'no safe repository change was produced',
+  policy_blocked: 'automation policy blocked the change',
+  pr_opened: 'a draft pull request was created',
+  prompt_written: 'a review prompt was written',
+};
+
+function boundedCaseContext(value) {
+  const context = value && typeof value === 'object' ? value : {};
+  const cases = Array.isArray(context.cases)
+    ? context.cases
+        .map((item, index) => ({
+          index,
+          item,
+          observedAt:
+            typeof item?.lastSeen === 'string' ? Date.parse(item.lastSeen) : Number.NaN,
+        }))
+        .filter(({ observedAt }) => Number.isFinite(observedAt))
+        .sort((left, right) => right.observedAt - left.observedAt || left.index - right.index)
+        .slice(0, MAX_LIFECYCLE_CONTEXT)
+        .map(({ item }) => item)
+    : [];
+  return {
+    cases: cases.map((item) => ({
+          fingerprint: boundedEvidence(item?.fingerprint, 80),
+          lastSeen: boundedEvidence(item?.lastSeen, 80),
+          outcomes: Array.isArray(item?.outcomes)
+            ? item.outcomes.slice(-MAX_LIFECYCLE_CONTEXT).map((outcome) => ({
+                at: boundedEvidence(outcome?.at, 80),
+                prUrl: safeHttpsUrl(outcome?.prUrl),
+                type: boundedEvidence(outcome?.type, 80),
+              }))
+            : [],
+          recurrenceCount: Number(item?.recurrenceCount) || 0,
+          status: boundedEvidence(item?.status, 40),
+          totalObservations: Number(item?.totalObservations) || 0,
+        })),
+    category: boundedEvidence(context.category, 80),
+  };
+}
+
+function boundedCurrentLifecycle(candidate) {
+  return {
+    draftPr: {
+      branch: boundedEvidence(candidate?.draftPr?.branch, 160),
+      url: safeHttpsUrl(candidate?.draftPr?.url),
+    },
+    outcomes: Array.isArray(candidate?.history)
+      ? candidate.history.slice(-MAX_LIFECYCLE_CONTEXT).map((outcome) => ({
+          at: boundedEvidence(outcome?.at, 80),
+          detail:
+            Object.hasOwn(SAFE_OUTCOME_DETAILS, outcome?.type)
+              ? SAFE_OUTCOME_DETAILS[outcome.type]
+              : 'outcome detail withheld',
+          type: boundedEvidence(outcome?.type, 80),
+        }))
+      : [],
+    recurrenceCount: Number(candidate?.recurrenceCount) || 0,
+    status: boundedEvidence(candidate?.status, 40),
+  };
+}
+
+function evidenceFor(candidate, sample, source) {
+  const common = {
+    caseContext: boundedCaseContext(candidate.caseContext),
+    category: boundedEvidence(candidate.category, 80),
+    currentLifecycle: boundedCurrentLifecycle(candidate),
+    fingerprint: boundedEvidence(candidate.fingerprint, 80),
+    firstSeen: boundedEvidence(candidate.firstSeen, 80),
+    lastSeen: boundedEvidence(candidate.lastSeen, 80),
+    occurrences: Number(candidate.occurrences) || 0,
+    route: boundedRoute(sample.route),
+    source,
+  };
+  if (source === 'vercel') {
+    return {
+      ...common,
+      appLocation: boundedEvidence(sample.appLocation, 240),
+      deploymentId: boundedEvidence(sample.deploymentId, 120),
+      errorClass: boundedEvidence(sample.errorClass, 120),
+      requestId: boundedEvidence(sample.requestId, 120),
+      statusCode: boundedEvidence(sample.statusCode, 12),
+    };
+  }
+  const identity = boundedSentryIdentity;
+  return {
+    ...common,
+    appState: boundedEvidence(sample.appState, 40),
+    device: boundedEvidence(sample.device, 120),
+    deviceClass: boundedEvidence(sample.deviceClass, 40),
+    issueId: identity(sample.issueId, 120),
+    mechanism: boundedEvidence(sample.mechanism, 120),
+    message: boundedEvidence(sample.message, 1_000),
+    organization: identity(sample.organization, 120),
+    os: boundedEvidence(sample.os, 120),
+    platform: boundedEvidence(sample.platform, 40),
+    project: identity(sample.project, 120),
+    release: boundedEvidence(sample.release, 120),
+    stackSummary: Array.isArray(sample.stackSummary)
+      ? sample.stackSummary
+          .slice(0, 32)
+          .map((frame) => boundedEvidence(frame, 240))
+      : [],
+  };
+}
 
 export function isProtectedPath(path) {
   const normalized = String(path || '').replace(/\\/g, '/');
@@ -42,20 +173,12 @@ export function evaluateMergePolicy({
 
 export function buildCodexRemediationPrompt({ candidate }) {
   const sample = candidate.sample || {};
+  const source = boundedEvidence(
+    candidate.source || sample.source || 'unknown',
+    80
+  );
   const evidence = JSON.stringify(
-    {
-      fingerprint: String(candidate.fingerprint || '').slice(0, 80),
-      occurrences: Number(candidate.occurrences) || 0,
-      firstSeen: String(candidate.firstSeen || '').slice(0, 80),
-      lastSeen: String(candidate.lastSeen || '').slice(0, 80),
-      source: String(sample.source || 'vercel').slice(0, 80),
-      route: String(sample.route || '').slice(0, 240),
-      deploymentId: String(sample.deploymentId || '').slice(0, 120),
-      requestId: String(sample.requestId || '').slice(0, 120),
-      release: String(sample.release || '').slice(0, 120),
-      issueId: String(sample.issueId || '').slice(0, 120),
-      message: String(sample.message || '').slice(0, 1_000),
-    },
+    evidenceFor(candidate, sample, source),
     null,
     2
   ).replaceAll('<', '\\u003c');

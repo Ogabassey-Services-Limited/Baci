@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {
   mkdtempSync,
-  readFileSync,
   readdirSync,
+  readFileSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -41,7 +41,11 @@ describe('vercel remediator state lock', () => {
     const autofixRunner = () => {
       autofixCalls += 1;
       writeFileSync(lockPath, 'busy');
-      return { type: 'pr_opened', prUrl: 'https://example.test/pr/1' };
+      return {
+        branch: 'codex/vercel-remediation-lock-1',
+        prUrl: 'https://example.test/pr/1',
+        type: 'pr_opened',
+      };
     };
 
     await assert.rejects(

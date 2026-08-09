@@ -14,7 +14,20 @@ function containerNameFor(worktreeDir) {
   return `baci-remediation-${suffix || process.pid}`;
 }
 
-function buildDockerRuntimeArgs({ containerName, repoDir, worktreeDir }) {
+function currentContainerIdentity() {
+  return {
+    gid: typeof process.getgid === 'function' ? process.getgid() : 1000,
+    uid: typeof process.getuid === 'function' ? process.getuid() : 1000,
+  };
+}
+
+function buildDockerRuntimeArgs({
+  containerName,
+  readOnly = false,
+  repoDir,
+  worktreeDir,
+}) {
+  const { gid, uid } = currentContainerIdentity();
   return [
     'run',
     '--rm',
@@ -34,14 +47,16 @@ function buildDockerRuntimeArgs({ containerName, repoDir, worktreeDir }) {
     '2g',
     '--tmpfs',
     '/tmp:rw,nosuid,nodev,size=1g',
+    '--tmpfs',
+    `/codex-home:rw,nosuid,nodev,size=64m,uid=${uid},gid=${gid},mode=700`,
     '--user',
-    `${process.getuid()}:${process.getgid()}`,
+    `${uid}:${gid}`,
     '--env',
     'HOME=/tmp',
     '--env',
     'GIT_OPTIONAL_LOCKS=0',
     '--mount',
-    bindMount(worktreeDir, worktreeDir),
+    bindMount(worktreeDir, worktreeDir, { readonly: readOnly }),
     '--mount',
     bindMount(join(repoDir, '.git'), join(repoDir, '.git'), {
       readonly: true,
@@ -70,16 +85,18 @@ export function buildRemediationCodexCommand({
   codexBin,
   env,
   prompt,
+  readOnly = false,
   repoDir,
   worktreeDir,
 }) {
   const codexArgs = [
     '--search',
     'exec',
+    '--json',
     '--ephemeral',
     '--skip-git-repo-check',
     '--sandbox',
-    'workspace-write',
+    readOnly ? 'read-only' : 'workspace-write',
     '-C',
     worktreeDir,
     prompt,
@@ -100,12 +117,16 @@ export function buildRemediationCodexCommand({
   const containerName = containerNameFor(worktreeDir);
   const dockerArgs = buildDockerRuntimeArgs({
     containerName,
+    readOnly,
     repoDir,
     worktreeDir,
   });
+  if (readOnly) {
+    dockerArgs.push('--read-only');
+  }
   dockerArgs.push(
     '--env',
-    'CODEX_HOME=/tmp/codex-home',
+    'CODEX_HOME=/codex-home',
     '--mount',
     bindMount(join(codexHome, 'auth.json'), '/codex-auth/auth.json', {
       readonly: true,
@@ -127,13 +148,18 @@ export function buildRemediationCodexCommand({
     image,
     'sh',
     '-lc',
-    'mkdir -p "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
+    'umask 077; mkdir -p "$CODEX_HOME"; chmod 700 "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
     '--search',
+    '--enable',
+    'use_legacy_landlock',
     'exec',
+    '--json',
     '--ephemeral',
     '--skip-git-repo-check',
-    '--dangerously-bypass-approvals-and-sandbox',
+    ...(readOnly
+      ? ['--sandbox', 'read-only']
+      : ['--dangerously-bypass-approvals-and-sandbox']),
     '--ignore-user-config',
     '-C',
     worktreeDir,
@@ -162,6 +188,7 @@ export function buildRemediationVerificationCommand({
   const containerName = `${containerNameFor(worktreeDir)}-verify`;
   const dockerArgs = buildDockerRuntimeArgs({
     containerName,
+    readOnly: false,
     repoDir,
     worktreeDir,
   });

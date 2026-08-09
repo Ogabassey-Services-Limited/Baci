@@ -5,7 +5,12 @@ import {
   buildRemediationCodexCommand,
   buildRemediationVerificationCommand,
 } from './remediation-codex-command.mjs';
-import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
+import {
+  assertCodexExecutionUsable,
+  formatBoundedSubprocessOutput,
+  redactCodexError,
+  redactCodexOutput,
+} from './remediation-codex-output.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import {
   buildCodexRemediationPrompt,
@@ -31,14 +36,40 @@ function runChecked(command, args, options) {
     timeout: options.timeout,
   });
   if (result.error) {
-    throw result.error;
+    throw redactCodexError(result.error);
   }
   if (result.status !== 0) {
     throw new Error(
-      `${command} ${args.join(' ')} failed: ${(result.stderr || result.stdout || '').slice(0, 2000)}`
+      `${command} ${args.join(' ')} failed: ${formatBoundedSubprocessOutput(result)}`
     );
   }
   return result.stdout || '';
+}
+
+function runCodexChecked(command, args, options) {
+  const result = options.runner(command, args, {
+    cwd: options.cwd,
+    env: options.env,
+    shell: false,
+    timeout: options.timeout,
+  });
+  if (result.error) {
+    throw redactCodexError(result.error);
+  }
+  assertCodexExecutionUsable(result);
+  return {
+    output: [
+      result.stdout
+        ? ['stdout:', redactCodexOutput(result.stdout)].join('\n')
+        : '',
+      result.stderr
+        ? ['stderr:', redactCodexOutput(result.stderr)].join('\n')
+        : '',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+    stdout: redactCodexOutput(result.stdout || ''),
+  };
 }
 
 function sanitizeRunId(value) {
@@ -134,12 +165,16 @@ export function runRemediationAutofix({
       repoDir,
       worktreeDir,
     });
-    let codexOutput;
+    let codexExecution;
     try {
-      codexOutput = runChecked(codexCommand.command, codexCommand.args, {
-        ...worktreeCommandOptions,
-        timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
-      });
+      codexExecution = runCodexChecked(
+        codexCommand.command,
+        codexCommand.args,
+        {
+          ...worktreeCommandOptions,
+          timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
+        }
+      );
     } finally {
       if (codexCommand.cleanup) {
         runner(codexCommand.cleanup.command, codexCommand.cleanup.args, {
@@ -151,10 +186,9 @@ export function runRemediationAutofix({
     }
     const resultPath = writeRemediationResultArtifact({
       candidate,
-      output: codexOutput,
+      output: codexExecution.output,
       outputDir: env.BACI_REMEDIATION_OUTPUT_DIR,
     });
-    assertCodexExecutionUsable(codexOutput);
     const status = runChecked(
       'git',
       ['status', '--porcelain'],

@@ -42,6 +42,9 @@ function makeRunner({ changedFiles, statusOutput } = {}) {
           stderr: '',
         };
       }
+      if (command === 'codex' || command === 'docker') {
+        return { status: 0, stdout: '{"type":"turn.completed"}\n', stderr: '' };
+      }
       return { status: 0, stdout: '', stderr: '' };
     },
   };

@@ -34,7 +34,27 @@ dependency-mounted remediator image, pushes a `codex/<source>-remediation-*`
 branch, and opens a draft pull request. Each tick handles a bounded candidate
 batch so a noisy incident backlog cannot monopolize the worker.
 
+The case ledger records bounded case identity, category, lifecycle state,
+recurrence count, a short prior-outcome history, and up to three redacted,
+allowlisted representative samples. A sample can include a redacted message and
+up to 32 redacted stack-summary frames; it never retains arbitrary provider
+payloads. Operator reports and draft PR bodies use lifecycle evidence only; they
+do not include provider messages, routes, request IDs, deployment IDs, stack
+frames, or raw error details.
+An active draft linkage blocks another autofix even after the case becomes
+`quiet` following seven days without an observation; a later observation is
+recorded as recurrence for human review rather than opening another PR.
+
 The worker blocks protected changes to `proxy.ts`, payment/auth/webhook routes,
 payment libraries, migrations, GitHub workflows, and secret files. It never
 merges or requests auto-merge. Branch protection and human review remain
 authoritative; its GitHub token must not bypass required checks or reviews.
+
+`jobs/remediation-codex-canary.mjs` is a daily, Docker-only read-only check of
+the Codex toolchain. It shares the global remediation lock and writes its own
+`logs/remediation-codex-canary.log`. Set `BACI_REMEDIATION_CANARY_ENABLED=1`
+explicitly to run it; otherwise it emits a single sanitized skipped JSONL
+record. Toolchain, quota, and authorization failures emit a sanitized JSONL
+failure record and use the configured remediation notification email when
+available. The canary never reads incident providers, creates a worktree,
+pushes, opens a pull request, merges, or deploys.
