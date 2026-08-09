@@ -25,6 +25,23 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     }
   });
 
+  it('maps the native Fingerprint taxonomy label to fingerprint_type', () => {
+    expect(getProductSchemaSpecKeyForLabel('Fingerprint')).toBe(
+      'fingerprint_type'
+    );
+  });
+
+  it('maps dynamic main-camera labels to main_camera_mp', () => {
+    for (const label of [
+      'Quad Camera',
+      'Triple Camera',
+      'Dual Camera',
+      'Single Camera',
+    ]) {
+      expect(getProductSchemaSpecKeyForLabel(label)).toBe('main_camera_mp');
+    }
+  });
+
   it('leaves product-specific labels available to the legacy label path', () => {
     expect(getProductSchemaSpecKeyForLabel('Sensor')).toBeUndefined();
     expect(getProductSchemaSpecKeyForLabel('Focal Length')).toBeUndefined();

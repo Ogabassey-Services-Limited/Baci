@@ -1,7 +1,6 @@
+import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
-import type { Product } from './products';
-import { resolveStorefrontProductCategoryName } from './storefront-product-category-precedence';
-import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
+import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
 import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
 import {
   getKeySpecCategoriesForFamily,
@@ -12,10 +11,11 @@ import {
   isCameraLikeCategory,
 } from './storefront-specs/spec-taxonomy';
 
-type ProductCategorySource = Pick<
-  Product,
-  'category' | 'categories' | 'product_key_specs'
->;
+type ProductCategorySource = {
+  categories?: { name?: string | null; slug?: string | null } | null;
+  category?: string | null;
+  product_key_specs?: { has_card_slot?: boolean } | null;
+};
 
 interface ProductSchemaSpecCandidate {
   key?: string;
@@ -158,6 +158,9 @@ export function shouldIncludeProductSchemaSpec(
     ? getProductSchemaSpecKeyForLabel(candidate.label)
     : undefined;
   const canonicalSpecKey = candidate.key || inferredSpecKey;
+  const normalizedLabel = candidate.label
+    ? normalizeSpecLabel(candidate.label)
+    : undefined;
 
   // Capability data is authoritative over legacy labels. This must precede
   // the mobile fast path because old PDP rows do not always retain their key.
@@ -173,12 +176,22 @@ export function shouldIncludeProductSchemaSpec(
     productFamily === 'mobile' ||
     (productFamily === 'general' &&
       categoryNames.some(isPhoneTabletLaptopCategory));
-  if (isMobileCategory) {
-    return true;
+  const valueDecision = getProductSchemaSpecValueDecision({
+    canonicalSpecKey,
+    hasCategory: categoryNames.length > 0,
+    isMobileCategory,
+    isPhoneOnlyLabel: normalizedLabel
+      ? PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)
+      : false,
+    normalizedLabel,
+    value: candidate.value,
+  });
+  if (valueDecision !== 'defer') {
+    return valueDecision === 'include';
   }
 
-  if (isUnsupportedSpecValue(candidate.value)) {
-    return false;
+  if (isMobileCategory) {
+    return true;
   }
 
   if (canonicalSpecKey === 'card_slot_type') {
@@ -186,9 +199,6 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
-  const normalizedLabel = candidate.label
-    ? normalizeSpecLabel(candidate.label)
-    : undefined;
   const isOperatingSystemLabel =
     normalizedLabel === 'operating system' || normalizedLabel === 'os';
   if (productFamily === 'computer') {
@@ -234,6 +244,10 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (canonicalSpecKey && PHONE_ONLY_SPEC_KEYS.has(canonicalSpecKey)) {
+    if (hasCameraCategory && CAMERA_KEY_SPEC_KEYS.has(canonicalSpecKey)) {
+      return true;
+    }
+
     if (AUDIO_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)) {
       return true;
     }

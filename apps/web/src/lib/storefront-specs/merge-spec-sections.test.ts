@@ -57,4 +57,40 @@ describe('mergeSpecSections', () => {
       { category: 'Key Specs', items: [{ label: 'Camera', value: '50MP' }] },
     ]);
   });
+
+  it('retains a unique generic fact when stored sections have legitimate same-label facts', () => {
+    expect(
+      mergeSpecSections(
+        [
+          {
+            category: 'Display',
+            items: [{ label: 'Protection', value: 'Gorilla Glass' }],
+          },
+          {
+            category: 'Body',
+            items: [{ label: 'Protection', value: 'IP68' }],
+          },
+        ],
+        [
+          {
+            category: 'Key Specs',
+            items: [{ label: 'Camera', value: '50MP' }],
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        category: 'Display',
+        items: [{ label: 'Protection', value: 'Gorilla Glass' }],
+      },
+      {
+        category: 'Body',
+        items: [{ label: 'Protection', value: 'IP68' }],
+      },
+      {
+        category: 'Key Specs',
+        items: [{ label: 'Camera', value: '50MP' }],
+      },
+    ]);
+  });
 });

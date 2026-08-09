@@ -1,5 +1,5 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
-import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
 import { mergeSpecSections } from './merge-spec-sections';

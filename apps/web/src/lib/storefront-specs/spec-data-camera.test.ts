@@ -198,6 +198,20 @@ describe('buildProductSpecData camera families', () => {
     ]);
   });
 
+  it('retains verified NFC connectivity for camera PDPs', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      product_key_specs: { has_nfc: true },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Connectivity',
+        items: [{ label: 'NFC', value: 'Yes' }],
+      },
+    ]);
+  });
+
   it('suppresses a camera card-slot type when the capability is explicitly false', () => {
     const result = buildProductSpecData({
       category: 'Cameras',

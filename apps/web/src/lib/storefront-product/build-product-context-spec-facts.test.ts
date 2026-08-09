@@ -24,19 +24,44 @@ describe('buildProductContextSpecFacts', () => {
           chipset: 'AMD Ryzen 7',
           gpu: 'RTX 4060',
           platform: 'PlayStation 5',
+          camera_score: 88,
+          battery_score: 91,
+          gaming_score: 95,
+          has_dual_camera: true,
         },
         'PlayStation 5'
       )
     ).toEqual([
       'Processor: AMD Ryzen 7',
       'GPU: RTX 4060',
-      'platform: PlayStation 5',
+      'Platform: PlayStation 5',
     ]);
+  });
+
+  it('filters invalid mobile and computer measurement facts', () => {
+    expect(
+      buildProductContextSpecFacts(
+        { storage_gb: 0, display_resolution: 'N/A', has_5g: false },
+        'Smartphones'
+      )
+    ).toEqual(['5G Support: No']);
+    expect(
+      buildProductContextSpecFacts(
+        { ram_gb: 0, display_resolution: 'N/A', chipset: 'Apple M4' },
+        'Laptops'
+      )
+    ).toEqual(['Chipset: Apple M4']);
   });
 
   it('uses mobile facts for a slug-only google-pixel context category', () => {
     expect(
       buildProductContextSpecFacts({ has_5g: true, ram_gb: 12 }, 'google-pixel')
     ).toEqual(['5G Support: Yes', 'RAM: 12GB']);
+  });
+
+  it('retains verified NFC in camera context facts', () => {
+    expect(
+      buildProductContextSpecFacts({ has_nfc: true }, 'Action Cameras')
+    ).toEqual(['NFC: Yes']);
   });
 });

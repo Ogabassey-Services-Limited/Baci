@@ -122,6 +122,11 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
       { key: 'wifi_bands', label: 'Wi-Fi' },
       { key: 'bluetooth_version', label: 'Bluetooth' },
       { key: 'usb_type', label: 'USB' },
+      {
+        key: 'has_nfc',
+        label: 'NFC',
+        transform: (value) => (value ? 'Yes' : 'No'),
+      },
     ],
   },
   {
@@ -261,9 +266,11 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
 ];
 
 export function hasSupportedCardSlotType(specs: ComparableProductKeySpecs) {
+  const cardSlotType = specs.card_slot_type;
   return (
     specs.has_card_slot !== false &&
-    !isUnsupportedCardSlotValue(specs.card_slot_type)
+    typeof cardSlotType === 'string' &&
+    !isUnsupportedCardSlotValue(cardSlotType)
   );
 }
 

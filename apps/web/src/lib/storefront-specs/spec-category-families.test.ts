@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getKeySpecCategoriesForFamily } from './spec-category-families';
+import {
+  getKeySpecCategoriesForFamily,
+  hasSupportedCardSlotType,
+} from './spec-category-families';
 
 describe('category-specific key spec families', () => {
-  it('provides camera fields without phone-only network fields', () => {
+  it('provides camera NFC without unrelated phone-only network fields', () => {
     const categories = getKeySpecCategoriesForFamily('camera');
     const fields = categories.flatMap((category) => category.fields);
 
@@ -11,12 +14,12 @@ describe('category-specific key spec families', () => {
         expect.objectContaining({ key: 'main_camera_mp' }),
         expect.objectContaining({ key: 'rear_camera_video' }),
         expect.objectContaining({ key: 'card_slot_type' }),
+        expect.objectContaining({ key: 'has_nfc' }),
       ])
     );
     expect(fields).not.toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: 'has_5g' }),
-        expect.objectContaining({ key: 'has_nfc' }),
         expect.objectContaining({ key: 'sim_type' }),
       ])
     );
@@ -35,6 +38,22 @@ describe('category-specific key spec families', () => {
         card_slot_type: 'CFexpress Type B',
         has_card_slot: false,
       })
+    ).toBe(false);
+  });
+
+  it('fails closed when a card-slot type is missing or non-string', () => {
+    expect(hasSupportedCardSlotType({ has_card_slot: true })).toBe(false);
+    expect(
+      hasSupportedCardSlotType({
+        has_card_slot: true,
+        card_slot_type: null,
+      } as unknown as Parameters<typeof hasSupportedCardSlotType>[0])
+    ).toBe(false);
+    expect(
+      hasSupportedCardSlotType({
+        has_card_slot: true,
+        card_slot_type: 128,
+      } as unknown as Parameters<typeof hasSupportedCardSlotType>[0])
     ).toBe(false);
   });
 

@@ -29,4 +29,20 @@ describe('shouldIncludeProductSchemaSpec legacy labels', () => {
       )
     ).toBe(true);
   });
+
+  it('rejects dynamic camera labels outside camera and mobile families', () => {
+    for (const label of [
+      'Quad Camera',
+      'Triple Camera',
+      'Dual Camera',
+      'Single Camera',
+    ]) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Gaming', categories: null },
+          { label, value: '50MP' }
+        )
+      ).toBe(false);
+    }
+  });
 });

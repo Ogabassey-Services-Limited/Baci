@@ -1,4 +1,4 @@
-import { isUnsupportedSpecValue } from '@/lib/storefront-specs/is-unsupported-spec-value';
+import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import { getKeySpecCategoriesForFamily } from '@/lib/storefront-specs/spec-category-families';
 import type {
   ComparableProductKeySpecs,
@@ -32,13 +32,10 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
   camera: {
     has_ois: 'OIS',
   },
-  general: {},
+  general: {
+    platform: 'Platform',
+  },
 };
-const KNOWN_DEVICE_SPEC_FIELDS_BY_KEY = new Set(
-  getKeySpecCategoriesForFamily('mobile')
-    .flatMap((category) => category.fields)
-    .map((field) => field.key)
-);
 function normalizeText(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.replace(/\s+/g, ' ').trim();
@@ -98,17 +95,19 @@ export function buildProductContextSpecFacts(
 
       const field = fieldsByKey.get(key);
       const contextLabel = FAMILY_CONTEXT_SPEC_LABELS[family][key];
-      if (
-        !field &&
-        !contextLabel &&
-        (family !== 'general' || KNOWN_DEVICE_SPEC_FIELDS_BY_KEY.has(key))
-      ) {
+      if (!field && !contextLabel) {
         return [];
       }
       if (field?.condition && !field.condition(comparableSpecs)) return [];
       if (
-        (family === 'general' || family === 'camera') &&
-        isUnsupportedSpecValue(value)
+        !shouldIncludeProductSchemaSpec(
+          {
+            category: categoryName,
+            categories: null,
+            product_key_specs: comparableSpecs,
+          },
+          { key, value }
+        )
       ) {
         return [];
       }

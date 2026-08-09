@@ -26,7 +26,7 @@ import { getStorefrontPathPrefix } from '@/lib/storefront-path-prefix';
 import { buildProductContextParagraphs } from '@/lib/storefront-product/build-product-context-paragraphs';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
-import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';

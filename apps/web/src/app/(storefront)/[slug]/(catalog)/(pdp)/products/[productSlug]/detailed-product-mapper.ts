@@ -2,7 +2,7 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { generateSlug } from '@/lib/seo-utils';
-import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-precedence';
+import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
   getMappedCanonicalUrl,

@@ -12,6 +12,9 @@ const PROPERTY_NAME_ALIASES: Record<string, string> = {
   speakers: 'speakers',
   video: 'video recording',
   'video recording': 'video recording',
+  'wi-fi': 'wifi',
+  wifi: 'wifi',
+  wlan: 'wifi',
 };
 
 function normalizePropertyText(value: unknown) {

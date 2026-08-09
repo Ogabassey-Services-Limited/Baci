@@ -34,24 +34,3 @@ export function resolveStorefrontProductCategory(
 
   return junctionSlug ? { slug: junctionSlug } : null;
 }
-
-/**
- * Uses relation-backed category metadata for display and taxonomy decisions.
- * A slug is still a stronger source than legacy category text when a partial
- * join lacks a name, because it identifies the current category relation.
- */
-export function resolveStorefrontProductCategoryName(
-  product: StorefrontProductCategoryPrecedenceInput
-): string | null {
-  const directName = product.categories?.name?.trim();
-  if (directName) {
-    return directName;
-  }
-
-  const directSlug = product.categories?.slug?.trim();
-  if (directSlug) {
-    return directSlug;
-  }
-
-  return product.category?.trim() || null;
-}

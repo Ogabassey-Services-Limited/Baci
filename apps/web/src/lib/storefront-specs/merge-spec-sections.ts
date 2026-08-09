@@ -30,9 +30,9 @@ export function mergeSpecSections(...sections: ProductSpecSection[][]) {
         sectionGroupIndex > 0 && isGenericSpecSection(section.category)
           ? section.items.filter((item) => {
               const visibleItems = merged.flatMap((entry) => entry.items);
-              return (
-                dedupeSpecItems([...visibleItems, item]).length >
-                visibleItems.length
+              return visibleItems.every(
+                (visibleItem) =>
+                  dedupeSpecItems([visibleItem, item]).length === 2
               );
             })
           : section.items;

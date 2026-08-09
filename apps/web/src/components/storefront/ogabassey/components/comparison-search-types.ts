@@ -10,6 +10,7 @@ export interface SearchResultProduct {
   description?: string;
   rating?: number;
   category?: string;
+  category_slug?: string | null;
   categories?: Category;
   condition?: string;
   brand?: string;

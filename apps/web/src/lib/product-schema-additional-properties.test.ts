@@ -17,6 +17,22 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
     ]);
   });
 
+  it('deduplicates Wi-Fi, WiFi, and WLAN aliases with the same value', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.add('WiFi', '802.11 a/b/g/n/ac');
+    collector.add('Wi-Fi', '802.11 a/b/g/n/ac');
+    collector.add('WLAN', '802.11 a/b/g/n/ac');
+
+    expect(collector.getProperties()).toEqual([
+      {
+        '@type': 'PropertyValue',
+        name: 'WiFi',
+        value: '802.11 a/b/g/n/ac',
+      },
+    ]);
+  });
+
   it('ignores empty and unsupported property values', () => {
     const collector = createProductSchemaAdditionalPropertyCollector();
 
