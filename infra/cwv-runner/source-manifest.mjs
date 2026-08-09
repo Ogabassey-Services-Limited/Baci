@@ -7,12 +7,11 @@ import {
   renameSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, isAbsolute, relative } from 'node:path';
+import { dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { canonicalJson, canonicalSha256 } from './canonical-json.mjs';
 import { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
-import { git } from './source-manifest-git.mjs';
 import { verifyGitObjects } from './source-manifest-objects.mjs';
 import { authenticatedTreeRows } from './source-manifest-tree.mjs';
 
@@ -31,67 +30,9 @@ function checkedSha(value, field) {
   return value;
 }
 
-function checkedPath(value) {
-  if (typeof value !== 'string' || !value || value.includes('\0') || isAbsolute(value)) fail('invalid path');
-  const parts = value.split('/');
-  if (parts.some((part) => !part || part === '.' || part === '..') || Buffer.from(value).toString('utf8') !== value) fail('ambiguous path');
-  return value;
-}
-
-function checkedMode(mode) {
-  if (mode !== '100644' && mode !== '100755') fail('unsupported Git mode');
-  return mode;
-}
-
-function objectBytes(cwd, objectId) {
-  if (!/^[0-9a-f]{40,64}$/.test(objectId)) fail('invalid Git object id');
-  const object = verifyGitObjects(cwd, [objectId]).get(`${cwd}\0${objectId}`);
-  if (!object || object.type !== 'blob') fail('invalid Git blob');
-  return Buffer.from(object.bytes);
-}
-
-function treeRows(cwd, sha, prefix = '') {
-  checkedSha(sha, 'tree SHA');
-  const output = git(cwd, ['ls-tree', '-r', '-z', sha, '--', prefix], null, null);
-  const rows = [];
-  for (const item of output.toString('utf8').split('\0').filter(Boolean)) {
-    const match = /^(\d{6}) (\S+) ([0-9a-f]{40,64})\t(.+)$/.exec(item);
-    if (!match) fail('malformed Git tree row');
-    const [, mode, type, objectId, path] = match;
-    checkedPath(path);
-    if (type !== 'blob') fail('non-blob source-tree leaf');
-    rows.push({ path, mode: checkedMode(mode), objectId });
-  }
-  const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
-  const directories = git(cwd, ['ls-tree', '-d', '-r', '-z', sha, '--', prefix], null, null)
-    .toString('utf8').split('\0').filter(Boolean).map((item) => {
-      const match = /^(\d{6}) tree ([0-9a-f]{40,64})\t(.+)$/.exec(item);
-      if (!match) fail('malformed Git tree row');
-      return match[2];
-    });
-  verifyGitObjects(cwd, [sha, tree, ...directories, ...rows.map(({ objectId }) => objectId)]);
-  return rows.sort((left, right) => pathCompare(left.path, right.path));
-}
-
-function verifyTreeClosure(cwd, sha) {
-  checkedSha(sha, 'tree SHA');
-  const output = git(cwd, ['ls-tree', '-r', '-t', '-z', sha], null, null);
-  const ids = [sha];
-  for (const item of output.toString('utf8').split('\0').filter(Boolean)) {
-    const match = /^(\d{6}) (blob|tree) ([0-9a-f]{40,64})\t(.+)$/.exec(item);
-    if (!match) fail('malformed Git tree closure');
-    checkedPath(match[4]);
-    ids.push(match[3]);
-  }
-  const tree = git(cwd, ['rev-parse', `${sha}^{tree}`]).trim();
-  ids.push(tree);
-  const verifiedObjects = verifyGitObjects(cwd, ids);
-  const object = verifiedObjects.get(`${cwd}\0${sha}`);
-  if (!object || object.type !== 'commit') fail('source SHA must name a commit');
-}
-
-function blobEntry(cwd, row) {
-  const bytes = objectBytes(cwd, row.objectId);
+function blobEntry(cwd, row, verified) {
+  const bytes = verified?.get(`${cwd}\0${row.objectId}`)?.bytes;
+  if (!bytes) fail('invalid Git blob');
   if (bytes.length > LIMITS.member) fail('source member exceeds size limit');
   return { path: row.path, mode: row.mode, blobSha256: sha256(bytes), bytes };
 }
@@ -103,15 +44,25 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   const verifiedObjects = verifyGitObjects(cwd, [baseSha, reviewedHeadSha, mergeSha]);
   for (const sha of [baseSha, reviewedHeadSha, mergeSha]) {
     const object = verifiedObjects.get(`${cwd}\0${sha}`);
-    if (!object || object.type !== 'commit') fail('source SHA must name a commit');
-    verifyTreeClosure(cwd, sha);
+    if (object?.type !== 'commit') fail('source SHA must name a commit');
   }
   const baseRows = authenticatedTreeRows(cwd, baseSha);
   const reviewedRows = authenticatedTreeRows(cwd, reviewedHeadSha);
   const mergedRows = authenticatedTreeRows(cwd, mergeSha);
+  const verifiedBlobs = verifyGitObjects(cwd, [...reviewedRows, ...mergedRows].map(({ objectId }) => objectId));
   const baseByPath = new Map(baseRows.map((row) => [row.path, row]));
   const reviewedByPath = new Map(reviewedRows.map((row) => [row.path, row]));
   const mergedByPath = new Map(mergedRows.map((row) => [row.path, row]));
+  for (const [path, merged] of mergedByPath) {
+    const reviewed = reviewedByPath.get(path);
+    if (!reviewed || reviewed.mode !== merged.mode || reviewed.objectId !== merged.objectId)
+      fail('merge tree differs from reviewed tree');
+  }
+  for (const [path, reviewed] of reviewedByPath) {
+    const merged = mergedByPath.get(path);
+    if (!merged || merged.mode !== reviewed.mode || merged.objectId !== reviewed.objectId)
+      fail('merge tree differs from reviewed tree');
+  }
   const entries = [];
   const paths = [...new Set([...baseByPath.keys(), ...reviewedByPath.keys()])].sort(pathCompare);
   for (const path of paths) {
@@ -126,8 +77,9 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     }
     const merged = mergedByPath.get(path);
     if (!reviewed || !merged || merged.path !== path) fail('ambiguous changed path');
-    const entry = blobEntry(cwd, reviewed);
-    const mergedBytes = objectBytes(cwd, merged.objectId);
+    const entry = blobEntry(cwd, reviewed, verifiedBlobs);
+    const mergedBytes = verifiedBlobs.get(`${cwd}\0${merged.objectId}`)?.bytes;
+    if (!mergedBytes) fail('invalid Git blob');
     if (entry.mode !== merged.mode || entry.blobSha256 !== sha256(mergedBytes)) fail('merge tree differs from reviewed path');
     entries.push({ path, status, mode: entry.mode, blobSha256: entry.blobSha256 });
   }
@@ -135,7 +87,9 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
 }
 
 function sourceEntries(cwd, mergeSha) {
-  const entries = treeRows(cwd, mergeSha, PREFIX).map((row) => blobEntry(cwd, row));
+  const rows = authenticatedTreeRows(cwd, mergeSha).filter(({ path }) => path.startsWith(PREFIX));
+  const verified = verifyGitObjects(cwd, rows.map(({ objectId }) => objectId));
+  const entries = rows.map((row) => blobEntry(cwd, row, verified));
   if (!entries.length || entries.some((entry) => !entry.path.startsWith(PREFIX))) fail('invalid source archive projection');
   if (entries.find((entry) => entry.path === `${PREFIX}vps-ssh.sh`)?.mode !== '100755')
     fail('vps SSH wrapper must be executable');
@@ -163,11 +117,12 @@ function atomicWrite(path, value) {
 }
 
 function policyForTree(cwd, reviewedHeadSha, mergeSha = reviewedHeadSha) {
-  const reviewed = treeRows(cwd, reviewedHeadSha, `${PREFIX}policy.json`);
-  const merged = treeRows(cwd, mergeSha, `${PREFIX}policy.json`);
+  const reviewed = authenticatedTreeRows(cwd, reviewedHeadSha).filter(({ path }) => path === `${PREFIX}policy.json`);
+  const merged = authenticatedTreeRows(cwd, mergeSha).filter(({ path }) => path === `${PREFIX}policy.json`);
   if (reviewed.length !== 1 || merged.length !== 1 || reviewed[0].path !== `${PREFIX}policy.json` || merged[0].path !== `${PREFIX}policy.json`) fail('ambiguous policy source');
-  const bytes = objectBytes(cwd, reviewed[0].objectId);
-  if (sha256(bytes) !== sha256(objectBytes(cwd, merged[0].objectId))) fail('merge policy differs from reviewed tree');
+  const verified = verifyGitObjects(cwd, [reviewed[0].objectId, merged[0].objectId]);
+  const bytes = verified.get(`${cwd}\0${reviewed[0].objectId}`).bytes;
+  if (sha256(bytes) !== sha256(verified.get(`${cwd}\0${merged[0].objectId}`).bytes)) fail('merge policy differs from reviewed tree');
   try { const policy = JSON.parse(bytes); policyProjection(policy); return { policy, policyFileSha256: sha256(bytes) }; }
   catch { fail('invalid reviewed policy'); }
 }

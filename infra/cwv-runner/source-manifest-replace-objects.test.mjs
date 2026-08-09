@@ -163,3 +163,72 @@ test('refuses a loose Git object whose bytes do not hash to its named id', () =>
     rmSync(output, { recursive: true, force: true });
   }
 });
+
+test('refuses a merge that deletes an unchanged reviewed path', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'cwv-merge-deletion-'));
+  const output = mkdtempSync(join(tmpdir(), 'cwv-merge-deletion-output-'));
+  try {
+    mkdirSync(join(fixture, 'infra/cwv-runner'), { recursive: true });
+    for (const name of [
+      'policy.json',
+      'canonical-json.mjs',
+      'policy.schema.mjs',
+      'source-archive.mjs',
+      'source-manifest.mjs',
+      'source-manifest-git.mjs',
+      'source-manifest-objects.mjs',
+      'source-manifest-tree.mjs',
+    ])
+      writeFileSync(
+        join(fixture, 'infra/cwv-runner', name),
+        readFileSync(join(root, 'infra/cwv-runner', name))
+      );
+    writeFileSync(
+      join(fixture, 'infra/cwv-runner', 'vps-ssh.sh'),
+      readFileSync(join(root, 'infra/cwv-runner', 'vps-ssh.sh'))
+    );
+    chmodSync(join(fixture, 'infra/cwv-runner', 'vps-ssh.sh'), 0o755);
+    writeFileSync(join(fixture, 'README.md'), 'unchanged\n');
+    git(fixture, ['init', '-q']);
+    git(fixture, ['add', '.']);
+    git(fixture, [
+      '-c',
+      'user.name=test',
+      '-c',
+      'user.email=test@invalid',
+      'commit',
+      '-qm',
+      'reviewed',
+    ]);
+    const reviewed = git(fixture, ['rev-parse', 'HEAD']);
+    git(fixture, ['rm', 'README.md']);
+    git(fixture, [
+      '-c',
+      'user.name=test',
+      '-c',
+      'user.email=test@invalid',
+      'commit',
+      '-qm',
+      'merge',
+    ]);
+    const merge = git(fixture, ['rev-parse', 'HEAD']);
+    assert.throws(
+      () =>
+        freezeSourceManifest({
+          baseSha: reviewed,
+          cwd: fixture,
+          mergeSha: merge,
+          output: join(output, 'manifest.json'),
+          outputDigest: join(output, 'manifest.sha256'),
+          prNumber: 1,
+          reviewedHeadSha: reviewed,
+          sourceArchive: join(output, 'source.tar'),
+          sourceArchiveDigest: join(output, 'source.tar.sha256'),
+        }),
+      /merge tree differs from reviewed tree/
+    );
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+    rmSync(output, { recursive: true, force: true });
+  }
+});

@@ -38,11 +38,22 @@ test('rejects malformed repository and authority fields', () => {
     { ...input, headRef: 'trailing/' },
     { ...input, headRef: 'a..b' },
     { ...input, headRef: 'a@{b' },
+    { ...input, headRef: '@' },
+    { ...input, headRef: 'feature//task9' },
+    { ...input, headRef: '.hidden' },
+    { ...input, headRef: 'feature.' },
+    { ...input, headRef: 'feature/task9.lock/next' },
   ]) {
-    assert.throws(() => checkedTask9Identity(invalid, manifest, policy), /invalid source identity/);
+    assert.throws(
+      () => checkedTask9Identity(invalid, manifest, policy),
+      /invalid source identity/
+    );
   }
   assert.throws(
-    () => checkedTask9Identity(input, manifest, { repository: { id: 0, name: 'bad' } }),
+    () =>
+      checkedTask9Identity(input, manifest, {
+        repository: { id: 0, name: 'bad' },
+      }),
     /invalid repository identity/
   );
 });
