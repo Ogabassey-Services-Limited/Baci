@@ -27,4 +27,16 @@ describe('isGameProduct', () => {
       )
     ).toBe(false);
   });
+
+  it('classifies a Nintendo Switch OLED console without a console noun as hardware', () => {
+    expect(
+      isGameProduct(
+        {
+          categorySlug: 'nintendo-switch',
+          productNames: ['Nintendo Switch OLED Model White'],
+        },
+        tokenize
+      )
+    ).toBe(false);
+  });
 });

@@ -6,6 +6,7 @@ const WIRELESS_AUDIO_DESCRIPTOR_TOKENS = new Set([
   'noise',
   'speaker',
 ]);
+const WIRELESS_AUDIO_QUALIFIERS = new Set(['true', 'truly']);
 
 /** Removes a trailing wireless audio description without changing model names. */
 export function stripTrailingWirelessAudioDescriptor(tokens: string[]) {
@@ -18,5 +19,10 @@ export function stripTrailingWirelessAudioDescriptor(tokens: string[]) {
   ) {
     return tokens;
   }
-  return tokens.slice(0, wirelessIndex);
+  const descriptorStart = WIRELESS_AUDIO_QUALIFIERS.has(
+    tokens[wirelessIndex - 1] ?? ''
+  )
+    ? wirelessIndex - 1
+    : wirelessIndex;
+  return tokens.slice(0, descriptorStart);
 }

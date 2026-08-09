@@ -9,7 +9,10 @@ function stripTerminalConnectorSuffix(tokens: string[]) {
 
 function normalizeOrdinalGeneration(tokens: string[]) {
   const withoutConnector = stripTerminalConnectorSuffix(tokens);
-  if (withoutConnector.length === tokens.length) {
+  if (
+    withoutConnector.length === tokens.length &&
+    !tokens.includes('airpods')
+  ) {
     return tokens;
   }
   const normalized: string[] = [];
@@ -26,6 +29,21 @@ function normalizeOrdinalGeneration(tokens: string[]) {
     normalized.push(withoutConnector[index] ?? '');
   }
   return normalized;
+}
+
+function stripChargingCaseSuffix(tokens: string[]) {
+  if (tokens.at(-1) !== 'case') {
+    return tokens;
+  }
+  const withIndex = tokens.lastIndexOf('with');
+  const phraseStart = withIndex >= 0 ? withIndex : tokens.length - 2;
+  const suffix = tokens.slice(phraseStart);
+  const isChargingCasePhrase =
+    suffix.length >= 2 &&
+    suffix
+      .slice(withIndex >= 0 ? 1 : 0, -1)
+      .every((token) => ['charging', 'magsafe'].includes(token));
+  return isChargingCasePhrase ? tokens.slice(0, phraseStart) : tokens;
 }
 
 function stripSplitCapacitySuffix(tokens: string[]) {
@@ -45,5 +63,7 @@ function stripSplitCapacitySuffix(tokens: string[]) {
 }
 
 export function stripModelMetadataSuffixes(tokens: string[]) {
-  return stripSplitCapacitySuffix(normalizeOrdinalGeneration(tokens));
+  return stripSplitCapacitySuffix(
+    stripChargingCaseSuffix(normalizeOrdinalGeneration(tokens))
+  );
 }

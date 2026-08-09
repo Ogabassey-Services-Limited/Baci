@@ -14,4 +14,20 @@ describe('stripModelMetadataSuffixes', () => {
       '15',
     ]);
   });
+
+  it('removes AirPods charging-case metadata after normalizing its generation', () => {
+    expect(
+      stripModelMetadataSuffixes([
+        'airpods',
+        'pro',
+        '2nd',
+        'generation',
+        'with',
+        'magsafe',
+        'case',
+        'usb',
+        'c',
+      ])
+    ).toEqual(['airpods', 'pro', '2']);
+  });
 });

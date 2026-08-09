@@ -20,4 +20,19 @@ describe('stripTrailingWirelessAudioDescriptor', () => {
       stripTrailingWirelessAudioDescriptor(['xbox', 'wireless', 'controller'])
     ).toEqual(['xbox', 'wireless', 'controller']);
   });
+
+  it.each([
+    'true',
+    'truly',
+  ])('removes a trailing %s wireless audio description as one phrase', (qualifier) => {
+    expect(
+      stripTrailingWirelessAudioDescriptor([
+        'wf',
+        '1000xm5',
+        qualifier,
+        'wireless',
+        'earbuds',
+      ])
+    ).toEqual(['wf', '1000xm5']);
+  });
 });

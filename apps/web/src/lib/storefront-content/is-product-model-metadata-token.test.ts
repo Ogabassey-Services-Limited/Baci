@@ -19,4 +19,11 @@ describe('isProductModelMetadataToken', () => {
   it('preserves printer model specifications under the existing contract', () => {
     expect(isProductModelMetadataToken('4k', 'printers')).toBe(false);
   });
+
+  it.each([
+    'oled',
+    'gaming',
+  ])('treats trailing monitor descriptor %s as metadata', (token) => {
+    expect(isProductModelMetadataToken(token, 'monitors')).toBe(true);
+  });
 });

@@ -151,4 +151,65 @@ describe('buildCommercialGuideLinks semantic normalization', () => {
 
     expect(result[0]).toBe('Apple iPhone 15 Buyer Guide');
   });
+
+  it.each([
+    'True',
+    'Truly',
+  ])('ranks the exact wireless audio model when its descriptor starts with %s', (qualifier) => {
+    const result = rankedTitles(
+      {
+        pageKind: 'product',
+        categorySlug: 'audio',
+        brands: ['Sony'],
+        productNames: [`Sony WF-1000XM5 ${qualifier} Wireless Earbuds`],
+      },
+      ['Sony WF-1000XM5 Buyer Guide', 'Sony WF-1000XM4 Buyer Guide']
+    );
+
+    expect(result[0]).toBe('Sony WF-1000XM5 Buyer Guide');
+  });
+
+  it('ranks the exact monitor model after display descriptors are removed', () => {
+    const result = rankedTitles(
+      {
+        pageKind: 'product',
+        categorySlug: 'monitors',
+        brands: ['LG'],
+        productNames: ['LG 27GR95QE-B 27 inch OLED 240Hz Gaming Monitor'],
+      },
+      ['LG 27GR95QE-B Buyer Guide', 'LG 27GS95QE-B Buyer Guide']
+    );
+
+    expect(result[0]).toBe('LG 27GR95QE-B Buyer Guide');
+  });
+
+  it('ranks the base AirPods guide when charging-case metadata is present', () => {
+    const result = rankedTitles(
+      {
+        pageKind: 'product',
+        categorySlug: 'earbuds',
+        brands: ['Apple'],
+        productNames: [
+          'Apple AirPods Pro 2nd Generation with MagSafe Case USB-C',
+        ],
+      },
+      ['Apple AirPods Pro 2 Buyer Guide', 'Apple AirPods Pro 3 Buyer Guide']
+    );
+
+    expect(result[0]).toBe('Apple AirPods Pro 2 Buyer Guide');
+  });
+
+  it('ranks a Switch OLED console guide above a newer Switch Lite guide', () => {
+    const result = rankedTitles(
+      {
+        pageKind: 'product',
+        categorySlug: 'nintendo-switch',
+        brands: ['Nintendo'],
+        productNames: ['Nintendo Switch OLED Model White'],
+      },
+      ['Nintendo Switch OLED Buyer Guide', 'Nintendo Switch Lite Buyer Guide']
+    );
+
+    expect(result[0]).toBe('Nintendo Switch OLED Buyer Guide');
+  });
 });
