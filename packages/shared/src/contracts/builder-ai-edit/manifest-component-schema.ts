@@ -110,9 +110,8 @@ export function getManifestComponentSchema(
   mode: ManifestSchemaMode,
   manifest: BuilderDesignCapabilityManifest = builderDesignCapabilities
 ) {
-  const capabilities = manifest.components.filter(
-    (capability) =>
-      capability.aiEditable && (mode === 'edit' || capability.aiInsertable)
+  const capabilities = manifest.components.filter((capability) =>
+    mode === 'insert' ? capability.aiInsertable : capability.aiEditable
   );
   const schemas = capabilities.map(({ componentType, props }) =>
     compileComponentSchema(componentType, props, mode)

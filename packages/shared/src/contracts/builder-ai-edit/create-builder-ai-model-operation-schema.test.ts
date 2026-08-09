@@ -59,4 +59,30 @@ describe('createBuilderAiModelOperationSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('includes a custom insert-only capability while keeping it out of updates', () => {
+    const manifest = structuredClone(builderDesignCapabilities);
+    const button = manifest.components.find(
+      ({ componentType }) => componentType === 'Button'
+    );
+    if (!button) throw new Error('Expected Button capability');
+    button.aiEditable = false;
+    button.aiInsertable = true;
+    const schema = createBuilderAiModelOperationSchema(manifest);
+
+    expect(
+      schema.safeParse({
+        initialContent: { componentType: 'Button' },
+        kind: 'insert_component',
+        placement: { position: 'first_content' },
+      }).success
+    ).toBe(true);
+    expect(
+      schema.safeParse({
+        componentId: 'button-1',
+        kind: 'update_component',
+        patch: { componentType: 'Button', text: 'Updated' },
+      }).success
+    ).toBe(false);
+  });
 });

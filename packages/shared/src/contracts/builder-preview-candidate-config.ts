@@ -6,7 +6,25 @@ import { previewRenderPolicy } from './builder-preview-render-policy';
 const candidateKeys = ['content', 'root', 'theme', 'zones'];
 const sensitiveKeyPattern =
   /(?:api[-_]?key|authorization|credential|password|private[-_]?key|secret|token)/i;
-const themeStringPattern = /^[^\\;{}'"]{1,512}$/;
+const themeStringPattern = /^[a-zA-Z0-9\s#%(),./+-]{1,512}$/;
+const themeFunctionPattern = /([a-zA-Z][a-zA-Z0-9-]*)\s*\(/g;
+const safeThemeFunctionNames = new Set([
+  'calc',
+  'clamp',
+  'cubic-bezier',
+  'hsl',
+  'hsla',
+  'hwb',
+  'lab',
+  'lch',
+  'max',
+  'min',
+  'oklab',
+  'oklch',
+  'rgb',
+  'rgba',
+  'steps',
+]);
 const text = 'text';
 const number = 'number';
 const themeShape = {
@@ -158,7 +176,10 @@ function isSafeThemeText(value: unknown): boolean {
     [...value].every((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code > 31 && code !== 127;
-    })
+    }) &&
+    [...value.matchAll(themeFunctionPattern)].every(([, name]) =>
+      safeThemeFunctionNames.has(name.toLowerCase())
+    )
   );
 }
 
