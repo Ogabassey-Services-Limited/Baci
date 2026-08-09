@@ -26,7 +26,7 @@ it('reconciles fallback evidence under the canonical case key', () => {
   );
   assert.equal(
     state.handled[candidate.caseKey].observation,
-    candidate.lastSeen
+    `${candidate.lastSeen}:0`
   );
   store.clear(candidate);
 });

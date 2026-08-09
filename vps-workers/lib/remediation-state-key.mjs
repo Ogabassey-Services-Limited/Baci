@@ -1,4 +1,7 @@
 export const remediationObservationFor = (candidate) =>
+  `${candidate?.lastSeen || 'observed'}:${Number(candidate?.occurrences || 0)}`;
+
+const legacyRemediationObservationFor = (candidate) =>
   String(candidate?.lastSeen || candidate?.occurrences || 'observed');
 
 export const remediationStateKeyFor = (candidate) =>
@@ -9,7 +12,11 @@ export function matchingHandledEntry(handled, candidate) {
   const canonical = own(remediationStateKeyFor(candidate));
   const legacy = own(String(candidate?.fingerprint || ''));
   const entry = canonical || legacy;
-  return entry?.observation === remediationObservationFor(candidate)
+  if (!entry) return null;
+  return [
+    remediationObservationFor(candidate),
+    legacyRemediationObservationFor(candidate),
+  ].includes(entry.observation)
     ? entry
     : null;
 }

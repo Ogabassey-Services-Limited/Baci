@@ -37,7 +37,10 @@ describe('remediation git workflow output', () => {
     });
 
     assert.equal(result.type, 'no_changes');
-    assert.equal(result.resultPath, join(outputDir, 'abc123.result.md'));
+    assert.equal(
+      result.resultPath,
+      join(outputDir, 'unknown-unknown-abc123.result.md')
+    );
     assert.match(
       readFileSync(result.resultPath, 'utf8'),
       /successful HTTP 200/
