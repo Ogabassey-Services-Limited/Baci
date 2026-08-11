@@ -78,6 +78,7 @@ describe('remediation Codex canary', () => {
       calls[0].args.includes('--dangerously-bypass-approvals-and-sandbox'),
       false
     );
+    assert.equal(calls[0].args.includes('use_legacy_landlock'), false);
     assert.equal(
       calls[0].args.includes('type=bind,src=/repo,dst=/repo,readonly'),
       true

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
@@ -134,6 +134,19 @@ export function buildRemediationCodexCommand({
     '--mount',
     bindMount(containerCodexBin, '/opt/codex/bin/codex', { readonly: true })
   );
+  const codexResources = join(
+    dirname(containerCodexBin),
+    '..',
+    'codex-resources'
+  );
+  if (existsSync(codexResources)) {
+    dockerArgs.push(
+      '--mount',
+      bindMount(codexResources, '/opt/codex/codex-resources', {
+        readonly: true,
+      })
+    );
+  }
 
   const dependencyRoot = env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir;
   addDependencyMounts({
@@ -151,8 +164,7 @@ export function buildRemediationCodexCommand({
     'umask 077; mkdir -p "$CODEX_HOME"; chmod 700 "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
     '--search',
-    '--enable',
-    'use_legacy_landlock',
+    ...(readOnly ? [] : ['--enable', 'use_legacy_landlock']),
     'exec',
     '--json',
     '--ephemeral',
