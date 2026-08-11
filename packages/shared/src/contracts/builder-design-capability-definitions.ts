@@ -88,7 +88,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     },
     link: { ...safeLink, default: '/' },
     size: { default: 'default', enum: ['sm', 'default', 'lg'], type: 'enum' },
-    text: label('Click Me'),
+    text: { ...label('Click Me'), required: true },
     variant: {
       default: 'primary',
       enum: ['primary', 'background', 'accent'],
@@ -99,7 +99,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     columns: {
       default: 3,
       maximum: 4,
-      minimum: 1,
+      minimum: 2,
       type: 'number',
       wholeNumber: true,
     },

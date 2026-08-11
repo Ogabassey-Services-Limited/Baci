@@ -68,6 +68,12 @@ describe('builder design capabilities', () => {
     const legalSection = builderDesignCapabilities.components.find(
       ({ componentType }) => componentType === 'LegalSection'
     );
+    const button = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'Button'
+    );
+    const productGrid = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'ProductGrid'
+    );
 
     expect(header).toMatchObject({
       aiEditable: true,
@@ -103,6 +109,11 @@ describe('builder design capabilities', () => {
     expect(legalSection).toMatchObject({
       aiEditable: true,
       aiInsertable: false,
+    });
+    expect(button?.props.text).toMatchObject({ required: true });
+    expect(productGrid?.props.columns).toMatchObject({
+      maximum: 4,
+      minimum: 2,
     });
   });
 

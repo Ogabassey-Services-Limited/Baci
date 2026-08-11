@@ -182,6 +182,48 @@ export function useCopilotBuilderActions({
 
       const parsedUpdates = parseProps(updates);
       if (!parsedUpdates) return 'Failed to parse updates JSON.';
+      if (newContent[index].type === 'HeroCarousel') {
+        const slideIndex = parsedUpdates.slideIndex;
+        const slides = newContent[index].props.slides;
+        if (
+          typeof slideIndex !== 'number' ||
+          !Number.isInteger(slideIndex) ||
+          !Array.isArray(slides) ||
+          !isRecord(slides[slideIndex])
+        ) {
+          return 'Invalid carousel slide index.';
+        }
+        const patch = Object.fromEntries(
+          Object.entries(parsedUpdates).filter(([key]) => key !== 'slideIndex')
+        );
+        const sanitizedSlide = sanitizeBuilderAiProps(
+          'HeroCarousel',
+          patch,
+          'updateCarouselSlide'
+        );
+        if (Object.keys(sanitizedSlide.props).length === 0) {
+          return [
+            ...sanitizedSlide.warnings,
+            'No safe changes for HeroCarousel.',
+          ].join(' ');
+        }
+        newContent[index] = {
+          ...newContent[index],
+          props: {
+            ...newContent[index].props,
+            slides: slides.map((slide, candidateIndex) =>
+              candidateIndex === slideIndex
+                ? { ...slide, ...sanitizedSlide.props }
+                : slide
+            ),
+          },
+        };
+        setData({ ...data, content: newContent });
+        return [
+          ...sanitizedSlide.warnings,
+          `Updated carousel slide ${slideIndex}.`,
+        ].join(' ');
+      }
       const sanitized = sanitizeBuilderAiProps(
         newContent[index].type,
         parsedUpdates

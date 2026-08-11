@@ -86,4 +86,59 @@ describe('useCopilotBuilderActions manifest policy', () => {
       expect.arrayContaining(['Header', 'Footer', 'HeroCarousel'])
     );
   });
+
+  it('routes HeroCarousel updates through the bounded slide operation', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: {
+          content: [
+            {
+              props: {
+                id: 'carousel-1',
+                slides: [{ image: '/hero.webp', title: 'Old title' }],
+              },
+              type: 'HeroCarousel',
+            },
+          ],
+          root: { props: {} },
+        } as Data,
+        setData,
+      })
+    );
+    const action = vi
+      .mocked(useCopilotAction)
+      .mock.calls.map(
+        ([config]) =>
+          config as unknown as {
+            handler: (args: { index: number; updates: string }) => string;
+            name: string;
+          }
+      )
+      .find((config) => config.name === 'updateComponent');
+    if (!action) throw new Error('Expected updateComponent action');
+
+    expect(
+      action.handler({
+        index: 0,
+        updates: JSON.stringify({ slideIndex: 0, title: 'New title' }),
+      })
+    ).toBe('Updated carousel slide 0.');
+    expect(setData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: [
+          expect.objectContaining({
+            props: expect.objectContaining({
+              slides: [
+                expect.objectContaining({
+                  image: '/hero.webp',
+                  title: 'New title',
+                }),
+              ],
+            }),
+          }),
+        ],
+      })
+    );
+  });
 });
