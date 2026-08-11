@@ -17,6 +17,7 @@ describe('remediation Codex command', () => {
 
     assert.equal(result.command, 'codex');
     assert.deepEqual(result.args.slice(0, 2), ['--search', 'exec']);
+    assert.equal(result.args.includes('--search'), true);
     assert.equal(result.args.includes('use_legacy_landlock'), false);
     assert.equal(result.args.includes('workspace-write'), true);
     assert.equal(result.args.includes('--json'), true);
