@@ -95,13 +95,6 @@ describe('builder design capability live contract', () => {
         title: 'Questions',
       },
     ],
-    [
-      'LegalSection',
-      {
-        sections: [{ content: 'We protect your data.', heading: 'Privacy' }],
-        title: 'Privacy policy',
-      },
-    ],
   ])('accepts a bounded %s insert advertised by the manifest', (componentType, props) => {
     expect(
       builderAiEditContract.modelPlanSchema.safeParse({
@@ -130,13 +123,6 @@ describe('builder design capability live contract', () => {
         title: 'Questions',
       },
     ],
-    [
-      'LegalSection',
-      {
-        sections: [{ content: 'We protect your data.', heading: 'Privacy' }],
-        title: 'Privacy policy',
-      },
-    ],
   ])('executes a bounded %s insert advertised by the manifest', (componentType, props) => {
     const result = applyBuilderAiEditPlan(
       { content: [], root: { props: {} } },
@@ -157,6 +143,28 @@ describe('builder design capability live contract', () => {
     expect(result.candidateConfig.content).toContainEqual(
       expect.objectContaining({ type: componentType })
     );
+  });
+
+  it('rejects LegalSection insertion because its renderer owns a top-level heading', () => {
+    expect(
+      builderAiEditContract.modelPlanSchema.safeParse({
+        operations: [
+          {
+            initialContent: {
+              componentType: 'LegalSection',
+              sections: [
+                { content: 'We protect your data.', heading: 'Privacy' },
+              ],
+              title: 'Privacy policy',
+            },
+            kind: 'insert_component',
+            placement: { position: 'first_content' },
+          },
+        ],
+        status: 'proposed',
+        summary: 'Add LegalSection',
+      }).success
+    ).toBe(false);
   });
 
   it('uses the manifest safe Button link for a default-only insert', () => {
