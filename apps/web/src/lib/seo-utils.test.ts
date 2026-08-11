@@ -275,7 +275,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     const variants = schema.hasVariant as Record<string, unknown>[];
     const offer = variants[0]?.offers as Record<string, unknown>;
 
-    expect(offer.acceptedPaymentMethod).toEqual(['https://schema.org/Cash']);
+    expect(offer.acceptedPaymentMethod).toEqual(['https://schema.org/COD']);
   });
 
   it('outputs @type Product when no variants', () => {

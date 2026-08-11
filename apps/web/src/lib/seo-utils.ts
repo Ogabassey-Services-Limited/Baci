@@ -490,6 +490,12 @@ function normalizeAcceptedPaymentMethods(
             return 'https://schema.org/ByBankTransferInAdvance';
           }
           if (
+            normalized.includes('cash on delivery') ||
+            normalized.includes('pay on delivery')
+          ) {
+            return 'https://schema.org/COD';
+          }
+          if (
             normalized.includes('debit') ||
             normalized.includes('credit') ||
             normalized.includes('card')

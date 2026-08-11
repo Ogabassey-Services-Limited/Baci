@@ -26,4 +26,28 @@ describe('generateProductSchema power mappings', () => {
       expect(names).not.toContain('Wireless Charging');
     }
   });
+
+  it('emits verified wireless charging with a supported wattage', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Smartphones',
+        product_key_specs: {
+          has_wireless_charging: true,
+          wireless_charging_watt: 15,
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Wireless Charging',
+          value: '15W',
+        }),
+      ])
+    );
+  });
 });

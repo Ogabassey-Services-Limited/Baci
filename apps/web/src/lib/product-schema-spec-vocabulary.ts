@@ -41,6 +41,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   'pixel density': 'display_ppi',
   processing: 'cpu_cores',
   ram: 'ram_gb',
+  'reverse charging': 'has_reverse_charging',
   resolution: 'display_resolution',
   'screen size': 'screen_size_inches',
   'selfie camera': 'front_camera_mp',
@@ -56,7 +57,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   usb: 'usb_type',
 };
 
-function normalizeSpecLabel(value: string) {
+export function normalizeSpecLabel(value: string) {
   return value
     .trim()
     .toLowerCase()

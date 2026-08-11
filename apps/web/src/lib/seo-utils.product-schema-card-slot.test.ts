@@ -53,6 +53,28 @@ describe('generateProductSchema card-slot capability', () => {
     );
   });
 
+  it('does not emit a card slot when the capability is absent', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Cameras',
+        product_key_specs: { card_slot_type: 'CFexpress Type B' },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).not.toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Card Slot',
+          value: 'CFexpress Type B',
+        },
+      ])
+    );
+  });
+
   it('emits a card-slot type when the capability is explicitly true', () => {
     const schema = generateProductSchema(
       makeSeoProduct({

@@ -3,7 +3,10 @@ import {
   type ProductCategorySource,
 } from './product-schema-spec-classification';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
-import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
+import {
+  getProductSchemaSpecKeyForLabel,
+  normalizeSpecLabel,
+} from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 
@@ -15,6 +18,7 @@ interface ProductSchemaSpecCandidate {
 
 const CAMERA_ONLY_SPEC_KEYS = new Set([
   'has_ois',
+  'has_reverse_charging',
   'main_camera_mp',
   'rear_camera_features',
   'rear_camera_video',
@@ -61,6 +65,7 @@ const PHONE_ONLY_SPEC_LABELS = new Set([
   'nfc',
   'operating system',
   'os',
+  'reverse charging',
   'sim',
   'sim type',
   'speakers',
@@ -77,14 +82,6 @@ const AUDIO_CAPABILITY_LABELS = new Set([
   'loudspeaker',
   'speakers',
 ]);
-
-function normalizeSpecLabel(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ');
-}
 
 /**
  * Keeps phone-shaped fields and labels out of named non-phone product schemas.

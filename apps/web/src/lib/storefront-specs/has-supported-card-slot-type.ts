@@ -32,7 +32,7 @@ function isUnsupportedCardSlotValue(value: unknown) {
 export function hasSupportedCardSlotType(specs: ComparableProductKeySpecs) {
   const cardSlotType = specs.card_slot_type;
   return (
-    specs.has_card_slot !== false &&
+    specs.has_card_slot === true &&
     typeof cardSlotType === 'string' &&
     !isUnsupportedCardSlotValue(cardSlotType)
   );

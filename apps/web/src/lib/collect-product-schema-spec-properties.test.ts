@@ -44,11 +44,12 @@ describe('collectProductSchemaSpecProperties', () => {
       })
     );
 
-    expect(collector.getProperties()).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ name: 'Card Slot' }),
-        expect.objectContaining({ name: 'Wireless Charging' }),
-      ])
+    const properties = collector.getProperties();
+    expect(properties).not.toContainEqual(
+      expect.objectContaining({ name: 'Card Slot' })
+    );
+    expect(properties).not.toContainEqual(
+      expect.objectContaining({ name: 'Wireless Charging' })
     );
   });
 

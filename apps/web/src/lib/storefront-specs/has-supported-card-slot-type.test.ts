@@ -21,9 +21,15 @@ describe('hasSupportedCardSlotType', () => {
     ).toBe(false);
   });
 
-  it('accepts a present supported card-slot type', () => {
+  it('requires an explicit supported card-slot capability', () => {
     expect(
       hasSupportedCardSlotType({ card_slot_type: 'CFexpress Type B' })
+    ).toBe(false);
+    expect(
+      hasSupportedCardSlotType({
+        has_card_slot: true,
+        card_slot_type: 'CFexpress Type B',
+      })
     ).toBe(true);
   });
 });

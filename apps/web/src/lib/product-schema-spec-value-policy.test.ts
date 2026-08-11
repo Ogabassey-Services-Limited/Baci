@@ -18,6 +18,20 @@ describe('getProductSchemaSpecValueDecision', () => {
     }
   });
 
+  it('rejects composite measurements containing a zero or negative component', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'dimensions_mm',
+        hasCategory: true,
+        isExplicitSpecKey: true,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'dimensions',
+        value: '0 x 120 x 75 mm',
+      })
+    ).toBe('exclude');
+  });
+
   it('includes explicit negative capabilities only for mobile families', () => {
     const input = {
       canonicalSpecKey: 'has_5g',

@@ -78,8 +78,11 @@ function hasMalformedMeasurementText(value: unknown) {
   }
 
   const normalized = value.trim().toLowerCase();
+  const numericComponents = normalized.match(/[+-]?(?:\d+(?:\.\d*)?|\.\d+)/g);
   return (
-    /\b(?:nan|[+-]?infinity)\b/.test(normalized) || /^-\s*\d/.test(normalized)
+    /\b(?:nan|[+-]?infinity)\b/.test(normalized) ||
+    /^-\s*\d/.test(normalized) ||
+    numericComponents?.some((component) => Number(component) <= 0) === true
   );
 }
 

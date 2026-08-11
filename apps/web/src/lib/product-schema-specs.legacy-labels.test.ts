@@ -43,6 +43,33 @@ describe('shouldIncludeProductSchemaSpec legacy labels', () => {
           { label, value: '50MP' }
         )
       ).toBe(false);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Cameras', categories: null },
+          { label, value: '50MP' }
+        )
+      ).toBe(true);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Smartphones', categories: null },
+          { label, value: '50MP' }
+        )
+      ).toBe(true);
     }
+  });
+
+  it('rejects phone-only reverse charging rows for camera categories', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { label: 'Reverse Charging', value: 'Yes' }
+      )
+    ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Smartphones', categories: null },
+        { label: 'Reverse Charging', value: 'Yes' }
+      )
+    ).toBe(true);
   });
 });
