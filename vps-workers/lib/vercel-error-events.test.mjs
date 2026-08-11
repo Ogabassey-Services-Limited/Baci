@@ -1,14 +1,40 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import {
   fingerprintErrorEvent,
   groupErrorEvents,
   isErrorEvent,
+  MAX_JSONL_READ_BYTES,
   normalizeVercelLogEvent,
+  readJsonlLogEvents,
   selectRemediationCandidates,
 } from './vercel-error-events.mjs';
 
 describe('vercel error events', () => {
+  it('reads recent events from a large drain without loading the whole file', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
+    const path = join(directory, 'drain.jsonl');
+    try {
+      const prefix = Buffer.concat([
+        Buffer.alloc(MAX_JSONL_READ_BYTES + 128, 0x78),
+        Buffer.from('\n'),
+      ]);
+      const event = JSON.stringify({
+        level: 'error',
+        message: 'Error: recent event',
+        route: '/api/recent',
+      });
+      writeFileSync(path, Buffer.concat([prefix, Buffer.from(`${event}\n`)]));
+
+      assert.deepEqual(readJsonlLogEvents(path), [JSON.parse(event)]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('normalizes common Vercel log drain shapes', () => {
     const event = normalizeVercelLogEvent({
       level: 'error',

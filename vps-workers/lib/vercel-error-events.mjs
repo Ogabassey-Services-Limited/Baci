@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+
+export const MAX_JSONL_READ_BYTES = 32 * 1024 * 1024;
 
 const ERROR_LEVELS = new Set(['error', 'fatal', 'panic']);
 const ERROR_MESSAGE_RE =
@@ -242,7 +244,23 @@ export function selectRemediationCandidates(
 }
 
 export function readJsonlLogEvents(path) {
-  const content = readFileSync(path, 'utf8');
+  const descriptor = openSync(path, 'r');
+  let content;
+  let size;
+  try {
+    ({ size } = fstatSync(descriptor));
+    const start = Math.max(0, size - MAX_JSONL_READ_BYTES);
+    const bytesToRead = size - start;
+    const buffer = Buffer.allocUnsafe(bytesToRead);
+    readSync(descriptor, buffer, 0, bytesToRead, start);
+    content = buffer.toString('utf8');
+  } finally {
+    closeSync(descriptor);
+  }
+  if (size > MAX_JSONL_READ_BYTES) {
+    const firstNewline = content.indexOf('\n');
+    content = firstNewline === -1 ? '' : content.slice(firstNewline + 1);
+  }
   const events = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) {
