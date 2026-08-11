@@ -147,8 +147,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
-    // Full import paths only. This is the sole fail-open Cloudflare hostname
-    // scheduler path; it cannot grant URL purging or Supabase authority.
+    // Full import paths only. This is the sole fail-open Cloudflare hostname scheduler path; it cannot grant URL purging or Supabase authority.
     // biome-ignore format: reviewed full import paths preserve the 300-line module gate.
     credentialPaths: [
       ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'],
