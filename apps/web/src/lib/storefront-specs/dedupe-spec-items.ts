@@ -1,7 +1,5 @@
-import {
-  getProductSchemaSpecKeyForLabel,
-  normalizeSpecLabel,
-} from '@/lib/product-schema-spec-vocabulary';
+import { normalizeProductSchemaSpecLabel } from '@/lib/normalize-product-schema-spec-label';
+import { getProductSchemaSpecKeyForLabel } from '@/lib/product-schema-spec-vocabulary';
 import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
 import type { ProductSpecItem } from './spec-data';
 
@@ -11,11 +9,16 @@ interface DedupeSpecItemsOptions {
 }
 
 function getCanonicalSpecLabel(label: string) {
-  return getProductSchemaSpecKeyForLabel(label) || normalizeSpecLabel(label);
+  return (
+    getProductSchemaSpecKeyForLabel(label) ||
+    normalizeProductSchemaSpecLabel(label)
+  );
 }
 
 function getSpecItemIdentity(label: string, section?: string) {
-  const normalizedSection = normalizeSpecLabel(section || 'General');
+  const normalizedSection = normalizeProductSchemaSpecLabel(
+    section || 'General'
+  );
 
   return `${normalizedSection}:${getCanonicalSpecLabel(label)}`;
 }

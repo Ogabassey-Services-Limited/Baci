@@ -32,6 +32,20 @@ describe('getProductSchemaSpecValueDecision', () => {
     ).toBe('exclude');
   });
 
+  it('preserves signed storage-temperature ranges as non-capacity facts', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        hasCategory: true,
+        isExplicitSpecKey: false,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'storage temperature',
+        productFamily: 'camera',
+        value: '-20°C to 60°C',
+      })
+    ).toBe('defer');
+  });
+
   it('includes explicit negative capabilities only for mobile families', () => {
     const input = {
       canonicalSpecKey: 'has_5g',

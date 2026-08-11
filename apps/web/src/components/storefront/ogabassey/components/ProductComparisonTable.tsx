@@ -97,7 +97,10 @@ export function ProductComparisonTable({
             description: rawProduct.description || '',
             rating: rawProduct.rating || 0,
             category: categoryName ?? rawProduct.category,
-            categorySlug: rawProduct.categories?.slug || rawProduct.category_slug || undefined,
+            categorySlug:
+                rawProduct.categories?.slug?.trim() ||
+                rawProduct.category_slug?.trim() ||
+                undefined,
             condition: normalizeProductCondition(rawProduct.condition) || 'new',
             brand: rawProduct.brand,
             product_key_specs: rawProduct.product_key_specs,

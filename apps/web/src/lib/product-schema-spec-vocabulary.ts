@@ -1,3 +1,5 @@
+import { normalizeProductSchemaSpecLabel } from './normalize-product-schema-spec-label';
+
 const SPEC_LABEL_TO_KEY: Record<string, string> = {
   '3 5mm headphone jack': 'has_headphone_jack',
   '3 5mm jack': 'has_headphone_jack',
@@ -57,14 +59,6 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   usb: 'usb_type',
 };
 
-export function normalizeSpecLabel(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ');
-}
-
 export function getProductSchemaSpecKeyForLabel(value: string) {
-  return SPEC_LABEL_TO_KEY[normalizeSpecLabel(value)];
+  return SPEC_LABEL_TO_KEY[normalizeProductSchemaSpecLabel(value)];
 }

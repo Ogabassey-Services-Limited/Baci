@@ -249,4 +249,21 @@ describe('buildProductSpecData general families', () => {
       expect(result.specs).toEqual([]);
     }
   });
+  it('treats placeholder category names as unknown rather than projecting stale device specs', () => {
+    const result = buildProductSpecData({
+      category: 'Unknown',
+      product_key_specs: { ram_gb: 8, storage_gb: 256 },
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'General',
+        items: [
+          { label: 'Brand', value: 'Generic' },
+          { label: 'Condition', value: 'New' },
+          { label: 'Category', value: 'General' },
+        ],
+      },
+    ]);
+  });
 });

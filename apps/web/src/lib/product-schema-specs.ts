@@ -1,12 +1,10 @@
+import { normalizeProductSchemaSpecLabel } from './normalize-product-schema-spec-label';
 import {
   classifyProductSchemaCategories,
   type ProductCategorySource,
 } from './product-schema-spec-classification';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
-import {
-  getProductSchemaSpecKeyForLabel,
-  normalizeSpecLabel,
-} from './product-schema-spec-vocabulary';
+import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 
@@ -51,7 +49,12 @@ const AUDIO_CAPABILITY_SPEC_KEYS = new Set([
   'has_stereo_speakers',
 ]);
 
-const COMPUTER_CELLULAR_SPEC_KEYS = new Set(['has_5g', 'has_nfc', 'sim_type']);
+const COMPUTER_CELLULAR_SPEC_KEYS = new Set([
+  'has_5g',
+  'has_nfc',
+  'network_technology',
+  'sim_type',
+]);
 
 const PHONE_ONLY_SPEC_LABELS = new Set([
   '3 5mm headphone jack',
@@ -100,7 +103,7 @@ export function shouldIncludeProductSchemaSpec(
     : undefined;
   const canonicalSpecKey = candidate.key || inferredSpecKey;
   const normalizedLabel = candidate.label
-    ? normalizeSpecLabel(candidate.label)
+    ? normalizeProductSchemaSpecLabel(candidate.label)
     : undefined;
 
   // Capability data is authoritative over legacy labels. This must precede

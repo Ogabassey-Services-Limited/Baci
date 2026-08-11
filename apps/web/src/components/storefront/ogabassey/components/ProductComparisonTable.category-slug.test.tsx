@@ -150,4 +150,49 @@ describe('ProductComparisonTable API category slug', () => {
     expect(screen.getAllByText('40MP')).not.toHaveLength(0);
     expect(screen.queryByText('5G Support')).not.toBeInTheDocument();
   });
+  it('ignores a whitespace-only joined slug before using category_slug for links', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          products: [
+            {
+              id: 'action-camera',
+              name: 'Action Camera',
+              slug: 'action-camera',
+              price: 500000,
+              image: 'https://example.com/camera.jpg',
+              category: 'Cameras',
+              category_slug: 'action-cameras',
+              categories: { id: 'camera-category', name: 'Cameras', slug: '   ' },
+              condition: 'new',
+            },
+          ],
+        }),
+      }))
+    );
+
+    render(
+      <ProductComparisonTable
+        mainProduct={createMainProduct()}
+        storeSlug="ogabassey"
+      />
+    );
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: /compare similar smartphones/i })[0]
+    );
+    fireEvent.change(screen.getByRole('textbox', { name: /search products/i }), {
+      target: { value: 'action camera' },
+    });
+    fireEvent.click(await screen.findByText('Action Camera'));
+
+    expect(screen.getByRole('link', { name: 'Action Camera' })).toHaveAttribute(
+      'href',
+      '/ogabassey/action-cameras/action-camera'
+    );
+  });
+
 });

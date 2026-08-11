@@ -2,6 +2,7 @@ import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
+import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
 import { mergeSpecSections } from './merge-spec-sections';
 import { normalizeSpecItems } from './normalize-spec-items';
 import { normalizeSpecSections } from './normalize-spec-sections';
@@ -63,7 +64,9 @@ function resolveSourceCategory(source: SpecDataSource) {
     category_slug: source.category_slug,
   });
 
-  return { hasCategory: Boolean(name), name: name || 'General' };
+  const hasCategory = Boolean(name) && !isUnsupportedSpecValue(name);
+
+  return { hasCategory, name: hasCategory ? name : 'General' };
 }
 
 function getVariantValue(

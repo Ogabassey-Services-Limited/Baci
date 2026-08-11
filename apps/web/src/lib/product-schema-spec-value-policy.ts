@@ -66,7 +66,7 @@ function isMeasurementSpec(
     (canonicalSpecKey !== undefined &&
       MEASUREMENT_SPEC_KEYS.has(canonicalSpecKey)) ||
     (normalizedLabel !== undefined &&
-      /\b(?:brightness|capacity|dimensions?|megapixels?|ppi|ram|refresh rate|resolution|screen size|storage|weight|wattage)\b/.test(
+      /\b(?:brightness|capacity|dimensions?|megapixels?|ppi|ram|refresh rate|resolution|screen size|storage (?:capacity|size)|weight|wattage)\b/.test(
         normalizedLabel
       ))
   );
