@@ -16,6 +16,7 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/baci-verified-favicon.svg',
         '/baci-logo.svg',
         '/baci-logo-dark.svg',
+        '/logo.png',
         '/badges/app-store-black.svg',
         '/badges/google-play.svg',
         '/android-chrome-192x192.png',
@@ -30,7 +31,7 @@ describe('STOREFRONT_EDGE_PUBLIC_ASSET_ROWS', () => {
         '/template-previews/ogabassey-v2.png',
       ])
     );
-    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(17);
+    expect(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS).toHaveLength(18);
     expect(byPattern.size).toBe(STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.length);
     expect(
       STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.every(
