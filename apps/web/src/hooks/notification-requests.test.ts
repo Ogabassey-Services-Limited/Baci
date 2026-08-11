@@ -26,6 +26,7 @@ function createDeps(cursor: string | null = null) {
     deps: {
       cursor,
       isFetchingRef: { current: false },
+      pendingRefreshRef: { current: false },
       setIsLoading: loading.set,
       setNotifications: notifications.set,
       setUnreadCount: unread.set,
@@ -95,5 +96,40 @@ describe('fetchNotificationsRequest', () => {
       'next',
     ]);
     expect(unread.get()).toBe(7);
+  });
+
+  it('queues a realtime refresh that arrives during an in-flight fetch', async () => {
+    const { deps } = createDeps();
+    const pendingRefreshRef = { current: false };
+    deps.pendingRefreshRef = pendingRefreshRef;
+    const resolvers: Array<(response: Response) => void> = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolvers.push(resolve);
+          })
+      )
+    );
+
+    const first = fetchNotificationsRequest(false, deps);
+    await Promise.resolve();
+    await fetchNotificationsRequest(false, deps);
+    expect(pendingRefreshRef.current).toBe(true);
+    const response = {
+      ok: true,
+      json: async () => ({
+        data: [],
+        has_more: false,
+        cursor: null,
+        unread_count: 0,
+      }),
+    } as Response;
+    resolvers.shift()?.(response);
+    await first;
+    await Promise.resolve();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    resolvers.shift()?.(response);
   });
 });

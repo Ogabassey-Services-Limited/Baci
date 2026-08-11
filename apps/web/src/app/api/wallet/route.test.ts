@@ -158,12 +158,34 @@ describe('/api/wallet', () => {
 
     const response = await GET();
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Failed to get wallet summary',
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      wallet: { id: null, availableBalance: 0, canWithdraw: false },
+      pendingSettlements: [],
     });
     expect(mocks.rpc).toHaveBeenCalledWith('get_wallet_summary', {
       p_merchant_id: 'merchant-1',
+    });
+    expect(mocks.rpc).not.toHaveBeenCalledWith(
+      'get_or_create_merchant_wallet',
+      expect.anything()
+    );
+  });
+
+  it('returns an empty wallet state when no wallet exists yet', async () => {
+    const { GET } = await import('./route');
+    mocks.rpc.mockResolvedValueOnce({ data: [], error: null });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      wallet: {
+        id: null,
+        availableBalance: 0,
+        canWithdraw: false,
+      },
+      pendingSettlements: [],
     });
     expect(mocks.rpc).not.toHaveBeenCalledWith(
       'get_or_create_merchant_wallet',

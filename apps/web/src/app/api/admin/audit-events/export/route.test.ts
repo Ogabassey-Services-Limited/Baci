@@ -64,6 +64,22 @@ describe('/api/admin/audit-events/export', () => {
     expect(mockListAdminAuditEvents).not.toHaveBeenCalled();
   });
 
+  it('rejects malformed JSON instead of exporting an unfiltered timeline', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/admin/audit-events/export', {
+        body: '{',
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      }) as NextRequest
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid audit export query',
+    });
+    expect(mockListAdminAuditEvents).not.toHaveBeenCalled();
+  });
+
   it('marks a complete capped export and records it before download', async () => {
     const response = await POST(request({ source: 'platform' }));
 

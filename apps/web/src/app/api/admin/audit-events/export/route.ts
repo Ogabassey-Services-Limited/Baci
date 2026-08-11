@@ -31,7 +31,15 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body: unknown = await request.json().catch(() => ({}));
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid audit export query' },
+      { status: 400 }
+    );
+  }
   const parsed = adminAuditExportSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

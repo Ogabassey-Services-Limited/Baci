@@ -10,6 +10,7 @@ type SupabaseClient = ReturnType<typeof createClient>;
 export interface FetchNotificationsDeps {
   cursor: string | null;
   isFetchingRef: { current: boolean };
+  pendingRefreshRef?: { current: boolean };
   setIsLoading: Dispatch<SetStateAction<boolean>>;
   setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>;
   setUnreadCount: Dispatch<SetStateAction<number>>;
@@ -34,7 +35,10 @@ export async function fetchNotificationsRequest(
     setError,
   } = deps;
 
-  if (isFetchingRef.current) return;
+  if (isFetchingRef.current) {
+    if (deps.pendingRefreshRef) deps.pendingRefreshRef.current = true;
+    return;
+  }
 
   try {
     isFetchingRef.current = true;
@@ -79,6 +83,10 @@ export async function fetchNotificationsRequest(
   } finally {
     if (!append) setIsLoading(false);
     isFetchingRef.current = false;
+    if (deps.pendingRefreshRef?.current) {
+      deps.pendingRefreshRef.current = false;
+      void fetchNotificationsRequest(false, { ...deps, cursor: null });
+    }
   }
 }
 

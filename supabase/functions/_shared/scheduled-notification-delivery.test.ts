@@ -25,6 +25,12 @@ describe('parseExpoTicketResults', () => {
 
   it('marks malformed or incomplete provider responses as unresolved', () => {
     expect(parseExpoTicketResults({ data: [{ status: 'ok' }] }, 2)).toBeNull();
+    expect(
+      parseExpoTicketResults({ data: [{ status: 'pending' }] }, 1)
+    ).toBeNull();
+    expect(
+      parseExpoTicketResults({ data: [{ status: 'error' }] }, 1)
+    ).toBeNull();
   });
 });
 

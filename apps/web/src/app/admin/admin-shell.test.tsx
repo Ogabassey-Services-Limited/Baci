@@ -208,4 +208,20 @@ describe('AdminShell', () => {
       screen.queryByRole('button', { name: /Platform Settings/i })
     ).not.toBeInTheDocument();
   });
+
+  it('routes the brand link to the first page permitted for content-only admins', () => {
+    render(
+      <AdminShell
+        adminContext={{ permissions: ['content.manage'], role: 'content' }}
+        adminEmail="content@example.com"
+      >
+        <div>Content operations</div>
+      </AdminShell>
+    );
+
+    expect(screen.getAllByRole('link', { name: /Logo/i })[0]).toHaveAttribute(
+      'href',
+      '/admin/blog'
+    );
+  });
 });

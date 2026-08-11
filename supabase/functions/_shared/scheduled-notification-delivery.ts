@@ -69,12 +69,11 @@ export function parseExpoTicketResults(
     if (value?.status === 'ok' && typeof value.id === 'string') {
       return { errorCode: '', status: 'accepted', ticketId: value.id };
     }
+    if (value?.status !== 'error') return null;
     const errorCode = asRecord(value?.details)?.error;
+    if (typeof errorCode !== 'string' || errorCode.length === 0) return null;
     return {
-      errorCode:
-        typeof errorCode === 'string'
-          ? errorCode.slice(0, 80)
-          : 'provider_rejected',
+      errorCode: errorCode.slice(0, 80),
       status: 'rejected',
       ticketId: '',
     };

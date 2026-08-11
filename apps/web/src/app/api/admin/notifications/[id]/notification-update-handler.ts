@@ -112,7 +112,10 @@ async function validateEffectiveUpdate(
   effectiveTargeting: EffectiveTargeting
 ) {
   const effectiveScheduledFor = body.scheduled_for ?? existing.scheduled_for;
-  const effectiveExpiresAt = body.expires_at ?? existing.expires_at;
+  // `null` is an intentional clear; only an omitted field inherits the
+  // persisted expiration.
+  const effectiveExpiresAt =
+    body.expires_at !== undefined ? body.expires_at : existing.expires_at;
   if (
     effectiveExpiresAt &&
     new Date(effectiveExpiresAt).getTime() <=

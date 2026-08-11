@@ -57,10 +57,28 @@ export async function GET() {
 
     const summary = walletSummary?.[0];
     if (!summary) {
-      return NextResponse.json(
-        { error: 'Failed to get wallet summary' },
-        { status: 500 }
-      );
+      // A newly created merchant may not have a wallet row yet. Keep this
+      // read-only endpoint usable without initializing one as a side effect.
+      return NextResponse.json({
+        wallet: {
+          id: null,
+          availableBalance: 0,
+          pendingBalance: 0,
+          upcomingBalance: 0,
+          upcomingCount: 0,
+          totalEarned: 0,
+          totalWithdrawn: 0,
+          autoPayoutEnabled: true,
+          autoPayoutDay: 'monday',
+          minPayoutAmount: 1000,
+          lastPayoutAt: null,
+          lastPayoutAmount: null,
+          canWithdraw: false,
+          nextSettlementDate: null,
+          nextSettlementAmount: null,
+        },
+        pendingSettlements: [],
+      });
     }
 
     // PERFORMANCE: Use Promise.all to fetch independent queries concurrently

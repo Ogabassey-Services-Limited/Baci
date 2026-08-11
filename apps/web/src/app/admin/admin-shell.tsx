@@ -53,6 +53,7 @@ export function AdminShell({
   const router = useRouter();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const navItems = getAdminNavigationItems(adminContext.permissions);
+  const adminHomeHref = navItems[0]?.href ?? '/admin';
   const canReadPlatformSettings =
     adminContext.permissions.includes('settings.read');
 
@@ -88,7 +89,7 @@ export function AdminShell({
               )}
             >
               <Link
-                href="/admin"
+                href={adminHomeHref}
                 className="flex items-center gap-2 font-semibold"
               >
                 <Logo />
@@ -193,7 +194,7 @@ export function AdminShell({
                   aria-label="Mobile admin navigation"
                 >
                   <Link
-                    href="/admin"
+                    href={adminHomeHref}
                     className="mb-4 flex items-center gap-2 text-lg font-semibold"
                   >
                     <Logo />

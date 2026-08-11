@@ -110,9 +110,19 @@ export const createNotificationSchema = z
       .default('all'),
     target_merchant_ids: z.array(z.uuid()).max(500).optional(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
-    channels: z.array(z.enum(['in_app', 'banner', 'push'])).min(1, {
-      error: 'At least one channel is required',
-    }),
+    channels: z
+      .array(z.enum(['in_app', 'banner', 'push']))
+      .min(1, {
+        error: 'At least one channel is required',
+      })
+      .superRefine((channels, ctx) => {
+        if (new Set(channels).size !== channels.length) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Notification channels must be unique',
+          });
+        }
+      }),
     action_url: notificationActionUrlSchema.optional().nullable(),
     action_label: z.string().trim().max(100).optional().nullable(),
     scheduled_for: z.iso.datetime().optional().nullable(),
@@ -170,7 +180,15 @@ export const updateNotificationSchema = z
     channels: z
       .array(z.enum(['in_app', 'banner', 'push']))
       .min(1)
-      .optional(),
+      .optional()
+      .superRefine((channels, ctx) => {
+        if (channels && new Set(channels).size !== channels.length) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Notification channels must be unique',
+          });
+        }
+      }),
     action_url: notificationActionUrlSchema.optional().nullable(),
     action_label: z.string().trim().max(100).optional().nullable(),
     // A null PATCH would leave a pending notification without a scheduler
