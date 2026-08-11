@@ -1586,6 +1586,8 @@ After the sole image build has verified those same four final outputs, use the i
 
 The sole production composer invocation above is the checked-in `task9-bootstrap-bundle-cli.mjs`, not the library-only `task9-bootstrap-bundle.mjs`. Invoke it with the complete closed flag set `--admission-id`, `--bundle-id`, `--cwd`, `--deployment-sha`, `--generation`, `--head-ref`, `--node`, `--node-archive`, `--node-provenance`, `--output-root`, `--pr-metadata`, `--pr-metadata-sha256`, `--reviewed-pr-metadata-sha256`, `--source-archive`, `--source-archive-sha256`, `--source-manifest`, `--source-manifest-sha256`, `--transaction-id`, and `--workflow-id`; a direct invocation of the library module is invalid.
 
+Before invoking that CLI, use the checked-in `task9-bootstrap-bundle-launcher.mjs` with its independently reviewed SHA-256. The launcher verifies the composer bytes and canonical checkout identity before importing the CLI; a modified worktree composer is refused before any bundle input is read.
+
 The automatic deployment/coherence requirement above specifically means the existing Vercel pipeline must show a local or CI prebuilt build followed by the exact production handoff `vercel deploy --prebuilt --prod`. The successful deployment marker and coherence result must bind `PR_A_MERGE_SHA`; a Vercel cloud build or a successful run for any other SHA is not acceptable.
 
 - [ ] **Step 3b: Apply the reviewed Ollama retirement**
