@@ -5,6 +5,7 @@ import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
 import type { Data } from '@puckeditor/core';
 import { areBuilderAiPropValuesEqual } from '@/lib/builder-ai/are-builder-ai-prop-values-equal';
 import { createInsertableComponentProps } from '@/lib/builder-ai/builder-ai-component-catalog';
+import { hasDuplicateCarouselSlideTitle } from '@/lib/builder-ai/has-duplicate-carousel-slide-title';
 import { sanitizeBuilderAiProps } from '@/lib/builder-ai/sanitize-builder-ai-props';
 import { COMPONENT_SCHEMA } from './component-schema';
 
@@ -202,15 +203,7 @@ export function useCopilotBuilderActions({
           'updateCarouselSlide'
         );
         const nextTitle = sanitizedSlide.props.title;
-        if (
-          typeof nextTitle === 'string' &&
-          slides.some(
-            (slide, candidateIndex) =>
-              candidateIndex !== slideIndex &&
-              isRecord(slide) &&
-              slide.title === nextTitle
-          )
-        ) {
+        if (hasDuplicateCarouselSlideTitle(slides, slideIndex, nextTitle)) {
           return 'Carousel slide title must be unique.';
         }
         if (Object.keys(sanitizedSlide.props).length === 0) {
