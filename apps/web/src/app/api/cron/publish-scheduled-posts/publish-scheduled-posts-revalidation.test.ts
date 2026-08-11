@@ -126,4 +126,19 @@ describe('scheduled-post publishing cron workflow', () => {
       })
     );
   });
+
+  it('does not revalidate or dispatch when another run claims every row', async () => {
+    configurePublishFlow(
+      [createScheduledPost({ id: 'post-1', slug: 'already-claimed' })],
+      { claimedPostIds: [] }
+    );
+
+    const response = await POST(createCronRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.published).toEqual([]);
+    expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
+    expect(mockDispatchZohoBlogCampaign).not.toHaveBeenCalled();
+  });
 });
