@@ -15,6 +15,24 @@ const candidate = {
 };
 
 describe('Sentry event enrichment review regressions', () => {
+  it('uses the organization-scoped latest-event endpoint', async () => {
+    let requestedUrl;
+
+    await enrichSentryRemediationCandidate({
+      candidate,
+      env: environment,
+      fetchFn: (url) => {
+        requestedUrl = String(url);
+        return new Response(JSON.stringify({ entries: [] }));
+      },
+    });
+
+    assert.equal(
+      requestedUrl,
+      'https://sentry.io/api/0/organizations/ogabassey/issues/issue-1/events/latest/'
+    );
+  });
+
   it('rejects a non-HTTPS Sentry URL before authorizing a request', async () => {
     let requested = false;
 

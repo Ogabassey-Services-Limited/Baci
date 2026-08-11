@@ -143,15 +143,16 @@ export async function enrichSentryRemediationCandidate({
   fetchFn = fetch,
 }) {
   const token = boundedString(env.SENTRY_REMEDIATION_AUTH_TOKEN, 2_000);
+  const organization = boundedString(env.SENTRY_ORG, 120);
   const issueId = boundedString(candidate?.sample?.issueId, 120);
-  if (!token || !issueId) {
+  if (!token || !organization || !issueId) {
     throw new Error(
-      'Sentry event enrichment requires SENTRY_REMEDIATION_AUTH_TOKEN and an issue ID'
+      'Sentry event enrichment requires SENTRY_REMEDIATION_AUTH_TOKEN, SENTRY_ORG, and an issue ID'
     );
   }
 
   const endpoint = new URL(
-    `/api/0/issues/${encodeURIComponent(issueId)}/events/latest/`,
+    `/api/0/organizations/${encodeURIComponent(organization)}/issues/${encodeURIComponent(issueId)}/events/latest/`,
     sentryBaseUrl(env)
   );
   const response = await fetchFn(endpoint, {
