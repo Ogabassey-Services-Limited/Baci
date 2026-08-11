@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { basename, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
@@ -134,6 +134,19 @@ export function buildRemediationCodexCommand({
     '--mount',
     bindMount(containerCodexBin, '/opt/codex/bin/codex', { readonly: true })
   );
+  const codexResources = join(
+    dirname(containerCodexBin),
+    '..',
+    'codex-resources'
+  );
+  if (existsSync(codexResources)) {
+    dockerArgs.push(
+      '--mount',
+      bindMount(codexResources, '/opt/codex/codex-resources', {
+        readonly: true,
+      })
+    );
+  }
 
   const dependencyRoot = env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir;
   addDependencyMounts({

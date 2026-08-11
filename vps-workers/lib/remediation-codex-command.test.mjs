@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { buildRemediationCodexCommand } from './remediation-codex-command.mjs';
 
@@ -120,6 +123,38 @@ describe('remediation Codex command', () => {
       ),
       true
     );
+  });
+
+  it('mounts native Codex resources when the pinned binary has siblings', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-codex-resources-'));
+    const vendor = join(root, 'vendor');
+    const binary = join(vendor, 'bin', 'codex');
+    const resources = join(vendor, 'codex-resources');
+    mkdirSync(join(resources, 'zsh', 'bin'), { recursive: true });
+    try {
+      const result = buildRemediationCodexCommand({
+        codexBin: '/opt/host/codex',
+        env: {
+          BACI_CODEX_CONTAINER_BIN: binary,
+          BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+          CODEX_HOME: '/home/worker/.codex',
+          HOME: '/home/worker',
+        },
+        prompt: 'Return a canary response only.',
+        readOnly: true,
+        repoDir: '/repo',
+        worktreeDir: '/repo',
+      });
+
+      assert.equal(
+        result.args.includes(
+          `type=bind,src=${resources},dst=/opt/codex/codex-resources,readonly`
+        ),
+        true
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('uses an unprivileged fallback identity when POSIX IDs are unavailable', () => {
