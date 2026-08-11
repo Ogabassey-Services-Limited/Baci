@@ -39,12 +39,14 @@ export function readTask9PrMetadata(
       canonicalJson(value) !== input.bytes.toString() ||
       canonicalJson(Object.keys(value).sort()) !==
         canonicalJson(
-          ['baseSha', 'headRef', 'number', 'reviewedHeadSha'].sort()
+          ['baseSha', 'headRef', 'number', 'reviewedHeadSha', 'workflowId'].sort()
         ) ||
       !SHA.test(value.baseSha) ||
       !SHA.test(value.reviewedHeadSha) ||
       !Number.isSafeInteger(value.number) ||
       value.number < 1 ||
+      !Number.isSafeInteger(value.workflowId) ||
+      value.workflowId < 1 ||
       typeof value.headRef !== 'string' ||
       !validGitRef(value.headRef)
     )

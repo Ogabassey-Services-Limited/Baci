@@ -25,6 +25,7 @@ test('reads canonical preserved PR metadata bound by its bare digest', () => {
       headRef: 'codex/task9',
       number: 3302,
       reviewedHeadSha: 'b'.repeat(40),
+      workflowId: 42,
     };
     const bytes = Buffer.from(canonicalJson(value));
     const path = join(root, 'metadata.json');
@@ -51,6 +52,7 @@ test('rejects a noncanonical, mismatched, or no-op preserved PR record', () => {
       headRef: 'codex/task9',
       number: 3302,
       reviewedHeadSha: 'b'.repeat(40),
+      workflowId: 42,
     };
     const bytes = Buffer.from(canonicalJson(value));
     writeFileSync(path, bytes, { mode: 0o600 });
@@ -81,6 +83,7 @@ test('rejects a forged matching metadata and digest pair against the review lite
         headRef: 'codex/task9',
         number: 3302,
         reviewedHeadSha: 'b'.repeat(40),
+        workflowId: 42,
       })
     );
     const forged = Buffer.from(
@@ -89,6 +92,7 @@ test('rejects a forged matching metadata and digest pair against the review lite
         headRef: 'attacker/ref',
         number: 3302,
         reviewedHeadSha: 'b'.repeat(40),
+        workflowId: 42,
       })
     );
     const path = join(root, 'metadata.json');

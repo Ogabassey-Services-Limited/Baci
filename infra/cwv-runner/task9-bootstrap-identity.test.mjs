@@ -24,6 +24,7 @@ const metadata = {
   headRef: input.headRef,
   number: manifest.prNumber,
   reviewedHeadSha: manifest.reviewedHeadSha,
+  workflowId: input.workflowId,
 };
 
 test('accepts a preserved SHA-1 PR identity with a valid ref', () => {

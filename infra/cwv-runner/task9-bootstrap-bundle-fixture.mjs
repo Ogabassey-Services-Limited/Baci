@@ -74,6 +74,7 @@ function frozenInputs() {
       headRef: 'codex/h0-cwv-integration',
       number: 3297,
       reviewedHeadSha: reviewedSha,
+      workflowId: 987654,
     })
   );
   writeFileSync(prMetadataPath, prMetadata, { mode: 0o600 });
