@@ -141,4 +141,44 @@ describe('useCopilotBuilderActions manifest policy', () => {
       })
     );
   });
+
+  it('rejects a carousel edit that duplicates another slide title', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: {
+          content: [
+            {
+              props: {
+                id: 'carousel-1',
+                slides: [{ title: 'Sale' }, { title: 'New arrivals' }],
+              },
+              type: 'HeroCarousel',
+            },
+          ],
+          root: { props: {} },
+        } as Data,
+        setData,
+      })
+    );
+    const action = vi
+      .mocked(useCopilotAction)
+      .mock.calls.map(
+        ([config]) =>
+          config as unknown as {
+            handler: (args: { index: number; updates: string }) => string;
+            name: string;
+          }
+      )
+      .find((config) => config.name === 'updateComponent');
+    if (!action) throw new Error('Expected updateComponent action');
+
+    expect(
+      action.handler({
+        index: 0,
+        updates: JSON.stringify({ slideIndex: 1, title: 'Sale' }),
+      })
+    ).toBe('Carousel slide title must be unique.');
+    expect(setData).not.toHaveBeenCalled();
+  });
 });

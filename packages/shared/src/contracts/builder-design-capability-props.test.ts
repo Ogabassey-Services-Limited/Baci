@@ -51,9 +51,14 @@ describe('builder design capability prop helpers', () => {
     });
   });
 
-  it('requires a nonempty Hero CTA label while retaining its insert default', () => {
+  it('requires nonempty Hero heading and CTA labels while retaining insert defaults', () => {
     expect(heroProps.ctaText).toMatchObject({
       default: 'Shop now',
+      required: true,
+      type: 'string',
+    });
+    expect(heroProps.title).toMatchObject({
+      default: 'Featured collection',
       required: true,
       type: 'string',
     });

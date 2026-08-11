@@ -111,16 +111,16 @@ export function PreviewInertHeader({
           )}
         </strong>
       ) : null}
-      {navigationLinks.length > 0 ? (
+      {showMenu && navigationLinks.length > 0 ? (
         <nav
           aria-label="Preview navigation"
-          className={
+          className={`hidden md:flex ${
             layout === 'logo-left-nav-right'
               ? 'ml-auto'
               : isCenteredLayout
                 ? 'col-start-2 row-start-2 justify-self-center'
                 : 'justify-self-center'
-          }
+          }`}
         >
           {navigationLinks.map((link) => (
             <span key={link.label}>{link.label}</span>

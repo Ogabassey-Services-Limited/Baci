@@ -22,7 +22,7 @@ describe('PreviewInertHeader', () => {
     expect(header).toHaveClass('grid', 'sticky');
     expect(
       screen.getByRole('navigation', { name: 'Preview navigation' })
-    ).toBeInTheDocument();
+    ).toHaveClass('hidden', 'md:flex');
     expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Account' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
@@ -40,6 +40,19 @@ describe('PreviewInertHeader', () => {
     expect(screen.queryByRole('button', { name: 'Account' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cart' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
+  });
+
+  it('hides saved navigation links when the production menu control is disabled', () => {
+    render(
+      <PreviewInertHeader
+        navigationLinks={[{ label: 'Shop' }]}
+        showMenu={false}
+      />
+    );
+
+    expect(
+      screen.queryByRole('navigation', { name: 'Preview navigation' })
+    ).toBeNull();
   });
 
   it('renders every supported search style, radius, glass, and padding control', () => {

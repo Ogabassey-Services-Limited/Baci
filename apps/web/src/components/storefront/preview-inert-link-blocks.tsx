@@ -207,7 +207,10 @@ function PreviewFooter({
   return (
     <footer
       data-testid="builder-preview-inert-footer"
-      style={{ backgroundColor, color: textColor }}
+      style={{
+        backgroundColor: backgroundColor ?? 'var(--theme-footer-bg)',
+        color: textColor ?? 'var(--theme-footer-text)',
+      }}
     >
       <strong>{brandName}</strong>
       <p>{copyrightText}</p>

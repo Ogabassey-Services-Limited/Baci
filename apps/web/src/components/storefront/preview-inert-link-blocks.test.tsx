@@ -169,6 +169,15 @@ describe('previewInertLinkBlocks', () => {
     ).toBeNull();
   });
 
+  it('uses published theme tokens when Footer colors are omitted', () => {
+    render(previewInertLinkBlocks.Footer.render({}));
+
+    expect(screen.getByTestId('builder-preview-inert-footer')).toHaveStyle({
+      backgroundColor: 'var(--theme-footer-bg)',
+      color: 'var(--theme-footer-text)',
+    });
+  });
+
   it('visibly applies every supported Button align, size, and variant while staying inert', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Button.render({

@@ -201,6 +201,18 @@ export function useCopilotBuilderActions({
           patch,
           'updateCarouselSlide'
         );
+        const nextTitle = sanitizedSlide.props.title;
+        if (
+          typeof nextTitle === 'string' &&
+          slides.some(
+            (slide, candidateIndex) =>
+              candidateIndex !== slideIndex &&
+              isRecord(slide) &&
+              slide.title === nextTitle
+          )
+        ) {
+          return 'Carousel slide title must be unique.';
+        }
         if (Object.keys(sanitizedSlide.props).length === 0) {
           return [
             ...sanitizedSlide.warnings,
