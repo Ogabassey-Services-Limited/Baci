@@ -17,10 +17,8 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-import {
-  parseJumiaOAuthDiagnosticContext,
-  runJumiaOAuthCallbackDiagnostic,
-} from './oauth-diagnostic';
+import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
+import { parseJumiaOAuthDiagnosticContext } from './oauth-diagnostic-context';
 import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */

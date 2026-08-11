@@ -19,10 +19,8 @@ vi.mock('@/lib/platform-admin-auth', () => ({
     mockGetPlatformAdminAuth(...args),
 }));
 
-import {
-  parseJumiaOAuthDiagnosticContext,
-  runJumiaOAuthCallbackDiagnostic,
-} from './oauth-diagnostic';
+import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
+import { parseJumiaOAuthDiagnosticContext } from './oauth-diagnostic-context';
 
 function createRedirect(query: Record<string, string | undefined>) {
   const url = new URL('https://usebaci.com/dashboard/channels');
@@ -184,5 +182,18 @@ describe('Jumia OAuth callback diagnostic', () => {
       'authorization-code-must-never-escape'
     );
     expect(serializedLogs).not.toContain('refresh-token-must-never-escape');
+  });
+
+  it.each([
+    null,
+    undefined,
+  ])('redirects safely when token exchange throws %s', async (tokenError) => {
+    mockExchangeJumiaCode.mockRejectedValueOnce(tokenError);
+
+    const response = await runJumiaOAuthCallbackDiagnostic(baseInput);
+
+    expect(response.headers.get('location')).toContain(
+      'error=token_exchange_failed'
+    );
   });
 });

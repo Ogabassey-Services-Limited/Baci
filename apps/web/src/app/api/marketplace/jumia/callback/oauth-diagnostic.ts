@@ -6,42 +6,6 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
-import { jumiaOAuthDiagnosticIdSchema } from '@/schemas/jumia/oauth-diagnostic';
-
-type JumiaOAuthDiagnosticContext =
-  | { status: 'ordinary'; diagnosticId?: undefined }
-  | { status: 'diagnostic'; diagnosticId: string }
-  | { status: 'invalid' };
-
-export function parseJumiaOAuthDiagnosticContext({
-  diagnosticId,
-  storedState,
-}: {
-  diagnosticId: string | undefined;
-  storedState: string;
-}): JumiaOAuthDiagnosticContext {
-  const diagnosticIdResult =
-    jumiaOAuthDiagnosticIdSchema.safeParse(diagnosticId);
-  const diagnosticStateBound = jumiaOAuthDiagnostic.isStateBound(storedState);
-  const diagnosticMarkerPresent = diagnosticId !== undefined;
-
-  if (
-    (diagnosticStateBound || diagnosticMarkerPresent) &&
-    !(diagnosticStateBound && diagnosticIdResult.success)
-  ) {
-    return { status: 'invalid' };
-  }
-
-  if (!diagnosticStateBound) {
-    return { status: 'ordinary' };
-  }
-
-  if (!diagnosticIdResult.success) {
-    return { status: 'invalid' };
-  }
-
-  return { diagnosticId: diagnosticIdResult.data, status: 'diagnostic' };
-}
 
 export async function runJumiaOAuthCallbackDiagnostic({
   apiUserId,
@@ -100,8 +64,12 @@ export async function runJumiaOAuthCallbackDiagnostic({
       redirectUri,
     });
   } catch (tokenError) {
+    const tokenErrorRecord =
+      tokenError !== null && typeof tokenError === 'object'
+        ? (tokenError as { details?: unknown; status?: number })
+        : undefined;
     const tokenErrorDetails = sanitizeJumiaErrorDetails(
-      (tokenError as Error & { details?: unknown }).details
+      tokenErrorRecord?.details
     );
     logger.error({
       message: 'Jumia OAuth diagnostic token exchange failed',
@@ -113,7 +81,7 @@ export async function runJumiaOAuthCallbackDiagnostic({
           ? {
               name: tokenError.name,
               message: tokenError.message,
-              status: (tokenError as Error & { status?: number }).status,
+              status: tokenErrorRecord?.status,
               ...(tokenErrorDetails === undefined
                 ? {}
                 : { details: tokenErrorDetails }),
