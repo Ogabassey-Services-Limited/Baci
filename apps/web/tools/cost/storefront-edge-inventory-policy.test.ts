@@ -70,13 +70,13 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
 
     // Assert
-    expect(indexNow).toHaveLength(3);
+    expect(indexNow).toHaveLength(6);
     expect(indexNow).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           id: 'machine:indexnow-key-root',
           decision: 'edge_release',
-          methods: ['GET', 'HEAD', 'OPTIONS'],
+          methods: ['GET', 'HEAD'],
           routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
           hostCondition: expect.objectContaining({
             hostKind: 'platform_root_domain',
@@ -85,7 +85,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         expect.objectContaining({
           id: 'machine:indexnow-key-custom-domain',
           decision: 'edge_release',
-          methods: ['GET', 'HEAD', 'OPTIONS'],
+          methods: ['GET', 'HEAD'],
           routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
           hostCondition: expect.objectContaining({
             hostKind: 'custom_domain',
@@ -94,7 +94,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         expect.objectContaining({
           id: 'machine:indexnow-key-platform-subdomain',
           decision: 'edge_release',
-          methods: ['GET', 'HEAD', 'OPTIONS'],
+          methods: ['GET', 'HEAD'],
           routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
           hostCondition: expect.objectContaining({
             hostKind: 'platform_subdomain',

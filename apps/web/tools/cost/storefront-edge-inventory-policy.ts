@@ -228,6 +228,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/storefront/deferred-page-view-tracker.tsx',
     'apps/web/src/components/storefront/puck-storefront.tsx',
     'apps/web/src/components/storefront/cdn-format-image.tsx',
+    'apps/web/src/components/storefront/ogabassey/pages/about-us.tsx',
     'apps/web/src/components/storefront/ogabassey/components/CartSidebar.tsx',
     'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
     'apps/web/src/components/storefront/ogabassey/components/chat/use-ogabassey-chat.ts',
