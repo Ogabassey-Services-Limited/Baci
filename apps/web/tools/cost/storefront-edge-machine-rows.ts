@@ -267,12 +267,18 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
       precedence: 'before_path_decision',
     },
   },
-  machineFamily(
-    'machine:robots-platform-root-rewrite',
-    '/robots.txt',
-    ['GET', 'HEAD', 'OPTIONS'],
-    'origin_dynamic'
-  ),
+  {
+    ...machineFamily(
+      'machine:robots-platform-root-rewrite',
+      '/robots.txt',
+      ['GET', 'HEAD', 'OPTIONS'],
+      'origin_dynamic'
+    ),
+    hostCondition: {
+      hostKind: 'platform_root_domain',
+      precedence: 'before_path_decision',
+    },
+  },
   machineFamily(
     'machine:robots',
     '/robots.txt',

@@ -116,6 +116,15 @@ const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
     sourceKind: 'server_action',
     sourcePath: 'apps/web/src/app/actions/repair.ts',
   },
+  {
+    decision: 'origin_dynamic',
+    id: 'server-action:repair-booking-slug-prefixed',
+    methods: ['POST'],
+    reason: 'explicit_storefront_server_action',
+    routePattern: '/{storefrontIdentifier}/repair',
+    sourceKind: 'server_action',
+    sourcePath: 'apps/web/src/app/actions/repair.ts',
+  },
 ];
 
 /** Reviewed, provider-independent policy inputs for the Task 1A inventory. */

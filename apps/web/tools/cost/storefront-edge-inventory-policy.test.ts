@@ -44,6 +44,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         .map(({ id }) => id)
     ).toEqual([
       'proxy:api-prefix-passthrough',
+      'proxy:platform-admin',
       'proxy:custom-domain-platform-route',
     ]);
     expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(

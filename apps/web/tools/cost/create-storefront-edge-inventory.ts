@@ -121,8 +121,13 @@ export async function createStorefrontEdgeInventory(
     ...apiRows,
     STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow,
     ...relayRows,
+    ...extraRows.filter(
+      ({ sourceKind }) => sourceKind !== 'storefront_entrypoint'
+    ),
     ...entrypointRows,
-    ...extraRows,
+    ...extraRows.filter(
+      ({ sourceKind }) => sourceKind === 'storefront_entrypoint'
+    ),
   ];
   if (new Set(rows.map(({ id }) => id)).size !== rows.length)
     throw new Error('storefront edge inventory contains duplicate row IDs');

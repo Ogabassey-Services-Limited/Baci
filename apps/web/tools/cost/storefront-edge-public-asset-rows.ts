@@ -8,6 +8,7 @@ const PUBLIC_ASSETS = [
   'baci-verified-favicon.svg',
   'baci-logo-dark.svg',
   'baci-logo.svg',
+  'logo.png',
   'badges/app-store-black.svg',
   'badges/google-play.svg',
   'android-chrome-192x192.png',

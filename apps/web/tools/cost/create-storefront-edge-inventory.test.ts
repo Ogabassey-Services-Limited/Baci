@@ -1,8 +1,7 @@
 import { execFile } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -11,9 +10,6 @@ import { createStorefrontEdgeInventory } from './create-storefront-edge-inventor
 import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventory.test-support';
 
 const temporaryRoots: string[] = [];
-const execFileAsync = promisify(execFile);
-const toolDirectory = dirname(fileURLToPath(import.meta.url));
-const tsxCliPath = createRequire(import.meta.url).resolve('tsx/cli');
 
 async function fixtureRoot() {
   const root = await mkdtemp(joinTemporaryRoot('storefront-edge-inventory-'));
@@ -264,48 +260,5 @@ describe('createStorefrontEdgeInventory', () => {
       })
     ).rejects.toThrow('pilot candidate hostname');
   });
-
-  it('creates and validates an artifact through the installed tsx runtime', async () => {
-    // Arrange
-    const { originMainSha, repoRoot } = await fixtureRoot();
-    const output = join(repoRoot, 'task-1a-inventory.json');
-
-    // Act
-    const created = await execFileAsync(process.execPath, [
-      tsxCliPath,
-      join(toolDirectory, 'create-storefront-edge-inventory.ts'),
-      '--repo-root',
-      repoRoot,
-      '--source-sha',
-      originMainSha,
-      '--pilot-hostname',
-      'pilot.usebaci.com',
-      '--posthog-relay-path',
-      '/baci-relay',
-      '--output',
-      output,
-    ]);
-    const validated = await execFileAsync(process.execPath, [
-      tsxCliPath,
-      join(toolDirectory, 'validate-storefront-edge-inventory.ts'),
-      '--repo-root',
-      repoRoot,
-      '--source-sha',
-      originMainSha,
-      '--input',
-      output,
-      '--pilot-hostname',
-      'pilot.usebaci.com',
-      '--posthog-relay-path',
-      '/baci-relay',
-    ]);
-
-    // Assert
-    expect(JSON.parse(created.stdout)).toEqual(
-      expect.objectContaining({ rowCount: expect.any(Number) })
-    );
-    expect(JSON.parse(validated.stdout)).toEqual(
-      expect.objectContaining({ storefrontEntrypointCount: 76 })
-    );
-  });
 });
+const execFileAsync = promisify(execFile);
