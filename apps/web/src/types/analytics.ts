@@ -115,7 +115,7 @@ export interface OrderStatusBreakdown {
   label: string;
   /** Number of orders currently in this status. */
   orders: number;
-  /** Gross order value in the admin display currency. */
+  /** Gross order value in the NGN reporting currency; counts include all currencies. */
   amount: number;
   /** Percentage of orders in this status, expressed on a 0-100 scale. */
   shareOfOrders: number;
