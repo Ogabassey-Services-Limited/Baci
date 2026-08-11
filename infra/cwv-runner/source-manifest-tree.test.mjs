@@ -196,14 +196,39 @@ test('preserves an unchanged gitlink whose commit is absent locally', () => {
   try {
     execFileSync('/usr/bin/git', ['init', '-q', root]);
     execFileSync('/usr/bin/git', ['-C', root, 'config', 'user.name', 'test']);
-    execFileSync('/usr/bin/git', ['-C', root, 'config', 'user.email', 'test@invalid']);
+    execFileSync('/usr/bin/git', [
+      '-C',
+      root,
+      'config',
+      'user.email',
+      'test@invalid',
+    ]);
     const missing = 'a'.repeat(40);
     execFileSync('/usr/bin/git', [
-      '-C', root, 'update-index', '--add', '--cacheinfo', `160000,${missing},vendor`,
+      '-C',
+      root,
+      'update-index',
+      '--add',
+      '--cacheinfo',
+      `160000,${missing},vendor`,
     ]);
-    const tree = execFileSync('/usr/bin/git', ['-C', root, 'write-tree'], { encoding: 'utf8' }).trim();
-    const commit = execFileSync('/usr/bin/git', ['-C', root, 'commit-tree', tree], { input: 'gitlink\n', encoding: 'utf8' }).trim();
-    assert.deepEqual(authenticatedTreeRows(root, commit), [{ gitlink: true, mode: '160000', objectId: missing, path: 'vendor', rawPath: false }]);
+    const tree = execFileSync('/usr/bin/git', ['-C', root, 'write-tree'], {
+      encoding: 'utf8',
+    }).trim();
+    const commit = execFileSync(
+      '/usr/bin/git',
+      ['-C', root, 'commit-tree', tree],
+      { input: 'gitlink\n', encoding: 'utf8' }
+    ).trim();
+    assert.deepEqual(authenticatedTreeRows(root, commit), [
+      {
+        gitlink: true,
+        mode: '160000',
+        objectId: missing,
+        path: 'vendor',
+        rawPath: false,
+      },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -252,7 +277,12 @@ test('preserves non-UTF-8 Git tree names outside the source projection', () => {
       .toString()
       .trim();
     assert.deepEqual(authenticatedTreeRows(root, commit), [
-      { mode: '100644', objectId: blob, path: '~gitraw-696e76616c6964ff', rawPath: true },
+      {
+        mode: '100644',
+        objectId: blob,
+        path: '~gitraw-696e76616c6964ff',
+        rawPath: true,
+      },
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });

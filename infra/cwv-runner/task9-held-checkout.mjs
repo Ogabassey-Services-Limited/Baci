@@ -17,7 +17,11 @@ export function withHeldTask9Checkout(path, expectedRoot, callback) {
     const initial = fstatSync(fd);
     const gitPath = join(path, '.git');
     const gitInitial = lstatSync(gitPath, { throwIfNoEntry: false });
-    if (gitInitial && (gitInitial.isSymbolicLink() || (!gitInitial.isDirectory() && !gitInitial.isFile())))
+    if (
+      gitInitial &&
+      (gitInitial.isSymbolicLink() ||
+        (!gitInitial.isDirectory() && !gitInitial.isFile()))
+    )
       throw new TypeError('unsafe Task 9 Git metadata');
     const guard = () => {
       const current = fstatSync(fd);
@@ -37,12 +41,17 @@ export function withHeldTask9Checkout(path, expectedRoot, callback) {
         current.uid !== initial.uid ||
         current.gid !== initial.gid ||
         current.mode !== initial.mode ||
-        realpathSync(path) !== expectedRoot
-        || Boolean(gitInitial) !== Boolean(gitCurrent)
-        || (gitInitial && (!gitCurrent || gitCurrent.isSymbolicLink() || (!gitCurrent.isDirectory() && !gitCurrent.isFile())
-          || gitCurrent.dev !== gitInitial.dev || gitCurrent.ino !== gitInitial.ino
-          || gitCurrent.uid !== gitInitial.uid || gitCurrent.gid !== gitInitial.gid
-          || gitCurrent.mode !== gitInitial.mode))
+        realpathSync(path) !== expectedRoot ||
+        Boolean(gitInitial) !== Boolean(gitCurrent) ||
+        (gitInitial &&
+          (!gitCurrent ||
+            gitCurrent.isSymbolicLink() ||
+            (!gitCurrent.isDirectory() && !gitCurrent.isFile()) ||
+            gitCurrent.dev !== gitInitial.dev ||
+            gitCurrent.ino !== gitInitial.ino ||
+            gitCurrent.uid !== gitInitial.uid ||
+            gitCurrent.gid !== gitInitial.gid ||
+            gitCurrent.mode !== gitInitial.mode))
       )
         throw new TypeError('unsafe Task 9 checkout');
     };
