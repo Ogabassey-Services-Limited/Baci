@@ -204,7 +204,10 @@ BEGIN
        AND t.status = 'completed'
        AND t.metadata ->> 'reconciliation_review_id' = p_review_id::text
        AND t.metadata ->> 'merchant_invoice_partial_applied' = 'true'
-       AND t.metadata ->> 'email_mismatch_override' = 'true'
+       AND (
+         t.metadata ->> 'email_mismatch_override' = 'true'
+         OR t.metadata ->> 'email_mismatch_override' IS NULL
+       )
      FOR UPDATE OF t, o;
 
     IF FOUND THEN

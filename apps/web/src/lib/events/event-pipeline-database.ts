@@ -1,10 +1,8 @@
 import type { Database, Json } from '@/types/supabase';
-import {
-  eventPipelineAdminImporters,
-  eventPipelineLegacySdkImporters,
-} from './event-pipeline-authority-paths';
+import { eventPipelineAdminImporters } from './event-pipeline-authority-paths';
 import { eventPipelineCredentialPaths } from './event-pipeline-credential-paths';
 import { frozenEventPipelineAuthoritySources } from './event-pipeline-frozen-authority-sources';
+import { eventPipelineLegacySdkImporters } from './event-pipeline-legacy-sdk-importers';
 export function toEventPipelineJson(
   value: unknown,
   ancestors = new WeakSet<object>()

@@ -105,28 +105,50 @@ SELECT dblink_send_query(
 
 DO $$
 DECLARE
+  v_manual_done boolean := false;
+  v_gateway_done boolean := false;
   v_manual_succeeded boolean := false;
   v_gateway_succeeded boolean := false;
+  v_attempts integer := 0;
 BEGIN
-  BEGIN
-    PERFORM * FROM dblink_get_result('paystack_manual_claim') AS result(value text);
-    v_manual_succeeded := true;
-  EXCEPTION WHEN OTHERS THEN
-    PERFORM dblink_exec('paystack_manual_claim', 'ROLLBACK');
-  END;
-  IF v_manual_succeeded THEN
-    PERFORM dblink_exec('paystack_manual_claim', 'COMMIT');
-  END IF;
+  WHILE NOT (v_manual_done AND v_gateway_done) LOOP
+    v_attempts := v_attempts + 1;
+    IF v_attempts > 200 THEN
+      RAISE EXCEPTION 'Paystack reference claim concurrency test timed out';
+    END IF;
 
-  BEGIN
-    PERFORM * FROM dblink_get_result('paystack_gateway_claim') AS result(value text);
-    v_gateway_succeeded := true;
-  EXCEPTION WHEN OTHERS THEN
-    PERFORM dblink_exec('paystack_gateway_claim', 'ROLLBACK');
-  END;
-  IF v_gateway_succeeded THEN
-    PERFORM dblink_exec('paystack_gateway_claim', 'COMMIT');
-  END IF;
+    IF NOT v_manual_done
+       AND dblink_is_busy('paystack_manual_claim') = 0 THEN
+      BEGIN
+        PERFORM * FROM dblink_get_result('paystack_manual_claim') AS result(value text);
+        v_manual_succeeded := true;
+      EXCEPTION WHEN OTHERS THEN
+        PERFORM dblink_exec('paystack_manual_claim', 'ROLLBACK');
+      END;
+      IF v_manual_succeeded THEN
+        PERFORM dblink_exec('paystack_manual_claim', 'COMMIT');
+      END IF;
+      v_manual_done := true;
+    END IF;
+
+    IF NOT v_gateway_done
+       AND dblink_is_busy('paystack_gateway_claim') = 0 THEN
+      BEGIN
+        PERFORM * FROM dblink_get_result('paystack_gateway_claim') AS result(value text);
+        v_gateway_succeeded := true;
+      EXCEPTION WHEN OTHERS THEN
+        PERFORM dblink_exec('paystack_gateway_claim', 'ROLLBACK');
+      END;
+      IF v_gateway_succeeded THEN
+        PERFORM dblink_exec('paystack_gateway_claim', 'COMMIT');
+      END IF;
+      v_gateway_done := true;
+    END IF;
+
+    IF NOT (v_manual_done AND v_gateway_done) THEN
+      PERFORM pg_sleep(0.05);
+    END IF;
+  END LOOP;
 
   IF v_manual_succeeded = v_gateway_succeeded THEN
     RAISE EXCEPTION

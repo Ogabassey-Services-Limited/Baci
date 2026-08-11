@@ -37,6 +37,13 @@ const reviewContractMigration = readFileSync(
   ),
   'utf8'
 );
+const chatOrderMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql'
+  ),
+  'utf8'
+);
 const retryMigration = readFileSync(
   resolve(
     process.cwd(),
@@ -82,7 +89,7 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(referenceClaimMigration).toContain(
       'paystack_reference_already_recorded'
     );
-    expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
+    expect(chatOrderMigration).toContain('o.chat_order_id = co.id');
   });
 
   it('creates a separate partial transaction and delegates completion atomically', () => {
@@ -140,18 +147,16 @@ describe('manual Paystack partial reconciliation migration', () => {
   });
 
   it('uses durable chat-order linkage for conversion retries', () => {
-    expect(reviewContractMigration).toContain(
+    expect(chatOrderMigration).toContain(
       'ADD COLUMN IF NOT EXISTS chat_order_id uuid'
     );
-    expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
-    expect(reviewContractMigration).toContain('payment_reference');
-    expect(reviewContractMigration).toContain(
-      'HAVING count(DISTINCT co.id) = 1'
-    );
-    expect(reviewContractMigration).not.toContain(
+    expect(chatOrderMigration).toContain('o.chat_order_id = co.id');
+    expect(chatOrderMigration).toContain('payment_reference');
+    expect(chatOrderMigration).toContain('HAVING count(DISTINCT co.id) = 1');
+    expect(chatOrderMigration).not.toContain(
       "o.notes = 'Converted from chat order. Session: ' || co.session_id"
     );
-    expect(reviewContractMigration).not.toContain(
+    expect(chatOrderMigration).not.toContain(
       'JOIN public.orders AS o\n            ON o.notes ='
     );
   });
@@ -165,6 +170,9 @@ describe('manual Paystack partial reconciliation migration', () => {
     );
     expect(retryMigration).toContain(
       "t.metadata ->> 'email_mismatch_override' = 'true'"
+    );
+    expect(retryMigration).toContain(
+      "t.metadata ->> 'email_mismatch_override' IS NULL"
     );
     expect(retryMigration).toContain("'already_completed', true");
     expect(retryMigration).toContain('paystack_reference_already_recorded');

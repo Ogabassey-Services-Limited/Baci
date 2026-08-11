@@ -352,13 +352,18 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql',
+    sha256: '210c24070e7295dcdec19e10d33dd456a1dbc24891812cc74b4bfddeff808456',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql',
-    sha256: 'da7541284809672b61c1df6d605b881347cf80fd4ee91c080ec6208e95f6dc78',
+    sha256: '4ed01fb7657a37530a4bdb5de152b4bf869e4b2ddaf7bc04c29f7ca131207408',
   },
   {
     repositoryPath:
       'supabase/migrations/20260811150000_idempotent_paystack_reconciliation_retries.sql',
-    sha256: '8e1adda6b435a4c344403ed55251be80f76ae6e5c5bc9843998c9c6a04773e21',
+    sha256: '7cf4ca2faa5d170a6a1f4a0eb0e8cec10aee99a9e728fedbc906dfa288f0e195',
   },
   {
     repositoryPath:

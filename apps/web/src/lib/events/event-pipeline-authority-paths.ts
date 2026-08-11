@@ -6,9 +6,3 @@ export const eventPipelineAdminImporters = [
   'apps/web/src/lib/expo-push.ts',
   'apps/web/src/lib/insurance/notify-activate-protection.ts',
 ] as const;
-
-export const eventPipelineLegacySdkImporters = [
-  'apps/web/src/lib/events/event-ingress-capability.ts',
-  'apps/web/src/lib/events/event-pipeline-test-client.ts',
-  'vps-workers/jobs/supabase-retention-cleanup.mjs',
-] as const;
