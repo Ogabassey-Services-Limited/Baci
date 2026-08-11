@@ -84,7 +84,7 @@ export function NotificationDetail({
         )}
       </div>
       {notification.sent_at && (
-        <div className="grid gap-4 md:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-5">
           {statCards.map(({ icon: Icon, key, label }) => (
             <Card key={key}>
               <CardHeader className="flex flex-row items-center justify-between gap-y-0 pb-2">

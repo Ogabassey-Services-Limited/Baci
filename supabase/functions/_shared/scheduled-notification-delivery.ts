@@ -59,6 +59,7 @@ export function isWithinQuietHours(
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    hourCycle: 'h23',
     timeZone: 'Africa/Lagos',
   }).format(now);
   const current = minutes(local);
