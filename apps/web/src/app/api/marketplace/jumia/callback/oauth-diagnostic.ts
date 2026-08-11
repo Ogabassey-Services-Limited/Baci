@@ -36,6 +36,10 @@ export function parseJumiaOAuthDiagnosticContext({
     return { status: 'ordinary' };
   }
 
+  if (!diagnosticIdResult.success) {
+    return { status: 'invalid' };
+  }
+
   return { diagnosticId: diagnosticIdResult.data, status: 'diagnostic' };
 }
 
