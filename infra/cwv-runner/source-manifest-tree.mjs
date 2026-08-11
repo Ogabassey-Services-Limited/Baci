@@ -127,12 +127,14 @@ function walk(
   }
 }
 
+const rowKey = (row) => `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
+
 function compareRows(listed, authenticated, label) {
   const sort = (rows) =>
     rows
       .slice()
       .sort((left, right) =>
-        Buffer.compare(Buffer.from(left.path), Buffer.from(right.path))
+        Buffer.compare(Buffer.from(rowKey(left)), Buffer.from(rowKey(right)))
       );
   const expected = sort(listed);
   const actual = sort(authenticated);
@@ -140,7 +142,7 @@ function compareRows(listed, authenticated, label) {
     expected.length !== actual.length ||
     expected.some(
       (row, index) =>
-        row.path !== actual[index].path ||
+        rowKey(row) !== rowKey(actual[index]) ||
         row.mode !== actual[index].mode ||
         row.objectId !== actual[index].objectId
     )
@@ -163,7 +165,7 @@ export function authenticatedTreeRows(cwd, sha, { verifyBlobs = true } = {}) {
   walk(cwd, objects, root, '', leaves, trees);
   compareRows(listed.leaves, leaves, 'Git leaf rows');
   compareRows(listed.trees, trees, 'Git tree rows');
-  if (new Set(leaves.map(({ path }) => path)).size !== leaves.length)
+  if (new Set(leaves.map(rowKey)).size !== leaves.length)
     fail('duplicate Git tree path');
   return leaves.sort((left, right) =>
     Buffer.compare(Buffer.from(left.path), Buffer.from(right.path))
