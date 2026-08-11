@@ -106,6 +106,7 @@ describe('remediation Codex command', () => {
     });
 
     assert.equal(result.args.includes('--read-only'), true);
+    assert.equal(result.args.includes('--search'), false);
     assert.equal(result.args.includes('--sandbox'), true);
     assert.equal(result.args.includes('workspace-write'), true);
     assert.equal(
