@@ -23,6 +23,9 @@ export function parseReconcilePaystackUnmatchedPartialArgs(
     if (!(key && key.startsWith('--')) || value === undefined) {
       return { ok: false, error: `malformed flag near ${key ?? '<end>'}` };
     }
+    if (values.has(key)) {
+      return { ok: false, error: `duplicate flag: ${key}` };
+    }
     values.set(key, value);
   }
 

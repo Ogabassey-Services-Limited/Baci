@@ -48,6 +48,42 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
 
+  it('fails closed before verification when arguments are invalid', async () => {
+    await expect(
+      runReconcilePaystackUnmatchedPartialCli([
+        '--review-id',
+        'not-a-uuid',
+      ])
+    ).resolves.toBe(1);
+    expect(mocks.verifyTransaction).not.toHaveBeenCalled();
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('fails closed for a non-NGN verified payment before creating a client', async () => {
+    mocks.verifyTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        status: 'success',
+        currency: 'USD',
+        amount: 100,
+        customer: { email: 'buyer@example.com' },
+      },
+    });
+
+    await expect(runReconcilePaystackUnmatchedPartialCli(args)).resolves.toBe(1);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the verified payment has no customer email', async () => {
+    mocks.verifyTransaction.mockResolvedValue({
+      success: true,
+      data: { status: 'success', currency: 'NGN', amount: 100, customer: {} },
+    });
+
+    await expect(runReconcilePaystackUnmatchedPartialCli(args)).resolves.toBe(1);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
   it('reconciles a verified partial payment with the exact fee and identity payload', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
@@ -91,7 +127,7 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
         p_customer_email: 'buyer@example.com',
         p_customer_name: 'Ada Lovelace',
         p_gateway_fee: 25,
-        p_merchant_amount: 1_225,
+        p_merchant_amount: 1_200,
         p_merchant_id: '33333333-3333-4333-8333-333333333333',
         p_operator_user_id: '44444444-4444-4444-8444-444444444444',
         p_order_id: '22222222-2222-4222-8222-222222222222',
@@ -139,5 +175,49 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
         p_customer_email: 'payer@example.com',
       })
     );
+  });
+
+  it('fails closed when the reconciliation RPC returns an error', async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: { message: 'rpc failed' } });
+    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.verifyTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        status: 'success',
+        currency: 'NGN',
+        amount: 125_000,
+        customer: { email: 'buyer@example.com' },
+      },
+    });
+    mocks.calculatePlatformFee.mockReturnValue({
+      platformFee: 2_500,
+      merchantAmount: 122_500,
+    });
+    mocks.extractVerifiedGatewayFeeNgn.mockReturnValue(25);
+
+    await expect(runReconcilePaystackUnmatchedPartialCli(args)).resolves.toBe(1);
+  });
+
+  it('fails closed when the reconciliation RPC returns null data without an error', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.verifyTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        status: 'success',
+        currency: 'NGN',
+        amount: 125_000,
+        customer: { email: 'buyer@example.com' },
+      },
+    });
+    mocks.calculatePlatformFee.mockReturnValue({
+      platformFee: 2_500,
+      merchantAmount: 122_500,
+    });
+    mocks.extractVerifiedGatewayFeeNgn.mockReturnValue(25);
+
+    await expect(runReconcilePaystackUnmatchedPartialCli(args)).resolves.toBe(1);
   });
 });

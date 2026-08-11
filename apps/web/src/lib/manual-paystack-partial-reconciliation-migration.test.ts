@@ -30,6 +30,13 @@ const walletClaimMigration = readFileSync(
   ),
   'utf8'
 );
+const reviewContractMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql'
+  ),
+  'utf8'
+);
 
 describe('manual Paystack partial reconciliation migration', () => {
   it('locks and validates the review, order, and provider reference', () => {
@@ -54,9 +61,7 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(referenceClaimMigration).toContain(
       'paystack_reference_already_recorded'
     );
-    expect(referenceClaimMigration).toContain(
-      "'Converted from chat order. Session: ' || co.session_id"
-    );
+    expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
   });
 
   it('creates a separate partial transaction and delegates completion atomically', () => {
@@ -102,5 +107,24 @@ describe('manual Paystack partial reconciliation migration', () => {
       'paystack_reference_already_recorded'
     );
     expect(walletClaimMigration).toContain('wallet_topup');
+  });
+
+  it('normalizes manual Paystack references and fails closed on missing transaction ids', () => {
+    expect(reviewContractMigration).toContain(
+      "lower(trim(COALESCE(t.gateway, ''))) = 'paystack'"
+    );
+    expect(reviewContractMigration).toContain(
+      'email_mismatch_override_missing_transaction_id'
+    );
+  });
+
+  it('uses durable chat-order linkage for conversion retries', () => {
+    expect(reviewContractMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS chat_order_id uuid'
+    );
+    expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
+    expect(reviewContractMigration).not.toContain(
+      "o.notes = 'Converted from chat order. Session: ' || co.session_id"
+    );
   });
 });

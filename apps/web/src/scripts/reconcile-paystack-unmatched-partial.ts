@@ -63,7 +63,7 @@ export async function runReconcilePaystackUnmatchedPartialCli(
       p_customer_name: customerName,
       p_gateway_fee: gatewayFee,
       p_gateway_response: verified.data,
-      p_merchant_amount: fees.merchantAmount / 100,
+      p_merchant_amount: fees.merchantAmount / 100 - gatewayFee,
       p_merchant_id: args.merchantId,
       p_operator_user_id: args.operatorUserId,
       p_order_id: args.canonicalOrderId,

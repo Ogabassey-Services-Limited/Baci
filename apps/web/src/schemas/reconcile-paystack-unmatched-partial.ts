@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const reconcilePaystackUnmatchedPartialArgsSchema = z.object({
+export const reconcilePaystackUnmatchedPartialArgsSchema = z.strictObject({
   '--review-id': z.uuid(),
   '--canonical-order-id': z.uuid(),
   '--merchant-id': z.uuid(),

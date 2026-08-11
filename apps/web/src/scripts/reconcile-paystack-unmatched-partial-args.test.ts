@@ -30,7 +30,11 @@ describe('parseReconcilePaystackUnmatchedPartialArgs', () => {
 
   it('rejects missing operator identity before any database operation', () => {
     const result = parseReconcilePaystackUnmatchedPartialArgs(
-      validArgs.filter((value) => value !== '--operator-user-id' && value !== '44444444-4444-4444-8444-444444444444')
+      validArgs.filter(
+        (value) =>
+          value !== '--operator-user-id' &&
+          value !== '44444444-4444-4444-8444-444444444444'
+      )
     );
     expect(result.ok).toBe(false);
   });
@@ -46,5 +50,25 @@ describe('parseReconcilePaystackUnmatchedPartialArgs', () => {
       ok: true,
       args: { allowEmailMismatch: true },
     });
+  });
+
+  it('rejects unknown flags instead of silently stripping them', () => {
+    const result = parseReconcilePaystackUnmatchedPartialArgs([
+      ...validArgs,
+      '--unexpected-flag',
+      'value',
+    ]);
+
+    expect(result).toMatchObject({ ok: false });
+  });
+
+  it('rejects duplicate flags instead of allowing the last value to win', () => {
+    const result = parseReconcilePaystackUnmatchedPartialArgs([
+      ...validArgs,
+      '--review-id',
+      '99999999-9999-4999-8999-999999999999',
+    ]);
+
+    expect(result).toMatchObject({ ok: false });
   });
 });
