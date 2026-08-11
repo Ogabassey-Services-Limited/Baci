@@ -1,20 +1,11 @@
+import {
+  classifyProductSchemaCategories,
+  type ProductCategorySource,
+} from './product-schema-spec-classification';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
-import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
-import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
-import {
-  getProductSpecFamily,
-  isCameraLikeCategory,
-} from './storefront-specs/spec-taxonomy';
-
-type ProductCategorySource = {
-  categories?: { name?: string | null; slug?: string | null } | null;
-  category?: string | null;
-  category_slug?: string | null;
-  product_key_specs?: { has_card_slot?: boolean } | null;
-};
 
 interface ProductSchemaSpecCandidate {
   key?: string;
@@ -37,32 +28,6 @@ const CAMERA_KEY_SPEC_KEYS = new Set(
     category.fields.map((field) => field.key)
   )
 );
-
-const PHONE_TABLET_LAPTOP_CATEGORY_WORDS = new Set([
-  'cell',
-  'iphone',
-  'iphones',
-  'laptops',
-  'ipad',
-  'ipads',
-  'laptop',
-  'macbook',
-  'macbooks',
-  'mobile',
-  'phone',
-  'phones',
-  'smartphone',
-  'smartphones',
-  'tablet',
-  'tablets',
-  'smartwatch',
-  'smartwatches',
-  'wearable',
-  'wearables',
-  'watch',
-  'watches',
-  'pixel',
-]);
 
 const PHONE_ONLY_SPEC_KEYS = new Set([
   'android_version',
@@ -113,30 +78,6 @@ const AUDIO_CAPABILITY_LABELS = new Set([
   'speakers',
 ]);
 
-function normalizeCategoryName(value: string) {
-  return value.trim().toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ');
-}
-
-function getProductCategoryNames(product: ProductCategorySource) {
-  const preferredCategory = resolveStorefrontProductCategoryName(product);
-  return preferredCategory?.trim()
-    ? [normalizeCategoryName(preferredCategory)]
-    : [];
-}
-
-function isPhoneTabletLaptopCategory(categoryName: string) {
-  if (isAccessoryLikeCategory(categoryName)) {
-    return false;
-  }
-
-  return (
-    categoryName.includes('google pixel') ||
-    categoryName
-      .split(/[^a-z0-9]+/)
-      .some((word) => PHONE_TABLET_LAPTOP_CATEGORY_WORDS.has(word))
-  );
-}
-
 function normalizeSpecLabel(value: string) {
   return value
     .trim()
@@ -155,7 +96,8 @@ export function shouldIncludeProductSchemaSpec(
   product: ProductCategorySource,
   candidate: ProductSchemaSpecCandidate
 ) {
-  const categoryNames = getProductCategoryNames(product);
+  const { categoryNames, hasCameraCategory, isMobileCategory, productFamily } =
+    classifyProductSchemaCategories(product);
   const inferredSpecKey = candidate.label
     ? getProductSchemaSpecKeyForLabel(candidate.label)
     : undefined;
@@ -173,11 +115,6 @@ export function shouldIncludeProductSchemaSpec(
     return false;
   }
 
-  const productFamily = getProductSpecFamily(categoryNames[0]);
-  const isMobileCategory =
-    productFamily === 'mobile' ||
-    (productFamily === 'general' &&
-      categoryNames.some(isPhoneTabletLaptopCategory));
   const valueDecision = getProductSchemaSpecValueDecision({
     canonicalSpecKey,
     hasCategory: categoryNames.length > 0,
@@ -214,7 +151,6 @@ export function shouldIncludeProductSchemaSpec(
     return true;
   }
 
-  const hasCameraCategory = categoryNames.some(isCameraLikeCategory);
   const isOperatingSystemLabel =
     normalizedLabel === 'operating system' || normalizedLabel === 'os';
   if (productFamily === 'computer') {
