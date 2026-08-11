@@ -195,6 +195,8 @@ test('preserves an unchanged gitlink whose commit is absent locally', () => {
   const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-gitlink-'));
   try {
     execFileSync('/usr/bin/git', ['init', '-q', root]);
+    execFileSync('/usr/bin/git', ['-C', root, 'config', 'user.name', 'test']);
+    execFileSync('/usr/bin/git', ['-C', root, 'config', 'user.email', 'test@invalid']);
     const missing = 'a'.repeat(40);
     execFileSync('/usr/bin/git', [
       '-C', root, 'update-index', '--add', '--cacheinfo', `160000,${missing},vendor`,

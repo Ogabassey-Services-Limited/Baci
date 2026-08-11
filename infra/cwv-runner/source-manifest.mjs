@@ -76,6 +76,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     if (base && reviewed && base.mode === reviewed.mode && base.objectId === reviewed.objectId) continue;
     const status = !reviewed ? 'D' : !base ? 'A' : 'M';
     if (status === 'D') {
+      if (base?.rawPath) fail('non-UTF-8 source path');
       if (mergedByPath.has(path)) fail('deleted path remains in merge tree');
       entries.push({ path, status, absent: true });
       continue;
