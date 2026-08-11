@@ -20,7 +20,7 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "f27ea6aa6f0646613b5cdabb02735537ef3bc7ed",
+  "originMainSha": "40a22ce34f4fbc83199166cb965aecf1c3d81e15",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
@@ -1397,6 +1397,27 @@
       "routePattern": "/{*storefrontPath?}",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/proxy.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:blog-post-accept-language",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "blog_post_locale_rendering",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "accept-language"
+          }
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(blog)/blog/[postSlug]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/blog/{postSlug}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/page.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -4761,5 +4782,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "7c53f666b2f38c6dd18426ffb74fe9b89b465e6859dfdd7d4e5111fe33548fe2"
+  "inventorySha256": "a65434110bcaf6afdc878a5f883f0ef458d4903016c53bbe92edeb2e1a6094cd"
 }
