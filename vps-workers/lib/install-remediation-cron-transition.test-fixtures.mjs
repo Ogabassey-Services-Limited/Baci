@@ -77,6 +77,10 @@ if [ "$1" = "-l" ]; then
       echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"
       echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       ;;
+    retained-percent)
+      echo '0 0 * * * date +\\%F'
+      echo '1 0 * * * printf "payload%value"'
+      ;;
     legacy-two-flock)
       echo "# keep this watchdog note about remediation"
       echo "* * * * * node jobs/watchdog.mjs jobs/vercel-error-remediator.mjs"

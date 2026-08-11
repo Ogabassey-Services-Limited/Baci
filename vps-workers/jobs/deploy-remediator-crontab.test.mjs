@@ -31,6 +31,9 @@ describe('remediation deploy crontab', () => {
     );
     assert.doesNotMatch(deployScript, /BACI_REMEDIATION_GLOBAL_FLOCK_HELD/);
     assert.match(transitionScript, /flock -x \/tmp\/baci-workers-deploy\.lock/);
+    assert.match(transitionScript, /BACI_REMEDIATION_PROC_ROOT:-\/proc/);
+    assert.match(transitionScript, /proc_root="\$8"/);
+    assert.match(transitionScript, /"\$proc_root"/);
     assert.match(
       transitionScript,
       /flock -w "\$lock_wait_seconds" -x "\$descriptor"/

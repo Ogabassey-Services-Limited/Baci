@@ -160,8 +160,8 @@ describe('remediation cron transition', () => {
     assert.equal(outcome.crontab, '');
   });
 
-  it('ignores a vanished non-remediation proc entry during the legacy drain', () => {
-    const outcome = runTransition('vanished-proc');
+  it('ignores a non-candidate proc entry during the legacy drain', () => {
+    const outcome = runTransition('non-candidate-proc');
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
   });
@@ -173,5 +173,14 @@ describe('remediation cron transition', () => {
     assert.match(outcome.crontab, /remote\\%dir/);
     assert.match(outcome.crontab, /node\\%bin/);
     assert.match(outcome.crontab, /codex\\%test/);
+  });
+
+  it('preserves percent semantics in retained cron entries', () => {
+    const outcome = runTransition('retained-percent');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.crontab, /date \+\\%F/);
+    assert.match(outcome.crontab, /payload%value/);
+    assert.doesNotMatch(outcome.crontab, /payload\\%value/);
   });
 });

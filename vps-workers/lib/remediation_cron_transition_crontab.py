@@ -4,16 +4,18 @@ import shlex
 
 
 def is_legacy_owned(line, remote_dir, node_bin, targets):
+    remote = shlex.quote(remote_dir)
+    node = shlex.quote(node_bin)
     for name, schedule, wait in targets:
-        prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock bash -lc '"
-        suffix = f"{node_bin} {remote_dir}/jobs/{name}.mjs' >> {remote_dir}/logs/{name}.log 2>&1"
-        if line.startswith(prefix) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
+        prefix = f"{schedule} flock -n {remote}/locks/{name}.lock bash -lc '"
+        suffix = f"{node} {remote}/jobs/{name}.mjs' >> {remote}/logs/{name}.log 2>&1"
+        if line.startswith(prefix) and line.endswith(suffix) and f'cd {remote} && ' in line:
             return True
-        prefix = f"{schedule} flock -n {remote_dir}/locks/{name}.lock flock {wait}"
+        prefix = f"{schedule} flock -n {remote}/locks/{name}.lock flock {wait}"
         if (
-            line.startswith(f'{prefix} {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
-            or line.startswith(f'{prefix} -E 75 {remote_dir}/locks/error-remediator-global.lock bash -lc \'')
-        ) and line.endswith(suffix) and f'cd {remote_dir} && ' in line:
+            line.startswith(f'{prefix} {remote}/locks/error-remediator-global.lock bash -lc \'')
+            or line.startswith(f'{prefix} -E 75 {remote}/locks/error-remediator-global.lock bash -lc \'')
+        ) and line.endswith(suffix) and f'cd {remote} && ' in line:
             return True
     return False
 
@@ -56,4 +58,5 @@ def transition_crontab(
             f'>> {remote}/logs/{name}.log 2>&1'
         )
     block.append(block_end)
-    return '\n'.join([*retained, *([''] if retained else []), *block]).replace('%', r'\%') + '\n'
+    escaped_block = [line.replace('%', r'\%') for line in block]
+    return '\n'.join([*retained, *([''] if retained else []), *escaped_block]) + '\n'

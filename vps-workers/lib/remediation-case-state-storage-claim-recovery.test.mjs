@@ -214,7 +214,10 @@ describe('remediation case state storage claim recovery', () => {
     });
     const replacementToken = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
     const replacementOwner = owner(303, replacementToken);
-    const replacementOwnerPath = writeOwner(fixture.path, replacementOwner);
+    const replacementOwnerPath = writeOwner(
+      `${fixture.path}.lock`,
+      replacementOwner
+    );
     const replacementContent = JSON.stringify(replacementOwner);
     let claimRemovals = 0;
     const storage = createRemediationCaseStateStorage({

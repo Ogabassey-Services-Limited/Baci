@@ -91,7 +91,7 @@ bash -c "$1"
   writeExecutable(join(binDirectory, 'flock'), flockStub());
   writeExecutable(join(binDirectory, 'crontab'), crontabStub());
 
-  if (scenario === 'vanished-proc') {
+  if (scenario === 'non-candidate-proc') {
     const vanished = join(procRoot, '5151');
     mkdirSync(vanished);
     writeFileSync(join(vanished, 'cmdline'), 'sleep\0');
