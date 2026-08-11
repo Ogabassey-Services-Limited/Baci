@@ -57,21 +57,21 @@ export function cleanupRemediationWorktree({
       : '';
   if (!resolvedWorktreeDir) return '';
 
+  const pnpmStorePath = join(
+    dirname(resolvedWorktreeDir),
+    `${basename(resolvedWorktreeDir)}-pnpm-store`
+  );
+  runRemediationChecked('rm', ['-rf', '--', pnpmStorePath], {
+    cwd: repoDir,
+    env: childEnv,
+    runner,
+  });
   runRemediationChecked(
     'git',
     ['worktree', 'remove', '--force', resolvedWorktreeDir],
     { cwd: repoDir, env: childEnv, runner }
   );
   runRemediationChecked('git', ['worktree', 'prune'], {
-    cwd: repoDir,
-    env: childEnv,
-    runner,
-  });
-  const pnpmStorePath = join(
-    dirname(resolvedWorktreeDir),
-    `${basename(resolvedWorktreeDir)}-pnpm-store`
-  );
-  runRemediationChecked('rm', ['-rf', '--', pnpmStorePath], {
     cwd: repoDir,
     env: childEnv,
     runner,
