@@ -8,6 +8,7 @@ type PreviewHeaderLayout =
   | 'logo-center';
 
 type PreviewHeaderProps = {
+  backgroundColor?: string;
   ctaButton?: { show: boolean; text: string };
   glassEffect?: boolean;
   layout?: PreviewHeaderLayout;
@@ -21,6 +22,7 @@ type PreviewHeaderProps = {
   showSearch?: boolean;
   sticky?: boolean;
   storeName?: string;
+  textColor?: string;
 };
 
 const layoutClasses: Record<PreviewHeaderLayout, string> = {
@@ -57,6 +59,7 @@ function InertHeaderAction({ children }: { children: string }) {
 }
 
 export function PreviewInertHeader({
+  backgroundColor,
   ctaButton,
   glassEffect = false,
   layout = 'logo-left-nav-center',
@@ -70,6 +73,7 @@ export function PreviewInertHeader({
   showSearch = false,
   sticky = false,
   storeName = 'Preview Store',
+  textColor,
 }: PreviewHeaderProps) {
   const isCenteredLayout = layout === 'logo-center';
   return (
@@ -81,6 +85,7 @@ export function PreviewInertHeader({
       data-layout={layout}
       data-sticky={String(sticky)}
       data-testid="builder-preview-inert-header"
+      style={{ backgroundColor, color: textColor }}
     >
       {showLogo ? (
         <strong

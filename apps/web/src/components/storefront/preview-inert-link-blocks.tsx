@@ -49,6 +49,10 @@ type PreviewFaqProps = {
   title?: string;
 };
 
+type PreviewPlaceholderProps = {
+  label?: string;
+};
+
 const previewButtonAlignClasses: Record<PreviewButtonAlign, string> = {
   center: 'justify-center',
   left: 'justify-start',
@@ -230,6 +234,20 @@ function PreviewFAQ({
   );
 }
 
+function PreviewPlaceholder({
+  label = 'Saved section',
+}: PreviewPlaceholderProps) {
+  return (
+    <section
+      aria-label={`${label} preview placeholder`}
+      className="border border-dashed border-current/20 px-4 py-8 text-center text-sm"
+      data-testid="builder-preview-refused-placeholder"
+    >
+      {label}
+    </section>
+  );
+}
+
 export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewFooter },
@@ -237,4 +255,5 @@ export const previewInertLinkBlocks = {
   Header: { render: PreviewInertHeader },
   Hero: { render: PreviewHero },
   HeroCarousel: { render: PreviewHeroCarousel },
+  PreviewPlaceholder: { render: PreviewPlaceholder },
 };

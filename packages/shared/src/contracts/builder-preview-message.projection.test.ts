@@ -92,7 +92,7 @@ describe('builder preview media and refused-component projection', () => {
     expect(candidate('javascript:alert(1)')).toBe(false);
   });
 
-  it('omits known refused blocks without accepting unreviewed editable props', () => {
+  it('replaces known refused blocks without accepting unreviewed editable props', () => {
     const result = message({
       content: [
         { props: { id: 'Flex-1234' }, type: 'Flex' },
@@ -118,9 +118,17 @@ describe('builder preview media and refused-component projection', () => {
     if (result.success) {
       expect(
         result.data.candidateConfig.content.map(({ type }) => type)
-      ).toEqual(['Flex', 'Text']);
+      ).toEqual(['Flex', 'PreviewPlaceholder', 'Text']);
+      expect(result.data.candidateConfig.content[1]).toEqual({
+        props: { id: 'code-1', label: 'CodeEmbed section' },
+        type: 'PreviewPlaceholder',
+      });
       expect(result.data.candidateConfig.zones).toEqual({
         'Flex-1234:children': [
+          {
+            props: { id: 'image-1', label: 'Image section' },
+            type: 'PreviewPlaceholder',
+          },
           { props: { id: 'zone-text-1', title: 'Nested copy' }, type: 'Text' },
         ],
       });

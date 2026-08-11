@@ -20,7 +20,7 @@ describe('preview render projection', () => {
     );
   });
 
-  it('removes external assets and known refused blocks before rendering', () => {
+  it('removes external assets and replaces known refused blocks with inert placeholders', () => {
     const result = previewRenderProjection.projectCandidate({
       content: [
         {
@@ -40,6 +40,10 @@ describe('preview render projection', () => {
 
     expect(result.content).toEqual([
       { props: { id: 'header-1' }, type: 'Header' },
+      {
+        props: { id: 'code-1', label: 'CodeEmbed section' },
+        type: 'PreviewPlaceholder',
+      },
     ]);
   });
 });

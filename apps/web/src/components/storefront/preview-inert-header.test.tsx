@@ -58,4 +58,15 @@ describe('PreviewInertHeader', () => {
     expect(search).toHaveClass('bg-muted', 'rounded-full');
     expect(search).toBeDisabled();
   });
+
+  it('applies persisted storefront header colors', () => {
+    render(
+      <PreviewInertHeader backgroundColor="#123456" textColor="#fefefe" />
+    );
+
+    expect(screen.getByRole('banner')).toHaveStyle({
+      backgroundColor: '#123456',
+      color: '#fefefe',
+    });
+  });
 });

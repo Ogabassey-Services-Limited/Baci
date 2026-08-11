@@ -132,6 +132,20 @@ describe('previewInertLinkBlocks', () => {
     ).not.toHaveClass('bg-store-background-text/40', 'text-store-background');
   });
 
+  it('renders refused saved sections as bounded inert placeholders', () => {
+    render(
+      previewInertLinkBlocks.PreviewPlaceholder.render({
+        label: 'CodeEmbed section',
+      })
+    );
+
+    expect(
+      screen.getByRole('region', {
+        name: 'CodeEmbed section preview placeholder',
+      })
+    ).toHaveTextContent('CodeEmbed section');
+  });
+
   it('applies accepted Footer colors and removes an empty navigation landmark', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Footer.render({

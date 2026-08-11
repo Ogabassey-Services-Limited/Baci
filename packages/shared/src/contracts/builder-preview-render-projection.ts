@@ -41,7 +41,13 @@ function projectPreviewComponent(
   component: BuilderData['content'][number]
 ): BuilderData['content'][number] | undefined {
   if (builderDesignCapabilityAdapter.getCapability(component.type)?.refused)
-    return undefined;
+    return {
+      props: {
+        id: component.props.id,
+        label: `${component.type} section`,
+      },
+      type: 'PreviewPlaceholder',
+    };
   if (
     component.type === 'HeroCarousel' &&
     Array.isArray(component.props.slides)
