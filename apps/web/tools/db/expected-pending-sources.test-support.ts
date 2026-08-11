@@ -355,6 +355,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql',
     sha256: 'b95247200974a8f13d87d8506d2baa16f276146f95ec764098d0efc4bf7c4231',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811150000_idempotent_paystack_reconciliation_retries.sql',
+    sha256: 'ac548e96334e88b5f20729f0f7d741f428494f8fdd76e4d36311a8f4e89dab61',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

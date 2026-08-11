@@ -37,6 +37,20 @@ const reviewContractMigration = readFileSync(
   ),
   'utf8'
 );
+const retryMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811150000_idempotent_paystack_reconciliation_retries.sql'
+  ),
+  'utf8'
+);
+const concurrencyRegression = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/tests/paystack_reference_claim_concurrency.sql'
+  ),
+  'utf8'
+);
 
 describe('manual Paystack partial reconciliation migration', () => {
   it('locks and validates the review, order, and provider reference', () => {
@@ -124,7 +138,35 @@ describe('manual Paystack partial reconciliation migration', () => {
     );
     expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
     expect(reviewContractMigration).not.toContain(
-      "o.notes = 'Converted from chat order. Session: ' || co.session_id"
+      'JOIN public.orders AS o\n            ON o.notes ='
+    );
+  });
+
+  it('returns the committed result for an idempotent reconciliation retry', () => {
+    expect(retryMigration).toContain(
+      "t.metadata ->> 'reconciliation_review_id' = p_review_id::text"
+    );
+    expect(retryMigration).toContain(
+      "t.metadata ->> 'merchant_invoice_partial_applied' = 'true'"
+    );
+    expect(retryMigration).toContain(
+      "t.metadata ->> 'email_mismatch_override' = 'true'"
+    );
+    expect(retryMigration).toContain("'already_completed', true");
+    expect(retryMigration).toContain('paystack_reference_already_recorded');
+    expect(retryMigration).toContain('FOR UPDATE OF t, o');
+  });
+
+  it('ships a two-session reference-claim concurrency regression', () => {
+    expect(concurrencyRegression).toContain('dblink_send_query');
+    expect(concurrencyRegression).toContain(
+      'reconcile_paystack_unmatched_partial_payment('
+    );
+    expect(concurrencyRegression).toContain(
+      'public.create_payment_transaction('
+    );
+    expect(concurrencyRegression).toContain(
+      'expected exactly one Paystack claim to succeed'
     );
   });
 });
