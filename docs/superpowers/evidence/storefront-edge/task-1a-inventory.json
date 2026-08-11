@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "13e870ba02c555a11a92d9498ec628aee118b3a9",
+  "originMainSha": "4d541ec5c453f918a46112643ef655a38822ccb1",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "615cc5374de1e62c6b3fe871b152c33f8fb7c29147e96d87040cf4af96b2dda0",
-  "routingProxyInputSha256": "99a7004586e0932c3fad92ad855c40760bda002e850cd281e7daf55ebf2b298d",
+  "routingProxyInputSha256": "6f6420d634a3f35861d4554acc03356769e8d4e83bee76ea0e6ae1f3e8eeb40e",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -1500,6 +1500,43 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-blog-root-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryKeyPresent": [
+          "brand",
+          "brands",
+          "color",
+          "colors",
+          "condition",
+          "category",
+          "displaySize",
+          "displayType",
+          "maxPrice",
+          "minPrice",
+          "page",
+          "q",
+          "query",
+          "ram",
+          "search",
+          "simType",
+          "storage",
+          "variantId",
+          "variant_id"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(blog)/blog/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "request-override:query-dependent-blog-author",
       "methods": [
         "GET",
@@ -1532,6 +1569,43 @@
         "precedence": "after_entrypoint_resolution_before_decision"
       },
       "routePattern": "/blog/author/{authorSlug}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/author/[authorSlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-blog-author-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryKeyPresent": [
+          "brand",
+          "brands",
+          "color",
+          "colors",
+          "condition",
+          "category",
+          "displaySize",
+          "displayType",
+          "maxPrice",
+          "minPrice",
+          "page",
+          "q",
+          "query",
+          "ram",
+          "search",
+          "simType",
+          "storage",
+          "variantId",
+          "variant_id"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(blog)/blog/author/[authorSlug]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog/author/{authorSlug}",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/author/[authorSlug]/page.tsx"
     },
@@ -1574,6 +1648,43 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-blog-category-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryKeyPresent": [
+          "brand",
+          "brands",
+          "color",
+          "colors",
+          "condition",
+          "category",
+          "displaySize",
+          "displayType",
+          "maxPrice",
+          "minPrice",
+          "page",
+          "q",
+          "query",
+          "ram",
+          "search",
+          "simType",
+          "storage",
+          "variantId",
+          "variant_id"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(blog)/blog/category/[categorySlug]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog/category/{categorySlug}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/category/[categorySlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "request-override:query-dependent-compare-root",
       "methods": [
         "GET",
@@ -1589,6 +1700,26 @@
         "precedence": "after_entrypoint_resolution_before_decision"
       },
       "routePattern": "/compare",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/compare/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-compare-root-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(listing)/compare/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/compare",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/compare/page.tsx"
     },
@@ -1631,6 +1762,43 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-category-root-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryKeyPresent": [
+          "brand",
+          "brands",
+          "color",
+          "colors",
+          "condition",
+          "category",
+          "displaySize",
+          "displayType",
+          "maxPrice",
+          "minPrice",
+          "page",
+          "q",
+          "query",
+          "ram",
+          "search",
+          "simType",
+          "storage",
+          "variantId",
+          "variant_id"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(listing)/[category]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/{category}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "request-override:query-dependent-category-compare",
       "methods": [
         "GET",
@@ -1646,6 +1814,26 @@
         "precedence": "after_entrypoint_resolution_before_decision"
       },
       "routePattern": "/{category}/compare",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-category-compare-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(listing)/[category]/compare/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/{category}/compare",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/[category]/compare/page.tsx"
     },
@@ -1688,6 +1876,43 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-products-root-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryKeyPresent": [
+          "brand",
+          "brands",
+          "color",
+          "colors",
+          "condition",
+          "category",
+          "displaySize",
+          "displayType",
+          "maxPrice",
+          "minPrice",
+          "page",
+          "q",
+          "query",
+          "ram",
+          "search",
+          "simType",
+          "storage",
+          "variantId",
+          "variant_id"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(listing)/products/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/products",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(listing)/products/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "request-override:query-dependent-product-categoryless",
       "methods": [
         "GET",
@@ -1696,10 +1921,33 @@
       "reason": "query_dependent_storefront_render",
       "requestCondition": {
         "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
         "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/products/[productSlug]/page.tsx",
         "precedence": "after_entrypoint_resolution_before_decision"
       },
       "routePattern": "/products/{productSlug}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-product-categoryless-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/products/[productSlug]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/products/{productSlug}",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/products/[productSlug]/page.tsx"
     },
@@ -1713,10 +1961,33 @@
       "reason": "query_dependent_storefront_render",
       "requestCondition": {
         "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
         "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/[category]/[productSlug]/page.tsx",
         "precedence": "after_entrypoint_resolution_before_decision"
       },
       "routePattern": "/{category}/{productSlug}",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:query-dependent-product-category-slug-prefixed",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "query_dependent_storefront_render",
+      "requestCondition": {
+        "anyQueryPresent": true,
+        "anyQueryPresentExcept": [
+          "__baci_metadata_cache_bucket"
+        ],
+        "matchedStorefrontEntrypointId": "storefront:(catalog)/(pdp)/[category]/[productSlug]/page.tsx",
+        "precedence": "after_entrypoint_resolution_before_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/{category}/{productSlug}",
       "sourceKind": "request_override",
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(catalog)/(pdp)/[category]/[productSlug]/page.tsx"
     },
@@ -2543,6 +2814,22 @@
       "routePattern": "/template-previews/ogabassey-v2.png",
       "sourceKind": "public_asset",
       "sourcePath": "apps/web/public/template-previews/ogabassey-v2.png"
+    },
+    {
+      "decision": "edge_release",
+      "id": "public-asset:favicon.ico-platform-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "platform_root_public_favicon",
+      "routePattern": "/favicon.ico",
+      "sourceKind": "public_asset",
+      "sourcePath": "apps/web/public/favicon.ico",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -4782,5 +5069,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "73f1adbdcaa11cff4fffb2c0df0697dade03772e7b9ae3b52b7353a392f7d4ef"
+  "inventorySha256": "a6c4ce4d24eb77070a23e496702e8f4618e62d75afa2a42c79e9bacd57e155ea"
 }
