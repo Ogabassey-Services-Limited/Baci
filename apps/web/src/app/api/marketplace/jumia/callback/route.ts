@@ -9,16 +9,13 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import {
-  exchangeJumiaCode,
-  getJumiaRedirectUri,
-  sanitizeJumiaErrorDetails,
-} from '@/lib/jumia/helpers';
+import { getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
 import { parseJumiaOAuthDiagnosticContext } from './oauth-diagnostic-context';
+import { exchangeJumiaOAuthTokens } from './oauth-exchange';
 import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
@@ -205,56 +202,23 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
+    let tokens: Awaited<ReturnType<typeof exchangeJumiaOAuthTokens>>;
     try {
-      tokens = await exchangeJumiaCode({
-        code,
+      tokens = await exchangeJumiaOAuthTokens({
         clientId: jumiaClientId,
         clientSecret: jumiaClientSecret,
-        redirectUri: jumiaRedirectUri,
-      });
-    } catch (tokenError) {
-      const tokenErrorDetails = sanitizeJumiaErrorDetails(
-        (tokenError as Error & { details?: unknown }).details
-      );
-      logger.error({
-        message: 'Jumia Callback Token exchange failed',
+        code,
         merchantId,
         redirectUri: jumiaRedirectUri,
-        error:
-          tokenError instanceof Error
-            ? {
-                name: tokenError.name,
-                message: tokenError.message,
-                status: (tokenError as Error & { status?: number }).status,
-                ...(tokenErrorDetails === undefined
-                  ? {}
-                  : { details: tokenErrorDetails }),
-              }
-            : String(tokenError).slice(0, 200),
+        variant,
       });
+    } catch {
       return jumiaOAuthCallbackRedirect.create(request, {
         error: 'token_exchange_failed',
       });
     }
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-    // VARIANT-TEST: REMOVE — log Jumia's token-response shape (NO secrets) so we
-    // can A/B which auth-URL variant (if any) makes Jumia mint refresh tokens.
-    if (variant) {
-      logger.info({
-        message: '[Jumia OAuth Variant Test]',
-        variant,
-        merchantId,
-        has_access_token: Boolean(tokens.access_token),
-        has_refresh_token: Boolean(tokens.refresh_token),
-        has_refresh_expires_in: tokens.refresh_expires_in !== undefined,
-        expires_in: tokens.expires_in,
-        refresh_expires_in: tokens.refresh_expires_in ?? null,
-        token_type: tokens.token_type,
-      });
-    }
 
     const tempClient = new JumiaClient({
       integrationId: 'temp',
