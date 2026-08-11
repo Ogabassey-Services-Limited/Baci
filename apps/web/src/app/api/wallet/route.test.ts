@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   hasPermission: vi.fn(),
   rpc: vi.fn(),
   toUserAccess: vi.fn(),
+  upsert: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -74,6 +75,7 @@ vi.mock('@/lib/supabase/server', () => ({
             createMerchantWalletSelect(walletSettingsResult, walletSelectError)
           ),
           update: vi.fn(() => createMerchantWalletUpdate(updateError)),
+          upsert: mocks.upsert,
         };
       }
 
@@ -125,6 +127,7 @@ describe('/api/wallet', () => {
     walletSelectError = null;
     pendingSettlements = [];
     updateError = null;
+    mocks.upsert.mockImplementation(() => Promise.resolve({ error: updateError }));
   });
 
   it('returns 401 when the user is missing', async () => {
@@ -319,5 +322,21 @@ describe('/api/wallet', () => {
       success: true,
       message: 'Wallet settings updated',
     });
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      { merchant_id: 'merchant-1', auto_payout_enabled: false, auto_payout_day: 'friday' },
+      { onConflict: 'merchant_id', ignoreDuplicates: false }
+    );
+  });
+
+  it('creates a wallet when updating settings before wallet initialization', async () => {
+    const { PATCH } = await import('./route');
+
+    const response = await PATCH(patchRequest({ autoPayoutEnabled: false }));
+
+    expect(response.status).toBe(200);
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      { merchant_id: 'merchant-1', auto_payout_enabled: false },
+      { onConflict: 'merchant_id', ignoreDuplicates: false }
+    );
   });
 });

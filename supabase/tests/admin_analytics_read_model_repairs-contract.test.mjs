@@ -62,6 +62,10 @@ test('Merchant 360 preserves payout history across currency changes and counts a
     /ALTER FUNCTION public\.get_admin_merchant_360_v2\(uuid\)\n {2}RENAME TO get_admin_merchant_360_v2_payout_history/
   );
   assert.match(sql, /FROM public\.payout_requests AS payout/);
+  assert.match(sql, /NULL::numeric AS pending_amount/);
+  assert.match(sql, /NULL::numeric AS failed_amount/);
+  assert.match(sql, /NULL::numeric AS completed_amount/);
+  assert.match(sql, /aggregate can span currencies/);
   assert.doesNotMatch(sql, /payout\.currency\).*payout_currency/);
   assert.match(sql, /'shipment_exception', 'delivery_attempt_failed', 'returned'/);
   assert.match(sql, /\{incidents,shipmentFailures30d\}/);

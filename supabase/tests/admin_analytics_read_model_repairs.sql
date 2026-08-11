@@ -216,7 +216,9 @@ BEGIN
     RAISE EXCEPTION 'Merchant 360 counted unknown-currency paid orders as GMV instead of excluding them';
   END IF;
   IF (v_detail #>> '{payouts,completedCount}') IS DISTINCT FROM '1'
-    OR (v_detail #>> '{payouts,pendingCount}') IS DISTINCT FROM '1' THEN
+    OR (v_detail #>> '{payouts,pendingCount}') IS DISTINCT FROM '1'
+    OR (v_detail #> '{payouts,completedAmount}') IS DISTINCT FROM 'null'::jsonb
+    OR (v_detail #> '{payouts,pendingAmount}') IS DISTINCT FROM 'null'::jsonb THEN
     RAISE EXCEPTION 'Merchant 360 lost payout requests after a historical currency change';
   END IF;
 

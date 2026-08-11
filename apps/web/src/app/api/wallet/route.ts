@@ -224,10 +224,15 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update wallet settings
+    // Settings must also work for merchants whose wallet has not been
+    // materialized yet. The merchant_id uniqueness constraint makes this
+    // idempotent without touching any balance columns on existing wallets.
     const { error: updateError } = await supabase
       .from('merchant_wallets')
-      .update(updates)
-      .eq('merchant_id', merchantId);
+      .upsert({ merchant_id: merchantId, ...updates }, {
+        onConflict: 'merchant_id',
+        ignoreDuplicates: false,
+      });
 
     if (updateError) {
       console.error('Failed to update wallet settings:', updateError);

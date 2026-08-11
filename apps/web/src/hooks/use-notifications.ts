@@ -57,12 +57,14 @@ function useNotificationsForMerchant(
     typeof supabaseRef.current.channel
   > | null>(null);
   const isFetchingRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
 
   const fetchNotifications = async (append = false) => {
     if (!merchant?.id) return;
     await fetchNotificationsRequest(append, {
       cursor,
       isFetchingRef,
+      pendingRefreshRef,
       setIsLoading,
       setNotifications,
       setUnreadCount,
@@ -100,6 +102,7 @@ function useNotificationsForMerchant(
           void fetchNotificationsRequest(false, {
             cursor: null,
             isFetchingRef,
+            pendingRefreshRef,
             setCursor,
             setError,
             setHasMore,
@@ -129,6 +132,7 @@ function useNotificationsForMerchant(
           void fetchNotificationsRequest(false, {
             cursor: null,
             isFetchingRef,
+            pendingRefreshRef,
             setCursor,
             setError,
             setHasMore,

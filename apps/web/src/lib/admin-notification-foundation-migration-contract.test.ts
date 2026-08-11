@@ -17,6 +17,7 @@ const notificationMigrationNames = [
   '20260805151360_harden_merchant_notification_table_privileges.sql',
   '20260805151370_mark_all_visible_merchant_notifications_read.sql',
   '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
+  '20260811150000_prune_terminal_notification_audience_snapshots.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -53,6 +54,7 @@ describe('admin notification foundation migration contract', () => {
       '20260805151360_harden_merchant_notification_table_privileges.sql',
       '20260805151370_mark_all_visible_merchant_notifications_read.sql',
       '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
+      '20260811150000_prune_terminal_notification_audience_snapshots.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -75,6 +77,25 @@ describe('admin notification foundation migration contract', () => {
     expect(sql.split(escapeClause)).toHaveLength(3);
     expect(sql).toContain(
       'grant execute on function public.get_admin_notification_dashboard(text, text, text, text)\n  to authenticated'
+    );
+  });
+
+  it('prunes only the claim snapshot after terminal finalization', () => {
+    const sql = readMigrations([
+      '20260811150000_prune_terminal_notification_audience_snapshots.sql',
+    ]);
+
+    expect(sql).toContain(
+      'if v_row_count > 0 and v_terminal then\n    delete from public.admin_notification_audience_snapshot'
+    );
+    expect(sql).toContain(
+      'where notification_id = p_notification_id and claim_token = p_claim_token'
+    );
+    expect(sql).toContain(
+      'select n.delivery_attempts >= 3\n    into v_terminal'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.finalize_scheduled_admin_notification_v1(uuid, uuid, text, text)\n  to service_role'
     );
   });
 

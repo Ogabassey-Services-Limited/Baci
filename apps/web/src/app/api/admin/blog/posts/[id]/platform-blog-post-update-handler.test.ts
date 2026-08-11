@@ -123,4 +123,36 @@ describe('updatePlatformBlogPost', () => {
       error: 'A post with this slug already exists',
     });
   });
+
+  it('rejects clearing published_at on an already published post', async () => {
+    const supabase = createSupabase();
+    const existingQuery = supabase.from('blog_posts');
+    existingQuery.single
+      .mockReset()
+      .mockResolvedValueOnce({
+        data: {
+          featured_image_height: null,
+          featured_image_url: null,
+          featured_image_variants: {},
+          featured_image_width: null,
+          id: 'post-1',
+          slug: 'published-post',
+          status: 'published',
+        },
+        error: null,
+      });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updatePlatformBlogPost(
+      request({ published_at: null }),
+      { params: Promise.resolve({ id: 'post-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      code: 'PUBLISHED_AT_REQUIRED',
+      error: 'Published posts must retain a publication timestamp',
+    });
+    expect(supabase.updates).toHaveLength(0);
+  });
 });

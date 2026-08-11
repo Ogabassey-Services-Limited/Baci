@@ -104,7 +104,7 @@ describe('listAdminNotifications', () => {
 
     expect(response.status).toBe(200);
     expect(supabase.query.or).toHaveBeenCalledWith(
-      'title.ilike.%100\\%\\_off%,message.ilike.%100\\%\\_off%'
+      'title.ilike.*"100%_off"*,message.ilike.*"100%_off"*'
     );
     await expect(response.json()).resolves.toMatchObject({
       data: [{ delivery_last_error: null, target_merchant_ids: [] }],

@@ -14,11 +14,11 @@ AS $$
   ), payout_summary AS (
     SELECT
       COUNT(*) FILTER (WHERE payout.status IN ('pending', 'processing'))::bigint AS pending_count,
-      COALESCE(SUM(payout.amount) FILTER (WHERE payout.status IN ('pending', 'processing')), 0)::numeric AS pending_amount,
+      NULL::numeric AS pending_amount,
       COUNT(*) FILTER (WHERE payout.status = 'failed')::bigint AS failed_count,
-      COALESCE(SUM(payout.amount) FILTER (WHERE payout.status = 'failed'), 0)::numeric AS failed_amount,
+      NULL::numeric AS failed_amount,
       COUNT(*) FILTER (WHERE payout.status = 'completed')::bigint AS completed_count,
-      COALESCE(SUM(payout.amount) FILTER (WHERE payout.status = 'completed'), 0)::numeric AS completed_amount
+      NULL::numeric AS completed_amount
     FROM public.payout_requests AS payout
     WHERE payout.merchant_id = p_merchant_id
   ), shipment_summary AS (
@@ -65,4 +65,4 @@ REVOKE ALL ON FUNCTION public.get_admin_merchant_360_v2(uuid)
 GRANT EXECUTE ON FUNCTION public.get_admin_merchant_360_v2(uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.get_admin_merchant_360_v2(uuid) IS
-  'Platform-admin Merchant 360 v2. Payout requests are historical merchant activity and are not filtered by the merchant current payout currency; shipment incidents include all supported exception statuses.';
+  'Platform-admin Merchant 360 v2. Payout requests are historical merchant activity and are not filtered by the merchant current payout currency. Payout amounts are withheld because the aggregate can span currencies; shipment incidents include all supported exception statuses.';

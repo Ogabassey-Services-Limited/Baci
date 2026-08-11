@@ -49,9 +49,9 @@ export async function listAdminNotifications(url: string) {
     if (type) query = query.eq('notification_type', type);
     if (priority) query = query.eq('priority', priority);
     if (search) {
-      const sanitizedSearch = search.replace(/[%_\\]/g, '\\$&');
+      const sanitizedSearch = quotePostgrestOrValue(search);
       query = query.or(
-        `title.ilike.%${sanitizedSearch}%,message.ilike.%${sanitizedSearch}%`
+        `title.ilike.*${sanitizedSearch}*,message.ilike.*${sanitizedSearch}*`
       );
     }
 
@@ -92,6 +92,11 @@ export async function listAdminNotifications(url: string) {
       { status: 500 }
     );
   }
+}
+
+/** Quote OR-filter values so commas, parentheses and quotes stay data. */
+function quotePostgrestOrValue(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\\"')}"`;
 }
 
 function parseListQuery(url: string): ListQuery | NextResponse {

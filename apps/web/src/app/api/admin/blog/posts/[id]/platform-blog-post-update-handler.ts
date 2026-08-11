@@ -77,6 +77,19 @@ export async function updatePlatformBlogPost(
     }
 
     const updateData: Record<string, unknown> = { ...validated.data };
+    if (
+      existingPost.status === 'published' &&
+      Object.hasOwn(updateData, 'published_at') &&
+      updateData.published_at === null
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Published posts must retain a publication timestamp',
+          code: 'PUBLISHED_AT_REQUIRED',
+        },
+        { status: 400 }
+      );
+    }
     const featuredImageUrlChanged =
       Object.hasOwn(updateData, 'featured_image_url') &&
       updateData.featured_image_url !== existingPost.featured_image_url;
