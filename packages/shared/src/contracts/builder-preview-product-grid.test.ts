@@ -48,11 +48,12 @@ describe('saved ProductGrid category preview compatibility', () => {
     expect(candidate({ name: 'Phones' }).success).toBe(false);
   });
 
-  it('aligns one-column grids with the live builder bound', () => {
-    expect(candidateWithColumns(1).success).toBe(true);
+  it('rejects one-column grids outside the live renderer bound', () => {
+    expect(candidateWithColumns(2).success).toBe(true);
+    expect(candidateWithColumns(1).success).toBe(false);
     expect(
       builderDesignCapabilityAdapter.isPropValue('ProductGrid', 'columns', 1)
-    ).toBe(true);
+    ).toBe(false);
     expect(candidateWithColumns(0).success).toBe(false);
     expect(
       builderDesignCapabilityAdapter.isPropValue('ProductGrid', 'columns', 0)
