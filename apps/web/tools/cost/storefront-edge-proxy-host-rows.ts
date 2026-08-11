@@ -25,8 +25,8 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
     'proxy:platform-admin',
     '/admin/{*path?}',
     ['ANY'],
-    'edge_redirect',
-    'platform_route_subdomain_redirect',
+    'origin_dynamic',
+    'platform_subdomain_admin_requires_auth',
     {
       hostCondition: {
         hostKind: 'platform_subdomain',

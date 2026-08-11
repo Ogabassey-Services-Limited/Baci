@@ -45,6 +45,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
   requestCondition?: Readonly<{
     anyCookiePresent?: readonly string[];
     anyCookieNameContains?: readonly string[];
+    cookiePredicate?: 'supabase_auth_session_hint';
     anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
     anyQueryPresent?: true;
     anyQueryPresentExcept?: readonly string[];

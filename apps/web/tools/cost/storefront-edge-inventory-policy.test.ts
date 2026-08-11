@@ -166,7 +166,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       expect.objectContaining({
         decision: 'origin_dynamic',
         requestCondition: expect.objectContaining({
-          anyCookieNameContains: ['auth-token'],
+          cookiePredicate: 'supabase_auth_session_hint',
           anyHeaderMatch: [
             { name: 'authorization' },
             { name: 'x-supabase-auth-token' },

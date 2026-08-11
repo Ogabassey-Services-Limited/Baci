@@ -7,6 +7,20 @@ type InventoryRow = StorefrontEdgeInventory['rows'][number];
 /** Terminal and host-conditioned proxy classes after explicit rewrites. */
 export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   createStorefrontEdgeProxyClass(
+    'proxy:platform-root-blog-sitemap',
+    '/blog/sitemap.xml',
+    ['GET', 'HEAD', 'OPTIONS'],
+    'origin_dynamic',
+    'platform_root_blog_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/next.config.ts',
+    }
+  ),
+  createStorefrontEdgeProxyClass(
     'proxy:platform-root-slug-sitemap',
     '/{storefrontIdentifier}/sitemap.xml',
     ['GET', 'HEAD', 'OPTIONS'],

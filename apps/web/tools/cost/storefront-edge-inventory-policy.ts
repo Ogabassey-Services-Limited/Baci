@@ -66,7 +66,7 @@ const AUTH_SESSION_ROWS: readonly InventoryRow[] = [
     methods: ['GET', 'HEAD'],
     reason: 'storefront_auth_session_requires_origin',
     requestCondition: {
-      anyCookieNameContains: ['auth-token'],
+      cookiePredicate: 'supabase_auth_session_hint',
       anyHeaderMatch: [
         { name: 'authorization' },
         { name: 'x-supabase-auth-token' },

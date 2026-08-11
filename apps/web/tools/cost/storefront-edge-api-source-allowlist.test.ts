@@ -3,9 +3,20 @@ import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-
 
 describe('isStorefrontRequiredApiSourcePath', () => {
   it('admits reviewed customer storefront APIs and excludes control-plane handlers', () => {
-    expect(
-      isStorefrontRequiredApiSourcePath('apps/web/src/app/api/orders/route.ts')
-    ).toBe(true);
+    for (const path of [
+      'orders',
+      'orders/reuse',
+      'quiz/events',
+      'quiz/attempts/start',
+      'quiz/attempts/[attemptId]/answers',
+      'shipping/locations',
+    ]) {
+      expect(
+        isStorefrontRequiredApiSourcePath(
+          `apps/web/src/app/api/${path}/route.ts`
+        )
+      ).toBe(true);
+    }
     expect(
       isStorefrontRequiredApiSourcePath(
         'apps/web/src/app/api/storefront/orders/[id]/route.ts'

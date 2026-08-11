@@ -23,6 +23,14 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
     expect(row?.pathCondition?.firstSegmentIn).not.toContain('auth');
   });
 
+  it('keeps merchant-subdomain admin requests dynamic for auth', () => {
+    expect(
+      STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
+        ({ id }) => id === 'proxy:platform-admin'
+      )
+    ).toEqual(expect.objectContaining({ decision: 'origin_dynamic' }));
+  });
+
   it('models root-domain current-slug redirects with active custom domains', () => {
     const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
       (candidate) => candidate.id === 'proxy:root-domain-current-slug'
