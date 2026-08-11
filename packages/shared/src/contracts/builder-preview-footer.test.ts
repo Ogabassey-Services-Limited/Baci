@@ -56,4 +56,35 @@ describe('saved Footer preview compatibility', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts bounded social links and rejects unknown or unsafe platforms', () => {
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [
+          {
+            props: {
+              id: 'footer-1',
+              socialLinks: { instagram: 'https://instagram.com/store' },
+            },
+            type: 'Footer',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(true);
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [
+          {
+            props: {
+              id: 'footer-1',
+              socialLinks: { tracking: 'https://evil.test' },
+            },
+            type: 'Footer',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(false);
+  });
 });

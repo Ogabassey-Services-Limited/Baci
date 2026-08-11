@@ -85,9 +85,10 @@ function hasValidPuckCollections(value: unknown): boolean {
     const parsed = previewRenderPolicy.parsePuckZoneKey(zone);
     const type = parsed ? ids.get(parsed.parentId) : undefined;
     return (
-      parsed !== undefined &&
-      type !== undefined &&
-      previewRenderPolicy.allowsPuckZoneSlot(type, parsed.slot)
+      (parsed !== undefined &&
+        type !== undefined &&
+        previewRenderPolicy.allowsPuckZoneSlot(type, parsed.slot)) ||
+      (parsed === undefined && previewRenderPolicy.isLegacyZoneKey(zone))
     );
   });
 }

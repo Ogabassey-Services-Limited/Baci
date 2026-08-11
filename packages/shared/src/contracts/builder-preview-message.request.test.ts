@@ -103,7 +103,7 @@ describe('builder preview bridge render candidates', () => {
       }).success
     ).toBe(false);
     expect(message({ content: [], root, zones: { aside: [] } }).success).toBe(
-      false
+      true
     );
   });
 
@@ -168,6 +168,20 @@ describe('builder preview bridge render candidates', () => {
               socialLinksLabel: 'Follow us',
             },
             type: 'Footer',
+          },
+        ],
+        root,
+      }).success
+    ).toBe(true);
+  });
+
+  it('accepts hidden Header CTAs without placeholder text or URLs', () => {
+    expect(
+      message({
+        content: [
+          {
+            props: { ctaButton: { show: false }, id: 'Header-home' },
+            type: 'Header',
           },
         ],
         root,

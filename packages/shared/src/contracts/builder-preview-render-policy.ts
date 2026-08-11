@@ -8,6 +8,14 @@ const MAX_CAROUSEL_SLIDES = 5;
 const componentIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const componentSlotZoneKeyPattern =
   /^([A-Za-z0-9][A-Za-z0-9_-]{0,119}):([A-Za-z][A-Za-z0-9_-]{0,79})$/;
+const legacyZoneKeyPattern = /^[A-Za-z][A-Za-z0-9_-]{0,79}$/;
+const socialPlatforms = [
+  'facebook',
+  'instagram',
+  'twitter',
+  'linkedin',
+  'youtube',
+] as const;
 const colorPattern =
   /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\))$/;
 const animationTypes = new Set(
@@ -48,6 +56,19 @@ function isSafeGradient(value: unknown): boolean {
     typeof value === 'string' &&
     value.length <= MAX_GRADIENT_LENGTH &&
     gradientPattern.test(value)
+  );
+}
+
+function isSafeSocialLinks(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    Object.keys(value).every((key) =>
+      socialPlatforms.includes(key as (typeof socialPlatforms)[number])
+    ) &&
+    Object.values(value).every(
+      (url) =>
+        url === undefined || builderDesignCapabilityAdapter.isSafeUrl(url)
+    )
   );
 }
 
@@ -119,6 +140,17 @@ function isCuratedRenderProp(
   const animation = isAnimationProp(componentType, property, value);
   if (animation !== undefined) return animation;
   if (componentType === 'Header') {
+    if (property === 'ctaButton') {
+      if (!isRecord(value) || typeof value.show !== 'boolean') return false;
+      if (!value.show)
+        return Object.keys(value).every(
+          (key) => key === 'show' || key === 'text' || key === 'url'
+        );
+      return (
+        isBoundedText(value.text, 120) &&
+        builderDesignCapabilityAdapter.isSafeUrl(value.url)
+      );
+    }
     if (property === 'backgroundColor' || property === 'textColor')
       return isSafeColor(value);
     if (property === 'storeName')
@@ -154,11 +186,7 @@ function isCuratedRenderProp(
     ) {
       return isBoundedText(value, MAX_STORE_NAME_LENGTH);
     }
-    return (
-      property === 'socialLinks' &&
-      isRecord(value) &&
-      Object.keys(value).length === 0
-    );
+    return property === 'socialLinks' && isSafeSocialLinks(value);
   }
   if (componentType !== 'Hero') return false;
   if (property === 'headingLevel')
@@ -175,6 +203,8 @@ function isReviewedProp(
   value: unknown
 ): boolean {
   if (value === undefined) return false;
+  if (componentType === 'Header' && property === 'ctaButton')
+    return isCuratedRenderProp(componentType, property, value);
   const capability =
     builderDesignCapabilityAdapter.getCapability(componentType);
   if (!capability) return false;
@@ -276,6 +306,7 @@ export const previewRenderPolicy = {
     return true;
   },
   isPuckZoneKey: (value: string) => parsePuckZoneKey(value) !== undefined,
+  isLegacyZoneKey: (value: string) => legacyZoneKeyPattern.test(value),
   parsePuckZoneKey,
   projectPreviewCandidate,
 };
