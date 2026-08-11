@@ -249,23 +249,28 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     'data-collection',
     'AI cannot change contact collection or embeds without review.'
   ),
-  allow('LegalSection', 'Store policy copy.', {
-    lastUpdated: label(),
-    sections: {
-      default: [{ content: 'Policy details.', heading: 'Introduction' }],
-      item: {
-        properties: {
-          content: { ...copy(), required: true },
-          heading: { ...label(), required: true },
+  allow(
+    'LegalSection',
+    'Store policy copy.',
+    {
+      lastUpdated: label(),
+      sections: {
+        default: [{ content: 'Policy details.', heading: 'Introduction' }],
+        item: {
+          properties: {
+            content: { ...copy(), required: true },
+            heading: { ...label(), required: true },
+          },
+          uniqueBy: 'heading',
         },
-        uniqueBy: 'heading',
+        maximumItems: 12,
+        minimumItems: 1,
+        type: 'array',
       },
-      maximumItems: 12,
-      minimumItems: 1,
-      type: 'array',
+      title: label('Privacy Policy'),
     },
-    title: label('Privacy Policy'),
-  }),
+    false
+  ),
   deny(
     'CountdownTimer',
     'Time-dependent promotion.',

@@ -6,10 +6,12 @@ type PreviewLink = {
 };
 
 type PreviewHeroProps = {
+  backgroundGradient?: string;
   align?: 'center' | 'left' | 'right';
   backgroundImage?: string;
   ctaText?: string;
   headingLevel?: 'h1' | 'h2' | 'div';
+  image?: string;
   overlay?: boolean;
   padding?: 'large' | 'medium' | 'small';
   subtitle?: string;
@@ -40,6 +42,8 @@ type PreviewFooterProps = {
   quickLinks?: PreviewLink[];
   showNewsletter?: boolean;
   showQuickLinks?: boolean;
+  socialLinks?: Record<string, string>;
+  socialLinksLabel?: string;
   textColor?: string;
 };
 type PreviewFaqProps = {
@@ -103,6 +107,7 @@ function InertAction({
 
 function PreviewHero({
   align = 'center',
+  backgroundGradient,
   backgroundImage,
   ctaText,
   headingLevel = 'h1',
@@ -115,11 +120,13 @@ function PreviewHero({
   return (
     <section
       aria-label="Preview hero"
-      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay && backgroundImage ? ' bg-store-background-text/40 text-store-background' : ''}`}
+      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay && backgroundImage ? ' bg-store-background-text/40 text-store-background' : backgroundGradient ? ' text-store-background' : ''}`}
       style={
-        backgroundImage
+        backgroundImage || backgroundGradient
           ? {
-              backgroundImage: `url(${backgroundImage})`,
+              backgroundImage: backgroundImage
+                ? `url(${backgroundImage})`
+                : backgroundGradient,
               backgroundPosition: 'center',
               backgroundSize: 'cover',
             }
@@ -136,9 +143,19 @@ function PreviewHero({
 function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
   return (
     <section aria-label="Preview hero carousel">
-      {slides.map((slide, index) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: Bounded preview slides are static and have no intrinsic IDs.
-        <article key={index}>
+      {slides.map((slide) => (
+        <article
+          key={`${slide.title ?? ''}:${slide.subtitle ?? ''}:${slide.image ?? ''}`}
+          style={
+            slide.image
+              ? {
+                  backgroundImage: `url(${slide.image})`,
+                  backgroundPosition: 'center',
+                  backgroundSize: 'cover',
+                }
+              : undefined
+          }
+        >
           <h2>{slide.title}</h2>
           {slide.subtitle ? <p>{slide.subtitle}</p> : null}
           {slide.ctaText ? <InertAction>{slide.ctaText}</InertAction> : null}
@@ -178,8 +195,11 @@ function PreviewFooter({
   quickLinks = [],
   showNewsletter = false,
   showQuickLinks = true,
+  socialLinks = {},
+  socialLinksLabel = 'Follow us',
   textColor,
 }: PreviewFooterProps) {
+  const socialPlatforms = Object.keys(socialLinks);
   return (
     <footer
       data-testid="builder-preview-inert-footer"
@@ -193,6 +213,14 @@ function PreviewFooter({
             <span key={link.label}>{link.label}</span>
           ))}
         </nav>
+      ) : null}
+      {socialPlatforms.length > 0 ? (
+        <section aria-label="Preview social links">
+          <h2>{socialLinksLabel}</h2>
+          {socialPlatforms.map((platform) => (
+            <span key={platform}>{platform}</span>
+          ))}
+        </section>
       ) : null}
       {showNewsletter ? (
         <section aria-label="Preview newsletter">

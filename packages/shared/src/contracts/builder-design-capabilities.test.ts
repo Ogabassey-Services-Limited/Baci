@@ -65,6 +65,9 @@ describe('builder design capabilities', () => {
     const features = builderDesignCapabilities.components.find(
       ({ componentType }) => componentType === 'Features'
     );
+    const legalSection = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'LegalSection'
+    );
 
     expect(header).toMatchObject({
       aiEditable: true,
@@ -96,6 +99,10 @@ describe('builder design capabilities', () => {
         },
       },
       placement: { allowedCollections: ['content', 'zones'], kind: 'content' },
+    });
+    expect(legalSection).toMatchObject({
+      aiEditable: true,
+      aiInsertable: false,
     });
   });
 
