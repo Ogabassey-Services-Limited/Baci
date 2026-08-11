@@ -27,6 +27,27 @@ BEGIN
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(trim(p_reference), 0)
     );
+
+    IF EXISTS (
+      SELECT 1
+        FROM public.transactions AS t
+       WHERE lower(trim(COALESCE(t.gateway, ''))) = 'paystack'
+         AND t.gateway_reference = trim(p_reference)
+    ) THEN
+      IF NOT EXISTS (
+        SELECT 1
+          FROM public.chat_orders AS co
+          JOIN public.orders AS o
+            ON o.notes = 'Converted from chat order. Session: ' || co.session_id
+          JOIN public.transactions AS t ON t.order_id = o.id
+         WHERE co.id = p_chat_order_id
+           AND co.status IN ('completed', 'processing')
+           AND lower(trim(COALESCE(t.gateway, ''))) = 'paystack'
+           AND t.gateway_reference = trim(p_reference)
+      ) THEN
+        RAISE EXCEPTION 'paystack_reference_already_recorded';
+      END IF;
+    END IF;
   END IF;
 
   RETURN private.convert_chat_order_to_paid_order_with_inventory(

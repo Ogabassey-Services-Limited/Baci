@@ -8,6 +8,7 @@ export type ParsedReconcilePaystackUnmatchedPartialArgs = {
   merchantId: string;
   operatorUserId: string;
   paystackReference: string;
+  allowEmailMismatch: boolean;
 };
 
 export function parseReconcilePaystackUnmatchedPartialArgs(
@@ -46,6 +47,7 @@ export function parseReconcilePaystackUnmatchedPartialArgs(
       merchantId: parsed.data['--merchant-id'],
       operatorUserId: parsed.data['--operator-user-id'],
       paystackReference: parsed.data['--paystack-reference'],
+      allowEmailMismatch: parsed.data['--allow-email-mismatch'] === 'true',
     },
   };
 }

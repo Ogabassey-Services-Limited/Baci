@@ -340,6 +340,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260811110000_serialize_paystack_reference_claims.sql',
     sha256: 'a45c8d2fcd0f8f20bf95d671abf06c7418dfe7cfaa3426976829908994200cb7',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql',
+    sha256: 'c92072e6b472fad64a64d22d9539f00422a6404a745e8a5febbeccebe478018a',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

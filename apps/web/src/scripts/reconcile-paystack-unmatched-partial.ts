@@ -7,6 +7,8 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { parseReconcilePaystackUnmatchedPartialArgs } from '@/scripts/reconcile-paystack-unmatched-partial-args';
 
 const ACTOR = 'script:reconcile-paystack-unmatched-partial';
+const EMAIL_MISMATCH_OVERRIDE_ACTOR =
+  'script:reconcile-paystack-unmatched-partial:email-mismatch-override';
 
 export async function runReconcilePaystackUnmatchedPartialCli(
   argv: readonly string[]
@@ -53,7 +55,8 @@ export async function runReconcilePaystackUnmatchedPartialCli(
   const { data, error } = await supabase.rpc(
     'reconcile_paystack_unmatched_partial_payment',
     {
-      p_actor: ACTOR,
+      p_actor: args.allowEmailMismatch ? EMAIL_MISMATCH_OVERRIDE_ACTOR : ACTOR,
+      p_allow_email_mismatch: args.allowEmailMismatch,
       p_amount: amountNgn,
       p_currency: 'NGN',
       p_customer_email: customerEmail,

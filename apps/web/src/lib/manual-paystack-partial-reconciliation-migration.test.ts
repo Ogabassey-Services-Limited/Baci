@@ -16,6 +16,13 @@ const referenceClaimMigration = readFileSync(
   ),
   'utf8'
 );
+const emailMismatchMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql'
+  ),
+  'utf8'
+);
 
 describe('manual Paystack partial reconciliation migration', () => {
   it('locks and validates the review, order, and provider reference', () => {
@@ -37,6 +44,12 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(referenceClaimMigration).toContain(
       'private.convert_chat_order_to_paid_order_with_inventory('
     );
+    expect(referenceClaimMigration).toContain(
+      'paystack_reference_already_recorded'
+    );
+    expect(referenceClaimMigration).toContain(
+      "'Converted from chat order. Session: ' || co.session_id"
+    );
   });
 
   it('creates a separate partial transaction and delegates completion atomically', () => {
@@ -56,6 +69,20 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(migration).toContain('INSERT INTO public.audit_logs');
     expect(migration).toMatch(
       /GRANT EXECUTE ON FUNCTION public\.reconcile_paystack_unmatched_partial_payment[\s\S]*TO service_role;/
+    );
+  });
+
+  it('requires reviewed evidence and records an explicit email mismatch override', () => {
+    expect(emailMismatchMigration).toContain('p_allow_email_mismatch boolean');
+    expect(emailMismatchMigration).toContain(
+      'email_mismatch_override_requires_explicit_operator_actor'
+    );
+    expect(emailMismatchMigration).toContain(
+      'email_mismatch_review_evidence_missing'
+    );
+    expect(emailMismatchMigration).toContain("'email_mismatch_override', true");
+    expect(emailMismatchMigration).toContain(
+      "'manual_paystack_email_mismatch_override'"
     );
   });
 });

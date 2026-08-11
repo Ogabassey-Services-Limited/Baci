@@ -6,6 +6,7 @@ export const reconcilePaystackUnmatchedPartialArgsSchema = z.object({
   '--merchant-id': z.uuid(),
   '--operator-user-id': z.uuid(),
   '--paystack-reference': z.string().min(1),
+  '--allow-email-mismatch': z.literal('true').optional(),
 });
 
 export type ReconcilePaystackUnmatchedPartialArgs = z.output<

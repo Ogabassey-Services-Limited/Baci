@@ -85,6 +85,8 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
       'reconcile_paystack_unmatched_partial_payment',
       expect.objectContaining({
         p_amount: 1_250,
+        p_actor: 'script:reconcile-paystack-unmatched-partial',
+        p_allow_email_mismatch: false,
         p_currency: 'NGN',
         p_customer_email: 'buyer@example.com',
         p_customer_name: 'Ada Lovelace',
@@ -96,6 +98,45 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
         p_paystack_reference: 'paystack-reference-1',
         p_platform_fee: 25,
         p_review_id: '11111111-1111-4111-8111-111111111111',
+      })
+    );
+  });
+
+  it('marks an approved email mismatch override explicitly in the RPC payload', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { outcome: 'partial_recorded', transaction_id: 'txn-override' },
+      error: null,
+    });
+    mocks.createServiceClient.mockReturnValue({ rpc });
+    mocks.verifyTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        status: 'success',
+        currency: 'NGN',
+        amount: 125_000,
+        customer: { email: 'payer@example.com' },
+      },
+    });
+    mocks.calculatePlatformFee.mockReturnValue({
+      platformFee: 2_500,
+      merchantAmount: 122_500,
+    });
+    mocks.extractVerifiedGatewayFeeNgn.mockReturnValue(25);
+
+    const exit = await runReconcilePaystackUnmatchedPartialCli([
+      ...args,
+      '--allow-email-mismatch',
+      'true',
+    ]);
+
+    expect(exit).toBe(0);
+    expect(rpc).toHaveBeenCalledWith(
+      'reconcile_paystack_unmatched_partial_payment',
+      expect.objectContaining({
+        p_actor:
+          'script:reconcile-paystack-unmatched-partial:email-mismatch-override',
+        p_allow_email_mismatch: true,
+        p_customer_email: 'payer@example.com',
       })
     );
   });

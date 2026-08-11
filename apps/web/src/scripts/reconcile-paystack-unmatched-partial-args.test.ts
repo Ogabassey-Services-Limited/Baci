@@ -34,4 +34,17 @@ describe('parseReconcilePaystackUnmatchedPartialArgs', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('parses the explicit email mismatch override', () => {
+    const result = parseReconcilePaystackUnmatchedPartialArgs([
+      ...validArgs,
+      '--allow-email-mismatch',
+      'true',
+    ]);
+
+    expect(result).toMatchObject({
+      ok: true,
+      args: { allowEmailMismatch: true },
+    });
+  });
 });
