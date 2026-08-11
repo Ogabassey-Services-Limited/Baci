@@ -135,6 +135,7 @@ describe('Jumia OAuth connect diagnostic', () => {
 
     expect(response.status).toBe(403);
     expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+    expect(mockGetMerchantFeatureAccess).not.toHaveBeenCalled();
     expect(response.cookies.get('jumia_oauth_diagnostic')).toBeUndefined();
   });
 

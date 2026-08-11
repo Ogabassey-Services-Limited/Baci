@@ -354,6 +354,17 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
+      const initiationContext = await jumiaOAuthInitiationDiagnostic.getContext(
+        {
+          apiUserId: auth.user.id,
+          searchParams,
+        }
+      );
+      if (!initiationContext.ok) {
+        return initiationContext.response;
+      }
+      const { diagnosticRequested, platform, variant } = initiationContext;
+
       const featureAccess = await getMerchantFeatureAccess(
         auth.supabase,
         merchantId,
@@ -372,17 +383,6 @@ export async function GET(request: NextRequest) {
       if (!featureAccess.allowed) {
         return merchantFeatureUpgradeResponse('marketplace_sync');
       }
-
-      const initiationContext = await jumiaOAuthInitiationDiagnostic.getContext(
-        {
-          apiUserId: auth.user.id,
-          searchParams,
-        }
-      );
-      if (!initiationContext.ok) {
-        return initiationContext.response;
-      }
-      const { diagnosticRequested, platform, variant } = initiationContext;
 
       const jumiaClientId = getJumiaClientId();
       const appUrl = getConfiguredAppUrl();
