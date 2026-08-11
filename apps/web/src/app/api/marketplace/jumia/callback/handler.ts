@@ -99,11 +99,11 @@ export async function GET(request: NextRequest) {
       storedState,
     });
     if (diagnosticContext.status === 'invalid') {
-      return jumiaOAuthCallbackRedirect.clear(
-        jumiaOAuthCallbackRedirect.create(request, {
-          error: 'diagnostic_invalid',
-        })
-      );
+      const response = jumiaOAuthCallbackRedirect.create(request, {
+        error: 'diagnostic_invalid',
+      });
+      response.headers.set('Cache-Control', 'private, no-store');
+      return jumiaOAuthCallbackRedirect.clear(response);
     }
     const validatedDiagnosticId =
       diagnosticContext.status === 'diagnostic'
