@@ -2,7 +2,10 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
-import { STOREFRONT_EDGE_PUBLIC_ASSET_ROWS } from './storefront-edge-public-asset-rows';
+import {
+  STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
+  STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
+} from './storefront-edge-public-asset-rows';
 import { STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS } from './storefront-edge-query-dependent-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
@@ -172,6 +175,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
+    STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
     ...SERVER_ACTION_ROWS,
     ...STOREFRONT_EDGE_PROXY_ROWS,
   ],
@@ -221,6 +225,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/posthog/config.ts',
     ...new Set(Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS)),
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
+    STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW.sourcePath,
   ],
   schemaVersion: 5,
 } as const satisfies {

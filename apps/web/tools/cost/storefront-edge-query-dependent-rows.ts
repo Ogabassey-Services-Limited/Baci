@@ -84,17 +84,17 @@ const FILTER_QUERY_KEYS = [
 
 /** Origin-only query variants for reviewed storefront listing and PDP routes. */
 export const STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
-  QUERY_DEPENDENT_ENTRYPOINTS.map(({ id, routePattern, sourcePath }) => {
+  QUERY_DEPENDENT_ENTRYPOINTS.flatMap(({ id, routePattern, sourcePath }) => {
     if (!sourcePath.startsWith(STOREFRONT_ROUTE_SOURCE_PREFIX))
       throw new Error(
         `query-dependent entrypoint is outside the storefront route root: ${sourcePath}`
       );
     const isCompareHub = id === 'compare-root' || id === 'category-compare';
     const isPdp = id === 'product-categoryless' || id === 'product-category';
-    return {
-      decision: 'origin_dynamic',
-      id: `request-override:query-dependent-${id}`,
-      methods: ['GET', 'HEAD'],
+    return [false, true].map((slugPrefixed) => ({
+      decision: 'origin_dynamic' as const,
+      id: `request-override:query-dependent-${id}${slugPrefixed ? '-slug-prefixed' : ''}`,
+      methods: ['GET', 'HEAD'] as const,
       reason: 'query_dependent_storefront_render',
       requestCondition: {
         ...(isCompareHub
@@ -103,15 +103,20 @@ export const STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
               anyQueryPresentExcept: ['__baci_metadata_cache_bucket'],
             }
           : isPdp
-            ? { anyQueryPresent: true as const }
+            ? {
+                anyQueryPresent: true as const,
+                anyQueryPresentExcept: ['__baci_metadata_cache_bucket'],
+              }
             : { anyQueryKeyPresent: FILTER_QUERY_KEYS }),
         matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
           STOREFRONT_ROUTE_SOURCE_PREFIX.length
         )}`,
-        precedence: 'after_entrypoint_resolution_before_decision',
+        precedence: 'after_entrypoint_resolution_before_decision' as const,
       },
-      routePattern,
-      sourceKind: 'request_override',
+      routePattern: slugPrefixed
+        ? `/{storefrontIdentifier}${routePattern}`
+        : routePattern,
+      sourceKind: 'request_override' as const,
       sourcePath,
-    };
+    }));
   });

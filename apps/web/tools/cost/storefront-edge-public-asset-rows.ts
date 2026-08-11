@@ -33,3 +33,17 @@ export const STOREFRONT_EDGE_PUBLIC_ASSET_ROWS = PUBLIC_ASSETS.map((asset) => ({
   sourceKind: 'public_asset',
   sourcePath: `apps/web/public/${asset}`,
 })) satisfies readonly InventoryRow[];
+
+export const STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW = {
+  decision: 'edge_release',
+  id: 'public-asset:favicon.ico-platform-root',
+  methods: ['GET', 'HEAD'],
+  reason: 'platform_root_public_favicon',
+  routePattern: '/favicon.ico',
+  sourceKind: 'public_asset',
+  sourcePath: 'apps/web/public/favicon.ico',
+  hostCondition: {
+    hostKind: 'platform_root_domain',
+    precedence: 'before_path_decision',
+  },
+} satisfies InventoryRow;
