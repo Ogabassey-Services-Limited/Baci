@@ -155,6 +155,12 @@ export async function publishScheduledPosts(supabase: SupabaseClient) {
     }
 
     const claimedPostsByMerchant = groupPostsByMerchant(claimedPosts);
+    for (const [merchantId, claimedMerchantPosts] of claimedPostsByMerchant) {
+      const originalMerchantPosts = postsByMerchant.get(merchantId);
+      if (originalMerchantPosts) {
+        claimedMerchantPosts.listingPages = originalMerchantPosts.listingPages;
+      }
+    }
     const { blogRevalidationByMerchant, failedMerchants } =
       await revalidateScheduledPostsByMerchant(
         supabase,
