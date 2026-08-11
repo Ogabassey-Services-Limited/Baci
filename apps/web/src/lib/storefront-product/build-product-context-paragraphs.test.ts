@@ -187,7 +187,8 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).toContain('Internal Storage: 256GB');
     expect(copy).toContain('Capacity: 4000mAh');
     expect(copy).toContain('5G Support: Yes');
-    expect(copy).toContain('OIS: Yes');
+    expect(copy).toContain('Announced: 2024-01-17');
+    expect(copy).not.toContain('OIS: Yes');
     expect(copy).not.toContain('created at');
     expect(copy).not.toContain('nullMP');
     expect(copy).not.toContain('Display resolution');
