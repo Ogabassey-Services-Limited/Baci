@@ -90,7 +90,7 @@ export function buildRemediationCodexCommand({
   worktreeDir,
 }) {
   const codexArgs = [
-    '--search',
+    ...(readOnly ? [] : ['--search']),
     'exec',
     '--json',
     '--ephemeral',
@@ -163,7 +163,7 @@ export function buildRemediationCodexCommand({
     '-lc',
     'umask 077; mkdir -p "$CODEX_HOME"; chmod 700 "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
-    '--search',
+    ...(readOnly ? [] : ['--search']),
     ...(readOnly ? [] : ['--enable', 'use_legacy_landlock']),
     'exec',
     '--json',

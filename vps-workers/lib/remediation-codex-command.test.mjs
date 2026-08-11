@@ -17,9 +17,25 @@ describe('remediation Codex command', () => {
 
     assert.equal(result.command, 'codex');
     assert.deepEqual(result.args.slice(0, 2), ['--search', 'exec']);
+    assert.equal(result.args.includes('--search'), true);
     assert.equal(result.args.includes('use_legacy_landlock'), false);
     assert.equal(result.args.includes('workspace-write'), true);
     assert.equal(result.args.includes('--json'), true);
+  });
+
+  it('omits search for the native read-only canary command', () => {
+    const result = buildRemediationCodexCommand({
+      codexBin: 'codex',
+      env: { HOME: '/home/worker' },
+      prompt: 'Return a canary response only.',
+      readOnly: true,
+      repoDir: '/repo',
+      worktreeDir: '/repo',
+    });
+
+    assert.equal(result.args.includes('--search'), false);
+    assert.equal(result.args.includes('--sandbox'), true);
+    assert.equal(result.args.includes('read-only'), true);
   });
 
   it('isolates VPS Codex inside a capability-free Docker container', () => {
@@ -58,6 +74,7 @@ describe('remediation Codex command', () => {
     );
     assert.equal(result.args.includes('--enable'), true);
     assert.equal(result.args.includes('use_legacy_landlock'), true);
+    assert.equal(result.args.includes('--search'), true);
     assert.equal(result.args.includes('--ignore-user-config'), true);
     assert.equal(
       result.args.includes('type=bind,src=/worktree,dst=/worktree'),
@@ -106,6 +123,7 @@ describe('remediation Codex command', () => {
     });
 
     assert.equal(result.args.includes('--read-only'), true);
+    assert.equal(result.args.includes('--search'), false);
     assert.equal(result.args.includes('--sandbox'), true);
     assert.equal(result.args.includes('workspace-write'), true);
     assert.equal(
