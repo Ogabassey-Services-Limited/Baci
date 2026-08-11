@@ -64,9 +64,12 @@ function resolveSourceCategory(source: SpecDataSource) {
     category_slug: source.category_slug,
   });
 
-  const hasCategory = Boolean(name) && !isUnsupportedSpecValue(name);
+  const categoryName = name && !isUnsupportedSpecValue(name) ? name : undefined;
 
-  return { hasCategory, name: hasCategory ? name : 'General' };
+  return {
+    hasCategory: Boolean(categoryName),
+    name: categoryName ?? 'General',
+  };
 }
 
 function getVariantValue(
