@@ -69,4 +69,14 @@ describe('PreviewInertHeader', () => {
       color: '#fefefe',
     });
   });
+
+  it('renders a retained local logo when logos are enabled', () => {
+    render(
+      <PreviewInertHeader logoUrl="/media/logo.png" storeName="Acme Store" />
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'Acme Store logo' })
+    ).toHaveAttribute('src', '/media/logo.png');
+  });
 });

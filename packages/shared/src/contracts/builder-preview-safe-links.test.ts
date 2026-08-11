@@ -6,6 +6,7 @@ describe('previewSafeLinks', () => {
     expect(
       previewSafeLinks.isSafeSocialLinks({
         instagram: 'https://instagram.com/store',
+        linkedin: '',
         tiktok: 'https://www.tiktok.com/@store',
       })
     ).toBe(true);

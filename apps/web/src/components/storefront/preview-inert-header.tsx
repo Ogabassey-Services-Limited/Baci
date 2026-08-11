@@ -1,3 +1,5 @@
+import Image from 'next/image';
+
 type PreviewLink = {
   label: string;
 };
@@ -12,6 +14,7 @@ type PreviewHeaderProps = {
   ctaButton?: { show: boolean; text: string };
   glassEffect?: boolean;
   layout?: PreviewHeaderLayout;
+  logoUrl?: string;
   navigationLinks?: PreviewLink[];
   paddingY?: 'sm' | 'md' | 'lg';
   searchRadius?: 'none' | 'sm' | 'md' | 'full';
@@ -63,6 +66,7 @@ export function PreviewInertHeader({
   ctaButton,
   glassEffect = false,
   layout = 'logo-left-nav-center',
+  logoUrl,
   navigationLinks = [],
   paddingY = 'md',
   searchRadius = 'md',
@@ -93,7 +97,16 @@ export function PreviewInertHeader({
             isCenteredLayout ? 'col-start-2 justify-self-center' : undefined
           }
         >
-          {storeName}
+          {logoUrl ? (
+            <Image
+              alt={`${storeName} logo`}
+              height={40}
+              src={logoUrl}
+              width={120}
+            />
+          ) : (
+            storeName
+          )}
         </strong>
       ) : null}
       {navigationLinks.length > 0 ? (

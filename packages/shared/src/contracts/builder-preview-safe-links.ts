@@ -21,7 +21,9 @@ function isSafeSocialLinks(value: unknown): boolean {
     ) &&
     Object.values(links).every(
       (url) =>
-        url === undefined || builderDesignCapabilityAdapter.isSafeUrl(url)
+        url === undefined ||
+        url === '' ||
+        builderDesignCapabilityAdapter.isSafeUrl(url)
     )
   );
 }

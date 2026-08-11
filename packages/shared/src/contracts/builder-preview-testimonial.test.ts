@@ -16,7 +16,7 @@ function testimonial(id: string, avatar: string) {
 }
 
 describe('saved Testimonial avatar preview compatibility', () => {
-  it('removes safe saved avatar assets from root and zone preview data', () => {
+  it('removes external avatars while retaining safe local avatar context', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [
         testimonial('testimonial-root', 'https://cdn.example.test/avatar.webp'),
@@ -42,6 +42,7 @@ describe('saved Testimonial avatar preview compatibility', () => {
               quote: 'Reliable service and thoughtful support.',
               rating: 5,
               role: 'Verified customer',
+              avatar: '/avatars/customer.webp',
             },
             type: 'Testimonial',
           },

@@ -137,6 +137,7 @@ describe('previewInertLinkBlocks', () => {
       previewInertLinkBlocks.Footer.render({
         backgroundColor: '#123456',
         quickLinks: [{ label: 'Contact' }],
+        quickLinksLabel: 'Explore',
         showQuickLinks: true,
         textColor: '#ffffff',
       })
@@ -149,6 +150,9 @@ describe('previewInertLinkBlocks', () => {
     });
     expect(
       screen.getByRole('navigation', { name: 'Preview footer navigation' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Explore' })
     ).toBeInTheDocument();
 
     rerender(

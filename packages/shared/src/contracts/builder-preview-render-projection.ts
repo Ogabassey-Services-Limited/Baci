@@ -69,7 +69,9 @@ function projectPreviewComponent(
       ? ['logoUrl', 'backgroundImage']
       : component.type === 'Hero'
         ? ['backgroundImage']
-        : [];
+        : component.type === 'Testimonial'
+          ? ['avatar']
+          : [];
   return assetProperties.length === 0
     ? component
     : {

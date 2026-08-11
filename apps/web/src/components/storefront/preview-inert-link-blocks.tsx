@@ -40,6 +40,7 @@ type PreviewFooterProps = {
   brandName?: string;
   copyrightText?: string;
   quickLinks?: PreviewLink[];
+  quickLinksLabel?: string;
   showNewsletter?: boolean;
   showQuickLinks?: boolean;
   socialLinks?: Record<string, string>;
@@ -193,6 +194,7 @@ function PreviewFooter({
   brandName = 'Preview Store',
   copyrightText = '© Store. All rights reserved.',
   quickLinks = [],
+  quickLinksLabel = 'Quick links',
   showNewsletter = false,
   showQuickLinks = true,
   socialLinks = {},
@@ -209,6 +211,7 @@ function PreviewFooter({
       <p>{copyrightText}</p>
       {showQuickLinks && quickLinks.length > 0 ? (
         <nav aria-label="Preview footer navigation">
+          <h2>{quickLinksLabel}</h2>
           {quickLinks.map((link) => (
             <span key={link.label}>{link.label}</span>
           ))}

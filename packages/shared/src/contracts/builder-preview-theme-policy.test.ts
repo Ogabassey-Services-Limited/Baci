@@ -54,6 +54,15 @@ describe('preview theme policy', () => {
     expect(fromEntries).not.toHaveBeenCalled();
   });
 
+  it('accepts only CSS-supported three, four, six, and eight digit hex colors', () => {
+    for (const color of ['#123', '#1234', '#123456', '#12345678']) {
+      expect(candidate({ colors: { primary: color } }).success).toBe(true);
+    }
+    for (const color of ['#12', '#12345', '#1234567', '#123456789']) {
+      expect(candidate({ colors: { primary: color } }).success).toBe(false);
+    }
+  });
+
   it('rejects reserved manifest token collisions with a clear diagnostic', () => {
     for (const token of reservedColorGroups) {
       builderDesignCapabilities.themeTokenKeys.push(token);
