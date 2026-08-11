@@ -102,7 +102,8 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
 }
 
 function sourceEntries(cwd, mergeSha) {
-  const rows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path, rawPath }) => path.startsWith(PREFIX) && !rawPath);
+  const rows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path }) => path.startsWith(PREFIX));
+  if (rows.some(({ rawPath }) => rawPath)) fail('non-UTF-8 source path');
   const verified = verifyGitObjectsChunked(cwd, rows.map(({ objectId }) => objectId));
   const entries = rows.map((row) => blobEntry(cwd, row, verified));
   if (!entries.length || entries.some((entry) => !entry.path.startsWith(PREFIX))) fail('invalid source archive projection');
