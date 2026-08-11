@@ -122,7 +122,10 @@ describe('Jumia OAuth connect diagnostic', () => {
 
   it('clears stale diagnostic context when ordinary POST OAuth starts', async () => {
     const response = await POST(
-      makeRequest('connectionType=oauth', 'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile')
+      makeRequest(
+        'connectionType=oauth',
+        'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile'
+      )
     );
     const setCookie = response.headers.get('set-cookie') ?? '';
 

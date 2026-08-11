@@ -433,7 +433,6 @@ describe('Connect POST', () => {
       })
     );
   });
-
 });
 
 describe('Connect GET', () => {
