@@ -20,7 +20,8 @@ export function validGitRef(value) {
     value.startsWith('-') ||
     value.startsWith('/') ||
     value.endsWith('/') ||
-    value.includes('..')
+    value.includes('..') ||
+    value.endsWith('.')
   )
     return false;
   return value
@@ -31,7 +32,6 @@ export function validGitRef(value) {
         part !== '.' &&
         part !== '..' &&
         !part.startsWith('.') &&
-        !part.endsWith('.') &&
         !part.endsWith('.lock') &&
         !part.includes('@{') &&
         validRefPart(part)
