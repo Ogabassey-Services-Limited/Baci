@@ -76,7 +76,6 @@ describe('GiglProvider booking requests', () => {
         ReceiverLocation: { Latitude: 0, Longitude: 0 },
       },
       ShipmentDetails: {
-        PickupOptions: 1,
         IsPriorityShipment: false,
         PricingStrategy: 3,
         IsCashOnDelivery: false,
@@ -85,6 +84,7 @@ describe('GiglProvider booking requests', () => {
       },
     });
     expect(bookingPayload.ShipmentDetails).not.toHaveProperty('DeliveryType');
+    expect(bookingPayload.ShipmentDetails).not.toHaveProperty('PickupOptions');
     expect(bookingPayload.ShipmentItems[0]).toMatchObject({
       SpecialPackageId: 1,
     });
@@ -125,6 +125,7 @@ describe('GiglProvider booking requests', () => {
       PricingStrategy: 3,
     });
     expect(bookingPayload.ShipmentDetails).not.toHaveProperty('DeliveryType');
+    expect(bookingPayload.ShipmentDetails).not.toHaveProperty('PickupOptions');
   });
 
   it('preserves the quoted vehicle type during booking', async () => {

@@ -161,7 +161,6 @@ export async function bookGiglShipment(
             },
             ShipmentDetails: {
               VehicleType: vehicleType,
-              PickupOptions: selectedRate.pickupOption,
               IsPriorityShipment:
                 selectedRate.deliveryType === GiglDeliveryType.GoFaster,
               IsCashOnDelivery: false,
