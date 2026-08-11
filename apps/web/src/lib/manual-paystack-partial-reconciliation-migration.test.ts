@@ -44,6 +44,13 @@ const retryMigration = readFileSync(
   ),
   'utf8'
 );
+const retryIndexMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811160000_index_paystack_reconciliation_retry_lookup.sql'
+  ),
+  'utf8'
+);
 const concurrencyRegression = readFileSync(
   resolve(
     process.cwd(),
@@ -170,6 +177,21 @@ describe('manual Paystack partial reconciliation migration', () => {
     );
     expect(orderLock).toBeGreaterThanOrEqual(0);
     expect(referenceLock).toBeGreaterThan(orderLock);
+  });
+
+  it('indexes the JSONB predicates used by reconciliation retries', () => {
+    expect(retryIndexMigration).toContain(
+      'transactions_paystack_reconciliation_retry_idx'
+    );
+    expect(retryIndexMigration).toContain(
+      "(metadata ->> 'reconciliation_review_id')"
+    );
+    expect(retryIndexMigration).toContain(
+      "metadata ->> 'merchant_invoice_partial_applied' = 'true'"
+    );
+    expect(retryIndexMigration).toContain(
+      "lower(trim(COALESCE(gateway, ''))) = 'paystack'"
+    );
   });
 
   it('ships a two-session reference-claim concurrency regression', () => {
