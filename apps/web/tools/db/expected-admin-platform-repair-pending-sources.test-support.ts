@@ -74,4 +74,14 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260811120001_repair_admin_notification_push_metrics_quiet_hours.sql',
     sha256: '9444801b67ade5b6368716e35ba4a1d6d9480c320635c047df59a44f31db5792',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811130000_repair_notification_detail_quiet_deferrals.sql',
+    sha256: '99dae5d255b558789f330d83afe1886cac610b77a785fb64d9e18f4c8285887c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811140000_repair_platform_notification_audit_changed_fields.sql',
+    sha256: 'eab2ce0ad7e3a72f59f5d1a1de83fdba0075d5a4dd48e10b9f7ff0051a9b8ac1',
+  },
 ] as const;

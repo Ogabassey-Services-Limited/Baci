@@ -52,6 +52,7 @@ describe('GET /api/platform/analytics-config', () => {
       tiktok_pixel_id: null,
       twitter_pixel_id: null,
     });
+    expect(result.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it('does not return malformed or extra RPC fields', async () => {
@@ -65,5 +66,6 @@ describe('GET /api/platform/analytics-config', () => {
 
     expect(body.google_analytics_id).toBeNull();
     expect(body.ga4_api_secret).toBeUndefined();
+    expect(result.headers.get('Cache-Control')).toBe('private, no-store');
   });
 });

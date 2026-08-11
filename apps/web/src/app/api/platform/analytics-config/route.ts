@@ -14,10 +14,14 @@ const EMPTY_CONFIG: PlatformAnalyticsConfig = {
 };
 
 const CACHE_CONTROL = 'public, s-maxage=300, stale-while-revalidate=600';
+const FAILURE_CACHE_CONTROL = 'private, no-store';
 
-function response(config: PlatformAnalyticsConfig) {
+function response(
+  config: PlatformAnalyticsConfig,
+  cacheControl = CACHE_CONTROL
+) {
   return NextResponse.json(config, {
-    headers: { 'Cache-Control': CACHE_CONTROL },
+    headers: { 'Cache-Control': cacheControl },
   });
 }
 
@@ -29,13 +33,13 @@ export async function GET() {
       .rpc('get_public_platform_analytics_config_v1')
       .abortSignal(AbortSignal.timeout(5000));
 
-    if (error) return response(EMPTY_CONFIG);
+    if (error) return response(EMPTY_CONFIG, FAILURE_CACHE_CONTROL);
 
     const parsed = platformAnalyticsConfigRowsSchema.safeParse(data);
-    if (!parsed.success) return response(EMPTY_CONFIG);
+    if (!parsed.success) return response(EMPTY_CONFIG, FAILURE_CACHE_CONTROL);
 
     return response(parsed.data[0] ?? EMPTY_CONFIG);
   } catch {
-    return response(EMPTY_CONFIG);
+    return response(EMPTY_CONFIG, FAILURE_CACHE_CONTROL);
   }
 }

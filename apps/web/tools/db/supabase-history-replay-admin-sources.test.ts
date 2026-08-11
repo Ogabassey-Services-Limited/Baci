@@ -25,12 +25,12 @@ describe('ADMIN_PLATFORM_PENDING_SOURCES', () => {
     const sources = parseSources(ADMIN_PLATFORM_PENDING_SOURCES);
 
     expect(sources).toEqual(expectedSources);
-    expect(sources).toHaveLength(73);
+    expect(sources).toHaveLength(75);
     expect(sources[0]?.repositoryPath).toBe(
       'supabase/migrations/20260805150000_platform_admin_rbac.sql'
     );
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260811120001_repair_admin_notification_push_metrics_quiet_hours.sql'
+      'supabase/migrations/20260811140000_repair_platform_notification_audit_changed_fields.sql'
     );
   });
 
