@@ -134,6 +134,8 @@ function applyResponse({
     return;
   }
 
+  response.headers.set('Cache-Control', 'private, no-store');
+
   const diagnosticId = crypto.randomUUID();
   response.cookies.set(
     jumiaOAuthDiagnostic.cookieName,

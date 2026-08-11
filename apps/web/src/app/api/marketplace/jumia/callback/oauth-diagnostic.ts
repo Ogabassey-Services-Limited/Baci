@@ -38,7 +38,9 @@ export async function runJumiaOAuthCallbackDiagnostic({
       diagnostic_id: diagnosticId,
       reason: 'platform_admin_required',
     });
-    return createRedirect({ error: 'diagnostic_forbidden' });
+    const response = createRedirect({ error: 'diagnostic_forbidden' });
+    response.headers.set('Cache-Control', 'private, no-store');
+    return response;
   }
 
   const callbackUrl = new URL(requestUrl);
@@ -88,7 +90,9 @@ export async function runJumiaOAuthCallbackDiagnostic({
             }
           : String(tokenError).slice(0, 200),
     });
-    return createRedirect({ error: 'token_exchange_failed' });
+    const response = createRedirect({ error: 'token_exchange_failed' });
+    response.headers.set('Cache-Control', 'private, no-store');
+    return response;
   }
 
   const evidence = jumiaOAuthDiagnostic.buildEvidence(tokens);

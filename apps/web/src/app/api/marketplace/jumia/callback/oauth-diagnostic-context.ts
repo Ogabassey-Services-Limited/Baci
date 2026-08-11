@@ -18,14 +18,10 @@ export function parseJumiaOAuthDiagnosticContext({
   const diagnosticStateBound = jumiaOAuthDiagnostic.isStateBound(storedState);
   const diagnosticMarkerPresent = diagnosticId !== undefined;
 
-  if (
-    (diagnosticStateBound || diagnosticMarkerPresent) &&
-    !(diagnosticStateBound && diagnosticIdResult.success)
-  ) {
-    return { status: 'invalid' };
-  }
-
   if (!diagnosticStateBound) {
+    if (diagnosticMarkerPresent) {
+      return { status: 'invalid' };
+    }
     return { status: 'ordinary' };
   }
 

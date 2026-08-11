@@ -110,6 +110,7 @@ describe('Jumia OAuth connect diagnostic', () => {
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(307);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(response.cookies.get('jumia_oauth_diagnostic')?.value).toMatch(
       /^[0-9a-f-]{36}$/
     );
