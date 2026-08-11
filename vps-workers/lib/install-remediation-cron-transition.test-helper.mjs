@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   realpathSync,
   rmSync,
@@ -49,6 +50,7 @@ export function runTransition(scenario) {
     scenario === 'quoted-values' ? 'remote%dir' : 'remote'
   );
   const stageDirectory = join(directory, 'stage');
+  const transitionTmpDirectory = join(directory, 'transition-tmp');
   const procRoot = join(directory, 'proc');
   const jobsDirectory = join(remoteDirectory, 'jobs');
   const directReady = join(directory, 'direct-ready');
@@ -56,6 +58,19 @@ export function runTransition(scenario) {
   mkdirSync(jobsDirectory, { recursive: true });
   mkdirSync(join(remoteDirectory, 'lib'), { recursive: true });
   mkdirSync(procRoot);
+  mkdirSync(transitionTmpDirectory);
+  if (
+    scenario === 'custom-global-lock' ||
+    scenario === 'custom-global-lock-export'
+  ) {
+    writeFileSync(
+      join(remoteDirectory, '.env'),
+      scenario === 'custom-global-lock-export'
+        ? 'export BACI_REMEDIATION_GLOBAL_LOCK_PATH=locks/custom-global.lock # comment\n'
+        : '  BACI_REMEDIATION_GLOBAL_LOCK_PATH = "locks/custom-global.lock" # comment\n'
+    );
+  }
+  const rollbackReadErrorMarker = join(directory, 'rollback-read-error');
   writeStage(
     stageDirectory,
     globalLockSource,
@@ -215,6 +230,7 @@ bash -c "$1"
           INITIAL_CRONTAB_READ: join(directory, 'initial-crontab-read'),
           CANONICAL_REMOTE_DIR: realpathSync(remoteDirectory),
           CRONTAB_MARKER: crontabMarker,
+          ROLLBACK_READ_ERROR_MARKER: rollbackReadErrorMarker,
           DIRECT_PROCESS_PID: directProcessPid ?? '',
           LOCK_MARKER: lockMarker,
           NODE_BIN:
@@ -228,6 +244,7 @@ bash -c "$1"
           PROC_ENTRY: procEntry,
           REMOTE_DIR: remoteDirectory,
           STAGING_DIR: stageDirectory,
+          TMPDIR: transitionTmpDirectory,
           BACI_REMEDIATION_LEGACY_DRAIN_TIMEOUT_SECONDS:
             scenario === 'direct-exit' ||
             scenario === 'alternate-node-exit' ||
@@ -251,6 +268,7 @@ bash -c "$1"
       crontab: existsSync(crontabMarker)
         ? readFileSync(crontabMarker, 'utf8')
         : '',
+      temporaryEntries: readdirSync(transitionTmpDirectory),
       locks: existsSync(lockMarker)
         ? readFileSync(lockMarker, 'utf8').trim().split('\n')
         : [],
