@@ -54,10 +54,14 @@ describe('remediation Docker workflow', () => {
 
   it('runs verification with dependency mounts', () => {
     const { calls, runner } = makeRunner();
+    const worktreeRoot = mkdtempSync(
+      join(tmpdir(), 'baci-remediation-worktrees-')
+    );
     const result = runRemediationAutofix({
       candidate,
       env: {
         ...dockerEnvironment,
+        BACI_REMEDIATION_WORKTREE_ROOT: worktreeRoot,
         BACI_REMEDIATION_DEPENDENCY_ROOT: repoRoot,
         BACI_REMEDIATION_RUN_ID: 'verify-run',
       },
@@ -77,6 +81,10 @@ describe('remediation Docker workflow', () => {
       true
     );
     assert.match(verificationCall.at(-1), /cp -a/);
+    assert.equal(
+      verificationCall.includes('pnpm_config_store_dir=/pnpm-store'),
+      true
+    );
     assert.equal(
       calls.some((call) => call.join(' ') === 'bash -lc pnpm turbo lint'),
       false
