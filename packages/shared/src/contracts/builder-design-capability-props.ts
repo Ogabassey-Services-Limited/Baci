@@ -101,8 +101,8 @@ export const headerProps: BuilderDesignProps = {
     item: {
       properties: {
         show: { required: true, type: 'boolean' },
-        text: label(),
-        url: safeLink,
+        text: { ...label(), required: true },
+        url: { ...safeLink, required: true },
       },
     },
     type: 'object',
