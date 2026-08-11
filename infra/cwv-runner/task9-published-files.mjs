@@ -8,6 +8,7 @@ import {
   readSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { TASK9_SOURCE_MANIFEST_MAX_BYTES } from './source-manifest.mjs';
 import { TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 
 const ENTRIES = TASK9_PAYLOAD_FILES;
@@ -64,7 +65,12 @@ export function readPublishedTask9Files(
           identity.mode.toString(8) !== mode ||
           !Number.isSafeInteger(identity.size) ||
           identity.size < 0 ||
-          identity.size > (name === 'node' ? MAX_NODE_BYTES : MAX_ENTRY_BYTES)
+          identity.size >
+            (name === 'node'
+              ? MAX_NODE_BYTES
+              : name === 'manifest.json'
+                ? TASK9_SOURCE_MANIFEST_MAX_BYTES
+                : MAX_ENTRY_BYTES)
         )
           fail();
         const bytes = Buffer.alloc(identity.size);
@@ -115,7 +121,11 @@ export function readPublishedTask9Files(
           fail();
         if (
           handle.identity.size >
-          (handle.path?.endsWith('/node') ? MAX_NODE_BYTES : MAX_ENTRY_BYTES)
+          (handle.path?.endsWith('/node')
+            ? MAX_NODE_BYTES
+            : handle.path?.endsWith('/manifest.json')
+              ? TASK9_SOURCE_MANIFEST_MAX_BYTES
+              : MAX_ENTRY_BYTES)
         )
           fail();
         const bytes = Buffer.alloc(handle.identity.size);

@@ -18,12 +18,19 @@ import { authenticatedTreeRows } from './source-manifest-tree.mjs';
 export { createSourceArchive, verifySourceArchive } from './source-archive.mjs';
 
 const PREFIX = 'infra/cwv-runner/';
-const LIMITS = { archive: 16_777_216, members: 1024, member: 1_048_576 };
+export const TASK9_SOURCE_MANIFEST_MAX_BYTES = 16_777_216;
+const LIMITS = { archive: TASK9_SOURCE_MANIFEST_MAX_BYTES, members: 1024, member: 1_048_576 };
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const fail = (message) => {
   throw new TypeError(message);
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+
+export function sourceManifestBytes(value) {
+  const bytes = Buffer.from(canonicalJson(value));
+  if (bytes.length > TASK9_SOURCE_MANIFEST_MAX_BYTES) fail('source manifest exceeds size limit');
+  return bytes;
+}
 
 function checkedSha(value, field) {
   if (typeof value !== 'string' || !/^[0-9a-f]{40,64}$/.test(value)) fail(`invalid ${field}`);
@@ -133,7 +140,7 @@ export function freezeSourceManifest({ cwd, prNumber, reviewedHeadSha, baseSha, 
   const archiveEntries = sourceEntries(cwd, mergeSha);
   const archive = createSourceArchive(archiveEntries);
   const manifest = { schemaVersion: 1, policyFileSha256, policyCanonicalSha256: canonicalSha256(policy), authority: policyProjection(policy), prNumber: Number(prNumber), reviewedHeadSha, baseSha, mergeSha, entries, sourceArchive: { prefix: PREFIX, entries: archiveEntries.map(({ path, mode, blobSha256 }) => ({ path, mode, blobSha256 })) } };
-  const bytes = Buffer.from(canonicalJson(manifest));
+  const bytes = sourceManifestBytes(manifest);
   atomicWrite(output, bytes); atomicWrite(outputDigest, `${sha256(bytes)}\n`); atomicWrite(sourceArchive, archive); atomicWrite(sourceArchiveDigest, `${sha256(archive)}\n`);
   return manifest;
 }
@@ -143,6 +150,7 @@ export function verifySourceManifest({ cwd, prNumber, reviewedHeadSha, baseSha, 
   const digest = readFileSync(inputDigest, 'utf8');
   if (!/^[0-9a-f]{64}\n$/.test(digest)) fail('invalid manifest digest file');
   const bytes = readFileSync(input);
+  if (bytes.length > TASK9_SOURCE_MANIFEST_MAX_BYTES) fail('source manifest exceeds size limit');
   if (sha256(bytes) !== digest.trim() || canonicalJson(JSON.parse(bytes)) !== bytes.toString('utf8')) fail('manifest is not canonical');
   const manifest = JSON.parse(bytes);
   const expected = freezeExpected(cwd, prNumber, reviewedHeadSha, baseSha, mergeSha);
@@ -164,7 +172,7 @@ function preflightWrite(manifest, output, outputDigest, sourceArchive, sourceArc
   outputPaths([output, outputDigest, sourceArchive, sourceArchiveDigest]);
   const entries = sourceEntries(cwd, reviewedHeadSha);
   const archive = createSourceArchive(entries);
-  const bytes = Buffer.from(canonicalJson(manifest));
+  const bytes = sourceManifestBytes(manifest);
   atomicWrite(output, bytes); atomicWrite(outputDigest, `${sha256(bytes)}\n`); atomicWrite(sourceArchive, archive); atomicWrite(sourceArchiveDigest, `${sha256(archive)}\n`);
   return manifest;
 }
@@ -177,6 +185,7 @@ export function freezePreflightSourceManifest({ cwd, prNumber, reviewedHeadSha, 
 export function verifyPreflightSourceManifest({ cwd, prNumber, reviewedHeadSha, baseSha, input, inputDigest, sourceArchive, sourceArchiveDigest }) {
   outputPaths([input, inputDigest, sourceArchive, sourceArchiveDigest]);
   const bytes = readFileSync(input);
+  if (bytes.length > TASK9_SOURCE_MANIFEST_MAX_BYTES) fail('source manifest exceeds size limit');
   const recorded = readFileSync(inputDigest, 'utf8');
   if (!/^[0-9a-f]{64}\n$/.test(recorded) || sha256(bytes) !== recorded.trim()) fail('invalid preflight digest');
   const manifest = JSON.parse(bytes);

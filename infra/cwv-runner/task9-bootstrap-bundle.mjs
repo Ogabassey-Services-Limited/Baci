@@ -4,7 +4,7 @@ import { chmodSync, closeSync, constants, fchmodSync, fsyncSync, lstatSync, mkdi
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { verifySourceManifest } from './source-manifest.mjs';
+import { TASK9_SOURCE_MANIFEST_MAX_BYTES, verifySourceManifest } from './source-manifest.mjs';
 import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
 import { checkedTask9Provenance } from './task9-bootstrap-provenance.mjs';
@@ -81,7 +81,7 @@ export function generateTask9BootstrapBundle(
   catch { fail('unsafe Task 9 checkout'); }
   if (checkout !== CHECKOUT_ROOT) fail('unsafe Task 9 checkout');
   return withHeldTask9Checkout(checkout, CHECKOUT_ROOT, (checkoutHandle) => {
-  const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600, { maxBytes: MAX_SMALL_INPUT_BYTES });
+  const manifestInput = readHeldTask9File(input.sourceManifestPath, 0o600, { maxBytes: TASK9_SOURCE_MANIFEST_MAX_BYTES });
   const manifestDigestInput = readHeldTask9File(input.sourceManifestDigestPath, 0o600, { maxBytes: 256 });
   const archiveInput = readHeldTask9File(input.sourceArchivePath, 0o600, { maxBytes: MAX_SOURCE_ARCHIVE_BYTES });
   const archiveDigestInput = readHeldTask9File(input.sourceArchiveDigestPath, 0o600, { maxBytes: 256 });
