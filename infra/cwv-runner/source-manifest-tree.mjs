@@ -5,6 +5,11 @@ const fail = (message) => {
   throw new TypeError(message);
 };
 
+function rowWithIdentity(row, rawIdentity) {
+  Object.defineProperty(row, 'rawIdentity', { value: rawIdentity });
+  return row;
+}
+
 function checkedPath(path) {
   const parts = path.split('/');
   if (
@@ -17,6 +22,7 @@ function checkedPath(path) {
 
 function pathName(bytes) {
   const parts = [];
+  const identities = [];
   let raw = false;
   let start = 0;
   for (let index = 0; index <= bytes.length; index += 1) {
@@ -26,10 +32,11 @@ function pathName(bytes) {
       const valid = Buffer.from(decoded).equals(part);
       raw ||= !valid;
       parts.push(valid ? decoded : `~gitraw-${part.toString('hex')}`);
+      identities.push(valid ? `u:${decoded}` : `r:${part.toString('hex')}`);
       start = index + 1;
     }
   }
-  return { path: parts.join('/'), raw };
+  return { path: parts.join('/'), raw, rawIdentity: identities.join('/') };
 }
 
 function treeId(commit) {
@@ -64,20 +71,26 @@ function listedTree(cwd, sha) {
       if (mode !== '100644' && mode !== '100755' && mode !== '120000')
         fail('unsupported Git tree mode');
       blobIds.push(objectId);
-      leaves.push({ mode, objectId, path, rawPath: decoded.raw });
+      leaves.push(
+        rowWithIdentity({ mode, objectId, path, rawPath: decoded.raw }, decoded.rawIdentity)
+      );
     } else if (type === 'tree') {
       if (mode !== '040000') fail('unsupported Git tree mode');
       treeIds.push(objectId);
-      trees.push({ mode: '40000', objectId, path, rawPath: decoded.raw });
+      trees.push(
+        rowWithIdentity(
+          { mode: '40000', objectId, path, rawPath: decoded.raw },
+          decoded.rawIdentity
+        )
+      );
     } else {
       if (mode !== '160000') fail('unsupported Git tree mode');
-      leaves.push({
-        mode,
-        objectId,
-        path,
-        gitlink: true,
-        rawPath: decoded.raw,
-      });
+      leaves.push(
+        rowWithIdentity(
+          { mode, objectId, path, gitlink: true, rawPath: decoded.raw },
+          decoded.rawIdentity
+        )
+      );
     }
   }
   return { blobIds, leaves, treeIds, trees };
@@ -90,7 +103,8 @@ function walk(
   prefix,
   leaves,
   trees,
-  rawPrefix = false
+  rawPrefix = false,
+  rawIdentityPrefix = ''
 ) {
   const object = objects.get(`${cwd}\0${objectId}`);
   if (object?.type !== 'tree') fail('malformed Git tree object');
@@ -106,6 +120,9 @@ function walk(
     const name = decoded.path;
     const path = prefix ? `${prefix}/${name}` : name;
     const rawPath = rawPrefix || decoded.raw;
+    const rawIdentity = rawIdentityPrefix
+      ? `${rawIdentityPrefix}/${decoded.rawIdentity}`
+      : decoded.rawIdentity;
     checkedPath(path);
     const childId = object.bytes
       .subarray(nul + 1, nul + 1 + width)
@@ -114,20 +131,30 @@ function walk(
       const child = objects.get(`${cwd}\0${childId}`);
       if (!child) fail('malformed Git tree leaf');
       if (child.type !== 'tree') fail('malformed Git tree object');
-      trees.push({ mode, objectId: childId, path, rawPath });
-      walk(cwd, objects, childId, path, leaves, trees, rawPath);
+      trees.push(
+        rowWithIdentity({ mode, objectId: childId, path, rawPath }, rawIdentity)
+      );
+      walk(cwd, objects, childId, path, leaves, trees, rawPath, rawIdentity);
     } else if (mode === '100644' || mode === '100755' || mode === '120000') {
       const child = objects.get(`${cwd}\0${childId}`);
       if (child?.type !== 'blob') fail('malformed Git tree leaf');
-      leaves.push({ mode, objectId: childId, path, rawPath });
+      leaves.push(
+        rowWithIdentity({ mode, objectId: childId, path, rawPath }, rawIdentity)
+      );
     } else if (mode === '160000') {
-      leaves.push({ mode, objectId: childId, path, gitlink: true, rawPath });
+      leaves.push(
+        rowWithIdentity(
+          { mode, objectId: childId, path, gitlink: true, rawPath },
+          rawIdentity
+        )
+      );
     } else fail('unsupported Git tree mode');
     offset = nul + 1 + width;
   }
 }
 
-const rowKey = (row) => `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
+const rowKey = (row) =>
+  row.rawIdentity ?? `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
 
 function compareRows(listed, authenticated, label) {
   const sort = (rows) =>
