@@ -18,6 +18,7 @@ const input = {
   deploymentSha: manifest.mergeSha,
   headRef: 'feature/task9',
   workflowId: 42,
+  reviewedPrMetadataSha256: digest,
 };
 const metadata = {
   baseSha: manifest.baseSha,
@@ -25,6 +26,14 @@ const metadata = {
   number: manifest.prNumber,
   reviewedHeadSha: manifest.reviewedHeadSha,
   workflowId: input.workflowId,
+};
+input.authorityReceipt = {
+  coherence: 'success',
+  deploymentSha: manifest.mergeSha,
+  metadataSha256: digest,
+  repository: policy.repository,
+  status: 'success',
+  workflow: { id: input.workflowId, path: '.github/workflows/deploy.yml', sha: manifest.mergeSha },
 };
 
 test('accepts a preserved SHA-1 PR identity with a valid ref', () => {

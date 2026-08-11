@@ -7,6 +7,8 @@ import { generateTask9BootstrapBundle } from './task9-bootstrap-bundle.mjs';
 const FIELDS = Object.freeze(
   Object.assign(Object.create(null), {
     '--admission-id': 'admissionId',
+    '--authority-receipt': 'authorityReceiptPath',
+    '--authority-receipt-sha256': 'authorityReceiptDigestPath',
     '--bundle-id': 'bundleId',
     '--cwd': 'cwd',
     '--deployment-sha': 'deploymentSha',
@@ -19,6 +21,7 @@ const FIELDS = Object.freeze(
     '--pr-metadata': 'prMetadataPath',
     '--pr-metadata-sha256': 'prMetadataDigestPath',
     '--reviewed-pr-metadata-sha256': 'reviewedPrMetadataSha256',
+    '--reviewed-authority-receipt-sha256': 'reviewedAuthorityReceiptSha256',
     '--source-archive': 'sourceArchivePath',
     '--source-archive-sha256': 'sourceArchiveDigestPath',
     '--source-manifest': 'sourceManifestPath',

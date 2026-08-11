@@ -14,6 +14,7 @@ import { readHeldTask9File } from './task9-held-file.mjs';
 import { verifyTask9NodeArchive } from './task9-node-archive.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
 import { readTask9PrMetadata } from './task9-pr-metadata.mjs';
+import { readTask9AuthorityReceipt } from './task9-authority-receipt.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;
@@ -92,6 +93,11 @@ export function generateTask9BootstrapBundle(
     maxBytes: MAX_SMALL_INPUT_BYTES,
     reviewedSha256: input.reviewedPrMetadataSha256,
   });
+  const authorityReceipt = readTask9AuthorityReceipt(
+    input.authorityReceiptPath,
+    input.authorityReceiptDigestPath,
+    input.reviewedAuthorityReceiptSha256
+  );
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||
     manifestDigestInput.bytes.toString() !==
@@ -140,7 +146,7 @@ export function generateTask9BootstrapBundle(
   if (canonicalJson(verifiedManifest) !== canonicalJson(manifest))
     fail('held source changed during verification');
   checkoutHandle.guard();
-  const identity = checkedTask9Identity(input, manifest, policy, prMetadata);
+  const identity = checkedTask9Identity({ ...input, authorityReceipt }, manifest, policy, prMetadata);
   const provenance = checkedTask9Provenance(
     nodeProvenance.bytes,
     node.bytes,

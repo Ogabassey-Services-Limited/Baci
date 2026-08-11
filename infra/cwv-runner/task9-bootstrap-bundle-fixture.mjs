@@ -68,6 +68,8 @@ function frozenInputs() {
   const nodeProvenance = join(root, 'node-provenance.json');
   const prMetadataPath = join(root, 'pr-metadata.json');
   const prMetadataDigestPath = join(root, 'pr-metadata.sha256');
+  const authorityReceiptPath = join(root, 'authority-receipt.json');
+  const authorityReceiptDigestPath = join(root, 'authority-receipt.sha256');
   const prMetadata = Buffer.from(
     canonicalJson({
       baseSha,
@@ -80,6 +82,15 @@ function frozenInputs() {
   writeFileSync(prMetadataPath, prMetadata, { mode: 0o600 });
   const prMetadataSha256 = hash(prMetadata);
   writeFileSync(prMetadataDigestPath, `${prMetadataSha256}\n`, { mode: 0o600 });
+  const authorityReceiptPath = join(root, 'authority-receipt.json');
+  const authorityReceiptDigestPath = join(root, 'authority-receipt.sha256');
+  const authorityReceipt = Buffer.from(canonicalJson({
+    coherence: 'success', deploymentSha: reviewedSha, metadataSha256: prMetadataSha256,
+    repository: { id: 1100488586, name: 'ogabasseyy/Baci' }, status: 'success',
+    workflow: { id: 987654, path: '.github/workflows/deploy.yml', sha: reviewedSha },
+  }));
+  writeFileSync(authorityReceiptPath, authorityReceipt, { mode: 0o600 });
+  writeFileSync(authorityReceiptDigestPath, `${hash(authorityReceipt)}\n`, { mode: 0o600 });
   writeFileSync(nodePath, node, { mode: 0o500 });
   writeFileSync(nodeArchivePath, 'test archive bytes', { mode: 0o400 });
   writeFileSync(nodeProvenance, canonicalJson(provenance), { mode: 0o400 });
@@ -92,6 +103,9 @@ function frozenInputs() {
     prMetadataDigestPath,
     prMetadataPath,
     prMetadataSha256,
+    authorityReceiptDigestPath,
+    authorityReceiptPath,
+    authorityReceiptSha256: hash(authorityReceipt),
     reviewedSha,
     root,
   };
@@ -118,6 +132,8 @@ function clone(source) {
   cpSync(source.nodeProvenance, nodeProvenance);
   cpSync(source.prMetadataPath, prMetadataPath);
   cpSync(source.prMetadataDigestPath, prMetadataDigestPath);
+  cpSync(source.authorityReceiptPath, authorityReceiptPath);
+  cpSync(source.authorityReceiptDigestPath, authorityReceiptDigestPath);
   chmodSync(nodePath, 0o500);
   chmodSync(nodeArchivePath, 0o400);
   chmodSync(nodeProvenance, 0o400);
@@ -130,6 +146,9 @@ function clone(source) {
     prMetadataDigestPath,
     prMetadataPath,
     prMetadataSha256: source.prMetadataSha256,
+    authorityReceiptDigestPath,
+    authorityReceiptPath,
+    authorityReceiptSha256: source.authorityReceiptSha256,
     reviewedSha: source.reviewedSha,
     root,
   };
@@ -141,6 +160,8 @@ export function createTask9BundleFixture() {
   const clonedInputs = () => clone(getBaseline());
   const input = (fixture, outputRoot) => ({
     admissionId: 'a'.repeat(64),
+    authorityReceiptDigestPath: fixture.authorityReceiptDigestPath,
+    authorityReceiptPath: fixture.authorityReceiptPath,
     bundleId: 'task9-bundle-deterministic',
     cwd,
     deploymentSha: fixture.reviewedSha,
@@ -153,6 +174,7 @@ export function createTask9BundleFixture() {
     prMetadataDigestPath: fixture.prMetadataDigestPath,
     prMetadataPath: fixture.prMetadataPath,
     reviewedPrMetadataSha256: fixture.prMetadataSha256,
+    reviewedAuthorityReceiptSha256: fixture.authorityReceiptSha256,
     sourceArchiveDigestPath: fixture.paths.sourceArchiveDigest,
     sourceArchivePath: fixture.paths.sourceArchive,
     sourceManifestDigestPath: fixture.paths.manifestDigest,
