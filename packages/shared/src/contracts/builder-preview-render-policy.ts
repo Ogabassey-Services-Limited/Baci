@@ -1,3 +1,4 @@
+import type { BuilderData } from './builder-ai-edit';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 import { previewRenderProjection } from './builder-preview-render-projection';
 
@@ -128,6 +129,10 @@ function isCuratedRenderProp(
   }
   if (componentType === 'HeroCarousel')
     return isPreviewCarouselProp(property, value);
+  if (componentType === 'Testimonial')
+    return (
+      property === 'avatar' && previewRenderProjection.isAssetSource(value)
+    );
   if (componentType === 'ProductGrid') {
     if (property === 'category')
       return isBoundedText(value, MAX_STORE_NAME_LENGTH);
@@ -228,6 +233,39 @@ function allowsPuckZoneSlot(type: string, slot: string): boolean {
   return type === 'Flex' && slot === 'children';
 }
 
+function projectTestimonialAvatars(collection: BuilderData['content']) {
+  return collection.map((component) => {
+    if (
+      component.type !== 'Testimonial' ||
+      Object.getOwnPropertyDescriptor(component.props, 'avatar') === undefined
+    )
+      return component;
+    const { avatar: _avatar, ...props } = component.props;
+    return { ...component, props };
+  });
+}
+
+function projectPreviewCandidate(value: BuilderData): BuilderData {
+  const projected = previewRenderProjection.projectCandidate(value);
+  const zones = projected.zones;
+  return {
+    ...projected,
+    content: projectTestimonialAvatars(projected.content),
+    ...(zones === undefined
+      ? {}
+      : {
+          zones: Object.fromEntries(
+            Object.entries(zones).map(([key, collection]) => [
+              key,
+              Array.isArray(collection)
+                ? projectTestimonialAvatars(collection)
+                : collection,
+            ])
+          ),
+        }),
+  };
+}
+
 export const previewRenderPolicy = {
   allowsPuckZoneSlot,
   getPuckComponentIdentity,
@@ -239,5 +277,5 @@ export const previewRenderPolicy = {
   },
   isPuckZoneKey: (value: string) => parsePuckZoneKey(value) !== undefined,
   parsePuckZoneKey,
-  projectPreviewCandidate: previewRenderProjection.projectCandidate,
+  projectPreviewCandidate,
 };

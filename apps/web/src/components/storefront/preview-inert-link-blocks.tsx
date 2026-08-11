@@ -32,15 +32,44 @@ type PreviewCarouselProps = {
 };
 
 type PreviewButtonProps = {
+  align?: PreviewButtonAlign;
+  size?: PreviewButtonSize;
   text?: string;
+  variant?: PreviewButtonVariant;
 };
+
+type PreviewButtonAlign = 'left' | 'center' | 'right';
+
+type PreviewButtonSize = 'sm' | 'default' | 'lg';
+
+type PreviewButtonVariant = 'primary' | 'background' | 'accent';
 
 type PreviewFooterProps = {
   backgroundColor?: string;
   brandName?: string;
+  copyrightText?: string;
   quickLinks?: PreviewLink[];
+  showNewsletter?: boolean;
   showQuickLinks?: boolean;
   textColor?: string;
+};
+
+const previewButtonAlignClasses: Record<PreviewButtonAlign, string> = {
+  center: 'justify-center',
+  left: 'justify-start',
+  right: 'justify-end',
+};
+
+const previewButtonSizeClasses: Record<PreviewButtonSize, string> = {
+  default: 'h-9 px-4 py-2 text-sm',
+  lg: 'h-10 px-6 py-3 text-base',
+  sm: 'h-8 px-3 text-sm',
+};
+
+const previewButtonVariantClasses: Record<PreviewButtonVariant, string> = {
+  accent: 'bg-store-accent text-store-accent-text',
+  background: 'bg-store-background text-store-background-text',
+  primary: 'bg-store-primary text-store-primary-text',
 };
 
 const previewHeaderLayoutClasses: Record<PreviewHeaderLayout, string> = {
@@ -49,9 +78,15 @@ const previewHeaderLayoutClasses: Record<PreviewHeaderLayout, string> = {
   'logo-left-nav-right': 'flex items-center gap-3',
 };
 
-function InertAction({ children }: { children: ReactNode }) {
+function InertAction({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <button aria-disabled="true" disabled type="button">
+    <button aria-disabled="true" className={className} disabled type="button">
       {children}
     </button>
   );
@@ -142,14 +177,35 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
   );
 }
 
-function PreviewButton({ text }: PreviewButtonProps) {
-  return <InertAction>{text}</InertAction>;
+function PreviewButton({
+  align = 'center',
+  size = 'default',
+  text,
+  variant = 'primary',
+}: PreviewButtonProps) {
+  return (
+    <div
+      className={`container flex px-4 py-4 md:px-6 ${previewButtonAlignClasses[align]}`}
+      data-align={align}
+      data-size={size}
+      data-testid="builder-preview-inert-button"
+      data-variant={variant}
+    >
+      <InertAction
+        className={`${previewButtonSizeClasses[size]} ${previewButtonVariantClasses[variant]}`}
+      >
+        {text}
+      </InertAction>
+    </div>
+  );
 }
 
 function PreviewFooter({
   backgroundColor,
   brandName = 'Preview Store',
+  copyrightText = '© Store. All rights reserved.',
   quickLinks = [],
+  showNewsletter = false,
   showQuickLinks = true,
   textColor,
 }: PreviewFooterProps) {
@@ -159,12 +215,27 @@ function PreviewFooter({
       style={{ backgroundColor, color: textColor }}
     >
       <strong>{brandName}</strong>
+      <p>{copyrightText}</p>
       {showQuickLinks && quickLinks.length > 0 ? (
         <nav aria-label="Preview footer navigation">
           {quickLinks.map((link) => (
             <span key={link.label}>{link.label}</span>
           ))}
         </nav>
+      ) : null}
+      {showNewsletter ? (
+        <section aria-label="Preview newsletter">
+          <h2>Newsletter</h2>
+          <div className="flex gap-2">
+            <input
+              aria-label="Email address for newsletter"
+              disabled
+              placeholder="Your email"
+              type="email"
+            />
+            <InertAction>Subscribe</InertAction>
+          </div>
+        </section>
       ) : null}
     </footer>
   );
