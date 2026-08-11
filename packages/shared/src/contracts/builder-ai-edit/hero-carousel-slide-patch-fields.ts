@@ -5,16 +5,19 @@ import {
 } from '../builder-design-capabilities';
 import { safeStorefrontUrlSchema } from './safe-storefront-url';
 
-function compileField(descriptor: { maximumLength?: number; type: string }) {
+function compileField(descriptor: {
+  maximumLength?: number;
+  required?: boolean;
+  type: string;
+}) {
   if (descriptor.type === 'safe-link')
     return safeStorefrontUrlSchema.optional();
   if (descriptor.type === 'string') {
-    return z
+    const bounded = z
       .string()
       .trim()
-      .min(1)
-      .max(descriptor.maximumLength ?? Number.MAX_SAFE_INTEGER)
-      .optional();
+      .max(descriptor.maximumLength ?? Number.MAX_SAFE_INTEGER);
+    return (descriptor.required ? bounded.min(1) : bounded).optional();
   }
   throw new Error(
     `Unsupported HeroCarousel descriptor type: ${descriptor.type}`

@@ -147,7 +147,7 @@ function isCuratedRenderProp(
     );
   if (componentType === 'ProductGrid') {
     if (property === 'category')
-      return isBoundedText(value, MAX_STORE_NAME_LENGTH);
+      return value === '' || isBoundedText(value, MAX_STORE_NAME_LENGTH);
     return (
       property === 'sortBy' &&
       (value === 'newest' ||

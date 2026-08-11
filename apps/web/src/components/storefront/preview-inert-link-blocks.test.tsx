@@ -109,7 +109,8 @@ describe('previewInertLinkBlocks', () => {
       'py-6'
     );
     expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveClass(
-      'bg-black/40'
+      'bg-store-background-text/40',
+      'text-store-background'
     );
     expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveStyle({
       backgroundImage: 'url(/hero.webp)',

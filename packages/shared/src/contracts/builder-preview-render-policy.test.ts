@@ -79,6 +79,18 @@ describe('preview render policy', () => {
     ).toBe(true);
   });
 
+  it('accepts an explicitly cleared optional ProductGrid category', () => {
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: { category: '', id: 'products-1' },
+          type: 'ProductGrid',
+        },
+        new Set()
+      )
+    ).toBe(true);
+  });
+
   it('accepts saved animation defaults for every render-safe animated block', () => {
     const animation = {
       animationDelay: 0,

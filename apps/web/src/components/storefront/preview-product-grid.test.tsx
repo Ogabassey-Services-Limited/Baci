@@ -17,6 +17,8 @@ describe('PreviewProductGrid', () => {
     const fixture = screen.getByTestId('builder-preview-products');
     expect(fixture).toHaveAttribute('data-fixture-version', 'v2');
     expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByText('Sample price 1')).toBeInTheDocument();
+    expect(screen.queryByText(/₦/)).not.toBeInTheDocument();
     expect(
       screen.queryByTestId('builder-preview-product-filters')
     ).not.toBeInTheDocument();

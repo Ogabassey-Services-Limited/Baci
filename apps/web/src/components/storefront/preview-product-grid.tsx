@@ -13,7 +13,7 @@ const previewProducts = Array.from(
   (_, index) => ({
     id: `preview-product-${index + 1}`,
     name: `Preview Product ${index + 1}`,
-    price: `₦${(index + 1) * 1000}`,
+    price: `Sample price ${index + 1}`,
   })
 );
 
