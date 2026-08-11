@@ -10,6 +10,9 @@ describe('preview render projection', () => {
       true
     );
     expect(
+      previewRenderProjection.isAssetSource('/avatars/customer.webp')
+    ).toBe(true);
+    expect(
       previewRenderProjection.isAssetSource('/api/storefront/auth/session')
     ).toBe(false);
     expect(
