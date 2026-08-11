@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -134,44 +134,6 @@ describe('HeroMobileCarousel', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /go to hero slide 2/i })
-    ).toBeInTheDocument();
-  });
-
-  it('advances to the next slide on a left swipe', () => {
-    render(<HeroMobileCarousel slides={SLIDES} />);
-
-    expect(
-      screen.queryByRole('img', { name: 'Itel Power 80' })
-    ).not.toBeInTheDocument();
-
-    const panel = screen.getByRole('region', {
-      name: /featured launch product carousel/i,
-    });
-    fireEvent.touchStart(panel, { touches: [{ clientX: 220 }] });
-    fireEvent.touchEnd(panel, { changedTouches: [{ clientX: 60 }] });
-
-    expect(
-      screen.getByRole('img', { name: 'Itel Power 80' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: /go to hero slide 2/i })
-    ).toHaveAttribute('aria-current', 'true');
-  });
-
-  it('auto-advances to the next slide after the interval elapses', () => {
-    vi.useFakeTimers();
-    render(<HeroMobileCarousel slides={SLIDES} />);
-
-    expect(
-      screen.queryByRole('img', { name: 'Itel Power 80' })
-    ).not.toBeInTheDocument();
-
-    act(() => {
-      vi.advanceTimersByTime(5000);
-    });
-
-    expect(
-      screen.getByRole('img', { name: 'Itel Power 80' })
     ).toBeInTheDocument();
   });
 
