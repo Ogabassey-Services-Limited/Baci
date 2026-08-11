@@ -28,6 +28,8 @@ const reservedColorGroups = new Set([
 ]);
 const text = 'text';
 const number = 'number';
+const rendererColorPattern =
+  /^#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3})?(?:[0-9a-fA-F]{2})?$/;
 
 type ThemeShape =
   | typeof text
@@ -173,15 +175,27 @@ function isSafeThemeText(value: unknown): boolean {
   );
 }
 
-function matchesThemeShape(value: unknown, shape: ThemeShape): boolean {
-  if (shape === text) return isSafeThemeText(value);
+function matchesThemeShape(
+  value: unknown,
+  shape: ThemeShape,
+  colorContext = false
+): boolean {
+  if (shape === text)
+    return (
+      isSafeThemeText(value) &&
+      (!colorContext ||
+        (typeof value === 'string' && rendererColorPattern.test(value)))
+    );
   if (shape === number)
     return typeof value === 'number' && Number.isFinite(value);
   if (!isRecord(value) || !hasOnlyKnownKeys(value, Object.keys(shape)))
     return false;
   return Object.entries(value).every(([key, child]) => {
     const expected = shape[key];
-    return expected !== undefined && matchesThemeShape(child, expected);
+    return (
+      expected !== undefined &&
+      matchesThemeShape(child, expected, key === 'colors' || colorContext)
+    );
   });
 }
 

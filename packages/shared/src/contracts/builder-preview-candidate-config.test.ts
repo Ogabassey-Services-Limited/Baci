@@ -211,15 +211,15 @@ describe('builder preview candidate configuration', () => {
     expect(
       builderPreviewCandidateConfigSchema.safeParse({
         ...candidate,
-        theme: {
-          colors: {
-            background: 'rgb(20 83 45)',
-            foreground: 'hsl(142 72% 29%)',
-            primary: '#14532d',
-          },
-        },
+        theme: { colors: { background: '#14532d', primary: '#166534' } },
       }).success
     ).toBe(true);
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        ...candidate,
+        theme: { colors: { background: 'rgb(20 83 45)' } },
+      }).success
+    ).toBe(false);
     expect(
       builderPreviewCandidateConfigSchema.safeParse({
         ...candidate,

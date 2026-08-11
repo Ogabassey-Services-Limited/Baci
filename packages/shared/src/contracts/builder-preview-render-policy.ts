@@ -1,6 +1,10 @@
 import type { BuilderData } from './builder-ai-edit';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 import { previewRenderProjection } from './builder-preview-render-projection';
+import {
+  isSafeSocialLinks,
+  legacyZoneKeyPattern,
+} from './builder-preview-safe-links';
 
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
@@ -8,14 +12,6 @@ const MAX_CAROUSEL_SLIDES = 5;
 const componentIdPattern = /^[A-Za-z0-9][A-Za-z0-9_-]{0,119}$/;
 const componentSlotZoneKeyPattern =
   /^([A-Za-z0-9][A-Za-z0-9_-]{0,119}):([A-Za-z][A-Za-z0-9_-]{0,79})$/;
-const legacyZoneKeyPattern = /^[A-Za-z][A-Za-z0-9_-]{0,79}$/;
-const socialPlatforms = [
-  'facebook',
-  'instagram',
-  'twitter',
-  'linkedin',
-  'youtube',
-] as const;
 const colorPattern =
   /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\))$/;
 const animationTypes = new Set(
@@ -56,19 +52,6 @@ function isSafeGradient(value: unknown): boolean {
     typeof value === 'string' &&
     value.length <= MAX_GRADIENT_LENGTH &&
     gradientPattern.test(value)
-  );
-}
-
-function isSafeSocialLinks(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    Object.keys(value).every((key) =>
-      socialPlatforms.includes(key as (typeof socialPlatforms)[number])
-    ) &&
-    Object.values(value).every(
-      (url) =>
-        url === undefined || builderDesignCapabilityAdapter.isSafeUrl(url)
-    )
   );
 }
 
