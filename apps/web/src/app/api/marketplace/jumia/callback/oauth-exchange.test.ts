@@ -15,7 +15,11 @@ import { exchangeJumiaOAuthTokens } from './oauth-exchange';
 
 describe('exchangeJumiaOAuthTokens', () => {
   it('forwards exchange inputs and returns provider tokens', async () => {
-    const tokens = { access_token: 'access', expires_in: 3600, token_type: 'bearer' };
+    const tokens = {
+      access_token: 'access',
+      expires_in: 3600,
+      token_type: 'bearer',
+    };
     exchange.mockResolvedValueOnce(tokens);
 
     await expect(

@@ -46,9 +46,11 @@ export async function GET(request: NextRequest) {
         state: `${state?.slice(0, 8)}...`,
         storedState: `${storedState?.slice(0, 8)}...`,
       });
-      return jumiaOAuthCallbackRedirect.clear(
-        jumiaOAuthCallbackRedirect.create(request, { error: 'invalid_state' })
-      );
+      const response = jumiaOAuthCallbackRedirect.create(request, {
+        error: 'invalid_state',
+      });
+      response.headers.set('Cache-Control', 'private, no-store');
+      return jumiaOAuthCallbackRedirect.clear(response);
     }
 
     // Mobile flow: pass code back via deep link, don't exchange here
