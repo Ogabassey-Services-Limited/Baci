@@ -156,7 +156,9 @@ export function buildRemediationCodexCommand({
     '--json',
     '--ephemeral',
     '--skip-git-repo-check',
-    '--dangerously-bypass-approvals-and-sandbox',
+    ...(readOnly
+      ? ['--sandbox', 'read-only']
+      : ['--dangerously-bypass-approvals-and-sandbox']),
     '--ignore-user-config',
     '-C',
     worktreeDir,
