@@ -86,4 +86,23 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
       { '@type': 'PropertyValue', name: 'Sensor', value: 'CMOS' },
     ]);
   });
+  it('preserves propertyID-only custom PropertyValue entries', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.addCustomProperty({
+      '@type': 'PropertyValue',
+      propertyID: 'shipping-weight',
+      value: 0.45,
+      unitCode: 'KGM',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      {
+        '@type': 'PropertyValue',
+        propertyID: 'shipping-weight',
+        value: 0.45,
+        unitCode: 'KGM',
+      },
+    ]);
+  });
 });

@@ -54,4 +54,7 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     expect(getProductSchemaSpecKeyForLabel('Sensor')).toBeUndefined();
     expect(getProductSchemaSpecKeyForLabel('Focal Length')).toBeUndefined();
   });
+  it('does not infer wireless charging from a generic Wireless label', () => {
+    expect(getProductSchemaSpecKeyForLabel('Wireless')).toBeUndefined();
+  });
 });

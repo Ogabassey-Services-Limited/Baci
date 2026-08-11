@@ -29,4 +29,8 @@ describe('isUnsupportedSpecValue', () => {
       expect(isUnsupportedSpecValue(value)).toBe(false);
     }
   });
+  it('rejects descriptive negative capability claims', () => {
+    expect(isUnsupportedSpecValue('Not supported on this model')).toBe(true);
+    expect(isUnsupportedSpecValue('No OIS')).toBe(true);
+  });
 });

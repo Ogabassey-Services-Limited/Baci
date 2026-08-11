@@ -38,6 +38,7 @@ export function isUnsupportedSpecValue(value: unknown) {
     /^0(?:\.0+)?(?:\s*[a-z]+)?$/.test(normalized) ||
     normalized.startsWith('confirm exact') ||
     normalized.startsWith('not listed') ||
-    normalized.startsWith('not published')
+    normalized.startsWith('not published') ||
+    /^(?:no|not (?:supported|available|known|specified))\b/.test(normalized)
   );
 }

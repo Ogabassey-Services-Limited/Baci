@@ -54,7 +54,6 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   storage: 'storage_gb',
   'video recording': 'rear_camera_video',
   wifi: 'wifi_bands',
-  wireless: 'wireless_charging_watt',
   'wireless charging': 'wireless_charging_watt',
   usb: 'usb_type',
 };

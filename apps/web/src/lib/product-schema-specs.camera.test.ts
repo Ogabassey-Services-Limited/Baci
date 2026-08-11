@@ -47,4 +47,12 @@ describe('shouldIncludeProductSchemaSpec camera policies', () => {
       )
     ).toBe(true);
   });
+  it('retains generic wireless connectivity rows without inferring charging', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { label: 'Wireless', value: 'Wi-Fi 802.11ac' }
+      )
+    ).toBe(true);
+  });
 });

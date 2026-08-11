@@ -1,6 +1,7 @@
 interface ProductSchemaAdditionalProperty {
   '@type': 'PropertyValue';
-  name: string;
+  name?: string;
+  propertyID?: string;
   value: unknown;
   [key: string]: unknown;
 }
@@ -112,7 +113,11 @@ export function createProductSchemaAdditionalPropertyCollector() {
 
       const candidate = property as Record<string, unknown>;
       const normalizedName = normalizePropertyName(candidate.name);
-      if (!normalizedName || !isValidCustomPropertyValue(candidate.value)) {
+      const normalizedPropertyId = normalizePropertyName(candidate.propertyID);
+      if (
+        (!normalizedName && !normalizedPropertyId) ||
+        !isValidCustomPropertyValue(candidate.value)
+      ) {
         return;
       }
 
@@ -128,7 +133,10 @@ export function createProductSchemaAdditionalPropertyCollector() {
         return;
       }
 
-      const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${serializedValue}`;
+      const propertyIdentifier = normalizedName
+        ? getCanonicalPropertyName(normalizedName)
+        : `propertyid:${canonicalizeText(normalizedPropertyId || '')}`;
+      const propertyKey = `${propertyIdentifier}|${serializedValue}`;
       if (propertyKeys.has(propertyKey)) {
         return;
       }
@@ -137,7 +145,8 @@ export function createProductSchemaAdditionalPropertyCollector() {
       properties.push({
         ...candidate,
         '@type': 'PropertyValue',
-        name: normalizedName,
+        ...(normalizedName ? { name: normalizedName } : {}),
+        ...(normalizedPropertyId ? { propertyID: normalizedPropertyId } : {}),
         value: candidate.value,
       });
     },

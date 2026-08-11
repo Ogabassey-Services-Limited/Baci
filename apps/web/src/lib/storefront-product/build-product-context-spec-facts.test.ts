@@ -13,7 +13,7 @@ describe('buildProductContextSpecFacts', () => {
         },
         'Smartphones'
       )
-    ).toEqual(['RAM: 8GB', 'Internal Storage: 256GB', '5G Support: Yes']);
+    ).toEqual(['5G Support: Yes', 'Internal Storage: 256GB', 'RAM: 8GB']);
   });
 
   it('filters unsupported generic facts but preserves safe gaming details', () => {
@@ -35,8 +35,8 @@ describe('buildProductContextSpecFacts', () => {
     ).toEqual([
       'Processor: AMD Ryzen 7',
       'GPU: RTX 4060',
-      'Platform: PlayStation 5',
       'Format: Physical Blu-ray disc',
+      'Platform: PlayStation 5',
     ]);
   });
 
@@ -117,5 +117,26 @@ describe('buildProductContextSpecFacts', () => {
         []
       );
     }
+  });
+  it('uses category priority rather than source object order before capping facts', () => {
+    expect(
+      buildProductContextSpecFacts(
+        {
+          dimensions_mm: '120 x 70 x 35 mm',
+          weight_g: 450,
+          build_materials: 'Magnesium alloy',
+          display_type: 'LCD',
+          screen_size_inches: 3,
+          main_camera_mp: 24,
+        },
+        'Action Cameras'
+      )
+    ).toEqual([
+      'Effective Resolution: 24MP',
+      'Type: LCD',
+      'Size: 3 inches',
+      'Dimensions: 120 x 70 x 35 mm',
+      'Weight: 450g',
+    ]);
   });
 });

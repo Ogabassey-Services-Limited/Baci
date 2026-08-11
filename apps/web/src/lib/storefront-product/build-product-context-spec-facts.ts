@@ -84,10 +84,15 @@ export function buildProductContextSpecFacts(
 
   const comparableSpecs = productKeySpecs as ComparableProductKeySpecs;
   const family = getProductSpecFamily(categoryName);
+  const orderedFields = getKeySpecCategoriesForFamily(
+    family,
+    categoryName
+  ).flatMap((category) => category.fields);
   const fieldsByKey = new Map<string, SpecField>(
-    getKeySpecCategoriesForFamily(family, categoryName)
-      .flatMap((category) => category.fields)
-      .map((field) => [field.key, field])
+    orderedFields.map((field) => [field.key, field])
+  );
+  const fieldPriorityByKey = new Map(
+    orderedFields.map((field, index) => [field.key, index])
   );
 
   return Object.entries(productKeySpecs)
@@ -126,7 +131,19 @@ export function buildProductContextSpecFacts(
         field?.label ||
         contextLabel ||
         humanizeSpecKey(key);
-      return [`${label}: ${normalized}`];
+      return [
+        {
+          key,
+          priority: fieldPriorityByKey.get(key) ?? Number.MAX_SAFE_INTEGER,
+          text: `${label}: ${normalized}`,
+        },
+      ];
     })
-    .slice(0, 5);
+    .toSorted((left, right) =>
+      left.priority === right.priority
+        ? left.key.localeCompare(right.key)
+        : left.priority - right.priority
+    )
+    .slice(0, 5)
+    .map((fact) => fact.text);
 }
