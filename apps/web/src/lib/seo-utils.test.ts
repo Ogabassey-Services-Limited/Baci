@@ -217,7 +217,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.offers).toMatchObject({
       '@type': 'Offer',
       acceptedPaymentMethod: [
-        'https://schema.org/BankTransferInAdvance',
+        'https://schema.org/ByBankTransferInAdvance',
         'https://schema.org/CreditCard',
       ],
     });

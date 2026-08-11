@@ -28,12 +28,8 @@ function getSpecItemIdentity(label: string, section?: string) {
   return `${normalizedSection}:${getCanonicalSpecLabel(label)}`;
 }
 
-function isUnknownSpecValue(value: string) {
-  return value.trim().toLowerCase() === 'unknown';
-}
-
 function getSpecValueQuality(value: string) {
-  if (!(isUnsupportedSpecValue(value) || isUnknownSpecValue(value))) {
+  if (!isUnsupportedSpecValue(value)) {
     return 2;
   }
 

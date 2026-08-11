@@ -114,4 +114,18 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
       ])
     );
   });
+
+  it('does not turn truthy capability strings into positive mobile facts', () => {
+    const sections = buildDetailedSpecsFromKeySpecs(
+      { has_nfc: 'Unknown', has_5g: 'No' },
+      'mobile'
+    );
+
+    expect(sections).toEqual([
+      {
+        category: 'Network',
+        items: [{ label: '5G Support', value: 'No' }],
+      },
+    ]);
+  });
 });

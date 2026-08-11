@@ -45,6 +45,8 @@ function normalizeText(value: unknown, options?: NormalizeTextOptions) {
 }
 
 function getVariantAttribute(
+  input: ProductDetailInput,
+  specKey: string,
   attributes: ProductDetailInput['variant_attributes'],
   aliases: string[],
   options?: NormalizeTextOptions
@@ -63,7 +65,13 @@ function getVariantAttribute(
     }
 
     const normalizedValue = normalizeText(value, options);
-    if (normalizedValue) {
+    if (
+      normalizedValue &&
+      shouldIncludeProductSchemaSpec(input, {
+        key: specKey,
+        value: normalizedValue,
+      })
+    ) {
       return normalizedValue;
     }
   }
@@ -110,9 +118,17 @@ function buildWeightLabel(input: ProductDetailInput) {
 }
 
 export function buildGoogleColorXml(input: ProductDetailInput) {
-  const color =
-    getVariantAttribute(input.variant_attributes, ['color', 'colour']) ||
-    normalizeText(input.color);
+  const color = normalizeText(
+    getFirstAcceptedSpecValue(
+      input,
+      'available_colors',
+      getVariantAttribute(input, 'available_colors', input.variant_attributes, [
+        'color',
+        'colour',
+      ]),
+      input.color
+    )
+  );
 
   return color ? `        <g:color>${escapeXml(color)}</g:color>` : '';
 }
@@ -136,9 +152,15 @@ export function buildGoogleProductDetailXml(input: ProductDetailInput) {
   const ramValue = getFirstAcceptedSpecValue(
     input,
     'ram_gb',
-    getVariantAttribute(input.variant_attributes, ['ram', 'memory'], {
-      formatNumber: formatPositiveGb,
-    }),
+    getVariantAttribute(
+      input,
+      'ram_gb',
+      input.variant_attributes,
+      ['ram', 'memory'],
+      {
+        formatNumber: formatPositiveGb,
+      }
+    ),
     specs.ram_gb
   );
   const ram = isPositiveFiniteNumber(ramValue)
@@ -148,6 +170,8 @@ export function buildGoogleProductDetailXml(input: ProductDetailInput) {
     input,
     'storage_gb',
     getVariantAttribute(
+      input,
+      'storage_gb',
       input.variant_attributes,
       ['storage', 'storage_capacity', 'rom'],
       {

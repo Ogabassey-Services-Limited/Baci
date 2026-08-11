@@ -9,14 +9,14 @@ describe('buildProductSpecData invalid values', () => {
         product_key_specs: {
           storage_gb: 0,
           battery_mah: 0,
-          display_resolution: 'N/A',
+          display_resolution: 'Unknown',
         },
         specifications: [
           {
             category: 'Measurements',
             items: [
               { label: 'Screen Size', value: '0 inches' },
-              { label: 'Display Resolution', value: 'N/A' },
+              { label: 'Display Resolution', value: 'Unknown' },
             ],
           },
         ],
@@ -25,7 +25,7 @@ describe('buildProductSpecData invalid values', () => {
         section.items.map((item) => item.value)
       );
 
-      for (const prohibitedValue of ['0GB', '0mAh', '0 inches', 'N/A']) {
+      for (const prohibitedValue of ['0GB', '0mAh', '0 inches', 'Unknown']) {
         expect(values).not.toContain(prohibitedValue);
       }
     }

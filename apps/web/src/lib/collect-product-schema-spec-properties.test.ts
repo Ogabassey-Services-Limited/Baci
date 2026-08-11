@@ -51,4 +51,37 @@ describe('collectProductSchemaSpecProperties', () => {
       ])
     );
   });
+
+  it('omits unknown measurements and unverified capability strings from JSON-LD', () => {
+    for (const category of ['Action Cameras', 'Smartphones', 'Laptops']) {
+      const collector = collectProductSchemaSpecProperties(
+        makeSeoProduct({
+          category,
+          product_key_specs: {
+            display_resolution: 'Unknown',
+            has_nfc: 'Unknown',
+            has_ois: 'Not specified',
+          } as unknown as ProductKeySpecs,
+        })
+      );
+
+      expect(collector.getProperties()).toEqual([]);
+    }
+  });
+
+  it('drops taxonomy Radio legacy rows from camera JSON-LD', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Action Cameras',
+        specifications: [
+          {
+            category: 'Connectivity',
+            items: [{ label: 'Radio', value: 'FM Radio' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual([]);
+  });
 });

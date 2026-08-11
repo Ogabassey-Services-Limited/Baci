@@ -487,7 +487,7 @@ function normalizeAcceptedPaymentMethods(
         .map((method) => {
           const normalized = method.trim().toLowerCase();
           if (normalized.includes('bank transfer')) {
-            return 'https://schema.org/BankTransferInAdvance';
+            return 'https://schema.org/ByBankTransferInAdvance';
           }
           if (
             normalized.includes('debit') ||

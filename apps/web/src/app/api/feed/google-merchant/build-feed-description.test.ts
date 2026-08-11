@@ -174,4 +174,29 @@ describe('buildFeedDescription', () => {
     expect(description).not.toContain('Storage capacity:');
     expect(description).not.toContain('Front camera resolution:');
   });
+
+  it('skips unknown details and invalid leading RAM and storage aliases', () => {
+    const description = buildFeedDescription({
+      name: 'Galaxy S24 Ultra',
+      category: 'Smartphones',
+      description: 'Samsung flagship.',
+      product_key_specs: {
+        display_resolution: 'Unknown',
+        ram_gb: 8,
+        storage_gb: 256,
+      },
+      variant_attributes: {
+        memory: 'N/A',
+        ram: '16GB',
+        storage: 'Unknown',
+        rom: '1TB',
+      },
+    });
+
+    expect(description).toContain('RAM: 16GB');
+    expect(description).toContain('Storage capacity: 1TB');
+    expect(description).not.toContain('Screen resolution: Unknown');
+    expect(description).not.toContain('RAM: 8GB');
+    expect(description).not.toContain('Storage capacity: 256GB');
+  });
 });

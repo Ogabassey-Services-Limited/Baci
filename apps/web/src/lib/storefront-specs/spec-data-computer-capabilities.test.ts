@@ -23,4 +23,17 @@ describe('buildProductSpecData computer capabilities', () => {
       ])
     );
   });
+
+  it('does not turn an unknown NFC string into a positive laptop capability', () => {
+    const result = buildProductSpecData({
+      category: 'Laptops',
+      product_key_specs: { has_nfc: 'Unknown' },
+    });
+
+    expect(
+      result.detailedSpecs.flatMap((section) => section.items)
+    ).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ label: 'NFC' })])
+    );
+  });
 });

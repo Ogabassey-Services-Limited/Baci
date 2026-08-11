@@ -115,7 +115,7 @@ describe('buildProductContextParagraphs', () => {
     expect(paragraphs.join(' ')).toContain('Forspoken');
     expect(paragraphs.join(' ')).toContain('Ogabassey');
     expect(paragraphs.join(' ')).toContain('region compatibility');
-    expect(paragraphs.join(' ')).toContain('format: Physical Blu-ray disc');
+    expect(paragraphs.join(' ')).toContain('Format: Physical Blu-ray disc');
     expect(paragraphs.join(' ')).not.toMatch(/price in nigeria|installment/i);
   });
 

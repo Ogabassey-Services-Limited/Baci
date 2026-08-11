@@ -89,6 +89,8 @@ function buildWeightLabel(input: FeedDescriptionInput) {
 }
 
 function getVariantAttribute(
+  input: FeedDescriptionInput,
+  specKey: string,
   attributes: FeedDescriptionInput['variant_attributes'],
   aliases: string[]
 ) {
@@ -106,7 +108,13 @@ function getVariantAttribute(
     }
 
     const normalizedValue = normalizeText(value);
-    if (normalizedValue) {
+    if (
+      normalizedValue &&
+      shouldIncludeProductSchemaSpec(input, {
+        key: specKey,
+        value: normalizedValue,
+      })
+    ) {
       return normalizedValue;
     }
   }
@@ -119,7 +127,10 @@ function buildSpecDetails(input: FeedDescriptionInput) {
   const colorValue = getFirstAcceptedSpecValue(
     input,
     'available_colors',
-    getVariantAttribute(input.variant_attributes, ['color', 'colour']),
+    getVariantAttribute(input, 'available_colors', input.variant_attributes, [
+      'color',
+      'colour',
+    ]),
     normalizeText(input.color),
     specs.available_colors
   );
@@ -142,7 +153,10 @@ function buildSpecDetails(input: FeedDescriptionInput) {
   const ramValue = getFirstAcceptedSpecValue(
     input,
     'ram_gb',
-    getVariantAttribute(input.variant_attributes, ['ram', 'memory']),
+    getVariantAttribute(input, 'ram_gb', input.variant_attributes, [
+      'ram',
+      'memory',
+    ]),
     specs.ram_gb
   );
   const ram =
@@ -150,7 +164,7 @@ function buildSpecDetails(input: FeedDescriptionInput) {
   const storageValue = getFirstAcceptedSpecValue(
     input,
     'storage_gb',
-    getVariantAttribute(input.variant_attributes, [
+    getVariantAttribute(input, 'storage_gb', input.variant_attributes, [
       'storage',
       'storage_capacity',
       'rom',

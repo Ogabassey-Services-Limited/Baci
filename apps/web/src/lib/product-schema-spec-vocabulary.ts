@@ -19,6 +19,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   fingerprint: 'fingerprint_type',
   'fingerprint sensor': 'fingerprint_type',
   'fm radio': 'has_fm_radio',
+  radio: 'has_fm_radio',
   gpu: 'gpu',
   'has ois': 'has_ois',
   'internal storage': 'storage_gb',

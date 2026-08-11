@@ -97,4 +97,25 @@ describe('buildProductContextSpecFacts', () => {
     expect(negativeFacts).toEqual([]);
     expect(placeholderFacts).toEqual([]);
   });
+
+  it('does not expose unknown measurements or capability placeholders in crawl facts', () => {
+    for (const [category, productKeySpecs] of [
+      [
+        'Action Cameras',
+        { display_resolution: 'Unknown', has_nfc: 'Unknown', has_ois: 'TBD' },
+      ],
+      [
+        'Smartphones',
+        { display_resolution: 'Unknown', has_nfc: 'Unknown', has_ois: 'N/A' },
+      ],
+      [
+        'Laptops',
+        { display_resolution: 'Unknown', has_nfc: 'Unknown', has_ois: 'N/A' },
+      ],
+    ] as const) {
+      expect(buildProductContextSpecFacts(productKeySpecs, category)).toEqual(
+        []
+      );
+    }
+  });
 });

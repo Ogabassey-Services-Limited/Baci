@@ -8,6 +8,7 @@ describe('shouldIncludeProductSchemaSpec measurements', () => {
         { key: 'storage_gb', value: 0 },
         { key: 'screen_size_inches', value: 'N/A' },
         { key: 'battery_mah', value: '0mAh' },
+        { key: 'display_resolution', value: 'Unknown' },
       ]) {
         expect(
           shouldIncludeProductSchemaSpec(

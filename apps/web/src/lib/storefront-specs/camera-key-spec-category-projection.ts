@@ -26,7 +26,7 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
       {
         key: 'has_ois',
         label: 'OIS',
-        transform: (value: unknown) => (value ? 'Yes' : 'No'),
+        transform: (value: unknown) => (value === true ? 'Yes' : 'No'),
       },
       { key: 'rear_camera_features', label: 'Camera Features' },
       { key: 'rear_camera_video', label: 'Video Recording' },
@@ -95,7 +95,7 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
       {
         key: 'has_nfc',
         label: 'NFC',
-        transform: (value) => (value ? 'Yes' : 'No'),
+        transform: (value) => (value === true ? 'Yes' : 'No'),
       },
     ],
   },

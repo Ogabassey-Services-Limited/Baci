@@ -15,7 +15,6 @@ interface ProductSchemaSpecValuePolicyInput {
 
 const EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS = new Set([
   'battery_removable',
-  'card_slot_type',
   'has_5g',
   'has_card_slot',
   'has_fm_radio',
@@ -85,6 +84,18 @@ export function getProductSchemaSpecValueDecision({
     value === null ||
     value === undefined ||
     (typeof value === 'string' && !value.trim())
+  ) {
+    return 'exclude';
+  }
+
+  // Imported JSON can contain truthy strings for boolean capabilities. Only
+  // actual booleans can establish a positive hardware fact; explicit legacy
+  // negatives are handled below for the families that retain them.
+  if (
+    canonicalSpecKey &&
+    EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey) &&
+    typeof value === 'string' &&
+    !isExplicitNegativeSpecValue(value)
   ) {
     return 'exclude';
   }

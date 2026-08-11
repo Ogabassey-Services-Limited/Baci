@@ -46,6 +46,10 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     expect(getProductSchemaSpecKeyForLabel('OIS')).toBe('has_ois');
   });
 
+  it('maps the native Radio taxonomy label to has_fm_radio', () => {
+    expect(getProductSchemaSpecKeyForLabel('Radio')).toBe('has_fm_radio');
+  });
+
   it('leaves product-specific labels available to the legacy label path', () => {
     expect(getProductSchemaSpecKeyForLabel('Sensor')).toBeUndefined();
     expect(getProductSchemaSpecKeyForLabel('Focal Length')).toBeUndefined();

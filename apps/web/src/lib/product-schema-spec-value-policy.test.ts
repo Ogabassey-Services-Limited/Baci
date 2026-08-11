@@ -76,4 +76,34 @@ describe('getProductSchemaSpecValueDecision', () => {
       })
     ).toBe('defer');
   });
+
+  it('rejects truthy strings for boolean capabilities instead of treating them as verified', () => {
+    for (const value of ['Yes', 'Unknown', 'Not specified']) {
+      expect(
+        getProductSchemaSpecValueDecision({
+          canonicalSpecKey: 'has_nfc',
+          hasCategory: true,
+          isMobileCategory: true,
+          isPhoneOnlyLabel: true,
+          normalizedLabel: 'nfc',
+          productFamily: 'mobile',
+          value,
+        })
+      ).toBe('exclude');
+    }
+  });
+
+  it('keeps a supported card-slot type as a factual specification', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'card_slot_type',
+        hasCategory: true,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: true,
+        normalizedLabel: 'card slot',
+        productFamily: 'camera',
+        value: 'CFexpress Type B / SD UHS-II',
+      })
+    ).toBe('defer');
+  });
 });

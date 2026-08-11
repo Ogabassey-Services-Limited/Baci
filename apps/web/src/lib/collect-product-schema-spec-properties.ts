@@ -30,17 +30,17 @@ export function collectProductSchemaSpecProperties(product: Product) {
       {
         key: 'has_5g',
         name: '5G Support',
-        format: (value) => (value ? 'Yes' : 'No'),
+        format: (value) => (value === true ? 'Yes' : 'No'),
       },
       {
         key: 'has_nfc',
         name: 'NFC',
-        format: (value) => (value ? 'Yes' : 'No'),
+        format: (value) => (value === true ? 'Yes' : 'No'),
       },
       {
         key: 'has_ois',
         name: 'OIS',
-        format: (value) => (value ? 'Yes' : 'No'),
+        format: (value) => (value === true ? 'Yes' : 'No'),
       },
       { key: 'dimensions_mm', name: 'Dimensions' },
       { key: 'weight_g', name: 'Weight', format: (value) => `${value}g` },
@@ -97,25 +97,26 @@ export function collectProductSchemaSpecProperties(product: Product) {
       {
         key: 'has_stereo_speakers',
         name: 'Speakers',
-        format: (value) => (value ? 'Stereo' : 'Mono'),
+        format: (value) => (value === true ? 'Stereo' : 'Mono'),
       },
       {
         key: 'has_headphone_jack',
         name: '3.5mm Headphone Jack',
-        format: (value) => (value ? 'Yes' : 'No'),
+        format: (value) => (value === true ? 'Yes' : 'No'),
       },
       { key: 'wifi_bands', name: 'WiFi' },
       { key: 'bluetooth_version', name: 'Bluetooth' },
       {
         key: 'usb_type',
         name: 'USB',
-        format: (value) => `${value}${keySpecs.has_usb_otg ? ' (OTG)' : ''}`,
+        format: (value) =>
+          `${value}${keySpecs.has_usb_otg === true ? ' (OTG)' : ''}`,
       },
       {
         key: 'has_fm_radio',
         name: 'FM Radio',
         format: () => 'Yes',
-        check: (value) => Boolean(value),
+        check: (value) => value === true,
       },
       { key: 'fingerprint_type', name: 'Fingerprint Sensor' },
       {
@@ -132,7 +133,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
         key: 'wireless_charging_watt',
         name: 'Wireless Charging',
         format: (value) => `${value}W`,
-        check: () => Boolean(keySpecs.has_wireless_charging),
+        check: () => keySpecs.has_wireless_charging === true,
       },
     ];
 
@@ -143,13 +144,14 @@ export function collectProductSchemaSpecProperties(product: Product) {
         value: keySpecs.main_camera_mp,
       })
     ) {
-      const cameraType = keySpecs.has_quad_camera
-        ? 'Quad'
-        : keySpecs.has_triple_camera
-          ? 'Triple'
-          : keySpecs.has_dual_camera
-            ? 'Dual'
-            : 'Single';
+      const cameraType =
+        keySpecs.has_quad_camera === true
+          ? 'Quad'
+          : keySpecs.has_triple_camera === true
+            ? 'Triple'
+            : keySpecs.has_dual_camera === true
+              ? 'Dual'
+              : 'Single';
       collector.add(
         'Main Camera',
         `${cameraType} ${keySpecs.main_camera_mp}MP`

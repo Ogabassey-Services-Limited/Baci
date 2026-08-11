@@ -18,6 +18,12 @@ function getField(categoryName: string, key: string) {
   return field;
 }
 
+function buildUntrustedCameraFlagSpecs(key: string, value: string) {
+  const specs: ComparableProductKeySpecs = {};
+  specs[key] = value;
+  return specs;
+}
+
 describe('spec taxonomy', () => {
   it('classifies camera families separately from mobile devices', () => {
     expect(getProductSpecFamily('Cameras')).toBe('camera');
@@ -67,6 +73,18 @@ describe('spec taxonomy', () => {
       [{ has_quad_camera: true }, 'Quad Camera'],
       [{ has_triple_camera: true }, 'Triple Camera'],
       [{ has_dual_camera: true }, 'Dual Camera'],
+      [
+        buildUntrustedCameraFlagSpecs('has_quad_camera', 'Unknown'),
+        'Single Camera',
+      ],
+      [
+        buildUntrustedCameraFlagSpecs('has_triple_camera', 'false'),
+        'Single Camera',
+      ],
+      [
+        buildUntrustedCameraFlagSpecs('has_dual_camera', 'true'),
+        'Single Camera',
+      ],
       [{}, 'Single Camera'],
     ];
 

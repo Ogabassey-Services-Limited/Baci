@@ -9,7 +9,7 @@ describe('buildProductSpecData camera capabilities', () => {
     });
     const unsupported = buildProductSpecData({
       category: 'Action Cameras',
-      product_key_specs: { has_ois: false, has_nfc: 'N/A' },
+      product_key_specs: { has_ois: 'Unknown', has_nfc: 'Not specified' },
     });
 
     expect(verified.detailedSpecs.flatMap((section) => section.items)).toEqual(
@@ -26,5 +26,27 @@ describe('buildProductSpecData camera capabilities', () => {
         expect.arrayContaining([expect.objectContaining({ label })])
       );
     }
+  });
+
+  it('rejects taxonomy-generated Radio legacy rows for cameras', () => {
+    const result = buildProductSpecData({
+      category: 'Action Cameras',
+      specifications: [
+        {
+          category: 'Connectivity',
+          items: [{ label: 'Radio', value: 'FM Radio' }],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          items: expect.arrayContaining([
+            expect.objectContaining({ label: 'Radio' }),
+          ]),
+        }),
+      ])
+    );
   });
 });

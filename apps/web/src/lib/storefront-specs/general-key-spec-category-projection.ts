@@ -91,7 +91,7 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
         key: 'wireless_charging_watt',
         label: 'Wireless Charging',
         transform: (value) => `${value}W`,
-        condition: (specs) => Boolean(specs.has_wireless_charging),
+        condition: (specs) => specs.has_wireless_charging === true,
       },
     ],
   },
