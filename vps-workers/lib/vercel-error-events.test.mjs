@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  closeSync,
+  ftruncateSync,
+  mkdtempSync,
+  openSync,
+  rmSync,
+  writeSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -17,20 +24,34 @@ describe('vercel error events', () => {
   it('reads recent events from a large drain without loading the whole file', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
     const path = join(directory, 'drain.jsonl');
+    const descriptor = openSync(path, 'w');
     try {
-      const prefix = Buffer.concat([
-        Buffer.alloc(MAX_JSONL_READ_BYTES + 128, 0x78),
-        Buffer.from('\n'),
-      ]);
       const event = JSON.stringify({
         level: 'error',
         message: 'Error: recent event',
         route: '/api/recent',
       });
-      writeFileSync(path, Buffer.concat([prefix, Buffer.from(`${event}\n`)]));
+      const eventBytes = Buffer.from(`${event}\n`);
+      const size = 513 * 1024 * 1024;
+      ftruncateSync(descriptor, size);
+      writeSync(
+        descriptor,
+        Buffer.from('\n'),
+        0,
+        1,
+        size - eventBytes.length - 1
+      );
+      writeSync(
+        descriptor,
+        eventBytes,
+        0,
+        eventBytes.length,
+        size - eventBytes.length
+      );
 
       assert.deepEqual(readJsonlLogEvents(path), [JSON.parse(event)]);
     } finally {
+      closeSync(descriptor);
       rmSync(directory, { recursive: true, force: true });
     }
   });
@@ -44,11 +65,26 @@ describe('vercel error events', () => {
         message: 'Error: boundary event',
         route: '/api/boundary',
       });
-      const prefix = Buffer.concat([
-        Buffer.alloc(MAX_JSONL_READ_BYTES + 128, 0x78),
-        Buffer.from('\n'),
-      ]);
-      writeFileSync(path, Buffer.concat([prefix, Buffer.from(`${event}\n`)]));
+      const eventBytes = Buffer.from(`${event}\n`);
+      const size = MAX_JSONL_READ_BYTES + eventBytes.length;
+      const descriptor = openSync(path, 'w');
+      ftruncateSync(descriptor, size);
+      writeSync(descriptor, Buffer.from('\n'), 0, 1, eventBytes.length - 1);
+      writeSync(
+        descriptor,
+        eventBytes,
+        0,
+        eventBytes.length,
+        eventBytes.length
+      );
+      writeSync(
+        descriptor,
+        Buffer.alloc(MAX_JSONL_READ_BYTES - eventBytes.length, 0x0a),
+        0,
+        MAX_JSONL_READ_BYTES - eventBytes.length,
+        eventBytes.length * 2
+      );
+      closeSync(descriptor);
 
       assert.deepEqual(readJsonlLogEvents(path), [JSON.parse(event)]);
     } finally {

@@ -292,7 +292,7 @@ export function readJsonlLogEvents(path) {
       events.push(JSON.parse(line));
     } catch (error) {
       throw new Error(
-        `Invalid JSONL at ${path}:${index + 1}: ${error.message}`
+        `Invalid JSONL at ${path} (tail line ${index + 1}): ${error.message}`
       );
     }
   }
