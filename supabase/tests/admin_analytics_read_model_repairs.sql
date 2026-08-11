@@ -146,6 +146,10 @@ VALUES
   ('00000000-0000-0000-0000-000000000023', '00000000-0000-0000-0000-000000000011', 400, '  ', 'paid', clock_timestamp());
 INSERT INTO public.merchant_settlements (id, merchant_id, status, net_amount, gateway, created_at)
 VALUES ('00000000-0000-0000-0000-000000000030', '00000000-0000-0000-0000-000000000010', 'pending', 95, 'paystack', clock_timestamp());
+INSERT INTO public.payout_requests (id, merchant_id, amount, currency, status, created_at)
+VALUES
+  ('00000000-0000-0000-0000-000000000031', '00000000-0000-0000-0000-000000000010', 40, 'USD', 'completed', clock_timestamp()),
+  ('00000000-0000-0000-0000-000000000032', '00000000-0000-0000-0000-000000000010', 25, 'NGN', 'pending', clock_timestamp());
 INSERT INTO public.email_send_attempts (
   id, merchant_id, provider, email_type, attempt_count, status, created_at, updated_at
 ) VALUES (
@@ -175,6 +179,7 @@ VALUES (
 \ir ../migrations/20260809173000_repair_admin_operations_currency_and_health_indexes.sql
 \ir ../migrations/20260809173100_index_platform_admin_membership_actors.sql
 \ir ../migrations/20260809173200_repair_admin_merchant_360_unknown_currency_gmv.sql
+\ir ../migrations/20260811124500_repair_admin_merchant_360_payout_history_and_shipments.sql
 
 -- The production v2 projection migration commits its own transaction.
 BEGIN;
@@ -209,6 +214,10 @@ BEGIN
       IS DISTINCT FROM '3'
     OR (v_unknown_currency_detail #>> '{sales,paidOrders}') IS DISTINCT FROM '3' THEN
     RAISE EXCEPTION 'Merchant 360 counted unknown-currency paid orders as GMV instead of excluding them';
+  END IF;
+  IF (v_detail #>> '{payouts,completedCount}') IS DISTINCT FROM '1'
+    OR (v_detail #>> '{payouts,pendingCount}') IS DISTINCT FROM '1' THEN
+    RAISE EXCEPTION 'Merchant 360 lost payout requests after a historical currency change';
   END IF;
 
   v_reconciliation := public.get_admin_reconciliation_v3('30d', 'NGN', NULL, 'all', 'all', NULL, NULL, 50);

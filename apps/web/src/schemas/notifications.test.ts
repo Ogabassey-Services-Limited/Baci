@@ -158,6 +158,23 @@ describe('notification schemas', () => {
     expect(parsed.success).toBe(true);
   });
 
+  it('rejects duplicate specific merchant IDs in create and PATCH targeting', () => {
+    const id = '123e4567-e89b-12d3-a456-426614174000';
+    expect(
+      createNotificationSchema.safeParse({
+        ...validCreateNotification,
+        target_type: 'specific',
+        target_merchant_ids: [id, id],
+      }).success
+    ).toBe(false);
+    expect(
+      updateNotificationSchema.safeParse({
+        target_type: 'specific',
+        target_merchant_ids: [id, id],
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects a create expiry that is not after its effective send time', () => {
     const parsed = createNotificationSchema.safeParse({
       ...validCreateNotification,

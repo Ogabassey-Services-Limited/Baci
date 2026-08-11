@@ -52,6 +52,21 @@ test('Merchant 360 withholds GMV unless the display currency is known', async ()
   assert.match(sql, /<> 'UNK'/);
 });
 
+test('Merchant 360 preserves payout history across currency changes and counts all shipment exceptions', async () => {
+  const sql = await migration(
+    '20260811124500_repair_admin_merchant_360_payout_history_and_shipments.sql'
+  );
+
+  assert.match(
+    sql,
+    /ALTER FUNCTION public\.get_admin_merchant_360_v2\(uuid\)\n {2}RENAME TO get_admin_merchant_360_v2_payout_history/
+  );
+  assert.match(sql, /FROM public\.payout_requests AS payout/);
+  assert.doesNotMatch(sql, /payout\.currency\).*payout_currency/);
+  assert.match(sql, /'shipment_exception', 'delivery_attempt_failed', 'returned'/);
+  assert.match(sql, /\{incidents,shipmentFailures30d\}/);
+});
+
 test('reconciliation repair retains currency-less settlement activity without money labels', async () => {
   const sql = await migration(
     '20260809154416_repair_admin_reconciliation_currencyless_activity.sql'
@@ -209,6 +224,10 @@ test('isolated replay exercises the production operations v2 projection', async 
   assert.match(
     sql,
     /\\ir \.\.\/migrations\/20260809173200_repair_admin_merchant_360_unknown_currency_gmv\.sql/
+  );
+  assert.match(
+    sql,
+    /\\ir \.\.\/migrations\/20260811124500_repair_admin_merchant_360_payout_history_and_shipments\.sql/
   );
   assert.match(sql, /public\.get_admin_operations_v2\('financial', 25, 0\)/);
   assert.match(

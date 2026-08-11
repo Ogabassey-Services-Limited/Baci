@@ -76,6 +76,11 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260811124500_repair_admin_merchant_360_payout_history_and_shipments.sql',
+    sha256: '43a05fec6efd1c557fd89bd372791644f1412d08a3dbeb736ea93cd41f9b03f6',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260811130000_repair_notification_detail_quiet_deferrals.sql',
     sha256: '99dae5d255b558789f330d83afe1886cac610b77a785fb64d9e18f4c8285887c',
   },
@@ -83,5 +88,10 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260811140000_repair_platform_notification_audit_changed_fields.sql',
     sha256: 'eab2ce0ad7e3a72f59f5d1a1de83fdba0075d5a4dd48e10b9f7ff0051a9b8ac1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811140100_repair_admin_reconciliation_pending_refunds.sql',
+    sha256: '0182503d7c326ca99c0385a171efa53ec6e6ffcbfc82cdb6cab45d7e9ab812e1',
   },
 ] as const;

@@ -60,7 +60,17 @@ export const updateMerchantNotificationSchema = z
 const notificationTargetingSchema = z
   .strictObject({
     target_type: z.enum(['all', 'specific', 'segment']).optional(),
-    target_merchant_ids: z.array(z.uuid()).max(500).optional(),
+    target_merchant_ids: z
+      .array(z.uuid())
+      .max(500)
+      .superRefine((ids, ctx) => {
+        if (new Set(ids).size !== ids.length)
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Target merchant IDs must be unique',
+          });
+      })
+      .optional(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
   })
   .superRefine((data, ctx) => {
@@ -108,7 +118,17 @@ export const createNotificationSchema = z
       .enum(['all', 'specific', 'segment'])
       .optional()
       .default('all'),
-    target_merchant_ids: z.array(z.uuid()).max(500).optional(),
+    target_merchant_ids: z
+      .array(z.uuid())
+      .max(500)
+      .superRefine((ids, ctx) => {
+        if (new Set(ids).size !== ids.length)
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Target merchant IDs must be unique',
+          });
+      })
+      .optional(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
     channels: z
       .array(z.enum(['in_app', 'banner', 'push']))
@@ -175,7 +195,18 @@ export const updateNotificationSchema = z
       .optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
     target_type: z.enum(['all', 'specific', 'segment']).optional(),
-    target_merchant_ids: z.array(z.uuid()).max(500).optional().nullable(),
+    target_merchant_ids: z
+      .array(z.uuid())
+      .max(500)
+      .superRefine((ids, ctx) => {
+        if (new Set(ids).size !== ids.length)
+          ctx.addIssue({
+            code: 'custom',
+            message: 'Target merchant IDs must be unique',
+          });
+      })
+      .optional()
+      .nullable(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
     channels: z
       .array(z.enum(['in_app', 'banner', 'push']))
