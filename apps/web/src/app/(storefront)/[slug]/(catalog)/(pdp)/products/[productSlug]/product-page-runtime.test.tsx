@@ -224,6 +224,38 @@ describe('ProductPageRuntime critical shell', () => {
     });
   });
 
+  it('ignores whitespace-only joined category slugs before falling back to canonical metadata', async () => {
+    const tree = (await ProductPageRuntime({
+      merchant,
+      product: {
+        ...(product as ProductPageRuntimeProduct),
+        category: 'Smartphones',
+        category_slug: 'action-cameras',
+        categories: { name: 'Action Cameras', slug: '   ' },
+      },
+      slug: 'ogabassey',
+    })) as ReactElement;
+
+    expect(generateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Action Cameras',
+          url: 'https://ogabassey.com/action-cameras',
+        }),
+      ])
+    );
+
+    const suspense = directChildren(tree).find(
+      (child) => child.type === Suspense
+    );
+    const deferredChild = (suspense?.props as { children?: ReactElement })
+      .children;
+    expect(deferredChild?.props).toMatchObject({
+      categoryName: 'Action Cameras',
+      categorySlug: 'action-cameras',
+    });
+  });
+
   it('uses /products for an uncategorized product instead of inventing /all-products', async () => {
     const tree = (await ProductPageRuntime({
       merchant,

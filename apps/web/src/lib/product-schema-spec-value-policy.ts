@@ -5,6 +5,7 @@ type ProductSchemaSpecValueDecision = 'defer' | 'exclude' | 'include';
 
 interface ProductSchemaSpecValuePolicyInput {
   canonicalSpecKey?: string;
+  isExplicitSpecKey: boolean;
   hasCategory: boolean;
   isMobileCategory: boolean;
   isPhoneOnlyLabel: boolean;
@@ -71,9 +72,21 @@ function isMeasurementSpec(
   );
 }
 
+function hasMalformedMeasurementText(value: unknown) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return (
+    /\b(?:nan|[+-]?infinity)\b/.test(normalized) || /^-\s*\d/.test(normalized)
+  );
+}
+
 export function getProductSchemaSpecValueDecision({
   canonicalSpecKey,
   hasCategory,
+  isExplicitSpecKey,
   isMobileCategory,
   isPhoneOnlyLabel,
   normalizedLabel,
@@ -93,6 +106,7 @@ export function getProductSchemaSpecValueDecision({
   // negatives are handled below for the families that retain them.
   if (
     canonicalSpecKey &&
+    isExplicitSpecKey &&
     EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey) &&
     typeof value === 'string' &&
     !isExplicitNegativeSpecValue(value)
@@ -104,7 +118,7 @@ export function getProductSchemaSpecValueDecision({
   if (
     measurementSpec &&
     ((typeof value === 'number' && value <= 0) ||
-      (typeof value === 'string' && /^-\d/.test(value.trim())))
+      hasMalformedMeasurementText(value))
   ) {
     return 'exclude';
   }
@@ -120,6 +134,13 @@ export function getProductSchemaSpecValueDecision({
     return 'exclude';
   }
   if (canonicalSpecKey) {
+    if (
+      canonicalSpecKey === 'card_slot_type' &&
+      !isExplicitSpecKey &&
+      isMobileCategory
+    ) {
+      return 'defer';
+    }
     if (
       isMobileCategory &&
       EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)

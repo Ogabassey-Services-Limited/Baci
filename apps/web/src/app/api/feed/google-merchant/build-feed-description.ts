@@ -14,13 +14,36 @@ interface FeedDescriptionInput {
   weight_value?: number | null;
 }
 
+const CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS = new Set([
+  'front_camera_mp',
+  'main_camera_mp',
+]);
+
+function isCategoryAgnosticPositiveMeasurement(
+  input: FeedDescriptionInput,
+  key: string,
+  value: unknown
+) {
+  return (
+    !input.categories?.name?.trim() &&
+    !input.categories?.slug?.trim() &&
+    !input.category?.trim() &&
+    CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS.has(key) &&
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    value > 0
+  );
+}
+
 function getFirstAcceptedSpecValue(
   input: FeedDescriptionInput,
   key: string,
   ...values: unknown[]
 ) {
-  return values.find((value) =>
-    shouldIncludeProductSchemaSpec(input, { key, value })
+  return values.find(
+    (value) =>
+      shouldIncludeProductSchemaSpec(input, { key, value }) ||
+      isCategoryAgnosticPositiveMeasurement(input, key, value)
   );
 }
 

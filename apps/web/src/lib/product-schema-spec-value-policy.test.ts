@@ -8,6 +8,7 @@ describe('getProductSchemaSpecValueDecision', () => {
         getProductSchemaSpecValueDecision({
           canonicalSpecKey: 'storage_gb',
           hasCategory: true,
+          isExplicitSpecKey: true,
           isMobileCategory: true,
           isPhoneOnlyLabel: false,
           normalizedLabel: 'storage',
@@ -20,6 +21,7 @@ describe('getProductSchemaSpecValueDecision', () => {
   it('includes explicit negative capabilities only for mobile families', () => {
     const input = {
       canonicalSpecKey: 'has_5g',
+      isExplicitSpecKey: true,
       hasCategory: true,
       isPhoneOnlyLabel: true,
       normalizedLabel: '5g support',
@@ -44,6 +46,7 @@ describe('getProductSchemaSpecValueDecision', () => {
     expect(
       getProductSchemaSpecValueDecision({
         canonicalSpecKey: 'has_headphone_jack',
+        isExplicitSpecKey: true,
         hasCategory: true,
         isMobileCategory: false,
         isPhoneOnlyLabel: true,
@@ -55,6 +58,7 @@ describe('getProductSchemaSpecValueDecision', () => {
     expect(
       getProductSchemaSpecValueDecision({
         canonicalSpecKey: 'has_ois',
+        isExplicitSpecKey: true,
         hasCategory: true,
         isMobileCategory: false,
         isPhoneOnlyLabel: true,
@@ -69,6 +73,7 @@ describe('getProductSchemaSpecValueDecision', () => {
     expect(
       getProductSchemaSpecValueDecision({
         hasCategory: true,
+        isExplicitSpecKey: false,
         isMobileCategory: false,
         isPhoneOnlyLabel: false,
         normalizedLabel: 'weather sealing',
@@ -82,6 +87,7 @@ describe('getProductSchemaSpecValueDecision', () => {
       expect(
         getProductSchemaSpecValueDecision({
           canonicalSpecKey: 'has_nfc',
+          isExplicitSpecKey: true,
           hasCategory: true,
           isMobileCategory: true,
           isPhoneOnlyLabel: true,
@@ -98,6 +104,7 @@ describe('getProductSchemaSpecValueDecision', () => {
       getProductSchemaSpecValueDecision({
         canonicalSpecKey: 'card_slot_type',
         hasCategory: true,
+        isExplicitSpecKey: true,
         isMobileCategory: false,
         isPhoneOnlyLabel: true,
         normalizedLabel: 'card slot',

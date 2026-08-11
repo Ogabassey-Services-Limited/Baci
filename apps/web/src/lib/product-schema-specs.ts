@@ -181,6 +181,7 @@ export function shouldIncludeProductSchemaSpec(
   const valueDecision = getProductSchemaSpecValueDecision({
     canonicalSpecKey,
     hasCategory: categoryNames.length > 0,
+    isExplicitSpecKey: Boolean(candidate.key),
     isMobileCategory,
     isPhoneOnlyLabel: normalizedLabel
       ? PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)
@@ -191,6 +192,18 @@ export function shouldIncludeProductSchemaSpec(
   });
   if (valueDecision !== 'defer') {
     return valueDecision === 'include';
+  }
+
+  // A legacy "Card Slot: No" row is a useful, accurate mobile fact even when
+  // the import did not retain the boolean key. Non-mobile rows remain subject
+  // to the phone-only filtering below.
+  if (
+    canonicalSpecKey === 'card_slot_type' &&
+    isMobileCategory &&
+    typeof candidate.value === 'string' &&
+    ['false', 'no'].includes(candidate.value.trim().toLowerCase())
+  ) {
+    return true;
   }
 
   if (isMobileCategory) {

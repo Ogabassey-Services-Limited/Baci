@@ -28,4 +28,15 @@ describe('shouldIncludeProductSchemaSpec measurements', () => {
       )
     ).toBe(true);
   });
+
+  it('rejects malformed string measurements before they reach PDP or schema copy', () => {
+    for (const value of ['NaN', 'Infinity', '- 1GB']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Smartphones', categories: null },
+          { key: 'ram_gb', value }
+        )
+      ).toBe(false);
+    }
+  });
 });

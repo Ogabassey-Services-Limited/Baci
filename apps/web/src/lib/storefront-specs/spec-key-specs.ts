@@ -24,6 +24,7 @@ export function buildDetailedSpecsFromKeySpecs(
             getProductSchemaSpecValueDecision({
               canonicalSpecKey: key,
               hasCategory: family !== 'general' || Boolean(categoryName),
+              isExplicitSpecKey: true,
               isMobileCategory: family === 'mobile',
               isPhoneOnlyLabel: false,
               productFamily: family,

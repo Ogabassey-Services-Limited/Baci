@@ -51,8 +51,9 @@ export async function ProductPageRuntime({
   const resolvedCategoryName = resolveStorefrontProductCategoryName(product);
   const categoryName = resolvedCategoryName || 'All Products';
   const categorySlug =
-    product.categories?.slug ||
-    product.category_slug ||
+    [product.categories?.slug, product.category_slug]
+      .map((value) => value?.trim())
+      .find(Boolean) ??
     (resolvedCategoryName ? generateSlug(resolvedCategoryName) : 'products');
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
