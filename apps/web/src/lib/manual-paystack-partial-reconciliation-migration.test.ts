@@ -23,6 +23,13 @@ const emailMismatchMigration = readFileSync(
   ),
   'utf8'
 );
+const walletClaimMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811130000_serialize_wallet_paystack_reference_claims.sql'
+  ),
+  'utf8'
+);
 
 describe('manual Paystack partial reconciliation migration', () => {
   it('locks and validates the review, order, and provider reference', () => {
@@ -84,5 +91,16 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(emailMismatchMigration).toContain(
       "'manual_paystack_email_mismatch_override'"
     );
+  });
+
+  it('uses the shared Paystack reference lock for wallet reservations', () => {
+    expect(walletClaimMigration).toContain(
+      'claim_paystack_wallet_dva_transaction'
+    );
+    expect(walletClaimMigration).toContain('pg_catalog.pg_advisory_xact_lock');
+    expect(walletClaimMigration).toContain(
+      'paystack_reference_already_recorded'
+    );
+    expect(walletClaimMigration).toContain('wallet_topup');
   });
 });
