@@ -191,6 +191,22 @@ test('rejects non-commit and malformed-commit objects while authenticating symli
   }
 });
 
+test('preserves an unchanged gitlink whose commit is absent locally', () => {
+  const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-gitlink-'));
+  try {
+    execFileSync('/usr/bin/git', ['init', '-q', root]);
+    const missing = 'a'.repeat(40);
+    execFileSync('/usr/bin/git', [
+      '-C', root, 'update-index', '--add', '--cacheinfo', `160000,${missing},vendor`,
+    ]);
+    const tree = execFileSync('/usr/bin/git', ['-C', root, 'write-tree'], { encoding: 'utf8' }).trim();
+    const commit = execFileSync('/usr/bin/git', ['-C', root, 'commit-tree', tree], { input: 'gitlink\n', encoding: 'utf8' }).trim();
+    assert.deepEqual(authenticatedTreeRows(root, commit), [{ gitlink: true, mode: '160000', objectId: missing, path: 'vendor' }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('rejects non-UTF-8 Git tree names before path projection', () => {
   const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-utf8-'));
   try {

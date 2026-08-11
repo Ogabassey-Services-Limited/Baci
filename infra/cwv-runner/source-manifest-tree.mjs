@@ -53,7 +53,6 @@ function listedTree(cwd, sha) {
       trees.push({ mode: '40000', objectId, path });
     } else {
       if (mode !== '160000') fail('unsupported Git tree mode');
-      blobIds.push(objectId);
       leaves.push({ mode, objectId, path, gitlink: true });
     }
   }
@@ -89,8 +88,6 @@ function walk(cwd, objects, objectId, prefix, leaves, trees) {
       if (child?.type !== 'blob') fail('malformed Git tree leaf');
       leaves.push({ mode, objectId: childId, path });
     } else if (mode === '160000') {
-      const child = objects.get(`${cwd}\0${childId}`);
-      if (child?.type !== 'commit') fail('malformed Git gitlink');
       leaves.push({ mode, objectId: childId, path, gitlink: true });
     } else fail('unsupported Git tree mode');
     offset = nul + 1 + width;
