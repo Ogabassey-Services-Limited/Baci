@@ -183,4 +183,48 @@ describe('remediation cron transition', () => {
     assert.match(outcome.crontab, /payload%value/);
     assert.doesNotMatch(outcome.crontab, /payload\\%value/);
   });
+
+  it('holds and emits the configured global lock path during handoff', () => {
+    const outcome = runTransition('custom-global-lock');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.locks.join('\n'), /locks\/custom-global\.lock/);
+    assert.match(outcome.crontab, /locks\/custom-global\.lock/);
+  });
+
+  it('reports a rollback failure when an empty crontab cannot be removed', () => {
+    const outcome = runTransition('rollback-remove-error');
+
+    assert.notEqual(outcome.result.status, 0);
+    assert.match(
+      outcome.result.stderr,
+      /unable to (?:remove crontab|verify crontab removal)/i
+    );
+    assert.match(outcome.crontab, /baci-remediation-transition/);
+  });
+
+  it('removes owned schedules when the historical Node path changes', () => {
+    const outcome = runTransition('legacy-node-change');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.doesNotMatch(outcome.crontab, /old-node/);
+    assert.match(outcome.crontab, /baci-remediation-transition/);
+  });
+
+  it('retains schedules that invoke a non-Node audit wrapper', () => {
+    const outcome = runTransition('legacy-wrapper');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.crontab, /audit-wrapper/);
+  });
+
+  it('retains detached lock mentions that do not wrap the remediation command', () => {
+    const outcome = runTransition('detached-lock');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(
+      outcome.crontab,
+      /flock -n .*vercel-error-remediator\.lock true;/
+    );
+  });
 });

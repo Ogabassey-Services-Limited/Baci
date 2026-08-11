@@ -35,8 +35,12 @@ fi
 if [ "$1" = "-w" ]; then shift 2; fi
 if [ "$1" = "-x" ]; then
   if [ "$TEST_SCENARIO" = "lock-timeout" ] && [ "$2" = "7" ]; then exit 73; fi
-  printf '%s\\n' "$2" >> "$LOCK_MARKER"
-  if [ "$2" = "6" ]; then touch "$BARRIER_MARKER"; fi
+  if [ "$2" = "6" ]; then
+    touch "$BARRIER_MARKER"
+    printf '%s\n' "\${BACI_REMEDIATION_LOCK_PATH:-$2}" >> "$LOCK_MARKER"
+  else
+    printf '%s\n' "\${BACI_REMEDIATION_LOCK_PATH:-$2}" >> "$LOCK_MARKER"
+  fi
 fi
 `;
 }
@@ -44,6 +48,14 @@ fi
 export function crontabStub() {
   return `#!/usr/bin/env bash
 set -euo pipefail
+if [ "$1" = "-r" ]; then
+  if [ "$TEST_SCENARIO" = "rollback-remove-error" ]; then
+    echo "permission denied removing crontab" >&2
+    exit 1
+  fi
+  rm -f "$CRONTAB_MARKER"
+  exit 0
+fi
 if [ "$1" = "-l" ]; then
   if grep -q BARRIER_MARKER "$REMOTE_DIR/jobs/vercel-error-remediator.mjs" && { [ "$TEST_SCENARIO" = "launch-race" ] || [ "$TEST_SCENARIO" = "rollback" ]; }; then
     set +e
@@ -56,11 +68,16 @@ if [ "$1" = "-l" ]; then
     fi
   fi
   if [ -f "$CRONTAB_MARKER" ]; then
+    if [ "$TEST_SCENARIO" = "rollback-remove-error" ] && [ ! -f "$ROLLBACK_READ_ERROR_MARKER" ]; then
+      touch "$ROLLBACK_READ_ERROR_MARKER"
+      echo "crontab spool unavailable" >&2
+      exit 2
+    fi
     cat "$CRONTAB_MARKER"
     exit 0
   fi
   case "$TEST_SCENARIO" in
-    no-crontab)
+    no-crontab|rollback-remove-error)
       echo "no crontab for test-user" >&2
       exit 1
       ;;
@@ -87,6 +104,15 @@ if [ "$1" = "-l" ]; then
       echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 BACI_CODEX_DOCKER_IMAGE=baci/codex:live && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       echo "*/5 *  * * * flock -n $CANONICAL_REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1"
       echo "22 4   * * * flock -n $CANONICAL_REMOTE_DIR/locks/remediation-codex-canary.lock flock -w 600 -E 75 $CANONICAL_REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_REMEDIATION_GLOBAL_FLOCK_HELD=1 && cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/remediation-codex-canary.mjs' >> $CANONICAL_REMOTE_DIR/logs/remediation-codex-canary.log 2>&1"
+      ;;
+    legacy-node-change)
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && /opt/old-node/bin/node $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
+      ;;
+    legacy-wrapper)
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && /usr/local/bin/audit-wrapper $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
+      ;;
+    detached-lock)
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock true; bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       ;;
     *)
       echo "0 1 * * * /usr/local/bin/unrelated-worker"

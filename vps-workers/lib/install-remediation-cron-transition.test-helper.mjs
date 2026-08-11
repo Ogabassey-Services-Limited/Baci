@@ -56,6 +56,13 @@ export function runTransition(scenario) {
   mkdirSync(jobsDirectory, { recursive: true });
   mkdirSync(join(remoteDirectory, 'lib'), { recursive: true });
   mkdirSync(procRoot);
+  if (scenario === 'custom-global-lock') {
+    writeFileSync(
+      join(remoteDirectory, '.env'),
+      'BACI_REMEDIATION_GLOBAL_LOCK_PATH=locks/custom-global.lock\n'
+    );
+  }
+  const rollbackReadErrorMarker = join(directory, 'rollback-read-error');
   writeStage(
     stageDirectory,
     globalLockSource,
@@ -215,6 +222,7 @@ bash -c "$1"
           INITIAL_CRONTAB_READ: join(directory, 'initial-crontab-read'),
           CANONICAL_REMOTE_DIR: realpathSync(remoteDirectory),
           CRONTAB_MARKER: crontabMarker,
+          ROLLBACK_READ_ERROR_MARKER: rollbackReadErrorMarker,
           DIRECT_PROCESS_PID: directProcessPid ?? '',
           LOCK_MARKER: lockMarker,
           NODE_BIN:

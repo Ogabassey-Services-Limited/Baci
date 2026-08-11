@@ -48,6 +48,14 @@ def write_crontab(exists, value):
         result = subprocess.run(['crontab', '-r'], check=False, stderr=subprocess.PIPE, text=True)
         if result.returncode not in (0, 1):
             raise TransitionError(result.stderr.strip() or 'unable to remove crontab')
+        try:
+            current_exists, _ = read_crontab()
+        except TransitionError as error:
+            raise TransitionError(
+                f'unable to verify crontab removal: {error}'
+            ) from error
+        if current_exists:
+            raise TransitionError('unable to remove crontab')
         return
     with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False) as candidate:
         candidate.write(value)
@@ -189,9 +197,11 @@ def rollback_crontab(original_exists, original, candidate):
 
 
 def main(arguments):
-    if len(arguments) != 7:
-        raise TransitionError('expected remote_dir staging_dir node_bin codex_image codex_bin timeout proc_root')
-    remote_dir, staging_dir, node_bin, codex_image, codex_bin, timeout, proc_root = arguments
+    if len(arguments) != 8:
+        raise TransitionError(
+            'expected remote_dir staging_dir node_bin codex_image codex_bin timeout proc_root global_lock_path'
+        )
+    remote_dir, staging_dir, node_bin, codex_image, codex_bin, timeout, proc_root, global_lock_path = arguments
     remote_dir = Path(remote_dir).resolve()
     staging_dir = Path(staging_dir).resolve()
     try:
@@ -209,7 +219,15 @@ def main(arguments):
         install_barrier(remote_dir, staging_dir, installed)
         wait_for_legacy_processes(remote_dir, Path(proc_root), timeout_seconds)
         candidate = transition_crontab(
-            original, str(remote_dir), node_bin, codex_image, codex_bin, TARGETS, BLOCK_START, BLOCK_END
+            original,
+            str(remote_dir),
+            node_bin,
+            codex_image,
+            codex_bin,
+            TARGETS,
+            BLOCK_START,
+            BLOCK_END,
+            global_lock_path,
         )
         current_exists, current = read_crontab()
         if current_exists != original_exists or current != original:
@@ -221,21 +239,23 @@ def main(arguments):
             raise TransitionError('crontab changed before transaction commit')
         committed = True
     finally:
-        if not committed:
-            errors = []
-            if candidate_installed:
-                try:
-                    rollback_crontab(original_exists, original, candidate)
-                except TransitionError as error:
-                    errors.append(str(error))
-            if installed:
-                try:
-                    restore_entrypoints(remote_dir, backup_dir, captured, installed)
-                except TransitionError as error:
-                    errors.append(str(error))
-            if errors:
-                raise TransitionError('; '.join(errors))
-        shutil.rmtree(backup_dir, ignore_errors=True)
+        try:
+            if not committed:
+                errors = []
+                if candidate_installed:
+                    try:
+                        rollback_crontab(original_exists, original, candidate)
+                    except TransitionError as error:
+                        errors.append(str(error))
+                if installed:
+                    try:
+                        restore_entrypoints(remote_dir, backup_dir, captured, installed)
+                    except TransitionError as error:
+                        errors.append(str(error))
+                if errors:
+                    raise TransitionError('; '.join(errors))
+        finally:
+            shutil.rmtree(backup_dir, ignore_errors=True)
 
 
 if __name__ == '__main__':
