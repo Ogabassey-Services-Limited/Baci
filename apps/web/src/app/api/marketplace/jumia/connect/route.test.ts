@@ -137,11 +137,14 @@ const MERCHANT_CTX = {
 const INTEGRATION_ID = '00000000-0000-4000-8000-000000000010';
 const OTHER_INTEGRATION_ID = '00000000-0000-4000-8000-000000000011';
 
-function makePostRequest(body: unknown) {
+function makePostRequest(body: unknown, cookie?: string) {
   return new NextRequest('http://localhost/api/marketplace/jumia/connect', {
     method: 'POST',
     body: JSON.stringify(body),
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(cookie ? { cookie } : {}),
+    },
   });
 }
 

@@ -15,11 +15,8 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  getJumiaAuthUrl,
-  getJumiaRedirectUri,
-  isJumiaAuthUrlVariant,
-} from '@/lib/jumia/helpers';
+import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
@@ -27,6 +24,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
+import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
   z.object({
@@ -178,29 +176,25 @@ export async function POST(request: NextRequest) {
 
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
+      const redirectUrl = getJumiaAuthUrl({
+        clientId: jumiaClientId,
+        redirectUri: jumiaRedirectUri,
+        state,
+      });
 
       // Store state in cookie for verification on callback
       const response = NextResponse.json({
         success: true,
-        redirectUrl: getJumiaAuthUrl({
-          clientId: jumiaClientId,
-          redirectUri: jumiaRedirectUri,
-          state,
-        }),
+        redirectUrl,
       });
 
-      response.cookies.set('jumia_oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-
-      response.cookies.set('jumia_merchant_id', merchantId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
+      jumiaOAuthInitiationDiagnostic.applyResponse({
+        diagnosticRequested: false,
+        merchantId,
+        platform: null,
+        redirectUrl,
+        response,
+        state,
       });
 
       return response;
@@ -232,6 +226,12 @@ export async function GET(request: NextRequest) {
     const hasBearerAuth = request.headers
       .get('Authorization')
       ?.startsWith('Bearer ');
+
+    const diagnosticPreAuthResponse =
+      jumiaOAuthInitiationDiagnostic.getPreAuthResponse(searchParams);
+    if (diagnosticPreAuthResponse) {
+      return diagnosticPreAuthResponse;
+    }
 
     // --- Mobile ticket flow (runs before cookie auth) ---
     const ticket = searchParams.get('ticket');
@@ -354,6 +354,17 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
+      const initiationContext = await jumiaOAuthInitiationDiagnostic.getContext(
+        {
+          apiUserId: auth.user.id,
+          searchParams,
+        }
+      );
+      if (!initiationContext.ok) {
+        return initiationContext.response;
+      }
+      const { diagnosticRequested, platform, variant } = initiationContext;
+
       const featureAccess = await getMerchantFeatureAccess(
         auth.supabase,
         merchantId,
@@ -383,16 +394,11 @@ export async function GET(request: NextRequest) {
       }
       const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
-      const platform = searchParams.get('platform'); // 'mobile' or undefined
-
-      // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
-      const rawVariant = searchParams.get('variant');
-      const variant = isJumiaAuthUrlVariant(rawVariant)
-        ? rawVariant
-        : undefined;
-
       // Generate state for CSRF protection
-      const state = crypto.randomBytes(16).toString('hex');
+      const state = jumiaOAuthDiagnostic.bindState(
+        crypto.randomBytes(16).toString('hex'),
+        diagnosticRequested
+      );
 
       const redirectUrl = getJumiaAuthUrl({
         clientId: jumiaClientId,
@@ -404,40 +410,15 @@ export async function GET(request: NextRequest) {
       // return redirect to Jumia
       const response = NextResponse.redirect(redirectUrl);
 
-      // Set cookies for security and context
-      response.cookies.set('jumia_oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
+      jumiaOAuthInitiationDiagnostic.applyResponse({
+        diagnosticRequested,
+        merchantId,
+        platform,
+        redirectUrl,
+        response,
+        state,
+        variant,
       });
-
-      response.cookies.set('jumia_merchant_id', merchantId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-
-      // VARIANT-TEST: REMOVE — bind the variant to this OAuth roundtrip so the
-      // callback can log + report the resulting token-response shape.
-      if (variant) {
-        response.cookies.set('jumia_oauth_variant', variant, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 10,
-        });
-      }
-
-      if (platform) {
-        response.cookies.set('jumia_oauth_platform', platform, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 10, // 10 minutes
-        });
-      }
 
       return response;
     }

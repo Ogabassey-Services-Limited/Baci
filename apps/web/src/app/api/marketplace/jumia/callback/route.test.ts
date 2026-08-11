@@ -138,6 +138,7 @@ function makeCallbackRequest({
   state = 'test-state',
   cookieState = 'test-state',
   merchantCookie = '00000000-0000-4000-8000-000000000001',
+  diagnosticCookie,
   ticketCookie,
   platform,
 }: {
@@ -145,6 +146,7 @@ function makeCallbackRequest({
   state?: string;
   cookieState?: string;
   merchantCookie?: string | null;
+  diagnosticCookie?: string;
   ticketCookie?: string | null;
   platform?: 'mobile';
 } = {}) {
@@ -164,6 +166,9 @@ function makeCallbackRequest({
   }
   if (ticketCookie != null) {
     cookieParts.push(`jumia_ticket_id=${ticketCookie}`);
+  }
+  if (diagnosticCookie) {
+    cookieParts.push(`jumia_oauth_diagnostic=${diagnosticCookie}`);
   }
 
   return new NextRequest(url, {
