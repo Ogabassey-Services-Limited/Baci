@@ -151,15 +151,12 @@ export function buildRemediationCodexCommand({
     'umask 077; mkdir -p "$CODEX_HOME"; chmod 700 "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
     '--search',
-    '--enable',
-    'use_legacy_landlock',
+    ...(readOnly ? [] : ['--enable', 'use_legacy_landlock']),
     'exec',
     '--json',
     '--ephemeral',
     '--skip-git-repo-check',
-    ...(readOnly
-      ? ['--sandbox', 'read-only']
-      : ['--dangerously-bypass-approvals-and-sandbox']),
+    '--dangerously-bypass-approvals-and-sandbox',
     '--ignore-user-config',
     '-C',
     worktreeDir,
