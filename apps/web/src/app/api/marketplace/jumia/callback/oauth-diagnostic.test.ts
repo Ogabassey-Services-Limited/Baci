@@ -19,7 +19,10 @@ vi.mock('@/lib/platform-admin-auth', () => ({
     mockGetPlatformAdminAuth(...args),
 }));
 
-import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
+import {
+  parseJumiaOAuthDiagnosticContext,
+  runJumiaOAuthCallbackDiagnostic,
+} from './oauth-diagnostic';
 
 function createRedirect(query: Record<string, string | undefined>) {
   const url = new URL('https://usebaci.com/dashboard/channels');
@@ -64,6 +67,40 @@ describe('Jumia OAuth callback diagnostic', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it.each([
+    {
+      diagnosticId: undefined,
+      expected: { status: 'ordinary' },
+      storedState: 'ordinary-state',
+    },
+    {
+      diagnosticId: '11111111-1111-4111-8111-111111111111',
+      expected: {
+        diagnosticId: '11111111-1111-4111-8111-111111111111',
+        status: 'diagnostic',
+      },
+      storedState: 'jumia-diagnostic-ordinary-state',
+    },
+    {
+      diagnosticId: undefined,
+      expected: { status: 'invalid' },
+      storedState: 'jumia-diagnostic-ordinary-state',
+    },
+    {
+      diagnosticId: 'not-a-uuid',
+      expected: { status: 'invalid' },
+      storedState: 'ordinary-state',
+    },
+  ])('parses diagnostic state and marker pairing safely', ({
+    diagnosticId,
+    expected,
+    storedState,
+  }) => {
+    expect(
+      parseJumiaOAuthDiagnosticContext({ diagnosticId, storedState })
+    ).toEqual(expected);
   });
 
   it('returns safe token-shape evidence without exposing credentials', async () => {

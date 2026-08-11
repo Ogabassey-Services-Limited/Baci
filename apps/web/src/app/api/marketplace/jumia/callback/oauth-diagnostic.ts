@@ -6,6 +6,38 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
+import { jumiaOAuthDiagnosticIdSchema } from '@/schemas/jumia/oauth-diagnostic';
+
+type JumiaOAuthDiagnosticContext =
+  | { status: 'ordinary'; diagnosticId?: undefined }
+  | { status: 'diagnostic'; diagnosticId: string }
+  | { status: 'invalid' };
+
+export function parseJumiaOAuthDiagnosticContext({
+  diagnosticId,
+  storedState,
+}: {
+  diagnosticId: string | undefined;
+  storedState: string;
+}): JumiaOAuthDiagnosticContext {
+  const diagnosticIdResult =
+    jumiaOAuthDiagnosticIdSchema.safeParse(diagnosticId);
+  const diagnosticStateBound = jumiaOAuthDiagnostic.isStateBound(storedState);
+  const diagnosticMarkerPresent = diagnosticId !== undefined;
+
+  if (
+    (diagnosticStateBound || diagnosticMarkerPresent) &&
+    !(diagnosticStateBound && diagnosticIdResult.success)
+  ) {
+    return { status: 'invalid' };
+  }
+
+  if (!diagnosticStateBound) {
+    return { status: 'ordinary' };
+  }
+
+  return { diagnosticId: diagnosticIdResult.data, status: 'diagnostic' };
+}
 
 export async function runJumiaOAuthCallbackDiagnostic({
   apiUserId,

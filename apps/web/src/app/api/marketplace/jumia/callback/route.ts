@@ -17,8 +17,10 @@ import {
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-import { jumiaOAuthDiagnosticIdSchema } from '@/schemas/jumia/oauth-diagnostic';
-import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
+import {
+  parseJumiaOAuthDiagnosticContext,
+  runJumiaOAuthCallbackDiagnostic,
+} from './oauth-diagnostic';
 import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
@@ -97,23 +99,21 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const diagnosticIdResult =
-      jumiaOAuthDiagnosticIdSchema.safeParse(diagnosticId);
-    const diagnosticStateBound = jumiaOAuthDiagnostic.isStateBound(storedState);
-    const diagnosticMarkerPresent = diagnosticId !== undefined;
-    if (
-      (diagnosticStateBound || diagnosticMarkerPresent) &&
-      !(diagnosticStateBound && diagnosticIdResult.success)
-    ) {
+    const diagnosticContext = parseJumiaOAuthDiagnosticContext({
+      diagnosticId,
+      storedState,
+    });
+    if (diagnosticContext.status === 'invalid') {
       return jumiaOAuthCallbackRedirect.clear(
         jumiaOAuthCallbackRedirect.create(request, {
           error: 'diagnostic_invalid',
         })
       );
     }
-    const validatedDiagnosticId = diagnosticIdResult.success
-      ? diagnosticIdResult.data
-      : undefined;
+    const validatedDiagnosticId =
+      diagnosticContext.status === 'diagnostic'
+        ? diagnosticContext.diagnosticId
+        : undefined;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
