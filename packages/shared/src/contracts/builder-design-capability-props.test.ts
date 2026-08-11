@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { allow, copy, deny, label } from './builder-design-capability-props';
+import {
+  allow,
+  copy,
+  deny,
+  heroProps,
+  label,
+} from './builder-design-capability-props';
 
 describe('builder design capability prop helpers', () => {
   it('omits absent defaults and preserves supplied label and copy defaults', () => {
@@ -42,6 +48,14 @@ describe('builder design capability prop helpers', () => {
       refused: true,
       renderable: true,
       responsiveProps: [],
+    });
+  });
+
+  it('requires a nonempty Hero CTA label while retaining its insert default', () => {
+    expect(heroProps.ctaText).toMatchObject({
+      default: 'Shop now',
+      required: true,
+      type: 'string',
     });
   });
 });

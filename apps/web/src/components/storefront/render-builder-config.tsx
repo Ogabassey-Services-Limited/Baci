@@ -146,7 +146,17 @@ const previewBuilderConfig = {
   ...builderConfig,
   components: {
     ...builderConfig.components,
-    ...previewInertLinkBlocks,
+    ...Object.fromEntries(
+      Object.entries(previewInertLinkBlocks).map(([componentType, preview]) => [
+        componentType,
+        {
+          ...builderConfig.components[
+            componentType as keyof typeof builderConfig.components
+          ],
+          ...preview,
+        },
+      ])
+    ),
     Flex: { render: PreviewFlex },
     ProductGrid: {
       ...builderConfig.components.ProductGrid,

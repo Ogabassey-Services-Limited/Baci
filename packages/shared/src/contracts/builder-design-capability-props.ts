@@ -135,7 +135,7 @@ export const headerProps: BuilderDesignProps = {
 export const heroProps: BuilderDesignProps = {
   align: { default: 'center', enum: ['center', 'left', 'right'], type: 'enum' },
   ctaLink: { ...safeLink, default: '/products' },
-  ctaText: label('Shop now'),
+  ctaText: { ...label('Shop now'), required: true },
   overlay: { default: false, type: 'boolean' },
   padding: {
     default: 'medium',

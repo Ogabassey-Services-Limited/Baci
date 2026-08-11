@@ -10,15 +10,19 @@ vi.mock('@puckeditor/core', () => ({
     config: {
       components: Record<
         string,
-        { render?: (props: Record<string, unknown>) => React.ReactNode }
+        {
+          defaultProps?: Record<string, unknown>;
+          render?: (props: Record<string, unknown>) => React.ReactNode;
+        }
       >;
     };
     data: { content: Array<{ props: Record<string, unknown>; type: string }> };
   }) =>
     data.content.map((block) => {
       const component = config.components[block.type];
+      const props = { ...component?.defaultProps, ...block.props };
       return component?.render ? (
-        <div key={block.type}>{component.render(block.props)}</div>
+        <div key={block.type}>{component.render(props)}</div>
       ) : (
         <a href={`/merchant/${block.type}`} key={block.type}>
           {block.type}
@@ -28,7 +32,19 @@ vi.mock('@puckeditor/core', () => ({
 }));
 
 vi.mock('@/components/builder/config', () => ({
-  builderConfig: { components: {} },
+  builderConfig: {
+    components: {
+      Header: {
+        defaultProps: {
+          showCart: true,
+          showLogo: true,
+          showMenu: true,
+          showSearch: true,
+          sticky: true,
+        },
+      },
+    },
+  },
 }));
 
 const merchantContext = {
@@ -38,6 +54,29 @@ const merchantContext = {
 };
 
 describe('RenderBuilderConfig preview links', () => {
+  it('preserves production Header defaults when saved props omit them', () => {
+    render(
+      <RenderBuilderConfig
+        config={{
+          content: [
+            {
+              props: { id: 'Header-1', storeName: 'Preview Store' },
+              type: 'Header',
+            },
+          ],
+          root: { props: { title: 'Home' } },
+        }}
+        merchantContext={merchantContext}
+      />
+    );
+
+    const header = screen.getByTestId('builder-preview-inert-header');
+    expect(header).toHaveAttribute('data-sticky', 'true');
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
+  });
+
   it('uses inert preview renderers so accepted link blocks cannot prefetch or navigate', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     render(
