@@ -121,10 +121,12 @@ export async function publishScheduledPosts(supabase: SupabaseClient) {
       );
     }
 
-    const { error: updateError } = await supabase
+    const { data: claimedRows, error: updateError } = await supabase
       .from('blog_posts')
       .update({ status: 'published' })
-      .in('id', postIds);
+      .in('id', postIds)
+      .eq('status', 'scheduled')
+      .select('id');
 
     if (updateError) {
       console.error('Cron Error: Batch update failed:', updateError);
@@ -134,11 +136,33 @@ export async function publishScheduledPosts(supabase: SupabaseClient) {
       );
     }
 
+    const claimedPostIds = new Set(
+      (Array.isArray(claimedRows) ? claimedRows : eligiblePosts).map(
+        (post) => post.id
+      )
+    );
+    const claimedPosts = eligiblePosts.filter((post) =>
+      claimedPostIds.has(post.id)
+    );
+    if (claimedPosts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        processed: scheduledPosts.length,
+        published: [],
+        skipped,
+        warnings,
+      });
+    }
+
+    const claimedPostsByMerchant = groupPostsByMerchant(claimedPosts);
     const { blogRevalidationByMerchant, failedMerchants } =
-      await revalidateScheduledPostsByMerchant(supabase, postsByMerchant);
+      await revalidateScheduledPostsByMerchant(
+        supabase,
+        claimedPostsByMerchant
+      );
     const campaignResults = await dispatchScheduledPostZohoCampaigns(
       supabase,
-      eligiblePosts,
+      claimedPosts,
       blogRevalidationByMerchant
     );
 
@@ -148,7 +172,7 @@ export async function publishScheduledPosts(supabase: SupabaseClient) {
           error: 'Failed to revalidate blog caches for some merchants',
           failedMerchants,
           processed: scheduledPosts.length,
-          published: postIds,
+          published: Array.from(claimedPostIds),
           zohoCampaigns: campaignResults,
         },
         { status: 500 }
@@ -158,7 +182,7 @@ export async function publishScheduledPosts(supabase: SupabaseClient) {
     return NextResponse.json({
       success: true,
       processed: scheduledPosts.length,
-      published: postIds,
+      published: Array.from(claimedPostIds),
       skipped,
       warnings,
       zohoCampaigns: campaignResults,
