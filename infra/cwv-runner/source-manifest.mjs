@@ -25,6 +25,12 @@ const fail = (message) => {
   throw new TypeError(message);
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+function verifyGitObjectsChunked(cwd, objectIds, options) {
+  const verified = new Map();
+  for (let offset = 0; offset < objectIds.length; offset += 256)
+    for (const [key, value] of verifyGitObjects(cwd, objectIds.slice(offset, offset + 256), options)) verified.set(key, value);
+  return verified;
+}
 
 export function sourceManifestBytes(value) {
   const bytes = Buffer.from(canonicalJson(value));
@@ -38,6 +44,7 @@ function checkedSha(value, field) {
 }
 
 function blobEntry(cwd, row, verified) {
+  if (row.rawPath) fail('non-UTF-8 source path');
   if (row.mode !== '100644' && row.mode !== '100755') fail('unsupported Git tree mode');
   const bytes = verified?.get(`${cwd}\0${row.objectId}`)?.bytes;
   if (!bytes) fail('invalid Git blob');
@@ -77,7 +84,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     if (!reviewed || !merged || merged.path !== path) fail('ambiguous changed path');
     changed.push({ merged, path, reviewed, status });
   }
-  const verifiedBlobs = verifyGitObjects(
+  const verifiedBlobs = verifyGitObjectsChunked(
     cwd,
     changed.flatMap(({ merged, reviewed }) => [reviewed.objectId, merged.objectId])
   );
@@ -92,8 +99,8 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
 }
 
 function sourceEntries(cwd, mergeSha) {
-  const rows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path }) => path.startsWith(PREFIX));
-  const verified = verifyGitObjects(cwd, rows.map(({ objectId }) => objectId));
+  const rows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false }).filter(({ path, rawPath }) => path.startsWith(PREFIX) && !rawPath);
+  const verified = verifyGitObjectsChunked(cwd, rows.map(({ objectId }) => objectId));
   const entries = rows.map((row) => blobEntry(cwd, row, verified));
   if (!entries.length || entries.some((entry) => !entry.path.startsWith(PREFIX))) fail('invalid source archive projection');
   if (entries.find((entry) => entry.path === `${PREFIX}vps-ssh.sh`)?.mode !== '100755')

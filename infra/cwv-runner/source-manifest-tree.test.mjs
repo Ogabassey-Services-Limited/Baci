@@ -201,7 +201,7 @@ test('preserves an unchanged gitlink whose commit is absent locally', () => {
     ]);
     const tree = execFileSync('/usr/bin/git', ['-C', root, 'write-tree'], { encoding: 'utf8' }).trim();
     const commit = execFileSync('/usr/bin/git', ['-C', root, 'commit-tree', tree], { input: 'gitlink\n', encoding: 'utf8' }).trim();
-    assert.deepEqual(authenticatedTreeRows(root, commit), [{ gitlink: true, mode: '160000', objectId: missing, path: 'vendor' }]);
+    assert.deepEqual(authenticatedTreeRows(root, commit), [{ gitlink: true, mode: '160000', objectId: missing, path: 'vendor', rawPath: false }]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -250,7 +250,7 @@ test('preserves non-UTF-8 Git tree names outside the source projection', () => {
       .toString()
       .trim();
     assert.deepEqual(authenticatedTreeRows(root, commit), [
-      { mode: '100644', objectId: blob, path: '~gitraw-696e76616c6964ff' },
+      { mode: '100644', objectId: blob, path: '~gitraw-696e76616c6964ff', rawPath: true },
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
