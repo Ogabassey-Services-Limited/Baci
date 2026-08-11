@@ -1,10 +1,7 @@
 import type { BuilderData } from './builder-ai-edit';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 import { previewRenderProjection } from './builder-preview-render-projection';
-import {
-  isSafeSocialLinks,
-  legacyZoneKeyPattern,
-} from './builder-preview-safe-links';
+import { previewSafeLinks } from './builder-preview-safe-links';
 
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
@@ -169,7 +166,9 @@ function isCuratedRenderProp(
     ) {
       return isBoundedText(value, MAX_STORE_NAME_LENGTH);
     }
-    return property === 'socialLinks' && isSafeSocialLinks(value);
+    return (
+      property === 'socialLinks' && previewSafeLinks.isSafeSocialLinks(value)
+    );
   }
   if (componentType !== 'Hero') return false;
   if (property === 'headingLevel')
@@ -289,7 +288,7 @@ export const previewRenderPolicy = {
     return true;
   },
   isPuckZoneKey: (value: string) => parsePuckZoneKey(value) !== undefined,
-  isLegacyZoneKey: (value: string) => legacyZoneKeyPattern.test(value),
+  isLegacyZoneKey: previewSafeLinks.isLegacyZoneKey,
   parsePuckZoneKey,
   projectPreviewCandidate,
 };

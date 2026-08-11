@@ -136,6 +136,37 @@ describe('previewInertLinkBlocks', () => {
     ).toBeNull();
   });
 
+  it('reflects Header padding, Hero media/overlay, and FAQ style changes', () => {
+    render(
+      <>
+        {previewInertLinkBlocks.Header.render({ paddingY: 'lg' })}
+        {previewInertLinkBlocks.Hero.render({
+          backgroundImage: '/hero.webp',
+          overlay: true,
+          title: 'Hero',
+        })}
+        {previewInertLinkBlocks.FAQ.render({
+          items: [{ answer: 'Answer', question: 'Question' }],
+          style: 'grid',
+        })}
+      </>
+    );
+    expect(screen.getByTestId('builder-preview-inert-header')).toHaveClass(
+      'py-6'
+    );
+    expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveClass(
+      'bg-black/40'
+    );
+    expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveStyle({
+      backgroundImage: 'url(/hero.webp)',
+    });
+    expect(
+      screen
+        .getByRole('region', { name: 'Preview FAQ' })
+        .querySelector('[data-style]')
+    ).toHaveAttribute('data-style', 'grid');
+  });
+
   it('applies accepted Footer colors and removes an empty navigation landmark', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Footer.render({

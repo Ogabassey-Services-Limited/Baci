@@ -8,6 +8,7 @@ type PreviewHeaderProps = {
   ctaButton?: { show: boolean; text: string };
   layout?: PreviewHeaderLayout;
   navigationLinks?: PreviewLink[];
+  paddingY?: 'sm' | 'md' | 'lg';
   showCart?: boolean;
   showLogo?: boolean;
   showMenu?: boolean;
@@ -23,8 +24,10 @@ type PreviewHeaderLayout =
 
 type PreviewHeroProps = {
   align?: 'center' | 'left' | 'right';
+  backgroundImage?: string;
   ctaText?: string;
   headingLevel?: 'h1' | 'h2' | 'div';
+  overlay?: boolean;
   padding?: 'large' | 'medium' | 'small';
   subtitle?: string;
   title?: string;
@@ -58,6 +61,7 @@ type PreviewFooterProps = {
 };
 type PreviewFaqProps = {
   items?: { answer?: string; question?: string }[];
+  style?: 'accordion' | 'grid' | 'list';
   subtitle?: string;
   title?: string;
 };
@@ -95,6 +99,16 @@ const previewHeroPaddingClasses = {
   medium: 'py-10',
   small: 'py-6',
 } as const;
+const previewHeaderPaddingClasses = {
+  lg: 'py-6',
+  md: 'py-4',
+  sm: 'py-2',
+} as const;
+const previewFaqStyleClasses = {
+  accordion: 'space-y-3',
+  grid: 'grid gap-4 sm:grid-cols-2',
+  list: 'space-y-2',
+} as const;
 
 function InertAction({
   children,
@@ -114,6 +128,7 @@ function PreviewHeader({
   ctaButton,
   layout = 'logo-left-nav-center',
   navigationLinks = [],
+  paddingY = 'md',
   showCart = false,
   showLogo = true,
   showMenu = false,
@@ -124,7 +139,7 @@ function PreviewHeader({
   const isCenteredLayout = layout === 'logo-center';
   return (
     <header
-      className={`${previewHeaderLayoutClasses[layout]}${
+      className={`${previewHeaderPaddingClasses[paddingY]} ${previewHeaderLayoutClasses[layout]}${
         sticky ? ' sticky top-0 z-10' : ''
       }`}
       data-layout={layout}
@@ -172,8 +187,10 @@ function PreviewHeader({
 
 function PreviewHero({
   align = 'center',
+  backgroundImage,
   ctaText,
   headingLevel = 'h1',
+  overlay = false,
   padding = 'medium',
   subtitle,
   title,
@@ -182,7 +199,16 @@ function PreviewHero({
   return (
     <section
       aria-label="Preview hero"
-      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}`}
+      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay ? ' bg-black/40 text-white' : ''}`}
+      style={
+        backgroundImage
+          ? {
+              backgroundImage: `url(${backgroundImage})`,
+              backgroundPosition: 'center',
+              backgroundSize: 'cover',
+            }
+          : undefined
+      }
     >
       <Heading>{title}</Heading>
       {subtitle ? <p>{subtitle}</p> : null}
@@ -270,12 +296,17 @@ function PreviewFooter({
   );
 }
 
-function PreviewFAQ({ items = [], subtitle, title }: PreviewFaqProps) {
+function PreviewFAQ({
+  items = [],
+  style = 'accordion',
+  subtitle,
+  title,
+}: PreviewFaqProps) {
   return (
     <section aria-label="Preview FAQ">
       <h2>{title}</h2>
       {subtitle ? <p>{subtitle}</p> : null}
-      <div>
+      <div className={previewFaqStyleClasses[style]} data-style={style}>
         {items.map((item) => (
           <article key={item.question}>
             <h3>{item.question}</h3>
