@@ -46,4 +46,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260801000500_preserve_legacy_blog_product_position_inserts.sql',
     sha256: '33c220545d2af71a65ca8647273997bdbf692bc505ecbceebb70011c17be4e10',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811090000_repair_shipment_tracking_generation_order_id_ambiguity.sql',
+    sha256: 'f50772f7fb481dc232078f4b87a8031ab746674e7ecd5fcf2bccb3099519b376',
+  },
 ];
