@@ -130,8 +130,8 @@ describe('remediation Codex command', () => {
     const vendor = join(root, 'vendor');
     const binary = join(vendor, 'bin', 'codex');
     const resources = join(vendor, 'codex-resources');
-    mkdirSync(join(resources, 'zsh', 'bin'), { recursive: true });
     try {
+      mkdirSync(join(resources, 'zsh', 'bin'), { recursive: true });
       const result = buildRemediationCodexCommand({
         codexBin: '/opt/host/codex',
         env: {
