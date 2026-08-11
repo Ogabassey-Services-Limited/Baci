@@ -3,31 +3,7 @@ import { STOREFRONT_AGENT_ROUTES } from '../../src/config/storefront-agent-route
 import { STOREFRONT_FEED_ROUTES } from '../../src/config/storefront-feed-routes';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
 
-function matchesRoutePattern(routePattern: string, pathname: string) {
-  const patternSegments = routePattern.split('/').filter(Boolean);
-  const pathSegments = pathname.split('/').filter(Boolean);
-  if (patternSegments.some((segment) => segment.startsWith('{*')))
-    throw new Error(
-      `catch-all route patterns are unsupported: ${routePattern}`
-    );
-  return (
-    patternSegments.length === pathSegments.length &&
-    patternSegments.every(
-      (segment, index) =>
-        (segment.startsWith('{') && segment.endsWith('}')) ||
-        segment === pathSegments[index]
-    )
-  );
-}
-
 describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
-  it('rejects catch-all patterns in the query-decision test matcher', () => {
-    // Arrange, act, and assert
-    expect(() => matchesRoutePattern('/blog/{*path}', '/blog/example')).toThrow(
-      'catch-all route patterns are unsupported: /blog/{*path}'
-    );
-  });
-
   it('keeps row IDs unique and dynamic method families explicit', () => {
     // Arrange
     const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
@@ -144,6 +120,22 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         sourcePath: 'apps/web/src/app/actions/repair.ts',
       })
     );
+    expect(
+      byId.get('server-action:blog-post-view-count-slug-prefixed')
+    ).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['POST'],
+        routePattern: '/{storefrontIdentifier}/blog/{postSlug}',
+      })
+    );
+    expect(
+      rows
+        .filter((row) =>
+          row.id.startsWith('request-override:blog-post-accept-language')
+        )
+        .map((row) => row.routePattern)
+    ).toEqual(['/blog/{postSlug}', '/{storefrontIdentifier}/blog/{postSlug}']);
     expect(queryRows.map((row) => row.routePattern)).toEqual(
       expect.arrayContaining([
         '/blog',
@@ -172,6 +164,8 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
             { name: 'authorization' },
             { name: 'x-supabase-auth-token' },
           ],
+          matchedStorefrontEntrypointDecision: 'edge_release',
+          precedence: 'after_entrypoint_resolution_before_decision',
         }),
       })
     );
@@ -249,7 +243,11 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         'apps/web/src/lib/storefront-internal-preflight.ts',
         'apps/web/src/lib/storefront-preflight-rpc.ts',
         'apps/web/src/lib/storefront-slug-safety.ts',
+        'apps/web/next.config.ts',
       ])
+    );
+    expect(STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths).not.toContain(
+      'next.config.ts'
     );
   });
 
@@ -277,29 +275,5 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       'OPTIONS'
     );
     expect(machineRows.every((row) => row.sourcePath)).toBe(true);
-  });
-
-  it('keeps App Router data requests for released entrypoints on the origin', () => {
-    // Arrange
-    const row = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows.find(
-      ({ id }) => id === 'request-override:router-data'
-    );
-
-    // Act and assert
-    expect(row).toEqual(
-      expect.objectContaining({
-        decision: 'origin_dynamic',
-        methods: ['GET', 'HEAD'],
-        requestCondition: {
-          anyHeaderMatch: [
-            { name: 'rsc', value: '1' },
-            { name: 'next-router-prefetch' },
-            { name: 'next-router-state-tree' },
-          ],
-          matchedStorefrontEntrypointDecision: 'edge_release',
-          precedence: 'after_entrypoint_resolution_before_decision',
-        },
-      })
-    );
   });
 });

@@ -18,11 +18,33 @@ type CreateInventoryOptions = Readonly<{
   repoRoot: string;
 }>;
 
+type InventoryRow = StorefrontEdgeInventory['rows'][number];
+
 const ROUTE_ROOT = 'apps/web/src/app/(storefront)/[slug]';
 const API_ROOT = 'apps/web/src/app/api';
 
 const sha256 = (value: string | Buffer) =>
   createHash('sha256').update(value).digest('hex');
+
+function routeSpecificity(row: InventoryRow) {
+  const segments = row.routePattern.split('/').filter(Boolean);
+  return segments.reduce(
+    (score, segment, index) =>
+      score +
+      (segment.startsWith('{*') ? 0 : segment.startsWith('{') ? 10 : 20) *
+        10 ** Math.max(0, 4 - index),
+    segments.length * 100
+  );
+}
+
+function isPreRouteRow(row: InventoryRow) {
+  return Boolean(
+    row.hostCondition ||
+      row.pathCondition ||
+      row.destinationCondition ||
+      row.requestCondition?.precedence === 'before_path_decision'
+  );
+}
 
 function normalizeHostnames(hostnames: readonly string[]) {
   const normalized = hostnames.map((hostname) => {
@@ -115,22 +137,45 @@ export async function createStorefrontEdgeInventory(
         )
     )
   );
-  // Preserve reviewed source order: proxy rows are precedence-sensitive, so
-  // canonicalization must not reorder them by identifier.
+  const preRouteRows = extraRows.filter(
+    (row) => row.sourceKind !== 'storefront_entrypoint' && isPreRouteRow(row)
+  );
+  const routeRows = [
+    ...extraRows.filter(
+      (row) =>
+        row.sourceKind !== 'storefront_entrypoint' &&
+        !isPreRouteRow(row) &&
+        row.decision !== 'edge_terminal'
+    ),
+    ...entrypointRows,
+  ].sort((left, right) => {
+    const specificityDelta = routeSpecificity(right) - routeSpecificity(left);
+    if (specificityDelta !== 0) return specificityDelta;
+    return left.id.localeCompare(right.id);
+  });
+  const terminalRows = extraRows.filter(
+    (row) =>
+      row.sourceKind !== 'storefront_entrypoint' &&
+      row.decision === 'edge_terminal' &&
+      !isPreRouteRow(row)
+  );
+  // Preserve API terminal placement: exact API rows must be followed by the
+  // closed API default before unrelated storefront route phases begin.
   const rows = [
     ...apiRows,
     STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow,
     ...relayRows,
-    ...extraRows.filter(
-      ({ sourceKind }) => sourceKind !== 'storefront_entrypoint'
-    ),
-    ...entrypointRows,
-    ...extraRows.filter(
-      ({ sourceKind }) => sourceKind === 'storefront_entrypoint'
-    ),
+    ...preRouteRows,
+    ...routeRows,
+    ...terminalRows,
   ];
-  if (new Set(rows.map(({ id }) => id)).size !== rows.length)
-    throw new Error('storefront edge inventory contains duplicate row IDs');
+  const duplicateIds = rows
+    .map(({ id }) => id)
+    .filter((id, index, all) => all.indexOf(id) !== index);
+  if (duplicateIds.length > 0)
+    throw new Error(
+      `storefront edge inventory contains duplicate row IDs: ${[...new Set(duplicateIds)].join(', ')}`
+    );
   const payload = {
     authority: 'directional_cost_screen_only',
     completeBrowserPathClasses:

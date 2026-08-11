@@ -2,6 +2,7 @@ const API_SOURCE_ROOT = 'apps/web/src/app/api/';
 
 const STOREFRONT_API_SOURCE_PATHS = new Set([
   'ai/grade-device',
+  'analytics/facebook-capi',
   'attr',
   'blog/exit-preview',
   'blog/feed/[merchantSlug]',
@@ -14,6 +15,7 @@ const STOREFRONT_API_SOURCE_PATHS = new Set([
   'events',
   'forms/submit',
   'newsletter/subscribe',
+  'google-places/reviews',
   'ogabassey/pdp-lcp-image/[productSlug]',
   'ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]',
   'orders',
@@ -21,6 +23,8 @@ const STOREFRONT_API_SOURCE_PATHS = new Set([
   'orders/reuse',
   'orders/update-payment-ref',
   'orders/[id]',
+  'places/autocomplete',
+  'places/details',
   'payments/initialize',
   'payments/status',
   'payments/verify',

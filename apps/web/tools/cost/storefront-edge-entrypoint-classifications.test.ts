@@ -14,4 +14,17 @@ describe('STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS', () => {
       )
     ).toEqual(expect.objectContaining({ decision: 'edge_redirect' }));
   });
+
+  it('keeps the rolling news sitemap on the origin', () => {
+    expect(
+      STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(
+        '(blog)/blog/news-sitemap.xml/route.ts'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        reason: 'rolling_news_sitemap_requires_origin',
+      })
+    );
+  });
 });

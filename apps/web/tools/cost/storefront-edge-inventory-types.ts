@@ -18,7 +18,10 @@ type StorefrontEdgeMethod =
 type StorefrontEdgeInventoryRow = Readonly<{
   decision: StorefrontEdgeDecision;
   destinationCondition?: Readonly<{
-    hostKind: 'configured_supabase_origin';
+    hostKind:
+      | 'configured_media_cdn_origin'
+      | 'configured_supabase_origin'
+      | 'configured_supabase_storage_origin';
     precedence: 'before_path_decision';
   }>;
   hostCondition?:

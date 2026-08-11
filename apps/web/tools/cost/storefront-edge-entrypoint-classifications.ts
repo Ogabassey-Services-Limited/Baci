@@ -11,7 +11,6 @@ const RELEASE_ENTRYPOINTS = [
   '(blog)/blog/[postSlug]/page.tsx',
   '(blog)/blog/author/[authorSlug]/page.tsx',
   '(blog)/blog/category/[categorySlug]/page.tsx',
-  '(blog)/blog/news-sitemap.xml/route.ts',
   '(blog)/blog/page.tsx',
   '(blog)/blog/sitemap.ts',
   '(catalog)/(listing)/[category]/best-under/[priceBandSlug]/page.tsx',
@@ -39,6 +38,7 @@ const RELEASE_ENTRYPOINTS = [
 
 const DYNAMIC_ENTRYPOINTS = [
   '(blog)/blog/[...catchAll]/route.ts',
+  '(blog)/blog/news-sitemap.xml/route.ts',
   '(catalog)/(listing)/search/page.tsx',
   '(catalog)/(pdp)/product/[productSlug]/page.tsx',
   '(commerce)/cart/page.tsx',
@@ -77,6 +77,18 @@ const DYNAMIC_ENTRYPOINTS = [
   '(utility)/unlock-orders/page.tsx',
 ] as const;
 
+function dynamicEntrypointReason(
+  sourcePath: (typeof DYNAMIC_ENTRYPOINTS)[number]
+) {
+  if (sourcePath === '(blog)/blog/[...catchAll]/route.ts') {
+    return 'dynamic_redirect_or_bounded_not_found' as const;
+  }
+  if (sourcePath === '(blog)/blog/news-sitemap.xml/route.ts') {
+    return 'rolling_news_sitemap_requires_origin' as const;
+  }
+  return 'request_state_or_origin_action_required' as const;
+}
+
 const rows: readonly (readonly [string, Classification])[] = [
   ...RELEASE_ENTRYPOINTS.map(
     (sourcePath) =>
@@ -91,10 +103,7 @@ const rows: readonly (readonly [string, Classification])[] = [
         sourcePath,
         {
           decision: 'origin_dynamic',
-          reason:
-            sourcePath === '(blog)/blog/[...catchAll]/route.ts'
-              ? 'dynamic_redirect_or_bounded_not_found'
-              : 'request_state_or_origin_action_required',
+          reason: dynamicEntrypointReason(sourcePath),
         },
       ] as const
   ),

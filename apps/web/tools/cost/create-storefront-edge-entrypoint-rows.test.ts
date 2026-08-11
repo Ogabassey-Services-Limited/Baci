@@ -58,6 +58,14 @@ describe('createStorefrontEdgeEntrypointRows', () => {
       ])
     );
     expect(rows.length).toBeGreaterThan(78);
+    const indexOf = (pattern: string) =>
+      rows.findIndex((row) => row.routePattern === pattern);
+    expect(indexOf('/blog/news-sitemap.xml')).toBeLessThan(
+      indexOf('/blog/{postSlug}')
+    );
+    expect(indexOf('/blog/{postSlug}')).toBeLessThan(
+      indexOf('/blog/{*catchAll}')
+    );
     expect(
       rows.find(
         ({ id }) => id === 'storefront:news-sitemap.xml/route.ts:options'

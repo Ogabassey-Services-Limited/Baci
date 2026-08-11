@@ -21,16 +21,30 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
       'HEAD',
       'OPTIONS',
     ]);
-    expect(byId.get('machine:robots')?.methods).toEqual([
-      'GET',
-      'HEAD',
-      'OPTIONS',
-    ]);
-    expect(byId.get('machine:manifest')?.methods).toEqual([
-      'GET',
-      'HEAD',
-      'OPTIONS',
-    ]);
+    expect(byId.get('machine:robots')?.methods).toEqual(['GET', 'HEAD']);
+    expect(byId.get('machine:robots-options')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['OPTIONS'],
+        routePattern: '/robots.txt',
+      })
+    );
+    expect(byId.get('machine:manifest')?.methods).toEqual(['GET', 'HEAD']);
+    expect(byId.get('machine:manifest-options')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['OPTIONS'],
+        routePattern: '/manifest.webmanifest',
+      })
+    );
+    expect(byId.get('machine:indexnow-key-platform-subdomain')).toEqual(
+      expect.objectContaining({
+        hostCondition: {
+          hostKind: 'platform_subdomain',
+          precedence: 'before_path_decision',
+        },
+      })
+    );
     expect(byId.get('machine:next-image')?.methods).toEqual(['ANY']);
     expect(byId.get('machine:vercel-insights-view')).toEqual(
       expect.objectContaining({

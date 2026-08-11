@@ -14,6 +14,10 @@ describe('isStorefrontRequiredApiSourcePath', () => {
       'agentic/catalog/search',
       'agentic/checkout_sessions/[id]',
       'agentic/orders/[id]',
+      'analytics/facebook-capi',
+      'google-places/reviews',
+      'places/autocomplete',
+      'places/details',
     ]) {
       expect(
         isStorefrontRequiredApiSourcePath(
@@ -39,6 +43,11 @@ describe('isStorefrontRequiredApiSourcePath', () => {
     expect(
       isStorefrontRequiredApiSourcePath(
         'apps/web/src/app/api/agentic/internal/replay/route.ts'
+      )
+    ).toBe(false);
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/analytics/facebook-capi-helper/route.ts'
       )
     ).toBe(false);
   });

@@ -1,6 +1,7 @@
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_MACHINE_ROWS } from './storefront-edge-machine-rows';
 import { STOREFRONT_EDGE_MACHINE_SOURCE_PATHS } from './storefront-edge-machine-source-paths';
+import { STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS } from './storefront-edge-media-subresource-rows';
 import { STOREFRONT_EDGE_PROXY_ROWS } from './storefront-edge-proxy-rows';
 import {
   STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
@@ -75,7 +76,8 @@ const AUTH_SESSION_ROWS: readonly InventoryRow[] = [
         { name: 'authorization' },
         { name: 'x-supabase-auth-token' },
       ],
-      precedence: 'before_path_decision',
+      matchedStorefrontEntrypointDecision: 'edge_release',
+      precedence: 'after_entrypoint_resolution_before_decision',
     },
     routePattern: '/{*storefrontPath?}',
     sourceKind: 'request_override',
@@ -100,6 +102,22 @@ const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
     sourcePath:
       'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/page.tsx',
   },
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:blog-post-accept-language-slug-prefixed',
+    methods: ['GET', 'HEAD'],
+    reason: 'blog_post_locale_rendering',
+    requestCondition: {
+      anyHeaderMatch: [{ name: 'accept-language' }],
+      matchedStorefrontEntrypointId:
+        'storefront:(blog)/blog/[postSlug]/page.tsx',
+      precedence: 'after_entrypoint_resolution_before_decision',
+    },
+    routePattern: '/{storefrontIdentifier}/blog/{postSlug}',
+    sourceKind: 'request_override',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/page.tsx',
+  },
 ];
 
 const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
@@ -116,7 +134,7 @@ const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
   },
   routePattern,
   sourceKind: 'request_override',
-  sourcePath: 'next.config.ts',
+  sourcePath: 'apps/web/next.config.ts',
 }));
 
 const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
@@ -126,6 +144,16 @@ const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
     methods: ['POST'],
     reason: 'explicit_storefront_server_action',
     routePattern: '/blog/{postSlug}',
+    sourceKind: 'server_action',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts',
+  },
+  {
+    decision: 'origin_dynamic',
+    id: 'server-action:blog-post-view-count-slug-prefixed',
+    methods: ['POST'],
+    reason: 'explicit_storefront_server_action',
+    routePattern: '/{storefrontIdentifier}/blog/{postSlug}',
     sourceKind: 'server_action',
     sourcePath:
       'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts',
@@ -177,12 +205,13 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
     ...STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS,
+    ...STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS,
     STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
     ...SERVER_ACTION_ROWS,
     ...STOREFRONT_EDGE_PROXY_ROWS,
   ],
   routingInputPaths: [
-    'next.config.ts',
+    'apps/web/next.config.ts',
     'apps/web/src/app/actions/repair.ts',
     'apps/web/src/app/auth/confirm/route.ts',
     'apps/web/src/app/agent/auth/route.ts',
@@ -198,7 +227,13 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/storefront/ad-attribution-capture.tsx',
     'apps/web/src/components/storefront/deferred-page-view-tracker.tsx',
     'apps/web/src/components/storefront/puck-storefront.tsx',
+    'apps/web/src/components/storefront/cdn-format-image.tsx',
+    'apps/web/src/components/storefront/ogabassey/components/CartSidebar.tsx',
     'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
+    'apps/web/src/components/storefront/ogabassey/components/chat/use-ogabassey-chat.ts',
+    'apps/web/src/components/storefront/ogabassey/pages/checkout-page.tsx',
+    'apps/web/src/components/storefront/ogabassey/pages/quiz-page-data.ts',
+    'apps/web/src/components/storefront/new-template/checkout-page.tsx',
     'apps/web/src/components/storefront/RepairBookingWizard.tsx',
     'apps/web/src/config/storefront-agent-routes.ts',
     'apps/web/src/config/storefront-cache.ts',
@@ -227,6 +262,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/lib/storefront-route-identifier.ts',
     'apps/web/src/lib/storefront-unsafe-pdp-segments.ts',
     'apps/web/src/lib/posthog/config.ts',
+    'apps/web/src/lib/google-places.ts',
     ...new Set(Object.values(STOREFRONT_EDGE_MACHINE_SOURCE_PATHS)),
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
     STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW.sourcePath,

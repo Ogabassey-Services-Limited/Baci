@@ -82,8 +82,13 @@ describe('createStorefrontEdgeInventory', () => {
 
     // Assert
     expect(entrypoints.length).toBeGreaterThanOrEqual(84);
-    expect(entrypoints.map((row) => row.id)).toEqual(
-      [...entrypoints.map((row) => row.id)].sort()
+    const indexOf = (pattern: string) =>
+      entrypoints.findIndex((row) => row.routePattern === pattern);
+    expect(indexOf('/blog/news-sitemap.xml')).toBeLessThan(
+      indexOf('/blog/{postSlug}')
+    );
+    expect(indexOf('/blog/{postSlug}')).toBeLessThan(
+      indexOf('/blog/{*catchAll}')
     );
     expect(entrypoints).toEqual(
       expect.arrayContaining([
@@ -154,9 +159,9 @@ describe('createStorefrontEdgeInventory', () => {
 
     // Assert
     expect(entrypoints.length).toBeGreaterThan(0);
-    expect([...new Set(entrypoints.map((row) => row.sourcePath))]).toEqual(
-      expectedSourcePaths
-    );
+    expect(
+      [...new Set(entrypoints.map((row) => row.sourcePath))].sort()
+    ).toEqual(expectedSourcePaths.sort());
     expect(
       entrypoints.find(
         (row) => row.routePattern === '/{category}/{productSlug}'

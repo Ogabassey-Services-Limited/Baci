@@ -68,6 +68,31 @@ function routeMethods(
   return methods;
 }
 
+/**
+ * Next's matcher prefers static segments, then parameters, then catch-alls.
+ * Keep the generated rows in that order so a generic entrypoint cannot shadow
+ * a more specific metadata/page route (the source tree is only lexically
+ * sorted, which is not routing precedence).
+ */
+function compareRoutePatterns(left: string, right: string) {
+  const leftSegments = left.split('/').filter(Boolean);
+  const rightSegments = right.split('/').filter(Boolean);
+  const length = Math.max(leftSegments.length, rightSegments.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftSegment = leftSegments[index];
+    const rightSegment = rightSegments[index];
+    if (leftSegment === undefined) return -1;
+    if (rightSegment === undefined) return 1;
+    const rank = (segment: string) =>
+      segment.startsWith('{*') ? 0 : segment.startsWith('{') ? 1 : 2;
+    const rankDelta = rank(rightSegment) - rank(leftSegment);
+    if (rankDelta !== 0) return rankDelta;
+    if (leftSegment !== rightSegment)
+      return leftSegment.localeCompare(rightSegment);
+  }
+  return 0;
+}
+
 /** Builds closed route rows from source bytes already bound to origin/main. */
 export function createStorefrontEdgeEntrypointRows(
   routeRoot: string,
@@ -99,7 +124,7 @@ export function createStorefrontEdgeEntrypointRows(
         `classified storefront entrypoint no longer exists: ${expected}`
       );
   }
-  return entrypointSources.flatMap(({ bytes, sourcePath }) => {
+  const rows = entrypointSources.flatMap(({ bytes, sourcePath }) => {
     const relativeSourcePath = sourcePath.slice(prefix.length);
     const classificationPath = relativeSourcePath.endsWith('page.ts')
       ? `${relativeSourcePath.slice(0, -'page.ts'.length)}page.tsx`
@@ -139,5 +164,13 @@ export function createStorefrontEdgeEntrypointRows(
       ];
     }
     return [row];
+  });
+  return rows.sort((left, right) => {
+    const routeDelta = compareRoutePatterns(
+      left.routePattern,
+      right.routePattern
+    );
+    if (routeDelta !== 0) return routeDelta;
+    return left.id.localeCompare(right.id);
   });
 }

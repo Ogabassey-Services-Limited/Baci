@@ -4,14 +4,39 @@ import { STOREFRONT_EDGE_PROXY_HOST_ROWS } from './storefront-edge-proxy-host-ro
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
+const sitemapOptions = (
+  id: string,
+  routePattern: string,
+  options: Parameters<typeof createStorefrontEdgeProxyClass>[5]
+): InventoryRow =>
+  createStorefrontEdgeProxyClass(
+    id,
+    routePattern,
+    ['OPTIONS'],
+    'origin_dynamic',
+    'automatic_options_response',
+    options
+  );
+
 /** Terminal and host-conditioned proxy classes after explicit rewrites. */
 export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   createStorefrontEdgeProxyClass(
     'proxy:platform-root-blog-sitemap',
     '/blog/sitemap.xml',
-    ['GET', 'HEAD', 'OPTIONS'],
+    ['GET', 'HEAD'],
     'origin_dynamic',
     'platform_root_blog_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/next.config.ts',
+    }
+  ),
+  sitemapOptions(
+    'proxy:platform-root-blog-sitemap-options',
+    '/blog/sitemap.xml',
     {
       hostCondition: {
         hostKind: 'platform_root_domain',
@@ -23,9 +48,20 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   createStorefrontEdgeProxyClass(
     'proxy:platform-root-slug-sitemap',
     '/{storefrontIdentifier}/sitemap.xml',
-    ['GET', 'HEAD', 'OPTIONS'],
+    ['GET', 'HEAD'],
     'edge_release',
     'storefront_root_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/src/app/sitemap.ts',
+    }
+  ),
+  sitemapOptions(
+    'proxy:platform-root-slug-sitemap-options',
+    '/{storefrontIdentifier}/sitemap.xml',
     {
       hostCondition: {
         hostKind: 'platform_root_domain',
@@ -37,7 +73,7 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   createStorefrontEdgeProxyClass(
     'proxy:root-sitemap',
     '/sitemap.xml',
-    ['GET', 'HEAD', 'OPTIONS'],
+    ['GET', 'HEAD'],
     'origin_dynamic',
     'storefront_root_sitemap_requires_origin',
     {
@@ -48,10 +84,17 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
       sourcePath: 'apps/web/src/app/sitemap.ts',
     }
   ),
+  sitemapOptions('proxy:root-sitemap-options', '/sitemap.xml', {
+    hostCondition: {
+      hostKind: 'custom_domain',
+      precedence: 'before_path_decision',
+    },
+    sourcePath: 'apps/web/src/app/sitemap.ts',
+  }),
   createStorefrontEdgeProxyClass(
     'proxy:subdomain-sitemap',
     '/sitemap.xml',
-    ['GET', 'HEAD', 'OPTIONS'],
+    ['GET', 'HEAD'],
     'origin_dynamic',
     'storefront_root_sitemap_requires_origin',
     {
@@ -62,10 +105,17 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
       sourcePath: 'apps/web/src/app/sitemap.ts',
     }
   ),
+  sitemapOptions('proxy:subdomain-sitemap-options', '/sitemap.xml', {
+    hostCondition: {
+      hostKind: 'platform_subdomain',
+      precedence: 'before_path_decision',
+    },
+    sourcePath: 'apps/web/src/app/sitemap.ts',
+  }),
   createStorefrontEdgeProxyClass(
     'proxy:platform-root-sitemap',
     '/sitemap.xml',
-    ['GET', 'HEAD', 'OPTIONS'],
+    ['GET', 'HEAD'],
     'origin_dynamic',
     'platform_root_sitemap_dynamic',
     {
@@ -75,6 +125,29 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
       },
       sourcePath: 'apps/web/src/app/sitemap.ts',
     }
+  ),
+  sitemapOptions('proxy:platform-root-sitemap-options', '/sitemap.xml', {
+    hostCondition: {
+      hostKind: 'platform_root_domain',
+      precedence: 'before_path_decision',
+    },
+    sourcePath: 'apps/web/src/app/sitemap.ts',
+  }),
+  createStorefrontEdgeProxyClass(
+    'proxy:mcp-sse-rewrite',
+    '/mcp/sse',
+    ['ANY'],
+    'origin_dynamic',
+    'mcp_server_rewrite',
+    { sourcePath: 'apps/web/next.config.ts' }
+  ),
+  createStorefrontEdgeProxyClass(
+    'proxy:mcp-messages-rewrite',
+    '/mcp/messages',
+    ['ANY'],
+    'origin_dynamic',
+    'mcp_server_rewrite',
+    { sourcePath: 'apps/web/next.config.ts' }
   ),
   ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
   createStorefrontEdgeProxyClass(
