@@ -63,6 +63,21 @@ describe('previewInertLinkBlocks', () => {
     fetchSpy.mockRestore();
   });
 
+  it('preserves bounded Hero heading, alignment, and padding in the preview', () => {
+    render(
+      previewInertLinkBlocks.Hero.render({
+        align: 'right',
+        headingLevel: 'h2',
+        padding: 'large',
+        title: 'Catalog preview',
+      })
+    );
+
+    const hero = screen.getByRole('heading', { level: 2 });
+    expect(hero).toHaveTextContent('Catalog preview');
+    expect(hero.parentElement).toHaveClass('text-right', 'py-16');
+  });
+
   it('visibly reflects supported Header controls, layout, and sticky state with inert UI', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Header.render({

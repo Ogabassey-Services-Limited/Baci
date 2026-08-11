@@ -151,6 +151,24 @@ describe('BuilderPreviewCanvas', () => {
     });
   });
 
+  it('does not suppress a render failure after a same-revision success response', async () => {
+    const postMessage = installBridge();
+    render(<BuilderPreviewCanvas />);
+    send(validMessage(10));
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.stringContaining('"type":"baci.builder-preview.rendered"')
+      )
+    );
+    // The response key includes the outcome, so a later boundary failure for
+    // this revision remains observable instead of being deduplicated away.
+    expect(
+      postMessage.mock.calls.some(([value]) =>
+        String(value).includes('"revision":10')
+      )
+    ).toBe(true);
+  });
+
   it('ignores stale and lower revisions after accepting a newer candidate', async () => {
     installBridge();
     render(<BuilderPreviewCanvas />);

@@ -57,7 +57,7 @@ function postPreviewResponse(response: BuilderPreviewResponse): void {
 
 export function BuilderPreviewCanvas() {
   const [preview, setPreview] = useState<PreviewState | null>(null);
-  const responseRevision = useRef<number | null>(null);
+  const responseKey = useRef<string | null>(null);
 
   useEffect(() => {
     postPreviewResponse({
@@ -101,8 +101,9 @@ export function BuilderPreviewCanvas() {
 
   if (!preview) return null;
   const postRenderResult = (type: 'rendered' | 'error') => {
-    if (responseRevision.current === preview.revision) return;
-    responseRevision.current = preview.revision;
+    const nextKey = `${preview.revision}:${type}`;
+    if (responseKey.current === nextKey) return;
+    responseKey.current = nextKey;
     postPreviewResponse(
       type === 'rendered'
         ? {

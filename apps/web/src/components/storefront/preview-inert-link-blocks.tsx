@@ -22,7 +22,10 @@ type PreviewHeaderLayout =
   | 'logo-center';
 
 type PreviewHeroProps = {
+  align?: 'center' | 'left' | 'right';
   ctaText?: string;
+  headingLevel?: 'h1' | 'h2' | 'div';
+  padding?: 'large' | 'medium' | 'small';
   subtitle?: string;
   title?: string;
 };
@@ -77,6 +80,16 @@ const previewHeaderLayoutClasses: Record<PreviewHeaderLayout, string> = {
   'logo-left-nav-center': 'grid grid-cols-[auto_1fr_auto] items-center gap-3',
   'logo-left-nav-right': 'flex items-center gap-3',
 };
+const previewHeroAlignClasses = {
+  center: 'text-center',
+  left: 'text-left',
+  right: 'text-right',
+} as const;
+const previewHeroPaddingClasses = {
+  large: 'py-16',
+  medium: 'py-10',
+  small: 'py-6',
+} as const;
 
 function InertAction({
   children,
@@ -152,10 +165,21 @@ function PreviewHeader({
   );
 }
 
-function PreviewHero({ ctaText, subtitle, title }: PreviewHeroProps) {
+function PreviewHero({
+  align = 'center',
+  ctaText,
+  headingLevel = 'h1',
+  padding = 'medium',
+  subtitle,
+  title,
+}: PreviewHeroProps) {
+  const Heading = headingLevel;
   return (
-    <section aria-label="Preview hero">
-      <h1>{title}</h1>
+    <section
+      aria-label="Preview hero"
+      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}`}
+    >
+      <Heading>{title}</Heading>
       {subtitle ? <p>{subtitle}</p> : null}
       {ctaText ? <InertAction>{ctaText}</InertAction> : null}
     </section>
