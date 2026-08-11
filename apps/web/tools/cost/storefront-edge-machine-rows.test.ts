@@ -45,6 +45,13 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
         },
       })
     );
+    expect(byId.get('machine:indexnow-key-platform-subdomain-options')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['OPTIONS'],
+        routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+      })
+    );
     expect(byId.get('machine:next-image')?.methods).toEqual(['ANY']);
     expect(byId.get('machine:vercel-insights-view')).toEqual(
       expect.objectContaining({

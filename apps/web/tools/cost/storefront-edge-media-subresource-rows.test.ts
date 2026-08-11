@@ -22,6 +22,11 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
+      {
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      },
     ]);
   });
 });

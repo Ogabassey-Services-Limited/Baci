@@ -20,6 +20,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
   destinationCondition?: Readonly<{
     hostKind:
       | 'configured_media_cdn_origin'
+      | 'configured_external_media_origin'
       | 'configured_supabase_origin'
       | 'configured_supabase_storage_origin';
     precedence: 'before_path_decision';

@@ -51,6 +51,14 @@ const metadataOptions = (id: string, routePattern: string): InventoryRow => ({
   reason: 'automatic_options_response',
 });
 
+const indexNowOptions = (
+  id: string,
+  hostKind: 'platform_root_domain' | 'custom_domain' | 'platform_subdomain'
+): InventoryRow => ({
+  ...metadataOptions(id, '/0751d5c882ab3d7c013ecbfe9e624d71.txt'),
+  hostCondition: { hostKind, precedence: 'before_path_decision' },
+});
+
 const FEED_ROWS = Object.entries(STOREFRONT_FEED_ROUTES).map(
   ([name, routePattern]) =>
     machineFamily(`machine:feed-${name}`, routePattern, ['GET', 'HEAD'])
@@ -169,6 +177,7 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
       precedence: 'before_path_decision',
     },
   },
+  indexNowOptions('machine:indexnow-key-root-options', 'platform_root_domain'),
   {
     ...machineFamily(
       'machine:indexnow-key-custom-domain',
@@ -181,6 +190,10 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
       precedence: 'before_path_decision',
     },
   },
+  indexNowOptions(
+    'machine:indexnow-key-custom-domain-options',
+    'custom_domain'
+  ),
   {
     ...machineFamily(
       'machine:indexnow-key-platform-subdomain',
@@ -193,6 +206,10 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
       precedence: 'before_path_decision',
     },
   },
+  indexNowOptions(
+    'machine:indexnow-key-platform-subdomain-options',
+    'platform_subdomain'
+  ),
   {
     ...machineFamily(
       'machine:robots-platform-root-rewrite',
