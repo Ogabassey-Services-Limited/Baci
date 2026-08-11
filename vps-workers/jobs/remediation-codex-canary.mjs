@@ -7,6 +7,7 @@ import {
   redactCodexError,
 } from '../lib/remediation-codex-output.mjs';
 import { buildRemediationEnvironments } from '../lib/remediation-environments.mjs';
+import { runRemediationJobWithGlobalLock } from '../lib/remediation-global-lock.mjs';
 import {
   buildRemediationReport,
   sendRemediationReportEmail,
@@ -108,7 +109,6 @@ export function failureType(error) {
 }
 
 async function main() {
-  config({ path: new URL('../.env', import.meta.url) });
   try {
     console.log(JSON.stringify(runRemediationCodexCanary()));
   } catch (error) {
@@ -133,5 +133,11 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  await main();
+  config({ path: new URL('../.env', import.meta.url) });
+  const exitCode = await runRemediationJobWithGlobalLock({
+    main,
+    scriptPath: process.argv[1],
+    waitSeconds: 600,
+  });
+  if (exitCode !== null) process.exitCode = exitCode;
 }

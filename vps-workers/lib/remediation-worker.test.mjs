@@ -3,7 +3,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker as runWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 describe('remediation worker', () => {
   it('requires an explicit incident candidate loader', async () => {
@@ -18,6 +19,72 @@ describe('remediation worker', () => {
       runRemediationWorker({ candidateLoader: async () => [] }),
       /workerName is required/
     );
+  });
+
+  it('rejects a forged global-lock environment marker in production', async () => {
+    await assert.rejects(
+      runWorker({
+        candidateLoader: async () => [],
+        env: {
+          BACI_REMEDIATION_GLOBAL_FLOCK_HELD: '1',
+          NODE_ENV: 'production',
+        },
+        remediationLock: {},
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+  });
+
+  it('rejects development autofix before loading candidates without a lock capability', async () => {
+    let loaded = false;
+    await assert.rejects(
+      runWorker({
+        candidateLoader: () => {
+          loaded = true;
+          return [];
+        },
+        env: {
+          BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+          NODE_ENV: 'development',
+        },
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+    assert.equal(loaded, false);
+  });
+
+  it('rejects a forged object capability for test autofix before state access', async () => {
+    await assert.rejects(
+      runWorker({
+        candidateLoader: async () => [],
+        env: { BACI_REMEDIATION_AUTOFIX_ENABLED: '1', NODE_ENV: 'test' },
+        remediationLock: {},
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+  });
+
+  it('does not let a caller override autofix lock authorization', async () => {
+    let loaded = false;
+
+    await assert.rejects(
+      runWorker({
+        candidateLoader: () => {
+          loaded = true;
+          return [];
+        },
+        env: { BACI_REMEDIATION_AUTOFIX_ENABLED: '1', NODE_ENV: 'test' },
+        lockCapabilityValidator: () => true,
+        remediationLock: {},
+        workerName: 'test-remediator',
+      }),
+      /global remediation flock/
+    );
+
+    assert.equal(loaded, false);
   });
 
   it('caps configurable candidate work per cron tick', async () => {

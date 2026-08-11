@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import {
+  runRemediationWorker,
+  runRemediationWorkerWithGlobalCaseStateLock,
+} from './remediation-worker.test-harness.mjs';
 
 function candidate(overrides = {}) {
   return {
@@ -19,7 +22,7 @@ function candidate(overrides = {}) {
 }
 
 describe('remediation worker final recovery contracts', () => {
-  it('replays a PR journal after the lifecycle checkpoint fails without another autofix', async () => {
+  it('cleans a legacy lifecycle lock after opening a PR under the global lock', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-pr-replay-'));
     const lifecycleLock = join(directory, 'case-state.autofix.json.lock');
     let attempts = 0;
@@ -37,21 +40,18 @@ describe('remediation worker final recovery contracts', () => {
       };
     };
 
-    await assert.rejects(
-      runRemediationWorker({
-        autofixRunner: runner,
-        candidateLoader: async () => [candidate()],
-        env,
-        workerName: 'final-fix',
-      }),
-      /case state is busy/
-    );
-    unlinkSync(lifecycleLock);
+    await runRemediationWorkerWithGlobalCaseStateLock({
+      autofixRunner: runner,
+      candidateLoader: async () => [candidate()],
+      env,
+      workerName: 'final-fix',
+    });
+    assert.equal(existsSync(lifecycleLock), false);
     const newer = candidate({
       lastSeen: '2026-08-09T10:02:00.000Z',
       occurrences: 3,
     });
-    const result = await runRemediationWorker({
+    const result = await runRemediationWorkerWithGlobalCaseStateLock({
       autofixRunner: runner,
       candidateLoader: async () => [newer],
       env,

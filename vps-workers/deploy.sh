@@ -7,6 +7,8 @@ set -euo pipefail
 WORKER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/prepare-worker-release.sh
 source "$WORKER_ROOT/lib/prepare-worker-release.sh"
+# shellcheck source=lib/install-remediation-cron-transition.sh
+source "$WORKER_ROOT/lib/install-remediation-cron-transition.sh"
 
 VPS="bassey@82.29.190.219"
 REMOTE_DIR="/home/bassey/baci-workers"
@@ -34,7 +36,11 @@ fi
 echo "==> Building isolated Codex remediator image"
 ssh "$VPS" "docker build -f $STAGING_DIR/Dockerfile.codex-remediator -t $CODEX_REMEDIATOR_IMAGE $STAGING_DIR"
 
+install_remediation_cron_transition
+
 promote_worker_release
+
+ssh "$VPS" "install -d -m 700 $REMOTE_DIR/locks && touch $REMOTE_DIR/locks/error-remediator-global.lock && chmod 600 $REMOTE_DIR/locks/error-remediator-global.lock"
 
 echo "==> Installing Vercel drain receiver user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-vercel-log-drain-receiver.service"
@@ -112,9 +118,9 @@ $CRON_BLOCK_START
 * *    * * * flock -n $REMOTE_DIR/locks/petrock-reconcile.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=petrock-reconciliation && cd $REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m $REMOTE_DIR/bin/process-petrock-reconciliation.sh' >> $REMOTE_DIR/logs/petrock-reconcile.log 2>&1
 */5 * * * * flock -n $REMOTE_DIR/locks/order-notifications.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/order-notifications?batchSize=5' >> $REMOTE_DIR/logs/order-notifications.log 2>&1
 */2 * * * * flock -n $REMOTE_DIR/locks/cache-invalidations.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/drain-cache-invalidations' >> $REMOTE_DIR/logs/cache-invalidations.log 2>&1
-*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
-*/5 *  * * * flock -n $REMOTE_DIR/locks/sentry-mobile-error-remediator.lock flock -n $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1
-22 4   * * * flock -n $REMOTE_DIR/locks/remediation-codex-canary.lock flock -w 600 $REMOTE_DIR/locks/error-remediator-global.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/remediation-codex-canary.mjs' >> $REMOTE_DIR/logs/remediation-codex-canary.log 2>&1
+*/15 * * * * flock -n $REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $REMOTE_DIR/logs/vercel-error-remediator.log 2>&1
+*/5 *  * * * flock -n $REMOTE_DIR/locks/sentry-mobile-error-remediator.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/sentry-mobile-error-remediator.mjs' >> $REMOTE_DIR/logs/sentry-mobile-error-remediator.log 2>&1
+22 4   * * * flock -n $REMOTE_DIR/locks/remediation-codex-canary.lock bash -lc 'export BACI_CODEX_DOCKER_IMAGE=$CODEX_REMEDIATOR_IMAGE BACI_CODEX_CONTAINER_BIN=$CODEX_CONTAINER_BIN && cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/remediation-codex-canary.mjs' >> $REMOTE_DIR/logs/remediation-codex-canary.log 2>&1
 */15 * * * * flock -n $REMOTE_DIR/locks/ollama-workload.lock flock -n $REMOTE_DIR/locks/agentic-commerce-health.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/agentic-commerce-health' >> $REMOTE_DIR/logs/agentic-commerce-health.log 2>&1
 0 */6  * * * flock -n $REMOTE_DIR/locks/inventory-push-alerts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/inventory/push-alerts' >> $REMOTE_DIR/logs/inventory-push-alerts.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/sync-jumia-orders.lock bash -lc 'export NODE_ENV=production && cd $REMOTE_DIR && $REMOTE_DIR/bin/sync-jumia-orders.sh' >> $REMOTE_DIR/logs/sync-jumia-orders.log 2>&1

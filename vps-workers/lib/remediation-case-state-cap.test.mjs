@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { createRemediationCaseState } from './remediation-case-state.mjs';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 function candidate(fingerprint, lastSeen) {
   return {

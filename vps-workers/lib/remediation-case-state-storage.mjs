@@ -10,6 +10,9 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname } from 'node:path';
+import { createLegacyRemediationLockCleaner } from './remediation-case-state-legacy-lock-cleanup.mjs';
+import { reclaimStaleLock } from './remediation-case-state-lock-reclaim.mjs';
+import { hasRemediationGlobalLockCapability } from './remediation-global-lock.mjs';
 
 const STALE_LOCK_MS = 2 * 60 * 1_000;
 const LOCK_TOKEN_PATTERN =
@@ -45,14 +48,77 @@ const completeOwner = (owner) =>
   typeof owner.token === 'string' &&
   LOCK_TOKEN_PATTERN.test(owner.token);
 
+const readLockOwner = (lockPath) => {
+  try {
+    return JSON.parse(readFileSync(lockPath, 'utf8'));
+  } catch {
+    return null;
+  }
+};
+
+const sameLockOwner = (expected, current) =>
+  completeOwner(expected)
+    ? current?.token === expected.token
+    : !completeOwner(current);
+
+const removeOwnerPath = (ownerPath, unlink) => {
+  try {
+    unlink(ownerPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+};
+
+const isStaleLock = ({
+  lockPath,
+  stat,
+  modifiedAt = stat(lockPath, { throwIfNoEntry: false })?.mtimeMs,
+  owner,
+  nowMs,
+  isAlive,
+  startedAt,
+}) => {
+  if (
+    completeOwner(owner) &&
+    nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
+  ) {
+    if (!isAlive(owner.pid)) return true;
+    if (typeof owner.processStartedAt !== 'string') return false;
+    const currentProcessStartedAt = startedAt(owner.pid);
+    return (
+      typeof currentProcessStartedAt === 'string' &&
+      currentProcessStartedAt !== owner.processStartedAt
+    );
+  }
+  return (
+    !completeOwner(owner) &&
+    Number.isFinite(modifiedAt) &&
+    nowMs - modifiedAt > STALE_LOCK_MS
+  );
+};
+
 export function createRemediationCaseStateStorage({
   createEmptyState,
   isValidState,
   path,
   processIsAlive: isAlive = processIsAlive,
   processStartedAt: startedAt = processStartedAt,
+  stat = statSync,
   unlink = unlinkSync,
+  lockCapabilityValidator = hasRemediationGlobalLockCapability,
+  remediationLock,
 }) {
+  if (
+    remediationLock !== undefined &&
+    !lockCapabilityValidator(remediationLock)
+  ) {
+    throw new Error('global remediation lock capability is required');
+  }
+  const externallyLocked = remediationLock !== undefined;
+  const lockPath = `${path}.lock`;
+  const cleanLegacyLock = externallyLocked
+    ? createLegacyRemediationLockCleaner(lockPath, unlink)
+    : null;
   const localProcessStartedAt = startedAt(process.pid);
 
   function read() {
@@ -98,8 +164,11 @@ export function createRemediationCaseStateStorage({
   }
 
   function withLock(nowMs, fallback, action) {
-    const lockPath = `${path}.lock`;
     mkdirSync(dirname(path), { recursive: true });
+    if (externallyLocked) {
+      cleanLegacyLock();
+      return action(read());
+    }
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const token = randomUUID();
       const ownerPath = `${lockPath}.owner-${token}`;
@@ -116,51 +185,48 @@ export function createRemediationCaseStateStorage({
       try {
         linkSync(ownerPath, lockPath);
       } catch (error) {
-        try {
-          unlink(ownerPath);
-        } catch (cleanupError) {
-          if (cleanupError?.code !== 'ENOENT') throw cleanupError;
+        if (error?.code !== 'EEXIST') {
+          removeOwnerPath(ownerPath, unlink);
+          throw error;
         }
-        if (error?.code !== 'EEXIST') throw error;
-        let owner;
+        let reclaimed = false;
         try {
-          owner = JSON.parse(readFileSync(lockPath, 'utf8'));
+          const owner = readLockOwner(lockPath);
+          if (attempt === 0) {
+            const lockIdentity = stat(lockPath, { throwIfNoEntry: false });
+            reclaimed =
+              isStaleLock({
+                lockPath,
+                modifiedAt: lockIdentity?.mtimeMs,
+                owner,
+                nowMs,
+                isAlive,
+                startedAt,
+                stat,
+              }) &&
+              reclaimStaleLock({
+                lockPath,
+                lockIdentity,
+                owner,
+                ownerPath,
+                nowMs,
+                isAlive,
+                startedAt,
+                stat,
+                unlink,
+                completeOwner,
+                readLockOwner,
+                sameLockOwner,
+                removeOwnerPath,
+                isStaleLock,
+              });
+          }
         } catch {
-          owner = null;
+          reclaimed = false;
+        } finally {
+          removeOwnerPath(ownerPath, unlink);
         }
-        const modifiedAt = statSync(lockPath, {
-          throwIfNoEntry: false,
-        })?.mtimeMs;
-        let stale = false;
-        if (
-          completeOwner(owner) &&
-          nowMs - Date.parse(owner.createdAt) > STALE_LOCK_MS
-        ) {
-          if (!isAlive(owner.pid)) {
-            stale = true;
-          } else if (typeof owner.processStartedAt === 'string') {
-            const currentProcessStartedAt = startedAt(owner.pid);
-            stale =
-              typeof currentProcessStartedAt === 'string' &&
-              currentProcessStartedAt !== owner.processStartedAt;
-          }
-        } else if (!completeOwner(owner)) {
-          stale =
-            Number.isFinite(modifiedAt) && nowMs - modifiedAt > STALE_LOCK_MS;
-        }
-        if (attempt === 0 && stale) {
-          try {
-            unlink(lockPath);
-          } catch (cleanupError) {
-            if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-          }
-          if (completeOwner(owner)) {
-            try {
-              unlink(`${lockPath}.owner-${owner.token}`);
-            } catch (cleanupError) {
-              if (cleanupError?.code !== 'ENOENT') throw cleanupError;
-            }
-          }
+        if (reclaimed) {
           continue;
         }
         return fallback;
@@ -195,9 +261,9 @@ export function createRemediationCaseStateStorage({
         }
       }
       try {
-        unlink(ownerPath);
+        removeOwnerPath(ownerPath, unlink);
       } catch (error) {
-        if (error?.code !== 'ENOENT' && !releaseError) releaseError = error;
+        if (!releaseError) releaseError = error;
       }
       if (actionError) throw actionError;
       if (releaseError) throw releaseError;

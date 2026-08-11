@@ -5,6 +5,7 @@
 
 import { pathToFileURL } from 'node:url';
 import { config } from 'dotenv';
+import { runRemediationJobWithGlobalLock } from '../lib/remediation-global-lock.mjs';
 import { runRemediationWorker } from '../lib/remediation-worker.mjs';
 import {
   groupErrorEvents,
@@ -46,11 +47,9 @@ export async function runVercelErrorRemediator({
   return result;
 }
 
-async function main() {
-  config({ path: new URL('../.env', import.meta.url) });
-
+async function main(remediationLock) {
   try {
-    const result = await runVercelErrorRemediator();
+    const result = await runVercelErrorRemediator({ remediationLock });
     console.log(
       JSON.stringify(
         {
@@ -73,5 +72,10 @@ if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
-  await main();
+  config({ path: new URL('../.env', import.meta.url) });
+  const exitCode = await runRemediationJobWithGlobalLock({
+    main,
+    scriptPath: process.argv[1],
+  });
+  if (exitCode !== null) process.exitCode = exitCode;
 }

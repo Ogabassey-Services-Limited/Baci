@@ -5,6 +5,7 @@ import {
   contextForCandidate,
 } from './remediation-case-context.mjs';
 import { createStoredDraftPrReconciler } from './remediation-case-draft-pr-reconciliation.mjs';
+import { quietStaleRemediationCases } from './remediation-case-state-quiet.mjs';
 import { createRemediationCaseStateStorage } from './remediation-case-state-storage.mjs';
 import { createRemediationCaseStateValidator } from './remediation-case-state-validation.mjs';
 
@@ -12,7 +13,6 @@ const CASE_STATE_VERSION = 1;
 const MAX_CASES = 1_000;
 const MAX_OUTCOMES = 5;
 const MAX_SAMPLES = 3;
-const QUIET_AFTER_MS = 7 * 24 * 60 * 60 * 1_000;
 const CASE_STATUSES = new Set([
   'legacy_handled',
   'open',
@@ -20,8 +20,6 @@ const CASE_STATUSES = new Set([
   'pr_open',
   'quiet',
 ]);
-const isIsoDate = (value) =>
-  typeof value === 'string' && Number.isFinite(Date.parse(value));
 const isValidState = createRemediationCaseStateValidator({
   caseStatuses: CASE_STATUSES,
   maxCases: MAX_CASES,
@@ -35,18 +33,6 @@ const emptyState = () => ({
   fairness: { lastCategory: '' },
   version: CASE_STATE_VERSION,
 });
-
-function quietStaleCases(state, nowMs) {
-  for (const item of Object.values(state.cases)) {
-    if (
-      !['legacy_handled', 'quiet'].includes(item.status) &&
-      isIsoDate(item.lastSeen) &&
-      nowMs - Date.parse(item.lastSeen) >= QUIET_AFTER_MS
-    ) {
-      item.status = 'quiet';
-    }
-  }
-}
 
 function observationAdvanced(item, candidate) {
   if (!item) return true;
@@ -67,12 +53,19 @@ function capCases(state) {
   state.cases = capRemediationCases(state.cases, MAX_CASES);
 }
 
-export function createRemediationCaseState({ now = () => Date.now(), path }) {
+export function createRemediationCaseState({
+  lockCapabilityValidator,
+  now = () => Date.now(),
+  path,
+  remediationLock,
+}) {
   const candidateNormalizer = createRemediationCaseCandidateNormalizer();
   const storage = createRemediationCaseStateStorage({
     createEmptyState: emptyState,
     isValidState,
+    lockCapabilityValidator,
     path,
+    remediationLock,
   });
   const reconcileDraftPrs = createStoredDraftPrReconciler({
     maxOutcomes: MAX_OUTCOMES,
@@ -84,7 +77,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
     reconcile(candidates) {
       const nowMs = now();
       return storage.withLock(nowMs, [], (state) => {
-        quietStaleCases(state, nowMs);
+        quietStaleRemediationCases(state, nowMs);
         const normalized = candidateNormalizer.normalizeAll(candidates);
         const observedCandidates = [];
         for (const candidate of normalized) {
@@ -133,7 +126,7 @@ export function createRemediationCaseState({ now = () => Date.now(), path }) {
           state.cases[candidate.caseKey] = item;
           observedCandidates.push(candidate);
         }
-        quietStaleCases(state, nowMs);
+        quietStaleRemediationCases(state, nowMs);
         capCases(state);
         storage.persist(state);
         const selectableCandidates = normalized.filter((candidate) => {

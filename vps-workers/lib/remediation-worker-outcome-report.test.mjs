@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 const candidate = () => ({
   category: 'sentry_issue',

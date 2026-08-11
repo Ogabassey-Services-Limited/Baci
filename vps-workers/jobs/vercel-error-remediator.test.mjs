@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { runVercelErrorRemediator } from './vercel-error-remediator.mjs';
+import { runVercelErrorRemediator as runProductionVercelErrorRemediator } from './vercel-error-remediator.mjs';
+import { runVercelErrorRemediator } from './vercel-error-remediator.test-harness.mjs';
 
 const silentLogger = {
   error: () => undefined,
@@ -12,6 +13,30 @@ const silentLogger = {
 };
 
 describe('vercel error remediator worker', () => {
+  it('does not forward a caller lock validator into autofix authorization', async () => {
+    const outputDir = mkdtempSync(join(tmpdir(), 'baci-remediator-auth-'));
+    let loaded = false;
+
+    await assert.rejects(
+      runProductionVercelErrorRemediator({
+        candidateLoader: () => {
+          loaded = true;
+          return [];
+        },
+        env: {
+          BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+          BACI_REMEDIATION_OUTPUT_DIR: outputDir,
+        },
+        lockCapabilityValidator: () => true,
+        logger: silentLogger,
+        remediationLock: {},
+      }),
+      /global remediation flock/
+    );
+
+    assert.equal(loaded, false);
+  });
+
   it('returns a rejected promise when required setup is missing', async () => {
     const result = runVercelErrorRemediator({
       env: {

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 import { assertCodexExecutionUsable } from './remediation-codex-output.mjs';
-import { runRemediationWorker } from './remediation-worker.mjs';
+import { runRemediationWorker } from './remediation-worker.test-harness.mjs';
 
 function createTestDirectory(t, prefix) {
   const directory = mkdtempSync(join(tmpdir(), prefix));
