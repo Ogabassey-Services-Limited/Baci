@@ -16,8 +16,17 @@ function checkedPath(path) {
 }
 
 function pathName(bytes) {
-  const path = bytes.toString('utf8');
-  return Buffer.from(path).equals(bytes) ? path : `~gitraw-${bytes.toString('hex')}`;
+  const parts = [];
+  let start = 0;
+  for (let index = 0; index <= bytes.length; index += 1) {
+    if (index === bytes.length || bytes[index] === 0x2f) {
+      const part = bytes.subarray(start, index);
+      const decoded = part.toString('utf8');
+      parts.push(Buffer.from(decoded).equals(part) ? decoded : `~gitraw-${part.toString('hex')}`);
+      start = index + 1;
+    }
+  }
+  return parts.join('/');
 }
 
 function treeId(commit) {
