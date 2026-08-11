@@ -79,6 +79,21 @@ export function CreateNotificationPageClient({
       });
       return;
     }
+
+    // The datetime input's min can become stale while the form is open. Check
+    // the local value against the current clock before queueing a broadcast.
+    if (
+      scheduleEnabled &&
+      formData.scheduled_for &&
+      new Date(formData.scheduled_for).getTime() <= Date.now()
+    ) {
+      toast({
+        title: 'Error',
+        description: 'Please select a future schedule date and time',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (expiresEnabled && !formData.expires_at) {
       toast({
         title: 'Error',

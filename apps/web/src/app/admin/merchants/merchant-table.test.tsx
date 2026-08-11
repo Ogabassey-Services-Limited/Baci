@@ -83,6 +83,8 @@ describe('MerchantTable', () => {
     expect(screen.getByText('4')).toBeVisible();
     expect(screen.getByText('Mar 24, 2026')).toBeVisible();
     expect(screen.getByText('Mar 20, 2026')).toBeVisible();
+    expect(screen.getByText('View Merchant 360')).toBeVisible();
+    expect(screen.queryByText('View merchant users')).not.toBeInTheDocument();
   });
 
   it('renders an empty table state when there are no merchants', () => {

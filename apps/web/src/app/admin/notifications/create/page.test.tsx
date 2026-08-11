@@ -241,4 +241,21 @@ describe('CreateNotificationPage', () => {
       );
     });
   });
+
+  it('rejects a scheduled broadcast whose time elapsed while the form was open', async () => {
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
+    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Maintenance window' } });
+    fireEvent.change(screen.getByLabelText(/message/i), { target: { value: 'Baci will run maintenance tonight.' } });
+    fireEvent.click(screen.getByLabelText(/schedule for later/i));
+    fireEvent.change(screen.getAllByRole('textbox')[2], { target: { value: '2000-01-01T00:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /queue for delivery/i }));
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'Please select a future schedule date and time',
+        title: 'Error',
+        variant: 'destructive',
+      });
+    });
+    expect(mockApiPost).not.toHaveBeenCalled();
+  });
 });
