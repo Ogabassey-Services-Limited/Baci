@@ -6,6 +6,8 @@ const QUERY_VALUE = 'token-shape';
 const STATE_PREFIX = 'jumia-diagnostic-';
 
 function buildEvidence(tokens: JumiaTokenResponse) {
+  const normalizedTokenType = tokens.token_type.trim().toLowerCase();
+
   return {
     expires_in: tokens.expires_in,
     has_access_token: Boolean(tokens.access_token),
@@ -13,7 +15,7 @@ function buildEvidence(tokens: JumiaTokenResponse) {
     has_refresh_token: Boolean(tokens.refresh_token),
     persistence_skipped: true,
     refresh_expires_in: tokens.refresh_expires_in ?? null,
-    token_type: tokens.token_type,
+    token_type: normalizedTokenType === 'bearer' ? 'bearer' : 'other',
   };
 }
 

@@ -50,6 +50,17 @@ describe('Jumia OAuth diagnostic evidence', () => {
     });
   });
 
+  it('normalizes provider-controlled token types to safe labels', () => {
+    const evidence = jumiaOAuthDiagnostic.buildEvidence({
+      access_token: 'access-secret',
+      expires_in: 3600,
+      refresh_token: 'refresh-secret',
+      token_type: 'Bearer;refresh_token=secret',
+    });
+
+    expect(evidence.token_type).toBe('other');
+  });
+
   it('builds a redirect query without exposing token values', () => {
     const query = jumiaOAuthDiagnostic.buildRedirectQuery({
       diagnosticId: 'diagnostic-id',
