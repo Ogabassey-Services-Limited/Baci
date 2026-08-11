@@ -126,21 +126,19 @@ describe('updatePlatformBlogPost', () => {
 
   it('rejects clearing published_at on an already published post', async () => {
     const supabase = createSupabase();
-    const existingQuery = supabase.from('blog_posts');
-    existingQuery.single
-      .mockReset()
-      .mockResolvedValueOnce({
-        data: {
-          featured_image_height: null,
-          featured_image_url: null,
-          featured_image_variants: {},
-          featured_image_width: null,
-          id: 'post-1',
-          slug: 'published-post',
-          status: 'published',
-        },
-        error: null,
-      });
+    const existingQuery = supabase.from();
+    existingQuery.single.mockReset().mockResolvedValueOnce({
+      data: {
+        featured_image_height: null,
+        featured_image_url: null,
+        featured_image_variants: {},
+        featured_image_width: null,
+        id: 'post-1',
+        slug: 'published-post',
+        status: 'published',
+      },
+      error: null,
+    });
     mocks.createClient.mockResolvedValue(supabase);
 
     const response = await updatePlatformBlogPost(
