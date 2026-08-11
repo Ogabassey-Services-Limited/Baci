@@ -68,7 +68,7 @@ function addDependencyMounts({
   args,
   dependencyRoot,
   worktreeDir,
-  readonly = true,
+  destinationRoot = worktreeDir,
 }) {
   for (const relativePath of [
     'node_modules',
@@ -80,7 +80,9 @@ function addDependencyMounts({
     if (existsSync(source)) {
       args.push(
         '--mount',
-        bindMount(source, join(worktreeDir, relativePath), { readonly })
+        bindMount(source, join(destinationRoot, relativePath), {
+          readonly: true,
+        })
       );
     }
   }
@@ -212,10 +214,28 @@ export function buildRemediationVerificationCommand({
   addDependencyMounts({
     args: dockerArgs,
     dependencyRoot: env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir,
+    destinationRoot: '/opt/remediation-dependencies',
     worktreeDir,
-    readonly: false,
   });
-  dockerArgs.push('--workdir', worktreeDir, image, 'sh', '-lc', verifyCommand);
+  const dependencyCopy = [
+    'node_modules',
+    'apps/web/node_modules',
+    'apps/mobile-admin/node_modules',
+    'apps/mobile-storefront/node_modules',
+  ]
+    .map(
+      (relativePath) =>
+        `if [ -d /opt/remediation-dependencies/${relativePath} ]; then mkdir -p "$(dirname "${relativePath}")"; rm -rf "${relativePath}"; cp -a "/opt/remediation-dependencies/${relativePath}" "${relativePath}"; fi`
+    )
+    .join('; ');
+  dockerArgs.push(
+    '--workdir',
+    worktreeDir,
+    image,
+    'sh',
+    '-lc',
+    `${dependencyCopy}; ${verifyCommand}`
+  );
 
   return {
     args: dockerArgs,

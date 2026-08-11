@@ -67,21 +67,16 @@ describe('remediation Docker workflow', () => {
     assert.equal(result.type, 'pr_opened');
     const verificationCall = calls.find(
       ([command, ...args]) =>
-        command === 'docker' && args.includes('pnpm turbo lint')
+        command === 'docker' && args.some((arg) => arg.includes('pnpm turbo lint'))
     );
     assert.ok(verificationCall);
     assert.equal(
       verificationCall.includes(
-        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules`
+        `type=bind,src=${repoRoot}/node_modules,dst=/opt/remediation-dependencies/node_modules,readonly`
       ),
       true
     );
-    assert.equal(
-      verificationCall.includes(
-        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules,readonly`
-      ),
-      false
-    );
+    assert.match(verificationCall.at(-1), /cp -a/);
     assert.equal(
       calls.some((call) => call.join(' ') === 'bash -lc pnpm turbo lint'),
       false
