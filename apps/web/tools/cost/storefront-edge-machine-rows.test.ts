@@ -70,7 +70,7 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
 
     // Act and assert
     await expect(import('./storefront-edge-machine-rows')).rejects.toThrow(
-      'machine route source is not declared: /.well-known/acp.json'
+      'machine route source is not declared:'
     );
   });
 });

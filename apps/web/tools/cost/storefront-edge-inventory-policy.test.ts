@@ -18,11 +18,18 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       dynamicRows
         .filter((row) => row.methods.includes('ANY'))
         .map(({ id }) => id)
-    ).toEqual([
-      'proxy:api-prefix-passthrough',
-      'proxy:platform-admin',
-      'proxy:custom-domain-platform-route',
-    ]);
+    ).toEqual(
+      expect.arrayContaining([
+        'proxy:api-prefix-passthrough',
+        'proxy:mcp-sse-rewrite',
+        'proxy:mcp-messages-rewrite',
+        'proxy:platform-admin',
+        'proxy:custom-domain-platform-route',
+      ])
+    );
+    expect(
+      dynamicRows.filter((row) => row.methods.includes('ANY'))
+    ).toHaveLength(5);
     expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
@@ -63,7 +70,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
 
     // Assert
-    expect(indexNow).toHaveLength(2);
+    expect(indexNow).toHaveLength(3);
     expect(indexNow).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -82,6 +89,15 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
           routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
           hostCondition: expect.objectContaining({
             hostKind: 'custom_domain',
+          }),
+        }),
+        expect.objectContaining({
+          id: 'machine:indexnow-key-platform-subdomain',
+          decision: 'edge_release',
+          methods: ['GET', 'HEAD'],
+          routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
+          hostCondition: expect.objectContaining({
+            hostKind: 'platform_subdomain',
           }),
         }),
       ])
