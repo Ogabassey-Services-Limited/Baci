@@ -24,7 +24,19 @@ const revokeMigration = readFileSync(
   ),
   'utf8'
 ).toLowerCase();
-const migration = [listMigration, upsertMigration, revokeMigration].join('\n');
+const repairMigration = readFileSync(
+  resolve(
+    migrationDirectory,
+    '20260811143000_repair_platform_admin_revocation_capability.sql'
+  ),
+  'utf8'
+).toLowerCase();
+const migration = [
+  listMigration,
+  upsertMigration,
+  revokeMigration,
+  repairMigration,
+].join('\n');
 
 describe('platform access management migration contract', () => {
   it('exposes only roles.manage-gated list, upsert, and revoke RPCs', () => {
@@ -108,5 +120,12 @@ describe('platform access management migration contract', () => {
 
     expect(advisoryLockPosition).toBeGreaterThan(-1);
     expect(membershipLookupPosition).toBeGreaterThan(advisoryLockPosition);
+  });
+
+  it('does not advertise self-revocation or final-owner revocation', () => {
+    expect(repairMigration).toContain('e.user_id is distinct from v_actor_user_id');
+    expect(repairMigration).toContain(
+      "e.role <> 'owner' or private.active_platform_owner_count_v1() > 1"
+    );
   });
 });

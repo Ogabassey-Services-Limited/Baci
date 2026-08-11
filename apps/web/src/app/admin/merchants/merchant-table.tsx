@@ -125,7 +125,7 @@ export function MerchantTable({
                       <DropdownMenuItem asChild>
                         <Link href={`/admin/merchants/${merchant.merchant_id}`}>
                           <Users className="mr-2 size-4" aria-hidden="true" />
-                          View merchant users
+                          View Merchant 360
                         </Link>
                       </DropdownMenuItem>
                       {merchant.email ? (

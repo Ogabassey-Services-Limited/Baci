@@ -94,4 +94,5 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260811140100_repair_admin_reconciliation_pending_refunds.sql',
     sha256: '0182503d7c326ca99c0385a171efa53ec6e6ffcbfc82cdb6cab45d7e9ab812e1',
   },
+  { repositoryPath: 'supabase/migrations/20260811143000_repair_platform_admin_revocation_capability.sql', sha256: '264c93053f207caf47563a9c5d27ba642c6e12f9272c18a7a2ee8938923d8062' },
 ] as const;

@@ -1,5 +1,9 @@
 import type { ScheduledNotification } from './scheduled-notification.ts';
 import { requiresPushOutcomeReview } from './scheduled-notification-push-outcome-review.ts';
+import {
+  isWithinQuietHours,
+  parseExpoTicketResults,
+} from './scheduled-notification-push-utils.ts';
 import { scheduledNotificationWorker } from './scheduled-notification-worker.ts';
 
 const {
@@ -42,33 +46,6 @@ function pageIds(data: unknown): string[] | null {
   return ids.length === data.length ? ids : null;
 }
 
-export function isWithinQuietHours(
-  now: Date,
-  start: string | null,
-  end: string | null
-): boolean {
-  if (!start || !end) return false;
-  const minutes = (value: string) => {
-    const [hours, mins] = value.slice(0, 5).split(':').map(Number);
-    return hours * 60 + mins;
-  };
-  const begin = minutes(start);
-  const finish = minutes(end);
-  if (!Number.isFinite(begin) || !Number.isFinite(finish)) return false;
-  const local = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    hourCycle: 'h23',
-    timeZone: 'Africa/Lagos',
-  }).format(now);
-  const current = minutes(local);
-  if (begin === finish) return true;
-  return begin < finish
-    ? current >= begin && current < finish
-    : current >= begin || current < finish;
-}
-
 async function rpcOk(
   client: WorkerClient,
   name: string,
@@ -90,32 +67,7 @@ async function renew(
   if (data !== true) throw new NotificationClaimLostError();
 }
 
-export function parseExpoTicketResults(
-  body: unknown,
-  expected: number
-): { errorCodes: string[]; statuses: string[]; ticketIds: string[] } | null {
-  const tickets = asRecord(body)?.data;
-  if (!Array.isArray(tickets) || tickets.length !== expected) return null;
-  const results = tickets.map((ticket) => {
-    const value = asRecord(ticket);
-    if (value?.status === 'ok' && typeof value.id === 'string') {
-      return { errorCode: '', status: 'accepted', ticketId: value.id };
-    }
-    if (value?.status !== 'error') return null;
-    const errorCode = asRecord(value?.details)?.error;
-    if (typeof errorCode !== 'string' || errorCode.length === 0) return null;
-    return {
-      errorCode: errorCode.slice(0, 80),
-      status: 'rejected',
-      ticketId: '',
-    };
-  });
-  return {
-    errorCodes: results.map((result) => result.errorCode),
-    statuses: results.map((result) => result.status),
-    ticketIds: results.map((result) => result.ticketId),
-  };
-}
+export { isWithinQuietHours, parseExpoTicketResults } from './scheduled-notification-push-utils.ts';
 
 async function sendPushTokens(
   client: WorkerClient,
