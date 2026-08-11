@@ -154,7 +154,11 @@ export function CreateNotificationForm(props: CreateNotificationFormProps) {
                 <Label htmlFor="action-url">Action URL</Label>
                 <Input
                   id="action-url"
-                  type="url"
+                  // The notification contract accepts same-site paths (for
+                  // example `/dashboard/orders`) as well as HTTPS URLs. A
+                  // native `url` input rejects those paths before our shared
+                  // schema gets a chance to validate them.
+                  type="text"
                   value={formData.action_url || ''}
                   onChange={(event) =>
                     onUpdate({ action_url: event.target.value || undefined })

@@ -265,6 +265,7 @@ export const adminNotificationDetailRpcSchema = z.object({
   }),
   stats: z.object({
     total_sent: z.coerce.number(),
+    total_push_sent: z.coerce.number().default(0),
     total_read: z.coerce.number(),
     total_dismissed: z.coerce.number(),
     read_rate: z.coerce.number(),

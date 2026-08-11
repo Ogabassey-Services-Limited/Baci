@@ -121,7 +121,10 @@ export async function GET() {
         lastPayoutAmount: walletSettings?.last_payout_amount
           ? Number(walletSettings.last_payout_amount)
           : null,
-        canWithdraw: summary.can_withdraw,
+        // Manual payouts are intentionally disabled until the payout worker
+        // can reserve funds and reconcile provider outcomes. Keep every
+        // consumer aligned with /api/payouts/request, which is fail-closed.
+        canWithdraw: false,
         nextSettlementDate: summary.next_settlement_date,
         nextSettlementAmount: summary.next_settlement_amount
           ? Number(summary.next_settlement_amount)

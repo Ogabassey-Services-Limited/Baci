@@ -19,6 +19,11 @@ interface WorkerClient {
   rpc(name: string, args?: Record<string, unknown>): Promise<RpcResult>;
 }
 type Outcome = 'sent' | 'retry' | 'expired';
+type PushTokenRecord = {
+  push_token: string;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+};
 
 class NotificationClaimLostError extends Error {
   constructor() {
@@ -35,6 +40,32 @@ function pageIds(data: unknown): string[] | null {
       : []
   );
   return ids.length === data.length ? ids : null;
+}
+
+export function isWithinQuietHours(
+  now: Date,
+  start: string | null,
+  end: string | null
+): boolean {
+  if (!start || !end) return false;
+  const minutes = (value: string) => {
+    const [hours, mins] = value.slice(0, 5).split(':').map(Number);
+    return hours * 60 + mins;
+  };
+  const begin = minutes(start);
+  const finish = minutes(end);
+  if (!Number.isFinite(begin) || !Number.isFinite(finish)) return false;
+  const local = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Africa/Lagos',
+  }).format(now);
+  const current = minutes(local);
+  if (begin === finish) return true;
+  return begin < finish
+    ? current >= begin && current < finish
+    : current >= begin || current < finish;
 }
 
 async function rpcOk(
@@ -103,16 +134,45 @@ async function sendPushTokens(
       }
     );
     if (!Array.isArray(data)) throw new Error('Push tokens unavailable');
-    const tokens = [
-      ...new Set(
-        data.flatMap((row) => {
-          const token = asRecord(row)?.push_token;
-          return typeof token === 'string' && isExpoPushToken(token)
-            ? [token]
-            : [];
-        })
-      ),
+    const records = data.flatMap((row): PushTokenRecord[] => {
+      const value = asRecord(row);
+      const token = value?.push_token;
+      return typeof token === 'string' && isExpoPushToken(token)
+        ? [
+            {
+              push_token: token,
+              quiet_hours_start:
+                typeof value?.quiet_hours_start === 'string'
+                  ? value.quiet_hours_start
+                  : null,
+              quiet_hours_end:
+                typeof value?.quiet_hours_end === 'string'
+                  ? value.quiet_hours_end
+                  : null,
+            },
+          ]
+        : [];
+    });
+    const uniqueRecords = [
+      ...new Map(records.map((record) => [record.push_token, record])).values(),
     ];
+    const quietTokens = uniqueRecords.filter((record) =>
+      isWithinQuietHours(
+        new Date(),
+        record.quiet_hours_start,
+        record.quiet_hours_end
+      )
+    );
+    if (quietTokens.length > 0) {
+      await rpcOk(client, 'defer_notification_push_tokens_v1', {
+        p_claim_token: notification.delivery_claim_token,
+        p_notification_id: notification.id,
+        p_tokens: quietTokens.map((record) => record.push_token),
+      });
+    }
+    const tokens = uniqueRecords
+      .filter((record) => !quietTokens.includes(record))
+      .map((record) => record.push_token);
     for (const requested of chunks(tokens, TOKEN_BATCH_SIZE)) {
       await renew(client, notification);
       const reserved = await rpcOk(

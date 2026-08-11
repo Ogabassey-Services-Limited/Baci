@@ -62,8 +62,8 @@ export function OrderPipelineBreakdowns({
         <CardHeader>
           <CardTitle>Payment Pipeline</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Current payment-status snapshot for orders created in the{' '}
-            {periodLabel}
+            Order counts include all recorded currencies; amounts and value
+            shares are NGN-only for orders created in the {periodLabel}
           </p>
         </CardHeader>
         <CardContent>
@@ -77,7 +77,7 @@ export function OrderPipelineBreakdowns({
                     <div>
                       <p className="font-medium">{status.label}</p>
                       <p className="text-sm text-muted-foreground">
-                        {status.orders} orders,{' '}
+                        {status.orders} orders across all currencies,{' '}
                         {formatPercent(status.shareOfOrders)} of order volume
                       </p>
                     </div>
@@ -90,7 +90,8 @@ export function OrderPipelineBreakdowns({
                     value={Number(status.shareOfAmount.toFixed(2))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formatPercent(status.shareOfAmount)} of gross order value
+                    {formatPercent(status.shareOfAmount)} of NGN gross order
+                    value
                   </p>
                 </div>
               ))}
@@ -107,8 +108,8 @@ export function OrderPipelineBreakdowns({
         <CardHeader>
           <CardTitle>Fulfillment Pipeline</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Current fulfillment-status snapshot for orders created in the{' '}
-            {periodLabel}
+            Order counts include all recorded currencies; amounts and value
+            shares are NGN-only for orders created in the {periodLabel}
           </p>
         </CardHeader>
         <CardContent>
@@ -122,7 +123,7 @@ export function OrderPipelineBreakdowns({
                     <div>
                       <p className="font-medium">{status.label}</p>
                       <p className="text-sm text-muted-foreground">
-                        {status.orders} orders,{' '}
+                        {status.orders} orders across all currencies,{' '}
                         {formatPercent(status.shareOfOrders)} of order volume
                       </p>
                     </div>
@@ -135,7 +136,8 @@ export function OrderPipelineBreakdowns({
                     value={Number(status.shareOfAmount.toFixed(2))}
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formatPercent(status.shareOfAmount)} of gross order value
+                    {formatPercent(status.shareOfAmount)} of NGN gross order
+                    value
                   </p>
                 </div>
               ))}

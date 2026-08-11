@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isWithinQuietHours,
   parseExpoTicketResults,
   processScheduledNotificationClaims,
 } from './scheduled-notification-delivery.ts';
@@ -31,6 +32,14 @@ describe('parseExpoTicketResults', () => {
     expect(
       parseExpoTicketResults({ data: [{ status: 'error' }] }, 1)
     ).toBeNull();
+  });
+});
+
+describe('isWithinQuietHours', () => {
+  it('handles overnight windows in the merchant timezone', () => {
+    const atNight = new Date('2026-08-11T22:30:00.000Z');
+    expect(isWithinQuietHours(atNight, '22:00', '07:00')).toBe(true);
+    expect(isWithinQuietHours(atNight, '07:00', '22:00')).toBe(false);
   });
 });
 

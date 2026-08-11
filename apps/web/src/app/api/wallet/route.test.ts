@@ -231,6 +231,7 @@ describe('/api/wallet', () => {
       id: 'wallet-1',
       availableBalance: 1000,
       nextSettlementAmount: 75,
+      canWithdraw: false,
     });
     expect(body.pendingSettlements).toEqual([
       expect.objectContaining({ amount: 75, gateway: 'paystack' }),

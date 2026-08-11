@@ -2,7 +2,9 @@
 export function requiresPushOutcomeReview(summary: unknown): boolean {
   if (!isRecord(summary)) return false;
   return (
-    hasPositiveCount(summary.unknown) || hasPositiveCount(summary.dispatching)
+    hasPositiveCount(summary.unknown) ||
+    hasPositiveCount(summary.dispatching) ||
+    hasPositiveCount(summary.pending)
   );
 }
 

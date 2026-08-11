@@ -154,6 +154,7 @@ export interface UpdateMerchantNotificationInput {
  */
 export interface NotificationStats {
   total_sent: number;
+  total_push_sent?: number;
   total_read: number;
   total_dismissed: number;
   read_rate: number;

@@ -16,6 +16,7 @@ type NotificationStats = NotificationWithStats['stats'];
 
 const defaultStats: NotificationStats = {
   total_sent: 0,
+  total_push_sent: 0,
   total_read: 0,
   total_dismissed: 0,
   read_rate: 0,

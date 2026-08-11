@@ -23,6 +23,7 @@ import { NotificationDetailDeliveries } from './notification-detail-deliveries';
 
 const statCards = [
   { key: 'total_sent', label: 'Total Sent', icon: Send },
+  { key: 'total_push_sent', label: 'Push Sent', icon: Send },
   { key: 'total_read', label: 'Read', icon: Eye },
   { key: 'total_dismissed', label: 'Dismissed', icon: CheckCircle },
   { key: 'read_rate', label: 'Read Rate', icon: BarChart3 },

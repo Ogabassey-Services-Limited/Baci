@@ -157,7 +157,8 @@ export function AnalyticsCharts({ chartData, loading }: AnalyticsChartsProps) {
         <CardHeader>
           <CardTitle>Orders by Order-Created Day</CardTitle>
           <CardDescription>
-            Daily paid-order volume by order-created date
+            Daily paid-order volume across all recorded currencies by
+            order-created date
           </CardDescription>
         </CardHeader>
         <CardContent>

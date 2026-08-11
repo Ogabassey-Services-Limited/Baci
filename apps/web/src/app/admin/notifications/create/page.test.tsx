@@ -213,4 +213,32 @@ describe('CreateNotificationPage', () => {
       );
     });
   });
+
+  it('submits a supported relative action URL', async () => {
+    render(<CreateNotificationPageClient canTargetSpecificMerchants />);
+
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.change(screen.getByLabelText(/action url/i), {
+      target: { value: '/dashboard/orders' },
+    });
+    expect(screen.getByLabelText(/action url/i)).toHaveAttribute(
+      'type',
+      'text'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /queue for delivery/i })
+    );
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith(
+        '/api/admin/notifications',
+        expect.objectContaining({ action_url: '/dashboard/orders' })
+      );
+    });
+  });
 });

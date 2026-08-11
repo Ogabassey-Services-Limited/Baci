@@ -19,6 +19,7 @@ const ownedMigrationFiles = [
   ...analyticsMigrationFiles,
   '20260805150020_repair_admin_merchant_sales_activity.sql',
   '20260805151350_repair_admin_platform_order_counts.sql',
+  '20260811120000_repair_admin_platform_analytics_breakdown_currency_scope.sql',
 ];
 const readMigrationSql = (filename: string) =>
   readFileSync(resolve(migrationDirectory, filename), 'utf8').toLowerCase();
@@ -219,5 +220,22 @@ describe('admin analytics migration contract', () => {
     expect(merchantSalesSql).toContain("then 'at_risk'");
     expect(merchantSalesSql).toContain("then 'churned'");
     expect(merchantSalesSql).toContain("else 'new'");
+  });
+
+  it('keeps breakdown order counts currency-inclusive while money stays NGN-only', () => {
+    const repairSql = readMigrationSql(
+      '20260811120000_repair_admin_platform_analytics_breakdown_currency_scope.sql'
+    );
+    expect(repairSql).toContain('from paid_all_current group by 1');
+    expect(repairSql).toContain('count(*)::bigint as orders');
+    expect(repairSql).toContain('from current_orders group by payment_status');
+    expect(repairSql).toContain('from current_orders group by shipping_status');
+    expect(repairSql).toContain("filter (where currency = 'ngn')");
+    expect(repairSql).not.toContain(
+      'from ngn_current_orders group by payment_status'
+    );
+    expect(repairSql).not.toContain(
+      'from ngn_current_orders group by shipping_status'
+    );
   });
 });
