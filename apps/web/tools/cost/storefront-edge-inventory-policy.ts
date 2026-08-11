@@ -79,6 +79,25 @@ const AUTH_SESSION_ROWS: readonly InventoryRow[] = [
   },
 ];
 
+const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:blog-post-accept-language',
+    methods: ['GET', 'HEAD'],
+    reason: 'blog_post_locale_rendering',
+    requestCondition: {
+      anyHeaderMatch: [{ name: 'accept-language' }],
+      matchedStorefrontEntrypointId:
+        'storefront:(blog)/blog/[postSlug]/page.tsx',
+      precedence: 'after_entrypoint_resolution_before_decision',
+    },
+    routePattern: '/blog/{postSlug}',
+    sourceKind: 'request_override',
+    sourcePath:
+      'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/page.tsx',
+  },
+];
+
 const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
   '/',
   '/{storefrontIdentifier}',
@@ -148,6 +167,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...DRAFT_MODE_ROWS,
     ...ROUTER_DATA_ROWS,
     ...AUTH_SESSION_ROWS,
+    ...LOCALE_SENSITIVE_ROWS,
     ...MARKDOWN_NEGOTIATION_ROWS,
     ...STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
