@@ -16,6 +16,11 @@ import type { VariantAttributeSource } from './variant-attributes';
 import { normalizeVariantAttributes } from './variant-attributes';
 
 export const MAX_SUMMARY_SPECS = 8;
+const CAMERA_MOBILE_ONLY_SECTION_NAMES = new Set([
+  'front camera',
+  'selfie camera',
+]);
+
 export interface ProductSpecItem {
   label: string;
   value: string;
@@ -105,6 +110,18 @@ function filterPdpLegacySpecifications(
   productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
   return sections.flatMap((section) => {
+    const normalizedSectionName = section.category
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ');
+    if (
+      getProductSpecFamily(categoryName) === 'camera' &&
+      CAMERA_MOBILE_ONLY_SECTION_NAMES.has(normalizedSectionName)
+    ) {
+      return [];
+    }
+
     const items = filterPdpSpecItems(
       section.items,
       categoryName,

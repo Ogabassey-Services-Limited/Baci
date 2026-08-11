@@ -82,6 +82,40 @@ describe('buildProductSpecData camera families', () => {
     ]);
   });
 
+  it('drops persisted selfie-camera sections from camera PDP and comparison specs', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      specifications: [
+        {
+          category: 'Selfie Camera',
+          items: [
+            { label: 'Resolution', value: '12MP' },
+            { label: 'Features', value: 'HDR' },
+            { label: 'Video', value: '4K' },
+          ],
+        },
+        {
+          category: 'Imaging',
+          items: [{ label: 'Sensor', value: 'APS-C CMOS' }],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Imaging',
+        items: [{ label: 'Sensor', value: 'APS-C CMOS' }],
+      },
+    ]);
+    expect(result.specs).not.toEqual(
+      expect.arrayContaining([
+        { label: 'Resolution', value: '12MP' },
+        { label: 'Features', value: 'HDR' },
+        { label: 'Video', value: '4K' },
+      ])
+    );
+  });
+
   it('builds safe camera key specs when legacy specifications are unavailable', () => {
     const result = buildProductSpecData({
       category: 'Action Cameras',

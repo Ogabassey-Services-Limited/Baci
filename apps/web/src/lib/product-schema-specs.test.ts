@@ -255,6 +255,12 @@ describe('shouldIncludeProductSchemaSpec', () => {
         { key: 'android_version', label: 'Operating System', value: '16' }
       )
     ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Drones', categories: null },
+        { label: 'Operating System', value: 'Android 16' }
+      )
+    ).toBe(false);
   });
 
   it('applies the camera key allowlist and rejects card-slot placeholders', () => {

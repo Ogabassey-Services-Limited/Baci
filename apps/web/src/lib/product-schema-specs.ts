@@ -176,6 +176,20 @@ export function shouldIncludeProductSchemaSpec(
     }
   }
 
+  // Legacy camera tables sometimes label a stale Android row as a generic
+  // operating system. That label infers android_version, but should not evade
+  // the camera family allowlist. Other camera firmware labels remain eligible.
+  if (
+    hasCameraCategory &&
+    !candidate.key &&
+    canonicalSpecKey === 'android_version' &&
+    isOperatingSystemLabel &&
+    typeof candidate.value === 'string' &&
+    candidate.value.trim().toLowerCase().startsWith('android')
+  ) {
+    return false;
+  }
+
   const inferredCameraSpecKey =
     hasCameraCategory && candidate.label && !isOperatingSystemLabel
       ? inferredSpecKey
