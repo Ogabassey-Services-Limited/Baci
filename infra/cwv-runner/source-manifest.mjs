@@ -25,6 +25,7 @@ const fail = (message) => {
   throw new TypeError(message);
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
+const rowIdentity = (row) => `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
 function verifyGitObjectsChunked(cwd, objectIds, options) {
   const verified = new Map();
   for (let offset = 0; offset < objectIds.length; offset += 256)
@@ -64,24 +65,25 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
   const baseRows = authenticatedTreeRows(cwd, baseSha, { verifyBlobs: false });
   const reviewedRows = authenticatedTreeRows(cwd, reviewedHeadSha, { verifyBlobs: false });
   const mergedRows = authenticatedTreeRows(cwd, mergeSha, { verifyBlobs: false });
-  const baseByPath = new Map(baseRows.map((row) => [row.path, row]));
-  const reviewedByPath = new Map(reviewedRows.map((row) => [row.path, row]));
-  const mergedByPath = new Map(mergedRows.map((row) => [row.path, row]));
+  const baseByPath = new Map(baseRows.map((row) => [rowIdentity(row), row]));
+  const reviewedByPath = new Map(reviewedRows.map((row) => [rowIdentity(row), row]));
+  const mergedByPath = new Map(mergedRows.map((row) => [rowIdentity(row), row]));
   const entries = [];
   const paths = [...new Set([...baseByPath.keys(), ...reviewedByPath.keys()])].sort(pathCompare);
   const changed = [];
-  for (const path of paths) {
-    const base = baseByPath.get(path);
-    const reviewed = reviewedByPath.get(path);
+  for (const identity of paths) {
+    const base = baseByPath.get(identity);
+    const reviewed = reviewedByPath.get(identity);
+    const path = reviewed?.path ?? base?.path;
     if (base && reviewed && base.mode === reviewed.mode && base.objectId === reviewed.objectId) continue;
     const status = !reviewed ? 'D' : !base ? 'A' : 'M';
     if (status === 'D') {
       if (base?.rawPath) fail('non-UTF-8 source path');
-      if (mergedByPath.has(path)) fail('deleted path remains in merge tree');
+      if (mergedByPath.has(identity)) fail('deleted path remains in merge tree');
       entries.push({ path, status, absent: true });
       continue;
     }
-    const merged = mergedByPath.get(path);
+    const merged = mergedByPath.get(identity);
     if (!reviewed || !merged || merged.path !== path) fail('ambiguous changed path');
     changed.push({ merged, path, reviewed, status });
   }
