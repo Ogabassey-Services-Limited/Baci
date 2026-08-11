@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const referenceClaimMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811110000_serialize_paystack_reference_claims.sql'
+  ),
+  'utf8'
+);
 
 describe('manual Paystack partial reconciliation migration', () => {
   it('locks and validates the review, order, and provider reference', () => {
@@ -20,6 +27,16 @@ describe('manual Paystack partial reconciliation migration', () => {
       "v_review_issue_type <> 'payment_match_zero_candidates'"
     );
     expect(migration).toContain('paystack_reference_already_recorded');
+  });
+
+  it('shares the Paystack reference lock with chat-order conversion', () => {
+    expect(referenceClaimMigration).toContain('pg_advisory_xact_lock');
+    expect(referenceClaimMigration).toContain(
+      'hashtextextended(trim(p_reference), 0)'
+    );
+    expect(referenceClaimMigration).toContain(
+      'private.convert_chat_order_to_paid_order_with_inventory('
+    );
   });
 
   it('creates a separate partial transaction and delegates completion atomically', () => {
