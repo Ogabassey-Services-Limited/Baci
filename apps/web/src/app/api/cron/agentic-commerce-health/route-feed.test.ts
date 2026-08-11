@@ -76,6 +76,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }));
 
+import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceUniversalCartReadiness } from '@/lib/agentic/agent-commerce-health-monitor';
@@ -85,12 +86,23 @@ import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerc
 import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
-import { createCronRequest, createSupabaseMock } from './route.test-setup';
+import {
+  createCronRequest,
+  createSupabaseMock,
+  healthyAction,
+} from './route.test-setup';
 
-describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
+describe('GET /api/cron/agentic-commerce-health', () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
-    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
+    vi.mocked(getCronSecret).mockReturnValue('cron-secret');
+    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-commerce.json',
+    });
     vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
       google_product_count: 2,
       issue_count: 0,
@@ -134,56 +146,42 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       url: 'https://ogabassey.com/.well-known/ucp',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
-      actions: [
-        {
-          code: 'AGENTIC_ACTIONS_HEALTHY',
-          count: 0,
-          message: 'No recent agentic action issues need attention.',
-          severity: 'ok',
-        },
-      ],
+      actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
-    });
-  });
-
-  it('returns ok when the public manifest is healthy', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
-      issue_count: 0,
-      issues: [],
-      status: 'ok',
-      url: 'https://ogabassey.com/agent-commerce.json',
-    });
-
-    const response = await GET(createCronRequest());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      merchants: [
-        {
-          actions: [],
-          manifest: {
-            issue_count: 0,
-            status: 'ok',
-            url: 'https://ogabassey.com/agent-commerce.json',
+      requests: {
+        recent_count: 1,
+        records: [
+          {
+            agent_id: 'openai:chatgpt',
+            api_version: '2026-04-28',
+            created_at: '2026-05-22T08:03:00.000Z',
+            expires_at: '2026-05-22T08:18:00.000Z',
+            route: 'checkout_sessions.complete',
           },
-          status: 'ok',
-        },
-      ],
-      status: 'ok',
+        ],
+      },
     });
+    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
   });
 
-  it('reports public manifest capability drift without failing the scheduled cron response', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
+  it('reports feed generation attention without failing the scheduled cron response', async () => {
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: null,
       issue_count: 1,
       issues: [
         {
-          code: 'manifest_contract_drift',
-          message: 'Manifest advertises a partial checkout capability set.',
+          code: 'feed_generation_failed',
+          count: 1,
+          message:
+            'Agent catalog feeds could not be generated for health monitoring.',
+          severity: 'attention',
         },
       ],
+      latest_product_updated_at: null,
+      openai_product_count: null,
+      shared_product_count: null,
+      stale_product_count: null,
       status: 'attention',
-      url: 'https://ogabassey.com/agent-commerce.json',
     });
 
     const response = await GET(createCronRequest());
@@ -194,35 +192,41 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
         {
           actions: [
             {
-              code: 'AGENT_COMMERCE_MANIFEST_DRIFT',
+              code: 'AGENTIC_FEED_GENERATION_FAILED',
               count: 1,
               severity: 'attention',
             },
           ],
-          manifest: {
+          feeds: {
             issue_count: 1,
             status: 'attention',
-            url: 'https://ogabassey.com/agent-commerce.json',
           },
           status: 'attention',
-          status_reason: 'agent_commerce_manifest_drift',
+          status_reason: 'agent_commerce_feed_generation_failed',
         },
       ],
       status: 'attention',
     });
   });
 
-  it('reports an unavailable public manifest without failing the scheduled cron response', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
+  it('keeps stale feed products as monitor-only actions', async () => {
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: 2,
       issue_count: 1,
       issues: [
         {
-          code: 'manifest_unavailable',
-          message: 'Manifest returned HTTP 404.',
+          code: 'feed_stale',
+          count: 1,
+          message:
+            'One or more agent-visible products have stale or missing feed timestamps.',
+          severity: 'monitor',
         },
       ],
-      status: 'attention',
-      url: 'https://ogabassey.com/agent-commerce.json',
+      latest_product_updated_at: '2026-04-01T10:00:00.000Z',
+      openai_product_count: 2,
+      shared_product_count: 2,
+      stale_product_count: 1,
+      status: 'monitor',
     });
 
     const response = await GET(createCronRequest());
@@ -233,21 +237,19 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
         {
           actions: [
             {
-              code: 'AGENT_COMMERCE_MANIFEST_UNAVAILABLE',
+              code: 'AGENTIC_FEED_STALE_PRODUCTS',
               count: 1,
-              severity: 'attention',
+              severity: 'monitor',
             },
           ],
-          manifest: {
-            issue_count: 1,
-            status: 'attention',
-            url: 'https://ogabassey.com/agent-commerce.json',
+          feeds: {
+            stale_product_count: 1,
+            status: 'monitor',
           },
-          status: 'attention',
-          status_reason: 'agent_commerce_manifest_unavailable',
+          status: 'monitor',
         },
       ],
-      status: 'attention',
+      status: 'monitor',
     });
   });
 });

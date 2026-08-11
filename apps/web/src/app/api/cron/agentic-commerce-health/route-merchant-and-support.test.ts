@@ -76,6 +76,7 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(),
 }));
 
+import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceUniversalCartReadiness } from '@/lib/agentic/agent-commerce-health-monitor';
@@ -83,14 +84,26 @@ import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-m
 import { checkAgentCommercePublicProductParity } from '@/lib/agentic/agent-commerce-public-product-parity-health';
 import { checkAgentCommerceSupportChatHealth } from '@/lib/agentic/agent-commerce-support-chat-health';
 import { checkAgentCommerceTrustHealth } from '@/lib/agentic/agent-commerce-trust-health';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
-import { createCronRequest, createSupabaseMock } from './route.test-setup';
+import {
+  createCronRequest,
+  createSupabaseMock,
+  healthyAction,
+} from './route.test-setup';
 
-describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
+describe('GET /api/cron/agentic-commerce-health', () => {
   beforeEach(() => {
+    vi.unstubAllEnvs();
     vi.clearAllMocks();
-    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
+    vi.mocked(getCronSecret).mockReturnValue('cron-secret');
+    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-commerce.json',
+    });
     vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
       google_product_count: 2,
       issue_count: 0,
@@ -134,56 +147,91 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
       url: 'https://ogabassey.com/.well-known/ucp',
     });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
-      actions: [
-        {
-          code: 'AGENTIC_ACTIONS_HEALTHY',
-          count: 0,
-          message: 'No recent agentic action issues need attention.',
-          severity: 'ok',
-        },
-      ],
+      actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
+      requests: {
+        recent_count: 1,
+        records: [
+          {
+            agent_id: 'openai:chatgpt',
+            api_version: '2026-04-28',
+            created_at: '2026-05-22T08:03:00.000Z',
+            expires_at: '2026-05-22T08:18:00.000Z',
+            route: 'checkout_sessions.complete',
+          },
+        ],
+      },
     });
+    vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
   });
 
-  it('returns ok when the public manifest is healthy', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
-      issue_count: 0,
-      issues: [],
-      status: 'ok',
-      url: 'https://ogabassey.com/agent-commerce.json',
+  it('falls back to the legacy merchant slug env when the Baci slug is blank', async () => {
+    vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '   ');
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', ' legacy-store ');
+    const supabase = createSupabaseMock({
+      merchantRows: [
+        {
+          business_name: 'Legacy Store',
+          id: 'merchant-legacy',
+          is_published: true,
+          slug: 'legacy-store',
+        },
+      ],
+    });
+    vi.mocked(createAdminClient).mockReturnValue(supabase as never);
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    expect(supabase.__mocks.merchantQuery.in).toHaveBeenCalledWith('slug', [
+      'legacy-store',
+    ]);
+  });
+
+  it('reports support chat provider failure without failing commerce status', async () => {
+    vi.mocked(checkAgentCommerceSupportChatHealth).mockResolvedValue({
+      issue_count: 1,
+      issues: [
+        {
+          code: 'support_chat_static_fallback',
+          message:
+            'Support chat returned its static provider-failure fallback.',
+        },
+      ],
+      response_time_ms: 125,
+      status: 'attention',
+      url: 'https://usebaci.com/api/chat',
     });
 
     const response = await GET(createCronRequest());
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      merchants: [
-        {
-          actions: [],
-          manifest: {
-            issue_count: 0,
-            status: 'ok',
-            url: 'https://ogabassey.com/agent-commerce.json',
-          },
-          status: 'ok',
-        },
-      ],
       status: 'ok',
+      support_chat: {
+        issue_count: 1,
+        status: 'attention',
+      },
     });
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Support chat health monitor needs attention',
+      })
+    );
   });
 
-  it('reports public manifest capability drift without failing the scheduled cron response', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
-      issue_count: 1,
-      issues: [
+  it('reports Universal Cart readiness failures without failing the scheduled cron response', async () => {
+    vi.mocked(checkAgentCommerceUniversalCartReadiness).mockResolvedValue({
+      checks: [
         {
-          code: 'manifest_contract_drift',
-          message: 'Manifest advertises a partial checkout capability set.',
+          id: 'ucp_cart_capability',
+          message: 'Cart capability is missing.',
+          status: 'fail',
         },
       ],
-      status: 'attention',
-      url: 'https://ogabassey.com/agent-commerce.json',
+      lastCheckedAt: '2026-05-26T12:00:00.000Z',
+      status: 'fail',
+      url: 'https://ogabassey.com/.well-known/ucp',
     });
 
     const response = await GET(createCronRequest());
@@ -194,57 +242,16 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
         {
           actions: [
             {
-              code: 'AGENT_COMMERCE_MANIFEST_DRIFT',
+              code: 'AGENT_COMMERCE_UNIVERSAL_CART_NOT_READY',
               count: 1,
               severity: 'attention',
             },
           ],
-          manifest: {
-            issue_count: 1,
-            status: 'attention',
-            url: 'https://ogabassey.com/agent-commerce.json',
-          },
           status: 'attention',
-          status_reason: 'agent_commerce_manifest_drift',
-        },
-      ],
-      status: 'attention',
-    });
-  });
-
-  it('reports an unavailable public manifest without failing the scheduled cron response', async () => {
-    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
-      issue_count: 1,
-      issues: [
-        {
-          code: 'manifest_unavailable',
-          message: 'Manifest returned HTTP 404.',
-        },
-      ],
-      status: 'attention',
-      url: 'https://ogabassey.com/agent-commerce.json',
-    });
-
-    const response = await GET(createCronRequest());
-
-    expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
-      merchants: [
-        {
-          actions: [
-            {
-              code: 'AGENT_COMMERCE_MANIFEST_UNAVAILABLE',
-              count: 1,
-              severity: 'attention',
-            },
-          ],
-          manifest: {
-            issue_count: 1,
-            status: 'attention',
-            url: 'https://ogabassey.com/agent-commerce.json',
+          status_reason: 'agent_commerce_universal_cart_not_ready',
+          universal_cart: {
+            status: 'fail',
           },
-          status: 'attention',
-          status_reason: 'agent_commerce_manifest_unavailable',
         },
       ],
       status: 'attention',
