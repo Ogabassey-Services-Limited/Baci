@@ -8,6 +8,7 @@ const mockGetPlatformAdminAuth = vi.fn();
 const mockGetJumiaAuthUrl = vi.fn();
 const mockLoggerInfo = vi.fn();
 const mockCreateAdminClient = vi.fn();
+const mockCreateClient = vi.fn();
 
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: vi.fn(() => 'https://usebaci.com'),
@@ -60,8 +61,13 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
-vi.mock('@/lib/csrf', () => ({ checkCsrfProtection: vi.fn() }));
-vi.mock('next/headers', () => ({ cookies: vi.fn() }));
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(async () => ({ valid: true })),
+}));
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
+}));
+vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
 
 import { GET, POST } from './route';
 
@@ -78,6 +84,14 @@ function makeRequest(
 describe('Jumia OAuth connect diagnostic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockCreateClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1' } },
+          error: null,
+        }),
+      },
+    });
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: {},
