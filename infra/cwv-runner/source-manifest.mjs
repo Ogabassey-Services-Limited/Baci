@@ -25,7 +25,7 @@ const fail = (message) => {
   throw new TypeError(message);
 };
 const pathCompare = (left, right) => Buffer.compare(Buffer.from(left), Buffer.from(right));
-const rowIdentity = (row) => `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
+const rowIdentity = (row) => row.rawIdentity ?? `${row.rawPath ? 'raw:' : 'utf8:'}${row.path}`;
 function verifyGitObjectsChunked(cwd, objectIds, options) {
   const verified = new Map();
   for (let offset = 0; offset < objectIds.length; offset += 256)
