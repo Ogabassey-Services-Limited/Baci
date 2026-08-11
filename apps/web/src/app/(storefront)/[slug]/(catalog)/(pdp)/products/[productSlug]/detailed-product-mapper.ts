@@ -150,7 +150,7 @@ export function mapDetailedCachedProductToProduct(
     category: detailedProduct.category,
   });
   const categorySlug =
-    primaryCategory?.slug ||
+    primaryCategory?.slug?.trim() ||
     (categoryName ? generateSlug(categoryName) : undefined);
 
   return {

@@ -23,14 +23,17 @@ describe('category-specific key spec families', () => {
     );
   });
 
-  it('only displays camera card-slot types when card support is not explicitly false', () => {
+  it('only displays camera card-slot types when support is explicitly confirmed', () => {
     const cardSlot = getKeySpecCategoriesForFamily('camera')
       .flatMap((category) => category.fields)
       .find((field) => field.key === 'card_slot_type');
 
-    expect(cardSlot?.condition?.({ card_slot_type: 'CFexpress Type B' })).toBe(
-      true
-    );
+    expect(
+      cardSlot?.condition?.({
+        has_card_slot: true,
+        card_slot_type: 'CFexpress Type B',
+      })
+    ).toBe(true);
     expect(
       cardSlot?.condition?.({
         card_slot_type: 'CFexpress Type B',
