@@ -21,4 +21,10 @@ describe('requiresPushOutcomeReview', () => {
       true
     );
   });
+
+  it('defers finalization while quiet-hour tokens remain pending', () => {
+    expect(
+      requiresPushOutcomeReview({ pending: 1, dispatching: 0, unknown: 0 })
+    ).toBe(true);
+  });
 });
