@@ -353,12 +353,17 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql',
-    sha256: 'b95247200974a8f13d87d8506d2baa16f276146f95ec764098d0efc4bf7c4231',
+    sha256: 'da7541284809672b61c1df6d605b881347cf80fd4ee91c080ec6208e95f6dc78',
   },
   {
     repositoryPath:
       'supabase/migrations/20260811150000_idempotent_paystack_reconciliation_retries.sql',
-    sha256: 'ac548e96334e88b5f20729f0f7d741f428494f8fdd76e4d36311a8f4e89dab61',
+    sha256: '8e1adda6b435a4c344403ed55251be80f76ae6e5c5bc9843998c9c6a04773e21',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811160000_index_paystack_reconciliation_retry_lookup.sql',
+    sha256: 'c1c5724d6af11208bbb2880038676304cf5c1854cdaa9757b907866dc11e7466',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
