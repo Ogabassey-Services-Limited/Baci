@@ -192,6 +192,14 @@ describe('remediation cron transition', () => {
     assert.match(outcome.crontab, /locks\/custom-global\.lock/);
   });
 
+  it('honors an export-prefixed dotenv global lock setting', () => {
+    const outcome = runTransition('custom-global-lock-export');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.locks.join('\n'), /locks\/custom-global\.lock/);
+    assert.match(outcome.crontab, /locks\/custom-global\.lock/);
+  });
+
   it('reports a rollback failure when an empty crontab cannot be removed', () => {
     const outcome = runTransition('rollback-remove-error');
 
@@ -201,6 +209,12 @@ describe('remediation cron transition', () => {
       /unable to (?:remove crontab|verify crontab removal)/i
     );
     assert.match(outcome.crontab, /baci-remediation-transition/);
+    assert.equal(
+      outcome.temporaryEntries.filter((entry) =>
+        entry.startsWith('baci-remediation-entrypoints.')
+      ).length,
+      0
+    );
   });
 
   it('removes owned schedules when the historical Node path changes', () => {
@@ -226,5 +240,12 @@ describe('remediation cron transition', () => {
       outcome.crontab,
       /flock -n .*vercel-error-remediator\.lock true;/
     );
+  });
+
+  it('retains relative Node paths instead of treating them as owned launchers', () => {
+    const outcome = runTransition('relative-node');
+
+    assert.equal(outcome.result.status, 0, outcome.result.stderr);
+    assert.match(outcome.crontab, /&& \.\/node /);
   });
 });

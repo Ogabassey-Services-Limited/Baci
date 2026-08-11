@@ -28,7 +28,9 @@ def is_legacy_owned(line, remote_dir, targets):
             if not command_tokens:
                 continue
             executable = command_tokens[0]
-            if executable in {'node', 'nodejs'} or executable.endswith(('/node', '/nodejs')):
+            if executable in {'node', 'nodejs'} or (
+                executable.startswith('/') and executable.endswith(('/node', '/nodejs'))
+            ):
                 return True
     return False
 

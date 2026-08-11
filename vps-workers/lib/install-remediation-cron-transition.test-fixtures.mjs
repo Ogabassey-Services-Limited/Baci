@@ -114,6 +114,9 @@ if [ "$1" = "-l" ]; then
     detached-lock)
       echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock true; bash -lc 'cd $CANONICAL_REMOTE_DIR && $NODE_BIN $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
       ;;
+    relative-node)
+      echo "*/15 * * * * flock -n $CANONICAL_REMOTE_DIR/locks/vercel-error-remediator.lock bash -lc 'cd $CANONICAL_REMOTE_DIR && ./node $CANONICAL_REMOTE_DIR/jobs/vercel-error-remediator.mjs' >> $CANONICAL_REMOTE_DIR/logs/vercel-error-remediator.log 2>&1"
+      ;;
     *)
       echo "0 1 * * * /usr/local/bin/unrelated-worker"
       ;;

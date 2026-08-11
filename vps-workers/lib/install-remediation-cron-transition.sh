@@ -20,6 +20,7 @@ global_lock_value="$(awk '
   {
     line = $0
     sub(/^[[:space:]]*/, "", line)
+    if (line ~ /^export[[:space:]]+/) sub(/^export[[:space:]]+/, "", line)
     if (line !~ /^BACI_REMEDIATION_GLOBAL_LOCK_PATH[[:space:]]*=/) next
     sub(/^BACI_REMEDIATION_GLOBAL_LOCK_PATH[[:space:]]*=[[:space:]]*/, "", line)
     if (substr(line, 1, 1) == "\"") {
