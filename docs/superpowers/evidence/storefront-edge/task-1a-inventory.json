@@ -30,6 +30,207 @@
   "rows": [
     {
       "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/checkout/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}/checkout",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/checkout/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/carts/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/carts",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/carts/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/lookup/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/lookup",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/lookup/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/product/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/product",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/product/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/catalog/search/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/catalog/search",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/catalog/search/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/complete/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}/complete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/complete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout-sessions/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout-sessions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout-sessions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/cancel/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}/cancel",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/cancel/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/complete/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}/complete",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/complete/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "POST",
+        "PUT"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/checkout_sessions/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/checkout_sessions",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/checkout_sessions/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:agentic/orders/[id]/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/agentic/orders/{id}",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/agentic/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "api-route:ai/grade-device/route.ts",
       "methods": [
         "OPTIONS",
@@ -5069,5 +5270,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "a6c4ce4d24eb77070a23e496702e8f4618e62d75afa2a42c79e9bacd57e155ea"
+  "inventorySha256": "50a9343318d93bd79b62f22bac206b60ba89d8f47dc74956598b6424673ec260"
 }

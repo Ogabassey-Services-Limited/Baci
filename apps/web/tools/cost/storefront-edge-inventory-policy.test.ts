@@ -157,7 +157,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         '/{category}/{productSlug}',
       ])
     );
-    expect(queryRows).toHaveLength(9);
+    expect(queryRows).toHaveLength(18);
     expect(
       queryRows.find(
         (row) => row.id === 'request-override:query-dependent-blog-root'
@@ -184,7 +184,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         id !== 'request-override:query-dependent-compare-root' &&
         id !== 'request-override:query-dependent-category-compare'
     );
-    expect(productQueryRows).toHaveLength(2);
+    expect(productQueryRows).toHaveLength(4);
     expect(
       productQueryRows.every(
         (row) =>

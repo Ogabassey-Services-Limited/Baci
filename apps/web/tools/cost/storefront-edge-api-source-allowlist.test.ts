@@ -10,6 +10,9 @@ describe('isStorefrontRequiredApiSourcePath', () => {
       'quiz/attempts/start',
       'quiz/attempts/[attemptId]/answers',
       'shipping/locations',
+      'agentic/catalog/search',
+      'agentic/checkout_sessions/[id]',
+      'agentic/orders/[id]',
     ]) {
       expect(
         isStorefrontRequiredApiSourcePath(
@@ -30,6 +33,11 @@ describe('isStorefrontRequiredApiSourcePath', () => {
     expect(
       isStorefrontRequiredApiSourcePath(
         'apps/web/src/app/api/cron/gigl-tracking/route.ts'
+      )
+    ).toBe(false);
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/agentic/internal/replay/route.ts'
       )
     ).toBe(false);
   });

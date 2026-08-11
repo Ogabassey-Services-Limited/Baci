@@ -9,7 +9,7 @@ describe('STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS', () => {
     );
 
     // Act and assert
-    expect(productRows).toHaveLength(2);
+    expect(productRows).toHaveLength(4);
     expect(
       productRows.every(
         ({ requestCondition }) =>

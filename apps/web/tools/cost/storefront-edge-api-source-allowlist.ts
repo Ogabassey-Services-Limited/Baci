@@ -42,6 +42,22 @@ const STOREFRONT_API_SOURCE_PATHS = new Set([
   'vtu/checkout/wallet-only',
   'wishlist',
   'wishlist/check',
+  'agentic/carts',
+  'agentic/carts/[id]',
+  'agentic/carts/[id]/cancel',
+  'agentic/carts/[id]/checkout',
+  'agentic/catalog/lookup',
+  'agentic/catalog/product',
+  'agentic/catalog/search',
+  'agentic/checkout-sessions',
+  'agentic/checkout-sessions/[id]',
+  'agentic/checkout-sessions/[id]/cancel',
+  'agentic/checkout-sessions/[id]/complete',
+  'agentic/checkout_sessions',
+  'agentic/checkout_sessions/[id]',
+  'agentic/checkout_sessions/[id]/cancel',
+  'agentic/checkout_sessions/[id]/complete',
+  'agentic/orders/[id]',
 ]);
 
 /** Limits edge-origin API inventory to reviewed customer storefront routes. */
