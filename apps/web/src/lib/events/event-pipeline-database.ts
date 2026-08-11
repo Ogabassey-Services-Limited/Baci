@@ -1,4 +1,9 @@
 import type { Database, Json } from '@/types/supabase';
+import {
+  eventPipelineAdminImporters,
+  eventPipelineLegacySdkImporters,
+} from './event-pipeline-authority-paths';
+import { eventPipelineCredentialPaths } from './event-pipeline-credential-paths';
 import { frozenEventPipelineAuthoritySources } from './event-pipeline-frozen-authority-sources';
 export function toEventPipelineJson(
   value: unknown,
@@ -138,8 +143,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     'has_cache_invalidation_dead_letters',
   ],
   authority: {
-    // biome-ignore format: compact reviewed authority allowlist preserves the 300-line module gate.
-    adminImporters: ['apps/web/src/app/api/orders/route.ts', 'apps/web/src/app/api/payments/juicyway/webhook/route.ts', 'apps/web/src/app/api/platform/events/platform-event-forwarding.ts', 'apps/web/src/lib/events/record-platform-order-created-event.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts'],
+    adminImporters: eventPipelineAdminImporters,
     bareClientImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
@@ -147,27 +151,13 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
-    // Full import paths only. This is the sole fail-open Cloudflare hostname scheduler path; it cannot grant URL purging or Supabase authority.
-    // biome-ignore format: reviewed full import paths preserve the 300-line module gate.
-    credentialPaths: [
-      ['apps/web/src/app/(platform)/onboarding/actions.ts', 'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'], ['apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/lib/storefront-product-purge-hostnames.ts', 'apps/web/src/lib/cloudflare-purge.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/expo-push.ts', 'apps/web/src/env.ts'],
-      ['apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts', 'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts', 'apps/web/src/lib/insurance/notify-activate-protection.ts', 'apps/web/src/lib/supabase/admin.ts', 'apps/web/src/env.ts'],
-    ],
+    credentialPaths: eventPipelineCredentialPaths,
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
       'apps/web/src/lib/supabase/server.ts',
       'apps/web/src/lib/supabase/service.ts',
     ],
-    // biome-ignore format: compact compatibility allowlist preserves the 300-line verifier gate.
-    legacySdkImporters: ['apps/web/src/lib/events/event-ingress-capability.ts', 'apps/web/src/lib/events/event-pipeline-test-client.ts', 'vps-workers/jobs/supabase-retention-cleanup.mjs'],
+    legacySdkImporters: eventPipelineLegacySdkImporters,
     serverImporters: [
       ...Object.keys(frozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',

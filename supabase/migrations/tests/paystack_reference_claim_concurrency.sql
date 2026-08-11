@@ -75,10 +75,12 @@ SELECT dblink_exec(
   $$SET request.jwt.claim.role = 'service_role'$$
 );
 
+SELECT dblink_exec('paystack_manual_claim', 'BEGIN');
+SELECT dblink_exec('paystack_gateway_claim', 'BEGIN');
+
 SELECT dblink_send_query(
   'paystack_manual_claim',
-  $$BEGIN;
-    SELECT public.reconcile_paystack_unmatched_partial_payment(
+  $$SELECT public.reconcile_paystack_unmatched_partial_payment(
       '00000000-0000-4000-8000-00000000f103'::uuid,
       '00000000-0000-4000-8000-00000000f104'::uuid,
       '00000000-0000-4000-8000-00000000f102'::uuid,
@@ -86,22 +88,19 @@ SELECT dblink_send_query(
       'paystack-claim-customer@example.com', 'Paystack Claim Customer',
       0::numeric, 0::numeric, 100::numeric, '{}'::jsonb,
       '00000000-0000-4000-8000-00000000f101'::uuid, 'concurrency_test'
-    );
-    COMMIT;$$
+    )$$
 );
 
 SELECT dblink_send_query(
   'paystack_gateway_claim',
-  $$BEGIN;
-    SELECT public.create_payment_transaction(
+  $$SELECT public.create_payment_transaction(
       '00000000-0000-4000-8000-00000000f102'::uuid,
       '00000000-0000-4000-8000-00000000f105'::uuid,
       100::numeric, 'NGN', 'paystack',
       'paystack-concurrency-reference', 0::numeric, 100::numeric,
       'paystack-claim-customer@example.com', 'Paystack Claim Customer',
       NULL, '{}'::jsonb
-    );
-    COMMIT;$$
+    )$$
 );
 
 DO $$
@@ -115,6 +114,9 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     PERFORM dblink_exec('paystack_manual_claim', 'ROLLBACK');
   END;
+  IF v_manual_succeeded THEN
+    PERFORM dblink_exec('paystack_manual_claim', 'COMMIT');
+  END IF;
 
   BEGIN
     PERFORM * FROM dblink_get_result('paystack_gateway_claim') AS result(value text);
@@ -122,6 +124,9 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     PERFORM dblink_exec('paystack_gateway_claim', 'ROLLBACK');
   END;
+  IF v_gateway_succeeded THEN
+    PERFORM dblink_exec('paystack_gateway_claim', 'COMMIT');
+  END IF;
 
   IF v_manual_succeeded = v_gateway_succeeded THEN
     RAISE EXCEPTION

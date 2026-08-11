@@ -52,6 +52,12 @@ BEGIN
     RAISE EXCEPTION 'forbidden: reconcile_paystack_unmatched_partial_payment requires service_role';
   END IF;
 
+  IF p_order_id IS NOT NULL THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('baci_order_payment:' || p_order_id::text, 0)
+    );
+  END IF;
+
   IF NULLIF(trim(COALESCE(p_paystack_reference, '')), '') IS NOT NULL THEN
     PERFORM pg_catalog.pg_advisory_xact_lock(
       pg_catalog.hashtextextended(trim(p_paystack_reference), 0)
@@ -172,6 +178,12 @@ DECLARE
 BEGIN
   IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: reconcile_paystack_unmatched_partial_payment requires service_role';
+  END IF;
+
+  IF p_order_id IS NOT NULL THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('baci_order_payment:' || p_order_id::text, 0)
+    );
   END IF;
 
   IF p_allow_email_mismatch

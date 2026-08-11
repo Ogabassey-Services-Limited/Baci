@@ -6,11 +6,21 @@ ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS chat_order_id uuid;
 
 UPDATE public.orders AS o
-   SET chat_order_id = co.id
-  FROM public.chat_orders AS co
- WHERE o.chat_order_id IS NULL
-   AND o.source = 'chat'
-   AND o.notes = 'Converted from chat order. Session: ' || co.session_id;
+   SET chat_order_id = matches.chat_order_id
+  FROM (
+    SELECT t.order_id, min(co.id) AS chat_order_id
+      FROM public.transactions AS t
+      JOIN public.chat_orders AS co
+        ON NULLIF(trim(co.payment_reference), '') =
+           NULLIF(trim(t.gateway_reference), '')
+      JOIN public.orders AS candidate ON candidate.id = t.order_id
+     WHERE candidate.chat_order_id IS NULL
+       AND candidate.source = 'chat'
+     GROUP BY t.order_id
+    HAVING count(DISTINCT co.id) = 1
+  ) AS matches
+ WHERE o.id = matches.order_id
+   AND o.chat_order_id IS NULL;
 
 DO $$
 BEGIN

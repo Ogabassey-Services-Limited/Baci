@@ -137,6 +137,13 @@ describe('manual Paystack partial reconciliation migration', () => {
       'ADD COLUMN IF NOT EXISTS chat_order_id uuid'
     );
     expect(reviewContractMigration).toContain('o.chat_order_id = co.id');
+    expect(reviewContractMigration).toContain('payment_reference');
+    expect(reviewContractMigration).toContain(
+      'HAVING count(DISTINCT co.id) = 1'
+    );
+    expect(reviewContractMigration).not.toContain(
+      "o.notes = 'Converted from chat order. Session: ' || co.session_id"
+    );
     expect(reviewContractMigration).not.toContain(
       'JOIN public.orders AS o\n            ON o.notes ='
     );
@@ -155,10 +162,24 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(retryMigration).toContain("'already_completed', true");
     expect(retryMigration).toContain('paystack_reference_already_recorded');
     expect(retryMigration).toContain('FOR UPDATE OF t, o');
+    const orderLock = retryMigration.indexOf(
+      "hashtextextended('baci_order_payment:' || p_order_id::text, 0)"
+    );
+    const referenceLock = retryMigration.indexOf(
+      'hashtextextended(trim(p_paystack_reference), 0)'
+    );
+    expect(orderLock).toBeGreaterThanOrEqual(0);
+    expect(referenceLock).toBeGreaterThan(orderLock);
   });
 
   it('ships a two-session reference-claim concurrency regression', () => {
     expect(concurrencyRegression).toContain('dblink_send_query');
+    expect(concurrencyRegression).toContain(
+      "dblink_exec('paystack_manual_claim', 'BEGIN')"
+    );
+    expect(concurrencyRegression).toContain(
+      "dblink_exec('paystack_gateway_claim', 'BEGIN')"
+    );
     expect(concurrencyRegression).toContain(
       'reconcile_paystack_unmatched_partial_payment('
     );
