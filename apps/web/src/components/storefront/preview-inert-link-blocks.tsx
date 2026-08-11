@@ -56,6 +56,11 @@ type PreviewFooterProps = {
   showQuickLinks?: boolean;
   textColor?: string;
 };
+type PreviewFaqProps = {
+  items?: { answer?: string; question?: string }[];
+  subtitle?: string;
+  title?: string;
+};
 
 const previewButtonAlignClasses: Record<PreviewButtonAlign, string> = {
   center: 'justify-center',
@@ -265,9 +270,27 @@ function PreviewFooter({
   );
 }
 
+function PreviewFAQ({ items = [], subtitle, title }: PreviewFaqProps) {
+  return (
+    <section aria-label="Preview FAQ">
+      <h2>{title}</h2>
+      {subtitle ? <p>{subtitle}</p> : null}
+      <div>
+        {items.map((item) => (
+          <article key={item.question}>
+            <h3>{item.question}</h3>
+            {item.answer ? <p>{item.answer}</p> : null}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewFooter },
+  FAQ: { render: PreviewFAQ },
   Header: { render: PreviewHeader },
   Hero: { render: PreviewHero },
   HeroCarousel: { render: PreviewHeroCarousel },

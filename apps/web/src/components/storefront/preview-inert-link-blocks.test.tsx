@@ -78,6 +78,18 @@ describe('previewInertLinkBlocks', () => {
     expect(hero.parentElement).toHaveClass('text-right', 'py-16');
   });
 
+  it('shows bounded FAQ answers without relying on interactive accordion state', () => {
+    render(
+      previewInertLinkBlocks.FAQ.render({
+        items: [{ answer: 'Ships in 3 days.', question: 'When does it ship?' }],
+        title: 'Questions',
+      })
+    );
+
+    expect(screen.getByText('When does it ship?')).toBeInTheDocument();
+    expect(screen.getByText('Ships in 3 days.')).toBeInTheDocument();
+  });
+
   it('visibly reflects supported Header controls, layout, and sticky state with inert UI', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Header.render({

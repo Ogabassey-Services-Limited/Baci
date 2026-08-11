@@ -7,7 +7,10 @@ import {
 } from '@baci/shared/contracts';
 import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { RenderBuilderConfig } from '@/components/storefront/render-builder-config';
-import { parseBuilderPreviewEvent } from './parse-builder-preview-event';
+import {
+  isBuilderPreviewRenderEvent,
+  parseBuilderPreviewEvent,
+} from './parse-builder-preview-event';
 
 type PreviewState = {
   config: Parameters<typeof RenderBuilderConfig>[0]['config'];
@@ -68,6 +71,7 @@ export function BuilderPreviewCanvas() {
     });
 
     const receivePreview = (event: Event) => {
+      if (!isBuilderPreviewRenderEvent(event)) return;
       const message = parseBuilderPreviewEvent(event);
       if (!message) {
         postPreviewResponse({

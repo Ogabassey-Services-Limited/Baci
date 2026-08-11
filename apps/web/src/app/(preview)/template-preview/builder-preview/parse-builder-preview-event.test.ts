@@ -1,6 +1,9 @@
 import { builderDesignCapabilities } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
-import { parseBuilderPreviewEvent } from './parse-builder-preview-event';
+import {
+  isBuilderPreviewRenderEvent,
+  parseBuilderPreviewEvent,
+} from './parse-builder-preview-event';
 
 const validMessage = {
   candidateConfig: {
@@ -54,5 +57,18 @@ describe('parseBuilderPreviewEvent', () => {
         new MessageEvent('message', { data: { ...validMessage, version: 2 } })
       )
     ).toBeNull();
+  });
+
+  it('classifies unrelated host messages without treating them as preview errors', () => {
+    expect(
+      isBuilderPreviewRenderEvent(
+        new MessageEvent('message', { data: { type: 'host.analytics' } })
+      )
+    ).toBe(false);
+    expect(
+      isBuilderPreviewRenderEvent(
+        new MessageEvent('message', { data: validMessage })
+      )
+    ).toBe(true);
   });
 });

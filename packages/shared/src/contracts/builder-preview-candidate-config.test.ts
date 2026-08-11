@@ -180,12 +180,26 @@ describe('builder preview candidate configuration', () => {
       expect(result.data.root).toEqual({
         props: { title: 'Updated storefront' },
       });
-    expect(
-      builderPreviewCandidateConfigSchema.safeParse({
-        content: [],
-        root: { props: { title: 'Home' }, title: 'Hybrid root' },
-      }).success
-    ).toBe(false);
+    const hybrid = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { props: { title: 'Home' }, title: 'Hybrid root' },
+    });
+    expect(hybrid.success).toBe(true);
+    if (hybrid.success)
+      expect(hybrid.data.root).toEqual({ props: { title: 'Hybrid root' } });
+  });
+
+  it('normalizes hybrid roots preserved by update_root into canonical props', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { props: { title: 'Old' }, title: 'Updated storefront' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.root).toEqual({
+        props: { title: 'Updated storefront' },
+      });
   });
 
   it('accepts a bounded partial theme while rejecting hostile or unknown supplied keys', () => {
