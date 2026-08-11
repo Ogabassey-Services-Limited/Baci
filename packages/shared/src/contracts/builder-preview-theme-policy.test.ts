@@ -54,11 +54,11 @@ describe('preview theme policy', () => {
     expect(fromEntries).not.toHaveBeenCalled();
   });
 
-  it('accepts only CSS-supported three, four, six, and eight digit hex colors', () => {
-    for (const color of ['#123', '#1234', '#123456', '#12345678']) {
+  it('accepts only the three and six digit hex colors supported by theme projection', () => {
+    for (const color of ['#123', '#123456']) {
       expect(candidate({ colors: { primary: color } }).success).toBe(true);
     }
-    for (const color of ['#12', '#12345', '#1234567', '#123456789']) {
+    for (const color of ['#12', '#1234', '#12345', '#1234567', '#12345678']) {
       expect(candidate({ colors: { primary: color } }).success).toBe(false);
     }
   });

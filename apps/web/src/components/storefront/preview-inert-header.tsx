@@ -20,6 +20,7 @@ type PreviewHeaderProps = {
   searchRadius?: 'none' | 'sm' | 'md' | 'full';
   searchStyle?: 'outline' | 'filled' | 'minimal';
   showCart?: boolean;
+  showAccount?: boolean;
   showLogo?: boolean;
   showMenu?: boolean;
   showSearch?: boolean;
@@ -72,6 +73,7 @@ export function PreviewInertHeader({
   searchRadius = 'md',
   searchStyle = 'outline',
   showCart = false,
+  showAccount = true,
   showLogo = true,
   showMenu = false,
   showSearch = false,
@@ -142,6 +144,7 @@ export function PreviewInertHeader({
             Search
           </button>
         ) : null}
+        {showAccount ? <InertHeaderAction>Account</InertHeaderAction> : null}
         {showCart ? <InertHeaderAction>Cart</InertHeaderAction> : null}
         {showMenu ? <InertHeaderAction>Menu</InertHeaderAction> : null}
         {ctaButton?.show ? (

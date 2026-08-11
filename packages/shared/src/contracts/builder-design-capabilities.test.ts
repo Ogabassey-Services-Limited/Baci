@@ -74,6 +74,9 @@ describe('builder design capabilities', () => {
     const productGrid = builderDesignCapabilities.components.find(
       ({ componentType }) => componentType === 'ProductGrid'
     );
+    const newsletter = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'Newsletter'
+    );
 
     expect(header).toMatchObject({
       aiEditable: true,
@@ -115,6 +118,7 @@ describe('builder design capabilities', () => {
       maximum: 4,
       minimum: 2,
     });
+    expect(newsletter?.props.buttonText).toMatchObject({ required: true });
   });
 
   it('keeps unsafe renderer and network boundaries refused with relayable reasons', () => {

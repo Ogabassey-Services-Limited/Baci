@@ -138,7 +138,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     title: label('Why choose us'),
   }),
   allow('Newsletter', 'Email signup invitation.', {
-    buttonText: label('Subscribe'),
+    buttonText: { ...label('Subscribe'), required: true },
     description: copy('Sign up for updates from this store.'),
     placeholder: label('Enter your email'),
     title: label('Newsletter signup'),

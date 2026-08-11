@@ -28,8 +28,7 @@ const reservedColorGroups = new Set([
 ]);
 const text = 'text';
 const number = 'number';
-const rendererColorPattern =
-  /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8})$/;
+const rendererColorPattern = /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/;
 
 type ThemeShape =
   | typeof text

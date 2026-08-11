@@ -24,16 +24,20 @@ describe('PreviewInertHeader', () => {
       screen.getByRole('navigation', { name: 'Preview navigation' })
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Account' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
 
-    rerender(<PreviewInertHeader layout="logo-left-nav-right" />);
+    rerender(
+      <PreviewInertHeader layout="logo-left-nav-right" showAccount={false} />
+    );
 
     expect(header).toHaveAttribute('data-layout', 'logo-left-nav-right');
     expect(header).toHaveAttribute('data-sticky', 'false');
     expect(header).toHaveClass('flex');
     expect(header).not.toHaveClass('sticky');
     expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Account' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cart' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
   });

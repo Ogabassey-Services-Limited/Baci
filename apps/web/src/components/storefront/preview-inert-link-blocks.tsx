@@ -201,7 +201,9 @@ function PreviewFooter({
   socialLinksLabel = 'Follow us',
   textColor,
 }: PreviewFooterProps) {
-  const socialPlatforms = Object.keys(socialLinks);
+  const socialPlatforms = Object.entries(socialLinks).flatMap(
+    ([platform, url]) => (url ? [platform] : [])
+  );
   return (
     <footer
       data-testid="builder-preview-inert-footer"

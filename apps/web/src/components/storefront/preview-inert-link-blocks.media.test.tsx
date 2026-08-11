@@ -42,6 +42,7 @@ describe('preview inert block media and placeholders', () => {
     render(
       previewInertLinkBlocks.Footer.render({
         socialLinks: {
+          facebook: '',
           instagram: 'https://instagram.com/store',
           x: 'https://x.com/store',
         },
@@ -52,6 +53,7 @@ describe('preview inert block media and placeholders', () => {
     expect(
       screen.getByRole('region', { name: 'Preview social links' })
     ).toHaveTextContent('Connectinstagramx');
+    expect(screen.queryByText('facebook')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 });
