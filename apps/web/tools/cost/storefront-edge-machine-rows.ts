@@ -147,7 +147,6 @@ const WELL_KNOWN_ROWS: readonly InventoryRow[] = [
     'edge_terminal'
   ),
 ];
-
 const FEED_ROWS = Object.entries(STOREFRONT_FEED_ROUTES).map(
   ([name, routePattern]) =>
     machineFamily(`machine:feed-${name}`, routePattern, ['GET', 'HEAD'])
