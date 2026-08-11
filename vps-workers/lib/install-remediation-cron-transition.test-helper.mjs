@@ -59,7 +59,7 @@ export function runTransition(scenario) {
   if (scenario === 'custom-global-lock') {
     writeFileSync(
       join(remoteDirectory, '.env'),
-      'BACI_REMEDIATION_GLOBAL_LOCK_PATH=locks/custom-global.lock\n'
+      '  BACI_REMEDIATION_GLOBAL_LOCK_PATH = "locks/custom-global.lock" # comment\n'
     );
   }
   const rollbackReadErrorMarker = join(directory, 'rollback-read-error');

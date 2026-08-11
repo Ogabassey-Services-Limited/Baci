@@ -16,7 +16,24 @@ lock_wait_seconds="$7"
 proc_root="$8"
 lock_dir="$remote_dir/locks"
 
-global_lock_value="$(awk -F= '/^BACI_REMEDIATION_GLOBAL_LOCK_PATH=/{sub(/^BACI_REMEDIATION_GLOBAL_LOCK_PATH=/, ""); print; exit}' "$remote_dir/.env" 2>/dev/null || true)"
+global_lock_value="$(awk '
+  {
+    line = $0
+    sub(/^[[:space:]]*/, "", line)
+    if (line !~ /^BACI_REMEDIATION_GLOBAL_LOCK_PATH[[:space:]]*=/) next
+    sub(/^BACI_REMEDIATION_GLOBAL_LOCK_PATH[[:space:]]*=[[:space:]]*/, "", line)
+    if (substr(line, 1, 1) == "\"") {
+      line = substr(line, 2)
+      closing_quote = index(line, "\"")
+      if (closing_quote > 0) line = substr(line, 1, closing_quote - 1)
+    } else {
+      sub(/[[:space:]]+#.*$/, "", line)
+      sub(/[[:space:]]+$/, "", line)
+    }
+    print line
+    exit
+  }
+' "$remote_dir/.env" 2>/dev/null || true)"
 global_lock_value="${global_lock_value%\"}"
 global_lock_value="${global_lock_value#\"}"
 global_lock_value="${global_lock_value%'}"
