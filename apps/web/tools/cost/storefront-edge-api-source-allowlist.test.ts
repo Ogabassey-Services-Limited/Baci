@@ -5,6 +5,7 @@ describe('isStorefrontRequiredApiSourcePath', () => {
   it('admits reviewed customer storefront APIs and excludes control-plane handlers', () => {
     for (const path of [
       'orders',
+      'orders/credit-direct/client-completion',
       'orders/reuse',
       'quiz/events',
       'quiz/attempts/start',

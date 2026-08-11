@@ -32,6 +32,20 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
       'OPTIONS',
     ]);
     expect(byId.get('machine:next-image')?.methods).toEqual(['ANY']);
+    expect(byId.get('machine:vercel-insights-view')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['POST'],
+        routePattern: '/_vercel/insights/view',
+      })
+    );
+    expect(byId.get('machine:vercel-speed-insights-vitals')).toEqual(
+      expect.objectContaining({
+        decision: 'origin_dynamic',
+        methods: ['POST'],
+        routePattern: '/_vercel/speed-insights/vitals',
+      })
+    );
   });
 
   it('fails closed when a machine route has no declared source', async () => {

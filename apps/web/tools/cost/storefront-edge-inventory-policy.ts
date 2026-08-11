@@ -7,6 +7,7 @@ import {
   STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
 } from './storefront-edge-public-asset-rows';
 import { STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS } from './storefront-edge-query-dependent-rows';
+import { STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS } from './storefront-edge-supabase-subresource-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
@@ -175,6 +176,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS,
     ...STOREFRONT_EDGE_MACHINE_ROWS,
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
+    ...STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS,
     STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
     ...SERVER_ACTION_ROWS,
     ...STOREFRONT_EDGE_PROXY_ROWS,
@@ -195,6 +197,8 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/web-vitals-reporter.tsx',
     'apps/web/src/components/storefront/ad-attribution-capture.tsx',
     'apps/web/src/components/storefront/deferred-page-view-tracker.tsx',
+    'apps/web/src/components/storefront/puck-storefront.tsx',
+    'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
     'apps/web/src/components/storefront/RepairBookingWizard.tsx',
     'apps/web/src/config/storefront-agent-routes.ts',
     'apps/web/src/config/storefront-cache.ts',
@@ -227,12 +231,12 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...STOREFRONT_EDGE_PUBLIC_ASSET_ROWS.map(({ sourcePath }) => sourcePath),
     STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW.sourcePath,
   ],
-  schemaVersion: 5,
+  schemaVersion: 6,
 } as const satisfies {
   apiTerminalRow: InventoryRow;
   completeBrowserPathClasses: readonly string[];
   eligibleDenominatorPolicy: StorefrontEdgeInventory['eligibleDenominatorPolicy'];
   extraRows: readonly InventoryRow[];
   routingInputPaths: readonly string[];
-  schemaVersion: 5;
+  schemaVersion: 6;
 };

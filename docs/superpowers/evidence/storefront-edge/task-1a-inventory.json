@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "615cc5374de1e62c6b3fe871b152c33f8fb7c29147e96d87040cf4af96b2dda0",
-  "routingProxyInputSha256": "6f6420d634a3f35861d4554acc03356769e8d4e83bee76ea0e6ae1f3e8eeb40e",
+  "routingProxyInputSha256": "383197d34884b491e5a1c9ebbd3ce00d811f4bf5a8ba3fb523827c7d8e23c1e9",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -431,6 +431,18 @@
       "routePattern": "/api/orders/{id}",
       "sourceKind": "api_route",
       "sourcePath": "apps/web/src/app/api/orders/[id]/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:orders/credit-direct/client-completion/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/credit-direct/client-completion",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/credit-direct/client-completion/route.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -2357,6 +2369,17 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "machine:vercel-insights-view",
+      "methods": [
+        "POST"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_vercel/insights/view",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/components/analytics/deferred-platform-insights.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "machine:vercel-speed-insights-script",
       "methods": [
         "GET",
@@ -2364,6 +2387,17 @@
       ],
       "reason": "explicit_storefront_machine_family",
       "routePattern": "/_vercel/speed-insights/script.js",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/components/analytics/deferred-platform-insights.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:vercel-speed-insights-vitals",
+      "methods": [
+        "POST"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_vercel/speed-insights/vitals",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/src/components/analytics/deferred-platform-insights.tsx"
     },
@@ -3015,6 +3049,81 @@
       "routePattern": "/template-previews/ogabassey-v2.png",
       "sourceKind": "public_asset",
       "sourcePath": "apps/web/public/template-previews/ogabassey-v2.png"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-page-configs",
+      "methods": [
+        "GET"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/page_configs",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/puck-storefront.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-blog-post-products",
+      "methods": [
+        "GET"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/blog_post_products",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-products",
+      "methods": [
+        "GET"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/products",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-match-blog-to-product",
+      "methods": [
+        "POST"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/rpc/match_blog_to_product",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-blog-posts",
+      "methods": [
+        "GET"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/blog_posts",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx"
     },
     {
       "decision": "edge_release",
@@ -5269,6 +5378,6 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/storefront/[legacySlug]/swap/route.ts"
     }
   ],
-  "schemaVersion": 5,
-  "inventorySha256": "50a9343318d93bd79b62f22bac206b60ba89d8f47dc74956598b6424673ec260"
+  "schemaVersion": 6,
+  "inventorySha256": "bcd0d6420715cf6742762c3d50054a59d36ecf477199225f14c4a94e0e4cb2c2"
 }

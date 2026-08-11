@@ -17,6 +17,10 @@ type StorefrontEdgeMethod =
 
 type StorefrontEdgeInventoryRow = Readonly<{
   decision: StorefrontEdgeDecision;
+  destinationCondition?: Readonly<{
+    hostKind: 'configured_supabase_origin';
+    precedence: 'before_path_decision';
+  }>;
   hostCondition?:
     | Readonly<{
         hostKind: 'platform_subdomain';
@@ -93,6 +97,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
   sourceKind:
     | 'api_family'
     | 'api_route'
+    | 'automatic_subresource'
     | 'machine_family'
     | 'proxy_path_class'
     | 'public_asset'
@@ -119,5 +124,5 @@ export type StorefrontEdgeInventory = Readonly<{
   routeTreeSha256: string;
   routingProxyInputSha256: string;
   rows: readonly StorefrontEdgeInventoryRow[];
-  schemaVersion: 5;
+  schemaVersion: 6;
 }>;

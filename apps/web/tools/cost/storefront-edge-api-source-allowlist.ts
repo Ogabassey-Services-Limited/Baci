@@ -17,6 +17,7 @@ const STOREFRONT_API_SOURCE_PATHS = new Set([
   'ogabassey/pdp-lcp-image/[productSlug]',
   'ogabassey/pdp-lcp-image/profile/[profile]/[productSlug]',
   'orders',
+  'orders/credit-direct/client-completion',
   'orders/reuse',
   'orders/update-payment-ref',
   'orders/[id]',

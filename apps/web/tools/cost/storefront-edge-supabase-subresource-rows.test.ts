@@ -1,0 +1,34 @@
+import { describe, expect, it } from 'vitest';
+import { STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS } from './storefront-edge-supabase-subresource-rows';
+
+describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
+  it('binds current storefront browser queries to the configured Supabase origin', () => {
+    // Arrange and act
+    const byId = new Map(
+      STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS.map((row) => [row.id, row])
+    );
+
+    // Assert
+    expect(byId.get('automatic-subresource:supabase-page-configs')).toEqual(
+      expect.objectContaining({
+        destinationCondition: {
+          hostKind: 'configured_supabase_origin',
+          precedence: 'before_path_decision',
+        },
+        methods: ['GET'],
+        routePattern: '/rest/v1/page_configs',
+        sourcePath: 'apps/web/src/components/storefront/puck-storefront.tsx',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:supabase-match-blog-to-product')
+    ).toEqual(
+      expect.objectContaining({
+        methods: ['POST'],
+        routePattern: '/rest/v1/rpc/match_blog_to_product',
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
+      })
+    );
+  });
+});

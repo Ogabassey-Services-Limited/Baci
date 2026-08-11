@@ -182,7 +182,9 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       ({ id }) =>
         !id.includes('product-category') &&
         id !== 'request-override:query-dependent-compare-root' &&
-        id !== 'request-override:query-dependent-category-compare'
+        id !== 'request-override:query-dependent-compare-root-slug-prefixed' &&
+        id !== 'request-override:query-dependent-category-compare' &&
+        id !== 'request-override:query-dependent-category-compare-slug-prefixed'
     );
     expect(productQueryRows).toHaveLength(4);
     expect(

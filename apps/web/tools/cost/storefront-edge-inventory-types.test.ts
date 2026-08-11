@@ -4,6 +4,28 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
 describe('StorefrontEdgeInventory row conditions', () => {
+  it('accepts destination-aware automatic subresources', () => {
+    // Arrange
+    const row = {
+      decision: 'origin_dynamic',
+      destinationCondition: {
+        hostKind: 'configured_supabase_origin',
+        precedence: 'before_path_decision',
+      },
+      id: 'automatic-subresource:supabase-page-configs',
+      methods: ['GET'],
+      reason: 'browser_supabase_query_requires_external_origin',
+      routePattern: '/rest/v1/page_configs',
+      sourceKind: 'automatic_subresource',
+      sourcePath: 'apps/web/src/components/storefront/puck-storefront.tsx',
+    } as const satisfies InventoryRow;
+
+    // Act and assert
+    expect(row.destinationCondition.hostKind).toBe(
+      'configured_supabase_origin'
+    );
+  });
+
   it('accepts reviewed header, entrypoint-decision, and path predicates', () => {
     // Arrange
     const row = {
