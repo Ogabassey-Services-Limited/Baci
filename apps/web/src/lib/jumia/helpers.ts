@@ -124,7 +124,10 @@ function redactJumiaErrorDetails(raw: string): string {
       '"$1":"[REDACTED]"'
     )
     .replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]')
-    .replace(/(^|[?&])(client_secret|code)=[^&\s"]*/gi, '$1$2=[REDACTED]');
+    .replace(
+      /(^|[?&])(access_token|refresh_token|client_secret|code)=[^&\s"]*/gi,
+      '$1$2=[REDACTED]'
+    );
 }
 
 function safeStringifyJumiaErrorDetails(details: unknown): string {

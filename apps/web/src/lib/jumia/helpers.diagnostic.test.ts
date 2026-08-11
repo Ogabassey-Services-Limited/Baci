@@ -4,7 +4,11 @@ vi.mock('@/env', () => ({
   env: { JUMIA_ENVIRONMENT: 'production' },
 }));
 
-import { getJumiaAuthUrl, isJumiaAuthUrlVariant } from '@/lib/jumia/helpers';
+import {
+  getJumiaAuthUrl,
+  isJumiaAuthUrlVariant,
+  sanitizeJumiaErrorDetails,
+} from '@/lib/jumia/helpers';
 
 describe('Jumia OAuth documented-baseline diagnostic variant', () => {
   it('uses exactly the authorization parameters documented by Jumia', () => {
@@ -33,5 +37,15 @@ describe('Jumia OAuth documented-baseline diagnostic variant', () => {
     expect(isJumiaAuthUrlVariant('F')).toBe(true);
     expect(isJumiaAuthUrlVariant('f')).toBe(false);
     expect(isJumiaAuthUrlVariant('unknown')).toBe(false);
+  });
+
+  it('redacts form-encoded token fields', () => {
+    expect(
+      sanitizeJumiaErrorDetails(
+        'error=invalid_grant&refresh_token=secret-refresh&access_token=secret-access'
+      )
+    ).toBe(
+      'error=invalid_grant&refresh_token=[REDACTED]&access_token=[REDACTED]'
+    );
   });
 });
