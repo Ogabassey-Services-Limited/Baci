@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 function bindMount(source, destination, { readonly = false } = {}) {
@@ -205,6 +205,8 @@ export function buildRemediationVerificationCommand({
 
   const dockerBin = env.DOCKER_BIN || 'docker';
   const containerName = `${containerNameFor(worktreeDir)}-verify`;
+  const pnpmStorePath = join(worktreeDir, '.pnpm-store');
+  if (existsSync(worktreeDir)) mkdirSync(pnpmStorePath, { recursive: true });
   const dockerArgs = buildDockerRuntimeArgs({
     containerName,
     readOnly: false,
@@ -217,6 +219,14 @@ export function buildRemediationVerificationCommand({
     destinationRoot: '/opt/remediation-dependencies',
     worktreeDir,
   });
+  if (existsSync(pnpmStorePath)) {
+    dockerArgs.push(
+      '--mount',
+      bindMount(pnpmStorePath, '/pnpm-store'),
+      '--env',
+      'npm_config_store_dir=/pnpm-store'
+    );
+  }
   const dependencyCopy = [
     'node_modules',
     'apps/web/node_modules',
