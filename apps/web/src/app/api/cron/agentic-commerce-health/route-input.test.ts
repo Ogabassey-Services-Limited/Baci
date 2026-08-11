@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GET, maxDuration } from './route';
+
+const { GET, maxDuration } = await import('./route');
+
 import { routeTestHarness } from './route.test-setup';
 
 const { createCronRequest, createSupabaseMock } = routeTestHarness;
