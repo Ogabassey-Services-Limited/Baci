@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "7f9caa4ac5b6601ae13ebb25b2e8aa385df6afaa",
+  "originMainSha": "0df95649f269d8273b553e9a5abd36688ad9074f",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "615cc5374de1e62c6b3fe871b152c33f8fb7c29147e96d87040cf4af96b2dda0",
-  "routingProxyInputSha256": "f754025e48cd20a28df9d2fe396ec8691091ab5f1e1e0f66a98fcd4e1b067169",
+  "routingProxyInputSha256": "f0bf3c341bf526e2d988545efd549f81cb9671143ddb9bcc71f270b3afe9eec8",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -221,6 +221,18 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "api-route:orders/reuse/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/orders/reuse",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/orders/reuse/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "api-route:orders/route.ts",
       "methods": [
         "GET",
@@ -299,6 +311,43 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/[attemptId]/answers/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/{attemptId}/answers",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/[attemptId]/answers/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/attempts/start/route.ts",
+      "methods": [
+        "OPTIONS",
+        "POST"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/attempts/start",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/attempts/start/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:quiz/events/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/quiz/events",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/quiz/events/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "api-route:quiz/leaderboard/route.ts",
       "methods": [
         "GET",
@@ -361,6 +410,19 @@
       "routePattern": "/api/search",
       "sourceKind": "api_route",
       "sourcePath": "apps/web/src/app/api/search/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "api-route:shipping/locations/route.ts",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "exact_storefront_api_route",
+      "routePattern": "/api/shipping/locations",
+      "sourceKind": "api_route",
+      "sourcePath": "apps/web/src/app/api/shipping/locations/route.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -2258,9 +2320,7 @@
       ],
       "reason": "storefront_auth_session_requires_origin",
       "requestCondition": {
-        "anyCookieNameContains": [
-          "auth-token"
-        ],
+        "cookiePredicate": "supabase_auth_session_hint",
         "anyHeaderMatch": [
           {
             "name": "authorization"
@@ -2726,6 +2786,30 @@
       "routePattern": "/_next/image",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:vercel-insights-script",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_vercel/insights/script.js",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/components/analytics/deferred-platform-insights.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:vercel-speed-insights-script",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/_vercel/speed-insights/script.js",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/components/analytics/deferred-platform-insights.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -4266,6 +4350,23 @@
       "sourceKind": "proxy_path_class"
     },
     {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-blog-sitemap",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "platform_root_blog_sitemap_rewrite",
+      "routePattern": "/blog/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
       "decision": "edge_release",
       "id": "proxy:platform-root-slug-sitemap",
       "methods": [
@@ -4351,12 +4452,12 @@
       }
     },
     {
-      "decision": "edge_redirect",
+      "decision": "origin_dynamic",
       "id": "proxy:platform-admin",
       "methods": [
         "ANY"
       ],
-      "reason": "platform_route_subdomain_redirect",
+      "reason": "platform_subdomain_admin_requires_auth",
       "routePattern": "/admin/{*path?}",
       "sourceKind": "proxy_path_class",
       "hostCondition": {
@@ -4548,5 +4649,5 @@
     }
   ],
   "schemaVersion": 5,
-  "inventorySha256": "0a68fbb7232d3d2aef660a2f9da96b4470c6e25a2b81dec0676198996f5bf4cb"
+  "inventorySha256": "15f33a76032dc4cd7e181826aa3916b81ff959634840ff4f76c5f29e46352e82"
 }
