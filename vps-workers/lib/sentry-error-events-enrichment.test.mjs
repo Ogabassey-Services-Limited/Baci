@@ -20,8 +20,10 @@ describe('Sentry latest-event enrichment', () => {
       candidate,
       env: environment,
       fetchFn: (url, options) => {
-        assert.match(String(url), /\/issues\/139588932\/events\/latest\/$/);
-        assert.doesNotMatch(String(url), /\/organizations\//);
+        assert.match(
+          String(url),
+          /\/organizations\/ogabassey\/issues\/139588932\/events\/latest\/$/
+        );
         assert.equal(options.headers.Authorization, 'Bearer token');
         return new Response(
           JSON.stringify({
