@@ -72,9 +72,15 @@ describe('remediation Docker workflow', () => {
     assert.ok(verificationCall);
     assert.equal(
       verificationCall.includes(
-        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules,readonly`
+        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules`
       ),
       true
+    );
+    assert.equal(
+      verificationCall.includes(
+        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules,readonly`
+      ),
+      false
     );
     assert.equal(
       calls.some((call) => call.join(' ') === 'bash -lc pnpm turbo lint'),

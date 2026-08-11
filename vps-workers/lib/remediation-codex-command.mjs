@@ -64,7 +64,12 @@ function buildDockerRuntimeArgs({
   ];
 }
 
-function addDependencyMounts({ args, dependencyRoot, worktreeDir }) {
+function addDependencyMounts({
+  args,
+  dependencyRoot,
+  worktreeDir,
+  readonly = true,
+}) {
   for (const relativePath of [
     'node_modules',
     'apps/web/node_modules',
@@ -75,7 +80,7 @@ function addDependencyMounts({ args, dependencyRoot, worktreeDir }) {
     if (existsSync(source)) {
       args.push(
         '--mount',
-        bindMount(source, join(worktreeDir, relativePath), { readonly: true })
+        bindMount(source, join(worktreeDir, relativePath), { readonly })
       );
     }
   }
@@ -208,6 +213,7 @@ export function buildRemediationVerificationCommand({
     args: dockerArgs,
     dependencyRoot: env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir,
     worktreeDir,
+    readonly: false,
   });
   dockerArgs.push('--workdir', worktreeDir, image, 'sh', '-lc', verifyCommand);
 
