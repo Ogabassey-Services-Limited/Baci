@@ -249,6 +249,10 @@ describe('buildGoogleColorXml', () => {
     expect(buildGoogleColorXml({ color: '   ' })).toBe('');
   });
 
+  it('does not emit direct product color placeholders after normalization', () => {
+    expect(buildGoogleColorXml({ color: '  <b>N/A</b>  ' })).toBe('');
+  });
+
   it('matches colour aliases case-insensitively', () => {
     const xml = buildGoogleColorXml({
       color: 'Black',

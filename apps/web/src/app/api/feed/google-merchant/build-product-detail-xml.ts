@@ -2,6 +2,7 @@ import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import type { ProductKeySpecs } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { escapeXml } from '@/lib/xml-utils';
+import { getFirstAcceptedSpecValue } from './get-first-accepted-spec-value';
 
 interface ProductDetailInput {
   categories?: { name?: string | null; slug?: string | null } | null;
@@ -11,39 +12,6 @@ interface ProductDetailInput {
   variant_attributes?: Record<string, unknown> | null;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz' | null;
   weight_value?: number | null;
-}
-
-const CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS = new Set([
-  'front_camera_mp',
-  'main_camera_mp',
-]);
-
-function isCategoryAgnosticPositiveMeasurement(
-  input: ProductDetailInput,
-  key: string,
-  value: unknown
-) {
-  return (
-    !input.categories?.name?.trim() &&
-    !input.categories?.slug?.trim() &&
-    !input.category?.trim() &&
-    CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS.has(key) &&
-    typeof value === 'number' &&
-    Number.isFinite(value) &&
-    value > 0
-  );
-}
-
-function getFirstAcceptedSpecValue(
-  input: ProductDetailInput,
-  key: string,
-  ...values: unknown[]
-) {
-  return values.find(
-    (value) =>
-      shouldIncludeProductSchemaSpec(input, { key, value }) ||
-      isCategoryAgnosticPositiveMeasurement(input, key, value)
-  );
 }
 
 interface ProductDetail {
@@ -149,7 +117,7 @@ export function buildGoogleColorXml(input: ProductDetailInput) {
         'color',
         'colour',
       ]),
-      input.color
+      normalizeText(input.color)
     )
   );
 
