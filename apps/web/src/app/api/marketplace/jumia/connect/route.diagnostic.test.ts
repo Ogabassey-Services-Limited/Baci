@@ -122,9 +122,17 @@ describe('Jumia OAuth connect diagnostic', () => {
 
   it('clears stale diagnostic context when ordinary POST OAuth starts', async () => {
     const response = await POST(
-      makeRequest(
-        'connectionType=oauth',
-        'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile'
+      new NextRequest(
+        'https://usebaci.com/api/marketplace/jumia/connect?connectionType=oauth',
+        {
+          body: JSON.stringify({ connectionType: 'oauth' }),
+          headers: {
+            'content-type': 'application/json',
+            cookie:
+              'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile',
+          },
+          method: 'POST',
+        }
       )
     );
     const setCookie = response.headers.get('set-cookie') ?? '';
