@@ -485,7 +485,23 @@ function normalizeAcceptedPaymentMethods(
   const methods = [
     ...new Set(
       acceptedPaymentMethods
-        .map((method) => method.trim())
+        .map((method) => {
+          const normalized = method.trim().toLowerCase();
+          if (normalized.includes('bank transfer')) {
+            return 'https://schema.org/BankTransferInAdvance';
+          }
+          if (
+            normalized.includes('debit') ||
+            normalized.includes('credit') ||
+            normalized.includes('card')
+          ) {
+            return 'https://schema.org/CreditCard';
+          }
+          if (normalized.includes('delivery')) {
+            return 'https://schema.org/Cash';
+          }
+          return '';
+        })
         .filter((method) => method.length > 0)
     ),
   ];

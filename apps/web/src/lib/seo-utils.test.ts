@@ -216,7 +216,10 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
 
     expect(schema.offers).toMatchObject({
       '@type': 'Offer',
-      acceptedPaymentMethod: ['Bank transfer', 'Debit and credit card'],
+      acceptedPaymentMethod: [
+        'https://schema.org/BankTransferInAdvance',
+        'https://schema.org/CreditCard',
+      ],
     });
   });
 
@@ -234,7 +237,9 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
 
     const offers = schema.offers as Record<string, unknown>;
-    expect(offers.acceptedPaymentMethod).toEqual(['Pay by B&O card & wallet']);
+    expect(offers.acceptedPaymentMethod).toEqual([
+      'https://schema.org/CreditCard',
+    ]);
 
     const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
       string,
@@ -242,7 +247,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     >;
     expect(
       (parsed.offers as Record<string, unknown>).acceptedPaymentMethod
-    ).toEqual(['Pay by B&O card & wallet']);
+    ).toEqual(['https://schema.org/CreditCard']);
   });
 
   it('adds configured accepted payment methods to variant offers', () => {
@@ -270,7 +275,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     const variants = schema.hasVariant as Record<string, unknown>[];
     const offer = variants[0]?.offers as Record<string, unknown>;
 
-    expect(offer.acceptedPaymentMethod).toEqual(['Pay on delivery']);
+    expect(offer.acceptedPaymentMethod).toEqual(['https://schema.org/Cash']);
   });
 
   it('outputs @type Product when no variants', () => {
