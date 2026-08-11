@@ -207,7 +207,7 @@ test('preserves an unchanged gitlink whose commit is absent locally', () => {
   }
 });
 
-test('rejects non-UTF-8 Git tree names before path projection', () => {
+test('preserves non-UTF-8 Git tree names outside the source projection', () => {
   const root = mkdtempSync(join(tmpdir(), 'source-manifest-tree-utf8-'));
   try {
     execFileSync('/usr/bin/git', ['init', '-q', root]);
@@ -249,10 +249,9 @@ test('rejects non-UTF-8 Git tree names before path projection', () => {
     )
       .toString()
       .trim();
-    assert.throws(
-      () => authenticatedTreeRows(root, commit),
-      /non-UTF-8 Git tree name/
-    );
+    assert.deepEqual(authenticatedTreeRows(root, commit), [
+      { mode: '100644', objectId: blob, path: '~gitraw-696e76616c6964ff' },
+    ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

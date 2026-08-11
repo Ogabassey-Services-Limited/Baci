@@ -15,6 +15,11 @@ function checkedPath(path) {
     fail('ambiguous Git tree path');
 }
 
+function pathName(bytes) {
+  const path = bytes.toString('utf8');
+  return Buffer.from(path).equals(bytes) ? path : `~gitraw-${bytes.toString('hex')}`;
+}
+
 function treeId(commit) {
   const match = /^tree ((?:[0-9a-f]{40}|[0-9a-f]{64}))\n/.exec(
     commit.toString('utf8')
@@ -39,8 +44,7 @@ function listedTree(cwd, sha) {
     if (!match) fail('malformed Git tree row');
     const [, mode, type, objectId] = match;
     const nameBytes = bytes.subarray(tab + 1);
-    const path = nameBytes.toString('utf8');
-    if (!Buffer.from(path).equals(nameBytes)) fail('non-UTF-8 Git tree name');
+    const path = pathName(nameBytes);
     checkedPath(path);
     if (type === 'blob') {
       if (mode !== '100644' && mode !== '100755' && mode !== '120000')
@@ -70,8 +74,7 @@ function walk(cwd, objects, objectId, prefix, leaves, trees) {
       fail('malformed Git tree object');
     const mode = object.bytes.subarray(offset, space).toString('ascii');
     const nameBytes = object.bytes.subarray(space + 1, nul);
-    const name = nameBytes.toString('utf8');
-    if (!Buffer.from(name).equals(nameBytes)) fail('non-UTF-8 Git tree name');
+    const name = pathName(nameBytes);
     const path = prefix ? `${prefix}/${name}` : name;
     checkedPath(path);
     const childId = object.bytes
