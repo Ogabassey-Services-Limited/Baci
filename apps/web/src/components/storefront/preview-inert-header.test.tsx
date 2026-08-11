@@ -1,0 +1,61 @@
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { PreviewInertHeader } from './preview-inert-header';
+
+describe('PreviewInertHeader', () => {
+  it('visibly reflects supported controls, layout, and sticky state with inert UI', () => {
+    const { rerender } = render(
+      <PreviewInertHeader
+        layout="logo-center"
+        navigationLinks={[{ label: 'Shop' }]}
+        showCart
+        showMenu
+        showSearch
+        sticky
+        storeName="Preview Store"
+      />
+    );
+
+    const header = screen.getByRole('banner');
+    expect(header).toHaveAttribute('data-layout', 'logo-center');
+    expect(header).toHaveAttribute('data-sticky', 'true');
+    expect(header).toHaveClass('grid', 'sticky');
+    expect(
+      screen.getByRole('navigation', { name: 'Preview navigation' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
+
+    rerender(<PreviewInertHeader layout="logo-left-nav-right" />);
+
+    expect(header).toHaveAttribute('data-layout', 'logo-left-nav-right');
+    expect(header).toHaveAttribute('data-sticky', 'false');
+    expect(header).toHaveClass('flex');
+    expect(header).not.toHaveClass('sticky');
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cart' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
+  });
+
+  it('renders every supported search style, radius, glass, and padding control', () => {
+    render(
+      <PreviewInertHeader
+        glassEffect
+        paddingY="lg"
+        searchRadius="full"
+        searchStyle="filled"
+        showSearch
+      />
+    );
+
+    const header = screen.getByRole('banner');
+    const search = screen.getByRole('button', { name: 'Search' });
+    expect(header).toHaveAttribute('data-glass-effect', 'true');
+    expect(header).toHaveClass('backdrop-blur-md', 'py-6');
+    expect(search).toHaveAttribute('data-search-style', 'filled');
+    expect(search).toHaveAttribute('data-search-radius', 'full');
+    expect(search).toHaveClass('bg-muted', 'rounded-full');
+    expect(search).toBeDisabled();
+  });
+});

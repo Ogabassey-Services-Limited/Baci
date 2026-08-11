@@ -1,26 +1,9 @@
 import type { ReactNode } from 'react';
+import { PreviewInertHeader } from './preview-inert-header';
 
 type PreviewLink = {
   label: string;
 };
-
-type PreviewHeaderProps = {
-  ctaButton?: { show: boolean; text: string };
-  layout?: PreviewHeaderLayout;
-  navigationLinks?: PreviewLink[];
-  paddingY?: 'sm' | 'md' | 'lg';
-  showCart?: boolean;
-  showLogo?: boolean;
-  showMenu?: boolean;
-  showSearch?: boolean;
-  sticky?: boolean;
-  storeName?: string;
-};
-
-type PreviewHeaderLayout =
-  | 'logo-left-nav-center'
-  | 'logo-left-nav-right'
-  | 'logo-center';
 
 type PreviewHeroProps = {
   align?: 'center' | 'left' | 'right';
@@ -84,11 +67,6 @@ const previewButtonVariantClasses: Record<PreviewButtonVariant, string> = {
   primary: 'bg-store-primary text-store-primary-text',
 };
 
-const previewHeaderLayoutClasses: Record<PreviewHeaderLayout, string> = {
-  'logo-center': 'grid grid-cols-3 items-center gap-3',
-  'logo-left-nav-center': 'grid grid-cols-[auto_1fr_auto] items-center gap-3',
-  'logo-left-nav-right': 'flex items-center gap-3',
-};
 const previewHeroAlignClasses = {
   center: 'text-center',
   left: 'text-left',
@@ -98,11 +76,6 @@ const previewHeroPaddingClasses = {
   large: 'py-16',
   medium: 'py-10',
   small: 'py-6',
-} as const;
-const previewHeaderPaddingClasses = {
-  lg: 'py-6',
-  md: 'py-4',
-  sm: 'py-2',
 } as const;
 const previewFaqStyleClasses = {
   accordion: 'space-y-3',
@@ -121,67 +94,6 @@ function InertAction({
     <button aria-disabled="true" className={className} disabled type="button">
       {children}
     </button>
-  );
-}
-
-function PreviewHeader({
-  ctaButton,
-  layout = 'logo-left-nav-center',
-  navigationLinks = [],
-  paddingY = 'md',
-  showCart = false,
-  showLogo = true,
-  showMenu = false,
-  showSearch = false,
-  sticky = false,
-  storeName = 'Preview Store',
-}: PreviewHeaderProps) {
-  const isCenteredLayout = layout === 'logo-center';
-  return (
-    <header
-      className={`${previewHeaderPaddingClasses[paddingY]} ${previewHeaderLayoutClasses[layout]}${
-        sticky ? ' sticky top-0 z-10' : ''
-      }`}
-      data-layout={layout}
-      data-sticky={String(sticky)}
-      data-testid="builder-preview-inert-header"
-    >
-      {showLogo ? (
-        <strong
-          className={
-            isCenteredLayout ? 'col-start-2 justify-self-center' : undefined
-          }
-        >
-          {storeName}
-        </strong>
-      ) : null}
-      {navigationLinks.length > 0 ? (
-        <nav
-          aria-label="Preview navigation"
-          className={
-            layout === 'logo-left-nav-right'
-              ? 'ml-auto'
-              : isCenteredLayout
-                ? 'col-start-2 row-start-2 justify-self-center'
-                : 'justify-self-center'
-          }
-        >
-          {navigationLinks.map((link) => (
-            <span key={link.label}>{link.label}</span>
-          ))}
-        </nav>
-      ) : null}
-      <div
-        className={
-          isCenteredLayout ? 'col-start-3 justify-self-end' : 'flex gap-2'
-        }
-      >
-        {showSearch ? <InertAction>Search</InertAction> : null}
-        {showCart ? <InertAction>Cart</InertAction> : null}
-        {showMenu ? <InertAction>Menu</InertAction> : null}
-        {ctaButton?.show ? <InertAction>{ctaButton.text}</InertAction> : null}
-      </div>
-    </header>
   );
 }
 
@@ -322,7 +234,7 @@ export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewFooter },
   FAQ: { render: PreviewFAQ },
-  Header: { render: PreviewHeader },
+  Header: { render: PreviewInertHeader },
   Hero: { render: PreviewHero },
   HeroCarousel: { render: PreviewHeroCarousel },
 };
