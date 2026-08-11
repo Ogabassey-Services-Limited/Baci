@@ -94,7 +94,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         expect.objectContaining({
           id: 'machine:indexnow-key-platform-subdomain',
           decision: 'edge_release',
-          methods: ['GET', 'HEAD'],
+          methods: ['GET', 'HEAD', 'OPTIONS'],
           routePattern: '/0751d5c882ab3d7c013ecbfe9e624d71.txt',
           hostCondition: expect.objectContaining({
             hostKind: 'platform_subdomain',
