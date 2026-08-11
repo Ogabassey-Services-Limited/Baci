@@ -150,18 +150,16 @@ export function createStorefrontEdgeEntrypointRows(
       methods.length > 0 &&
       !methods.includes('OPTIONS')
     ) {
-      return [
-        row,
-        {
-          decision: 'origin_dynamic',
-          id: `${row.id}:options`,
-          methods: ['OPTIONS'],
-          reason: 'automatic_options_response',
-          routePattern: row.routePattern,
-          sourceKind: 'storefront_entrypoint',
-          sourcePath,
-        },
-      ];
+      const optionsRow: InventoryRow = {
+        decision: 'origin_dynamic',
+        id: `${row.id}:options`,
+        methods: ['OPTIONS'],
+        reason: 'automatic_options_response',
+        routePattern: row.routePattern,
+        sourceKind: 'storefront_entrypoint',
+        sourcePath,
+      };
+      return [row, optionsRow];
     }
     return [row];
   });
