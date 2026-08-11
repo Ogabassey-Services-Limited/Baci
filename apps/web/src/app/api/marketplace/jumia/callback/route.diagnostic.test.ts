@@ -70,7 +70,7 @@ vi.mock('@/lib/platform-admin-auth', () => ({
 
 import { GET } from './route';
 
-function makeRequest() {
+function makeRequest(diagnosticCookie = '11111111-1111-4111-8111-111111111111') {
   const state = 'jumia-diagnostic-oauth-state';
   return new NextRequest(
     `https://usebaci.com/api/marketplace/jumia/callback?code=auth-code-must-never-be-logged&state=${state}`,
@@ -80,7 +80,7 @@ function makeRequest() {
           `jumia_oauth_state=${state}`,
           'jumia_merchant_id=merchant-1',
           'jumia_oauth_variant=F',
-          'jumia_oauth_diagnostic=11111111-1111-4111-8111-111111111111',
+          `jumia_oauth_diagnostic=${diagnosticCookie}`,
         ].join('; '),
       },
     }
@@ -109,6 +109,15 @@ describe('Jumia OAuth callback diagnostic', () => {
       expires_in: 3600,
       token_type: 'bearer',
     });
+  });
+
+  it('fails closed on a malformed diagnostic cookie without persisting OAuth', async () => {
+    const response = await GET(makeRequest('not-a-uuid'));
+
+    expect(response.headers.get('location')).toContain('error=diagnostic_invalid');
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockSupabaseFrom).not.toHaveBeenCalled();
   });
 
   it('reports access-token-only evidence without shop discovery or persistence', async () => {

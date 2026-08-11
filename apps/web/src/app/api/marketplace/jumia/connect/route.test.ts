@@ -434,22 +434,6 @@ describe('Connect POST', () => {
     );
   });
 
-  it('clears stale diagnostic context when ordinary POST OAuth starts', async () => {
-    setupAuth();
-
-    const res = await POST(
-      makePostRequest(
-        { connectionType: 'oauth' },
-        'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile'
-      )
-    );
-    const setCookie = res.headers.get('set-cookie') ?? '';
-
-    expect(res.status).toBe(200);
-    expect(setCookie).toContain('jumia_oauth_diagnostic=;');
-    expect(setCookie).toContain('jumia_oauth_variant=;');
-    expect(setCookie).toContain('jumia_oauth_platform=;');
-  });
 });
 
 describe('Connect GET', () => {

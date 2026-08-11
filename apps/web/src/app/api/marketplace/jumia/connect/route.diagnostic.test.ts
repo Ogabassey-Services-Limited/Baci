@@ -63,7 +63,7 @@ vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('@/lib/csrf', () => ({ checkCsrfProtection: vi.fn() }));
 vi.mock('next/headers', () => ({ cookies: vi.fn() }));
 
-import { GET } from './route';
+import { GET, POST } from './route';
 
 function makeRequest(
   query = 'connectionType=oauth&diagnostic=token-shape&variant=F',
@@ -104,6 +104,18 @@ describe('Jumia OAuth connect diagnostic', () => {
       ({ state }: { state: string }) =>
         `https://vendor-api.jumia.com/login?scope=openid&prompt=login&state=${state}`
     );
+  });
+
+  it('clears stale diagnostic context when ordinary POST OAuth starts', async () => {
+    const response = await POST(
+      makeRequest('connectionType=oauth', 'jumia_oauth_diagnostic=stale-id; jumia_oauth_variant=F; jumia_oauth_platform=mobile')
+    );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+
+    expect(response.status).toBe(200);
+    expect(setCookie).toContain('jumia_oauth_diagnostic=;');
+    expect(setCookie).toContain('jumia_oauth_variant=;');
+    expect(setCookie).toContain('jumia_oauth_platform=;');
   });
 
   it('starts a platform-admin diagnostic and binds a correlation cookie', async () => {
