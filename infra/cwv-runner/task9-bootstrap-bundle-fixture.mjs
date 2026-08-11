@@ -68,8 +68,6 @@ function frozenInputs() {
   const nodeProvenance = join(root, 'node-provenance.json');
   const prMetadataPath = join(root, 'pr-metadata.json');
   const prMetadataDigestPath = join(root, 'pr-metadata.sha256');
-  const authorityReceiptPath = join(root, 'authority-receipt.json');
-  const authorityReceiptDigestPath = join(root, 'authority-receipt.sha256');
   const prMetadata = Buffer.from(
     canonicalJson({
       baseSha,
@@ -127,6 +125,8 @@ function clone(source) {
   const nodeProvenance = join(root, 'node-provenance.json');
   const prMetadataPath = join(root, 'pr-metadata.json');
   const prMetadataDigestPath = join(root, 'pr-metadata.sha256');
+  const authorityReceiptPath = join(root, 'authority-receipt.json');
+  const authorityReceiptDigestPath = join(root, 'authority-receipt.sha256');
   cpSync(source.nodePath, nodePath);
   cpSync(source.nodeArchivePath, nodeArchivePath);
   cpSync(source.nodeProvenance, nodeProvenance);

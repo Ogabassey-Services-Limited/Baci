@@ -36,7 +36,9 @@ export function checkedTask9Identity(input, manifest, policy, prMetadata) {
     prMetadata.workflowId !== input.workflowId ||
     !input.authorityReceipt ||
     input.authorityReceipt.deploymentSha !== manifest.mergeSha ||
-    input.authorityReceipt.metadataSha256 !== input.reviewedPrMetadataSha256
+    input.authorityReceipt.metadataSha256 !== input.reviewedPrMetadataSha256 ||
+    input.authorityReceipt.repository.id !== repository.id ||
+    input.authorityReceipt.repository.name !== repository.name
   )
     fail('invalid source identity');
   return {
