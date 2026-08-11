@@ -35,6 +35,27 @@ describe('vercel error events', () => {
     }
   });
 
+  it('keeps a record when the bounded tail starts on a line boundary', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
+    const path = join(directory, 'drain.jsonl');
+    try {
+      const event = JSON.stringify({
+        level: 'error',
+        message: 'Error: boundary event',
+        route: '/api/boundary',
+      });
+      const prefix = Buffer.concat([
+        Buffer.alloc(MAX_JSONL_READ_BYTES + 128, 0x78),
+        Buffer.from('\n'),
+      ]);
+      writeFileSync(path, Buffer.concat([prefix, Buffer.from(`${event}\n`)]));
+
+      assert.deepEqual(readJsonlLogEvents(path), [JSON.parse(event)]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it('normalizes common Vercel log drain shapes', () => {
     const event = normalizeVercelLogEvent({
       level: 'error',

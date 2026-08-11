@@ -252,14 +252,36 @@ export function readJsonlLogEvents(path) {
     const start = Math.max(0, size - MAX_JSONL_READ_BYTES);
     const bytesToRead = size - start;
     const buffer = Buffer.allocUnsafe(bytesToRead);
-    readSync(descriptor, buffer, 0, bytesToRead, start);
-    content = buffer.toString('utf8');
+    let bytesRead = 0;
+    while (bytesRead < bytesToRead) {
+      const count = readSync(
+        descriptor,
+        buffer,
+        bytesRead,
+        bytesToRead - bytesRead,
+        start + bytesRead
+      );
+      if (count === 0) {
+        break;
+      }
+      bytesRead += count;
+    }
+    content = buffer.toString('utf8', 0, bytesRead);
+    if (start > 0) {
+      const previousByte = Buffer.alloc(1);
+      readSync(descriptor, previousByte, 0, 1, start - 1);
+      if (previousByte[0] === 0x0a) {
+        content = `\n${content}`;
+      }
+    }
   } finally {
     closeSync(descriptor);
   }
   if (size > MAX_JSONL_READ_BYTES) {
-    const firstNewline = content.indexOf('\n');
-    content = firstNewline === -1 ? '' : content.slice(firstNewline + 1);
+    if (!content.startsWith('\n')) {
+      const firstNewline = content.indexOf('\n');
+      content = firstNewline === -1 ? '' : content.slice(firstNewline + 1);
+    }
   }
   const events = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
