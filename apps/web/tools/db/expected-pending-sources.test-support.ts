@@ -330,6 +330,16 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql',
     sha256: 'c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811100000_manual_paystack_partial_reconciliation.sql',
+    sha256: 'e9a10beaff84817e25b0f185d1aa672636ffcb052b8d19d678081cbaa9c5f09a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811110000_serialize_paystack_reference_claims.sql',
+    sha256: 'a45c8d2fcd0f8f20bf95d671abf06c7418dfe7cfaa3426976829908994200cb7',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
