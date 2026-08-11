@@ -122,6 +122,16 @@ describe('previewInertLinkBlocks', () => {
     ).toHaveAttribute('data-style', 'grid');
   });
 
+  it('does not apply a Hero overlay without a background image', () => {
+    render(
+      previewInertLinkBlocks.Hero.render({ overlay: true, title: 'Plain hero' })
+    );
+
+    expect(
+      screen.getByRole('region', { name: 'Preview hero' })
+    ).not.toHaveClass('bg-store-background-text/40', 'text-store-background');
+  });
+
   it('applies accepted Footer colors and removes an empty navigation landmark', () => {
     const { rerender } = render(
       previewInertLinkBlocks.Footer.render({

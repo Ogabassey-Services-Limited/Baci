@@ -111,7 +111,7 @@ function PreviewHero({
   return (
     <section
       aria-label="Preview hero"
-      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay ? ' bg-store-background-text/40 text-store-background' : ''}`}
+      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay && backgroundImage ? ' bg-store-background-text/40 text-store-background' : ''}`}
       style={
         backgroundImage
           ? {

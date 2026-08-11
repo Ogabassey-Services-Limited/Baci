@@ -105,10 +105,38 @@ describe('RenderBuilderConfig', () => {
     );
     expect(screen.getByTestId('builder-preview-surface')).toHaveStyle({
       '--theme-primary': '#14532d',
+      backgroundColor: 'var(--theme-background)',
+      color: 'var(--theme-foreground)',
     });
+    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
+      'Page: Home'
+    );
     expect(
       screen.getByTestId('builder-preview-navigation-guard')
     ).toHaveAttribute('inert');
+  });
+
+  it('surfaces root-only title edits in the inert preview indicator', () => {
+    const { rerender } = render(
+      <RenderBuilderConfig
+        config={{ content: [], root: { props: { title: 'Summer shop' } } }}
+        merchantContext={merchantContext}
+      />
+    );
+
+    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
+      'Page: Summer shop'
+    );
+
+    rerender(
+      <RenderBuilderConfig
+        config={{ content: [], root: { props: { title: 'Holiday shop' } } }}
+        merchantContext={merchantContext}
+      />
+    );
+    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
+      'Page: Holiday shop'
+    );
   });
 
   it('does not create a database, merchant-hook, or public-storefront loader dependency', () => {

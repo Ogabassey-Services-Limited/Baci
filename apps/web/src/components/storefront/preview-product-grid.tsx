@@ -8,6 +8,12 @@ type PreviewProductGridProps = {
 };
 
 const previewProductCount = 24;
+const previewGridColumnClasses: Record<number, string> = {
+  1: 'lg:grid-cols-1',
+  2: 'lg:grid-cols-2',
+  3: 'lg:grid-cols-3',
+  4: 'lg:grid-cols-4',
+};
 const previewProducts = Array.from(
   { length: previewProductCount },
   (_, index) => ({
@@ -40,10 +46,8 @@ export function PreviewProductGrid({
         </fieldset>
       ) : null}
       <div
-        className="grid gap-4"
-        style={{
-          gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
-        }}
+        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 ${previewGridColumnClasses[gridColumns]}`}
+        data-testid="builder-preview-product-grid"
       >
         {previewProducts.slice(0, productLimit).map((product) => (
           <article className="rounded-md border p-4" key={product.id}>

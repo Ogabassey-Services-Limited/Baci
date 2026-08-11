@@ -35,4 +35,18 @@ describe('PreviewProductGrid', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  it('matches storefront breakpoints before applying the configured large-screen columns', () => {
+    render(<PreviewProductGrid columns={4} />);
+
+    expect(screen.getByTestId('builder-preview-product-grid')).toHaveClass(
+      'grid-cols-1',
+      'sm:grid-cols-2',
+      'md:grid-cols-3',
+      'lg:grid-cols-4'
+    );
+    expect(screen.getByTestId('builder-preview-product-grid')).not.toHaveStyle({
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    });
+  });
 });

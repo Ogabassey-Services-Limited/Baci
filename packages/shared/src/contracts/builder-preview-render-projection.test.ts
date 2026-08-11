@@ -2,6 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { previewRenderProjection } from './builder-preview-render-projection';
 
 describe('preview render projection', () => {
+  it('accepts static local image assets but rejects application and API routes', () => {
+    expect(previewRenderProjection.isAssetSource('/assets/hero.webp')).toBe(
+      true
+    );
+    expect(previewRenderProjection.isAssetSource('/media/hero.avif')).toBe(
+      true
+    );
+    expect(
+      previewRenderProjection.isAssetSource('/api/storefront/auth/session')
+    ).toBe(false);
+    expect(
+      previewRenderProjection.isAssetSource('/api/tracker/pixel.png')
+    ).toBe(false);
+    expect(previewRenderProjection.isAssetSource('/dashboard/settings')).toBe(
+      false
+    );
+  });
+
   it('removes external assets and known refused blocks before rendering', () => {
     const result = previewRenderProjection.projectCandidate({
       content: [
