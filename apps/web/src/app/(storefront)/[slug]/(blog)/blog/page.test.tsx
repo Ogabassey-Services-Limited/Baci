@@ -76,6 +76,25 @@ describe('blog page shell', () => {
     expect(mockBlogPageContent).not.toHaveBeenCalled();
   });
 
+  it('builds the route shell without resolving dynamic tenant params', async () => {
+    const thenSpy = vi.fn(() => {
+      throw new Error('dynamic tenant params resolved before content render');
+    });
+    const params = Object.defineProperty({}, 'then', {
+      value: thenSpy,
+    }) as Promise<{ slug: string }>;
+
+    await BlogPage({
+      params,
+      searchParams: Promise.resolve({}),
+    });
+
+    // Unknown tenant params are request-bound during prerendering. Reading them
+    // above Suspense prevents Next.js from producing any static shell.
+    expect(thenSpy).not.toHaveBeenCalled();
+    expect(mockBlogPageContent).not.toHaveBeenCalled();
+  });
+
   it('shows the blog listing fallback while dynamic tenant content is resolving', async () => {
     mockBlogPageContent.mockImplementation(() => {
       throw new Promise(() => {
