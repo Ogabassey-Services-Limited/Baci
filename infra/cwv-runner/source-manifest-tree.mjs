@@ -33,7 +33,7 @@ function listedTree(cwd, sha) {
     const bytes = Buffer.from(record, 'binary');
     const tab = bytes.indexOf(0x09);
     if (tab < 0) fail('malformed Git tree row');
-    const match = /^(\d{6}) (blob|tree) ((?:[0-9a-f]{40}|[0-9a-f]{64}))$/.exec(
+    const match = /^(\d{6}) (blob|tree|commit) ((?:[0-9a-f]{40}|[0-9a-f]{64}))$/.exec(
       bytes.subarray(0, tab).toString('ascii')
     );
     if (!match) fail('malformed Git tree row');
@@ -47,10 +47,14 @@ function listedTree(cwd, sha) {
         fail('unsupported Git tree mode');
       blobIds.push(objectId);
       leaves.push({ mode, objectId, path });
-    } else {
+    } else if (type === 'tree') {
       if (mode !== '040000') fail('unsupported Git tree mode');
       treeIds.push(objectId);
       trees.push({ mode: '40000', objectId, path });
+    } else {
+      if (mode !== '160000') fail('unsupported Git tree mode');
+      blobIds.push(objectId);
+      leaves.push({ mode, objectId, path, gitlink: true });
     }
   }
   return { blobIds, leaves, treeIds, trees };
@@ -84,6 +88,10 @@ function walk(cwd, objects, objectId, prefix, leaves, trees) {
       const child = objects.get(`${cwd}\0${childId}`);
       if (child?.type !== 'blob') fail('malformed Git tree leaf');
       leaves.push({ mode, objectId: childId, path });
+    } else if (mode === '160000') {
+      const child = objects.get(`${cwd}\0${childId}`);
+      if (child?.type !== 'commit') fail('malformed Git gitlink');
+      leaves.push({ mode, objectId: childId, path, gitlink: true });
     } else fail('unsupported Git tree mode');
     offset = nul + 1 + width;
   }
