@@ -4,11 +4,14 @@ import { Platform } from 'react-native';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
 import { recordPerformanceSurface } from '@/lib/performance-attribution';
 
+let nextGadgetPatternId = 0;
+
 export function useGadgetPatternAttribution(
   rendered: boolean,
   variant: 'default' | 'tabbar'
 ): void {
   const recorded = useRef(false);
+  const instanceId = useRef(`gadget_pattern_${nextGadgetPatternId++}`);
 
   if (rendered && !recorded.current) {
     recorded.current = true;
@@ -33,9 +36,9 @@ export function useGadgetPatternAttribution(
       recordCrashBreadcrumb('gadget_pattern:unmounted', details);
       Sentry.addBreadcrumb({
         category: 'performance.surface',
-        data: details,
+        data: { ...details, instance_id: instanceId.current },
         level: 'info',
-        message: 'gadget_pattern:unmounted',
+        message: `gadget_pattern:unmounted:${variant}:${instanceId.current}`,
       });
     };
   }, [rendered, variant]);

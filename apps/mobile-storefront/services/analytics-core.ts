@@ -20,7 +20,11 @@ const MERCHANT_SLUG = Constants.expoConfig?.extra?.merchantSlug;
 const MERCHANT_DOMAIN = Constants.expoConfig?.extra?.merchantDomain;
 
 let posthogClient: PostHog | null = null;
-const pendingEvents: Array<{ name: string; properties?: Record<string, unknown> }> = [];
+const pendingEvents: Array<{
+  name: string;
+  properties?: Record<string, unknown>;
+  timestamp: string;
+}> = [];
 
 function getAnalyticsSuperProperties(): AnalyticsProperties {
   return (
@@ -128,7 +132,12 @@ export function initAnalytics(): void {
     registerAnalyticsSuperProperties();
     while (pendingEvents.length > 0) {
       const event = pendingEvents.shift();
-      if (event) posthogClient.capture(event.name, { ...sanitizeAnalyticsProperties(event.properties), timestamp: new Date().toISOString() });
+      if (event) {
+        posthogClient.capture(event.name, {
+          ...sanitizeAnalyticsProperties(event.properties),
+          timestamp: event.timestamp,
+        });
+      }
     }
 
     log.info('PostHog initialized');
@@ -188,7 +197,11 @@ export function trackEvent(
   properties?: Record<string, unknown>
 ): void {
   if (!posthogClient) {
-    pendingEvents.push({ name: eventName, properties });
+    pendingEvents.push({
+      name: eventName,
+      properties,
+      timestamp: new Date().toISOString(),
+    });
     return;
   }
 
