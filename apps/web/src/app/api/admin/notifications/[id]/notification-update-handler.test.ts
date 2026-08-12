@@ -39,7 +39,10 @@ function createSupabase(options?: {
     eq: vi.fn(),
     is: vi.fn(),
     maybeSingle: vi.fn().mockResolvedValue({
-      data: options?.updated ?? { id: notificationId, title: 'Updated' },
+      data:
+        options && Object.hasOwn(options, 'updated')
+          ? options.updated
+          : { id: notificationId, title: 'Updated' },
       error: null,
     }),
     select: vi.fn(),
@@ -129,6 +132,19 @@ describe('updateAdminNotification', () => {
 
     expect(response.status).toBe(409);
     expect(supabase.query.update).not.toHaveBeenCalled();
+  });
+
+  it('atomically rejects an update when delivery starts after the pre-read', async () => {
+    const supabase = createSupabase({ updated: null });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ title: 'Race-safe update' }),
+      notificationId
+    );
+
+    expect(response.status).toBe(409);
+    expect(supabase.query.eq).toHaveBeenCalledWith('delivery_attempts', 0);
   });
 
   it('trims values and applies a pending-state compare-and-update guard', async () => {

@@ -66,6 +66,7 @@ export async function updateAdminNotification(request: Request, id: string) {
       .update(updates)
       .eq('id', id)
       .eq('delivery_state', 'pending')
+      .eq('delivery_attempts', 0)
       .is('sent_at', null)
       .select(
         'id, title, message, notification_type, priority, target_type, target_segment, channels, action_url, action_label, scheduled_for, sent_at, expires_at, created_at, created_by'

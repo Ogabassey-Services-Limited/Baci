@@ -16,6 +16,7 @@ function createSupabase(options?: {
 }) {
   const existing = options?.existing ?? {
     delivery_state: 'pending',
+    delivery_attempts: 0,
     id: 'notification-1',
     sent_at: null,
   };
@@ -78,7 +79,28 @@ describe('deleteAdminNotification', () => {
       'delivery_state',
       'pending'
     );
+    expect(supabase.deleteQuery.eq).toHaveBeenCalledWith(
+      'delivery_attempts',
+      0
+    );
     expect(supabase.deleteQuery.is).toHaveBeenCalledWith('sent_at', null);
+  });
+
+  it('does not delete a notification awaiting retry after an earlier attempt', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_attempts: 1,
+        delivery_state: 'pending',
+        id: 'notification-1',
+        sent_at: null,
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await deleteAdminNotification('notification-1');
+
+    expect(response.status).toBe(409);
+    expect(supabase.deleteQuery.maybeSingle).not.toHaveBeenCalled();
   });
 
   it('reports a delivery race when the guarded delete finds no row', async () => {

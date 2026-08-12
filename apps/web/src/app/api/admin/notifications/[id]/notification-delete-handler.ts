@@ -7,7 +7,7 @@ export async function deleteAdminNotification(id: string) {
     const supabase = await createClient();
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
-      .select('id, sent_at, delivery_state')
+      .select('id, sent_at, delivery_state, delivery_attempts')
       .eq('id', id)
       .single();
     if (fetchError || !existing) {
@@ -16,7 +16,11 @@ export async function deleteAdminNotification(id: string) {
         { status: 404 }
       );
     }
-    if (existing.sent_at || existing.delivery_state !== 'pending') {
+    if (
+      existing.sent_at ||
+      existing.delivery_state !== 'pending' ||
+      existing.delivery_attempts > 0
+    ) {
       return NextResponse.json(
         {
           error:
@@ -31,6 +35,7 @@ export async function deleteAdminNotification(id: string) {
       .delete()
       .eq('id', id)
       .eq('delivery_state', 'pending')
+      .eq('delivery_attempts', 0)
       .is('sent_at', null)
       .select('id')
       .maybeSingle();

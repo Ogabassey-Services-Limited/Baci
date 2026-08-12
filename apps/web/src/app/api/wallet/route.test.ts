@@ -195,6 +195,18 @@ describe('/api/wallet', () => {
     );
   });
 
+  it('does not substitute owner defaults when a staff settings read is denied', async () => {
+    const { GET } = await import('./route');
+    walletSelectError = { code: '42501', message: 'permission denied' };
+
+    const response = await GET();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to get wallet settings',
+    });
+  });
+
   it('returns wallet summary and pending settlements on success', async () => {
     const { GET } = await import('./route');
     mocks.rpc.mockResolvedValueOnce({

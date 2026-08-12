@@ -18,6 +18,7 @@ const notificationMigrationNames = [
   '20260805151370_mark_all_visible_merchant_notifications_read.sql',
   '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
   '20260811150000_prune_terminal_notification_audience_snapshots.sql',
+  '20260812110000_harden_notification_delivery_and_operations_access.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -55,6 +56,7 @@ describe('admin notification foundation migration contract', () => {
       '20260805151370_mark_all_visible_merchant_notifications_read.sql',
       '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
       '20260811150000_prune_terminal_notification_audience_snapshots.sql',
+      '20260812110000_harden_notification_delivery_and_operations_access.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -64,6 +66,20 @@ describe('admin notification foundation migration contract', () => {
       );
       expect(sql.split('\n').length - 1).toBeLessThanOrEqual(300);
     }
+  });
+
+  it('keeps recipient visibility dashboard-permission-scoped and ages unknown push outcomes', () => {
+    const sql = readMigrations([
+      '20260812110000_harden_notification_delivery_and_operations_access.sql',
+    ]);
+
+    expect(sql).toContain("'dashboard', 'view'");
+    expect(sql).toContain(
+      "status='unknown' and updated_at>statement_timestamp()-interval '24 hours'"
+    );
+    expect(sql).toContain(
+      'revoke all on function public.get_admin_operations_v1(text, integer, integer)'
+    );
   });
 
   it('keeps dashboard totals search literal with an explicit LIKE escape', () => {
