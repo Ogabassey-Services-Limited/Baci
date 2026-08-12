@@ -22,6 +22,7 @@ describe('builder preview bridge responses', () => {
     expect(
       builderPreviewResponseSchema.safeParse({
         code: 'unsupported_capability',
+        revision: 7,
         type: 'baci.builder-preview.error',
         version: 1,
       }).success

@@ -10,6 +10,7 @@ type PreviewHeaderLayout =
   | 'logo-center';
 
 type PreviewHeaderProps = {
+  backgroundImage?: string;
   backgroundColor?: string;
   ctaButton?: { show: boolean; text: string };
   glassEffect?: boolean;
@@ -63,6 +64,7 @@ function InertHeaderAction({ children }: { children: string }) {
 }
 
 export function PreviewInertHeader({
+  backgroundImage,
   backgroundColor,
   ctaButton,
   glassEffect = false,
@@ -93,6 +95,14 @@ export function PreviewInertHeader({
       data-testid="builder-preview-inert-header"
       style={{ backgroundColor, color: textColor }}
     >
+      {backgroundImage ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 bg-cover bg-center bg-no-repeat opacity-20"
+          data-testid="builder-preview-header-background"
+          style={{ backgroundImage: `url(${backgroundImage})` }}
+        />
+      ) : null}
       {showLogo ? (
         <strong
           className={

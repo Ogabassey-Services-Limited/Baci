@@ -77,6 +77,9 @@ describe('builder design capabilities', () => {
     const newsletter = builderDesignCapabilities.components.find(
       ({ componentType }) => componentType === 'Newsletter'
     );
+    const testimonial = builderDesignCapabilities.components.find(
+      ({ componentType }) => componentType === 'Testimonial'
+    );
 
     expect(header).toMatchObject({
       aiEditable: true,
@@ -119,6 +122,8 @@ describe('builder design capabilities', () => {
       minimum: 2,
     });
     expect(newsletter?.props.buttonText).toMatchObject({ required: true });
+    expect(testimonial?.props.author).toMatchObject({ required: true });
+    expect(testimonial?.props.quote).toMatchObject({ required: true });
   });
 
   it('keeps unsafe renderer and network boundaries refused with relayable reasons', () => {

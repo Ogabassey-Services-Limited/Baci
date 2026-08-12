@@ -146,6 +146,7 @@ describe('BuilderPreviewCanvas', () => {
     await waitFor(() => expect(postMessage).toHaveBeenCalledTimes(2));
     expect(JSON.parse(postMessage.mock.calls[1][0])).toEqual({
       code: 'render_failed',
+      revision: 9,
       type: 'baci.builder-preview.error',
       version: 1,
     });

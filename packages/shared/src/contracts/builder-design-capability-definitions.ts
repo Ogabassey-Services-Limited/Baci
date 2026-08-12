@@ -114,8 +114,8 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     title: label('Featured products'),
   }),
   allow('Testimonial', 'Customer social proof.', {
-    author: label('Name'),
-    quote: copy('Add a customer quote.'),
+    author: { ...label('Name'), required: true },
+    quote: { ...copy('Add a customer quote.'), required: true },
     rating: {
       default: 0,
       maximum: 5,

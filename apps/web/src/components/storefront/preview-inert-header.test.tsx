@@ -87,6 +87,14 @@ describe('PreviewInertHeader', () => {
     });
   });
 
+  it('renders a retained local background image as an inert pattern', () => {
+    render(<PreviewInertHeader backgroundImage="/media/header.webp" />);
+
+    expect(screen.getByTestId('builder-preview-header-background')).toHaveStyle(
+      { backgroundImage: 'url(/media/header.webp)' }
+    );
+  });
+
   it('renders a retained local logo when logos are enabled', () => {
     render(
       <PreviewInertHeader logoUrl="/media/logo.png" storeName="Acme Store" />

@@ -74,6 +74,7 @@ const renderedResponseSchema = z.strictObject({
 
 const errorResponseSchema = z.strictObject({
   code: z.string().min(1).max(MAX_ERROR_CODE_LENGTH).regex(errorCodePattern),
+  revision: z.number().int().min(0).max(MAX_REVISION).optional(),
   type: z.literal('baci.builder-preview.error'),
   version: z.literal(1),
 });

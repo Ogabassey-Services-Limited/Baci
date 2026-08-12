@@ -117,6 +117,7 @@ export function BuilderPreviewCanvas() {
           }
         : {
             code: 'render_failed',
+            revision: preview.revision,
             type: 'baci.builder-preview.error',
             version: 1,
           }
