@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatAnalyticsCurrency,
+  formatAnalyticsDayLabel,
   formatAnalyticsNumber,
   formatAnalyticsPercentage,
 } from './analytics-format';
@@ -15,5 +16,10 @@ describe('analytics formatting', () => {
     expect(formatAnalyticsNumber(1250)).toBe('1.3K');
     expect(formatAnalyticsNumber(1200000)).toBe('1.2M');
     expect(formatAnalyticsPercentage(-10)).toBe('10.0%');
+  });
+
+  it('keeps API calendar-day labels stable in timezones behind UTC', () => {
+    expect(formatAnalyticsDayLabel('2026-03-20')).toBe('Mar 20');
+    expect(formatAnalyticsDayLabel('2026-03-20T00:00:00.000Z')).toBe('Mar 20');
   });
 });

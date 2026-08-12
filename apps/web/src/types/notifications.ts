@@ -82,6 +82,7 @@ export interface NotificationPreferences {
   banner_enabled: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
+  quiet_hours_time_zone: string;
   updated_at: string;
 }
 
@@ -134,6 +135,7 @@ export interface UpdatePreferencesInput {
   banner_enabled?: boolean;
   quiet_hours_start?: string | null;
   quiet_hours_end?: string | null;
+  quiet_hours_time_zone?: string;
 }
 
 /**

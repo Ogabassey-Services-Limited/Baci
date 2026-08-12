@@ -91,6 +91,7 @@ export default function NotificationPreferencesPage() {
         banner_enabled: preferences.banner_enabled,
         quiet_hours_start: preferences.quiet_hours_start,
         quiet_hours_end: preferences.quiet_hours_end,
+        quiet_hours_time_zone: preferences.quiet_hours_time_zone,
       }),
     })
       .then((response) => {
@@ -263,6 +264,17 @@ export default function NotificationPreferencesPage() {
                 }
               />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="quiet_time_zone">Time Zone</Label>
+            <Input
+              id="quiet_time_zone"
+              value={preferences?.quiet_hours_time_zone || 'Africa/Lagos'}
+              onChange={(e) =>
+                updatePreference({ quiet_hours_time_zone: e.target.value })
+              }
+              placeholder="Africa/Lagos"
+            />
           </div>
           <p className="text-xs text-muted-foreground">
             During quiet hours, notifications will still be delivered but won't

@@ -14,12 +14,27 @@ const timeStringSchema = z
   .regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)')
   .nullable();
 
+const timeZoneSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(100)
+  .refine((value) => {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: value });
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid IANA time zone');
+
 const preferencesSchema = z
   .strictObject({
     in_app_enabled: z.boolean().optional(),
     banner_enabled: z.boolean().optional(),
     quiet_hours_start: timeStringSchema.optional(),
     quiet_hours_end: timeStringSchema.optional(),
+    quiet_hours_time_zone: timeZoneSchema.optional(),
   })
   .refine(
     (data) => {
@@ -39,7 +54,8 @@ const preferencesSchema = z
       data.in_app_enabled !== undefined ||
       data.banner_enabled !== undefined ||
       data.quiet_hours_start !== undefined ||
-      data.quiet_hours_end !== undefined,
+      data.quiet_hours_end !== undefined ||
+      data.quiet_hours_time_zone !== undefined,
     { message: 'At least one preference must be updated' }
   );
 
@@ -78,7 +94,7 @@ export async function GET() {
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
       .select(
-        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, updated_at'
+        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -100,6 +116,7 @@ export async function GET() {
         banner_enabled: true,
         quiet_hours_start: null,
         quiet_hours_end: null,
+        quiet_hours_time_zone: 'Africa/Lagos',
         updated_at: null,
       });
     }
@@ -184,13 +201,15 @@ export async function PATCH(request: NextRequest) {
       updates.quiet_hours_start = body.quiet_hours_start;
     if (body.quiet_hours_end !== undefined)
       updates.quiet_hours_end = body.quiet_hours_end;
+    if (body.quiet_hours_time_zone !== undefined)
+      updates.quiet_hours_time_zone = body.quiet_hours_time_zone;
 
     // Upsert preferences (create if not exists, update if exists)
     const { data: updated, error: updateError } = await supabase
       .from('notification_preferences')
       .upsert(updates, { onConflict: 'merchant_id' })
       .select(
-        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, updated_at'
+        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .single();
 

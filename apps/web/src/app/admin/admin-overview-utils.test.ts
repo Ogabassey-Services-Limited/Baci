@@ -4,7 +4,7 @@ import { adminOverviewUtils } from './admin-overview-utils';
 
 const analytics = {
   dailyGmv: [
-    { date: '2026-03-20T12:00:00.000Z', gmv: 1200, merchants: 2, orders: 3 },
+    { date: '2026-03-20T00:00:00.000Z', gmv: 1200, merchants: 2, orders: 3 },
   ],
   merchantHealth: { atRisk: 2, churned: 0, healthy: 3, new: 0 },
 } as PlatformAnalytics;

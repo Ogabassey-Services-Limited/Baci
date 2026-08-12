@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -20,6 +21,7 @@ import { PlatformPerformanceBreakdowns } from './platform-performance-breakdowns
 
 type LoadAnalyticsResult =
   | { data: PlatformAnalytics; status: 'ok' }
+  | { status: 'forbidden' }
   | { error: unknown; status: 'error' };
 
 async function loadPlatformAnalytics(
@@ -27,6 +29,7 @@ async function loadPlatformAnalytics(
 ): Promise<LoadAnalyticsResult> {
   try {
     const response = await fetch(`/api/admin/analytics?period=${period}`);
+    if (response.status === 403) return { status: 'forbidden' };
     if (!response.ok) throw new Error('Failed to fetch analytics');
 
     return { data: (await response.json()) as PlatformAnalytics, status: 'ok' };
@@ -57,6 +60,7 @@ export default function AdminDashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<AnalyticsPeriod>('all');
   const { toast } = useToast();
+  const router = useRouter();
 
   const handlePeriodChange = (nextPeriod: AnalyticsPeriod) => {
     setAnalytics(null);
@@ -75,6 +79,10 @@ export default function AdminDashboardPage() {
         return loadPlatformAnalytics(period);
       })
       .then((result) => {
+        if (result.status === 'forbidden') {
+          router.replace('/dashboard');
+          return;
+        }
         if (result.status === 'error') throw result.error;
 
         setAnalytics(result.data);
@@ -106,6 +114,11 @@ export default function AdminDashboardPage() {
     loadPlatformAnalytics(period).then((result) => {
       if (!active) return;
 
+      if (result.status === 'forbidden') {
+        router.replace('/dashboard');
+        return;
+      }
+
       if (result.status === 'ok') {
         setAnalytics(result.data);
         setLoadError(null);
@@ -126,7 +139,7 @@ export default function AdminDashboardPage() {
     return () => {
       active = false;
     };
-  }, [period, toast]);
+  }, [period, router, toast]);
 
   const header = (
     <AdminOverviewHeader

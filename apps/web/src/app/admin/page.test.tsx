@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockToast = vi.fn();
 const mockFetchWithCsrf = vi.fn();
+const mockReplace = vi.fn();
 const toastApi = { toast: mockToast };
 
 function MockChart({ children }: { children?: ReactNode }) {
@@ -31,6 +32,10 @@ vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
+}));
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockReplace }),
 }));
 
 vi.mock('recharts', () => ({
@@ -208,7 +213,8 @@ describe('AdminDashboardPage', () => {
   it('shows a persistent retry state instead of empty dashboard figures after a load failure', async () => {
     const user = userEvent.setup();
     vi.mocked(global.fetch)
-      .mockResolvedValueOnce({ ok: false } as Response)
+      .mockReset()
+      .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
       .mockResolvedValueOnce({
         json: async () => analyticsResponse,
         ok: true,
@@ -227,5 +233,18 @@ describe('AdminDashboardPage', () => {
     expect(
       screen.getByText('Merchants with Session Activity')
     ).toBeInTheDocument();
+  });
+
+  it('redirects away from the analytics-backed overview when analytics access is forbidden', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce({ status: 403 } as Response);
+
+    render(<AdminDashboardPage />);
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/dashboard');
+    });
+    expect(
+      screen.queryByText('Platform analytics unavailable')
+    ).not.toBeInTheDocument();
   });
 });

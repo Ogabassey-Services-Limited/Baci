@@ -3,6 +3,7 @@ import {
   formatAdminCurrency,
 } from '@/lib/admin-currency';
 import type { PlatformAnalytics } from '@/types/analytics';
+import { formatAnalyticsDayLabel } from './analytics/analytics-format';
 
 export type AnalyticsPeriod = '7d' | '30d' | '90d' | 'all';
 
@@ -40,10 +41,7 @@ export const adminOverviewUtils = {
   getChartData(analytics: PlatformAnalytics | null) {
     return (
       analytics?.dailyGmv.map((entry) => ({
-        date: new Date(entry.date).toLocaleDateString('en-US', {
-          day: 'numeric',
-          month: 'short',
-        }),
+        date: formatAnalyticsDayLabel(entry.date),
         gmv: entry.gmv,
         merchants: entry.merchants,
         orders: entry.orders,

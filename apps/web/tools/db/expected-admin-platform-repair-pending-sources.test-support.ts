@@ -77,7 +77,7 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260811124500_repair_admin_merchant_360_payout_history_and_shipments.sql',
-    sha256: '43a05fec6efd1c557fd89bd372791644f1412d08a3dbeb736ea93cd41f9b03f6',
+    sha256: '8e849a8b875b68484dbe17b14a6d909bb343704af748f05f712b6c498a8742c6',
   },
   {
     repositoryPath:
@@ -94,5 +94,19 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260811140100_repair_admin_reconciliation_pending_refunds.sql',
     sha256: '0182503d7c326ca99c0385a171efa53ec6e6ffcbfc82cdb6cab45d7e9ab812e1',
   },
-  { repositoryPath: 'supabase/migrations/20260811143000_repair_platform_admin_revocation_capability.sql', sha256: '264c93053f207caf47563a9c5d27ba642c6e12f9272c18a7a2ee8938923d8062' },
+  {
+    repositoryPath:
+      'supabase/migrations/20260811143000_repair_platform_admin_revocation_capability.sql',
+    sha256: '264c93053f207caf47563a9c5d27ba642c6e12f9272c18a7a2ee8938923d8062',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812090000_notification_preference_time_zones.sql',
+    sha256: '9ebb558142629f5ceaf39c460b0643b2de27843f81a46cdb9ffd6ba62e2c4008',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812100000_fill_admin_platform_analytics_daily_gmv_gaps.sql',
+    sha256: '3f6013a330181f6bb8f6a495ad2a9b8dba94776edf5f287dd5e5034bf450c44a',
+  },
 ] as const;

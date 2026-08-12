@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { PlatformAnalytics } from '@/types/analytics';
 import { AdminDataErrorState } from '../admin-data-error-state';
 import { AnalyticsCharts } from './analytics-charts';
+import { formatAnalyticsDayLabel } from './analytics-format';
 import { AnalyticsHeader } from './analytics-header';
 import { AnalyticsMerchantPerformance } from './analytics-merchant-performance';
 import { AnalyticsSummaryCards } from './analytics-summary-cards';
@@ -91,10 +92,7 @@ export default function AnalyticsPage() {
 
   const chartData =
     analytics?.dailyGmv.map((day) => ({
-      date: new Date(day.date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      }),
+      date: formatAnalyticsDayLabel(day.date),
       gmv: day.gmv,
       orders: day.orders,
     })) ?? [];

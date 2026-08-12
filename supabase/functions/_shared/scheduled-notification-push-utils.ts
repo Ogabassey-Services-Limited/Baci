@@ -5,7 +5,8 @@ const { asRecord } = scheduledNotificationWorker;
 export function isWithinQuietHours(
   now: Date,
   start: string | null,
-  end: string | null
+  end: string | null,
+  timeZone = 'Africa/Lagos'
 ): boolean {
   if (!start || !end) return false;
   const minutes = (value: string) => {
@@ -15,13 +16,18 @@ export function isWithinQuietHours(
   const begin = minutes(start);
   const finish = minutes(end);
   if (!Number.isFinite(begin) || !Number.isFinite(finish)) return false;
-  const local = new Intl.DateTimeFormat('en-GB', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    hourCycle: 'h23',
-    timeZone: 'Africa/Lagos',
-  }).format(now);
+  let local: string;
+  try {
+    local = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      hourCycle: 'h23',
+      timeZone,
+    }).format(now);
+  } catch {
+    return false;
+  }
   const current = minutes(local);
   if (begin === finish) return true;
   return begin < finish

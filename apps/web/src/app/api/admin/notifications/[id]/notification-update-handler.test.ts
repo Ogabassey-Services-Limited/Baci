@@ -27,6 +27,7 @@ function createSupabase(options?: {
   const updates: Record<string, unknown>[] = [];
   const existing = options?.existing ?? {
     delivery_state: 'pending',
+    delivery_attempts: 0,
     expires_at: null,
     id: notificationId,
     scheduled_for: null,
@@ -86,6 +87,7 @@ describe('updateAdminNotification', () => {
     const supabase = createSupabase({
       existing: {
         delivery_state: 'processing',
+        delivery_attempts: 1,
         expires_at: null,
         id: notificationId,
         scheduled_for: null,
@@ -98,6 +100,30 @@ describe('updateAdminNotification', () => {
 
     const response = await updateAdminNotification(
       request({ title: 'Updated' }),
+      notificationId
+    );
+
+    expect(response.status).toBe(409);
+    expect(supabase.query.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses edits while a retry is pending after a delivery attempt', async () => {
+    const supabase = createSupabase({
+      existing: {
+        delivery_state: 'pending',
+        delivery_attempts: 1,
+        expires_at: null,
+        id: notificationId,
+        scheduled_for: null,
+        sent_at: null,
+        target_segment: null,
+        target_type: 'all',
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await updateAdminNotification(
+      request({ title: 'Edited during retry' }),
       notificationId
     );
 

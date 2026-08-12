@@ -86,6 +86,18 @@ describe('PATCH /api/notifications/preferences', () => {
     expect(preferenceQuery.upsert).not.toHaveBeenCalled();
   });
 
+  it('persists a valid IANA timezone for quiet hours', async () => {
+    const response = await PATCH(
+      request({ quiet_hours_time_zone: 'America/New_York' })
+    );
+
+    expect(response.status).toBe(200);
+    expect(preferenceQuery.upsert).toHaveBeenCalledWith(
+      { merchant_id: MERCHANT_ID, quiet_hours_time_zone: 'America/New_York' },
+      { onConflict: 'merchant_id' }
+    );
+  });
+
   it('returns form-level validation details for an empty update', async () => {
     const response = await PATCH(request({}));
 

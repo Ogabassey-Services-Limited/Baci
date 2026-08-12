@@ -27,6 +27,7 @@ type PushTokenRecord = {
   push_token: string;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
+  quiet_hours_time_zone: string;
 };
 
 class NotificationClaimLostError extends Error {
@@ -34,6 +35,17 @@ class NotificationClaimLostError extends Error {
     super('Notification claim was lost');
     this.name = 'NotificationClaimLostError';
   }
+}
+
+class NotificationExpiredError extends Error {
+  constructor() {
+    super('Notification expired during delivery');
+    this.name = 'NotificationExpiredError';
+  }
+}
+
+function throwIfExpired(notification: ScheduledNotification) {
+  if (isExpired(notification)) throw new NotificationExpiredError();
 }
 
 function pageIds(data: unknown): string[] | null {
@@ -67,7 +79,10 @@ async function renew(
   if (data !== true) throw new NotificationClaimLostError();
 }
 
-export { isWithinQuietHours, parseExpoTicketResults } from './scheduled-notification-push-utils.ts';
+export {
+  isWithinQuietHours,
+  parseExpoTicketResults,
+} from './scheduled-notification-push-utils.ts';
 
 async function sendPushTokens(
   client: WorkerClient,
@@ -77,6 +92,7 @@ async function sendPushTokens(
   if (!notification.channels.includes('push')) return;
   const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
   for (const merchants of chunks(merchantIds, TOKEN_BATCH_SIZE)) {
+    throwIfExpired(notification);
     const data = await rpcOk(
       client,
       'get_claimed_notification_push_tokens_v1',
@@ -102,6 +118,10 @@ async function sendPushTokens(
                 typeof value?.quiet_hours_end === 'string'
                   ? value.quiet_hours_end
                   : null,
+              quiet_hours_time_zone:
+                typeof value?.quiet_hours_time_zone === 'string'
+                  ? value.quiet_hours_time_zone
+                  : 'Africa/Lagos',
             },
           ]
         : [];
@@ -113,7 +133,8 @@ async function sendPushTokens(
       isWithinQuietHours(
         new Date(),
         record.quiet_hours_start,
-        record.quiet_hours_end
+        record.quiet_hours_end,
+        record.quiet_hours_time_zone
       )
     );
     if (quietTokens.length > 0) {
@@ -127,6 +148,7 @@ async function sendPushTokens(
       .filter((record) => !quietTokens.includes(record))
       .map((record) => record.push_token);
     for (const requested of chunks(tokens, TOKEN_BATCH_SIZE)) {
+      throwIfExpired(notification);
       await renew(client, notification);
       const reserved = await rpcOk(
         client,
@@ -145,6 +167,7 @@ async function sendPushTokens(
         : [];
       if (dispatchTokens.length === 0) continue;
       try {
+        throwIfExpired(notification);
         const response = await fetch(EXPO_PUSH_URL, {
           signal: AbortSignal.timeout(12_000),
           method: 'POST',
@@ -198,6 +221,7 @@ async function deliverPages(
   client: WorkerClient,
   notification: ScheduledNotification
 ) {
+  throwIfExpired(notification);
   await rpcOk(client, 'snapshot_claimed_notification_audience_v1', {
     p_claim_token: notification.delivery_claim_token,
     p_notification_id: notification.id,
@@ -205,6 +229,7 @@ async function deliverPages(
   let after: string | null = null;
   let recipients = 0;
   for (;;) {
+    throwIfExpired(notification);
     await renew(client, notification);
     const data = await rpcOk(
       client,
@@ -219,6 +244,7 @@ async function deliverPages(
     const ids = pageIds(data);
     if (!ids) throw new Error('Invalid audience page');
     if (ids.length === 0) return recipients;
+    throwIfExpired(notification);
     await rpcOk(client, 'create_claimed_admin_notification_recipients_v1', {
       p_claim_token: notification.delivery_claim_token,
       p_merchant_ids: ids,
@@ -278,6 +304,11 @@ export async function processScheduledNotificationClaims(
     } catch (error) {
       if (!notification) throw error;
       if (error instanceof NotificationClaimLostError) continue;
+      if (error instanceof NotificationExpiredError) {
+        await finalize(client, notification, 'expired');
+        results.push({ id: notification.id, status: 'expired' });
+        continue;
+      }
       await finalize(
         client,
         notification,

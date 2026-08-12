@@ -25,12 +25,12 @@ describe('ADMIN_PLATFORM_PENDING_SOURCES', () => {
     const sources = parseSources(ADMIN_PLATFORM_PENDING_SOURCES);
 
     expect(sources).toEqual(expectedSources);
-    expect(sources).toHaveLength(78);
+    expect(sources).toHaveLength(80);
     expect(sources[0]?.repositoryPath).toBe(
       'supabase/migrations/20260805150000_platform_admin_rbac.sql'
     );
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260811143000_repair_platform_admin_revocation_capability.sql'
+      'supabase/migrations/20260812100000_fill_admin_platform_analytics_daily_gmv_gaps.sql'
     );
   });
 

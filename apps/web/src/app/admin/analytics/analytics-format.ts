@@ -22,3 +22,14 @@ export function formatAnalyticsNumber(value: number): string {
 export function formatAnalyticsPercentage(value: number): string {
   return `${Math.abs(value).toFixed(1)}%`;
 }
+
+/** Formats an API calendar day without letting the viewer's timezone shift it. */
+export function formatAnalyticsDayLabel(date: string): string {
+  const calendarDay = date.slice(0, 10);
+
+  return new Intl.DateTimeFormat('en-US', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  }).format(new Date(`${calendarDay}T00:00:00.000Z`));
+}

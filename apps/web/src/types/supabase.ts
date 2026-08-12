@@ -7078,6 +7078,7 @@ export type Database = {
           merchant_id: string;
           quiet_hours_end: string | null;
           quiet_hours_start: string | null;
+          quiet_hours_time_zone: string;
           updated_at: string | null;
         };
         Insert: {
@@ -7086,6 +7087,7 @@ export type Database = {
           merchant_id: string;
           quiet_hours_end?: string | null;
           quiet_hours_start?: string | null;
+          quiet_hours_time_zone?: string;
           updated_at?: string | null;
         };
         Update: {
@@ -7094,6 +7096,7 @@ export type Database = {
           merchant_id?: string;
           quiet_hours_end?: string | null;
           quiet_hours_start?: string | null;
+          quiet_hours_time_zone?: string;
           updated_at?: string | null;
         };
         Relationships: [

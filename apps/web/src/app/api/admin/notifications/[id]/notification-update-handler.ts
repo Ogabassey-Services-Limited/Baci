@@ -23,7 +23,7 @@ export async function updateAdminNotification(request: Request, id: string) {
     const { data: existing, error: fetchError } = await supabase
       .from('notifications')
       .select(
-        'id, sent_at, delivery_state, target_type, target_segment, scheduled_for, expires_at'
+        'id, sent_at, delivery_state, delivery_attempts, target_type, target_segment, scheduled_for, expires_at'
       )
       .eq('id', id)
       .single();
@@ -33,9 +33,13 @@ export async function updateAdminNotification(request: Request, id: string) {
         { status: 404 }
       );
     }
-    if (existing.sent_at || existing.delivery_state !== 'pending') {
+    if (
+      existing.sent_at ||
+      existing.delivery_state !== 'pending' ||
+      existing.delivery_attempts > 0
+    ) {
       return NextResponse.json(
-        { error: 'Only pending notifications can be updated' },
+        { error: 'Only undelivered pending notifications can be updated' },
         { status: 409 }
       );
     }
