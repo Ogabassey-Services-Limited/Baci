@@ -233,6 +233,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/facebook-pixel.tsx',
     'apps/web/src/components/analytics/snapchat-pixel.tsx',
     'apps/web/src/components/analytics/twitter-pixel.tsx',
+    'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts',
     'apps/web/src/components/storefront/ogabassey/components/CartSidebar.tsx',
     'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
     'apps/web/src/components/storefront/ogabassey/components/chat/use-ogabassey-chat.ts',

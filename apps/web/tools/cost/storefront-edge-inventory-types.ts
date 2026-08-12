@@ -22,6 +22,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'configured_media_cdn_origin'
       | 'configured_external_media_origin'
       | 'configured_google_tag_manager_origin'
+      | 'configured_google_ad_manager_origin'
       | 'configured_meta_origin'
       | 'configured_tiktok_origin'
       | 'configured_snapchat_origin'
