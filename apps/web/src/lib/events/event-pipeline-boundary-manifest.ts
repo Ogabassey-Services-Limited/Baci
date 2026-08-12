@@ -1,9 +1,17 @@
 import ts from 'typescript';
 import { EVENT_PIPELINE_BOUNDARY } from './event-pipeline-database';
+import { eventPipelineJumiaCredentialPaths } from './event-pipeline-jumia-credential-paths';
 
 export { collectProductionImportClosure } from './event-pipeline-import-closure';
 export const eventPipelineBoundaryManifest = {
   ...EVENT_PIPELINE_BOUNDARY,
+  authority: {
+    ...EVENT_PIPELINE_BOUNDARY.authority,
+    credentialPaths: [
+      ...EVENT_PIPELINE_BOUNDARY.authority.credentialPaths,
+      ...eventPipelineJumiaCredentialPaths,
+    ],
+  },
   sdkConstructorHashes: {
     'apps/web/src/lib/events/event-ingress-capability.ts':
       '5e0cf13d22315a021e6a122604563777f0ecc22a1a88faed003daa3bee0db64c',

@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 import { authorityFindings } from './event-pipeline-boundary-manifest';
+import { eventPipelineJumiaCredentialPaths } from './event-pipeline-jumia-credential-paths';
 
 const modulePath = resolve(
   process.cwd(),
@@ -221,6 +222,7 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/lib/supabase/admin.ts',
         'apps/web/src/env.ts',
       ],
+      ...eventPipelineJumiaCredentialPaths,
     ]);
   });
 
