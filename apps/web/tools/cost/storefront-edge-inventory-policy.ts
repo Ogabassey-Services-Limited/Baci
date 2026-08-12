@@ -103,7 +103,7 @@ const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
     requestCondition: {
       anyHeaderMatch: [{ name: 'accept-language' }],
       matchedStorefrontEntrypointId:
-        'storefront:(blog)/blog/[postSlug]/page.tsx:slug-prefixed',
+        'storefront:(blog)/blog/[postSlug]/page.tsx',
       precedence: 'after_entrypoint_resolution_before_decision',
     },
     routePattern: '/blog/{postSlug}',
@@ -119,7 +119,7 @@ const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
     requestCondition: {
       anyHeaderMatch: [{ name: 'accept-language' }],
       matchedStorefrontEntrypointId:
-        'storefront:(blog)/blog/[postSlug]/page.tsx',
+        'storefront:(blog)/blog/[postSlug]/page.tsx:slug-prefixed',
       precedence: 'after_entrypoint_resolution_before_decision',
     },
     routePattern: '/{storefrontIdentifier}/blog/{postSlug}',
@@ -265,6 +265,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/google-analytics.tsx',
     'apps/web/src/components/analytics/tiktok-pixel.tsx',
     'apps/web/src/components/analytics/google-store-widget.tsx',
+    'apps/web/src/components/analytics/google-customer-reviews.tsx',
     'apps/web/src/components/analytics/google-store-widget-utils.ts',
     'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts',
     'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx',

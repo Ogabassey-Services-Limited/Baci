@@ -152,7 +152,11 @@ export async function createStorefrontEdgeInventory(
   ].sort((left, right) => {
     const specificityDelta = routeSpecificity(right) - routeSpecificity(left);
     if (specificityDelta !== 0) return specificityDelta;
-    return left.id.localeCompare(right.id);
+    const leftHost =
+      left.hostCondition?.hostKind === 'platform_root_domain' ? 1 : 0;
+    const rightHost =
+      right.hostCondition?.hostKind === 'platform_root_domain' ? 1 : 0;
+    return rightHost - leftHost || left.id.localeCompare(right.id);
   });
   const terminalRows = extraRows.filter(
     (row) =>

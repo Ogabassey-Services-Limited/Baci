@@ -11,6 +11,7 @@ const mediaSubresource = (
     | 'configured_google_ad_manager_origin'
     | 'configured_google_store_widget_origin'
     | 'configured_google_store_badge_origin'
+    | 'configured_google_customer_reviews_origin'
     | 'configured_klump_origin'
     | 'configured_credpal_origin'
     | 'configured_credit_direct_origin'
@@ -62,6 +63,11 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'google-store-badge',
     'configured_google_store_badge_origin',
     'apps/web/src/components/analytics/google-store-widget.tsx'
+  ),
+  mediaSubresource(
+    'google-customer-reviews',
+    'configured_google_customer_reviews_origin',
+    'apps/web/src/components/analytics/google-customer-reviews.tsx'
   ),
   mediaSubresource(
     'klump',
