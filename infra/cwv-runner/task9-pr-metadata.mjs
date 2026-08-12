@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { canonicalJson } from './canonical-json.mjs';
 import { validGitRef } from './git-ref-validator.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
@@ -15,8 +14,9 @@ const fail = () => {
 export function readTask9PrMetadata(
   path,
   digestPath,
-  { maxBytes = 1_048_576, reviewedSha256, verify = (endpoint) => JSON.parse(execFileSync('/opt/homebrew/bin/gh', ['api', endpoint], { encoding: 'utf8', env: { HOME: process.env.HOME, PATH: '/usr/bin:/bin' } })) } = {}
+  { maxBytes = 1_048_576, reviewedSha256, verify } = {}
 ) {
+  if (typeof verify !== 'function') fail();
   const input = readHeldTask9File(path, 0o600, { maxBytes });
   const digest = readHeldTask9File(digestPath, 0o600, { maxBytes: 256 });
   try {
@@ -40,10 +40,18 @@ export function readTask9PrMetadata(
       canonicalJson(value) !== input.bytes.toString() ||
       canonicalJson(Object.keys(value).sort()) !==
         canonicalJson(
-          ['baseSha', 'headRef', 'number', 'reviewedHeadSha', 'workflowId'].sort()
+          [
+            'baseSha',
+            'headRef',
+            'mergeSha',
+            'number',
+            'reviewedHeadSha',
+            'workflowId',
+          ].sort()
         ) ||
       !SHA.test(value.baseSha) ||
       !SHA.test(value.reviewedHeadSha) ||
+      !SHA.test(value.mergeSha) ||
       !Number.isSafeInteger(value.number) ||
       value.number < 1 ||
       !Number.isSafeInteger(value.workflowId) ||
@@ -53,8 +61,24 @@ export function readTask9PrMetadata(
     )
       fail();
     const pr = verify(`/repos/ogabasseyy/Baci/pulls/${value.number}`);
-    const workflow = verify('/repos/ogabasseyy/Baci/actions/workflows/cwv-runner-attestation.yml');
-    if (pr?.number !== value.number || pr?.base?.sha !== value.baseSha || pr?.head?.sha !== value.reviewedHeadSha || pr?.head?.ref !== value.headRef || workflow?.id !== value.workflowId || workflow?.path !== '.github/workflows/cwv-runner-attestation.yml') fail();
+    const workflow = verify(
+      '/repos/ogabasseyy/Baci/actions/workflows/cwv-runner-attestation.yml'
+    );
+    if (
+      pr?.number !== value.number ||
+      pr?.state !== 'closed' ||
+      pr?.merged !== true ||
+      pr?.merged_at == null ||
+      pr?.base?.sha !== value.baseSha ||
+      pr?.base?.ref !== 'main' ||
+      pr?.base?.repo?.full_name !== 'ogabasseyy/Baci' ||
+      pr?.head?.sha !== value.reviewedHeadSha ||
+      pr?.head?.ref !== value.headRef ||
+      pr?.merge_commit_sha !== value.mergeSha ||
+      workflow?.id !== value.workflowId ||
+      workflow?.path !== '.github/workflows/cwv-runner-attestation.yml'
+    )
+      fail();
     return value;
   } finally {
     close(input, digest);

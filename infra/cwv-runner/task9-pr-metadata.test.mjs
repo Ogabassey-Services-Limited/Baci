@@ -23,6 +23,7 @@ test('reads canonical preserved PR metadata bound by its bare digest', () => {
     const value = {
       baseSha: 'a'.repeat(40),
       headRef: 'codex/task9',
+      mergeSha: 'c'.repeat(40),
       number: 3302,
       reviewedHeadSha: 'b'.repeat(40),
       workflowId: 42,
@@ -33,7 +34,28 @@ test('reads canonical preserved PR metadata bound by its bare digest', () => {
     writeFileSync(path, bytes, { mode: 0o600 });
     writeFileSync(digest, `${hash(bytes)}\n`, { mode: 0o600 });
     assert.deepEqual(
-      readTask9PrMetadata(path, digest, { reviewedSha256: hash(bytes), verify: (endpoint) => endpoint.includes('/pulls/') ? { base: { sha: value.baseSha }, head: { ref: value.headRef, sha: value.reviewedHeadSha }, number: value.number } : { id: value.workflowId, path: '.github/workflows/cwv-runner-attestation.yml' } }),
+      readTask9PrMetadata(path, digest, {
+        reviewedSha256: hash(bytes),
+        verify: (endpoint) =>
+          endpoint.includes('/pulls/')
+            ? {
+                base: {
+                  ref: 'main',
+                  repo: { full_name: 'ogabasseyy/Baci' },
+                  sha: value.baseSha,
+                },
+                head: { ref: value.headRef, sha: value.reviewedHeadSha },
+                merge_commit_sha: value.mergeSha,
+                merged: true,
+                merged_at: '2026-08-12T00:00:00Z',
+                number: value.number,
+                state: 'closed',
+              }
+            : {
+                id: value.workflowId,
+                path: '.github/workflows/cwv-runner-attestation.yml',
+              },
+      }),
       value
     );
   } finally {
@@ -50,6 +72,7 @@ test('rejects a noncanonical, mismatched, or no-op preserved PR record', () => {
     const value = {
       baseSha: 'a'.repeat(40),
       headRef: 'codex/task9',
+      mergeSha: 'c'.repeat(40),
       number: 3302,
       reviewedHeadSha: 'b'.repeat(40),
       workflowId: 42,
@@ -81,6 +104,7 @@ test('rejects a forged matching metadata and digest pair against the review lite
       canonicalJson({
         baseSha: 'a'.repeat(40),
         headRef: 'codex/task9',
+        mergeSha: 'c'.repeat(40),
         number: 3302,
         reviewedHeadSha: 'b'.repeat(40),
         workflowId: 42,
@@ -90,6 +114,7 @@ test('rejects a forged matching metadata and digest pair against the review lite
       canonicalJson({
         baseSha: 'a'.repeat(40),
         headRef: 'attacker/ref',
+        mergeSha: 'c'.repeat(40),
         number: 3302,
         reviewedHeadSha: 'b'.repeat(40),
         workflowId: 42,
@@ -113,12 +138,40 @@ test('rejects matching local metadata when GitHub reports another PR head', () =
   const root = mkdtempSync(join(tmpdir(), 'task9-pr-metadata-github-'));
   try {
     chmodSync(root, 0o700);
-    const value = { baseSha: 'a'.repeat(40), headRef: 'codex/task9', number: 3302, reviewedHeadSha: 'b'.repeat(40), workflowId: 42 };
+    const value = {
+      baseSha: 'a'.repeat(40),
+      headRef: 'codex/task9',
+      mergeSha: 'c'.repeat(40),
+      number: 3302,
+      reviewedHeadSha: 'b'.repeat(40),
+      workflowId: 42,
+    };
     const bytes = Buffer.from(canonicalJson(value));
-    const path = join(root, 'metadata.json'); const digest = join(root, 'metadata.sha256');
-    writeFileSync(path, bytes, { mode: 0o600 }); writeFileSync(digest, `${hash(bytes)}\n`, { mode: 0o600 });
-    assert.throws(() => readTask9PrMetadata(path, digest, { reviewedSha256: hash(bytes), verify: (endpoint) => endpoint.includes('/pulls/') ? { base: { sha: value.baseSha }, head: { ref: 'forged/ref', sha: value.reviewedHeadSha }, number: value.number } : { id: 42, path: '.github/workflows/cwv-runner-attestation.yml' } }), /preserved PR metadata/);
-  } finally { rmSync(root, { recursive: true, force: true }); }
+    const path = join(root, 'metadata.json');
+    const digest = join(root, 'metadata.sha256');
+    writeFileSync(path, bytes, { mode: 0o600 });
+    writeFileSync(digest, `${hash(bytes)}\n`, { mode: 0o600 });
+    assert.throws(
+      () =>
+        readTask9PrMetadata(path, digest, {
+          reviewedSha256: hash(bytes),
+          verify: (endpoint) =>
+            endpoint.includes('/pulls/')
+              ? {
+                  base: { sha: value.baseSha },
+                  head: { ref: 'forged/ref', sha: value.reviewedHeadSha },
+                  number: value.number,
+                }
+              : {
+                  id: 42,
+                  path: '.github/workflows/cwv-runner-attestation.yml',
+                },
+        }),
+      /preserved PR metadata/
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('rejects Git-invalid preserved head refs', () => {
@@ -135,6 +188,7 @@ test('rejects Git-invalid preserved head refs', () => {
       const value = {
         baseSha: 'a'.repeat(40),
         headRef,
+        mergeSha: 'c'.repeat(40),
         number: 3302,
         reviewedHeadSha: 'b'.repeat(40),
       };

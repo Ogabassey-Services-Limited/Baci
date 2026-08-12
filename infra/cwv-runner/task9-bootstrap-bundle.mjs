@@ -5,6 +5,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { TASK9_SOURCE_MANIFEST_MAX_BYTES, verifySourceManifest } from './source-manifest.mjs';
+import { readTask9AuthorityReceipt } from './task9-authority-receipt.mjs';
 import { authorizeTask9Bundle, BUNDLE_ENTRIES, canonicalJson, parseUstar, TASK9_PAYLOAD_FILES } from './task9-bootstrap.mjs';
 import { checkedTask9Identity } from './task9-bootstrap-identity.mjs';
 import { checkedTask9Provenance } from './task9-bootstrap-provenance.mjs';
@@ -14,7 +15,6 @@ import { readHeldTask9File } from './task9-held-file.mjs';
 import { verifyTask9NodeArchive } from './task9-node-archive.mjs';
 import { withTask9OutputDirectory } from './task9-output-directory.mjs';
 import { readTask9PrMetadata } from './task9-pr-metadata.mjs';
-import { readTask9AuthorityReceipt } from './task9-authority-receipt.mjs';
 import { readPublishedTask9Files } from './task9-published-files.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/;

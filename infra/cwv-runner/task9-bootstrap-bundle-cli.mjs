@@ -57,6 +57,7 @@ export function runTask9BootstrapBundleCli(argv, dependencies = {}) {
     if (!Number.isSafeInteger(input[field])) fail();
   }
   const generate = dependencies.generate ?? generateTask9BootstrapBundle;
+  input.verifyGithub = dependencies.verifyGithub;
   return canonicalJson(generate(input));
 }
 

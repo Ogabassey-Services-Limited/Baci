@@ -72,7 +72,10 @@ function listedTree(cwd, sha) {
         fail('unsupported Git tree mode');
       blobIds.push(objectId);
       leaves.push(
-        rowWithIdentity({ mode, objectId, path, rawPath: decoded.raw }, decoded.rawIdentity)
+        rowWithIdentity(
+          { mode, objectId, path, rawPath: decoded.raw },
+          decoded.rawIdentity
+        )
       );
     } else if (type === 'tree') {
       if (mode !== '040000') fail('unsupported Git tree mode');

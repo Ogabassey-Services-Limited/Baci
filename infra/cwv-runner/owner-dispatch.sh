@@ -169,6 +169,20 @@ prepare_task9_bootstrap_node() {
   fetch "$(json_get "$policy" supplyChainProvenance.node.keyringUrl)" "$transaction_dir/node-keyring.kbx" "$(json_get "$policy" supplyChainProvenance.node.keyringSha256)" keyring
   "$VERIFIER" --prepare-task9-bootstrap-node --root "$transaction_dir" --policy "$policy" --reviewed-policy-sha256 "$reviewed_policy_sha"
 }
+compose_task9_bundle() {
+  [ "$#" -ge 12 ] && [ "$1" = --transaction-dir ] && [ "$3" = --policy ] && [ "$5" = --reviewed-policy-sha256 ] && [ "$7" = --reviewed-launcher-sha256 ] && [ "$9" = --reviewed-composer-sha256 ] && [ "${11}" = -- ] || refuse
+  transaction_dir=$2; policy=$4; reviewed_policy_sha=$6; reviewed_launcher_sha=$8; reviewed_composer_sha=${10}; shift 11
+  assert_transaction "$transaction_dir"; [ "$policy" = "$transaction_dir/policy.json" ] || refuse; assert_child_file "$policy"; [ "$(file_mode "$policy")" = 400 ] || refuse
+  for digest in "$reviewed_policy_sha" "$reviewed_launcher_sha" "$reviewed_composer_sha"; do /usr/bin/printf '%s' "$digest" | /usr/bin/awk 'length == 64 && /^[0-9a-f]+$/ {valid=1} END {exit !valid}' || refuse; done
+  [ "$(sha256 "$policy")" = "$reviewed_policy_sha" ] || refuse
+  prepare_gh
+  node="$transaction_dir/prepared-node/node"; launcher_source="$SCRIPT_DIR/task9-bootstrap-bundle-launcher.mjs"; composer="$SCRIPT_DIR/task9-bootstrap-bundle-cli.mjs"; launcher="$transaction_dir/task9-bootstrap-bundle-launcher.mjs"; gh="$transaction_dir/tools/gh/bin/gh"
+  for file in "$node" "$gh"; do assert_child_file "$file"; done
+  for file in "$launcher_source" "$composer"; do [ -f "$file" ] && [ ! -L "$file" ] && [ "$(file_owner "$file")" = "$(/usr/bin/id -un)" ] || refuse; done
+  [ "$(sha256 "$launcher_source")" = "$reviewed_launcher_sha" ] && [ "$(sha256 "$composer")" = "$reviewed_composer_sha" ] || refuse
+  [ ! -e "$launcher" ] && [ ! -L "$launcher" ] || refuse; /bin/cp -p -- "$launcher_source" "$launcher"; /bin/chmod 0400 "$launcher"; /bin/sync; assert_child_file "$launcher"; [ "$(sha256 "$launcher")" = "$reviewed_launcher_sha" ] || refuse
+  exec "$node" "$launcher" "$composer" "$reviewed_composer_sha" "$gh" "$(sha256 "$gh")" "$SCRIPT_DIR/../.." "$@"
+}
 initialize_task9() {
   transaction_dir='' state='' state_sha='' source_authorization='' source_authorization_sha256=''
   while [ "$#" -gt 0 ]; do
@@ -295,6 +309,6 @@ task7_probes() {
 }
 [ "$#" -gt 0 ] || refuse
 case $1 in
-  (--prepare-cli) shift; prepare cli "$@";; (--prepare-task9-cli) shift; prepare task9-cli "$@";; (--prepare-task9-bootstrap-node) shift; prepare_task9_bootstrap_node "$@";; (--initialize-task9-state) shift; initialize_task9 "$@";; (--bootstrap-task9) shift; bootstrap_task9 "$@";;
+  (--prepare-cli) shift; prepare cli "$@";; (--prepare-task9-cli) shift; prepare task9-cli "$@";; (--prepare-task9-bootstrap-node) shift; prepare_task9_bootstrap_node "$@";; (--compose-task9-bundle) shift; compose_task9_bundle "$@";; (--initialize-task9-state) shift; initialize_task9 "$@";; (--bootstrap-task9) shift; bootstrap_task9 "$@";;
   (--run-task9-exact) shift; task9_exact "$@";; (--run-task7-probes) shift; task7_probes "$@";; (--task9-operation) shift; [ "$#" -gt 0 ] || refuse; operation=$1; shift; task9 "$operation" "$@";; (*) refuse;;
 esac

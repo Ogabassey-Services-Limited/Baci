@@ -23,6 +23,7 @@ const input = {
 const metadata = {
   baseSha: manifest.baseSha,
   headRef: input.headRef,
+  mergeSha: manifest.mergeSha,
   number: manifest.prNumber,
   reviewedHeadSha: manifest.reviewedHeadSha,
   workflowId: input.workflowId,
@@ -33,7 +34,11 @@ input.authorityReceipt = {
   metadataSha256: digest,
   repository: policy.repository,
   status: 'success',
-  workflow: { id: input.workflowId, path: '.github/workflows/deploy.yml', sha: manifest.mergeSha },
+  workflow: {
+    id: input.workflowId,
+    path: '.github/workflows/deploy.yml',
+    sha: manifest.mergeSha,
+  },
 };
 
 test('accepts a preserved SHA-1 PR identity with a valid ref', () => {

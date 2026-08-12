@@ -11,6 +11,7 @@ function trustedGitEnvironment() {
     GIT_ATTR_NOSYSTEM: '1',
     GIT_TERMINAL_PROMPT: '0',
     GIT_NO_REPLACE_OBJECTS: '1',
+    GIT_NO_LAZY_FETCH: '1',
   };
   for (const key of ['HOME', 'LANG', 'LC_ALL', 'TZ']) {
     if (typeof process.env[key] === 'string') env[key] = process.env[key];

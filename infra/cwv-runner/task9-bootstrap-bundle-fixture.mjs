@@ -72,6 +72,7 @@ function frozenInputs() {
     canonicalJson({
       baseSha,
       headRef: 'codex/h0-cwv-integration',
+      mergeSha: reviewedSha,
       number: 3297,
       reviewedHeadSha: reviewedSha,
       workflowId: 987654,
@@ -82,13 +83,24 @@ function frozenInputs() {
   writeFileSync(prMetadataDigestPath, `${prMetadataSha256}\n`, { mode: 0o600 });
   const authorityReceiptPath = join(root, 'authority-receipt.json');
   const authorityReceiptDigestPath = join(root, 'authority-receipt.sha256');
-  const authorityReceipt = Buffer.from(canonicalJson({
-    coherence: 'success', deploymentSha: reviewedSha, metadataSha256: prMetadataSha256,
-    repository: { id: 1100488586, name: 'ogabasseyy/Baci' }, status: 'success',
-    workflow: { id: 987654, path: '.github/workflows/deploy.yml', sha: reviewedSha },
-  }));
+  const authorityReceipt = Buffer.from(
+    canonicalJson({
+      coherence: 'success',
+      deploymentSha: reviewedSha,
+      metadataSha256: prMetadataSha256,
+      repository: { id: 1100488586, name: 'ogabasseyy/Baci' },
+      status: 'success',
+      workflow: {
+        id: 987654,
+        path: '.github/workflows/deploy.yml',
+        sha: reviewedSha,
+      },
+    })
+  );
   writeFileSync(authorityReceiptPath, authorityReceipt, { mode: 0o600 });
-  writeFileSync(authorityReceiptDigestPath, `${hash(authorityReceipt)}\n`, { mode: 0o600 });
+  writeFileSync(authorityReceiptDigestPath, `${hash(authorityReceipt)}\n`, {
+    mode: 0o600,
+  });
   writeFileSync(nodePath, node, { mode: 0o500 });
   writeFileSync(nodeArchivePath, 'test archive bytes', { mode: 0o400 });
   writeFileSync(nodeProvenance, canonicalJson(provenance), { mode: 0o400 });
@@ -180,13 +192,35 @@ export function createTask9BundleFixture() {
     sourceManifestPath: fixture.paths.manifest,
     transactionId: 'task9-transaction-deterministic',
     workflowId: 987654,
-    verifyGithub: (endpoint) => endpoint.includes('/pulls/')
-      ? { base: { sha: fixture.baseSha }, head: { ref: 'codex/h0-cwv-integration', sha: fixture.reviewedSha }, number: 3297 }
-      : endpoint.includes('/actions/workflows/')
-        ? { id: 987654, path: '.github/workflows/cwv-runner-attestation.yml' }
-        : endpoint.endsWith('/jobs?per_page=100')
-          ? { jobs: [{ conclusion: 'success', name: 'deploy-production' }] }
-          : { conclusion: 'success', event: 'push', head_branch: 'main', head_sha: fixture.reviewedSha, id: 987654, path: '.github/workflows/deploy.yml', repository: { full_name: 'ogabasseyy/Baci', id: 1100488586 }, status: 'completed' },
+    verifyGithub: (endpoint) =>
+      endpoint.includes('/pulls/')
+        ? {
+            base: {
+              ref: 'main',
+              repo: { full_name: 'ogabasseyy/Baci' },
+              sha: fixture.baseSha,
+            },
+            head: { ref: 'codex/h0-cwv-integration', sha: fixture.reviewedSha },
+            merge_commit_sha: fixture.reviewedSha,
+            merged: true,
+            merged_at: '2026-08-12T00:00:00Z',
+            number: 3297,
+            state: 'closed',
+          }
+        : endpoint.includes('/actions/workflows/')
+          ? { id: 987654, path: '.github/workflows/cwv-runner-attestation.yml' }
+          : endpoint.endsWith('/jobs?per_page=100')
+            ? { jobs: [{ conclusion: 'success', name: 'deploy-production' }] }
+            : {
+                conclusion: 'success',
+                event: 'push',
+                head_branch: 'main',
+                head_sha: fixture.reviewedSha,
+                id: 987654,
+                path: '.github/workflows/deploy.yml',
+                repository: { full_name: 'ogabasseyy/Baci', id: 1100488586 },
+                status: 'completed',
+              },
   });
   const generate = (value, options = {}) =>
     generateTask9BootstrapBundle(value, {
