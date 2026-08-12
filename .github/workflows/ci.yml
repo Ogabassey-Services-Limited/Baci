@@ -237,7 +237,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
-          filter: blob:none
+          # The full web suite verifies immutable historical event-pipeline
+          # source bytes. Hydrate blobs during checkout because credentials are
+          # deliberately removed before tests and cannot service lazy fetches.
+          filter: ''
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run web vitest shard
