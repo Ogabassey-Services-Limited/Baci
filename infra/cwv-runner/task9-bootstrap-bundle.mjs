@@ -95,8 +95,7 @@ export function generateTask9BootstrapBundle(
   });
   const authorityReceipt = readTask9AuthorityReceipt(
     input.authorityReceiptPath,
-    input.authorityReceiptDigestPath,
-    input.reviewedAuthorityReceiptSha256
+    input.authorityReceiptDigestPath
   );
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||

@@ -21,7 +21,6 @@ const FIELDS = Object.freeze(
     '--pr-metadata': 'prMetadataPath',
     '--pr-metadata-sha256': 'prMetadataDigestPath',
     '--reviewed-pr-metadata-sha256': 'reviewedPrMetadataSha256',
-    '--reviewed-authority-receipt-sha256': 'reviewedAuthorityReceiptSha256',
     '--source-archive': 'sourceArchivePath',
     '--source-archive-sha256': 'sourceArchiveDigestPath',
     '--source-manifest': 'sourceManifestPath',

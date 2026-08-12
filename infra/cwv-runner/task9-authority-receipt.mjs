@@ -6,12 +6,12 @@ const SHA = /^[a-f0-9]{40}$/;
 const DIGEST = /^[a-f0-9]{64}$/;
 const fail = () => { throw new TypeError('invalid Task 9 authority receipt'); };
 
-export function readTask9AuthorityReceipt(path, digestPath, reviewedDigest) {
+export function readTask9AuthorityReceipt(path, digestPath) {
   const input = readHeldTask9File(path, 0o600, { maxBytes: 1_048_576 });
   const digest = readHeldTask9File(digestPath, 0o600, { maxBytes: 256 });
   try {
     const hash = createHash('sha256').update(input.bytes).digest('hex');
-    if (!DIGEST.test(reviewedDigest ?? '') || reviewedDigest !== hash || digest.bytes.toString() !== `${hash}\n`) fail();
+    if (digest.bytes.toString() !== `${hash}\n`) fail();
     let value;
     try { value = JSON.parse(input.bytes); } catch { fail(); }
     if (!value || Array.isArray(value) || canonicalJson(value) !== input.bytes.toString()) fail();

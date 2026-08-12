@@ -51,8 +51,6 @@ const flags = [
   '/input/pr-metadata.sha256',
   '--reviewed-pr-metadata-sha256',
   'd'.repeat(64),
-  '--reviewed-authority-receipt-sha256',
-  'e'.repeat(64),
 ];
 
 test('composes closed scalar flags and returns canonical secret-free output', () => {
@@ -71,7 +69,6 @@ test('composes closed scalar flags and returns canonical secret-free output', ()
   assert.equal(received.workflowId, 123);
   assert.equal(received.generation, 0);
   assert.equal(received.reviewedPrMetadataSha256, 'd'.repeat(64));
-  assert.equal(received.reviewedAuthorityReceiptSha256, 'e'.repeat(64));
   assert.equal(
     result,
     `{"bundleId":"task9-bundle-1","envelopeSha256":"${'c'.repeat(64)}","outputRoot":"/private/tmp/baci-cwv-task9-bootstrap-task9-transaction-1","transactionId":"task9-transaction-1"}`

@@ -27,7 +27,7 @@ const valid = () => ({
 
 test('parses a canonical successful authority receipt', () => {
   const fixture = writeReceipt(valid());
-  try { assert.equal(readTask9AuthorityReceipt(fixture.path, fixture.digestPath, fixture.digest).repository.id, 1); }
+  try { assert.equal(readTask9AuthorityReceipt(fixture.path, fixture.digestPath).repository.id, 1); }
   finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -38,7 +38,7 @@ test('rejects failed, wrong-workflow, and malformed-repository receipts', () => 
     (v) => ({ ...v, repository: { id: 0, name: 'fork/Baci' } }),
   ]) {
     const fixture = writeReceipt(mutate(valid()));
-    try { assert.throws(() => readTask9AuthorityReceipt(fixture.path, fixture.digestPath, fixture.digest), /invalid Task 9 authority receipt/); }
+    try { assert.throws(() => readTask9AuthorityReceipt(fixture.path, fixture.digestPath), /invalid Task 9 authority receipt/); }
     finally { rmSync(fixture.root, { recursive: true, force: true }); }
   }
 });

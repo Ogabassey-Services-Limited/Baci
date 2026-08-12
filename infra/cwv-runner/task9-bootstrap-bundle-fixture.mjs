@@ -174,7 +174,6 @@ export function createTask9BundleFixture() {
     prMetadataDigestPath: fixture.prMetadataDigestPath,
     prMetadataPath: fixture.prMetadataPath,
     reviewedPrMetadataSha256: fixture.prMetadataSha256,
-    reviewedAuthorityReceiptSha256: fixture.authorityReceiptSha256,
     sourceArchiveDigestPath: fixture.paths.sourceArchiveDigest,
     sourceArchivePath: fixture.paths.sourceArchive,
     sourceManifestDigestPath: fixture.paths.manifestDigest,
