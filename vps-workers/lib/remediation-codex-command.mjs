@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
 function bindMount(source, destination, { readonly = false } = {}) {
@@ -64,7 +64,12 @@ function buildDockerRuntimeArgs({
   ];
 }
 
-function addDependencyMounts({ args, dependencyRoot, worktreeDir }) {
+function addDependencyMounts({
+  args,
+  dependencyRoot,
+  worktreeDir,
+  destinationRoot = worktreeDir,
+}) {
   for (const relativePath of [
     'node_modules',
     'apps/web/node_modules',
@@ -75,7 +80,9 @@ function addDependencyMounts({ args, dependencyRoot, worktreeDir }) {
     if (existsSync(source)) {
       args.push(
         '--mount',
-        bindMount(source, join(worktreeDir, relativePath), { readonly: true })
+        bindMount(source, join(destinationRoot, relativePath), {
+          readonly: true,
+        })
       );
     }
   }
@@ -198,6 +205,17 @@ export function buildRemediationVerificationCommand({
 
   const dockerBin = env.DOCKER_BIN || 'docker';
   const containerName = `${containerNameFor(worktreeDir)}-verify`;
+  const pnpmStorePath = join(
+    dirname(worktreeDir),
+    `${basename(worktreeDir)}-pnpm-store`
+  );
+  if (existsSync(pnpmStorePath)) {
+    if (!lstatSync(pnpmStorePath).isDirectory()) {
+      throw new Error('remediation pnpm store path must be a real directory');
+    }
+  } else {
+    mkdirSync(pnpmStorePath, { recursive: true });
+  }
   const dockerArgs = buildDockerRuntimeArgs({
     containerName,
     readOnly: false,
@@ -207,13 +225,46 @@ export function buildRemediationVerificationCommand({
   addDependencyMounts({
     args: dockerArgs,
     dependencyRoot: env.BACI_REMEDIATION_DEPENDENCY_ROOT || repoDir,
+    destinationRoot: '/opt/remediation-dependencies',
     worktreeDir,
   });
-  dockerArgs.push('--workdir', worktreeDir, image, 'sh', '-lc', verifyCommand);
+  if (existsSync(pnpmStorePath)) {
+    dockerArgs.push(
+      '--mount',
+      bindMount(pnpmStorePath, '/pnpm-store'),
+      '--env',
+      'pnpm_config_store_dir=/pnpm-store'
+    );
+  }
+  const dependencyCopy = [
+    'node_modules',
+    'apps/web/node_modules',
+    'apps/mobile-admin/node_modules',
+    'apps/mobile-storefront/node_modules',
+  ]
+    .map(
+      (relativePath) =>
+        `[ ! -d /opt/remediation-dependencies/${relativePath} ] || (mkdir -p "$(dirname "${relativePath}")" && rm -rf "${relativePath}" && cp -a "/opt/remediation-dependencies/${relativePath}" "${relativePath}")`
+    )
+    .join(' && ');
+  dockerArgs.push(
+    '--workdir',
+    worktreeDir,
+    image,
+    'sh',
+    '-lc',
+    `${dependencyCopy} && ${verifyCommand}`
+  );
 
   return {
     args: dockerArgs,
     cleanup: { args: ['rm', '-f', containerName], command: dockerBin },
+    dependencyCopyPaths: [
+      'node_modules',
+      'apps/web/node_modules',
+      'apps/mobile-admin/node_modules',
+      'apps/mobile-storefront/node_modules',
+    ],
     command: dockerBin,
   };
 }

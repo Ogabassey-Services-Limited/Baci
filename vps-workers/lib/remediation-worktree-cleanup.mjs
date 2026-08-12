@@ -1,4 +1,5 @@
 import { realpathSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { runRemediationChecked } from './remediation-subprocess.mjs';
 
@@ -56,6 +57,15 @@ export function cleanupRemediationWorktree({
       : '';
   if (!resolvedWorktreeDir) return '';
 
+  const pnpmStorePath = join(
+    dirname(resolvedWorktreeDir),
+    `${basename(resolvedWorktreeDir)}-pnpm-store`
+  );
+  runRemediationChecked('rm', ['-rf', '--', pnpmStorePath], {
+    cwd: repoDir,
+    env: childEnv,
+    runner,
+  });
   runRemediationChecked(
     'git',
     ['worktree', 'remove', '--force', resolvedWorktreeDir],

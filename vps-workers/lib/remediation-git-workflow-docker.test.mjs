@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -7,8 +7,6 @@ import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { remediationGitWorkflowTestFixtures } from './remediation-git-workflow.test-helpers.mjs';
 
 const { candidate, makeRunner } = remediationGitWorkflowTestFixtures;
-const repoRoot = join(import.meta.dirname, '..', '..');
-
 const dockerEnvironment = {
   BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
   BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
@@ -54,11 +52,19 @@ describe('remediation Docker workflow', () => {
 
   it('runs verification with dependency mounts', () => {
     const { calls, runner } = makeRunner();
+    const worktreeRoot = mkdtempSync(
+      join(tmpdir(), 'baci-remediation-worktrees-')
+    );
+    const dependencyRoot = mkdtempSync(
+      join(tmpdir(), 'baci-remediation-dependencies-')
+    );
+    mkdirSync(join(dependencyRoot, 'node_modules'));
     const result = runRemediationAutofix({
       candidate,
       env: {
         ...dockerEnvironment,
-        BACI_REMEDIATION_DEPENDENCY_ROOT: repoRoot,
+        BACI_REMEDIATION_WORKTREE_ROOT: worktreeRoot,
+        BACI_REMEDIATION_DEPENDENCY_ROOT: dependencyRoot,
         BACI_REMEDIATION_RUN_ID: 'verify-run',
       },
       runner,
@@ -67,13 +73,32 @@ describe('remediation Docker workflow', () => {
     assert.equal(result.type, 'pr_opened');
     const verificationCall = calls.find(
       ([command, ...args]) =>
-        command === 'docker' && args.includes('pnpm turbo lint')
+        command === 'docker' && args.some((arg) => arg.includes('pnpm turbo lint'))
     );
     assert.ok(verificationCall);
     assert.equal(
       verificationCall.includes(
-        `type=bind,src=${repoRoot}/node_modules,dst=/worktrees/abc123-verify-run/node_modules,readonly`
+        `type=bind,src=${dependencyRoot}/node_modules,dst=/opt/remediation-dependencies/node_modules,readonly`
       ),
+      true
+    );
+    const verificationScript = verificationCall.at(-1);
+    const verifyPosition = verificationScript.lastIndexOf('pnpm turbo lint');
+    assert.ok(verificationScript.indexOf('cp -a') < verifyPosition);
+    for (const relativePath of [
+      'node_modules',
+      'apps/web/node_modules',
+      'apps/mobile-admin/node_modules',
+      'apps/mobile-storefront/node_modules',
+    ]) {
+      assert.match(
+        verificationScript,
+        new RegExp(`cp -a \\"/opt/remediation-dependencies/${relativePath}`)
+      );
+    }
+    assert.match(verificationScript, / && pnpm turbo lint$/);
+    assert.equal(
+      verificationCall.includes('pnpm_config_store_dir=/pnpm-store'),
       true
     );
     assert.equal(

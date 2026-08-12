@@ -41,6 +41,11 @@ describe('remediation worktree cleanup', () => {
         options: { cwd: '/repo', env: childEnv, shell: false },
       },
       {
+        args: ['-rf', '--', '/worktrees/completed-pnpm-store'],
+        command: 'rm',
+        options: { cwd: '/repo', env: childEnv, shell: false },
+      },
+      {
         args: ['worktree', 'remove', '--force', '/worktrees/completed'],
         command: 'git',
         options: { cwd: '/repo', env: childEnv, shell: false },
@@ -173,6 +178,10 @@ describe('remediation worktree cleanup', () => {
       'worktree remove --force /worktrees/lost-pr-create'
     );
     assert.equal(calls.at(-1).args.join(' '), 'worktree prune');
+    assert.equal(
+      `${calls.at(-3).command} ${calls.at(-3).args.join(' ')}`,
+      'rm -rf -- /worktrees/lost-pr-create-pnpm-store'
+    );
   });
 
   it('surfaces a cleanup failure instead of claiming the worktree was removed', () => {

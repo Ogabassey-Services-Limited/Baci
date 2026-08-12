@@ -257,6 +257,13 @@ export function runRemediationAutofix({
           { cwd: worktreeDir, env: childEnv, shell: false }
         );
       }
+      for (const relativePath of verificationCommand.dependencyCopyPaths || []) {
+        runChecked('rm', ['-rf', '--', join(worktreeDir, relativePath)], {
+          cwd: worktreeDir,
+          env: childEnv,
+          runner,
+        });
+      }
     }
 
     runChecked('git', ['add', '-A'], worktreeGitCommandOptions);
