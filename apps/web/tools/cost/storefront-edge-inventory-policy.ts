@@ -29,7 +29,7 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
 ].map((routePattern, index) => {
   const scope = ['root', 'nested', 'slug-root', 'slug-nested'][index];
   if (!scope) throw new Error('draft-mode path has no stable identifier');
-  const row: InventoryRow = {
+  const row = {
     decision: 'origin_dynamic',
     id: `request-override:draft-mode-${scope}`,
     methods: ['GET', 'HEAD'],
@@ -42,12 +42,15 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
     sourceKind: 'request_override',
   };
   if (index >= 2) {
-    row.hostCondition = {
-      hostKind: 'platform_root_domain',
-      precedence: 'before_path_decision',
-    };
+    return {
+      ...row,
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+    } satisfies InventoryRow;
   }
-  return row;
+  return row satisfies InventoryRow;
 });
 
 const ROUTER_DATA_ROWS: readonly InventoryRow[] = [

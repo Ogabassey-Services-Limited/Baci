@@ -86,9 +86,6 @@ function dynamicEntrypointReason(
   if (sourcePath === '(blog)/blog/news-sitemap.xml/route.ts') {
     return 'rolling_news_sitemap_requires_origin' as const;
   }
-  if (sourcePath === '(blog)/blog/sitemap.ts') {
-    return 'time_varying_sitemap_requires_origin' as const;
-  }
   if (sourcePath === 'sitemap/[id]/route.ts') {
     return 'finite_sitemap_id_dispatch_requires_origin' as const;
   }

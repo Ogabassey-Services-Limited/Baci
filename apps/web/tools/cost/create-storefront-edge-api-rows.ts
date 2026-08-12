@@ -31,7 +31,7 @@ export function createStorefrontEdgeApiRows(
 ): InventoryRow[] {
   const prefix = `${apiRoot.replace(/\/$/, '')}/`;
   return apiSources
-    .map(({ bytes, sourcePath }) => {
+    .map<InventoryRow>(({ bytes, sourcePath }) => {
       if (!sourcePath.startsWith(prefix) || !sourcePath.endsWith('/route.ts'))
         throw new Error('storefront API source is outside the API route root');
       const relativeSourcePath = sourcePath.slice(prefix.length);
