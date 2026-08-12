@@ -26,6 +26,7 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'configured_google_store_widget_origin'
       | 'configured_google_store_badge_origin'
       | 'configured_google_customer_reviews_origin'
+      | 'configured_supabase_storage_upload_origin'
       | 'configured_klump_origin'
       | 'configured_credpal_origin'
       | 'configured_credit_direct_origin'
@@ -66,6 +67,10 @@ type StorefrontEdgeInventoryRow = Readonly<{
     anyCookiePresent?: readonly string[];
     anyCookieNameContains?: readonly string[];
     cookiePredicate?: 'supabase_auth_session_hint';
+    anyOf?: readonly Readonly<{
+      cookiePredicate?: 'supabase_auth_session_hint';
+      anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
+    }>[];
     anyHeaderMatch?: readonly Readonly<{ name: string; value?: string }>[];
     anyQueryPresent?: true;
     anyQueryPresentExcept?: readonly string[];

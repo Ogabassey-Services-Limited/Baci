@@ -80,10 +80,10 @@ const AUTH_SESSION_ROWS: readonly InventoryRow[] = [
     methods: ['GET', 'HEAD'],
     reason: 'storefront_auth_session_requires_origin',
     requestCondition: {
-      cookiePredicate: 'supabase_auth_session_hint',
-      anyHeaderMatch: [
-        { name: 'authorization' },
-        { name: 'x-supabase-auth-token' },
+      anyOf: [
+        { cookiePredicate: 'supabase_auth_session_hint' },
+        { anyHeaderMatch: [{ name: 'authorization' }] },
+        { anyHeaderMatch: [{ name: 'x-supabase-auth-token' }] },
       ],
       matchedStorefrontEntrypointDecision: 'edge_release',
       precedence: 'after_entrypoint_resolution_before_decision',
@@ -268,6 +268,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/google-customer-reviews.tsx',
     'apps/web/src/components/analytics/google-store-widget-utils.ts',
     'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts',
+    'apps/web/src/components/storefront/ogabassey/components/negotiation-evidence.ts',
     'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx',
     'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts',
     'apps/web/src/components/storefront/ogabassey/components/CartSidebar.tsx',

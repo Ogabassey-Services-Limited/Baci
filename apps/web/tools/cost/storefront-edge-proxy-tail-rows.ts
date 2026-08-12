@@ -20,6 +20,7 @@ const sitemapOptions = (
 
 /** Terminal and host-conditioned proxy classes after explicit rewrites. */
 export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
+  ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
   ...(process.env.MCP_SERVER_URL
     ? [
         createStorefrontEdgeProxyClass(
@@ -153,7 +154,6 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
     'mcp_server_rewrite',
     { sourcePath: 'apps/web/next.config.ts' }
   ),
-  ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
   createStorefrontEdgeProxyClass(
     'proxy:unknown-document',
     '/{*unlistedDocument}',
