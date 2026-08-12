@@ -2,7 +2,7 @@ interface ProductSchemaAdditionalProperty {
   '@type': 'PropertyValue';
   name?: string;
   propertyID?: string;
-  value: unknown;
+  value?: unknown;
   [key: string]: unknown;
 }
 
@@ -78,6 +78,19 @@ function isValidCustomPropertyValue(value: unknown) {
   return true;
 }
 
+function hasValidCustomPropertyRange(candidate: Record<string, unknown>) {
+  const minValue = candidate.minValue;
+  const maxValue = candidate.maxValue;
+
+  return (
+    typeof minValue === 'number' &&
+    Number.isFinite(minValue) &&
+    typeof maxValue === 'number' &&
+    Number.isFinite(maxValue) &&
+    minValue <= maxValue
+  );
+}
+
 export function createProductSchemaAdditionalPropertyCollector() {
   const properties: ProductSchemaAdditionalProperty[] = [];
   const propertyKeys = new Set<string>();
@@ -116,7 +129,8 @@ export function createProductSchemaAdditionalPropertyCollector() {
       const normalizedPropertyId = normalizePropertyName(candidate.propertyID);
       if (
         (!normalizedName && !normalizedPropertyId) ||
-        !isValidCustomPropertyValue(candidate.value)
+        (!isValidCustomPropertyValue(candidate.value) &&
+          !hasValidCustomPropertyRange(candidate))
       ) {
         return;
       }
@@ -128,7 +142,9 @@ export function createProductSchemaAdditionalPropertyCollector() {
         return;
       }
 
-      const serializedValue = serializePropertyValue(candidate.value);
+      const serializedValue = isValidCustomPropertyValue(candidate.value)
+        ? serializePropertyValue(candidate.value)
+        : `${candidate.minValue}|${candidate.maxValue}`;
       if (!serializedValue) {
         return;
       }
@@ -147,7 +163,9 @@ export function createProductSchemaAdditionalPropertyCollector() {
         '@type': 'PropertyValue',
         ...(normalizedName ? { name: normalizedName } : {}),
         ...(normalizedPropertyId ? { propertyID: normalizedPropertyId } : {}),
-        value: candidate.value,
+        ...(isValidCustomPropertyValue(candidate.value)
+          ? { value: candidate.value }
+          : {}),
       });
     },
     getProperties() {

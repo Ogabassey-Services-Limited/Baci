@@ -1,5 +1,6 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import type { ProductKeySpecs } from '@/lib/products';
+import { isUnsupportedSpecValue } from '@/lib/storefront-specs/is-unsupported-spec-value';
 
 interface ProductSpecAcceptanceInput {
   categories?: { name?: string | null; slug?: string | null } | null;
@@ -12,6 +13,14 @@ const CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS = new Set([
   'front_camera_mp',
   'main_camera_mp',
 ]);
+
+function isNeutralMerchandisingAttribute(key: string, value: unknown) {
+  return (
+    key === 'available_colors' &&
+    typeof value === 'string' &&
+    !isUnsupportedSpecValue(value)
+  );
+}
 
 function isCategoryAgnosticPositiveMeasurement(
   input: ProductSpecAcceptanceInput,
@@ -38,6 +47,7 @@ export function getFirstAcceptedSpecValue(
   return values.find(
     (value) =>
       shouldIncludeProductSchemaSpec(input, { key, value }) ||
-      isCategoryAgnosticPositiveMeasurement(input, key, value)
+      isCategoryAgnosticPositiveMeasurement(input, key, value) ||
+      isNeutralMerchandisingAttribute(key, value)
   );
 }

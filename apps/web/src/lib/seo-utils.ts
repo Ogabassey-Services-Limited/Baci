@@ -926,12 +926,16 @@ export function generateProductSchema(
       const candidate = property as {
         name?: unknown;
         value?: unknown;
+        minValue?: unknown;
+        maxValue?: unknown;
       };
+      const candidateValue =
+        candidate.value ?? candidate.minValue ?? candidate.maxValue;
       if (
         !shouldIncludeProductSchemaSpec(product, {
           label:
             typeof candidate.name === 'string' ? candidate.name : undefined,
-          value: candidate.value,
+          value: candidateValue,
         })
       ) {
         continue;

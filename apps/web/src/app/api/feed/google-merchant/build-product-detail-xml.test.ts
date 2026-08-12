@@ -244,6 +244,16 @@ describe('buildGoogleColorXml', () => {
     ).toBe('        <g:color>Black</g:color>');
   });
 
+  it('emits standalone merchandising colour for categorized accessories', () => {
+    expect(
+      buildGoogleColorXml({
+        category: 'Phone Cases',
+        color: 'Midnight Blue',
+        variant_attributes: { color: 'Coral Red' },
+      })
+    ).toBe('        <g:color>Coral Red</g:color>');
+  });
+
   it('returns an empty string when no color is confirmed', () => {
     expect(buildGoogleColorXml({})).toBe('');
     expect(buildGoogleColorXml({ color: '   ' })).toBe('');

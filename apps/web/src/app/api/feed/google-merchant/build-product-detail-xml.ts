@@ -1,4 +1,3 @@
-import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import type { ProductKeySpecs } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { escapeXml } from '@/lib/xml-utils';
@@ -59,10 +58,8 @@ function getVariantAttribute(
     const normalizedValue = normalizeText(value, options);
     if (
       normalizedValue &&
-      shouldIncludeProductSchemaSpec(input, {
-        key: specKey,
-        value: normalizedValue,
-      })
+      getFirstAcceptedSpecValue(input, specKey, normalizedValue) ===
+        normalizedValue
     ) {
       return normalizedValue;
     }

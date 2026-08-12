@@ -105,4 +105,26 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
       },
     ]);
   });
+
+  it('preserves valid range-only custom PropertyValue entries', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.addCustomProperty({
+      '@type': 'PropertyValue',
+      name: 'Operating Temperature',
+      minValue: -10,
+      maxValue: 45,
+      unitCode: 'CEL',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      {
+        '@type': 'PropertyValue',
+        name: 'Operating Temperature',
+        minValue: -10,
+        maxValue: 45,
+        unitCode: 'CEL',
+      },
+    ]);
+  });
 });

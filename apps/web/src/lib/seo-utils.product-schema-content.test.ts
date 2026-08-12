@@ -127,4 +127,38 @@ describe('generateProductSchema content and custom properties', () => {
       ])
     );
   });
+
+  it('preserves range-only custom PropertyValue schema markup', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Cameras',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Operating Temperature',
+            minValue: -10,
+            maxValue: 45,
+            unitCode: 'CEL',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Operating Temperature',
+          minValue: -10,
+          maxValue: 45,
+          unitCode: 'CEL',
+        },
+      ])
+    );
+  });
 });

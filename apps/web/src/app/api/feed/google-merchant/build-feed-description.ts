@@ -1,4 +1,3 @@
-import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
 import type { ProductKeySpecs } from '@/lib/products';
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import { getFirstAcceptedSpecValue } from './get-first-accepted-spec-value';
@@ -102,10 +101,8 @@ function getVariantAttribute(
     const normalizedValue = normalizeText(value);
     if (
       normalizedValue &&
-      shouldIncludeProductSchemaSpec(input, {
-        key: specKey,
-        value: normalizedValue,
-      })
+      getFirstAcceptedSpecValue(input, specKey, normalizedValue) ===
+        normalizedValue
     ) {
       return normalizedValue;
     }

@@ -2,6 +2,17 @@ import { describe, expect, it } from 'vitest';
 import { buildFeedDescription } from './build-feed-description';
 
 describe('buildFeedDescription', () => {
+  it('keeps standalone merchandising colour for categorized accessories', () => {
+    expect(
+      buildFeedDescription({
+        name: 'Protective Phone Case',
+        category: 'Phone Cases',
+        color: 'Midnight Blue',
+        variant_attributes: { color: 'Coral Red' },
+      })
+    ).toContain('Colour: Coral Red');
+  });
+
   it('appends the key phone specs Merchant Center flagged as missing', () => {
     const description = buildFeedDescription({
       name: 'iPhone 17 Pro Max',

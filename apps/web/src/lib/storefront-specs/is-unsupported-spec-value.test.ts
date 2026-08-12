@@ -33,4 +33,8 @@ describe('isUnsupportedSpecValue', () => {
     expect(isUnsupportedSpecValue('Not supported on this model')).toBe(true);
     expect(isUnsupportedSpecValue('No OIS')).toBe(true);
   });
+
+  it('retains identifiers beginning with the No. abbreviation', () => {
+    expect(isUnsupportedSpecValue('No. 1234')).toBe(false);
+  });
 });
