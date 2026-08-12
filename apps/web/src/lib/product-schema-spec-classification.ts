@@ -1,5 +1,6 @@
 import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
 import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
+import type { ProductSpecFamily } from './storefront-specs/spec-taxonomy';
 import {
   getProductSpecFamily,
   isCameraLikeCategory,
@@ -59,10 +60,21 @@ export function classifyProductSchemaCategories(
   product: ProductCategorySource
 ) {
   const preferredCategory = resolveStorefrontProductCategoryName(product);
-  const categoryNames = preferredCategory?.trim()
-    ? [normalizeCategoryName(preferredCategory)]
-    : [];
-  const productFamily = getProductSpecFamily(categoryNames[0]);
+  const relationSlug = product.categories?.slug?.trim();
+  const categoryNames = [preferredCategory, relationSlug]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .filter((value) => !isAccessoryLikeCategory(value))
+    .map(normalizeCategoryName)
+    .filter((value, index, values) => values.indexOf(value) === index);
+  const productFamily: ProductSpecFamily =
+    categoryNames
+      .map(
+        (categoryName): ProductSpecFamily => getProductSpecFamily(categoryName)
+      )
+      .find(
+        (family): family is Exclude<ProductSpecFamily, 'general'> =>
+          family !== 'general'
+      ) ?? 'general';
   const isMobileCategory =
     productFamily === 'mobile' ||
     (productFamily === 'general' &&

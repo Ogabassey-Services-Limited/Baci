@@ -19,6 +19,12 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'strap',
   'protector',
   'grip',
+  'lens',
+  'lenses',
+  'battery',
+  'batteries',
+  'flash',
+  'flashes',
 ];
 
 export function isAccessoryLikeCategory(categoryName: string) {

@@ -28,6 +28,7 @@ import { buildProductSemanticModel } from '@/lib/storefront-product/build-produc
 import { loadCategoryScopedSemanticInventorySafely } from '@/lib/storefront-product/load-category-scoped-semantic-inventory-safely';
 import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
+import { isUnsupportedSpecValue } from '@/lib/storefront-specs/is-unsupported-spec-value';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { FAQItem } from '@/types/faq';
 import ProductDetailClient from './product-detail-client';
@@ -53,7 +54,7 @@ export async function ProductPageRuntime({
   const categorySlug =
     [product.categories?.slug, product.category_slug]
       .map((value) => value?.trim())
-      .find(Boolean) ??
+      .find((value) => value && !isUnsupportedSpecValue(value)) ??
     (resolvedCategoryName ? generateSlug(resolvedCategoryName) : 'products');
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);

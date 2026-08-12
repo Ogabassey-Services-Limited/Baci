@@ -8,7 +8,13 @@ describe('getGeneralKeySpecCategoryProjection', () => {
       .map((field) => field.key);
 
     expect(fieldKeys).toEqual(
-      expect.arrayContaining(['chipset', 'gpu', 'storage_gb'])
+      expect.arrayContaining([
+        'chipset',
+        'gpu',
+        'storage_gb',
+        'display_ppi',
+        'card_slot_type',
+      ])
     );
     expect(fieldKeys).not.toEqual(
       expect.arrayContaining(['has_5g', 'has_nfc', 'sim_type'])

@@ -18,6 +18,14 @@ const PROPERTY_NAME_ALIASES: Record<string, string> = {
   wlan: 'wifi',
 };
 
+const PROPERTY_ID_ALIASES: Record<string, string> = {
+  ram_gb: 'ram',
+  storage_gb: 'internal storage',
+  display_ppi: 'pixel density',
+  display_resolution: 'display resolution',
+  display_peak_brightness: 'peak brightness',
+};
+
 function normalizePropertyText(value: unknown) {
   if (typeof value === 'string') {
     const normalized = value.trim();
@@ -47,6 +55,12 @@ function canonicalizeText(value: string) {
 function getCanonicalPropertyName(name: string) {
   const normalizedName = canonicalizeText(name);
   return PROPERTY_NAME_ALIASES[normalizedName] || normalizedName;
+}
+
+function getCanonicalPropertyId(propertyId: string) {
+  return getCanonicalPropertyName(
+    PROPERTY_ID_ALIASES[propertyId] || propertyId
+  );
 }
 
 function serializePropertyValue(value: unknown): string | null {
@@ -94,6 +108,7 @@ function hasValidCustomPropertyRange(candidate: Record<string, unknown>) {
 export function createProductSchemaAdditionalPropertyCollector() {
   const properties: ProductSchemaAdditionalProperty[] = [];
   const propertyKeys = new Set<string>();
+  const livePropertyNames = new Set<string>();
 
   return {
     add(name: unknown, value: unknown) {
@@ -104,6 +119,7 @@ export function createProductSchemaAdditionalPropertyCollector() {
       }
 
       const propertyKey = `${getCanonicalPropertyName(normalizedName)}|${canonicalizeText(normalizedValue)}`;
+      livePropertyNames.add(getCanonicalPropertyName(normalizedName));
       if (propertyKeys.has(propertyKey)) {
         return;
       }
@@ -152,6 +168,16 @@ export function createProductSchemaAdditionalPropertyCollector() {
       const propertyIdentifier = normalizedName
         ? getCanonicalPropertyName(normalizedName)
         : `propertyid:${canonicalizeText(normalizedPropertyId || '')}`;
+      const normalizedCustomPropertyId = normalizedPropertyId
+        ? getCanonicalPropertyId(canonicalizeText(normalizedPropertyId))
+        : null;
+      if (
+        (normalizedName && livePropertyNames.has(propertyIdentifier)) ||
+        (normalizedCustomPropertyId &&
+          livePropertyNames.has(normalizedCustomPropertyId))
+      ) {
+        return;
+      }
       const propertyKey = `${propertyIdentifier}|${serializedValue}`;
       if (propertyKeys.has(propertyKey)) {
         return;

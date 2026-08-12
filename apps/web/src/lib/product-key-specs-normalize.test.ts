@@ -9,13 +9,14 @@ describe('normalizeProductKeySpecs', () => {
         chipset: 'A19 Pro',
         ram_gb: 8,
         has_5g: true,
-        sensors: ['accelerometer'],
+        recommended_for: ['Photography', 'Travel'],
         notes: null,
       })
     ).toEqual({
       chipset: 'A19 Pro',
       ram_gb: 8,
       has_5g: true,
+      recommended_for: ['Photography', 'Travel'],
     });
   });
 

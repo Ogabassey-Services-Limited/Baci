@@ -30,7 +30,7 @@ export function resolveStorefrontProductCategoryName(
   }
 
   const canonicalSlug = product.category_slug?.trim();
-  if (canonicalSlug) {
+  if (canonicalSlug && !isUnsupportedSpecValue(canonicalSlug)) {
     return canonicalSlug;
   }
 

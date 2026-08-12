@@ -3,6 +3,10 @@ import {
   classifyProductSchemaCategories,
   type ProductCategorySource,
 } from './product-schema-spec-classification';
+import {
+  AUDIO_CAPABILITY_LABELS,
+  PHONE_ONLY_SPEC_LABELS,
+} from './product-schema-spec-label-policy';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
@@ -59,36 +63,6 @@ const COMPUTER_CELLULAR_SPEC_KEYS = new Set([
 ]);
 
 const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
-
-const PHONE_ONLY_SPEC_LABELS = new Set([
-  '3 5mm headphone jack',
-  '3 5mm jack',
-  'android',
-  'card slot',
-  'fingerprint sensor',
-  'fm radio',
-  'headphone jack',
-  'loudspeaker',
-  'nfc',
-  'operating system',
-  'os',
-  'reverse charging',
-  'sim',
-  'sim type',
-  'speakers',
-  '5g',
-  '5g support',
-  'ois',
-  'has ois',
-]);
-
-const AUDIO_CAPABILITY_LABELS = new Set([
-  '3 5mm headphone jack',
-  '3 5mm jack',
-  'headphone jack',
-  'loudspeaker',
-  'speakers',
-]);
 
 /**
  * Keeps phone-shaped fields and labels out of named non-phone product schemas.
@@ -169,6 +143,16 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (canonicalSpecKey === 'card_slot_type') {
+    return true;
+  }
+
+  if (
+    canonicalSpecKey === 'android_version' &&
+    !isMobileCategory &&
+    normalizedSection === 'platform' &&
+    typeof candidate.value === 'string' &&
+    candidate.value.trim().toLowerCase().startsWith('android')
+  ) {
     return true;
   }
 

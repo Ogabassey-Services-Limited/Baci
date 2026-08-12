@@ -162,4 +162,13 @@ describe('buildProductContextSpecFacts', () => {
       'OIS: Yes',
     ]);
   });
+
+  it('preserves production recommendation arrays in crawl facts', () => {
+    expect(
+      buildProductContextSpecFacts(
+        { recommended_for: ['Photography', 'Travel'] },
+        'Smartphones'
+      )
+    ).toContain('Recommended for: Photography, Travel');
+  });
 });

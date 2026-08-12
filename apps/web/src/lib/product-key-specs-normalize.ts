@@ -1,4 +1,9 @@
-type ProductKeySpecValue = string | number | boolean | undefined;
+export type ProductKeySpecValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | undefined;
 
 /**
  * Flattens Supabase/PostgREST embedded product_key_specs relation payloads into
@@ -20,6 +25,8 @@ export function normalizeProductKeySpecs(
       typeof entryValue === 'string' ||
       typeof entryValue === 'number' ||
       typeof entryValue === 'boolean' ||
+      (Array.isArray(entryValue) &&
+        entryValue.every((item) => typeof item === 'string')) ||
       typeof entryValue === 'undefined'
     );
   });

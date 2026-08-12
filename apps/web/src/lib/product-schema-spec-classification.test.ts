@@ -26,4 +26,12 @@ describe('classifyProductSchemaCategories', () => {
         .isMobileCategory
     ).toBe(false);
   });
+
+  it('uses a stable relation slug with a localized category name', () => {
+    expect(
+      classifyProductSchemaCategories({
+        categories: { name: '相机', slug: 'action-cameras' },
+      })
+    ).toMatchObject({ hasCameraCategory: true, productFamily: 'camera' });
+  });
 });

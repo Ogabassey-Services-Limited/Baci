@@ -72,6 +72,30 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
     ]);
   });
 
+  it('lets live canonical properties override stale custom values', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.add('RAM', '8GB');
+    collector.addCustomProperty({ name: 'RAM', value: '16GB' });
+    collector.addCustomProperty({ name: 'Panel Type', value: 'IPS' });
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'RAM', value: '8GB' },
+      { '@type': 'PropertyValue', name: 'Panel Type', value: 'IPS' },
+    ]);
+  });
+
+  it('lets live canonical properties override propertyID-only custom values', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.add('RAM', '8GB');
+    collector.addCustomProperty({ propertyID: 'ram_gb', value: '16GB' });
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'RAM', value: '8GB' },
+    ]);
+  });
+
   it('accepts a singleton custom PropertyValue and rejects non-PropertyValue types', () => {
     const collector = createProductSchemaAdditionalPropertyCollector();
 

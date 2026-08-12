@@ -71,5 +71,13 @@ export function getProductSchemaSpecKeyForLabel(
       ? SPEC_LABEL_TO_KEY[normalizedLabel]
       : undefined;
   }
+  if (normalizedLabel === 'android') {
+    const normalizedSection = section
+      ? normalizeProductSchemaSpecLabel(section)
+      : undefined;
+    return normalizedSection === 'platform'
+      ? SPEC_LABEL_TO_KEY[normalizedLabel]
+      : undefined;
+  }
   return SPEC_LABEL_TO_KEY[normalizedLabel];
 }

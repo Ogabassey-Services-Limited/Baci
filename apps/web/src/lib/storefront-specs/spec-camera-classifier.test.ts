@@ -23,6 +23,9 @@ describe('isCameraLikeCategory', () => {
       'tripod-stands',
       'Lenses',
       'Microphones',
+      'Camera Lenses',
+      'Camera Batteries',
+      'Camera Flashes',
     ]) {
       expect(isCameraLikeCategory(category)).toBe(false);
     }

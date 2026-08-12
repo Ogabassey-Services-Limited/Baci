@@ -206,7 +206,8 @@ export interface ProductKeySpecs {
   wireless_charging_watt?: number;
 
   // Allow index access for generic mapping
-  [key: string]: string | number | boolean | undefined;
+  [key: string]: string | number | boolean | string[] | undefined;
+  recommended_for?: string[];
 }
 
 import type { CartItem } from '@/hooks/cart';

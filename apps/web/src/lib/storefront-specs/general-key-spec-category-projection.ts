@@ -1,3 +1,4 @@
+import { hasSupportedCardSlotType } from './has-supported-card-slot-type';
 import type { SpecCategory, SpecField } from './spec-taxonomy';
 
 const VERIFIED_SOUND_FIELDS: SpecField[] = [
@@ -43,6 +44,11 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
         label: 'Peak Brightness',
         transform: (value) => `${value} nits`,
       },
+      {
+        key: 'display_ppi',
+        label: 'Pixel Density',
+        transform: (value) => `${value} ppi`,
+      },
       { key: 'display_protection', label: 'Protection' },
     ],
   },
@@ -57,6 +63,11 @@ const GENERAL_KEY_SPEC_CATEGORIES: SpecCategory[] = [
   {
     category: 'Memory',
     fields: [
+      {
+        key: 'card_slot_type',
+        label: 'Card Slot',
+        condition: hasSupportedCardSlotType,
+      },
       {
         key: 'storage_gb',
         label: 'Internal Storage',

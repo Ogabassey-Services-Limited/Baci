@@ -45,4 +45,13 @@ describe('resolveStorefrontProductCategoryName', () => {
       })
     ).toBe('action-cameras');
   });
+
+  it('skips unsupported canonical slugs before using legacy category text', () => {
+    expect(
+      resolveStorefrontProductCategoryName({
+        category_slug: 'unknown',
+        category: 'Action Cameras',
+      })
+    ).toBe('Action Cameras');
+  });
 });

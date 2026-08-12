@@ -13,6 +13,10 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     expect(getProductSchemaSpecKeyForLabel('Selfie Camera')).toBe(
       'front_camera_mp'
     );
+    expect(getProductSchemaSpecKeyForLabel('Android')).toBeUndefined();
+    expect(getProductSchemaSpecKeyForLabel('Android', 'Platform')).toBe(
+      'android_version'
+    );
   });
 
   it('maps legacy card-slot label variants to the card-slot field', () => {
