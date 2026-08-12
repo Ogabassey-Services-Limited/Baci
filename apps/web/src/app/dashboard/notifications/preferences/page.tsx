@@ -32,7 +32,7 @@ export default function NotificationPreferencesPage() {
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retry token reloads preferences
   useEffect(() => {
     let isStale = false;
 
@@ -166,7 +166,6 @@ export default function NotificationPreferencesPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/notifications">
@@ -183,7 +182,6 @@ export default function NotificationPreferencesPage() {
         </div>
       </div>
 
-      {/* Channels */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -230,7 +228,6 @@ export default function NotificationPreferencesPage() {
         </CardContent>
       </Card>
 
-      {/* Quiet Hours */}
       <Card>
         <CardHeader>
           <CardTitle>Quiet Hours</CardTitle>
@@ -283,7 +280,6 @@ export default function NotificationPreferencesPage() {
         </CardContent>
       </Card>
 
-      {/* Save Button */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (

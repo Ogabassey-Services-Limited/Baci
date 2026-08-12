@@ -212,13 +212,16 @@ describe('AdminDashboardPage', () => {
 
   it('shows a persistent retry state instead of empty dashboard figures after a load failure', async () => {
     const user = userEvent.setup();
-    vi.mocked(global.fetch)
-      .mockReset()
-      .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
-      .mockResolvedValueOnce({
-        json: async () => analyticsResponse,
-        ok: true,
-      } as Response);
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+        .mockResolvedValueOnce({
+          json: async () => analyticsResponse,
+          ok: true,
+        } as Response)
+    );
 
     render(<AdminDashboardPage />);
 

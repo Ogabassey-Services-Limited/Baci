@@ -60,7 +60,7 @@ export default function AdminDashboardPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [period, setPeriod] = useState<AnalyticsPeriod>('all');
   const { toast } = useToast();
-  const router = useRouter();
+  const { replace } = useRouter();
 
   const handlePeriodChange = (nextPeriod: AnalyticsPeriod) => {
     setAnalytics(null);
@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
       })
       .then((result) => {
         if (result.status === 'forbidden') {
-          router.replace('/dashboard');
+          replace('/dashboard');
           return;
         }
         if (result.status === 'error') throw result.error;
@@ -115,7 +115,7 @@ export default function AdminDashboardPage() {
       if (!active) return;
 
       if (result.status === 'forbidden') {
-        router.replace('/dashboard');
+        replace('/dashboard');
         return;
       }
 
@@ -139,7 +139,7 @@ export default function AdminDashboardPage() {
     return () => {
       active = false;
     };
-  }, [period, router, toast]);
+  }, [period, replace, toast]);
 
   const header = (
     <AdminOverviewHeader

@@ -85,7 +85,12 @@ export async function fetchNotificationsRequest(
     isFetchingRef.current = false;
     if (deps.pendingRefreshRef?.current) {
       deps.pendingRefreshRef.current = false;
-      void fetchNotificationsRequest(false, { ...deps, cursor: null });
+      // A manual refetch can arrive while the initial request is pending.
+      // The just-finished first page is already current, so only schedule a
+      // follow-up when this was an incremental (cursor-based) page.
+      if (append) {
+        void fetchNotificationsRequest(false, { ...deps, cursor: null });
+      }
     }
   }
 }

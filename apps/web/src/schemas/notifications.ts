@@ -1,5 +1,9 @@
 import { z } from 'zod';
 import { notificationActionUrl } from '@/lib/notification-action-url';
+import {
+  notificationTargetingSchema,
+  notificationTargetMerchantIdsSchema,
+} from './notification-targeting';
 
 const dateTimeLocalSchema = z
   .string()
@@ -57,39 +61,6 @@ export const updateMerchantNotificationSchema = z
     { error: 'At least one notification state field is required' }
   );
 
-const notificationTargetingSchema = z
-  .strictObject({
-    target_type: z.enum(['all', 'specific', 'segment']).optional(),
-    target_merchant_ids: z
-      .array(z.uuid())
-      .max(500)
-      .superRefine((ids, ctx) => {
-        if (new Set(ids).size !== ids.length)
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Target merchant IDs must be unique',
-          });
-      })
-      .optional(),
-    target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.target_type === 'specific' && !data.target_merchant_ids?.length) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Target merchant IDs required for specific targeting',
-        path: ['target_merchant_ids'],
-      });
-    }
-    if (data.target_type === 'segment' && !data.target_segment) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Target segment required for segment targeting',
-        path: ['target_segment'],
-      });
-    }
-  });
-
 const notificationActionUrlSchema = z
   .string()
   .trim()
@@ -118,17 +89,7 @@ export const createNotificationSchema = z
       .enum(['all', 'specific', 'segment'])
       .optional()
       .default('all'),
-    target_merchant_ids: z
-      .array(z.uuid())
-      .max(500)
-      .superRefine((ids, ctx) => {
-        if (new Set(ids).size !== ids.length)
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Target merchant IDs must be unique',
-          });
-      })
-      .optional(),
+    target_merchant_ids: notificationTargetMerchantIdsSchema.optional(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
     channels: z
       .array(z.enum(['in_app', 'banner', 'push']))
@@ -195,16 +156,7 @@ export const updateNotificationSchema = z
       .optional(),
     priority: z.enum(['low', 'normal', 'high', 'urgent']).optional(),
     target_type: z.enum(['all', 'specific', 'segment']).optional(),
-    target_merchant_ids: z
-      .array(z.uuid())
-      .max(500)
-      .superRefine((ids, ctx) => {
-        if (new Set(ids).size !== ids.length)
-          ctx.addIssue({
-            code: 'custom',
-            message: 'Target merchant IDs must be unique',
-          });
-      })
+    target_merchant_ids: notificationTargetMerchantIdsSchema
       .optional()
       .nullable(),
     target_segment: z.enum(['new', 'active', 'at_risk']).optional(),
