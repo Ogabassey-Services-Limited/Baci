@@ -85,6 +85,20 @@ describe('adminMerchant360RpcSchema', () => {
     expect(parsed.sales.paidGmv).toBe(-50);
   });
 
+  it('accepts withheld payout totals when payout history spans currencies', () => {
+    const parsed = adminMerchant360RpcSchema.parse({
+      ...validPayload,
+      payouts: {
+        ...validPayload.payouts,
+        completedAmount: null,
+        failedAmount: null,
+        pendingAmount: null,
+      },
+    });
+
+    expect(parsed.payouts.pendingAmount).toBeNull();
+  });
+
   it.each([
     { moneyCurrency: 'ngn' },
     { merchant: { ...validPayload.merchant, id: 'not-a-uuid' } },

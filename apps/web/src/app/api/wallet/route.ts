@@ -223,19 +223,24 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // Update wallet settings
-    // Settings must also work for merchants whose wallet has not been
-    // materialized yet. The merchant_id uniqueness constraint makes this
-    // idempotent without touching any balance columns on existing wallets.
+    // Only the owner-scoped RPC may materialize a wallet. Authenticated table
+    // grants deliberately allow settings UPDATE but not INSERT/UPSERT.
+    const { data: walletId, error: walletError } = await supabase.rpc(
+      'get_or_create_merchant_wallet',
+      { p_merchant_id: merchantId }
+    );
+    if (walletError || typeof walletId !== 'string') {
+      console.error('Failed to initialize wallet settings:', walletError);
+      return NextResponse.json(
+        { error: 'Failed to update settings' },
+        { status: 500 }
+      );
+    }
+
     const { error: updateError } = await supabase
       .from('merchant_wallets')
-      .upsert(
-        { merchant_id: merchantId, ...updates },
-        {
-          onConflict: 'merchant_id',
-          ignoreDuplicates: false,
-        }
-      );
+      .update(updates)
+      .eq('id', walletId);
 
     if (updateError) {
       console.error('Failed to update wallet settings:', updateError);

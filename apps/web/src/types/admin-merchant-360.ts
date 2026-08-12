@@ -1,8 +1,8 @@
 export type AdminMerchantMoneyStatusSummary = {
   pendingCount: number;
-  pendingAmount: number;
+  pendingAmount: number | null;
   failedCount: number;
-  failedAmount: number;
+  failedAmount: number | null;
 };
 
 export type AdminMerchantCurrencylessSettlementSummary = {
@@ -63,7 +63,7 @@ export type AdminMerchant360Response = {
   settlements: AdminMerchantCurrencylessSettlementSummary;
   payouts: AdminMerchantMoneyStatusSummary & {
     completedCount: number;
-    completedAmount: number;
+    completedAmount: number | null;
   };
   incidents: {
     domainEventFailures30d: number;

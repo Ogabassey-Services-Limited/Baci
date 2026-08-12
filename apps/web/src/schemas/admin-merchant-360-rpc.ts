@@ -10,9 +10,9 @@ const moneySchema = z.number().finite();
 const nullableDateSchema = z.string().min(1).nullable();
 
 const moneyStatusSummarySchema = z.object({
-  failedAmount: moneySchema,
+  failedAmount: moneySchema.nullable(),
   failedCount: countSchema,
-  pendingAmount: moneySchema,
+  pendingAmount: moneySchema.nullable(),
   pendingCount: countSchema,
 });
 
@@ -52,7 +52,7 @@ export const adminMerchant360RpcSchema = z.object({
     updatedAt: nullableDateSchema,
   }),
   payouts: moneyStatusSummarySchema.extend({
-    completedAmount: moneySchema,
+    completedAmount: moneySchema.nullable(),
     completedCount: countSchema,
   }),
   readiness: z.object({

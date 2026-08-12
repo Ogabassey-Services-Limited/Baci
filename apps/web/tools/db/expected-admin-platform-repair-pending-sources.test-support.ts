@@ -101,6 +101,11 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260811150000_prune_terminal_notification_audience_snapshots.sql',
+    sha256: 'fd8b6a0f3b2507ed439f50620ea2cae2a88723631caf057a4103f278482712fe',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260812090000_notification_preference_time_zones.sql',
     sha256: '9ebb558142629f5ceaf39c460b0643b2de27843f81a46cdb9ffd6ba62e2c4008',
   },

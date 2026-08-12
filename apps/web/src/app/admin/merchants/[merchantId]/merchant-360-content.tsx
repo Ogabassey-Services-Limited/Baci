@@ -139,11 +139,12 @@ export function Merchant360Content({
                 failed
               </p>
               <p className="text-sm text-muted-foreground">
-                {formatAdminThresholdCurrencyForCode(
-                  data.payouts.pendingAmount,
-                  data.moneyCurrency
-                )}{' '}
-                pending
+                {data.payouts.pendingAmount === null
+                  ? 'Amounts unavailable across multiple currencies.'
+                  : `${formatAdminThresholdCurrencyForCode(
+                      data.payouts.pendingAmount,
+                      data.moneyCurrency
+                    )} pending`}
               </p>
             </div>
             <p className="text-sm text-muted-foreground sm:col-span-2">

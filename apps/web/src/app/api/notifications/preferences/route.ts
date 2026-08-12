@@ -94,7 +94,7 @@ export async function GET() {
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
       .select(
-        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
+        'merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -209,7 +209,7 @@ export async function PATCH(request: NextRequest) {
       .from('notification_preferences')
       .upsert(updates, { onConflict: 'merchant_id' })
       .select(
-        'id, merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
+        'merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .single();
 

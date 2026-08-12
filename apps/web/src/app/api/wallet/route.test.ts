@@ -75,7 +75,6 @@ vi.mock('@/lib/supabase/server', () => ({
             createMerchantWalletSelect(walletSettingsResult, walletSelectError)
           ),
           update: vi.fn(() => createMerchantWalletUpdate(updateError)),
-          upsert: mocks.upsert,
         };
       }
 
@@ -127,9 +126,7 @@ describe('/api/wallet', () => {
     walletSelectError = null;
     pendingSettlements = [];
     updateError = null;
-    mocks.upsert.mockImplementation(() =>
-      Promise.resolve({ error: updateError })
-    );
+    mocks.rpc.mockResolvedValue({ data: 'wallet-1', error: null });
   });
 
   it('returns 401 when the user is missing', async () => {
@@ -324,14 +321,9 @@ describe('/api/wallet', () => {
       success: true,
       message: 'Wallet settings updated',
     });
-    expect(mocks.upsert).toHaveBeenCalledWith(
-      {
-        merchant_id: 'merchant-1',
-        auto_payout_enabled: false,
-        auto_payout_day: 'friday',
-      },
-      { onConflict: 'merchant_id', ignoreDuplicates: false }
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith('get_or_create_merchant_wallet', {
+      p_merchant_id: 'merchant-1',
+    });
   });
 
   it('creates a wallet when updating settings before wallet initialization', async () => {
@@ -340,9 +332,8 @@ describe('/api/wallet', () => {
     const response = await PATCH(patchRequest({ autoPayoutEnabled: false }));
 
     expect(response.status).toBe(200);
-    expect(mocks.upsert).toHaveBeenCalledWith(
-      { merchant_id: 'merchant-1', auto_payout_enabled: false },
-      { onConflict: 'merchant_id', ignoreDuplicates: false }
-    );
+    expect(mocks.rpc).toHaveBeenCalledWith('get_or_create_merchant_wallet', {
+      p_merchant_id: 'merchant-1',
+    });
   });
 });
