@@ -201,8 +201,8 @@ overrides:
   "uuid@>=13 <13.0.1": "13.0.1"
   # Pin transitive Lighthouse/Puppeteer proxy tooling to the current patched release.
   ip-address: "10.3.1"
-  # Pin to 16.2.11 to mitigate the Next.js Server Components advisories while staying on the current Next.js 16 patch.
-  next: "16.2.11"
+  # Keep every workspace package on the reviewed Next.js 16.3.0 release.
+  next: "16.3.0"
   flatted: "3.4.2"
   lodash: "4.18.1"
   lodash-es: "4.18.1"
@@ -313,7 +313,6 @@ patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
   "@react-native-google-signin/google-signin@16.1.2": "patches/@react-native-google-signin/google-signin@16.1.2.patch"
   "lottie-react-native@7.3.8": "patches/lottie-react-native@7.3.8.patch"
-  "next@16.2.11": "patches/next@16.2.11.patch"
   "novel@1.0.2": "patches/novel@1.0.2.patch"
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
@@ -337,3 +336,4 @@ patchedDependencies:
   # the patch to the new version then (57.0.4 is byte-identical here).
   "expo-modules-jsi@57.0.3": "patches/expo-modules-jsi@57.0.3.patch"
   image-size@1.2.1: patches/image-size@1.2.1.patch
+  "next@16.3.0": "patches/next@16.3.0.patch"

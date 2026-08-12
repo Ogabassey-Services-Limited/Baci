@@ -73,6 +73,14 @@ describe('next.config OgaBassey resource headers', () => {
     );
   });
 
+  it('does not pass the removed viewTransition experiment to Next 16.3', () => {
+    expect(nextConfig.experimental).not.toHaveProperty('viewTransition');
+  });
+
+  it('keeps Next on the TypeScript API path for the workspace compiler alias', () => {
+    expect(nextConfig.experimental?.useTypeScriptCli).toBe(false);
+  });
+
   it('publishes only public PostHog release context envs to the browser bundle', () => {
     expect(nextConfig.env).toEqual(
       expect.not.objectContaining({
