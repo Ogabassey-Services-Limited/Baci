@@ -201,6 +201,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260724153014_revoke_order_notification_outbox_claim_public_grants.sql',
+    sha256: 'e134f42fa59b595a9df9479572a9ddb862efd7a834ad62de091e39d8b55c1074',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260724160000_korapay_storefront_setting_default_off.sql',
     sha256: '76ccee1969b595892e70322b5957fe03b6df444952d9f1b6bb9c1e59ffc55556',
   },
