@@ -31,6 +31,7 @@ export function isCameraLikeCategory(categoryName: string) {
     !isMobileCategory &&
     !isAccessoryLikeCategory(normalized) &&
     (CAMERA_BODY_CATEGORY_NAMES.has(normalized) ||
+      /\bcameras?\b/.test(normalized) ||
       normalized.endsWith(' camera') ||
       normalized.endsWith(' cameras'))
   );

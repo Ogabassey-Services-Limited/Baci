@@ -9,6 +9,7 @@ describe('isCameraLikeCategory', () => {
       'instant-cameras',
       'Camcorders',
       'Dash Cams',
+      'Cameras (DSLR)',
     ]) {
       expect(isCameraLikeCategory(category)).toBe(true);
     }

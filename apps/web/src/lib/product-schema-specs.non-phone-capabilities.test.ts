@@ -44,4 +44,19 @@ describe('shouldIncludeProductSchemaSpec non-phone capabilities', () => {
       )
     ).toBe(false);
   });
+
+  it('preserves descriptive radio rows for radio products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Car Stereo', categories: null },
+        { label: 'Radio', value: 'FM / AM' }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { label: 'Radio', value: 'FM / AM' }
+      )
+    ).toBe(false);
+  });
 });

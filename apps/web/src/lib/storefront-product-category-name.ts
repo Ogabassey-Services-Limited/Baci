@@ -25,7 +25,7 @@ export function resolveStorefrontProductCategoryName(
   }
 
   const directSlug = product.categories?.slug?.trim();
-  if (directSlug) {
+  if (directSlug && !isUnsupportedSpecValue(directSlug)) {
     return directSlug;
   }
 

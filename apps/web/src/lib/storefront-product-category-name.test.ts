@@ -35,4 +35,14 @@ describe('resolveStorefrontProductCategoryName', () => {
       })
     ).toBe('action-cameras');
   });
+
+  it('skips unsupported joined slugs before using the canonical slug', () => {
+    expect(
+      resolveStorefrontProductCategoryName({
+        categories: { slug: 'unknown' },
+        category_slug: 'action-cameras',
+        category: 'Smartphones',
+      })
+    ).toBe('action-cameras');
+  });
 });

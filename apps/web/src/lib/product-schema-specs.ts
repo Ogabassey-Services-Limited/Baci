@@ -115,6 +115,9 @@ export function shouldIncludeProductSchemaSpec(
   const isDashCamCategory = categoryNames.some((category) =>
     /\bdash cams?\b/.test(category)
   );
+  const isRadioLikeCategory = categoryNames.some((category) =>
+    /\b(?:car stereo|radio|radios|audio|stereo)s?\b/.test(category)
+  );
 
   if (
     hasCameraCategory &&
@@ -166,6 +169,15 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (canonicalSpecKey === 'card_slot_type') {
+    return true;
+  }
+
+  if (
+    canonicalSpecKey === 'has_fm_radio' &&
+    !isMobileCategory &&
+    !candidate.key &&
+    isRadioLikeCategory
+  ) {
     return true;
   }
 
