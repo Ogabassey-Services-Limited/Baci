@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { eventPipelineCredentialPaths } from './event-pipeline-credential-paths';
+import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-credential-paths';
 
 describe('event-pipeline credential paths', () => {
   it('terminates every credential path at the environment module', () => {

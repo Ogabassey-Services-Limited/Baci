@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { authorityFindings } from './event-pipeline-boundary-manifest';
-import { eventPipelineJumiaCredentialPaths } from './event-pipeline-jumia-credential-paths';
 
 const modulePath = resolve(
   process.cwd(),

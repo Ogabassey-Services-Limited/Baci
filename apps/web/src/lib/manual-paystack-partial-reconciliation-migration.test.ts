@@ -129,7 +129,7 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(migration).toContain('resolution_notes = format(');
     expect(migration).toContain('INSERT INTO public.audit_logs');
     expect(migration).toMatch(
-      /GRANT EXECUTE ON FUNCTION public\.reconcile_paystack_unmatched_partial_payment[\s\S]*TO service_role;/
+      /GRANT EXECUTE ON FUNCTION public\.reconcile_paystack_unmatched_partial_payment[^;]*TO service_role;/
     );
   });
 

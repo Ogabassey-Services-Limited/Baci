@@ -1,8 +1,9 @@
+import { eventPipelineAdminImporters } from '@/lib/events/event-pipeline-authority-paths';
+import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-credential-paths';
+import { frozenEventPipelineAuthoritySources } from '@/lib/events/event-pipeline-frozen-authority-sources';
+import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
+import { eventPipelineLegacySdkImporters } from '@/lib/events/event-pipeline-legacy-sdk-importers';
 import type { Database, Json } from '@/types/supabase';
-import { eventPipelineAdminImporters } from './event-pipeline-authority-paths';
-import { eventPipelineCredentialPaths } from './event-pipeline-credential-paths';
-import { frozenEventPipelineAuthoritySources } from './event-pipeline-frozen-authority-sources';
-import { eventPipelineLegacySdkImporters } from './event-pipeline-legacy-sdk-importers';
 export function toEventPipelineJson(
   value: unknown,
   ancestors = new WeakSet<object>()
@@ -149,7 +150,10 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
       'apps/web/src/lib/merchant-feature-gates.ts',
     ],
-    credentialPaths: eventPipelineCredentialPaths,
+    credentialPaths: [
+      ...eventPipelineCredentialPaths,
+      ...eventPipelineJumiaCredentialPaths,
+    ],
     factoryModules: [
       'apps/web/src/lib/supabase/admin.ts',
       'apps/web/src/lib/supabase/server.ts',
