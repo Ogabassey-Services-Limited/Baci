@@ -28,13 +28,18 @@ describe('getPublicSerializedVariantSummariesByProductId timeout retry', () => {
       ],
       null
     );
-    const queryFor = (data: unknown) => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          in: vi.fn().mockResolvedValue({ data, error: null }),
-        })),
-      })),
-    });
+    const queryFor = (data: unknown) => {
+      const query = {
+        eq: vi.fn(),
+        in: vi.fn(),
+        returns: vi.fn().mockResolvedValue({ data, error: null }),
+        select: vi.fn(),
+      };
+      query.select.mockReturnValue(query);
+      query.eq.mockReturnValue(query);
+      query.in.mockReturnValue(query);
+      return query;
+    };
     const mockSupabase = {
       from: vi.fn((table: string) =>
         queryFor(
