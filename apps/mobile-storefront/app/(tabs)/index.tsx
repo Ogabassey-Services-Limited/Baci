@@ -23,6 +23,7 @@ import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
+import { recordPerformanceSurface } from '@/lib/performance-attribution';
 
 const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
 
@@ -186,6 +187,9 @@ export default function HomeScreen() {
     recordCrashBreadcrumb('home:mounted', {
       businessType: CONFIG.BUSINESS_TYPE,
       templateId: CONFIG.TEMPLATE_ID,
+    });
+    recordPerformanceSurface('home', {
+      template_id: CONFIG.TEMPLATE_ID,
     });
     return () => recordCrashBreadcrumb('home:unmounted');
   }, []);

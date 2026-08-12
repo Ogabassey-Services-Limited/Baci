@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { Platform, useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
+import { recordPerformanceSurface } from '@/lib/performance-attribution';
 import { shouldRenderGadgetPattern } from './should-render-gadget-pattern';
 
 interface GadgetPatternProps {
@@ -31,6 +34,17 @@ export function GadgetPattern({
   color = '#ffffff',
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
+
+  useEffect(() => {
+    const details = {
+      api_level:
+        Platform.OS === 'android' ? Number(Platform.Version) : undefined,
+      os: Platform.OS,
+      variant,
+    };
+    recordPerformanceSurface('gadget_pattern', details);
+    return () => recordCrashBreadcrumb('gadget_pattern:unmounted', details);
+  }, [variant]);
 
   // Older Android SVG draw passes can ANR on this decorative pattern; keep it off API 28 and below.
   if (!shouldRenderGadgetPattern(Platform.OS, Platform.Version)) {
