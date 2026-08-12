@@ -47,7 +47,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260811180000_fix_paystack_reconciliation_retry_balance.sql',
-    sha256: 'ee92fc8042a1a13cda1931666dd53ed775351b24a07164e894218e4ba9b7294f',
+    sha256: '1ccd752c588696be6c221c46e4e0b5338046844ccad9d4a7076efe81ab659348',
   },
   {
     repositoryPath:
