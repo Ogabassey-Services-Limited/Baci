@@ -682,7 +682,7 @@ export default function DashboardClientLayout({
         pathname={pathname}
         onExpandedChange={setIsCapsuleExpanded}
         onNavigate={handleNavItemClick}
-        onUpgrade={() => openUpgradeModal('advanced_analytics')}
+        onUpgrade={() => openUpgradeModal('ai_product_descriptions')}
       />
 
       <div className="grid min-h-screen w-full md:grid-cols-[92px_1fr]">

@@ -126,6 +126,21 @@ const mobileReadiness = {
 } satisfies MobileStoreReadiness;
 
 describe('SetupChecklist', () => {
+  async function expandDesktopChecklist() {
+    const trigger = await waitFor(() => {
+      const button = screen
+        .getAllByRole('button')
+        .find(
+          (candidate) =>
+            candidate.getAttribute('aria-controls') ===
+            'store-setup-checklist-details'
+        );
+      expect(button).toBeDefined();
+      return button as HTMLElement;
+    });
+    fireEvent.click(trigger);
+  }
+
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -136,6 +151,7 @@ describe('SetupChecklist', () => {
 
   it('announces the collapsed and expanded state of the setup item toggle', async () => {
     render(<SetupChecklist compact merchantId={readiness.merchantId} />);
+    await expandDesktopChecklist();
 
     const toggle = await screen.findByRole('button', {
       name: 'Show 2 more setup items',
@@ -162,6 +178,7 @@ describe('SetupChecklist', () => {
     } as Response);
 
     render(<SetupChecklist compact merchantId={readiness.merchantId} />);
+    await expandDesktopChecklist();
 
     expect(
       await screen.findByText('Failed to load your setup checklist.')
@@ -210,6 +227,7 @@ describe('SetupChecklist', () => {
 
     render(<SetupChecklist compact merchantId={readiness.merchantId} />);
 
+    await expandDesktopChecklist();
     fireEvent.click(
       await screen.findByRole('button', { name: 'Publish Store' })
     );
