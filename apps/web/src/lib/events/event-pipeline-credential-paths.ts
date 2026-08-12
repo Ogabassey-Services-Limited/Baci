@@ -1,5 +1,3 @@
-import { jumiaCredentialPaths } from './jumia-credential-paths';
-
 export const eventPipelineCredentialPaths = [
   [
     'apps/web/src/app/(platform)/onboarding/actions.ts',
@@ -65,5 +63,4 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/lib/supabase/admin.ts',
     'apps/web/src/env.ts',
   ],
-  ...jumiaCredentialPaths,
 ] as const;
