@@ -23,6 +23,7 @@ import { offlineQueue } from '@/lib/offline-queue';
 import { prefetchStartupStorefrontData } from '@/lib/startup-storefront-prefetch';
 import { DEFAULT_SYNC_STORAGE_KEYS, initializeStorage } from '@/lib/storage';
 import { initAnalytics } from '@/services/analytics';
+import { flushPerformanceAttributions } from '@/lib/performance-attribution';
 import { type CreateOrderRequest, createOrder } from '@/services/orders';
 import { activateDueSavingsReminderNotification } from '@/services/savings-reminder-notifications';
 import { useAuthStore } from '@/stores/auth-store';
@@ -155,6 +156,7 @@ export default function RootLayout() {
         hasUser: Boolean(useAuthStore.getState().user?.id),
       });
       await initAnalytics();
+      flushPerformanceAttributions();
       recordCrashBreadcrumb('root_layout:analytics_initialized');
       await offlineQueue.initialize();
       recordCrashBreadcrumb('root_layout:offline_queue_initialized');
