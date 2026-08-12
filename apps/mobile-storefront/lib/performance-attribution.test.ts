@@ -1,8 +1,5 @@
 import { trackEvent } from '@/services/analytics';
-import {
-  flushPerformanceAttributions,
-  recordPerformanceSurface,
-} from './performance-attribution';
+import { recordPerformanceSurface } from './performance-attribution';
 import { recordCrashBreadcrumb } from './crash-diagnostics';
 
 jest.mock('./crash-diagnostics', () => ({
@@ -23,7 +20,6 @@ describe('performance attribution', () => {
       variant: 'hero',
     });
 
-    flushPerformanceAttributions();
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(
       'performance:surface:gadget_pattern',
       { api_level: 28, os: 'android', surface: 'gadget_pattern', variant: 'hero' }

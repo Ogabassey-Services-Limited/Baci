@@ -138,8 +138,7 @@ export function initAnalytics(): void {
       if (event) {
         posthogClient.capture(event.name, {
           ...sanitizeAnalyticsProperties(event.properties),
-          timestamp: event.timestamp,
-        });
+        }, { timestamp: new Date(event.timestamp) });
       }
     }
 
