@@ -180,6 +180,13 @@ export function createTask9BundleFixture() {
     sourceManifestPath: fixture.paths.manifest,
     transactionId: 'task9-transaction-deterministic',
     workflowId: 987654,
+    verifyGithub: (endpoint) => endpoint.includes('/pulls/')
+      ? { base: { sha: fixture.baseSha }, head: { ref: 'codex/h0-cwv-integration', sha: fixture.reviewedSha }, number: 3297 }
+      : endpoint.includes('/actions/workflows/')
+        ? { id: 987654, path: '.github/workflows/cwv-runner-attestation.yml' }
+        : endpoint.endsWith('/jobs?per_page=100')
+          ? { jobs: [{ conclusion: 'success', name: 'deploy-production' }] }
+          : { conclusion: 'success', event: 'push', head_branch: 'main', head_sha: fixture.reviewedSha, id: 987654, path: '.github/workflows/deploy.yml', repository: { full_name: 'ogabasseyy/Baci', id: 1100488586 }, status: 'completed' },
   });
   const generate = (value, options = {}) =>
     generateTask9BootstrapBundle(value, {

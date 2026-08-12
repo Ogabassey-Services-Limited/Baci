@@ -62,13 +62,12 @@ export function runTask9BootstrapBundleCli(argv, dependencies = {}) {
 
 try {
   if (
+    import.meta.url.startsWith('file:') &&
     process.argv[1] &&
     realpathSync(process.argv[1]) ===
       realpathSync(fileURLToPath(import.meta.url))
   ) {
-    process.stdout.write(
-      `${runTask9BootstrapBundleCli(process.argv.slice(2))}\n`
-    );
+    throw new TypeError('launcher required');
   }
 } catch {
   process.stderr.write('task9-bootstrap-bundle refused\n');

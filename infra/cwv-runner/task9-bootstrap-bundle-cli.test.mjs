@@ -75,7 +75,7 @@ test('composes closed scalar flags and returns canonical secret-free output', ()
   );
 });
 
-test('direct invocation through a symlink still runs the closed entrypoint', () => {
+test('direct CLI invocation through a symlink refuses the launcher bypass', () => {
   const root = mkdtempSync(join(tmpdir(), 'task9-cli-link-'));
   const link = join(root, 'task9-cli.mjs');
   try {

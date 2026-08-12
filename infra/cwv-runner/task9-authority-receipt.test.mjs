@@ -27,7 +27,7 @@ const valid = () => ({
 
 test('parses a canonical successful authority receipt', () => {
   const fixture = writeReceipt(valid());
-  try { assert.equal(readTask9AuthorityReceipt(fixture.path, fixture.digestPath).repository.id, 1); }
+  try { assert.equal(readTask9AuthorityReceipt(fixture.path, fixture.digestPath, (endpoint) => endpoint.endsWith('/jobs?per_page=100') ? { jobs: [{ name: 'deploy-production', conclusion: 'success' }] } : { conclusion: 'success', id: 2, event: 'push', head_branch: 'main', head_sha: sha, path: '.github/workflows/deploy.yml', repository: { id: 1, full_name: 'ogabasseyy/Baci' }, status: 'completed' }).repository.id, 1); }
   finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });
 
@@ -41,4 +41,15 @@ test('rejects failed, wrong-workflow, and malformed-repository receipts', () => 
     try { assert.throws(() => readTask9AuthorityReceipt(fixture.path, fixture.digestPath), /invalid Task 9 authority receipt/); }
     finally { rmSync(fixture.root, { recursive: true, force: true }); }
   }
+});
+
+test('rejects a forged matching receipt and digest when GitHub has no successful deployment', () => {
+  const fixture = writeReceipt(valid());
+  try {
+    assert.throws(
+      () => readTask9AuthorityReceipt(fixture.path, fixture.digestPath, (endpoint) =>
+        endpoint.endsWith('/jobs?per_page=100') ? { jobs: [] } : { conclusion: 'failure' }),
+      /invalid Task 9 authority receipt/
+    );
+  } finally { rmSync(fixture.root, { recursive: true, force: true }); }
 });

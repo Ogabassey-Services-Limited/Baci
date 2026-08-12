@@ -92,10 +92,12 @@ export function generateTask9BootstrapBundle(
   const prMetadata = readTask9PrMetadata(input.prMetadataPath, input.prMetadataDigestPath, {
     maxBytes: MAX_SMALL_INPUT_BYTES,
     reviewedSha256: input.reviewedPrMetadataSha256,
+    verify: input.verifyGithub,
   });
   const authorityReceipt = readTask9AuthorityReceipt(
     input.authorityReceiptPath,
-    input.authorityReceiptDigestPath
+    input.authorityReceiptDigestPath,
+    input.verifyGithub
   );
   if (
     !DIGEST.test(manifestDigestInput.bytes.toString().trim()) ||

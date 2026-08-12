@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
@@ -24,4 +25,24 @@ test('hash-checks the composer before invoking its closed CLI', async () => {
     runTask9BootstrapBundleLauncher({ composerPath, composerSha256, argv: [], cwd: checkout }),
     /invalid Task 9 bundle invocation/
   );
+});
+
+test('refuses a modified dependency even when the CLI hash still matches', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'task9-launcher-closure-'));
+  try {
+    copyFileSync(composerPath, join(directory, 'task9-bootstrap-bundle-cli.mjs'));
+    writeFileSync(join(directory, 'canonical-json.mjs'), 'export const canonicalJson=()=>"forged";');
+    await assert.rejects(
+      runTask9BootstrapBundleLauncher({ composerPath: join(directory, 'task9-bootstrap-bundle-cli.mjs'), composerSha256, argv: [], cwd: checkout }),
+      /invalid Task 9 composer/
+    );
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('direct launcher invocation refuses an incomplete closed invocation', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const launcher = fileURLToPath(new URL('./task9-bootstrap-bundle-launcher.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [launcher], { encoding: 'utf8' });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stderr, 'task9-bootstrap-bundle-launcher refused\n');
 });

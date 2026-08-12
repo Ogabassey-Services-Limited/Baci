@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { canonicalJson } from './canonical-json.mjs';
 import { validGitRef } from './git-ref-validator.mjs';
 import { readHeldTask9File } from './task9-held-file.mjs';
@@ -14,7 +15,7 @@ const fail = () => {
 export function readTask9PrMetadata(
   path,
   digestPath,
-  { maxBytes = 1_048_576, reviewedSha256 } = {}
+  { maxBytes = 1_048_576, reviewedSha256, verify = (endpoint) => JSON.parse(execFileSync('/opt/homebrew/bin/gh', ['api', endpoint], { encoding: 'utf8', env: { HOME: process.env.HOME, PATH: '/usr/bin:/bin' } })) } = {}
 ) {
   const input = readHeldTask9File(path, 0o600, { maxBytes });
   const digest = readHeldTask9File(digestPath, 0o600, { maxBytes: 256 });
@@ -51,6 +52,9 @@ export function readTask9PrMetadata(
       !validGitRef(value.headRef)
     )
       fail();
+    const pr = verify(`/repos/ogabasseyy/Baci/pulls/${value.number}`);
+    const workflow = verify('/repos/ogabasseyy/Baci/actions/workflows/cwv-runner-attestation.yml');
+    if (pr?.number !== value.number || pr?.base?.sha !== value.baseSha || pr?.head?.sha !== value.reviewedHeadSha || pr?.head?.ref !== value.headRef || workflow?.id !== value.workflowId || workflow?.path !== '.github/workflows/cwv-runner-attestation.yml') fail();
     return value;
   } finally {
     close(input, digest);
