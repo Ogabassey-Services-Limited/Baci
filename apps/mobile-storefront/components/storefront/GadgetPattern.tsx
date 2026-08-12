@@ -1,5 +1,6 @@
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import { shouldRenderGadgetPattern } from './should-render-gadget-pattern';
 
 interface GadgetPatternProps {
   opacity?: number;
@@ -30,6 +31,10 @@ export function GadgetPattern({
   color = '#ffffff',
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
+
+  if (!shouldRenderGadgetPattern(Platform.OS, Platform.Version)) {
+    return null;
+  }
 
   const strokeProps = {
     stroke: color,
