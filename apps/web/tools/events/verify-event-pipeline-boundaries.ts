@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import {
   authorityFindings,
   bindingInitializer,

@@ -17,6 +17,7 @@ import {
 } from './src/lib/posthog/config';
 
 const require = createRequire(import.meta.url);
+const workspaceRoot = resolve(process.cwd(), '../..');
 const { pathToRegexp } = require('next/dist/compiled/path-to-regexp') as {
   pathToRegexp: (path: string) => RegExp;
 };
@@ -77,8 +78,30 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.experimental).not.toHaveProperty('viewTransition');
   });
 
-  it('keeps Next on the TypeScript API path for the workspace compiler alias', () => {
-    expect(nextConfig.experimental?.useTypeScriptCli).toBe(false);
+  it('uses the TypeScript CLI so Next can run the TypeScript 7 compiler', () => {
+    expect(nextConfig.experimental?.useTypeScriptCli).toBe(true);
+  });
+
+  it('keeps the TypeScript 6 API package separate from the TypeScript 7 CLI', () => {
+    const workspacePackage = require(
+      resolve(workspaceRoot, 'package.json')
+    ) as {
+      devDependencies: Record<string, string>;
+    };
+    const webPackage = require(resolve(process.cwd(), 'package.json')) as {
+      devDependencies: Record<string, string>;
+    };
+
+    expect(workspacePackage.devDependencies.typescript).toMatch(
+      /^npm:@typescript\/typescript6@~6\./
+    );
+    expect(workspacePackage.devDependencies['@typescript/typescript6']).toMatch(
+      /^~6\./
+    );
+    expect(webPackage.devDependencies.typescript).toMatch(/^~7\./);
+    expect(webPackage.devDependencies['@typescript/typescript6']).toMatch(
+      /^~6\./
+    );
   });
 
   it('publishes only public PostHog release context envs to the browser bundle', () => {
