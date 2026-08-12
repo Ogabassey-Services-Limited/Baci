@@ -64,10 +64,11 @@ test('publishes Task 9 only into its authorized tree then freshly prepares the p
   assert.doesNotMatch(task9Operation, /\bfetch\(/);
 });
 
-test('hash-binds the Task 9 bundle launcher and pinned GitHub CLI before composition', () => {
+test('hash-binds and delegates Task 9 composition to the focused helper', () => {
   assert.match(source, /--compose-task9-bundle/);
-  assert.match(source, /\[ "\$\(sha256 "\$launcher_source"\)" = "\$reviewed_launcher_sha" \]/);
-  assert.match(source, /exec "\$node" "\$launcher" "\$composer" "\$reviewed_composer_sha" "\$gh" "\$\(sha256 "\$gh"\)"/);
+  assert.match(source, /--reviewed-helper-sha256/);
+  assert.match(source, /\[ "\$\(sha256 "\$helper"\)" = "\$reviewed_helper_sha" \]/);
+  assert.match(source, /exec "\$helper" --transaction-dir/);
 });
 
 test('uses a rollback-armed, post-activation immutable Task 7 probe contract', () => {
