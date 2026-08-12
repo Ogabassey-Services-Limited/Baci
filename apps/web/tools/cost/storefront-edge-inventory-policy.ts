@@ -26,7 +26,7 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
   '/blog/{*path}',
   '/{storefrontIdentifier}/blog',
   '/{storefrontIdentifier}/blog/{*path}',
-].map((routePattern, index) => {
+].map<InventoryRow>((routePattern, index) => {
   const scope = ['root', 'nested', 'slug-root', 'slug-nested'][index];
   if (!scope) throw new Error('draft-mode path has no stable identifier');
   const row = {
@@ -48,9 +48,9 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
         hostKind: 'platform_root_domain',
         precedence: 'before_path_decision',
       },
-    } satisfies InventoryRow;
+    };
   }
-  return row satisfies InventoryRow;
+  return row;
 });
 
 const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
