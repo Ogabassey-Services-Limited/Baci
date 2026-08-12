@@ -64,7 +64,7 @@ export function PreviewInertHero({
     >
       <section
         aria-label="Preview hero"
-        className={`${alignClasses[align]} ${paddingClasses[padding]}${overlay && backgroundImage ? ' bg-store-background-text/40 text-store-background' : backgroundGradient ? ' text-store-background' : ''}`}
+        className={`relative ${alignClasses[align]} ${paddingClasses[padding]}${overlay && backgroundImage ? ' text-store-background' : backgroundGradient ? ' text-store-background' : ''}`}
         data-animation-delay={animationDelay}
         data-animation-duration={animationDuration}
         data-animation-trigger={animationTrigger}
@@ -81,13 +81,22 @@ export function PreviewInertHero({
             : undefined
         }
       >
-        <Heading>{title}</Heading>
-        {subtitle ? <p>{subtitle}</p> : null}
-        {ctaText ? (
-          <button aria-disabled="true" disabled type="button">
-            {ctaText}
-          </button>
+        {(overlay && backgroundImage) || backgroundGradient ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-black/60"
+            data-testid="builder-preview-hero-overlay"
+          />
         ) : null}
+        <div className="relative z-10">
+          <Heading>{title}</Heading>
+          {subtitle ? <p>{subtitle}</p> : null}
+          {ctaText ? (
+            <button aria-disabled="true" disabled type="button">
+              {ctaText}
+            </button>
+          ) : null}
+        </div>
       </section>
     </AnimatedWrapper>
   );

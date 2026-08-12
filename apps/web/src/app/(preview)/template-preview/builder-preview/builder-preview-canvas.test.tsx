@@ -198,6 +198,7 @@ describe('BuilderPreviewCanvas', () => {
     const response = JSON.parse(postMessage.mock.calls[1][0]);
     expect(response).toEqual({
       code: 'invalid_message',
+      revision: 1,
       type: 'baci.builder-preview.error',
       version: 1,
     });

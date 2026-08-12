@@ -238,6 +238,30 @@ describe('preview render policy', () => {
     ).toBe(false);
   });
 
+  it('rejects a carousel slide without validated artwork', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [
+        {
+          props: {
+            id: 'carousel-1',
+            slides: [
+              {
+                ctaLink: '/collections/new',
+                ctaText: 'Shop now',
+                subtitle: 'Supporting copy',
+                title: 'New title',
+              },
+            ],
+          },
+          type: 'HeroCarousel',
+        },
+      ],
+      root: { props: { title: 'Home' } },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('projects HTTPS carousel assets while rejecting hostile links and unknown fields', () => {
     const candidate = (slide: Record<string, unknown>) =>
       builderPreviewCandidateConfigSchema.safeParse({

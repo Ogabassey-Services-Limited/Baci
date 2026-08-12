@@ -22,6 +22,29 @@ type NativePreviewBridge = {
   postMessage: (message: string) => void;
 };
 
+function getBoundedEventRevision(event: Event): number | undefined {
+  if (!('data' in event)) return undefined;
+  const raw =
+    typeof event.data === 'string'
+      ? (() => {
+          try {
+            return JSON.parse(event.data) as unknown;
+          } catch {
+            return null;
+          }
+        })()
+      : event.data;
+  if (typeof raw !== 'object' || raw === null || !('revision' in raw))
+    return undefined;
+  const revision = raw.revision;
+  return typeof revision === 'number' &&
+    Number.isInteger(revision) &&
+    revision >= 0 &&
+    revision <= 2_147_483_647
+    ? revision
+    : undefined;
+}
+
 class PreviewRenderFailureBoundary extends Component<
   { children: ReactNode; onError: () => void },
   { failed: boolean }
@@ -74,8 +97,10 @@ export function BuilderPreviewCanvas() {
       if (!isBuilderPreviewRenderEvent(event)) return;
       const message = parseBuilderPreviewEvent(event);
       if (!message) {
+        const revision = getBoundedEventRevision(event);
         postPreviewResponse({
           code: 'invalid_message',
+          ...(revision === undefined ? {} : { revision }),
           type: 'baci.builder-preview.error',
           version: 1,
         });

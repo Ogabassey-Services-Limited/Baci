@@ -84,16 +84,23 @@ export function PreviewInertHeader({
   textColor,
 }: PreviewHeaderProps) {
   const isCenteredLayout = layout === 'logo-center';
+  const effectiveTextColor = glassEffect ? 'white' : textColor;
+  const effectiveBackgroundColor = glassEffect
+    ? 'transparent'
+    : backgroundColor;
   return (
     <header
       className={`${paddingClasses[paddingY]} ${layoutClasses[layout]}${
         sticky ? ' fixed left-0 right-0 top-0 z-10' : ' relative'
-      }${glassEffect ? ' bg-store-background/70 backdrop-blur-md' : ''}`}
+      }`}
       data-glass-effect={String(glassEffect)}
       data-layout={layout}
       data-sticky={String(sticky)}
       data-testid="builder-preview-inert-header"
-      style={{ backgroundColor, color: textColor }}
+      style={{
+        backgroundColor: effectiveBackgroundColor,
+        color: effectiveTextColor,
+      }}
     >
       {backgroundImage ? (
         <span

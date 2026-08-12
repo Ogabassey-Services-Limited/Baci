@@ -38,4 +38,28 @@ describe('PreviewInertHero', () => {
       },
     });
   });
+
+  it('renders image and gradient contrast as a separate overlay layer', () => {
+    const { rerender } = render(
+      <PreviewInertHero
+        backgroundImage="/hero.webp"
+        overlay
+        title="Image hero"
+      />
+    );
+
+    expect(screen.getByTestId('builder-preview-hero-overlay')).toHaveClass(
+      'bg-black/60'
+    );
+
+    rerender(
+      <PreviewInertHero
+        backgroundGradient="linear-gradient(#000000, #ffffff)"
+        title="Gradient hero"
+      />
+    );
+    expect(
+      screen.getByTestId('builder-preview-hero-overlay')
+    ).toBeInTheDocument();
+  });
 });

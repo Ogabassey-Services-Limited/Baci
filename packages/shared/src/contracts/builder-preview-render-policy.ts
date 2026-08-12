@@ -78,6 +78,7 @@ function isPreviewCarouselSlide(value: unknown): boolean {
   return (
     isRecord(value) &&
     Object.keys(value).length > 0 &&
+    previewRenderProjection.isAssetSource(value.image) &&
     Object.keys(specialProps).every((key) =>
       Object.keys(value).includes(key)
     ) &&

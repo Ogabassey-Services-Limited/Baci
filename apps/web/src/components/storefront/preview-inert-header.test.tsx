@@ -70,7 +70,9 @@ describe('PreviewInertHeader', () => {
     const header = screen.getByRole('banner');
     const search = screen.getByRole('button', { name: 'Search' });
     expect(header).toHaveAttribute('data-glass-effect', 'true');
-    expect(header).toHaveClass('backdrop-blur-md', 'py-6');
+    expect(header).toHaveClass('py-6');
+    expect(header).not.toHaveClass('backdrop-blur-md');
+    expect(header.style.color).toBe('white');
     expect(search).toHaveAttribute('data-search-style', 'filled');
     expect(search).toHaveAttribute('data-search-radius', 'full');
     expect(search).toHaveClass('bg-muted', 'rounded-full');

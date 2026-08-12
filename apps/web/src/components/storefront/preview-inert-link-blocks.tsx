@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AnimatedWrapper } from '@/components/builder/animated-wrapper';
 import { PreviewInertHeader } from './preview-inert-header';
 import {
   PreviewInertHero,
@@ -38,7 +39,10 @@ type PreviewFooterProps = {
   socialLinksLabel?: string;
   textColor?: string;
 };
-type PreviewFaqProps = {
+type PreviewFaqProps = Pick<
+  PreviewInertHeroProps,
+  'animationDelay' | 'animationDuration' | 'animationTrigger' | 'animationType'
+> & {
   items?: { answer?: string; question?: string }[];
   style?: 'accordion' | 'grid' | 'list';
   subtitle?: string;
@@ -88,26 +92,46 @@ function InertAction({
 }
 
 function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
+  const activeIndex = slides.length > 0 ? slides.length - 1 : -1;
+  const activeSlide = activeIndex >= 0 ? slides[activeIndex] : undefined;
+
   return (
-    <section aria-label="Preview hero carousel">
-      {slides.map((slide) => (
+    <section
+      aria-label="Preview hero carousel"
+      className="relative h-[85vh] w-full overflow-hidden"
+      data-slide-count={slides.length}
+      data-active-slide-index={activeIndex}
+    >
+      {activeSlide ? (
         <article
-          key={`${slide.title ?? ''}:${slide.subtitle ?? ''}:${slide.image ?? ''}`}
+          className="absolute inset-0 flex flex-col items-center justify-end px-4 pb-24 text-center text-white"
+          data-slide-index={activeIndex}
+          key={`${activeIndex}:${activeSlide.title ?? ''}:${activeSlide.subtitle ?? ''}:${activeSlide.ctaText ?? ''}`}
           style={
-            slide.image
+            activeSlide.image
               ? {
-                  backgroundImage: `url(${slide.image})`,
+                  backgroundImage: `url(${activeSlide.image})`,
                   backgroundPosition: 'center',
                   backgroundSize: 'cover',
                 }
               : undefined
           }
         >
-          <h2>{slide.title}</h2>
-          {slide.subtitle ? <p>{slide.subtitle}</p> : null}
-          {slide.ctaText ? <InertAction>{slide.ctaText}</InertAction> : null}
+          {activeSlide.image ? (
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent"
+            />
+          ) : null}
+          <div className="relative z-10">
+            <h2>{activeSlide.title}</h2>
+            {activeSlide.subtitle ? <p>{activeSlide.subtitle}</p> : null}
+            {activeSlide.ctaText ? (
+              <InertAction>{activeSlide.ctaText}</InertAction>
+            ) : null}
+          </div>
         </article>
-      ))}
+      ) : null}
     </section>
   );
 }
@@ -195,31 +219,50 @@ function PreviewFooter({
 }
 
 function PreviewFAQ({
+  animationDelay = 0,
+  animationDuration = 'normal',
+  animationTrigger = 'scroll',
+  animationType = 'none',
   items = [],
   style = 'accordion',
   subtitle,
   title,
 }: PreviewFaqProps) {
   return (
-    <section aria-label="Preview FAQ">
-      <h2>{title}</h2>
-      {subtitle ? <p>{subtitle}</p> : null}
-      <div className={previewFaqStyleClasses[style]} data-style={style}>
-        {items.map((item) =>
-          style === 'accordion' ? (
-            <details key={item.question}>
-              <summary>{item.question}</summary>
-              {item.answer ? <p>{item.answer}</p> : null}
-            </details>
-          ) : (
-            <article key={item.question}>
-              <h3>{item.question}</h3>
-              {item.answer ? <p>{item.answer}</p> : null}
-            </article>
-          )
-        )}
-      </div>
-    </section>
+    <AnimatedWrapper
+      animation={{
+        delay: animationDelay,
+        duration: animationDuration,
+        trigger: animationTrigger === 'onload' ? 'immediate' : animationTrigger,
+        type: animationType,
+      }}
+    >
+      <section
+        aria-label="Preview FAQ"
+        data-animation-delay={animationDelay}
+        data-animation-duration={animationDuration}
+        data-animation-trigger={animationTrigger}
+        data-animation-type={animationType}
+      >
+        <h2>{title}</h2>
+        {subtitle ? <p>{subtitle}</p> : null}
+        <div className={previewFaqStyleClasses[style]} data-style={style}>
+          {items.map((item) =>
+            style === 'accordion' ? (
+              <details key={item.question}>
+                <summary>{item.question}</summary>
+                {item.answer ? <p>{item.answer}</p> : null}
+              </details>
+            ) : (
+              <article key={item.question}>
+                <h3>{item.question}</h3>
+                {item.answer ? <p>{item.answer}</p> : null}
+              </article>
+            )
+          )}
+        </div>
+      </section>
+    </AnimatedWrapper>
   );
 }
 

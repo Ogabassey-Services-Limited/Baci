@@ -2,6 +2,14 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { previewInertLinkBlocks } from './preview-inert-link-blocks';
 
+class IntersectionObserverStub {
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+}
+
+vi.stubGlobal('IntersectionObserver', IntersectionObserverStub);
+
 describe('previewInertLinkBlocks', () => {
   it('renders all accepted link-bearing blocks without anchors or network activity', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
@@ -37,7 +45,7 @@ describe('previewInertLinkBlocks', () => {
     fetchSpy.mockRestore();
   });
 
-  it('renders every bounded HeroCarousel slide so later slide edits stay visible and inert', () => {
+  it('keeps bounded HeroCarousel slides in one production-sized viewport', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     render(
       previewInertLinkBlocks.HeroCarousel.render({
@@ -52,9 +60,16 @@ describe('previewInertLinkBlocks', () => {
       })
     );
 
+    const carousel = screen.getByRole('region', {
+      name: 'Preview hero carousel',
+    });
+    expect(carousel).toHaveClass('h-[85vh]', 'overflow-hidden');
+    expect(carousel).toHaveAttribute('data-slide-count', '2');
+    expect(carousel).toHaveAttribute('data-active-slide-index', '1');
     expect(
       screen.getByRole('heading', { name: 'Edited second slide' })
     ).toBeInTheDocument();
+    expect(carousel.querySelectorAll('[data-slide-index]')).toHaveLength(1);
     expect(
       screen.getByRole('button', { name: 'Edited second action' })
     ).toBeDisabled();
@@ -75,7 +90,7 @@ describe('previewInertLinkBlocks', () => {
 
     const hero = screen.getByRole('heading', { level: 2 });
     expect(hero).toHaveTextContent('Catalog preview');
-    expect(hero.parentElement).toHaveClass('text-right', 'py-32');
+    expect(hero.closest('section')).toHaveClass('text-right', 'py-32');
   });
 
   it('keeps default FAQ accordion answers collapsed', () => {
@@ -111,9 +126,11 @@ describe('previewInertLinkBlocks', () => {
       'py-6'
     );
     expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveClass(
-      'bg-store-background-text/40',
       'text-store-background'
     );
+    expect(
+      screen.getByTestId('builder-preview-hero-overlay')
+    ).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveStyle({
       backgroundImage: 'url(/hero.webp)',
     });
@@ -124,6 +141,28 @@ describe('previewInertLinkBlocks', () => {
     ).toHaveAttribute('data-style', 'grid');
   });
 
+  it('preserves FAQ animation settings through the inert animation wrapper', () => {
+    render(
+      previewInertLinkBlocks.FAQ.render({
+        animationDelay: 1,
+        animationDuration: 'slow',
+        animationTrigger: 'onload',
+        animationType: 'fade-in',
+        items: [{ answer: 'Answer', question: 'Question' }],
+        title: 'Animated FAQ',
+      })
+    );
+
+    expect(screen.getByRole('region', { name: 'Preview FAQ' })).toMatchObject({
+      dataset: {
+        animationDelay: '1',
+        animationDuration: 'slow',
+        animationTrigger: 'onload',
+        animationType: 'fade-in',
+      },
+    });
+  });
+
   it('does not apply a Hero overlay without a background image', () => {
     render(
       previewInertLinkBlocks.Hero.render({ overlay: true, title: 'Plain hero' })
@@ -131,7 +170,8 @@ describe('previewInertLinkBlocks', () => {
 
     expect(
       screen.getByRole('region', { name: 'Preview hero' })
-    ).not.toHaveClass('bg-store-background-text/40', 'text-store-background');
+    ).not.toHaveClass('text-store-background');
+    expect(screen.queryByTestId('builder-preview-hero-overlay')).toBeNull();
   });
 
   it('applies accepted Footer colors and removes an empty navigation landmark', () => {
