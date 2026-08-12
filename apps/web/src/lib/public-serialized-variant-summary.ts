@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { fetchPublicSerializedAvailabilityCounts } from './public-serialized-availability-counts';
+import { fetchPublicSerializedAvailabilityCounts } from '@/lib/public-serialized-availability-counts';
 
 type InventoryTrackingPolicy =
   | 'off'
