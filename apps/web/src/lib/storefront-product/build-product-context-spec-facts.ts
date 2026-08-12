@@ -37,6 +37,27 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
     platform: 'Platform',
   },
 };
+const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
+  ProductSpecFamily,
+  Record<string, number>
+> = {
+  mobile: {
+    has_ois: 0,
+    recommended_for: 1,
+    announced_date: 2,
+    release_date: 3,
+  },
+  computer: {
+    processor: 0,
+  },
+  camera: {
+    has_ois: 0,
+  },
+  general: {
+    format: 0,
+    platform: 1,
+  },
+};
 function normalizeText(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const normalized = value.replace(/\s+/g, ' ').trim();
@@ -134,7 +155,11 @@ export function buildProductContextSpecFacts(
       return [
         {
           key,
-          priority: fieldPriorityByKey.get(key) ?? Number.MAX_SAFE_INTEGER,
+          priority:
+            fieldPriorityByKey.get(key) ??
+            orderedFields.length +
+              (FAMILY_CONTEXT_SPEC_PRIORITIES[family][key] ??
+                Number.MAX_SAFE_INTEGER),
           text: `${label}: ${normalized}`,
         },
       ];

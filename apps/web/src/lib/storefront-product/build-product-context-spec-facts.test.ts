@@ -139,4 +139,27 @@ describe('buildProductContextSpecFacts', () => {
       'Weight: 450g',
     ]);
   });
+
+  it('ranks OIS ahead of lifecycle metadata before capping mobile facts', () => {
+    expect(
+      buildProductContextSpecFacts(
+        {
+          ram_gb: 8,
+          storage_gb: 256,
+          battery_mah: 4000,
+          has_5g: true,
+          has_ois: true,
+          announced_date: '2024-01-17',
+          release_date: '2024-01-31',
+        },
+        'Smartphones'
+      )
+    ).toEqual([
+      '5G Support: Yes',
+      'Internal Storage: 256GB',
+      'RAM: 8GB',
+      'Capacity: 4000mAh',
+      'OIS: Yes',
+    ]);
+  });
 });
