@@ -33,7 +33,10 @@ export function useGadgetPatternAttribution(
       variant,
     };
     return () => {
-      recordCrashBreadcrumb('gadget_pattern:unmounted', details);
+      recordCrashBreadcrumb(`gadget_pattern:unmounted:${instanceId.current}`, {
+        ...details,
+        instance_id: instanceId.current,
+      });
       Sentry.addBreadcrumb({
         category: 'performance.surface',
         data: { ...details, instance_id: instanceId.current },
