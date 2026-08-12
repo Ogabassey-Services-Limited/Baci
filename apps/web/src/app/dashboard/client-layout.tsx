@@ -17,8 +17,6 @@ import {
   Newspaper,
   Package,
   Paintbrush,
-  PanelLeftClose,
-  PanelLeftOpen,
   Search,
   Settings,
   ShoppingCart,
@@ -42,9 +40,6 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { BagIcon } from '@/components/bag-icon';
-
-import { useUpgradeModal } from '@/components/dashboard/upgrade-modal';
 import { Logo } from '@/components/logo';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
@@ -76,10 +71,10 @@ import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
-import { FEATURES, isPlanTier, type PlanTier } from '@/lib/feature-flags';
 import { isRepairsBusinessType } from '@/lib/repairs/repairs-feature';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
+import { DashboardNavCapsule } from './dashboard-nav-capsule';
 import {
   buildSmartNavStorageKey,
   getSmartShortcutItems,
@@ -90,7 +85,7 @@ import {
 
 // The original layout is now a client component to prevent hydration errors.
 
-type DashboardNavItem = {
+export type DashboardNavItem = {
   id: string;
   href: Route;
   icon: typeof LayoutDashboard;
@@ -124,30 +119,6 @@ async function fetchOrdersCount(merchantId: string): Promise<number> {
   }
 
   return count || 0;
-}
-
-function getDashboardPlanTier(planTier: string | null | undefined): PlanTier {
-  return isPlanTier(planTier) ? planTier : 'free';
-}
-
-function isDashboardPaidPlan(
-  planTier: PlanTier,
-  planExpiresAt: string | null | undefined
-): boolean {
-  if (planTier === 'free') {
-    return false;
-  }
-
-  if (!planExpiresAt) {
-    return true;
-  }
-
-  const expiryTime = Date.parse(planExpiresAt);
-  return Number.isFinite(expiryTime) && expiryTime > Date.now();
-}
-
-function formatPlanTierLabel(planTier: PlanTier): string {
-  return planTier.charAt(0).toUpperCase() + planTier.slice(1);
 }
 
 // Module-scope helper: syncs the persisted smart-nav usage from localStorage
@@ -293,10 +264,9 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { open: openUpgradeModal } = useUpgradeModal();
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCapsuleExpanded, setIsCapsuleExpanded] = useState(false);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [smartNavUsage, setSmartNavUsage] = useState<SmartNavUsage>({});
   useToast(); // Keep toast available for potential future use
@@ -317,39 +287,6 @@ export default function DashboardClientLayout({
 
     return () => clearTimeout(timer);
   }, [user, authLoading, router]);
-
-  // Auto-collapse sidebar on main content interaction
-  useEffect(() => {
-    const mainContent = document.getElementById('main-content');
-    if (!mainContent) return;
-
-    const handleInteraction = (event: Event) => {
-      // Only auto-collapse on desktop and if sidebar is expanded
-      if (window.innerWidth >= 768 && !isCollapsed) {
-        if (event.type === 'click') {
-          setIsCollapsed(true);
-        } else if (event.type === 'scroll') {
-          const target = event.target as HTMLElement;
-          // Calculate 5% of the scrollable height
-          const threshold = (target.scrollHeight - target.clientHeight) * 0.05;
-
-          // If scrolled more than 5% and threshold is valid (not 0)
-          if (threshold > 0 && target.scrollTop > threshold) {
-            setIsCollapsed(true);
-          }
-        }
-      }
-    };
-
-    // Collapse on click or scroll (with threshold)
-    mainContent.addEventListener('click', handleInteraction);
-    mainContent.addEventListener('scroll', handleInteraction);
-
-    return () => {
-      mainContent.removeEventListener('click', handleInteraction);
-      mainContent.removeEventListener('scroll', handleInteraction);
-    };
-  }, [isCollapsed]);
 
   // Orders count fetch effect
   useEffect(() => {
@@ -388,9 +325,6 @@ export default function DashboardClientLayout({
   const selectedCountry = merchant?.country
     ? getCountryByCode(merchant.country)
     : null;
-  const planTier = getDashboardPlanTier(merchant?.plan_tier);
-  const isPaidPlan = isDashboardPaidPlan(planTier, merchant?.plan_expires_at);
-  const planTierLabel = formatPlanTierLabel(planTier);
 
   const getStoreUrl = () => {
     if (!merchant?.slug) return '#';
@@ -662,70 +596,6 @@ export default function DashboardClientLayout({
     setSmartNavUsage(nextUsage);
   };
 
-  const renderDesktopNavItem = (
-    item: DashboardNavItem,
-    key: string,
-    options: { isSubItem?: boolean } = {}
-  ) => {
-    const isExactActive = pathname === item.href;
-    const hasActiveChild =
-      item.children?.some((child) => pathname === child.href) ?? false;
-    const isSectionActive =
-      item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`);
-    const isActive = isExactActive || hasActiveChild || isSectionActive;
-
-    return (
-      <Link
-        key={key}
-        href={item.href}
-        aria-current={isExactActive ? 'page' : undefined}
-        onClick={() => handleNavItemClick(item.id)}
-        className={cn(
-          'flex items-center transition-all duration-200 group relative overflow-hidden',
-          options.isSubItem
-            ? 'ml-7 gap-2 rounded-xl px-3 py-2 text-[13px]'
-            : 'gap-3 rounded-full px-4 py-3',
-          isActive && !options.isSubItem
-            ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25'
-            : 'text-muted-foreground hover:bg-white/50 dark:hover:bg-white/10 hover:text-foreground',
-          isActive &&
-            options.isSubItem &&
-            'bg-primary/10 text-foreground ring-1 ring-primary/15',
-          isCollapsed && !options.isSubItem && 'justify-center px-2'
-        )}
-      >
-        {!isActive && (
-          <div className="absolute inset-0 bg-linear-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        )}
-
-        <item.icon
-          className={cn(
-            'shrink-0 transition-transform group-hover:scale-110',
-            options.isSubItem ? 'size-4' : 'size-5',
-            isActive && !options.isSubItem && 'animate-pulse-subtle'
-          )}
-          aria-hidden="true"
-        />
-
-        {!isCollapsed && <span className="truncate">{item.label}</span>}
-
-        {!isCollapsed && item.badge && (
-          <Badge
-            variant={item.badgeVariant || 'default'}
-            className={cn(
-              'ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px]',
-              item.badgeVariant === 'destructive'
-                ? 'bg-red-500 hover:bg-red-600 text-white'
-                : 'bg-accent text-accent-foreground'
-            )}
-          >
-            {item.label === 'Pages' ? '!' : item.badge}
-          </Badge>
-        )}
-      </Link>
-    );
-  };
-
   const renderMobileNavItem = (
     item: DashboardNavItem,
     key: string,
@@ -766,24 +636,6 @@ export default function DashboardClientLayout({
     );
   };
 
-  const renderDesktopNavTree = (item: DashboardNavItem) => (
-    <div key={item.id} className="grid gap-1">
-      {renderDesktopNavItem(item, item.id)}
-      {!isCollapsed && item.children && item.children.length > 0 && (
-        <ul
-          aria-label={`${item.label} submenu`}
-          className="grid list-none gap-1 pl-0"
-        >
-          {item.children.map((child) => (
-            <li key={child.id}>
-              {renderDesktopNavItem(child, child.id, { isSubItem: true })}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-
   const renderMobileNavTree = (item: DashboardNavItem) => (
     <div key={item.id} className="grid gap-1">
       {renderMobileNavItem(item, item.id)}
@@ -822,135 +674,18 @@ export default function DashboardClientLayout({
     <>
       {/* Skip link for keyboard navigation */}
 
-      <div
-        className={cn(
-          'grid min-h-screen w-full transition-all',
-          isCollapsed ? 'md:grid-cols-[120px_1fr]' : 'md:grid-cols-[300px_1fr]'
-        )}
-      >
-        {/* Sidebar - Glassmorphic & Floating */}
-        <div className="hidden md:block relative z-20">
-          <div
-            className={cn(
-              'sticky top-4 rounded-3xl border border-white/20 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl transition-all duration-300 flex flex-col overflow-hidden ml-4 mb-4',
-              'h-[calc(100vh-2rem)]',
-              isCollapsed ? 'w-[100px]' : 'w-[280px]'
-            )}
-          >
-            {/* Sidebar Header */}
-            <div
-              className={cn(
-                'flex h-20 items-center px-6',
-                isCollapsed && 'justify-center px-2'
-              )}
-            >
-              <Link
-                href="/dashboard"
-                className="flex items-center gap-2 font-semibold transition-transform hover:scale-105"
-              >
-                {isCollapsed ? <BagIcon width={32} height={32} /> : <Logo />}
-                {!isCollapsed && <span className="sr-only">Baci</span>}
-              </Link>
-            </div>
+      <DashboardNavCapsule
+        expanded={isCapsuleExpanded}
+        items={filteredNavItems}
+        pathname={pathname}
+        onExpandedChange={setIsCapsuleExpanded}
+        onNavigate={handleNavItemClick}
+      />
 
-            {/* Navigation */}
-            <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
-              <TooltipProvider>
-                <div className="grid gap-3 text-sm font-medium">
-                  {smartNavItems.length > 0 && (
-                    <nav aria-label="Smart shortcuts" className="grid gap-2">
-                      {!isCollapsed && (
-                        <span className="px-4 text-[10px] font-semibold uppercase text-muted-foreground/70">
-                          Smart shortcuts
-                        </span>
-                      )}
-                      {smartNavItems.map((item) =>
-                        renderDesktopNavItem(item, `smart-${item.id}`)
-                      )}
-                      <div className="my-2 h-px bg-linear-to-r from-transparent via-border to-transparent" />
-                    </nav>
-                  )}
-                  <nav className="grid gap-2" aria-label="Main navigation">
-                    {filteredNavItems.map(renderDesktopNavTree)}
-                    <div className="my-4 h-px bg-linear-to-r from-transparent via-border to-transparent" />
-                    <StoreLink
-                      isMobile={false}
-                      isCollapsed={isCollapsed}
-                      merchantLoading={merchantLoading}
-                      storeUrl={storeUrl}
-                      customDomain={merchant?.custom_domain}
-                    />
-                  </nav>
-                </div>
-              </TooltipProvider>
-            </div>
-
-            {/* Sidebar Footer (Upgrade Card) */}
-            <div className="p-4 mt-auto">
-              {!isCollapsed &&
-                (isPaidPlan ? (
-                  <div className="relative overflow-hidden rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-4 text-foreground shadow-lg">
-                    <div className="absolute -right-4 -top-4 size-24 rounded-full bg-emerald-400/15 blur-2xl" />
-                    <div className="relative z-10 flex items-center justify-between gap-3">
-                      <div>
-                        <h4 className="font-semibold">Baci {planTierLabel}</h4>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Active subscription
-                        </p>
-                      </div>
-                      <Badge className="bg-emerald-500 text-white hover:bg-emerald-500">
-                        {planTierLabel}
-                      </Badge>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
-                    <div className="absolute -right-4 -top-4 size-24 rounded-full bg-white/10 blur-2xl" />
-                    <h4 className="font-semibold relative z-10">
-                      Upgrade to Pro
-                    </h4>
-                    <p className="text-xs text-primary-foreground/80 mt-1 mb-3 relative z-10">
-                      Unlock AI superpowers & unlimited support.
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="w-full shadow-sm relative z-10 text-primary font-semibold"
-                      type="button"
-                      onClick={() =>
-                        openUpgradeModal(FEATURES.AI_PRODUCT_DESCRIPTIONS)
-                      }
-                    >
-                      Upgrade
-                    </Button>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
+      <div className="grid min-h-screen w-full md:grid-cols-[92px_1fr]">
+        <div aria-hidden="true" className="hidden md:block" />
         {/* Main Content Area */}
         <div className="flex flex-col relative min-h-screen overflow-x-hidden">
-          {/* Collapse Button - Floating */}
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className={cn(
-              'fixed top-8 z-30 hidden md:flex rounded-full shadow-lg border border-white/20 bg-white/80 dark:bg-black/40 dark:border-white/10 backdrop-blur-md transition-all duration-300 hover:scale-110',
-              isCollapsed ? 'left-[100px]' : 'left-[280px]'
-            )}
-          >
-            {isCollapsed ? (
-              <PanelLeftOpen className="size-4" />
-            ) : (
-              <PanelLeftClose className="size-4" />
-            )}
-            <span className="sr-only">
-              {isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            </span>
-          </Button>
-
           {/* Mobile Header */}
           <header className="flex h-16 items-center gap-4 border-b bg-white/50 dark:bg-black/50 backdrop-blur-md px-4 md:hidden sticky top-0 z-20 transition-all duration-300">
             <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
