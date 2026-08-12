@@ -161,6 +161,6 @@ export const featureList: BuilderDesignProp = {
 };
 export const safeTextProps: BuilderDesignProps = {
   align: { default: 'left', enum: ['center', 'left', 'right'], type: 'enum' },
-  content: copy('Add supporting storefront copy here.'),
-  title: label('About us'),
+  content: { ...copy('Add supporting storefront copy here.'), required: true },
+  title: { ...label('About us'), required: true },
 };

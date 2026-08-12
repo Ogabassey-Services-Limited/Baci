@@ -67,9 +67,9 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     specialOperations: {
       updateCarouselSlide: {
         ctaLink: safeLink,
-        ctaText: label(),
+        ctaText: { ...label(), required: true },
         subtitle: copy(),
-        title: label(),
+        title: { ...label(), required: true },
       },
     },
   },
@@ -99,7 +99,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     columns: {
       default: 3,
       maximum: 4,
-      minimum: 2,
+      minimum: 1,
       type: 'number',
       wholeNumber: true,
     },
@@ -111,7 +111,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       wholeNumber: true,
     },
     showFilters: { default: true, type: 'boolean' },
-    title: label('Featured products'),
+    title: { ...label('Featured products'), required: true },
   }),
   allow('Testimonial', 'Customer social proof.', {
     author: { ...label('Name'), required: true },
@@ -135,7 +135,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     },
     features: featureList,
     subtitle: copy(),
-    title: label('Why choose us'),
+    title: { ...label('Why choose us'), required: true },
   }),
   allow('Newsletter', 'Email signup invitation.', {
     buttonText: { ...label('Subscribe'), required: true },
@@ -157,7 +157,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     'Footer',
     'Store footer.',
     {
-      copyrightText: copy(),
+      copyrightText: { ...copy(), required: true },
       quickLinks: {
         item: {
           properties: {
@@ -238,7 +238,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       type: 'enum',
     },
     subtitle: copy(),
-    title: label('Frequently Asked Questions'),
+    title: { ...label('Frequently Asked Questions'), required: true },
   }),
   deny(
     'AboutSection',
@@ -270,7 +270,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
         minimumItems: 1,
         type: 'array',
       },
-      title: label('Privacy Policy'),
+      title: { ...label('Privacy Policy'), required: true },
     },
     false
   ),
