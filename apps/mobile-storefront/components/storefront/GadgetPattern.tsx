@@ -32,6 +32,7 @@ export function GadgetPattern({
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
 
+  // Older Android SVG draw passes can ANR on this decorative pattern; keep it off API 28 and below.
   if (!shouldRenderGadgetPattern(Platform.OS, Platform.Version)) {
     return null;
   }
