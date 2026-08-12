@@ -103,7 +103,7 @@ const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
     requestCondition: {
       anyHeaderMatch: [{ name: 'accept-language' }],
       matchedStorefrontEntrypointId:
-        'storefront:(blog)/blog/[postSlug]/page.tsx',
+        'storefront:(blog)/blog/[postSlug]/page.tsx:slug-prefixed',
       precedence: 'after_entrypoint_resolution_before_decision',
     },
     routePattern: '/blog/{postSlug}',

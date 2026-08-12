@@ -110,7 +110,7 @@ export const STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS: readonly InventoryRow[] =
             : { anyQueryKeyPresent: FILTER_QUERY_KEYS }),
         matchedStorefrontEntrypointId: `storefront:${sourcePath.slice(
           STOREFRONT_ROUTE_SOURCE_PREFIX.length
-        )}`,
+        )}${slugPrefixed ? ':slug-prefixed' : ''}`,
         precedence: 'after_entrypoint_resolution_before_decision' as const,
       },
       routePattern: slugPrefixed
