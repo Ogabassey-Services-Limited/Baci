@@ -122,6 +122,8 @@ describe('builder design capabilities', () => {
       minimum: 2,
     });
     expect(newsletter?.props.buttonText).toMatchObject({ required: true });
+    expect(newsletter?.props.description).toMatchObject({ required: true });
+    expect(newsletter?.props.title).toMatchObject({ required: true });
     expect(testimonial?.props.author).toMatchObject({ required: true });
     expect(testimonial?.props.quote).toMatchObject({ required: true });
   });

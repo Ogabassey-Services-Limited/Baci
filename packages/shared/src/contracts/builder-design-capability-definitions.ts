@@ -139,9 +139,12 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
   }),
   allow('Newsletter', 'Email signup invitation.', {
     buttonText: { ...label('Subscribe'), required: true },
-    description: copy('Sign up for updates from this store.'),
+    description: {
+      ...copy('Sign up for updates from this store.'),
+      required: true,
+    },
     placeholder: label('Enter your email'),
-    title: label('Newsletter signup'),
+    title: { ...label('Newsletter signup'), required: true },
   }),
   allow('Spacer', 'Vertical rhythm.', {
     height: {

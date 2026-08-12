@@ -181,4 +181,46 @@ describe('useCopilotBuilderActions manifest policy', () => {
     ).toBe('Carousel slide title must be unique.');
     expect(setData).not.toHaveBeenCalled();
   });
+
+  it('rejects carousel updates beyond the advertised five-slide bound', () => {
+    const setData = vi.fn();
+    renderHook(() =>
+      useCopilotBuilderActions({
+        data: {
+          content: [
+            {
+              props: {
+                id: 'carousel-1',
+                slides: Array.from({ length: 6 }, (_, index) => ({
+                  title: `Slide ${index + 1}`,
+                })),
+              },
+              type: 'HeroCarousel',
+            },
+          ],
+          root: { props: {} },
+        } as Data,
+        setData,
+      })
+    );
+    const action = vi
+      .mocked(useCopilotAction)
+      .mock.calls.map(
+        ([config]) =>
+          config as unknown as {
+            handler: (args: { index: number; updates: string }) => string;
+            name: string;
+          }
+      )
+      .find((config) => config.name === 'updateComponent');
+    if (!action) throw new Error('Expected updateComponent action');
+
+    expect(
+      action.handler({
+        index: 0,
+        updates: JSON.stringify({ slideIndex: 5, title: 'Outside bound' }),
+      })
+    ).toBe('Invalid carousel slide index.');
+    expect(setData).not.toHaveBeenCalled();
+  });
 });

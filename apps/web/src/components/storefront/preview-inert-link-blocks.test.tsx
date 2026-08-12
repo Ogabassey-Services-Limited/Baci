@@ -75,10 +75,10 @@ describe('previewInertLinkBlocks', () => {
 
     const hero = screen.getByRole('heading', { level: 2 });
     expect(hero).toHaveTextContent('Catalog preview');
-    expect(hero.parentElement).toHaveClass('text-right', 'py-16');
+    expect(hero.parentElement).toHaveClass('text-right', 'py-32');
   });
 
-  it('shows bounded FAQ answers without relying on interactive accordion state', () => {
+  it('keeps default FAQ accordion answers collapsed', () => {
     render(
       previewInertLinkBlocks.FAQ.render({
         items: [{ answer: 'Ships in 3 days.', question: 'When does it ship?' }],
@@ -87,7 +87,9 @@ describe('previewInertLinkBlocks', () => {
     );
 
     expect(screen.getByText('When does it ship?')).toBeInTheDocument();
-    expect(screen.getByText('Ships in 3 days.')).toBeInTheDocument();
+    expect(
+      screen.getByText('When does it ship?').closest('details')
+    ).not.toHaveAttribute('open');
   });
 
   it('reflects Header padding, Hero media/overlay, and FAQ style changes', () => {

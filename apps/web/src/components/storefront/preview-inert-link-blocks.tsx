@@ -1,25 +1,16 @@
 import type { ReactNode } from 'react';
 import { PreviewInertHeader } from './preview-inert-header';
+import {
+  PreviewInertHero,
+  type PreviewInertHeroProps,
+} from './preview-inert-hero';
 
 type PreviewLink = {
   label: string;
 };
 
-type PreviewHeroProps = {
-  backgroundGradient?: string;
-  align?: 'center' | 'left' | 'right';
-  backgroundImage?: string;
-  ctaText?: string;
-  headingLevel?: 'h1' | 'h2' | 'div';
-  image?: string;
-  overlay?: boolean;
-  padding?: 'large' | 'medium' | 'small';
-  subtitle?: string;
-  title?: string;
-};
-
 type PreviewCarouselProps = {
-  slides?: PreviewHeroProps[];
+  slides?: PreviewInertHeroProps[];
 };
 
 type PreviewButtonProps = {
@@ -76,16 +67,6 @@ const previewButtonVariantClasses: Record<PreviewButtonVariant, string> = {
   primary: 'bg-store-primary text-store-primary-text',
 };
 
-const previewHeroAlignClasses = {
-  center: 'text-center',
-  left: 'text-left',
-  right: 'text-right',
-} as const;
-const previewHeroPaddingClasses = {
-  large: 'py-16',
-  medium: 'py-10',
-  small: 'py-6',
-} as const;
 const previewFaqStyleClasses = {
   accordion: 'space-y-3',
   grid: 'grid gap-4 sm:grid-cols-2',
@@ -103,41 +84,6 @@ function InertAction({
     <button aria-disabled="true" className={className} disabled type="button">
       {children}
     </button>
-  );
-}
-
-function PreviewHero({
-  align = 'center',
-  backgroundGradient,
-  backgroundImage,
-  ctaText,
-  headingLevel = 'h1',
-  overlay = false,
-  padding = 'medium',
-  subtitle,
-  title,
-}: PreviewHeroProps) {
-  const Heading = headingLevel;
-  return (
-    <section
-      aria-label="Preview hero"
-      className={`${previewHeroAlignClasses[align]} ${previewHeroPaddingClasses[padding]}${overlay && backgroundImage ? ' bg-store-background-text/40 text-store-background' : backgroundGradient ? ' text-store-background' : ''}`}
-      style={
-        backgroundImage || backgroundGradient
-          ? {
-              backgroundImage: backgroundImage
-                ? `url(${backgroundImage})`
-                : backgroundGradient,
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
-            }
-          : undefined
-      }
-    >
-      <Heading>{title}</Heading>
-      {subtitle ? <p>{subtitle}</p> : null}
-      {ctaText ? <InertAction>{ctaText}</InertAction> : null}
-    </section>
   );
 }
 
@@ -259,12 +205,19 @@ function PreviewFAQ({
       <h2>{title}</h2>
       {subtitle ? <p>{subtitle}</p> : null}
       <div className={previewFaqStyleClasses[style]} data-style={style}>
-        {items.map((item) => (
-          <article key={item.question}>
-            <h3>{item.question}</h3>
-            {item.answer ? <p>{item.answer}</p> : null}
-          </article>
-        ))}
+        {items.map((item) =>
+          style === 'accordion' ? (
+            <details key={item.question}>
+              <summary>{item.question}</summary>
+              {item.answer ? <p>{item.answer}</p> : null}
+            </details>
+          ) : (
+            <article key={item.question}>
+              <h3>{item.question}</h3>
+              {item.answer ? <p>{item.answer}</p> : null}
+            </article>
+          )
+        )}
       </div>
     </section>
   );
@@ -289,7 +242,7 @@ export const previewInertLinkBlocks = {
   Footer: { render: PreviewFooter },
   FAQ: { render: PreviewFAQ },
   Header: { render: PreviewInertHeader },
-  Hero: { render: PreviewHero },
+  Hero: { render: PreviewInertHero },
   HeroCarousel: { render: PreviewHeroCarousel },
   PreviewPlaceholder: { render: PreviewPlaceholder },
 };

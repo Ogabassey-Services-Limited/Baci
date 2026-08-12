@@ -189,6 +189,7 @@ export function useCopilotBuilderActions({
         if (
           typeof slideIndex !== 'number' ||
           !Number.isInteger(slideIndex) ||
+          slideIndex > 4 ||
           !Array.isArray(slides) ||
           !isRecord(slides[slideIndex])
         ) {

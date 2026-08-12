@@ -1,0 +1,41 @@
+import { render, screen } from '@testing-library/react';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { PreviewInertHero } from './preview-inert-hero';
+
+describe('PreviewInertHero', () => {
+  beforeAll(() => {
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        disconnect() {}
+        observe() {}
+        unobserve() {}
+      }
+    );
+  });
+
+  it('matches published padding and preserves bounded animation settings', () => {
+    render(
+      <PreviewInertHero
+        animationDelay={1}
+        animationDuration="slow"
+        animationTrigger="onload"
+        animationType="fade-in"
+        padding="large"
+        title="Animated hero"
+      />
+    );
+
+    expect(screen.getByRole('region', { name: 'Preview hero' })).toHaveClass(
+      'py-32'
+    );
+    expect(screen.getByRole('region', { name: 'Preview hero' })).toMatchObject({
+      dataset: {
+        animationDelay: '1',
+        animationDuration: 'slow',
+        animationTrigger: 'onload',
+        animationType: 'fade-in',
+      },
+    });
+  });
+});
