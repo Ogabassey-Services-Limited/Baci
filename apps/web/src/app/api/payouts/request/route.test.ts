@@ -76,6 +76,7 @@ beforeEach(() => {
   mocks.getMerchantForApiRequest.mockResolvedValue({
     businessName: 'Scoped Merchant',
     merchantId: 'merchant-1',
+    staffAccess: { isStaff: false, isOwner: true, permissions: {} },
   });
   mocks.hasPermission.mockReturnValue(true);
 });
@@ -219,5 +220,19 @@ describe('GET /api/payouts/request', () => {
       errorCode: '42501',
       errorMessage: 'read failed',
     });
+  });
+
+  it('rejects staff payout history instead of returning an owner-RLS empty ledger', async () => {
+    mocks.getMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: { isStaff: true, isOwner: false, permissions: {} },
+    });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/payouts/request')
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.from).not.toHaveBeenCalled();
   });
 });

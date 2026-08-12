@@ -71,6 +71,11 @@ export async function GET(_request: NextRequest) {
   if (!hasPermission(toUserAccess(merchantContext), 'settings', 'view')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
+  // payout_requests is owner-RLS scoped. Do not return a misleading empty
+  // ledger to staff until an authorized staff payout-history projection exists.
+  if (merchantContext.staffAccess.isStaff) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const { data: payouts, error } = await supabase
     .from('payout_requests')

@@ -21,6 +21,7 @@ const notificationMigrationNames = [
   '20260812110000_harden_notification_delivery_and_operations_access.sql',
   '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
   '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
+  '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -61,6 +62,7 @@ describe('admin notification foundation migration contract', () => {
       '20260812110000_harden_notification_delivery_and_operations_access.sql',
       '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
       '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
+      '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -140,6 +142,16 @@ describe('admin notification foundation migration contract', () => {
     expect(quietDeferralSql).toContain(
       "p_outcome not in ('sent', 'retry', 'expired', 'deferred')"
     );
+    const repeatedDeferralSql = readMigrations([
+      '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
+    ]);
+    expect(repeatedDeferralSql).toContain(
+      "n.delivery_attempts < 3 or n.delivery_last_error = 'quiet_hours_deferred'"
+    );
+    expect(repeatedDeferralSql).toContain(
+      "delivery_last_error = 'quiet_hours_deferred'"
+    );
+    expect(repeatedDeferralSql).not.toContain('delivery_attempts = greatest');
   });
 
   it('uses narrow authenticated admin RPCs rather than a broad table bypass', () => {
