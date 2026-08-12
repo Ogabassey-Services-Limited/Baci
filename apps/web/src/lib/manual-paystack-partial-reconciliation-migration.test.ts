@@ -72,6 +72,13 @@ const operatorAccessMigration = readFileSync(
   ),
   'utf8'
 );
+const internalVersionsMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260812100000_revoke_paystack_reconciliation_internal_versions.sql'
+  ),
+  'utf8'
+);
 const concurrencyRegression = readFileSync(
   resolve(
     process.cwd(),
@@ -174,6 +181,18 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(operatorAccessMigration).toContain('m.user_id = p_operator_user_id');
     expect(operatorAccessMigration).toContain('sm.merchant_id = p_merchant_id');
     expect(operatorAccessMigration).toContain("sm.status = 'active'");
+  });
+
+  it('revokes direct service-role access to internal reconciliation versions', () => {
+    expect(
+      internalVersionsMigration.match(/REVOKE ALL ON FUNCTION/g)
+    ).toHaveLength(4);
+    expect(internalVersionsMigration).toMatch(
+      /reconcile_paystack_unmatched_partial_payment_v1[\s\S]*FROM PUBLIC, anon, authenticated, service_role;/
+    );
+    expect(internalVersionsMigration).toMatch(
+      /reconcile_paystack_unmatched_partial_payment_v2[\s\S]*FROM PUBLIC, anon, authenticated, service_role;/
+    );
   });
 
   it('uses durable chat-order linkage for conversion retries', () => {
