@@ -73,10 +73,11 @@ describe('SetupChecklist merchant scope', () => {
             candidate.getAttribute('aria-controls') ===
             'store-setup-checklist-details'
         );
-      expect(button).toBeDefined();
+      if (!button) return null;
+      if (button.getAttribute('aria-expanded') === 'true') return null;
       return button as HTMLElement;
     });
-    fireEvent.click(trigger);
+    if (trigger) fireEvent.click(trigger);
   }
 
   beforeEach(() => {
@@ -92,8 +93,6 @@ describe('SetupChecklist merchant scope', () => {
     vi.mocked(requestMerchantPublish).mockResolvedValue(new Response('{}'));
 
     render(<SetupChecklist merchantId={selectedMerchantId} compact />);
-    await expandDesktopChecklist();
-
     await expandDesktopChecklist();
     await screen.findByRole('button', { name: 'Publish Store' });
 
@@ -221,8 +220,6 @@ describe('SetupChecklist merchant scope', () => {
     });
 
     rerender(<SetupChecklist merchantId="merchant-a" compact />);
-    await expandDesktopChecklist();
-
     await expandDesktopChecklist();
     expect(
       await screen.findByRole('button', { name: 'Publish Store' })

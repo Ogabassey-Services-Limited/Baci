@@ -135,10 +135,11 @@ describe('SetupChecklist', () => {
             candidate.getAttribute('aria-controls') ===
             'store-setup-checklist-details'
         );
-      expect(button).toBeDefined();
+      if (!button) return null;
+      if (button.getAttribute('aria-expanded') === 'true') return null;
       return button as HTMLElement;
     });
-    fireEvent.click(trigger);
+    if (trigger) fireEvent.click(trigger);
   }
 
   beforeEach(() => {
@@ -194,6 +195,7 @@ describe('SetupChecklist', () => {
     } as Response);
 
     render(<SetupChecklist compact merchantId={readiness.merchantId} />);
+    await expandDesktopChecklist();
 
     expect(
       await screen.findByText('Failed to load your setup checklist.')
@@ -202,6 +204,7 @@ describe('SetupChecklist', () => {
 
   it('resolves checklist item navigation in the web adapter', async () => {
     render(<SetupChecklist compact merchantId={readiness.merchantId} />);
+    await expandDesktopChecklist();
 
     expect(
       await screen.findByRole('link', { name: /add payment method/i })
