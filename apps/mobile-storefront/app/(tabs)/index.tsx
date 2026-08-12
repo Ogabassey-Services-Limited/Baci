@@ -63,6 +63,7 @@ export default function HomeScreen() {
 
   // Reanimated UI-thread values for continuous header folding calculations
   const headerVisibility = useSharedValue(1);
+  const headerVisibilityTarget = useSharedValue(1);
   const previousOffsetY = useSharedValue(0);
   const isScrolledShared = useSharedValue(false);
   const searchVisibleShared = useSharedValue(false);
@@ -75,9 +76,17 @@ export default function HomeScreen() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  const setHeaderVisibilityTarget = (target: 0 | 1) => {
+    'worklet';
+    if (headerVisibilityTarget.get() === target) return;
+
+    headerVisibilityTarget.set(target);
+    headerVisibility.set(withTiming(target, { duration: 180 }));
+  };
+
   const handleSearch = () => {
     searchVisibleShared.set(true);
-    headerVisibility.set(withTiming(1, { duration: 180 }));
+    setHeaderVisibilityTarget(1);
     setSearchVisible(true);
   };
 
@@ -143,12 +152,12 @@ export default function HomeScreen() {
 
       // Sliding header collapse transitions
       if (currentOffsetY <= 0) {
-        headerVisibility.set(withTiming(1, { duration: 180 }));
+        setHeaderVisibilityTarget(1);
       } else if (currentOffsetY > prevOffsetY) {
-        headerVisibility.set(withTiming(0, { duration: 180 }));
+        setHeaderVisibilityTarget(0);
       } else if (prevOffsetY - currentOffsetY > 15) {
         // scroll tolerance/hysteresis
-        headerVisibility.set(withTiming(1, { duration: 180 }));
+        setHeaderVisibilityTarget(1);
       }
     },
   });
