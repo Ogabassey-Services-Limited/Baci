@@ -29,7 +29,7 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
 ].map((routePattern, index) => {
   const scope = ['root', 'nested', 'slug-root', 'slug-nested'][index];
   if (!scope) throw new Error('draft-mode path has no stable identifier');
-  return {
+  const row: InventoryRow = {
     decision: 'origin_dynamic',
     id: `request-override:draft-mode-${scope}`,
     methods: ['GET', 'HEAD'],
@@ -41,6 +41,13 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
     routePattern,
     sourceKind: 'request_override',
   };
+  if (index >= 2) {
+    row.hostCondition = {
+      hostKind: 'platform_root_domain',
+      precedence: 'before_path_decision',
+    };
+  }
+  return row;
 });
 
 const ROUTER_DATA_ROWS: readonly InventoryRow[] = [
@@ -240,6 +247,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     'apps/web/src/components/analytics/google-analytics.tsx',
     'apps/web/src/components/analytics/tiktok-pixel.tsx',
     'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts',
+    'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx',
     'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts',
     'apps/web/src/components/storefront/ogabassey/components/CartSidebar.tsx',
     'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',

@@ -171,19 +171,19 @@ export function createStorefrontEdgeEntrypointRows(
         sourceKind: 'storefront_entrypoint',
         sourcePath,
       };
-      return [
-        row,
-        slugPrefixedRow,
-        optionsRow,
-        {
-          ...optionsRow,
-          id: `${optionsRow.id}:slug-prefixed`,
-          routePattern:
-            optionsRow.routePattern === '/'
-              ? '/{storefrontIdentifier}'
-              : `/{storefrontIdentifier}${optionsRow.routePattern}`,
+      const slugOptionsRow: InventoryRow = {
+        ...optionsRow,
+        id: `${optionsRow.id}:slug-prefixed`,
+        routePattern:
+          optionsRow.routePattern === '/'
+            ? '/{storefrontIdentifier}'
+            : `/{storefrontIdentifier}${optionsRow.routePattern}`,
+        hostCondition: {
+          hostKind: 'platform_root_domain',
+          precedence: 'before_path_decision',
         },
-      ];
+      };
+      return [row, slugPrefixedRow, optionsRow, slugOptionsRow];
     }
     return [row, slugPrefixedRow];
   });

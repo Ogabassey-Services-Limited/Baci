@@ -9,6 +9,9 @@ const mediaSubresource = (
     | 'configured_external_media_origin'
     | 'configured_google_tag_manager_origin'
     | 'configured_google_ad_manager_origin'
+    | 'configured_klump_origin'
+    | 'configured_credpal_origin'
+    | 'configured_credit_direct_origin'
     | 'configured_meta_origin'
     | 'configured_tiktok_origin'
     | 'configured_snapchat_origin'
@@ -47,6 +50,21 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'google-ad-manager',
     'configured_google_ad_manager_origin',
     'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts'
+  ),
+  mediaSubresource(
+    'klump',
+    'configured_klump_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx'
+  ),
+  mediaSubresource(
+    'credpal',
+    'configured_credpal_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx'
+  ),
+  mediaSubresource(
+    'credit-direct',
+    'configured_credit_direct_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx'
   ),
   mediaSubresource(
     'meta',
