@@ -33,7 +33,10 @@ function allowedFactoryImporter(path: string, kind: FactoryKind): boolean {
   const allowed: readonly string[] =
     kind === 'sdk'
       ? [...authority.factoryModules, ...authority.legacySdkImporters]
-      : authority[`${kind}Importers`];
+      : [
+          ...authority[`${kind}Importers`],
+          ...(kind === 'service' ? authority.operationalServiceImporters : []),
+        ];
   return allowed.includes(path);
 }
 

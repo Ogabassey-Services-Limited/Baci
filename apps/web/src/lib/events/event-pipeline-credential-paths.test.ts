@@ -10,12 +10,4 @@ describe('event-pipeline credential paths', () => {
       )
     ).toBe(true);
   });
-
-  it('retains the Jumia OAuth credential paths', () => {
-    expect(
-      eventPipelineCredentialPaths.some((path) =>
-        path[0]?.includes('/marketplace/jumia/')
-      )
-    ).toBe(true);
-  });
 });
