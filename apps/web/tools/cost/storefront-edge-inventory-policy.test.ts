@@ -175,11 +175,11 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
       expect.objectContaining({
         decision: 'origin_dynamic',
         requestCondition: expect.objectContaining({
-          cookiePredicate: 'supabase_auth_session_hint',
-          anyHeaderMatch: [
-            { name: 'authorization' },
-            { name: 'x-supabase-auth-token' },
-          ],
+          anyOf: expect.arrayContaining([
+            { cookiePredicate: 'supabase_auth_session_hint' },
+            { anyHeaderMatch: [{ name: 'authorization' }] },
+            { anyHeaderMatch: [{ name: 'x-supabase-auth-token' }] },
+          ]),
           matchedStorefrontEntrypointDecision: 'edge_release',
           precedence: 'after_entrypoint_resolution_before_decision',
         }),

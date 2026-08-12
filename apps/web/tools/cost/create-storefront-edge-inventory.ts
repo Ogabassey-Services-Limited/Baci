@@ -153,9 +153,15 @@ export async function createStorefrontEdgeInventory(
     const specificityDelta = routeSpecificity(right) - routeSpecificity(left);
     if (specificityDelta !== 0) return specificityDelta;
     const leftHost =
-      left.hostCondition?.hostKind === 'platform_root_domain' ? 1 : 0;
+      ('hostCondition' in left &&
+        left.hostCondition?.hostKind === 'platform_root_domain')
+        ? 1
+        : 0;
     const rightHost =
-      right.hostCondition?.hostKind === 'platform_root_domain' ? 1 : 0;
+      ('hostCondition' in right &&
+        right.hostCondition?.hostKind === 'platform_root_domain')
+        ? 1
+        : 0;
     return rightHost - leftHost || left.id.localeCompare(right.id);
   });
   const terminalRows = extraRows.filter(
