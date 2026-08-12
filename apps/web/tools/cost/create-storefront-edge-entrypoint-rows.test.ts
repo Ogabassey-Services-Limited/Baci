@@ -55,6 +55,10 @@ describe('createStorefrontEdgeEntrypointRows', () => {
           routePattern: '/',
           decision: 'edge_release',
         }),
+        expect.objectContaining({
+          id: 'storefront:(customer)/account/callback/route.ts:slug-prefixed',
+          routePattern: '/{storefrontIdentifier}/account/callback',
+        }),
       ])
     );
     expect(rows.length).toBeGreaterThan(78);
@@ -75,6 +79,18 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         decision: 'origin_dynamic',
         methods: ['OPTIONS'],
         reason: 'automatic_options_response',
+      })
+    );
+    expect(
+      rows.find(
+        ({ id }) =>
+          id ===
+          'storefront:(customer)/account/callback/route.ts:options:slug-prefixed'
+      )
+    ).toEqual(
+      expect.objectContaining({
+        methods: ['OPTIONS'],
+        routePattern: '/{storefrontIdentifier}/account/callback',
       })
     );
     expect(

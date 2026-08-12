@@ -29,6 +29,10 @@ describe('createStorefrontEdgeApiRows', () => {
         bytes: Buffer.from('export async function GET() {}\n'),
         sourcePath: `${apiRoot}/route.ts`,
       },
+      {
+        bytes: Buffer.from('export async function POST() {}\n'),
+        sourcePath: `${apiRoot}/orders/reuse/route.ts`,
+      },
     ];
 
     // Act
@@ -59,7 +63,12 @@ describe('createStorefrontEdgeApiRows', () => {
         }),
       ])
     );
-    expect(rows).toHaveLength(5);
+    expect(rows).toHaveLength(6);
+    expect(
+      rows.findIndex(({ routePattern }) => routePattern === '/api/orders/reuse')
+    ).toBeLessThan(
+      rows.findIndex(({ routePattern }) => routePattern === '/api/orders/{id}')
+    );
   });
 
   it('rejects an API handler without an exported HTTP method', () => {

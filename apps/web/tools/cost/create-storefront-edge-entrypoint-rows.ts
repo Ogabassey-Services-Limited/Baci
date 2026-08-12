@@ -144,6 +144,14 @@ export function createStorefrontEdgeEntrypointRows(
       sourceKind: 'storefront_entrypoint',
       sourcePath,
     };
+    const slugPrefixedRow: InventoryRow = {
+      ...row,
+      id: `${row.id}:slug-prefixed`,
+      routePattern:
+        row.routePattern === '/'
+          ? '/{storefrontIdentifier}'
+          : `/{storefrontIdentifier}${row.routePattern}`,
+    };
     if (
       (relativeSourcePath.endsWith('route.ts') ||
         METADATA_ROUTE_SUFFIXES.has(entrypointFileName(relativeSourcePath))) &&
@@ -159,9 +167,21 @@ export function createStorefrontEdgeEntrypointRows(
         sourceKind: 'storefront_entrypoint',
         sourcePath,
       };
-      return [row, optionsRow];
+      return [
+        row,
+        slugPrefixedRow,
+        optionsRow,
+        {
+          ...optionsRow,
+          id: `${optionsRow.id}:slug-prefixed`,
+          routePattern:
+            optionsRow.routePattern === '/'
+              ? '/{storefrontIdentifier}'
+              : `/{storefrontIdentifier}${optionsRow.routePattern}`,
+        },
+      ];
     }
-    return [row];
+    return [row, slugPrefixedRow];
   });
   return rows.sort((left, right) => {
     const routeDelta = compareRoutePatterns(
