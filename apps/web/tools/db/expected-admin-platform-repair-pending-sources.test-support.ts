@@ -114,4 +114,14 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260812100000_fill_admin_platform_analytics_daily_gmv_gaps.sql',
     sha256: '3f6013a330181f6bb8f6a495ad2a9b8dba94776edf5f287dd5e5034bf450c44a',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812110000_harden_notification_delivery_and_operations_access.sql',
+    sha256: '9049d7494deadca72f560a4217768184d73a29f5c8af060177024e25d1ac5390',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812113000_harden_admin_truthful_read_models.sql',
+    sha256: 'b0d16a417a3f21f05efb84e6f4d0f69bc1e55861be92ef2fbbe47a832da848a8',
+  },
 ] as const;

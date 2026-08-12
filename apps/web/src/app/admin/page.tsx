@@ -80,7 +80,7 @@ export default function AdminDashboardPage() {
       })
       .then((result) => {
         if (result.status === 'forbidden') {
-          replace('/dashboard');
+          replace('/admin/blog');
           return;
         }
         if (result.status === 'error') throw result.error;
@@ -115,7 +115,7 @@ export default function AdminDashboardPage() {
       if (!active) return;
 
       if (result.status === 'forbidden') {
-        replace('/dashboard');
+        replace('/admin/blog');
         return;
       }
 

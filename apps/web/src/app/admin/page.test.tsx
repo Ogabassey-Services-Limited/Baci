@@ -244,7 +244,7 @@ describe('AdminDashboardPage', () => {
     render(<AdminDashboardPage />);
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/dashboard');
+      expect(mockReplace).toHaveBeenCalledWith('/admin/blog');
     });
     expect(
       screen.queryByText('Platform analytics unavailable')
