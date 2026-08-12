@@ -32,8 +32,8 @@ BEGIN
 
     IF v_definition NOT LIKE '%AND sm.status = ''active''%'
        OR v_definition NOT LIKE '%WHERE t.order_id = p_order_id%'
-       OR v_definition NOT LIKE '%AND t.merchant_id = p_merchant_id%'
-       OR v_definition NOT LIKE '%AND o.merchant_id = p_merchant_id%'
+       OR v_updated NOT LIKE '%AND t.merchant_id = p_merchant_id%'
+       OR v_updated NOT LIKE '%AND o.merchant_id = p_merchant_id%'
        OR v_updated = v_definition THEN
       RAISE EXCEPTION 'paystack_retry_scope_repair_not_applied: %', v_signature;
     END IF;
