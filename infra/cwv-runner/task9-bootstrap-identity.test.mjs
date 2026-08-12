@@ -102,3 +102,22 @@ test('rejects malformed repository and authority fields', () => {
     /invalid source identity/
   );
 });
+
+test('rejects a successful deployment receipt from a different repository', () => {
+  assert.throws(
+    () =>
+      checkedTask9Identity(
+        {
+          ...input,
+          authorityReceipt: {
+            ...input.authorityReceipt,
+            repository: { id: 456, name: 'fork/Baci' },
+          },
+        },
+        manifest,
+        policy,
+        metadata
+      ),
+    /invalid source identity/
+  );
+});
