@@ -30,7 +30,7 @@ const EXPECTED = Object.freeze({
   'canonical-json.mjs':
     'b65fea46e65c67b8f1e85da9c851e2170536f05b236445de5d481bb9ec97124c',
   'git-ref-validator.mjs':
-    '3dc5632a1f0f3862aa7365b612aa6cd784c0ece25168ec8bf8a08eac30de78c6',
+    '2c8d8fdbad3a83fe2daa94205c6ce4461692350e3b76ab6979ca2f3b91b4872b',
   'source-archive.mjs':
     'c0db315f3f86cd82f396531a30fe074a0b35824aa6b2e9c76e7ce07f720d1842',
   'source-manifest-git.mjs':
