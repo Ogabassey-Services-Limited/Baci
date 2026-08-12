@@ -78,9 +78,84 @@ SELECT dblink_exec(
 SELECT dblink_exec('paystack_manual_claim', 'BEGIN');
 SELECT dblink_exec('paystack_gateway_claim', 'BEGIN');
 
+-- Convert expected claim conflicts into text results inside helper functions so
+-- both dblink sessions can reach COMMIT while the harness asserts the loser.
+CREATE OR REPLACE FUNCTION public.try_paystack_manual_claim(
+  p_review_id uuid,
+  p_order_id uuid,
+  p_merchant_id uuid,
+  p_paystack_reference text,
+  p_amount numeric,
+  p_currency text,
+  p_customer_email text,
+  p_customer_name text,
+  p_gateway_fee numeric,
+  p_platform_fee numeric,
+  p_merchant_amount numeric,
+  p_gateway_response jsonb,
+  p_operator_user_id uuid,
+  p_actor text
+) RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_message text;
+BEGIN
+  PERFORM public.reconcile_paystack_unmatched_partial_payment(
+    p_review_id, p_order_id, p_merchant_id, p_paystack_reference, p_amount,
+    p_currency, p_customer_email, p_customer_name, p_gateway_fee,
+    p_platform_fee, p_merchant_amount, p_gateway_response,
+    p_operator_user_id, p_actor
+  );
+  RETURN 'succeeded';
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
+  IF SQLSTATE <> 'P0001'
+     OR v_message <> 'paystack_reference_already_recorded' THEN
+    RAISE;
+  END IF;
+  RETURN v_message;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.try_paystack_gateway_claim(
+  p_merchant_id uuid,
+  p_order_id uuid,
+  p_amount numeric,
+  p_currency text,
+  p_gateway text,
+  p_reference text,
+  p_platform_fee numeric,
+  p_merchant_amount numeric,
+  p_customer_email text,
+  p_customer_name text,
+  p_session_id text,
+  p_metadata jsonb
+) RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_message text;
+BEGIN
+  PERFORM public.create_payment_transaction(
+    p_merchant_id, p_order_id, p_amount, p_currency, p_gateway, p_reference,
+    p_platform_fee, p_merchant_amount, p_customer_email, p_customer_name,
+    p_session_id, p_metadata
+  );
+  RETURN 'succeeded';
+EXCEPTION WHEN OTHERS THEN
+  GET STACKED DIAGNOSTICS v_message = MESSAGE_TEXT;
+  IF SQLSTATE <> 'P0001'
+     OR v_message <> 'reference_in_use' THEN
+    RAISE;
+  END IF;
+  RETURN v_message;
+END;
+$$;
+
 SELECT dblink_send_query(
   'paystack_manual_claim',
-  $$SELECT public.reconcile_paystack_unmatched_partial_payment(
+  $$SELECT public.try_paystack_manual_claim(
       '00000000-0000-4000-8000-00000000f103'::uuid,
       '00000000-0000-4000-8000-00000000f104'::uuid,
       '00000000-0000-4000-8000-00000000f102'::uuid,
@@ -93,7 +168,7 @@ SELECT dblink_send_query(
 
 SELECT dblink_send_query(
   'paystack_gateway_claim',
-  $$SELECT public.create_payment_transaction(
+  $$SELECT public.try_paystack_gateway_claim(
       '00000000-0000-4000-8000-00000000f102'::uuid,
       '00000000-0000-4000-8000-00000000f105'::uuid,
       100::numeric, 'NGN', 'paystack',
@@ -107,8 +182,9 @@ DO $$
 DECLARE
   v_manual_done boolean := false;
   v_gateway_done boolean := false;
-  v_manual_succeeded boolean := false;
-  v_gateway_succeeded boolean := false;
+  v_manual_result text;
+  v_gateway_result text;
+  v_result text;
   v_attempts integer := 0;
 BEGIN
   WHILE NOT (v_manual_done AND v_gateway_done) LOOP
@@ -120,12 +196,14 @@ BEGIN
     IF NOT v_manual_done
        AND dblink_is_busy('paystack_manual_claim') = 0 THEN
       BEGIN
+        SELECT result.value INTO v_result
+          FROM dblink_get_result('paystack_manual_claim') AS result(value text);
         PERFORM * FROM dblink_get_result('paystack_manual_claim') AS result(value text);
-        v_manual_succeeded := true;
+        v_manual_result := v_result;
       EXCEPTION WHEN OTHERS THEN
         PERFORM dblink_exec('paystack_manual_claim', 'ROLLBACK');
       END;
-      IF v_manual_succeeded THEN
+      IF v_manual_result = 'succeeded' THEN
         PERFORM dblink_exec('paystack_manual_claim', 'COMMIT');
       END IF;
       v_manual_done := true;
@@ -134,12 +212,14 @@ BEGIN
     IF NOT v_gateway_done
        AND dblink_is_busy('paystack_gateway_claim') = 0 THEN
       BEGIN
+        SELECT result.value INTO v_result
+          FROM dblink_get_result('paystack_gateway_claim') AS result(value text);
         PERFORM * FROM dblink_get_result('paystack_gateway_claim') AS result(value text);
-        v_gateway_succeeded := true;
+        v_gateway_result := v_result;
       EXCEPTION WHEN OTHERS THEN
         PERFORM dblink_exec('paystack_gateway_claim', 'ROLLBACK');
       END;
-      IF v_gateway_succeeded THEN
+      IF v_gateway_result = 'succeeded' THEN
         PERFORM dblink_exec('paystack_gateway_claim', 'COMMIT');
       END IF;
       v_gateway_done := true;
@@ -150,10 +230,15 @@ BEGIN
     END IF;
   END LOOP;
 
-  IF v_manual_succeeded = v_gateway_succeeded THEN
+  IF NOT (
+    (v_manual_result = 'succeeded'
+      AND v_gateway_result = 'reference_in_use')
+    OR (v_gateway_result = 'succeeded'
+      AND v_manual_result = 'paystack_reference_already_recorded')
+  ) THEN
     RAISE EXCEPTION
-      'expected exactly one Paystack claim to succeed (manual=%, gateway=%)',
-      v_manual_succeeded, v_gateway_succeeded;
+      'expected one Paystack claim success and one expected conflict (manual=%, gateway=%)',
+      v_manual_result, v_gateway_result;
   END IF;
 END;
 $$;

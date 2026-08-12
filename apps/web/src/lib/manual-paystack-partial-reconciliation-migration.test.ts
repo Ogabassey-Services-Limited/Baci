@@ -51,6 +51,13 @@ const retryMigration = readFileSync(
   ),
   'utf8'
 );
+const retryGreatestFixMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811180000_fix_paystack_reconciliation_retry_balance.sql'
+  ),
+  'utf8'
+);
 const retryIndexMigration = readFileSync(
   resolve(
     process.cwd(),
@@ -58,10 +65,24 @@ const retryIndexMigration = readFileSync(
   ),
   'utf8'
 );
+const operatorAccessMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260811170000_require_paystack_reconciliation_operator_access.sql'
+  ),
+  'utf8'
+);
 const concurrencyRegression = readFileSync(
   resolve(
     process.cwd(),
     '../../supabase/migrations/tests/paystack_reference_claim_concurrency.sql'
+  ),
+  'utf8'
+);
+const concurrencyRunner = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/tests/run-paystack-reference-claim-concurrency-test.sh'
   ),
   'utf8'
 );
@@ -146,6 +167,15 @@ describe('manual Paystack partial reconciliation migration', () => {
     );
   });
 
+  it('requires the reconciliation operator to belong to the merchant', () => {
+    expect(operatorAccessMigration).toContain(
+      "RAISE EXCEPTION 'operator_not_authorized_for_merchant'"
+    );
+    expect(operatorAccessMigration).toContain('m.user_id = p_operator_user_id');
+    expect(operatorAccessMigration).toContain('sm.merchant_id = p_merchant_id');
+    expect(operatorAccessMigration).toContain("sm.status = 'active'");
+  });
+
   it('uses durable chat-order linkage for conversion retries', () => {
     expect(chatOrderMigration).toContain(
       'ADD COLUMN IF NOT EXISTS chat_order_id uuid'
@@ -174,6 +204,10 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(retryMigration).toContain(
       "t.metadata ->> 'email_mismatch_override' IS NULL"
     );
+    expect(retryGreatestFixMigration).toMatch(
+      /\bgreatest\(0,\s*v_total\s*-\s*v_amount_paid\)/i
+    );
+    expect(retryGreatestFixMigration).not.toContain('pg_catalog.greatest');
     expect(retryMigration).toContain("'already_completed', true");
     expect(retryMigration).toContain('paystack_reference_already_recorded');
     expect(retryMigration).toContain('FOR UPDATE OF t, o');
@@ -217,7 +251,21 @@ describe('manual Paystack partial reconciliation migration', () => {
       'public.create_payment_transaction('
     );
     expect(concurrencyRegression).toContain(
-      'expected exactly one Paystack claim to succeed'
+      'expected one Paystack claim success and one expected conflict'
     );
+    expect(concurrencyRegression).toContain(
+      "'paystack_reference_already_recorded'"
+    );
+    expect(concurrencyRegression).toContain("'reference_in_use'");
+    expect(concurrencyRegression).toContain(
+      "PERFORM * FROM dblink_get_result('paystack_manual_claim')"
+    );
+    expect(concurrencyRegression).toContain(
+      "PERFORM * FROM dblink_get_result('paystack_gateway_claim')"
+    );
+    expect(concurrencyRunner).toContain(
+      'paystack_reference_claim_concurrency.sql'
+    );
+    expect(concurrencyRunner).toContain('docker run');
   });
 });
