@@ -110,8 +110,10 @@ export function DashboardNavCapsule({
                     <TooltipTrigger asChild>
                       <Link
                         href={item.href}
-                        aria-label={item.label}
-                        aria-current={isActive ? 'page' : undefined}
+                        aria-label={`${item.label}${item.badge ? `, ${item.badge > 99 ? '99+' : item.badge}` : ''}`}
+                        aria-current={
+                          pathname === item.href ? 'page' : undefined
+                        }
                         onClick={() => onNavigate(item.id)}
                         className={cn(
                           'group relative grid size-11 place-items-center rounded-full text-muted-foreground transition-[background-color,color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-accent hover:text-foreground',
