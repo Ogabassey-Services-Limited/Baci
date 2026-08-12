@@ -9,6 +9,8 @@ const mediaSubresource = (
     | 'configured_external_media_origin'
     | 'configured_google_tag_manager_origin'
     | 'configured_google_ad_manager_origin'
+    | 'configured_google_store_widget_origin'
+    | 'configured_google_store_badge_origin'
     | 'configured_klump_origin'
     | 'configured_credpal_origin'
     | 'configured_credit_direct_origin'
@@ -50,6 +52,16 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'google-ad-manager',
     'configured_google_ad_manager_origin',
     'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts'
+  ),
+  mediaSubresource(
+    'google-store-widget',
+    'configured_google_store_widget_origin',
+    'apps/web/src/components/analytics/google-store-widget.tsx'
+  ),
+  mediaSubresource(
+    'google-store-badge',
+    'configured_google_store_badge_origin',
+    'apps/web/src/components/analytics/google-store-widget.tsx'
   ),
   mediaSubresource(
     'klump',

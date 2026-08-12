@@ -23,6 +23,8 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'configured_external_media_origin'
       | 'configured_google_tag_manager_origin'
       | 'configured_google_ad_manager_origin'
+      | 'configured_google_store_widget_origin'
+      | 'configured_google_store_badge_origin'
       | 'configured_klump_origin'
       | 'configured_credpal_origin'
       | 'configured_credit_direct_origin'

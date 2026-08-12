@@ -8,6 +8,14 @@ const BLOG_SNIPPET_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx';
 const NEGOTIATION_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts';
+const OGA_CHECKOUT_SOURCE =
+  'apps/web/src/components/storefront/ogabassey/pages/checkout-page.tsx';
+const CHECKOUT_IDENTITY_SOURCE =
+  'apps/web/src/components/storefront/checkout-identity-modal.tsx';
+const CHECKOUT_AUTH_SOURCE =
+  'apps/web/src/components/storefront/checkout-auth-modal.tsx';
+const OGA_CHECKOUT_IDENTITY_SOURCE =
+  'apps/web/src/components/storefront/ogabassey/components/CheckoutIdentityModal.tsx';
 
 function supabaseSubresource(
   id: string,
@@ -74,5 +82,29 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
       '/rest/v1/negotiation_requests',
       ['POST'],
       NEGOTIATION_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-signup',
+      '/auth/v1/signup',
+      ['POST'],
+      OGA_CHECKOUT_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-password-token',
+      '/auth/v1/token',
+      ['POST'],
+      CHECKOUT_IDENTITY_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-password-token-auth-modal',
+      '/auth/v1/token',
+      ['POST'],
+      CHECKOUT_AUTH_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-password-token-ogabassey',
+      '/auth/v1/token',
+      ['POST'],
+      OGA_CHECKOUT_IDENTITY_SOURCE
     ),
   ];

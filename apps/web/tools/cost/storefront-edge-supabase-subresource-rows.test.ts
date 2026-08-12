@@ -30,5 +30,19 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
           'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
       })
     );
+    expect(byId.get('automatic-subresource:supabase-auth-signup')).toEqual(
+      expect.objectContaining({
+        methods: ['POST'],
+        routePattern: '/auth/v1/signup',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:supabase-auth-password-token')
+    ).toEqual(
+      expect.objectContaining({
+        methods: ['POST'],
+        routePattern: '/auth/v1/token',
+      })
+    );
   });
 });

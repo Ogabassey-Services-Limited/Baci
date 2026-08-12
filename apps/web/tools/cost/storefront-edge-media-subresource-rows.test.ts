@@ -30,6 +30,8 @@ describe('external storefront media inventory', () => {
       ...[
         'configured_google_tag_manager_origin',
         'configured_google_ad_manager_origin',
+        'configured_google_store_widget_origin',
+        'configured_google_store_badge_origin',
         'configured_meta_origin',
         'configured_tiktok_origin',
         'configured_snapchat_origin',
