@@ -106,5 +106,15 @@ describe('PreviewInertHeader', () => {
     expect(
       screen.getByRole('img', { name: 'Acme Store logo' })
     ).toHaveAttribute('src', '/media/logo.png');
+    expect(screen.getByText('Acme Store')).toBeInTheDocument();
+  });
+
+  it('keeps the published mobile CTA breakpoint in the inert preview', () => {
+    render(<PreviewInertHeader ctaButton={{ show: true, text: 'Shop now' }} />);
+
+    expect(screen.getByRole('button', { name: 'Shop now' })).toHaveClass(
+      'hidden',
+      'sm:inline-flex'
+    );
   });
 });

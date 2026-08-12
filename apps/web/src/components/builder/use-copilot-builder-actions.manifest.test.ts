@@ -10,17 +10,8 @@ vi.mock('@copilotkit/react-core', () => ({
   useCopilotReadable: vi.fn(),
 }));
 vi.mock('./component-schema', async () => {
-  const { builderDesignCapabilities: manifest } = await import(
-    '@baci/shared/contracts'
-  );
-  return {
-    COMPONENT_SCHEMA: Object.fromEntries(
-      manifest.components.map(({ componentType }) => [
-        componentType,
-        { type: componentType },
-      ])
-    ),
-  };
+  const { COMPONENT_SCHEMA } = await import('./component-schema');
+  return { COMPONENT_SCHEMA };
 });
 
 describe('useCopilotBuilderActions manifest policy', () => {
@@ -85,6 +76,12 @@ describe('useCopilotBuilderActions manifest policy', () => {
     expect(advertisedTypes).not.toEqual(
       expect.arrayContaining(['Header', 'Footer', 'HeroCarousel'])
     );
+    const readableConfig = JSON.parse(readable.value) as {
+      editableComponents: Record<string, { specialOperations?: unknown }>;
+    };
+    expect(
+      readableConfig.editableComponents.HeroCarousel?.specialOperations
+    ).toBeDefined();
   });
 
   it('routes HeroCarousel updates through the bounded slide operation', () => {

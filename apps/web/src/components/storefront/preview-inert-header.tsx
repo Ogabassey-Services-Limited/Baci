@@ -55,9 +55,15 @@ const searchStyleClasses = {
   outline: 'border border-current bg-transparent',
 } as const;
 
-function InertHeaderAction({ children }: { children: string }) {
+function InertHeaderAction({
+  children,
+  className,
+}: {
+  children: string;
+  className?: string;
+}) {
   return (
-    <button aria-disabled="true" disabled type="button">
+    <button aria-disabled="true" className={className} disabled type="button">
       {children}
     </button>
   );
@@ -168,7 +174,9 @@ export function PreviewInertHeader({
         {showCart ? <InertHeaderAction>Cart</InertHeaderAction> : null}
         {showMenu ? <InertHeaderAction>Menu</InertHeaderAction> : null}
         {ctaButton?.show ? (
-          <InertHeaderAction>{ctaButton.text}</InertHeaderAction>
+          <InertHeaderAction className="hidden sm:inline-flex">
+            {ctaButton.text}
+          </InertHeaderAction>
         ) : null}
       </div>
     </header>

@@ -142,7 +142,7 @@ export const heroProps: BuilderDesignProps = {
     enum: ['large', 'medium', 'small'],
     type: 'enum',
   },
-  subtitle: copy('Discover our collection.'),
+  subtitle: { ...copy('Discover our collection.'), required: true },
   title: { ...label('Featured collection'), required: true },
 };
 export const featureList: BuilderDesignProp = {

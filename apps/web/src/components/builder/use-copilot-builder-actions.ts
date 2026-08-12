@@ -77,17 +77,12 @@ export function useCopilotBuilderActions({
       'The current storefront page configuration. You can modify this using actions.',
     value: JSON.stringify({
       availableComponents: aiInsertableComponentSchema,
+      editableComponents: COMPONENT_SCHEMA,
       currentComponents: data.content?.map((c, index) => ({
         index,
         type: c.type,
         id: c.props.id,
-        // Expose a summary of props so AI knows what's already there
-        summary:
-          c.type === 'Hero'
-            ? c.props.title
-            : c.type === 'ProductGrid'
-              ? c.props.title
-              : undefined,
+        props: c.props,
       })),
     }),
   });
@@ -155,7 +150,7 @@ export function useCopilotBuilderActions({
   useCopilotAction({
     name: 'updateComponent',
     description:
-      'Update the properties of an existing component. Use this to change text, images, or layout.',
+      'Update an editable component using its editableComponents schema. For HeroCarousel, include slideIndex and the special-operation slide fields in updates.',
     parameters: [
       {
         name: 'index',

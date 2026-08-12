@@ -119,7 +119,7 @@ describe('builder design capabilities', () => {
     expect(button?.props.text).toMatchObject({ required: true });
     expect(productGrid?.props.columns).toMatchObject({
       maximum: 4,
-      minimum: 2,
+      minimum: 1,
     });
     expect(newsletter?.props.buttonText).toMatchObject({ required: true });
     expect(newsletter?.props.description).toMatchObject({ required: true });

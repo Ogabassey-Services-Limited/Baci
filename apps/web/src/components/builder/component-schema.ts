@@ -9,6 +9,9 @@ export const COMPONENT_SCHEMA = Object.fromEntries(
       {
         description: capability.description,
         props: capability.props,
+        ...(capability.specialOperations
+          ? { specialOperations: capability.specialOperations }
+          : {}),
       },
     ])
 );

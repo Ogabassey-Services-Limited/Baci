@@ -16,12 +16,12 @@ describe('heroCarouselSlidePatchFields', () => {
     ]);
   });
 
-  it('allows optional carousel copy to be explicitly cleared', () => {
+  it('allows optional subtitles but requires nonempty carousel CTA copy', () => {
     expect(heroCarouselSlidePatchFields.subtitle.safeParse('').success).toBe(
       true
     );
     expect(heroCarouselSlidePatchFields.ctaText.safeParse('').success).toBe(
-      true
+      false
     );
   });
 

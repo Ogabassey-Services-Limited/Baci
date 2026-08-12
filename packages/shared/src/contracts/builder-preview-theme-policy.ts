@@ -165,7 +165,7 @@ function hasOnlyKnownKeys(
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
-function isSafeThemeText(value: unknown, key?: string): boolean {
+function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
   const safeText =
     typeof value === 'string' &&
     themeStringPattern.test(value) &&
@@ -185,15 +185,9 @@ function isSafeThemeText(value: unknown, key?: string): boolean {
     key?.toLowerCase().includes('maxwidth')
   )
     return cssLengthPattern.test(value as string);
-  if (
-    (key === 'fast' || key === 'normal' || key === 'slow') &&
-    /(?:ms|s)$/.test(value as string)
-  )
+  if (path?.includes('.animations.duration.'))
     return cssDurationPattern.test(value as string);
-  if (
-    (key === 'easeIn' || key === 'easeInOut' || key === 'easeOut') &&
-    (value as string).includes('(')
-  )
+  if (path?.includes('.animations.easing.'))
     return cssEasingPattern.test(value as string);
   return true;
 }
@@ -211,19 +205,20 @@ function matchesThemeShape(
   value: unknown,
   shape: ThemeShape,
   colorContext = false,
-  key?: string
+  key?: string,
+  path = ''
 ): boolean {
   if (shape === text) {
     if (typeof value !== 'string') return false;
     const pathHint = colorContext ? 'color' : '';
     if (pathHint === 'color')
       return (
-        isSafeThemeText(value, key) &&
+        isSafeThemeText(value, key, path) &&
         (rendererColorPattern.test(value) ||
           /^var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\)$/.test(value)) &&
         isDefinedColorToken(value)
       );
-    return isSafeThemeText(value, key);
+    return isSafeThemeText(value, key, path);
   }
   if (shape === number)
     return typeof value === 'number' && Number.isFinite(value);
@@ -233,7 +228,13 @@ function matchesThemeShape(
     const expected = shape[key];
     return (
       expected !== undefined &&
-      matchesThemeShape(child, expected, key === 'colors' || colorContext, key)
+      matchesThemeShape(
+        child,
+        expected,
+        key === 'colors' || colorContext,
+        key,
+        `${path}.${key}`
+      )
     );
   });
 }

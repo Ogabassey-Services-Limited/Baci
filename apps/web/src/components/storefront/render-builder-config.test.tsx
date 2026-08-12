@@ -108,15 +108,13 @@ describe('RenderBuilderConfig', () => {
       backgroundColor: 'var(--theme-background)',
       color: 'var(--theme-foreground)',
     });
-    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
-      'Page: Home'
-    );
+    expect(screen.queryByTestId('builder-preview-root-title')).toBeNull();
     expect(
       screen.getByTestId('builder-preview-navigation-guard')
     ).toHaveAttribute('inert');
   });
 
-  it('surfaces root-only title edits in the inert preview indicator', () => {
+  it('keeps root-only title edits as nonvisual metadata', () => {
     const { rerender } = render(
       <RenderBuilderConfig
         config={{ content: [], root: { props: { title: 'Summer shop' } } }}
@@ -124,9 +122,7 @@ describe('RenderBuilderConfig', () => {
       />
     );
 
-    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
-      'Page: Summer shop'
-    );
+    expect(screen.queryByTestId('builder-preview-root-title')).toBeNull();
 
     rerender(
       <RenderBuilderConfig
@@ -134,9 +130,7 @@ describe('RenderBuilderConfig', () => {
         merchantContext={merchantContext}
       />
     );
-    expect(screen.getByTestId('builder-preview-root-title')).toHaveTextContent(
-      'Page: Holiday shop'
-    );
+    expect(screen.queryByTestId('builder-preview-root-title')).toBeNull();
   });
 
   it('does not create a database, merchant-hook, or public-storefront loader dependency', () => {

@@ -123,7 +123,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       type: 'number',
       wholeNumber: true,
     },
-    role: label('Role'),
+    role: { ...label('Role'), required: true },
   }),
   allow('Features', 'Feature benefit list.', {
     columns: {
@@ -272,7 +272,8 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
       },
       title: { ...label('Privacy Policy'), required: true },
     },
-    false
+    false,
+    true
   ),
   deny(
     'CountdownTimer',
