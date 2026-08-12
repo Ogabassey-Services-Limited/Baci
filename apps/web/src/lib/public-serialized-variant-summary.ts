@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { fetchPublicSerializedAvailabilityCounts } from './public-serialized-availability-counts';
 
 type InventoryTrackingPolicy =
   | 'off'
@@ -57,17 +58,6 @@ function isSerializedInventoryPolicy(
 > {
   return (
     policy === 'serialized_strict' || policy === 'serialized_then_unlimited'
-  );
-}
-
-function isTimeoutError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-
-  const { message, details } = error as Record<string, unknown>;
-  return [message, details].some(
-    (value) => typeof value === 'string' && value.includes('TimeoutError')
   );
 }
 
@@ -238,43 +228,14 @@ export async function getPublicSerializedVariantSummariesByProductId(
         new Set(summaries.map((summary) => summary.productId))
       );
 
-      // Fetch available counts only for products with an effective serialized
-      // policy. Most storefront lists are non-serialized; avoiding the count RPC
-      // for those products keeps public HTML rendering out of Supabase timeouts.
-      // Supabase PostgREST v2 exposes overrideTypes() on RPC builders and marks
-      // returns() as deprecated; replace the stale generated RPC result type here.
-      const fetchAvailabilityCounts = () => {
-        const availabilityQuery = supabase
-          .rpc('get_public_serialized_variant_availability_counts', {
-            p_merchant_id: merchantId,
-            p_product_ids: serializedProductIds,
-            p_branch_id: branchId || null,
-          })
-          .overrideTypes<
-            PublicSerializedAvailabilityCountRow[],
-            { merge: false }
-          >();
-
-        // The shared public client bounds fetches with AbortSignal.timeout(),
-        // which produces a TimeoutError. postgrest-js retries that error by
-        // default, so disable the SDK retry before this function performs its
-        // single, deliberate retry below. The guard preserves lightweight test
-        // doubles that only implement the awaitable query surface.
-        return typeof availabilityQuery.retry === 'function'
-          ? availabilityQuery.retry(false)
-          : availabilityQuery;
-      };
-
-      let { data: rawCounts, error: countsError } =
-        await fetchAvailabilityCounts();
-      if (isTimeoutError(countsError)) {
-        ({ data: rawCounts, error: countsError } =
-          await fetchAvailabilityCounts());
-      }
-
-      if (countsError) {
-        throw countsError;
-      }
+      // Most storefront lists are non-serialized; avoiding the count RPC for
+      // those products keeps public HTML rendering out of Supabase timeouts.
+      const rawCounts = await fetchPublicSerializedAvailabilityCounts(
+        supabase,
+        merchantId,
+        serializedProductIds,
+        branchId
+      );
 
       const counts = Array.isArray(rawCounts)
         ? rawCounts.filter(isPublicSerializedAvailabilityCountRow)
