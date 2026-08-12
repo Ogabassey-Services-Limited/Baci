@@ -133,14 +133,13 @@ const curatedTheme = {
 
 describe('builder preview candidate configuration', () => {
   it('accepts the complete bounded shape emitted by the curated storefront', () => {
-    expect(
-      builderPreviewCandidateConfigSchema.safeParse({
-        content: [],
-        root: { props: { title: 'Home' } },
-        theme: curatedTheme,
-        zones: {},
-      }).success
-    ).toBe(true);
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { props: { title: 'Home' } },
+      theme: curatedTheme,
+      zones: {},
+    });
+    expect(result.success).toBe(true);
   });
 
   it('normalizes the minimal client fallback root title into Puck root props', () => {

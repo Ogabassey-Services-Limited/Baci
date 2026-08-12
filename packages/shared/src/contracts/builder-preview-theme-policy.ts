@@ -185,9 +185,15 @@ function isSafeThemeText(value: unknown, key?: string): boolean {
     key?.toLowerCase().includes('maxwidth')
   )
     return cssLengthPattern.test(value as string);
-  if (key === 'fast' || key === 'normal' || key === 'slow')
+  if (
+    (key === 'fast' || key === 'normal' || key === 'slow') &&
+    /(?:ms|s)$/.test(value as string)
+  )
     return cssDurationPattern.test(value as string);
-  if (key === 'easeIn' || key === 'easeInOut' || key === 'easeOut')
+  if (
+    (key === 'easeIn' || key === 'easeInOut' || key === 'easeOut') &&
+    (value as string).includes('(')
+  )
     return cssEasingPattern.test(value as string);
   return true;
 }
@@ -196,6 +202,7 @@ function isDefinedColorToken(value: string): boolean {
   const match = /^var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)$/.exec(value);
   return (
     match === null ||
+    match[1] === 'store' ||
     builderDesignCapabilities.themeTokenKeys.includes(match[2])
   );
 }
@@ -212,7 +219,8 @@ function matchesThemeShape(
     if (pathHint === 'color')
       return (
         isSafeThemeText(value, key) &&
-        rendererColorPattern.test(value) &&
+        (rendererColorPattern.test(value) ||
+          /^var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\)$/.test(value)) &&
         isDefinedColorToken(value)
       );
     return isSafeThemeText(value, key);
