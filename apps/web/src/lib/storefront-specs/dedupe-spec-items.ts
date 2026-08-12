@@ -9,16 +9,27 @@ interface DedupeSpecItemsOptions {
 }
 
 function getCanonicalSpecLabel(label: string) {
+  const vocabularyKey = getProductSchemaSpecKeyForLabel(label);
+  if (vocabularyKey) {
+    return vocabularyKey;
+  }
+
+  const canonicalLabel = normalizeProductSchemaSpecLabel(label).trim();
+
+  const fallbackLabel = label.trim().replace(/\s+/g, ' ').toLowerCase();
   return (
-    getProductSchemaSpecKeyForLabel(label) ||
-    normalizeProductSchemaSpecLabel(label)
+    canonicalLabel ||
+    Array.from(fallbackLabel)
+      .map((character) => character.codePointAt(0)?.toString(16))
+      .join('-')
   );
 }
 
 function getSpecItemIdentity(label: string, section?: string) {
-  const normalizedSection = normalizeProductSchemaSpecLabel(
-    section || 'General'
-  );
+  const sourceSection = section || 'General';
+  const normalizedSection =
+    normalizeProductSchemaSpecLabel(sourceSection).trim() ||
+    sourceSection.trim().replace(/\s+/g, ' ').toLowerCase();
 
   return `${normalizedSection}:${getCanonicalSpecLabel(label)}`;
 }

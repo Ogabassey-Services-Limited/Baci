@@ -3,16 +3,7 @@ import { getProductSpecFamily } from './spec-family-classifier';
 
 describe('spec family classifier', () => {
   it('recognizes display-name and slug forms of camera categories', () => {
-    for (const category of [
-      'Cameras',
-      'Lenses',
-      'Drones',
-      'Gimbals',
-      'Camera Accessories',
-      'instant-film',
-      'memory-cards',
-      'tripod-stands',
-    ]) {
+    for (const category of ['Cameras', 'Drones', 'Gimbals']) {
       expect(getProductSpecFamily(category)).toBe('camera');
     }
   });
@@ -24,7 +15,20 @@ describe('spec family classifier', () => {
     expect(getProductSpecFamily('Watch Straps')).toBe('general');
     expect(getProductSpecFamily('Screen Protectors')).toBe('general');
     expect(getProductSpecFamily('Gaming Grip')).toBe('general');
-    expect(getProductSpecFamily('Camera Grip')).toBe('camera');
+    expect(getProductSpecFamily('Camera Grip')).toBe('general');
+  });
+
+  it('does not apply camera-body projections to camera accessories', () => {
+    for (const category of [
+      'Lenses',
+      'Microphones',
+      'Camera Accessories',
+      'instant-film',
+      'memory-cards',
+      'tripod-stands',
+    ]) {
+      expect(getProductSpecFamily(category)).toBe('general');
+    }
   });
 
   it('covers mobile, computer, and undefined category fallbacks', () => {

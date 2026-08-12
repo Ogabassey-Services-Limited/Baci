@@ -13,6 +13,17 @@ describe('buildFeedDescription', () => {
     ).toContain('Colour: Coral Red');
   });
 
+  it('keeps shipping weight for categorized accessories', () => {
+    expect(
+      buildFeedDescription({
+        name: 'Protective Phone Case',
+        category: 'Phone Cases',
+        weight_unit: 'g',
+        weight_value: 45,
+      })
+    ).toContain('Weight: 45g');
+  });
+
   it('appends the key phone specs Merchant Center flagged as missing', () => {
     const description = buildFeedDescription({
       name: 'iPhone 17 Pro Max',

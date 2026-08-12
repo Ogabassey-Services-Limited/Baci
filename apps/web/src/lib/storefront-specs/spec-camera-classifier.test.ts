@@ -2,15 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { isCameraLikeCategory } from './spec-camera-classifier';
 
 describe('isCameraLikeCategory', () => {
-  it('recognizes camera families and slug forms', () => {
+  it('recognizes camera-body families and slug forms', () => {
+    for (const category of ['Cameras', 'Action Cameras', 'instant-cameras']) {
+      expect(isCameraLikeCategory(category)).toBe(true);
+    }
+  });
+
+  it('does not classify camera accessories as camera bodies', () => {
     for (const category of [
-      'Cameras',
       'Camera Accessories',
       'instant-film',
       'memory-cards',
       'tripod-stands',
+      'Lenses',
+      'Microphones',
     ]) {
-      expect(isCameraLikeCategory(category)).toBe(true);
+      expect(isCameraLikeCategory(category)).toBe(false);
     }
   });
 

@@ -166,6 +166,16 @@ describe('buildGoogleProductDetailXml', () => {
     expect(xml).toContain('<g:attribute_value>0.45kg</g:attribute_value>');
   });
 
+  it('retains shipping weight for categorized accessories', () => {
+    const xml = buildGoogleProductDetailXml({
+      category: 'Phone Cases',
+      weight_unit: 'g',
+      weight_value: 45,
+    });
+
+    expect(xml).toContain('<g:attribute_value>45g</g:attribute_value>');
+  });
+
   it('ignores unconfirmed non-positive numeric specs', () => {
     const xml = buildGoogleProductDetailXml({
       product_key_specs: {

@@ -18,4 +18,16 @@ describe('dedupeSpecItems', () => {
       { label: 'Internal Storage', value: '256GB' },
     ]);
   });
+
+  it('keeps distinct non-Latin labels when canonicalization is empty', () => {
+    expect(
+      dedupeSpecItems([
+        { label: '重量', value: '450g' },
+        { label: '尺寸', value: '120 x 70 x 35 mm' },
+      ])
+    ).toEqual([
+      { label: '重量', value: '450g' },
+      { label: '尺寸', value: '120 x 70 x 35 mm' },
+    ]);
+  });
 });

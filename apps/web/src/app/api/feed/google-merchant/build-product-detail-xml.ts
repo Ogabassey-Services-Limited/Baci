@@ -94,11 +94,7 @@ function buildWeightLabel(input: ProductDetailInput) {
     return `${keySpecWeight}g`;
   }
 
-  const shippingWeight = getFirstAcceptedSpecValue(
-    input,
-    'weight_g',
-    input.weight_value
-  );
+  const shippingWeight = input.weight_value;
   if (isPositiveFiniteNumber(shippingWeight) && input.weight_unit) {
     return `${shippingWeight}${input.weight_unit}`;
   }

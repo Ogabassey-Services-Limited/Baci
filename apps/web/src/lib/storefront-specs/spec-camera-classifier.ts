@@ -1,17 +1,12 @@
-const CAMERA_CATEGORY_NAMES = new Set([
+import { isAccessoryLikeCategory } from './spec-accessory-classifier';
+
+const CAMERA_BODY_CATEGORY_NAMES = new Set([
   'camera',
   'cameras',
   'action cameras',
   'instant cameras',
-  'lenses',
   'drones',
   'gimbals',
-  'microphones',
-  'monitors & transmitters',
-  'tripod stands',
-  'camera accessories',
-  'instant film',
-  'memory cards',
 ]);
 
 const MOBILE_CATEGORY_PATTERN =
@@ -30,6 +25,9 @@ export function isCameraLikeCategory(categoryName: string) {
 
   return (
     !isMobileCategory &&
-    (CAMERA_CATEGORY_NAMES.has(normalized) || normalized.includes('camera'))
+    !isAccessoryLikeCategory(normalized) &&
+    (CAMERA_BODY_CATEGORY_NAMES.has(normalized) ||
+      normalized.endsWith(' camera') ||
+      normalized.endsWith(' cameras'))
   );
 }

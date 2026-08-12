@@ -63,11 +63,7 @@ function buildWeightLabel(input: FeedDescriptionInput) {
     return `${keySpecWeight}g`;
   }
 
-  const shippingWeight = getFirstAcceptedSpecValue(
-    input,
-    'weight_g',
-    input.weight_value
-  );
+  const shippingWeight = input.weight_value;
   if (
     typeof shippingWeight === 'number' &&
     Number.isFinite(shippingWeight) &&
