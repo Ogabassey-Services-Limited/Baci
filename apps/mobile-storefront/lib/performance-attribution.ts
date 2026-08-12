@@ -4,10 +4,6 @@ import { recordCrashBreadcrumb } from './crash-diagnostics';
 
 export type PerformanceSurface = 'gadget_pattern' | 'home';
 
-const pendingAttributions: Array<{
-  properties: Record<string, unknown>;
-  surface: PerformanceSurface;
-}> = [];
 
 export function recordPerformanceSurface(
   surface: PerformanceSurface,
@@ -21,13 +17,4 @@ export function recordPerformanceSurface(
     level: 'info',
     message: surface,
   });
-  pendingAttributions.push({ properties, surface });
-}
-
-export function flushPerformanceAttributions(): void {
-  while (pendingAttributions.length > 0) {
-    const attribution = pendingAttributions.shift();
-    if (!attribution) return;
-    trackEvent('performance_surface_attributed', attribution.properties);
-  }
 }
