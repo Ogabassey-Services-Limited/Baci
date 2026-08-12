@@ -49,4 +49,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260811180000_fix_paystack_reconciliation_retry_balance.sql',
     sha256: '9391f80d39cf8f892a963ccb100a0fbe39d872d14c6f4137e25fa6d63f2f6734',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812100000_revoke_paystack_reconciliation_internal_versions.sql',
+    sha256: 'd174bd434d72e16bbce09b2f146f3ffbdfe32cd22737ddc09f583d7aae007e02',
+  },
 ];
