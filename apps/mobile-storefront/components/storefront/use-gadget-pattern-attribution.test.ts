@@ -24,8 +24,8 @@ describe('useGadgetPatternAttribution', () => {
       expect.objectContaining({ os: expect.any(String), variant: 'tabbar' }));
     unmount();
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(
-      'gadget_pattern:unmounted',
-      expect.objectContaining({ variant: 'tabbar' })
+      expect.stringMatching(/^gadget_pattern:unmounted:gadget_pattern_/),
+      expect.objectContaining({ variant: 'tabbar', instance_id: expect.any(String) })
     );
   });
 });

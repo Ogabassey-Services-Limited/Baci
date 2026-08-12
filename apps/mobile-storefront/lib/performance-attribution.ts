@@ -4,7 +4,6 @@ import { recordCrashBreadcrumb } from './crash-diagnostics';
 
 export type PerformanceSurface = 'gadget_pattern' | 'home';
 
-
 export function recordPerformanceSurface(
   surface: PerformanceSurface,
   details: Record<string, unknown> = {}
@@ -17,4 +16,5 @@ export function recordPerformanceSurface(
     level: 'info',
     message: surface,
   });
+  trackEvent('performance_surface_attributed', properties);
 }
