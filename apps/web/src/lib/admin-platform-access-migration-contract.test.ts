@@ -123,7 +123,9 @@ describe('platform access management migration contract', () => {
   });
 
   it('does not advertise self-revocation or final-owner revocation', () => {
-    expect(repairMigration).toContain('e.user_id is distinct from v_actor_user_id');
+    expect(repairMigration).toContain(
+      'e.user_id is distinct from v_actor_user_id'
+    );
     expect(repairMigration).toContain(
       "e.role <> 'owner' or private.active_platform_owner_count_v1() > 1"
     );

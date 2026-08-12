@@ -153,11 +153,16 @@ describe('CreateNotificationPage', () => {
       target: { value: 'Baci will run maintenance tonight.' },
     });
     fireEvent.click(screen.getByLabelText(/schedule for later/i));
-    fireEvent.change(screen.getByLabelText(/schedule date and time/i), {
+    const scheduleDateInput = await screen.findByLabelText(
+      /schedule date and time/i
+    );
+    fireEvent.change(scheduleDateInput, {
       target: { value: '2026-12-01T09:30' },
     });
-    fireEvent.click(
-      screen.getByRole('button', { name: /schedule notification/i })
+    fireEvent.submit(
+      screen
+        .getByRole('button', { name: /schedule notification/i })
+        .closest('form') as HTMLFormElement
     );
 
     await waitFor(() => {
@@ -243,19 +248,38 @@ describe('CreateNotificationPage', () => {
   });
 
   it('rejects a scheduled broadcast whose time elapsed while the form was open', async () => {
+    const nowSpy = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(new Date('2099-01-01T00:00:00Z').getTime());
     render(<CreateNotificationPageClient canTargetSpecificMerchants />);
-    fireEvent.change(screen.getByLabelText(/title/i), { target: { value: 'Maintenance window' } });
-    fireEvent.change(screen.getByLabelText(/message/i), { target: { value: 'Baci will run maintenance tonight.' } });
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
     fireEvent.click(screen.getByLabelText(/schedule for later/i));
-    fireEvent.change(screen.getAllByRole('textbox')[2], { target: { value: '2000-01-01T00:00' } });
-    fireEvent.click(screen.getByRole('button', { name: /queue for delivery/i }));
+    const scheduleDateInput = await screen.findByLabelText(
+      /schedule date and time/i
+    );
+    fireEvent.change(scheduleDateInput, {
+      target: { value: '2099-01-01T00:01' },
+    });
     await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith({
-        description: 'Please select a future schedule date and time',
-        title: 'Error',
-        variant: 'destructive',
-      });
+      expect(scheduleDateInput).toHaveValue('2099-01-01T00:01');
+    });
+    nowSpy.mockReturnValue(new Date('2099-01-01T00:02:00Z').getTime());
+    fireEvent.submit(
+      screen
+        .getByRole('button', { name: /schedule notification/i })
+        .closest('form') as HTMLFormElement
+    );
+    expect(mockToast).toHaveBeenCalledWith({
+      description: 'Please select a future schedule date and time',
+      title: 'Error',
+      variant: 'destructive',
     });
     expect(mockApiPost).not.toHaveBeenCalled();
+    nowSpy.mockRestore();
   });
 });
