@@ -21,25 +21,30 @@ BEGIN
       AND n.scheduled_for IS NOT NULL AND n.scheduled_for <= statement_timestamp() AND (n.expires_at IS NULL OR n.expires_at > statement_timestamp())
     ORDER BY n.scheduled_for, n.id FOR UPDATE SKIP LOCKED LIMIT p_limit
   ), claimed AS (
-    UPDATE public.notifications n SET delivery_state = 'processing', delivery_attempts = n.delivery_attempts + 1, delivery_claimed_at = statement_timestamp(), delivery_claim_token = extensions.gen_random_uuid(), delivery_failed_at = NULL, delivery_last_error = NULL
+    UPDATE public.notifications n SET delivery_state = 'processing', delivery_attempts = CASE WHEN n.delivery_last_error = 'quiet_hours_deferred' THEN n.delivery_attempts ELSE n.delivery_attempts + 1 END, delivery_claimed_at = statement_timestamp(), delivery_claim_token = extensions.gen_random_uuid(), delivery_failed_at = NULL, delivery_last_error = CASE WHEN n.delivery_last_error = 'quiet_hours_deferred' THEN 'quiet_hours_claimed' ELSE NULL END
     FROM due WHERE n.id = due.id RETURNING n.*
   ) SELECT c.id,c.title,c.message,c.notification_type,c.priority,c.target_type,COALESCE(c.target_merchant_ids, '{}'::uuid[]),c.target_segment,c.channels,c.action_url,c.action_label,c.scheduled_for,c.expires_at,c.created_at,c.delivery_claim_token FROM claimed c;
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.finalize_scheduled_admin_notification_v1(p_notification_id uuid,p_claim_token uuid,p_outcome text,p_error text DEFAULT NULL)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE v_row_count integer := 0; v_terminal boolean := p_outcome IN ('sent', 'expired');
+DECLARE v_row_count integer := 0; v_terminal boolean := p_outcome IN ('sent', 'expired'); v_quiet_resumed boolean := FALSE;
 BEGIN
   IF COALESCE((SELECT auth.role()), '') <> 'service_role' THEN RAISE EXCEPTION 'Service role required' USING ERRCODE = '42501'; END IF;
   IF p_claim_token IS NULL OR p_outcome NOT IN ('sent', 'retry', 'expired', 'deferred') THEN RAISE EXCEPTION 'Invalid notification finalization' USING ERRCODE = '22023'; END IF;
   IF p_outcome = 'sent' THEN
     UPDATE public.notifications SET sent_at = statement_timestamp(), delivery_state = 'sent', delivery_claimed_at = NULL, delivery_claim_token = NULL, delivery_failed_at = NULL, delivery_last_error = NULL WHERE id = p_notification_id AND delivery_state = 'processing' AND delivery_claim_token = p_claim_token AND sent_at IS NULL;
+    GET DIAGNOSTICS v_row_count = ROW_COUNT;
+    IF v_row_count > 0 THEN
+      UPDATE public.merchant_notifications SET read_at = read_at WHERE notification_id = p_notification_id;
+    END IF;
   ELSIF p_outcome = 'expired' THEN
     UPDATE public.notifications SET delivery_state = 'expired', delivery_claimed_at = NULL, delivery_claim_token = NULL, delivery_last_error = NULL WHERE id = p_notification_id AND delivery_state = 'processing' AND delivery_claim_token = p_claim_token AND sent_at IS NULL;
   ELSIF p_outcome = 'deferred' THEN
     UPDATE public.notifications SET delivery_state = 'pending', delivery_claimed_at = NULL, delivery_claim_token = NULL, delivery_last_error = 'quiet_hours_deferred', scheduled_for = statement_timestamp() + interval '15 minutes' WHERE id = p_notification_id AND delivery_state = 'processing' AND delivery_claim_token = p_claim_token AND sent_at IS NULL;
   ELSE
-    SELECT n.delivery_attempts >= 3 INTO v_terminal FROM public.notifications n WHERE n.id = p_notification_id AND n.delivery_state = 'processing' AND n.delivery_claim_token = p_claim_token AND n.sent_at IS NULL FOR UPDATE;
+    SELECT n.delivery_attempts >= 3, n.delivery_last_error = 'quiet_hours_claimed' INTO v_terminal, v_quiet_resumed FROM public.notifications n WHERE n.id = p_notification_id AND n.delivery_state = 'processing' AND n.delivery_claim_token = p_claim_token AND n.sent_at IS NULL FOR UPDATE;
+    v_terminal := v_terminal AND NOT v_quiet_resumed;
     UPDATE public.notifications SET delivery_state = CASE WHEN delivery_attempts >= 3 THEN 'failed' ELSE 'pending' END, delivery_claimed_at = NULL, delivery_claim_token = NULL, delivery_failed_at = CASE WHEN delivery_attempts >= 3 THEN statement_timestamp() ELSE NULL END, delivery_last_error = LEFT(COALESCE(p_error, 'scheduled delivery failed'), 500), scheduled_for = CASE WHEN delivery_attempts >= 3 THEN scheduled_for ELSE statement_timestamp() + LEAST(make_interval(mins => 5 * GREATEST(delivery_attempts, 1)), interval '60 minutes') END WHERE id = p_notification_id AND delivery_state = 'processing' AND delivery_claim_token = p_claim_token AND sent_at IS NULL;
   END IF;
   GET DIAGNOSTICS v_row_count = ROW_COUNT;

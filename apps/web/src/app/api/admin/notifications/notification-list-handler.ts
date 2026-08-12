@@ -96,7 +96,12 @@ export async function listAdminNotifications(url: string) {
 
 /** Quote OR-filter values so commas, parentheses and quotes stay data. */
 function quotePostgrestOrValue(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  const escaped = value
+    .replace(/\\/g, '\\\\')
+    .replace(/%/g, '\\%')
+    .replace(/_/g, '\\_')
+    .replace(/"/g, '\\"');
+  return `"${escaped}"`;
 }
 
 function parseListQuery(url: string): ListQuery | NextResponse {

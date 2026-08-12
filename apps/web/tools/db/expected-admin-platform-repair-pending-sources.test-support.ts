@@ -137,6 +137,6 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260812130000_allow_repeated_quiet_hour_deferrals.sql',
-    sha256: 'e5749958e851d7925d629b85315e02c5d849ac5272a2ebd6b3ca47ae6562b372',
+    sha256: '1e145952ecbc039049c16f1b39d7b7d4f3c1d7c99fa88396409f03554febf2bc',
   },
 ] as const;

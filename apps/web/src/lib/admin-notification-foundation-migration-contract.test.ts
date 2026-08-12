@@ -149,6 +149,9 @@ describe('admin notification foundation migration contract', () => {
       "n.delivery_attempts < 3 or n.delivery_last_error = 'quiet_hours_deferred'"
     );
     expect(repeatedDeferralSql).toContain(
+      "delivery_attempts = case when n.delivery_last_error = 'quiet_hours_deferred' then n.delivery_attempts"
+    );
+    expect(repeatedDeferralSql).toContain(
       "delivery_last_error = 'quiet_hours_deferred'"
     );
     expect(repeatedDeferralSql).not.toContain('delivery_attempts = greatest');
