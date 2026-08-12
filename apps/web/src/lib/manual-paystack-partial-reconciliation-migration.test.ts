@@ -79,6 +79,13 @@ const internalVersionsMigration = readFileSync(
   ),
   'utf8'
 );
+const retryScopeMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260812110000_harden_paystack_reconciliation_retry_scope.sql'
+  ),
+  'utf8'
+);
 const concurrencyRegression = readFileSync(
   resolve(
     process.cwd(),
@@ -193,6 +200,14 @@ describe('manual Paystack partial reconciliation migration', () => {
     expect(internalVersionsMigration).toMatch(
       /reconcile_paystack_unmatched_partial_payment_v2[\s\S]*FROM PUBLIC, anon, authenticated, service_role;/
     );
+  });
+
+  it('scopes retry wrappers to order-edit operators and the selected merchant', () => {
+    expect(retryScopeMigration.match(/check_staff_permission/g)).toHaveLength(
+      1
+    );
+    expect(retryScopeMigration).toContain('t.merchant_id = p_merchant_id');
+    expect(retryScopeMigration).toContain('o.merchant_id = p_merchant_id');
   });
 
   it('uses durable chat-order linkage for conversion retries', () => {
