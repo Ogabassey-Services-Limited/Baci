@@ -184,7 +184,18 @@ function useNotificationsForMerchant(
   };
   const refetch = async () => {
     setCursor(null);
-    await fetchNotifications(false);
+    await fetchNotificationsRequest(false, {
+      cursor: null,
+      isFetchingRef,
+      pendingRefreshRef,
+      queueRefresh: false,
+      setCursor,
+      setError,
+      setHasMore,
+      setIsLoading,
+      setNotifications,
+      setUnreadCount,
+    });
     await fetchActiveBanners();
   };
 

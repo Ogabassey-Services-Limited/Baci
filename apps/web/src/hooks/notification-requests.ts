@@ -11,6 +11,7 @@ export interface FetchNotificationsDeps {
   cursor: string | null;
   isFetchingRef: { current: boolean };
   pendingRefreshRef?: { current: boolean };
+  queueRefresh?: boolean;
   setIsLoading: Dispatch<SetStateAction<boolean>>;
   setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>;
   setUnreadCount: Dispatch<SetStateAction<number>>;
@@ -36,7 +37,8 @@ export async function fetchNotificationsRequest(
   } = deps;
 
   if (isFetchingRef.current) {
-    if (deps.pendingRefreshRef) deps.pendingRefreshRef.current = true;
+    if (deps.pendingRefreshRef && deps.queueRefresh !== false)
+      deps.pendingRefreshRef.current = true;
     return;
   }
 
@@ -85,12 +87,7 @@ export async function fetchNotificationsRequest(
     isFetchingRef.current = false;
     if (deps.pendingRefreshRef?.current) {
       deps.pendingRefreshRef.current = false;
-      // A manual refetch can arrive while the initial request is pending.
-      // The just-finished first page is already current, so only schedule a
-      // follow-up when this was an incremental (cursor-based) page.
-      if (append) {
-        void fetchNotificationsRequest(false, { ...deps, cursor: null });
-      }
+      void fetchNotificationsRequest(false, { ...deps, cursor: null });
     }
   }
 }
