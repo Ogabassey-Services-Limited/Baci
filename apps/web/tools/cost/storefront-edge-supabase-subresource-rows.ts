@@ -6,6 +6,8 @@ const PUCK_STOREFRONT_SOURCE =
   'apps/web/src/components/storefront/puck-storefront.tsx';
 const BLOG_SNIPPET_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx';
+const NEGOTIATION_SOURCE =
+  'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts';
 
 function supabaseSubresource(
   id: string,
@@ -60,5 +62,17 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
       '/rest/v1/blog_posts',
       ['GET'],
       BLOG_SNIPPET_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-user-negotiation',
+      '/auth/v1/user',
+      ['GET'],
+      NEGOTIATION_SOURCE
+    ),
+    supabaseSubresource(
+      'negotiation-requests',
+      '/rest/v1/negotiation_requests',
+      ['POST'],
+      NEGOTIATION_SOURCE
     ),
   ];
