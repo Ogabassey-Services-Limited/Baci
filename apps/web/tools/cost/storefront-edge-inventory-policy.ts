@@ -8,6 +8,7 @@ import {
   STOREFRONT_EDGE_PUBLIC_ASSET_ROWS,
 } from './storefront-edge-public-asset-rows';
 import { STOREFRONT_EDGE_QUERY_DEPENDENT_ROWS } from './storefront-edge-query-dependent-rows';
+import { STOREFRONT_EDGE_ROUTING_INPUT_PATHS } from './storefront-edge-routing-input-paths';
 import { STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS } from './storefront-edge-supabase-subresource-rows';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
@@ -240,6 +241,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     ...STOREFRONT_EDGE_PROXY_ROWS,
   ],
   routingInputPaths: [
+    ...STOREFRONT_EDGE_ROUTING_INPUT_PATHS,
     'apps/web/next.config.ts',
     'apps/web/src/app/actions/repair.ts',
     'apps/web/src/app/auth/confirm/route.ts',
