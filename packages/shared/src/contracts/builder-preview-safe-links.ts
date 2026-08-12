@@ -4,7 +4,6 @@ const socialPlatforms = [
   'facebook',
   'instagram',
   'linkedin',
-  'tiktok',
   'twitter',
   'youtube',
 ] as const;

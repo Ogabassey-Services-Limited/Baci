@@ -92,7 +92,7 @@ export function PreviewInertHeader({
     <header
       className={`${paddingClasses[paddingY]} ${layoutClasses[layout]}${
         sticky ? ' fixed left-0 right-0 top-0 z-10' : ' relative'
-      }`}
+      } z-0`}
       data-glass-effect={String(glassEffect)}
       data-layout={layout}
       data-sticky={String(sticky)}
@@ -117,12 +117,15 @@ export function PreviewInertHeader({
           }
         >
           {logoUrl ? (
-            <Image
-              alt={`${storeName} logo`}
-              height={40}
-              src={logoUrl}
-              width={120}
-            />
+            <span className="flex items-center gap-2">
+              <Image
+                alt={`${storeName} logo`}
+                height={40}
+                src={logoUrl}
+                width={120}
+              />
+              <span>{storeName}</span>
+            </span>
           ) : (
             storeName
           )}

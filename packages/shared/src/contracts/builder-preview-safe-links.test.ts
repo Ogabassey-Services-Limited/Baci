@@ -7,7 +7,6 @@ describe('previewSafeLinks', () => {
       previewSafeLinks.isSafeSocialLinks({
         instagram: 'https://instagram.com/store',
         linkedin: '',
-        tiktok: 'https://www.tiktok.com/@store',
       })
     ).toBe(true);
     expect(previewSafeLinks.isLegacyZoneKey('aside')).toBe(true);
@@ -21,5 +20,10 @@ describe('previewSafeLinks', () => {
       previewSafeLinks.isSafeSocialLinks({ instagram: 'javascript:alert(1)' })
     ).toBe(false);
     expect(previewSafeLinks.isLegacyZoneKey('bad zone')).toBe(false);
+    expect(
+      previewSafeLinks.isSafeSocialLinks({
+        tiktok: 'https://www.tiktok.com/@store',
+      })
+    ).toBe(false);
   });
 });
