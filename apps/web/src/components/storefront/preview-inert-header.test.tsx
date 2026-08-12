@@ -19,7 +19,7 @@ describe('PreviewInertHeader', () => {
     const header = screen.getByRole('banner');
     expect(header).toHaveAttribute('data-layout', 'logo-center');
     expect(header).toHaveAttribute('data-sticky', 'true');
-    expect(header).toHaveClass('grid', 'sticky');
+    expect(header).toHaveClass('fixed', 'grid');
     expect(
       screen.getByRole('navigation', { name: 'Preview navigation' })
     ).toHaveClass('hidden', 'md:flex');
@@ -35,7 +35,8 @@ describe('PreviewInertHeader', () => {
     expect(header).toHaveAttribute('data-layout', 'logo-left-nav-right');
     expect(header).toHaveAttribute('data-sticky', 'false');
     expect(header).toHaveClass('flex');
-    expect(header).not.toHaveClass('sticky');
+    expect(header).toHaveClass('relative');
+    expect(header).not.toHaveClass('fixed');
     expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Account' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cart' })).toBeNull();

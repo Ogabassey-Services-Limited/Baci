@@ -191,6 +191,9 @@ describe('useCopilotBuilderActions', () => {
     expect(updateComponent.handler({ index: 1, updates: '{}' })).toBe(
       'Invalid index: 1. Component not found.'
     );
+    expect(updateComponent.handler({ index: 0.5, updates: '{}' })).toBe(
+      'Invalid index: 0.5. Component not found.'
+    );
     expect(updateComponent.handler({ index: 0, updates: 'not-json' })).toBe(
       'Failed to parse updates JSON.'
     );
@@ -288,6 +291,9 @@ describe('useCopilotBuilderActions', () => {
 
     expect(getRegisteredAction('removeComponent').handler({ index: 0 })).toBe(
       'Invalid index: 0'
+    );
+    expect(getRegisteredAction('removeComponent').handler({ index: 0.5 })).toBe(
+      'Invalid index: 0.5'
     );
     expect(setData).not.toHaveBeenCalled();
   });

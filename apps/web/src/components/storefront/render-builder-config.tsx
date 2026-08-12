@@ -1,11 +1,6 @@
 'use client';
 
-import {
-  type Config,
-  type Data,
-  type PuckContext,
-  Render,
-} from '@puckeditor/core';
+import { type Config, type Data, Render } from '@puckeditor/core';
 import { type CSSProperties, type ReactNode, useEffect } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { StorefrontProvider } from '@/contexts/storefront-context';
@@ -134,14 +129,6 @@ function getPreviewData(config: BuilderPreviewConfig): Data {
   } as Data;
 }
 
-function PreviewFlex({ puck }: { puck: PuckContext }) {
-  return (
-    <div data-testid="builder-preview-flex">
-      {puck.renderDropZone({ zone: 'children' })}
-    </div>
-  );
-}
-
 const previewBuilderConfig = {
   ...builderConfig,
   components: {
@@ -157,7 +144,6 @@ const previewBuilderConfig = {
         },
       ])
     ),
-    Flex: { render: PreviewFlex },
     ProductGrid: {
       ...builderConfig.components.ProductGrid,
       render: ({

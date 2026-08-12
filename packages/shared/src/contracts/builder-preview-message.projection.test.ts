@@ -95,7 +95,6 @@ describe('builder preview media and refused-component projection', () => {
   it('replaces known refused blocks without accepting unreviewed editable props', () => {
     const result = message({
       content: [
-        { props: { id: 'Flex-1234' }, type: 'Flex' },
         {
           props: { code: '<script>ignored()</script>', id: 'code-1' },
           type: 'CodeEmbed',
@@ -104,7 +103,7 @@ describe('builder preview media and refused-component projection', () => {
       ],
       root,
       zones: {
-        'Flex-1234:children': [
+        aside: [
           {
             props: { id: 'image-1', src: 'https://cdn.example.test/old.webp' },
             type: 'Image',
@@ -118,13 +117,13 @@ describe('builder preview media and refused-component projection', () => {
     if (result.success) {
       expect(
         result.data.candidateConfig.content.map(({ type }) => type)
-      ).toEqual(['Flex', 'PreviewPlaceholder', 'Text']);
-      expect(result.data.candidateConfig.content[1]).toEqual({
+      ).toEqual(['PreviewPlaceholder', 'Text']);
+      expect(result.data.candidateConfig.content[0]).toEqual({
         props: { id: 'code-1', label: 'CodeEmbed section' },
         type: 'PreviewPlaceholder',
       });
       expect(result.data.candidateConfig.zones).toEqual({
-        'Flex-1234:children': [
+        aside: [
           {
             props: { id: 'image-1', label: 'Image section' },
             type: 'PreviewPlaceholder',

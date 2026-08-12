@@ -20,13 +20,10 @@ describe('saved Testimonial avatar preview compatibility', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [
         testimonial('testimonial-root', 'https://cdn.example.test/avatar.webp'),
-        { props: { id: 'Flex-1234' }, type: 'Flex' },
       ],
       root: { props: { title: 'Home' } },
       zones: {
-        'Flex-1234:children': [
-          testimonial('testimonial-zone', '/avatars/customer.webp'),
-        ],
+        aside: [testimonial('testimonial-zone', '/avatars/customer.webp')],
       },
     });
 
@@ -34,7 +31,7 @@ describe('saved Testimonial avatar preview compatibility', () => {
     if (result.success) {
       expect(result.data.content[0]?.props).not.toHaveProperty('avatar');
       expect(result.data.zones).toEqual({
-        'Flex-1234:children': [
+        aside: [
           {
             props: {
               author: 'Ada Customer',

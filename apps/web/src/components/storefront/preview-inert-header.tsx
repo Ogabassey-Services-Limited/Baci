@@ -87,7 +87,7 @@ export function PreviewInertHeader({
   return (
     <header
       className={`${paddingClasses[paddingY]} ${layoutClasses[layout]}${
-        sticky ? ' sticky top-0 z-10' : ''
+        sticky ? ' fixed left-0 right-0 top-0 z-10' : ' relative'
       }${glassEffect ? ' bg-store-background/70 backdrop-blur-md' : ''}`}
       data-glass-effect={String(glassEffect)}
       data-layout={layout}

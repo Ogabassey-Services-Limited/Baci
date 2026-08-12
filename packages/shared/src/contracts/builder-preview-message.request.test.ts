@@ -78,7 +78,7 @@ describe('builder preview bridge render candidates', () => {
     ).toBe(false);
   });
 
-  it('requires a declared parent and slot for compound dropzones', () => {
+  it('rejects unsupported Flex compound dropzones and undeclared parents', () => {
     const child = {
       props: { id: 'zone-text-1', title: 'Nested copy' },
       type: 'Text',
@@ -90,7 +90,7 @@ describe('builder preview bridge render candidates', () => {
         root,
         zones: { 'Flex-1234:children': [child] },
       }).success
-    ).toBe(true);
+    ).toBe(false);
     expect(
       message({ content: [], root, zones: { 'Flex-1234:children': [child] } })
         .success

@@ -167,7 +167,7 @@ describe('RenderBuilderConfig', () => {
     );
   });
 
-  it('preserves a Flex zone and marks a nested Header preview-only', () => {
+  it('rejects a Flex zone that the published builder cannot render', () => {
     const config = {
       content: [{ props: { id: 'Flex-1' }, type: 'Flex' }],
       root: { props: { title: 'Home' } },
@@ -185,16 +185,7 @@ describe('RenderBuilderConfig', () => {
         type: 'baci.builder-preview.render',
         version: 1,
       }).success
-    ).toBe(true);
-    render(
-      <RenderBuilderConfig config={config} merchantContext={merchantContext} />
-    );
-
-    expect(screen.getByTestId('puck-zone')).toHaveTextContent('header-1');
-    expect(screen.getByTestId('puck-zone')).toHaveAttribute(
-      'data-header-preview',
-      'true'
-    );
+    ).toBe(false);
   });
 
   it('uses the bounded local fixture instead of the public ProductGrid renderer', () => {

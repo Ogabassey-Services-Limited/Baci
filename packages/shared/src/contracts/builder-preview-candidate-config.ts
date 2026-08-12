@@ -85,7 +85,8 @@ function hasValidPuckCollections(value: unknown): boolean {
   const ids = new Map<string, string>();
   for (const component of components) {
     const identity = previewRenderPolicy.getPuckComponentIdentity(component);
-    if (!identity || ids.has(identity.id)) return false;
+    if (!identity || identity.type === 'Flex' || ids.has(identity.id))
+      return false;
     ids.set(identity.id, identity.type);
   }
   if (value.zones === undefined) return true;

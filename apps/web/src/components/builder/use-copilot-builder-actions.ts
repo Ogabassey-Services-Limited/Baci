@@ -174,7 +174,7 @@ export function useCopilotBuilderActions({
     handler: ({ index, updates }) => {
       const newContent = [...(data.content || [])];
 
-      if (index < 0 || index >= newContent.length) {
+      if (!Number.isInteger(index) || index < 0 || index >= newContent.length) {
         return `Invalid index: ${index}. Component not found.`;
       }
       if (!findCapability(newContent[index].type)?.aiEditable) {
@@ -282,7 +282,7 @@ export function useCopilotBuilderActions({
     ],
     handler: ({ index }) => {
       const newContent = [...(data.content || [])];
-      if (index >= 0 && index < newContent.length) {
+      if (Number.isInteger(index) && index >= 0 && index < newContent.length) {
         const target = newContent[index];
         const capability = findCapability(target.type);
         if (!capability?.aiEditable || capability.protected) {
