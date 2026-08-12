@@ -99,7 +99,7 @@ export function DashboardNavCapsule({
         <div
           className={cn(
             'relative flex w-[68px] flex-col items-center rounded-[28px] border border-white/25 bg-background/72 p-2.5 shadow-[0_24px_70px_-24px_rgba(0,0,0,0.55)] backdrop-blur-2xl transition-[max-height,box-shadow] duration-300 dark:border-white/10 dark:bg-black/45',
-            expanded ? 'max-h-[calc(100vh-32px)]' : 'max-h-[570px]'
+            'max-h-[calc(100vh-32px)]'
           )}
         >
           <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-linear-to-r from-transparent via-white/80 to-transparent" />
