@@ -54,4 +54,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260812100000_revoke_paystack_reconciliation_internal_versions.sql',
     sha256: 'd174bd434d72e16bbce09b2f146f3ffbdfe32cd22737ddc09f583d7aae007e02',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812110000_harden_paystack_reconciliation_retry_scope.sql',
+    sha256: 'ed7997365d40c2a645d85e62cebcc5714908e5a22cdaabf266f690588691edf9',
+  },
 ];

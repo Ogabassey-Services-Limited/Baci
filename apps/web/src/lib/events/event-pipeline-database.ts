@@ -175,7 +175,6 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
-      'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
     ],
   },
   callers: runtimeCallers,
