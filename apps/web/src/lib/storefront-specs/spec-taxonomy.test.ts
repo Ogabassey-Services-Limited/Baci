@@ -29,12 +29,12 @@ describe('spec taxonomy', () => {
     expect(getProductSpecFamily('Cameras')).toBe('camera');
     expect(getProductSpecFamily('Action Cameras')).toBe('camera');
     expect(getProductSpecFamily('Instant Cameras')).toBe('camera');
-    expect(getProductSpecFamily('Lenses')).toBe('camera');
+    expect(getProductSpecFamily('Lenses')).toBe('general');
     expect(getProductSpecFamily('Drones')).toBe('camera');
     expect(getProductSpecFamily('Gimbals')).toBe('camera');
-    expect(getProductSpecFamily('Camera Accessories')).toBe('camera');
-    expect(getProductSpecFamily('instant-film')).toBe('camera');
-    expect(getProductSpecFamily('memory-cards')).toBe('camera');
+    expect(getProductSpecFamily('Camera Accessories')).toBe('general');
+    expect(getProductSpecFamily('instant-film')).toBe('general');
+    expect(getProductSpecFamily('memory-cards')).toBe('general');
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('iPhones')).toBe('mobile');
     expect(getProductSpecFamily('iPad')).toBe('mobile');
