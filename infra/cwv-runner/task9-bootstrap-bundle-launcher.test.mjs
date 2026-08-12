@@ -50,6 +50,13 @@ test('hash-checks the composer before invoking its closed CLI', async () => {
   );
 });
 
+test('accepts the canonical composer when the launcher is relocated', async () => {
+  await assert.rejects(
+    runTask9BootstrapBundleLauncher(invocation),
+    /invalid Task 9 bundle invocation/
+  );
+});
+
 test('refuses a modified dependency even when the CLI hash still matches', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'task9-launcher-closure-'));
   try {

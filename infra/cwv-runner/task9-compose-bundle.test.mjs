@@ -10,10 +10,13 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const source = readFileSync(new URL('./task9-compose-bundle.sh', import.meta.url), 'utf8');
+const source = readFileSync(
+  new URL('./task9-compose-bundle.sh', import.meta.url),
+  'utf8'
+);
 const sourceRoot = dirname(fileURLToPath(import.meta.url));
 const sha256 = (value) =>
   createHash('sha256').update(readFileSync(value)).digest('hex');
@@ -23,7 +26,10 @@ test('binds prepared Node to its signed preparation receipt before composition',
   assert.match(source, /provenance" executableSha256/);
   assert.match(source, /provenance" archiveSha256/);
   assert.match(source, /"\$\(sha256 "\$node"\)" = "\$node_sha"/);
-  assert.match(source, /exec "\$node" "\$launcher"/);
+  assert.match(
+    source,
+    /exec \/usr\/bin\/env -i HOME="\$HOME" PATH=\/usr\/bin:\/bin "\$node" "\$launcher"/
+  );
 });
 
 test('requires reviewed hashes for the helper, launcher, composer and GitHub CLI', () => {
@@ -33,7 +39,20 @@ test('requires reviewed hashes for the helper, launcher, composer and GitHub CLI
   assert.match(source, /sha256 "\$gh"\)" = "\$github_sha"/);
 });
 
-test('refuses a prepared Node replaced after its provenance was sealed', () => {
+test('invokes the prepared Node with a closed preload-free environment', () => {
+  assert.match(
+    source,
+    /\/usr\/bin\/env -i HOME="\$HOME" PATH=\/usr\/bin:\/bin "\$node" --version/
+  );
+  assert.match(
+    source,
+    /exec \/usr\/bin\/env -i HOME="\$HOME" PATH=\/usr\/bin:\/bin "\$node" "\$launcher"/
+  );
+});
+
+test('refuses a prepared Node replaced after its provenance was sealed', {
+  skip: process.platform !== 'darwin',
+}, () => {
   const root = mkdtempSync('/private/tmp/baci-cwv-compose-node-');
   const policy = join(root, 'policy.json');
   const node = join(root, 'prepared-node/node');
@@ -53,8 +72,12 @@ test('refuses a prepared Node replaced after its provenance was sealed', () => {
     writeFileSync(
       policy,
       JSON.stringify({
-        supplyChain: { node: { ownerDarwinArm64Sha256: archiveSha256, version: '24.18.0' } },
-        supplyChainProvenance: { node: { checksumsSha256, keyringSha256, signatureSha256 } },
+        supplyChain: {
+          node: { ownerDarwinArm64Sha256: archiveSha256, version: '24.18.0' },
+        },
+        supplyChainProvenance: {
+          node: { checksumsSha256, keyringSha256, signatureSha256 },
+        },
       }),
       { mode: 0o400 }
     );
@@ -79,17 +102,29 @@ test('refuses a prepared Node replaced after its provenance was sealed', () => {
     assert.throws(
       () =>
         execFileSync(join(sourceRoot, 'task9-compose-bundle.sh'), [
-          '--transaction-dir', root,
-          '--policy', policy,
-          '--reviewed-policy-sha256', sha256(policy),
-          '--source-root', sourceRoot,
-          '--reviewed-helper-sha256', sha256(join(sourceRoot, 'task9-compose-bundle.sh')),
-          '--reviewed-launcher-sha256', sha256(join(sourceRoot, 'task9-bootstrap-bundle-launcher.mjs')),
-          '--reviewed-composer-sha256', sha256(join(sourceRoot, 'task9-bootstrap-bundle-cli.mjs')),
-          '--github-sha256', sha256(gh),
-          '--', '--dummy', 'value',
+          '--transaction-dir',
+          root,
+          '--policy',
+          policy,
+          '--reviewed-policy-sha256',
+          sha256(policy),
+          '--source-root',
+          sourceRoot,
+          '--reviewed-helper-sha256',
+          sha256(join(sourceRoot, 'task9-compose-bundle.sh')),
+          '--reviewed-launcher-sha256',
+          sha256(join(sourceRoot, 'task9-bootstrap-bundle-launcher.mjs')),
+          '--reviewed-composer-sha256',
+          sha256(join(sourceRoot, 'task9-bootstrap-bundle-cli.mjs')),
+          '--github-sha256',
+          sha256(gh),
+          '--',
+          '--dummy',
+          'value',
         ]),
-      (error) => error.status === 65 && /task9 composition refused/.test(error.stderr.toString())
+      (error) =>
+        error.status === 65 &&
+        /task9 composition refused/.test(error.stderr.toString())
     );
   } finally {
     rmSync(root, { force: true, recursive: true });

@@ -114,10 +114,7 @@ export async function runTask9BootstrapBundleLauncher({
     fail();
   if (
     composer !==
-    join(
-      dirname(fileURLToPath(import.meta.url)),
-      'task9-bootstrap-bundle-cli.mjs'
-    )
+    join(realpathSync(cwd), 'infra/cwv-runner/task9-bootstrap-bundle-cli.mjs')
   )
     fail();
   const bytes = readFileSync(composer);
