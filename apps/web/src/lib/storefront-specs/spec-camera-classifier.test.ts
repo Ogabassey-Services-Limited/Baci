@@ -3,7 +3,13 @@ import { isCameraLikeCategory } from './spec-camera-classifier';
 
 describe('isCameraLikeCategory', () => {
   it('recognizes camera-body families and slug forms', () => {
-    for (const category of ['Cameras', 'Action Cameras', 'instant-cameras']) {
+    for (const category of [
+      'Cameras',
+      'Action Cameras',
+      'instant-cameras',
+      'Camcorders',
+      'Dash Cams',
+    ]) {
       expect(isCameraLikeCategory(category)).toBe(true);
     }
   });

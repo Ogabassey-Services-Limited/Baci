@@ -70,6 +70,22 @@ describe('collectProductSchemaSpecProperties', () => {
     }
   });
 
+  it('drops stale mobile-only camera sections from JSON-LD', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Cameras',
+        specifications: [
+          {
+            category: 'Selfie Camera',
+            items: [{ label: 'Resolution', value: '12MP' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual([]);
+  });
+
   it('drops taxonomy Radio legacy rows from camera JSON-LD', () => {
     const collector = collectProductSchemaSpecProperties(
       makeSeoProduct({

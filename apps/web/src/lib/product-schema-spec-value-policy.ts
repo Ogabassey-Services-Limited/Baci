@@ -82,7 +82,8 @@ function hasMalformedMeasurementText(value: unknown) {
   return (
     /\b(?:nan|[+-]?infinity)\b/.test(normalized) ||
     /^-\s*\d/.test(normalized) ||
-    numericComponents?.some((component) => Number(component) <= 0) === true
+    (numericComponents?.length !== undefined &&
+      numericComponents.every((component) => Number(component) <= 0))
   );
 }
 
@@ -111,8 +112,7 @@ export function getProductSchemaSpecValueDecision({
     canonicalSpecKey &&
     isExplicitSpecKey &&
     EXPLICIT_NEGATIVE_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey) &&
-    typeof value === 'string' &&
-    !isExplicitNegativeSpecValue(value)
+    typeof value !== 'boolean'
   ) {
     return 'exclude';
   }

@@ -18,7 +18,7 @@ describe('getProductSchemaSpecValueDecision', () => {
     }
   });
 
-  it('rejects composite measurements containing a zero or negative component', () => {
+  it('rejects composite measurements only when every component is nonpositive', () => {
     expect(
       getProductSchemaSpecValueDecision({
         canonicalSpecKey: 'dimensions_mm',
@@ -27,9 +27,24 @@ describe('getProductSchemaSpecValueDecision', () => {
         isMobileCategory: false,
         isPhoneOnlyLabel: false,
         normalizedLabel: 'dimensions',
-        value: '0 x 120 x 75 mm',
+        value: '0 x 0 x 0 mm',
       })
     ).toBe('exclude');
+  });
+
+  it('keeps measurements with a valid value and an auxiliary zero endpoint', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'charging_watt',
+        hasCategory: true,
+        isExplicitSpecKey: true,
+        isMobileCategory: true,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'fast charging',
+        productFamily: 'mobile',
+        value: '67W, 0-100% in 45 min',
+      })
+    ).toBe('defer');
   });
 
   it('preserves signed storage-temperature ranges as non-capacity facts', () => {
@@ -125,6 +140,21 @@ describe('getProductSchemaSpecValueDecision', () => {
         })
       ).toBe('exclude');
     }
+  });
+
+  it('rejects non-boolean values for keyed capabilities', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'has_nfc',
+        isExplicitSpecKey: true,
+        hasCategory: true,
+        isMobileCategory: true,
+        isPhoneOnlyLabel: true,
+        normalizedLabel: 'nfc',
+        productFamily: 'mobile',
+        value: 1,
+      })
+    ).toBe('exclude');
   });
 
   it('keeps a supported card-slot type as a factual specification', () => {

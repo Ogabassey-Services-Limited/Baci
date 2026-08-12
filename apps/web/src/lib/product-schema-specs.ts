@@ -12,6 +12,7 @@ import { isAccessoryLikeCategory } from './storefront-specs/spec-taxonomy';
 interface ProductSchemaSpecCandidate {
   key?: string;
   label?: string;
+  section?: string;
   value: unknown;
 }
 
@@ -108,6 +109,17 @@ export function shouldIncludeProductSchemaSpec(
   const normalizedLabel = candidate.label
     ? normalizeProductSchemaSpecLabel(candidate.label)
     : undefined;
+  const normalizedSection = candidate.section
+    ? normalizeProductSchemaSpecLabel(candidate.section)
+    : undefined;
+
+  if (
+    hasCameraCategory &&
+    (normalizedSection === 'front camera' ||
+      normalizedSection === 'selfie camera')
+  ) {
+    return false;
+  }
 
   // Capability data is authoritative over legacy labels. This must precede
   // the mobile fast path because old PDP rows do not always retain their key.

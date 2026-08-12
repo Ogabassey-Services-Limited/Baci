@@ -5,6 +5,10 @@ const CAMERA_BODY_CATEGORY_NAMES = new Set([
   'cameras',
   'action cameras',
   'instant cameras',
+  'camcorder',
+  'camcorders',
+  'dash cam',
+  'dash cams',
   'drones',
   'gimbals',
 ]);

@@ -1,3 +1,5 @@
+import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
+
 type StorefrontProductNamedCategory = {
   name?: string | null;
   slug?: string | null;
@@ -18,7 +20,7 @@ export function resolveStorefrontProductCategoryName(
   product: StorefrontProductCategoryNameInput
 ): string | null {
   const directName = product.categories?.name?.trim();
-  if (directName) {
+  if (directName && !isUnsupportedSpecValue(directName)) {
     return directName;
   }
 

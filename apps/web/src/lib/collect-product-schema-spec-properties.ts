@@ -192,6 +192,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
         if (
           shouldIncludeProductSchemaSpec(product, {
             label: item.label,
+            section: category.category,
             value: item.value,
           })
         ) {
