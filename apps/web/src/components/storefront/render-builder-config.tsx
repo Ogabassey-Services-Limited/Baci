@@ -85,12 +85,6 @@ function getPreviewTheme(config: BuilderPreviewConfig): ThemeConfiguration {
   ) as unknown as ThemeConfiguration;
 }
 
-function getPreviewRootTitle(root: unknown): string | undefined {
-  if (!isThemeObject(root) || !isThemeObject(root.props)) return;
-  const title = root.props.title;
-  return typeof title === 'string' && title.length > 0 ? title : undefined;
-}
-
 function markHeaderBlocksAsPreview(blocks: unknown[]): unknown[] {
   return blocks.map((block) => {
     if (
@@ -229,7 +223,6 @@ export function RenderBuilderConfig({
 }: RenderBuilderConfigProps) {
   const theme = getPreviewTheme(config);
   const previewData = getPreviewData(config);
-  const rootTitle = getPreviewRootTitle(config.root);
   const themeTokens = getCuratedThemeTokenProjection(theme) as CSSProperties;
   return (
     <PreviewContext merchantContext={merchantContext}>
@@ -242,15 +235,6 @@ export function RenderBuilderConfig({
           color: 'var(--theme-foreground)',
         }}
       >
-        {rootTitle ? (
-          <aside
-            aria-label="Preview page title"
-            className="border-b border-current/10 px-3 py-2 text-xs"
-            data-testid="builder-preview-root-title"
-          >
-            Page: {rootTitle}
-          </aside>
-        ) : null}
         <PreviewNavigationGuard>
           <Render config={previewBuilderConfig} data={previewData} />
         </PreviewNavigationGuard>

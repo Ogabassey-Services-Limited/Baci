@@ -92,7 +92,7 @@ function InertAction({
 }
 
 function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
-  const activeIndex = slides.length > 0 ? slides.length - 1 : -1;
+  const activeIndex = slides.length > 0 ? 0 : -1;
   const activeSlide = activeIndex >= 0 ? slides[activeIndex] : undefined;
 
   return (

@@ -76,4 +76,20 @@ describe('preview theme policy', () => {
       builderDesignCapabilities.themeTokenKeys.pop();
     }
   });
+
+  it('rejects invalid spacing and easing grammar instead of accepting inert CSS', () => {
+    expect(
+      candidate({ spacing: { section: { paddingY: 'not-a-length' } } }).success
+    ).toBe(false);
+    expect(
+      candidate({ animations: { easing: { easeIn: 'cubic-bezier(2)' } } })
+        .success
+    ).toBe(false);
+  });
+
+  it('rejects color variables outside the defined theme token set', () => {
+    expect(
+      candidate({ colors: { primary: 'var(--theme-not-defined)' } }).success
+    ).toBe(false);
+  });
 });

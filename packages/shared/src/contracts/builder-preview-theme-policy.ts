@@ -29,6 +29,11 @@ const reservedColorGroups = new Set([
 const text = 'text';
 const number = 'number';
 const rendererColorPattern = /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/;
+const cssLengthPattern =
+  /^(?:0|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]{1,3})?(?:px|rem|em|%|vh|vw|vmin|vmax))$/;
+const cssDurationPattern = /^(?:0|(?:[0-9]{1,4})(?:\.[0-9]{1,3})?(?:ms|s))$/;
+const cssEasingPattern =
+  /^(?:linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\((?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+))\)|steps\([1-9][0-9]{0,2}(?:,\s*(?:jump-start|jump-end|jump-none|jump-both|start|end))?\))$/;
 
 type ThemeShape =
   | typeof text
@@ -160,8 +165,8 @@ function hasOnlyKnownKeys(
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
-function isSafeThemeText(value: unknown): boolean {
-  return (
+function isSafeThemeText(value: unknown, key?: string): boolean {
+  const safeText =
     typeof value === 'string' &&
     themeStringPattern.test(value) &&
     [...value].every((character) => {
@@ -170,21 +175,48 @@ function isSafeThemeText(value: unknown): boolean {
     }) &&
     [...value.matchAll(themeFunctionPattern)].every(([, name]) =>
       safeThemeFunctionNames.has(name.toLowerCase())
-    )
+    );
+  if (!safeText) return false;
+  if (
+    key?.toLowerCase().includes('padding') ||
+    key?.toLowerCase().includes('width') ||
+    key?.toLowerCase().includes('height') ||
+    key?.toLowerCase().includes('radius') ||
+    key?.toLowerCase().includes('maxwidth')
+  )
+    return cssLengthPattern.test(value as string);
+  if (key === 'fast' || key === 'normal' || key === 'slow')
+    return cssDurationPattern.test(value as string);
+  if (key === 'easeIn' || key === 'easeInOut' || key === 'easeOut')
+    return cssEasingPattern.test(value as string);
+  return true;
+}
+
+function isDefinedColorToken(value: string): boolean {
+  const match = /^var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)$/.exec(value);
+  return (
+    match === null ||
+    builderDesignCapabilities.themeTokenKeys.includes(match[2])
   );
 }
 
 function matchesThemeShape(
   value: unknown,
   shape: ThemeShape,
-  colorContext = false
+  colorContext = false,
+  key?: string
 ): boolean {
-  if (shape === text)
-    return (
-      isSafeThemeText(value) &&
-      (!colorContext ||
-        (typeof value === 'string' && rendererColorPattern.test(value)))
-    );
+  if (shape === text) {
+    if (typeof value !== 'string') return false;
+    const pathHint = colorContext ? 'color' : '';
+    if (pathHint === 'color')
+      return (
+        isSafeThemeText(value, key) &&
+        rendererColorPattern.test(value) &&
+        isDefinedColorToken(value)
+      );
+    return isSafeThemeText(value, key);
+  }
   if (shape === number)
     return typeof value === 'number' && Number.isFinite(value);
   if (!isRecord(value) || !hasOnlyKnownKeys(value, Object.keys(shape)))
@@ -193,7 +225,7 @@ function matchesThemeShape(
     const expected = shape[key];
     return (
       expected !== undefined &&
-      matchesThemeShape(child, expected, key === 'colors' || colorContext)
+      matchesThemeShape(child, expected, key === 'colors' || colorContext, key)
     );
   });
 }
