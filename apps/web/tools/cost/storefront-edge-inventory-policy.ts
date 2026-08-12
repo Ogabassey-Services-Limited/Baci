@@ -40,16 +40,15 @@ const DRAFT_MODE_ROWS: readonly InventoryRow[] = [
     },
     routePattern,
     sourceKind: 'request_override',
-  };
-  if (index >= 2) {
-    return {
-      ...row,
-      hostCondition: {
-        hostKind: 'platform_root_domain',
-        precedence: 'before_path_decision',
-      },
-    };
-  }
+    ...(index >= 2
+      ? {
+          hostCondition: {
+            hostKind: 'platform_root_domain' as const,
+            precedence: 'before_path_decision' as const,
+          },
+        }
+      : {}),
+  } satisfies InventoryRow;
   return row;
 });
 
