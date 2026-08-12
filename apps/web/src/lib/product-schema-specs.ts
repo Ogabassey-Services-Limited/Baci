@@ -103,7 +103,7 @@ export function shouldIncludeProductSchemaSpec(
   const { categoryNames, hasCameraCategory, isMobileCategory, productFamily } =
     classifyProductSchemaCategories(product);
   const inferredSpecKey = candidate.label
-    ? getProductSchemaSpecKeyForLabel(candidate.label)
+    ? getProductSchemaSpecKeyForLabel(candidate.label, candidate.section)
     : undefined;
   const canonicalSpecKey = candidate.key || inferredSpecKey;
   const normalizedLabel = candidate.label
@@ -112,11 +112,14 @@ export function shouldIncludeProductSchemaSpec(
   const normalizedSection = candidate.section
     ? normalizeProductSchemaSpecLabel(candidate.section)
     : undefined;
+  const isDashCamCategory = categoryNames.some((category) =>
+    /\bdash cams?\b/.test(category)
+  );
 
   if (
     hasCameraCategory &&
-    (normalizedSection === 'front camera' ||
-      normalizedSection === 'selfie camera')
+    (normalizedSection === 'selfie camera' ||
+      (normalizedSection === 'front camera' && !isDashCamCategory))
   ) {
     return false;
   }

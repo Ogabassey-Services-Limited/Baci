@@ -17,10 +17,7 @@ import type { VariantAttributeSource } from './variant-attributes';
 import { normalizeVariantAttributes } from './variant-attributes';
 
 export const MAX_SUMMARY_SPECS = 8;
-const CAMERA_MOBILE_ONLY_SECTION_NAMES = new Set([
-  'front camera',
-  'selfie camera',
-]);
+const CAMERA_MOBILE_ONLY_SECTION_NAMES = new Set(['selfie camera']);
 
 export interface ProductSpecItem {
   label: string;
@@ -95,6 +92,7 @@ function getFirstSupportedFallbackValue(...values: unknown[]) {
 
 function filterPdpSpecItems(
   items: ProductSpecItem[],
+  section: string,
   categoryName: string,
   productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
@@ -105,7 +103,7 @@ function filterPdpSpecItems(
         categories: null,
         product_key_specs: productKeySpecs ?? undefined,
       },
-      { label: item.label, value: item.value }
+      { label: item.label, section, value: item.value }
     )
   );
 }
@@ -130,6 +128,7 @@ function filterPdpLegacySpecifications(
 
     const items = filterPdpSpecItems(
       section.items,
+      section.category,
       categoryName,
       productKeySpecs
     );
@@ -266,6 +265,7 @@ export function buildProductSpecData(source: SpecDataSource) {
   const normalizedSummarySpecs = normalizeSpecItems(source.specs);
   const summarySpecifications = filterPdpSpecItems(
     normalizedSummarySpecs,
+    'General',
     sourceCategoryName,
     source.product_key_specs
   );

@@ -121,11 +121,6 @@ describe('buildDetailedSpecsFromKeySpecs', () => {
       'mobile'
     );
 
-    expect(sections).toEqual([
-      {
-        category: 'Network',
-        items: [{ label: '5G Support', value: 'No' }],
-      },
-    ]);
+    expect(sections).toEqual([]);
   });
 });

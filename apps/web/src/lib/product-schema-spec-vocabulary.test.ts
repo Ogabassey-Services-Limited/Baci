@@ -6,7 +6,8 @@ describe('getProductSchemaSpecKeyForLabel', () => {
     expect(getProductSchemaSpecKeyForLabel(' Network Technology ')).toBe(
       'network_technology'
     );
-    expect(getProductSchemaSpecKeyForLabel('Technology')).toBe(
+    expect(getProductSchemaSpecKeyForLabel('Technology')).toBeUndefined();
+    expect(getProductSchemaSpecKeyForLabel('Technology', 'Network')).toBe(
       'network_technology'
     );
     expect(getProductSchemaSpecKeyForLabel('Selfie Camera')).toBe(

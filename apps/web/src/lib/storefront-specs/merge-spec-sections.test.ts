@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { mergeSpecSections } from './merge-spec-sections';
 
 describe('mergeSpecSections', () => {
+  it('keeps localized sections separate when ASCII normalization is empty', () => {
+    expect(
+      mergeSpecSections([
+        { category: '外观', items: [{ label: '重量', value: '450g' }] },
+        { category: '显示', items: [{ label: '尺寸', value: '6.7 inches' }] },
+      ])
+    ).toEqual([
+      { category: '外观', items: [{ label: '重量', value: '450g' }] },
+      { category: '显示', items: [{ label: '尺寸', value: '6.7 inches' }] },
+    ]);
+  });
+
   it('keeps same-label facts in separate sections while stored values win ties', () => {
     expect(
       mergeSpecSections(

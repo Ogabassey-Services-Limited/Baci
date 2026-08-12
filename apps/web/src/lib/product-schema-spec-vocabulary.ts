@@ -58,6 +58,18 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   usb: 'usb_type',
 };
 
-export function getProductSchemaSpecKeyForLabel(value: string) {
-  return SPEC_LABEL_TO_KEY[normalizeProductSchemaSpecLabel(value)];
+export function getProductSchemaSpecKeyForLabel(
+  value: string,
+  section?: string
+) {
+  const normalizedLabel = normalizeProductSchemaSpecLabel(value);
+  if (normalizedLabel === 'technology') {
+    const normalizedSection = section
+      ? normalizeProductSchemaSpecLabel(section)
+      : undefined;
+    return normalizedSection === 'network'
+      ? SPEC_LABEL_TO_KEY[normalizedLabel]
+      : undefined;
+  }
+  return SPEC_LABEL_TO_KEY[normalizedLabel];
 }

@@ -11,11 +11,13 @@ export function mergeSpecSections(...sections: ProductSpecSection[][]) {
 
   for (const [sectionGroupIndex, sectionGroup] of sections.entries()) {
     for (const section of sectionGroup) {
-      const sectionIdentity = section.category
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-        .replace(/\s+/g, ' ');
+      const sectionIdentity =
+        section.category
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim() || section.category.trim().toLowerCase().replace(/\s+/g, ' ');
       let existingSection = sectionsByIdentity.get(sectionIdentity);
 
       if (!existingSection) {

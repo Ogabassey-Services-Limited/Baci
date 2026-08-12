@@ -116,6 +116,25 @@ describe('buildProductSpecData camera families', () => {
     );
   });
 
+  it('keeps front-camera sections for dash cams', () => {
+    const result = buildProductSpecData({
+      category: 'Dash Cams',
+      specifications: [
+        {
+          category: 'Front Camera',
+          items: [{ label: 'Resolution', value: '4K' }],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Front Camera',
+        items: [{ label: 'Resolution', value: '4K' }],
+      },
+    ]);
+  });
+
   it('builds safe camera key specs when legacy specifications are unavailable', () => {
     const result = buildProductSpecData({
       category: 'Action Cameras',
