@@ -59,6 +59,22 @@ describe('buildProductSpecData camera families', () => {
     );
   });
 
+  it('retains verified drone positioning in camera connectivity specs', () => {
+    const result = buildProductSpecData({
+      category: 'Drones',
+      product_key_specs: { positioning: 'GPS / Galileo' },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Connectivity',
+          items: [{ label: 'Positioning', value: 'GPS / Galileo' }],
+        }),
+      ])
+    );
+  });
+
   it('filters phone-only rows parsed from camera descriptions', () => {
     const result = buildProductSpecData({
       category: 'Drones',

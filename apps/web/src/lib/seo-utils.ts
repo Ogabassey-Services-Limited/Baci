@@ -930,7 +930,10 @@ export function generateProductSchema(
         maxValue?: unknown;
       };
       const candidateValue =
-        candidate.value ?? candidate.minValue ?? candidate.maxValue;
+        candidate.value ??
+        (candidate.minValue !== undefined && candidate.maxValue !== undefined
+          ? `${candidate.minValue} to ${candidate.maxValue}`
+          : (candidate.minValue ?? candidate.maxValue));
       if (
         !shouldIncludeProductSchemaSpec(product, {
           label:

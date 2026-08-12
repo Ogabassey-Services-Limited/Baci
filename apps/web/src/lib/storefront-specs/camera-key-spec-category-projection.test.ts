@@ -12,6 +12,7 @@ describe('getCameraKeySpecCategoryProjection', () => {
         expect.objectContaining({ key: 'main_camera_mp' }),
         expect.objectContaining({ key: 'has_ois' }),
         expect.objectContaining({ key: 'has_nfc' }),
+        expect.objectContaining({ key: 'positioning' }),
         expect.objectContaining({ key: 'card_slot_type' }),
       ])
     );

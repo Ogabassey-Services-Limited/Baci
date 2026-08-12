@@ -91,6 +91,7 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
     fields: [
       { key: 'wifi_bands', label: 'Wi-Fi' },
       { key: 'bluetooth_version', label: 'Bluetooth' },
+      { key: 'positioning', label: 'Positioning' },
       { key: 'usb_type', label: 'USB' },
       {
         key: 'has_nfc',

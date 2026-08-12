@@ -161,4 +161,36 @@ describe('generateProductSchema content and custom properties', () => {
       ])
     );
   });
+
+  it('keeps a valid positive endpoint in a zero-based custom range', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Cameras',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Peak Brightness',
+            minValue: 0,
+            maxValue: 1000,
+            unitCode: 'NTR',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Peak Brightness',
+          minValue: 0,
+          maxValue: 1000,
+        }),
+      ])
+    );
+  });
 });
