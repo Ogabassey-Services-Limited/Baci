@@ -37,14 +37,15 @@ describe('committed remediation branch resume', () => {
 
     assert.equal(result.type, 'pr_opened');
     assert.deepEqual(
-      calls.slice(-3).map(({ args }) => args.join(' ')),
+      calls.slice(-4).map(({ args, command }) => `${command} ${args.join(' ')}`),
       [
-        'worktree list --porcelain',
-        'worktree remove --force /worktrees/abc123',
-        'worktree prune',
+        'git worktree list --porcelain',
+        'rm -rf -- /worktrees/abc123-pnpm-store',
+        'git worktree remove --force /worktrees/abc123',
+        'git worktree prune',
       ]
     );
-    assert.deepEqual(calls.at(-3).options, {
+    assert.deepEqual(calls.at(-4).options, {
       cwd: '/repo',
       env: { PATH: '/safe/bin' },
       shell: false,
