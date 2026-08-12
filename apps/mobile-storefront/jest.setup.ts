@@ -1,4 +1,8 @@
 import '@testing-library/jest-native/extend-expect';
+
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
+}));
 import { configure as configureReactNativeTestingLibrary } from '@testing-library/react-native';
 import React, { type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';

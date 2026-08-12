@@ -157,7 +157,6 @@ export default function RootLayout() {
       });
       await initAnalytics();
       flushPerformanceAttributions();
-      recordCrashBreadcrumb('root_layout:analytics_initialized');
       await offlineQueue.initialize();
       recordCrashBreadcrumb('root_layout:offline_queue_initialized');
       offlineQueue.registerHandler('create_order', async (orderData) => {

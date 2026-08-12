@@ -1,6 +1,6 @@
-import { recordCrashBreadcrumb } from './crash-diagnostics';
 import * as Sentry from '@sentry/react-native';
 import { trackEvent } from '@/services/analytics';
+import { recordCrashBreadcrumb } from './crash-diagnostics';
 
 export type PerformanceSurface = 'gadget_pattern' | 'home';
 

@@ -1,9 +1,9 @@
-import { recordCrashBreadcrumb } from './crash-diagnostics';
+import { trackEvent } from '@/services/analytics';
 import {
   flushPerformanceAttributions,
   recordPerformanceSurface,
 } from './performance-attribution';
-import { trackEvent } from '@/services/analytics';
+import { recordCrashBreadcrumb } from './crash-diagnostics';
 
 jest.mock('./crash-diagnostics', () => ({
   recordCrashBreadcrumb: jest.fn(),
