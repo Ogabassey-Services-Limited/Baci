@@ -19,6 +19,7 @@ const notificationMigrationNames = [
   '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
   '20260811150000_prune_terminal_notification_audience_snapshots.sql',
   '20260812110000_harden_notification_delivery_and_operations_access.sql',
+  '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -57,6 +58,7 @@ describe('admin notification foundation migration contract', () => {
       '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
       '20260811150000_prune_terminal_notification_audience_snapshots.sql',
       '20260812110000_harden_notification_delivery_and_operations_access.sql',
+      '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -113,6 +115,25 @@ describe('admin notification foundation migration contract', () => {
     expect(sql).toContain(
       'grant execute on function public.finalize_scheduled_admin_notification_v1(uuid, uuid, text, text)\n  to service_role'
     );
+  });
+
+  it('prunes a stale terminal lease snapshot and reschedules quiet-hour delivery without using a retry', () => {
+    const sql = readMigrations([
+      '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+    ]);
+
+    expect(sql).toContain('n.delivery_attempts >= 3');
+    expect(sql).toContain('s.claim_token = n.delivery_claim_token');
+    expect(sql).toContain(
+      "p_outcome not in ('sent', 'retry', 'expired', 'deferred')"
+    );
+    expect(sql).toContain(
+      'delivery_attempts = greatest(delivery_attempts - 1, 0)'
+    );
+    expect(sql).toContain(
+      "scheduled_for = statement_timestamp() + interval '15 minutes'"
+    );
+    expect(sql).toContain("v_terminal or p_outcome = 'deferred'");
   });
 
   it('uses narrow authenticated admin RPCs rather than a broad table bypass', () => {

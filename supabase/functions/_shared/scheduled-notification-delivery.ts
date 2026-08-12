@@ -4,6 +4,13 @@ import {
   isWithinQuietHours,
   parseExpoTicketResults,
 } from './scheduled-notification-push-utils.ts';
+import {
+  NotificationClaimLostError,
+  parseRecipientPageIds,
+  renewScheduledNotificationClaim,
+  rpcOk,
+  type ScheduledNotificationWorkerClient,
+} from './scheduled-notification-rpc.ts';
 import { scheduledNotificationWorker } from './scheduled-notification-worker.ts';
 
 const {
@@ -18,11 +25,7 @@ const RECIPIENT_PAGE_SIZE = 500;
 const TOKEN_BATCH_SIZE = 100;
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
-type RpcResult = { data: unknown; error: { message: string } | null };
-interface WorkerClient {
-  rpc(name: string, args?: Record<string, unknown>): Promise<RpcResult>;
-}
-type Outcome = 'sent' | 'retry' | 'expired';
+type Outcome = 'sent' | 'retry' | 'expired' | 'deferred';
 type PushTokenRecord = {
   push_token: string;
   quiet_hours_start: string | null;
@@ -30,10 +33,10 @@ type PushTokenRecord = {
   quiet_hours_time_zone: string;
 };
 
-class NotificationClaimLostError extends Error {
+class NotificationQuietHoursDeferredError extends Error {
   constructor() {
-    super('Notification claim was lost');
-    this.name = 'NotificationClaimLostError';
+    super('Notification push delivery deferred for quiet hours');
+    this.name = 'NotificationQuietHoursDeferredError';
   }
 }
 
@@ -48,44 +51,13 @@ function throwIfExpired(notification: ScheduledNotification) {
   if (isExpired(notification)) throw new NotificationExpiredError();
 }
 
-function pageIds(data: unknown): string[] | null {
-  if (!Array.isArray(data)) return null;
-  const ids = data.flatMap((row) =>
-    typeof asRecord(row)?.merchant_id === 'string'
-      ? [asRecord(row)?.merchant_id as string]
-      : []
-  );
-  return ids.length === data.length ? ids : null;
-}
-
-async function rpcOk(
-  client: WorkerClient,
-  name: string,
-  args: Record<string, unknown>
-) {
-  const { data, error } = await client.rpc(name, args);
-  if (error) throw new Error(`${name} failed`);
-  return data;
-}
-
-async function renew(
-  client: WorkerClient,
-  notification: ScheduledNotification
-) {
-  const data = await rpcOk(client, 'renew_scheduled_notification_claim_v1', {
-    p_claim_token: notification.delivery_claim_token,
-    p_notification_id: notification.id,
-  });
-  if (data !== true) throw new NotificationClaimLostError();
-}
-
 export {
   isWithinQuietHours,
   parseExpoTicketResults,
 } from './scheduled-notification-push-utils.ts';
 
 async function sendPushTokens(
-  client: WorkerClient,
+  client: ScheduledNotificationWorkerClient,
   notification: ScheduledNotification,
   merchantIds: string[]
 ) {
@@ -143,13 +115,14 @@ async function sendPushTokens(
         p_notification_id: notification.id,
         p_tokens: quietTokens.map((record) => record.push_token),
       });
+      throw new NotificationQuietHoursDeferredError();
     }
     const tokens = uniqueRecords
       .filter((record) => !quietTokens.includes(record))
       .map((record) => record.push_token);
     for (const requested of chunks(tokens, TOKEN_BATCH_SIZE)) {
       throwIfExpired(notification);
-      await renew(client, notification);
+      await renewScheduledNotificationClaim(client, notification);
       const reserved = await rpcOk(
         client,
         'reserve_notification_push_batch_v1',
@@ -218,7 +191,7 @@ async function sendPushTokens(
 }
 
 async function deliverPages(
-  client: WorkerClient,
+  client: ScheduledNotificationWorkerClient,
   notification: ScheduledNotification
 ) {
   throwIfExpired(notification);
@@ -230,7 +203,7 @@ async function deliverPages(
   let recipients = 0;
   for (;;) {
     throwIfExpired(notification);
-    await renew(client, notification);
+    await renewScheduledNotificationClaim(client, notification);
     const data = await rpcOk(
       client,
       'get_scheduled_notification_recipient_page_v1',
@@ -241,7 +214,7 @@ async function deliverPages(
         p_notification_id: notification.id,
       }
     );
-    const ids = pageIds(data);
+    const ids = parseRecipientPageIds(data);
     if (!ids) throw new Error('Invalid audience page');
     if (ids.length === 0) return recipients;
     throwIfExpired(notification);
@@ -258,7 +231,7 @@ async function deliverPages(
 }
 
 async function finalize(
-  client: WorkerClient,
+  client: ScheduledNotificationWorkerClient,
   notification: ScheduledNotification,
   outcome: Outcome,
   error?: string
@@ -274,7 +247,7 @@ async function finalize(
 }
 
 export async function processScheduledNotificationClaims(
-  client: WorkerClient,
+  client: ScheduledNotificationWorkerClient,
   claimed: unknown[]
 ) {
   const results: Array<{ id: string; recipients?: number; status: Outcome }> =
@@ -307,6 +280,11 @@ export async function processScheduledNotificationClaims(
       if (error instanceof NotificationExpiredError) {
         await finalize(client, notification, 'expired');
         results.push({ id: notification.id, status: 'expired' });
+        continue;
+      }
+      if (error instanceof NotificationQuietHoursDeferredError) {
+        await finalize(client, notification, 'deferred');
+        results.push({ id: notification.id, status: 'deferred' });
         continue;
       }
       await finalize(

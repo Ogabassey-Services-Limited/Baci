@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   isWithinQuietHours,
   parseExpoTicketResults,
@@ -43,7 +43,7 @@ describe('isWithinQuietHours', () => {
   });
 
   it('uses the recipient timezone rather than the worker timezone', () => {
-    const instant = new Date('2026-08-11T02:30:00.000Z');
+    const instant = new Date('2026-08-11T06:30:00.000Z');
 
     expect(
       isWithinQuietHours(instant, '22:00', '07:00', 'America/New_York')
@@ -55,6 +55,60 @@ describe('isWithinQuietHours', () => {
 });
 
 describe('processScheduledNotificationClaims', () => {
+  it('defers a quiet-hour push without marking the broadcast sent or consuming a retry', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => undefined } });
+    const claim = {
+      action_url: null,
+      channels: ['push'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174008',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3f8',
+      message: 'Quiet notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Quiet',
+    };
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          return {
+            data: [{ merchant_id: '456e4567-e89b-42d3-a456-426614174000' }],
+            error: null,
+          };
+        }
+        if (name === 'get_claimed_notification_push_tokens_v1') {
+          return {
+            data: [
+              {
+                push_token: 'ExponentPushToken[quiet-token]',
+                quiet_hours_end: '23:59',
+                quiet_hours_start: '00:00',
+                quiet_hours_time_zone: 'Africa/Lagos',
+              },
+            ],
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [claim]);
+
+    expect(results).toEqual([{ id: claim.id, status: 'deferred' }]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'deferred' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    expect(
+      calls.some((call) => call.name === 'reserve_notification_push_batch_v1')
+    ).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
   it('finalizes as expired when expiry is reached after claim processing begins', async () => {
     const claim = {
       action_url: null,

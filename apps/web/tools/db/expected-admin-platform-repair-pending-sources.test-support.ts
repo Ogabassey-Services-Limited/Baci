@@ -124,4 +124,9 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260812113000_harden_admin_truthful_read_models.sql',
     sha256: 'b0d16a417a3f21f05efb84e6f4d0f69bc1e55861be92ef2fbbe47a832da848a8',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+    sha256: 'ef7e7be81bcbb9ebb9a2e459335187d0f77565bfe046a79cf773240e211527be',
+  },
 ] as const;
