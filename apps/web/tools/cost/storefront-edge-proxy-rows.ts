@@ -14,6 +14,19 @@ const proxyClass = createStorefrontEdgeProxyClass;
 export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
   ...STOREFRONT_EDGE_PROXY_REWRITE_ROWS,
   proxyClass(
+    'proxy:no-trailing-slash',
+    '/{*document}/',
+    ['ANY'],
+    'edge_redirect',
+    'trailing_slash_canonicalization',
+    {
+      pathCondition: {
+        precedence: 'before_path_decision',
+        predicate: 'trailing_slash_excluding_well_known',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:blog-wordpress-probe',
     '/{*blogProbePath}',
     ['ANY'],
@@ -155,19 +168,6 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
       pathCondition: {
         precedence: 'before_path_decision',
         predicate: 'mixed_case_path',
-      },
-    }
-  ),
-  proxyClass(
-    'proxy:no-trailing-slash',
-    '/{*document}/',
-    ['ANY'],
-    'edge_redirect',
-    'trailing_slash_canonicalization',
-    {
-      pathCondition: {
-        precedence: 'before_path_decision',
-        predicate: 'trailing_slash_excluding_well_known',
       },
     }
   ),
