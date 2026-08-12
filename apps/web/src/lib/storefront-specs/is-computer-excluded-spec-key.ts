@@ -1,7 +1,6 @@
 const COMPUTER_EXCLUDED_KEYS = new Set([
   'has_fm_radio',
   'android_version',
-  'fingerprint_type',
   'has_ois',
   'main_camera_mp',
   'rear_camera_features',

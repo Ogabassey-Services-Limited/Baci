@@ -505,6 +505,9 @@ function normalizeAcceptedPaymentMethods(
           if (normalized.includes('delivery')) {
             return 'https://schema.org/Cash';
           }
+          if (normalized === 'ussd') {
+            return 'USSD';
+          }
           return '';
         })
         .filter((method) => method.length > 0)

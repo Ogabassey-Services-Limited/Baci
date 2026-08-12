@@ -7,6 +7,7 @@ import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-p
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
+import { isAccessoryLikeCategory } from './storefront-specs/spec-taxonomy';
 
 interface ProductSchemaSpecCandidate {
   key?: string;
@@ -55,6 +56,8 @@ const COMPUTER_CELLULAR_SPEC_KEYS = new Set([
   'network_technology',
   'sim_type',
 ]);
+
+const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
 
 const PHONE_ONLY_SPEC_LABELS = new Set([
   '3 5mm headphone jack',
@@ -174,6 +177,10 @@ export function shouldIncludeProductSchemaSpec(
     if (canonicalSpecKey && COMPUTER_CELLULAR_SPEC_KEYS.has(canonicalSpecKey)) {
       return true;
     }
+
+    if (canonicalSpecKey && COMPUTER_HARDWARE_SPEC_KEYS.has(canonicalSpecKey)) {
+      return true;
+    }
   }
 
   // Legacy camera tables sometimes label a stale Android row as a generic
@@ -230,6 +237,15 @@ export function shouldIncludeProductSchemaSpec(
   }
 
   if (!normalizedLabel) {
+    if (canonicalSpecKey && categoryNames.some(isAccessoryLikeCategory)) {
+      return getKeySpecCategoriesForFamily(
+        productFamily,
+        categoryNames[0]
+      ).some((category) =>
+        category.fields.some((field) => field.key === canonicalSpecKey)
+      );
+    }
+
     return true;
   }
 

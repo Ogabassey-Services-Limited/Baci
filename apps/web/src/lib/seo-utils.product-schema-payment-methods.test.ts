@@ -17,6 +17,7 @@ describe('generateProductSchema accepted payment methods', () => {
         acceptedPaymentMethods: [
           'Bank transfer',
           'Debit and credit card',
+          'USSD',
           'Bank transfer',
           ' ',
         ],
@@ -28,6 +29,7 @@ describe('generateProductSchema accepted payment methods', () => {
       acceptedPaymentMethod: [
         'https://schema.org/ByBankTransferInAdvance',
         'https://schema.org/CreditCard',
+        'USSD',
       ],
     });
   });

@@ -160,6 +160,26 @@ describe('shouldIncludeProductSchemaSpec', () => {
     }
   });
 
+  it('rejects stale keyed device specs for accessory categories', () => {
+    for (const key of ['ram_gb', 'storage_gb', 'chipset']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Phone Cases', categories: null },
+          { key, value: key === 'chipset' ? 'Snapdragon 8 Gen 3' : 256 }
+        )
+      ).toBe(false);
+    }
+  });
+
+  it('retains verified fingerprint readers for computer products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Laptops', categories: null },
+        { key: 'fingerprint_type', value: 'Power button' }
+      )
+    ).toBe(true);
+  });
+
   it('rejects positive phone-only fields on consoles and other non-phone products', () => {
     for (const candidate of [
       { key: 'has_5g', value: true },
