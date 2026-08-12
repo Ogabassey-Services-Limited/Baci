@@ -44,11 +44,10 @@ describe('SetupChecklistDesktopCard', () => {
       />
     );
 
-    expect(
-      screen.queryByRole('button', { name: 'Publish Store' })
-    ).not.toBeInTheDocument();
     fireEvent.click(
-      screen.getByRole('button', { name: /Ready to Launch.*100% complete/ })
+      screen.getByRole('button', {
+        name: /Ready to Launch.*100% complete.*Setup complete/,
+      })
     );
     fireEvent.click(screen.getByRole('button', { name: 'Publish Store' }));
     fireEvent.click(
@@ -80,8 +79,6 @@ describe('SetupChecklistDesktopCard', () => {
     });
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByText('Setup Progress')).not.toBeInTheDocument();
-
     fireEvent.click(trigger);
 
     expect(trigger).toHaveAttribute('aria-expanded', 'true');

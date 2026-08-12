@@ -100,79 +100,81 @@ export function SetupChecklistDesktopCard({
         />
       </button>
 
-      {isExpanded && (
-        <div id="store-setup-checklist-details" className="border-t">
-          <CardHeader className={cn(compact && 'px-0 pt-0')}>
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
-              <div className="flex-1">
-                <CardTitle className="flex items-center gap-2">
-                  {readiness.isPublished ? (
-                    <>
-                      <CheckCircle2 className="size-5 text-green-600" />
-                      Store is Live
-                    </>
-                  ) : readiness.isReady ? (
-                    <>
-                      <Rocket className="size-5 text-primary" />
-                      Ready to Launch
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="size-5 text-amber-600" />
-                      Complete Your Store Setup
-                    </>
-                  )}
-                </CardTitle>
-                <CardDescription className="mt-1">
-                  {readiness.isPublished
-                    ? `${readiness.overallProgress}% complete - Keep improving your store`
-                    : readiness.isReady
-                      ? 'All required items complete. Publish your store to start selling!'
-                      : `${readiness.completedRequired}/${readiness.totalRequired} required items complete`}
-                </CardDescription>
-              </div>
-              {!readiness.isPublished && readiness.isReady && (
-                <Button
-                  onClick={onPublish}
-                  disabled={publishing}
-                  className="shrink-0"
-                >
-                  {publishing ? (
-                    <div className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  ) : (
-                    <Rocket className="mr-2 size-4" />
-                  )}
-                  Publish Store
-                </Button>
-              )}
+      <div
+        id="store-setup-checklist-details"
+        className={cn(
+          'border-t transition-[max-height,opacity] duration-200',
+          !isExpanded && 'pointer-events-none max-h-0 overflow-hidden opacity-0'
+        )}
+      >
+        <CardHeader className={cn(compact && 'px-0 pt-0')}>
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2">
+                {readiness.isPublished ? (
+                  <>
+                    <CheckCircle2 className="size-5 text-green-600" />
+                    Store is Live
+                  </>
+                ) : readiness.isReady ? (
+                  <>
+                    <Rocket className="size-5 text-primary" />
+                    Ready to Launch
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="size-5 text-amber-600" />
+                    Complete Your Store Setup
+                  </>
+                )}
+              </CardTitle>
+              <CardDescription className="mt-1">
+                {readiness.isPublished
+                  ? `${readiness.overallProgress}% complete - Keep improving your store`
+                  : readiness.isReady
+                    ? 'All required items complete. Publish your store to start selling!'
+                    : `${readiness.completedRequired}/${readiness.totalRequired} required items complete`}
+              </CardDescription>
             </div>
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Setup Progress</span>
-                <span className="font-medium">
-                  {readiness.overallProgress}%
-                </span>
-              </div>
-              <Progress
-                value={readiness.overallProgress}
-                className="h-2"
-                aria-label="Setup progress"
-              />
+            {!readiness.isPublished && readiness.isReady && (
+              <Button
+                onClick={onPublish}
+                disabled={publishing}
+                className="shrink-0"
+              >
+                {publishing ? (
+                  <div className="mr-2 size-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ) : (
+                  <Rocket className="mr-2 size-4" />
+                )}
+                Publish Store
+              </Button>
+            )}
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Setup Progress</span>
+              <span className="font-medium">{readiness.overallProgress}%</span>
             </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            <SetupChecklistContent
-              compact={compact}
-              displayItems={displayItems}
-              incompleteItems={incompleteItems}
-              readiness={readiness}
-              requiredIncomplete={requiredIncomplete}
-              setShowAll={setShowAll}
-              showAll={showAll}
+            <Progress
+              value={readiness.overallProgress}
+              className="h-2"
+              aria-label="Setup progress"
             />
-          </CardContent>
-        </div>
-      )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <SetupChecklistContent
+            compact={compact}
+            displayItems={displayItems}
+            incompleteItems={incompleteItems}
+            readiness={readiness}
+            requiredIncomplete={requiredIncomplete}
+            setShowAll={setShowAll}
+            showAll={showAll}
+          />
+        </CardContent>
+      </div>
     </Card>
   );
 }
