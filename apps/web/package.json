@@ -12,7 +12,7 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "analyze": "next experimental-analyze --output",
-    "docs": "pnpm dlx --package='typescript@npm:@typescript/typescript6@~6.0.2' --package='typedoc@0.28.19' --package='typedoc-plugin-markdown@4.12.0' typedoc",
+    "docs": "node --experimental-loader=./tools/typedoc-typescript6.mjs ../../node_modules/typedoc/bin/typedoc",
     "typecheck": "tsc --noEmit && pnpm typecheck:tools-workers",
     "typecheck:tools-workers": "tsc --noEmit -p tsconfig.tools-workers.json",
     "test": "vitest run",
