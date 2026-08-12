@@ -47,6 +47,7 @@ DECLARE
   v_order_number text;
   v_payment_status text;
   v_shipping_status text;
+  v_email_mismatch_override boolean;
 BEGIN
   IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: reconcile_paystack_unmatched_partial_payment requires service_role';
@@ -74,9 +75,10 @@ BEGIN
       pg_catalog.hashtextextended(trim(p_paystack_reference), 0)
     );
     SELECT t.id, t.amount, COALESCE(o.amount_paid, 0), COALESCE(o.total, 0),
-           o.order_number, o.payment_status, o.shipping_status
+           o.order_number, o.payment_status, o.shipping_status,
+           (t.metadata ->> 'email_mismatch_override') = 'true'
       INTO v_transaction_id, v_amount, v_amount_paid, v_total, v_order_number,
-           v_payment_status, v_shipping_status
+           v_payment_status, v_shipping_status, v_email_mismatch_override
       FROM public.transactions AS t
       JOIN public.orders AS o ON o.id = t.order_id
      WHERE t.order_id = p_order_id
@@ -165,6 +167,7 @@ DECLARE
   v_order_number text;
   v_payment_status text;
   v_shipping_status text;
+  v_email_mismatch_override boolean;
 BEGIN
   IF (SELECT auth.role()) IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'forbidden: reconcile_paystack_unmatched_partial_payment requires service_role';
@@ -192,9 +195,10 @@ BEGIN
       pg_catalog.hashtextextended(trim(p_paystack_reference), 0)
     );
     SELECT t.id, t.amount, COALESCE(o.amount_paid, 0), COALESCE(o.total, 0),
-           o.order_number, o.payment_status, o.shipping_status
+           o.order_number, o.payment_status, o.shipping_status,
+           (t.metadata ->> 'email_mismatch_override') = 'true'
       INTO v_transaction_id, v_amount, v_amount_paid, v_total, v_order_number,
-           v_payment_status, v_shipping_status
+           v_payment_status, v_shipping_status, v_email_mismatch_override
       FROM public.transactions AS t
       JOIN public.orders AS o ON o.id = t.order_id
      WHERE t.order_id = p_order_id
@@ -216,8 +220,7 @@ BEGIN
         'order_number', v_order_number, 'payment_status', v_payment_status,
         'shipping_status', v_shipping_status, 'transaction_id', v_transaction_id,
         'review_id', p_review_id, 'reconciled', true,
-        'email_mismatch_override',
-          (t.metadata ->> 'email_mismatch_override') = 'true'
+        'email_mismatch_override', v_email_mismatch_override
       );
     END IF;
   END IF;
