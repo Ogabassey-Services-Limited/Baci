@@ -244,21 +244,27 @@ export function buildRemediationVerificationCommand({
   ]
     .map(
       (relativePath) =>
-        `if [ -d /opt/remediation-dependencies/${relativePath} ]; then mkdir -p "$(dirname "${relativePath}")"; rm -rf "${relativePath}"; cp -a "/opt/remediation-dependencies/${relativePath}" "${relativePath}"; fi`
+        `[ ! -d /opt/remediation-dependencies/${relativePath} ] || (mkdir -p "$(dirname "${relativePath}")" && rm -rf "${relativePath}" && cp -a "/opt/remediation-dependencies/${relativePath}" "${relativePath}")`
     )
-    .join('; ');
+    .join(' && ');
   dockerArgs.push(
     '--workdir',
     worktreeDir,
     image,
     'sh',
     '-lc',
-    `${dependencyCopy}; ${verifyCommand}`
+    `${dependencyCopy} && ${verifyCommand}`
   );
 
   return {
     args: dockerArgs,
     cleanup: { args: ['rm', '-f', containerName], command: dockerBin },
+    dependencyCopyPaths: [
+      'node_modules',
+      'apps/web/node_modules',
+      'apps/mobile-admin/node_modules',
+      'apps/mobile-storefront/node_modules',
+    ],
     command: dockerBin,
   };
 }

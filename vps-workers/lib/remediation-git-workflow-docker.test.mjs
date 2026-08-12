@@ -82,7 +82,21 @@ describe('remediation Docker workflow', () => {
       ),
       true
     );
-    assert.match(verificationCall.at(-1), /cp -a/);
+    const verificationScript = verificationCall.at(-1);
+    const verifyPosition = verificationScript.lastIndexOf('pnpm turbo lint');
+    assert.ok(verificationScript.indexOf('cp -a') < verifyPosition);
+    for (const relativePath of [
+      'node_modules',
+      'apps/web/node_modules',
+      'apps/mobile-admin/node_modules',
+      'apps/mobile-storefront/node_modules',
+    ]) {
+      assert.match(
+        verificationScript,
+        new RegExp(`cp -a \\"/opt/remediation-dependencies/${relativePath}`)
+      );
+    }
+    assert.match(verificationScript, / && pnpm turbo lint$/);
     assert.equal(
       verificationCall.includes('pnpm_config_store_dir=/pnpm-store'),
       true
