@@ -15,7 +15,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
           hostKind: 'configured_supabase_origin',
           precedence: 'before_path_decision',
         },
-        methods: ['GET'],
+        methods: ['GET', 'OPTIONS'],
         routePattern: '/rest/v1/page_configs',
         sourcePath: 'apps/web/src/components/storefront/puck-storefront.tsx',
       })
@@ -24,7 +24,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
       byId.get('automatic-subresource:supabase-match-blog-to-product')
     ).toEqual(
       expect.objectContaining({
-        methods: ['POST'],
+        methods: ['POST', 'OPTIONS'],
         routePattern: '/rest/v1/rpc/match_blog_to_product',
         sourcePath:
           'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
@@ -32,7 +32,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
     );
     expect(byId.get('automatic-subresource:supabase-auth-signup')).toEqual(
       expect.objectContaining({
-        methods: ['POST'],
+        methods: ['POST', 'OPTIONS'],
         routePattern: '/auth/v1/signup',
       })
     );
@@ -40,7 +40,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
       byId.get('automatic-subresource:supabase-auth-password-token')
     ).toEqual(
       expect.objectContaining({
-        methods: ['POST'],
+        methods: ['POST', 'OPTIONS'],
         routePattern: '/auth/v1/token',
       })
     );

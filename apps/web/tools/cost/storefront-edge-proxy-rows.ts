@@ -24,10 +24,6 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
         precedence: 'before_path_decision',
         predicate: 'legacy_blog_wordpress_probe',
       },
-      hostCondition: {
-        hostKind: 'custom_domain',
-        precedence: 'before_path_decision',
-      },
     }
   ),
   proxyClass(

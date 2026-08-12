@@ -46,6 +46,11 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'apps/web/src/components/storefront/ogabassey/pages/about-us.tsx'
   ),
   mediaSubresource(
+    'crypto-qr',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/crypto-checkout.tsx'
+  ),
+  mediaSubresource(
     'google-tag-manager',
     'configured_google_tag_manager_origin',
     'apps/web/src/components/analytics/analytics-pixel-provider.tsx'

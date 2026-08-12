@@ -44,43 +44,43 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
     supabaseSubresource(
       'page-configs',
       '/rest/v1/page_configs',
-      ['GET'],
+      ['GET', 'OPTIONS'],
       PUCK_STOREFRONT_SOURCE
     ),
     supabaseSubresource(
       'blog-post-products',
       '/rest/v1/blog_post_products',
-      ['GET'],
+      ['GET', 'OPTIONS'],
       BLOG_SNIPPET_SOURCE
     ),
     supabaseSubresource(
       'products',
       '/rest/v1/products',
-      ['GET'],
+      ['GET', 'OPTIONS'],
       BLOG_SNIPPET_SOURCE
     ),
     supabaseSubresource(
       'match-blog-to-product',
       '/rest/v1/rpc/match_blog_to_product',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       BLOG_SNIPPET_SOURCE
     ),
     supabaseSubresource(
       'blog-posts',
       '/rest/v1/blog_posts',
-      ['GET'],
+      ['GET', 'OPTIONS'],
       BLOG_SNIPPET_SOURCE
     ),
     supabaseSubresource(
       'auth-user-negotiation',
       '/auth/v1/user',
-      ['GET'],
+      ['GET', 'OPTIONS'],
       NEGOTIATION_SOURCE
     ),
     supabaseSubresource(
       'negotiation-requests',
       '/rest/v1/negotiation_requests',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       NEGOTIATION_SOURCE
     ),
     supabaseSubresource(

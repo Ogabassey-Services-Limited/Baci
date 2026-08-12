@@ -27,6 +27,11 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
       },
+      {
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      },
       ...[
         'configured_google_tag_manager_origin',
         'configured_google_ad_manager_origin',
