@@ -9,6 +9,13 @@ let mockProducts = 'Product List Here';
 
 vi.mock('ai', () => ({ generateText: vi.fn() }));
 
+// `after` requires a request scope that vitest does not provide; no-op it so the
+// route returns normally (the log itself is covered by santa-interaction-log.test.ts).
+vi.mock('next/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('next/server')>()),
+  after: vi.fn(),
+}));
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => ({
     get: (name: string) => {

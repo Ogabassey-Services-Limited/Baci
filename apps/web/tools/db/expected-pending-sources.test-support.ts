@@ -212,6 +212,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260725164445_restore_merchant_owner_row_select_branch.sql',
     sha256: '9823a697f756bb2865a5de62d2a202d2bf348b284ead1d5cee9c6838a477ca27',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260726120000_log_santa_interaction_rpc.sql',
+    sha256: 'e9b684d0fc0d4a666fc2f52ffd5824ecea9cc5481b4447591941d9e4ad62ce6a',
+  },
   ...EXPECTED_CATALOG_CACHE_PENDING_SOURCES,
   ...EXPECTED_GIGL_TRACKING_PENDING_SOURCES.map(([filename, sha256]) => ({
     repositoryPath: `supabase/migrations/${filename}`,

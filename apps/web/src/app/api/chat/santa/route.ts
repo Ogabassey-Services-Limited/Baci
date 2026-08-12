@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import z from 'zod';
 import { generateTextWithChain } from '@/ai/generate-text-with-chain';
 import { SANTA_ERROR_MESSAGES } from '@/ai/prompts/santa';
@@ -178,18 +179,22 @@ export async function POST(req: Request) {
       overallTimeoutMs: 24_000,
     });
 
-    // Log the interaction after response is complete (fire and forget)
+    // Log the interaction after the response is sent. `after()` keeps the
+    // serverless function alive until the awaited insert flushes — a bare
+    // fire-and-forget promise can be frozen by Vercel before the DB write lands.
     const wishResult = parseWishResult(text);
-    logSantaInteraction({
-      sessionId,
-      clientIp,
-      interactionType: wishResult.type,
-      userMessage: latestUserMessage,
-      santaResponse: text,
-      productName: wishResult.productName,
-      requestedPrice,
-      approvedPrice: wishResult.approvedPrice,
-    }).catch((err) => console.error('[Santa Analytics] Logging error:', err));
+    after(() =>
+      logSantaInteraction({
+        sessionId,
+        clientIp,
+        interactionType: wishResult.type,
+        userMessage: latestUserMessage,
+        santaResponse: text,
+        productName: wishResult.productName,
+        requestedPrice,
+        approvedPrice: wishResult.approvedPrice,
+      }).catch((err) => console.error('[Santa Analytics] Logging error:', err))
+    );
 
     return new Response(text, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
