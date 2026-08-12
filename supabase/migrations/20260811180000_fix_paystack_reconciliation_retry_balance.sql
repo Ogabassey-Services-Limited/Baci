@@ -216,7 +216,8 @@ BEGIN
         'order_number', v_order_number, 'payment_status', v_payment_status,
         'shipping_status', v_shipping_status, 'transaction_id', v_transaction_id,
         'review_id', p_review_id, 'reconciled', true,
-        'email_mismatch_override', true
+        'email_mismatch_override',
+          (t.metadata ->> 'email_mismatch_override') = 'true'
       );
     END IF;
   END IF;

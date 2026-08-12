@@ -57,6 +57,6 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260812110000_harden_paystack_reconciliation_retry_scope.sql',
-    sha256: '8de123df15a417369a4f7ed464c3f955e79c671529853b1f998e1e4b8ce95ba1',
+    sha256: 'bc70151fb7f1ebd60ce66cd620ab26d8422ab3eeb74f916c66dd4f3d77a4a6b3',
   },
 ];
