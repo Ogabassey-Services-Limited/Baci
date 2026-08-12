@@ -129,4 +129,9 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
     sha256: 'ef7e7be81bcbb9ebb9a2e459335187d0f77565bfe046a79cf773240e211527be',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
+    sha256: '467d778b09337c1c1b5f9b69609172d1ba933d233837f38b82cffeef4b54ba30',
+  },
 ] as const;

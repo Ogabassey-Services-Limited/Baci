@@ -20,6 +20,7 @@ const notificationMigrationNames = [
   '20260811150000_prune_terminal_notification_audience_snapshots.sql',
   '20260812110000_harden_notification_delivery_and_operations_access.sql',
   '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+  '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -59,6 +60,7 @@ describe('admin notification foundation migration contract', () => {
       '20260811150000_prune_terminal_notification_audience_snapshots.sql',
       '20260812110000_harden_notification_delivery_and_operations_access.sql',
       '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+      '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
@@ -117,7 +119,7 @@ describe('admin notification foundation migration contract', () => {
     );
   });
 
-  it('prunes a stale terminal lease snapshot and reschedules quiet-hour delivery without using a retry', () => {
+  it('prunes a stale terminal lease snapshot and reschedules quiet-hour delivery without resetting delivery start', () => {
     const sql = readMigrations([
       '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
     ]);
@@ -127,13 +129,17 @@ describe('admin notification foundation migration contract', () => {
     expect(sql).toContain(
       "p_outcome not in ('sent', 'retry', 'expired', 'deferred')"
     );
-    expect(sql).toContain(
-      'delivery_attempts = greatest(delivery_attempts - 1, 0)'
-    );
+    const quietDeferralSql = readMigrations([
+      '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
+    ]);
     expect(sql).toContain(
       "scheduled_for = statement_timestamp() + interval '15 minutes'"
     );
     expect(sql).toContain("v_terminal or p_outcome = 'deferred'");
+    expect(quietDeferralSql).not.toContain('delivery_attempts = greatest');
+    expect(quietDeferralSql).toContain(
+      "p_outcome not in ('sent', 'retry', 'expired', 'deferred')"
+    );
   });
 
   it('uses narrow authenticated admin RPCs rather than a broad table bypass', () => {

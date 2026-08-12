@@ -33,13 +33,6 @@ type PushTokenRecord = {
   quiet_hours_time_zone: string;
 };
 
-class NotificationQuietHoursDeferredError extends Error {
-  constructor() {
-    super('Notification push delivery deferred for quiet hours');
-    this.name = 'NotificationQuietHoursDeferredError';
-  }
-}
-
 class NotificationExpiredError extends Error {
   constructor() {
     super('Notification expired during delivery');
@@ -61,8 +54,9 @@ async function sendPushTokens(
   notification: ScheduledNotification,
   merchantIds: string[]
 ) {
-  if (!notification.channels.includes('push')) return;
+  if (!notification.channels.includes('push')) return false;
   const accessToken = Deno.env.get('EXPO_ACCESS_TOKEN');
+  let hasDeferredPushes = false;
   for (const merchants of chunks(merchantIds, TOKEN_BATCH_SIZE)) {
     throwIfExpired(notification);
     const data = await rpcOk(
@@ -115,7 +109,7 @@ async function sendPushTokens(
         p_notification_id: notification.id,
         p_tokens: quietTokens.map((record) => record.push_token),
       });
-      throw new NotificationQuietHoursDeferredError();
+      hasDeferredPushes = true;
     }
     const tokens = uniqueRecords
       .filter((record) => !quietTokens.includes(record))
@@ -188,6 +182,7 @@ async function sendPushTokens(
       }
     }
   }
+  return hasDeferredPushes;
 }
 
 async function deliverPages(
@@ -201,6 +196,7 @@ async function deliverPages(
   });
   let after: string | null = null;
   let recipients = 0;
+  let hasDeferredPushes = false;
   for (;;) {
     throwIfExpired(notification);
     await renewScheduledNotificationClaim(client, notification);
@@ -216,17 +212,17 @@ async function deliverPages(
     );
     const ids = parseRecipientPageIds(data);
     if (!ids) throw new Error('Invalid audience page');
-    if (ids.length === 0) return recipients;
+    if (ids.length === 0) return { hasDeferredPushes, recipients };
     throwIfExpired(notification);
     await rpcOk(client, 'create_claimed_admin_notification_recipients_v1', {
       p_claim_token: notification.delivery_claim_token,
       p_merchant_ids: ids,
       p_notification_id: notification.id,
     });
-    await sendPushTokens(client, notification, ids);
+    hasDeferredPushes ||= await sendPushTokens(client, notification, ids);
     recipients += ids.length;
     after = nextRecipientPageCursor(ids, RECIPIENT_PAGE_SIZE);
-    if (!after) return recipients;
+    if (!after) return { hasDeferredPushes, recipients };
   }
 }
 
@@ -261,7 +257,15 @@ export async function processScheduledNotificationClaims(
         results.push({ id: notification.id, status: 'expired' });
         continue;
       }
-      const recipients = await deliverPages(client, notification);
+      const { hasDeferredPushes, recipients } = await deliverPages(
+        client,
+        notification
+      );
+      if (hasDeferredPushes) {
+        await finalize(client, notification, 'deferred');
+        results.push({ id: notification.id, recipients, status: 'deferred' });
+        continue;
+      }
       const summary = await rpcOk(
         client,
         'get_notification_push_outbox_summary_v1',
@@ -280,11 +284,6 @@ export async function processScheduledNotificationClaims(
       if (error instanceof NotificationExpiredError) {
         await finalize(client, notification, 'expired');
         results.push({ id: notification.id, status: 'expired' });
-        continue;
-      }
-      if (error instanceof NotificationQuietHoursDeferredError) {
-        await finalize(client, notification, 'deferred');
-        results.push({ id: notification.id, status: 'deferred' });
         continue;
       }
       await finalize(
