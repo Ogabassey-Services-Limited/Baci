@@ -177,7 +177,6 @@ export function GadgetPattern({
                 strokeWidth={1}
                 opacity={0.6}
               />
-
               {/* Cluster 2 - Top Right: Laptop */}
               <G transform="translate(110, 15) translate(10, 8) rotate(10) translate(-10, -8)">
                 <Rect
