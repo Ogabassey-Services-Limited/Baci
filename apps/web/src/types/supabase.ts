@@ -18164,21 +18164,6 @@ export type Database = {
         };
         Returns: Json;
       };
-      log_santa_interaction: {
-        Args: {
-          p_approved_price?: number;
-          p_client_ip: string;
-          p_discount_percentage?: number;
-          p_interaction_type: string;
-          p_merchant_id: string;
-          p_product_name?: string;
-          p_requested_price?: number;
-          p_santa_response?: string;
-          p_session_id: string;
-          p_user_message?: string;
-        };
-        Returns: undefined;
-      };
       mark_abandoned_orders: {
         Args: { hours_threshold?: number };
         Returns: undefined;

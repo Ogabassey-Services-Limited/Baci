@@ -1,9 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  resetAgenticMerchantIdCache,
-  resolveAgenticMerchantId,
-} from './agentic-merchant-id';
+import { resolveAgenticMerchantId } from './agentic-merchant-id';
 
 const MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
@@ -29,13 +26,11 @@ function createClient(result: {
 
 describe('resolveAgenticMerchantId', () => {
   beforeEach(() => {
-    resetAgenticMerchantIdCache();
     vi.unstubAllEnvs();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    resetAgenticMerchantIdCache();
   });
 
   it('resolves the merchant id from the configured slug', async () => {
@@ -53,14 +48,18 @@ describe('resolveAgenticMerchantId', () => {
     expect(eq).toHaveBeenCalledWith('slug', 'ogabassey');
   });
 
-  it('memoizes so repeat copilot turns do not re-query', async () => {
+  it('revalidates each copilot turn after a merchant is unpublished or renamed', async () => {
     vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
-    const { client, maybeSingle } = createClient({ data: { id: MERCHANT_ID } });
+    const first = createClient({ data: { id: MERCHANT_ID } });
+    const second = createClient({ data: null });
 
-    await resolveAgenticMerchantId(client);
-    await resolveAgenticMerchantId(client);
+    await expect(resolveAgenticMerchantId(first.client)).resolves.toBe(
+      MERCHANT_ID
+    );
+    await expect(resolveAgenticMerchantId(second.client)).resolves.toBeNull();
 
-    expect(maybeSingle).toHaveBeenCalledTimes(1);
+    expect(first.maybeSingle).toHaveBeenCalledTimes(1);
+    expect(second.maybeSingle).toHaveBeenCalledTimes(1);
   });
 
   it('accepts the legacy OPENAI_ alias', async () => {

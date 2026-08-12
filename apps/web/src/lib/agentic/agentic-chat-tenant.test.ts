@@ -9,7 +9,6 @@ vi.mock('@/lib/supabase/anon', () => ({
 }));
 
 import { resolveAgenticChatTenant } from './agentic-chat-tenant';
-import { resetAgenticMerchantIdCache } from './agentic-merchant-id';
 
 const MERCHANT_ID = '3bc72679-c0f7-4db4-9054-6a4a4a95a498';
 
@@ -32,12 +31,10 @@ describe('resolveAgenticChatTenant', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
-    resetAgenticMerchantIdCache();
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    resetAgenticMerchantIdCache();
   });
 
   it('resolves the merchant id and slug from the configured slug', async () => {

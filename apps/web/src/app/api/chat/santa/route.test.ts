@@ -10,13 +10,6 @@ let mockProductsError: Error | null = null;
 
 vi.mock('ai', () => ({ generateText: vi.fn() }));
 
-// `after` requires a request scope that vitest does not provide; no-op it so the
-// route returns normally (the log itself is covered by santa-interaction-log.test.ts).
-vi.mock('next/server', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('next/server')>()),
-  after: vi.fn(),
-}));
-
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => ({
     get: (name: string) => {
@@ -89,7 +82,6 @@ vi.mock('@/ai/prompts/santa', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
-import { resetAgenticMerchantIdCache } from '@/lib/agentic/agentic-merchant-id';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -132,7 +124,6 @@ describe('POST /api/chat/santa', () => {
     rateLimitResetIn = 0;
     mockProducts = 'Product List Here';
     mockProductsError = null;
-    resetAgenticMerchantIdCache();
     vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
     // Default: the leading (active) provider succeeds immediately.
     respondByModel({ 'mock-active-model': 'Ho ho ho!' });
@@ -140,7 +131,6 @@ describe('POST /api/chat/santa', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    resetAgenticMerchantIdCache();
   });
 
   it('returns 429 when rate limit is exceeded', async () => {
@@ -263,10 +253,21 @@ describe('POST /api/chat/santa', () => {
     );
   });
 
+  it('does not bind the Santa prompt to the former hard-coded merchant name', async () => {
+    await POST(
+      makeRequest({ messages: [{ role: 'user', content: 'Hello Santa' }] })
+    );
+
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.not.stringContaining('Ogabassey'),
+      })
+    );
+  });
+
   it('fails closed without invoking the model when the tenant is unconfigured', async () => {
     vi.stubEnv('BACI_AGENTIC_MERCHANT_SLUG', '');
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', '');
-    resetAgenticMerchantIdCache();
 
     const response = await POST(
       makeRequest({ messages: [{ role: 'user', content: 'I want a phone' }] })
