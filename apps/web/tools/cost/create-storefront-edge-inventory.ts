@@ -145,7 +145,8 @@ export async function createStorefrontEdgeInventory(
       (row) =>
         row.sourceKind !== 'storefront_entrypoint' &&
         !isPreRouteRow(row) &&
-        row.decision !== 'edge_terminal'
+        (row.decision !== 'edge_terminal' ||
+          row.sourceKind === 'machine_family')
     ),
     ...entrypointRows,
   ].sort((left, right) => {
@@ -157,7 +158,8 @@ export async function createStorefrontEdgeInventory(
     (row) =>
       row.sourceKind !== 'storefront_entrypoint' &&
       row.decision === 'edge_terminal' &&
-      !isPreRouteRow(row)
+      !isPreRouteRow(row) &&
+      row.sourceKind !== 'machine_family'
   );
   // Preserve API terminal placement: exact API rows must be followed by the
   // closed API default before unrelated storefront route phases begin.

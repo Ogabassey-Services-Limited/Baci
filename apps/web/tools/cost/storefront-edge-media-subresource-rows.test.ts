@@ -27,6 +27,17 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
       },
+      ...[
+        'configured_google_tag_manager_origin',
+        'configured_meta_origin',
+        'configured_tiktok_origin',
+        'configured_snapchat_origin',
+        'configured_twitter_origin',
+      ].map((hostKind) => ({
+        decision: 'origin_dynamic',
+        hostKind,
+        methods: ['GET', 'HEAD'],
+      })),
     ]);
   });
 });

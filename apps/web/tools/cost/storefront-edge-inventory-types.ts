@@ -21,6 +21,11 @@ type StorefrontEdgeInventoryRow = Readonly<{
     hostKind:
       | 'configured_media_cdn_origin'
       | 'configured_external_media_origin'
+      | 'configured_google_tag_manager_origin'
+      | 'configured_meta_origin'
+      | 'configured_tiktok_origin'
+      | 'configured_snapchat_origin'
+      | 'configured_twitter_origin'
       | 'configured_supabase_origin'
       | 'configured_supabase_storage_origin';
     precedence: 'before_path_decision';

@@ -7,6 +7,11 @@ const mediaSubresource = (
   hostKind:
     | 'configured_media_cdn_origin'
     | 'configured_external_media_origin'
+    | 'configured_google_tag_manager_origin'
+    | 'configured_meta_origin'
+    | 'configured_tiktok_origin'
+    | 'configured_snapchat_origin'
+    | 'configured_twitter_origin'
     | 'configured_supabase_storage_origin',
   sourcePath = 'apps/web/src/components/storefront/cdn-format-image.tsx'
 ): InventoryRow => ({
@@ -31,5 +36,30 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'transparent-textures',
     'configured_external_media_origin',
     'apps/web/src/components/storefront/ogabassey/pages/about-us.tsx'
+  ),
+  mediaSubresource(
+    'google-tag-manager',
+    'configured_google_tag_manager_origin',
+    'apps/web/src/components/analytics/analytics-pixel-provider.tsx'
+  ),
+  mediaSubresource(
+    'meta',
+    'configured_meta_origin',
+    'apps/web/src/components/analytics/facebook-pixel.tsx'
+  ),
+  mediaSubresource(
+    'tiktok',
+    'configured_tiktok_origin',
+    'apps/web/src/components/analytics/analytics-pixel-provider.tsx'
+  ),
+  mediaSubresource(
+    'snapchat',
+    'configured_snapchat_origin',
+    'apps/web/src/components/analytics/snapchat-pixel.tsx'
+  ),
+  mediaSubresource(
+    'twitter',
+    'configured_twitter_origin',
+    'apps/web/src/components/analytics/twitter-pixel.tsx'
   ),
 ];
