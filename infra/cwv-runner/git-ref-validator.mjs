@@ -16,7 +16,6 @@ export function validGitRef(value) {
   if (
     typeof value !== 'string' ||
     !value ||
-    value === '@' ||
     value.startsWith('-') ||
     value.startsWith('/') ||
     value.endsWith('/') ||
