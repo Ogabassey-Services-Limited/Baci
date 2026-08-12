@@ -229,10 +229,13 @@ export async function PATCH(request: NextRequest) {
     // idempotent without touching any balance columns on existing wallets.
     const { error: updateError } = await supabase
       .from('merchant_wallets')
-      .upsert({ merchant_id: merchantId, ...updates }, {
-        onConflict: 'merchant_id',
-        ignoreDuplicates: false,
-      });
+      .upsert(
+        { merchant_id: merchantId, ...updates },
+        {
+          onConflict: 'merchant_id',
+          ignoreDuplicates: false,
+        }
+      );
 
     if (updateError) {
       console.error('Failed to update wallet settings:', updateError);

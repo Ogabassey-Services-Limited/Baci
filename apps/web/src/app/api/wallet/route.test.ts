@@ -127,7 +127,9 @@ describe('/api/wallet', () => {
     walletSelectError = null;
     pendingSettlements = [];
     updateError = null;
-    mocks.upsert.mockImplementation(() => Promise.resolve({ error: updateError }));
+    mocks.upsert.mockImplementation(() =>
+      Promise.resolve({ error: updateError })
+    );
   });
 
   it('returns 401 when the user is missing', async () => {
@@ -323,7 +325,11 @@ describe('/api/wallet', () => {
       message: 'Wallet settings updated',
     });
     expect(mocks.upsert).toHaveBeenCalledWith(
-      { merchant_id: 'merchant-1', auto_payout_enabled: false, auto_payout_day: 'friday' },
+      {
+        merchant_id: 'merchant-1',
+        auto_payout_enabled: false,
+        auto_payout_day: 'friday',
+      },
       { onConflict: 'merchant_id', ignoreDuplicates: false }
     );
   });

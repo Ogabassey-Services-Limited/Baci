@@ -23,6 +23,8 @@ import { RevokeAccessForm } from './revoke-access-form';
 interface AccessListResponse {
   data: AdminPlatformAccessMembership[];
   generatedAt: string;
+  limit: number;
+  truncated: boolean;
 }
 
 async function loadMembers(): Promise<AccessListResponse> {
@@ -35,6 +37,7 @@ export function AccessManagementClient() {
   const { toast } = useToast();
   const [members, setMembers] = useState<AdminPlatformAccessMembership[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [rosterTruncated, setRosterTruncated] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,8 +56,10 @@ export function AccessManagementClient() {
       const result = await loadMembers();
       setMembers(result.data);
       setGeneratedAt(result.generatedAt);
+      setRosterTruncated(result.truncated);
     } catch {
       setMembers([]);
+      setRosterTruncated(false);
       setLoadError(
         'Platform access could not be loaded. Refresh to try again.'
       );
@@ -235,7 +240,18 @@ export function AccessManagementClient() {
             </div>
           ) : null}
           {!loading && !loadError ? (
-            <AccessMembersTable members={members} onRevoke={setRevokeTarget} />
+            <>
+              <AccessMembersTable
+                members={members}
+                onRevoke={setRevokeTarget}
+              />
+              {rosterTruncated && (
+                <p className="text-sm text-amber-700" role="status">
+                  Showing the first 100 platform members. Increase the roster
+                  limit or paginate to manage additional members.
+                </p>
+              )}
+            </>
           ) : null}
         </CardContent>
       </Card>

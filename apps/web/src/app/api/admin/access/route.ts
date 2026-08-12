@@ -67,7 +67,12 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { data: result.data, generatedAt: new Date().toISOString() },
+    {
+      data: result.data,
+      generatedAt: new Date().toISOString(),
+      limit: parsed.data.limit,
+      truncated: result.data.length >= parsed.data.limit,
+    },
     { headers: { 'Cache-Control': 'no-store' } }
   );
 }
