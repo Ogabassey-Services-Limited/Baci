@@ -4,6 +4,7 @@ import type { ProductKeySpecs } from '@/lib/products';
 interface ProductSpecAcceptanceInput {
   categories?: { name?: string | null; slug?: string | null } | null;
   category?: string | null;
+  category_slug?: string | null;
   product_key_specs?: ProductKeySpecs | null;
 }
 
@@ -21,6 +22,7 @@ function isCategoryAgnosticPositiveMeasurement(
     !input.categories?.name?.trim() &&
     !input.categories?.slug?.trim() &&
     !input.category?.trim() &&
+    !input.category_slug?.trim() &&
     CATEGORY_AGNOSTIC_POSITIVE_MEASUREMENT_SPEC_KEYS.has(key) &&
     typeof value === 'number' &&
     Number.isFinite(value) &&

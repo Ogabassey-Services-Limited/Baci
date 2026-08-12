@@ -7,6 +7,7 @@ import { getFirstAcceptedSpecValue } from './get-first-accepted-spec-value';
 interface ProductDetailInput {
   categories?: { name?: string | null; slug?: string | null } | null;
   category?: string | null;
+  category_slug?: string | null;
   color?: string | null;
   product_key_specs?: ProductKeySpecs | null;
   variant_attributes?: Record<string, unknown> | null;

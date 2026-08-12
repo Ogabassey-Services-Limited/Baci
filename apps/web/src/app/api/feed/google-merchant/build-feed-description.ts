@@ -6,6 +6,7 @@ import { getFirstAcceptedSpecValue } from './get-first-accepted-spec-value';
 interface FeedDescriptionInput {
   categories?: { name?: string | null; slug?: string | null } | null;
   category?: string | null;
+  category_slug?: string | null;
   color?: string | null;
   description?: string | null;
   name: string;

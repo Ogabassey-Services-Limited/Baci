@@ -12,4 +12,14 @@ describe('getFirstAcceptedSpecValue', () => {
       getFirstAcceptedSpecValue({ category: 'Gaming' }, 'main_camera_mp', 50)
     ).toBeUndefined();
   });
+
+  it('does not treat category-slug-only feed products as uncategorized', () => {
+    expect(
+      getFirstAcceptedSpecValue(
+        { category_slug: 'phone-cases' },
+        'main_camera_mp',
+        50
+      )
+    ).toBeUndefined();
+  });
 });
