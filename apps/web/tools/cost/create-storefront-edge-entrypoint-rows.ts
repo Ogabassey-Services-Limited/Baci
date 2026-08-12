@@ -151,6 +151,10 @@ export function createStorefrontEdgeEntrypointRows(
         row.routePattern === '/'
           ? '/{storefrontIdentifier}'
           : `/{storefrontIdentifier}${row.routePattern}`,
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
     };
     if (
       (relativeSourcePath.endsWith('route.ts') ||

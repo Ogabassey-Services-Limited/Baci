@@ -29,7 +29,9 @@ const machineFamily = (
   if (!sourcePath)
     throw new Error(`machine route source is not declared: ${routePattern}`);
   const effectiveMethods: InventoryRow['methods'] =
-    sourcePath.endsWith('/route.ts') && !methods.includes('ANY')
+    decision === 'origin_dynamic' &&
+    sourcePath.endsWith('/route.ts') &&
+    !methods.includes('ANY')
       ? [...new Set<InventoryMethod>([...methods, 'OPTIONS'])].sort(
           (left, right) =>
             METHOD_ORDER.indexOf(left) - METHOD_ORDER.indexOf(right)

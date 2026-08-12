@@ -33,12 +33,12 @@ const RELEASE_ENTRYPOINTS = [
   '(content)/warranty/page.tsx',
   '(home)/page.tsx',
   'opengraph-image.tsx',
-  'sitemap/[id]/route.ts',
 ] as const;
 
 const DYNAMIC_ENTRYPOINTS = [
   '(blog)/blog/[...catchAll]/route.ts',
   '(blog)/blog/news-sitemap.xml/route.ts',
+  'sitemap/[id]/route.ts',
   '(catalog)/(listing)/search/page.tsx',
   '(catalog)/(pdp)/product/[productSlug]/page.tsx',
   '(commerce)/cart/page.tsx',
@@ -85,6 +85,9 @@ function dynamicEntrypointReason(
   }
   if (sourcePath === '(blog)/blog/news-sitemap.xml/route.ts') {
     return 'rolling_news_sitemap_requires_origin' as const;
+  }
+  if (sourcePath === 'sitemap/[id]/route.ts') {
+    return 'finite_sitemap_id_dispatch_requires_origin' as const;
   }
   return 'request_state_or_origin_action_required' as const;
 }
