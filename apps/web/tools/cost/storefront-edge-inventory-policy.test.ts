@@ -203,11 +203,12 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
           row.decision === 'origin_dynamic' &&
           row.requestCondition?.anyQueryPresent === true &&
           row.requestCondition.anyQueryKeyPresent === undefined &&
-          row.requestCondition.matchedStorefrontEntrypointId ===
+          row.requestCondition.matchedStorefrontEntrypointId?.startsWith(
             `storefront:${row.sourcePath?.replace(
               'apps/web/src/app/(storefront)/[slug]/',
               ''
-            )}` &&
+            )}`
+          ) &&
           row.requestCondition.precedence ===
             'after_entrypoint_resolution_before_decision'
       )
