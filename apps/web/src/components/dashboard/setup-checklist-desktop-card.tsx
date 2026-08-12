@@ -61,7 +61,7 @@ export function SetupChecklistDesktopCard({
         <button
           type="button"
           onClick={onDismiss}
-          className="absolute top-4 right-4 rounded-full p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="absolute top-2 right-2 rounded-full p-1 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-label="Dismiss setup checklist"
         >
           <X className="size-4 text-muted-foreground" />
@@ -72,7 +72,7 @@ export function SetupChecklistDesktopCard({
         aria-expanded={isExpanded}
         aria-controls="store-setup-checklist-details"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="flex w-full items-center justify-between gap-4 px-5 py-4 pr-14 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <span className="flex min-w-0 items-center gap-3">
           {readiness.isPublished ? (
@@ -88,7 +88,9 @@ export function SetupChecklistDesktopCard({
               {readiness.overallProgress}% complete
               {requiredIncomplete.length > 0
                 ? ` · ${requiredIncomplete.length} required ${requiredIncomplete.length === 1 ? 'item' : 'items'} remaining`
-                : ' · Setup complete'}
+                : readiness.overallProgress === 100
+                  ? ' · Setup complete'
+                  : ' · Required setup complete'}
             </span>
           </span>
         </span>
@@ -102,6 +104,8 @@ export function SetupChecklistDesktopCard({
 
       <div
         id="store-setup-checklist-details"
+        aria-hidden={!isExpanded}
+        inert={!isExpanded ? true : undefined}
         className={cn(
           'border-t transition-[max-height,opacity] duration-200',
           !isExpanded && 'pointer-events-none max-h-0 overflow-hidden opacity-0'

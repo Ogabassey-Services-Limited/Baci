@@ -40,6 +40,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { useUpgradeModal } from '@/components/dashboard/upgrade-modal';
 import { Logo } from '@/components/logo';
 import { NotificationBanner } from '@/components/notifications/notification-banner';
 import { NotificationCenter } from '@/components/notifications/notification-center';
@@ -264,6 +265,7 @@ export default function DashboardClientLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { open: openUpgradeModal } = useUpgradeModal();
   const { merchant, loading: merchantLoading, updateMerchant } = useMerchant();
   const { user, loading: authLoading, signOut } = useAuth();
   const [isCapsuleExpanded, setIsCapsuleExpanded] = useState(false);
@@ -680,6 +682,7 @@ export default function DashboardClientLayout({
         pathname={pathname}
         onExpandedChange={setIsCapsuleExpanded}
         onNavigate={handleNavItemClick}
+        onUpgrade={() => openUpgradeModal('advanced_analytics')}
       />
 
       <div className="grid min-h-screen w-full md:grid-cols-[92px_1fr]">

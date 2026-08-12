@@ -75,7 +75,7 @@ describe('SetupChecklistDesktopCard', () => {
     );
 
     const trigger = screen.getByRole('button', {
-      name: /Store is Live.*64% complete.*Setup complete/,
+      name: /Store is Live.*64% complete.*Required setup complete/,
     });
 
     expect(trigger).toHaveAttribute('aria-expanded', 'false');

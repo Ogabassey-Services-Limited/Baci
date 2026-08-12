@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronUp, MoreHorizontal } from 'lucide-react';
+import { ChevronUp, MoreHorizontal, Rocket } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import { BagIcon } from '@/components/bag-icon';
@@ -29,6 +29,7 @@ interface DashboardNavCapsuleProps {
   pathname: string;
   onExpandedChange: (expanded: boolean) => void;
   onNavigate: (itemId: string) => void;
+  onUpgrade?: () => void;
 }
 
 function isItemActive(item: DashboardNavItem, pathname: string): boolean {
@@ -45,8 +46,10 @@ export function DashboardNavCapsule({
   pathname,
   onExpandedChange,
   onNavigate,
+  onUpgrade,
 }: DashboardNavCapsuleProps) {
   const capsuleRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const visibleItems = expanded
     ? items
     : COMPACT_ITEM_IDS.flatMap((id) => {
@@ -63,7 +66,10 @@ export function DashboardNavCapsule({
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onExpandedChange(false);
+      if (event.key === 'Escape') {
+        onExpandedChange(false);
+        toggleRef.current?.focus();
+      }
     };
 
     document.addEventListener('pointerdown', handlePointerDown);
@@ -73,6 +79,15 @@ export function DashboardNavCapsule({
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [expanded, onExpandedChange]);
+
+  useEffect(() => {
+    if (!expanded) return;
+    const firstExpandedLink =
+      capsuleRef.current?.querySelector<HTMLAnchorElement>(
+        'nav a[href]:not([href="/dashboard"] )'
+      );
+    firstExpandedLink?.focus();
+  }, [expanded]);
 
   return (
     <aside
@@ -166,6 +181,7 @@ export function DashboardNavCapsule({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
+                ref={toggleRef}
                 type="button"
                 variant="ghost"
                 size="icon"
@@ -189,6 +205,23 @@ export function DashboardNavCapsule({
               {expanded ? 'Show fewer' : 'Show all navigation'}
             </TooltipContent>
           </Tooltip>
+          {onUpgrade ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={onUpgrade}
+                  className="mt-1 size-11 shrink-0 rounded-full text-amber-600 hover:bg-amber-500/10"
+                  aria-label="Upgrade plan"
+                >
+                  <Rocket className="size-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Upgrade plan</TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </TooltipProvider>
     </aside>
