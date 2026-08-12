@@ -243,8 +243,8 @@ export async function getPublicSerializedVariantSummariesByProductId(
       // for those products keeps public HTML rendering out of Supabase timeouts.
       // Supabase PostgREST v2 exposes overrideTypes() on RPC builders and marks
       // returns() as deprecated; replace the stale generated RPC result type here.
-      const fetchAvailabilityCounts = () =>
-        supabase
+      const fetchAvailabilityCounts = () => {
+        const availabilityQuery = supabase
           .rpc('get_public_serialized_variant_availability_counts', {
             p_merchant_id: merchantId,
             p_product_ids: serializedProductIds,
@@ -254,6 +254,16 @@ export async function getPublicSerializedVariantSummariesByProductId(
             PublicSerializedAvailabilityCountRow[],
             { merge: false }
           >();
+
+        // The shared public client bounds fetches with AbortSignal.timeout(),
+        // which produces a TimeoutError. postgrest-js retries that error by
+        // default, so disable the SDK retry before this function performs its
+        // single, deliberate retry below. The guard preserves lightweight test
+        // doubles that only implement the awaitable query surface.
+        return typeof availabilityQuery.retry === 'function'
+          ? availabilityQuery.retry(false)
+          : availabilityQuery;
+      };
 
       let { data: rawCounts, error: countsError } =
         await fetchAvailabilityCounts();

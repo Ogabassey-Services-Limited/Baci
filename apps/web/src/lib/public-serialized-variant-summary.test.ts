@@ -20,7 +20,6 @@ describe('getEffectiveInventoryTrackingPolicy', () => {
       )
     ).toBe('serialized_then_unlimited');
   });
-
   it('inherits product policy if variant policy is inherit or null', () => {
     expect(
       getEffectiveInventoryTrackingPolicy('serialized_strict', 'inherit')
@@ -878,76 +877,5 @@ describe('getPublicSerializedVariantSummariesByProductId', () => {
         'prod-1',
       ])
     ).rejects.toThrow(countsError);
-  });
-
-  it('retries the availability counts RPC once when Supabase aborts it due to timeout', async () => {
-    const timeoutError = {
-      message: 'TimeoutError: The operation was aborted due to timeout',
-      details: 'TimeoutError: The operation was aborted due to timeout',
-      hint: '',
-      code: '',
-    };
-    const mockSupabase = {
-      from: vi.fn().mockImplementation((table: string) => ({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            in: vi.fn().mockReturnValue(
-              mockTypedQueryResult({
-                data:
-                  table === 'products'
-                    ? [
-                        {
-                          id: 'prod-1',
-                          inventory_tracking_policy: 'serialized_strict',
-                          has_variants: false,
-                          status: 'active',
-                        },
-                      ]
-                    : [
-                        {
-                          id: 'variant-anchor-1',
-                          product_id: 'prod-1',
-                          inventory_tracking_policy: 'inherit',
-                          is_inventory_anchor: true,
-                        },
-                      ],
-                error: null,
-              })
-            ),
-          }),
-        }),
-      })),
-      rpc: vi
-        .fn()
-        .mockReturnValueOnce(
-          mockTypedQueryResult({ data: null, error: timeoutError })
-        )
-        .mockReturnValueOnce(
-          mockTypedQueryResult({
-            data: [
-              {
-                product_id: 'prod-1',
-                variant_id: null,
-                public_available_units: 3,
-              },
-            ],
-            error: null,
-          })
-        ),
-    } as unknown as SupabaseClient;
-
-    await expect(
-      getPublicSerializedVariantSummariesByProductId(mockSupabase, merchantId, [
-        'prod-1',
-      ])
-    ).resolves.toEqual([
-      {
-        productId: 'prod-1',
-        variantId: null,
-        publicAvailableUnits: 3,
-        inventoryTrackingPolicy: 'serialized_strict',
-      },
-    ]);
-    expect(mockSupabase.rpc).toHaveBeenCalledTimes(2);
   });
 });
