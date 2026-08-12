@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -21,9 +22,9 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
+import { recordPerformanceSurface } from '@/lib/performance-attribution';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
-import { recordPerformanceSurface } from '@/lib/performance-attribution';
 
 const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
 
@@ -188,11 +189,21 @@ export default function HomeScreen() {
       businessType: CONFIG.BUSINESS_TYPE,
       templateId: CONFIG.TEMPLATE_ID,
     });
-    recordPerformanceSurface('home', {
-      template_id: CONFIG.TEMPLATE_ID,
-    });
     return () => recordCrashBreadcrumb('home:unmounted');
   }, []);
+
+  useEffect(() => {
+    Sentry.addBreadcrumb({
+      category: 'performance.surface',
+      data: { focused: isFocused, surface: 'home' },
+      level: 'info',
+      message: `home:${isFocused ? 'focused' : 'unfocused'}`,
+    });
+    recordCrashBreadcrumb('home:state', { focused: isFocused });
+    if (isFocused) {
+      recordPerformanceSurface('home', { template_id: CONFIG.TEMPLATE_ID });
+    }
+  }, [isFocused]);
 
   useEffect(() => {
     const stateSignature = JSON.stringify({

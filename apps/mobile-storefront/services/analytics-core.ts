@@ -136,9 +136,13 @@ export function initAnalytics(): void {
     while (pendingEvents.length > 0) {
       const event = pendingEvents.shift();
       if (event) {
-        posthogClient.capture(event.name, {
-          ...sanitizeAnalyticsProperties(event.properties),
-        }, { timestamp: new Date(event.timestamp) });
+        posthogClient.capture(
+          event.name,
+          {
+            ...sanitizeAnalyticsProperties(event.properties),
+          },
+          { timestamp: new Date(event.timestamp) }
+        );
       }
     }
 

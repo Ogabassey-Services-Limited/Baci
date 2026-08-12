@@ -1,6 +1,6 @@
 import { trackEvent } from '@/services/analytics';
-import { recordPerformanceSurface } from './performance-attribution';
 import { recordCrashBreadcrumb } from './crash-diagnostics';
+import { recordPerformanceSurface } from './performance-attribution';
 
 jest.mock('./crash-diagnostics', () => ({
   recordCrashBreadcrumb: jest.fn(),
@@ -22,7 +22,12 @@ describe('performance attribution', () => {
 
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(
       'performance:surface:gadget_pattern',
-      { api_level: 28, os: 'android', surface: 'gadget_pattern', variant: 'hero' }
+      {
+        api_level: 28,
+        os: 'android',
+        surface: 'gadget_pattern',
+        variant: 'hero',
+      }
     );
     expect(trackEvent).toHaveBeenCalledWith('performance_surface_attributed', {
       api_level: 28,

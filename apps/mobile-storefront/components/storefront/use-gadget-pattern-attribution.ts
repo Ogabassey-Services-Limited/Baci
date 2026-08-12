@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react';
 import * as Sentry from '@sentry/react-native';
+import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
 import { recordPerformanceSurface } from '@/lib/performance-attribution';
@@ -13,18 +13,18 @@ export function useGadgetPatternAttribution(
   const recorded = useRef(false);
   const instanceId = useRef(`gadget_pattern_${nextGadgetPatternId++}`);
 
-  if (rendered && !recorded.current) {
-    recorded.current = true;
-    recordPerformanceSurface('gadget_pattern', {
-      api_level:
-        Platform.OS === 'android' ? Number(Platform.Version) : undefined,
-      os: Platform.OS,
-      variant,
-    });
-  }
-
   useEffect(() => {
     if (!rendered) return;
+
+    if (!recorded.current) {
+      recorded.current = true;
+      recordPerformanceSurface('gadget_pattern', {
+        api_level:
+          Platform.OS === 'android' ? Number(Platform.Version) : undefined,
+        os: Platform.OS,
+        variant,
+      });
+    }
 
     const details = {
       api_level:
