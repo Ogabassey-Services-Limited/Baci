@@ -77,6 +77,10 @@
       "justification": "Reviewed iOS haptic branch for draggable chat FAB interactions."
     },
     {
+      "path": "components/storefront/GadgetPattern.tsx",
+      "justification": "Reviewed Android API 28 and older guard that suppresses a decorative SVG implicated in low-end-device ANR evidence while preserving Android 10+, iOS, and web rendering."
+    },
+    {
       "path": "components/imei-check/imei-check-theme.ts",
       "justification": "Reviewed iOS-specific monospace font fallback for IMEI verdict formatting."
     },
