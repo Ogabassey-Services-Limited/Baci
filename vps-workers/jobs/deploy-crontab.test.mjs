@@ -160,7 +160,7 @@ describe('deploy crontab', () => {
     );
   });
 
-  it('schedules quiz finalization directly every minute with its existing lock and log', () => {
+  it('retains a bounded once-only quiz finalization fallback with its existing lock', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
     const cronLine = deployScript
       .split('\n')
@@ -169,7 +169,7 @@ describe('deploy crontab', () => {
     assert.ok(cronLine);
     assert.match(
       cronLine,
-      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/quiz-finalize\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd \$REMOTE_DIR && timeout --signal=TERM --kill-after=30s 5m \$REMOTE_DIR\/bin\/process-quiz-finalization\.sh' >> \$REMOTE_DIR\/logs\/quiz-finalize\.log 2>&1$/
+      /^\* \* \* \* \* flock -n \$REMOTE_DIR\/locks\/quiz-finalize\.lock bash -lc 'export NODE_ENV=production && export BACI_WORKER_PROFILE=quiz-finalization && cd \$REMOTE_DIR && timeout --signal=TERM --kill-after=5s 50s \$REMOTE_DIR\/bin\/process-quiz-finalization\.sh --once' >> \$REMOTE_DIR\/logs\/quiz-finalize\.log 2>&1$/
     );
     assert.doesNotMatch(cronLine, /run-web-cron|\/api\/quiz\/finalize/);
   });

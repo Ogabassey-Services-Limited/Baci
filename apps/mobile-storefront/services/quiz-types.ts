@@ -207,7 +207,7 @@ export interface QuizLeaderboardEntry {
 export interface QuizLeaderboard {
   currentPlayer: QuizLeaderboardEntry | null;
   entries: QuizLeaderboardEntry[];
-  status: 'published' | 'live_hidden' | 'unavailable';
+  status: 'published' | 'live' | 'live_hidden' | 'unavailable';
 }
 
 type ErrorConstructorWithStackTrace = typeof Error & {
