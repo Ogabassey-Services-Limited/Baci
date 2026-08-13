@@ -58,7 +58,7 @@ const EXPECTED = Object.freeze({
   'task9-held-checkout.mjs':
     '2597914a9fcf3c83628aa3175c689ca6e37b1b4abfc81ea2c019bf0ddfd941a1',
   'task9-held-file.mjs':
-    'e32c584bc708ef4b0860be31ad5f07795d90e718908e3547a297a12da86b4a2e',
+    'c73b6749437c45794899fe469201715643f00765e05c020aa8b287585227af0f',
   'task9-node-archive.mjs':
     'd12b28d1f84fe2247c527cf9ec94e98069a575d54048f8ce2b2a1ebcf5d17a31',
   'task9-output-directory.mjs':
@@ -148,6 +148,7 @@ export async function runTask9BootstrapBundleLauncher({
       fail();
     const output = execFileSync(github, ['api', endpoint], {
       encoding: 'utf8',
+      timeout: 120_000,
       env: { HOME: process.env.HOME, PATH: '/usr/bin:/bin' },
     });
     const after = lstatSync(github);
