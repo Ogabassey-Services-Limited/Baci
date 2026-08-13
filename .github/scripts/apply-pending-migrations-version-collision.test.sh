@@ -64,3 +64,31 @@ if [ -z "$first_repair_line" ] || [ -z "$second_repair_line" ] || \
   echo 'The split Paystack repair must be registered in dependency order' >&2
   exit 1
 fi
+
+: >"$query_log"
+printf '%s\n' "SELECT 'colliding Paystack override source';" \
+  >"$migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
+printf '%s\n' "SELECT 'Paystack override collision repair';" \
+  >"$migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$query_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260805090000","name":"add_least_privilege_gigl_tracking_worker"},{"version":"20260805090001","name":"reapply_merchant_invoice_partial_review_contract"},{"version":"20260805090002","name":"reapply_complete_merchant_invoice_partial_payment"},{"version":"20260811120000","name":"quiz_leaderboard_and_claim_projections_v2"}]' \
+  bash "$applier" >"$fixture_root/paystack-output.log"
+
+grep -q \
+  'Historical collision 20260811120000 is reconciled by repair migration 20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql' \
+  "$fixture_root/paystack-output.log"
+grep -q \
+  'applied:         20260813144355  reapply_allow_reviewed_paystack_email_mismatch' \
+  "$fixture_root/paystack-output.log"
+
+if grep -q \
+  "schema_migrations(version, name, statements).*20260811120000.*allow_reviewed_paystack_email_mismatch" \
+  "$query_log"; then
+  echo 'The occupied Paystack migration version must not be registered again' >&2
+  exit 1
+fi

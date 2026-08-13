@@ -50,13 +50,17 @@ historical_collision_repair_spec() {
     20260805090000:complete_merchant_invoice_partial_payments)
       printf '%s\t%s\n' '20260805090002' 'reapply_complete_merchant_invoice_partial_payment'
       ;;
+    20260811120000:quiz_leaderboard_and_claim_projections_v2 | \
+    20260811120000:allow_reviewed_paystack_email_mismatch)
+      printf '%s\t%s\n' '20260813144355' 'reapply_allow_reviewed_paystack_email_mismatch'
+      ;;
     *) return 1 ;;
   esac
 }
 
 historical_collision_version_is_known() {
   case "$1" in
-    20260615120000 | 20260713130000 | 20260805090000) return 0 ;;
+    20260615120000 | 20260713130000 | 20260805090000 | 20260811120000) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -68,7 +72,9 @@ historical_collision_name_is_valid() {
     20260713130000:add_storefront_paystack_subaccount_configured_rpc | \
     20260713130000:quiz_finalize_rank_winners | \
     20260805090000:add_least_privilege_gigl_tracking_worker | \
-    20260805090000:complete_merchant_invoice_partial_payments)
+    20260805090000:complete_merchant_invoice_partial_payments | \
+    20260811120000:quiz_leaderboard_and_claim_projections_v2 | \
+    20260811120000:allow_reviewed_paystack_email_mismatch)
       return 0
       ;;
     *)
