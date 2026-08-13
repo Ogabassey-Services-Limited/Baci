@@ -74,8 +74,13 @@ export function shouldIncludeProductSchemaSpec(
   product: ProductCategorySource,
   candidate: ProductSchemaSpecCandidate
 ) {
-  const { categoryNames, hasCameraCategory, isMobileCategory, productFamily } =
-    classifyProductSchemaCategories(product);
+  const {
+    categoryNames,
+    hasAccessoryCategory,
+    hasCameraCategory,
+    isMobileCategory,
+    productFamily,
+  } = classifyProductSchemaCategories(product);
   const inferredSpecKey = candidate.label
     ? getProductSchemaSpecKeyForLabel(candidate.label, candidate.section)
     : undefined;
@@ -91,6 +96,9 @@ export function shouldIncludeProductSchemaSpec(
   );
   const isRadioLikeCategory = categoryNames.some((category) =>
     /\b(?:car stereo|radio|radios|audio|stereo)s?\b/.test(category)
+  );
+  const isAudioCategory = categoryNames.some((category) =>
+    /\b(?:audio|speaker|speakers|headphones|earbuds|earphones)\b/.test(category)
   );
 
   if (
@@ -231,12 +239,28 @@ export function shouldIncludeProductSchemaSpec(
     return false;
   }
 
+  if (hasAccessoryCategory && canonicalSpecKey) {
+    const allowedAccessoryKey = getKeySpecCategoriesForFamily(
+      'general',
+      categoryNames[0]
+    ).some((category) =>
+      category.fields.some((field) => field.key === canonicalSpecKey)
+    );
+    if (!allowedAccessoryKey) {
+      return false;
+    }
+  }
+
   if (canonicalSpecKey && PHONE_ONLY_SPEC_KEYS.has(canonicalSpecKey)) {
     if (hasCameraCategory && CAMERA_KEY_SPEC_KEYS.has(canonicalSpecKey)) {
       return true;
     }
 
     if (AUDIO_CAPABILITY_SPEC_KEYS.has(canonicalSpecKey)) {
+      return true;
+    }
+
+    if (canonicalSpecKey === 'has_nfc' && isAudioCategory) {
       return true;
     }
 

@@ -136,6 +136,21 @@ describe('shouldIncludeProductSchemaSpec', () => {
     ).toBe(false);
   });
 
+  it('retains positive NFC for audio products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Bluetooth Speakers', categories: null },
+        { key: 'has_nfc', value: true }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Headphones', categories: null },
+        { label: 'NFC', value: 'Yes' }
+      )
+    ).toBe(true);
+  });
+
   it('filters phone-only negative fields for other named non-phone categories', () => {
     expect(
       shouldIncludeProductSchemaSpec(

@@ -61,9 +61,11 @@ export function classifyProductSchemaCategories(
 ) {
   const preferredCategory = resolveStorefrontProductCategoryName(product);
   const relationSlug = product.categories?.slug?.trim();
-  const categoryNames = [preferredCategory, relationSlug]
-    .filter((value): value is string => Boolean(value?.trim()))
-    .filter((value) => !isAccessoryLikeCategory(value))
+  const rawCategoryNames = [preferredCategory, relationSlug].filter(
+    (value): value is string => Boolean(value?.trim())
+  );
+  const hasAccessoryCategory = rawCategoryNames.some(isAccessoryLikeCategory);
+  const categoryNames = rawCategoryNames
     .map(normalizeCategoryName)
     .filter((value, index, values) => values.indexOf(value) === index);
   const productFamily: ProductSpecFamily =
@@ -83,6 +85,7 @@ export function classifyProductSchemaCategories(
   return {
     categoryNames,
     hasCameraCategory: categoryNames.some(isCameraLikeCategory),
+    hasAccessoryCategory,
     isMobileCategory,
     productFamily,
   };
