@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -74,6 +74,7 @@ export function QuizLeaderboardScreen() {
   const [leaderboard, setLeaderboard] = useState<QuizLeaderboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const leaderboardRequestId = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -96,6 +97,7 @@ export function QuizLeaderboardScreen() {
   }, []);
 
   const loadLeaderboard = async (event: QuizEvent) => {
+    const requestId = ++leaderboardRequestId.current;
     setSelected(event);
     setLeaderboard(null);
     setError(null);
@@ -105,16 +107,16 @@ export function QuizLeaderboardScreen() {
     }
     setLoading(true);
     try {
-      setLeaderboard(
-        await fetchQuizLeaderboard({
-          eventId: event.id,
-          expectedUserId: userId,
-        })
-      );
+      const result = await fetchQuizLeaderboard({
+        eventId: event.id,
+        expectedUserId: userId,
+      });
+      if (requestId === leaderboardRequestId.current) setLeaderboard(result);
     } catch {
-      setError('This leaderboard is not available yet.');
+      if (requestId === leaderboardRequestId.current)
+        setError('This leaderboard is not available yet.');
     } finally {
-      setLoading(false);
+      if (requestId === leaderboardRequestId.current) setLoading(false);
     }
   };
 
@@ -133,6 +135,7 @@ export function QuizLeaderboardScreen() {
                 accessibilityRole="button"
                 accessibilityLabel="Choose another quiz"
                 onPress={() => {
+                  leaderboardRequestId.current += 1;
                   setSelected(null);
                   setLeaderboard(null);
                   setError(null);

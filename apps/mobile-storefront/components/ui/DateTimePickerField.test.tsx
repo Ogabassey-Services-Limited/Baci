@@ -102,6 +102,12 @@ describe('DateTimePickerField', () => {
     expect(
       screen.getByRole('button', { name: 'Mock date picker' })
     ).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Done selecting Date of birth' })
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Mock date picker' })
+    ).toBeNull();
   });
 
   it('closes dismissed picker events without changing the value', () => {
