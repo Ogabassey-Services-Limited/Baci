@@ -17,7 +17,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260811130000_serialize_wallet_paystack_reference_claims.sql',
-    sha256: '1181729714c8a44c4386b2ccda6a954a08e31f4741a9d4e0b68479319f220e13',
+    sha256: 'd938d44c8af908a099fb0d83bb292838d888738eeed5eabec90a288a091c1484',
   },
   {
     repositoryPath:

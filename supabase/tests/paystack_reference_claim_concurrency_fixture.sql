@@ -38,6 +38,14 @@ AS $$
   SELECT COALESCE(NULLIF(current_setting('request.jwt.claim.role', true), ''), 'anon');
 $$;
 
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS uuid
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid;
+$$;
+
 CREATE TABLE public.merchants (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL,
@@ -67,7 +75,8 @@ CREATE TABLE public.orders (
   source text NOT NULL,
   recorded_by_user_id uuid,
   chat_order_id uuid,
-  notes text
+  notes text,
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE public.reconciliation_review (
