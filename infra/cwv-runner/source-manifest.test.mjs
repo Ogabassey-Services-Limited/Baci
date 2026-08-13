@@ -14,6 +14,11 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import {
+  sourceManifestBytes,
+  TASK9_SOURCE_MANIFEST_MAX_BYTES,
+} from './source-manifest.mjs';
+
 const here = fileURLToPath(new URL('.', import.meta.url));
 const run = (cwd, args) =>
   execFileSync('git', args, { cwd, encoding: 'utf8' }).trim();
@@ -35,11 +40,18 @@ function repository() {
   writeFileSync(join(root, 'infra/cwv-runner/policy.json'), policy);
   writeFileSync(join(root, 'infra/cwv-runner/a.mjs'), 'export const a = 1;\n');
   writeFileSync(join(root, 'README.md'), 'base\n');
+  symlinkSync('README.md', join(root, 'unrelated-link'));
   writeFileSync(
     join(root, 'infra/cwv-runner/source-manifest.mjs'),
     readFileSync(join(here, 'source-manifest.mjs'))
   );
-  for (const name of ['canonical-json.mjs', 'policy.schema.mjs'])
+  for (const name of [
+    'canonical-json.mjs',
+    'policy.schema.mjs',
+    'source-manifest-git.mjs',
+    'source-manifest-objects.mjs',
+    'source-manifest-tree.mjs',
+  ])
     writeFileSync(
       join(root, 'infra/cwv-runner', name),
       readFileSync(join(here, name))
@@ -151,6 +163,19 @@ test('freeze-preflight binds only the reviewed Git tree and rejects a mutable po
   assert.equal(
     manifest.authority.deploymentMarker,
     policyValue.authority.deploymentMarker
+  );
+});
+
+test('uses a handoff limit above the legacy one-megabyte manifest cap', () => {
+  assert.doesNotThrow(() =>
+    sourceManifestBytes({ value: 'x'.repeat(1_048_577) })
+  );
+  assert.throws(
+    () =>
+      sourceManifestBytes({
+        value: 'x'.repeat(TASK9_SOURCE_MANIFEST_MAX_BYTES),
+      }),
+    /source manifest exceeds size limit/
   );
 });
 
