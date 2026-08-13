@@ -221,15 +221,28 @@ if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
   if [ "${QUALITY_GATE_SKIP_DEPS:-0}" = "1" ]; then
     exit 0
   fi
+  sparse_install='.github/scripts/pnpm-install-sparse-worktree.sh --frozen-lockfile'
+  if [ -x "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh"; then
+    install_hint="Run \`$sparse_install\` in this sparse worktree"
+  else
+    install_hint='Run `pnpm install` in this worktree'
+  fi
   jq -n --arg reason "node_modules / turbo not installed in $(pwd). Either:
-  • Run \`pnpm install\` in this worktree, OR
+  • ${install_hint}, OR
   • Set QUALITY_GATE_SKIP_DEPS=1 (export it globally if you routinely work in dep-less worktrees and rely on PR CI to enforce the contract)" \
     '{"decision": "block", "reason": $reason}'
   exit 0
 fi
 
+PNPM="$ACTIVE_DIR/ci_scripts/run-lefthook-pnpm.sh"
+if [ ! -x "$PNPM" ]; then
+  PNPM=(pnpm)
+else
+  PNPM=(sh "$PNPM")
+fi
+
 # Run Biome lint check (~2-5s)
-LINT_RESULT=$(pnpm turbo lint 2>&1)
+LINT_RESULT=$("${PNPM[@]}" turbo lint 2>&1)
 LINT_EXIT=$?
 
 if [ $LINT_EXIT -ne 0 ]; then
@@ -240,7 +253,7 @@ if [ $LINT_EXIT -ne 0 ]; then
 fi
 
 # Run TypeScript type check (~10-30s)
-TYPE_RESULT=$(pnpm turbo typecheck 2>&1)
+TYPE_RESULT=$("${PNPM[@]}" turbo typecheck 2>&1)
 TYPE_EXIT=$?
 
 if [ $TYPE_EXIT -ne 0 ]; then
@@ -251,7 +264,7 @@ if [ $TYPE_EXIT -ne 0 ]; then
 fi
 
 # Run tests (~5-30s)
-TEST_RESULT=$(pnpm turbo test 2>&1)
+TEST_RESULT=$("${PNPM[@]}" turbo test 2>&1)
 TEST_EXIT=$?
 
 if [ $TEST_EXIT -ne 0 ]; then
