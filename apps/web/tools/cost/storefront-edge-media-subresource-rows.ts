@@ -51,6 +51,31 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'apps/web/src/components/storefront/ogabassey/pages/crypto-checkout.tsx'
   ),
   mediaSubresource(
+    'product-video-youtube',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/components/ProductVideo.tsx'
+  ),
+  mediaSubresource(
+    'about-page-youtube',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(content)/pages/about/about-page-client.tsx'
+  ),
+  mediaSubresource(
+    'about-page-vimeo',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(content)/pages/about/about-page-client.tsx'
+  ),
+  mediaSubresource(
+    'gadget-universe-hero',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/templates/gadget-universe.tsx'
+  ),
+  mediaSubresource(
+    'gadget-default-template-hero',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/templates/gadget-default-template.tsx'
+  ),
+  mediaSubresource(
     'google-tag-manager',
     'configured_google_tag_manager_origin',
     'apps/web/src/components/analytics/analytics-pixel-provider.tsx'

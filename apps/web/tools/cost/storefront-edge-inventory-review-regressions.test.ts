@@ -60,7 +60,7 @@ describe('storefront edge inventory review regressions', () => {
           decision: 'origin_dynamic',
           methods: ['POST'],
           routePattern: '/blog/{postSlug}',
-          sourceKind: 'server_action',
+          sourceKind: 'automatic_subresource',
         }),
       ])
     );

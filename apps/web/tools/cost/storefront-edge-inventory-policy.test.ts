@@ -24,12 +24,13 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
         'proxy:mcp-sse-rewrite',
         'proxy:mcp-messages-rewrite',
         'proxy:platform-admin',
+        'proxy:platform-route-root',
         'proxy:custom-domain-platform-route',
       ])
     );
     expect(
       dynamicRows.filter((row) => row.methods.includes('ANY'))
-    ).toHaveLength(5);
+    ).toHaveLength(6);
     expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
@@ -222,7 +223,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
             `storefront:${row.sourcePath?.replace(
               'apps/web/src/app/(storefront)/[slug]/',
               ''
-            )}` &&
+            )}${row.id.endsWith('-slug-prefixed') ? ':slug-prefixed' : ''}` &&
           row.requestCondition.precedence ===
             'after_entrypoint_resolution_before_decision'
       )
