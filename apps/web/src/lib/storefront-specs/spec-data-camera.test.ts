@@ -220,6 +220,29 @@ describe('buildProductSpecData camera families', () => {
     );
   });
 
+  it('skips placeholder category rows when selecting from a category array join', () => {
+    const result = buildProductSpecData({
+      category: 'Smartphones',
+      categories: [{ slug: 'unknown' }, { slug: 'action-cameras' }],
+      product_key_specs: {
+        main_camera_mp: 40,
+        has_5g: true,
+      },
+    });
+
+    expect(result.detailedSpecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'Imaging',
+          items: [{ label: 'Effective Resolution', value: '40MP' }],
+        }),
+      ])
+    );
+    expect(result.detailedSpecs.map((section) => section.category)).not.toEqual(
+      expect.arrayContaining(['Network'])
+    );
+  });
+
   it('includes camera internal storage in the summary when no card slot is present', () => {
     const result = buildProductSpecData({
       category: 'Instant Cameras',

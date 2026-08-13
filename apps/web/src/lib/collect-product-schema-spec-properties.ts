@@ -1,4 +1,5 @@
 import { createProductSchemaAdditionalPropertyCollector } from './product-schema-additional-properties';
+import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
 import type { Product } from './products';
 import { hasSupportedCardSlotType } from './storefront-specs/has-supported-card-slot-type';
@@ -23,6 +24,7 @@ function hasPresentSpecValue(
 export function collectProductSchemaSpecProperties(product: Product) {
   const collector = createProductSchemaAdditionalPropertyCollector();
   const keySpecs = product.product_key_specs;
+  const populatedSpecKeys = new Set<string>();
 
   if (keySpecs && !Array.isArray(keySpecs)) {
     const mappings: SpecMapping[] = [
@@ -156,6 +158,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
         'Main Camera',
         `${cameraType} ${keySpecs.main_camera_mp}MP`
       );
+      populatedSpecKeys.add('main_camera_mp');
     }
 
     for (const mapping of mappings) {
@@ -179,6 +182,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
         mapping.name,
         mapping.format ? mapping.format(value) : String(value)
       );
+      populatedSpecKeys.add(mapping.key);
     }
   }
 
@@ -189,6 +193,14 @@ export function collectProductSchemaSpecProperties(product: Product) {
       }
 
       for (const item of category.items) {
+        const canonicalKey = getProductSchemaSpecKeyForLabel(
+          item.label,
+          category.category
+        );
+        if (canonicalKey && populatedSpecKeys.has(canonicalKey)) {
+          continue;
+        }
+
         if (
           shouldIncludeProductSchemaSpec(product, {
             label: item.label,

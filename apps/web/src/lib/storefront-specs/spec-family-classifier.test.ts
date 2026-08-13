@@ -35,6 +35,7 @@ describe('spec family classifier', () => {
   it('covers mobile, computer, and undefined category fallbacks', () => {
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('Camera Phones')).toBe('mobile');
+    expect(getProductSpecFamily('Pads')).toBe('mobile');
     expect(getProductSpecFamily('Laptops')).toBe('computer');
     expect(getProductSpecFamily('PCs')).toBe('computer');
     expect(getProductSpecFamily('PC')).toBe('computer');

@@ -1,3 +1,4 @@
+import { getAccessoryKeySpecCategoryProjection } from './accessory-key-spec-category-projection';
 import { getKeySpecCategoryProjection } from './spec-category-family-projections';
 import {
   isAccessoryLikeCategory,
@@ -9,15 +10,19 @@ export function getKeySpecCategoriesForFamily(
   family: ProductSpecFamily,
   categoryName?: string
 ): SpecCategory[] {
-  if (
-    family === 'general' &&
-    (!categoryName?.trim() ||
-      isAccessoryLikeCategory(categoryName.trim().toLowerCase()))
-  ) {
-    return [];
+  const normalizedCategoryName = categoryName?.trim();
+
+  if (family === 'general') {
+    if (!normalizedCategoryName) {
+      return [];
+    }
+
+    if (isAccessoryLikeCategory(normalizedCategoryName.toLowerCase())) {
+      return getAccessoryKeySpecCategoryProjection();
+    }
+
+    return getKeySpecCategoryProjection('general-supported');
   }
 
-  return getKeySpecCategoryProjection(
-    family === 'general' ? 'general-supported' : family
-  );
+  return getKeySpecCategoryProjection(family);
 }

@@ -58,8 +58,17 @@ describe('category-specific key spec families', () => {
     ).toBe(false);
   });
 
-  it('returns no inferred key spec fields for unclassified accessory categories', () => {
-    expect(getKeySpecCategoriesForFamily('general')).toEqual([]);
+  it('returns accessory-safe key spec fields for supported charger categories', () => {
+    const fields = getKeySpecCategoriesForFamily('general', 'Chargers')
+      .flatMap((category) => category.fields)
+      .map((field) => field.key);
+
+    expect(fields).toEqual(
+      expect.arrayContaining(['charging_watt', 'battery_mah', 'dimensions_mm'])
+    );
+    expect(fields).not.toEqual(
+      expect.arrayContaining(['sim_type', 'main_camera_mp', 'ram_gb'])
+    );
   });
 
   it('removes phone camera placeholders from computer fields', () => {
@@ -102,6 +111,10 @@ describe('category-specific key spec families', () => {
     );
     expect(
       getKeySpecCategoriesForFamily('general', 'PlayStation Accessories')
-    ).toEqual([]);
+        .flatMap((category) => category.fields)
+        .map((field) => field.key)
+    ).toEqual(
+      expect.arrayContaining(['charging_watt', 'battery_mah', 'dimensions_mm'])
+    );
   });
 });

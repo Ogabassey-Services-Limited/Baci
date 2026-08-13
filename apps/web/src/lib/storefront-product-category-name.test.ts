@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveStorefrontProductCategoryName,
   resolveStorefrontProductCategorySlug,
+  resolveSupportedStorefrontProductCategoryRelation,
 } from './storefront-product-category-name';
 
 describe('resolveStorefrontProductCategoryName', () => {
@@ -76,5 +77,16 @@ describe('resolveStorefrontProductCategorySlug', () => {
         category: 'Action Cameras',
       })
     ).toBe('Action Cameras');
+  });
+});
+
+describe('resolveSupportedStorefrontProductCategoryRelation', () => {
+  it('skips placeholder category rows before selecting a supported relation', () => {
+    expect(
+      resolveSupportedStorefrontProductCategoryRelation([
+        { slug: 'unknown' },
+        { slug: 'action-cameras' },
+      ])
+    ).toEqual({ slug: 'action-cameras' });
   });
 });

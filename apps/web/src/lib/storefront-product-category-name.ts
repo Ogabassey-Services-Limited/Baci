@@ -60,3 +60,11 @@ export function resolveStorefrontProductCategorySlug(
     ? categoryName
     : null;
 }
+
+export function resolveSupportedStorefrontProductCategoryRelation(
+  categories: Array<{ name?: string | null; slug?: string | null }>
+) {
+  return categories.find((category) =>
+    Boolean(resolveStorefrontProductCategoryName({ categories: category }))
+  );
+}

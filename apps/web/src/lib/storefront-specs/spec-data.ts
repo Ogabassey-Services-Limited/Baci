@@ -1,5 +1,8 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
-import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
+import {
+  resolveStorefrontProductCategoryName,
+  resolveSupportedStorefrontProductCategoryRelation,
+} from '@/lib/storefront-product-category-name';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
 import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
@@ -51,9 +54,7 @@ interface SpecDataSource {
 
 function resolveSourceCategory(source: SpecDataSource) {
   const relation = Array.isArray(source.categories)
-    ? source.categories.find(
-        (category) => category.name?.trim() || category.slug?.trim()
-      )
+    ? resolveSupportedStorefrontProductCategoryRelation(source.categories)
     : source.categories;
   const name = resolveStorefrontProductCategoryName({
     categories: relation,

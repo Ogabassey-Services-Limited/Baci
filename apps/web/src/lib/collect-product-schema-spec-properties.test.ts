@@ -101,4 +101,23 @@ describe('collectProductSchemaSpecProperties', () => {
 
     expect(collector.getProperties()).toEqual([]);
   });
+
+  it('suppresses legacy specification rows when keyed specs already populated the canonical field', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Smartphones',
+        product_key_specs: { ram_gb: 8 },
+        specifications: [
+          {
+            category: 'Memory',
+            items: [{ label: 'RAM', value: '16GB' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'RAM', value: '8GB' },
+    ]);
+  });
 });
