@@ -54,6 +54,9 @@ historical_collision_repair_spec() {
     20260811120000:allow_reviewed_paystack_email_mismatch)
       printf '%s\t%s\n' '20260813144355' 'reapply_allow_reviewed_paystack_email_mismatch'
       ;;
+    20260811135000:harden_paystack_chat_order_relationship)
+      printf '%s\t%s\t%s\n' '20260813192730' 'repair_harden_paystack_chat_order_relationship' '27ef63c9838aa43f72f176453014371e9ff747a51ed8ee3dad21ecd8d4635794'
+      ;;
     *) return 1 ;;
   esac
 }
