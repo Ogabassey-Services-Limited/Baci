@@ -83,6 +83,22 @@ describe('verifySupabaseReplayContract', () => {
     });
   });
 
+  it('accepts the Ubuntu PostgreSQL 18.3 client suffix', async () => {
+    await expect(
+      verifySupabaseReplayContract({
+        nodeVersion: outputs.node,
+        psqlBin: '/usr/bin/psql',
+        runCommand: commandWith({
+          psql: 'psql (PostgreSQL) 18.3 (Ubuntu 18.3-1.pgdg24.04+1)\n',
+        }),
+      })
+    ).resolves.toEqual({
+      nodeMajor: 24,
+      psqlBin: '/usr/bin/psql',
+      serverVersionNum: 170006,
+    });
+  });
+
   it.each([
     ['node', { node: '23.9.0' }],
     ['pnpm', { pnpm: '11.6.0\n' }],

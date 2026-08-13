@@ -231,8 +231,9 @@ export async function verifySupabaseReplayContract(options: {
   }
   const psqlBin = options.psqlBin ?? process.env.PSQL_BIN ?? DEFAULT_PSQL_BIN;
   if (
-    (await stdout(options.runCommand, psqlBin, ['--version'])) !==
-    'psql (PostgreSQL) 18.3'
+    !/^psql \(PostgreSQL\) 18\.3(?: \(.+\))?$/.test(
+      await stdout(options.runCommand, psqlBin, ['--version'])
+    )
   ) {
     mismatch('psql');
   }
