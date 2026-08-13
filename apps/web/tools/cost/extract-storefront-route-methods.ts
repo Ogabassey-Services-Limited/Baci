@@ -1,4 +1,12 @@
-import ts from 'typescript';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type * as TypeScript from '@typescript/typescript6';
+
+const appRequire = createRequire(
+  join(dirname(fileURLToPath(import.meta.url)), '../../package.json')
+);
+const ts = appRequire('@typescript/typescript6') as typeof TypeScript;
 
 const HTTP_METHOD_ORDER = [
   'DELETE',
@@ -16,7 +24,7 @@ function isHttpMethod(value: string): value is HttpMethod {
   return HTTP_METHOD_ORDER.some((method) => method === value);
 }
 
-function isExported(node: ts.Node) {
+function isExported(node: TypeScript.Node) {
   return ts.canHaveModifiers(node)
     ? (ts.getModifiers(node) ?? []).some(
         ({ kind }) => kind === ts.SyntaxKind.ExportKeyword
@@ -24,7 +32,7 @@ function isExported(node: ts.Node) {
     : false;
 }
 
-function isDefaultExport(node: ts.Node) {
+function isDefaultExport(node: TypeScript.Node) {
   return ts.canHaveModifiers(node)
     ? (ts.getModifiers(node) ?? []).some(
         ({ kind }) => kind === ts.SyntaxKind.DefaultKeyword
