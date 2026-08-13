@@ -44,7 +44,10 @@ export function readHeldTask9File(
     }
   };
   try {
-    fd = openSync(absolute, constants.O_RDONLY | constants.O_NOFOLLOW);
+    fd = openSync(
+      absolute,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+    );
     const before = fstatSync(fd);
     if (
       !before.isFile() ||

@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import test from 'node:test';
 
 import { readHeldTask9File } from './task9-held-file.mjs';
@@ -80,6 +81,21 @@ test('refuses an oversized input before allocating its contents', () => {
     truncateSync(path, 17);
     assert.throws(
       () => readHeldTask9File(path, 0o600, { maxBytes: 16 }),
+      /unsafe Task 9 input/
+    );
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('refuses a FIFO without blocking on a writer', () => {
+  const root = mkdtempSync(join(tmpdir(), 'task9-held-file-fifo-'));
+  const path = join(root, 'source');
+  try {
+    chmodSync(root, 0o700);
+    execFileSync('/usr/bin/mkfifo', ['-m', '600', path]);
+    assert.throws(
+      () => readHeldTask9File(path, 0o600),
       /unsafe Task 9 input/
     );
   } finally {
