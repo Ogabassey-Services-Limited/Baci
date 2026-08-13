@@ -32,7 +32,13 @@ function getDefaultPlatform(): QuizMobileAdsPlatform {
 export function getQuizMobileAdsConfig(
   options: GetQuizMobileAdsConfigOptions = {}
 ): QuizMobileAdsConfig {
-  const environment = options.environment ?? process.env;
+  const environment = options.environment ?? {
+    EXPO_PUBLIC_QUIZ_ADS_ENABLED: process.env.EXPO_PUBLIC_QUIZ_ADS_ENABLED,
+    EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID:
+      process.env.EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID,
+    EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID:
+      process.env.EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID,
+  };
   if (environment.EXPO_PUBLIC_QUIZ_ADS_ENABLED !== 'true') {
     return { enabled: false };
   }
@@ -49,7 +55,11 @@ export function getQuizMobileAdsConfig(
     platform === 'android'
       ? 'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID'
       : 'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID';
-  const bannerUnitId = environment[environmentKey]?.trim();
+  const bannerUnitId = (
+    platform === 'android'
+      ? environment.EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID
+      : environment.EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID
+  )?.trim();
   if (
     !bannerUnitId ||
     !BANNER_UNIT_ID_PATTERN.test(bannerUnitId) ||

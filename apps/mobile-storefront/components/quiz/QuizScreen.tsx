@@ -2,17 +2,16 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
-import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { createLogger } from '@/lib/logger';
 import {
   fetchQuizEvents,
   type QuizIntegrityTier,
   submitQuizAnswer,
 } from '@/services/quiz';
-import { recoverActiveQuizAttempt } from '@/services/quiz-attempt-recovery';
 import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
 import { useAuthStore } from '@/stores/auth-store';
 import { useQuizStore } from '@/stores/quiz-store';
+import { createQuizV2LifecycleHandlers } from './create-quiz-v2-lifecycle-handlers';
 import { QuizDateOfBirthGateModal } from './QuizDateOfBirthGateModal';
 import { QuizErrorPanel } from './QuizErrorPanel';
 import { QuizEventsList } from './QuizEventsList';
@@ -26,10 +25,9 @@ import { createQuizStyles } from './QuizScreen.styles';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { createQuizAnswerHandlers } from './quiz-answer-handlers';
-import { useQuizEventTimer } from './use-quiz-event-timer';
+import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizResultPolling } from './use-quiz-result-polling';
-import { useQuizServerClock } from './use-quiz-server-clock';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
@@ -37,11 +35,6 @@ const log = createLogger('Quiz');
 const QUIZ_COPY = {
   actionFailed: 'Quiz action failed',
 } as const;
-
-function formatCountdown(seconds: number) {
-  const safeSeconds = Math.max(0, seconds);
-  return `${Math.floor(safeSeconds / 60)}:${String(safeSeconds % 60).padStart(2, '0')}`;
-}
 
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
@@ -160,35 +153,13 @@ export function QuizScreen({
       v2Attempt,
     });
 
-  const handleV2EventExpire = () => {
-    const activeAttempt = v2Attempt;
-    const userId = useAuthStore.getState().user?.id;
-    if (!activeAttempt || !userId) return;
-    void expireActiveEvent(async () =>
-      recoverActiveQuizAttempt({
-        deviceFingerprint: await getQuizDeviceFingerprint().catch(() => null),
-        eventId: activeAttempt.eventId,
-        expectedUserId: userId,
-      })
-    );
-  };
-
-  const handleV2Retry = () => {
-    const activeAttempt = v2Attempt;
-    const optionId = lockedOptionId;
-    const userId = useAuthStore.getState().user?.id;
-    const question = activeAttempt?.question;
-    if (!activeAttempt || !question || !optionId || !userId) return;
-    void retryLockedAnswer((answer) =>
-      submitQuizAnswerV2({
-        answer,
-        attemptId: activeAttempt.attemptId,
-        clientAnsweredAt: new Date().toISOString(),
-        expectedUserId: userId,
-        questionId: question.id,
-      })
-    );
-  };
+  const lifecycleHandlers = createQuizV2LifecycleHandlers({
+    attempt: v2Attempt,
+    expire: expireActiveEvent,
+    lockedOptionId,
+    retry: retryLockedAnswer,
+    userId: useAuthStore.getState().user?.id,
+  });
 
   const { remainingSeconds } = useQuizQuestionTimer({
     questionId: attempt?.question.id ?? null,
@@ -198,31 +169,19 @@ export function QuizScreen({
     hasSelection: selectedOptionId !== null,
     onExpire: handleTimeExpired,
   });
-  const musicEventEndsAt =
-    v2Attempt?.eventEndsAt ?? terminalContext?.eventEndsAt ?? null;
-  const musicServerNow =
-    v2Attempt?.serverNow ?? terminalContext?.serverNow ?? null;
-  const { offsetMs: musicClockOffsetMs } = useQuizServerClock(musicServerNow);
-  const musicEventTimer = useQuizEventTimer({
-    eventEndsAt: musicEventEndsAt,
-    isActive: Boolean(musicEventEndsAt),
-    onExpire: () => undefined,
-    serverClockOffsetMs: musicClockOffsetMs,
+  const music = useQuizMusicState({
+    eventEndsAt: v2Attempt?.eventEndsAt ?? terminalContext?.eventEndsAt,
+    hasActiveAttempt: Boolean(v2Attempt),
+    lifecycle: v2LifecycleStatus,
+    serverNow: v2Attempt?.serverNow ?? terminalContext?.serverNow,
+    status,
   });
-  const shouldPlayQuizMusic =
-    (Boolean(v2Attempt) &&
-      (status === 'question' || status === 'submitting')) ||
-    (status === 'result' &&
-      terminalContext?.contractVersion === 2 &&
-      v2LifecycleStatus === 'pending_results');
 
   return (
     <View style={styles.screen}>
-      {shouldPlayQuizMusic ? (
+      {music.shouldPlay ? (
         <View style={styles.container}>
-          <QuizMusicPlayer
-            gameEndsIn={formatCountdown(musicEventTimer.remainingSeconds)}
-          />
+          <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
         </View>
       ) : null}
       {status === 'loading' ? (
@@ -279,8 +238,8 @@ export function QuizScreen({
             isSubmitting={status === 'submitting'}
             lockedOptionId={lockedOptionId}
             onAnswer={handleV2Answer}
-            onEventExpire={handleV2EventExpire}
-            onRetryLockedAnswer={handleV2Retry}
+            onEventExpire={lifecycleHandlers.handleExpire}
+            onRetryLockedAnswer={lifecycleHandlers.handleRetry}
             styles={styles}
           />
         </View>
