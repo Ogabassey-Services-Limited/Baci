@@ -67,6 +67,11 @@ test('publishes Task 9 only into its authorized tree then freshly prepares the p
 test('hash-binds and delegates Task 9 composition to the focused helper', () => {
   assert.match(source, /--compose-task9-bundle/);
   assert.match(source, /--reviewed-helper-sha256/);
+  assert.match(source, /policy_snapshot="\$transaction_dir\/policy-compose\.json"/);
+  assert.match(
+    source,
+    /prepare_gh; \[ "\$\(sha256 "\$transaction_dir\/tools\/gh\/bin\/gh"\)" = "\$\(json_get "\$policy" supplyChainProvenance\.ownerCli\.binarySha256\)" \]/
+  );
   assert.match(source, /\[ "\$\(sha256 "\$helper"\)" = "\$reviewed_helper_sha" \]/);
   assert.match(source, /helper_copy="\$transaction_dir\/task9-compose-bundle\.sh"/);
   assert.match(source, /\/bin\/cp -p -- "\$helper" "\$helper_copy"/);
