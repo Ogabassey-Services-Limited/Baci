@@ -15,6 +15,7 @@ const leaderboardEntrySchema = z.strictObject({
 const leaderboardSchema = z.strictObject({
   currentPlayer: leaderboardEntrySchema.nullable(),
   entries: z.array(leaderboardEntrySchema).max(100),
+  participantCount: z.number().int().nonnegative().nullable(),
   status: z.enum(['published', 'live', 'live_hidden', 'unavailable']),
 });
 
@@ -35,4 +36,32 @@ export function fetchQuizLeaderboard({
     leaderboardSchema,
     { baseUrl, expectedUserId }
   );
+}
+
+export function fetchQuizLiveLeaderboard({
+  baseUrl,
+  eventId,
+  expectedUserId,
+}: FetchQuizLeaderboardInput): Promise<QuizLeaderboard> {
+  const query = new URLSearchParams({ eventId }).toString();
+  return requestQuizV2(
+    `/api/quiz/leaderboard/live?${query}`,
+    { method: 'GET' },
+    leaderboardSchema,
+    { baseUrl, expectedUserId }
+  );
+}
+
+export function fetchQuizParticipantCount({
+  baseUrl,
+  eventId,
+  expectedUserId,
+}: FetchQuizLeaderboardInput): Promise<number> {
+  const query = new URLSearchParams({ eventId }).toString();
+  return requestQuizV2(
+    `/api/quiz/leaderboard/count?${query}`,
+    { method: 'GET' },
+    z.strictObject({ participantCount: z.number().int().nonnegative() }),
+    { baseUrl, expectedUserId }
+  ).then((result) => result.participantCount);
 }
