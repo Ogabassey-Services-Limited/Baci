@@ -11,6 +11,8 @@
       "**",
       "!**/.next",
       "!**/node_modules",
+      "!**/.wrangler",
+      "!**/.qualification-dist",
       "!**/scripts",
       "!**/scripts-tmp",
       "!**/.gemini",
