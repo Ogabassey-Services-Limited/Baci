@@ -21,14 +21,15 @@ export function useQuizResultPolling({
 
     let cancelled = false;
     let inFlight = false;
+    let appIsActive = AppState.currentState === 'active';
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const schedule = () => {
-      if (cancelled) return;
+      if (cancelled || !appIsActive) return;
       timeoutId = setTimeout(poll, QUIZ_RESULT_POLL_INTERVAL_MS);
     };
     const poll = async () => {
-      if (cancelled || inFlight) return;
+      if (cancelled || !appIsActive || inFlight) return;
       inFlight = true;
       try {
         const result = await fetchQuizResult({ attemptId, expectedUserId });
@@ -44,8 +45,10 @@ export function useQuizResultPolling({
 
     void poll();
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState !== 'active') return;
       if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = undefined;
+      appIsActive = nextState === 'active';
+      if (!appIsActive) return;
       void poll();
     });
 

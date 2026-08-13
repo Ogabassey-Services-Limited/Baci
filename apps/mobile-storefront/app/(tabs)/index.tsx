@@ -1,4 +1,3 @@
-import * as Sentry from '@sentry/react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -22,7 +21,6 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
-import { recordPerformanceSurface } from '@/lib/performance-attribution';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
 
@@ -65,7 +63,6 @@ export default function HomeScreen() {
 
   // Reanimated UI-thread values for continuous header folding calculations
   const headerVisibility = useSharedValue(1);
-  const headerVisibilityTarget = useSharedValue(1);
   const previousOffsetY = useSharedValue(0);
   const isScrolledShared = useSharedValue(false);
   const searchVisibleShared = useSharedValue(false);
@@ -78,17 +75,9 @@ export default function HomeScreen() {
   const [searchVisible, setSearchVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const setHeaderVisibilityTarget = (target: 0 | 1) => {
-    'worklet';
-    if (headerVisibilityTarget.get() === target) return;
-
-    headerVisibilityTarget.set(target);
-    headerVisibility.set(withTiming(target, { duration: 180 }));
-  };
-
   const handleSearch = () => {
     searchVisibleShared.set(true);
-    setHeaderVisibilityTarget(1);
+    headerVisibility.set(withTiming(1, { duration: 180 }));
     setSearchVisible(true);
   };
 
@@ -154,12 +143,12 @@ export default function HomeScreen() {
 
       // Sliding header collapse transitions
       if (currentOffsetY <= 0) {
-        setHeaderVisibilityTarget(1);
+        headerVisibility.set(withTiming(1, { duration: 180 }));
       } else if (currentOffsetY > prevOffsetY) {
-        setHeaderVisibilityTarget(0);
+        headerVisibility.set(withTiming(0, { duration: 180 }));
       } else if (prevOffsetY - currentOffsetY > 15) {
         // scroll tolerance/hysteresis
-        setHeaderVisibilityTarget(1);
+        headerVisibility.set(withTiming(1, { duration: 180 }));
       }
     },
   });
@@ -191,19 +180,6 @@ export default function HomeScreen() {
     });
     return () => recordCrashBreadcrumb('home:unmounted');
   }, []);
-
-  useEffect(() => {
-    Sentry.addBreadcrumb({
-      category: 'performance.surface',
-      data: { focused: isFocused, surface: 'home' },
-      level: 'info',
-      message: `home:${isFocused ? 'focused' : 'unfocused'}`,
-    });
-    recordCrashBreadcrumb('home:state', { focused: isFocused });
-    if (isFocused) {
-      recordPerformanceSurface('home', { template_id: CONFIG.TEMPLATE_ID });
-    }
-  }, [isFocused]);
 
   useEffect(() => {
     const stateSignature = JSON.stringify({

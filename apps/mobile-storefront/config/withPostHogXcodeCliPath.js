@@ -13,7 +13,6 @@ const POSTHOG_DSYM_UPLOAD_SCRIPT = 'upload-symbols.sh';
 const PROJECT_ROOT_EXPORT = 'export PROJECT_ROOT="$PROJECT_DIR"/..';
 const POSTHOG_CLI_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
-const POSTHOG_SKIP_ON_CONFLICT_EXPORT = 'export POSTHOG_SKIP_ON_CONFLICT=1';
 const LEGACY_APP_ONLY_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"';
 const POSTHOG_DSYM_UPLOAD_WARNING =
@@ -65,35 +64,13 @@ function patchPostHogCliPath(script, marker = POSTHOG_XCODE_SCRIPT) {
   return `${script.slice(0, insertAt)}\n${POSTHOG_CLI_PATH_EXPORT}${script.slice(insertAt)}`;
 }
 
-function patchPostHogHermesUploadConflictHandling(script) {
-  if (
-    !script.includes(POSTHOG_XCODE_SCRIPT) ||
-    script.includes(POSTHOG_SKIP_ON_CONFLICT_EXPORT)
-  ) {
-    return script;
-  }
-
-  return script
-    .split('\n')
-    .map((line) =>
-      line.includes(POSTHOG_XCODE_SCRIPT)
-        ? `${POSTHOG_SKIP_ON_CONFLICT_EXPORT}\n${line}`
-        : line
-    )
-    .join('\n');
-}
-
 function patchShellPhaseCliPath(phase, marker) {
   const shellScript = parseShellScript(phase?.shellScript);
   if (!shellScript) {
     return;
   }
 
-  const withCliPath = patchPostHogCliPath(shellScript, marker);
-  const patchedScript =
-    marker === POSTHOG_XCODE_SCRIPT
-      ? patchPostHogHermesUploadConflictHandling(withCliPath)
-      : withCliPath;
+  const patchedScript = patchPostHogCliPath(shellScript, marker);
   if (patchedScript !== shellScript) {
     phase.shellScript = JSON.stringify(patchedScript);
   }

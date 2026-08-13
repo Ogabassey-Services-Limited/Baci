@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import * as Reanimated from 'react-native-reanimated';
 import { getHomeContentBottomPadding } from '@/constants/layout';
 import {
   createTemplateConfig,
@@ -14,16 +13,6 @@ import {
 
 function lastFeedProps() {
   return mockHomeFeedList.mock.calls.at(-1)?.[0];
-}
-
-function scrollHomeFeed(offsetY: number) {
-  fireEvent.scroll(screen.getByTestId('home-feed-list'), {
-    nativeEvent: {
-      contentOffset: { x: 0, y: offsetY },
-      contentSize: { width: 375, height: 1000 },
-      layoutMeasurement: { width: 375, height: 300 },
-    },
-  });
 }
 
 describe('HomeScreen', () => {
@@ -70,28 +59,6 @@ describe('HomeScreen', () => {
     });
 
     expect(screen.getByTestId('mock-header')).toHaveTextContent('Header true');
-  });
-
-  it('does not restart a header animation until its visibility target changes', () => {
-    const withTimingSpy = jest.spyOn(Reanimated, 'withTiming');
-    render(<HomeScreen />);
-
-    scrollHomeFeed(30);
-    scrollHomeFeed(60);
-    scrollHomeFeed(90);
-
-    expect(withTimingSpy.mock.calls.map(([target]) => target)).toEqual([0]);
-
-    scrollHomeFeed(65);
-    scrollHomeFeed(40);
-    scrollHomeFeed(16);
-
-    expect(withTimingSpy.mock.calls.map(([target]) => target)).toEqual([0, 1]);
-
-    fireEvent.press(screen.getByTestId('mock-header-search'));
-    scrollHomeFeed(120);
-
-    expect(withTimingSpy.mock.calls.map(([target]) => target)).toEqual([0, 1]);
   });
 
   it('resets the products query and invalidates categories on pull-to-refresh', async () => {

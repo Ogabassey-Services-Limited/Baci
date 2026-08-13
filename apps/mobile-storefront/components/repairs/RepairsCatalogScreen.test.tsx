@@ -4,7 +4,6 @@ import { Linking } from 'react-native';
 
 const mockDevicesState = {
   groups: [] as unknown[],
-  brandGroups: [] as unknown[],
   isLoading: false,
   isUnavailable: false,
   error: null as string | null,
@@ -18,7 +17,6 @@ const mockDetailState = {
   isLoading: false,
   isNotFound: false,
   error: null as string | null,
-  refetch: jest.fn(),
   slug: '',
 };
 
@@ -112,7 +110,6 @@ const quote = {
 function resetState() {
   jest.clearAllMocks();
   mockDevicesState.groups = [];
-  mockDevicesState.brandGroups = [];
   mockDevicesState.isLoading = false;
   mockDevicesState.isUnavailable = false;
   mockDevicesState.error = null;
@@ -243,6 +240,6 @@ describe('RepairsCatalogScreen', () => {
 
     // Firing the intercept returns to the catalogue.
     act(() => mockPreventRemoveState.callback?.());
-    expect(screen.getByText('Find your device')).toBeTruthy();
+    expect(screen.getByText('What needs fixing?')).toBeTruthy();
   });
 });

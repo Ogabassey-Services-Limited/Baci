@@ -1,7 +1,5 @@
-import { Platform, useWindowDimensions } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
-import { shouldRenderGadgetPattern } from './should-render-gadget-pattern';
-import { useGadgetPatternAttribution } from './use-gadget-pattern-attribution';
 
 interface GadgetPatternProps {
   opacity?: number;
@@ -32,13 +30,6 @@ export function GadgetPattern({
   color = '#ffffff',
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
-
-  // Older Android SVG draw passes can ANR on this decorative pattern; keep it off API 28 and below.
-  const shouldRender = shouldRenderGadgetPattern(Platform.OS, Platform.Version);
-  useGadgetPatternAttribution(shouldRender, variant);
-  if (!shouldRender) {
-    return null;
-  }
 
   const strokeProps = {
     stroke: color,
@@ -177,6 +168,7 @@ export function GadgetPattern({
                 strokeWidth={1}
                 opacity={0.6}
               />
+
               {/* Cluster 2 - Top Right: Laptop */}
               <G transform="translate(110, 15) translate(10, 8) rotate(10) translate(-10, -8)">
                 <Rect

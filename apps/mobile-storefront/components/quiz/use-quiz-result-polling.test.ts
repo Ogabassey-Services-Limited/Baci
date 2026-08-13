@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
 import { useQuizResultPolling } from './use-quiz-result-polling';
 
@@ -58,5 +59,37 @@ describe('useQuizResultPolling', () => {
       jest.advanceTimersByTime(10_000);
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauses pending-result polling while the app is backgrounded', async () => {
+    const listeners: Array<(state: AppStateStatus) => void> = [];
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        listeners.push(listener);
+        return { remove: jest.fn() };
+      });
+    jest.mocked(fetchQuizResult).mockResolvedValue({
+      attemptId: 'attempt-1',
+      availability: 'pending',
+      availableAt: null,
+    });
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    act(() => listeners[0]?.('background'));
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+    act(() => listeners[0]?.('active'));
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(2));
   });
 });

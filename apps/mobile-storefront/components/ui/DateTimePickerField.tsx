@@ -135,14 +135,25 @@ export function DateTimePickerField({
         <Text style={textStyle}>{value || fallbackDisplay}</Text>
       </Pressable>
       {isPickerVisible ? (
-        <DateTimePicker
-          accessibilityLabel={accessibilityLabel}
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          mode={mode}
-          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
-          value={pickerValue}
-          onChange={handlePickerChange}
-        />
+        <View>
+          <DateTimePicker
+            accessibilityLabel={accessibilityLabel}
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            mode={mode}
+            themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+            value={pickerValue}
+            onChange={handlePickerChange}
+          />
+          {Platform.OS === 'ios' ? (
+            <Pressable
+              accessibilityLabel={`Done selecting ${label}`}
+              accessibilityRole="button"
+              onPress={() => setIsPickerVisible(false)}
+            >
+              <Text style={textStyle}>Done</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
     </View>
   );

@@ -2,7 +2,6 @@ import type { RepairDeviceDetail } from '@baci/shared/repairs';
 import { useEffect, useRef, useState } from 'react';
 import {
   fetchRepairDeviceDetail,
-  RepairCatalogTimeoutError,
   RepairCatalogUnavailableError,
 } from '@/lib/repair-catalog-client';
 
@@ -11,7 +10,6 @@ export interface UseRepairDeviceDetailResult {
   isLoading: boolean;
   isNotFound: boolean;
   error: string | null;
-  refetch: () => void;
 }
 
 /**
@@ -26,10 +24,8 @@ export function useRepairDeviceDetail(
   const [isLoading, setIsLoading] = useState(Boolean(deviceSlug));
   const [isNotFound, setIsNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [refetchToken, setRefetchToken] = useState(0);
   const requestIdRef = useRef(0);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refetchToken intentionally retriggers the detail request.
   useEffect(() => {
     const requestId = ++requestIdRef.current;
     setDetail(null);
@@ -56,10 +52,6 @@ export function useRepairDeviceDetail(
           setDetail(null);
           return;
         }
-        if (err instanceof RepairCatalogTimeoutError) {
-          setError('Repair options took too long to load. Please try again.');
-          return;
-        }
         setError(err instanceof Error ? err.message : 'Failed to load device');
       })
       .finally(() => {
@@ -69,13 +61,7 @@ export function useRepairDeviceDetail(
       });
 
     return () => controller.abort();
-  }, [deviceSlug, refetchToken]);
+  }, [deviceSlug]);
 
-  return {
-    detail,
-    isLoading,
-    isNotFound,
-    error,
-    refetch: () => setRefetchToken((token) => token + 1),
-  };
+  return { detail, isLoading, isNotFound, error };
 }

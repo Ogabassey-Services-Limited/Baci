@@ -1,11 +1,10 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
-  fetchQuizParticipantCount,
 } from '@/services/quiz-leaderboard';
 import type {
   QuizLeaderboard,
@@ -64,6 +63,7 @@ export function QuizResultsPanel({
   const [leaderboard, setLeaderboard] = useState<QuizLeaderboard | null>(null);
   const [leaderboardError, setLeaderboardError] = useState(false);
   const [participantCount, setParticipantCount] = useState<number | null>(null);
+  const hasLeaderboard = useRef(false);
   const { offsetMs } = useQuizServerClock(serverNow);
   const eventTimer = useQuizEventTimer({
     eventEndsAt,
@@ -73,6 +73,7 @@ export function QuizResultsPanel({
   });
   const shouldLoadLeaderboard =
     (lifecycle === 'final' || lifecycle === 'pending_results') &&
+    v2Result?.availability !== 'unavailable' &&
     Boolean(eventId && expectedUserId);
 
   useEffect(() => {
@@ -81,9 +82,6 @@ export function QuizResultsPanel({
     let retryId: ReturnType<typeof setTimeout> | undefined;
     setLeaderboardError(false);
     setParticipantCount(null);
-    void fetchQuizParticipantCount({ eventId, expectedUserId })
-      .then((count) => active && setParticipantCount(count))
-      .catch(() => undefined);
     const load = async () => {
       try {
         const result =
@@ -91,8 +89,10 @@ export function QuizResultsPanel({
             ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })
             : await fetchQuizLeaderboard({ eventId, expectedUserId });
         if (!active) return;
+        setParticipantCount(result.participantCount);
         if (result.status === 'published' || result.status === 'live') {
           setLeaderboard(result);
+          hasLeaderboard.current = true;
           setLeaderboardError(false);
           if (result.status === 'live') {
             retryId = setTimeout(load, LIVE_LEADERBOARD_REFRESH_INTERVAL_MS);
@@ -101,7 +101,7 @@ export function QuizResultsPanel({
         }
       } catch {
         if (!active) return;
-        if (!leaderboard) setLeaderboardError(true);
+        if (!hasLeaderboard.current) setLeaderboardError(true);
       }
       retryId = setTimeout(
         load,
@@ -115,7 +115,13 @@ export function QuizResultsPanel({
       active = false;
       if (retryId) clearTimeout(retryId);
     };
-  }, [eventId, expectedUserId, lifecycle, eventTimer.hasEnded, shouldLoadLeaderboard]);
+  }, [
+    eventId,
+    expectedUserId,
+    lifecycle,
+    eventTimer.hasEnded,
+    shouldLoadLeaderboard,
+  ]);
 
   const leaderboardRows: QuizLeaderboardEntry[] = leaderboard
     ? leaderboard.currentPlayer &&
@@ -123,16 +129,23 @@ export function QuizResultsPanel({
       ? [...leaderboard.entries.slice(0, 4), leaderboard.currentPlayer]
       : leaderboard.entries.slice(0, 5)
     : [];
-  const finishTime = formatFinishTime(serverNow);
+  const finishTime = formatFinishTime(
+    leaderboard?.currentPlayer?.submittedAt ??
+      leaderboard?.entries.find((entry) => entry.isCurrentCustomer)?.submittedAt
+  );
   if (lifecycle !== 'idle') {
     const title =
-      lifecycle === 'pending_results'
-        ? "You're all done!"
-        : lifecycle === 'event_cancelled'
-          ? 'Quiz cancelled'
-          : v2Result?.availability === 'final'
-            ? `You placed #${v2Result.rank}`
-            : 'Quiz complete';
+      v2Result?.availability === 'unavailable'
+        ? v2Result.reason === 'tester_revoked'
+          ? 'Quiz access ended'
+          : 'Quiz result unavailable'
+        : lifecycle === 'pending_results'
+          ? "You're all done!"
+          : lifecycle === 'event_cancelled'
+            ? 'Quiz cancelled'
+            : v2Result?.availability === 'final'
+              ? `You placed #${v2Result.rank}`
+              : 'Quiz complete';
     return (
       <View accessibilityRole="alert" style={styles.resultCard}>
         <View style={styles.resultIcon}>
@@ -155,7 +168,13 @@ export function QuizResultsPanel({
             </Text>
           </View>
         ) : null}
-        {lifecycle === 'pending_results' ? (
+        {v2Result?.availability === 'unavailable' ? (
+          <Text style={styles.eventMeta}>
+            {v2Result.reason === 'tester_revoked'
+              ? 'Your tester access was removed before this result was published.'
+              : 'We could not find this quiz attempt. Return to the quiz list and try again.'}
+          </Text>
+        ) : lifecycle === 'pending_results' ? (
           <View style={styles.finishTimeCard}>
             <Text style={styles.finishTimeLabel}>You finished at</Text>
             <Text style={styles.finishTimeValue}>

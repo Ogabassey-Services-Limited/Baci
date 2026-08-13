@@ -1,5 +1,4 @@
 import '@testing-library/jest-native/extend-expect';
-
 import { configure as configureReactNativeTestingLibrary } from '@testing-library/react-native';
 import React, { type ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
