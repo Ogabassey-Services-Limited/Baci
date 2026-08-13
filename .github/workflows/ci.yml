@@ -257,6 +257,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/pnpm-install-cached
       - name: Install Supabase replay toolchain
+        if: needs.changes.outputs.quiz_db == 'true'
         env:
           SUPABASE_CLI_VERSION: 2.95.4
         run: |
