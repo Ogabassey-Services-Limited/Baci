@@ -81,6 +81,10 @@
       "justification": "Reviewed Android API 28 and older guard that suppresses a decorative SVG implicated in low-end-device ANR evidence while preserving Android 10+, iOS, and web rendering."
     },
     {
+      "path": "components/storefront/use-gadget-pattern-attribution.ts",
+      "justification": "Reviewed platform metadata used to attribute rendered GadgetPattern surfaces in native crash breadcrumbs."
+    },
+    {
       "path": "components/imei-check/imei-check-theme.ts",
       "justification": "Reviewed iOS-specific monospace font fallback for IMEI verdict formatting."
     },
