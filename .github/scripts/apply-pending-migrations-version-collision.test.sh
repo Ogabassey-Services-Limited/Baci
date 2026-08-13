@@ -65,6 +65,31 @@ if [ -z "$first_repair_line" ] || [ -z "$second_repair_line" ] || \
   exit 1
 fi
 
+uuid_migrations="$fixture_root/uuid-migrations"
+uuid_query_log="$fixture_root/uuid-queries.log"
+mkdir -p "$uuid_migrations"
+cp "$script_dir/../../supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql" \
+  "$uuid_migrations/20260811135000_harden_paystack_chat_order_relationship.sql"
+cp "$script_dir/../../supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql" \
+  "$uuid_migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$uuid_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$uuid_query_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260811130000","name":"serialize_wallet_paystack_reference_claims"},{"version":"20260811135000","name":"harden_paystack_chat_order_relationship"}]' \
+  bash "$applier" >"$fixture_root/uuid-output.log"
+
+grep -q \
+  'applied:         20260813192730  repair_harden_paystack_chat_order_relationship' \
+  "$fixture_root/uuid-output.log"
+grep -q 'array_agg(co.id ORDER BY co.id)' "$uuid_query_log"
+if grep -q 'min(co.id)' "$uuid_query_log"; then
+  echo 'The UUID repair must not submit the unsupported min(uuid) aggregate' >&2
+  exit 1
+fi
+
 : >"$query_log"
 printf '%s\n' "SELECT 'colliding Paystack override source';" \
   >"$migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
