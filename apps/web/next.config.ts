@@ -367,6 +367,18 @@ const nextConfig: NextConfig = {
     turbopackFileSystemCacheForDev: true,
   },
 
+  typescript: {
+    // Skip `next build`'s redundant, slow type-check pass. It runs the TypeScript
+    // *6* compiler programmatically (Next can't drive TS7/tsgo until the API lands
+    // in TS 7.1 / next#95639), which alone added ~tens of minutes to every prod
+    // build. App types are NOT unguarded: the required CI `quality-typecheck` gate
+    // runs `next typegen && tsc --noEmit` on native tsgo, and typegen regenerates
+    // `.next/types` (which apps/web/tsconfig.json includes) so `typedRoutes`
+    // Link/href validation and full-program type errors are still enforced there.
+    // Do NOT set this without keeping `next typegen` in the `typecheck` script.
+    ignoreBuildErrors: true,
+  },
+
   // Enable typed routes for compile-time validation of Link hrefs
   typedRoutes: true,
 
