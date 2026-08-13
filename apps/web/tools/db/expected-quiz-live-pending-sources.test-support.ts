@@ -42,7 +42,7 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260812170000_quiz_materialized_final_rankings_v2.sql',
-    sha256: 'eb55f62ef2327d153fd287ad7be11ee80038da961156a71efb930b33a4a3edad',
+    sha256: '1b3eec0aa6d442ab9f3a61149e0839a0cad6aab80ea567200c815b9e2c98dee5',
   },
   {
     repositoryPath:
@@ -52,17 +52,17 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260812180000_quiz_millisecond_tiebreak_v2.sql',
-    sha256: '325511d2a7a5c782a975f5b14f697310477eb9f8e94fd5a2217572aec0a4cd2c',
+    sha256: '599d96c58b9407c2aab411e305461a9137474898df31dd5f98675feb55a0c790',
   },
   {
     repositoryPath:
       'supabase/migrations/20260812183000_quiz_millisecond_tiebreak_alias_fix.sql',
-    sha256: '9fd3a88db672fe047bc5a21b7c541c72811fb37ed249b64847b00d8ff1b8b272',
+    sha256: 'ec23b8eb62fb48738a21a0f6198fb05e5a366d66ebbc7b6e3a820d4ea1275b9b',
   },
   {
     repositoryPath:
       'supabase/migrations/20260812190000_quiz_live_standings_v2.sql',
-    sha256: '9ab8e5c0d9fa11543b9f561aad25fcd64b875032cd8cd0ca64e72080c718b894',
+    sha256: 'dbc958151369b40f4d6802af452b7451723b66804025a1f59622abe690a5d9c8',
   },
   {
     repositoryPath:
