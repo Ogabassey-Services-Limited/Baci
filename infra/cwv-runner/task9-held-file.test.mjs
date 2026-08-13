@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   lstatSync,
@@ -12,7 +13,6 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
 import test from 'node:test';
 
 import { readHeldTask9File } from './task9-held-file.mjs';
@@ -94,10 +94,7 @@ test('refuses a FIFO without blocking on a writer', () => {
   try {
     chmodSync(root, 0o700);
     execFileSync('/usr/bin/mkfifo', ['-m', '600', path]);
-    assert.throws(
-      () => readHeldTask9File(path, 0o600),
-      /unsafe Task 9 input/
-    );
+    assert.throws(() => readHeldTask9File(path, 0o600), /unsafe Task 9 input/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
