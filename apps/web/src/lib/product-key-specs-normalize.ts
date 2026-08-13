@@ -20,12 +20,13 @@ export function normalizeProductKeySpecs(
     return null;
   }
 
-  const entries = Object.entries(value).filter(([, entryValue]) => {
+  const entries = Object.entries(value).filter(([key, entryValue]) => {
     return (
       typeof entryValue === 'string' ||
       typeof entryValue === 'number' ||
       typeof entryValue === 'boolean' ||
-      (Array.isArray(entryValue) &&
+      (key === 'recommended_for' &&
+        Array.isArray(entryValue) &&
         entryValue.every((item) => typeof item === 'string')) ||
       typeof entryValue === 'undefined'
     );
