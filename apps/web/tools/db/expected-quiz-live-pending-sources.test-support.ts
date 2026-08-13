@@ -39,4 +39,34 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260804123000_quiz_regulatory_basis_and_live_launch_v2.sql',
     sha256: 'a2ba3c15243bb274722f8803c69592413e24ba22c03a6ae751f0b65962e33b24',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812170000_quiz_materialized_final_rankings_v2.sql',
+    sha256: '1b3eec0aa6d442ab9f3a61149e0839a0cad6aab80ea567200c815b9e2c98dee5',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql',
+    sha256: '2a1d2341ec3631c74b9d44043db1f67f80b51012a796aea6477231bedfab98ef',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812180000_quiz_millisecond_tiebreak_v2.sql',
+    sha256: '599d96c58b9407c2aab411e305461a9137474898df31dd5f98675feb55a0c790',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812183000_quiz_millisecond_tiebreak_alias_fix.sql',
+    sha256: 'ec23b8eb62fb48738a21a0f6198fb05e5a366d66ebbc7b6e3a820d4ea1275b9b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260812190000_quiz_live_standings_v2.sql',
+    sha256: 'dbc958151369b40f4d6802af452b7451723b66804025a1f59622abe690a5d9c8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813100000_quiz_participant_count_projection_v2.sql',
+    sha256: 'd1136525dee97f81f2e94b3095c4bf61c8132ee7038bbafbf0fb5327119da7d5',
+  },
 ] as const;
