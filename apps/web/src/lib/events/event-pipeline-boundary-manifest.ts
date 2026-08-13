@@ -1,4 +1,4 @@
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import { EVENT_PIPELINE_BOUNDARY } from './event-pipeline-database';
 
 export { collectProductionImportClosure } from './event-pipeline-import-closure';

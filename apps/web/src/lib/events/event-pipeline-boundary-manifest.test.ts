@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import { describe, expect, it } from 'vitest';
 import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { authorityFindings } from './event-pipeline-boundary-manifest';

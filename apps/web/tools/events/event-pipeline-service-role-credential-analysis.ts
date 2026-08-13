@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import { parseEventPipelineTypeScriptSource } from '../../src/lib/events/event-pipeline-typescript-source';
 import { resolveLexicalString } from './analytics-delivery-static-string';
 import { isTestSourcePath } from './event-pipeline-source-path';
