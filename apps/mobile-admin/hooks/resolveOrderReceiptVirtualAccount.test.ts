@@ -98,6 +98,35 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     });
   });
 
+  it('does not create a processor payment when generating a receipt for a manual unpaid order', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      json: async () => ({ account_name: 'Manual Bank Account' }),
+      ok: true,
+    });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: {
+        bank_account_name: '',
+        bank_account_number: '0123456789',
+        bank_code: '044',
+        business_name: 'Merchant',
+      },
+      order: makeOrder({ source: 'physical' }),
+    });
+
+    expect(account).toMatchObject({
+      account_name: 'Manual Bank Account',
+      account_number: '0123456789',
+    });
+    expect(mocks.fetch).not.toHaveBeenCalledWith(
+      'https://example.com/api/orders/order-1/generate-dva',
+      expect.anything()
+    );
+  });
+
   it('returns null when there is no session or fallback account available', async () => {
     mocks.getSession.mockResolvedValue({ data: { session: null } });
     expect(
@@ -139,17 +168,20 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     ).toBeNull();
   });
 
-  it('ignores a virtual account without an account number and retries generation', async () => {
+  it('ignores a virtual account without an account number and uses an existing terminal', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },
     });
     mocks.fetch.mockResolvedValue({
       json: async () => ({
-        virtualAccount: {
-          account_name: 'Generated Account',
-          account_number: '1234567890',
-          bank_name: 'Generated Bank',
-        },
+        terminals: [
+          {
+            active: true,
+            account_name: 'Generated Account',
+            account_number: '1234567890',
+            bank_name: 'Generated Bank',
+          },
+        ],
       }),
       ok: true,
     });
@@ -177,13 +209,10 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },
     });
-    mocks.fetch
-      .mockResolvedValueOnce({ ok: false })
-      .mockResolvedValueOnce({ ok: false })
-      .mockResolvedValueOnce({
-        json: async () => ({ account_name: 'Baci Ltd' }),
-        ok: true,
-      });
+    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
+      json: async () => ({ account_name: 'Baci Ltd' }),
+      ok: true,
+    });
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: {
@@ -211,7 +240,7 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token' } },
     });
-    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
+    mocks.fetch.mockResolvedValueOnce({
       json: async () => ({
         terminals: [
           { active: true, account_name: 'Placeholder' },
@@ -243,10 +272,6 @@ describe('resolveOrderReceiptVirtualAccount', () => {
       data: { session: { access_token: 'token' } },
     });
     mocks.fetch
-      .mockResolvedValueOnce({
-        json: async () => ({ virtualAccount: [] }),
-        ok: true,
-      })
       .mockResolvedValueOnce({
         json: async () => ({ terminals: {} }),
         ok: true,
