@@ -16,6 +16,22 @@ describe('normalizeProductKeySpecs', () => {
       chipset: 'A19 Pro',
       ram_gb: 8,
       has_5g: true,
+    });
+  });
+
+  it('preserves recommendation arrays only when explicitly requested', () => {
+    const specs = {
+      chipset: 'A19 Pro',
+      recommended_for: ['Photography', 'Travel'],
+    };
+
+    expect(normalizeProductKeySpecs(specs)).toEqual({
+      chipset: 'A19 Pro',
+    });
+    expect(
+      normalizeProductKeySpecs(specs, { preserveRecommendationArrays: true })
+    ).toEqual({
+      chipset: 'A19 Pro',
       recommended_for: ['Photography', 'Travel'],
     });
   });

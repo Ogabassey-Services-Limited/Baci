@@ -94,4 +94,29 @@ describe('mapDetailedCachedProductToProduct category precedence', () => {
       category_slug: 'cameras',
     });
   });
+
+  it('rejects placeholder joined slugs before deriving a usable fallback slug', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'unknown-slug-camera',
+        merchant_id: 'merchant-1',
+        name: 'Action Camera',
+        status: 'active',
+        slug: 'action-camera',
+        price: 100,
+        images: [],
+        category: 'Action Cameras',
+        categories: { id: 'camera-category', slug: 'unknown' },
+        product_variants: [],
+        specifications: null,
+        product_key_specs: null,
+      },
+      'merchant-1'
+    );
+
+    expect(product).toMatchObject({
+      category: 'Action Cameras',
+      category_slug: 'action-cameras',
+    });
+  });
 });

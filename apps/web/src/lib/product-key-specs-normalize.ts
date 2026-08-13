@@ -10,10 +10,11 @@ export type ProductKeySpecValue =
  * the single object shape expected by storefront SEO and semantic consumers.
  */
 export function normalizeProductKeySpecs(
-  value: unknown
+  value: unknown,
+  options?: { preserveRecommendationArrays?: boolean }
 ): Record<string, ProductKeySpecValue> | null {
   if (Array.isArray(value)) {
-    return normalizeProductKeySpecs(value[0]);
+    return normalizeProductKeySpecs(value[0], options);
   }
 
   if (!value || typeof value !== 'object') {
@@ -25,7 +26,8 @@ export function normalizeProductKeySpecs(
       typeof entryValue === 'string' ||
       typeof entryValue === 'number' ||
       typeof entryValue === 'boolean' ||
-      (key === 'recommended_for' &&
+      (options?.preserveRecommendationArrays &&
+        key === 'recommended_for' &&
         Array.isArray(entryValue) &&
         entryValue.every((item) => typeof item === 'string')) ||
       typeof entryValue === 'undefined'

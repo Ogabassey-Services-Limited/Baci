@@ -31,6 +31,7 @@ import {
   PLACEHOLDER_IMAGE,
 } from './image-utils';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
+import { getProductSchemaSpecKeyForPropertyId } from './product-schema-spec-vocabulary';
 import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
 import type {
   Product,
@@ -925,6 +926,7 @@ export function generateProductSchema(
 
       const candidate = property as {
         name?: unknown;
+        propertyID?: unknown;
         value?: unknown;
         minValue?: unknown;
         maxValue?: unknown;
@@ -934,8 +936,15 @@ export function generateProductSchema(
         (candidate.minValue !== undefined && candidate.maxValue !== undefined
           ? `${candidate.minValue} to ${candidate.maxValue}`
           : (candidate.minValue ?? candidate.maxValue));
+      const propertyId =
+        typeof candidate.propertyID === 'string'
+          ? candidate.propertyID.trim()
+          : undefined;
       if (
         !shouldIncludeProductSchemaSpec(product, {
+          key: propertyId
+            ? getProductSchemaSpecKeyForPropertyId(propertyId)
+            : undefined,
           label:
             typeof candidate.name === 'string' ? candidate.name : undefined,
           value: candidateValue,

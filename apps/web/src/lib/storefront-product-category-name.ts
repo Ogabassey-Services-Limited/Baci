@@ -36,3 +36,27 @@ export function resolveStorefrontProductCategoryName(
 
   return product.category?.trim() || null;
 }
+
+/**
+ * Resolves the storefront category slug used for URLs and canonical paths.
+ * Placeholder joined slugs such as `unknown` are skipped so legacy category
+ * text can derive a usable slug instead.
+ */
+export function resolveStorefrontProductCategorySlug(
+  product: StorefrontProductCategoryNameInput
+): string | null {
+  const directSlug = product.categories?.slug?.trim();
+  if (directSlug && !isUnsupportedSpecValue(directSlug)) {
+    return directSlug;
+  }
+
+  const canonicalSlug = product.category_slug?.trim();
+  if (canonicalSlug && !isUnsupportedSpecValue(canonicalSlug)) {
+    return canonicalSlug;
+  }
+
+  const categoryName = resolveStorefrontProductCategoryName(product);
+  return categoryName && !isUnsupportedSpecValue(categoryName)
+    ? categoryName
+    : null;
+}

@@ -10,6 +10,7 @@ describe('spec family classifier', () => {
 
   it('does not classify ordinary device accessories as cameras', () => {
     expect(getProductSpecFamily('Phone Accessories')).toBe('general');
+    expect(getProductSpecFamily('PC Accessories')).toBe('general');
     expect(getProductSpecFamily('Laptop Keyboard')).toBe('general');
     expect(getProductSpecFamily('Smartwatch Bands')).toBe('general');
     expect(getProductSpecFamily('Watch Straps')).toBe('general');
@@ -35,6 +36,8 @@ describe('spec family classifier', () => {
     expect(getProductSpecFamily('Smartphones')).toBe('mobile');
     expect(getProductSpecFamily('Camera Phones')).toBe('mobile');
     expect(getProductSpecFamily('Laptops')).toBe('computer');
+    expect(getProductSpecFamily('PCs')).toBe('computer');
+    expect(getProductSpecFamily('PC')).toBe('computer');
     expect(getProductSpecFamily(undefined)).toBe('general');
   });
 

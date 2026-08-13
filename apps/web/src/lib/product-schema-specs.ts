@@ -3,15 +3,12 @@ import {
   classifyProductSchemaCategories,
   type ProductCategorySource,
 } from './product-schema-spec-classification';
-import {
-  AUDIO_CAPABILITY_LABELS,
-  PHONE_ONLY_SPEC_LABELS,
-} from './product-schema-spec-label-policy';
+import { shouldIncludeProductSchemaSpecByLabel } from './product-schema-spec-label-inclusion';
+import { PHONE_ONLY_SPEC_LABELS } from './product-schema-spec-label-policy';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
-import { isAccessoryLikeCategory } from './storefront-specs/spec-taxonomy';
 
 interface ProductSchemaSpecCandidate {
   key?: string;
@@ -271,34 +268,10 @@ export function shouldIncludeProductSchemaSpec(
     return false;
   }
 
-  if (!normalizedLabel) {
-    if (canonicalSpecKey && categoryNames.some(isAccessoryLikeCategory)) {
-      return getKeySpecCategoriesForFamily(
-        productFamily,
-        categoryNames[0]
-      ).some((category) =>
-        category.fields.some((field) => field.key === canonicalSpecKey)
-      );
-    }
-
-    return true;
-  }
-
-  if (!PHONE_ONLY_SPEC_LABELS.has(normalizedLabel)) {
-    return true;
-  }
-
-  if (normalizedLabel === 'card slot' || normalizedLabel === 'ois') {
-    return true;
-  }
-
-  if (normalizedLabel === 'operating system' || normalizedLabel === 'os') {
-    return true;
-  }
-
-  if (AUDIO_CAPABILITY_LABELS.has(normalizedLabel)) {
-    return true;
-  }
-
-  return false;
+  return shouldIncludeProductSchemaSpecByLabel({
+    canonicalSpecKey,
+    categoryNames,
+    normalizedLabel,
+    productFamily,
+  });
 }

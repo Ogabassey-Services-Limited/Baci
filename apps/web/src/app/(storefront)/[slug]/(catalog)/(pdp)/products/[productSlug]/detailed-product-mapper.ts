@@ -2,7 +2,10 @@ import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { generateSlug } from '@/lib/seo-utils';
-import { resolveStorefrontProductCategoryName } from '@/lib/storefront-product-category-name';
+import {
+  resolveStorefrontProductCategoryName,
+  resolveStorefrontProductCategorySlug,
+} from '@/lib/storefront-product-category-name';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
   getMappedCanonicalUrl,
@@ -145,13 +148,16 @@ export function mapDetailedCachedProductToProduct(
       productId: detailedProduct.id,
     }
   );
-  const categoryName = resolveStorefrontProductCategoryName({
+  const categoryInput = {
     categories: primaryCategory,
     category: detailedProduct.category,
-  });
-  const categorySlug =
-    primaryCategory?.slug?.trim() ||
-    (categoryName ? generateSlug(categoryName) : undefined);
+  };
+  const categoryName = resolveStorefrontProductCategoryName(categoryInput);
+  const resolvedCategorySlug =
+    resolveStorefrontProductCategorySlug(categoryInput);
+  const categorySlug = resolvedCategorySlug
+    ? generateSlug(resolvedCategorySlug)
+    : undefined;
 
   return {
     id: detailedProduct.id,
@@ -217,7 +223,8 @@ export function mapDetailedCachedProductToProduct(
     variants: normalizedVariants,
     specifications: detailedProduct.specifications as Product['specifications'],
     product_key_specs: normalizeProductKeySpecs(
-      detailedProduct.product_key_specs
+      detailedProduct.product_key_specs,
+      { preserveRecommendationArrays: true }
     ) as Product['product_key_specs'],
   } as Product;
 }

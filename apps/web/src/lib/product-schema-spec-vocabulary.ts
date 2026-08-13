@@ -81,3 +81,21 @@ export function getProductSchemaSpecKeyForLabel(
   }
   return SPEC_LABEL_TO_KEY[normalizedLabel];
 }
+
+const PROPERTY_ID_TO_SPEC_KEY: Record<string, string> = {
+  display_peak_brightness: 'display_peak_brightness',
+  display_ppi: 'display_ppi',
+  display_resolution: 'display_resolution',
+  ram_gb: 'ram_gb',
+  storage_gb: 'storage_gb',
+};
+
+export function getProductSchemaSpecKeyForPropertyId(propertyId: string) {
+  const normalizedId = propertyId.trim().toLowerCase().replace(/-/g, '_');
+  const directKey = PROPERTY_ID_TO_SPEC_KEY[normalizedId];
+  if (directKey) {
+    return directKey;
+  }
+
+  return getProductSchemaSpecKeyForLabel(normalizedId.replace(/_/g, ' '));
+}

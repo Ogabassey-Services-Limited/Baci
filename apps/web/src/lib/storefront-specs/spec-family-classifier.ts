@@ -32,7 +32,7 @@ export function getProductSpecFamily(
 
   if (
     !isAccessory &&
-    /(^|[^a-z])(laptop|desktop|computer|notebook|macbook)(s)?([^a-z]|$)/.test(
+    /(^|[^a-z])(laptop|desktop|computer|notebook|macbook|pcs|pc)(s)?([^a-z]|$)/.test(
       normalized
     )
   ) {

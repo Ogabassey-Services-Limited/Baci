@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
+import {
+  getProductSchemaSpecKeyForLabel,
+  getProductSchemaSpecKeyForPropertyId,
+} from './product-schema-spec-vocabulary';
 
 describe('getProductSchemaSpecKeyForLabel', () => {
   it('maps formatted schema labels to their canonical keys', () => {
@@ -61,5 +64,14 @@ describe('getProductSchemaSpecKeyForLabel', () => {
   });
   it('does not infer wireless charging from a generic Wireless label', () => {
     expect(getProductSchemaSpecKeyForLabel('Wireless')).toBeUndefined();
+  });
+});
+
+describe('getProductSchemaSpecKeyForPropertyId', () => {
+  it('maps recognized property ids to canonical schema spec keys', () => {
+    expect(getProductSchemaSpecKeyForPropertyId('ram_gb')).toBe('ram_gb');
+    expect(getProductSchemaSpecKeyForPropertyId('storage_gb')).toBe(
+      'storage_gb'
+    );
   });
 });

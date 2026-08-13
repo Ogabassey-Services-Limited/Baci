@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
+import {
+  resolveStorefrontProductCategoryName,
+  resolveStorefrontProductCategorySlug,
+} from './storefront-product-category-name';
 
 describe('resolveStorefrontProductCategoryName', () => {
   it('prefers a joined category name, then its slug, before stale legacy text', () => {
@@ -50,6 +53,26 @@ describe('resolveStorefrontProductCategoryName', () => {
     expect(
       resolveStorefrontProductCategoryName({
         category_slug: 'unknown',
+        category: 'Action Cameras',
+      })
+    ).toBe('Action Cameras');
+  });
+});
+
+describe('resolveStorefrontProductCategorySlug', () => {
+  it('prefers a supported joined slug before legacy category text', () => {
+    expect(
+      resolveStorefrontProductCategorySlug({
+        categories: { slug: 'action-cameras' },
+        category: 'Smartphones',
+      })
+    ).toBe('action-cameras');
+  });
+
+  it('skips placeholder joined slugs before using legacy category text', () => {
+    expect(
+      resolveStorefrontProductCategorySlug({
+        categories: { slug: 'unknown' },
         category: 'Action Cameras',
       })
     ).toBe('Action Cameras');

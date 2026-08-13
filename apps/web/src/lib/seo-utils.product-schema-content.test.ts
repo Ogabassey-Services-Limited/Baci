@@ -193,4 +193,26 @@ describe('generateProductSchema content and custom properties', () => {
       ])
     );
   });
+
+  it('rejects propertyID-only phone specs from accessory product schema markup', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Phone Cases',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            propertyID: 'ram_gb',
+            value: '16GB',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toBeUndefined();
+  });
 });
