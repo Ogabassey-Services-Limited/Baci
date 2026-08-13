@@ -21,6 +21,7 @@ export function useGadgetPatternAttribution(
       recordPerformanceSurface('gadget_pattern', {
         api_level:
           Platform.OS === 'android' ? Number(Platform.Version) : undefined,
+        instance_id: instanceId.current,
         os: Platform.OS,
         variant,
       });
