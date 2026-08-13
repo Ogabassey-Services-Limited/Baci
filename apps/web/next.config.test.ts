@@ -77,8 +77,8 @@ describe('next.config OgaBassey resource headers', () => {
     expect(nextConfig.experimental).not.toHaveProperty('viewTransition');
   });
 
-  it('keeps Next on the TypeScript API path for the workspace compiler alias', () => {
-    expect(nextConfig.experimental?.useTypeScriptCli).toBe(false);
+  it('uses the TypeScript CLI so Next can run the TypeScript 7 compiler', () => {
+    expect(nextConfig.experimental?.useTypeScriptCli).toBe(true);
   });
 
   it('publishes only public PostHog release context envs to the browser bundle', () => {

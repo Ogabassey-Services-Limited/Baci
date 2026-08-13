@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import ts from 'typescript';
+import ts from '@typescript/typescript6';
 import { analyzeAnalyticsDeliveryAuthoritySources } from './analytics-delivery-authority-analysis';
 import { analyticsDeliveryAuthorityManifest as manifest } from './analytics-delivery-authority-manifest';
 import { analyzeCredentialProjectionSets } from './analytics-delivery-credential-projection-analysis';
