@@ -15,7 +15,7 @@ const leaderboardEntrySchema = z.strictObject({
 const leaderboardSchema = z.strictObject({
   currentPlayer: leaderboardEntrySchema.nullable(),
   entries: z.array(leaderboardEntrySchema).max(100),
-  status: z.enum(['published', 'live_hidden', 'unavailable']),
+  status: z.enum(['published', 'live', 'live_hidden', 'unavailable']),
 });
 
 export interface FetchQuizLeaderboardInput extends QuizServiceOptions {
