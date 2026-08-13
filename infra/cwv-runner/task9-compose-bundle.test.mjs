@@ -149,9 +149,11 @@ test('refuses a prepared Node replaced after its provenance was sealed', {
     chmodSync(node, 0o700);
     writeFileSync(node, '#!/bin/sh\nprintf %s v24.18.0\n# replaced\n');
     chmodSync(node, 0o500);
-    assert.throws(() => runComposeBundle(root, policy, gh), (error) =>
-      error.status === 65 &&
-      /task9 composition refused/.test(error.stderr.toString())
+    assert.throws(
+      () => runComposeBundle(root, policy, gh),
+      (error) =>
+        error.status === 65 &&
+        /task9 composition refused/.test(error.stderr.toString())
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
@@ -180,9 +182,11 @@ test('refuses coordinated node and provenance replacement before archive binding
       }),
       { mode: 0o400 }
     );
-    assert.throws(() => runComposeBundle(root, policy, gh), (error) =>
-      error.status === 65 &&
-      /task9 composition refused/.test(error.stderr.toString())
+    assert.throws(
+      () => runComposeBundle(root, policy, gh),
+      (error) =>
+        error.status === 65 &&
+        /task9 composition refused/.test(error.stderr.toString())
     );
   } finally {
     rmSync(root, { force: true, recursive: true });
