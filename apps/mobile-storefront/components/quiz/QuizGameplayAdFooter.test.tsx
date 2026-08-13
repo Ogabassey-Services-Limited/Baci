@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 
 jest.mock('react-native-google-mobile-ads', () => ({
@@ -16,13 +16,15 @@ jest.mock('@/config/quiz-mobile-ads', () => ({
     enabled: true,
   }),
 }));
+const mockUseQuizMobileAds = jest.fn((_input: { requested: boolean }) => ({
+  bannerUnitId: 'ca-app-pub-3940256099942544/9214589741',
+  canRequestAds: true,
+  enabled: true,
+  initialized: true,
+}));
 jest.mock('@/hooks/use-quiz-mobile-ads', () => ({
-  useQuizMobileAds: () => ({
-    bannerUnitId: 'ca-app-pub-3940256099942544/9214589741',
-    canRequestAds: true,
-    enabled: true,
-    initialized: true,
-  }),
+  useQuizMobileAds: (input: { requested: boolean }) =>
+    mockUseQuizMobileAds(input),
 }));
 jest.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -40,10 +42,17 @@ jest.mock('@/services/quiz-ad-analytics', () => ({
 import { QuizGameplayAdFooter } from './QuizGameplayAdFooter';
 
 describe('QuizGameplayAdFooter', () => {
+  beforeEach(() => {
+    mockUseQuizMobileAds.mockClear();
+  });
+
   it('does not show an ad outside active gameplay', () => {
     render(<QuizGameplayAdFooter active={false} />);
 
     expect(screen.queryByTestId('quiz-gameplay-ad-footer')).toBeNull();
+    expect(mockUseQuizMobileAds).toHaveBeenCalledWith(
+      expect.objectContaining({ requested: false })
+    );
   });
 
   it('shows one clearly separated sponsored placement during gameplay', () => {

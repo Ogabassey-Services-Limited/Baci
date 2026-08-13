@@ -20,7 +20,7 @@ export function QuizGameplayAdFooter({ active }: QuizGameplayAdFooterProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const config = getQuizMobileAdsConfig();
-  const adState = useQuizMobileAds({ config, requested: true });
+  const adState = useQuizMobileAds({ config, requested: active });
   const styles = createQuizGameplayAdFooterStyles(colors);
 
   if (

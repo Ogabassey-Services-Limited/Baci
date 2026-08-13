@@ -1,68 +1,36 @@
-import type {
-  QuizActiveAttemptResponse,
-  QuizV2Attempt,
-} from '@/services/quiz-types';
+// biome-ignore format: Compact import keeps this coordinator within the module budget.
+import type { QuizActiveAttemptResponse, QuizV2Attempt } from '@/services/quiz-types';
 import {
-  clearQuizRecoveryEnvelope,
-  createQuizRecoveryEnvelope,
   initialQuizV2State,
   loadQuizRecoveryEnvelope,
   type QuizV2StoreActions,
-  type QuizV2StoreState,
-  saveQuizRecoveryEnvelope,
   type V2StartContext,
 } from './quiz-recovery-envelope';
+import {
+  clearRecoveredQuizAttempt,
+  clearTerminalRecovery,
+  createQuizAttemptPersistence,
+  createQuizTerminalContext,
+  isQuizOpenAtServerTime,
+  type QuizV2StoreAccess,
+  resultLifecycle,
+  saveQuizStartRequest,
+} from './quiz-v2-store-action-helpers';
 export const QUIZ_RECONCILIATION_INTERVAL_MS = 15_000;
-type StoreAccess = {
-  get: () => QuizV2StoreState;
-  getGeneration: () => number;
-  getMessage: (error: unknown) => string;
-  set: (state: Partial<QuizV2StoreState>) => void;
-};
-const terminalContextFor = (
-  attemptId: string,
-  eventId: string,
-  eventEndsAt?: string | null,
-  serverNow?: string | null
-) => ({
-  attemptId,
-  eventId,
-  eventEndsAt,
-  serverNow,
-  contractVersion: 2 as const,
-});
-function isOpenAtServerTime(response: QuizActiveAttemptResponse): boolean {
-  const serverNow = response.serverNow;
-  const eventEndsAt = response.eventEndsAt;
-  if (!serverNow || !eventEndsAt) return false;
-  return Date.parse(serverNow) < Date.parse(eventEndsAt);
-}
 export function createQuizV2StoreActions({
   get,
   getGeneration,
   getMessage,
   set,
-}: StoreAccess): QuizV2StoreActions {
+}: QuizV2StoreAccess): QuizV2StoreActions {
   let lastReconciledAt = 0;
   let reconciliationInFlight = false;
   let expiryInFlight = false;
   let retryInFlight = false;
   let lifecycleEpoch = 0;
-  const persist = async (attempt: QuizV2Attempt, locked: string | null) => {
-    const state = get();
-    if (!state.recoveryUserId || !state.startRequestId) return;
-    await saveQuizRecoveryEnvelope(
-      createQuizRecoveryEnvelope({
-        attemptId: attempt.attemptId,
-        currentQuestionId: attempt.question?.id ?? null,
-        eventId: attempt.eventId,
-        generation: getGeneration(),
-        pendingLockedOptionId: locked,
-        startRequestId: state.startRequestId,
-        userId: state.recoveryUserId,
-      })
-    );
-  };
+  // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
+  const access = { get, getGeneration, getMessage, set };
+  const persist = createQuizAttemptPersistence(access);
   const apply = async (attempt: QuizV2Attempt) => {
     if (attempt.status === 'in_progress') {
       set({
@@ -76,7 +44,6 @@ export function createQuizV2StoreActions({
       await persist(attempt, null);
       return;
     }
-    const state = get();
     set({
       status: 'result',
       v2Attempt: null,
@@ -84,7 +51,7 @@ export function createQuizV2StoreActions({
         attempt.status === 'event_cancelled'
           ? 'event_cancelled'
           : 'pending_results',
-      terminalContext: terminalContextFor(
+      terminalContext: createQuizTerminalContext(
         attempt.attemptId,
         attempt.eventId,
         attempt.eventEndsAt,
@@ -93,9 +60,7 @@ export function createQuizV2StoreActions({
       lockedOptionId: null,
       error: null,
     });
-    if (state.recoveryUserId) {
-      await clearQuizRecoveryEnvelope(state.recoveryUserId, attempt.eventId);
-    }
+    await clearRecoveredQuizAttempt(access, attempt.eventId);
   };
   const applyRecoveryResponse = async (
     response: QuizActiveAttemptResponse,
@@ -104,7 +69,7 @@ export function createQuizV2StoreActions({
     if (
       response.availability === 'active' &&
       response.attempt &&
-      isOpenAtServerTime(response)
+      isQuizOpenAtServerTime(response)
     ) {
       await apply(response.attempt);
       return;
@@ -116,7 +81,6 @@ export function createQuizV2StoreActions({
       response.availability === 'pending_results' ||
       response.availability === 'cancelled';
     if (terminal) {
-      const state = get();
       set({
         status: 'result',
         v2Attempt: null,
@@ -124,7 +88,7 @@ export function createQuizV2StoreActions({
           response.availability === 'cancelled'
             ? 'event_cancelled'
             : 'pending_results',
-        terminalContext: terminalContextFor(
+        terminalContext: createQuizTerminalContext(
           fallback.attemptId,
           fallback.eventId,
           response.eventEndsAt ?? fallback.eventEndsAt,
@@ -133,12 +97,10 @@ export function createQuizV2StoreActions({
         lockedOptionId: null,
         error: null,
       });
-      if (state.recoveryUserId) {
-        await clearQuizRecoveryEnvelope(state.recoveryUserId, fallback.eventId);
-      }
+      await clearRecoveredQuizAttempt(access, fallback.eventId);
     }
   };
-  const actions: QuizV2StoreActions = {
+  return {
     startEventV2: async (context: V2StartContext, starter) => {
       if (['starting', 'submitting'].includes(get().status)) return;
       const generation = getGeneration();
@@ -156,17 +118,7 @@ export function createQuizV2StoreActions({
         recoveryUserId: context.userId,
         error: null,
       });
-      await saveQuizRecoveryEnvelope(
-        createQuizRecoveryEnvelope({
-          attemptId: null,
-          currentQuestionId: null,
-          eventId: context.eventId,
-          generation,
-          pendingLockedOptionId: null,
-          startRequestId,
-          userId: context.userId,
-        })
-      );
+      await saveQuizStartRequest(context, generation, startRequestId);
       try {
         const attempt = await starter(startRequestId);
         if (generation === getGeneration()) await apply(attempt);
@@ -189,7 +141,7 @@ export function createQuizV2StoreActions({
       if (
         recovered.availability === 'active' &&
         recovered.attempt &&
-        isOpenAtServerTime(recovered)
+        isQuizOpenAtServerTime(recovered)
       ) {
         set({
           startRequestId: envelope?.startRequestId ?? null,
@@ -227,14 +179,14 @@ export function createQuizV2StoreActions({
         terminalContext:
           cancelled || pending || expiredActive
             ? recovered.attempt
-              ? terminalContextFor(
+              ? createQuizTerminalContext(
                   recovered.attempt.attemptId,
                   eventId,
                   recovered.attempt.eventEndsAt,
                   recovered.attempt.serverNow
                 )
               : envelope?.attemptId
-                ? terminalContextFor(
+                ? createQuizTerminalContext(
                     envelope.attemptId,
                     eventId,
                     recovered.eventEndsAt,
@@ -243,9 +195,11 @@ export function createQuizV2StoreActions({
                 : null
             : null,
       });
-      if ((cancelled || pending || expiredActive) && envelope) {
-        await clearQuizRecoveryEnvelope(userId, eventId);
-      }
+      await clearTerminalRecovery(
+        access,
+        eventId,
+        Boolean((cancelled || pending || expiredActive) && envelope)
+      );
     },
     reconcileLifecycle: async (reconciler, nowMs = Date.now()) => {
       if (
@@ -264,7 +218,7 @@ export function createQuizV2StoreActions({
         if (
           response.availability === 'active' &&
           response.attempt &&
-          isOpenAtServerTime(response)
+          isQuizOpenAtServerTime(response)
         )
           await apply(response.attempt);
         else if (attempt) await applyRecoveryResponse(response, attempt);
@@ -338,16 +292,9 @@ export function createQuizV2StoreActions({
     setV2Result: (result) =>
       set({
         status: 'result',
-        v2LifecycleStatus:
-          result.availability === 'pending'
-            ? 'pending_results'
-            : result.availability === 'unavailable' &&
-                result.reason === 'event_cancelled'
-              ? 'event_cancelled'
-              : 'final',
+        v2LifecycleStatus: resultLifecycle(result),
         v2Result: result,
         terminalContext: get().terminalContext,
       }),
   };
-  return actions;
 }
