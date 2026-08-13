@@ -14,7 +14,7 @@ import {
   getPrizeMomentLabel,
 } from './QuizScreen.utils';
 import { useQuizEventTimer } from './use-quiz-event-timer';
-import { calculateQuizServerClockOffset } from './use-quiz-server-clock';
+import { useQuizServerClock } from './use-quiz-server-clock';
 
 type QuizStyles = ReturnType<typeof createQuizLobbyStyles>;
 
@@ -41,20 +41,21 @@ export function QuizLobbyEventCard({
 }: QuizLobbyEventCardProps) {
   const { colors } = useTheme();
   const [imageFailed, setImageFailed] = useState(false);
-  const isPlayable = event.status === 'open' || event.status === 'active';
-  const isClosed = ['closed', 'completed', 'cancelled', 'finalizing'].includes(
-    event.status
-  );
-  const { remainingSeconds } = useQuizEventTimer({
+  const serverClock = useQuizServerClock(serverNow ?? null);
+  const { hasEnded, remainingSeconds } = useQuizEventTimer({
     eventEndsAt: event.endsAt,
     isActive: event.status === 'active',
     onExpire: () => undefined,
-    serverClockOffsetMs: serverNow
-      ? calculateQuizServerClockOffset(serverNow)
-      : 0,
+    serverClockOffsetMs: serverClock.offsetMs,
   });
+  const deadlineHasEnded = Boolean(event.endsAt) && hasEnded;
+  const effectiveStatus = deadlineHasEnded ? 'closed' : event.status;
+  const isPlayable = effectiveStatus === 'open' || effectiveStatus === 'active';
+  const isClosed = ['closed', 'completed', 'cancelled', 'finalizing'].includes(
+    effectiveStatus
+  );
   const buttonText = getEventStartButtonText(
-    event.status,
+    effectiveStatus,
     isStarting,
     isResume
   );
@@ -67,7 +68,10 @@ export function QuizLobbyEventCard({
     >
       <View style={styles.eventTopline}>
         <Text style={styles.prizeMoment}>
-          {getPrizeMomentLabel(event, serverNow)}
+          {getPrizeMomentLabel(
+            event,
+            new Date(serverClock.serverNowMs).toISOString()
+          )}
         </Text>
         <View
           style={event.mode === 'test' ? styles.testBadge : styles.liveBadge}
@@ -106,13 +110,13 @@ export function QuizLobbyEventCard({
         </View>
       </View>
 
-      {event.status === 'active' && event.endsAt ? (
+      {event.status === 'active' && event.endsAt && !deadlineHasEnded ? (
         <View style={styles.countdownRow}>
           <View style={styles.livePulse} />
           <Text accessibilityRole="timer" style={styles.countdownValue}>
             {formatRemainingTime(remainingSeconds)}
           </Text>
-          <Text style={styles.countdownLabel}>until entries close</Text>
+          <Text style={styles.countdownLabel}>until quiz ends</Text>
         </View>
       ) : null}
 

@@ -14,8 +14,23 @@ import {
   startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
+import { recoverActiveQuizAttempt } from '@/services/quiz-attempt-recovery';
 import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
+import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
+import { fetchQuizResult } from '@/services/quiz-results';
 import { useQuizStore } from '@/stores/quiz-store';
+
+jest.mock('@/components/quiz/QuizMusicPlayer', () => ({
+  QuizMusicPlayer: () => {
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return <Text>Quiz music is playing</Text>;
+  },
+}));
+jest.mock('@/components/quiz/QuizGameplayAdFooter', () => ({
+  QuizGameplayAdFooter: () => null,
+}));
 
 // The username gate pulls in additional modules (UsernamePrompt, the zod
 // username schema, the gate modal) that add one-time mount cost to whichever
@@ -170,6 +185,15 @@ jest.mock('@/services/quiz-attempts', () => ({
   startQuizAttemptV2: jest.fn(),
   submitQuizAnswerV2: jest.fn(),
 }));
+jest.mock('@/services/quiz-attempt-recovery', () => ({
+  recoverActiveQuizAttempt: jest.fn(),
+}));
+jest.mock('@/services/quiz-results', () => ({
+  fetchQuizResult: jest.fn(),
+}));
+jest.mock('@/services/quiz-leaderboard', () => ({
+  fetchQuizLeaderboard: jest.fn(),
+}));
 
 describe('QuizScreen', () => {
   beforeEach(() => {
@@ -188,6 +212,7 @@ describe('QuizScreen', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.useRealTimers();
   });
 
   // This is the first render in the file, so it absorbs React Native's one-time
@@ -383,10 +408,9 @@ describe('QuizScreen', () => {
     await acceptRulesAndStart();
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
+    expect(screen.queryByText('Daily Prize Quiz')).toBeNull();
     expect(
-      screen.getByRole('button', {
-        name: 'Play for free Daily Prize Quiz',
-      })
+      screen.getByRole('button', { name: 'Retry loading quiz events' })
     ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
       deviceFingerprint: 'a'.repeat(64),
@@ -425,13 +449,13 @@ describe('QuizScreen', () => {
 
     expect(
       await screen.findByRole('header', {
-        name: 'Choose a username to appear on the leaderboard',
+        name: 'Choose a username',
       })
     ).toBeTruthy();
     expect(startQuizAttempt).not.toHaveBeenCalled();
 
     fireEvent.changeText(screen.getByLabelText('Username'), 'ogafan');
-    fireEvent.press(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Save & continue' }));
 
     await waitFor(() => {
       expect(mockSetUsername).toHaveBeenCalledWith('ogafan');
@@ -458,7 +482,7 @@ describe('QuizScreen', () => {
 
     expect(
       screen.queryByRole('header', {
-        name: 'Choose a username to appear on the leaderboard',
+        name: 'Choose a username',
       })
     ).toBeNull();
     expect(startQuizAttempt).not.toHaveBeenCalled();
@@ -509,7 +533,87 @@ describe('QuizScreen', () => {
         })
       )
     );
-    expect(await screen.findByText('Results are being finalized')).toBeTruthy();
+    expect(await screen.findByText("You're all done")).toBeTruthy();
+  });
+
+  it('refreshes pending results until the final score is available', async () => {
+    jest.useFakeTimers();
+    jest
+      .mocked(fetchQuizResult)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-v2',
+        availability: 'pending',
+        availableAt: null,
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-v2',
+        availability: 'final',
+        availableAt: '2026-08-09T20:26:20.000Z',
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
+    jest.mocked(fetchQuizLeaderboard).mockResolvedValue({
+      currentPlayer: {
+        displayName: 'ogafan',
+        isCurrentCustomer: true,
+        rank: 1,
+        score: 4,
+        status: 'completed',
+        submittedAt: '2026-08-09T20:26:10.000Z',
+        totalTimeSeconds: 38,
+      },
+      entries: [
+        {
+          displayName: 'ogafan',
+          isCurrentCustomer: true,
+          rank: 1,
+          score: 4,
+          status: 'completed',
+          submittedAt: '2026-08-09T20:26:10.000Z',
+          totalTimeSeconds: 38,
+        },
+      ],
+      participantCount: 1,
+      status: 'published',
+    });
+    useQuizStore.setState({
+      status: 'result',
+      terminalContext: {
+        attemptId: 'attempt-v2',
+        contractVersion: 2,
+        eventId: 'event-v2',
+      },
+      v2LifecycleStatus: 'pending_results',
+      v2Result: null,
+    });
+
+    render(<QuizScreen integrityTier="device" />);
+    expect(screen.getByText('Quiz music is playing')).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText('You placed #1')).toBeTruthy();
+    expect(screen.getByText('4')).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Final standings')).toBeTruthy();
+    expect(screen.getByText(/ogafan/)).toBeTruthy();
+    expect(fetchQuizLeaderboard).toHaveBeenCalledWith({
+      eventId: 'event-v2',
+      expectedUserId: 'quiz-shopper',
+    });
+    expect(
+      screen.getByRole('button', { name: 'View past quiz leaderboards' })
+    ).toBeTruthy();
   });
 
   it('shows a session error instead of silently dropping a v2 answer without a user', async () => {
@@ -544,5 +648,58 @@ describe('QuizScreen', () => {
       'Your session changed. Please try again.'
     );
     expect(submitQuizAnswerV2).not.toHaveBeenCalled();
+  });
+  it('universal_end_requests_recovery', async () => {
+    // Arrange
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    const activeAttempt = {
+      ...createQuizAttempt({
+        eventId: 'event-v2',
+        question: {
+          ...createQuizAttempt().question,
+          deadlineAt: new Date(20_000).toISOString(),
+          id: 'question-v2',
+        },
+      }),
+      eventEndsAt: new Date(1_000).toISOString(),
+    };
+    useQuizStore.setState({
+      lockedOptionId: null,
+      status: 'question',
+      v2Attempt: {
+        attemptId: activeAttempt.attemptId,
+        eventEndsAt: activeAttempt.eventEndsAt,
+        eventId: activeAttempt.eventId,
+        question: activeAttempt.question,
+        resultsAvailableAt: null,
+        serverNow: new Date(0).toISOString(),
+        status: 'in_progress',
+      },
+    });
+    jest.mocked(recoverActiveQuizAttempt).mockResolvedValue({
+      availability: 'pending_results',
+      eventEndsAt: activeAttempt.eventEndsAt,
+      serverNow: new Date(1_000).toISOString(),
+    });
+
+    // Act
+    render(<QuizScreen integrityTier="device" />);
+    await act(async () => {
+      jest.advanceTimersByTime(1_250);
+      await Promise.resolve();
+    });
+
+    // Assert
+    expect(recoverActiveQuizAttempt).toHaveBeenCalledTimes(1);
+    expect(recoverActiveQuizAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deviceFingerprint: 'a'.repeat(64),
+        eventId: 'event-v2',
+        expectedUserId: 'quiz-shopper',
+      })
+    );
+    expect(useQuizStore.getState().v2LifecycleStatus).toBe('pending_results');
+    expect(useQuizStore.getState().v2Attempt).toBeNull();
   });
 });

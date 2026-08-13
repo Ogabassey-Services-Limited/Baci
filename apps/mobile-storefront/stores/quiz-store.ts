@@ -10,16 +10,17 @@ import type {
 } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 import type {
+  QuizTerminalContext,
   QuizV2LifecycleStatus,
   QuizV2StoreActions,
 } from './quiz-recovery-envelope';
 import {
   clearQuizRecoveryEnvelope,
-  createQuizV2StoreActions,
   initialQuizV2State,
 } from './quiz-recovery-envelope';
+import { createQuizV2StoreActions } from './quiz-v2-store-actions';
 
-export { QUIZ_RECONCILIATION_INTERVAL_MS } from './quiz-recovery-envelope';
+export { QUIZ_RECONCILIATION_INTERVAL_MS } from './quiz-v2-store-actions';
 
 type QuizStatus =
   | 'idle'
@@ -45,6 +46,7 @@ interface QuizStore extends QuizV2StoreActions {
   result: QuizResult | null;
   v2Result: QuizV2Result | null;
   v2LifecycleStatus: QuizV2LifecycleStatus;
+  terminalContext: QuizTerminalContext | null;
   error: string | null;
   loadEvents: (loader: () => Promise<QuizEvent[]>) => Promise<void>;
   startEvent: (

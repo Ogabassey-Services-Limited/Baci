@@ -21,6 +21,14 @@ describe('createExpoPlugins', () => {
         extraProguardRules: expect.stringContaining('-repackageclasses'),
       },
     });
+    expect(buildPropertiesPlugin?.[1]).toMatchObject({
+      android: {
+        extraProguardRules: expect.stringContaining(
+          '-keep class com.google.android.gms.internal.consent_sdk.** { *; }'
+        ),
+      },
+    });
+    expect(plugins).toContain('expo-audio');
   });
 
   it('includes supplied conditional plugins and omits them when unconfigured', () => {

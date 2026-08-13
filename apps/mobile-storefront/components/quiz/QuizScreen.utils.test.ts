@@ -1,5 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import type { QuizEvent } from '@/services/quiz';
+import { QuizServiceError } from '@/services/quiz-types';
 import {
   formatRemainingTime,
   formatTimeRange,
@@ -120,10 +121,23 @@ describe('QuizScreen utils', () => {
     );
   });
 
-  it('keeps the event list visible in list and result states only', () => {
+  it('hides technical quiz authorization errors behind actionable copy', () => {
+    expect(
+      getQuizErrorMessage(
+        new QuizServiceError(
+          'Quiz request is not authorized',
+          'QUIZ_ROUTE_PROOF_REQUIRED',
+          403
+        ),
+        'Quiz action failed'
+      )
+    ).toBe('We could not verify this quiz session. Please try again.');
+  });
+
+  it('keeps the event list out of the result state', () => {
     expect(shouldShowEventList('ready')).toBe(true);
     expect(shouldShowEventList('starting')).toBe(true);
-    expect(shouldShowEventList('result')).toBe(true);
+    expect(shouldShowEventList('result')).toBe(false);
     expect(shouldShowEventList('question')).toBe(false);
     expect(shouldShowEventList('loading')).toBe(false);
   });

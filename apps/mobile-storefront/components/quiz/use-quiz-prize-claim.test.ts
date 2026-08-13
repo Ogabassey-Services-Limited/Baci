@@ -76,7 +76,7 @@ describe('useQuizPrizeClaim', () => {
     });
     // The human-readable label is still available for the cart UI.
     expect(items[0].variant_attributes).toMatchObject({ condition: 'New' });
-    expect(mockPush).toHaveBeenCalledWith('/cart');
+    expect(mockPush).toHaveBeenCalledWith('/checkout');
   });
 
   it('reports preparing and does not touch the cart while the product loads', () => {

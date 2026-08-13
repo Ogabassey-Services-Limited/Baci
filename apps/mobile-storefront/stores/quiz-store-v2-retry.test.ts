@@ -150,4 +150,35 @@ describe('quiz v2 store recovery', () => {
     );
     expect(useQuizStore.getState().v2LifecycleStatus).toBe('event_cancelled');
   });
+  it('expiry_ignores_stale_submit_response', async () => {
+    // Arrange
+    await act(async () =>
+      useQuizStore
+        .getState()
+        .startEventV2(startContext, async () => activeAttempt)
+    );
+    let resolveSubmit!: (attempt: QuizV2Attempt) => void;
+    const submitPromise = new Promise<QuizV2Attempt>((resolve) => {
+      resolveSubmit = resolve;
+    });
+    const submitOperation = useQuizStore
+      .getState()
+      .lockAndSubmitAnswer('a', async () => submitPromise);
+    await act(async () => Promise.resolve());
+
+    // Act
+    await act(async () =>
+      useQuizStore.getState().expireActiveEvent(async () => ({
+        availability: 'pending_results',
+        eventEndsAt: activeAttempt.eventEndsAt,
+        serverNow: activeAttempt.serverNow,
+      }))
+    );
+    resolveSubmit({ ...activeAttempt, status: 'in_progress' });
+    await act(async () => submitOperation);
+
+    // Assert
+    expect(useQuizStore.getState().status).toBe('result');
+    expect(useQuizStore.getState().v2LifecycleStatus).toBe('pending_results');
+  });
 });

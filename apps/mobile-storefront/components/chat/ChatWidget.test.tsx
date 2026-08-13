@@ -235,6 +235,13 @@ describe('ChatWidget', () => {
     expect(toJSON()).toBeNull();
   });
 
+  it('returns null for the quiz route', () => {
+    mockUsePathname.mockReturnValue('/quiz');
+    const { toJSON } = render(<ChatWidget />);
+
+    expect(toJSON()).toBeNull();
+  });
+
   it.each([
     '/utilities/power',
     '/payment-gateway',

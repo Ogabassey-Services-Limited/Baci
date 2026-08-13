@@ -48,6 +48,7 @@ describe('QuizLeaderboardScreen', () => {
           totalTimeSeconds: 120,
         },
       ],
+      participantCount: 1,
       status: 'published',
     });
 
@@ -59,6 +60,7 @@ describe('QuizLeaderboardScreen', () => {
     );
 
     expect(await screen.findByText('Final standings')).toBeTruthy();
+    expect(screen.getByText('1 participant')).toBeTruthy();
     expect(screen.getByText('Player-AB12CD34')).toBeTruthy();
     expect(screen.queryByText('Current quiz')).toBeNull();
   });
@@ -69,5 +71,52 @@ describe('QuizLeaderboardScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Past leaderboards are unavailable.'
     );
+  });
+
+  it('keeps the current player visible when the public board is capped at 100 rows', async () => {
+    jest.mocked(fetchQuizEvents).mockResolvedValue([
+      {
+        endsAt: '2026-08-03T20:05:00Z',
+        id: 'event-long',
+        prizeName: 'Phone',
+        questionCount: 20,
+        startsAt: '2026-08-03T20:00:00Z',
+        status: 'completed',
+        title: 'Long quiz',
+      },
+    ]);
+    const entries = Array.from({ length: 100 }, (_, index) => ({
+      displayName: `Player-${index + 1}`,
+      isCurrentCustomer: false,
+      rank: index + 1,
+      score: 20 - Math.floor(index / 10),
+      status: 'ranked',
+      submittedAt: null,
+      totalTimeSeconds: 120,
+    }));
+    jest.mocked(fetchQuizLeaderboard).mockResolvedValue({
+      currentPlayer: {
+        displayName: 'Me-OUTSIDE-TOP-100',
+        isCurrentCustomer: true,
+        rank: 101,
+        score: 1,
+        status: 'ranked',
+        submittedAt: null,
+        totalTimeSeconds: 180,
+      },
+      entries,
+      participantCount: 101,
+      status: 'published',
+    });
+
+    render(<QuizLeaderboardScreen />);
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'View leaderboard for Long quiz',
+      })
+    );
+
+    expect(await screen.findByText('101 participants')).toBeTruthy();
+    expect(screen.getByText(/Me-OUTSIDE-TOP-100/)).toBeTruthy();
   });
 });

@@ -1,0 +1,64 @@
+import { Platform } from 'react-native';
+
+type QuizMobileAdsPlatform = 'android' | 'ios' | 'web';
+
+type QuizMobileAdsEnvironment = Readonly<Record<string, string | undefined>>;
+
+interface GetQuizMobileAdsConfigOptions {
+  development?: boolean;
+  environment?: QuizMobileAdsEnvironment;
+  platform?: QuizMobileAdsPlatform;
+}
+
+export type QuizMobileAdsConfig =
+  | { enabled: false }
+  | { bannerUnitId: string; enabled: true };
+
+const BANNER_UNIT_ID_PATTERN = /^ca-app-pub-\d+\/\d+$/;
+const TEST_BANNER_UNIT_IDS = {
+  android: 'ca-app-pub-3940256099942544/9214589741',
+  ios: 'ca-app-pub-3940256099942544/2435281174',
+} as const;
+const TEST_BANNER_UNIT_ID_VALUES = new Set<string>(
+  Object.values(TEST_BANNER_UNIT_IDS)
+);
+
+function getDefaultPlatform(): QuizMobileAdsPlatform {
+  return Platform.OS === 'android' || Platform.OS === 'ios'
+    ? Platform.OS
+    : 'web';
+}
+
+export function getQuizMobileAdsConfig(
+  options: GetQuizMobileAdsConfigOptions = {}
+): QuizMobileAdsConfig {
+  const environment = options.environment ?? process.env;
+  if (environment.EXPO_PUBLIC_QUIZ_ADS_ENABLED !== 'true') {
+    return { enabled: false };
+  }
+
+  const platform = options.platform ?? getDefaultPlatform();
+  if (platform === 'web') return { enabled: false };
+
+  const development = options.development ?? __DEV__;
+  if (development) {
+    return { bannerUnitId: TEST_BANNER_UNIT_IDS[platform], enabled: true };
+  }
+
+  const environmentKey =
+    platform === 'android'
+      ? 'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID'
+      : 'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID';
+  const bannerUnitId = environment[environmentKey]?.trim();
+  if (
+    !bannerUnitId ||
+    !BANNER_UNIT_ID_PATTERN.test(bannerUnitId) ||
+    TEST_BANNER_UNIT_ID_VALUES.has(bannerUnitId)
+  ) {
+    throw new Error(
+      `[quiz-mobile-ads] ${environmentKey} must be a non-sample Google Mobile Ads banner unit ID.`
+    );
+  }
+
+  return { bannerUnitId, enabled: true };
+}
