@@ -50,7 +50,7 @@ type StartEventV2 = (
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
  * satisfy BOTH gates before their first play: a public username (their
- * leaderboard name) and a date of birth (Super Quiz is 18+). The username gate
+ * leaderboard name) and a date of birth (SuperQuiz is 18+). The username gate
  * opens first; on success it hands off to the date-of-birth gate, which either
  * opens or proceeds to the actual start. Both gates fall back to the
  * authoritative server start while the customer row is still hydrating.

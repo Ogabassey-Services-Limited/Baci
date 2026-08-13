@@ -1,8 +1,11 @@
+const { buildGoogleMobileAdsExpoPlugin } = require('./google-mobile-ads-config');
+
 function createExpoPlugins({
   facebookSdkPlugin,
   sentryPlugin,
   tiktokBusinessPlugin,
 }) {
+  const googleMobileAdsPlugin = buildGoogleMobileAdsExpoPlugin(process.env);
   return [
     'expo-router',
     [
@@ -20,6 +23,7 @@ function createExpoPlugins({
       },
     ],
     'expo-font',
+    'expo-audio',
     'expo-image',
     'expo-secure-store',
     'expo-sharing',
@@ -54,7 +58,8 @@ function createExpoPlugins({
           enableShrinkResourcesInReleaseBuilds: true,
           // AGP 9.1 enables this by default. Keep the same DEX compaction on
           // Expo's AGP 8.12 toolchain without forcing an unsupported upgrade.
-          extraProguardRules: '-repackageclasses',
+          extraProguardRules:
+            '-repackageclasses\n-keep class com.google.android.gms.internal.consent_sdk.** { *; }',
         },
         ios: {
           deploymentTarget: '16.4',
@@ -63,6 +68,7 @@ function createExpoPlugins({
       },
     ],
     ...(tiktokBusinessPlugin ? [tiktokBusinessPlugin] : []),
+    ...(googleMobileAdsPlugin ? [googleMobileAdsPlugin] : []),
     './config/withFirebaseModularHeaders.js',
     './config/withObjCLinkerFlag.js',
     './config/withNoSplashImage.js',

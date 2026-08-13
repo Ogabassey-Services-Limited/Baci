@@ -4888,6 +4888,8 @@ describe('Middleware Proxy', () => {
       expect(regex.test('/images/some-icon.ico')).toBe(false);
       expect(regex.test('/robots.txt')).toBe(false);
       expect(regex.test('/robots.txt/')).toBe(true);
+      expect(regex.test('/app-ads.txt')).toBe(false);
+      expect(regex.test('/app-ads.txt/')).toBe(true);
       expect(regex.test('/manifest.webmanifest')).toBe(false);
       expect(regex.test('/manifest.webmanifest/')).toBe(true);
       expect(regex.test('/_next/static/chunks/app.js')).toBe(false);

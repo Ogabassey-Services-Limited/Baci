@@ -39,7 +39,7 @@ export function useQuizEventTimer({
       }
     };
     evaluate();
-    if (!isActive || !Number.isFinite(deadlineMs)) return;
+    if (!Number.isFinite(deadlineMs)) return;
     const intervalId = setInterval(evaluate, TICK_INTERVAL_MS);
     const subscription = AppState.addEventListener('change', (next) => {
       if (next === 'active') evaluate();

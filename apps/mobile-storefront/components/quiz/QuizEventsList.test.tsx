@@ -5,6 +5,7 @@ import { createQuizLobbyStyles } from './QuizLobby.styles';
 import type { QuizThemeColors } from './QuizScreen.styles';
 
 jest.mock('expo-image', () => ({ Image: 'Image' }));
+jest.mock('expo-linear-gradient', () => ({ LinearGradient: 'LinearGradient' }));
 jest.mock('@react-native-vector-icons/ionicons', () => 'Ionicons');
 
 const themeColors: QuizThemeColors = {
@@ -47,6 +48,12 @@ describe('QuizEventsList', () => {
       />
     );
 
+    expect(screen.getByTestId('quiz-gadget-pattern-background')).toBeTruthy();
+    expect(screen.getByText("OGABASSEY'S SUPERQUIZ")).toBeTruthy();
+    expect(screen.getByText('Play for more than the prize.')).toBeTruthy();
+    expect(screen.getByText(/within reach of more Nigerians/i)).toBeTruthy();
+    expect(screen.getByText(/close the digital divide/i)).toBeTruthy();
+
     fireEvent.press(screen.getByLabelText(/Play for free Open Quiz/i));
     expect(screen.getByRole('header', { name: 'How to play' })).toBeTruthy();
     fireEvent.press(
@@ -87,5 +94,19 @@ describe('QuizEventsList', () => {
     });
     fireEvent.press(screen.getByLabelText('Scheduled Scheduled Quiz'));
     expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it('keeps the programme purpose visible when no quiz is available', () => {
+    render(
+      <QuizEventsList
+        events={[]}
+        isStarting={false}
+        onStart={jest.fn()}
+        styles={createQuizLobbyStyles(themeColors)}
+      />
+    );
+
+    expect(screen.getByText("OGABASSEY'S SUPERQUIZ")).toBeTruthy();
+    expect(screen.getByText('No quiz events available.')).toBeTruthy();
   });
 });

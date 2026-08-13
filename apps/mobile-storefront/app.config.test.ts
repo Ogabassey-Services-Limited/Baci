@@ -9,6 +9,11 @@ const originalEnv = process.env;
 function loadAppConfigWithEnv(env: {
   ANDROID_VERSION_CODE?: string;
   EXPO_PUBLIC_MERCHANT_DOMAIN?: string;
+  EXPO_PUBLIC_QUIZ_ADS_ENABLED?: string;
+  EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID?: string;
+  EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID?: string;
+  EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID?: string;
+  EXPO_PUBLIC_QUIZ_ADMOB_IOS_INTERSTITIAL_UNIT_ID?: string;
   EXPO_PUBLIC_POSTHOG_API_KEY?: string;
   EXPO_PUBLIC_POSTHOG_HOST?: string;
   EXPO_PUBLIC_SUPABASE_ANON_KEY?: string;
@@ -17,11 +22,18 @@ function loadAppConfigWithEnv(env: {
   EXPO_UPDATE_CHANNEL?: string;
   STOREFRONT_FACEBOOK_APP_ID?: string;
   STOREFRONT_FACEBOOK_CLIENT_TOKEN?: string;
+  STOREFRONT_ADMOB_ANDROID_APP_ID?: string;
+  STOREFRONT_ADMOB_IOS_APP_ID?: string;
 }) {
   jest.resetModules();
   process.env = { ...originalEnv };
   delete process.env.ANDROID_VERSION_CODE;
   delete process.env.EXPO_PUBLIC_MERCHANT_DOMAIN;
+  delete process.env.EXPO_PUBLIC_QUIZ_ADS_ENABLED;
+  delete process.env.EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID;
+  delete process.env.EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_INTERSTITIAL_UNIT_ID;
+  delete process.env.EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID;
+  delete process.env.EXPO_PUBLIC_QUIZ_ADMOB_IOS_INTERSTITIAL_UNIT_ID;
   delete process.env.EXPO_PUBLIC_POSTHOG_API_KEY;
   delete process.env.EXPO_PUBLIC_POSTHOG_HOST;
   delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -30,6 +42,8 @@ function loadAppConfigWithEnv(env: {
   delete process.env.EXPO_UPDATE_CHANNEL;
   delete process.env.STOREFRONT_FACEBOOK_APP_ID;
   delete process.env.STOREFRONT_FACEBOOK_CLIENT_TOKEN;
+  delete process.env.STOREFRONT_ADMOB_ANDROID_APP_ID;
+  delete process.env.STOREFRONT_ADMOB_IOS_APP_ID;
   for (const [key, value] of Object.entries(env)) {
     if (value !== undefined) {
       process.env[key] = value;

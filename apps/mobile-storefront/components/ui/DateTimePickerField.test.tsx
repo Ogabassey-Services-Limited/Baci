@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform } from 'react-native';
 import { DateTimePickerField } from './DateTimePickerField';
 
 let mockPickerEventType: 'dismissed' | 'set' = 'set';
@@ -77,6 +78,30 @@ describe('DateTimePickerField', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Mock date picker' }));
 
     expect(onChangeText).toHaveBeenCalledWith('2026-05-23');
+  });
+
+  it('keeps the iOS picker open after a selection so Continue can submit it', () => {
+    if (Platform.OS !== 'ios') return;
+
+    const onChangeText = jest.fn();
+    render(
+      <DateTimePickerField
+        accessibilityLabel="Date of birth"
+        fallbackDisplay="Select your date of birth"
+        label="Date of birth"
+        mode="date"
+        onChangeText={onChangeText}
+        value="1990-05-22"
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Date of birth' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Mock date picker' }));
+
+    expect(onChangeText).toHaveBeenCalledWith('2026-05-23');
+    expect(
+      screen.getByRole('button', { name: 'Mock date picker' })
+    ).toBeTruthy();
   });
 
   it('closes dismissed picker events without changing the value', () => {

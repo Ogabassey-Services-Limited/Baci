@@ -3,7 +3,7 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { Pressable, Text, View } from 'react-native';
+import { Platform, Pressable, Text, useColorScheme, View } from 'react-native';
 
 type DateTimePickerFieldMode = 'date' | 'time';
 
@@ -95,6 +95,7 @@ export function DateTimePickerField({
   wrapperStyle,
 }: DateTimePickerFieldProps) {
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const colorScheme = useColorScheme();
   const pickerValue =
     parsePickerValue(value, mode) ??
     // The native picker requires a Date object; use today only at the UI
@@ -113,7 +114,13 @@ export function DateTimePickerField({
     if (selectedDate) {
       onChangeText(formatPickerValue(selectedDate, mode));
     }
-    setIsPickerVisible(false);
+    // iOS spinner pickers emit `set` events while the user scrolls. Keep the
+    // picker mounted so the user can finish scrolling and submit the selected
+    // value with the form's Continue button. Android closes its native dialog
+    // after a selection.
+    if (Platform.OS !== 'ios') {
+      setIsPickerVisible(false);
+    }
   };
 
   return (
@@ -130,7 +137,9 @@ export function DateTimePickerField({
       {isPickerVisible ? (
         <DateTimePicker
           accessibilityLabel={accessibilityLabel}
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           mode={mode}
+          themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
           value={pickerValue}
           onChange={handlePickerChange}
         />

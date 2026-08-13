@@ -1,4 +1,5 @@
 import type { QuizEvent } from '@/services/quiz';
+import { QuizServiceError } from '@/services/quiz-types';
 
 export type QuizScreenStatus =
   | 'idle'
@@ -71,6 +72,14 @@ export function getQuizErrorMessage(
   error: unknown,
   fallbackMessage: string
 ): string {
+  if (error instanceof QuizServiceError) {
+    if (error.code === 'QUIZ_ROUTE_PROOF_REQUIRED') {
+      return 'We could not verify this quiz session. Please try again.';
+    }
+    if (error.code === 'QUIZ_TEST_ACCESS_REQUIRED') {
+      return 'This test quiz is only available to approved testers.';
+    }
+  }
   return error instanceof Error ? error.message : fallbackMessage;
 }
 
@@ -136,5 +145,5 @@ export function formatRemainingTime(totalSeconds: number): string {
 }
 
 export function shouldShowEventList(status: QuizScreenStatus): boolean {
-  return status === 'ready' || status === 'starting' || status === 'result';
+  return status === 'ready' || status === 'starting';
 }

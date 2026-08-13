@@ -15,6 +15,13 @@ import {
 import { QuizServiceError } from '@/services/quiz-types';
 import { useQuizStore } from '@/stores/quiz-store';
 
+jest.mock('@/components/quiz/QuizMusicPlayer', () => ({
+  QuizMusicPlayer: () => null,
+}));
+jest.mock('@/components/quiz/QuizGameplayAdFooter', () => ({
+  QuizGameplayAdFooter: () => null,
+}));
+
 // The username gate pulls in additional modules (UsernamePrompt, the zod
 // username schema, the gate modal) that add one-time mount cost to whichever
 // test in this file runs first — that can push it past Jest's 5000ms default

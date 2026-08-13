@@ -78,7 +78,7 @@ describe('HomeServiceCards', () => {
     expect(screen.getByText('IMEI Checker')).toBeTruthy();
     expect(screen.getByText('Repair Lab')).toBeTruthy();
     expect(screen.getByText('Swap/Trade')).toBeTruthy();
-    expect(screen.getByText('Super Quiz')).toBeTruthy();
+    expect(screen.getByText('SuperQuiz')).toBeTruthy();
   });
 
   it('starts one shared moving outline animation', () => {
@@ -175,7 +175,7 @@ describe('HomeServiceCards', () => {
     fireEvent.press(screen.getByLabelText('Swap/Trade. Swap for credit'));
     expect(mockPush).toHaveBeenLastCalledWith('/swap');
 
-    fireEvent.press(screen.getByLabelText('Super Quiz. Play for rewards'));
+    fireEvent.press(screen.getByLabelText('SuperQuiz. Play for rewards'));
     expect(mockPush).toHaveBeenLastCalledWith('/quiz');
   });
 });
