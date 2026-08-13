@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   copyFileSync,
@@ -78,6 +79,34 @@ test('refuses a modified dependency even when the CLI hash still matches', async
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('refuses a FIFO GitHub executable without blocking', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'task9-launcher-github-fifo-'));
+  const fifo = join(directory, 'gh');
+  try {
+    execFileSync('/usr/bin/mkfifo', ['-m', '500', fifo]);
+    await assert.rejects(
+      runTask9BootstrapBundleLauncher({
+        ...invocation,
+        githubPath: fifo,
+        githubSha256: '0'.repeat(64),
+      }),
+      /invalid Task 9 composer/
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('bounds live GitHub verification calls', () => {
+  assert.match(
+    readFileSync(
+      new URL('./task9-bootstrap-bundle-launcher.mjs', import.meta.url),
+      'utf8'
+    ),
+    /execFileSync\(github, \['api', endpoint\], \{[\s\S]*timeout: 120_000/
+  );
 });
 
 test('direct launcher invocation refuses an incomplete closed invocation', async () => {

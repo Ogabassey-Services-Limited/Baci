@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
   closeSync,
+  constants,
   fstatSync,
   lstatSync,
   openSync,
@@ -121,11 +122,21 @@ export async function runTask9BootstrapBundleLauncher({
   if (createHash('sha256').update(bytes).digest('hex') !== composerSha256)
     fail();
   const github = realpathSync(githubPath);
-  const githubFd = openSync(github, 0);
+  let githubFd;
+  try {
+    githubFd = openSync(
+      github,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK
+    );
+  } catch {
+    fail();
+  }
   const githubIdentity = fstatSync(githubFd);
   const currentGithub = lstatSync(github);
   if (
+    !githubIdentity.isFile() ||
     currentGithub.isSymbolicLink() ||
+    !currentGithub.isFile() ||
     currentGithub.dev !== githubIdentity.dev ||
     currentGithub.ino !== githubIdentity.ino ||
     createHash('sha256')
