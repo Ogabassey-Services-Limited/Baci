@@ -127,7 +127,7 @@ describe('runReconcilePaystackUnmatchedPartialCli', () => {
         p_customer_email: 'buyer@example.com',
         p_customer_name: 'Ada Lovelace',
         p_gateway_fee: 25,
-        p_merchant_amount: 1_200,
+        p_merchant_amount: 1_225,
         p_merchant_id: '33333333-3333-4333-8333-333333333333',
         p_operator_user_id: '44444444-4444-4444-8444-444444444444',
         p_order_id: '22222222-2222-4222-8222-222222222222',

@@ -43,6 +43,19 @@ BEGIN
      AND t.gateway_reference = v_reference
    FOR UPDATE;
   IF v_existing_id IS NOT NULL THEN
+    IF EXISTS (
+      SELECT 1
+        FROM public.transactions AS conflicting
+       WHERE lower(trim(COALESCE(conflicting.gateway, ''))) = 'paystack'
+         AND conflicting.gateway_reference = v_reference
+         AND (
+           conflicting.merchant_id IS DISTINCT FROM p_merchant_id
+           OR conflicting.order_id IS NOT NULL
+           OR conflicting.metadata ->> 'transaction_type' IS DISTINCT FROM 'wallet_topup'
+         )
+    ) THEN
+      RAISE EXCEPTION 'paystack_reference_already_recorded';
+    END IF;
     IF v_existing_merchant_id IS DISTINCT FROM p_merchant_id
        OR v_existing_order_id IS NOT NULL
        OR v_existing_transaction_type IS DISTINCT FROM 'wallet_topup' THEN

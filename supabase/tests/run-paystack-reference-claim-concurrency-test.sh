@@ -30,6 +30,7 @@ psql() {
 }
 
 psql < "$repo_root/supabase/tests/paystack_reference_claim_concurrency_fixture.sql"
+psql < "$repo_root/supabase/migrations/20260702044949_serialize_order_payment_writes.sql"
 psql < "$repo_root/supabase/migrations/20260811100000_manual_paystack_partial_reconciliation.sql"
 psql < "$repo_root/supabase/migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
 psql < "$repo_root/supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql"
