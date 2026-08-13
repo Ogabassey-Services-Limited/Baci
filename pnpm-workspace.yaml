@@ -77,11 +77,6 @@ packages:
   - "packages/*"
   - "apps/web/mcp-server/widgets"
 
-# Sparse checkouts and web-only filtered installs do not resolve React Native /
-# Expo packages, so their version-pinned patches would otherwise fail install
-# with ERR_PNPM_UNUSED_PATCH.
-allowUnusedPatches: true
-
 # High-performance build script approvals for pnpm v11 (replaces legacy onlyBuiltDependencies)
 # Must be configured as a YAML mapping of package matchers to booleans
 # (e.g. package matcher strings/globs as keys mapped to true/false values)
@@ -339,6 +334,9 @@ patchedDependencies:
   # lockfile (expo-modules-core declares ~57.0.0), and pnpm fails install
   # loudly on an orphaned patch if a re-resolution moves off 57.0.3 — re-key
   # the patch to the new version then (57.0.4 is byte-identical here).
+  # Sparse or web-only worktrees that omit mobile packages should install via
+  # .github/scripts/pnpm-install-sparse-worktree.sh instead of relaxing this
+  # globally.
   "expo-modules-jsi@57.0.3": "patches/expo-modules-jsi@57.0.3.patch"
   image-size@1.2.1: patches/image-size@1.2.1.patch
   "next@16.3.0": "patches/next@16.3.0.patch"
