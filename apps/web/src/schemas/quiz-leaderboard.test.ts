@@ -47,13 +47,13 @@ describe('quiz leaderboard schemas', () => {
       quizLeaderboardResponseSchema.parse({
         currentPlayer: null,
         entries: [],
-        participantCount: null,
+        participantCount: 0,
         status: 'live_hidden',
       })
     ).toEqual({
       currentPlayer: null,
       entries: [],
-      participantCount: null,
+      participantCount: 0,
       status: 'live_hidden',
     });
   });
@@ -66,6 +66,7 @@ describe('quiz leaderboard schemas', () => {
           ...ENTRY,
           rank: index + 1,
         })),
+        participantCount: 101,
         status: 'published',
       }).success
     ).toBe(false);

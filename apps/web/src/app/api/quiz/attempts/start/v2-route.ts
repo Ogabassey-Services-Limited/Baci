@@ -7,8 +7,13 @@ import {
 import { parseQuizV2Attempt } from '@/app/api/quiz/_shared/quiz-v2-projection';
 import {
   createRouteProof,
+  enforceEventPrizeGuard,
+  enforceQuizAgeGate,
   invalidInputResponse,
+  isQuizAgeGateError,
   parseJsonBody,
+  prizeGuardErrorResponse,
+  quizAgeGateErrorResponse,
   quizRpcClientErrorResponse,
   rejectQuizIdentityMismatch,
   requireQuizCsrf,
@@ -21,6 +26,7 @@ import {
   resolveQuizDevice,
 } from '@/lib/quiz/quiz-device-hash';
 import { buildQuizDeviceProofSubject } from '@/lib/quiz/quiz-device-proof-subject';
+import { getQuizPhaseEnv } from '@/lib/quiz/quiz-runtime-env';
 import { startQuizAttemptV2RouteSchema } from '@/schemas/quiz';
 
 const START_ACTION = 'start_quiz_attempt_v2';
@@ -49,6 +55,21 @@ export async function postQuizStartV2(request: NextRequest) {
 
   const runtimeResponse = await requireQuizV2Runtime(auth.supabase);
   if (runtimeResponse) return runtimeResponse;
+
+  if (getQuizPhaseEnv() === 'production') {
+    try {
+      const { merchantId } = await enforceEventPrizeGuard(
+        auth.supabase,
+        parsed.data.eventId
+      );
+      await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
+    } catch (error) {
+      if (isQuizAgeGateError(error)) {
+        return quizAgeGateErrorResponse(error);
+      }
+      return prizeGuardErrorResponse(error);
+    }
+  }
 
   const rawFingerprint = request.headers.get('X-Baci-Quiz-Device-Fingerprint');
   const fingerprint = readQuizDeviceFingerprint(request);

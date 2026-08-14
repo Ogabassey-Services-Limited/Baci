@@ -5,7 +5,7 @@ import { QuizLaunchDialog } from './quiz-launch-dialog';
 
 const configuration = {
   difficulty: 'standard' as const,
-  liveWindowMinutes: 5,
+  totalQuizDurationSeconds: 110,
   mode: 'test' as const,
   prizeProduct: {
     available: true,

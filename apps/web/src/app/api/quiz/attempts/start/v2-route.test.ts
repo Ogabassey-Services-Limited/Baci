@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createRouteProof,
+  enforceEventPrizeGuard,
+  enforceQuizAgeGate,
   requireQuizCsrf,
   requireQuizUser,
 } from '@/app/api/quiz/_shared/route-helpers';
+import { QuizAgeGateError } from '@/app/api/quiz/_shared/route-helpers-guards';
 import { resolveQuizDevice } from '@/lib/quiz/quiz-device-hash';
 import { postQuizStartV2 } from './v2-route';
 
@@ -15,6 +18,8 @@ vi.mock('@/app/api/quiz/_shared/route-helpers', async () => {
   return {
     ...actual,
     createRouteProof: vi.fn(),
+    enforceEventPrizeGuard: vi.fn(actual.enforceEventPrizeGuard),
+    enforceQuizAgeGate: vi.fn(actual.enforceQuizAgeGate),
     requireQuizCsrf: vi.fn(),
     requireQuizUser: vi.fn(),
   };
@@ -153,5 +158,28 @@ describe('v2 quiz start route', () => {
       (await postQuizStartV2(request({ deviceFingerprint: FINGERPRINT })))
         .status
     ).toBe(400);
+  });
+
+  it('returns a clear age-restricted response before attempting the v2 RPC', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    const rpc = authenticated();
+    vi.mocked(enforceEventPrizeGuard).mockResolvedValueOnce({
+      merchantId: 'merchant-1',
+    });
+    vi.mocked(enforceQuizAgeGate).mockRejectedValueOnce(
+      new QuizAgeGateError('Quiz participation is age restricted')
+    );
+
+    const response = await postQuizStartV2(request({}));
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'quiz_age_restricted',
+      error: 'Quiz participation requires an adult profile (18+)',
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      expect.stringMatching(/^start_quiz_attempt/),
+      expect.anything()
+    );
   });
 });

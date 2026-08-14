@@ -7,12 +7,13 @@ import type {
   QuizLaunchInput,
 } from './quiz-admin-actions';
 import type { QuizDraftConfiguration } from './quiz-authoring-form';
+import { formatQuizDuration } from './quiz-duration';
 
 function timingSummary(configuration: QuizDraftConfiguration): string {
   if (configuration.timingKind === 'scheduled') {
     return `${new Date(configuration.scheduledStart).toLocaleString()} to ${new Date(configuration.scheduledEnd).toLocaleString()}`;
   }
-  return `Immediately, closing ${configuration.liveWindowMinutes} minutes later`;
+  return `Immediately, closing after ${formatQuizDuration(configuration.totalQuizDurationSeconds)}`;
 }
 
 export function QuizLaunchDialog({
