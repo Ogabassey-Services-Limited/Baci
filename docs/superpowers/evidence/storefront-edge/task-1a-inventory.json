@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "51da77acda21a54b1f3880d70b4a91e18ce55684",
+  "originMainSha": "60a05d1cf0b8cd6c9c1fd847583176d461ad888c",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "7e1d3cdcad9309e40660bb9ff46af0ef053386a77ad89b4839136fcbf90f1a70",
-  "routingProxyInputSha256": "95b507ce21fa3cbcb3aff7557d54757636dfe64ad87130e1c6e3901fb879d5f4",
+  "routingProxyInputSha256": "08dda86106fc67e8ba72780f5d4936cb540b54f22e29e51dc2787b188233ad3e",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -2278,13 +2278,45 @@
       },
       "id": "automatic-subresource:negotiation-evidence-upload",
       "methods": [
+        "PUT",
+        "OPTIONS"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/negotiation-evidence.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:new-template-checkout-mastercard",
+      "methods": [
         "GET",
         "HEAD"
       ],
       "reason": "browser_external_media_request",
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
-      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/negotiation-evidence.ts"
+      "sourcePath": "apps/web/src/components/storefront/new-template/checkout-page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:new-template-footer-noise",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/new-template/footer.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -3182,6 +3214,37 @@
           "login",
           "onboarding",
           "signup"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-host-platform-route",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "retired_subdomain_platform_route_redirect",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "auth",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "onboarding",
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
         ],
         "precedence": "before_path_decision",
         "predicate": "first_segment_allowlist"
@@ -7643,5 +7706,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "f77b85c409176d9c468d3f7a8481d571d91692c3d2c2cfb9a24cce7fbef55e46"
+  "inventorySha256": "89c3a47c84b2d2150fc64143f1bc66da905fdd7868e93627060d1b87d80e4345"
 }

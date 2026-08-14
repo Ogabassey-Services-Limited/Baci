@@ -21,6 +21,7 @@ describe('storefront edge routing input paths', () => {
         'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx',
         'apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx',
         'apps/web/src/components/analytics/google-analytics.tsx',
+        'apps/web/src/components/storefront/new-template/footer.tsx',
       ])
     );
   });

@@ -96,6 +96,36 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
     }
   ),
   proxyClass(
+    'proxy:retired-host-platform-route',
+    '/{platformRoutePrefix}/{*path?}',
+    ['ANY'],
+    'edge_redirect',
+    'retired_subdomain_platform_route_redirect',
+    {
+      hostCondition: {
+        hostKind: 'retired_platform_subdomain_alias',
+        precedence: 'before_path_decision',
+      },
+      pathCondition: {
+        firstSegmentIn: [
+          'auth',
+          'builder',
+          'dashboard',
+          'forgot-password',
+          'login',
+          'onboarding',
+          'reset-password',
+          'signup',
+          'staff',
+          'update-password',
+          'verify',
+        ],
+        precedence: 'before_path_decision',
+        predicate: 'first_segment_allowlist',
+      },
+    }
+  ),
+  proxyClass(
     'proxy:retired-slug-host',
     '/{*storefrontPath?}',
     ['GET', 'HEAD'],

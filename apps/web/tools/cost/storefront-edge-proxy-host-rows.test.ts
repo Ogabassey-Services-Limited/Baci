@@ -46,5 +46,22 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
         },
       })
     );
+  it('redirects platform routes on retired subdomain aliases before storefront paths', () => {
+    const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
+      ({ id }) => id === 'proxy:retired-host-platform-route'
+    );
+    expect(row).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        hostCondition: {
+          hostKind: 'retired_platform_subdomain_alias',
+          precedence: 'before_path_decision',
+        },
+        pathCondition: expect.objectContaining({
+          firstSegmentIn: expect.arrayContaining(['login', 'dashboard']),
+          predicate: 'first_segment_allowlist',
+        }),
+      })
+    );
   });
 });

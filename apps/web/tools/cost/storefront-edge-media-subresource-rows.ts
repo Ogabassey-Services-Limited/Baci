@@ -126,7 +126,18 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
   mediaSubresource(
     'negotiation-evidence-upload',
     'configured_supabase_storage_upload_origin',
-    'apps/web/src/components/storefront/ogabassey/components/negotiation-evidence.ts'
+    'apps/web/src/components/storefront/ogabassey/components/negotiation-evidence.ts',
+    ['PUT', 'OPTIONS']
+  ),
+  mediaSubresource(
+    'new-template-checkout-mastercard',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/new-template/checkout-page.tsx'
+  ),
+  mediaSubresource(
+    'new-template-footer-noise',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/new-template/footer.tsx'
   ),
   mediaSubresource(
     'klump',

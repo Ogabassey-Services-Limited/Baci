@@ -22,7 +22,7 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
-      ...Array.from({ length: 9 }, () => ({
+      ...Array.from({ length: 11 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
@@ -42,7 +42,17 @@ describe('external storefront media inventory', () => {
         'configured_google_store_widget_origin',
         'configured_google_store_badge_origin',
         'configured_google_customer_reviews_origin',
-        'configured_supabase_storage_upload_origin',
+      ].map((hostKind) => ({
+        decision: 'origin_dynamic',
+        hostKind,
+        methods: ['GET', 'HEAD'],
+      })),
+      {
+        decision: 'origin_dynamic',
+        hostKind: 'configured_supabase_storage_upload_origin',
+        methods: ['PUT', 'OPTIONS'],
+      },
+      ...[
         'configured_klump_origin',
         'configured_paystack_asset_origin',
         'configured_korapay_origin',
@@ -91,6 +101,21 @@ describe('external storefront media inventory', () => {
       expect.objectContaining({
         methods: ['GET', 'HEAD', 'POST'],
         sourcePath: 'apps/web/src/components/analytics/google-analytics.tsx',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:new-template-checkout-mastercard')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/new-template/checkout-page.tsx',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:negotiation-evidence-upload')
+    ).toEqual(
+      expect.objectContaining({
+        methods: ['PUT', 'OPTIONS'],
       })
     );
   });

@@ -56,6 +56,7 @@ export const STOREFRONT_EDGE_INVENTORY_ROUTING_INPUT_PATHS = [
   'apps/web/src/components/storefront/ogabassey/components/CheckoutIdentityModal.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/quiz-page-data.ts',
   'apps/web/src/components/storefront/new-template/checkout-page.tsx',
+  'apps/web/src/components/storefront/new-template/footer.tsx',
   'apps/web/src/components/storefront/RepairBookingWizard.tsx',
   'apps/web/src/config/storefront-agent-routes.ts',
   'apps/web/src/config/storefront-cache.ts',
