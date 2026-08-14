@@ -47,6 +47,36 @@ describe('shouldIncludeProductSchemaSpec camera policies', () => {
       )
     ).toBe(true);
   });
+
+  it('retains cellular specifications for network connectivity devices', () => {
+    for (const candidate of [
+      { key: 'network_technology', value: '5G NR' },
+      { key: 'sim_type', value: 'Nano-SIM' },
+    ]) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Cellular Routers', categories: null },
+          candidate
+        )
+      ).toBe(true);
+    }
+
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { key: 'network_technology', value: '5G NR' }
+      )
+    ).toBe(false);
+  });
+
+  it('retains dash cam front camera resolution in keyed specifications', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Dash Cams', categories: null },
+        { key: 'front_camera_mp', value: 12 }
+      )
+    ).toBe(true);
+  });
   it('retains generic wireless connectivity rows without inferring charging', () => {
     expect(
       shouldIncludeProductSchemaSpec(

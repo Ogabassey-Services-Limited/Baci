@@ -37,4 +37,8 @@ describe('isUnsupportedSpecValue', () => {
   it('retains identifiers beginning with the No. abbreviation', () => {
     expect(isUnsupportedSpecValue('No. 1234')).toBe(false);
   });
+
+  it('retains descriptive values that begin with No', () => {
+    expect(isUnsupportedSpecValue('No crop 4K video')).toBe(false);
+  });
 });

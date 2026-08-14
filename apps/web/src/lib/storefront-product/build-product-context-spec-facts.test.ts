@@ -171,4 +171,21 @@ describe('buildProductContextSpecFacts', () => {
       )
     ).toContain('Recommended for: Photography, Travel');
   });
+
+  it('ranks recommendations before the five-fact cutoff for populated mobiles', () => {
+    expect(
+      buildProductContextSpecFacts(
+        {
+          ram_gb: 8,
+          storage_gb: 256,
+          battery_mah: 4000,
+          has_5g: true,
+          display_type: 'AMOLED',
+          screen_size_inches: 6.7,
+          recommended_for: ['Photography'],
+        },
+        'Smartphones'
+      )
+    ).toContain('Recommended for: Photography');
+  });
 });

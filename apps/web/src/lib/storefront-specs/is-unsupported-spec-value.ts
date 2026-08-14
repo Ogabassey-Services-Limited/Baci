@@ -19,6 +19,26 @@ const UNSUPPORTED_SPEC_VALUES = new Set([
   'unavailable',
 ]);
 
+const DESCRIPTIVE_NO_PREFIXES =
+  /^(?:crop|built[- ]?in|internal|external|digital|optical|wireless|dual|triple|quad|mono|stereo|hdr|4k|8k)\b/;
+
+function isNegativeCapabilityPhrase(normalized: string) {
+  if (/^not\s+(?:supported|available|known|specified)\b/.test(normalized)) {
+    return true;
+  }
+
+  if (normalized === 'no') {
+    return true;
+  }
+
+  const noPrefixMatch = normalized.match(/^no\s+(.+)$/);
+  if (!noPrefixMatch) {
+    return false;
+  }
+
+  return !DESCRIPTIVE_NO_PREFIXES.test(noPrefixMatch[1].trim());
+}
+
 export function isUnsupportedSpecValue(value: unknown) {
   if (typeof value === 'boolean') {
     return !value;
@@ -39,8 +59,6 @@ export function isUnsupportedSpecValue(value: unknown) {
     normalized.startsWith('confirm exact') ||
     normalized.startsWith('not listed') ||
     normalized.startsWith('not published') ||
-    /^(?:no(?:\s+|$)|not\s+(?:supported|available|known|specified)\b)/.test(
-      normalized
-    )
+    isNegativeCapabilityPhrase(normalized)
   );
 }

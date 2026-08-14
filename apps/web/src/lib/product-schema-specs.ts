@@ -8,6 +8,7 @@ import { PHONE_ONLY_SPEC_LABELS } from './product-schema-spec-label-policy';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
+import { isNetworkDeviceCategory } from './storefront-specs/is-network-device-category';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 
 interface ProductSchemaSpecCandidate {
@@ -59,6 +60,12 @@ const COMPUTER_CELLULAR_SPEC_KEYS = new Set([
   'sim_type',
 ]);
 
+const NETWORK_DEVICE_CELLULAR_SPEC_KEYS = new Set([
+  'has_5g',
+  'network_technology',
+  'sim_type',
+]);
+
 const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
 
 /**
@@ -94,6 +101,7 @@ export function shouldIncludeProductSchemaSpec(
   const isRadioLikeCategory = categoryNames.some((category) =>
     /\b(?:car stereo|radio|radios|audio|stereo)s?\b/.test(category)
   );
+  const isNetworkDevice = categoryNames.some(isNetworkDeviceCategory);
   const isAudioCategory = categoryNames.some((category) =>
     /\b(?:audio|speaker|speakers|headphones|earbuds|earphones)\b/.test(category)
   );
@@ -222,7 +230,8 @@ export function shouldIncludeProductSchemaSpec(
     hasCameraCategory &&
     cameraSpecKey &&
     !CAMERA_KEY_SPEC_KEYS.has(cameraSpecKey) &&
-    !AUDIO_CAPABILITY_SPEC_KEYS.has(cameraSpecKey)
+    !AUDIO_CAPABILITY_SPEC_KEYS.has(cameraSpecKey) &&
+    !(isDashCamCategory && cameraSpecKey === 'front_camera_mp')
   ) {
     return false;
   }
@@ -262,6 +271,13 @@ export function shouldIncludeProductSchemaSpec(
     }
 
     if (canonicalSpecKey === 'android_version' && isOperatingSystemLabel) {
+      return true;
+    }
+
+    if (
+      isNetworkDevice &&
+      NETWORK_DEVICE_CELLULAR_SPEC_KEYS.has(canonicalSpecKey)
+    ) {
       return true;
     }
 

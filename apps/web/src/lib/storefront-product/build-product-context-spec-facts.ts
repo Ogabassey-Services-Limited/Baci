@@ -37,6 +37,7 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
     platform: 'Platform',
   },
 };
+const CONTEXT_ONLY_PRIORITY_KEYS = new Set(['recommended_for']);
 const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
   ProductSpecFamily,
   Record<string, number>
@@ -152,14 +153,17 @@ export function buildProductContextSpecFacts(
         field?.label ||
         contextLabel ||
         humanizeSpecKey(key);
+      const contextPriority = FAMILY_CONTEXT_SPEC_PRIORITIES[family][key];
       return [
         {
           key,
           priority:
             fieldPriorityByKey.get(key) ??
-            orderedFields.length +
-              (FAMILY_CONTEXT_SPEC_PRIORITIES[family][key] ??
-                Number.MAX_SAFE_INTEGER),
+            (CONTEXT_ONLY_PRIORITY_KEYS.has(key) &&
+            contextPriority !== undefined
+              ? contextPriority
+              : orderedFields.length +
+                (contextPriority ?? Number.MAX_SAFE_INTEGER)),
           text: `${label}: ${normalized}`,
         },
       ];
