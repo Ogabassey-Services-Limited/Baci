@@ -34,6 +34,7 @@ interface QuizResultsPanelProps {
   expectedUserId?: string | null;
   legacyResult: QuizResult | null;
   lifecycle: QuizV2LifecycleStatus;
+  onReturnToQuizList?: () => void;
   serverNow?: string | null;
   styles: QuizStyles;
   v2Result: QuizV2Result | null;
@@ -45,6 +46,7 @@ export function QuizResultsPanel({
   expectedUserId = null,
   legacyResult,
   lifecycle,
+  onReturnToQuizList,
   serverNow = null,
   styles,
   v2Result,
@@ -180,6 +182,23 @@ export function QuizResultsPanel({
               </View>
             </>
           ) : null}
+          {onReturnToQuizList && lifecycle !== 'pending_results' ? (
+            <View style={styles.resultActionBox}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Return to quiz list"
+                onPress={onReturnToQuizList}
+                style={styles.resultAction}
+              >
+                <Text style={styles.secondaryButtonText}>Back to quizzes</Text>
+                <Ionicons
+                  name="arrow-back"
+                  size={20}
+                  color={styles.secondaryButtonText.color}
+                />
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     );
@@ -210,6 +229,23 @@ export function QuizResultsPanel({
               : 'Practice result only'}
           </Text>
         )}
+        {onReturnToQuizList ? (
+          <View style={styles.resultActionBox}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Return to quiz list"
+              onPress={onReturnToQuizList}
+              style={styles.resultAction}
+            >
+              <Text style={styles.secondaryButtonText}>Back to quizzes</Text>
+              <Ionicons
+                name="arrow-back"
+                size={20}
+                color={styles.secondaryButtonText.color}
+              />
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     </ScrollView>
   );
