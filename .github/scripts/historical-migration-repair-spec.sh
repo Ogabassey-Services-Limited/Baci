@@ -23,6 +23,9 @@ historical_migration_repair_spec() {
     20260801142200:cleanup_unowned_gigl_monitor_backfill)
       printf '%s\t%s\t%s\n' '20260804000500' 'repair_gigl_monitor_backfill_join' '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a'
       ;;
+    20260811135000:harden_paystack_chat_order_relationship)
+      printf '%s\t%s\t%s\n' '20260813192730' 'repair_harden_paystack_chat_order_relationship' '210c24070e7295dcdec19e10d33dd456a1dbc24891812cc74b4bfddeff808456'
+      ;;
     *) return 1 ;;
   esac
 }
@@ -53,9 +56,6 @@ historical_collision_repair_spec() {
     20260811120000:quiz_leaderboard_and_claim_projections_v2 | \
     20260811120000:allow_reviewed_paystack_email_mismatch)
       printf '%s\t%s\n' '20260813144355' 'reapply_allow_reviewed_paystack_email_mismatch'
-      ;;
-    20260811135000:harden_paystack_chat_order_relationship)
-      printf '%s\t%s\t%s\n' '20260813192730' 'repair_harden_paystack_chat_order_relationship' '27ef63c9838aa43f72f176453014371e9ff747a51ed8ee3dad21ecd8d4635794'
       ;;
     *) return 1 ;;
   esac
