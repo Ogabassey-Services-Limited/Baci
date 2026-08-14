@@ -57,11 +57,13 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Incredible speed and battery life.');
   });
 
-  it('returns an empty string when "Why Worth" paragraph contains only specification sentences', () => {
+  it('falls through to second paragraph when "Why Worth" paragraph contains only specification sentences', () => {
     const html =
-      '<h2>Why It is Worth Buying</h2><p>Storage: 2TB PCIe NVMe SSD. RAM: 64GB. Warranty: 1 Year.</p>';
+      '<h2>Why It Is Worth Buying</h2><p>Storage: 2TB PCIe NVMe SSD. RAM: 64GB.</p><p>Built for reliable all-day performance and intense creative workflows.</p>';
     const result = buildDescriptionExcerpt(html);
-    expect(result).toBe('');
+    expect(result).toBe(
+      'Built for reliable all-day performance and intense creative workflows.'
+    );
   });
 
   it('falls back to the second paragraph when no "Why Worth" H2 is present', () => {
@@ -77,11 +79,28 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('A premium flagship phone.');
   });
 
-  it('returns an empty string when second paragraph contains only specification sentences', () => {
+  it('falls through to plain text when second paragraph contains only specification sentences', () => {
     const html =
-      '<p>First paragraph.</p><p>Storage: 1TB NVMe. RAM: 16GB. Condition: Open Box.</p>';
+      '<p>Storage: 1TB NVMe. RAM: 16GB. Condition: Open Box.</p><p>Storage: 1TB. RAM: 16GB.</p>Engineered for maximum portability with long battery endurance.';
     const result = buildDescriptionExcerpt(html);
-    expect(result).toBe('');
+    expect(result).toBe(
+      'Engineered for maximum portability with long battery endurance.'
+    );
+  });
+
+  it('preserves feature-heading prose lines that are not raw specs', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Camera: Capture every detail in vivid color, day or night.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe(
+      'Camera: Capture every detail in vivid color, day or night.'
+    );
+  });
+
+  it('preserves short concise single-sentence plain-text descriptions', () => {
+    const description = 'Premium quality for everyday use.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Premium quality for everyday use.');
   });
 
   it('falls back to plain text sentences (3rd–5th) when no paragraph structure matches', () => {

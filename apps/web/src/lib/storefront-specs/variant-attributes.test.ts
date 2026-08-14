@@ -244,18 +244,34 @@ describe('storefront variant attribute helpers', () => {
     });
   });
 
-  it('filters out non-variant metadata axes like availability notes, disclaimers, and warranty attributes', () => {
+  it('filters out non-variant metadata axes while preserving legitimate SKU dimensions with similar names', () => {
     const variants = [
       {
         attributes: {
           Storage: '2TB',
           RAM: '64GB',
+          'Notebook Size': '16 inch',
+          'Extended Warranty': '2 Years',
           'Availability note':
             'Confirm selected variant price and availability before checkout',
           Disclaimer: 'All sales final',
           'Delivery Notice': 'Ships in 24h',
           Warranty: '1 Year Warranty',
-          'Warranty Period': '12 Months',
+          'Warranty Note': 'Covers parts only',
+        },
+      },
+      {
+        attributes: {
+          Storage: '1TB',
+          RAM: '32GB',
+          'Notebook Size': '14 inch',
+          'Extended Warranty': '1 Year',
+          'Availability note':
+            'Confirm selected variant price and availability before checkout',
+          Disclaimer: 'All sales final',
+          'Delivery Notice': 'Ships in 24h',
+          Warranty: '1 Year Warranty',
+          'Warranty Note': 'Covers parts only',
         },
       },
     ];
@@ -263,16 +279,20 @@ describe('storefront variant attribute helpers', () => {
       'Availability note': [
         'Confirm selected variant price and availability before checkout',
       ],
-      Warranty: ['1 Year Warranty', '2 Year Extended Warranty'],
-      'Warranty Period': ['12 Months', '24 Months'],
+      Warranty: ['1 Year Warranty'],
+      'Warranty Note': ['Covers parts only'],
     };
 
     const axes = getRenderableVariantAxes(variants, fallbackOptions);
 
-    expect(axes).toEqual(['storage', 'ram']);
+    expect(axes).toContain('storage');
+    expect(axes).toContain('ram');
+    expect(axes).toContain('notebook_size');
+    expect(axes).toContain('extended_warranty');
     expect(axes).not.toContain('warranty');
-    expect(axes).not.toContain('warranty_period');
+    expect(axes).not.toContain('warranty_note');
     expect(axes).not.toContain('availability_note');
     expect(axes).not.toContain('disclaimer');
+    expect(axes).not.toContain('delivery_notice');
   });
 });

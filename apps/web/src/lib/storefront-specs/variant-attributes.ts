@@ -1,4 +1,5 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import { isRenderableVariantAxis } from './non-renderable-variant-axes';
 
 interface VariantAttributeDefinition {
   options?: unknown;
@@ -154,40 +155,6 @@ function getVariantAxisValue(
   return normalizedAttributes[axis];
 }
 
-const NON_RENDERABLE_VARIANT_AXES = new Set([
-  'color',
-  'colour',
-  'color_hex',
-  'colour_hex',
-  'availability_note',
-  'availability',
-  'note',
-  'notes',
-  'disclaimer',
-  'disclaimers',
-  'warranty',
-  'warranty_note',
-  'notice',
-]);
-
-function isRenderableVariantAxis(axis: string, options: string[]) {
-  if (
-    NON_RENDERABLE_VARIANT_AXES.has(axis) ||
-    axis.includes('note') ||
-    axis.includes('disclaimer') ||
-    axis.includes('notice') ||
-    axis.includes('warranty')
-  ) {
-    return false;
-  }
-
-  if (axis === 'condition') {
-    return options.length > 1;
-  }
-
-  return options.length > 0;
-}
-
 export function mergeVariantAxisOptions(
   variants: VariantAttributeCarrier[] | null | undefined,
   source: VariantAttributeSource,
@@ -279,7 +246,7 @@ export function getRenderableVariantAxes(
   return Object.entries(
     mergeVariantAxisOptions(variants, source, fallbackCondition)
   )
-    .filter(([axis, options]) => isRenderableVariantAxis(axis, options))
+    .filter(([axis, options]) => isRenderableVariantAxis(axis, options.length))
     .sort(([leftAxis], [rightAxis]) => {
       const leftPriority = priorityOrder.indexOf(leftAxis);
       const rightPriority = priorityOrder.indexOf(rightAxis);

@@ -3,28 +3,11 @@ import {
   normalizeCanonicalProductCondition,
 } from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
+import { isRenderableVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
-
-// Color is represented by product imagery, color_hex is swatch metadata,
-// and informational notes/disclaimers/warranties should not be rendered as variant selectors.
-const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
-  'color',
-  'colour',
-  'color_hex',
-  'colour_hex',
-  'availability_note',
-  'availability',
-  'note',
-  'notes',
-  'disclaimer',
-  'disclaimers',
-  'warranty',
-  'warranty_note',
-  'notice',
-]);
 
 export function formatVariantAxisLabel(axis: string) {
   const labels: Record<string, string> = {
@@ -111,24 +94,8 @@ function isRenderableCriticalVariantAxis(
   variants: CartProduct['variants'],
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
-  if (
-    !axis ||
-    NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis) ||
-    axis.includes('note') ||
-    axis.includes('disclaimer') ||
-    axis.includes('notice') ||
-    axis.includes('warranty')
-  ) {
-    return false;
-  }
-
   const options = getVariantAxisOptions(variants, axis, fallbackAxisOptions);
-
-  if (axis === 'condition') {
-    return options.length > 1;
-  }
-
-  return options.length > 0;
+  return isRenderableVariantAxis(axis, options.length);
 }
 
 export function getRenderableCriticalVariantAxes(

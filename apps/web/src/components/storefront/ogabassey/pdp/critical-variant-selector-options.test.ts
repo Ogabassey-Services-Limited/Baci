@@ -216,4 +216,62 @@ describe('critical variant selector options', () => {
       )
     ).toEqual(['PS5']);
   });
+
+  it('filters out non-variant metadata axes while preserving legitimate SKU dimensions', () => {
+    const rawAxes = [
+      'storage',
+      'notebook_size',
+      'extended_warranty',
+      'availability_note',
+      'warranty',
+      'warranty_note',
+      'disclaimer',
+      'delivery_notice',
+    ];
+    const testVariants = [
+      {
+        attributes: {
+          availability_note: 'Confirm selected variant price',
+          delivery_notice: 'Ships fast',
+          disclaimer: 'Final sale',
+          extended_warranty: '2 Years',
+          notebook_size: '16 inch',
+          storage: '2TB',
+          warranty: '1 Year Warranty',
+          warranty_note: 'Parts only',
+        },
+        id: 'v1',
+        merchant_id: 'm1',
+        product_id: 'p1',
+        stock_quantity: 10,
+      },
+    ];
+    const variantAxisOptions = {
+      availability_note: ['Confirm selected variant price'],
+      delivery_notice: ['Ships fast'],
+      disclaimer: ['Final sale'],
+      extended_warranty: ['2 Years'],
+      notebook_size: ['16 inch'],
+      storage: ['2TB'],
+      warranty: ['1 Year Warranty'],
+      warranty_note: ['Parts only'],
+    };
+
+    const renderableVariantAxes = getRenderableCriticalVariantAxes(
+      rawAxes,
+      testVariants,
+      variantAxisOptions
+    );
+
+    expect(renderableVariantAxes).toEqual([
+      'storage',
+      'notebook_size',
+      'extended_warranty',
+    ]);
+    expect(renderableVariantAxes).not.toContain('availability_note');
+    expect(renderableVariantAxes).not.toContain('warranty');
+    expect(renderableVariantAxes).not.toContain('warranty_note');
+    expect(renderableVariantAxes).not.toContain('disclaimer');
+    expect(renderableVariantAxes).not.toContain('delivery_notice');
+  });
 });
