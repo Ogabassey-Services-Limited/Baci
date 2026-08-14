@@ -67,6 +67,7 @@ function buildWeightLabel(input: FeedDescriptionInput) {
   if (
     typeof shippingWeight === 'number' &&
     Number.isFinite(shippingWeight) &&
+    shippingWeight > 0 &&
     input.weight_unit
   ) {
     return `${shippingWeight}${input.weight_unit}`;

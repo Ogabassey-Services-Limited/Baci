@@ -19,11 +19,41 @@ const PROPERTY_NAME_ALIASES: Record<string, string> = {
 };
 
 const PROPERTY_ID_ALIASES: Record<string, string> = {
-  ram_gb: 'ram',
-  storage_gb: 'internal storage',
-  display_ppi: 'pixel density',
-  display_resolution: 'display resolution',
-  display_peak_brightness: 'peak brightness',
+  android_version: 'Operating System',
+  battery_mah: 'Battery Capacity',
+  bluetooth_version: 'Bluetooth',
+  build_materials: 'Build',
+  card_slot_type: 'Card Slot',
+  charging_watt: 'Fast Charging',
+  chipset: 'Chipset',
+  cpu_cores: 'CPU',
+  dimensions_mm: 'Dimensions',
+  display_peak_brightness: 'Peak Brightness',
+  display_ppi: 'Pixel Density',
+  display_resolution: 'Display Resolution',
+  display_type: 'Display Type',
+  fingerprint_type: 'Fingerprint Sensor',
+  front_camera_mp: 'Selfie Camera',
+  gpu: 'GPU',
+  has_5g: '5G Support',
+  has_fm_radio: 'FM Radio',
+  has_headphone_jack: '3.5mm Headphone Jack',
+  has_nfc: 'NFC',
+  has_ois: 'OIS',
+  has_stereo_speakers: 'Speakers',
+  ip_rating: 'IP Rating',
+  main_camera_mp: 'Main Camera',
+  network_technology: 'Network Technology',
+  ram_gb: 'RAM',
+  rear_camera_video: 'Video Recording',
+  refresh_rate_hz: 'Refresh Rate',
+  screen_size_inches: 'Screen Size',
+  sim_type: 'SIM Type',
+  storage_gb: 'Internal Storage',
+  usb_type: 'USB',
+  weight_g: 'Weight',
+  wifi_bands: 'WiFi',
+  wireless_charging_watt: 'Wireless Charging',
 };
 
 function normalizePropertyText(value: unknown) {
@@ -58,9 +88,14 @@ function getCanonicalPropertyName(name: string) {
 }
 
 function getCanonicalPropertyId(propertyId: string) {
-  return getCanonicalPropertyName(
-    PROPERTY_ID_ALIASES[propertyId] || propertyId
+  const normalizedPropertyId = canonicalizeText(propertyId).replace(
+    /\s+/g,
+    '_'
   );
+  const aliasedName =
+    PROPERTY_ID_ALIASES[normalizedPropertyId] ??
+    PROPERTY_ID_ALIASES[propertyId];
+  return getCanonicalPropertyName(aliasedName ?? propertyId);
 }
 
 function serializePropertyValue(value: unknown): string | null {

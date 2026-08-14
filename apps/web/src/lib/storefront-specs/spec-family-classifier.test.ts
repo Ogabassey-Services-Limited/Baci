@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { isAccessoryLikeCategory } from './spec-accessory-classifier';
 import { getProductSpecFamily } from './spec-family-classifier';
 
 describe('spec family classifier', () => {
@@ -47,5 +48,14 @@ describe('spec family classifier', () => {
     expect(getProductSpecFamily('google_pixel')).toBe('mobile');
     expect(getProductSpecFamily('google-pixel-cases')).toBe('general');
     expect(getProductSpecFamily('google_pixel_accessories')).toBe('general');
+  });
+
+  it('classifies fitness trackers as mobile wearables', () => {
+    expect(getProductSpecFamily('Fitness Trackers')).toBe('mobile');
+  });
+
+  it('treats controllers as accessory-like categories', () => {
+    expect(isAccessoryLikeCategory('Controllers')).toBe(true);
+    expect(getProductSpecFamily('Controllers')).toBe('general');
   });
 });

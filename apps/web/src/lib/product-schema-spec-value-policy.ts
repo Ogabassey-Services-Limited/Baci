@@ -72,19 +72,35 @@ function isMeasurementSpec(
   );
 }
 
-function hasMalformedMeasurementText(value: unknown) {
+function hasMalformedMeasurementText(
+  value: unknown,
+  canonicalSpecKey?: string
+) {
   if (typeof value !== 'string') {
     return false;
   }
 
   const normalized = value.trim().toLowerCase();
   const numericComponents = normalized.match(/[+-]?(?:\d+(?:\.\d*)?|\.\d+)/g);
-  return (
+  if (
     /\b(?:nan|[+-]?infinity)\b/.test(normalized) ||
-    /^-\s*\d/.test(normalized) ||
-    (numericComponents?.length !== undefined &&
-      numericComponents.every((component) => Number(component) <= 0))
-  );
+    /^-\s*\d/.test(normalized)
+  ) {
+    return true;
+  }
+
+  if (!numericComponents?.length) {
+    return false;
+  }
+
+  if (
+    canonicalSpecKey === 'dimensions_mm' ||
+    canonicalSpecKey === 'display_resolution'
+  ) {
+    return numericComponents.some((component) => Number(component) <= 0);
+  }
+
+  return numericComponents.every((component) => Number(component) <= 0);
 }
 
 export function getProductSchemaSpecValueDecision({
@@ -121,7 +137,7 @@ export function getProductSchemaSpecValueDecision({
   if (
     measurementSpec &&
     ((typeof value === 'number' && value <= 0) ||
-      hasMalformedMeasurementText(value))
+      hasMalformedMeasurementText(value, canonicalSpecKey))
   ) {
     return 'exclude';
   }

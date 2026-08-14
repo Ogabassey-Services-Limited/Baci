@@ -30,6 +30,28 @@ describe('getProductSchemaSpecValueDecision', () => {
         value: '0 x 0 x 0 mm',
       })
     ).toBe('exclude');
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'dimensions_mm',
+        hasCategory: true,
+        isExplicitSpecKey: true,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'dimensions',
+        value: '150 x -70 x 8 mm',
+      })
+    ).toBe('exclude');
+    expect(
+      getProductSchemaSpecValueDecision({
+        canonicalSpecKey: 'display_resolution',
+        hasCategory: true,
+        isExplicitSpecKey: true,
+        isMobileCategory: true,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'display resolution',
+        value: '1920 x 0',
+      })
+    ).toBe('exclude');
   });
 
   it('keeps measurements with a valid value and an auxiliary zero endpoint', () => {

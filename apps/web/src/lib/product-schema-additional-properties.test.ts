@@ -96,6 +96,20 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
     ]);
   });
 
+  it('canonicalizes keyed live property IDs before deduplicating custom values', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.add('Battery Capacity', '5000mAh');
+    collector.addCustomProperty({
+      propertyID: 'battery_mah',
+      value: '4000mAh',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      { '@type': 'PropertyValue', name: 'Battery Capacity', value: '5000mAh' },
+    ]);
+  });
+
   it('accepts a singleton custom PropertyValue and rejects non-PropertyValue types', () => {
     const collector = createProductSchemaAdditionalPropertyCollector();
 

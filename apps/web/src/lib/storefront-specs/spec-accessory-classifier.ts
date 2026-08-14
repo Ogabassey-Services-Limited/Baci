@@ -7,6 +7,8 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'keyboard',
   'charger',
   'cover',
+  'controller',
+  'controllers',
   'stand',
   'cable',
   'adapter',

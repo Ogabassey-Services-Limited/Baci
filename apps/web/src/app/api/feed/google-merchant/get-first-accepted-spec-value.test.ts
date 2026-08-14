@@ -30,4 +30,10 @@ describe('getFirstAcceptedSpecValue', () => {
       getFirstAcceptedSpecValue({}, 'display_resolution', '2532 x 1170')
     ).toBe('2532 x 1170');
   });
+
+  it('ignores placeholder categories when deciding categoryless feed fallback', () => {
+    expect(
+      getFirstAcceptedSpecValue({ category: 'Unknown' }, 'ram_gb', 12)
+    ).toBe(12);
+  });
 });

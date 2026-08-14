@@ -22,7 +22,7 @@ export function getProductSpecFamily(
 
   if (
     !isAccessory &&
-    (/(^|[^a-z])(cell|iphone|ipad|phone|smartphone|tablet|smartwatch|wearable|watch|pad)(s)?([^a-z]|$)/.test(
+    (/(^|[^a-z])(cell|fitness tracker|iphone|ipad|phone|smartphone|tablet|smartwatch|wearable|watch|pad)(s)?([^a-z]|$)/.test(
       normalized
     ) ||
       normalized.includes('google pixel'))

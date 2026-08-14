@@ -24,6 +24,17 @@ describe('buildFeedDescription', () => {
     ).toContain('Weight: 45g');
   });
 
+  it('omits zero shipping weights from feed descriptions', () => {
+    expect(
+      buildFeedDescription({
+        name: 'Protective Phone Case',
+        category: 'Phone Cases',
+        weight_unit: 'kg',
+        weight_value: 0,
+      })
+    ).not.toContain('Weight: 0kg');
+  });
+
   it('appends the key phone specs Merchant Center flagged as missing', () => {
     const description = buildFeedDescription({
       name: 'iPhone 17 Pro Max',

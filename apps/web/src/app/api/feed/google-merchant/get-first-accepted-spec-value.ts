@@ -19,12 +19,17 @@ const CATEGORY_AGNOSTIC_FEED_SPEC_KEYS = new Set([
   'weight_g',
 ]);
 
+function isResolvableCategoryField(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return Boolean(trimmed && !isUnsupportedSpecValue(trimmed));
+}
+
 function hasResolvableFeedCategory(input: ProductSpecAcceptanceInput) {
-  return Boolean(
-    input.categories?.name?.trim() ||
-      input.categories?.slug?.trim() ||
-      input.category?.trim() ||
-      input.category_slug?.trim()
+  return (
+    isResolvableCategoryField(input.categories?.name) ||
+    isResolvableCategoryField(input.categories?.slug) ||
+    isResolvableCategoryField(input.category) ||
+    isResolvableCategoryField(input.category_slug)
   );
 }
 
