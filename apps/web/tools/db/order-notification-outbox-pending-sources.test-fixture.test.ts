@@ -8,6 +8,8 @@ describe('order notification outbox pending sources fixture', () => {
         expect.objectContaining({
           repositoryPath:
             'supabase/migrations/20260724153014_revoke_order_notification_outbox_claim_public_grants.sql',
+          sha256:
+            'e134f42fa59b595a9df9479572a9ddb862efd7a834ad62de091e39d8b55c1074',
         }),
       ])
     );

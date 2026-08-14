@@ -71,13 +71,13 @@ function commandWith(overrides: Partial<typeof outputs> = {}): ReplayCommand {
 
 describe('verifySupabaseReplayContract', () => {
   it('accepts only the frozen Task 3 toolchain', async () => {
-    await expect(
-      verifySupabaseReplayContract({
-        nodeVersion: outputs.node,
-        psqlBin: '/custom/PostgreSQL-18.3/bin/psql',
-        runCommand: commandWith(),
-      })
-    ).resolves.toEqual({
+    const contract = await verifySupabaseReplayContract({
+      nodeVersion: outputs.node,
+      psqlBin: '/custom/PostgreSQL-18.3/bin/psql',
+      runCommand: commandWith(),
+    });
+
+    expect(contract).toEqual({
       nodeMajor: 24,
       psqlBin: '/custom/PostgreSQL-18.3/bin/psql',
       serverVersionNum: 170006,
@@ -85,15 +85,15 @@ describe('verifySupabaseReplayContract', () => {
   });
 
   it('accepts the Ubuntu PostgreSQL 18.3 client suffix', async () => {
-    await expect(
-      verifySupabaseReplayContract({
-        nodeVersion: outputs.node,
-        psqlBin: '/usr/bin/psql',
-        runCommand: commandWith({
-          psql: 'psql (PostgreSQL) 18.3 (Ubuntu 18.3-1.pgdg24.04+1)\n',
-        }),
-      })
-    ).resolves.toEqual({
+    const contract = await verifySupabaseReplayContract({
+      nodeVersion: outputs.node,
+      psqlBin: '/usr/bin/psql',
+      runCommand: commandWith({
+        psql: 'psql (PostgreSQL) 18.3 (Ubuntu 18.3-1.pgdg24.04+1)\n',
+      }),
+    });
+
+    expect(contract).toEqual({
       nodeMajor: 24,
       psqlBin: '/usr/bin/psql',
       serverVersionNum: 170006,
