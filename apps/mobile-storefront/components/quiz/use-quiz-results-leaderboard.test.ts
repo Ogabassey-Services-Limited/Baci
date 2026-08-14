@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
@@ -13,6 +14,7 @@ jest.mock('@/services/quiz-leaderboard', () => ({
 describe('useQuizResultsLeaderboard', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -76,5 +78,47 @@ describe('useQuizResultsLeaderboard', () => {
       expect(result.current.leaderboard?.status).toBe('published')
     );
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(2);
+  });
+
+  it('pauses live standings refresh in the background and resumes in the foreground', async () => {
+    const listeners: Array<(state: AppStateStatus) => void> = [];
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        listeners.push(listener);
+        return { remove: jest.fn() };
+      });
+    jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
+      currentPlayer: null,
+      entries: [],
+      participantCount: 3,
+      status: 'live',
+    });
+    jest.useFakeTimers();
+
+    renderHook(() =>
+      useQuizResultsLeaderboard({
+        enabled: true,
+        eventHasEnded: false,
+        eventId: 'event-1',
+        expectedUserId: 'user-1',
+        lifecycle: 'pending_results',
+      })
+    );
+    await waitFor(() =>
+      expect(fetchQuizLiveLeaderboard).toHaveBeenCalledTimes(1)
+    );
+
+    act(() => listeners[0]?.('background'));
+    await act(async () => {
+      jest.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+    expect(fetchQuizLiveLeaderboard).toHaveBeenCalledTimes(1);
+
+    act(() => listeners[0]?.('active'));
+    await waitFor(() =>
+      expect(fetchQuizLiveLeaderboard).toHaveBeenCalledTimes(2)
+    );
   });
 });

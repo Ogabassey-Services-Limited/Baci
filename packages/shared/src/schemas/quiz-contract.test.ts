@@ -95,6 +95,28 @@ describe('quiz v2 wire contracts', () => {
     ).toBe(false);
   });
 
+  it('accepts the signed product prize claim on a final result', () => {
+    expect(
+      quizV2ResultResponseSchema.parse({
+        attemptId: ATTEMPT_ID,
+        availability: 'final',
+        availableAt: TIME,
+        prizeClaim: {
+          awardId: EVENT_ID,
+          cartPath:
+            '/ogabassey/cart?item_id=33333333-3333-4333-8333-333333333333',
+          condition: 'used',
+          productId: '33333333-3333-4333-8333-333333333333',
+          variantId: null,
+          voucherToken: 'signed-voucher',
+        },
+        rank: 1,
+        score: 20,
+        totalQuestions: 20,
+      })
+    ).toMatchObject({ availability: 'final', rank: 1 });
+  });
+
   it('models event cancellation as a terminal answer state without a result', () => {
     expect(
       quizV2AttemptResponseSchema.safeParse({

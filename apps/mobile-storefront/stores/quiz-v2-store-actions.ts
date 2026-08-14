@@ -1,5 +1,5 @@
 // biome-ignore format: Compact import keeps this coordinator within the module budget.
-import type { QuizActiveAttemptResponse, QuizV2Attempt } from '@/services/quiz-types';
+import type { QuizV2Attempt } from '@/services/quiz-types';
 import {
   initialQuizV2State,
   loadQuizRecoveryEnvelope,
@@ -7,6 +7,7 @@ import {
   type V2StartContext,
 } from './quiz-recovery-envelope';
 import { createQuizV2ExpiryAction } from './quiz-v2-expiry-action';
+import { createQuizV2RecoveryResponseApplier } from './quiz-v2-recovery-actions';
 import {
   clearRecoveredQuizAttempt,
   clearTerminalRecovery,
@@ -64,45 +65,10 @@ export function createQuizV2StoreActions({
     });
     await clearRecoveredQuizAttempt(access, attempt.eventId);
   };
-  const applyRecoveryResponse = async (
-    response: QuizActiveAttemptResponse,
-    fallback: QuizV2Attempt
-  ) => {
-    if (
-      response.availability === 'active' &&
-      response.attempt &&
-      isQuizOpenAtServerTime(response)
-    ) {
-      await apply(response.attempt);
-      return;
-    }
-    const expiredActive =
-      response.availability === 'active' && response.attempt;
-    const terminal =
-      expiredActive ||
-      response.availability === 'pending_results' ||
-      response.availability === 'cancelled';
-    if (terminal) {
-      set({
-        status: 'result',
-        v2Attempt: null,
-        v2LifecycleStatus:
-          response.availability === 'cancelled'
-            ? 'event_cancelled'
-            : 'pending_results',
-        terminalContext: createQuizTerminalContext(
-          fallback.attemptId,
-          fallback.eventId,
-          response.eventEndsAt ?? fallback.eventEndsAt,
-          response.serverNow ?? fallback.serverNow
-        ),
-        lockedOptionId: null,
-        expiryRetryable: false,
-        error: null,
-      });
-      await clearRecoveredQuizAttempt(access, fallback.eventId);
-    }
-  };
+  const applyRecoveryResponse = createQuizV2RecoveryResponseApplier({
+    access,
+    apply,
+  });
   const expireActiveEvent = createQuizV2ExpiryAction({
     access,
     applyRecoveryResponse,

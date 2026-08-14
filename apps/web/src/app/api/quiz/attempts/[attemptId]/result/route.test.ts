@@ -13,6 +13,27 @@ vi.mock('@/app/api/quiz/_shared/route-auth', async () => {
 vi.mock('@/lib/quiz/quiz-result-claim', () => ({
   createQuizResultClaimToken: vi.fn(),
 }));
+vi.mock('../answers/submit-answer-voucher', async () => {
+  const actual = await vi.importActual<
+    typeof import('../answers/submit-answer-voucher')
+  >('../answers/submit-answer-voucher');
+  return {
+    ...actual,
+    addSignedPrizeClaim: vi.fn((data: unknown) => {
+      if (!data || typeof data !== 'object') return data;
+      const row = data as { prizeClaim?: Record<string, unknown> };
+      return {
+        ...data,
+        prizeClaim: {
+          ...row.prizeClaim,
+          cartPath:
+            '/ogabassey/cart?item_id=44444444-4444-4444-8444-444444444444',
+          voucherToken: 'signed-voucher',
+        },
+      };
+    }),
+  };
+});
 
 const ATTEMPT_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = '22222222-2222-4222-8222-222222222222';
@@ -29,7 +50,10 @@ function context(attemptId = ATTEMPT_ID) {
   return { params: Promise.resolve({ attemptId }) };
 }
 
-function authenticated(result: { data: unknown; error: unknown }) {
+function authenticated(
+  result: { data: unknown; error: unknown },
+  award: { data: unknown; error: unknown } = { data: null, error: null }
+) {
   const rpc = vi.fn((name: string) =>
     Promise.resolve(
       name === 'quiz_runtime_contract_version'
@@ -37,10 +61,17 @@ function authenticated(result: { data: unknown; error: unknown }) {
         : result
     )
   );
+  const awardQuery = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue(award),
+    select: vi.fn(),
+  };
+  awardQuery.select.mockReturnValue(awardQuery);
+  awardQuery.eq.mockReturnValue(awardQuery);
   vi.mocked(requireQuizUser).mockResolvedValue({
     authMethod: 'bearer',
     response: null,
-    supabase: { rpc },
+    supabase: { from: vi.fn(() => awardQuery), rpc },
     user: { id: USER_ID },
   } as never);
   return rpc;
@@ -78,21 +109,33 @@ describe('v2 quiz result route', () => {
   });
 
   it('signs only bounded persisted winner metadata and strips internals', async () => {
-    authenticated({
-      data: {
-        attemptId: ATTEMPT_ID,
-        availability: 'final',
-        availableAt: AVAILABLE_AT,
-        claimMetadata: {
-          awardId: '33333333-3333-4333-8333-333333333333',
-          expiresAt: '2026-08-12T10:05:00.000Z',
+    authenticated(
+      {
+        data: {
+          attemptId: ATTEMPT_ID,
+          availability: 'final',
+          availableAt: AVAILABLE_AT,
+          claimMetadata: {
+            awardId: '33333333-3333-4333-8333-333333333333',
+            expiresAt: '2026-08-12T10:05:00.000Z',
+          },
+          rank: 1,
+          score: 20,
+          totalQuestions: 20,
         },
-        rank: 1,
-        score: 20,
-        totalQuestions: 20,
+        error: null,
       },
-      error: null,
-    });
+      {
+        data: {
+          condition: 'used',
+          created_at: '2026-08-05T10:05:00.000Z',
+          id: '33333333-3333-4333-8333-333333333333',
+          product_id: '44444444-4444-4444-8444-444444444444',
+          variant_id: null,
+        },
+        error: null,
+      }
+    );
     const response = await GET(request(), context());
     expect(await response.json()).toEqual({
       attemptId: ATTEMPT_ID,
@@ -101,6 +144,15 @@ describe('v2 quiz result route', () => {
       claim: {
         expiresAt: '2026-08-12T10:05:00.000Z',
         token: 'signed-claim',
+      },
+      prizeClaim: {
+        awardId: '33333333-3333-4333-8333-333333333333',
+        cartPath:
+          '/ogabassey/cart?item_id=44444444-4444-4444-8444-444444444444',
+        condition: 'used',
+        productId: '44444444-4444-4444-8444-444444444444',
+        variantId: null,
+        voucherToken: 'signed-voucher',
       },
       rank: 1,
       score: 20,

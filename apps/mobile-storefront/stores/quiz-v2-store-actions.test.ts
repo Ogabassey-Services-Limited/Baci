@@ -146,6 +146,24 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     });
   });
 
+  it.each([
+    'none',
+    'unavailable',
+  ] as const)('expiry_keeps_the_question_retryable when reconciliation returns %s', async (availability) => {
+    const harness = createHarness();
+
+    await harness.actions.expireActiveEvent(async () =>
+      response({ availability, attempt: undefined })
+    );
+
+    expect(harness.getState()).toMatchObject({
+      error: null,
+      expiryRetryable: true,
+      status: 'question',
+      v2Attempt: activeAttempt,
+    });
+  });
+
   it('expiry_deduplicates_concurrent_calls', async () => {
     const harness = createHarness();
     let resolveReconciliation!: (value: QuizActiveAttemptResponse) => void;

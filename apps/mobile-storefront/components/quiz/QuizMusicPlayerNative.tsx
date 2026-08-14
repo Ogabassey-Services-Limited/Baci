@@ -1,6 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { setAudioModeAsync, useAudioPlaylist } from 'expo-audio';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
 import nobodyDoesItBetter from '@/assets/quiz/audio/nobody-does-it-better.mp3';
 import noDeyDisappointPartOne from '@/assets/quiz/audio/ogabassey-no-dey-disappoint-1.mp3';
@@ -33,6 +33,11 @@ export function QuizMusicPlayerNative({
   const { colors } = useTheme();
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const playbackIntentRef = useRef(true);
+  const appIsActiveRef = useRef(
+    AppState.currentState !== 'background' &&
+      AppState.currentState !== 'inactive'
+  );
   const playlist = useAudioPlaylist({
     loop: 'all',
     sources: QUIZ_TRACKS.map((track) => track.source),
@@ -61,7 +66,8 @@ export function QuizMusicPlayerNative({
       shouldRouteThroughEarpiece: false,
     })
       .then(() => {
-        if (!cancelled) safelyControlPlaylist(() => playlist.play());
+        if (!cancelled && playbackIntentRef.current && appIsActiveRef.current)
+          safelyControlPlaylist(() => playlist.play());
       })
       .catch(() => undefined);
 
@@ -73,14 +79,15 @@ export function QuizMusicPlayerNative({
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active' && isPlaying) {
+      appIsActiveRef.current = nextState === 'active';
+      if (appIsActiveRef.current && playbackIntentRef.current) {
         safelyControlPlaylist(() => playlist.play());
         return;
       }
       safelyControlPlaylist(() => playlist.pause());
     });
     return () => subscription.remove();
-  }, [isPlaying, playlist]);
+  }, [playlist]);
 
   return (
     <View accessibilityLabel="Quiz music" style={styles.musicBar}>
@@ -104,9 +111,12 @@ export function QuizMusicPlayerNative({
           accessibilityState={{ selected: isPlaying }}
           hitSlop={8}
           onPress={() => {
-            if (isPlaying) safelyControlPlaylist(() => playlist.pause());
-            else safelyControlPlaylist(() => playlist.play());
-            setIsPlaying(!isPlaying);
+            const nextIsPlaying = !isPlaying;
+            playbackIntentRef.current = nextIsPlaying;
+            setIsPlaying(nextIsPlaying);
+            if (nextIsPlaying && appIsActiveRef.current)
+              safelyControlPlaylist(() => playlist.play());
+            else safelyControlPlaylist(() => playlist.pause());
           }}
           style={styles.playButton}
         >

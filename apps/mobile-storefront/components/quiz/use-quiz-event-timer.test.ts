@@ -36,4 +36,20 @@ describe('useQuizEventTimer', () => {
     );
     expect(result.current.remainingSeconds).toBe(55);
   });
+
+  it('does not keep an interval alive for an already expired inactive event', () => {
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
+    const { result } = renderHook(() =>
+      useQuizEventTimer({
+        eventEndsAt: '2026-08-04T09:03:00.000Z',
+        isActive: false,
+        onExpire: jest.fn(),
+      })
+    );
+
+    expect(result.current).toEqual({ hasEnded: true, remainingSeconds: 0 });
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+    setIntervalSpy.mockRestore();
+  });
 });

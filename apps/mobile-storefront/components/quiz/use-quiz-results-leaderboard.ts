@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
@@ -43,8 +44,26 @@ export function useQuizResultsLeaderboard({
     if (!enabled || !eventId || !expectedUserId) return;
 
     let active = true;
+    let appIsActive =
+      AppState.currentState !== 'background' &&
+      AppState.currentState !== 'inactive';
+    let loadInFlight = false;
     let retryId: ReturnType<typeof setTimeout> | undefined;
+    const schedule = (delayMs: number) => {
+      if (!active || !appIsActive) return;
+      if (retryId) clearTimeout(retryId);
+      retryId = setTimeout(() => {
+        retryId = undefined;
+        void load();
+      }, delayMs);
+    };
     const load = async () => {
+      if (!active || !appIsActive || loadInFlight) return;
+      loadInFlight = true;
+      let retryDelayMs: number | null =
+        lifecycle === 'pending_results'
+          ? LIVE_REFRESH_INTERVAL_MS
+          : FINAL_RETRY_INTERVAL_MS;
       try {
         const result =
           lifecycle === 'pending_results' && !eventHasEnded
@@ -57,27 +76,32 @@ export function useQuizResultsLeaderboard({
           hasLeaderboard.current = true;
           setLeaderboardError(false);
           if (result.status === 'live') {
-            retryId = setTimeout(load, LIVE_REFRESH_INTERVAL_MS);
+            retryDelayMs = LIVE_REFRESH_INTERVAL_MS;
+          } else {
+            retryDelayMs = null;
           }
           return;
         }
       } catch {
         if (!active) return;
         if (!hasLeaderboard.current) setLeaderboardError(true);
+      } finally {
+        loadInFlight = false;
+        if (retryDelayMs !== null) schedule(retryDelayMs);
       }
-      if (!active) return;
-      retryId = setTimeout(
-        load,
-        lifecycle === 'pending_results'
-          ? LIVE_REFRESH_INTERVAL_MS
-          : FINAL_RETRY_INTERVAL_MS
-      );
     };
 
     void load();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (retryId) clearTimeout(retryId);
+      retryId = undefined;
+      appIsActive = nextState === 'active';
+      if (appIsActive) void load();
+    });
     return () => {
       active = false;
       if (retryId) clearTimeout(retryId);
+      subscription.remove();
     };
   }, [enabled, eventHasEnded, eventId, expectedUserId, lifecycle]);
 

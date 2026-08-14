@@ -106,7 +106,7 @@ async function getSubmittedAttemptScore(
 // so recover the persisted, user-scoped product award and re-issue the signed
 // voucher. Without this a winner whose first response was lost sees "Practice
 // result recorded" with no claim button and the prize becomes unclaimable.
-async function getAttemptPrizeAwardClaim(
+export async function getAttemptPrizeAwardClaim(
   supabase: QuizSupabase,
   attemptId: string,
   userId: string

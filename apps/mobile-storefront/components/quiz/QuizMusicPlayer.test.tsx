@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { setAudioModeAsync, useAudioPlaylist } from 'expo-audio';
+import { AppState, type AppStateStatus } from 'react-native';
 import { QuizMusicPlayerNative } from './QuizMusicPlayerNative';
 
 let mockTrackChanged:
@@ -49,6 +50,10 @@ describe('QuizMusicPlayerNative', () => {
     mockUseAudioPlaylist.mockReturnValue(mockPlaylist as never);
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('starts the two Ogabassey tracks in the approved order at low volume', async () => {
     const { unmount } = render(<QuizMusicPlayerNative />);
 
@@ -87,6 +92,32 @@ describe('QuizMusicPlayerNative', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Play quiz music' }));
     await waitFor(() => expect(mockPlaylist.play).toHaveBeenCalled());
+  });
+
+  it('does not start playback when audio setup resolves after backgrounding', async () => {
+    const listeners: Array<(state: AppStateStatus) => void> = [];
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        listeners.push(listener);
+        return { remove: jest.fn() };
+      });
+    let resolveAudioMode!: () => void;
+    mockSetAudioModeAsync.mockImplementationOnce(
+      async () =>
+        new Promise<void>((resolve) => {
+          resolveAudioMode = resolve;
+        })
+    );
+
+    render(<QuizMusicPlayerNative />);
+    act(() => listeners[0]?.('background'));
+    await act(async () => {
+      resolveAudioMode();
+      await Promise.resolve();
+    });
+
+    expect(mockPlaylist.play).not.toHaveBeenCalled();
   });
 
   it('does not crash when iOS releases the native playlist before cleanup', () => {
