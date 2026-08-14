@@ -1,4 +1,5 @@
 import { normalizeProductSchemaSpecLabel } from './normalize-product-schema-spec-label';
+import { KEY_SPEC_CATEGORIES } from './storefront-specs/spec-taxonomy';
 
 const SPEC_LABEL_TO_KEY: Record<string, string> = {
   '3 5mm headphone jack': 'has_headphone_jack',
@@ -101,19 +102,16 @@ export function getProductSchemaSpecKeyForLabel(
   return SPEC_LABEL_TO_KEY[normalizedLabel];
 }
 
-const PROPERTY_ID_TO_SPEC_KEY: Record<string, string> = {
-  display_peak_brightness: 'display_peak_brightness',
-  display_ppi: 'display_ppi',
-  display_resolution: 'display_resolution',
-  ram_gb: 'ram_gb',
-  storage_gb: 'storage_gb',
-};
+const PRODUCT_KEY_SPEC_PROPERTY_IDS = new Set(
+  KEY_SPEC_CATEGORIES.flatMap((category) =>
+    category.fields.map((field) => field.key)
+  )
+);
 
 export function getProductSchemaSpecKeyForPropertyId(propertyId: string) {
   const normalizedId = propertyId.trim().toLowerCase().replace(/-/g, '_');
-  const directKey = PROPERTY_ID_TO_SPEC_KEY[normalizedId];
-  if (directKey) {
-    return directKey;
+  if (PRODUCT_KEY_SPEC_PROPERTY_IDS.has(normalizedId)) {
+    return normalizedId;
   }
 
   return getProductSchemaSpecKeyForLabel(normalizedId.replace(/_/g, ' '));

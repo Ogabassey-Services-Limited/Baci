@@ -151,4 +151,24 @@ describe('createProductSchemaAdditionalPropertyCollector', () => {
       },
     ]);
   });
+
+  it('preserves one-sided custom PropertyValue ranges', () => {
+    const collector = createProductSchemaAdditionalPropertyCollector();
+
+    collector.addCustomProperty({
+      '@type': 'PropertyValue',
+      name: 'Maximum operating temperature',
+      maxValue: 45,
+      unitCode: 'CEL',
+    });
+
+    expect(collector.getProperties()).toEqual([
+      {
+        '@type': 'PropertyValue',
+        name: 'Maximum operating temperature',
+        maxValue: 45,
+        unitCode: 'CEL',
+      },
+    ]);
+  });
 });

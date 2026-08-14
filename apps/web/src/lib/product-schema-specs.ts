@@ -103,7 +103,9 @@ export function shouldIncludeProductSchemaSpec(
   );
   const isNetworkDevice = categoryNames.some(isNetworkDeviceCategory);
   const isAudioCategory = categoryNames.some((category) =>
-    /\b(?:audio|speaker|speakers|headphones|earbuds|earphones)\b/.test(category)
+    /\b(?:audio|speaker|speakers|headphones|earbuds|earphones|soundbars?)\b/.test(
+      category
+    )
   );
 
   if (

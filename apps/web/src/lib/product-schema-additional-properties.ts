@@ -95,14 +95,35 @@ function isValidCustomPropertyValue(value: unknown) {
 function hasValidCustomPropertyRange(candidate: Record<string, unknown>) {
   const minValue = candidate.minValue;
   const maxValue = candidate.maxValue;
+  const hasMin = typeof minValue === 'number' && Number.isFinite(minValue);
+  const hasMax = typeof maxValue === 'number' && Number.isFinite(maxValue);
 
-  return (
-    typeof minValue === 'number' &&
-    Number.isFinite(minValue) &&
-    typeof maxValue === 'number' &&
-    Number.isFinite(maxValue) &&
-    minValue <= maxValue
-  );
+  if (!hasMin && !hasMax) {
+    return false;
+  }
+
+  if (hasMin && hasMax) {
+    return minValue <= maxValue;
+  }
+
+  return true;
+}
+
+function serializeCustomPropertyRange(candidate: Record<string, unknown>) {
+  const minValue = candidate.minValue;
+  const maxValue = candidate.maxValue;
+  const hasMin = typeof minValue === 'number' && Number.isFinite(minValue);
+  const hasMax = typeof maxValue === 'number' && Number.isFinite(maxValue);
+
+  if (hasMin && hasMax) {
+    return `${minValue}|${maxValue}`;
+  }
+
+  if (hasMin) {
+    return `min:${minValue}`;
+  }
+
+  return `max:${maxValue}`;
 }
 
 export function createProductSchemaAdditionalPropertyCollector() {
@@ -160,7 +181,7 @@ export function createProductSchemaAdditionalPropertyCollector() {
 
       const serializedValue = isValidCustomPropertyValue(candidate.value)
         ? serializePropertyValue(candidate.value)
-        : `${candidate.minValue}|${candidate.maxValue}`;
+        : serializeCustomPropertyRange(candidate);
       if (!serializedValue) {
         return;
       }

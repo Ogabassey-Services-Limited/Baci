@@ -59,4 +59,13 @@ describe('shouldIncludeProductSchemaSpec non-phone capabilities', () => {
       )
     ).toBe(false);
   });
+
+  it('preserves verified NFC for soundbar products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Soundbars', categories: null },
+        { key: 'has_nfc', value: true }
+      )
+    ).toBe(true);
+  });
 });

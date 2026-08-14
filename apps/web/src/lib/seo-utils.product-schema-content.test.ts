@@ -215,4 +215,58 @@ describe('generateProductSchema content and custom properties', () => {
 
     expect(schema.additionalProperty).toBeUndefined();
   });
+
+  it('rejects propertyID-only capability specs from accessory product schema markup', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Phone Cases',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            propertyID: 'has_5g',
+            value: true,
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toBeUndefined();
+  });
+
+  it('preserves one-sided custom PropertyValue ranges in product schema markup', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Cameras',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Maximum operating temperature',
+            maxValue: 45,
+            unitCode: 'CEL',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Maximum operating temperature',
+          maxValue: 45,
+          unitCode: 'CEL',
+        },
+      ])
+    );
+  });
 });

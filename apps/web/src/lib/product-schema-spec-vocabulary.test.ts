@@ -90,4 +90,13 @@ describe('getProductSchemaSpecKeyForPropertyId', () => {
       'storage_gb'
     );
   });
+
+  it('maps canonical capability property ids before label parsing', () => {
+    for (const propertyId of ['has_5g', 'has_nfc', 'has_stereo_speakers']) {
+      expect(getProductSchemaSpecKeyForPropertyId(propertyId)).toBe(propertyId);
+    }
+
+    expect(getProductSchemaSpecKeyForPropertyId('has_5g')).not.toBeUndefined();
+    expect(getProductSchemaSpecKeyForLabel('has 5g')).toBeUndefined();
+  });
 });
