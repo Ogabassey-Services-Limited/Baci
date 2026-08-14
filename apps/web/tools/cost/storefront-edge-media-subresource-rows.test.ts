@@ -22,49 +22,33 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
-      {
+      ...Array.from({ length: 9 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      {
+        decision: 'origin_dynamic',
+        hostKind: 'configured_google_tag_manager_origin',
         methods: ['GET', 'HEAD'],
       },
       {
         decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
-      },
-      {
-        decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
-      },
-      {
-        decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
-      },
-      {
-        decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
-      },
-      {
-        decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
-      },
-      {
-        decision: 'origin_dynamic',
-        hostKind: 'configured_external_media_origin',
-        methods: ['GET', 'HEAD'],
+        hostKind: 'configured_google_analytics_collection_origin',
+        methods: ['GET', 'HEAD', 'POST'],
       },
       ...[
-        'configured_google_tag_manager_origin',
         'configured_google_ad_manager_origin',
         'configured_google_store_widget_origin',
         'configured_google_store_badge_origin',
         'configured_google_customer_reviews_origin',
         'configured_supabase_storage_upload_origin',
         'configured_klump_origin',
+        'configured_paystack_asset_origin',
+        'configured_korapay_origin',
+        'configured_credpal_origin',
+        'configured_credit_direct_origin',
+        'configured_juicyway_origin',
         'configured_credpal_origin',
         'configured_credit_direct_origin',
         'configured_meta_origin',
@@ -77,5 +61,37 @@ describe('external storefront media inventory', () => {
         methods: ['GET', 'HEAD'],
       })),
     ]);
+  });
+
+  it('binds checkout payment logos and legal texture pages to reviewed sources', () => {
+    const byId = new Map(
+      STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS.map((row) => [row.id, row])
+    );
+
+    expect(byId.get('automatic-subresource:checkout-payment-paystack')).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_paystack_asset_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:transparent-textures-privacy')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:google-analytics-collection')
+    ).toEqual(
+      expect.objectContaining({
+        methods: ['GET', 'HEAD', 'POST'],
+        sourcePath: 'apps/web/src/components/analytics/google-analytics.tsx',
+      })
+    );
   });
 });

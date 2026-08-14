@@ -2,26 +2,33 @@ import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types'
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
+type MediaDestinationHostKind =
+  | 'configured_media_cdn_origin'
+  | 'configured_external_media_origin'
+  | 'configured_google_tag_manager_origin'
+  | 'configured_google_analytics_collection_origin'
+  | 'configured_google_ad_manager_origin'
+  | 'configured_google_store_widget_origin'
+  | 'configured_google_store_badge_origin'
+  | 'configured_google_customer_reviews_origin'
+  | 'configured_supabase_storage_upload_origin'
+  | 'configured_klump_origin'
+  | 'configured_korapay_origin'
+  | 'configured_paystack_asset_origin'
+  | 'configured_juicyway_origin'
+  | 'configured_credpal_origin'
+  | 'configured_credit_direct_origin'
+  | 'configured_meta_origin'
+  | 'configured_tiktok_origin'
+  | 'configured_snapchat_origin'
+  | 'configured_twitter_origin'
+  | 'configured_supabase_storage_origin';
+
 const mediaSubresource = (
   id: string,
-  hostKind:
-    | 'configured_media_cdn_origin'
-    | 'configured_external_media_origin'
-    | 'configured_google_tag_manager_origin'
-    | 'configured_google_ad_manager_origin'
-    | 'configured_google_store_widget_origin'
-    | 'configured_google_store_badge_origin'
-    | 'configured_google_customer_reviews_origin'
-    | 'configured_supabase_storage_upload_origin'
-    | 'configured_klump_origin'
-    | 'configured_credpal_origin'
-    | 'configured_credit_direct_origin'
-    | 'configured_meta_origin'
-    | 'configured_tiktok_origin'
-    | 'configured_snapchat_origin'
-    | 'configured_twitter_origin'
-    | 'configured_supabase_storage_origin',
-  sourcePath = 'apps/web/src/components/storefront/cdn-format-image.tsx'
+  hostKind: MediaDestinationHostKind,
+  sourcePath = 'apps/web/src/components/storefront/cdn-format-image.tsx',
+  methods: readonly InventoryRow['methods'][number][] = ['GET', 'HEAD']
 ): InventoryRow => ({
   decision: 'origin_dynamic',
   destinationCondition: {
@@ -29,7 +36,7 @@ const mediaSubresource = (
     precedence: 'before_path_decision',
   },
   id: `automatic-subresource:${id}`,
-  methods: ['GET', 'HEAD'],
+  methods,
   reason: 'browser_external_media_request',
   routePattern: '/{*externalMediaPath?}',
   sourceKind: 'automatic_subresource',
@@ -41,9 +48,19 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
   mediaSubresource('media-cdn', 'configured_media_cdn_origin'),
   mediaSubresource('supabase-storage', 'configured_supabase_storage_origin'),
   mediaSubresource(
-    'transparent-textures',
+    'transparent-textures-about',
     'configured_external_media_origin',
     'apps/web/src/components/storefront/ogabassey/pages/about-us.tsx'
+  ),
+  mediaSubresource(
+    'transparent-textures-privacy',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx'
+  ),
+  mediaSubresource(
+    'transparent-textures-legal',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx'
   ),
   mediaSubresource(
     'crypto-qr',
@@ -81,6 +98,12 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'apps/web/src/components/analytics/analytics-pixel-provider.tsx'
   ),
   mediaSubresource(
+    'google-analytics-collection',
+    'configured_google_analytics_collection_origin',
+    'apps/web/src/components/analytics/google-analytics.tsx',
+    ['GET', 'HEAD', 'POST']
+  ),
+  mediaSubresource(
     'google-ad-manager',
     'configured_google_ad_manager_origin',
     'apps/web/src/components/storefront/ogabassey/components/google-ad-bootstrap.ts'
@@ -109,6 +132,31 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'klump',
     'configured_klump_origin',
     'apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx'
+  ),
+  mediaSubresource(
+    'checkout-payment-paystack',
+    'configured_paystack_asset_origin',
+    'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
+  ),
+  mediaSubresource(
+    'checkout-payment-korapay',
+    'configured_korapay_origin',
+    'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
+  ),
+  mediaSubresource(
+    'checkout-payment-credpal',
+    'configured_credpal_origin',
+    'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
+  ),
+  mediaSubresource(
+    'checkout-payment-credit-direct',
+    'configured_credit_direct_origin',
+    'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
+  ),
+  mediaSubresource(
+    'checkout-payment-juicyway',
+    'configured_juicyway_origin',
+    'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
   ),
   mediaSubresource(
     'credpal',
