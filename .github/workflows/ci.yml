@@ -243,6 +243,57 @@ jobs:
       - name: Run web vitest shard
         run: pnpm --filter @baci/web exec vitest run --shard=${{ matrix.shard }}/6
 
+  quality-db-replay:
+    name: Quality Gate - DB Replay
+    needs: [changes]
+    if: needs.changes.outputs.quiz_db == 'true' && needs.changes.outputs.test_plan_mode != 'config-smoke'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      BACI_REPLAY_COMMAND_TIMEOUT_MS: 1800000
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+      - uses: ./.github/actions/pnpm-install-cached
+      - name: Install Supabase replay toolchain
+        env:
+          SUPABASE_CLI_SHA256: 01a3b8f5861d108a934937cae88e8d503093c3f7d3aa32d959f69b099b4f9ef3
+          SUPABASE_CLI_VERSION: 2.95.4
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          curl --fail --silent --show-error --location \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+            | sudo tee /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc >/dev/null
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] http://apt.postgresql.org/pub/repos/apt noble-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-18=18.3-1.pgdg24.04+1
+          SUPABASE_ARCHIVE="${RUNNER_TEMP}/supabase_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz" \
+            --output "${SUPABASE_ARCHIVE}"
+          echo "${SUPABASE_CLI_SHA256}  ${SUPABASE_ARCHIVE}" | sha256sum --check
+          sudo tar -xz -f "${SUPABASE_ARCHIVE}" -C /usr/local/bin supabase
+          sudo chmod 0755 /usr/local/bin/supabase
+          test "$(supabase --version)" = "${SUPABASE_CLI_VERSION}"
+          PSQL_BIN="$(command -v psql)"
+          "$PSQL_BIN" --version | grep -Eq '^psql \(PostgreSQL\) 18\.3( \(.+\))?$'
+          echo "PSQL_BIN=$PSQL_BIN" >> "$GITHUB_ENV"
+      - name: Test final order-notification outbox RPC privileges
+        run: >-
+          pnpm --filter @baci/web db:replay:chronological
+          --sql-check supabase/tests/order_notification_outbox_rpc_privileges.sql
+      - name: Run migration replay regression test
+        run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
+      - name: Test Cache Invalidation Outbox SQL
+        run: >-
+          bash supabase/tests/run-cache-invalidation-outbox-test-runner.test.sh &&
+          bash supabase/tests/run-cache-invalidation-outbox-test.sh
+
   quality-misc:
     name: Quality Gate - Misc
     needs: [changes]
@@ -260,16 +311,8 @@ jobs:
         run: bash .github/scripts/check-migration-versions.test.sh
       - name: Test Migration Applier Collision Handling
         run: bash .github/scripts/run-migration-applier-tests.sh
-      - name: Run migration replay regression test
-        if: needs.changes.outputs.quiz_db == 'true'
-        run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
       - name: Verify Migration Versions
         run: bash .github/scripts/check-migration-versions.sh
-      - name: Test Cache Invalidation Outbox SQL
-        if: needs.changes.outputs.quiz_db == 'true'
-        run: >-
-          bash supabase/tests/run-cache-invalidation-outbox-test-runner.test.sh &&
-          bash supabase/tests/run-cache-invalidation-outbox-test.sh
       - name: Run CI Test Planner Unit Tests
         if: needs.changes.outputs.web == 'true'
         run: node --test .github/scripts/resolve-ci-test-plan.test.mjs .github/scripts/resolve-ci-test-plan-config.test.mjs
@@ -302,7 +345,7 @@ jobs:
       # with no real work, because every other step is web/mobile/production-only.
       # Run the quiz + orders suites (which exercise the RPC-dependent route
       # logic) so a DB-only change is actually validated here. Migration-specific
-      # PostgreSQL fixtures run above; a full from-scratch Supabase apply remains
+      # PostgreSQL fixtures run in quality-db-replay; a full from-scratch Supabase apply remains
       # out of scope because it depends on Supabase-specific schema and roles.
       - name: Run Quiz Suite for DB-only Changes
         if: needs.changes.outputs.quiz_db == 'true' && needs.changes.outputs.web != 'true'
@@ -373,7 +416,7 @@ jobs:
 
   quality:
     name: Quality Gate
-    needs: [changes, cwv-runner-contracts, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, mobile-quality, silent-revert-guard]
+    needs: [changes, cwv-runner-contracts, quality-lint, quality-typecheck, quality-test, quality-test-web, quality-misc, quality-db-replay, mobile-quality, silent-revert-guard]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -386,6 +429,7 @@ jobs:
           TYPECHECK_RESULT: ${{ needs['quality-typecheck'].result }}
           TEST_RESULT: ${{ needs['quality-test'].result }}
           MISC_RESULT: ${{ needs['quality-misc'].result }}
+          DB_REPLAY_RESULT: ${{ needs['quality-db-replay'].result }}
           WEB_TEST_RESULT: ${{ needs['quality-test-web'].result }}
           MOBILE_QUALITY_RESULT: ${{ needs['mobile-quality'].result }}
           SILENT_REVERT_GUARD_RESULT: ${{ needs['silent-revert-guard'].result }}
@@ -397,7 +441,7 @@ jobs:
             exit 1
           fi
 
-          for result in "$CWV_RUNNER_CONTRACTS_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
+          for result in "$CWV_RUNNER_CONTRACTS_RESULT" "$LINT_RESULT" "$TYPECHECK_RESULT" "$TEST_RESULT" "$WEB_TEST_RESULT" "$MISC_RESULT" "$DB_REPLAY_RESULT" "$MOBILE_QUALITY_RESULT" "$SILENT_REVERT_GUARD_RESULT"; do
             case "$result" in
               success|skipped)
                 ;;

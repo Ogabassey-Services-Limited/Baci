@@ -60,7 +60,6 @@ vi.mock('@/lib/platform-admin-auth', () => ({
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: (...args: unknown[]) => mockCreateAdminClient(...args),
 }));
-vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(async () => ({ valid: true })),
 }));

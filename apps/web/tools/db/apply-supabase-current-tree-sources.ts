@@ -88,6 +88,15 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         '605a0d48a4f116e67ee626ff173b66c6c80cefa77ad606a3813aa1ea6deda62a',
     },
   ],
+  [
+    'supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql',
+      sourceSha256:
+        '210c24070e7295dcdec19e10d33dd456a1dbc24891812cc74b4bfddeff808456',
+    },
+  ],
 ]);
 
 const replaySourceSupersessions = new Map<string, ReplaySourceSupersession>([
