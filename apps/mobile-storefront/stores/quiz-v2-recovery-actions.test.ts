@@ -7,7 +7,7 @@ const fallback: QuizV2Attempt = {
   attemptId: 'attempt-1',
   eventEndsAt: '2026-08-04T12:05:00.000Z',
   eventId: 'event-1',
-  question: null,
+  question: undefined,
   resultsAvailableAt: null,
   serverNow: '2026-08-04T12:00:00.000Z',
   status: 'in_progress',
