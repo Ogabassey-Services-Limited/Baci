@@ -31,6 +31,7 @@ const DSYM_UPLOAD_PHASE_NAME = 'Upload PostHog Debug Symbols';
 const PHASE_TYPE = 'PBXShellScriptBuildPhase';
 const EXPECTED_PATH_EXPORT =
   'export PATH="$PROJECT_ROOT/node_modules/.bin:$PROJECT_ROOT/../../node_modules/.bin:$PATH"';
+const EXPECTED_SKIP_ON_CONFLICT_EXPORT = 'export POSTHOG_SKIP_ON_CONFLICT=1';
 const EXPECTED_DSYM_INPUT_PATH = `"\${DWARF_DSYM_FOLDER_PATH}/\${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/\${PRODUCT_NAME}"`;
 
 function runPluginWithPhases({
@@ -103,6 +104,35 @@ export PATH="$PROJECT_ROOT/node_modules/.bin:$PATH"
     expect(
       bundleScript.match(/PROJECT_ROOT\/node_modules\/\.bin/g)
     ).toHaveLength(1);
+  });
+
+  it('skips Hermes upload conflicts without failing the bundle phase', () => {
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..\n/bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"\n`,
+    });
+
+    expect(bundleScript).toContain(
+      `${EXPECTED_SKIP_ON_CONFLICT_EXPORT}\n/bin/sh`
+    );
+  });
+
+  it('does not duplicate the Hermes conflict guard', () => {
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..\n${EXPECTED_SKIP_ON_CONFLICT_EXPORT}\n/bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"\n`,
+    });
+
+    expect(bundleScript.match(/POSTHOG_SKIP_ON_CONFLICT/g)).toHaveLength(1);
+  });
+
+  it('guards an earlier Hermes invocation when a later guard already exists', () => {
+    const { bundleScript } = runPluginWithPhases({
+      bundleShellScript: `export PROJECT_ROOT="$PROJECT_DIR"/..\n/bin/sh "$PROJECT_ROOT/node_modules/posthog-react-native/tooling/posthog-xcode.sh"\n${EXPECTED_SKIP_ON_CONFLICT_EXPORT}\n`,
+    });
+
+    expect(bundleScript.indexOf(EXPECTED_SKIP_ON_CONFLICT_EXPORT)).toBeLessThan(
+      bundleScript.indexOf('posthog-xcode.sh')
+    );
+    expect(bundleScript.match(/POSTHOG_SKIP_ON_CONFLICT/g)).toHaveLength(2);
   });
 
   it('leaves unrelated Xcode phases unchanged', () => {

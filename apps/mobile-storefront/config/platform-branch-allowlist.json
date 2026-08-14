@@ -173,6 +173,14 @@
       "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
     },
     {
+      "path": "components/storefront/GadgetPattern.tsx",
+      "justification": "Reviewed Android API 28 and older guard that suppresses a decorative SVG implicated in low-end-device ANR evidence while preserving Android 10+, iOS, and web rendering."
+    },
+    {
+      "path": "components/storefront/use-gadget-pattern-attribution.ts",
+      "justification": "Reviewed platform metadata used to attribute rendered GadgetPattern surfaces in native crash breadcrumbs."
+    },
+    {
       "path": "components/home/HomeScreenView.tsx",
       "justification": "Reviewed Android-only navigation bar button style override for dark home-screen system-bar content."
     },

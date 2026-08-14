@@ -176,6 +176,7 @@ describe('createQuizV2StoreActions terminal expiry', () => {
       lockedOptionId: 'a',
       status: 'question',
       error: 'network down',
+      expiryRetryable: true,
     });
   });
 

@@ -6,6 +6,7 @@ import {
   type QuizV2StoreActions,
   type V2StartContext,
 } from './quiz-recovery-envelope';
+import { createQuizV2ExpiryAction } from './quiz-v2-expiry-action';
 import {
   clearRecoveredQuizAttempt,
   clearTerminalRecovery,
@@ -25,7 +26,6 @@ export function createQuizV2StoreActions({
 }: QuizV2StoreAccess): QuizV2StoreActions {
   let lastReconciledAt = 0;
   let reconciliationInFlight = false;
-  let expiryInFlight = false;
   let retryInFlight = false;
   let lifecycleEpoch = 0;
   // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
@@ -39,6 +39,7 @@ export function createQuizV2StoreActions({
         v2LifecycleStatus: 'in_progress',
         lockedOptionId: null,
         terminalContext: null,
+        expiryRetryable: false,
         error: null,
       });
       await persist(attempt, null);
@@ -58,6 +59,7 @@ export function createQuizV2StoreActions({
         attempt.serverNow
       ),
       lockedOptionId: null,
+      expiryRetryable: false,
       error: null,
     });
     await clearRecoveredQuizAttempt(access, attempt.eventId);
@@ -95,11 +97,21 @@ export function createQuizV2StoreActions({
           response.serverNow ?? fallback.serverNow
         ),
         lockedOptionId: null,
+        expiryRetryable: false,
         error: null,
       });
       await clearRecoveredQuizAttempt(access, fallback.eventId);
     }
   };
+  const expireActiveEvent = createQuizV2ExpiryAction({
+    access,
+    applyRecoveryResponse,
+    getLifecycleEpoch: () => lifecycleEpoch,
+    nextLifecycleEpoch: () => {
+      lifecycleEpoch += 1;
+      return lifecycleEpoch;
+    },
+  });
   return {
     startEventV2: async (context: V2StartContext, starter) => {
       if (['starting', 'submitting'].includes(get().status)) return;
@@ -226,30 +238,7 @@ export function createQuizV2StoreActions({
         reconciliationInFlight = false;
       }
     },
-    expireActiveEvent: async (reconciler) => {
-      const attempt = get().v2Attempt;
-      if (
-        expiryInFlight ||
-        !attempt ||
-        !['question', 'submitting'].includes(get().status)
-      )
-        return;
-      expiryInFlight = true;
-      const generation = getGeneration();
-      lifecycleEpoch += 1;
-      const expiryEpoch = lifecycleEpoch;
-      try {
-        const response = await reconciler();
-        if (generation !== getGeneration() || expiryEpoch !== lifecycleEpoch)
-          return;
-        await applyRecoveryResponse(response, attempt);
-      } catch (error) {
-        if (generation === getGeneration())
-          set({ status: 'question', error: getMessage(error) });
-      } finally {
-        expiryInFlight = false;
-      }
-    },
+    expireActiveEvent,
     lockAndSubmitAnswer: async (optionId, submitter) => {
       const attempt = get().v2Attempt;
       if (

@@ -3,7 +3,6 @@ import { act, render, screen } from '@testing-library/react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
-  fetchQuizParticipantCount,
 } from '@/services/quiz-leaderboard';
 import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
@@ -24,7 +23,6 @@ jest.mock('expo-router', () => ({
 jest.mock('@/services/quiz-leaderboard', () => ({
   fetchQuizLeaderboard: jest.fn(),
   fetchQuizLiveLeaderboard: jest.fn(),
-  fetchQuizParticipantCount: jest.fn(),
 }));
 
 const colors: QuizThemeColors = {
@@ -46,15 +44,30 @@ describe('QuizResultsPanel', () => {
   beforeEach(() => {
     jest.mocked(fetchQuizLeaderboard).mockReset();
     jest.mocked(fetchQuizLiveLeaderboard).mockReset();
-    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(1);
   });
 
-  it('celebrates completion and explains the server-recorded tie-break time', () => {
+  it('celebrates completion and explains the server-recorded tie-break time', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
+    jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
+      currentPlayer: {
+        displayName: 'Bassey',
+        isCurrentCustomer: true,
+        rank: 1,
+        score: 4,
+        status: 'submitted',
+        submittedAt: new Date(0).toISOString(),
+        totalTimeSeconds: 10,
+      },
+      entries: [],
+      participantCount: 1,
+      status: 'live',
+    });
     render(
       <QuizResultsPanel
+        eventId="event-1"
         eventEndsAt={new Date(30_000).toISOString()}
+        expectedUserId="user-1"
         legacyResult={null}
         lifecycle="pending_results"
         serverNow={new Date(0).toISOString()}
@@ -66,6 +79,10 @@ describe('QuizResultsPanel', () => {
         }}
       />
     );
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(screen.getByText("You're all done!")).toBeTruthy();
     expect(screen.getByText('You finished at')).toBeTruthy();
     expect(screen.getByText(/:\d{2}:\d{2}/)).toBeTruthy();
@@ -156,18 +173,35 @@ describe('QuizResultsPanel', () => {
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
-      entries: [{
-        displayName: 'Bassey', isCurrentCustomer: true, rank: 1, score: 8,
-        status: 'submitted', submittedAt: new Date(0).toISOString(), totalTimeSeconds: 42,
-      }],
+      entries: [
+        {
+          displayName: 'Bassey',
+          isCurrentCustomer: true,
+          rank: 1,
+          score: 8,
+          status: 'submitted',
+          submittedAt: new Date(0).toISOString(),
+          totalTimeSeconds: 42,
+        },
+      ],
       participantCount: null,
       status: 'live',
     });
     render(
-      <QuizResultsPanel eventId="event-1" eventEndsAt={new Date(30_000).toISOString()}
-        expectedUserId="user-1" legacyResult={null} lifecycle="pending_results"
-        serverNow={new Date(0).toISOString()} styles={createQuizStyles(colors)}
-        v2Result={{ attemptId: 'attempt-1', availability: 'pending', availableAt: null }} />
+      <QuizResultsPanel
+        eventId="event-1"
+        eventEndsAt={new Date(30_000).toISOString()}
+        expectedUserId="user-1"
+        legacyResult={null}
+        lifecycle="pending_results"
+        serverNow={new Date(0).toISOString()}
+        styles={createQuizStyles(colors)}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'pending',
+          availableAt: null,
+        }}
+      />
     );
     await act(async () => Promise.resolve());
     expect(screen.getByText('Live standings')).toBeTruthy();
@@ -179,19 +213,44 @@ describe('QuizResultsPanel', () => {
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
-      entries: [{ displayName: 'Bassey', isCurrentCustomer: true, rank: 1, score: 8,
-        status: 'submitted', submittedAt: new Date(0).toISOString(), totalTimeSeconds: 42 }],
-      participantCount: null, status: 'live',
+      entries: [
+        {
+          displayName: 'Bassey',
+          isCurrentCustomer: true,
+          rank: 1,
+          score: 8,
+          status: 'submitted',
+          submittedAt: new Date(0).toISOString(),
+          totalTimeSeconds: 42,
+        },
+      ],
+      participantCount: null,
+      status: 'live',
     });
-    jest.mocked(fetchQuizLeaderboard).mockRejectedValue(new Error('not deployed'));
+    jest
+      .mocked(fetchQuizLeaderboard)
+      .mockRejectedValue(new Error('not deployed'));
     render(
-      <QuizResultsPanel eventId="event-1" eventEndsAt={new Date(1_000).toISOString()}
-        expectedUserId="user-1" legacyResult={null} lifecycle="pending_results"
-        serverNow={new Date(0).toISOString()} styles={createQuizStyles(colors)}
-        v2Result={{ attemptId: 'attempt-1', availability: 'pending', availableAt: null }} />
+      <QuizResultsPanel
+        eventId="event-1"
+        eventEndsAt={new Date(1_000).toISOString()}
+        expectedUserId="user-1"
+        legacyResult={null}
+        lifecycle="pending_results"
+        serverNow={new Date(0).toISOString()}
+        styles={createQuizStyles(colors)}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'pending',
+          availableAt: null,
+        }}
+      />
     );
     await act(async () => Promise.resolve());
-    await act(async () => { jest.advanceTimersByTime(1_250); await Promise.resolve(); });
+    await act(async () => {
+      jest.advanceTimersByTime(1_250);
+      await Promise.resolve();
+    });
     expect(screen.getByText(/Bassey/)).toBeTruthy();
     expect(screen.queryByLabelText('Loading final standings')).toBeNull();
   });

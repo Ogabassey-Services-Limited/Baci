@@ -15,6 +15,7 @@ describe('useQuizResultPolling', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
@@ -90,6 +91,66 @@ describe('useQuizResultPolling', () => {
     });
     expect(fetchQuizResult).toHaveBeenCalledTimes(1);
     act(() => listeners[0]?.('active'));
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(2));
+  });
+
+  it('resumes polling when the app returns while a result request is in flight', async () => {
+    const listeners: Array<(state: AppStateStatus) => void> = [];
+    jest
+      .spyOn(AppState, 'addEventListener')
+      .mockImplementation((_type, listener) => {
+        listeners.push(listener);
+        return { remove: jest.fn() };
+      });
+    let resolveFirst!: (result: {
+      attemptId: string;
+      availability: 'pending';
+      availableAt: null;
+    }) => void;
+    const firstRequest = new Promise<{
+      attemptId: string;
+      availability: 'pending';
+      availableAt: null;
+    }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    jest
+      .mocked(fetchQuizResult)
+      .mockReturnValueOnce(firstRequest)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt: '2026-08-09T20:26:20.000Z',
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+    act(() => {
+      listeners[0]?.('background');
+      listeners[0]?.('active');
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveFirst({
+        attemptId: 'attempt-1',
+        availability: 'pending',
+        availableAt: null,
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
     await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(2));
   });
 });

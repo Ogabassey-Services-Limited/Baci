@@ -39,6 +39,7 @@ interface QuizStore extends QuizV2StoreActions {
   attempt: QuizAttempt | null;
   v2Attempt: QuizV2Attempt | null;
   attemptIntegrityTier: QuizIntegrityTier | null;
+  expiryRetryable: boolean;
   selectedOptionId: string | null;
   lockedOptionId: string | null;
   startRequestId: string | null;

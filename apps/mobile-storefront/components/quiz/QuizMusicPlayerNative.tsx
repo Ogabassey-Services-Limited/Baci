@@ -87,7 +87,11 @@ export function QuizMusicPlayerNative({
       <View style={styles.topRow}>
         {gameEndsIn ? (
           <View accessibilityLabel="Game deadline" style={styles.deadlinePill}>
-            <Ionicons color={colors.primary} name="hourglass-outline" size={14} />
+            <Ionicons
+              color={colors.primary}
+              name="hourglass-outline"
+              size={14}
+            />
             <Text style={styles.deadlineLabel}>Ends in</Text>
             <Text style={styles.deadline}>{gameEndsIn}</Text>
           </View>

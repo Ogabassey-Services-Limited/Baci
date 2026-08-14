@@ -21,7 +21,10 @@ export function useQuizResultPolling({
 
     let cancelled = false;
     let inFlight = false;
-    let appIsActive = AppState.currentState === 'active';
+    let resumeAfterFlight = false;
+    let appIsActive =
+      AppState.currentState !== 'background' &&
+      AppState.currentState !== 'inactive';
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     const schedule = () => {
@@ -31,15 +34,24 @@ export function useQuizResultPolling({
     const poll = async () => {
       if (cancelled || !appIsActive || inFlight) return;
       inFlight = true;
+      let shouldContinue = false;
       try {
         const result = await fetchQuizResult({ attemptId, expectedUserId });
+        shouldContinue = result.availability === 'pending';
         if (cancelled) return;
         onResult(result);
-        if (result.availability === 'pending') schedule();
       } catch {
-        schedule();
+        shouldContinue = true;
       } finally {
         inFlight = false;
+        if (cancelled || !shouldContinue) {
+          resumeAfterFlight = false;
+        } else if (resumeAfterFlight && appIsActive) {
+          resumeAfterFlight = false;
+          void poll();
+        } else {
+          schedule();
+        }
       }
     };
 
@@ -49,6 +61,11 @@ export function useQuizResultPolling({
       timeoutId = undefined;
       appIsActive = nextState === 'active';
       if (!appIsActive) return;
+      if (inFlight) {
+        resumeAfterFlight = true;
+        return;
+      }
+      resumeAfterFlight = false;
       void poll();
     });
 

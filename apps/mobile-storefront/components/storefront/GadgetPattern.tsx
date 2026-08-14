@@ -1,5 +1,7 @@
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import Svg, { Circle, G, Line, Path, Rect } from 'react-native-svg';
+import { shouldRenderGadgetPattern } from './should-render-gadget-pattern';
+import { useGadgetPatternAttribution } from './use-gadget-pattern-attribution';
 
 interface GadgetPatternProps {
   opacity?: number;
@@ -30,6 +32,11 @@ export function GadgetPattern({
   color = '#ffffff',
 }: GadgetPatternProps) {
   const { width: screenWidth } = useWindowDimensions();
+  const shouldRender = shouldRenderGadgetPattern(Platform.OS, Platform.Version);
+  useGadgetPatternAttribution(shouldRender, variant);
+
+  // Older Android SVG draw passes can ANR on this decorative pattern; keep it off API 28 and below.
+  if (!shouldRender) return null;
 
   const strokeProps = {
     stroke: color,
