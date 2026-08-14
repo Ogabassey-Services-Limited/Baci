@@ -3,9 +3,9 @@ pre-commit:
   commands:
     lint:
       glob: "*.{js,ts,jsx,tsx,json}"
-      run: sh ci_scripts/run-lefthook-pnpm.sh turbo lint
+      run: bash ci_scripts/run-lefthook-pnpm.sh turbo lint
     knip:
-      run: sh ci_scripts/run-lefthook-pnpm.sh knip || true
+      run: bash ci_scripts/run-lefthook-pnpm.sh knip || true
     check-podfile-lock:
       run: sh ci_scripts/check-podfile-lock.sh
 
@@ -13,7 +13,7 @@ pre-push:
   parallel: true
   commands:
     typecheck:
-      run: sh ci_scripts/run-lefthook-pnpm.sh turbo typecheck
+      run: bash ci_scripts/run-lefthook-pnpm.sh turbo typecheck
     # Tests intentionally run in CI, where the Quality Gate has the full
     # affected-test context plus build/misc guardrails. Keeping pre-push to
     # typecheck + behind-base avoids local pushes spending several minutes in

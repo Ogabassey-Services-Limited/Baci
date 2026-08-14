@@ -238,7 +238,7 @@ PNPM="$ACTIVE_DIR/ci_scripts/run-lefthook-pnpm.sh"
 if [ ! -x "$PNPM" ]; then
   PNPM=(pnpm)
 else
-  PNPM=(sh "$PNPM")
+  PNPM=(bash "$PNPM")
 fi
 
 # Run Biome lint check (~2-5s)
