@@ -64,6 +64,16 @@ const repairCases = [
       'supabase/migrations/20260804000500_repair_gigl_monitor_backfill_join.sql',
     ordinal: 129,
   },
+  {
+    label: 'Paystack chat-order relationship',
+    historicalPath:
+      'supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql',
+    historicalSha256:
+      '210c24070e7295dcdec19e10d33dd456a1dbc24891812cc74b4bfddeff808456',
+    repairPath:
+      'supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql',
+    ordinal: 129,
+  },
 ] as const;
 
 describe('applySupabaseCurrentTreeSources', () => {
