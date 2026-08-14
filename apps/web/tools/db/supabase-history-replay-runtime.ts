@@ -31,7 +31,7 @@ export function createSupabaseHistoryReplayRuntimeDependencies() {
     assertResources: resourceTools.assertSupabaseReplayResources,
     atomicReplace,
     copyBootstrapSource: replayRepository.copyBootstrapSource,
-    createCommand: (root) =>
+    createCommand: (root: string) =>
       replayCommandRuntime.create(root, {
         executionTimeoutMs: readReplayCommandExecutionTimeoutMs(),
       }),
