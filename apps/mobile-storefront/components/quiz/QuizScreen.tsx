@@ -72,6 +72,7 @@ export function QuizScreen({
     forfeitAnswer,
     expireActiveEvent,
     retryLockedAnswer,
+    reset,
     setV2Result,
   } = useQuizStore(
     useShallow((state) => ({
@@ -98,6 +99,7 @@ export function QuizScreen({
       forfeitAnswer: state.forfeitAnswer,
       expireActiveEvent: state.expireActiveEvent,
       retryLockedAnswer: state.retryLockedAnswer,
+      reset: state.reset,
       setV2Result: state.setV2Result,
     }))
   );
@@ -261,6 +263,7 @@ export function QuizScreen({
           expectedUserId={useAuthStore.getState().user?.id ?? null}
           legacyResult={result}
           lifecycle={v2LifecycleStatus}
+          onReturnToQuizList={reset}
           serverNow={terminalContext?.serverNow}
           styles={styles}
           v2Result={v2Result}
