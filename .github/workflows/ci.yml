@@ -276,7 +276,7 @@ jobs:
           sudo chmod 0755 /usr/local/bin/supabase
           test "$(supabase --version)" = "${SUPABASE_CLI_VERSION}"
           PSQL_BIN="$(command -v psql)"
-          test "$("$PSQL_BIN" --version)" = 'psql (PostgreSQL) 18.3'
+          "$PSQL_BIN" --version | grep -Eq '^psql \(PostgreSQL\) 18\.3( \(.+\))?$'
           echo "PSQL_BIN=$PSQL_BIN" >> "$GITHUB_ENV"
       - name: Test Migration Version Guard
         run: bash .github/scripts/check-migration-versions.test.sh
