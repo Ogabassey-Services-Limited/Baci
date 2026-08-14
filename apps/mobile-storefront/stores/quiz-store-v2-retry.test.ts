@@ -114,6 +114,41 @@ describe('quiz v2 store recovery', () => {
     expect(useQuizStore.getState().v2LifecycleStatus).toBe('pending_results');
   });
 
+  it('keeps terminal recovery until the final result is available', async () => {
+    await act(async () =>
+      useQuizStore
+        .getState()
+        .startEventV2(startContext, async () => activeAttempt)
+    );
+    await act(async () =>
+      useQuizStore.getState().expireActiveEvent(async () => ({
+        availability: 'pending_results',
+        eventEndsAt: activeAttempt.eventEndsAt,
+        serverNow: activeAttempt.serverNow,
+      }))
+    );
+
+    await expect(
+      loadQuizRecoveryEnvelope('user-1', 'event-1')
+    ).resolves.toMatchObject({ attemptId: 'attempt-1' });
+
+    await act(async () => {
+      useQuizStore.getState().setV2Result({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt: '2026-08-04T12:06:00.000Z',
+        rank: 1,
+        score: 2,
+        totalQuestions: 2,
+      });
+      await Promise.resolve();
+    });
+
+    await expect(
+      loadQuizRecoveryEnvelope('user-1', 'event-1')
+    ).resolves.toBeNull();
+  });
+
   it('coalesces lifecycle reconciliation to 15 seconds and observes cancellation', async () => {
     await act(async () =>
       useQuizStore

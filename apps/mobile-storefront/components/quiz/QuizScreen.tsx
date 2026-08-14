@@ -16,6 +16,7 @@ import { QuizDateOfBirthGateModal } from './QuizDateOfBirthGateModal';
 import { QuizErrorPanel } from './QuizErrorPanel';
 import { QuizEventsList } from './QuizEventsList';
 import { QuizGameplayAdFooter } from './QuizGameplayAdFooter';
+import { QuizGameplayScrollView } from './QuizGameplayScrollView';
 import { QuizLiveQuestionCard } from './QuizLiveQuestionCard';
 import { createQuizLobbyStyles } from './QuizLobby.styles';
 import { QuizMusicPlayer } from './QuizMusicPlayer';
@@ -212,7 +213,7 @@ export function QuizScreen({
       ) : null}
 
       {(status === 'question' || status === 'submitting') && attempt ? (
-        <View style={styles.container}>
+        <QuizGameplayScrollView styles={styles}>
           <QuizMusicPlayer />
           <QuizQuestionCard
             attempt={attempt}
@@ -225,11 +226,11 @@ export function QuizScreen({
             selectedOptionId={selectedOptionId}
             styles={styles}
           />
-        </View>
+        </QuizGameplayScrollView>
       ) : null}
 
       {(status === 'question' || status === 'submitting') && v2Attempt ? (
-        <View style={styles.container}>
+        <QuizGameplayScrollView styles={styles}>
           {music.shouldPlay ? (
             <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
           ) : null}
@@ -244,7 +245,7 @@ export function QuizScreen({
             expiryRetryable={expiryRetryable}
             styles={styles}
           />
-        </View>
+        </QuizGameplayScrollView>
       ) : null}
 
       {status === 'result' && music.shouldPlay ? (

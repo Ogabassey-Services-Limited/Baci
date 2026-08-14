@@ -522,6 +522,7 @@ describe('QuizScreen', () => {
     });
 
     render(<QuizScreen integrityTier="device" />);
+    expect(screen.getByTestId('quiz-gameplay-scroll')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Answer Abuja' }));
 
     await waitFor(() =>

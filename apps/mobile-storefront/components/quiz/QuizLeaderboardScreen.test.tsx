@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { fetchQuizEvents } from '@/services/quiz';
 import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
 import { QuizLeaderboardScreen } from './QuizLeaderboardScreen';
@@ -71,6 +71,50 @@ describe('QuizLeaderboardScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Past leaderboards are unavailable.'
     );
+  });
+
+  it('uses the server clock when deciding which active quizzes are past', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-03T21:00:00Z'));
+    jest.mocked(fetchQuizEvents).mockResolvedValue([
+      {
+        endsAt: '2026-08-03T20:05:00Z',
+        id: 'event-server-past',
+        prizeName: 'Phone',
+        questionCount: 20,
+        serverNow: '2026-08-03T20:10:00Z',
+        startsAt: '2026-08-03T20:00:00Z',
+        status: 'active',
+        title: 'Server past quiz',
+      },
+      {
+        endsAt: '2026-08-03T21:05:00Z',
+        id: 'event-server-active',
+        prizeName: 'Tablet',
+        questionCount: 5,
+        serverNow: '2026-08-03T20:10:00Z',
+        startsAt: '2026-08-03T20:00:00Z',
+        status: 'active',
+        title: 'Server active quiz',
+      },
+    ]);
+
+    render(<QuizLeaderboardScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByRole('button', {
+        name: 'View leaderboard for Server past quiz',
+      })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: 'View leaderboard for Server active quiz',
+      })
+    ).toBeNull();
+    jest.useRealTimers();
   });
 
   it('keeps the current player visible when the public board is capped at 100 rows', async () => {

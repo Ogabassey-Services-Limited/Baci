@@ -63,7 +63,9 @@ export function createQuizV2StoreActions({
       expiryRetryable: false,
       error: null,
     });
-    await clearRecoveredQuizAttempt(access, attempt.eventId);
+    if (attempt.status === 'event_cancelled') {
+      await clearRecoveredQuizAttempt(access, attempt.eventId);
+    }
   };
   const applyRecoveryResponse = createQuizV2RecoveryResponseApplier({
     access,
@@ -176,7 +178,7 @@ export function createQuizV2StoreActions({
       await clearTerminalRecovery(
         access,
         eventId,
-        Boolean((cancelled || pending || expiredActive) && envelope)
+        Boolean(cancelled && envelope)
       );
     },
     reconcileLifecycle: async (reconciler, nowMs = Date.now()) => {
@@ -244,12 +246,19 @@ export function createQuizV2StoreActions({
         retryInFlight = false;
       }
     },
-    setV2Result: (result) =>
+    setV2Result: (result) => {
+      const terminalContext = get().terminalContext;
       set({
         status: 'result',
         v2LifecycleStatus: resultLifecycle(result),
         v2Result: result,
-        terminalContext: get().terminalContext,
-      }),
+        terminalContext,
+      });
+      if (result.availability !== 'pending' && terminalContext?.eventId) {
+        void clearRecoveredQuizAttempt(access, terminalContext.eventId).catch(
+          () => undefined
+        );
+      }
+    },
   };
 }

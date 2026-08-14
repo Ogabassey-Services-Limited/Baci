@@ -122,6 +122,7 @@ describe('QuizResultsPanel', () => {
     );
 
     expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.getByTestId('quiz-results-scroll')).toBeTruthy();
     expect(screen.getByText(/points · 10 questions/)).toBeTruthy();
     expect(screen.getByText('Claim your prize')).toBeTruthy();
     expect(

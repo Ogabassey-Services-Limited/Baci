@@ -22,6 +22,16 @@ function getLeaderboardRows(leaderboard: QuizLeaderboard | null) {
   return leaderboard?.entries ?? [];
 }
 
+function isPastQuizEvent(item: QuizEvent): boolean {
+  if (['completed', 'closed', 'cancelled'].includes(item.status)) return true;
+  if (!item.endsAt || !item.serverNow) return false;
+  const endsAt = Date.parse(item.endsAt);
+  const serverNow = Date.parse(item.serverNow);
+  return (
+    Number.isFinite(endsAt) && Number.isFinite(serverNow) && endsAt <= serverNow
+  );
+}
+
 function ParticipantCount({
   count,
   styles,
@@ -81,13 +91,7 @@ export function QuizLeaderboardScreen() {
     fetchQuizEvents()
       .then((items) => {
         if (!active) return;
-        setEvents(
-          items.filter(
-            (item) =>
-              ['completed', 'closed', 'cancelled'].includes(item.status) ||
-              Boolean(item.endsAt && Date.parse(item.endsAt) <= Date.now())
-          )
-        );
+        setEvents(items.filter(isPastQuizEvent));
       })
       .catch(() => active && setError('Past leaderboards are unavailable.'))
       .finally(() => active && setLoading(false));

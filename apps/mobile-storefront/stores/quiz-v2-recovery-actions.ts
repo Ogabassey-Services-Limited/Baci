@@ -64,6 +64,8 @@ export function createQuizV2RecoveryResponseApplier({
       expiryRetryable: false,
       error: null,
     });
-    await clearRecoveredQuizAttempt(access, fallback.eventId);
+    if (response.availability === 'cancelled') {
+      await clearRecoveredQuizAttempt(access, fallback.eventId);
+    }
   };
 }
