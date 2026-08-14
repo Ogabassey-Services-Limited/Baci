@@ -119,7 +119,7 @@ describe('ucp catalog adapters', () => {
     expect(product.url).toBe('https://ogabassey.com/laptops/legacy-laptop');
   });
 
-  it('keeps legacy category text ahead of a junction category without a direct join', () => {
+  it('keeps an active junction category ahead of legacy text without a direct join', () => {
     const product = mapUcpCatalogProductRow({
       baseUrl: 'https://ogabassey.com',
       currency: 'NGN',
@@ -138,7 +138,7 @@ describe('ucp catalog adapters', () => {
     });
 
     expect(product.url).toBe(
-      'https://ogabassey.com/laptops/legacy-category-laptop'
+      'https://ogabassey.com/featured-laptops/legacy-category-laptop'
     );
   });
 

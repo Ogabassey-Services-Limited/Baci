@@ -35,8 +35,8 @@ interface ProductPurgeCategoryInput {
 /**
  * Derive the canonical category segment for a product's PDP purge URL by
  * reusing the SAME resolution `getProductUrl` performs for the storefront
- * canonical (PR #2914 precedence: direct category join → legacy text →
- * junction), then reading the leading path segment of the resolved path.
+ * canonical (active direct category join → active junction → legacy text),
+ * then reading the leading path segment of the resolved path.
  *
  * Returns null when the product resolves to the `/products/<slug>` fallback
  * (no category) so callers only emit the fallback PDP URL. NEVER throws: any
@@ -141,12 +141,10 @@ export interface ProductPurgeCategoryRow {
  * Resolve a product's canonical PDP category segment from a raw product row,
  * applying the SAME precedence the storefront canonical uses
  * (`normalizeJoinedCategory`, PR #2914): the direct `category_id` join wins,
- * then the legacy text column (which suppresses the junction so `getProductUrl`
- * derives the slug from the text), and the `product_categories` junction only
- * when both are absent. Without this, a product assigned ONLY via the junction
- * (no `category_id`, no legacy text) would resolve to the `/products/<slug>`
- * fallback here while the storefront serves it under `/<junction-category>/…`,
- * leaving the categorized PDP and category listing un-purged. Never throws.
+ * then the active `product_categories` junction, and finally the legacy text.
+ * Without this, a product whose direct category was retired would purge the
+ * stale legacy URL while the storefront serves it under the active relation
+ * category, leaving the canonical PDP cache un-purged. Never throws.
  */
 export function resolveProductPurgeCategorySegmentForRow(
   row: ProductPurgeCategoryRow
@@ -155,7 +153,7 @@ export function resolveProductPurgeCategorySegmentForRow(
   let joinedCategory: { slug: string } | null = null;
   if (directSlug) {
     joinedCategory = { slug: directSlug };
-  } else if (!row.category?.trim()) {
+  } else {
     const junctionSlug = extractJunctionCategorySlug(row.product_categories);
     joinedCategory = junctionSlug ? { slug: junctionSlug } : null;
   }

@@ -9,9 +9,11 @@ type StorefrontProductCategoryPrecedenceInput = {
 };
 
 /**
- * Resolves a category object without overriding a valid legacy text category.
- * Product URLs use the direct join first, the legacy text second, then a
- * junction-table category only when neither earlier source is usable.
+ * Resolves the active storefront category used by the PDP canonical path.
+ * Product URLs use the direct category join first, then the active
+ * product_categories junction. The legacy text column is only the final
+ * string fallback passed separately to getProductUrl; it must not override an
+ * active relation-backed category when the direct category was retired.
  */
 export function resolveStorefrontProductCategory(
   product: StorefrontProductCategoryPrecedenceInput
@@ -19,10 +21,6 @@ export function resolveStorefrontProductCategory(
   const directSlug = product.categories?.slug?.trim();
   if (directSlug) {
     return { slug: directSlug };
-  }
-
-  if (product.category?.trim()) {
-    return null;
   }
 
   const junctionSlug = product.product_categories

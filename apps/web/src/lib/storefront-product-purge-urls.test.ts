@@ -91,9 +91,10 @@ describe('resolveProductPurgeCategorySegmentForRow', () => {
     ).toBe('gaming-laptops');
   });
 
-  it('uses the legacy text over the junction when there is no direct join', () => {
-    // Precedence: direct join → legacy text → junction. Text present suppresses
-    // the junction so the purge matches the storefront canonical.
+  it('uses the active junction over legacy text when there is no direct join', () => {
+    // Precedence: direct join → active junction → legacy text. This keeps
+    // cache eviction aligned with the PDP snapshot after a direct category is
+    // retired.
     expect(
       resolveProductPurgeCategorySegmentForRow({
         slug: 'ipad-air',
@@ -101,7 +102,7 @@ describe('resolveProductPurgeCategorySegmentForRow', () => {
         categories: null,
         product_categories: [{ categories: { slug: 'junction-cat' } }],
       })
-    ).toBe('tablets');
+    ).toBe('junction-cat');
   });
 
   it('falls back to the junction when there is NO direct join and NO legacy text', () => {

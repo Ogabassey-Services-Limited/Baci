@@ -12,14 +12,14 @@ describe('resolveStorefrontProductCategory', () => {
     ).toEqual({ slug: 'direct-category' });
   });
 
-  it('leaves legacy category text available when a direct join is absent', () => {
+  it('prefers an active junction category over legacy text when the direct join is absent', () => {
     expect(
       resolveStorefrontProductCategory({
         categories: null,
         category: 'Legacy Category',
         product_categories: [{ categories: { slug: 'junction-category' } }],
       })
-    ).toBeNull();
+    ).toEqual({ slug: 'junction-category' });
   });
 
   it('uses the first usable junction category when earlier sources are blank', () => {

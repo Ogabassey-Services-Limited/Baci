@@ -134,7 +134,7 @@ describe('getCachedProductCanonicalPaths', () => {
     expect(paths['apple-airpods-2']).toBe('/earbuds/apple-airpods-2');
   });
 
-  it('prefers the legacy category text over the junction when the direct join is absent', async () => {
+  it('prefers the active junction category over legacy text when the direct join is absent', async () => {
     const builder = createQueryBuilder({
       data: [
         {
@@ -155,9 +155,9 @@ describe('getCachedProductCanonicalPaths', () => {
       'jbl-clip-4',
     ]);
 
-    // the category route canonicalizes by direct join || legacy text, so the
-    // text-derived path is the one that renders without a redirect
-    expect(paths['jbl-clip-4']).toBe('/audio/jbl-clip-4');
+    // The PDP snapshot canonicalizes by active direct join || active junction,
+    // so content links must target the relation-backed path directly.
+    expect(paths['jbl-clip-4']).toBe('/speakers/jbl-clip-4');
   });
 
   it('falls back to the product_categories junction when direct join and legacy text are both absent', async () => {

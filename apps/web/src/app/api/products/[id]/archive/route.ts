@@ -22,8 +22,8 @@ const paramsSchema = z.object({
  * The archived product row shape: slug/name + legacy text `category` + the
  * `category_id` direct join + the `product_categories` junction, so the
  * Cloudflare purge resolves the same join-driven canonical segment the
- * storefront served (PR #2914 precedence: direct join → legacy text →
- * junction). Archiving only flips `status`, so the row (and its junction rows)
+ * storefront served (PR #2914 precedence: active direct join → active
+ * junction → legacy text). Archiving only flips `status`, so the row (and its junction rows)
  * survive the update — the `update(...).select(...)` reuse avoids a separate
  * pre-read.
  */

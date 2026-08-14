@@ -37,22 +37,17 @@ function firstJoinedCategory(
   return slug ? { name: joined?.name, slug } : null;
 }
 
-// Mirrors the category route's canonical decision, which is the arbiter for
-// categorized URLs: direct category_id join first, then the legacy category
-// text (getProductUrl derives it when no joined category is passed), and the
-// product_categories junction only when both are absent. Putting the junction
-// ahead of the text would emit links the category route's mismatch check
-// (direct join || slugified text) immediately 308s away from.
+// Mirrors the PDP snapshot's canonical decision, which is the arbiter for
+// categorized URLs: active direct category_id join first, then the active
+// product_categories junction. The legacy category text is only used when no
+// active joined category exists; otherwise content links would emit a stale
+// URL that the PDP immediately 308s to the relation-backed category.
 function normalizeJoinedCategory(
   row: CanonicalPathProductRow
 ): CanonicalPathJoinedCategory | null {
   const direct = firstJoinedCategory(row.categories);
   if (direct) {
     return direct;
-  }
-
-  if (row.category?.trim()) {
-    return null;
   }
 
   for (const entry of row.product_categories ?? []) {

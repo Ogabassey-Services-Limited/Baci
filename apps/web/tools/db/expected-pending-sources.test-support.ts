@@ -218,6 +218,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260804140000_harden_authenticated_private_schema_delegates.sql',
     sha256: '62201972e14cbafc34feb0584697b92d402eea9c15890a6ec4bbcfc3d5c7e0c5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814124135_fix_storefront_pdp_preflight_relation_category.sql',
+    sha256: '34d9b431e3d16cfac0765c43d4c62fc9cd4421d295636245594cb1e2a1f8b9e3',
+  },
   ...EXPECTED_QUIZ_LIVE_PENDING_SOURCES,
   ...EXPECTED_MERCHANT_INVOICE_PENDING_SOURCES,
   ...EXPECTED_PAYSTACK_PENDING_SOURCES,
