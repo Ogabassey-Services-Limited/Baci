@@ -90,6 +90,32 @@ if grep -q 'min(co.id)' "$uuid_query_log"; then
   exit 1
 fi
 
+uuid_pending_migrations="$fixture_root/uuid-pending-migrations"
+uuid_pending_query_log="$fixture_root/uuid-pending-queries.log"
+mkdir -p "$uuid_pending_migrations"
+cp "$script_dir/../../supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql" \
+  "$uuid_pending_migrations/20260811135000_harden_paystack_chat_order_relationship.sql"
+cp "$script_dir/../../supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql" \
+  "$uuid_pending_migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$uuid_pending_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$uuid_pending_query_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260811130000","name":"serialize_wallet_paystack_reference_claims"}]' \
+  bash "$applier" >"$fixture_root/uuid-pending-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260813192730_repair_harden_paystack_chat_order_relationship.sql' \
+  "$fixture_root/uuid-pending-output.log"
+if grep -q '^→ applying:        20260811135000' "$fixture_root/uuid-pending-output.log" || \
+  grep -q 'min(co.id)' "$uuid_pending_query_log" || \
+  ! grep -q 'array_agg(co.id ORDER BY co.id)' "$uuid_pending_query_log"; then
+  echo 'The pending UUID migration must be reconciled before its unsupported SQL is submitted' >&2
+  exit 1
+fi
+
 : >"$query_log"
 printf '%s\n' "SELECT 'colliding Paystack override source';" \
   >"$migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
