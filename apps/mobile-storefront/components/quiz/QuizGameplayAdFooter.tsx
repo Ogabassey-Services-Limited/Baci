@@ -32,16 +32,19 @@ export function QuizGameplayAdFooter({ active }: QuizGameplayAdFooterProps) {
     return null;
   }
 
-  return <QuizGameplayAdPlacement adState={adState} styles={styles} />;
+  return (
+    <QuizGameplayAdPlacement
+      bannerUnitId={adState.bannerUnitId}
+      styles={styles}
+    />
+  );
 }
 
-type QuizGameplayAdState = ReturnType<typeof useQuizMobileAds>;
-
 function QuizGameplayAdPlacement({
-  adState,
+  bannerUnitId,
   styles,
 }: {
-  adState: QuizGameplayAdState;
+  bannerUnitId: string;
   styles: ReturnType<typeof createQuizGameplayAdFooterStyles>;
 }) {
   const insets = useSafeAreaInsets();
@@ -74,7 +77,7 @@ function QuizGameplayAdPlacement({
           onAdImpression={() => trackQuizAdEvent('quiz_ad_impression')}
           onPaid={handlePaid}
           size={BannerAdSize.LARGE_ANCHORED_ADAPTIVE_BANNER}
-          unitId={adState.bannerUnitId}
+          unitId={bannerUnitId}
         />
       </View>
     </View>
