@@ -104,12 +104,18 @@ async function sendPushTokens(
       )
     );
     if (quietTokens.length > 0) {
-      await rpcOk(client, 'defer_notification_push_tokens_v1', {
-        p_claim_token: notification.delivery_claim_token,
-        p_notification_id: notification.id,
-        p_tokens: quietTokens.map((record) => record.push_token),
-      });
-      hasDeferredPushes = true;
+      const deferredCount = await rpcOk(
+        client,
+        'defer_notification_push_tokens_v1',
+        {
+          p_claim_token: notification.delivery_claim_token,
+          p_notification_id: notification.id,
+          p_tokens: quietTokens.map((record) => record.push_token),
+        }
+      );
+      if (typeof deferredCount === 'number' && deferredCount > 0) {
+        hasDeferredPushes = true;
+      }
     }
     const tokens = uniqueRecords
       .filter((record) => !quietTokens.includes(record))

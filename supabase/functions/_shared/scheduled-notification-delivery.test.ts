@@ -92,6 +92,9 @@ describe('processScheduledNotificationClaims', () => {
             error: null,
           };
         }
+        if (name === 'defer_notification_push_tokens_v1') {
+          return { data: 1, error: null };
+        }
         return { data: true, error: null };
       },
     };
@@ -171,6 +174,9 @@ describe('processScheduledNotificationClaims', () => {
             data: [{ push_token: 'ExponentPushToken[ready-token]' }],
             error: null,
           };
+        }
+        if (name === 'defer_notification_push_tokens_v1') {
+          return { data: 1, error: null };
         }
         return { data: true, error: null };
       },
@@ -285,5 +291,124 @@ describe('processScheduledNotificationClaims', () => {
       }),
       name: 'finalize_scheduled_admin_notification_v1',
     });
+  });
+
+  it('does not defer a broadcast when only already-delivered tokens are quiet', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => undefined } });
+    const claim = {
+      action_url: null,
+      channels: ['push'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174011',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3fb',
+      message: 'Follow-up quiet notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Follow-up',
+    };
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          return {
+            data: [{ merchant_id: '456e4567-e89b-42d3-a456-426614174000' }],
+            error: null,
+          };
+        }
+        if (name === 'get_claimed_notification_push_tokens_v1') {
+          return {
+            data: [
+              {
+                push_token: 'ExponentPushToken[already-delivered]',
+                quiet_hours_end: '23:59',
+                quiet_hours_start: '00:00',
+                quiet_hours_time_zone: 'Africa/Lagos',
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === 'defer_notification_push_tokens_v1') {
+          return { data: 0, error: null };
+        }
+        if (name === 'get_notification_push_outbox_summary_v1') {
+          return {
+            data: {
+              dispatching: 0,
+              pending: 0,
+              rejected: 0,
+              unknown: 0,
+            },
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [claim]);
+
+    expect(results).toEqual([
+      { id: claim.id, recipients: 1, status: 'sent' },
+    ]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'sent' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    expect(calls).not.toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'deferred' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('finalizes push-only broadcasts without in-app recipients as sent', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => undefined } });
+    const claim = {
+      action_url: null,
+      channels: ['push'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174012',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3fc',
+      message: 'Push-only notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Push-only',
+    };
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          return { data: [], error: null };
+        }
+        if (name === 'get_notification_push_outbox_summary_v1') {
+          return {
+            data: {
+              dispatching: 0,
+              pending: 0,
+              rejected: 0,
+              unknown: 0,
+            },
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [claim]);
+
+    expect(results).toEqual([
+      { id: claim.id, recipients: 0, status: 'sent' },
+    ]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'sent' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    vi.unstubAllGlobals();
   });
 });

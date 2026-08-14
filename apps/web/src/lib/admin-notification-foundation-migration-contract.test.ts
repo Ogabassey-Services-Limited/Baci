@@ -22,6 +22,7 @@ const notificationMigrationNames = [
   '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
   '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
   '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
+  '20260813140000_repair_notification_deferral_and_finalize.sql',
 ] as const;
 const readMigrations = (migrationNames: readonly string[]) =>
   migrationNames
@@ -63,6 +64,7 @@ describe('admin notification foundation migration contract', () => {
       '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
       '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
       '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
+      '20260813140000_repair_notification_deferral_and_finalize.sql',
     ]);
 
     for (const migrationName of notificationMigrationNames) {
