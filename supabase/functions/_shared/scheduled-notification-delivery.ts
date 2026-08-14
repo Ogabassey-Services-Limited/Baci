@@ -226,7 +226,7 @@ async function deliverPages(
       p_notification_id: notification.id,
     });
     const pageDeferredPushes = await sendPushTokens(client, notification, ids);
-    hasDeferredPushes ||= pageDeferredPushes;
+    hasDeferredPushes = hasDeferredPushes || pageDeferredPushes;
     recipients += ids.length;
     after = nextRecipientPageCursor(ids, RECIPIENT_PAGE_SIZE);
     if (!after) return { hasDeferredPushes, recipients };

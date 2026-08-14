@@ -411,4 +411,102 @@ describe('processScheduledNotificationClaims', () => {
     });
     vi.unstubAllGlobals();
   });
+
+  it('still dispatches ready tokens on later audience pages after a quiet first page', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => undefined } });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ data: [{ id: 'expo-ticket', status: 'ok' }] }),
+            { status: 200 }
+          )
+      )
+    );
+    const claim = {
+      action_url: null,
+      channels: ['push'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174013',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3fd',
+      message: 'Paged quiet notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Paged',
+    };
+    const firstPageMerchant = '456e4567-e89b-42d3-a456-426614174001';
+    const secondPageMerchant = '456e4567-e89b-42d3-a456-426614174002';
+    const firstPageMerchants = Array.from({ length: 500 }, (_, index) =>
+      index === 0
+        ? firstPageMerchant
+        : `456e4567-e89b-42d3-a456-${String(1000 + index).padStart(12, '0')}`
+    );
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          const after = args?.p_after_merchant_id;
+          return {
+            data: after
+              ? [{ merchant_id: secondPageMerchant }]
+              : firstPageMerchants.map((merchant_id) => ({ merchant_id })),
+            error: null,
+          };
+        }
+        if (name === 'get_claimed_notification_push_tokens_v1') {
+          const merchants = args?.p_merchant_ids as string[];
+          if (merchants.includes(firstPageMerchant)) {
+            return {
+              data: [
+                {
+                  push_token: 'ExponentPushToken[quiet-token]',
+                  quiet_hours_end: '23:59',
+                  quiet_hours_start: '00:00',
+                  quiet_hours_time_zone: 'Africa/Lagos',
+                },
+              ],
+              error: null,
+            };
+          }
+          return {
+            data: [
+              {
+                push_token: 'ExponentPushToken[ready-token-page-2]',
+                quiet_hours_end: '07:00',
+                quiet_hours_start: '22:00',
+                quiet_hours_time_zone: 'America/New_York',
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === 'defer_notification_push_tokens_v1') {
+          return { data: 1, error: null };
+        }
+        if (name === 'reserve_notification_push_batch_v1') {
+          return {
+            data: [{ push_token: 'ExponentPushToken[ready-token-page-2]' }],
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [claim]);
+
+    expect(results).toEqual([
+      { id: claim.id, recipients: 501, status: 'deferred' },
+    ]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({
+        p_tokens: ['ExponentPushToken[ready-token-page-2]'],
+      }),
+      name: 'reserve_notification_push_batch_v1',
+    });
+    vi.unstubAllGlobals();
+  });
 });
