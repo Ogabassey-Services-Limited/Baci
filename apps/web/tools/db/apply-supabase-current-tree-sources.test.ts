@@ -74,6 +74,16 @@ const repairCases = [
       'supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql',
     ordinal: 129,
   },
+  {
+    label: 'Paystack manual reconciliation review contracts',
+    historicalPath:
+      'supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql',
+    historicalSha256:
+      '4ed01fb7657a37530a4bdb5de152b4bf869e4b2ddaf7bc04c29f7ca131207408',
+    repairPath:
+      'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql',
+    ordinal: 129,
+  },
 ] as const;
 
 describe('applySupabaseCurrentTreeSources', () => {

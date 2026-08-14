@@ -143,3 +143,34 @@ if grep -q \
   echo 'The occupied Paystack migration version must not be registered again' >&2
   exit 1
 fi
+
+review_migrations="$fixture_root/paystack-review-migrations"
+review_query_log="$fixture_root/paystack-review-queries.log"
+mkdir -p "$review_migrations"
+cp "$script_dir/../../supabase/migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql" \
+  "$review_migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
+cp "$script_dir/../../supabase/migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql" \
+  "$review_migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql"
+cp "$script_dir/../../supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql" \
+  "$review_migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql"
+cp "$script_dir/../../supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql" \
+  "$review_migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$review_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$review_query_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260811120000","name":"quiz_leaderboard_and_claim_projections_v2"}]' \
+  bash "$applier" >"$fixture_root/paystack-review-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql' \
+  "$fixture_root/paystack-review-output.log"
+grep -q \
+  'p_allow_email_mismatch boolean' \
+  "$review_query_log"
+if grep -q '^→ applying:        20260811140000' "$fixture_root/paystack-review-output.log"; then
+  echo 'The Paystack review contract migration must be reconciled before its missing dependency is applied' >&2
+  exit 1
+fi
