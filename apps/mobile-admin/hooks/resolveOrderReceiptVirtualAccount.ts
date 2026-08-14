@@ -10,15 +10,6 @@ interface ReceiptMerchantDetails {
   business_name?: string | null;
 }
 
-interface GenerateDvaResponse {
-  virtualAccount?: {
-    account_name?: string | null;
-    account_number?: string | null;
-    bank?: string | null;
-    bank_name?: string | null;
-  } | null;
-}
-
 interface VirtualTerminalEntry {
   account_name?: string | null;
   account_number?: string | null;
@@ -64,23 +55,6 @@ function resolveAccountCandidate(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseGenerateDvaResponse(
-  payload: unknown
-): GenerateDvaResponse | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  if (
-    !('virtualAccount' in payload) ||
-    (payload.virtualAccount !== null && !isRecord(payload.virtualAccount))
-  ) {
-    return null;
-  }
-
-  return payload as GenerateDvaResponse;
 }
 
 function parseVirtualTerminalResponse(
@@ -144,30 +118,6 @@ export async function resolveOrderReceiptVirtualAccount({
   let virtualAccount =
     resolveAccountCandidate(order.virtual_account) ??
     resolveAccountCandidate(order.staff_terminal);
-
-  if (!virtualAccount) {
-    try {
-      if (session?.access_token) {
-        const response = await fetch(
-          `${BASE_URL}/api/orders/${order.id}/generate-dva`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            method: 'POST',
-          }
-        );
-
-        if (response.ok) {
-          const payload = parseGenerateDvaResponse(await response.json());
-          virtualAccount = resolveAccountCandidate(payload?.virtualAccount);
-        }
-      }
-    } catch {
-      // Ignore dynamic account generation failures and continue to the next fallback.
-    }
-  }
 
   if (!virtualAccount) {
     try {
