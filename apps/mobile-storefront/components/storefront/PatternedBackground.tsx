@@ -24,6 +24,7 @@ export function PatternedBackground({
       />
       <View style={[StyleSheet.absoluteFill, styles.patternClip]}>
         <GadgetPattern
+          colorScheme={isDark ? 'dark' : 'light'}
           opacity={isDark ? DARK_PATTERN_OPACITY : LIGHT_PATTERN_OPACITY}
           height={PATTERN_HEIGHT}
           color={isDark ? DARK_PATTERN_COLOR : BRAND.primary}

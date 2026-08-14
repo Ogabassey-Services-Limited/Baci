@@ -202,14 +202,17 @@ export function DrawerMenu() {
             { pointerEvents: isOpen ? 'auto' : 'none' },
           ]}
         >
-          <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
-            <GadgetPattern
-              opacity={colorScheme === 'dark' ? 0.04 : 0.08}
-              height={SCREEN_HEIGHT}
-              variant="default"
-              color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
-            />
-          </View>
+          {isOpen && (
+            <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
+              <GadgetPattern
+                colorScheme={colorScheme ?? 'light'}
+                opacity={colorScheme === 'dark' ? 0.04 : 0.08}
+                height={SCREEN_HEIGHT}
+                variant="default"
+                color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+              />
+            </View>
+          )}
           {/* Header */}
           <View
             style={[

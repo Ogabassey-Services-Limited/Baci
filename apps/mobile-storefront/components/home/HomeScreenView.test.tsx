@@ -53,8 +53,14 @@ jest.mock('@/components/storefront/GadgetPattern', () => {
   ) as typeof import('react-native');
 
   return {
-    GadgetPattern: ({ color }: { color?: string }) => (
-      <Text>{color ? `Gadget pattern ${color}` : 'Elite texture'}</Text>
+    GadgetPattern: ({
+      color,
+      colorScheme,
+    }: {
+      color?: string;
+      colorScheme?: string;
+    }) => (
+      <Text>{`Gadget pattern ${color ?? 'default'} ${colorScheme ?? 'system'}`}</Text>
     ),
   };
 });
@@ -289,7 +295,13 @@ describe('HomeScreenView', () => {
   it('uses the active merchant theme color for decorative and refresh affordances', () => {
     render(<HomeScreenView {...createProps()} primaryColor="#22c55e" />);
 
-    expect(screen.getByText('Gadget pattern #22c55e')).toBeTruthy();
+    expect(screen.getByText('Gadget pattern #22c55e light')).toBeTruthy();
+  });
+
+  it('renders only one shared backdrop for the elite home surface', () => {
+    render(<HomeScreenView {...createProps()} isElite={true} />);
+
+    expect(screen.getAllByText(/Gadget pattern/)).toHaveLength(1);
   });
 
   it('renders the online error notice for an unsuccessful page request', () => {
@@ -304,7 +316,7 @@ describe('HomeScreenView', () => {
     );
 
     expect(screen.getByText('Offline cached content')).toBeTruthy();
-    expect(screen.getAllByText('Elite texture').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Gadget pattern/)).toHaveLength(1);
   });
 
   it('keeps heavy decorative layers deferred while rendering the elite backdrop immediately', () => {
@@ -317,7 +329,7 @@ describe('HomeScreenView', () => {
     );
 
     expect(screen.getByText('Block CategoryRail')).toBeTruthy();
-    expect(screen.getByText('Elite texture')).toBeTruthy();
+    expect(screen.getByText('Gadget pattern default light')).toBeTruthy();
     expect(screen.queryByText('Snow effect')).toBeNull();
   });
 

@@ -22,7 +22,11 @@ describe('useGadgetPatternAttribution', () => {
     );
     expect(recordPerformanceSurface).toHaveBeenCalledWith(
       'gadget_pattern',
-      expect.objectContaining({ os: expect.any(String), variant: 'tabbar' })
+      expect.objectContaining({
+        os: expect.any(String),
+        renderer: 'raster_gradient',
+        variant: 'tabbar',
+      })
     );
     unmount();
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(

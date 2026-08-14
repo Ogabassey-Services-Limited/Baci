@@ -1,5 +1,7 @@
-import { render } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import { DrawerMenu } from './DrawerMenu';
+
+let mockIsOpen = true;
 
 // Mock SafeAreaProvider / useSafeAreaInsets cleanly
 jest.mock('react-native-safe-area-context', () => ({
@@ -57,7 +59,7 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     useSharedValue: makeSharedValue,
     useAnimatedStyle: () => ({}),
-    withTiming: (value: number, config?: unknown, callback?: () => void) => {
+    withTiming: (value: number, _config?: unknown, callback?: () => void) => {
       if (callback) callback();
       return value;
     },
@@ -66,7 +68,7 @@ jest.mock('react-native-reanimated', () => {
 
 jest.mock('@/stores/drawer-store', () => ({
   useDrawerStore: () => ({
-    isOpen: true,
+    isOpen: mockIsOpen,
     closeDrawer: jest.fn(),
   }),
 }));
@@ -100,8 +102,21 @@ jest.mock('@/components/useColorScheme', () => ({
 }));
 
 describe('DrawerMenu', () => {
+  beforeEach(() => {
+    mockIsOpen = true;
+  });
+
   it('renders correctly with GadgetPattern background decoration', () => {
-    const { toJSON } = render(<DrawerMenu />);
-    expect(toJSON()).not.toBeNull();
+    render(<DrawerMenu />);
+
+    expect(screen.getByTestId('tech-backdrop')).toBeTruthy();
+  });
+
+  it('does not mount the decorative backdrop while the drawer is closed', () => {
+    mockIsOpen = false;
+
+    render(<DrawerMenu />);
+
+    expect(screen.queryByTestId('tech-backdrop')).toBeNull();
   });
 });
