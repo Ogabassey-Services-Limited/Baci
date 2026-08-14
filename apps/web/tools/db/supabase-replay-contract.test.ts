@@ -6,6 +6,7 @@ import {
   createSupabaseReplayDatabaseEnvironment,
   isSupabaseReplayLoopbackHost,
   parseSupabaseReplayArguments,
+  readReplayCommandExecutionTimeoutMs,
   readSupabaseReplayDatabaseUrl,
   verifySupabaseReplayContract,
 } from './supabase-replay-contract';
@@ -265,5 +266,27 @@ describe('parseSupabaseReplayArguments', () => {
     expect(() => parseSupabaseReplayArguments(argv)).toThrow(
       /^Invalid Supabase replay arguments$/
     );
+  });
+});
+
+describe('readReplayCommandExecutionTimeoutMs', () => {
+  it('defaults to five minutes when unset', () => {
+    expect(readReplayCommandExecutionTimeoutMs({})).toBe(300_000);
+  });
+
+  it('reads a bounded timeout from the environment', () => {
+    expect(
+      readReplayCommandExecutionTimeoutMs({
+        BACI_REPLAY_COMMAND_TIMEOUT_MS: '1800000',
+      })
+    ).toBe(1_800_000);
+  });
+
+  it('rejects invalid timeout values', () => {
+    expect(() =>
+      readReplayCommandExecutionTimeoutMs({
+        BACI_REPLAY_COMMAND_TIMEOUT_MS: 'not-a-number',
+      })
+    ).toThrow(/^BACI_REPLAY_COMMAND_TIMEOUT_MS is invalid$/);
   });
 });
