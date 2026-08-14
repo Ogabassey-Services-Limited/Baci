@@ -267,14 +267,16 @@ describe('MerchantSetupForm', () => {
     );
     expect(mocks.replace).not.toHaveBeenCalled();
   });
-  it('bugfix: does not re-ask name or phone after email signup already collected the name', () => {
+  it('bugfix: keeps country selection after email signup without re-asking for name', () => {
     render(<MerchantSetupForm />);
 
-    expect(screen.queryByText('Owner Details')).toBeNull();
     expect(screen.queryByLabelText('First Name')).toBeNull();
     expect(screen.queryByLabelText('Last Name')).toBeNull();
-    expect(screen.queryByLabelText('Phone Number')).toBeNull();
-    expect(screen.getByLabelText('Business Name')).toBeTruthy();
+    expect(screen.getByText('Your location')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Business Name')).toBeNull();
   });
 
   it('requires missing social-auth names to be completed', async () => {

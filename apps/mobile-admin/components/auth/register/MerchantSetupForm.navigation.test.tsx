@@ -133,17 +133,19 @@ describe('MerchantSetupForm step navigation', () => {
     };
   });
 
-  it('bugfix: skips owner name and phone after email signup already collected the name', () => {
+  it('bugfix: keeps country selection after email signup without re-asking for name', () => {
     render(<MerchantSetupForm />);
 
-    expect(screen.queryByText('Owner Details')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('First Name')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Last Name')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Phone Number')).not.toBeInTheDocument();
+    expect(screen.getByText('Your location')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: 'Back to about you' })
-    ).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Business Name')).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('Phone Number (Optional)')
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
   });
 
   it('returns to about-you details from business setup when names were missing', () => {
