@@ -68,6 +68,33 @@ const NETWORK_DEVICE_CELLULAR_SPEC_KEYS = new Set([
 
 const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
 
+const AUTHORITATIVE_FALSE_CAPABILITY_SUPPRESSIONS: Array<{
+  authoritativeKey: string;
+  suppressedKeys: string[];
+}> = [
+  { authoritativeKey: 'has_card_slot', suppressedKeys: ['card_slot_type'] },
+  { authoritativeKey: 'has_ois', suppressedKeys: ['has_ois'] },
+  {
+    authoritativeKey: 'has_wireless_charging',
+    suppressedKeys: ['has_wireless_charging', 'wireless_charging_watt'],
+  },
+  { authoritativeKey: 'has_fm_radio', suppressedKeys: ['has_fm_radio'] },
+  { authoritativeKey: 'has_nfc', suppressedKeys: ['has_nfc'] },
+  { authoritativeKey: 'has_5g', suppressedKeys: ['has_5g'] },
+  {
+    authoritativeKey: 'has_headphone_jack',
+    suppressedKeys: ['has_headphone_jack'],
+  },
+  {
+    authoritativeKey: 'has_stereo_speakers',
+    suppressedKeys: ['has_stereo_speakers'],
+  },
+  {
+    authoritativeKey: 'has_reverse_charging',
+    suppressedKeys: ['has_reverse_charging'],
+  },
+];
+
 /**
  * Keeps phone-shaped fields and labels out of named non-phone product schemas.
  * Phone, tablet, and laptop categories retain the legacy mapping behavior.
@@ -118,11 +145,15 @@ export function shouldIncludeProductSchemaSpec(
 
   // Capability data is authoritative over legacy labels. This must precede
   // the mobile fast path because old PDP rows do not always retain their key.
-  if (
-    product.product_key_specs?.has_card_slot === false &&
-    canonicalSpecKey === 'card_slot_type'
-  ) {
-    return false;
+  if (canonicalSpecKey && product.product_key_specs) {
+    for (const suppression of AUTHORITATIVE_FALSE_CAPABILITY_SUPPRESSIONS) {
+      if (
+        product.product_key_specs[suppression.authoritativeKey] === false &&
+        suppression.suppressedKeys.includes(canonicalSpecKey)
+      ) {
+        return false;
+      }
+    }
   }
 
   const valueDecision = getProductSchemaSpecValueDecision({
@@ -174,7 +205,6 @@ export function shouldIncludeProductSchemaSpec(
   if (
     canonicalSpecKey === 'has_fm_radio' &&
     !isMobileCategory &&
-    !candidate.key &&
     isRadioLikeCategory
   ) {
     return true;

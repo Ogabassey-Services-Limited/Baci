@@ -54,6 +54,12 @@ describe('shouldIncludeProductSchemaSpec non-phone capabilities', () => {
     ).toBe(true);
     expect(
       shouldIncludeProductSchemaSpec(
+        { category: 'Car Stereo', categories: null },
+        { key: 'has_fm_radio', value: true }
+      )
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(
         { category: 'Cameras', categories: null },
         { label: 'Radio', value: 'FM / AM' }
       )
@@ -67,5 +73,35 @@ describe('shouldIncludeProductSchemaSpec non-phone capabilities', () => {
         { key: 'has_nfc', value: true }
       )
     ).toBe(true);
+  });
+
+  it('rejects stale positive legacy rows when authoritative capabilities are false', () => {
+    const product = {
+      category: 'Cameras',
+      categories: null,
+      product_key_specs: {
+        has_ois: false,
+        has_wireless_charging: false,
+      },
+    };
+
+    expect(
+      shouldIncludeProductSchemaSpec(product, { label: 'OIS', value: 'Yes' })
+    ).toBe(false);
+    expect(
+      shouldIncludeProductSchemaSpec(product, {
+        label: 'Wireless Charging',
+        value: '15W',
+      })
+    ).toBe(false);
+  });
+
+  it('rejects legacy Android Version rows on non-phone products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Cameras', categories: null },
+        { label: 'Android Version', value: '12' }
+      )
+    ).toBe(false);
   });
 });

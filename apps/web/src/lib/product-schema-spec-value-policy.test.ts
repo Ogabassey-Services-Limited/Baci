@@ -83,6 +83,19 @@ describe('getProductSchemaSpecValueDecision', () => {
     ).toBe('defer');
   });
 
+  it('keeps legitimate zero scalars on merchant-defined custom properties', () => {
+    expect(
+      getProductSchemaSpecValueDecision({
+        hasCategory: true,
+        isExplicitSpecKey: false,
+        isMobileCategory: false,
+        isPhoneOnlyLabel: false,
+        normalizedLabel: 'minimum operating temperature',
+        value: 0,
+      })
+    ).toBe('defer');
+  });
+
   it('includes explicit negative capabilities only for mobile families', () => {
     const input = {
       canonicalSpecKey: 'has_5g',

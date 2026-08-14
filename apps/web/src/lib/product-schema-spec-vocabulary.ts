@@ -5,6 +5,7 @@ const SPEC_LABEL_TO_KEY: Record<string, string> = {
   '3 5mm headphone jack': 'has_headphone_jack',
   '3 5mm jack': 'has_headphone_jack',
   android: 'android_version',
+  'android version': 'android_version',
   'battery capacity': 'battery_mah',
   bluetooth: 'bluetooth_version',
   build: 'build_materials',

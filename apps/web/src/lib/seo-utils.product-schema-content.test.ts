@@ -194,6 +194,38 @@ describe('generateProductSchema content and custom properties', () => {
     );
   });
 
+  it('keeps a legitimate zero scalar on a merchant-defined custom property', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Cameras',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Minimum operating temperature',
+            value: 0,
+            unitCode: 'CEL',
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Minimum operating temperature',
+          value: 0,
+          unitCode: 'CEL',
+        },
+      ])
+    );
+  });
+
   it('rejects propertyID-only phone specs from accessory product schema markup', () => {
     const schema = generateProductSchema(
       makeSeoProduct({

@@ -4,6 +4,7 @@ export const PHONE_ONLY_SPEC_LABELS = new Set([
   '3 5mm headphone jack',
   '3 5mm jack',
   'android',
+  'android version',
   'card slot',
   'fingerprint sensor',
   'fm radio',

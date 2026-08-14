@@ -19,6 +19,12 @@ describe('isAccessoryLikeCategory', () => {
     }
   });
 
+  it('recognizes gift-card and digital-card categories as accessories', () => {
+    for (const category of ['Gift Cards', 'gift-cards', 'Digital Cards']) {
+      expect(isAccessoryLikeCategory(category)).toBe(true);
+    }
+  });
+
   it('does not classify ordinary devices as accessories', () => {
     expect(isAccessoryLikeCategory('Smartphones')).toBe(false);
     expect(isAccessoryLikeCategory('Cameras')).toBe(false);

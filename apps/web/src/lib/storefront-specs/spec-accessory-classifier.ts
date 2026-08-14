@@ -27,6 +27,10 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'batteries',
   'flash',
   'flashes',
+  'gift card',
+  'gift cards',
+  'digital card',
+  'digital cards',
 ];
 
 export function isAccessoryLikeCategory(categoryName: string) {

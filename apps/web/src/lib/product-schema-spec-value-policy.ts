@@ -146,6 +146,11 @@ export function getProductSchemaSpecValueDecision({
     return 'defer';
   }
 
+  // Merchant-defined custom PropertyValues may legitimately use zero scalars.
+  if (typeof value === 'number' && value === 0 && !measurementSpec) {
+    return 'defer';
+  }
+
   if (!isExplicitNegativeSpecValue(value)) {
     return 'exclude';
   }
