@@ -4,6 +4,14 @@ function isSpecSentence(sentence: string): boolean {
   );
 }
 
+function filterProseText(text: string): string {
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !isSpecSentence(s));
+  return sentences.join(' ');
+}
+
 export function buildDescriptionExcerpt(description: string) {
   if (!description) return '';
 
@@ -12,7 +20,8 @@ export function buildDescriptionExcerpt(description: string) {
   );
 
   if (worthMatch?.[1]) {
-    const benefitText = worthMatch[1].trim();
+    const benefitText = filterProseText(worthMatch[1].trim());
+    if (!benefitText) return '';
     return benefitText.length > 200
       ? `${benefitText.substring(0, 200)}...`
       : benefitText;
@@ -20,10 +29,9 @@ export function buildDescriptionExcerpt(description: string) {
 
   const secondParagraph = description.match(/<\/p>\s*<p>([^<]+)/);
   if (secondParagraph?.[1]) {
-    const text = secondParagraph[1].trim();
-    if (!isSpecSentence(text)) {
-      return text.length > 200 ? `${text.substring(0, 200)}...` : text;
-    }
+    const text = filterProseText(secondParagraph[1].trim());
+    if (!text) return '';
+    return text.length > 200 ? `${text.substring(0, 200)}...` : text;
   }
 
   const plainText = description
@@ -32,9 +40,9 @@ export function buildDescriptionExcerpt(description: string) {
     .trim();
 
   const allSentences = plainText.split(/(?<=[.!?])\s+/);
-  const nonSpecSentences = allSentences.filter(
-    (s) => s.trim().length > 0 && !isSpecSentence(s)
-  );
+  const nonSpecSentences = allSentences
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !isSpecSentence(s));
 
   if (
     nonSpecSentences.length === 0 ||

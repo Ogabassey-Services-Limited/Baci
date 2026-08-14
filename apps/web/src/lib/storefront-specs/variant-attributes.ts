@@ -165,6 +165,7 @@ const NON_RENDERABLE_VARIANT_AXES = new Set([
   'notes',
   'disclaimer',
   'disclaimers',
+  'warranty',
   'warranty_note',
   'notice',
 ]);
@@ -174,7 +175,8 @@ function isRenderableVariantAxis(axis: string, options: string[]) {
     NON_RENDERABLE_VARIANT_AXES.has(axis) ||
     axis.includes('note') ||
     axis.includes('disclaimer') ||
-    axis.includes('notice')
+    axis.includes('notice') ||
+    axis.includes('warranty')
   ) {
     return false;
   }

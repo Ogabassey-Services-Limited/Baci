@@ -112,7 +112,7 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(
       screen.getByRole('button', { name: /512GB/i }),
     ).not.toBeDisabled();
-  }, 30000);
+  });
 
   it('disables storage options that have no variant matching the selected RAM', () => {
     renderSelectors({

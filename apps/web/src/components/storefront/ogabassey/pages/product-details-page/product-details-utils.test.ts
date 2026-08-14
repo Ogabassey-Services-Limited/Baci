@@ -46,14 +46,42 @@ describe('buildDescriptionExcerpt', () => {
   it('extracts text from a "Why Worth" H2 heading match', () => {
     const html =
       '<h2>Why It is Worth Buying</h2><p>Great value for money and premium build quality.</p>';
-    expect(buildDescriptionExcerpt(html)).toBe(
-      'Great value for money and premium build quality.'
-    );
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Great value for money and premium build quality.');
+  });
+
+  it('filters specification sentences from "Why Worth" paragraph with prose and specs', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Incredible speed and battery life. Storage: 2TB PCIe NVMe SSD. RAM: 64GB.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Incredible speed and battery life.');
+  });
+
+  it('returns an empty string when "Why Worth" paragraph contains only specification sentences', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Storage: 2TB PCIe NVMe SSD. RAM: 64GB. Warranty: 1 Year.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('');
   });
 
   it('falls back to the second paragraph when no "Why Worth" H2 is present', () => {
     const html = '<p>First paragraph.</p><p>Second paragraph content here.</p>';
-    expect(buildDescriptionExcerpt(html)).toBe('Second paragraph content here.');
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Second paragraph content here.');
+  });
+
+  it('filters specification sentences from second paragraph with prose and specs', () => {
+    const html =
+      '<p>First paragraph.</p><p>A premium flagship phone. Storage: 1TB NVMe. RAM: 16GB.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('A premium flagship phone.');
+  });
+
+  it('returns an empty string when second paragraph contains only specification sentences', () => {
+    const html =
+      '<p>First paragraph.</p><p>Storage: 1TB NVMe. RAM: 16GB. Condition: Open Box.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('');
   });
 
   it('falls back to plain text sentences (3rd–5th) when no paragraph structure matches', () => {
@@ -81,19 +109,22 @@ describe('buildDescriptionExcerpt', () => {
   });
 
   it('returns an empty string for empty input', () => {
-    expect(buildDescriptionExcerpt('')).toBe('');
+    const result = buildDescriptionExcerpt('');
+    expect(result).toBe('');
   });
 
   it('filters out redundant spec key-value sentences and returns empty when description is purely specs', () => {
     const specDump =
       'Dell XPS 16 9650. Storage: 2TB PCIe® NVMe™ SSD ( UPGRADABLE). RAM: 64GB RAM (ONBOARD – NON-UPGRADABLE). Colour: Platinum. Condition: New.';
-    expect(buildDescriptionExcerpt(specDump)).toBe('');
+    const result = buildDescriptionExcerpt(specDump);
+    expect(result).toBe('');
   });
 
   it('preserves marketing descriptions that include actual prose content', () => {
     const prose =
       'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip. Customizable Action button and powerful camera system.';
-    expect(buildDescriptionExcerpt(prose)).toBe(
+    const result = buildDescriptionExcerpt(prose);
+    expect(result).toBe(
       'Customizable Action button and powerful camera system.'
     );
   });

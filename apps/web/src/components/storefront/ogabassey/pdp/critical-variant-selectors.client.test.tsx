@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpCriticalVariantSelectors } from './critical-variant-selectors.client';
+import { getRenderableCriticalVariantAxes } from './critical-variant-selector-options';
 
 const variants = [
   {
@@ -282,33 +283,54 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('filters out non-variant metadata axes like availability note from critical selectors', () => {
+  it('filters out non-variant metadata axes like availability note and warranty from critical selectors', () => {
+    const rawAxes = [
+      'storage',
+      'availability_note',
+      'warranty',
+      'warranty_period',
+    ];
+    const testVariants = [
+      {
+        attributes: {
+          availability_note: 'Confirm selected variant price',
+          storage: '2TB',
+          warranty: '1 Year Warranty',
+          warranty_period: '12 Months',
+        },
+        id: 'v1',
+        merchant_id: 'm1',
+        product_id: 'p1',
+        stock_quantity: 10,
+      },
+    ];
+    const variantAxisOptions = {
+      availability_note: ['Confirm selected variant price'],
+      storage: ['2TB'],
+      warranty: ['1 Year Warranty', '2 Year Extended'],
+      warranty_period: ['12 Months'],
+    };
+
+    const renderableVariantAxes = getRenderableCriticalVariantAxes(
+      rawAxes,
+      testVariants,
+      variantAxisOptions
+    );
+
     render(
       <OgabasseyPdpCriticalVariantSelectors
         onAttributeSelection={vi.fn()}
-        renderableVariantAxes={['storage']}
+        renderableVariantAxes={renderableVariantAxes}
         selectedAttributes={{ storage: '2TB' }}
-        variantAxisOptions={{
-          availability_note: ['Confirm selected variant price'],
-          storage: ['2TB'],
-        }}
+        variantAxisOptions={variantAxisOptions}
         variantCount={1}
-        variants={[
-          {
-            attributes: {
-              availability_note: 'Confirm selected variant price',
-              storage: '2TB',
-            },
-            id: 'v1',
-            merchant_id: 'm1',
-            product_id: 'p1',
-            stock_quantity: 10,
-          },
-        ]}
+        variants={testVariants}
       />
     );
 
+    expect(renderableVariantAxes).toEqual(['storage']);
     expect(screen.getByText('Storage:')).toBeInTheDocument();
     expect(screen.queryByText(/Availability note/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Warranty/i)).not.toBeInTheDocument();
   });
 });

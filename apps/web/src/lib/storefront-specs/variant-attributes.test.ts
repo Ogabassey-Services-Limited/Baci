@@ -244,27 +244,35 @@ describe('storefront variant attribute helpers', () => {
     });
   });
 
-  it('filters out non-variant metadata axes like availability notes and disclaimers', () => {
-    expect(
-      getRenderableVariantAxes(
-        [
-          {
-            attributes: {
-              Storage: '2TB',
-              RAM: '64GB',
-              'Availability note':
-                'Confirm selected variant price and availability before checkout',
-              Disclaimer: 'All sales final',
-              'Delivery Notice': 'Ships in 24h',
-            },
-          },
-        ],
-        {
-          'Availability note': [
+  it('filters out non-variant metadata axes like availability notes, disclaimers, and warranty attributes', () => {
+    const variants = [
+      {
+        attributes: {
+          Storage: '2TB',
+          RAM: '64GB',
+          'Availability note':
             'Confirm selected variant price and availability before checkout',
-          ],
-        }
-      )
-    ).toEqual(['storage', 'ram']);
+          Disclaimer: 'All sales final',
+          'Delivery Notice': 'Ships in 24h',
+          Warranty: '1 Year Warranty',
+          'Warranty Period': '12 Months',
+        },
+      },
+    ];
+    const fallbackOptions = {
+      'Availability note': [
+        'Confirm selected variant price and availability before checkout',
+      ],
+      Warranty: ['1 Year Warranty', '2 Year Extended Warranty'],
+      'Warranty Period': ['12 Months', '24 Months'],
+    };
+
+    const axes = getRenderableVariantAxes(variants, fallbackOptions);
+
+    expect(axes).toEqual(['storage', 'ram']);
+    expect(axes).not.toContain('warranty');
+    expect(axes).not.toContain('warranty_period');
+    expect(axes).not.toContain('availability_note');
+    expect(axes).not.toContain('disclaimer');
   });
 });

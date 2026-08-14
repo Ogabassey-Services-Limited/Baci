@@ -9,7 +9,7 @@ import {
 } from '@/components/storefront/ogabassey/variant-attributes';
 
 // Color is represented by product imagery, color_hex is swatch metadata,
-// and informational notes/disclaimers should not be rendered as variant selectors.
+// and informational notes/disclaimers/warranties should not be rendered as variant selectors.
 const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
   'color',
   'colour',
@@ -21,6 +21,7 @@ const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
   'notes',
   'disclaimer',
   'disclaimers',
+  'warranty',
   'warranty_note',
   'notice',
 ]);
@@ -115,7 +116,8 @@ function isRenderableCriticalVariantAxis(
     NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis) ||
     axis.includes('note') ||
     axis.includes('disclaimer') ||
-    axis.includes('notice')
+    axis.includes('notice') ||
+    axis.includes('warranty')
   ) {
     return false;
   }
