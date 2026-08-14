@@ -243,4 +243,28 @@ describe('storefront variant attribute helpers', () => {
       storage: ['128GB'],
     });
   });
+
+  it('filters out non-variant metadata axes like availability notes and disclaimers', () => {
+    expect(
+      getRenderableVariantAxes(
+        [
+          {
+            attributes: {
+              Storage: '2TB',
+              RAM: '64GB',
+              'Availability note':
+                'Confirm selected variant price and availability before checkout',
+              Disclaimer: 'All sales final',
+              'Delivery Notice': 'Ships in 24h',
+            },
+          },
+        ],
+        {
+          'Availability note': [
+            'Confirm selected variant price and availability before checkout',
+          ],
+        }
+      )
+    ).toEqual(['storage', 'ram']);
+  });
 });

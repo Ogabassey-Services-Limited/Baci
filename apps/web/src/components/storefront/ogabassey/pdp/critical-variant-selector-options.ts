@@ -8,12 +8,21 @@ import {
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
 
-// Color is represented by product imagery, and color_hex is only swatch metadata.
+// Color is represented by product imagery, color_hex is swatch metadata,
+// and informational notes/disclaimers should not be rendered as variant selectors.
 const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
   'color',
   'colour',
   'color_hex',
   'colour_hex',
+  'availability_note',
+  'availability',
+  'note',
+  'notes',
+  'disclaimer',
+  'disclaimers',
+  'warranty_note',
+  'notice',
 ]);
 
 export function formatVariantAxisLabel(axis: string) {
@@ -101,7 +110,13 @@ function isRenderableCriticalVariantAxis(
   variants: CartProduct['variants'],
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
-  if (!axis || NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis)) {
+  if (
+    !axis ||
+    NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis) ||
+    axis.includes('note') ||
+    axis.includes('disclaimer') ||
+    axis.includes('notice')
+  ) {
     return false;
   }
 

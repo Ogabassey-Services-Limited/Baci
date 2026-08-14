@@ -281,4 +281,34 @@ describe('OgabasseyPdpCriticalVariantSelectors', () => {
 
     expect(container).toBeEmptyDOMElement();
   });
+
+  it('filters out non-variant metadata axes like availability note from critical selectors', () => {
+    render(
+      <OgabasseyPdpCriticalVariantSelectors
+        onAttributeSelection={vi.fn()}
+        renderableVariantAxes={['storage']}
+        selectedAttributes={{ storage: '2TB' }}
+        variantAxisOptions={{
+          availability_note: ['Confirm selected variant price'],
+          storage: ['2TB'],
+        }}
+        variantCount={1}
+        variants={[
+          {
+            attributes: {
+              availability_note: 'Confirm selected variant price',
+              storage: '2TB',
+            },
+            id: 'v1',
+            merchant_id: 'm1',
+            product_id: 'p1',
+            stock_quantity: 10,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Storage:')).toBeInTheDocument();
+    expect(screen.queryByText(/Availability note/i)).not.toBeInTheDocument();
+  });
 });

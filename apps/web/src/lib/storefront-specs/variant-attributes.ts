@@ -154,12 +154,27 @@ function getVariantAxisValue(
   return normalizedAttributes[axis];
 }
 
+const NON_RENDERABLE_VARIANT_AXES = new Set([
+  'color',
+  'colour',
+  'color_hex',
+  'colour_hex',
+  'availability_note',
+  'availability',
+  'note',
+  'notes',
+  'disclaimer',
+  'disclaimers',
+  'warranty_note',
+  'notice',
+]);
+
 function isRenderableVariantAxis(axis: string, options: string[]) {
   if (
-    axis === 'color' ||
-    axis === 'colour' ||
-    axis === 'color_hex' ||
-    axis === 'colour_hex'
+    NON_RENDERABLE_VARIANT_AXES.has(axis) ||
+    axis.includes('note') ||
+    axis.includes('disclaimer') ||
+    axis.includes('notice')
   ) {
     return false;
   }

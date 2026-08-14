@@ -83,4 +83,18 @@ describe('buildDescriptionExcerpt', () => {
   it('returns an empty string for empty input', () => {
     expect(buildDescriptionExcerpt('')).toBe('');
   });
+
+  it('filters out redundant spec key-value sentences and returns empty when description is purely specs', () => {
+    const specDump =
+      'Dell XPS 16 9650. Storage: 2TB PCIe® NVMe™ SSD ( UPGRADABLE). RAM: 64GB RAM (ONBOARD – NON-UPGRADABLE). Colour: Platinum. Condition: New.';
+    expect(buildDescriptionExcerpt(specDump)).toBe('');
+  });
+
+  it('preserves marketing descriptions that include actual prose content', () => {
+    const prose =
+      'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip. Customizable Action button and powerful camera system.';
+    expect(buildDescriptionExcerpt(prose)).toBe(
+      'Customizable Action button and powerful camera system.'
+    );
+  });
 });

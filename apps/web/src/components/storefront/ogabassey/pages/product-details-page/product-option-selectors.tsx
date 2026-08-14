@@ -212,9 +212,11 @@ export function ProductOptionSelectors({
         </div>
       )}
 
-      <p className="mb-8 border-b border-gray-100 pb-8 text-sm leading-relaxed text-gray-600">
-        {descriptionExcerpt}
-      </p>
+      {descriptionExcerpt ? (
+        <p className="mb-8 border-b border-gray-100 pb-8 text-sm leading-relaxed text-gray-600">
+          {descriptionExcerpt}
+        </p>
+      ) : null}
 
       {effectiveAxes
         .filter((axis) => axis !== 'color')
@@ -225,18 +227,24 @@ export function ProductOptionSelectors({
           }
 
           const label = formatAxisLabel(axis);
+          const isSingleOption = options.length === 1;
+
           return (
             <div key={axis} className="mb-8 space-y-6">
               <div>
                 <label className="flex items-center justify-between text-sm font-bold text-gray-900">
-                  <span>
-                    {label}:{' '}
-                    <span className="text-store-primary">
-                      {selectedAttributes[axis] ||
-                        `Select ${label.toLowerCase()}`}
+                  {isSingleOption ? (
+                    <span>{label}</span>
+                  ) : (
+                    <span>
+                      {label}:{' '}
+                      <span className="text-store-primary">
+                        {selectedAttributes[axis] ||
+                          `Select ${label.toLowerCase()}`}
+                      </span>
                     </span>
-                  </span>
-                  {!selectedAttributes[axis] && (
+                  )}
+                  {!isSingleOption && !selectedAttributes[axis] && (
                     <span className="animate-pulse text-xs font-normal text-store-primary">
                       * Required
                     </span>
