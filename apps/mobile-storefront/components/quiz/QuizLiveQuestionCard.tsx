@@ -15,7 +15,9 @@ interface QuizLiveQuestionCardProps {
   lockedOptionId: string | null;
   onAnswer: (optionId: string) => void;
   onEventExpire?: () => void;
+  onRetryEventExpire?: () => void;
   onRetryLockedAnswer?: () => void;
+  expiryRetryable?: boolean;
   styles: QuizStyles;
 }
 
@@ -25,8 +27,10 @@ export function QuizLiveQuestionCard({
   lockedOptionId,
   onAnswer,
   onEventExpire = () => undefined,
+  onRetryEventExpire,
   onRetryLockedAnswer,
   styles,
+  expiryRetryable = false,
 }: QuizLiveQuestionCardProps) {
   const question = attempt.question;
   const universalExpiryStartedRef = useRef(false);
@@ -148,7 +152,21 @@ export function QuizLiveQuestionCard({
           );
         })}
       </View>
-      {onRetryLockedAnswer && lockedOptionId && !isSubmitting ? (
+      {expiryRetryable ? (
+        <>
+          <Text style={styles.eventMeta}>
+            We could not confirm the quiz end. Retry to see your results.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Retry ending quiz"
+            onPress={onRetryEventExpire}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>Retry ending quiz</Text>
+          </Pressable>
+        </>
+      ) : onRetryLockedAnswer && lockedOptionId && !isSubmitting ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Retry saving answer"

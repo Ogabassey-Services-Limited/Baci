@@ -98,4 +98,20 @@ describe('initializeQuizMobileAds', () => {
     expect(mockGatherConsent).toHaveBeenCalledTimes(1);
     expect(mockInitialize).toHaveBeenCalledTimes(1);
   });
+
+  it('allows a later quiz to retry after native initialization fails', async () => {
+    mockInitialize
+      .mockRejectedValueOnce(new Error('native module unavailable'))
+      .mockResolvedValueOnce({});
+    const { initializeQuizMobileAds } = await loadInitializer();
+
+    await expect(initializeQuizMobileAds()).rejects.toThrow(
+      'native module unavailable'
+    );
+    await expect(initializeQuizMobileAds()).resolves.toEqual({
+      canRequestAds: true,
+    });
+
+    expect(mockInitialize).toHaveBeenCalledTimes(2);
+  });
 });

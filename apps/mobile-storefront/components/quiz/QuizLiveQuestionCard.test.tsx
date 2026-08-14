@@ -69,6 +69,45 @@ describe('QuizLiveQuestionCard', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Answer Lagos' }));
     expect(onAnswer).toHaveBeenCalledWith('o1');
   });
+
+  it('offers a retry when the server could not confirm the quiz end', () => {
+    const onRetryEventExpire = jest.fn();
+    render(
+      <QuizLiveQuestionCard
+        attempt={{
+          attemptId: 'a1',
+          eventEndsAt: new Date(30_000).toISOString(),
+          eventId: 'e1',
+          question: {
+            deadlineAt: new Date(10_000).toISOString(),
+            id: 'q1',
+            index: 1,
+            options: [{ id: 'o1', label: 'Lagos' }],
+            prompt: 'Capital?',
+            timeLimitSeconds: 10,
+            total: 1,
+          },
+          resultsAvailableAt: null,
+          serverNow: new Date(0).toISOString(),
+          status: 'in_progress',
+        }}
+        expiryRetryable
+        lockedOptionId={null}
+        onAnswer={jest.fn()}
+        onRetryEventExpire={onRetryEventExpire}
+        styles={createQuizStyles(colors)}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'We could not confirm the quiz end. Retry to see your results.'
+      )
+    ).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Retry ending quiz' }));
+    expect(onRetryEventExpire).toHaveBeenCalledTimes(1);
+  });
+
   it('unanswered_timeout_submits_once', () => {
     // Arrange
     const onAnswer = jest.fn();

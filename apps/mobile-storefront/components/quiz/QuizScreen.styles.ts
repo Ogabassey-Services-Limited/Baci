@@ -26,6 +26,11 @@ export function createQuizStyles(colors: QuizThemeColors) {
         gap: 16,
         padding: 20,
       },
+      musicContainer: {
+        backgroundColor: colors.background,
+        paddingHorizontal: 20,
+        paddingTop: 8,
+      },
       header: {
         alignItems: 'center',
         flexDirection: 'row',

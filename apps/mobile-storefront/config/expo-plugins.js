@@ -1,4 +1,6 @@
-const { buildGoogleMobileAdsExpoPlugin } = require('./google-mobile-ads-config');
+const {
+  buildGoogleMobileAdsExpoPlugin,
+} = require('./google-mobile-ads-config');
 
 function createExpoPlugins({
   facebookSdkPlugin,

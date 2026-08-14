@@ -39,6 +39,11 @@ async function initialize(): Promise<QuizMobileAdsInitializationResult> {
 }
 
 export function initializeQuizMobileAds(): Promise<QuizMobileAdsInitializationResult> {
-  initializationPromise ??= initialize();
+  if (!initializationPromise) {
+    initializationPromise = initialize().catch((error) => {
+      initializationPromise = null;
+      throw error;
+    });
+  }
   return initializationPromise;
 }

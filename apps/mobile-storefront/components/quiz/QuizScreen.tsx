@@ -54,6 +54,7 @@ export function QuizScreen({
     v2Attempt,
     v2LifecycleStatus,
     v2Result,
+    expiryRetryable,
     lockedOptionId,
     attemptIntegrityTier,
     selectedOptionId,
@@ -79,6 +80,7 @@ export function QuizScreen({
       v2Attempt: state.v2Attempt,
       v2LifecycleStatus: state.v2LifecycleStatus,
       v2Result: state.v2Result,
+      expiryRetryable: state.expiryRetryable,
       lockedOptionId: state.lockedOptionId,
       attemptIntegrityTier: state.attemptIntegrityTier,
       selectedOptionId: state.selectedOptionId,
@@ -179,11 +181,6 @@ export function QuizScreen({
 
   return (
     <View style={styles.screen}>
-      {music.shouldPlay ? (
-        <View style={styles.container}>
-          <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
-        </View>
-      ) : null}
       {status === 'loading' ? (
         <View style={styles.container}>
           <ActivityIndicator accessibilityLabel="Loading quiz events" />
@@ -233,15 +230,26 @@ export function QuizScreen({
 
       {(status === 'question' || status === 'submitting') && v2Attempt ? (
         <View style={styles.container}>
+          {music.shouldPlay ? (
+            <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
+          ) : null}
           <QuizLiveQuestionCard
             attempt={v2Attempt}
             isSubmitting={status === 'submitting'}
             lockedOptionId={lockedOptionId}
             onAnswer={handleV2Answer}
             onEventExpire={lifecycleHandlers.handleExpire}
+            onRetryEventExpire={lifecycleHandlers.handleExpire}
             onRetryLockedAnswer={lifecycleHandlers.handleRetry}
+            expiryRetryable={expiryRetryable}
             styles={styles}
           />
+        </View>
+      ) : null}
+
+      {status === 'result' && music.shouldPlay ? (
+        <View style={styles.musicContainer}>
+          <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
         </View>
       ) : null}
 

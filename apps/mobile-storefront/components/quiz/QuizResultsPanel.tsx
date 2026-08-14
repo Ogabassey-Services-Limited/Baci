@@ -1,26 +1,16 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import {
-  fetchQuizLeaderboard,
-  fetchQuizLiveLeaderboard,
-} from '@/services/quiz-leaderboard';
-import type {
-  QuizLeaderboard,
-  QuizLeaderboardEntry,
-  QuizResult,
-  QuizV2Result,
-} from '@/services/quiz-types';
+import { Pressable, Text, View } from 'react-native';
+import type { QuizResult, QuizV2Result } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
+import { QuizResultsStandings } from './QuizResultsStandings';
 import type { createQuizStyles } from './QuizScreen.styles';
 import { useQuizEventTimer } from './use-quiz-event-timer';
+import { useQuizResultsLeaderboard } from './use-quiz-results-leaderboard';
 import { useQuizServerClock } from './use-quiz-server-clock';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
-const LEADERBOARD_RETRY_INTERVAL_MS = 5_000;
-const LIVE_LEADERBOARD_REFRESH_INTERVAL_MS = 1_000;
 
 function formatCountdown(seconds: number) {
   const safeSeconds = Math.max(0, seconds);
@@ -60,10 +50,6 @@ export function QuizResultsPanel({
   v2Result,
 }: QuizResultsPanelProps) {
   const router = useRouter();
-  const [leaderboard, setLeaderboard] = useState<QuizLeaderboard | null>(null);
-  const [leaderboardError, setLeaderboardError] = useState(false);
-  const [participantCount, setParticipantCount] = useState<number | null>(null);
-  const hasLeaderboard = useRef(false);
   const { offsetMs } = useQuizServerClock(serverNow);
   const eventTimer = useQuizEventTimer({
     eventEndsAt,
@@ -75,60 +61,14 @@ export function QuizResultsPanel({
     (lifecycle === 'final' || lifecycle === 'pending_results') &&
     v2Result?.availability !== 'unavailable' &&
     Boolean(eventId && expectedUserId);
-
-  useEffect(() => {
-    if (!shouldLoadLeaderboard || !eventId || !expectedUserId) return;
-    let active = true;
-    let retryId: ReturnType<typeof setTimeout> | undefined;
-    setLeaderboardError(false);
-    setParticipantCount(null);
-    const load = async () => {
-      try {
-        const result =
-          lifecycle === 'pending_results' && !eventTimer.hasEnded
-            ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })
-            : await fetchQuizLeaderboard({ eventId, expectedUserId });
-        if (!active) return;
-        setParticipantCount(result.participantCount);
-        if (result.status === 'published' || result.status === 'live') {
-          setLeaderboard(result);
-          hasLeaderboard.current = true;
-          setLeaderboardError(false);
-          if (result.status === 'live') {
-            retryId = setTimeout(load, LIVE_LEADERBOARD_REFRESH_INTERVAL_MS);
-          }
-          return;
-        }
-      } catch {
-        if (!active) return;
-        if (!hasLeaderboard.current) setLeaderboardError(true);
-      }
-      retryId = setTimeout(
-        load,
-        lifecycle === 'pending_results'
-          ? LIVE_LEADERBOARD_REFRESH_INTERVAL_MS
-          : LEADERBOARD_RETRY_INTERVAL_MS
-      );
-    };
-    void load();
-    return () => {
-      active = false;
-      if (retryId) clearTimeout(retryId);
-    };
-  }, [
-    eventId,
-    expectedUserId,
-    lifecycle,
-    eventTimer.hasEnded,
-    shouldLoadLeaderboard,
-  ]);
-
-  const leaderboardRows: QuizLeaderboardEntry[] = leaderboard
-    ? leaderboard.currentPlayer &&
-      !leaderboard.entries.some((entry) => entry.isCurrentCustomer)
-      ? [...leaderboard.entries.slice(0, 4), leaderboard.currentPlayer]
-      : leaderboard.entries.slice(0, 5)
-    : [];
+  const { leaderboard, leaderboardError, participantCount } =
+    useQuizResultsLeaderboard({
+      enabled: shouldLoadLeaderboard,
+      eventHasEnded: eventTimer.hasEnded,
+      eventId,
+      expectedUserId,
+      lifecycle,
+    });
   const finishTime = formatFinishTime(
     leaderboard?.currentPlayer?.submittedAt ??
       leaderboard?.entries.find((entry) => entry.isCurrentCustomer)?.submittedAt
@@ -200,58 +140,12 @@ export function QuizResultsPanel({
           </Text>
         ) : null}
         {shouldLoadLeaderboard ? (
-          <View style={styles.finalStandings}>
-            <View style={styles.finalStandingsHeader}>
-              <View>
-                <Text style={styles.finalStandingsTitle}>
-                  {leaderboard?.status === 'published'
-                    ? 'Final standings'
-                    : 'Live standings'}
-                </Text>
-                {participantCount != null ? (
-                  <Text style={styles.finalStandingsMeta}>
-                    {participantCount}{' '}
-                    {participantCount === 1 ? 'participant' : 'participants'}
-                  </Text>
-                ) : null}
-              </View>
-              <Ionicons
-                name="podium-outline"
-                size={22}
-                color={styles.finalStandingsTitle.color}
-              />
-            </View>
-            {!leaderboard && !leaderboardError ? (
-              <ActivityIndicator
-                accessibilityLabel="Loading standings"
-                color={styles.finalStandingsTitle.color}
-              />
-            ) : null}
-            {leaderboardRows.map((entry) => (
-              <View
-                key={`${entry.rank}-${entry.displayName}`}
-                accessibilityLabel={`Rank ${entry.rank}, ${entry.displayName}, score ${entry.score}`}
-                style={[
-                  styles.finalStandingRow,
-                  entry.isCurrentCustomer
-                    ? styles.finalStandingCurrentRow
-                    : undefined,
-                ]}
-              >
-                <Text style={styles.finalStandingRank}>#{entry.rank}</Text>
-                <Text numberOfLines={1} style={styles.finalStandingName}>
-                  {entry.displayName}
-                  {entry.isCurrentCustomer ? '  (You)' : ''}
-                </Text>
-                <Text style={styles.finalStandingScore}>{entry.score} pts</Text>
-              </View>
-            ))}
-            {leaderboardError && !leaderboard ? (
-              <Text style={styles.eventMeta}>
-                Standings are reconnecting. Your result is safely recorded.
-              </Text>
-            ) : null}
-          </View>
+          <QuizResultsStandings
+            leaderboard={leaderboard}
+            leaderboardError={leaderboardError}
+            participantCount={participantCount}
+            styles={styles}
+          />
         ) : null}
         {v2Result?.availability === 'final' ? (
           <>
