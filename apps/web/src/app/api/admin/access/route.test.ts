@@ -100,7 +100,7 @@ describe('/api/admin/access', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(mockList).toHaveBeenCalledWith({}, 100);
+    expect(mockList).toHaveBeenCalledWith({}, 100, 0);
   });
 
   it('requires confirmed, bounded input before an upsert RPC', async () => {

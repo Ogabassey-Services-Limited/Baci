@@ -154,4 +154,9 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260814140000_repair_notification_manager_rls_and_access_roster.sql',
     sha256: '8e6fa18bffab5f3f698619a091ce1659dbde20a99ab33a30ebc67cd7ecfb2e9f',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814150000_project_wallet_settings_in_summary_rpc.sql',
+    sha256: '26d6077689fcca148a7be46fcdafeb4e58006dfa4f121539578544df0443f838',
+  },
 ] as const;

@@ -195,15 +195,50 @@ describe('/api/wallet', () => {
     );
   });
 
-  it('does not substitute owner defaults when a staff settings read is denied', async () => {
+  it('returns wallet settings for analytics staff through the summary RPC projection', async () => {
     const { GET } = await import('./route');
-    walletSelectError = { code: '42501', message: 'permission denied' };
+    const staffAccess = {
+      isOwner: false,
+      isStaff: true,
+      permissions: { analytics: { view: true } },
+      role: 'staff',
+    };
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-1',
+      staffAccess,
+    });
+    mocks.toUserAccess.mockReturnValueOnce(staffAccess);
+    mocks.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          wallet_id: 'wallet-1',
+          available_balance: 1000,
+          pending_balance: 50,
+          upcoming_balance: 75,
+          upcoming_count: 1,
+          total_earned: 2500,
+          total_withdrawn: 500,
+          can_withdraw: true,
+          next_settlement_date: '2026-07-04',
+          next_settlement_amount: 75,
+          auto_payout_enabled: false,
+          auto_payout_day: 'friday',
+          min_payout_amount: 1500,
+          last_payout_at: null,
+          last_payout_amount: null,
+        },
+      ],
+      error: null,
+    });
 
     const response = await GET();
+    const body = await response.json();
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Failed to get wallet settings',
+    expect(response.status).toBe(200);
+    expect(body.wallet).toMatchObject({
+      autoPayoutEnabled: false,
+      autoPayoutDay: 'friday',
+      minPayoutAmount: 1500,
     });
   });
 
@@ -222,6 +257,11 @@ describe('/api/wallet', () => {
           can_withdraw: true,
           next_settlement_date: '2026-07-04',
           next_settlement_amount: 75,
+          auto_payout_enabled: true,
+          auto_payout_day: 'monday',
+          min_payout_amount: 1000,
+          last_payout_at: null,
+          last_payout_amount: null,
         },
       ],
       error: null,

@@ -36,6 +36,7 @@ describe('admin platform access RPC boundary', () => {
     });
     expect(rpc).toHaveBeenCalledWith('list_platform_admin_memberships_v1', {
       p_limit: 100,
+      p_offset: 0,
     });
   });
 

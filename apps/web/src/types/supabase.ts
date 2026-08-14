@@ -18289,6 +18289,11 @@ export type Database = {
           upcoming_balance: number;
           upcoming_count: number;
           wallet_id: string;
+          auto_payout_enabled: boolean;
+          auto_payout_day: string;
+          min_payout_amount: number;
+          last_payout_at: string | null;
+          last_payout_amount: number | null;
         }[];
       };
       get_website_performance_event_summary: {

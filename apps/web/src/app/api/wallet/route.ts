@@ -81,39 +81,17 @@ export async function GET() {
       });
     }
 
-    // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
-    const [
-      { data: pendingSettlements },
-      { data: walletSettings, error: walletSettingsError },
-    ] = await Promise.all([
-      // Get pending settlements for detailed view
-      supabase
-        .from('merchant_settlements')
-        .select(
-          'id, net_amount, gateway, source_type, expected_settlement_date, description'
-        )
-        .eq('merchant_id', merchantId)
-        .eq('status', 'pending')
-        .order('expected_settlement_date', { ascending: true })
-        .limit(10),
-
-      // Get wallet settings
-      supabase
-        .from('merchant_wallets')
-        .select(
-          'auto_payout_enabled, auto_payout_day, min_payout_amount, last_payout_at, last_payout_amount'
-        )
-        .eq('id', summary.wallet_id)
-        .single(),
-    ]);
-
-    if (walletSettingsError || !walletSettings) {
-      console.error('Failed to get wallet settings:', walletSettingsError);
-      return NextResponse.json(
-        { error: 'Failed to get wallet settings' },
-        { status: 500 }
-      );
-    }
+    // PERFORMANCE: settlements are still read directly; payout settings come from
+    // the permission-checked wallet summary RPC projection.
+    const { data: pendingSettlements } = await supabase
+      .from('merchant_settlements')
+      .select(
+        'id, net_amount, gateway, source_type, expected_settlement_date, description'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'pending')
+      .order('expected_settlement_date', { ascending: true })
+      .limit(10);
 
     return NextResponse.json({
       wallet: {
@@ -124,12 +102,12 @@ export async function GET() {
         upcomingCount: summary.upcoming_count,
         totalEarned: Number(summary.total_earned),
         totalWithdrawn: Number(summary.total_withdrawn),
-        autoPayoutEnabled: walletSettings.auto_payout_enabled,
-        autoPayoutDay: walletSettings.auto_payout_day,
-        minPayoutAmount: Number(walletSettings.min_payout_amount),
-        lastPayoutAt: walletSettings.last_payout_at,
-        lastPayoutAmount: walletSettings.last_payout_amount
-          ? Number(walletSettings.last_payout_amount)
+        autoPayoutEnabled: summary.auto_payout_enabled,
+        autoPayoutDay: summary.auto_payout_day,
+        minPayoutAmount: Number(summary.min_payout_amount),
+        lastPayoutAt: summary.last_payout_at,
+        lastPayoutAmount: summary.last_payout_amount
+          ? Number(summary.last_payout_amount)
           : null,
         // Manual payouts are intentionally disabled until the payout worker
         // can reserve funds and reconcile provider outcomes. Keep every
