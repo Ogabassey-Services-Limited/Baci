@@ -21,6 +21,7 @@ export const adminPlatformAccessRevokeSchema = z.object({
 
 export const adminPlatformAccessListSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  offset: z.coerce.number().int().min(0).max(10_000).default(0),
 });
 
 const membershipTimestampSchema = z

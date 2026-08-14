@@ -12,6 +12,9 @@ const sql = readFileSync(
 
 describe('notification deferral and finalize migration contract', () => {
   it('ignores terminal push outbox rows when selecting quiet-hour candidates', () => {
+    expect(sql).toContain(
+      'drop function if exists public.get_claimed_notification_push_tokens_v1(uuid, uuid, uuid[])'
+    );
     expect(sql).toContain('left join public.admin_notification_push_outbox o');
     expect(sql).toContain("and (o.push_token is null or o.status = 'pending')");
   });

@@ -7167,6 +7167,7 @@ export type Database = {
           delivery_claimed_at: string | null;
           delivery_claim_token: string | null;
           delivery_failed_at: string | null;
+          delivery_failure_attempts: number;
           delivery_last_error: string | null;
           delivery_state: string;
           expires_at: string | null;
@@ -7193,6 +7194,7 @@ export type Database = {
           delivery_claimed_at?: string | null;
           delivery_claim_token?: string | null;
           delivery_failed_at?: string | null;
+          delivery_failure_attempts?: number;
           delivery_last_error?: string | null;
           delivery_state?: string;
           expires_at?: string | null;
@@ -7219,6 +7221,7 @@ export type Database = {
           delivery_claimed_at?: string | null;
           delivery_claim_token?: string | null;
           delivery_failed_at?: string | null;
+          delivery_failure_attempts?: number;
           delivery_last_error?: string | null;
           delivery_state?: string;
           expires_at?: string | null;
@@ -18444,7 +18447,7 @@ export type Database = {
         Returns: Json;
       };
       list_platform_admin_memberships_v1: {
-        Args: { p_limit?: number };
+        Args: { p_limit?: number; p_offset?: number };
         Returns: {
           created_at: string | null;
           email: string;

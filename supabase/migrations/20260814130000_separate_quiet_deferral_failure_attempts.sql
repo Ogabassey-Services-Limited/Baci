@@ -13,8 +13,6 @@ BEGIN
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 50 THEN RAISE EXCEPTION 'Invalid claim limit' USING ERRCODE = '22023'; END IF;
   DELETE FROM public.admin_notification_audience_snapshot s USING public.notifications n
   WHERE n.id = s.notification_id AND n.sent_at IS NULL AND n.delivery_state = 'processing'
-    AND n.delivery_last_error NOT IN ('quiet_hours_deferred', 'quiet_hours_claimed')
-    AND n.delivery_failure_attempts + 1 >= 3
     AND (n.delivery_claimed_at IS NULL OR n.delivery_claimed_at < statement_timestamp() - interval '15 minutes')
     AND s.claim_token = n.delivery_claim_token;
   UPDATE public.notifications n

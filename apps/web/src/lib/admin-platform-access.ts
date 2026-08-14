@@ -13,6 +13,7 @@ interface PlatformAccessRpcResult {
 
 type PlatformAccessReadRpc = (args: {
   p_limit: number;
+  p_offset?: number;
 }) => Promise<PlatformAccessRpcResult>;
 
 type PlatformAccessUpsertRpc = (args: {
@@ -77,11 +78,13 @@ function parseMemberships(result: PlatformAccessRpcResult): {
 
 export async function listAdminPlatformAccess(
   supabase: SupabaseClient<Database>,
-  limit = 100
+  limit = 100,
+  offset = 0
 ) {
   return parseMemberships(
     await accessRpc(supabase)('list_platform_admin_memberships_v1', {
       p_limit: limit,
+      p_offset: offset,
     })
   );
 }

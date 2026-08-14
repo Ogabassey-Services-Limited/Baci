@@ -58,7 +58,11 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const result = await listAdminPlatformAccess(supabase, parsed.data.limit);
+  const result = await listAdminPlatformAccess(
+    supabase,
+    parsed.data.limit,
+    parsed.data.offset
+  );
   if (result.error || !result.data) {
     return NextResponse.json(
       { error: 'Failed to load platform access' },
@@ -71,6 +75,7 @@ export async function GET(request: NextRequest) {
       data: result.data,
       generatedAt: new Date().toISOString(),
       limit: parsed.data.limit,
+      offset: parsed.data.offset,
       truncated: result.data.length >= parsed.data.limit,
     },
     { headers: { 'Cache-Control': 'no-store' } }

@@ -8,56 +8,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-
-const timeStringSchema = z
-  .string()
-  .regex(/^([0-1][0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid time format (HH:MM)')
-  .nullable();
-
-const timeZoneSchema = z
-  .string()
-  .trim()
-  .min(1)
-  .max(100)
-  .refine((value) => {
-    try {
-      Intl.DateTimeFormat(undefined, { timeZone: value });
-      return true;
-    } catch {
-      return false;
-    }
-  }, 'Invalid IANA time zone');
-
-const preferencesSchema = z
-  .strictObject({
-    in_app_enabled: z.boolean().optional(),
-    banner_enabled: z.boolean().optional(),
-    quiet_hours_start: timeStringSchema.optional(),
-    quiet_hours_end: timeStringSchema.optional(),
-    quiet_hours_time_zone: timeZoneSchema.optional(),
-  })
-  .refine(
-    (data) => {
-      const hasStart =
-        data.quiet_hours_start !== null && data.quiet_hours_start !== undefined;
-      const hasEnd =
-        data.quiet_hours_end !== null && data.quiet_hours_end !== undefined;
-      return hasStart === hasEnd; // Both set or both unset
-    },
-    {
-      message: 'Both quiet hours start and end must be set together',
-      path: ['quiet_hours_start'],
-    }
-  )
-  .refine(
-    (data) =>
-      data.in_app_enabled !== undefined ||
-      data.banner_enabled !== undefined ||
-      data.quiet_hours_start !== undefined ||
-      data.quiet_hours_end !== undefined ||
-      data.quiet_hours_time_zone !== undefined,
-    { message: 'At least one preference must be updated' }
-  );
+import { notificationPreferencesPatchSchema } from '@/schemas/notification-preferences';
 
 /**
  * GET /api/notifications/preferences
@@ -174,7 +125,7 @@ export async function PATCH(request: NextRequest) {
 
     // Parse request body
     const json = await request.json();
-    const validation = preferencesSchema.safeParse(json);
+    const validation = notificationPreferencesPatchSchema.safeParse(json);
 
     if (!validation.success) {
       return NextResponse.json(

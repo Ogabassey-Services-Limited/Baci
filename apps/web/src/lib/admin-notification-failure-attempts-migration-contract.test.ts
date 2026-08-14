@@ -31,10 +31,16 @@ describe('quiet deferral failure attempts migration contract', () => {
     expect(sql).toContain('n.delivery_failure_attempts < 3');
   });
 
-  it('counts expired non-quiet leases toward the failure budget and prunes terminal snapshots', () => {
+  it('counts expired non-quiet leases toward the failure budget and prunes stale snapshots', () => {
     expect(sql).toContain('n.delivery_failure_attempts + 1');
     expect(sql).toContain("'scheduled delivery lease expired'");
     expect(sql).toContain('delivery_failure_attempts + 1 >= 3');
+    expect(sql).toContain(
+      'and (n.delivery_claimed_at is null or n.delivery_claimed_at < statement_timestamp() - interval'
+    );
+    expect(sql).not.toContain(
+      "and n.delivery_last_error not in ('quiet_hours_deferred', 'quiet_hours_claimed')"
+    );
   });
 
   it('prunes audience snapshots when the third retry finalization fails', () => {

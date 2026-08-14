@@ -2,7 +2,8 @@
 -- preserve the parent sent transition when no in-app recipient rows exist.
 BEGIN;
 
-CREATE OR REPLACE FUNCTION public.get_claimed_notification_push_tokens_v1(
+DROP FUNCTION IF EXISTS public.get_claimed_notification_push_tokens_v1(uuid, uuid, uuid[]);
+CREATE FUNCTION public.get_claimed_notification_push_tokens_v1(
   p_notification_id uuid,
   p_claim_token uuid,
   p_merchant_ids uuid[]

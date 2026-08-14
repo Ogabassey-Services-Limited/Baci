@@ -24,11 +24,19 @@ interface AccessListResponse {
   data: AdminPlatformAccessMembership[];
   generatedAt: string;
   limit: number;
+  offset: number;
   truncated: boolean;
 }
 
-async function loadMembers(): Promise<AccessListResponse> {
-  const response = await fetch('/api/admin/access');
+const ROSTER_PAGE_SIZE = 100;
+
+async function loadMembers(
+  offset = 0,
+  limit = ROSTER_PAGE_SIZE
+): Promise<AccessListResponse> {
+  const response = await fetch(
+    `/api/admin/access?limit=${limit}&offset=${offset}`
+  );
   if (!response.ok) throw new Error('platform_access_load_failed');
   return (await response.json()) as AccessListResponse;
 }
@@ -38,6 +46,8 @@ export function AccessManagementClient() {
   const [members, setMembers] = useState<AdminPlatformAccessMembership[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [rosterTruncated, setRosterTruncated] = useState(false);
+  const [rosterOffset, setRosterOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,18 +63,40 @@ export function AccessManagementClient() {
     setLoading(true);
     setLoadError(null);
     try {
-      const result = await loadMembers();
+      const result = await loadMembers(0, ROSTER_PAGE_SIZE);
       setMembers(result.data);
       setGeneratedAt(result.generatedAt);
       setRosterTruncated(result.truncated);
+      setRosterOffset(result.data.length);
     } catch {
       setMembers([]);
       setRosterTruncated(false);
+      setRosterOffset(0);
       setLoadError(
         'Platform access could not be loaded. Refresh to try again.'
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMoreMembers = async () => {
+    if (!rosterTruncated || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const result = await loadMembers(rosterOffset, ROSTER_PAGE_SIZE);
+      setMembers((current) => [...current, ...result.data]);
+      setGeneratedAt(result.generatedAt);
+      setRosterTruncated(result.truncated);
+      setRosterOffset((current) => current + result.data.length);
+    } catch {
+      toast({
+        title: 'Additional members could not be loaded',
+        description: 'Refresh the roster and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -246,10 +278,23 @@ export function AccessManagementClient() {
                 onRevoke={setRevokeTarget}
               />
               {rosterTruncated && (
-                <p className="text-sm text-amber-700" role="status">
-                  Showing the first 100 platform members. Increase the roster
-                  limit or paginate to manage additional members.
-                </p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-sm text-amber-700" role="status">
+                    Showing {members.length} platform members. Load more to
+                    manage additional accounts.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={loadingMore}
+                    onClick={() => void loadMoreMembers()}
+                  >
+                    {loadingMore ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : null}
+                    Load more
+                  </Button>
+                </div>
               )}
             </>
           ) : null}

@@ -142,11 +142,16 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260813140000_repair_notification_deferral_and_finalize.sql',
-    sha256: '5489d5612f03270cf4d3b6249e5cce0813f648f952ceb9f1f17ac150f82cac0a',
+    sha256: '77a2fdc7b2035b9dc831e5c4434fd367ccf2038a02efcd3750a3800ab8dc2c93',
   },
   {
     repositoryPath:
       'supabase/migrations/20260814130000_separate_quiet_deferral_failure_attempts.sql',
-    sha256: '8efb7e6f0b2512f02518de52f58fb0fbcd7ef672114edec7d28071f6eb6d88b8',
+    sha256: '12c43efb62f09c1b140ddf4e5be2fd58febd2a58dbf745f5c88d691e7aac5a2a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814140000_repair_notification_manager_rls_and_access_roster.sql',
+    sha256: '8e6fa18bffab5f3f698619a091ce1659dbde20a99ab33a30ebc67cd7ecfb2e9f',
   },
 ] as const;
