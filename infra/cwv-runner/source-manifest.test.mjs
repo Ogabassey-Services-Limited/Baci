@@ -179,6 +179,43 @@ test('uses a handoff limit above the legacy one-megabyte manifest cap', () => {
   );
 });
 
+test('hashes a large changed lockfile without treating it as an archive member', (t) => {
+  const context = repository();
+  t.after(() => rmSync(context.root, { recursive: true, force: true }));
+  writeFileSync(
+    join(context.root, 'pnpm-lock.yaml'),
+    `${'x'.repeat(1_048_577)}\n`
+  );
+  run(context.root, ['add', 'pnpm-lock.yaml']);
+  run(context.root, [
+    '-c',
+    'user.name=test',
+    '-c',
+    'user.email=test@invalid',
+    'commit',
+    '-qm',
+    'large lockfile',
+  ]);
+  context.head = run(context.root, ['rev-parse', 'HEAD']);
+  const outputDir = mkdtempSync(join(tmpdir(), 'cwv-large-lockfile-'));
+  t.after(() => rmSync(outputDir, { recursive: true, force: true }));
+  const output = {
+    manifest: join(outputDir, 'manifest.json'),
+    manifestDigest: join(outputDir, 'manifest.sha256'),
+    archive: join(outputDir, 'source.tar'),
+    archiveDigest: join(outputDir, 'source.tar.sha256'),
+  };
+
+  node(context.root, argumentsFor(context, 'freeze', output));
+  const manifest = JSON.parse(readFileSync(output.manifest));
+  assert(manifest.entries.some((entry) => entry.path === 'pnpm-lock.yaml'));
+  assert(
+    !manifest.sourceArchive.entries.some(
+      (entry) => entry.path === 'pnpm-lock.yaml'
+    )
+  );
+});
+
 test('freeze and verify bind a sorted full source archive while retaining outside diff rows', (t) => {
   const context = repository();
   t.after(() => rmSync(context.root, { recursive: true, force: true }));

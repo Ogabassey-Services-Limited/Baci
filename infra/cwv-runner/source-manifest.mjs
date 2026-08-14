@@ -44,12 +44,12 @@ function checkedSha(value, field) {
   return value;
 }
 
-function blobEntry(cwd, row, verified) {
+function blobEntry(cwd, row, verified, maxBytes = LIMITS.member) {
   if (row.rawPath) fail('non-UTF-8 source path');
   if (row.mode !== '100644' && row.mode !== '100755') fail('unsupported Git tree mode');
   const bytes = verified?.get(`${cwd}\0${row.objectId}`)?.bytes;
   if (!bytes) fail('invalid Git blob');
-  if (bytes.length > LIMITS.member) fail('source member exceeds size limit');
+  if (bytes.length > maxBytes) fail('source member exceeds size limit');
   return { path: row.path, mode: row.mode, blobSha256: sha256(bytes), bytes };
 }
 
@@ -92,7 +92,7 @@ function changedEntries(cwd, baseSha, reviewedHeadSha, mergeSha) {
     changed.flatMap(({ merged, reviewed }) => [reviewed.objectId, merged.objectId])
   );
   for (const { merged, path, reviewed, status } of changed) {
-    const entry = blobEntry(cwd, reviewed, verifiedBlobs);
+    const entry = blobEntry(cwd, reviewed, verifiedBlobs, LIMITS.archive);
     const mergedBytes = verifiedBlobs.get(`${cwd}\0${merged.objectId}`)?.bytes;
     if (!mergedBytes) fail('invalid Git blob');
     if (entry.mode !== merged.mode || entry.blobSha256 !== sha256(mergedBytes)) fail('merge tree differs from reviewed path');
