@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const migrationPath = resolve(
   process.cwd(),
-  '../../supabase/migrations/20260811140000_repair_platform_notification_audit_changed_fields.sql'
+  '../../supabase/migrations/20260811140001_repair_platform_notification_audit_changed_fields.sql'
 );
 
 describe('notification audit changed-fields repair migration', () => {

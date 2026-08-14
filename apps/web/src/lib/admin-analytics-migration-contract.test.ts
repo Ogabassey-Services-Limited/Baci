@@ -19,7 +19,7 @@ const ownedMigrationFiles = [
   ...analyticsMigrationFiles,
   '20260805150020_repair_admin_merchant_sales_activity.sql',
   '20260805151350_repair_admin_platform_order_counts.sql',
-  '20260811120000_repair_admin_platform_analytics_breakdown_currency_scope.sql',
+  '20260811120002_repair_admin_platform_analytics_breakdown_currency_scope.sql',
   '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
 ];
 const readMigrationSql = (filename: string) =>
@@ -235,7 +235,7 @@ describe('admin analytics migration contract', () => {
 
   it('keeps breakdown order counts currency-inclusive while money stays NGN-only', () => {
     const repairSql = readMigrationSql(
-      '20260811120000_repair_admin_platform_analytics_breakdown_currency_scope.sql'
+      '20260811120002_repair_admin_platform_analytics_breakdown_currency_scope.sql'
     );
     expect(repairSql).toContain('from paid_all_current group by 1');
     expect(repairSql).toContain('count(*)::bigint as orders');

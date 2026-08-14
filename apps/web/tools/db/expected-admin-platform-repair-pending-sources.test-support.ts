@@ -61,12 +61,12 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260811100000_repair_admin_merchant_search_and_push_health.sql',
+      'supabase/migrations/20260811100001_repair_admin_merchant_search_and_push_health.sql',
     sha256: 'de4f1ac7d4f022378bd5f0bf0030c76d67e42de296553c5391799fd40950dc3c',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260811120000_repair_admin_platform_analytics_breakdown_currency_scope.sql',
+      'supabase/migrations/20260811120002_repair_admin_platform_analytics_breakdown_currency_scope.sql',
     sha256: '5245fa6537da68232ac7962959f5638ab70b39609b243c90bd4176b2675b150b',
   },
   {
@@ -81,12 +81,12 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260811130000_repair_notification_detail_quiet_deferrals.sql',
+      'supabase/migrations/20260811130001_repair_notification_detail_quiet_deferrals.sql',
     sha256: '99dae5d255b558789f330d83afe1886cac610b77a785fb64d9e18f4c8285887c',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260811140000_repair_platform_notification_audit_changed_fields.sql',
+      'supabase/migrations/20260811140001_repair_platform_notification_audit_changed_fields.sql',
     sha256: 'eab2ce0ad7e3a72f59f5d1a1de83fdba0075d5a4dd48e10b9f7ff0051a9b8ac1',
   },
   {
@@ -101,7 +101,7 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260811150000_prune_terminal_notification_audience_snapshots.sql',
+      'supabase/migrations/20260811150001_prune_terminal_notification_audience_snapshots.sql',
     sha256: 'fd8b6a0f3b2507ed439f50620ea2cae2a88723631caf057a4103f278482712fe',
   },
   {
@@ -111,12 +111,12 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260812100000_fill_admin_platform_analytics_daily_gmv_gaps.sql',
+      'supabase/migrations/20260812100001_fill_admin_platform_analytics_daily_gmv_gaps.sql',
     sha256: '3f6013a330181f6bb8f6a495ad2a9b8dba94776edf5f287dd5e5034bf450c44a',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260812110000_harden_notification_delivery_and_operations_access.sql',
+      'supabase/migrations/20260812110001_harden_notification_delivery_and_operations_access.sql',
     sha256: '9049d7494deadca72f560a4217768184d73a29f5c8af060177024e25d1ac5390',
   },
   {

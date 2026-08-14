@@ -17,8 +17,8 @@ const notificationMigrationNames = [
   '20260805151360_harden_merchant_notification_table_privileges.sql',
   '20260805151370_mark_all_visible_merchant_notifications_read.sql',
   '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
-  '20260811150000_prune_terminal_notification_audience_snapshots.sql',
-  '20260812110000_harden_notification_delivery_and_operations_access.sql',
+  '20260811150001_prune_terminal_notification_audience_snapshots.sql',
+  '20260812110001_harden_notification_delivery_and_operations_access.sql',
   '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
   '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
   '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
@@ -60,8 +60,8 @@ describe('admin notification foundation migration contract', () => {
       '20260805151360_harden_merchant_notification_table_privileges.sql',
       '20260805151370_mark_all_visible_merchant_notifications_read.sql',
       '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
-      '20260811150000_prune_terminal_notification_audience_snapshots.sql',
-      '20260812110000_harden_notification_delivery_and_operations_access.sql',
+      '20260811150001_prune_terminal_notification_audience_snapshots.sql',
+      '20260812110001_harden_notification_delivery_and_operations_access.sql',
       '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
       '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
       '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
@@ -80,7 +80,7 @@ describe('admin notification foundation migration contract', () => {
 
   it('keeps recipient visibility dashboard-permission-scoped and ages unknown push outcomes', () => {
     const sql = readMigrations([
-      '20260812110000_harden_notification_delivery_and_operations_access.sql',
+      '20260812110001_harden_notification_delivery_and_operations_access.sql',
     ]);
 
     expect(sql).toContain("'dashboard', 'view'");
@@ -108,7 +108,7 @@ describe('admin notification foundation migration contract', () => {
 
   it('prunes only the claim snapshot after terminal finalization', () => {
     const sql = readMigrations([
-      '20260811150000_prune_terminal_notification_audience_snapshots.sql',
+      '20260811150001_prune_terminal_notification_audience_snapshots.sql',
     ]);
 
     expect(sql).toContain(
