@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
@@ -97,10 +97,12 @@ describe('QuizResultsPanel', () => {
   });
 
   it('shows the winner claim first and labels history as a secondary action', () => {
+    const onReturnToQuizList = jest.fn();
     render(
       <QuizResultsPanel
         legacyResult={null}
         lifecycle="final"
+        onReturnToQuizList={onReturnToQuizList}
         styles={createQuizStyles(colors)}
         v2Result={{
           attemptId: 'a1',
@@ -128,6 +130,10 @@ describe('QuizResultsPanel', () => {
     expect(
       screen.getByRole('button', { name: 'View past quiz leaderboards' })
     ).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Return to quiz list' })
+    );
+    expect(onReturnToQuizList).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('View full leaderboard')).toBeNull();
   });
 
