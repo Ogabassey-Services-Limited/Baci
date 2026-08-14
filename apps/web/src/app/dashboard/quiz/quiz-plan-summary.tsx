@@ -1,18 +1,15 @@
-function durationLabel(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  if (!minutes) return `${remainder}s`;
-  return remainder ? `${minutes}m ${remainder}s` : `${minutes}m`;
-}
+import { formatQuizDuration } from './quiz-duration';
 
 export function QuizPlanSummary({
   closesAt,
   questionCount,
   timePerQuestionSeconds,
+  totalQuizDurationSeconds,
 }: {
   closesAt: string;
   questionCount: number;
   timePerQuestionSeconds: number;
+  totalQuizDurationSeconds?: number;
 }) {
   return (
     <aside
@@ -22,8 +19,14 @@ export function QuizPlanSummary({
       <p className="font-semibold">Quiz summary</p>
       <p className="mt-1 text-muted-foreground">
         {questionCount} questions, {timePerQuestionSeconds} seconds each.
-        Expected play: {durationLabel(questionCount * timePerQuestionSeconds)}.
+        Expected play:{' '}
+        {formatQuizDuration(questionCount * timePerQuestionSeconds)}.
       </p>
+      {totalQuizDurationSeconds !== undefined ? (
+        <p className="mt-1 text-muted-foreground">
+          Total quiz duration: {formatQuizDuration(totalQuizDurationSeconds)}.
+        </p>
+      ) : null}
       <p className="mt-1 text-muted-foreground">
         Universal close: {closesAt || 'Set the launch window.'} Late players get
         only the time remaining.

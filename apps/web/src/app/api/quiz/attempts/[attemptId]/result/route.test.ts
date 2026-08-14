@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { requireQuizUser } from '@/app/api/quiz/_shared/route-auth';
 import { createQuizResultClaimToken } from '@/lib/quiz/quiz-result-claim';
+import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { GET } from './route';
 
 vi.mock('@/app/api/quiz/_shared/route-auth', async () => {
@@ -12,6 +13,9 @@ vi.mock('@/app/api/quiz/_shared/route-auth', async () => {
 });
 vi.mock('@/lib/quiz/quiz-result-claim', () => ({
   createQuizResultClaimToken: vi.fn(),
+}));
+vi.mock('@/lib/quiz-voucher-token', () => ({
+  createQuizVoucherToken: vi.fn(),
 }));
 
 const ATTEMPT_ID = '11111111-1111-4111-8111-111111111111';
@@ -34,7 +38,18 @@ function authenticated(result: { data: unknown; error: unknown }) {
     Promise.resolve(
       name === 'quiz_runtime_contract_version'
         ? { data: 2, error: null }
-        : result
+        : name === 'get_quiz_prize_claim_v2'
+          ? {
+              data: {
+                awardId: '33333333-3333-4333-8333-333333333333',
+                condition: null,
+                expiresAt: '2026-08-12T10:05:00.000Z',
+                productId: '44444444-4444-4444-8444-444444444444',
+                variantId: null,
+              },
+              error: null,
+            }
+          : result
     )
   );
   vi.mocked(requireQuizUser).mockResolvedValue({
@@ -49,6 +64,7 @@ function authenticated(result: { data: unknown; error: unknown }) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(createQuizResultClaimToken).mockReturnValue('signed-claim');
+  vi.mocked(createQuizVoucherToken).mockReturnValue('voucher-token');
 });
 
 describe('v2 quiz result route', () => {
@@ -102,6 +118,15 @@ describe('v2 quiz result route', () => {
         expiresAt: '2026-08-12T10:05:00.000Z',
         token: 'signed-claim',
       },
+      prizeClaim: {
+        awardId: '33333333-3333-4333-8333-333333333333',
+        cartPath:
+          '/ogabassey/cart?item_id=44444444-4444-4444-8444-444444444444&quiz_award_id=33333333-3333-4333-8333-333333333333&quiz_voucher_token=voucher-token',
+        condition: null,
+        productId: '44444444-4444-4444-8444-444444444444',
+        variantId: null,
+        voucherToken: 'voucher-token',
+      },
       rank: 1,
       score: 20,
       totalQuestions: 20,
@@ -110,6 +135,16 @@ describe('v2 quiz result route', () => {
       awardId: '33333333-3333-4333-8333-333333333333',
       expiresAt: '2026-08-12T10:05:00.000Z',
       userId: USER_ID,
+    });
+    expect(createQuizVoucherToken).toHaveBeenCalledWith({
+      payload: {
+        awardId: '33333333-3333-4333-8333-333333333333',
+        condition: null,
+        expiresAt: '2026-08-12T10:05:00.000Z',
+        productId: '44444444-4444-4444-8444-444444444444',
+        userId: USER_ID,
+        variantId: null,
+      },
     });
   });
 

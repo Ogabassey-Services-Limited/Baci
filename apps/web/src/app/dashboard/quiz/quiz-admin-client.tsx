@@ -100,7 +100,7 @@ export function QuizAdminClient({
     } else {
       timing = {
         kind: 'immediate',
-        liveWindowSeconds: configuration.liveWindowMinutes * 60,
+        liveWindowSeconds: configuration.totalQuizDurationSeconds,
       };
     }
     setIsActivating(true);

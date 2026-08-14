@@ -9,18 +9,20 @@ import {
   clampNumberInput,
   isQuizDifficulty,
 } from './quiz-admin-actions';
+import { formatQuizDuration } from './quiz-duration';
+import { QuizDurationField } from './quiz-duration-field';
 import { QuizPlanSummary } from './quiz-plan-summary';
 import { QuizPrizeProductPicker } from './quiz-prize-product-picker';
 import { QuizTopicInput } from './quiz-topic-input';
 
 export type QuizDraftConfiguration = {
   difficulty: 'easy' | 'standard' | 'hard';
-  liveWindowMinutes: number;
   mode: 'test' | 'live';
   prizeProduct: QuizPrizeProduct;
   questionCountPerTopic: number;
   scheduledEnd: string;
   scheduledStart: string;
+  totalQuizDurationSeconds: number;
   timePerQuestionSeconds: number;
   timingKind: 'immediate' | 'scheduled';
   title: string;
@@ -58,7 +60,8 @@ export function QuizAuthoringForm({
   );
   const [time, setTime] = useState('10');
   const [perTopic, setPerTopic] = useState('1');
-  const [windowMinutes, setWindowMinutes] = useState('5');
+  const [requestedTotalDurationSeconds, setRequestedTotalDurationSeconds] =
+    useState<number | null>(null);
   const [difficulty, setDifficulty] = useState<'easy' | 'standard' | 'hard'>(
     'standard'
   );
@@ -73,10 +76,16 @@ export function QuizAuthoringForm({
     localDatetime(new Date(now.getTime() + 3_900_000))
   );
   const questionCount = topics.length * clampNumber(Number(perTopic), 1, 20);
+  const timePerQuestionSeconds = clampNumber(Number(time), 5, 60);
+  const expectedPlaySeconds = questionCount * timePerQuestionSeconds;
+  const totalQuizDurationSeconds = Math.max(
+    expectedPlaySeconds,
+    requestedTotalDurationSeconds ?? expectedPlaySeconds
+  );
   const closesAt =
     timingKind === 'scheduled' && scheduledEnd
       ? new Date(scheduledEnd).toLocaleString()
-      : `About ${windowMinutes} minute${windowMinutes === '1' ? '' : 's'} after launch`;
+      : `After ${formatQuizDuration(totalQuizDurationSeconds)}`;
   const timingValid =
     timingKind === 'immediate' ||
     (Boolean(scheduledStart && scheduledEnd) &&
@@ -92,16 +101,16 @@ export function QuizAuthoringForm({
     if (!prizeProduct || !canSubmit) return;
     onGenerate({
       difficulty,
-      liveWindowMinutes: clampNumber(Number(windowMinutes), 1, 120),
       mode,
       prizeProduct,
       questionCountPerTopic: clampNumber(Number(perTopic), 1, 20),
       scheduledEnd,
       scheduledStart,
-      timePerQuestionSeconds: clampNumber(Number(time), 5, 60),
+      timePerQuestionSeconds,
       timingKind,
       title: title.trim(),
       topics,
+      totalQuizDurationSeconds,
     });
   };
 
@@ -204,20 +213,11 @@ export function QuizAuthoringForm({
             </select>
           </label>
           {timingKind === 'immediate' ? (
-            <label className="grid gap-2 text-sm font-medium">
-              Universal live window (minutes)
-              <input
-                className="h-11 rounded-md border bg-background px-3"
-                min={1}
-                max={120}
-                type="number"
-                value={windowMinutes}
-                onBlur={() =>
-                  setWindowMinutes(clampNumberInput(windowMinutes, 1, 120))
-                }
-                onChange={(event) => setWindowMinutes(event.target.value)}
-              />
-            </label>
+            <QuizDurationField
+              expectedPlaySeconds={expectedPlaySeconds}
+              onDurationChange={setRequestedTotalDurationSeconds}
+              totalDurationSeconds={totalQuizDurationSeconds}
+            />
           ) : (
             <>
               <label className="grid gap-2 text-sm font-medium">
@@ -246,7 +246,10 @@ export function QuizAuthoringForm({
         <QuizPlanSummary
           closesAt={closesAt}
           questionCount={questionCount}
-          timePerQuestionSeconds={clampNumber(Number(time), 5, 60)}
+          timePerQuestionSeconds={timePerQuestionSeconds}
+          totalQuizDurationSeconds={
+            timingKind === 'immediate' ? totalQuizDurationSeconds : undefined
+          }
         />
       </div>
       <p className="mt-3 text-xs text-muted-foreground">

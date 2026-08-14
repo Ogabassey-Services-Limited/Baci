@@ -9,9 +9,11 @@ describe('QuizPlanSummary', () => {
         closesAt="9:05 AM"
         questionCount={20}
         timePerQuestionSeconds={10}
+        totalQuizDurationSeconds={210}
       />
     );
     expect(screen.getByText(/Expected play: 3m 20s/)).toBeInTheDocument();
+    expect(screen.getByText(/Total quiz duration: 3m 30s/)).toBeInTheDocument();
     expect(screen.getByText(/Universal close: 9:05 AM/)).toBeInTheDocument();
   });
 });

@@ -40,8 +40,35 @@ describe('QuizAuthoringForm', () => {
       expect.objectContaining({
         mode: 'test',
         prizeProduct: prize,
+        totalQuizDurationSeconds: 20,
         timePerQuestionSeconds: 10,
       })
+    );
+  });
+
+  it('allows a merchant to extend the computed play time', async () => {
+    const onGenerate = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <QuizAuthoringForm
+        disabled={false}
+        initialProducts={[prize]}
+        isGenerating={false}
+        onGenerate={onGenerate}
+      />
+    );
+
+    expect(screen.getByText(/Total quiz duration: 20s/)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /extend play time/i }));
+    const totalDuration = screen.getByLabelText(
+      /total quiz duration \(seconds\)/i
+    );
+    await user.clear(totalDuration);
+    await user.type(totalDuration, '90');
+    await user.click(screen.getByRole('button', { name: /generate draft/i }));
+
+    expect(onGenerate).toHaveBeenCalledWith(
+      expect.objectContaining({ totalQuizDurationSeconds: 90 })
     );
   });
 });

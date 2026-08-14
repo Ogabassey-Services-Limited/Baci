@@ -236,6 +236,16 @@ const quizV2FinalResultSchema = z.strictObject({
       token: z.string().trim().min(1).max(2048),
     })
     .optional(),
+  prizeClaim: z
+    .strictObject({
+      awardId: quizUuidSchema,
+      cartPath: z.string().trim().min(1).max(1024),
+      condition: quizPrizeConditionSchema.nullable(),
+      productId: quizUuidSchema,
+      variantId: quizUuidSchema.nullable(),
+      voucherToken: z.string().trim().min(1).max(512),
+    })
+    .optional(),
   rank: z.int().positive(),
   score: z.int().nonnegative(),
   totalQuestions: z.int().positive().max(QUIZ_MAX_LOGICAL_QUESTIONS),
