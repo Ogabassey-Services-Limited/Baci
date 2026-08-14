@@ -155,11 +155,11 @@ describe('buildProductContextSpecFacts', () => {
         'Smartphones'
       )
     ).toEqual([
+      'OIS: Yes',
       '5G Support: Yes',
       'Internal Storage: 256GB',
       'RAM: 8GB',
       'Capacity: 4000mAh',
-      'OIS: Yes',
     ]);
   });
 

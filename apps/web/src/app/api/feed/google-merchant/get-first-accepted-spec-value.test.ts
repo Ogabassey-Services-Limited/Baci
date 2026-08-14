@@ -22,4 +22,12 @@ describe('getFirstAcceptedSpecValue', () => {
       )
     ).toBeUndefined();
   });
+
+  it('retains categoryless RAM and storage measurements for feed enrichment', () => {
+    expect(getFirstAcceptedSpecValue({}, 'ram_gb', 12)).toBe(12);
+    expect(getFirstAcceptedSpecValue({}, 'storage_gb', 256)).toBe(256);
+    expect(
+      getFirstAcceptedSpecValue({}, 'display_resolution', '2532 x 1170')
+    ).toBe('2532 x 1170');
+  });
 });

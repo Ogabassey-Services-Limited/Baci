@@ -174,7 +174,6 @@ describe('buildProductContextParagraphs', () => {
             has_ois: true,
             announced_date: '2024-01-17',
             release_date: '2024-01-31',
-            recommended_for: 'Everyday photography',
             front_camera_mp: null,
             display_resolution: '   ',
           },

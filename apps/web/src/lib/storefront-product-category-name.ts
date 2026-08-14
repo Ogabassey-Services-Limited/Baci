@@ -34,7 +34,12 @@ export function resolveStorefrontProductCategoryName(
     return canonicalSlug;
   }
 
-  return product.category?.trim() || null;
+  const legacyCategory = product.category?.trim();
+  if (legacyCategory && !isUnsupportedSpecValue(legacyCategory)) {
+    return legacyCategory;
+  }
+
+  return null;
 }
 
 /**

@@ -37,7 +37,28 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
     platform: 'Platform',
   },
 };
-const CONTEXT_ONLY_PRIORITY_KEYS = new Set(['recommended_for']);
+const DEPRIORITIZED_CONTEXT_PRIORITY_KEYS = new Set([
+  'announced_date',
+  'release_date',
+]);
+
+function resolveContextOnlyPriority(
+  family: ProductSpecFamily,
+  key: string,
+  contextPriority: number | undefined,
+  orderedFieldsLength: number
+) {
+  if (contextPriority === undefined) {
+    return orderedFieldsLength + Number.MAX_SAFE_INTEGER;
+  }
+
+  if (family === 'general' || DEPRIORITIZED_CONTEXT_PRIORITY_KEYS.has(key)) {
+    return orderedFieldsLength + contextPriority;
+  }
+
+  return contextPriority;
+}
+
 const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
   ProductSpecFamily,
   Record<string, number>
@@ -159,11 +180,14 @@ export function buildProductContextSpecFacts(
           key,
           priority:
             fieldPriorityByKey.get(key) ??
-            (CONTEXT_ONLY_PRIORITY_KEYS.has(key) &&
-            contextPriority !== undefined
-              ? contextPriority
-              : orderedFields.length +
-                (contextPriority ?? Number.MAX_SAFE_INTEGER)),
+            (!field
+              ? resolveContextOnlyPriority(
+                  family,
+                  key,
+                  contextPriority,
+                  orderedFields.length
+                )
+              : orderedFields.length + Number.MAX_SAFE_INTEGER),
           text: `${label}: ${normalized}`,
         },
       ];

@@ -58,6 +58,14 @@ describe('resolveStorefrontProductCategoryName', () => {
       })
     ).toBe('Action Cameras');
   });
+
+  it('skips placeholder legacy category text when relation metadata is absent', () => {
+    expect(
+      resolveStorefrontProductCategoryName({
+        category: 'Unknown',
+      })
+    ).toBeNull();
+  });
 });
 
 describe('resolveStorefrontProductCategorySlug', () => {
