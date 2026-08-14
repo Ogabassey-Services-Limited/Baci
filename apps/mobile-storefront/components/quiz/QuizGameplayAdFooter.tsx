@@ -18,7 +18,6 @@ function getAdErrorCode(error: Error): string {
 
 export function QuizGameplayAdFooter({ active }: QuizGameplayAdFooterProps) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const config = getQuizMobileAdsConfig();
   const adState = useQuizMobileAds({ config, requested: active });
   const styles = createQuizGameplayAdFooterStyles(colors);
@@ -32,6 +31,20 @@ export function QuizGameplayAdFooter({ active }: QuizGameplayAdFooterProps) {
   ) {
     return null;
   }
+
+  return <QuizGameplayAdPlacement adState={adState} styles={styles} />;
+}
+
+type QuizGameplayAdState = ReturnType<typeof useQuizMobileAds>;
+
+function QuizGameplayAdPlacement({
+  adState,
+  styles,
+}: {
+  adState: QuizGameplayAdState;
+  styles: ReturnType<typeof createQuizGameplayAdFooterStyles>;
+}) {
+  const insets = useSafeAreaInsets();
 
   const { BannerAd, BannerAdSize } =
     require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
