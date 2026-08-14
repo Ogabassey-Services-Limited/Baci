@@ -147,6 +147,6 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260814130000_separate_quiet_deferral_failure_attempts.sql',
-    sha256: '633e02a7177eca5401008650a41eaf8a9237bc37a7e7badb46bf7bc647ae3c2e',
+    sha256: '8efb7e6f0b2512f02518de52f58fb0fbcd7ef672114edec7d28071f6eb6d88b8',
   },
 ] as const;

@@ -30,4 +30,24 @@ describe('quiet deferral failure attempts migration contract', () => {
     );
     expect(sql).toContain('n.delivery_failure_attempts < 3');
   });
+
+  it('counts expired non-quiet leases toward the failure budget and prunes terminal snapshots', () => {
+    expect(sql).toContain('n.delivery_failure_attempts + 1');
+    expect(sql).toContain("'scheduled delivery lease expired'");
+    expect(sql).toContain('delivery_failure_attempts + 1 >= 3');
+  });
+
+  it('prunes audience snapshots when the third retry finalization fails', () => {
+    const finalizeSql = sql.slice(
+      sql.indexOf(
+        'create or replace function public.finalize_scheduled_admin_notification_v1'
+      )
+    );
+    const retryBranch = finalizeSql.slice(finalizeSql.indexOf('else'));
+
+    expect(retryBranch).toContain('n.delivery_failure_attempts + 1 >= 3');
+    expect(retryBranch).toContain(
+      'when delivery_failure_attempts + 1 >= 3 then scheduled_for'
+    );
+  });
 });

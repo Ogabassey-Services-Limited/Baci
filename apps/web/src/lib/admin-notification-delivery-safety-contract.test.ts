@@ -32,7 +32,9 @@ describe('scheduled notification delivery safety contract', () => {
     expect(snapshot).toContain('renew_scheduled_notification_claim_v1');
     expect(snapshot).toContain('notifications_delivery_content_check');
     expect(worker).toContain('snapshot_claimed_notification_audience_v1');
-    expect(worker).toContain('await renew(client, notification)');
+    expect(worker).toContain(
+      'await renewScheduledNotificationClaim(client, notification)'
+    );
     expect(worker).toContain('RECIPIENT_PAGE_SIZE = 500');
     expect(snapshot).toContain('scheduled_for is not null');
     expect(snapshot).toContain('notifications_delivery_content_check');

@@ -13,27 +13,37 @@ BEGIN
   IF p_limit IS NULL OR p_limit < 1 OR p_limit > 50 THEN RAISE EXCEPTION 'Invalid claim limit' USING ERRCODE = '22023'; END IF;
   DELETE FROM public.admin_notification_audience_snapshot s USING public.notifications n
   WHERE n.id = s.notification_id AND n.sent_at IS NULL AND n.delivery_state = 'processing'
-    AND n.delivery_failure_attempts >= 3
     AND n.delivery_last_error NOT IN ('quiet_hours_deferred', 'quiet_hours_claimed')
+    AND n.delivery_failure_attempts + 1 >= 3
     AND (n.delivery_claimed_at IS NULL OR n.delivery_claimed_at < statement_timestamp() - interval '15 minutes')
     AND s.claim_token = n.delivery_claim_token;
   UPDATE public.notifications n
-  SET delivery_state = CASE
-      WHEN n.delivery_failure_attempts >= 3
-        AND n.delivery_last_error NOT IN ('quiet_hours_deferred', 'quiet_hours_claimed') THEN 'failed'
+  SET delivery_failure_attempts = CASE
+      WHEN n.delivery_last_error IN ('quiet_hours_deferred', 'quiet_hours_claimed')
+        THEN n.delivery_failure_attempts
+      ELSE n.delivery_failure_attempts + 1
+    END,
+    delivery_state = CASE
+      WHEN n.delivery_last_error IN ('quiet_hours_deferred', 'quiet_hours_claimed') THEN 'pending'
+      WHEN n.delivery_failure_attempts + 1 >= 3 THEN 'failed'
       ELSE 'pending'
     END,
     delivery_claimed_at = NULL,
     delivery_claim_token = NULL,
     delivery_failed_at = CASE
-      WHEN n.delivery_failure_attempts >= 3
-        AND n.delivery_last_error NOT IN ('quiet_hours_deferred', 'quiet_hours_claimed') THEN statement_timestamp()
+      WHEN n.delivery_last_error IN ('quiet_hours_deferred', 'quiet_hours_claimed') THEN NULL
+      WHEN n.delivery_failure_attempts + 1 >= 3 THEN statement_timestamp()
       ELSE NULL
     END,
-    delivery_last_error = 'scheduled delivery lease expired',
+    delivery_last_error = CASE
+      WHEN n.delivery_last_error IN ('quiet_hours_deferred', 'quiet_hours_claimed')
+        THEN n.delivery_last_error
+      ELSE 'scheduled delivery lease expired'
+    END,
     scheduled_for = CASE
-      WHEN n.delivery_failure_attempts >= 3
-        AND n.delivery_last_error NOT IN ('quiet_hours_deferred', 'quiet_hours_claimed') THEN n.scheduled_for
+      WHEN n.delivery_last_error IN ('quiet_hours_deferred', 'quiet_hours_claimed')
+        THEN statement_timestamp()
+      WHEN n.delivery_failure_attempts + 1 >= 3 THEN n.scheduled_for
       ELSE statement_timestamp()
     END
   WHERE n.sent_at IS NULL AND n.delivery_state = 'processing'
@@ -123,7 +133,7 @@ BEGIN
       AND sent_at IS NULL;
     GET DIAGNOSTICS v_row_count = ROW_COUNT;
   ELSE
-    SELECT n.delivery_failure_attempts >= 3, n.delivery_last_error = 'quiet_hours_claimed'
+    SELECT n.delivery_failure_attempts + 1 >= 3, n.delivery_last_error = 'quiet_hours_claimed'
     INTO v_terminal, v_quiet_resumed
     FROM public.notifications n
     WHERE n.id = p_notification_id
@@ -140,7 +150,7 @@ BEGIN
       delivery_failed_at = CASE WHEN delivery_failure_attempts + 1 >= 3 THEN statement_timestamp() ELSE NULL END,
       delivery_last_error = LEFT(COALESCE(p_error, 'scheduled delivery failed'), 500),
       scheduled_for = CASE
-        WHEN delivery_failure_attempts >= 3 THEN scheduled_for
+        WHEN delivery_failure_attempts + 1 >= 3 THEN scheduled_for
         ELSE statement_timestamp() + LEAST(make_interval(mins => 5 * GREATEST(delivery_failure_attempts + 1, 1)), interval '60 minutes')
       END
     WHERE id = p_notification_id
