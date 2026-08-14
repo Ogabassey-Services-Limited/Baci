@@ -63,4 +63,13 @@ describe('MerchantSetupHero', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back to about you' }));
     expect(onBack).toHaveBeenCalledOnce();
   });
+
+  it('hides the about-you back action when owner details were skipped', () => {
+    render(<MerchantSetupHero firstName="Tester" step="business" />);
+
+    expect(screen.getByText('Welcome, Tester!')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Back to about you' })
+    ).not.toBeInTheDocument();
+  });
 });

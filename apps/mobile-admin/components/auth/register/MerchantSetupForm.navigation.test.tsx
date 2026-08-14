@@ -89,10 +89,12 @@ vi.mock('./PersonNameFields', () => ({
     firstName,
     lastName,
     onFirstNameChange,
+    onLastNameChange,
   }: {
     firstName: string;
     lastName: string;
     onFirstNameChange: (value: string) => void;
+    onLastNameChange: (value: string) => void;
   }) => (
     <>
       <input
@@ -100,16 +102,22 @@ vi.mock('./PersonNameFields', () => ({
         onChange={(event) => onFirstNameChange(event.target.value)}
         value={firstName}
       />
-      <input aria-label="Last Name" readOnly={true} value={lastName} />
+      <input
+        aria-label="Last Name"
+        onChange={(event) => onLastNameChange(event.target.value)}
+        value={lastName}
+      />
     </>
   ),
 }));
 vi.mock('./RegisterBusinessStep', () => ({
   RegisterBusinessStep: ({ onBack }: { onBack?: () => void }) => (
     <>
-      <button aria-label="Back to about you" onClick={onBack} type="button">
-        Back to about you
-      </button>
+      {onBack ? (
+        <button aria-label="Back to about you" onClick={onBack} type="button">
+          Back to about you
+        </button>
+      ) : null}
       <input aria-label="Business Name" />
     </>
   ),
@@ -125,25 +133,29 @@ describe('MerchantSetupForm step navigation', () => {
     };
   });
 
-  it('starts complete signup identities on owner details so country is collected', () => {
+  it('bugfix: skips owner name and phone after email signup already collected the name', () => {
     render(<MerchantSetupForm />);
 
-    expect(screen.getByLabelText('First Name')).toHaveValue('Ada');
+    expect(screen.queryByText('Owner Details')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('First Name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Last Name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Phone Number')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Country / Region, Nigeria' })
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText('Business Name')).not.toBeInTheDocument();
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Continue to business info' })
-    );
-
+      screen.queryByRole('button', { name: 'Back to about you' })
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText('Business Name')).toBeInTheDocument();
   });
 
-  it('returns to about-you details from business setup', () => {
+  it('returns to about-you details from business setup when names were missing', () => {
+    mocks.authUser.user_metadata = {};
     render(<MerchantSetupForm />);
 
+    fireEvent.change(screen.getByLabelText('First Name'), {
+      target: { value: 'Ada' },
+    });
+    fireEvent.change(screen.getByLabelText('Last Name'), {
+      target: { value: 'Lovelace' },
+    });
     fireEvent.click(
       screen.getByRole('button', { name: 'Continue to business info' })
     );

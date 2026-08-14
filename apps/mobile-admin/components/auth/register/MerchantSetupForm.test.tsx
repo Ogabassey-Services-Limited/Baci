@@ -267,6 +267,16 @@ describe('MerchantSetupForm', () => {
     );
     expect(mocks.replace).not.toHaveBeenCalled();
   });
+  it('bugfix: does not re-ask name or phone after email signup already collected the name', () => {
+    render(<MerchantSetupForm />);
+
+    expect(screen.queryByText('Owner Details')).toBeNull();
+    expect(screen.queryByLabelText('First Name')).toBeNull();
+    expect(screen.queryByLabelText('Last Name')).toBeNull();
+    expect(screen.queryByLabelText('Phone Number')).toBeNull();
+    expect(screen.getByLabelText('Business Name')).toBeTruthy();
+  });
+
   it('requires missing social-auth names to be completed', async () => {
     mocks.authUser.user_metadata = {};
     render(<MerchantSetupForm />);

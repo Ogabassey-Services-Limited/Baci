@@ -9,6 +9,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { getMerchantProvisioningError } from '@/lib/merchant-provisioning-error';
 import { MerchantSetupOwnerStep } from './MerchantSetupOwnerStep';
 import { MerchantSetupProgress } from './MerchantSetupProgress';
+import { initialMerchantSetupStep } from './merchant-setup-initial-step';
 import { RegisterBusinessStep } from './RegisterBusinessStep';
 import { getStyles } from './register.styles';
 
@@ -80,7 +81,12 @@ export function MerchantSetupForm() {
   );
   const [isSlugEdited, setIsSlugEdited] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
-  const [setupStep, setSetupStep] = useState<1 | 2>(1);
+  const [setupStep, setSetupStep] = useState<1 | 2>(() =>
+    initialMerchantSetupStep(formData.firstName, formData.lastName)
+  );
+  const [ownerStepIncluded, setOwnerStepIncluded] = useState(
+    () => initialMerchantSetupStep(formData.firstName, formData.lastName) === 1
+  );
   const hydratedUserId = useRef<string | null>(user?.id ?? null);
 
   useEffect(() => {
@@ -89,19 +95,25 @@ export function MerchantSetupForm() {
       return;
     }
     const defaults = initialFormData(user);
+    const nextStep = initialMerchantSetupStep(
+      defaults.firstName,
+      defaults.lastName
+    );
     const wasUnauthenticated = hydratedUserId.current === null;
     const userChanged =
       hydratedUserId.current !== null && hydratedUserId.current !== user.id;
     hydratedUserId.current = user.id;
     if (userChanged) {
       setFormData(defaults);
-      setSetupStep(1);
+      setSetupStep(nextStep);
+      setOwnerStepIncluded(nextStep === 1);
       setIsSlugEdited(false);
       setSlugError(null);
       return;
     }
     if (wasUnauthenticated) {
-      setSetupStep(1);
+      setSetupStep(nextStep);
+      setOwnerStepIncluded(nextStep === 1);
     }
     setFormData((previous) =>
       previous.firstName && previous.lastName
@@ -238,7 +250,7 @@ export function MerchantSetupForm() {
   return (
     <View style={styles.formSection}>
       <MerchantSetupProgress
-        onAboutYouPress={() => setSetupStep(1)}
+        onAboutYouPress={ownerStepIncluded ? () => setSetupStep(1) : undefined}
         step={setupStep}
       />
       {setupStep === 1 ? (
@@ -259,7 +271,7 @@ export function MerchantSetupForm() {
           firstName={formData.firstName}
           formData={formData}
           isLoading={provisionMerchant.isPending}
-          onBack={() => setSetupStep(1)}
+          onBack={ownerStepIncluded ? () => setSetupStep(1) : undefined}
           onBusinessNameChange={(value) => updateForm('businessName', value)}
           onBusinessTypeChange={(value: BusinessTypeId) =>
             updateForm('businessType', value)
