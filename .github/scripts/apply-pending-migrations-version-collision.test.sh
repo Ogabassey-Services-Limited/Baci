@@ -174,3 +174,28 @@ if grep -q '^→ applying:        20260811140000' "$fixture_root/paystack-review
   echo 'The Paystack review contract migration must be reconciled before its missing dependency is applied' >&2
   exit 1
 fi
+
+quiz_migrations="$fixture_root/quiz-materialized-migrations"
+quiz_query_log="$fixture_root/quiz-materialized-queries.log"
+mkdir -p "$quiz_migrations"
+cp "$script_dir/../../supabase/migrations/20260812170000_quiz_materialized_final_rankings_v2.sql" \
+  "$quiz_migrations/20260812170000_quiz_materialized_final_rankings_v2.sql"
+cp "$script_dir/../../supabase/migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql" \
+  "$quiz_migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$quiz_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$quiz_query_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$fixture_root/quiz-materialized-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260814230000_repair_quiz_materialized_final_rankings_v2.sql' \
+  "$fixture_root/quiz-materialized-output.log"
+grep -q 'total_time_milliseconds' "$quiz_query_log"
+if grep -q '^→ applying:        20260812170000' "$fixture_root/quiz-materialized-output.log"; then
+  echo 'The quiz materialization migration must be reconciled before its incompatible backfill runs' >&2
+  exit 1
+fi

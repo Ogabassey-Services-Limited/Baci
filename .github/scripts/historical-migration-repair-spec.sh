@@ -29,6 +29,9 @@ historical_migration_repair_spec() {
     20260811140000:harden_paystack_manual_reconciliation_review_contracts)
       printf '%s\t%s\t%s\n' '20260814153213' 'repair_harden_paystack_manual_reconciliation_review_contracts' '4ed01fb7657a37530a4bdb5de152b4bf869e4b2ddaf7bc04c29f7ca131207408'
       ;;
+    20260812170000:quiz_materialized_final_rankings_v2)
+      printf '%s\t%s\t%s\n' '20260814230000' 'repair_quiz_materialized_final_rankings_v2' '1b3eec0aa6d442ab9f3a61149e0839a0cad6aab80ea567200c815b9e2c98dee5'
+      ;;
     *) return 1 ;;
   esac
 }
