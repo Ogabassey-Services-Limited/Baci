@@ -14,13 +14,14 @@ import {
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 
+const mockQuizEventNow = Date.now();
 const mockEvents: QuizEvent[] = [
   {
     id: 'event-1',
     title: 'Daily Prize Quiz',
     prizeName: 'N50,000 store credit',
-    startsAt: '2026-05-20T10:00:00.000Z',
-    endsAt: '2026-05-20T10:10:00.000Z',
+    startsAt: new Date(mockQuizEventNow - 60 * 1000).toISOString(),
+    endsAt: new Date(mockQuizEventNow + 10 * 60 * 1000).toISOString(),
     status: 'open',
     questionCount: 3,
   },
