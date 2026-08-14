@@ -102,12 +102,13 @@ jest.mock('@react-native-community/datetimepicker', () => ({
   },
 }));
 
+const quizEventNow = Date.now();
 const quizEvent: QuizEvent = {
-  endsAt: '2026-05-20T10:10:00.000Z',
+  endsAt: new Date(quizEventNow + 10 * 60 * 1000).toISOString(),
   id: 'event-1',
   prizeName: 'N50,000 store credit',
   questionCount: 3,
-  startsAt: '2026-05-20T10:00:00.000Z',
+  startsAt: new Date(quizEventNow - 60 * 1000).toISOString(),
   status: 'open',
   title: 'Daily Prize Quiz',
 };

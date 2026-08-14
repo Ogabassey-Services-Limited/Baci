@@ -41,7 +41,6 @@ export function QuizEventsList({
   return (
     <View style={styles.eventsList}>
       <View
-        pointerEvents="none"
         style={styles.patternBackground}
         testID="quiz-gadget-pattern-background"
       >
