@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "2e835b6a3052b278ae089b8f534baefa8ee9f463",
+  "originMainSha": "51da77acda21a54b1f3880d70b4a91e18ce55684",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "7e1d3cdcad9309e40660bb9ff46af0ef053386a77ad89b4839136fcbf90f1a70",
-  "routingProxyInputSha256": "f6902b6641c31b27277f5e183f3f01574aa6fb4554f6ec521987e09d8c7130df",
+  "routingProxyInputSha256": "95b507ce21fa3cbcb3aff7557d54757636dfe64ad87130e1c6e3901fb879d5f4",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -2035,7 +2035,7 @@
         "hostKind": "configured_external_media_origin",
         "precedence": "before_path_decision"
       },
-      "id": "automatic-subresource:transparent-textures",
+      "id": "automatic-subresource:transparent-textures-about",
       "methods": [
         "GET",
         "HEAD"
@@ -2044,6 +2044,38 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/about-us.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:transparent-textures-privacy",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:transparent-textures-legal",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -2160,6 +2192,23 @@
     {
       "decision": "origin_dynamic",
       "destinationCondition": {
+        "hostKind": "configured_google_analytics_collection_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:google-analytics-collection",
+      "methods": [
+        "GET",
+        "HEAD",
+        "POST"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/analytics/google-analytics.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
         "hostKind": "configured_google_ad_manager_origin",
         "precedence": "before_path_decision"
       },
@@ -2252,6 +2301,86 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/bnpl-launcher.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_paystack_asset_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:checkout-payment-paystack",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_korapay_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:checkout-payment-korapay",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_credpal_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:checkout-payment-credpal",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_credit_direct_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:checkout-payment-credit-direct",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_juicyway_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:checkout-payment-juicyway",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -7514,5 +7643,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "90451b6b610e9f2ccdc309d082c37af13ebe2f0d882e78f2e886c57edcd80320"
+  "inventorySha256": "f77b85c409176d9c468d3f7a8481d571d91692c3d2c2cfb9a24cce7fbef55e46"
 }
