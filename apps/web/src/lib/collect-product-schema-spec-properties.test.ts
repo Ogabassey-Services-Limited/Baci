@@ -102,6 +102,38 @@ describe('collectProductSchemaSpecProperties', () => {
     expect(collector.getProperties()).toEqual([]);
   });
 
+  it('preserves imaging resolution when display resolution is already keyed', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Cameras',
+        product_key_specs: {
+          display_resolution: '3 inches',
+        },
+        specifications: [
+          {
+            category: 'Imaging',
+            items: [{ label: 'Resolution', value: '24.2 MP' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          name: 'Display Resolution',
+          value: '3 inches',
+        },
+        {
+          '@type': 'PropertyValue',
+          name: 'Resolution',
+          value: '24.2 MP',
+        },
+      ])
+    );
+  });
+
   it('suppresses legacy specification rows when keyed specs already populated the canonical field', () => {
     const collector = collectProductSchemaSpecProperties(
       makeSeoProduct({

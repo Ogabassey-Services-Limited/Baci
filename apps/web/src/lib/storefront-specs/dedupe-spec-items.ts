@@ -8,8 +8,8 @@ interface DedupeSpecItemsOptions {
   section?: string;
 }
 
-function getCanonicalSpecLabel(label: string) {
-  const vocabularyKey = getProductSchemaSpecKeyForLabel(label);
+function getCanonicalSpecLabel(label: string, section?: string) {
+  const vocabularyKey = getProductSchemaSpecKeyForLabel(label, section);
   if (vocabularyKey) {
     return vocabularyKey;
   }
@@ -31,7 +31,7 @@ function getSpecItemIdentity(label: string, section?: string) {
     normalizeProductSchemaSpecLabel(sourceSection).trim() ||
     sourceSection.trim().replace(/\s+/g, ' ').toLowerCase();
 
-  return `${normalizedSection}:${getCanonicalSpecLabel(label)}`;
+  return `${normalizedSection}:${getCanonicalSpecLabel(label, section)}`;
 }
 
 function getSpecValueQuality(value: string) {

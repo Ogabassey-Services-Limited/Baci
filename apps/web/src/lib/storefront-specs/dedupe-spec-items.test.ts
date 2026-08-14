@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { dedupeSpecItems } from './dedupe-spec-items';
 
 describe('dedupeSpecItems', () => {
+  it('deduplicates Network Technology rows with keyed projection aliases', () => {
+    expect(
+      dedupeSpecItems(
+        [
+          { label: 'Network Technology', value: '5G' },
+          { label: 'Technology', value: '5G' },
+        ],
+        { section: 'Network' }
+      )
+    ).toEqual([{ label: 'Network Technology', value: '5G' }]);
+  });
+
   it('retains the first supported canonical label value', () => {
     expect(
       dedupeSpecItems(

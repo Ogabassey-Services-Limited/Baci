@@ -5,6 +5,22 @@ import {
 } from './product-schema-spec-vocabulary';
 
 describe('getProductSchemaSpecKeyForLabel', () => {
+  it('scopes bare Technology and Resolution labels to their semantic sections', () => {
+    expect(getProductSchemaSpecKeyForLabel('Technology')).toBeUndefined();
+    expect(getProductSchemaSpecKeyForLabel('Technology', 'Network')).toBe(
+      'network_technology'
+    );
+    expect(getProductSchemaSpecKeyForLabel('Resolution', 'Display')).toBe(
+      'display_resolution'
+    );
+    expect(getProductSchemaSpecKeyForLabel('Resolution', 'Imaging')).toBe(
+      'main_camera_mp'
+    );
+    expect(
+      getProductSchemaSpecKeyForLabel('Resolution', 'Imaging and recording')
+    ).toBe('main_camera_mp');
+  });
+
   it('maps formatted schema labels to their canonical keys', () => {
     expect(getProductSchemaSpecKeyForLabel(' Network Technology ')).toBe(
       'network_technology'

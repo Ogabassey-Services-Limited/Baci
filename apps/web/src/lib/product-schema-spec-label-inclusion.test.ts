@@ -2,6 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { shouldIncludeProductSchemaSpecByLabel } from './product-schema-spec-label-inclusion';
 
 describe('shouldIncludeProductSchemaSpecByLabel', () => {
+  it('rejects unlabeled hardware keys when category data is absent', () => {
+    for (const canonicalSpecKey of ['ram_gb', 'storage_gb', 'chipset']) {
+      expect(
+        shouldIncludeProductSchemaSpecByLabel({
+          canonicalSpecKey,
+          categoryNames: [],
+          productFamily: 'general',
+        })
+      ).toBe(false);
+    }
+  });
+
   it('allows unlabeled specs by default outside accessory categories', () => {
     expect(
       shouldIncludeProductSchemaSpecByLabel({

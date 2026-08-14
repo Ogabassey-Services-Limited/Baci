@@ -79,6 +79,25 @@ export function getProductSchemaSpecKeyForLabel(
       ? SPEC_LABEL_TO_KEY[normalizedLabel]
       : undefined;
   }
+  if (normalizedLabel === 'resolution') {
+    const normalizedSection = section
+      ? normalizeProductSchemaSpecLabel(section)
+      : undefined;
+    if (
+      normalizedSection === 'display' ||
+      normalizedSection?.includes('screen')
+    ) {
+      return SPEC_LABEL_TO_KEY[normalizedLabel];
+    }
+    if (
+      normalizedSection === 'imaging' ||
+      normalizedSection === 'camera' ||
+      normalizedSection?.includes('imaging')
+    ) {
+      return 'main_camera_mp';
+    }
+    return SPEC_LABEL_TO_KEY[normalizedLabel];
+  }
   return SPEC_LABEL_TO_KEY[normalizedLabel];
 }
 

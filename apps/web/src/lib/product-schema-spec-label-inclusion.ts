@@ -20,7 +20,15 @@ export function shouldIncludeProductSchemaSpecByLabel(
     input;
 
   if (!normalizedLabel) {
-    if (canonicalSpecKey && categoryNames.some(isAccessoryLikeCategory)) {
+    if (!canonicalSpecKey) {
+      return true;
+    }
+
+    if (categoryNames.length === 0) {
+      return false;
+    }
+
+    if (categoryNames.some(isAccessoryLikeCategory)) {
       return getKeySpecCategoriesForFamily(
         productFamily,
         categoryNames[0]
