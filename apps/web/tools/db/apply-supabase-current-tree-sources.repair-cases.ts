@@ -89,4 +89,14 @@ export const REPAIR_CASES = [
       'supabase/migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql',
     ordinal: 129,
   },
+  {
+    label: 'Quiz results deny-client policy',
+    historicalPath:
+      'supabase/migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql',
+    historicalSha256:
+      '2a1d2341ec3631c74b9d44043db1f67f80b51012a796aea6477231bedfab98ef',
+    repairPath:
+      'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
+    ordinal: 129,
+  },
 ] as const;

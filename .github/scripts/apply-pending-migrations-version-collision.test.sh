@@ -199,3 +199,27 @@ if grep -q '^→ applying:        20260812170000' "$fixture_root/quiz-materializ
   echo 'The quiz materialization migration must be reconciled before its incompatible backfill runs' >&2
   exit 1
 fi
+
+quiz_policy_migrations="$fixture_root/quiz-policy-migrations"
+quiz_policy_query_log="$fixture_root/quiz-policy-queries.log"
+mkdir -p "$quiz_policy_migrations"
+cp "$script_dir/../../supabase/migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql" \
+  "$quiz_policy_migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql"
+cp "$script_dir/../../supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql" \
+  "$quiz_policy_migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$quiz_policy_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$quiz_policy_query_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$fixture_root/quiz-policy-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql' \
+  "$fixture_root/quiz-policy-output.log"
+if grep -q '^→ applying:        20260812173500' "$fixture_root/quiz-policy-output.log"; then
+  echo 'The existing quiz deny policy must be reconciled before its duplicate CREATE POLICY runs' >&2
+  exit 1
+fi

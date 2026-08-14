@@ -32,6 +32,9 @@ historical_migration_repair_spec() {
     20260812170000:quiz_materialized_final_rankings_v2)
       printf '%s\t%s\t%s\n' '20260814230000' 'repair_quiz_materialized_final_rankings_v2' '1b3eec0aa6d442ab9f3a61149e0839a0cad6aab80ea567200c815b9e2c98dee5'
       ;;
+    20260812173500:quiz_event_results_v2_deny_client_policy)
+      printf '%s\t%s\t%s\n' '20260815000000' 'repair_quiz_event_results_v2_deny_client_policy' '2a1d2341ec3631c74b9d44043db1f67f80b51012a796aea6477231bedfab98ef'
+      ;;
     *) return 1 ;;
   esac
 }
