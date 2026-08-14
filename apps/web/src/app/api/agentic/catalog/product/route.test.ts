@@ -50,12 +50,14 @@ type ProductRow = {
 let query: {
   eq: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
 };
 
 function mockProductRow(row: ProductRow | null) {
   query = {
     eq: vi.fn(() => query),
     maybeSingle: vi.fn(async () => ({ data: row, error: null })),
+    order: vi.fn(() => query),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
@@ -124,7 +126,9 @@ describe('POST /api/agentic/catalog/product', () => {
     );
 
     expect(select).toHaveBeenCalledWith(
-      expect.stringContaining('product_categories:product_categories')
+      expect.stringContaining(
+        'product_categories:product_categories(category_id, categories(slug, is_active))'
+      )
     );
   });
 

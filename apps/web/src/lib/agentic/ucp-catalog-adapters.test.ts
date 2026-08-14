@@ -142,6 +142,37 @@ describe('ucp catalog adapters', () => {
     );
   });
 
+  it('uses the lowest active junction category id for the UCP URL', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        canonical_url: null,
+        categories: { is_active: false, slug: 'retired' },
+        id: 'multi-category-product',
+        merchant_id: 'merchant-1',
+        name: 'Multi-category product',
+        price: 900_000,
+        product_categories: [
+          {
+            category_id: 'category-z',
+            categories: { is_active: true, slug: 'z-category' },
+          },
+          {
+            category_id: 'category-a',
+            categories: { is_active: true, slug: 'a-category' },
+          },
+        ],
+        slug: 'multi-category-product',
+        status: 'active',
+      },
+    });
+
+    expect(product.url).toBe(
+      'https://ogabassey.com/a-category/multi-category-product'
+    );
+  });
+
   it('keeps unmanaged inventory available and filters inactive rows', () => {
     const rows = filterActiveUcpCatalogProductRows([
       {

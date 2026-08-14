@@ -22,7 +22,26 @@ describe('resolveStorefrontProductCategory', () => {
     ).toEqual({ slug: 'junction-category' });
   });
 
-  it('uses the first usable junction category when earlier sources are blank', () => {
+  it('ignores inactive direct categories and selects the lowest active junction id', () => {
+    expect(
+      resolveStorefrontProductCategory({
+        categories: { slug: 'retired', is_active: false },
+        category: ' ',
+        product_categories: [
+          {
+            category_id: 'category-z',
+            categories: { slug: 'z-category', is_active: true },
+          },
+          {
+            category_id: 'category-a',
+            categories: { slug: 'a-category', is_active: true },
+          },
+        ],
+      })
+    ).toEqual({ slug: 'a-category' });
+  });
+
+  it('keeps the first usable junction category when relation ids are unavailable', () => {
     expect(
       resolveStorefrontProductCategory({
         categories: { slug: ' ' },

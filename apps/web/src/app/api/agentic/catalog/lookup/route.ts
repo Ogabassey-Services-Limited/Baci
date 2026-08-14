@@ -20,7 +20,7 @@ import { ucpCatalogLookupRequestSchema } from '@/schemas/ucp-catalog-request';
 
 const CATALOG_CURRENCY = 'NGN';
 const PRODUCT_SELECT =
-  'id, merchant_id, name, description, price, images, slug, canonical_url, stock, stock_quantity, manage_stock, status, category, categories:category_id(slug), product_categories:product_categories(categories(slug))';
+  'id, merchant_id, name, description, price, images, slug, canonical_url, stock, stock_quantity, manage_stock, status, category, categories:category_id(slug, is_active), product_categories:product_categories(category_id, categories(slug, is_active))';
 
 export async function POST(request: NextRequest) {
   if (!verifyAgenticApiKey(request)) {
@@ -49,6 +49,10 @@ export async function POST(request: NextRequest) {
     .select(PRODUCT_SELECT)
     .eq('merchant_id', context.merchant.id)
     .eq('status', 'active')
+    .order('category_id', {
+      ascending: true,
+      referencedTable: 'product_categories',
+    })
     .in('id', parsed.data.ids)
     .limit(parsed.data.ids.length);
   if (error) {

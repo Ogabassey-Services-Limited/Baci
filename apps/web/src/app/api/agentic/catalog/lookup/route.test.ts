@@ -51,6 +51,7 @@ let query: {
   eq: ReturnType<typeof vi.fn>;
   in: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
+  order: ReturnType<typeof vi.fn>;
 };
 
 function mockProductRows(rows: ProductRow[]) {
@@ -58,6 +59,7 @@ function mockProductRows(rows: ProductRow[]) {
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
+    order: vi.fn(() => query),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
@@ -139,7 +141,9 @@ describe('POST /api/agentic/catalog/lookup', () => {
     );
 
     expect(select).toHaveBeenCalledWith(
-      expect.stringContaining('product_categories:product_categories')
+      expect.stringContaining(
+        'product_categories:product_categories(category_id, categories(slug, is_active))'
+      )
     );
   });
 

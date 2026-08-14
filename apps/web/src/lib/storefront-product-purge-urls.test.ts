@@ -105,6 +105,26 @@ describe('resolveProductPurgeCategorySegmentForRow', () => {
     ).toBe('junction-cat');
   });
 
+  it('ignores an inactive direct category and selects the lowest active junction id', () => {
+    expect(
+      resolveProductPurgeCategorySegmentForRow({
+        slug: 'pixel-6-pro',
+        category: 'Legacy Category',
+        categories: { is_active: false, slug: 'retired-category' },
+        product_categories: [
+          {
+            category_id: 'category-z',
+            categories: { is_active: true, slug: 'z-category' },
+          },
+          {
+            category_id: 'category-a',
+            categories: { is_active: true, slug: 'a-category' },
+          },
+        ],
+      })
+    ).toBe('a-category');
+  });
+
   it('falls back to the junction when there is NO direct join and NO legacy text', () => {
     // This is the F1 gap: a product assigned only via the junction still
     // canonicalizes under the junction category, so its segment must resolve.

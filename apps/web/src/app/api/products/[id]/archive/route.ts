@@ -95,7 +95,7 @@ export async function PATCH(
     // eviction below resolves the row's canonical category segment. All three
     // are immutable in this handler and survive the status flip.
     .select(
-      'id, slug, status, name, category, categories:category_id(slug), product_categories(categories(slug))'
+      'id, slug, status, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
     )
     .single<ArchivedProductRow>();
 

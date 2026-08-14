@@ -28,7 +28,11 @@ interface ProductPurgeCategoryInput {
   slug?: string | null;
   name?: string | null;
   category?: string | null;
-  categories?: { name?: string; slug?: string } | null;
+  categories?: {
+    is_active?: boolean | null;
+    name?: string;
+    slug?: string;
+  } | null;
   category_slug?: string | null;
 }
 
@@ -76,26 +80,34 @@ export function resolveProductPurgeCategorySegment(
 }
 
 /**
- * Normalize a PostgREST to-one category embed (`categories:category_id(slug)`),
+ * Normalize a PostgREST to-one category embed
+ * (`categories:category_id(slug, is_active)`),
  * which comes back as an object, an array, or null, to its single non-blank
- * slug (or null). Mirrors `firstJoinedCategory` in
- * `cached-product-canonical-paths.ts`.
+ * slug (or null), accepting only active category rows.
  */
 function extractDirectJoinCategorySlug(categories: unknown): string | null {
-  const record = Array.isArray(categories) ? categories[0] : categories;
-  if (record && typeof record === 'object' && 'slug' in record) {
-    const slug = (record as { slug?: unknown }).slug;
-    if (typeof slug === 'string' && slug.trim()) {
-      return slug.trim();
+  const records = Array.isArray(categories) ? categories : [categories];
+  for (const record of records) {
+    if (!record || typeof record !== 'object' || !('slug' in record)) {
+      continue;
     }
+    const category = record as { is_active?: unknown; slug?: unknown };
+    if (
+      ('is_active' in category && category.is_active !== true) ||
+      typeof category.slug !== 'string' ||
+      !category.slug.trim()
+    ) {
+      continue;
+    }
+    return category.slug.trim();
   }
   return null;
 }
 
 /**
- * Normalize a PostgREST junction embed (`product_categories(categories(slug))`)
- * to the first non-blank joined category slug (or null). Mirrors the loop in
- * `normalizeJoinedCategory` (`cached-product-canonical-paths.ts`).
+ * Normalize a PostgREST junction embed
+ * (`product_categories(category_id, categories(slug, is_active))`)
+ * to the lowest-category-id active joined category slug (or null).
  */
 function extractJunctionCategorySlug(
   productCategories: unknown
@@ -103,17 +115,44 @@ function extractJunctionCategorySlug(
   if (!Array.isArray(productCategories)) {
     return null;
   }
-  for (const entry of productCategories) {
+  const candidates: Array<{
+    categoryId: string | null;
+    index: number;
+    slug: string;
+  }> = [];
+  for (const [index, entry] of productCategories.entries()) {
     const categories =
       entry && typeof entry === 'object'
-        ? (entry as { categories?: unknown }).categories
+        ? (entry as { categories?: unknown; category_id?: unknown })
         : null;
-    const slug = extractDirectJoinCategorySlug(categories);
+    const slug = extractDirectJoinCategorySlug(categories?.categories);
     if (slug) {
-      return slug;
+      const rawCategoryId = categories?.category_id;
+      candidates.push({
+        categoryId:
+          typeof rawCategoryId === 'string' && rawCategoryId.trim()
+            ? rawCategoryId.trim()
+            : null,
+        index,
+        slug,
+      });
     }
   }
-  return null;
+  candidates.sort((left, right) => {
+    if (!left.categoryId && !right.categoryId) {
+      return left.index - right.index;
+    }
+    if (!left.categoryId) return 1;
+    if (!right.categoryId) return -1;
+    return (
+      (left.categoryId < right.categoryId
+        ? -1
+        : left.categoryId > right.categoryId
+          ? 1
+          : 0) || left.index - right.index
+    );
+  });
+  return candidates[0]?.slug ?? null;
 }
 
 /**
@@ -131,9 +170,9 @@ export interface ProductPurgeCategoryRow {
   id?: string | null;
   name?: string | null;
   category?: string | null;
-  /** `categories:category_id(slug)` embed (object | array | null). */
+  /** `categories:category_id(slug, is_active)` embed (object | array | null). */
   categories?: unknown;
-  /** `product_categories(categories(slug))` junction embed. */
+  /** `product_categories(category_id, categories(slug, is_active))` embed. */
   product_categories?: unknown;
 }
 

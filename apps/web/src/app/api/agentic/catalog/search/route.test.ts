@@ -149,6 +149,10 @@ describe('POST /api/agentic/catalog/search', () => {
     expect(body.products).toEqual([
       expect.objectContaining({ id: 'product-1', title: 'iPhone 15' }),
     ]);
+    expect(query.order).toHaveBeenCalledWith('category_id', {
+      ascending: true,
+      referencedTable: 'product_categories',
+    });
     expect(query.eq).toHaveBeenCalledWith(
       'merchant_id',
       VALID_AGENTIC_MERCHANT_ID
@@ -233,7 +237,13 @@ describe('POST /api/agentic/catalog/search', () => {
 
     expect(query.in).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
     expect(query.limit).toHaveBeenCalledWith(2);
-    expect(query.order).not.toHaveBeenCalled();
+    expect(query.order).toHaveBeenCalledWith('category_id', {
+      ascending: true,
+      referencedTable: 'product_categories',
+    });
+    expect(query.order).not.toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'product-2',
       'product-1',
@@ -297,7 +307,9 @@ describe('POST /api/agentic/catalog/search', () => {
     );
 
     expect(mockSelect).toHaveBeenCalledWith(
-      expect.stringContaining('product_categories:product_categories')
+      expect.stringContaining(
+        'product_categories:product_categories(category_id, categories(slug, is_active))'
+      )
     );
   });
 });
