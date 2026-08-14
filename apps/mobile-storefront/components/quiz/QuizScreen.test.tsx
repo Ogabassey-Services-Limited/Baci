@@ -387,7 +387,7 @@ describe('QuizScreen', () => {
     expect(screen.getByText('1 of 3 correct')).toBeTruthy();
   });
 
-  it('keeps available events reachable after a completed attempt result', async () => {
+  it('keeps the completed attempt result focused instead of reopening the event list', async () => {
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
     await acceptRulesAndStart();
@@ -396,10 +396,10 @@ describe('QuizScreen', () => {
 
     expect(await screen.findByText('Result')).toBeTruthy();
     expect(
-      screen.getByRole('button', {
+      screen.queryByRole('button', {
         name: 'Play for free Daily Prize Quiz',
       })
-    ).toBeTruthy();
+    ).toBeNull();
   });
 
   it('renders a start error as an accessible alert', async () => {
@@ -534,7 +534,7 @@ describe('QuizScreen', () => {
         })
       )
     );
-    expect(await screen.findByText("You're all done")).toBeTruthy();
+    expect(await screen.findByText("You're all done!")).toBeTruthy();
   });
 
   it('refreshes pending results until the final score is available', async () => {
