@@ -184,7 +184,10 @@ jest.mock('@/lib/config', () => ({
 }));
 
 jest.mock('@/lib/performance-attribution', () => ({
-  recordPerformanceSurface: mockRecordPerformanceSurface,
+  recordPerformanceSurface: (
+    surface: string,
+    details?: Record<string, unknown>
+  ) => mockRecordPerformanceSurface(surface, details),
 }));
 
 jest.mock('@sentry/react-native', () => ({
