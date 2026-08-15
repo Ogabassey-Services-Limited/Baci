@@ -61,6 +61,7 @@ cron_inventory_collect_external "$4"`,
         ...process.env,
         RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
         RETIRE_OLLAMA_ATQ: atq,
+        RETIRE_OLLAMA_AT_ABSENCE_ROOT: source.root,
         RETIRE_OLLAMA_CRON_SYSTEM_FILE: source.system,
         RETIRE_OLLAMA_CRON_SYSTEM_DIR: source.systemDir,
         RETIRE_OLLAMA_CRON_SPOOL_DIR: source.spool,
@@ -116,13 +117,26 @@ test('fails closed when an at job appears during scheduled-work inventory', asyn
   }
 });
 
-test('fails closed when atq is absent or returns an error', async () => {
+test('accepts a fully absent at scheduler without weakening partial-state checks', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
   try {
+    await collect(source, atq);
+    await mkdir(join(source.root, 'var/spool/cron/atjobs'), {
+      recursive: true,
+    });
     await assert.rejects(collect(source, atq), (error) =>
       /queued at work or unsafe at queue/.test(error.stderr)
     );
+  } finally {
+    await rm(source.root, { recursive: true, force: true });
+  }
+});
+
+test('fails closed when atq returns an error', async () => {
+  const source = await fixture();
+  const atq = join(source.root, 'atq');
+  try {
     await executable(atq, 'exit 7');
     await assert.rejects(collect(source, atq), (error) =>
       /queued at work or unsafe at queue/.test(error.stderr)
