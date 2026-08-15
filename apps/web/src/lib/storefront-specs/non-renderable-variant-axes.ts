@@ -2,7 +2,7 @@
  * Canonical variant axes that are display-only metadata, swatches, or informational notes,
  * and should not be rendered as selectable attribute buttons in variant pickers.
  */
-export const NON_RENDERABLE_VARIANT_AXES = new Set([
+const ALWAYS_NON_RENDERABLE_VARIANT_AXES = new Set([
   'color',
   'colour',
   'color_hex',
@@ -13,7 +13,6 @@ export const NON_RENDERABLE_VARIANT_AXES = new Set([
   'notes',
   'disclaimer',
   'disclaimers',
-  'warranty',
   'warranty_note',
   'delivery_notice',
   'notice',
@@ -21,17 +20,19 @@ export const NON_RENDERABLE_VARIANT_AXES = new Set([
 
 /**
  * Determines whether a variant axis should be rendered as an interactive picker.
- * Excludes non-renderable metadata axes and single-option condition axes.
+ * Excludes non-renderable metadata axes and single-option condition/warranty axes.
  */
 export function isRenderableVariantAxis(
   axis: string,
   optionCount: number
 ): boolean {
-  if (!axis || NON_RENDERABLE_VARIANT_AXES.has(axis)) {
+  if (!axis || ALWAYS_NON_RENDERABLE_VARIANT_AXES.has(axis)) {
     return false;
   }
 
-  if (axis === 'condition') {
+  // Condition and warranty are informational metadata when single-option,
+  // but become selectable SKU dimensions when multiple options exist.
+  if (axis === 'condition' || axis === 'warranty') {
     return optionCount > 1;
   }
 

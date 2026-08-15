@@ -231,13 +231,13 @@ describe('critical variant selector options', () => {
     const testVariants = [
       {
         attributes: {
-          availability_note: 'Confirm selected variant price',
+          availability_note: 'Confirm price',
           delivery_notice: 'Ships fast',
           disclaimer: 'Final sale',
           extended_warranty: '2 Years',
           notebook_size: '16 inch',
           storage: '2TB',
-          warranty: '1 Year Warranty',
+          warranty: '1 Year',
           warranty_note: 'Parts only',
         },
         id: 'v1',
@@ -247,13 +247,13 @@ describe('critical variant selector options', () => {
       },
     ];
     const variantAxisOptions = {
-      availability_note: ['Confirm selected variant price'],
+      availability_note: ['Confirm price'],
       delivery_notice: ['Ships fast'],
       disclaimer: ['Final sale'],
       extended_warranty: ['2 Years'],
       notebook_size: ['16 inch'],
       storage: ['2TB'],
-      warranty: ['1 Year Warranty'],
+      warranty: ['1 Year'],
       warranty_note: ['Parts only'],
     };
 
@@ -263,15 +263,23 @@ describe('critical variant selector options', () => {
       variantAxisOptions
     );
 
-    expect(renderableVariantAxes).toEqual([
-      'storage',
-      'notebook_size',
-      'extended_warranty',
-    ]);
+    expect(renderableVariantAxes).toEqual(['storage', 'notebook_size', 'extended_warranty']);
     expect(renderableVariantAxes).not.toContain('availability_note');
     expect(renderableVariantAxes).not.toContain('warranty');
     expect(renderableVariantAxes).not.toContain('warranty_note');
     expect(renderableVariantAxes).not.toContain('disclaimer');
     expect(renderableVariantAxes).not.toContain('delivery_notice');
+  });
+
+  it('renders critical warranty axis as selectable when multiple warranty options exist', () => {
+    const rawAxes = ['storage', 'warranty'];
+    const testVariants = [
+      { attributes: { storage: '2TB', warranty: '1 Year' }, id: 'v1', merchant_id: 'm1', product_id: 'p1', stock_quantity: 10 },
+      { attributes: { storage: '2TB', warranty: '2 Years' }, id: 'v2', merchant_id: 'm1', product_id: 'p1', stock_quantity: 5 },
+    ];
+
+    const renderableVariantAxes = getRenderableCriticalVariantAxes(rawAxes, testVariants, {});
+
+    expect(renderableVariantAxes).toEqual(['storage', 'warranty']);
   });
 });

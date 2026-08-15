@@ -195,53 +195,39 @@ describe('storefront variant attribute helpers', () => {
       )
     ).toEqual(['condition', 'storage']);
 
-    expect(
-      getRenderableVariantAxes(
-        [
-          { attributes: { Storage: '128GB' }, condition: 'used' },
-          { attributes: { Storage: '256GB' }, condition: 'used' },
-        ],
-        []
-      )
-    ).toEqual(['storage']);
+    const usedVariants = [
+      { attributes: { Storage: '128GB' }, condition: 'used' },
+      { attributes: { Storage: '256GB' }, condition: 'used' },
+    ];
+    expect(getRenderableVariantAxes(usedVariants, [])).toEqual(['storage']);
 
-    expect(
-      getRenderableVariantAxes(
-        [
-          { attributes: { Storage: '128GB' } },
-          { attributes: { Storage: '256GB' } },
-        ],
-        []
-      )
-    ).toEqual(['storage']);
+    const unspecifiedVariants = [
+      { attributes: { Storage: '128GB' } },
+      { attributes: { Storage: '256GB' } },
+    ];
+    expect(getRenderableVariantAxes(unspecifiedVariants, [])).toEqual([
+      'storage',
+    ]);
   });
 
   it('inherits the parent condition when deriving renderable condition axes', () => {
-    expect(
-      getRenderableVariantAxes(
-        [
-          { attributes: { Storage: '128GB' }, condition: 'used' },
-          { attributes: { Storage: '256GB' } },
-        ],
-        [],
-        'new'
-      )
-    ).toEqual(['condition', 'storage']);
+    const variants = [
+      { attributes: { Storage: '128GB' }, condition: 'used' },
+      { attributes: { Storage: '256GB' } },
+    ];
+    expect(getRenderableVariantAxes(variants, [], 'new')).toEqual([
+      'condition',
+      'storage',
+    ]);
   });
 
   it('ignores condition options from attribute metadata', () => {
     expect(
       mergeVariantAxisOptions(
-        [
-          {
-            attributes: { condition: 'used', Storage: '128GB' },
-          },
-        ],
+        [{ attributes: { condition: 'used', Storage: '128GB' } }],
         { Condition: ['new', 'used'] }
       )
-    ).toEqual({
-      storage: ['128GB'],
-    });
+    ).toEqual({ storage: ['128GB'] });
   });
 
   it('filters out non-variant metadata axes while preserving legitimate SKU dimensions with similar names', () => {
@@ -252,8 +238,7 @@ describe('storefront variant attribute helpers', () => {
           RAM: '64GB',
           'Notebook Size': '16 inch',
           'Extended Warranty': '2 Years',
-          'Availability note':
-            'Confirm selected variant price and availability before checkout',
+          'Availability note': 'Confirm price',
           Disclaimer: 'All sales final',
           'Delivery Notice': 'Ships in 24h',
           Warranty: '1 Year Warranty',
@@ -266,8 +251,7 @@ describe('storefront variant attribute helpers', () => {
           RAM: '32GB',
           'Notebook Size': '14 inch',
           'Extended Warranty': '1 Year',
-          'Availability note':
-            'Confirm selected variant price and availability before checkout',
+          'Availability note': 'Confirm price',
           Disclaimer: 'All sales final',
           'Delivery Notice': 'Ships in 24h',
           Warranty: '1 Year Warranty',
@@ -276,23 +260,34 @@ describe('storefront variant attribute helpers', () => {
       },
     ];
     const fallbackOptions = {
-      'Availability note': [
-        'Confirm selected variant price and availability before checkout',
-      ],
+      'Availability note': ['Confirm price'],
       Warranty: ['1 Year Warranty'],
       'Warranty Note': ['Covers parts only'],
     };
 
     const axes = getRenderableVariantAxes(variants, fallbackOptions);
 
-    expect(axes).toContain('storage');
-    expect(axes).toContain('ram');
-    expect(axes).toContain('notebook_size');
-    expect(axes).toContain('extended_warranty');
+    expect(axes).toEqual([
+      'storage',
+      'ram',
+      'extended_warranty',
+      'notebook_size',
+    ]);
     expect(axes).not.toContain('warranty');
     expect(axes).not.toContain('warranty_note');
     expect(axes).not.toContain('availability_note');
     expect(axes).not.toContain('disclaimer');
     expect(axes).not.toContain('delivery_notice');
+  });
+
+  it('renders warranty axis as selectable when multiple warranty options exist across variants', () => {
+    const variants = [
+      { attributes: { Storage: '2TB', Warranty: '1 Year Warranty' } },
+      { attributes: { Storage: '2TB', Warranty: '2 Year Extended Warranty' } },
+    ];
+
+    const axes = getRenderableVariantAxes(variants, {});
+
+    expect(axes).toEqual(['storage', 'warranty']);
   });
 });
