@@ -15,18 +15,21 @@ function createSupabaseForRecoveredAward(createdAt: unknown) {
   });
   const awardQuery = createQueryResult({
     data: {
+      awardId: '11111111-1111-4111-8111-111111111111',
       condition: 'new',
-      created_at: createdAt,
-      id: '11111111-1111-4111-8111-111111111111',
-      product_id: '22222222-2222-4222-8222-222222222222',
-      variant_id: null,
+      createdAt,
+      productId: '22222222-2222-4222-8222-222222222222',
+      variantId: null,
     },
     error: null,
   });
 
   return {
-    from: vi.fn((table: string) =>
-      table === 'quiz_attempts' ? attemptQuery : awardQuery
+    from: vi.fn(() => attemptQuery),
+    rpc: vi.fn(async (name: string) =>
+      name === 'get_quiz_attempt_prize_claim_v2'
+        ? awardQuery.maybeSingle()
+        : null
     ),
   };
 }

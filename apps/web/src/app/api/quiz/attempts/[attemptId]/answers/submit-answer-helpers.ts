@@ -104,8 +104,8 @@ async function getSubmittedAttemptScore(
 
 // FIX B: on a replayed final answer the RPC no longer returns the prizeClaim,
 // so recover the persisted, user-scoped product award and re-issue the signed
-// voucher. Without this a winner whose first response was lost sees "Practice
-// result recorded" with no claim button and the prize becomes unclaimable.
+// voucher. The projection RPC keeps this lookup available for v2/v3 awards
+// without relying on the legacy contract-version RLS policy on quiz_awards.
 export async function getAttemptPrizeAwardClaim(
   supabase: QuizSupabase,
   attemptId: string,
@@ -117,21 +117,10 @@ export async function getAttemptPrizeAwardClaim(
 }> {
   if (!supabase) return { claim: null, createdAt: null, error: null };
 
-  // Product-backed prizes are persisted as a single `store_credit` award per
-  // attempt (unique on attempt_id + award_type). A null product_id (a pure
-  // store-credit award) yields no claim via the guard below. Only an
-  // `approved` (unredeemed, non-void) award should surface a claim button — a
-  // replay after redemption/void must NOT re-issue a token.
-  const { data, error } = await supabase
-    .from('quiz_awards')
-    .select(
-      'id, product_id, variant_id, condition, created_at, customers!inner(user_id)'
-    )
-    .eq('attempt_id', attemptId)
-    .eq('customers.user_id', userId)
-    .eq('award_type', 'store_credit')
-    .eq('status', 'approved')
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    'get_quiz_attempt_prize_claim_v2',
+    { p_attempt_id: attemptId, p_user_id: userId }
+  );
 
   if (error) return { claim: null, createdAt: null, error };
   if (!data || typeof data !== 'object') {
@@ -139,25 +128,27 @@ export async function getAttemptPrizeAwardClaim(
   }
 
   const record = data as {
+    awardId?: unknown;
     condition?: unknown;
-    created_at?: unknown;
-    id?: unknown;
-    product_id?: unknown;
-    variant_id?: unknown;
+    createdAt?: unknown;
+    productId?: unknown;
+    variantId?: unknown;
   };
-  if (typeof record.id !== 'string' || typeof record.product_id !== 'string') {
+  if (
+    typeof record.awardId !== 'string' ||
+    typeof record.productId !== 'string'
+  ) {
     return { claim: null, createdAt: null, error: null };
   }
 
   return {
     claim: {
-      awardId: record.id,
+      awardId: record.awardId,
       condition: normalizePrizeCondition(record.condition),
-      productId: record.product_id,
-      variantId:
-        typeof record.variant_id === 'string' ? record.variant_id : null,
+      productId: record.productId,
+      variantId: typeof record.variantId === 'string' ? record.variantId : null,
     },
-    createdAt: typeof record.created_at === 'string' ? record.created_at : null,
+    createdAt: typeof record.createdAt === 'string' ? record.createdAt : null,
     error: null,
   };
 }

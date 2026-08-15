@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import {
-  fetchQuizLeaderboard,
-  fetchQuizLiveLeaderboard,
-  fetchQuizParticipantCount,
-} from '@/services/quiz-leaderboard';
+import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
+import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
+import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
 
@@ -23,7 +21,11 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/services/quiz-leaderboard', () => ({
   fetchQuizLeaderboard: jest.fn(),
+}));
+jest.mock('@/services/quiz-live-leaderboard', () => ({
   fetchQuizLiveLeaderboard: jest.fn(),
+}));
+jest.mock('@/services/quiz-participant-count', () => ({
   fetchQuizParticipantCount: jest.fn(),
 }));
 

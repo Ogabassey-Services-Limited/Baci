@@ -1,20 +1,16 @@
 import { quizLeaderboardResponseSchema } from '@/schemas/quiz-schemas';
 import { requestQuizV2 } from './quiz';
-import type { QuizLeaderboard, QuizServiceOptions } from './quiz-types';
+import type { FetchQuizLeaderboardInput } from './quiz-leaderboard';
+import type { QuizLeaderboard } from './quiz-types';
 
-export interface FetchQuizLeaderboardInput extends QuizServiceOptions {
-  eventId: string;
-  expectedUserId: string;
-}
-
-export function fetchQuizLeaderboard({
+export function fetchQuizLiveLeaderboard({
   baseUrl,
   eventId,
   expectedUserId,
 }: FetchQuizLeaderboardInput): Promise<QuizLeaderboard> {
   const query = new URLSearchParams({ eventId }).toString();
   return requestQuizV2(
-    `/api/quiz/leaderboard?${query}`,
+    `/api/quiz/leaderboard/live?${query}`,
     { method: 'GET' },
     quizLeaderboardResponseSchema,
     { baseUrl, expectedUserId }

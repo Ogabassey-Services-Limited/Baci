@@ -88,6 +88,7 @@ export function createQuizV2StoreActions({
         context.userId,
         context.eventId
       );
+      if (generation !== getGeneration()) return;
       const startRequestId = existing?.startRequestId ?? context.startRequestId;
       set({
         ...initialQuizV2State,
@@ -99,6 +100,7 @@ export function createQuizV2StoreActions({
         error: null,
       });
       await saveQuizStartRequest(context, generation, startRequestId);
+      if (generation !== getGeneration()) return;
       try {
         const attempt = await starter(startRequestId);
         if (generation === getGeneration()) await apply(attempt);
@@ -149,6 +151,14 @@ export function createQuizV2StoreActions({
         const pending = recovered.availability === 'pending_results';
         const expiredActive =
           recovered.availability === 'active' && recovered.attempt;
+        const terminalAttemptId =
+          recovered.attempt?.attemptId ??
+          envelope?.attemptId ??
+          recovered.attemptId;
+        const terminalEventEndsAt =
+          recovered.attempt?.eventEndsAt ?? recovered.eventEndsAt;
+        const terminalServerNow =
+          recovered.attempt?.serverNow ?? recovered.serverNow;
         set({
           status: cancelled || pending || expiredActive ? 'result' : 'ready',
           v2Attempt: null,
@@ -159,21 +169,14 @@ export function createQuizV2StoreActions({
               : 'idle',
           terminalContext:
             cancelled || pending || expiredActive
-              ? recovered.attempt
+              ? terminalAttemptId
                 ? createQuizTerminalContext(
-                    recovered.attempt.attemptId,
+                    terminalAttemptId,
                     eventId,
-                    recovered.attempt.eventEndsAt,
-                    recovered.attempt.serverNow
+                    terminalEventEndsAt,
+                    terminalServerNow
                   )
-                : envelope?.attemptId
-                  ? createQuizTerminalContext(
-                      envelope.attemptId,
-                      eventId,
-                      recovered.eventEndsAt,
-                      recovered.serverNow
-                    )
-                  : null
+                : null
               : null,
         });
         await clearTerminalRecovery(
@@ -228,7 +231,13 @@ export function createQuizV2StoreActions({
       const generation = getGeneration();
       const submitEpoch = lifecycleEpoch;
       set({ status: 'submitting', lockedOptionId: optionId, error: null });
-      await persist(attempt, optionId);
+      try {
+        await persist(attempt, optionId);
+      } catch {
+        // Recovery storage is best-effort. A full/unavailable device store
+        // must not strand the active answer in `submitting` before the server
+        // has a chance to record it.
+      }
       try {
         const next = await submitter(optionId);
         if (generation === getGeneration() && submitEpoch === lifecycleEpoch)

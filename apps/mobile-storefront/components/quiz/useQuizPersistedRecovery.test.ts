@@ -164,4 +164,32 @@ describe('useQuizPersistedRecovery', () => {
 
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
   });
+
+  it('does not recover the previous account after a user switch during storage load', async () => {
+    let resolveFirstLoad!: (value: []) => void;
+    jest
+      .mocked(loadQuizRecoveryEnvelopes)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveFirstLoad = resolve))
+      )
+      .mockResolvedValueOnce([]);
+    const recoverEvent = jest.fn(async () => 'recovered' as const);
+    const { rerender } = renderHook(
+      ({ userId }: { userId: string }) =>
+        useQuizPersistedRecovery({
+          enabled: true,
+          recoverEvent,
+          userId,
+        }),
+      { initialProps: { userId: 'user-1' } }
+    );
+
+    rerender({ userId: 'user-2' });
+    await act(async () => {
+      resolveFirstLoad([]);
+      await Promise.resolve();
+    });
+
+    expect(recoverEvent).not.toHaveBeenCalled();
+  });
 });

@@ -54,24 +54,17 @@ function authenticated(
   result: { data: unknown; error: unknown },
   award: { data: unknown; error: unknown } = { data: null, error: null }
 ) {
-  const rpc = vi.fn((name: string) =>
-    Promise.resolve(
-      name === 'quiz_runtime_contract_version'
-        ? { data: 2, error: null }
-        : result
-    )
-  );
-  const awardQuery = {
-    eq: vi.fn(),
-    maybeSingle: vi.fn().mockResolvedValue(award),
-    select: vi.fn(),
-  };
-  awardQuery.select.mockReturnValue(awardQuery);
-  awardQuery.eq.mockReturnValue(awardQuery);
+  const rpc = vi.fn((name: string) => {
+    if (name === 'quiz_runtime_contract_version')
+      return Promise.resolve({ data: 2, error: null });
+    if (name === 'get_quiz_attempt_prize_claim_v2')
+      return Promise.resolve(award);
+    return Promise.resolve(result);
+  });
   vi.mocked(requireQuizUser).mockResolvedValue({
     authMethod: 'bearer',
     response: null,
-    supabase: { from: vi.fn(() => awardQuery), rpc },
+    supabase: { rpc },
     user: { id: USER_ID },
   } as never);
   return rpc;
@@ -109,7 +102,7 @@ describe('v2 quiz result route', () => {
   });
 
   it('signs only bounded persisted winner metadata and strips internals', async () => {
-    authenticated(
+    const rpc = authenticated(
       {
         data: {
           attemptId: ATTEMPT_ID,
@@ -127,11 +120,11 @@ describe('v2 quiz result route', () => {
       },
       {
         data: {
+          awardId: '33333333-3333-4333-8333-333333333333',
           condition: 'used',
-          created_at: '2026-08-05T10:05:00.000Z',
-          id: '33333333-3333-4333-8333-333333333333',
-          product_id: '44444444-4444-4444-8444-444444444444',
-          variant_id: null,
+          createdAt: '2026-08-05T10:05:00.000Z',
+          productId: '44444444-4444-4444-8444-444444444444',
+          variantId: null,
         },
         error: null,
       }
@@ -157,6 +150,10 @@ describe('v2 quiz result route', () => {
       rank: 1,
       score: 20,
       totalQuestions: 20,
+    });
+    expect(rpc).toHaveBeenCalledWith('get_quiz_attempt_prize_claim_v2', {
+      p_attempt_id: ATTEMPT_ID,
+      p_user_id: USER_ID,
     });
     expect(createQuizResultClaimToken).toHaveBeenCalledWith({
       awardId: '33333333-3333-4333-8333-333333333333',

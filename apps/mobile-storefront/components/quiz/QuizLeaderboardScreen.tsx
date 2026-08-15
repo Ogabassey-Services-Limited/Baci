@@ -85,6 +85,16 @@ export function QuizLeaderboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const leaderboardRequestId = useRef(0);
+  const previousUserId = useRef(userId);
+
+  useEffect(() => {
+    if (previousUserId.current === userId) return;
+    previousUserId.current = userId;
+    leaderboardRequestId.current += 1;
+    setSelected(null);
+    setLeaderboard(null);
+    setError(null);
+  }, [userId]);
 
   useEffect(() => {
     let active = true;

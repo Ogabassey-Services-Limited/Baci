@@ -44,12 +44,15 @@ export function useQuizPersistedRecovery({
     if (!enabled || attemptedUserId.current === userId) return;
     if (recoveringUserId.current === userId) return;
     recoveringUserId.current = userId;
+    let cancelled = false;
+    const isCurrentRun = () =>
+      !cancelled && mounted.current && enabledRef.current;
 
     const recover = async () => {
       let shouldRetry = false;
       try {
         const envelopes = await loadQuizRecoveryEnvelopes(userId);
-        if (!mounted.current) return;
+        if (!isCurrentRun()) return;
         if (!envelopes.length) {
           attemptedUserId.current = userId;
           retryScheduled.current = false;
@@ -58,8 +61,9 @@ export function useQuizPersistedRecovery({
         const deviceFingerprint = await getQuizDeviceFingerprint().catch(
           () => null
         );
+        if (!isCurrentRun()) return;
         for (const envelope of envelopes) {
-          if (!mounted.current) return;
+          if (!isCurrentRun()) return;
           const outcome = await recoverEvent(
             userId,
             envelope.eventId,
@@ -84,6 +88,7 @@ export function useQuizPersistedRecovery({
               });
             }
           );
+          if (!isCurrentRun()) return;
           if (outcome === 'retry') {
             shouldRetry = true;
             return;
@@ -106,6 +111,7 @@ export function useQuizPersistedRecovery({
           shouldRetry &&
           enabledRef.current &&
           mounted.current &&
+          !cancelled &&
           !retryScheduled.current
         ) {
           retryScheduled.current = true;
@@ -115,5 +121,11 @@ export function useQuizPersistedRecovery({
     };
 
     void recover();
+    return () => {
+      cancelled = true;
+      if (recoveringUserId.current === userId) {
+        recoveringUserId.current = null;
+      }
+    };
   }, [enabled, recoverEvent, retryNonce, userId]);
 }

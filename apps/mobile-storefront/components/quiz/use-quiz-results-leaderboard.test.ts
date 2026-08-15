@@ -1,16 +1,18 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus } from 'react-native';
-import {
-  fetchQuizLeaderboard,
-  fetchQuizLiveLeaderboard,
-  fetchQuizParticipantCount,
-} from '@/services/quiz-leaderboard';
+import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
+import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
+import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import { useQuizResultsLeaderboard } from './use-quiz-results-leaderboard';
 
 jest.mock('@/services/quiz-leaderboard', () => ({
   fetchQuizLeaderboard: jest.fn(),
-  fetchQuizParticipantCount: jest.fn(),
+}));
+jest.mock('@/services/quiz-live-leaderboard', () => ({
   fetchQuizLiveLeaderboard: jest.fn(),
+}));
+jest.mock('@/services/quiz-participant-count', () => ({
+  fetchQuizParticipantCount: jest.fn(),
 }));
 
 describe('useQuizResultsLeaderboard', () => {

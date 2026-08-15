@@ -85,6 +85,7 @@ export type QuizActiveAttemptAvailability =
   | 'unavailable';
 
 export interface QuizActiveAttemptResponse {
+  attemptId?: string;
   attempt?: QuizV2Attempt;
   availability: QuizActiveAttemptAvailability;
   eventEndsAt: string | null;

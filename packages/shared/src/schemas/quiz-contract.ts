@@ -189,6 +189,7 @@ export const quizV2AttemptResponseSchema = z
 export const quizV2ActiveAttemptResponseSchema = z
   .strictObject({
     attempt: quizV2AttemptResponseSchema.optional(),
+    attemptId: quizIdSchema.optional(),
     availability: z.enum([
       'none',
       'active',

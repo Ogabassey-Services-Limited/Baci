@@ -58,21 +58,17 @@ function mockReplaySupabase({
     maybeSingle: vi.fn().mockResolvedValue(attemptResult),
     select: vi.fn(() => attemptBuilder),
   };
-  const awardBuilder = {
-    eq: vi.fn(() => awardBuilder),
-    maybeSingle: vi.fn().mockResolvedValue(awardResult),
-    not: vi.fn(() => awardBuilder),
-    select: vi.fn(() => awardBuilder),
-  };
   const from = vi.fn((table: string) => {
     if (table === 'quiz_attempts') return attemptBuilder;
-    if (table === 'quiz_awards') return awardBuilder;
     throw new Error(`Unexpected table: ${table}`);
   });
-  const rpc = vi.fn().mockResolvedValue({
-    data: null,
-    error: rpcError,
-  });
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === 'get_quiz_attempt_prize_claim_v2'
+        ? awardResult
+        : { data: null, error: rpcError }
+    )
+  );
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -85,7 +81,7 @@ function mockReplaySupabase({
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { attemptBuilder, awardBuilder, rpc };
+  return { attemptBuilder, rpc };
 }
 
 describe('submit quiz answer replay recovery', () => {
@@ -233,7 +229,7 @@ describe('submit quiz answer replay recovery', () => {
   // prize claim from the persisted, user-scoped award — not report a practice
   // result with no claim button.
   it('re-issues the signed prize claim when a winning final answer is replayed', async () => {
-    const { awardBuilder } = mockReplaySupabase({
+    const { rpc } = mockReplaySupabase({
       attemptResult: {
         data: {
           status: 'submitted',
@@ -245,10 +241,10 @@ describe('submit quiz answer replay recovery', () => {
       },
       awardResult: {
         data: {
-          created_at: AWARD_CREATED_AT,
-          id: AWARD_ID,
-          product_id: PRODUCT_ID,
-          variant_id: null,
+          createdAt: AWARD_CREATED_AT,
+          awardId: AWARD_ID,
+          productId: PRODUCT_ID,
+          variantId: null,
           condition: null,
         },
         error: null,
@@ -283,8 +279,10 @@ describe('submit quiz answer replay recovery', () => {
     expect(typeof body.prizeClaim.voucherToken).toBe('string');
     expect(body.prizeClaim.voucherToken.length).toBeGreaterThan(0);
     expect(body.prizeClaim.cartPath).toContain(`quiz_award_id=${AWARD_ID}`);
-    expect(awardBuilder.eq).toHaveBeenCalledWith('customers.user_id', USER_ID);
-    expect(awardBuilder.eq).toHaveBeenCalledWith('attempt_id', ATTEMPT_ID);
+    expect(rpc).toHaveBeenCalledWith('get_quiz_attempt_prize_claim_v2', {
+      p_attempt_id: ATTEMPT_ID,
+      p_user_id: USER_ID,
+    });
   });
 
   // FIX B: a genuine non-winner retry keeps the practice-result behavior with

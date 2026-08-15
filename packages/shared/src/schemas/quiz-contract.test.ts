@@ -179,6 +179,7 @@ describe('quiz v2 wire contracts', () => {
     ).toBe(false);
     expect(
       quizV2ActiveAttemptResponseSchema.parse({
+        attemptId: ATTEMPT_ID,
         availability: 'cancelled',
         eventEndsAt: '2026-08-04T12:05:00.000Z',
         serverNow: TIME,

@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import type {
   QuizActiveAttemptResponse,
   QuizV2Attempt,
@@ -7,6 +8,20 @@ import {
   type QuizV2StoreState,
 } from './quiz-recovery-envelope';
 import { createQuizV2StoreActions } from './quiz-v2-store-actions';
+
+const mockPersist = jest.fn(async () => undefined);
+const mockLoadRecoveryEnvelope = jest.fn();
+jest.mock('./quiz-recovery-envelope', () => ({
+  ...jest.requireActual('./quiz-recovery-envelope'),
+  loadQuizRecoveryEnvelope: (...args: unknown[]) =>
+    mockLoadRecoveryEnvelope(...args),
+}));
+jest.mock('./quiz-v2-recovery-storage', () => ({
+  clearRecoveredQuizAttempt: jest.fn(async () => undefined),
+  clearTerminalRecovery: jest.fn(async () => undefined),
+  createQuizAttemptPersistence: jest.fn(() => mockPersist),
+  saveQuizStartRequest: jest.fn(async () => undefined),
+}));
 
 const activeAttempt: QuizV2Attempt = {
   attemptId: 'attempt-1',
@@ -34,6 +49,7 @@ if (!activeQuestion)
   throw new Error('The active-attempt fixture needs a question');
 
 function createHarness() {
+  let generation = 0;
   let state = {
     ...initialQuizV2State,
     attemptIntegrityTier: 'strong' as const,
@@ -49,12 +65,19 @@ function createHarness() {
   };
   const actions = createQuizV2StoreActions({
     get: () => state,
-    getGeneration: () => 0,
+    getGeneration: () => generation,
     getMessage: (error) =>
       error instanceof Error ? error.message : String(error),
     set,
   });
-  return { actions, getState: () => state, set };
+  return {
+    actions,
+    getState: () => state,
+    set,
+    setGeneration: (nextGeneration: number) => {
+      generation = nextGeneration;
+    },
+  };
 }
 
 function response(
@@ -70,6 +93,77 @@ function response(
 }
 
 describe('createQuizV2StoreActions terminal expiry', () => {
+  afterEach(() => {
+    mockPersist.mockReset();
+    mockLoadRecoveryEnvelope.mockReset();
+  });
+
+  it('does not write a stale starting state after recovery storage resolves', async () => {
+    const harness = createHarness();
+    let resolveLoad!: (value: null) => void;
+    const load = new Promise<null>((resolve) => {
+      resolveLoad = resolve;
+    });
+    const starter = jest.fn(async () => activeAttempt);
+    mockLoadRecoveryEnvelope.mockReturnValueOnce(load);
+
+    const start = harness.actions.startEventV2(
+      {
+        eventId: 'event-1',
+        integrityTier: 'strong',
+        startRequestId: '33333333-3333-4333-8333-333333333333',
+        userId: 'user-1',
+      },
+      starter
+    );
+    harness.setGeneration(1);
+    resolveLoad(null);
+    await start;
+
+    expect(starter).not.toHaveBeenCalled();
+    expect(harness.getState().status).toBe('question');
+  });
+
+  it('still submits when recovery storage rejects', async () => {
+    mockPersist.mockRejectedValueOnce(new Error('storage full'));
+    const harness = createHarness();
+    const submitter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.lockAndSubmitAnswer('a', submitter);
+
+    expect(submitter).toHaveBeenCalledWith('a');
+    expect(harness.getState()).toMatchObject({
+      lockedOptionId: null,
+      status: 'question',
+    });
+  });
+
+  it('keeps the terminal attempt id returned after a lost start response', async () => {
+    mockLoadRecoveryEnvelope.mockResolvedValueOnce(null);
+    const harness = createHarness();
+
+    await harness.actions.recoverEvent(
+      'user-1',
+      'event-1',
+      async () =>
+        response({
+          attempt: undefined,
+          attemptId: 'attempt-recovered',
+          availability: 'pending_results',
+        }),
+      jest.fn()
+    );
+
+    expect(harness.getState()).toMatchObject({
+      status: 'result',
+      terminalContext: {
+        attemptId: 'attempt-recovered',
+        eventId: 'event-1',
+      },
+      v2LifecycleStatus: 'pending_results',
+    });
+  });
+
   it('expiry_applies_active_response', async () => {
     const harness = createHarness();
     const nextAttempt = {

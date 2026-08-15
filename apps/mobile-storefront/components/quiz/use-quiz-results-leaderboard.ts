@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
-import {
-  fetchQuizLeaderboard,
-  fetchQuizLiveLeaderboard,
-  fetchQuizParticipantCount,
-} from '@/services/quiz-leaderboard';
+import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
+import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
+import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 
