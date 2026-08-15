@@ -33,10 +33,10 @@ Status: `DONE_WITH_CONCERNS`
 - Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; the branch
   includes the documented Task 0, implementation, and review-fix commits.
 - Focused suites (direct shared Vitest binary with the Node environment override
-  because host jsdom is incompatible): **4 files, 56 tests passed**.
+  because host jsdom is incompatible): **4 files, 57 tests passed**.
 - Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
-- Current runtime/test file lengths: 53, 116, 247, 247, 206, 154, and 94
+- Current final runtime/test file lengths: 59, 116, 251, 248, 206, 164, and 94
   lines; all are below the 300-line limit.
 - Static import review found no route/cache/infra/provider/migration/VPS/
   deployment/proxy imports. The only cache/route wording is explanatory prose.
@@ -83,12 +83,12 @@ Status: `DONE_WITH_CONCERNS`
 
 - Split renderer-assessment coverage into the colocated
   `ogabassey-home-hero-contract.renderer.test.ts`; current owned file lengths
-  are 53, 116, 247, 247, 206, 154, and 94 lines respectively, all below 300.
+  are 59, 116, 251, 248, 206, 164, and 94 lines respectively, all below 300.
 - Narrowed every runtime slide through `isValidSlide` before selecting the
   candidate, and made resource-hint validation an explicit type predicate.
 - Added malformed projection regressions for forged version and candidate
   shape, plus primitive/null validation-input coverage.
-- Focused suites now cover four colocated files (56 tests passed), including
+- Focused suites now cover four colocated files (57 tests passed), including
   the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
   passed; Biome and `git diff --check` passed.
 - The expected-preload rebuild remains intentional: it derives the canonical
@@ -118,3 +118,6 @@ Status: `DONE_WITH_CONCERNS`
 - The progress ledger and this report no longer claim a fixed branch-ahead
   count or a pending uncommitted fix; they record the current committed state
   and the amended 162-line plan.
+- Final exact-code-head review `f8c59e246a` was CLEAN for code, plan, boundary,
+  and tests; CodeRabbit reported 0 findings. This does not claim the docs
+  commit was reviewed.
