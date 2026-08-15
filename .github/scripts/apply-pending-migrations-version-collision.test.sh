@@ -143,3 +143,87 @@ if grep -q \
   echo 'The occupied Paystack migration version must not be registered again' >&2
   exit 1
 fi
+
+review_migrations="$fixture_root/paystack-review-migrations"
+review_query_log="$fixture_root/paystack-review-queries.log"
+mkdir -p "$review_migrations"
+cp "$script_dir/../../supabase/migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql" \
+  "$review_migrations/20260811120000_allow_reviewed_paystack_email_mismatch.sql"
+cp "$script_dir/../../supabase/migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql" \
+  "$review_migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql"
+cp "$script_dir/../../supabase/migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql" \
+  "$review_migrations/20260811140000_harden_paystack_manual_reconciliation_review_contracts.sql"
+cp "$script_dir/../../supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql" \
+  "$review_migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$review_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$review_query_log" \
+  FAKE_INITIAL_RESPONSE='[{"version":"20260811120000","name":"quiz_leaderboard_and_claim_projections_v2"}]' \
+  bash "$applier" >"$fixture_root/paystack-review-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql' \
+  "$fixture_root/paystack-review-output.log"
+grep -q \
+  'p_allow_email_mismatch boolean' \
+  "$review_query_log"
+if grep -q '^→ applying:        20260811140000' "$fixture_root/paystack-review-output.log"; then
+  echo 'The Paystack review contract migration must be reconciled before its missing dependency is applied' >&2
+  exit 1
+fi
+
+quiz_migrations="$fixture_root/quiz-materialized-migrations"
+quiz_query_log="$fixture_root/quiz-materialized-queries.log"
+mkdir -p "$quiz_migrations"
+cp "$script_dir/../../supabase/migrations/20260812170000_quiz_materialized_final_rankings_v2.sql" \
+  "$quiz_migrations/20260812170000_quiz_materialized_final_rankings_v2.sql"
+cp "$script_dir/../../supabase/migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql" \
+  "$quiz_migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$quiz_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$quiz_query_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$fixture_root/quiz-materialized-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260814230000_repair_quiz_materialized_final_rankings_v2.sql' \
+  "$fixture_root/quiz-materialized-output.log"
+grep -q 'total_time_milliseconds' "$quiz_query_log"
+if grep -q '^→ applying:        20260812170000' "$fixture_root/quiz-materialized-output.log"; then
+  echo 'The quiz materialization migration must be reconciled before its incompatible backfill runs' >&2
+  exit 1
+fi
+
+quiz_policy_migrations="$fixture_root/quiz-policy-migrations"
+quiz_policy_query_log="$fixture_root/quiz-policy-queries.log"
+mkdir -p "$quiz_policy_migrations"
+cp "$script_dir/../../supabase/migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql" \
+  "$quiz_policy_migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql"
+cp "$script_dir/../../supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql" \
+  "$quiz_policy_migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql"
+
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$quiz_policy_migrations" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$quiz_policy_query_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$fixture_root/quiz-policy-output.log"
+
+grep -q \
+  'reconciled by append-only repair migration 20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql' \
+  "$fixture_root/quiz-policy-output.log"
+grep -q \
+  "schema_migrations(version, name, statements).*20260815000000.*repair_quiz_event_results_v2_deny_client_policy" \
+  "$quiz_policy_query_log"
+grep -q 'pg_catalog.pg_policies' "$quiz_policy_query_log"
+if grep -q '^→ applying:        20260812173500' "$fixture_root/quiz-policy-output.log"; then
+  echo 'The existing quiz deny policy must be reconciled before its duplicate CREATE POLICY runs' >&2
+  exit 1
+fi

@@ -69,4 +69,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql',
     sha256: '27ef63c9838aa43f72f176453014371e9ff747a51ed8ee3dad21ecd8d4635794',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql',
+    sha256: '646271ab9d7519e8260d547ffc74b850c4fc19ba76a9f4ca20014aa16e27a97e',
+  },
 ];

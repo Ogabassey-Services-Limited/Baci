@@ -69,4 +69,14 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260813100000_quiz_participant_count_projection_v2.sql',
     sha256: 'd1136525dee97f81f2e94b3095c4bf61c8132ee7038bbafbf0fb5327119da7d5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql',
+    sha256: '7ef50c43690f895f5778d48c9715b450a866a1fd72af23f2e34b702d33e09ca1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
+    sha256: '6992ec9ddf3e5432869385a2e0c4ca2aa7058319841d071330135d1cb25680f1',
+  },
 ] as const;
