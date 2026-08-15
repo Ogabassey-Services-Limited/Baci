@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react-native';
+import * as ReactNative from 'react-native';
 import { Image, Platform, StyleSheet } from 'react-native';
 import Svg from 'react-native-svg';
 import { GadgetPattern } from './GadgetPattern';
@@ -15,6 +16,7 @@ describe('GadgetPattern', () => {
   const originalVersion = Platform.Version;
 
   afterEach(() => {
+    jest.restoreAllMocks();
     Object.defineProperty(Platform, 'OS', {
       configurable: true,
       value: originalOS,
@@ -58,13 +60,45 @@ describe('GadgetPattern', () => {
     expect(UNSAFE_getByType(Image).props.resizeMode).toBe('contain');
   });
 
-  it('uses distinct light and dark gradient treatments', () => {
-    const light = render(<GadgetPattern colorScheme="light" height={1500} />);
-    const dark = render(<GadgetPattern colorScheme="dark" height={1500} />);
+  it('uses light gradient stops for the light color scheme', () => {
+    const { getByTestId } = render(
+      <GadgetPattern colorScheme="light" height={1500} />
+    );
 
-    expect(light.getByTestId('tech-backdrop-gradient')).not.toHaveProp(
-      'colors',
-      dark.getByTestId('tech-backdrop-gradient').props.colors
+    expect(getByTestId('tech-backdrop-gradient').props.colors).toEqual([
+      'rgba(15,23,42,1)',
+      'rgba(15,23,42,0.22)',
+      'rgba(15,23,42,0)',
+    ]);
+  });
+
+  it('uses dark gradient stops for the dark color scheme', () => {
+    const { getByTestId } = render(
+      <GadgetPattern colorScheme="dark" height={1500} />
+    );
+
+    expect(getByTestId('tech-backdrop-gradient').props.colors).toEqual([
+      'rgba(255,255,255,1)',
+      'rgba(255,255,255,0.24)',
+      'rgba(255,255,255,0)',
+    ]);
+  });
+
+  it('falls back to the active device color scheme', () => {
+    jest.spyOn(ReactNative, 'useColorScheme').mockReturnValue('dark');
+
+    const { getByTestId } = render(<GadgetPattern height={1500} />);
+
+    expect(getByTestId('tech-backdrop-gradient').props.colors[0]).toBe(
+      'rgba(255,255,255,1)'
+    );
+  });
+
+  it('uses the compact raster accent for the tab bar variant', () => {
+    const { UNSAFE_getByType } = render(<GadgetPattern variant="tabbar" />);
+
+    expect(StyleSheet.flatten(UNSAFE_getByType(Image).props.style).height).toBe(
+      96
     );
   });
 
