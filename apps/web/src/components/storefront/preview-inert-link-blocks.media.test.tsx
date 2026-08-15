@@ -51,7 +51,7 @@ describe('preview inert block media and placeholders', () => {
     );
 
     expect(
-      screen.getByRole('region', { name: 'Preview social links' })
+      screen.getByRole('heading', { name: 'Connect' }).parentElement
     ).toHaveTextContent('Connectinstagramx');
     expect(screen.queryByText('facebook')).not.toBeInTheDocument();
     expect(screen.queryByRole('link')).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { PreviewInertHeader } from './preview-inert-header';
 
@@ -77,7 +77,7 @@ describe('PreviewInertHeader', () => {
     expect(header).toHaveAttribute('data-glass-effect', 'true');
     expect(header).toHaveClass('py-6');
     expect(header).not.toHaveClass('backdrop-blur-md');
-    expect(header.style.color).toBe('white');
+    expect(header).toHaveClass('text-store-primary-text');
     expect(desktopSearch).toHaveAttribute('data-search-style', 'filled');
     expect(desktopSearch).toHaveAttribute('data-search-radius', 'full');
     expect(desktopSearch).toHaveClass('bg-muted', 'rounded-full');
@@ -142,5 +142,30 @@ describe('PreviewInertHeader', () => {
     expect(desktopSearch).toHaveClass('hidden', 'md:inline-flex');
     expect(desktopSearch).toHaveTextContent('Search...');
     expect(desktopSearch).toHaveClass('bg-muted', 'rounded-full');
+  });
+
+  it('uses themed glass contrast at the top and mirrors the published glass state after scrolling', () => {
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 0,
+      writable: true,
+    });
+
+    render(<PreviewInertHeader glassEffect sticky textColor="#123456" />);
+
+    const header = screen.getByRole('banner');
+    expect(header).toHaveAttribute('data-scroll-state', 'top');
+    expect(header).toHaveClass('text-store-primary-text');
+    expect(header).not.toHaveClass('backdrop-blur-md', 'shadow-sm');
+
+    window.scrollY = 51;
+    fireEvent.scroll(window);
+
+    expect(header).toHaveAttribute('data-scroll-state', 'scrolled');
+    expect(header).toHaveClass('backdrop-blur-md', 'shadow-sm');
+    expect(header).toHaveStyle({
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      color: '#123456',
+    });
   });
 });

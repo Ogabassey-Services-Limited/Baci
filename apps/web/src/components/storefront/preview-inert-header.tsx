@@ -1,5 +1,8 @@
+'use client';
+
 import { Search } from 'lucide-react';
 import Image from 'next/image';
+import { useEffect, useState } from 'react';
 
 type PreviewLink = {
   label: string;
@@ -91,17 +94,41 @@ export function PreviewInertHeader({
   textColor,
 }: PreviewHeaderProps) {
   const isCenteredLayout = layout === 'logo-center';
-  const effectiveTextColor = glassEffect ? 'white' : textColor;
-  const effectiveBackgroundColor = glassEffect
-    ? 'transparent'
-    : backgroundColor;
+  const [isScrolled, setIsScrolled] = useState(false);
+  const isScrolledGlass = glassEffect && isScrolled;
+  const effectiveTextColor =
+    isScrolledGlass || !glassEffect ? textColor : undefined;
+  const effectiveBackgroundColor = isScrolledGlass
+    ? 'rgba(255, 255, 255, 0.8)'
+    : glassEffect
+      ? 'transparent'
+      : backgroundColor;
+
+  useEffect(() => {
+    if (!glassEffect) {
+      setIsScrolled(false);
+      return;
+    }
+
+    const updateScrollState = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+
+    updateScrollState();
+    window.addEventListener('scroll', updateScrollState);
+    return () => window.removeEventListener('scroll', updateScrollState);
+  }, [glassEffect]);
+
   return (
     <header
       className={`${paddingClasses[paddingY]} ${layoutClasses[layout]}${
         sticky ? ' fixed left-0 right-0 top-0 z-10' : ' relative'
+      }${isScrolledGlass ? ' backdrop-blur-md shadow-sm' : ''}${
+        glassEffect && !isScrolled ? ' text-store-primary-text' : ''
       } z-0`}
       data-glass-effect={String(glassEffect)}
       data-layout={layout}
+      data-scroll-state={isScrolledGlass ? 'scrolled' : 'top'}
       data-sticky={String(sticky)}
       data-testid="builder-preview-inert-header"
       style={{

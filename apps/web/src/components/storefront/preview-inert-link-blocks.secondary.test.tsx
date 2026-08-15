@@ -39,9 +39,36 @@ describe('previewInertLinkBlocks secondary surfaces', () => {
   it('uses published theme tokens when Footer colors are omitted', () => {
     render(previewInertLinkBlocks.Footer.render({}));
     expect(screen.getByTestId('builder-preview-inert-footer')).toHaveStyle({
-      backgroundColor: 'var(--theme-footer-bg)',
-      color: 'var(--theme-footer-text)',
+      backgroundColor: 'var(--theme-footer-bg, #1A202C)',
+      color: 'var(--theme-footer-text, #FFFFFF)',
     });
+  });
+
+  it('matches the published Footer layout while keeping preview controls inert', () => {
+    render(
+      previewInertLinkBlocks.Footer.render({
+        quickLinks: [{ label: 'Contact' }],
+        showNewsletter: true,
+        socialLinks: { instagram: 'https://instagram.com/store' },
+      })
+    );
+
+    const footer = screen.getByRole('contentinfo');
+    expect(footer).toHaveClass('mt-auto', 'py-12');
+    const container = footer.firstElementChild;
+    expect(container).toHaveClass('container', 'mx-auto', 'px-4');
+    expect(container?.firstElementChild).toHaveClass(
+      'grid',
+      'gap-8',
+      'sm:grid-cols-2',
+      'lg:grid-cols-4'
+    );
+    expect(
+      screen.getByRole('navigation', { name: 'Preview footer navigation' })
+        .firstElementChild
+    ).toHaveClass('flex', 'flex-col', 'gap-2', 'list-none', 'p-0', 'm-0');
+    expect(screen.getByRole('button', { name: 'Contact' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'instagram' })).toBeDisabled();
   });
 
   it('visibly applies every supported Button align, size, and variant while staying inert', () => {

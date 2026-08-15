@@ -1,4 +1,5 @@
 import { AnimatedWrapper } from '@/components/builder/animated-wrapper';
+import { ThemedButton } from '@/components/themed/themed-button';
 
 export type PreviewInertHeroProps = {
   align?: 'center' | 'left' | 'right';
@@ -100,9 +101,9 @@ export function PreviewInertHero({
           <Heading>{title}</Heading>
           {subtitle ? <p>{subtitle}</p> : null}
           {ctaText ? (
-            <button aria-disabled="true" disabled type="button">
+            <ThemedButton aria-disabled="true" disabled size="lg" type="button">
               {ctaText}
-            </button>
+            </ThemedButton>
           ) : null}
         </div>
       </section>

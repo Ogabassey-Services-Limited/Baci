@@ -1,14 +1,11 @@
 import type { ReactNode } from 'react';
 import { AnimatedWrapper } from '@/components/builder/animated-wrapper';
+import { PreviewInertFooter } from './preview-inert-footer';
 import { PreviewInertHeader } from './preview-inert-header';
 import {
   PreviewInertHero,
   type PreviewInertHeroProps,
 } from './preview-inert-hero';
-
-type PreviewLink = {
-  label: string;
-};
 
 type PreviewCarouselProps = {
   slides?: PreviewInertHeroProps[];
@@ -27,18 +24,6 @@ type PreviewButtonSize = 'sm' | 'default' | 'lg';
 
 type PreviewButtonVariant = 'primary' | 'background' | 'accent';
 
-type PreviewFooterProps = {
-  backgroundColor?: string;
-  brandName?: string;
-  copyrightText?: string;
-  quickLinks?: PreviewLink[];
-  quickLinksLabel?: string;
-  showNewsletter?: boolean;
-  showQuickLinks?: boolean;
-  socialLinks?: Record<string, string>;
-  socialLinksLabel?: string;
-  textColor?: string;
-};
 type PreviewFaqProps = Pick<
   PreviewInertHeroProps,
   'animationDelay' | 'animationDuration' | 'animationTrigger' | 'animationType'
@@ -159,65 +144,6 @@ function PreviewButton({
   );
 }
 
-function PreviewFooter({
-  backgroundColor,
-  brandName = 'Preview Store',
-  copyrightText = '© Store. All rights reserved.',
-  quickLinks = [],
-  quickLinksLabel = 'Quick links',
-  showNewsletter = false,
-  showQuickLinks = true,
-  socialLinks = {},
-  socialLinksLabel = 'Follow us',
-  textColor,
-}: PreviewFooterProps) {
-  const socialPlatforms = Object.entries(socialLinks).flatMap(
-    ([platform, url]) => (url ? [platform] : [])
-  );
-  return (
-    <footer
-      data-testid="builder-preview-inert-footer"
-      style={{
-        backgroundColor: backgroundColor ?? 'var(--theme-footer-bg)',
-        color: textColor ?? 'var(--theme-footer-text)',
-      }}
-    >
-      <strong>{brandName}</strong>
-      <p>{copyrightText}</p>
-      {showQuickLinks && quickLinks.length > 0 ? (
-        <nav aria-label="Preview footer navigation">
-          <h2>{quickLinksLabel}</h2>
-          {quickLinks.map((link) => (
-            <span key={link.label}>{link.label}</span>
-          ))}
-        </nav>
-      ) : null}
-      {socialPlatforms.length > 0 ? (
-        <section aria-label="Preview social links">
-          <h2>{socialLinksLabel}</h2>
-          {socialPlatforms.map((platform) => (
-            <span key={platform}>{platform}</span>
-          ))}
-        </section>
-      ) : null}
-      {showNewsletter ? (
-        <section aria-label="Preview newsletter">
-          <h2>Newsletter</h2>
-          <div className="flex gap-2">
-            <input
-              aria-label="Email address for newsletter"
-              disabled
-              placeholder="Your email"
-              type="email"
-            />
-            <InertAction>Subscribe</InertAction>
-          </div>
-        </section>
-      ) : null}
-    </footer>
-  );
-}
-
 function PreviewFAQ({
   animationDelay = 0,
   animationDuration = 'normal',
@@ -282,7 +208,7 @@ function PreviewPlaceholder({
 
 export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
-  Footer: { render: PreviewFooter },
+  Footer: { render: PreviewInertFooter },
   FAQ: { render: PreviewFAQ },
   Header: { render: PreviewInertHeader },
   Hero: { render: PreviewInertHero },

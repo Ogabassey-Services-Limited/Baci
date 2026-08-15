@@ -65,4 +65,22 @@ describe('PreviewInertHero', () => {
       'bg-store-foreground/60'
     );
   });
+
+  it('renders CTA text as an inert themed large button', () => {
+    render(<PreviewInertHero ctaText="Shop collection" title="Store hero" />);
+
+    const cta = screen.getByRole('button', { name: 'Shop collection' });
+    expect(cta).toBeDisabled();
+    expect(cta).toHaveAttribute('aria-disabled', 'true');
+    expect(cta).toHaveClass(
+      'inline-flex',
+      'h-12',
+      'min-w-[48px]',
+      'rounded-md',
+      'bg-store-primary',
+      'text-store-primary-text',
+      'text-sm',
+      'font-medium'
+    );
+  });
 });
