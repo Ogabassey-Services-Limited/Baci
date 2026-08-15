@@ -86,6 +86,57 @@ describe('ogabasseyHomeHeroContract', () => {
     ).toBeNull();
   });
 
+  it.each([
+    [
+      'missing slides',
+      { merchantId: createPublishedShell().merchantId, status: 'published' },
+    ],
+    [
+      'missing required field',
+      {
+        ...createPublishedShell(),
+        slides: [{ ...createPublishedShell().slides[0], name: undefined }],
+      },
+    ],
+    [
+      'invalid kind',
+      {
+        ...createPublishedShell(),
+        slides: [{ ...createPublishedShell().slides[0], kind: 'promo' }],
+      },
+    ],
+    [
+      'non-OgaBassey image URL',
+      {
+        ...createPublishedShell(),
+        slides: [
+          {
+            ...createPublishedShell().slides[0],
+            imageUrl: 'https://example.com/hero.jpg',
+          },
+        ],
+      },
+    ],
+  ] as const)('rejects malformed published shell: %s', (_label, shell) => {
+    expect(
+      ogabasseyHomeHeroContract.project(
+        shell as unknown as OgabasseyHomeHeroShellInput
+      )
+    ).toBeNull();
+  });
+
+  it.each([
+    'merchant-1',
+    ' 6b5cb8a4-5575-456c-b936-8cdfae30db74 ',
+  ])('rejects malformed bound merchant ID: %s', (merchantId) => {
+    expect(
+      ogabasseyHomeHeroContract.project({
+        ...createPublishedShell(),
+        merchantId,
+      })
+    ).toBeNull();
+  });
+
   it('derives a stable preload identity from the exact candidate rather than a separate image input', () => {
     const projection = ogabasseyHomeHeroContract.project(
       createPublishedShell()
@@ -184,6 +235,33 @@ describe('ogabasseyHomeHeroContract', () => {
         },
       })
     ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+  });
+
+  it('fails closed when the expected and supplied preload identities are both null', () => {
+    const projection = ogabasseyHomeHeroContract.project(
+      createPublishedShell()
+    );
+    if (!projection) {
+      throw new Error('expected a published projection');
+    }
+
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload: null,
+        projection: {
+          ...projection,
+          candidate: {
+            ...projection.candidate,
+            imageUrl: 'https://example.com/hero.jpg',
+          },
+        },
+        renderedSlides: [projection.candidate],
+        requestPublication: {
+          merchantId: projection.merchantId,
+          status: 'published',
+        },
+      })
+    ).toEqual({ reason: 'preload_mismatch', valid: false });
   });
 
   it('rejects stale published cache data when the request-scoped verdict is unpublished', () => {

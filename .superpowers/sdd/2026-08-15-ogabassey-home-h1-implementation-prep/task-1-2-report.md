@@ -59,3 +59,18 @@ Status: `DONE_WITH_CONCERNS`
   validation only.
 - Next action is to regenerate the applicable normative H1A/H1B/H1C1/H1C2/
   H1D1/H1D2 plan only after the V4 prerequisites are independently green.
+
+## Fix round 1 review response
+
+- Hardened `project()` to fail closed for missing/non-array slides, malformed
+  slide objects, invalid `kind`, blank required fields, non-OgaBassey image
+  URLs, and non-UUID merchant IDs.
+- Hardened `assessRenderer()` to require both a non-null expected preload and a
+  validated non-null supplied preload before returning valid.
+- Added exact regressions for missing slides, malformed fields/kind, a foreign
+  image URL, malformed/whitespace merchant IDs, and the null/null preload case.
+- Re-ran the three focused suites with the node environment override because
+  the shared jsdom dependency intermittently failed under the host Node
+  runtime (`MIMEType is not a constructor`); result: **3 files, 39 tests
+  passed**.
+- Biome passed on all five owned files and `git diff --check` passed.

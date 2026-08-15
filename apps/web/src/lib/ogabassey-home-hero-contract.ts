@@ -1,7 +1,11 @@
+import { isOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import {
   type OgabasseyHomeHeroResourceHintIdentity,
   ogabasseyHomeHeroResourceHintProjection,
 } from './ogabassey-home-hero-resource-hint-projection';
+
+const MERCHANT_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface OgabasseyHomeHeroSlideProjection {
   ctaLabel: string;
@@ -56,10 +60,18 @@ type OgabasseyHomeHeroRendererAssessment =
     };
 
 function getCandidate(
-  slides: readonly OgabasseyHomeHeroSlideProjection[]
+  slides: unknown
 ): OgabasseyHomeHeroSlideProjection | null {
+  if (!Array.isArray(slides)) {
+    return null;
+  }
+  for (const slide of slides) {
+    if (!isValidSlide(slide)) {
+      return null;
+    }
+  }
   const slide = slides[0];
-  if (!slide?.id || !slide.imageUrl || !slide.href) {
+  if (!slide) {
     return null;
   }
 
@@ -73,6 +85,39 @@ function getCandidate(
     name: slide.name,
     priceLabel: slide.priceLabel,
   };
+}
+
+function isValidSlide(
+  value: unknown
+): value is OgabasseyHomeHeroSlideProjection {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const slide = value as Record<string, unknown>;
+  const requiredStringFields = [
+    'ctaLabel',
+    'href',
+    'id',
+    'imageAlt',
+    'imageUrl',
+    'name',
+    'priceLabel',
+  ];
+  if (
+    slide.kind !== 'product' ||
+    !requiredStringFields.every(
+      (field) =>
+        typeof slide[field] === 'string' &&
+        (slide[field] as string).trim().length > 0
+    )
+  ) {
+    return false;
+  }
+  return isOgabasseyCdnImageUrl(slide.imageUrl as string);
+}
+
+function isMerchantId(value: unknown): value is string {
+  return typeof value === 'string' && MERCHANT_ID_PATTERN.test(value);
 }
 
 function sameCandidate(
@@ -106,16 +151,21 @@ export const ogabasseyHomeHeroContract = {
     if (input.requestPublication.status !== 'published') {
       return { reason: 'publication_mismatch', valid: false };
     }
-    if (input.projection.merchantId !== input.requestPublication.merchantId) {
+    if (
+      !isMerchantId(input.projection.merchantId) ||
+      !isMerchantId(input.requestPublication.merchantId) ||
+      input.projection.merchantId !== input.requestPublication.merchantId
+    ) {
       return { reason: 'merchant_mismatch', valid: false };
     }
     const expectedPreload = ogabasseyHomeHeroResourceHintProjection.build(
       input.projection.candidate.imageUrl
     );
     if (
-      expectedPreload?.digest !== input.preload?.digest ||
-      (input.preload !== null &&
-        !ogabasseyHomeHeroResourceHintProjection.validate(input.preload))
+      !expectedPreload ||
+      !input.preload ||
+      expectedPreload.digest !== input.preload.digest ||
+      !ogabasseyHomeHeroResourceHintProjection.validate(input.preload)
     ) {
       return { reason: 'preload_mismatch', valid: false };
     }
@@ -139,7 +189,12 @@ export const ogabasseyHomeHeroContract = {
   project(
     shell: OgabasseyHomeHeroShellInput
   ): OgabasseyHomeHeroProjection | null {
-    if (shell.status !== 'published' || !shell.merchantId) {
+    if (
+      !shell ||
+      typeof shell !== 'object' ||
+      shell.status !== 'published' ||
+      !isMerchantId(shell.merchantId)
+    ) {
       return null;
     }
     const candidate = getCandidate(shell.slides);
