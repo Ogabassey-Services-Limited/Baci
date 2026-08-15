@@ -73,9 +73,12 @@ export function classifyProductSchemaCategories(
 ) {
   const preferredCategory = resolveStorefrontProductCategoryName(product);
   const relationSlug = product.categories?.slug?.trim();
-  const rawCategoryNames = [preferredCategory, relationSlug].filter(
-    (value): value is string => Boolean(value?.trim())
-  );
+  const topLevelSlug = product.category_slug?.trim();
+  const rawCategoryNames = [
+    preferredCategory,
+    relationSlug,
+    topLevelSlug,
+  ].filter((value): value is string => Boolean(value?.trim()));
   const hasAccessoryCategory = rawCategoryNames.some(isAccessoryLikeCategory);
   const categoryNames = rawCategoryNames
     .map(normalizeCategoryName)

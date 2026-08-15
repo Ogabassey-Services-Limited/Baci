@@ -1,4 +1,5 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
+import { isUnsupportedSpecValue } from '@/lib/storefront-specs/is-unsupported-spec-value';
 import { getKeySpecCategoriesForFamily } from '@/lib/storefront-specs/spec-category-families';
 import type {
   ComparableProductKeySpecs,
@@ -31,6 +32,7 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
   },
   camera: {
     has_ois: 'OIS',
+    recommended_for: 'Recommended for',
   },
   general: {
     format: 'Format',
@@ -74,6 +76,7 @@ const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
   },
   camera: {
     has_ois: 0,
+    recommended_for: 1,
   },
   general: {
     format: 0,
@@ -149,6 +152,7 @@ export function buildProductContextSpecFacts(
       }
       if (field?.condition && !field.condition(comparableSpecs)) return [];
       if (
+        field &&
         !shouldIncludeProductSchemaSpec(
           {
             category: categoryName,
@@ -168,6 +172,9 @@ export function buildProductContextSpecFacts(
         ? normalizeText(field.transform(value, comparableSpecs))
         : scalarValue;
       if (!normalized) return [];
+      if (!field && contextLabel && isUnsupportedSpecValue(normalized)) {
+        return [];
+      }
 
       const label =
         field?.dynamicLabel?.(comparableSpecs) ||

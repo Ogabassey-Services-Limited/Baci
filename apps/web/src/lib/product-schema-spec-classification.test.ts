@@ -34,4 +34,17 @@ describe('classifyProductSchemaCategories', () => {
       })
     ).toMatchObject({ hasCameraCategory: true, productFamily: 'camera' });
   });
+
+  it('includes top-level category_slug when relation name lacks slug', () => {
+    expect(
+      classifyProductSchemaCategories({
+        categories: { name: '相机' },
+        category_slug: 'action-cameras',
+      })
+    ).toMatchObject({
+      categoryNames: expect.arrayContaining(['相机', 'action cameras']),
+      hasCameraCategory: true,
+      productFamily: 'camera',
+    });
+  });
 });

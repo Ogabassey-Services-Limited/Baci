@@ -31,6 +31,9 @@ const ACCESSORY_CATEGORY_MARKERS = [
   'gift cards',
   'digital card',
   'digital cards',
+  'memory card',
+  'memory cards',
+  'instant film',
 ];
 
 export function isAccessoryLikeCategory(categoryName: string) {

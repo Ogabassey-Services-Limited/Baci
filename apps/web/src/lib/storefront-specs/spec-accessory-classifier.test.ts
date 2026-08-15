@@ -25,6 +25,12 @@ describe('isAccessoryLikeCategory', () => {
     }
   });
 
+  it('recognizes camera accessory slugs such as memory cards and instant film', () => {
+    for (const category of ['memory-cards', 'Memory Cards', 'instant-film']) {
+      expect(isAccessoryLikeCategory(category)).toBe(true);
+    }
+  });
+
   it('does not classify ordinary devices as accessories', () => {
     expect(isAccessoryLikeCategory('Smartphones')).toBe(false);
     expect(isAccessoryLikeCategory('Cameras')).toBe(false);

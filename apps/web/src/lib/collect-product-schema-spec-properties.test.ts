@@ -152,4 +152,20 @@ describe('collectProductSchemaSpecProperties', () => {
       { '@type': 'PropertyValue', name: 'RAM', value: '8GB' },
     ]);
   });
+
+  it('ignores legacy specification rows with non-string labels', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Cameras',
+        specifications: [
+          {
+            category: 'Imaging',
+            items: [{ label: 123 as unknown as string, value: '48MP' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual([]);
+  });
 });

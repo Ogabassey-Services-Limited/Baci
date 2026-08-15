@@ -193,8 +193,14 @@ export function collectProductSchemaSpecProperties(product: Product) {
       }
 
       for (const item of category.items) {
+        const label =
+          typeof item.label === 'string' ? item.label.trim() : undefined;
+        if (!label) {
+          continue;
+        }
+
         const canonicalKey = getProductSchemaSpecKeyForLabel(
-          item.label,
+          label,
           category.category
         );
         if (canonicalKey && populatedSpecKeys.has(canonicalKey)) {
@@ -203,12 +209,12 @@ export function collectProductSchemaSpecProperties(product: Product) {
 
         if (
           shouldIncludeProductSchemaSpec(product, {
-            label: item.label,
+            label,
             section: category.category,
             value: item.value,
           })
         ) {
-          collector.add(item.label, item.value);
+          collector.add(label, item.value);
         }
       }
     }

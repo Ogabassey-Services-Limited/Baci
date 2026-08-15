@@ -188,4 +188,13 @@ describe('buildProductContextSpecFacts', () => {
       )
     ).toContain('Recommended for: Photography');
   });
+
+  it('preserves production recommendation arrays for camera products', () => {
+    expect(
+      buildProductContextSpecFacts(
+        { recommended_for: ['Photography', 'Travel'] },
+        'Action Cameras'
+      )
+    ).toEqual(['Recommended for: Photography, Travel']);
+  });
 });
