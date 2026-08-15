@@ -20,7 +20,7 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "60a05d1cf0b8cd6c9c1fd847583176d461ad888c",
+  "originMainSha": "d7ba0c282539c78e85c5b805e95d0c241ab9ab08",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
@@ -3177,6 +3177,7 @@
       "pathCondition": {
         "firstSegmentIn": [
           "auth",
+          "baci-relay",
           "builder",
           "dashboard",
           "forgot-password",
@@ -3211,9 +3212,14 @@
           "auth",
           "builder",
           "dashboard",
+          "forgot-password",
           "login",
           "onboarding",
-          "signup"
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
         ],
         "precedence": "before_path_decision",
         "predicate": "first_segment_allowlist"
@@ -3235,6 +3241,7 @@
       "pathCondition": {
         "firstSegmentIn": [
           "auth",
+          "baci-relay",
           "builder",
           "dashboard",
           "forgot-password",
@@ -7706,5 +7713,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "89c3a47c84b2d2150fc64143f1bc66da905fdd7868e93627060d1b87d80e4345"
+  "inventorySha256": "f56c6affd01f79fe04f9ba8d0460e2c201e41f7263c4b1c561e5dedd77c5ff91"
 }

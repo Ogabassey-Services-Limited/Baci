@@ -46,6 +46,8 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
         },
       })
     );
+  });
+
   it('redirects platform routes on retired subdomain aliases before storefront paths', () => {
     const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
       ({ id }) => id === 'proxy:retired-host-platform-route'

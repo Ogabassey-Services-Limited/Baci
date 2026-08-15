@@ -116,7 +116,9 @@ describe('external storefront media inventory', () => {
           'apps/web/src/components/storefront/new-template/checkout-page.tsx',
       })
     );
-    expect(byId.get('automatic-subresource:negotiation-evidence-upload')).toEqual(
+    expect(
+      byId.get('automatic-subresource:negotiation-evidence-upload')
+    ).toEqual(
       expect.objectContaining({
         methods: ['PUT', 'OPTIONS'],
       })
