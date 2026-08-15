@@ -104,7 +104,7 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
     >
       {activeSlide ? (
         <article
-          className="absolute inset-0 flex flex-col items-center justify-end px-4 pb-24 text-center text-white"
+          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white"
           data-slide-index={activeIndex}
           key={`${activeIndex}:${activeSlide.title ?? ''}:${activeSlide.subtitle ?? ''}:${activeSlide.ctaText ?? ''}`}
           style={

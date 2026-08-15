@@ -1,4 +1,7 @@
-import { builderDesignCapabilities } from '@baci/shared/contracts';
+import {
+  builderDesignCapabilities,
+  MAX_AI_EDIT_BODY_BYTES,
+} from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import {
   isBuilderPreviewRenderEvent,
@@ -70,5 +73,20 @@ describe('parseBuilderPreviewEvent', () => {
         new MessageEvent('message', { data: validMessage })
       )
     ).toBe(true);
+  });
+
+  it('rejects oversized native string messages before JSON parsing', () => {
+    const oversized = `${JSON.stringify(validMessage)}${'x'.repeat(
+      MAX_AI_EDIT_BODY_BYTES
+    )}`;
+
+    expect(
+      parseBuilderPreviewEvent(new MessageEvent('message', { data: oversized }))
+    ).toBeNull();
+    expect(
+      isBuilderPreviewRenderEvent(
+        new MessageEvent('message', { data: oversized })
+      )
+    ).toBe(false);
   });
 });

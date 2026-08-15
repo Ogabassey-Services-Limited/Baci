@@ -24,7 +24,10 @@ describe('PreviewInertHeader', () => {
       screen.getByRole('navigation', { name: 'Preview navigation' })
     ).toHaveClass('hidden', 'md:flex');
     expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Account' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Account' })).toHaveClass(
+      'hidden',
+      'sm:inline-flex'
+    );
     expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
 

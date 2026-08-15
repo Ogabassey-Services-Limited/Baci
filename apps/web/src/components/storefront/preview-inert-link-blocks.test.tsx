@@ -67,6 +67,11 @@ describe('previewInertLinkBlocks', () => {
     expect(carousel).toHaveAttribute('data-slide-count', '2');
     expect(carousel).toHaveAttribute('data-active-slide-index', '0');
     expect(
+      screen
+        .getByRole('region', { name: 'Preview hero carousel' })
+        .querySelector('[data-slide-index]')
+    ).toHaveClass('justify-center');
+    expect(
       screen.getByRole('heading', { name: 'First slide' })
     ).toBeInTheDocument();
     expect(carousel.querySelectorAll('[data-slide-index]')).toHaveLength(1);

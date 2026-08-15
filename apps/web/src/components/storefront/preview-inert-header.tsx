@@ -170,7 +170,11 @@ export function PreviewInertHeader({
             Search
           </button>
         ) : null}
-        {showAccount ? <InertHeaderAction>Account</InertHeaderAction> : null}
+        {showAccount ? (
+          <InertHeaderAction className="hidden sm:inline-flex">
+            Account
+          </InertHeaderAction>
+        ) : null}
         {showCart ? <InertHeaderAction>Cart</InertHeaderAction> : null}
         {showMenu ? <InertHeaderAction>Menu</InertHeaderAction> : null}
         {ctaButton?.show ? (
