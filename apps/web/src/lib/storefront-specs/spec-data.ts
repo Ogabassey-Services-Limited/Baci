@@ -1,4 +1,5 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
+import { resolveSupportedStorefrontProductCategoryRelation } from '@/lib/storefront-product-category-name';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
 import { mergeSpecSections } from './merge-spec-sections';
@@ -73,17 +74,26 @@ function getFirstSupportedFallbackValue(...values: unknown[]) {
   return item?.value;
 }
 
+function resolveSchemaCategoryRelation(
+  source: Pick<SpecDataSource, 'categories' | 'category' | 'category_slug'>
+) {
+  return Array.isArray(source.categories)
+    ? resolveSupportedStorefrontProductCategoryRelation(source.categories)
+    : source.categories;
+}
+
 function filterPdpSpecItems(
   items: ProductSpecItem[],
   section: string,
-  categoryName: string,
+  source: Pick<SpecDataSource, 'categories' | 'category' | 'category_slug'>,
   productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
   return items.filter((item) =>
     shouldIncludeProductSchemaSpec(
       {
-        category: categoryName,
-        categories: null,
+        category: source.category,
+        categories: resolveSchemaCategoryRelation(source),
+        category_slug: source.category_slug,
         product_key_specs: productKeySpecs ?? undefined,
       },
       { label: item.label, section, value: item.value }
@@ -93,7 +103,7 @@ function filterPdpSpecItems(
 
 function filterPdpLegacySpecifications(
   sections: ProductSpecSection[],
-  categoryName: string,
+  source: Pick<SpecDataSource, 'categories' | 'category' | 'category_slug'>,
   classificationName: string,
   productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
@@ -113,7 +123,7 @@ function filterPdpLegacySpecifications(
     const items = filterPdpSpecItems(
       section.items,
       section.category,
-      categoryName,
+      source,
       productKeySpecs
     );
 
@@ -164,7 +174,7 @@ function buildGeneralFallbackSpecs(
 
   return filterPdpLegacySpecifications(
     [{ category: 'General', items }],
-    categoryName,
+    source,
     classificationName,
     source.product_key_specs
   );
@@ -221,19 +231,19 @@ export function buildProductSpecData(source: SpecDataSource) {
 
   const detailedSpecifications = filterPdpLegacySpecifications(
     normalizedDetailedSpecs,
-    sourceCategoryName,
+    source,
     sourceClassificationName,
     source.product_key_specs
   );
   const legacySpecifications = filterPdpLegacySpecifications(
     normalizedLegacySpecifications,
-    sourceCategoryName,
+    source,
     sourceClassificationName,
     source.product_key_specs
   );
   const descriptionSpecifications = filterPdpLegacySpecifications(
     descriptionKeySpecs,
-    sourceCategoryName,
+    source,
     sourceClassificationName,
     source.product_key_specs
   );
@@ -262,7 +272,7 @@ export function buildProductSpecData(source: SpecDataSource) {
   const summarySpecifications = filterPdpSpecItems(
     normalizedSummarySpecs,
     'General',
-    sourceCategoryName,
+    source,
     source.product_key_specs
   );
 

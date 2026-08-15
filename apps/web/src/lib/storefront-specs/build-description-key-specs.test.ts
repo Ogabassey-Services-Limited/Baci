@@ -36,6 +36,14 @@ describe('buildDescriptionKeySpecs', () => {
     ).toEqual([]);
   });
 
+  it('ignores tables from later sections after a Key Specs heading', () => {
+    expect(
+      buildDescriptionKeySpecs(
+        '<h2>Key Specs</h2><ul><li>48MP main camera</li></ul><h2>Size chart</h2><table><tr><th>Size</th><th>Chest</th></tr><tr><td>S</td><td>36 in</td></tr></table>'
+      )
+    ).toEqual([]);
+  });
+
   it('ignores descriptions without a complete table', () => {
     expect(buildDescriptionKeySpecs('<p>No key table</p>')).toEqual([]);
     expect(

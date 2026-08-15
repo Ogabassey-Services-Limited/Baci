@@ -255,4 +255,44 @@ describe('buildProductSpecData camera families', () => {
       expect.arrayContaining([{ label: 'Storage', value: '8GB' }])
     );
   });
+
+  it('filters legacy specs using joined category slug when display name is non-taxonomy', () => {
+    const result = buildProductSpecData({
+      categories: { name: '相机', slug: 'action-cameras' },
+      specifications: [
+        {
+          category: 'Main Camera',
+          items: [{ label: 'Main Camera', value: '48MP' }],
+        },
+      ],
+    });
+
+    expect(result.detailedSpecs).toEqual([
+      {
+        category: 'Main Camera',
+        items: [{ label: 'Main Camera', value: '48MP' }],
+      },
+    ]);
+  });
+
+  it('prefers internal storage capacity over card slot type in summary specs', () => {
+    const result = buildProductSpecData({
+      category: 'Cameras',
+      product_key_specs: {
+        card_slot_type: 'CFexpress Type B',
+        storage_gb: 64,
+      },
+      specifications: [
+        {
+          category: 'Storage',
+          items: [
+            { label: 'Card Slot', value: 'CFexpress Type B' },
+            { label: 'Internal Storage', value: '64GB' },
+          ],
+        },
+      ],
+    });
+
+    expect(result.specs).toContainEqual({ label: 'Storage', value: '64GB' });
+  });
 });

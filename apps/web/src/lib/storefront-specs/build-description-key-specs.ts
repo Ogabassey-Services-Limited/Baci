@@ -14,8 +14,20 @@ export function buildDescriptionKeySpecs(
   if (keySpecsHeadingIndex < 0) {
     return [];
   }
-  const tableSource = description.slice(keySpecsHeadingIndex);
-  const tableMatch = tableSource.match(/<table[\s\S]*?<\/table>/i);
+  const fromKeySpecs = description.slice(keySpecsHeadingIndex);
+  const headingEndMatch = fromKeySpecs.match(
+    /^<h[1-6][^>]*>\s*Key Specs(?: at a Glance)?\s*<\/h[1-6]>/i
+  );
+  if (!headingEndMatch) {
+    return [];
+  }
+  const afterHeadingContent = fromKeySpecs.slice(headingEndMatch[0].length);
+  const nextHeadingIndex = afterHeadingContent.search(/<h[1-6][^>]*>/i);
+  const boundedContent =
+    nextHeadingIndex >= 0
+      ? afterHeadingContent.slice(0, nextHeadingIndex)
+      : afterHeadingContent;
+  const tableMatch = boundedContent.match(/<table[\s\S]*?<\/table>/i);
 
   if (!tableMatch) {
     return [];

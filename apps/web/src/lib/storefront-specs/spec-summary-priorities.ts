@@ -34,8 +34,8 @@ export const SUMMARY_SPEC_PRIORITIES = [
     candidates: [
       ['Memory', 'Internal Storage'],
       ['General', 'Storage'],
-      ['Storage', 'Card Slot'],
       ['Storage', 'Internal Storage'],
+      ['Storage', 'Card Slot'],
       ['Storage and performance', 'Storage'],
       ['Storage and media', 'Media'],
       ['Power, storage and connectivity', 'Storage'],

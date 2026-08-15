@@ -70,6 +70,34 @@ describe('mergeSpecSections', () => {
     ]);
   });
 
+  it('keeps section context when deduplicating generic key specs', () => {
+    expect(
+      mergeSpecSections(
+        [
+          {
+            category: 'Imaging',
+            items: [{ label: 'Resolution', value: '12MP' }],
+          },
+        ],
+        [
+          {
+            category: 'Key Specs',
+            items: [{ label: 'Display Resolution', value: '4K' }],
+          },
+        ]
+      )
+    ).toEqual([
+      {
+        category: 'Imaging',
+        items: [{ label: 'Resolution', value: '12MP' }],
+      },
+      {
+        category: 'Key Specs',
+        items: [{ label: 'Display Resolution', value: '4K' }],
+      },
+    ]);
+  });
+
   it('retains a unique generic fact when stored sections have legitimate same-label facts', () => {
     expect(
       mergeSpecSections(

@@ -31,10 +31,17 @@ export function mergeSpecSections(...sections: ProductSpecSection[][]) {
       const incomingItems =
         sectionGroupIndex > 0 && isGenericSpecSection(section.category)
           ? section.items.filter((item) => {
-              const visibleItems = merged.flatMap((entry) => entry.items);
+              const visibleItems = merged.flatMap((entry) =>
+                entry.items.map((visibleItem) => ({
+                  item: visibleItem,
+                  section: entry.category,
+                }))
+              );
               return visibleItems.every(
-                (visibleItem) =>
-                  dedupeSpecItems([visibleItem, item]).length === 2
+                ({ item: visibleItem, section: visibleSection }) =>
+                  dedupeSpecItems([visibleItem, item], {
+                    section: visibleSection,
+                  }).length === 2
               );
             })
           : section.items;
