@@ -8,7 +8,10 @@
 
 - Implementation commit: `be3b0efcfcf13e675a66f754d36d7a09c2d97a76`
 - Review: spec pass; quality pass with minor wording/count concerns.
-- Documentation correction: `ee9c7234cc0717e132b7318d6f4e99a1b0c14f84` records the historical 156-line plan length at that correction; the current amended plan is 162 lines.
+- Documentation correction: the normative V4 contract/index is restored and
+  unchanged at `3503ca9613b6a511b2e37fb3d35b48830d19e8559e7e3c5df136487fce9efdca`;
+  the prep document is a non-normative owner-authorized note with no phase-index
+  row. The current note is 110 lines.
 
 ## Tasks 1–2 — hero identity and preload projection
 
@@ -29,4 +32,4 @@
 - Full monorepo test attempt: 28,847 web tests passed; two unrelated validation tests failed because the sparse worktree omitted `scripts/` and `scripts-tmp/`, and because the then-untracked ledger made a clean-worktree guard refuse execution.
 - Validation-environment reconciliation: the missing tracked paths were added to the sparse checkout and this ledger was committed. Exact reruns then passed: `verify-event-pipeline-boundaries.live.test.ts` 1/1 and `cloudflare-evidence-process-isolation.test.ts` 1/1.
 - Frozen-input reconciliation: the recorded base and contract remain unchanged in this ledger; no re-freeze was requested.
-- Current prep plan length is 162 lines after the seven-file/four-suite amendment.
+- Current prep note length is 110 lines; it remains outside the normative phase index.
