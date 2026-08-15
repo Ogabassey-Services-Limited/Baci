@@ -3,42 +3,51 @@ import { resolveStorefrontProductPurgeCategorySlug } from './storefront-product-
 
 describe('resolveStorefrontProductPurgeCategorySlug', () => {
   it('keeps an active direct category ahead of junction categories', () => {
-    expect(
-      resolveStorefrontProductPurgeCategorySlug({
-        categories: { is_active: true, slug: 'direct-category' },
-        productCategories: [
-          { category_id: 'category-a', categories: { slug: 'junction-category' } },
-        ],
-      })
-    ).toBe('direct-category');
+    const input = {
+      categories: { is_active: true, slug: 'direct-category' },
+      productCategories: [
+        {
+          category_id: 'category-a',
+          categories: { slug: 'junction-category' },
+        },
+      ],
+    };
+
+    const result = resolveStorefrontProductPurgeCategorySlug(input);
+
+    expect(result).toBe('direct-category');
   });
 
   it('skips an inactive direct category and chooses the lowest active junction id', () => {
-    expect(
-      resolveStorefrontProductPurgeCategorySlug({
-        categories: { is_active: false, slug: 'retired-category' },
-        productCategories: [
-          {
-            category_id: 'category-z',
-            categories: { is_active: true, slug: 'z-category' },
-          },
-          {
-            category_id: 'category-a',
-            categories: { is_active: true, slug: 'a-category' },
-          },
-        ],
-      })
-    ).toBe('a-category');
+    const input = {
+      categories: { is_active: false, slug: 'retired-category' },
+      productCategories: [
+        {
+          category_id: 'category-z',
+          categories: { is_active: true, slug: 'z-category' },
+        },
+        {
+          category_id: 'category-a',
+          categories: { is_active: true, slug: 'a-category' },
+        },
+      ],
+    };
+
+    const result = resolveStorefrontProductPurgeCategorySlug(input);
+
+    expect(result).toBe('a-category');
   });
 
   it('preserves input order only when junction rows have no category id', () => {
-    expect(
-      resolveStorefrontProductPurgeCategorySlug({
-        productCategories: [
-          { categories: { slug: 'first-category' } },
-          { categories: { slug: 'second-category' } },
-        ],
-      })
-    ).toBe('first-category');
+    const input = {
+      productCategories: [
+        { categories: { slug: 'first-category' } },
+        { categories: { slug: 'second-category' } },
+      ],
+    };
+
+    const result = resolveStorefrontProductPurgeCategorySlug(input);
+
+    expect(result).toBe('first-category');
   });
 });
