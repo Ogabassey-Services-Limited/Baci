@@ -25,7 +25,7 @@ describe('ADMIN_PLATFORM_PENDING_SOURCES', () => {
     const sources = parseSources(ADMIN_PLATFORM_PENDING_SOURCES);
 
     expect(sources).toEqual(expectedSources);
-    expect(sources).toHaveLength(91);
+    expect(sources).toHaveLength(92);
     expect(sources[0]?.repositoryPath).toBe(
       'supabase/migrations/20260805150000_platform_admin_rbac.sql'
     );

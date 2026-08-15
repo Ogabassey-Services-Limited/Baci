@@ -156,6 +156,11 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260814149999_prepare_wallet_summary_projection_replay.sql',
+    sha256: 'b1028d12d9c13c60c98f6d733de8fe4892c2430b26ae4560b51b7fb97b107b79',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260814150000_project_wallet_settings_in_summary_rpc.sql',
     sha256: '26d6077689fcca148a7be46fcdafeb4e58006dfa4f121539578544df0443f838',
   },
