@@ -51,17 +51,26 @@ function isSpecSentence(sentence: string): boolean {
   }
 
   // Feature lines like "Storage: 2TB SSD" vs "Display: See every detail..."
-  const match = trimmed.match(
+  const knownLabelMatch = trimmed.match(
     /^(?:storage|ram|color|colour|condition|platform|display|battery|camera|processor|gpu|sim\s*type|connectivity|warranty):\s*(.+)$/i
   );
-  if (!match) {
-    return false;
+  if (knownLabelMatch) {
+    const value = knownLabelMatch[1].trim();
+    if (!value) return true;
+
+    return isSpecValue(value);
   }
 
-  const value = match[1].trim();
-  if (!value) return true;
+  // Unmatched catalog labels such as Brand: Apple route through isSpecValue.
+  const catalogLabelMatch = trimmed.match(/^([A-Za-z][\w\s-]*):\s*(.+)$/);
+  if (catalogLabelMatch) {
+    const value = catalogLabelMatch[2].trim();
+    if (!value) return true;
 
-  return isSpecValue(value);
+    return isSpecValue(value);
+  }
+
+  return false;
 }
 
 function isProductTitleSentence(sentence: string): boolean {
@@ -92,9 +101,10 @@ function isProductTitleSentence(sentence: string): boolean {
 
   // Catalog model lines such as iPhone 15 Pro Max or Dell XPS 16 9650.
   if (
-    /\b[A-Za-z][\w&-]*\s+(?:\d+[A-Za-z]?|[A-Z]{2,})(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)?/i.test(
+    /\b[A-Za-z][\w&-]*\s+\d+[A-Za-z]?(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)*/i.test(
       trimmed
-    )
+    ) ||
+    /\b[A-Z][\w&-]*\s+[A-Z]{2,}\b/.test(trimmed)
   ) {
     return true;
   }
@@ -115,7 +125,10 @@ function filterProseText(text: string): string {
   const sentences = text
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !isSpecSentence(s));
+    .filter(
+      (s) =>
+        s.length > 0 && !isSpecSentence(s) && !isProductTitleSentence(s)
+    );
   return sentences.join(' ');
 }
 

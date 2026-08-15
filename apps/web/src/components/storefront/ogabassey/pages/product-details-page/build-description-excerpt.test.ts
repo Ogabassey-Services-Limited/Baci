@@ -94,6 +94,27 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('filters unmatched catalog label metadata from "Why Worth" paragraph', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Incredible speed and battery life. Brand: Apple. Storage: 2TB.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Incredible speed and battery life.');
+  });
+
+  it('filters product titles from paragraph branches before returning prose', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>iPhone 15 Pro Max. Incredible speed and battery life.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Incredible speed and battery life.');
+  });
+
+  it('filters product titles from the second-paragraph branch before returning prose', () => {
+    const html =
+      '<p>First paragraph.</p><p>Dell XPS 16 9650. Built for reliable all-day performance.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('returns the full text without appending "..." when the match is 200 chars or fewer', () => {
     const shortText = '<h2>Why It Worth</h2><p>Short benefit text.</p>';
     const result = buildDescriptionExcerpt(shortText);
