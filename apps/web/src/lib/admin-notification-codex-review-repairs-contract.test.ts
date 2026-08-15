@@ -40,4 +40,11 @@ describe('admin notification codex review repairs contract', () => {
     expect(deliveryWorker).toContain("status: 'retry'");
     expect(deliveryWorker).not.toContain('if (!notification) throw error');
   });
+
+  it('defers mixed-channel quiet-hour pushes so the parent stays claimable', () => {
+    expect(deliveryWorker).toContain(
+      "await finalize(client, notification, 'deferred')"
+    );
+    expect(deliveryWorker).not.toContain('hasVisibleDeliveryChannels');
+  });
 });

@@ -114,7 +114,7 @@ describe('processScheduledNotificationClaims', () => {
     vi.unstubAllGlobals();
   });
 
-  it('finalizes visible channels as sent when quiet-hour pushes are deferred', async () => {
+  it('defers mixed-channel broadcasts so quiet-hour pushes stay claimable', async () => {
     vi.stubGlobal('Deno', { env: { get: () => undefined } });
     const claim = {
       action_url: null,
@@ -172,7 +172,7 @@ describe('processScheduledNotificationClaims', () => {
     const results = await processScheduledNotificationClaims(client, [claim]);
 
     expect(results).toEqual([
-      { id: claim.id, recipients: 1, status: 'sent' },
+      { id: claim.id, recipients: 1, status: 'deferred' },
     ]);
     expect(calls).toContainEqual({
       args: expect.objectContaining({
@@ -181,11 +181,11 @@ describe('processScheduledNotificationClaims', () => {
       name: 'create_claimed_admin_notification_recipients_v1',
     });
     expect(calls).toContainEqual({
-      args: expect.objectContaining({ p_outcome: 'sent' }),
+      args: expect.objectContaining({ p_outcome: 'deferred' }),
       name: 'finalize_scheduled_admin_notification_v1',
     });
     expect(calls).not.toContainEqual({
-      args: expect.objectContaining({ p_outcome: 'deferred' }),
+      args: expect.objectContaining({ p_outcome: 'sent' }),
       name: 'finalize_scheduled_admin_notification_v1',
     });
     vi.unstubAllGlobals();
