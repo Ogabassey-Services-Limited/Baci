@@ -50,7 +50,7 @@ describe('useQuizStore reset and explicit errors', () => {
   });
 
   it('resets every v2 field even if recovery storage rejects cleanup', async () => {
-    jest
+    const removeItem = jest
       .spyOn(asyncStorage, 'removeItem')
       .mockRejectedValueOnce(new Error('disk'));
     useQuizStore.setState({
@@ -88,6 +88,7 @@ describe('useQuizStore reset and explicit errors', () => {
       v2LifecycleStatus: 'idle',
       v2Result: null,
     });
+    removeItem.mockRestore();
   });
 
   it('retains pending-result recovery through an auth reset', async () => {
