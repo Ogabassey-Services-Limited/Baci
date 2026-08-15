@@ -29,6 +29,7 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
   },
   computer: {
     processor: 'Processor',
+    recommended_for: 'Recommended for',
   },
   camera: {
     has_ois: 'OIS',
@@ -37,6 +38,7 @@ const FAMILY_CONTEXT_SPEC_LABELS: Record<
   general: {
     format: 'Format',
     platform: 'Platform',
+    recommended_for: 'Recommended for',
   },
 };
 const DEPRIORITIZED_CONTEXT_PRIORITY_KEYS = new Set([
@@ -73,6 +75,7 @@ const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
   },
   computer: {
     processor: 0,
+    recommended_for: 1,
   },
   camera: {
     has_ois: 0,
@@ -81,6 +84,7 @@ const FAMILY_CONTEXT_SPEC_PRIORITIES: Record<
   general: {
     format: 0,
     platform: 1,
+    recommended_for: 2,
   },
 };
 function normalizeText(value: unknown): string | null {

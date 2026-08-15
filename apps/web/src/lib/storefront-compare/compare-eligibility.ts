@@ -79,9 +79,16 @@ export function canPublishProductComparePage(input: {
   );
 }
 
+function normalizeComparableArray(value: unknown[]) {
+  return value.map(String).sort((left, right) => left.localeCompare(right));
+}
+
 function compareProductKeySpecValues(left: unknown, right: unknown) {
   if (Array.isArray(left) && Array.isArray(right)) {
-    return JSON.stringify(left) !== JSON.stringify(right);
+    return (
+      JSON.stringify(normalizeComparableArray(left)) !==
+      JSON.stringify(normalizeComparableArray(right))
+    );
   }
 
   return left !== right;

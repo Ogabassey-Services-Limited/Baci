@@ -14,23 +14,45 @@ const VERIFIED_SOUND_FIELDS: SpecField[] = [
   },
 ];
 
+function isDashCamCategory(categoryName?: string) {
+  if (!categoryName) {
+    return false;
+  }
+
+  return /\bdash cams?\b/i.test(categoryName.trim());
+}
+
+function buildImagingFields(categoryName?: string): SpecField[] {
+  const fields: SpecField[] = [
+    {
+      key: 'main_camera_mp',
+      label: 'Effective Resolution',
+      transform: (value: unknown) => `${value}MP`,
+    },
+    {
+      key: 'has_ois',
+      label: 'OIS',
+      transform: (value: unknown) => (value === true ? 'Yes' : 'No'),
+    },
+    { key: 'rear_camera_features', label: 'Camera Features' },
+    { key: 'rear_camera_video', label: 'Video Recording' },
+  ];
+
+  if (isDashCamCategory(categoryName)) {
+    fields.unshift({
+      key: 'front_camera_mp',
+      label: 'Front Camera',
+      transform: (value: unknown) => `${value}MP`,
+    });
+  }
+
+  return fields;
+}
+
 const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
   {
     category: 'Imaging',
-    fields: [
-      {
-        key: 'main_camera_mp',
-        label: 'Effective Resolution',
-        transform: (value: unknown) => `${value}MP`,
-      },
-      {
-        key: 'has_ois',
-        label: 'OIS',
-        transform: (value: unknown) => (value === true ? 'Yes' : 'No'),
-      },
-      { key: 'rear_camera_features', label: 'Camera Features' },
-      { key: 'rear_camera_video', label: 'Video Recording' },
-    ],
+    fields: buildImagingFields(),
   },
   {
     category: 'Display',
@@ -125,6 +147,14 @@ const CAMERA_KEY_SPEC_CATEGORIES: SpecCategory[] = [
   },
 ];
 
-export function getCameraKeySpecCategoryProjection() {
-  return CAMERA_KEY_SPEC_CATEGORIES;
+export function getCameraKeySpecCategoryProjection(categoryName?: string) {
+  if (!categoryName) {
+    return CAMERA_KEY_SPEC_CATEGORIES;
+  }
+
+  return CAMERA_KEY_SPEC_CATEGORIES.map((category) =>
+    category.category === 'Imaging'
+      ? { ...category, fields: buildImagingFields(categoryName) }
+      : category
+  );
 }

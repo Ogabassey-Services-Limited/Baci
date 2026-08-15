@@ -197,4 +197,22 @@ describe('buildProductContextSpecFacts', () => {
       )
     ).toEqual(['Recommended for: Photography, Travel']);
   });
+
+  it('preserves production recommendation arrays for general-family products', () => {
+    expect(
+      buildProductContextSpecFacts(
+        { recommended_for: ['Gamers', 'Students'] },
+        'Gaming'
+      )
+    ).toEqual(['Recommended for: Gamers, Students']);
+  });
+
+  it('preserves production recommendation arrays for computer-family products', () => {
+    expect(
+      buildProductContextSpecFacts(
+        { recommended_for: ['Business users'] },
+        'Laptops'
+      )
+    ).toEqual(['Recommended for: Business users']);
+  });
 });

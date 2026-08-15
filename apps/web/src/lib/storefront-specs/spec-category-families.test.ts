@@ -117,4 +117,30 @@ describe('category-specific key spec families', () => {
       expect.arrayContaining(['charging_watt', 'battery_mah', 'dimensions_mm'])
     );
   });
+
+  it('provides cellular network fields for network-device categories', () => {
+    const fields = getKeySpecCategoriesForFamily('general', 'Cellular Routers')
+      .flatMap((category) => category.fields)
+      .map((field) => field.key);
+
+    expect(fields).toEqual(
+      expect.arrayContaining(['network_technology', 'sim_type', 'has_5g'])
+    );
+    expect(fields).not.toEqual(
+      expect.arrayContaining(['main_camera_mp', 'ram_gb', 'fingerprint_type'])
+    );
+  });
+
+  it('projects dash-cam front cameras through the camera family', () => {
+    const fields = getKeySpecCategoriesForFamily('camera', 'Dash Cams')
+      .flatMap((category) => category.fields)
+      .map((field) => field.key);
+
+    expect(fields).toContain('front_camera_mp');
+    expect(
+      getKeySpecCategoriesForFamily('camera', 'Action Cameras')
+        .flatMap((category) => category.fields)
+        .map((field) => field.key)
+    ).not.toContain('front_camera_mp');
+  });
 });

@@ -8,10 +8,11 @@ import {
 } from './spec-taxonomy';
 
 export function getKeySpecCategoryProjection(
-  family: Exclude<ProductSpecFamily, 'general'> | 'general-supported'
+  family: Exclude<ProductSpecFamily, 'general'> | 'general-supported',
+  categoryName?: string
 ): SpecCategory[] {
   if (family === 'camera') {
-    return getCameraKeySpecCategoryProjection();
+    return getCameraKeySpecCategoryProjection(categoryName);
   }
 
   if (family === 'computer') {
