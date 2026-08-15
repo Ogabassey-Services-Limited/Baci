@@ -143,5 +143,16 @@ describe('external storefront media inventory', () => {
         }),
       })
     );
+    expect(
+      byId.get('automatic-subresource:device-swap-whatsapp-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/swap.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_whatsapp_origin',
+        }),
+      })
+    );
   });
 });

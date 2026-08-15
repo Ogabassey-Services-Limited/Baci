@@ -7,7 +7,10 @@ import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-po
 import { readStorefrontEdgeSourceAuthority } from './storefront-edge-source-authority';
 
 const temporaryRoots: string[] = [];
-const routeRoot = 'apps/web/src/app/(storefront)/[slug]';
+const routeRoots = [
+  'apps/web/src/app/(storefront)/[slug]',
+  'apps/web/src/app/(storefront)/ogabassey',
+] as const;
 const apiRoot = 'apps/web/src/app/api';
 
 afterEach(async () => {
@@ -27,7 +30,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
         apiRoot,
         originMainSha: '--help',
         repoRoot: '/path/that/does/not/exist',
-        routeRoot,
+        routeRoots,
         routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
       });
     } catch (error) {
@@ -52,7 +55,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
       apiRoot,
       originMainSha,
       repoRoot,
-      routeRoot,
+      routeRoots,
       routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
     });
 
@@ -62,7 +65,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
       'apps/web/src/app/api/orders/[id]/route.ts',
       'apps/web/src/app/api/orders/route.ts',
     ]);
-    expect(snapshot.routeSources).toHaveLength(80);
+    expect(snapshot.routeSources).toHaveLength(96);
     expect(snapshot.routingInputSources).toHaveLength(
       STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths.length
     );
@@ -84,7 +87,7 @@ describe('readStorefrontEdgeSourceAuthority', () => {
         apiRoot,
         originMainSha,
         repoRoot,
-        routeRoot,
+        routeRoots,
         routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
       })
     ).rejects.toThrow('source tree does not match the approved commit');

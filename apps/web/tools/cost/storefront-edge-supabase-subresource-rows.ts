@@ -94,25 +94,25 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
     supabaseSubresource(
       'auth-signup',
       '/auth/v1/signup',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       OGA_CHECKOUT_SOURCE
     ),
     supabaseSubresource(
       'auth-password-token',
       '/auth/v1/token',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       CHECKOUT_IDENTITY_SOURCE
     ),
     supabaseSubresource(
       'auth-password-token-auth-modal',
       '/auth/v1/token',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       CHECKOUT_AUTH_SOURCE
     ),
     supabaseSubresource(
       'auth-password-token-ogabassey',
       '/auth/v1/token',
-      ['POST'],
+      ['POST', 'OPTIONS'],
       OGA_CHECKOUT_IDENTITY_SOURCE
     ),
   ];

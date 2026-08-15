@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "2a0785755a67e166364fec3946d6e30783999d25",
+  "originMainSha": "996d2b445a939d6e733fb88bd25c7afc5e369302",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
-  "routeTreeSha256": "9e997df487a933d1a668d858b216fe91af903d6d8a4e4fcb285b199ec2e403e6",
-  "routingProxyInputSha256": "1f962c6f8686bf55adb1751d1cf900e78fad8153deaf6eb25f8581099a48f139",
+  "routeTreeSha256": "43a7f584208d1420bec1ba0b726df4afc64ba2e0dfc563f62878ac90903d75ef",
+  "routingProxyInputSha256": "3a7640ecf8b9c8c518089891676b7c718b57a181582ec810b6409fed75103a55",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -1539,64 +1539,6 @@
       "sourcePath": "apps/web/src/proxy.ts"
     },
     {
-      "decision": "origin_dynamic",
-      "id": "request-override:markdown-negotiation-root",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_markdown_content_negotiation_rewrite",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "accept",
-            "value": "text/markdown"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/",
-      "sourceKind": "request_override",
-      "sourcePath": "apps/web/next.config.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "request-override:markdown-negotiation-storefront",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_markdown_content_negotiation_rewrite",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "accept",
-            "value": "text/markdown"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}",
-      "pathCondition": {
-        "firstSegmentNotIn": [
-          "auth.md",
-          "openapi.json",
-          "agent-commerce.json",
-          "agent-trust.json",
-          "llms.txt",
-          "llms-full.txt",
-          "robots.txt",
-          "api",
-          "_next",
-          ".well-known"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "markdown_negotiation_storefront_excluding_machine"
-      },
-      "sourceKind": "request_override",
-      "sourcePath": "apps/web/next.config.ts"
-    },
-    {
       "decision": "edge_redirect",
       "id": "proxy:retired-slug-machine-path",
       "methods": [
@@ -1897,7 +1839,8 @@
       },
       "id": "automatic-subresource:supabase-auth-signup",
       "methods": [
-        "POST"
+        "POST",
+        "OPTIONS"
       ],
       "reason": "browser_supabase_query_requires_external_origin",
       "routePattern": "/auth/v1/signup",
@@ -1912,7 +1855,8 @@
       },
       "id": "automatic-subresource:supabase-auth-password-token",
       "methods": [
-        "POST"
+        "POST",
+        "OPTIONS"
       ],
       "reason": "browser_supabase_query_requires_external_origin",
       "routePattern": "/auth/v1/token",
@@ -1927,7 +1871,8 @@
       },
       "id": "automatic-subresource:supabase-auth-password-token-auth-modal",
       "methods": [
-        "POST"
+        "POST",
+        "OPTIONS"
       ],
       "reason": "browser_supabase_query_requires_external_origin",
       "routePattern": "/auth/v1/token",
@@ -1942,7 +1887,8 @@
       },
       "id": "automatic-subresource:supabase-auth-password-token-ogabassey",
       "methods": [
-        "POST"
+        "POST",
+        "OPTIONS"
       ],
       "reason": "browser_supabase_query_requires_external_origin",
       "routePattern": "/auth/v1/token",
@@ -2509,6 +2455,22 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/analytics/twitter-pixel.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_whatsapp_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:device-swap-whatsapp-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/swap.tsx"
     },
     {
       "decision": "edge_release",
@@ -3728,6 +3690,64 @@
         ],
         "precedence": "before_path_decision"
       }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:markdown-negotiation-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_markdown_content_negotiation_rewrite",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "accept",
+            "value": "text/markdown"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/",
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:markdown-negotiation-storefront",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_markdown_content_negotiation_rewrite",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "accept",
+            "value": "text/markdown"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}",
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "auth.md",
+          "openapi.json",
+          "agent-commerce.json",
+          "agent-trust.json",
+          "llms.txt",
+          "llms-full.txt",
+          "robots.txt",
+          "api",
+          "_next",
+          ".well-known"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "markdown_negotiation_storefront_excluding_machine"
+      },
+      "sourceKind": "request_override",
+      "sourcePath": "apps/web/next.config.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -7787,5 +7807,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "836128c79fe9ddcd5acfb4111be57e628a3720ed0376b2b96e77199e3269ef9c"
+  "inventorySha256": "88301053a0badba8729e0f13b76a05d6802d90090b754e066365bf3ae2a5264e"
 }

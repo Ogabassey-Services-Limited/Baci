@@ -23,6 +23,7 @@ type MediaDestinationHostKind =
   | 'configured_tiktok_origin'
   | 'configured_snapchat_origin'
   | 'configured_twitter_origin'
+  | 'configured_whatsapp_origin'
   | 'configured_supabase_storage_origin';
 
 const mediaSubresource = (
@@ -214,5 +215,10 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'twitter',
     'configured_twitter_origin',
     'apps/web/src/components/analytics/twitter-pixel.tsx'
+  ),
+  mediaSubresource(
+    'device-swap-whatsapp-navigation',
+    'configured_whatsapp_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/swap.tsx'
   ),
 ];

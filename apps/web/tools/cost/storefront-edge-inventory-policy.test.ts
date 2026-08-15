@@ -161,6 +161,20 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(draftIndex).toBeGreaterThan(lastProxyIndex);
   });
 
+  it('applies markdown negotiation only after proxy host and path classes', () => {
+    const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
+    const markdownIndex = rows.findIndex((row) =>
+      row.id.startsWith('request-override:markdown-negotiation')
+    );
+    const lastProxyIndex = rows.reduce(
+      (latest, row, index) =>
+        row.sourceKind === 'proxy_path_class' ? index : latest,
+      -1
+    );
+
+    expect(markdownIndex).toBeGreaterThan(lastProxyIndex);
+  });
+
   it('excludes machine rewrite paths from markdown storefront negotiation', () => {
     const row = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows.find(
       ({ id }) => id === 'request-override:markdown-negotiation-storefront'

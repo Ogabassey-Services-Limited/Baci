@@ -20,7 +20,11 @@ type CreateInventoryOptions = Readonly<{
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 
-const ROUTE_ROOT = 'apps/web/src/app/(storefront)/[slug]';
+const ROUTE_ROOTS = [
+  'apps/web/src/app/(storefront)/[slug]',
+  'apps/web/src/app/(storefront)/ogabassey',
+] as const;
+const ROUTE_ROOT = ROUTE_ROOTS[0];
 const API_ROOT = 'apps/web/src/app/api';
 
 const sha256 = (value: string | Buffer) =>
@@ -90,12 +94,14 @@ export async function createStorefrontEdgeInventory(
       apiRoot: API_ROOT,
       originMainSha,
       repoRoot,
-      routeRoot: ROUTE_ROOT,
+      routeRoots: [...ROUTE_ROOTS],
       routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
     });
   const entrypointRows = createStorefrontEdgeEntrypointRows(
     ROUTE_ROOT,
-    routeSources
+    routeSources.filter(({ sourcePath }) =>
+      sourcePath.startsWith(`${ROUTE_ROOT}/`)
+    )
   );
   const apiRows = createStorefrontEdgeApiRows(
     API_ROOT,

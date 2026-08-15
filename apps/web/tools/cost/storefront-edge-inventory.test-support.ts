@@ -53,6 +53,32 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     join(blogPostRoot, 'view-counter.tsx'),
     "'use client';\nexport function ViewCounter() { return null; }\n"
   );
+  const siblingRouteRoot = join(
+    repoRoot,
+    'apps/web/src/app/(storefront)/ogabassey'
+  );
+  const siblingRouteSources = [
+    'emit-ogabassey-image-preload.ts',
+    'ogabassey-home-dynamic-content.tsx',
+    'ogabassey-home-hero-resource-hints.ts',
+    'ogabassey-home-hero-shell-data.ts',
+    'ogabassey-home-launch-products.ts',
+    'ogabassey-home-page-content.tsx',
+    'ogabassey-home-product-adapter.ts',
+    'ogabassey-home-style-loader.tsx',
+    'ogabassey-image-preload-type.ts',
+    'ogabassey-pdp-product-lcp-skeleton.tsx',
+    'ogabassey-pdp-product-resource-hints.ts',
+    'ogabassey-pdp-static-resource-hints.tsx',
+    'ogabassey-publication-safe-hero-fallback.tsx',
+    'ogabassey-static-home-page-content.tsx',
+    'ogabassey-static-resource-hints.tsx',
+    'resource-hint-test-utils.ts',
+  ] as const;
+  await mkdir(siblingRouteRoot, { recursive: true });
+  for (const source of siblingRouteSources) {
+    await writeFile(join(siblingRouteRoot, source), `// ${source}\n`);
+  }
   for (const input of STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths) {
     const path = join(repoRoot, input);
     await mkdir(join(path, '..'), { recursive: true });

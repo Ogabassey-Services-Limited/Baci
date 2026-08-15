@@ -13,7 +13,7 @@ type SourceAuthorityOptions = Readonly<{
   apiRoot: string;
   originMainSha: string;
   repoRoot: string;
-  routeRoot: string;
+  routeRoots: readonly string[];
   routingInputPaths: readonly string[];
 }>;
 
@@ -106,7 +106,9 @@ export async function readStorefrontEdgeSourceAuthority(
   options: SourceAuthorityOptions
 ) {
   const apiRoot = options.apiRoot.replace(/\/$/, '');
-  const routeRoot = options.routeRoot.replace(/\/$/, '');
+  const routeRoots = options.routeRoots.map((routeRoot) =>
+    routeRoot.replace(/\/$/, '')
+  );
   if (!/^[a-f0-9]{40}$/i.test(options.originMainSha))
     throw new Error('source tree does not match the approved commit');
   try {
@@ -119,12 +121,14 @@ export async function readStorefrontEdgeSourceAuthority(
         options.originMainSha,
         '--',
         apiRoot,
-        routeRoot,
+        ...routeRoots,
         ...options.routingInputPaths,
       ])
     );
     const approvedRouteTree = [...approvedTree.keys()]
-      .filter((sourcePath) => sourcePath.startsWith(`${routeRoot}/`))
+      .filter((sourcePath) =>
+        routeRoots.some((routeRoot) => sourcePath.startsWith(`${routeRoot}/`))
+      )
       .filter(isIncludedRouteSource)
       .sort();
     const approvedApiTree = [...approvedTree.keys()]
@@ -137,11 +141,15 @@ export async function readStorefrontEdgeSourceAuthority(
         resolve(options.repoRoot, apiRoot),
         isIncludedApiSource
       ),
-      listCurrentSources(
-        options.repoRoot,
-        resolve(options.repoRoot, routeRoot),
-        isIncludedRouteSource
-      ),
+      Promise.all(
+        routeRoots.map((routeRoot) =>
+          listCurrentSources(
+            options.repoRoot,
+            resolve(options.repoRoot, routeRoot),
+            isIncludedRouteSource
+          )
+        )
+      ).then((routeTrees) => routeTrees.flat().sort()),
     ]);
     if (JSON.stringify(approvedApiTree) !== JSON.stringify(currentApiTree))
       throw new Error('source tree does not match the approved commit');

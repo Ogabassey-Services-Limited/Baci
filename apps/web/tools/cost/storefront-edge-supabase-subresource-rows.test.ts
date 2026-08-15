@@ -40,7 +40,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
     );
     expect(byId.get('automatic-subresource:supabase-auth-signup')).toEqual(
       expect.objectContaining({
-        methods: ['POST'],
+        methods: ['POST', 'OPTIONS'],
         routePattern: '/auth/v1/signup',
       })
     );
@@ -48,7 +48,7 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
       byId.get('automatic-subresource:supabase-auth-password-token')
     ).toEqual(
       expect.objectContaining({
-        methods: ['POST'],
+        methods: ['POST', 'OPTIONS'],
         routePattern: '/auth/v1/token',
       })
     );
