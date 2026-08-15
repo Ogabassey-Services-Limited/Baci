@@ -9,6 +9,7 @@ import {
   readdir,
   readFile,
   rm,
+  stat,
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -17,6 +18,9 @@ import test from 'node:test';
 import { promisify } from 'node:util';
 
 const root = new URL('.', import.meta.url); const script = new URL('./retire-ollama.sh', root); const execFileAsync = promisify(execFile);
+test('keeps the sealed Task 8 scan entrypoint directly executable', async () => {
+  assert.equal((await stat(script)).mode & 0o777, 0o755);
+});
 test('keeps the scan finite when nginx is not installed', async () => {
   const source = await readFile(new URL('./retire-ollama-consumers.sh', root), 'utf8');
   assert.match(
