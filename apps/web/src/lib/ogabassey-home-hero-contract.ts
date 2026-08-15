@@ -122,13 +122,19 @@ function isMerchantId(value: unknown): value is string {
   return typeof value === 'string' && MERCHANT_ID_PATTERN.test(value);
 }
 
-function isValidProjection(value: OgabasseyHomeHeroProjection): boolean {
+function isValidProjection(
+  value: unknown
+): value is OgabasseyHomeHeroProjection {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const projection = value as OgabasseyHomeHeroProjection;
   return (
-    value.version === 1 &&
-    isMerchantId(value.merchantId) &&
-    Number.isInteger(value.slideCount) &&
-    value.slideCount > 0 &&
-    isValidSlide(value.candidate)
+    projection.version === 1 &&
+    isMerchantId(projection.merchantId) &&
+    Number.isInteger(projection.slideCount) &&
+    projection.slideCount > 0 &&
+    isValidSlide(projection.candidate)
   );
 }
 
@@ -160,6 +166,21 @@ export const ogabasseyHomeHeroContract = {
   assessRenderer(
     input: OgabasseyHomeHeroRendererInput
   ): OgabasseyHomeHeroRendererAssessment {
+    if (!input || typeof input !== 'object') {
+      return { reason: 'publication_mismatch', valid: false };
+    }
+    if (!Array.isArray(input.renderedSlides)) {
+      return { reason: 'rendered_candidate_mismatch', valid: false };
+    }
+    if (
+      !input.requestPublication ||
+      typeof input.requestPublication !== 'object' ||
+      (input.requestPublication.status !== 'published' &&
+        input.requestPublication.status !== 'unpublished' &&
+        input.requestPublication.status !== 'unbound')
+    ) {
+      return { reason: 'publication_mismatch', valid: false };
+    }
     if (!isValidProjection(input.projection)) {
       return { reason: 'rendered_candidate_mismatch', valid: false };
     }

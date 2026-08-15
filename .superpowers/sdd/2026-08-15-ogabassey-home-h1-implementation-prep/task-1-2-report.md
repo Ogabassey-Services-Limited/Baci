@@ -30,24 +30,18 @@ Status: `DONE_WITH_CONCERNS`
 
 ## Validation
 
-- Base: `git rev-parse HEAD` was `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`
-  before the Task 0 documentation commit; the current branch contains only the
-  Task 0 parent commit plus this focused implementation commit.
-- Focused suites (direct shared Vitest binary, equivalent test runner because
-  the sparse worktree lacks one pnpm patch): **3 files, 32 tests passed**.
-- Biome on all five owned runtime/test files: passed.
+- Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; current HEAD
+  is eight commits ahead of `origin/main` and zero commits behind.
+- Focused suites (direct shared Vitest binary with the Node environment override
+  because host jsdom is incompatible): **4 files, 56 tests passed**.
+- Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
-- Runtime/test file lengths: 53, 156, 267, 152, and 84 lines; all are below
-  the 300-line limit.
+- Current runtime/test file lengths: 53, 116, 247, 247, 206, 154, and 94
+  lines; all are below the 300-line limit.
 - Static import review found no route/cache/infra/provider/migration/VPS/
   deployment/proxy imports. The only cache/route wording is explanatory prose.
-- `pnpm --filter @baci/web exec vitest ...` and direct `pnpm exec` were blocked
-  by the sparse checkout's missing
-  `patches/@react-native-community/datetimepicker@9.1.0.patch`; no dependency
-  or patch files were added to work around that environment issue.
-- Full `pnpm turbo lint` and `pnpm turbo typecheck` were not run because the
-  same sparse-install prerequisite is missing; direct Biome and focused tests
-  are green.
+- Full web typecheck passes via `pnpm --filter @baci/web typecheck`; the
+  repository-wide pnpm test/lint commands remain outside this focused receipt.
 
 ## Boundary receipt
 
@@ -89,15 +83,28 @@ Status: `DONE_WITH_CONCERNS`
 
 - Split renderer-assessment coverage into the colocated
   `ogabassey-home-hero-contract.renderer.test.ts`; current owned file lengths
-  are 53, 226, 247, 167, 154, and 94 lines respectively, all below 300.
+  are 53, 116, 247, 247, 206, 154, and 94 lines respectively, all below 300.
 - Narrowed every runtime slide through `isValidSlide` before selecting the
   candidate, and made resource-hint validation an explicit type predicate.
 - Added malformed projection regressions for forged version and candidate
   shape, plus primitive/null validation-input coverage.
-- Focused suites now cover four colocated files (50 tests passed), including
+- Focused suites now cover four colocated files (56 tests passed), including
   the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
   passed; Biome and `git diff --check` passed.
 - The expected-preload rebuild remains intentional: it derives the canonical
   identity from the projected candidate image, then validates the supplied
   projection and digest, preventing independently supplied preload fields from
   becoming authoritative.
+
+## Fix round 3 review response
+
+- `isValidProjection` now accepts `unknown` and guards null/primitive runtime
+  values before reading fields; renderer envelope guards reject null/non-array
+  slides and null/invalid publication objects with typed failures.
+- Added exact regressions for null/primitive/incomplete projections and malformed
+  renderer envelope fields.
+- Corrected the renderer null-preload regression to use a valid projection, so
+  it directly exercises the required supplied-preload check.
+- Updated the prep plan inventory and command to truthfully include seven owned
+  files and four focused suites; controls and activation boundaries are
+  unchanged.

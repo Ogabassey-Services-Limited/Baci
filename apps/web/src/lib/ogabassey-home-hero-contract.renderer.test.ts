@@ -106,20 +106,14 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
     expect(
       ogabasseyHomeHeroContract.assessRenderer({
         preload: null,
-        projection: {
-          ...projection,
-          candidate: {
-            ...projection.candidate,
-            imageUrl: 'https://example.com/hero.jpg',
-          },
-        },
+        projection,
         renderedSlides: [projection.candidate],
         requestPublication: {
           merchantId: projection.merchantId,
           status: 'published',
         },
       })
-    ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+    ).toEqual({ reason: 'preload_mismatch', valid: false });
   });
 
   it('rejects forged projection versions and malformed candidates', () => {
@@ -140,6 +134,51 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
         })
       ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
     }
+  });
+
+  it.each([
+    null,
+    1,
+    {},
+    { version: 1 },
+  ])('rejects a non-object or incomplete runtime projection: %j', (projection) => {
+    const { preload } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection: projection as never,
+        renderedSlides: [],
+        requestPublication: {
+          merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
+          status: 'published',
+        },
+      })
+    ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+  });
+
+  it.each([
+    [
+      'rendered slides',
+      { renderedSlides: null },
+      'rendered_candidate_mismatch',
+    ],
+    ['publication', { requestPublication: null }, 'publication_mismatch'],
+  ] as const)('rejects malformed renderer envelope: %s', (_label, mutation, reason) => {
+    const { projection, preload } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection,
+        renderedSlides:
+          'renderedSlides' in mutation
+            ? (mutation.renderedSlides as never)
+            : [projection.candidate],
+        requestPublication:
+          'requestPublication' in mutation
+            ? (mutation.requestPublication as never)
+            : { merchantId: projection.merchantId, status: 'published' },
+      })
+    ).toEqual({ reason, valid: false });
   });
 
   it('rejects publication and cardinality drift', () => {

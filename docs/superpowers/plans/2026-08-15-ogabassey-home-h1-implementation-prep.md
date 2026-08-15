@@ -61,13 +61,14 @@ green.
 
 ## Exact source inventory
 
-Only these six current-main files are owned by this prep slice. Each runtime
+Only these seven current-main files are owned by this prep slice. Each runtime
 file has one primary export and each has its colocated/focused test:
 
 - `apps/web/src/app/(storefront)/ogabassey/ogabassey-home-hero-resource-hints.ts`
 - `apps/web/src/app/(storefront)/ogabassey/ogabassey-home-hero-resource-hints.test.ts`
 - `apps/web/src/lib/ogabassey-home-hero-contract.ts`
 - `apps/web/src/lib/ogabassey-home-hero-contract.test.ts`
+- `apps/web/src/lib/ogabassey-home-hero-contract.renderer.test.ts`
 - `apps/web/src/lib/ogabassey-home-hero-resource-hint-projection.ts`
 - `apps/web/src/lib/ogabassey-home-hero-resource-hint-projection.test.ts`
 
@@ -124,11 +125,16 @@ The projection is a pure identity seam, not a renderer switch:
 
 - Run the colocated suites:
 
+  The inventory contains four focused suites across seven owned files; the
+  renderer assessment suite is split from the projection test to keep every
+  test file below 300 lines.
+
   ```bash
   set -euo pipefail
   pnpm --filter @baci/web exec vitest run \
     'src/app/(storefront)/ogabassey/ogabassey-home-hero-resource-hints.test.ts' \
     src/lib/ogabassey-home-hero-contract.test.ts \
+    src/lib/ogabassey-home-hero-contract.renderer.test.ts \
     src/lib/ogabassey-home-hero-resource-hint-projection.test.ts
   ```
 
