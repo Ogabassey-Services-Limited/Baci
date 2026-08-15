@@ -132,6 +132,29 @@ describe('ogabasseyHomeHeroContract', () => {
         ],
       },
     ],
+    ...[
+      'http CDN URL',
+      'https://user:pass@cdn.ogabassey.com/core-assets/products/hero.jpg',
+      'https://cdn.ogabassey.com:8443/core-assets/products/hero.jpg',
+      'https://cdn.ogabassey.com/core-assets/blog/hero.jpg',
+    ].map(
+      (label) =>
+        [
+          label,
+          {
+            ...createPublishedShell(),
+            slides: [
+              {
+                ...createPublishedShell().slides[0],
+                imageUrl:
+                  label === 'http CDN URL'
+                    ? 'http://cdn.ogabassey.com/core-assets/products/hero.jpg'
+                    : label,
+              },
+            ],
+          },
+        ] as const
+    ),
   ] as const)('rejects malformed published shell: %s', (_label, shell) => {
     expect(
       ogabasseyHomeHeroContract.project(
@@ -178,6 +201,22 @@ describe('ogabasseyHomeHeroContract', () => {
       type: 'image/avif',
     });
     expect(preload.digest).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('allows an external image on a later slide while requiring CDN slide zero', () => {
+    const shell = createPublishedShell();
+    const projection = ogabasseyHomeHeroContract.project({
+      ...shell,
+      slides: [
+        shell.slides[0],
+        {
+          ...shell.slides[0],
+          id: 'second',
+          imageUrl: 'https://images.example/second.jpg',
+        },
+      ],
+    });
+    expect(projection?.slideCount).toBe(2);
   });
 
   it('rejects stale published cache data when the request-scoped verdict is unpublished', () => {

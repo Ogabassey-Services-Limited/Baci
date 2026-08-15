@@ -23,7 +23,7 @@
 
 ## Task 3 — integration and release gates
 
-- Focused tests: 4 files and 63 tests passed on the final validation run.
+- Focused tests: 4 files and 68 tests passed on the final validation run.
 - Full branch lint: passed with pre-existing warnings only.
 - Full branch typecheck: passed (6/6 tasks).
 - Full monorepo test attempt: 28,847 web tests passed; two unrelated validation tests failed because the sparse worktree omitted `scripts/` and `scripts-tmp/`, and because the then-untracked ledger made a clean-worktree guard refuse execution.

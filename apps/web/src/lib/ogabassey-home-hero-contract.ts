@@ -1,3 +1,4 @@
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 import { isOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import {
   type OgabasseyHomeHeroResourceHintIdentity,
@@ -59,6 +60,24 @@ type OgabasseyHomeHeroRendererAssessment =
       valid: false;
     };
 
+function isCanonicalCandidateImage(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === OGABASSEY_CDN_ORIGIN &&
+      url.username === '' &&
+      url.password === '' &&
+      url.port === '' &&
+      (url.pathname.startsWith('/core-assets/products/') ||
+        url.pathname.startsWith('/products/')) &&
+      /\.(avif|jpe?g|png|webp)$/i.test(url.pathname) &&
+      isOgabasseyCdnImageUrl(value)
+    );
+  } catch {
+    return false;
+  }
+}
+
 function getCandidate(
   slides: unknown
 ): OgabasseyHomeHeroSlideProjection | null {
@@ -66,11 +85,11 @@ function getCandidate(
     return null;
   }
   const typedSlides: OgabasseyHomeHeroSlideProjection[] = [];
-  for (const slide of slides) {
-    if (!isValidSlide(slide)) {
+  for (const [index, slide] of slides.entries()) {
+    if (!isValidSlide(slide, index === 0)) {
       return null;
     }
-    typedSlides.push(slide);
+    typedSlides.push(slide as OgabasseyHomeHeroSlideProjection);
   }
   const slide = typedSlides[0];
   if (!slide) {
@@ -90,7 +109,8 @@ function getCandidate(
 }
 
 function isValidSlide(
-  value: unknown
+  value: unknown,
+  requireCanonicalImage = false
 ): value is OgabasseyHomeHeroSlideProjection {
   if (!value || typeof value !== 'object') {
     return false;
@@ -115,9 +135,10 @@ function isValidSlide(
   ) {
     return false;
   }
+  const imageUrl = slide.imageUrl as string;
   return (
-    slide.imageUrl === (slide.imageUrl as string).trim() &&
-    isOgabasseyCdnImageUrl(slide.imageUrl as string)
+    imageUrl === imageUrl.trim() &&
+    (!requireCanonicalImage || isCanonicalCandidateImage(imageUrl))
   );
 }
 
