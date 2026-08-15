@@ -48,7 +48,7 @@ export async function updatePlatformBlogPost(
     ) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
-    const body = sanitizeBlogPostData(rawBody);
+    const body = sanitizeBlogPostData(rawBody as Record<string, unknown>);
     const validated = blogPostSchema.partial().safeParse(body);
 
     if (!validated.success) {
