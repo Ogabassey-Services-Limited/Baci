@@ -89,6 +89,35 @@ describe('useQuizStartFlow', () => {
     expect(mockDobRequestStart).toHaveBeenCalledWith('event-1');
   });
 
+  it('prepares optional mobile ads before starting the timed attempt', async () => {
+    let resolvePreparation!: () => void;
+    const prepareQuizMobileAds = jest.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolvePreparation = resolve;
+        })
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        integrityTier: 'device',
+        prepareQuizMobileAds,
+        startEvent,
+      })
+    );
+
+    act(() => result.current.requestStart('event-1'));
+    dobOnStart('event-1');
+    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1));
+    expect(startEvent).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvePreparation();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(startEvent).toHaveBeenCalledTimes(1));
+  });
+
   it('reopens the date-of-birth gate when the server rejects a stored DOB as under-18', async () => {
     mockStartQuizAttempt.mockRejectedValueOnce(
       new QuizServiceError(

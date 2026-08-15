@@ -3,7 +3,19 @@ import { AppState } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
 import type { QuizV2Result } from '@/services/quiz-types';
 
-export const QUIZ_RESULT_POLL_INTERVAL_MS = 1_000;
+export const QUIZ_RESULT_POLL_INTERVAL_MS = 5_000;
+export const QUIZ_RESULT_POLL_MAX_INTERVAL_MS = 30_000;
+
+function getPendingPollDelayMs(
+  availableAt: string | null,
+  nowMs = Date.now()
+): number {
+  const availableAtMs = availableAt ? Date.parse(availableAt) : Number.NaN;
+  if (Number.isFinite(availableAtMs) && availableAtMs > nowMs) {
+    return Math.min(availableAtMs - nowMs, QUIZ_RESULT_POLL_MAX_INTERVAL_MS);
+  }
+  return QUIZ_RESULT_POLL_INTERVAL_MS;
+}
 
 export function useQuizResultPolling({
   attemptId,
@@ -27,17 +39,21 @@ export function useQuizResultPolling({
       AppState.currentState !== 'inactive';
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-    const schedule = () => {
+    const schedule = (delayMs = QUIZ_RESULT_POLL_INTERVAL_MS) => {
       if (cancelled || !appIsActive) return;
-      timeoutId = setTimeout(poll, QUIZ_RESULT_POLL_INTERVAL_MS);
+      timeoutId = setTimeout(poll, delayMs);
     };
     const poll = async () => {
       if (cancelled || !appIsActive || inFlight) return;
       inFlight = true;
       let shouldContinue = false;
+      let nextDelayMs = QUIZ_RESULT_POLL_INTERVAL_MS;
       try {
         const result = await fetchQuizResult({ attemptId, expectedUserId });
-        shouldContinue = result.availability === 'pending';
+        if (result.availability === 'pending') {
+          shouldContinue = true;
+          nextDelayMs = getPendingPollDelayMs(result.availableAt);
+        }
         if (cancelled) return;
         onResult(result);
       } catch {
@@ -50,7 +66,7 @@ export function useQuizResultPolling({
           resumeAfterFlight = false;
           void poll();
         } else {
-          schedule();
+          schedule(nextDelayMs);
         }
       }
     };

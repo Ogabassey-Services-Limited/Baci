@@ -62,6 +62,47 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
   });
 
+  it('waits until the server availability time before retrying pending results', async () => {
+    const availableAt = new Date(Date.now() + 20_000).toISOString();
+    jest
+      .mocked(fetchQuizResult)
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'pending',
+        availableAt,
+      })
+      .mockResolvedValueOnce({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt,
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      jest.advanceTimersByTime(19_999);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+  });
+
   it('pauses pending-result polling while the app is backgrounded', async () => {
     const listeners: Array<(state: AppStateStatus) => void> = [];
     jest

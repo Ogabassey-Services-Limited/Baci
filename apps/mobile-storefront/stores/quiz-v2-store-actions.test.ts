@@ -5,22 +5,48 @@ import type {
 } from '@/services/quiz-types';
 import {
   initialQuizV2State,
+  type QuizRecoveryEnvelope,
   type QuizV2StoreState,
+  type V2StartContext,
 } from './quiz-recovery-envelope';
 import { createQuizV2StoreActions } from './quiz-v2-store-actions';
 
-const mockPersist = jest.fn(async () => undefined);
-const mockLoadRecoveryEnvelope = jest.fn();
-jest.mock('./quiz-recovery-envelope', () => ({
-  ...jest.requireActual('./quiz-recovery-envelope'),
-  loadQuizRecoveryEnvelope: (...args: unknown[]) =>
-    mockLoadRecoveryEnvelope(...args),
-}));
+const mockPersist =
+  jest.fn<
+    (attempt: QuizV2Attempt, lockedOptionId: string | null) => Promise<void>
+  >();
+const mockLoadRecoveryEnvelope =
+  jest.fn<
+    (userId: string, eventId: string) => Promise<QuizRecoveryEnvelope | null>
+  >();
+const mockSaveQuizStartRequest =
+  jest.fn<
+    (
+      context: V2StartContext,
+      generation: number,
+      startRequestId: string
+    ) => Promise<void>
+  >();
+jest.mock('./quiz-recovery-envelope', () => {
+  const actual = jest.requireActual<typeof import('./quiz-recovery-envelope')>(
+    './quiz-recovery-envelope'
+  );
+  return {
+    ...actual,
+    loadQuizRecoveryEnvelope: (
+      ...args: Parameters<typeof actual.loadQuizRecoveryEnvelope>
+    ) => mockLoadRecoveryEnvelope(...args),
+  };
+});
 jest.mock('./quiz-v2-recovery-storage', () => ({
   clearRecoveredQuizAttempt: jest.fn(async () => undefined),
   clearTerminalRecovery: jest.fn(async () => undefined),
   createQuizAttemptPersistence: jest.fn(() => mockPersist),
-  saveQuizStartRequest: jest.fn(async () => undefined),
+  saveQuizStartRequest: (
+    context: V2StartContext,
+    generation: number,
+    startRequestId: string
+  ) => mockSaveQuizStartRequest(context, generation, startRequestId),
 }));
 
 const activeAttempt: QuizV2Attempt = {
@@ -93,9 +119,41 @@ function response(
 }
 
 describe('createQuizV2StoreActions terminal expiry', () => {
+  beforeEach(() => {
+    mockPersist.mockResolvedValue(undefined);
+    mockLoadRecoveryEnvelope.mockResolvedValue(null);
+    mockSaveQuizStartRequest.mockResolvedValue(undefined);
+  });
+
   afterEach(() => {
     mockPersist.mockReset();
     mockLoadRecoveryEnvelope.mockReset();
+    mockSaveQuizStartRequest.mockReset();
+  });
+
+  it('still starts when recovery storage rejects the start envelope', async () => {
+    mockSaveQuizStartRequest.mockRejectedValueOnce(new Error('storage full'));
+    const harness = createHarness();
+    const starter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.startEventV2(
+      {
+        eventId: 'event-1',
+        integrityTier: 'strong',
+        startRequestId: '44444444-4444-4444-8444-444444444444',
+        userId: 'user-1',
+      },
+      starter
+    );
+
+    expect(mockSaveQuizStartRequest).toHaveBeenCalledTimes(1);
+    expect(starter).toHaveBeenCalledWith(
+      '44444444-4444-4444-8444-444444444444'
+    );
+    expect(harness.getState()).toMatchObject({
+      status: 'question',
+      v2Attempt: activeAttempt,
+    });
   });
 
   it('does not write a stale starting state after recovery storage resolves', async () => {
@@ -151,7 +209,9 @@ describe('createQuizV2StoreActions terminal expiry', () => {
           attemptId: 'attempt-recovered',
           availability: 'pending_results',
         }),
-      jest.fn()
+      jest.fn<
+        (optionId: string, questionId: string) => Promise<QuizV2Attempt>
+      >()
     );
 
     expect(harness.getState()).toMatchObject({

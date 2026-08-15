@@ -3,8 +3,13 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { recoverActiveQuizAttempt } from '@/services/quiz-attempt-recovery';
 import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
-import { loadQuizRecoveryEnvelopes } from '@/stores/quiz-recovery-envelope';
+import {
+  loadQuizRecoveryEnvelopes,
+  type QuizV2StoreActions,
+} from '@/stores/quiz-recovery-envelope';
 import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
+
+type RecoverEvent = QuizV2StoreActions['recoverEvent'];
 
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
   getQuizDeviceFingerprint: jest.fn(),
@@ -41,16 +46,11 @@ describe('useQuizPersistedRecovery', () => {
       eventEndsAt: '2026-08-04T12:05:00.000Z',
       serverNow: '2026-08-04T12:05:00.000Z',
     });
-    const recoverEvent = jest.fn(
-      async (
-        _userId: string,
-        _eventId: string,
-        recoverer: () => Promise<unknown>
-      ) => {
-        await recoverer();
-        return 'recovered' as const;
-      }
-    );
+    const recoverEvent = jest.fn<RecoverEvent>();
+    recoverEvent.mockImplementation(async (_userId, _eventId, recoverer) => {
+      await recoverer();
+      return 'recovered';
+    });
 
     renderHook(() =>
       useQuizPersistedRecovery({
@@ -71,7 +71,7 @@ describe('useQuizPersistedRecovery', () => {
 
   it('does not re-run the same persisted recovery while the screen stays ready', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([]);
-    const recoverEvent = jest.fn(async () => 'recovered' as const);
+    const recoverEvent = jest.fn<RecoverEvent>().mockResolvedValue('recovered');
     const { rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
         useQuizPersistedRecovery({
@@ -112,10 +112,9 @@ describe('useQuizPersistedRecovery', () => {
         version: 1,
       },
     ]);
-    const recoverEvent = jest.fn(async (_userId: string, eventId: string) =>
-      eventId === 'stale-event'
-        ? ('not_found' as const)
-        : ('recovered' as const)
+    const recoverEvent = jest.fn<RecoverEvent>();
+    recoverEvent.mockImplementation(async (_userId, eventId) =>
+      eventId === 'stale-event' ? 'not_found' : 'recovered'
     );
 
     renderHook(() =>
@@ -150,9 +149,9 @@ describe('useQuizPersistedRecovery', () => {
       },
     ]);
     const recoverEvent = jest
-      .fn()
-      .mockResolvedValueOnce('retry' as const)
-      .mockResolvedValueOnce('recovered' as const);
+      .fn<RecoverEvent>()
+      .mockResolvedValueOnce('retry')
+      .mockResolvedValueOnce('recovered');
 
     renderHook(() =>
       useQuizPersistedRecovery({
@@ -173,7 +172,7 @@ describe('useQuizPersistedRecovery', () => {
         () => new Promise((resolve) => (resolveFirstLoad = resolve))
       )
       .mockResolvedValueOnce([]);
-    const recoverEvent = jest.fn(async () => 'recovered' as const);
+    const recoverEvent = jest.fn<RecoverEvent>().mockResolvedValue('recovered');
     const { rerender } = renderHook(
       ({ userId }: { userId: string }) =>
         useQuizPersistedRecovery({

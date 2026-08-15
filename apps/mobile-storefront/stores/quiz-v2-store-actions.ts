@@ -99,7 +99,13 @@ export function createQuizV2StoreActions({
         recoveryUserId: context.userId,
         error: null,
       });
-      await saveQuizStartRequest(context, generation, startRequestId);
+      try {
+        await saveQuizStartRequest(context, generation, startRequestId);
+      } catch {
+        // Recovery persistence is best-effort. A full or unavailable device
+        // store must not prevent the server start from running or strand the
+        // quiz in the starting state.
+      }
       if (generation !== getGeneration()) return;
       try {
         const attempt = await starter(startRequestId);

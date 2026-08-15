@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
+import { prepareQuizMobileAds } from '@/services/prepare-quiz-mobile-ads';
 import {
   fetchQuizEvents,
   type QuizIntegrityTier,
@@ -22,8 +23,8 @@ import { QuizMusicPlayer } from './QuizMusicPlayer';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles } from './QuizScreen.styles';
-import { QuizScreenModals } from './QuizScreenModals';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
+import { QuizScreenModals } from './QuizScreenModals';
 import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
@@ -139,6 +140,7 @@ export function QuizScreen({
   const { dobGate, requestStart, usernameGate } = useQuizStartFlow({
     events,
     integrityTier,
+    prepareQuizMobileAds,
     startEvent,
     startEventV2: async (context, starter) => {
       if (!context.userId) {

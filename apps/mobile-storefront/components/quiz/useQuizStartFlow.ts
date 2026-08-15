@@ -47,6 +47,8 @@ type StartEventV2 = (
   starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
 
+type PrepareQuizMobileAds = () => Promise<void>;
+
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
  * satisfy BOTH gates before their first play: a public username (their
@@ -62,11 +64,13 @@ type StartEventV2 = (
 export function useQuizStartFlow({
   events = [],
   integrityTier,
+  prepareQuizMobileAds,
   startEvent,
   startEventV2,
 }: {
   events?: QuizEvent[];
   integrityTier: QuizIntegrityTier;
+  prepareQuizMobileAds?: PrepareQuizMobileAds;
   startEvent: StartEvent;
   startEventV2?: StartEventV2;
 }) {
@@ -80,8 +84,20 @@ export function useQuizStartFlow({
   // gate can delay the start. Keep that acknowledgement scoped to the event
   // and this mounted flow; never manufacture acceptance for a v2 request.
   const acceptedTermsEventIdsRef = useRef(new Set<string>());
+  const quizAdsPreparationRef = useRef<Promise<void> | null>(null);
+
+  const prepareAdsBeforeStart = () => {
+    if (!prepareQuizMobileAds) return Promise.resolve();
+    if (!quizAdsPreparationRef.current) {
+      quizAdsPreparationRef.current = prepareQuizMobileAds().catch(
+        () => undefined
+      );
+    }
+    return quizAdsPreparationRef.current;
+  };
 
   const handleStart = async (eventId: string) => {
+    await prepareAdsBeforeStart();
     const event = events.find((candidate) => candidate.id === eventId);
     if (event?.contractVersion === 2) {
       if (!startEventV2) {
@@ -218,6 +234,7 @@ export function useQuizStartFlow({
 
   const requestStart = (eventId: string, termsAccepted?: true) => {
     if (termsAccepted) acceptedTermsEventIdsRef.current.add(eventId);
+    void prepareAdsBeforeStart();
     usernameGate.requestStart(eventId);
   };
 
