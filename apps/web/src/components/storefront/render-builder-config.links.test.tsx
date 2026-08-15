@@ -72,7 +72,11 @@ describe('RenderBuilderConfig preview links', () => {
 
     const header = screen.getByTestId('builder-preview-inert-header');
     expect(header).toHaveAttribute('data-sticky', 'true');
-    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    const searchButtons = screen.getAllByRole('button', { name: 'Search' });
+    expect(searchButtons).toHaveLength(2);
+    for (const searchButton of searchButtons) {
+      expect(searchButton).toBeDisabled();
+    }
     expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
   });
