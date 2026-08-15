@@ -329,7 +329,7 @@ describe('HomeScreenView', () => {
     );
 
     expect(screen.getByText('Block CategoryRail')).toBeTruthy();
-    expect(screen.getByText('Gadget pattern default light')).toBeTruthy();
+    expect(screen.getByText('Gadget pattern default dark')).toBeTruthy();
     expect(screen.queryByText('Snow effect')).toBeNull();
   });
 

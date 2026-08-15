@@ -143,7 +143,7 @@ export function HomeScreenView({
           ]}
         >
           <GadgetPattern
-            colorScheme={colorScheme ?? 'light'}
+            colorScheme="dark"
             opacity={0.14}
             height={ELITE_BACKDROP_HEIGHT}
           />

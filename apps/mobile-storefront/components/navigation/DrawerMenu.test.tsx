@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import { DrawerMenu } from './DrawerMenu';
 
 let mockIsOpen = true;
+let mockTimingCallbacks: Array<(finished?: boolean) => void> = [];
 
 // Mock SafeAreaProvider / useSafeAreaInsets cleanly
 jest.mock('react-native-safe-area-context', () => ({
@@ -59,8 +60,12 @@ jest.mock('react-native-reanimated', () => {
     runOnJS: (fn: (...args: unknown[]) => unknown) => fn,
     useSharedValue: makeSharedValue,
     useAnimatedStyle: () => ({}),
-    withTiming: (value: number, _config?: unknown, callback?: () => void) => {
-      if (callback) callback();
+    withTiming: (
+      value: number,
+      _config?: unknown,
+      callback?: (finished?: boolean) => void
+    ) => {
+      if (callback) mockTimingCallbacks.push(callback);
       return value;
     },
   };
@@ -101,15 +106,33 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => 'light',
 }));
 
+jest.mock('@/components/storefront/GadgetPattern', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+
+  return {
+    GadgetPattern: () => (
+      <View
+        accessible
+        accessibilityLabel="Decorative technology backdrop"
+        accessibilityRole="image"
+      />
+    ),
+  };
+});
+
 describe('DrawerMenu', () => {
   beforeEach(() => {
     mockIsOpen = true;
+    mockTimingCallbacks = [];
   });
 
   it('renders correctly with GadgetPattern background decoration', () => {
     render(<DrawerMenu />);
 
-    expect(screen.getByTestId('tech-backdrop')).toBeTruthy();
+    expect(
+      screen.getByRole('image', { name: 'Decorative technology backdrop' })
+    ).toBeTruthy();
   });
 
   it('does not mount the decorative backdrop while the drawer is closed', () => {
@@ -117,6 +140,42 @@ describe('DrawerMenu', () => {
 
     render(<DrawerMenu />);
 
-    expect(screen.queryByTestId('tech-backdrop')).toBeNull();
+    expect(
+      screen.queryByRole('image', { name: 'Decorative technology backdrop' })
+    ).toBeNull();
+  });
+
+  it('keeps the decorative backdrop mounted until the close animation finishes', async () => {
+    const view = render(<DrawerMenu />);
+
+    mockIsOpen = false;
+    view.rerender(<DrawerMenu />);
+
+    expect(
+      screen.getByRole('image', { name: 'Decorative technology backdrop' })
+    ).toBeTruthy();
+
+    await act(async () => {
+      mockTimingCallbacks.shift()?.(true);
+    });
+
+    expect(
+      screen.queryByRole('image', { name: 'Decorative technology backdrop' })
+    ).toBeNull();
+  });
+
+  it('keeps the decorative backdrop when the close animation is interrupted', () => {
+    const view = render(<DrawerMenu />);
+
+    mockIsOpen = false;
+    view.rerender(<DrawerMenu />);
+
+    act(() => {
+      mockTimingCallbacks.shift()?.(false);
+    });
+
+    expect(
+      screen.getByRole('image', { name: 'Decorative technology backdrop' })
+    ).toBeTruthy();
   });
 });

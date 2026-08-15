@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react-native';
-import { Image, Platform } from 'react-native';
+import { Image, Platform, StyleSheet } from 'react-native';
 import Svg from 'react-native-svg';
 import { GadgetPattern } from './GadgetPattern';
 
@@ -66,5 +66,18 @@ describe('GadgetPattern', () => {
       'colors',
       dark.getByTestId('tech-backdrop-gradient').props.colors
     );
+  });
+
+  it('applies the requested opacity to the gradient and raster accent', () => {
+    const { getByTestId, UNSAFE_getByType } = render(
+      <GadgetPattern height={1500} opacity={0.04} />
+    );
+
+    expect(getByTestId('tech-backdrop-gradient')).toHaveStyle({
+      opacity: 0.04,
+    });
+    expect(
+      StyleSheet.flatten(UNSAFE_getByType(Image).props.style).opacity
+    ).toBe(0.04);
   });
 });

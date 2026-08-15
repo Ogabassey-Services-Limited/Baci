@@ -12,13 +12,13 @@ interface GadgetPatternProps {
 
 const ACCENT_SOURCE = require('../../assets/images/tech-backdrop-accent.png');
 const DARK_GRADIENT = [
-  'rgba(255,255,255,0.075)',
-  'rgba(255,255,255,0.018)',
+  'rgba(255,255,255,1)',
+  'rgba(255,255,255,0.24)',
   'rgba(255,255,255,0)',
 ] as const;
 const LIGHT_GRADIENT = [
-  'rgba(15,23,42,0.055)',
-  'rgba(15,23,42,0.012)',
+  'rgba(15,23,42,1)',
+  'rgba(15,23,42,0.22)',
   'rgba(15,23,42,0)',
 ] as const;
 
@@ -51,7 +51,7 @@ export function GadgetPattern({
         colors={isDark ? DARK_GRADIENT : LIGHT_GRADIENT}
         end={{ x: 0, y: 1 }}
         start={{ x: 1, y: 0 }}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, { opacity }]}
         testID="tech-backdrop-gradient"
       />
       <Image
