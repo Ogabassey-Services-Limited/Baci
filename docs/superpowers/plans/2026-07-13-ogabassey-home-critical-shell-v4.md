@@ -83,6 +83,7 @@ Before implementation of a phase begins, derive a self-contained plan from the t
 | `H0-MEASURE` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h0-rollout.md` | deployed exact H0 SHA and coherent release canaries |
 | `H0.5` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h0-5-cache-contract.md` | valid H0 attribution and hard cache-safety decision evidence |
 | `H0.75` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h0-75-layout-spike.md` | accepted H0.5 ADR |
+| `H1-IMPLEMENTATION/PREP` *(inert)* | `docs/superpowers/plans/2026-08-15-ogabassey-home-h1-implementation-prep.md` | current-main prep only; no H0/H0.5/H0.75 gate, activation, or performance claim |
 | `H1A` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h1a-data-control.md` | green disposable migration replay and accepted spike |
 | `H1B` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h1b-routing-readers.md` | merged H1A exact head |
 | `H1C1` | `docs/superpowers/plans/2026-07-14-ogabassey-home-h1c1-worker-operations.md` | merged H1B exact head |
@@ -95,6 +96,15 @@ Before implementation of a phase begins, derive a self-contained plan from the t
 | `FIELD` | `docs/superpowers/plans/2026-07-14-ogabassey-home-field-confirmation.md` | absolute controlled-lab pass plus frozen eligible windows |
 
 No executor may implement any normative section directly. The phase index is binding; a derived plan that mixes two rows is rejected even when all tests pass.
+
+The inert `H1-IMPLEMENTATION/PREP` row is the sole preparation exception. It may
+land pure, colocated-tested application contracts/projections on the exact
+current-main base while the strict H0/H0.5/H0.75 prerequisites remain open. It
+does not advance the normative H1 sequence, satisfy any prerequisite, or permit
+public rendering, cache admission, worker/provider changes, proxy changes,
+measurement activation, or a performance conclusion. Its controls remain
+`final-disabled+null`; only the later phase plans below may consume these
+surfaces for a real H1 release.
 
 Every derived phase plan begins with:
 
