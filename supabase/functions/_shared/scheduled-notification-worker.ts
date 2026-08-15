@@ -40,6 +40,25 @@ function isSafeActionUrl(value: string): boolean {
   }
 }
 
+function parseMalformedClaimIdentity(
+  value: unknown
+): Pick<ScheduledNotification, 'id' | 'delivery_claim_token'> | null {
+  const notification = asRecord(value);
+  if (
+    !notification ||
+    typeof notification.id !== 'string' ||
+    !UUID_PATTERN.test(notification.id) ||
+    typeof notification.delivery_claim_token !== 'string' ||
+    !UUID_PATTERN.test(notification.delivery_claim_token)
+  ) {
+    return null;
+  }
+  return {
+    delivery_claim_token: notification.delivery_claim_token,
+    id: notification.id,
+  };
+}
+
 function parseClaimedNotification(value: unknown): ScheduledNotification {
   const notification = asRecord(value);
   const targetType = notification?.target_type;
@@ -163,4 +182,5 @@ export const scheduledNotificationWorker = {
   isExpoPushToken,
   nextRecipientPageCursor,
   parseClaimedNotification,
+  parseMalformedClaimIdentity,
 };

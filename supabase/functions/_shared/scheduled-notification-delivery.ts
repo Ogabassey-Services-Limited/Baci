@@ -18,6 +18,7 @@ const {
   isExpired,
   nextRecipientPageCursor,
   parseClaimedNotification,
+  parseMalformedClaimIdentity,
 } = scheduledNotificationWorker;
 const RECIPIENT_PAGE_SIZE = 500;
 
@@ -88,7 +89,7 @@ async function deliverPages(
 
 async function finalize(
   client: ScheduledNotificationWorkerClient,
-  notification: ScheduledNotification,
+  notification: Pick<ScheduledNotification, 'id' | 'delivery_claim_token'>,
   outcome: Outcome,
   error?: string
 ) {
@@ -109,9 +110,29 @@ export async function processScheduledNotificationClaims(
   const results: Array<{ id: string; recipients?: number; status: Outcome }> =
     [];
   for (const value of claimed) {
-    let notification: ScheduledNotification | null = null;
+    let notification: ScheduledNotification;
     try {
       notification = parseClaimedNotification(value);
+    } catch (parseError) {
+      const identity = parseMalformedClaimIdentity(value);
+      if (!identity) throw parseError;
+      try {
+        await finalize(
+          client,
+          identity,
+          'retry',
+          parseError instanceof Error
+            ? parseError.message
+            : 'Claim RPC returned a malformed scheduled notification'
+        );
+        results.push({ id: identity.id, status: 'retry' });
+      } catch (error) {
+        if (error instanceof NotificationClaimLostError) continue;
+        throw error;
+      }
+      continue;
+    }
+    try {
       if (isExpired(notification)) {
         await finalize(client, notification, 'expired');
         results.push({ id: notification.id, status: 'expired' });
@@ -139,7 +160,6 @@ export async function processScheduledNotificationClaims(
       await finalize(client, notification, 'sent');
       results.push({ id: notification.id, recipients, status: 'sent' });
     } catch (error) {
-      if (!notification) throw error;
       if (error instanceof NotificationClaimLostError) continue;
       if (error instanceof NotificationExpiredError) {
         await finalize(client, notification, 'expired');

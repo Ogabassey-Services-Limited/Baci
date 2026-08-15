@@ -5,6 +5,7 @@ const {
   getExpoTicketFailure,
   nextRecipientPageCursor,
   parseClaimedNotification,
+  parseMalformedClaimIdentity,
 } = scheduledNotificationWorker;
 
 describe('scheduled notification worker helpers', () => {
@@ -38,6 +39,20 @@ describe('scheduled notification worker helpers', () => {
         expires_at: null,
       })
     ).toThrow('malformed scheduled notification');
+  });
+
+  it('extracts claim identity from malformed legacy rows', () => {
+    expect(
+      parseMalformedClaimIdentity({
+        id: '123e4567-e89b-42d3-a456-426614174001',
+        delivery_claim_token: '123e4567-e89b-42d3-a456-426614174002',
+        title: '',
+      })
+    ).toEqual({
+      id: '123e4567-e89b-42d3-a456-426614174001',
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174002',
+    });
+    expect(parseMalformedClaimIdentity({ id: 'not-a-uuid' })).toBeNull();
   });
 
   it('turns an Expo ticket error into a retryable failure', () => {

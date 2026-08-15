@@ -509,4 +509,68 @@ describe('processScheduledNotificationClaims', () => {
     });
     vi.unstubAllGlobals();
   });
+
+  it('continues later claims when an earlier claim is malformed', async () => {
+    const malformedClaim = {
+      action_url: null,
+      channels: ['in_app'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174004',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3f3',
+      message: 'Broken notification',
+      target_merchant_ids: null,
+      target_segment: null,
+      target_type: 'all',
+      title: '',
+    };
+    const validClaim = {
+      action_url: null,
+      channels: ['in_app'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174005',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3f4',
+      message: 'Valid notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Valid',
+    };
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          return { data: [], error: null };
+        }
+        if (name === 'get_notification_push_outbox_summary_v1') {
+          return { data: {}, error: null };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [
+      malformedClaim,
+      validClaim,
+    ]);
+
+    expect(results).toEqual([
+      { id: malformedClaim.id, status: 'retry' },
+      { id: validClaim.id, recipients: 0, status: 'sent' },
+    ]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({
+        p_notification_id: malformedClaim.id,
+        p_outcome: 'retry',
+      }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({
+        p_notification_id: validClaim.id,
+        p_outcome: 'sent',
+      }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+  });
 });
