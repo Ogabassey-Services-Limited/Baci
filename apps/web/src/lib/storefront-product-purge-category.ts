@@ -34,7 +34,9 @@ function extractDirectCategorySlug(categories: unknown): string | null {
   return null;
 }
 
-function extractJunctionCategorySlug(productCategories: unknown): string | null {
+function extractJunctionCategorySlug(
+  productCategories: unknown
+): string | null {
   if (!Array.isArray(productCategories)) {
     return null;
   }
