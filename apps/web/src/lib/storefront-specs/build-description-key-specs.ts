@@ -11,10 +11,10 @@ export function buildDescriptionKeySpecs(
   const keySpecsHeadingIndex = description.search(
     /<h[1-6][^>]*>\s*Key Specs(?: at a Glance)?\s*<\/h[1-6]>/i
   );
-  const tableSource =
-    keySpecsHeadingIndex >= 0
-      ? description.slice(keySpecsHeadingIndex)
-      : description;
+  if (keySpecsHeadingIndex < 0) {
+    return [];
+  }
+  const tableSource = description.slice(keySpecsHeadingIndex);
   const tableMatch = tableSource.match(/<table[\s\S]*?<\/table>/i);
 
   if (!tableMatch) {

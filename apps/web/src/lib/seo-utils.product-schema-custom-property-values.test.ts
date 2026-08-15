@@ -79,6 +79,36 @@ describe('generateProductSchema custom property values', () => {
     expect(schema.additionalProperty).toBeUndefined();
   });
 
+  it('preserves propertyID-only negative custom properties without a canonical key', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        category: 'Kitchen',
+        schema_markup: {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            propertyID: 'dishwasher_safe',
+            value: false,
+          },
+        },
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.additionalProperty).toEqual(
+      expect.arrayContaining([
+        {
+          '@type': 'PropertyValue',
+          propertyID: 'dishwasher_safe',
+          value: false,
+        },
+      ])
+    );
+  });
+
   it('preserves one-sided custom PropertyValue ranges in product schema markup', () => {
     const schema = generateProductSchema(
       makeSeoProduct({

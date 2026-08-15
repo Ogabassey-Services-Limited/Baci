@@ -28,6 +28,14 @@ describe('buildDescriptionKeySpecs', () => {
     ]);
   });
 
+  it('ignores non-specification tables without a Key Specs heading', () => {
+    expect(
+      buildDescriptionKeySpecs(
+        '<h2>Size Chart</h2><table><tr><th>Size</th><th>Chest</th></tr><tr><td>S</td><td>36 in</td></tr></table>'
+      )
+    ).toEqual([]);
+  });
+
   it('ignores descriptions without a complete table', () => {
     expect(buildDescriptionKeySpecs('<p>No key table</p>')).toEqual([]);
     expect(

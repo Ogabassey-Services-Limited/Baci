@@ -940,11 +940,18 @@ export function generateProductSchema(
         typeof candidate.propertyID === 'string'
           ? candidate.propertyID.trim()
           : undefined;
+      const mappedPropertySpecKey = propertyId
+        ? getProductSchemaSpecKeyForPropertyId(propertyId)
+        : undefined;
+      const isPropertyIdOnlyMerchantNegative =
+        propertyId &&
+        !mappedPropertySpecKey &&
+        candidate.name === undefined &&
+        candidate.value === false;
       if (
+        !isPropertyIdOnlyMerchantNegative &&
         !shouldIncludeProductSchemaSpec(product, {
-          key: propertyId
-            ? getProductSchemaSpecKeyForPropertyId(propertyId)
-            : undefined,
+          key: mappedPropertySpecKey,
           label:
             typeof candidate.name === 'string' ? candidate.name : undefined,
           value: candidateValue,
