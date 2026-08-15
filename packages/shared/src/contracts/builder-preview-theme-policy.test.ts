@@ -91,5 +91,75 @@ describe('preview theme policy', () => {
     expect(
       candidate({ colors: { primary: 'var(--theme-not-defined)' } }).success
     ).toBe(false);
+    expect(
+      candidate({ colors: { secondary: 'var(--theme-primary)' } }).success
+    ).toBe(true);
+  });
+
+  it('accepts only store tokens emitted by the preview theme projection', () => {
+    for (const token of [
+      'accent',
+      'accent-text',
+      'background',
+      'background-text',
+      'border',
+      'foreground',
+      'on-primary',
+      'option-secondary',
+      'primary',
+      'primary-text',
+      'rating',
+      'secondary',
+      'secondary-text',
+    ]) {
+      expect(
+        candidate({
+          colors: {
+            [token === 'secondary' ? 'primary' : 'secondary']:
+              `var(--store-${token})`,
+          },
+        }).success
+      ).toBe(true);
+    }
+
+    expect(
+      candidate({ colors: { primary: 'var(--store-not-defined)' } }).success
+    ).toBe(false);
+  });
+
+  it('rejects colors that directly reference their own emitted store token', () => {
+    expect(
+      candidate({ colors: { primary: 'var(--store-primary)' } }).success
+    ).toBe(false);
+    expect(
+      candidate({ colors: { background: 'var(--store-background)' } }).success
+    ).toBe(false);
+  });
+
+  it('enforces the CSS domains for theme number fields', () => {
+    expect(
+      candidate({ typography: { fontWeight: { normal: 1 } } }).success
+    ).toBe(true);
+    expect(
+      candidate({ typography: { fontWeight: { normal: 1_000 } } }).success
+    ).toBe(true);
+    expect(
+      candidate({ typography: { fontWeight: { normal: 0 } } }).success
+    ).toBe(false);
+    expect(
+      candidate({ typography: { fontWeight: { normal: 1_001 } } }).success
+    ).toBe(false);
+
+    expect(
+      candidate({ typography: { lineHeight: { normal: 1.5 } } }).success
+    ).toBe(true);
+    expect(
+      candidate({ typography: { lineHeight: { normal: 0 } } }).success
+    ).toBe(false);
+
+    expect(candidate({ layout: { zIndex: { modal: 10 } } }).success).toBe(true);
+    expect(candidate({ layout: { zIndex: { modal: 1.5 } } }).success).toBe(
+      false
+    );
   });
 });

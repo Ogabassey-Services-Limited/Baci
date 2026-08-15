@@ -2,6 +2,45 @@ import { describe, expect, it } from 'vitest';
 import { builderPreviewCandidateConfigSchema } from './builder-preview-candidate-config';
 
 describe('preview render policy carousel assets', () => {
+  it('projects a saved six-slide HeroCarousel to the preview slide bound', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [
+        {
+          props: {
+            id: 'carousel-1',
+            slides: Array.from({ length: 6 }, (_, index) => ({
+              ctaLink: `/collections/slide-${index + 1}`,
+              ctaText: `Shop slide ${index + 1}`,
+              image: `/images/slide-${index + 1}.webp`,
+              subtitle: `Supporting copy ${index + 1}`,
+              title: `Slide ${index + 1}`,
+            })),
+          },
+          type: 'HeroCarousel',
+        },
+      ],
+      root: { props: { title: 'Home' } },
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+
+    const slides = result.data.content[0]?.props.slides;
+    expect(slides).toHaveLength(5);
+    expect(slides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          image: '/placeholder.png',
+          title: 'Slide 1',
+        }),
+        expect.objectContaining({
+          image: '/placeholder.png',
+          title: 'Slide 5',
+        }),
+      ])
+    );
+  });
+
   it('projects carousel slide text and links onto a local placeholder image', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [

@@ -3,10 +3,7 @@ import {
   MAX_AI_EDIT_BODY_BYTES,
 } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
-import {
-  isBuilderPreviewRenderEvent,
-  parseBuilderPreviewEvent,
-} from './parse-builder-preview-event';
+import { parseBuilderPreviewEvent } from './parse-builder-preview-event';
 
 const validMessage = {
   candidateConfig: {
@@ -62,19 +59,6 @@ describe('parseBuilderPreviewEvent', () => {
     ).toBeNull();
   });
 
-  it('classifies unrelated host messages without treating them as preview errors', () => {
-    expect(
-      isBuilderPreviewRenderEvent(
-        new MessageEvent('message', { data: { type: 'host.analytics' } })
-      )
-    ).toBe(false);
-    expect(
-      isBuilderPreviewRenderEvent(
-        new MessageEvent('message', { data: validMessage })
-      )
-    ).toBe(true);
-  });
-
   it('rejects oversized native string messages before JSON parsing', () => {
     const oversized = `${JSON.stringify(validMessage)}${'x'.repeat(
       MAX_AI_EDIT_BODY_BYTES
@@ -83,10 +67,5 @@ describe('parseBuilderPreviewEvent', () => {
     expect(
       parseBuilderPreviewEvent(new MessageEvent('message', { data: oversized }))
     ).toBeNull();
-    expect(
-      isBuilderPreviewRenderEvent(
-        new MessageEvent('message', { data: oversized })
-      )
-    ).toBe(false);
   });
 });

@@ -1,4 +1,5 @@
 import { builderDesignCapabilities } from './builder-design-capabilities';
+import { builderPreviewThemeStaticShape } from './builder-preview-theme-static-shape';
 
 const themeStringPattern = /^[a-zA-Z0-9\s#%(),./+-]{1,512}$/;
 const themeFunctionPattern = /([a-zA-Z][a-zA-Z0-9-]*)\s*\(/g;
@@ -26,6 +27,32 @@ const reservedColorGroups = new Set([
   'header',
   'input',
 ]);
+const previewStoreColorTokens = new Set([
+  'accent',
+  'accent-text',
+  'background',
+  'background-text',
+  'border',
+  'foreground',
+  'on-primary',
+  'option-secondary',
+  'primary',
+  'primary-text',
+  'rating',
+  'secondary',
+  'secondary-text',
+]);
+const emittedStoreTokensByColorPath: Record<string, readonly string[]> = {
+  '.colors.accent': ['accent', 'rating'],
+  '.colors.background': ['background'],
+  '.colors.border': ['border'],
+  '.colors.button.accent.text': ['accent-text'],
+  '.colors.button.primary.text': ['on-primary', 'primary-text'],
+  '.colors.button.secondary.background': ['option-secondary', 'secondary'],
+  '.colors.button.secondary.text': ['secondary-text'],
+  '.colors.foreground': ['background-text', 'foreground'],
+  '.colors.primary': ['primary'],
+};
 const text = 'text';
 const number = 'number';
 const rendererColorPattern = /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/;
@@ -39,116 +66,6 @@ type ThemeShape =
   | typeof text
   | typeof number
   | { readonly [key: string]: ThemeShape };
-
-const staticThemeShape = {
-  animations: {
-    duration: { fast: text, normal: text, slow: text },
-    easing: { easeIn: text, easeInOut: text, easeOut: text, linear: text },
-  },
-  borders: {
-    radius: {
-      '2xl': text,
-      full: text,
-      lg: text,
-      md: text,
-      none: text,
-      sm: text,
-      xl: text,
-    },
-    style: { dashed: text, dotted: text, solid: text },
-    width: { none: text, normal: text, thick: text, thin: text },
-  },
-  colors: {
-    border: text,
-    muted: text,
-    mutedForeground: text,
-    button: {
-      accent: { background: text, hover: text, text },
-      primary: { background: text, hover: text, text },
-      secondary: { background: text, hover: text, text },
-    },
-    card: { background: text, border: text, text },
-    footer: { background: text, linkColor: text, linkHoverColor: text, text },
-    header: {
-      background: text,
-      iconColor: text,
-      searchBackground: text,
-      searchBorder: text,
-      text,
-    },
-    input: {
-      background: text,
-      border: text,
-      focusBorder: text,
-      placeholder: text,
-      text,
-    },
-  },
-  layout: {
-    breakpoints: { '2xl': text, lg: text, md: text, sm: text, xl: text },
-    zIndex: {
-      dropdown: number,
-      fixed: number,
-      modal: number,
-      modalBackdrop: number,
-      popover: number,
-      sticky: number,
-      tooltip: number,
-    },
-  },
-  shadows: {
-    '2xl': text,
-    inner: text,
-    lg: text,
-    md: text,
-    none: text,
-    sm: text,
-    xl: text,
-  },
-  spacing: {
-    '2xl': text,
-    '3xl': text,
-    lg: text,
-    md: text,
-    sm: text,
-    xl: text,
-    xs: text,
-    container: { maxWidth: text, paddingX: text },
-    footer: { paddingX: text, paddingY: text },
-    header: { height: text, paddingX: text, paddingY: text },
-    section: { paddingX: text, paddingY: text },
-  },
-  typography: {
-    fontFamily: { body: text, heading: text, mono: text },
-    fontSize: {
-      '2xl': text,
-      '3xl': text,
-      '4xl': text,
-      '5xl': text,
-      '6xl': text,
-      base: text,
-      lg: text,
-      sm: text,
-      xl: text,
-      xs: text,
-    },
-    fontWeight: {
-      bold: number,
-      extrabold: number,
-      light: number,
-      medium: number,
-      normal: number,
-      semibold: number,
-    },
-    letterSpacing: { normal: text, tight: text, wide: text },
-    lineHeight: {
-      loose: number,
-      normal: number,
-      relaxed: number,
-      tight: number,
-    },
-  },
-} as const;
 
 let cachedThemeShape: ThemeShape | undefined;
 let cachedThemeSnapshot: string | undefined;
@@ -166,6 +83,7 @@ function hasOnlyKnownKeys(
 }
 
 function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
+  const allowsThemeVariable = path?.startsWith('.colors.') ?? false;
   const safeText =
     typeof value === 'string' &&
     themeStringPattern.test(value) &&
@@ -173,8 +91,10 @@ function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
       const code = character.codePointAt(0) ?? 0;
       return code > 31 && code !== 127;
     }) &&
-    [...value.matchAll(themeFunctionPattern)].every(([, name]) =>
-      safeThemeFunctionNames.has(name.toLowerCase())
+    [...value.matchAll(themeFunctionPattern)].every(
+      ([, name]) =>
+        safeThemeFunctionNames.has(name.toLowerCase()) ||
+        (allowsThemeVariable && name.toLowerCase() === 'var')
     );
   if (!safeText) return false;
   if (
@@ -192,13 +112,25 @@ function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
   return true;
 }
 
-function isDefinedColorToken(value: string): boolean {
+function isDefinedColorToken(value: string, path: string): boolean {
   const match = /^var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)$/.exec(value);
+  if (match === null) return true;
+  const [, namespace, token] = match;
+  if (namespace === 'theme')
+    return builderDesignCapabilities.themeTokenKeys.includes(token);
   return (
-    match === null ||
-    match[1] === 'store' ||
-    builderDesignCapabilities.themeTokenKeys.includes(match[2])
+    previewStoreColorTokens.has(token) &&
+    !emittedStoreTokensByColorPath[path]?.includes(token)
   );
+}
+
+function isSafeThemeNumber(value: unknown, path: string): boolean {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+  if (path.startsWith('.typography.fontWeight.'))
+    return value >= 1 && value <= 1_000;
+  if (path.startsWith('.typography.lineHeight.')) return value > 0;
+  if (path.startsWith('.layout.zIndex.')) return Number.isInteger(value);
+  return false;
 }
 
 function matchesThemeShape(
@@ -216,12 +148,11 @@ function matchesThemeShape(
         isSafeThemeText(value, key, path) &&
         (rendererColorPattern.test(value) ||
           /^var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\)$/.test(value)) &&
-        isDefinedColorToken(value)
+        isDefinedColorToken(value, path)
       );
     return isSafeThemeText(value, key, path);
   }
-  if (shape === number)
-    return typeof value === 'number' && Number.isFinite(value);
+  if (shape === number) return isSafeThemeNumber(value, path);
   if (!isRecord(value) || !hasOnlyKnownKeys(value, Object.keys(shape)))
     return false;
   return Object.entries(value).every(([key, child]) => {
@@ -259,14 +190,14 @@ function getCachedThemeShape(): ThemeShape | undefined {
   if (cachedThemeError !== undefined) return;
 
   cachedThemeShape = {
-    ...staticThemeShape,
+    ...builderPreviewThemeStaticShape,
     colors: {
       ...Object.fromEntries(
         builderDesignCapabilities.themeTokenKeys.map(
           (key): [string, typeof text] => [key, text]
         )
       ),
-      ...staticThemeShape.colors,
+      ...builderPreviewThemeStaticShape.colors,
     },
   };
   return cachedThemeShape;

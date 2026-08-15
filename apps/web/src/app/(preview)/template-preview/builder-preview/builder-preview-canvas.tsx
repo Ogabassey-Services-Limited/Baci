@@ -7,10 +7,8 @@ import {
 } from '@baci/shared/contracts';
 import { Component, type ReactNode, useEffect, useRef, useState } from 'react';
 import { RenderBuilderConfig } from '@/components/storefront/render-builder-config';
-import {
-  isBuilderPreviewRenderEvent,
-  parseBuilderPreviewEvent,
-} from './parse-builder-preview-event';
+import { isBuilderPreviewRenderEvent } from './is-builder-preview-render-event';
+import { parseBuilderPreviewEvent } from './parse-builder-preview-event';
 
 type PreviewState = {
   config: Parameters<typeof RenderBuilderConfig>[0]['config'];

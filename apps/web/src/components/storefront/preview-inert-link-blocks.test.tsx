@@ -45,12 +45,16 @@ describe('previewInertLinkBlocks', () => {
     fetchSpy.mockRestore();
   });
 
-  it('keeps bounded HeroCarousel slides in one production-sized viewport', () => {
+  it('matches the published mobile HeroCarousel viewport and theme tokens', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     render(
       previewInertLinkBlocks.HeroCarousel.render({
         slides: [
-          { ctaText: 'First action', title: 'First slide' },
+          {
+            ctaText: 'First action',
+            image: '/preview-hero.webp',
+            title: 'First slide',
+          },
           {
             ctaText: 'Edited second action',
             subtitle: 'Latest preview copy',
@@ -63,14 +67,24 @@ describe('previewInertLinkBlocks', () => {
     const carousel = screen.getByRole('region', {
       name: 'Preview hero carousel',
     });
-    expect(carousel).toHaveClass('h-[85vh]', 'overflow-hidden');
+    expect(carousel).toHaveClass('h-[60vh]', 'overflow-hidden');
     expect(carousel).toHaveAttribute('data-slide-count', '2');
     expect(carousel).toHaveAttribute('data-active-slide-index', '0');
+    const activeSlide = screen
+      .getByRole('region', { name: 'Preview hero carousel' })
+      .querySelector('[data-slide-index]');
+    expect(activeSlide).toHaveClass(
+      'justify-center',
+      'text-store-primary-text'
+    );
+    expect(activeSlide?.className).not.toMatch(/\btext-white\b/);
+    expect(carousel.querySelector('[aria-hidden="true"]')).toHaveClass(
+      'from-store-foreground/90',
+      'via-store-foreground/40'
+    );
     expect(
-      screen
-        .getByRole('region', { name: 'Preview hero carousel' })
-        .querySelector('[data-slide-index]')
-    ).toHaveClass('justify-center');
+      carousel.querySelector('[aria-hidden="true"]')?.className
+    ).not.toMatch(/\b(?:from|via)-black\//);
     expect(
       screen.getByRole('heading', { name: 'First slide' })
     ).toBeInTheDocument();

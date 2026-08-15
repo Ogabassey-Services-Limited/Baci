@@ -98,13 +98,13 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
   return (
     <section
       aria-label="Preview hero carousel"
-      className="relative h-[85vh] w-full overflow-hidden"
+      className="relative h-[60vh] w-full overflow-hidden"
       data-slide-count={slides.length}
       data-active-slide-index={activeIndex}
     >
       {activeSlide ? (
         <article
-          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-white"
+          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-store-primary-text"
           data-slide-index={activeIndex}
           key={`${activeIndex}:${activeSlide.title ?? ''}:${activeSlide.subtitle ?? ''}:${activeSlide.ctaText ?? ''}`}
           style={
@@ -120,7 +120,7 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
           {activeSlide.image ? (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent"
+              className="pointer-events-none absolute inset-0 bg-linear-to-t from-store-foreground/90 via-store-foreground/40 to-transparent"
             />
           ) : null}
           <div className="relative z-10">

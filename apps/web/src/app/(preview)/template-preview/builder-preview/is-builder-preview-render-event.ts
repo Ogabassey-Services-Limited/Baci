@@ -1,8 +1,4 @@
-import {
-  type BuilderPreviewMessage,
-  builderPreviewMessageSchema,
-  MAX_AI_EDIT_BODY_BYTES,
-} from '@baci/shared/contracts';
+import { MAX_AI_EDIT_BODY_BYTES } from '@baci/shared/contracts';
 
 function decodeEventData(event: Event): unknown {
   if (!('data' in event)) return null;
@@ -17,9 +13,12 @@ function decodeEventData(event: Event): unknown {
   }
 }
 
-export function parseBuilderPreviewEvent(
-  event: Event
-): BuilderPreviewMessage | null {
-  const result = builderPreviewMessageSchema.safeParse(decodeEventData(event));
-  return result.success ? result.data : null;
+export function isBuilderPreviewRenderEvent(event: Event): boolean {
+  const parsed = decodeEventData(event);
+  return (
+    typeof parsed === 'object' &&
+    parsed !== null &&
+    'type' in parsed &&
+    parsed.type === 'baci.builder-preview.render'
+  );
 }
