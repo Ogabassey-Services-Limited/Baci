@@ -3,6 +3,7 @@ import {
   dedupePathSegmentsPreservingCasing,
   resolvePurgeHostnames,
 } from '@/lib/storefront-purge-shared';
+import { resolveStorefrontProductPurgeCategorySlug } from './storefront-product-purge-category';
 
 // Past this many DISTINCT product purge targets in one operation, use the
 // bounded hostname-wide Cloudflare purge instead of URL-by-URL fan-out. That
@@ -80,82 +81,6 @@ export function resolveProductPurgeCategorySegment(
 }
 
 /**
- * Normalize a PostgREST to-one category embed
- * (`categories:category_id(slug, is_active)`),
- * which comes back as an object, an array, or null, to its single non-blank
- * slug (or null), accepting only active category rows.
- */
-function extractDirectJoinCategorySlug(categories: unknown): string | null {
-  const records = Array.isArray(categories) ? categories : [categories];
-  for (const record of records) {
-    if (!record || typeof record !== 'object' || !('slug' in record)) {
-      continue;
-    }
-    const category = record as { is_active?: unknown; slug?: unknown };
-    if (
-      ('is_active' in category && category.is_active !== true) ||
-      typeof category.slug !== 'string' ||
-      !category.slug.trim()
-    ) {
-      continue;
-    }
-    return category.slug.trim();
-  }
-  return null;
-}
-
-/**
- * Normalize a PostgREST junction embed
- * (`product_categories(category_id, categories(slug, is_active))`)
- * to the lowest-category-id active joined category slug (or null).
- */
-function extractJunctionCategorySlug(
-  productCategories: unknown
-): string | null {
-  if (!Array.isArray(productCategories)) {
-    return null;
-  }
-  const candidates: Array<{
-    categoryId: string | null;
-    index: number;
-    slug: string;
-  }> = [];
-  for (const [index, entry] of productCategories.entries()) {
-    const categories =
-      entry && typeof entry === 'object'
-        ? (entry as { categories?: unknown; category_id?: unknown })
-        : null;
-    const slug = extractDirectJoinCategorySlug(categories?.categories);
-    if (slug) {
-      const rawCategoryId = categories?.category_id;
-      candidates.push({
-        categoryId:
-          typeof rawCategoryId === 'string' && rawCategoryId.trim()
-            ? rawCategoryId.trim()
-            : null,
-        index,
-        slug,
-      });
-    }
-  }
-  candidates.sort((left, right) => {
-    if (!left.categoryId && !right.categoryId) {
-      return left.index - right.index;
-    }
-    if (!left.categoryId) return 1;
-    if (!right.categoryId) return -1;
-    return (
-      (left.categoryId < right.categoryId
-        ? -1
-        : left.categoryId > right.categoryId
-          ? 1
-          : 0) || left.index - right.index
-    );
-  });
-  return candidates[0]?.slug ?? null;
-}
-
-/**
  * The raw PostgREST product row shape a purge caller reads to resolve a PDP's
  * canonical category segment: the legacy text column plus the direct
  * `category_id` join and the `product_categories` junction embeds.
@@ -188,14 +113,11 @@ export interface ProductPurgeCategoryRow {
 export function resolveProductPurgeCategorySegmentForRow(
   row: ProductPurgeCategoryRow
 ): string | null {
-  const directSlug = extractDirectJoinCategorySlug(row.categories);
-  let joinedCategory: { slug: string } | null = null;
-  if (directSlug) {
-    joinedCategory = { slug: directSlug };
-  } else {
-    const junctionSlug = extractJunctionCategorySlug(row.product_categories);
-    joinedCategory = junctionSlug ? { slug: junctionSlug } : null;
-  }
+  const joinedSlug = resolveStorefrontProductPurgeCategorySlug({
+    categories: row.categories,
+    productCategories: row.product_categories,
+  });
+  const joinedCategory = joinedSlug ? { slug: joinedSlug } : null;
   // Legacy rows can carry a null/blank slug but stay addressable by id
   // (`/products/<id>`, `/<category>/<id>`), so resolve the segment against the
   // EFFECTIVE slug (id fallback). Without it, a null slug short-circuits
