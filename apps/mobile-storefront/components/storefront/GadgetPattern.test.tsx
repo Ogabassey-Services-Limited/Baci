@@ -49,6 +49,16 @@ describe('GadgetPattern', () => {
     ]);
   });
 
+  it('applies an explicit color to the raster accent', () => {
+    const { UNSAFE_getByType } = render(
+      <GadgetPattern color="#ff00aa" height={1500} />
+    );
+
+    expect(
+      StyleSheet.flatten(UNSAFE_getByType(Image).props.style).tintColor
+    ).toBe('#ff00aa');
+  });
+
   it('falls back to the active device color scheme', () => {
     jest.spyOn(ReactNative, 'useColorScheme').mockReturnValue('dark');
 
