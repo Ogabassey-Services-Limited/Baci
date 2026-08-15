@@ -114,6 +114,13 @@ describe('resolveProductPurgeCategorySegmentForRow', () => {
       categories: { is_active: false, slug: 'retired-category' },
       product_categories: [
         {
+          category_id: 'category-0',
+          categories: {
+            is_active: false,
+            slug: 'inactive-category',
+          },
+        },
+        {
           category_id: 'category-z',
           categories: { is_active: true, slug: 'z-category' },
         },
