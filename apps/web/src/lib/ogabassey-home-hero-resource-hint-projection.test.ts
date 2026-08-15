@@ -43,6 +43,16 @@ describe('ogabasseyHomeHeroResourceHintProjection', () => {
   });
 
   it.each([
+    null,
+    undefined,
+    42,
+    '',
+    { imageUrl: 42 },
+  ])('rejects malformed validation input: %j', (input) => {
+    expect(ogabasseyHomeHeroResourceHintProjection.validate(input)).toBe(false);
+  });
+
+  it.each([
     ['as', 'font'],
     ['href', 'https://cdn.ogabassey.com/wrong.avif'],
     ['imageSrcSet', 'wrong 960w'],

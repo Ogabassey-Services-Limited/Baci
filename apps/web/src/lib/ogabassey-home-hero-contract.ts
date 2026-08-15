@@ -65,12 +65,14 @@ function getCandidate(
   if (!Array.isArray(slides)) {
     return null;
   }
+  const typedSlides: OgabasseyHomeHeroSlideProjection[] = [];
   for (const slide of slides) {
     if (!isValidSlide(slide)) {
       return null;
     }
+    typedSlides.push(slide);
   }
-  const slide = slides[0];
+  const slide = typedSlides[0];
   if (!slide) {
     return null;
   }
@@ -120,6 +122,16 @@ function isMerchantId(value: unknown): value is string {
   return typeof value === 'string' && MERCHANT_ID_PATTERN.test(value);
 }
 
+function isValidProjection(value: OgabasseyHomeHeroProjection): boolean {
+  return (
+    value.version === 1 &&
+    isMerchantId(value.merchantId) &&
+    Number.isInteger(value.slideCount) &&
+    value.slideCount > 0 &&
+    isValidSlide(value.candidate)
+  );
+}
+
 function sameCandidate(
   left: OgabasseyHomeHeroSlideProjection,
   right: OgabasseyHomeHeroSlideProjection | undefined
@@ -148,6 +160,9 @@ export const ogabasseyHomeHeroContract = {
   assessRenderer(
     input: OgabasseyHomeHeroRendererInput
   ): OgabasseyHomeHeroRendererAssessment {
+    if (!isValidProjection(input.projection)) {
+      return { reason: 'rendered_candidate_mismatch', valid: false };
+    }
     if (input.requestPublication.status !== 'published') {
       return { reason: 'publication_mismatch', valid: false };
     }

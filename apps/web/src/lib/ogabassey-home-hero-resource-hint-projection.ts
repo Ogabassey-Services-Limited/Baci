@@ -108,7 +108,9 @@ function buildProjection(
 /** Pure source of truth for the homepage slide-zero preload identity. */
 export const ogabasseyHomeHeroResourceHintProjection = {
   build: buildProjection,
-  validate(projection: unknown): boolean {
+  validate(
+    projection: unknown
+  ): projection is OgabasseyHomeHeroResourceHintIdentity {
     try {
       if (
         !projection ||

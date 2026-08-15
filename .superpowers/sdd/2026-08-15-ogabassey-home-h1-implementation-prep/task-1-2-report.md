@@ -84,3 +84,20 @@ Status: `DONE_WITH_CONCERNS`
 - `pnpm --filter @baci/web typecheck`: passed, including the tools/workers
   project.
 - Biome on all five owned files: passed; `git diff --check`: passed.
+
+## Whole-branch review response
+
+- Split renderer-assessment coverage into the colocated
+  `ogabassey-home-hero-contract.renderer.test.ts`; current owned file lengths
+  are 53, 226, 247, 167, 154, and 94 lines respectively, all below 300.
+- Narrowed every runtime slide through `isValidSlide` before selecting the
+  candidate, and made resource-hint validation an explicit type predicate.
+- Added malformed projection regressions for forged version and candidate
+  shape, plus primitive/null validation-input coverage.
+- Focused suites now cover four colocated files (50 tests passed), including
+  the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
+  passed; Biome and `git diff --check` passed.
+- The expected-preload rebuild remains intentional: it derives the canonical
+  identity from the projected candidate image, then validates the supplied
+  projection and digest, preventing independently supplied preload fields from
+  becoming authoritative.

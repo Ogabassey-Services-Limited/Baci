@@ -1,0 +1,167 @@
+import { describe, expect, it } from 'vitest';
+import { selectOgabasseyLaunchProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-launch-products';
+import { buildLaunchSlides } from '@/components/storefront/ogabassey/components/build-launch-slides';
+import type { StorefrontHomeProduct } from '@/lib/cached-data';
+import { ogabasseyHomeHeroContract } from './ogabassey-home-hero-contract';
+
+function createRow(): StorefrontHomeProduct {
+  return {
+    id: 'product-1',
+    name: 'Samsung Galaxy A27 5G',
+    slug: 'samsung-galaxy-a27-5g',
+    price: 50000,
+    images: ['https://cdn.ogabassey.com/products/a27.avif'],
+    category: 'Smartphones',
+    brand: 'Samsung',
+    condition: 'new',
+    stock: 2,
+    stock_quantity: null,
+    manage_stock: false,
+    low_stock_threshold: null,
+    product_categories: [],
+  };
+}
+
+function createPublishedShell() {
+  const selectedProducts = selectOgabasseyLaunchProducts({
+    launchCandidateRows: [createRow()],
+    pinnedProductRows: [],
+  });
+  return {
+    merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74' as const,
+    status: 'published' as const,
+    slides: buildLaunchSlides(selectedProducts, 'https://ogabassey.com'),
+  };
+}
+
+function createFixture() {
+  const projection = ogabasseyHomeHeroContract.project(createPublishedShell());
+  if (!projection) throw new Error('expected a published projection');
+  const preload = ogabasseyHomeHeroContract.preloadIdentity(projection);
+  if (!preload) throw new Error('expected a CDN preload projection');
+  return { projection, preload };
+}
+
+describe('ogabasseyHomeHeroContract renderer assessment', () => {
+  it('accepts matching publication, preload, and rendered slide identity', () => {
+    const { projection, preload } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection,
+        renderedSlides: [projection.candidate],
+        requestPublication: {
+          merchantId: projection.merchantId,
+          status: 'published',
+        },
+      })
+    ).toEqual({ valid: true });
+  });
+
+  it.each([
+    [
+      'merchant',
+      {
+        requestPublication: {
+          merchantId: 'foreign-merchant',
+          status: 'published',
+        },
+      },
+    ],
+    [
+      'preload',
+      { preload: { imageUrl: 'https://cdn.ogabassey.com/other.avif' } },
+    ],
+    ['candidate', { renderedSlides: [{ id: 'other' }] }],
+    ['alt text', { renderedSlides: [{ imageAlt: 'Wrong alternative text' }] }],
+  ] as const)('rejects %s identity drift', (_label, mutation) => {
+    const { projection, preload } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload:
+          'preload' in mutation ? { ...preload, ...mutation.preload } : preload,
+        projection,
+        renderedSlides:
+          'renderedSlides' in mutation
+            ? [{ ...projection.candidate, ...mutation.renderedSlides[0] }]
+            : [projection.candidate],
+        requestPublication:
+          'requestPublication' in mutation
+            ? mutation.requestPublication
+            : { merchantId: projection.merchantId, status: 'published' },
+      })
+    ).toEqual({
+      reason:
+        'requestPublication' in mutation
+          ? 'merchant_mismatch'
+          : 'preload' in mutation
+            ? 'preload_mismatch'
+            : 'rendered_candidate_mismatch',
+      valid: false,
+    });
+  });
+
+  it('rejects null expected and supplied preload identities', () => {
+    const { projection } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload: null,
+        projection: {
+          ...projection,
+          candidate: {
+            ...projection.candidate,
+            imageUrl: 'https://example.com/hero.jpg',
+          },
+        },
+        renderedSlides: [projection.candidate],
+        requestPublication: {
+          merchantId: projection.merchantId,
+          status: 'published',
+        },
+      })
+    ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+  });
+
+  it('rejects forged projection versions and malformed candidates', () => {
+    const { projection, preload } = createFixture();
+    for (const forged of [
+      { ...projection, version: 2 },
+      { ...projection, candidate: { ...projection.candidate, kind: 'promo' } },
+    ]) {
+      expect(
+        ogabasseyHomeHeroContract.assessRenderer({
+          preload,
+          projection: forged as typeof projection,
+          renderedSlides: [projection.candidate],
+          requestPublication: {
+            merchantId: projection.merchantId,
+            status: 'published',
+          },
+        })
+      ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+    }
+  });
+
+  it('rejects publication and cardinality drift', () => {
+    const { projection, preload } = createFixture();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection,
+        renderedSlides: [projection.candidate],
+        requestPublication: { status: 'unpublished' },
+      })
+    ).toEqual({ reason: 'publication_mismatch', valid: false });
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection,
+        renderedSlides: [projection.candidate, projection.candidate],
+        requestPublication: {
+          merchantId: projection.merchantId,
+          status: 'published',
+        },
+      })
+    ).toEqual({ reason: 'slide_cardinality_mismatch', valid: false });
+  });
+});
