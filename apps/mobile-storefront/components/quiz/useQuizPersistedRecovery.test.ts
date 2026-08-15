@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { useSyncExternalStore } from 'react';
 import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import { recoverActiveQuizAttempt } from '@/services/quiz-attempt-recovery';
 import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
@@ -10,6 +11,24 @@ import {
 import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 
 type RecoverEvent = QuizV2StoreActions['recoverEvent'];
+
+function createRecoveryStatusStore() {
+  let status: 'ready' | 'starting' = 'ready';
+  const listeners = new Set<() => void>();
+  return {
+    getStatus: () => status,
+    setStatus: (next: 'ready' | 'starting') => {
+      status = next;
+      listeners.forEach((listener) => {
+        listener();
+      });
+    },
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
 
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
   getQuizDeviceFingerprint: jest.fn(),
@@ -177,26 +196,26 @@ describe('useQuizPersistedRecovery', () => {
         version: 1,
       },
     ]);
-    let rerender!: (props: { enabled: boolean }) => void;
+    const statusStore = createRecoveryStatusStore();
     const recoverEvent = jest
       .fn<RecoverEvent>()
       .mockImplementation(async () => {
-        await act(async () => {
-          rerender({ enabled: false });
-          await Promise.resolve();
-          rerender({ enabled: true });
-        });
+        act(() => statusStore.setStatus('starting'));
+        await Promise.resolve();
+        act(() => statusStore.setStatus('ready'));
         return 'retry';
       });
-    ({ rerender } = renderHook(
-      ({ enabled }: { enabled: boolean }) =>
-        useQuizPersistedRecovery({
-          enabled,
-          recoverEvent,
-          userId: 'user-1',
-        }),
-      { initialProps: { enabled: true } }
-    ));
+    renderHook(() => {
+      const status = useSyncExternalStore(
+        statusStore.subscribe,
+        statusStore.getStatus
+      );
+      useQuizPersistedRecovery({
+        enabled: status === 'ready',
+        recoverEvent,
+        userId: 'user-1',
+      });
+    });
 
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
     await act(async () => {

@@ -37,8 +37,15 @@ export function useQuizPersistedRecovery({
   useEffect(() => {
     const becameEnabled = enabled && !previousEnabled.current;
     previousEnabled.current = enabled;
-    if (becameEnabled) setRetryNonce((nonce) => nonce + 1);
-  }, [enabled]);
+    if (
+      becameEnabled &&
+      userId &&
+      !retryScheduled.current &&
+      !recoveringUserId.current &&
+      attemptedUserId.current !== userId
+    )
+      setRetryNonce((nonce) => nonce + 1);
+  }, [enabled, userId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry; enabled is read through enabledRef so its own status transition does not cancel an active recovery.
   useEffect(() => {

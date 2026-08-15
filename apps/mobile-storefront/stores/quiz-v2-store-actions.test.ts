@@ -156,6 +156,32 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     });
   });
 
+  it('starts with the requested id when recovery storage cannot be read', async () => {
+    mockLoadRecoveryEnvelope.mockRejectedValueOnce(
+      new Error('storage unavailable')
+    );
+    const harness = createHarness();
+    const starter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.startEventV2(
+      {
+        eventId: 'event-1',
+        integrityTier: 'strong',
+        startRequestId: '66666666-6666-4666-8666-666666666666',
+        userId: 'user-1',
+      },
+      starter
+    );
+
+    expect(starter).toHaveBeenCalledWith(
+      '66666666-6666-4666-8666-666666666666'
+    );
+    expect(harness.getState()).toMatchObject({
+      status: 'question',
+      v2Attempt: activeAttempt,
+    });
+  });
+
   it('serializes concurrent starts before recovery storage resolves', async () => {
     const harness = createHarness();
     harness.set({ status: 'ready', v2Attempt: null });

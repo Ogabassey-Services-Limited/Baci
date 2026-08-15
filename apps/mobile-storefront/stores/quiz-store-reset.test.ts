@@ -89,4 +89,29 @@ describe('useQuizStore reset and explicit errors', () => {
       v2Result: null,
     });
   });
+
+  it('retains pending-result recovery through an auth reset', () => {
+    const removeItem = jest
+      .spyOn(asyncStorage, 'removeItem')
+      .mockResolvedValue(undefined);
+    useQuizStore.setState({
+      recoveryUserId: 'user-1',
+      selectedEventId: 'event-1',
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      status: 'result',
+      terminalContext: {
+        attemptId: 'attempt-1',
+        contractVersion: 2,
+        eventId: 'event-1',
+        eventEndsAt: '2026-08-04T12:05:00.000Z',
+        serverNow: '2026-08-04T12:05:00.000Z',
+      },
+      v2LifecycleStatus: 'pending_results',
+    });
+
+    act(() => useQuizStore.getState().reset());
+
+    expect(removeItem).not.toHaveBeenCalled();
+    removeItem.mockRestore();
+  });
 });

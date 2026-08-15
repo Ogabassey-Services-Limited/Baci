@@ -91,7 +91,7 @@ export function createQuizV2StoreActions({
         const existing = await loadQuizRecoveryEnvelope(
           context.userId,
           context.eventId
-        );
+        ).catch(() => null);
         if (generation !== getGeneration()) return;
         const startRequestId =
           existing?.startRequestId ?? context.startRequestId;
