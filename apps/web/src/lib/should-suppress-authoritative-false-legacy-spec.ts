@@ -11,7 +11,7 @@ function isExplicitNegativeCapabilityValue(value: unknown) {
 
 export function shouldSuppressAuthoritativeFalseLegacySpec(
   product: ProductCategorySource,
-  candidate: { key?: string; value: unknown },
+  candidate: { key?: string; label?: string; value: unknown },
   canonicalSpecKey: string | undefined
 ) {
   if (!canonicalSpecKey || !product.product_key_specs) {
