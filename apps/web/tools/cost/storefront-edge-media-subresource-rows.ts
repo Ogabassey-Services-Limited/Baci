@@ -15,6 +15,7 @@ type MediaDestinationHostKind =
   | 'configured_klump_origin'
   | 'configured_korapay_origin'
   | 'configured_paystack_asset_origin'
+  | 'configured_paystack_checkout_origin'
   | 'configured_juicyway_origin'
   | 'configured_credpal_origin'
   | 'configured_credit_direct_origin'
@@ -168,6 +169,11 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'checkout-payment-juicyway',
     'configured_juicyway_origin',
     'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx'
+  ),
+  mediaSubresource(
+    'utility-checkout-paystack-navigation',
+    'configured_paystack_checkout_origin',
+    'apps/web/src/components/storefront/ogabassey/components/utility-checkout.ts'
   ),
   mediaSubresource(
     'credpal',

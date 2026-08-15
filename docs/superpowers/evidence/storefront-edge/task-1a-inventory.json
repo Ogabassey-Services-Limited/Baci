@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "2e8ea071d31e7b85fc95b6698f101ab4877d9904",
+  "originMainSha": "5bc9c1d7bdc390679937bbb61301f4eb29ec3dd7",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "7e1d3cdcad9309e40660bb9ff46af0ef053386a77ad89b4839136fcbf90f1a70",
-  "routingProxyInputSha256": "6c24bead6d1d2cf843e02c459dc2386a356c42274749ac83f793a8310430767b",
+  "routingProxyInputSha256": "8acb5c9ce17a4c35ab81923792891f12ae1b7ed5ed417d20eddb684412162d2e",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -1540,86 +1540,6 @@
     },
     {
       "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-root",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/blog",
-      "sourceKind": "request_override"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-nested",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/blog/{*path}",
-      "sourceKind": "request_override"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-slug-root",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/blog",
-      "sourceKind": "request_override",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-slug-nested",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/blog/{*path}",
-      "sourceKind": "request_override",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
       "id": "request-override:markdown-negotiation-root",
       "methods": [
         "GET",
@@ -1657,6 +1577,22 @@
         "precedence": "before_path_decision"
       },
       "routePattern": "/{storefrontIdentifier}",
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "auth.md",
+          "openapi.json",
+          "agent-commerce.json",
+          "agent-trust.json",
+          "llms.txt",
+          "llms-full.txt",
+          "robots.txt",
+          "api",
+          "_next",
+          ".well-known"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "markdown_negotiation_storefront_excluding_machine"
+      },
       "sourceKind": "request_override",
       "sourcePath": "apps/web/next.config.ts"
     },
@@ -1872,6 +1808,22 @@
       "routePattern": "/rest/v1/products",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:supabase-cart-products",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/rest/v1/products",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/cart-page-wrapper.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -2413,6 +2365,22 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_paystack_checkout_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:utility-checkout-paystack-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/utility-checkout.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -3710,6 +3678,86 @@
           "ogabassey.com",
           "www.ogabassey.com"
         ],
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/blog",
+      "sourceKind": "request_override"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-nested",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/blog/{*path}",
+      "sourceKind": "request_override"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-slug-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog",
+      "sourceKind": "request_override",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-slug-nested",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog/{*path}",
+      "sourceKind": "request_override",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
         "precedence": "before_path_decision"
       }
     },
@@ -7713,5 +7761,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "7a836fbf4722137073224efc6266848abe9633c6f0176f85a8c45257c9543439"
+  "inventorySha256": "7c21badecf41ba188a76a41e853e7a0a3ddf984fbc4ee01cf7ef9688cc68dacc"
 }

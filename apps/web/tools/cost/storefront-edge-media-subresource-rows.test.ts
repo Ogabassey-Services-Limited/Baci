@@ -60,6 +60,7 @@ describe('external storefront media inventory', () => {
       ...[
         'configured_klump_origin',
         'configured_paystack_asset_origin',
+        'configured_paystack_checkout_origin',
         'configured_korapay_origin',
         'configured_credpal_origin',
         'configured_credit_direct_origin',
@@ -121,6 +122,17 @@ describe('external storefront media inventory', () => {
     ).toEqual(
       expect.objectContaining({
         methods: ['PUT', 'OPTIONS'],
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:utility-checkout-paystack-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/utility-checkout.ts',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_paystack_checkout_origin',
+        }),
       })
     );
   });

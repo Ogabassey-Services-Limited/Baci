@@ -129,22 +129,52 @@ const LOCALE_SENSITIVE_ROWS: readonly InventoryRow[] = [
   },
 ];
 
+const MARKDOWN_NEGOTIATION_EXCLUDED_FIRST_SEGMENTS = [
+  'auth.md',
+  'openapi.json',
+  'agent-commerce.json',
+  'agent-trust.json',
+  'llms.txt',
+  'llms-full.txt',
+  'robots.txt',
+  'api',
+  '_next',
+  '.well-known',
+] as const;
+
 const MARKDOWN_NEGOTIATION_ROWS: readonly InventoryRow[] = [
-  '/',
-  '/{storefrontIdentifier}',
-].map((routePattern, index) => ({
-  decision: 'origin_dynamic',
-  id: `request-override:markdown-negotiation-${index === 0 ? 'root' : 'storefront'}`,
-  methods: ['GET', 'HEAD'],
-  reason: 'next_markdown_content_negotiation_rewrite',
-  requestCondition: {
-    anyHeaderMatch: [{ name: 'accept', value: 'text/markdown' }],
-    precedence: 'before_path_decision',
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:markdown-negotiation-root',
+    methods: ['GET', 'HEAD'],
+    reason: 'next_markdown_content_negotiation_rewrite',
+    requestCondition: {
+      anyHeaderMatch: [{ name: 'accept', value: 'text/markdown' }],
+      precedence: 'before_path_decision',
+    },
+    routePattern: '/',
+    sourceKind: 'request_override',
+    sourcePath: 'apps/web/next.config.ts',
   },
-  routePattern,
-  sourceKind: 'request_override',
-  sourcePath: 'apps/web/next.config.ts',
-}));
+  {
+    decision: 'origin_dynamic',
+    id: 'request-override:markdown-negotiation-storefront',
+    methods: ['GET', 'HEAD'],
+    reason: 'next_markdown_content_negotiation_rewrite',
+    requestCondition: {
+      anyHeaderMatch: [{ name: 'accept', value: 'text/markdown' }],
+      precedence: 'before_path_decision',
+    },
+    routePattern: '/{storefrontIdentifier}',
+    pathCondition: {
+      firstSegmentNotIn: [...MARKDOWN_NEGOTIATION_EXCLUDED_FIRST_SEGMENTS],
+      precedence: 'before_path_decision',
+      predicate: 'markdown_negotiation_storefront_excluding_machine',
+    },
+    sourceKind: 'request_override',
+    sourcePath: 'apps/web/next.config.ts',
+  },
+];
 
 const SERVER_ACTION_ROWS: readonly InventoryRow[] = [
   {
@@ -225,7 +255,6 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
   },
   apiTerminalRow: API_TERMINAL_ROW,
   extraRows: [
-    ...DRAFT_MODE_ROWS,
     ...ROUTER_DATA_ROWS,
     ...AUTH_SESSION_ROWS,
     ...LOCALE_SENSITIVE_ROWS,
@@ -238,6 +267,7 @@ export const STOREFRONT_EDGE_INVENTORY_POLICY = {
     STOREFRONT_EDGE_PLATFORM_ROOT_FAVICON_ROW,
     ...SERVER_ACTION_ROWS,
     ...STOREFRONT_EDGE_PROXY_ROWS,
+    ...DRAFT_MODE_ROWS,
   ],
   routingInputPaths: [...STOREFRONT_EDGE_INVENTORY_ROUTING_INPUT_PATHS],
   schemaVersion: 6,

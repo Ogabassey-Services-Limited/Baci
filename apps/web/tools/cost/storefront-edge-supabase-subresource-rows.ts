@@ -16,6 +16,8 @@ const CHECKOUT_AUTH_SOURCE =
   'apps/web/src/components/storefront/checkout-auth-modal.tsx';
 const OGA_CHECKOUT_IDENTITY_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/CheckoutIdentityModal.tsx';
+const CART_PAGE_WRAPPER_SOURCE =
+  'apps/web/src/components/storefront/ogabassey/pages/cart-page-wrapper.tsx';
 
 function supabaseSubresource(
   id: string,
@@ -58,6 +60,12 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
       '/rest/v1/products',
       ['GET', 'OPTIONS'],
       BLOG_SNIPPET_SOURCE
+    ),
+    supabaseSubresource(
+      'cart-products',
+      '/rest/v1/products',
+      ['GET', 'OPTIONS'],
+      CART_PAGE_WRAPPER_SOURCE
     ),
     supabaseSubresource(
       'match-blog-to-product',

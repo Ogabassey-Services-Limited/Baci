@@ -294,4 +294,31 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
     expect(machineRows.every((row) => row.sourcePath)).toBe(true);
   });
+
+  it('applies draft-mode overrides only after proxy host and path classes', () => {
+    const rows = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows;
+    const draftIndex = rows.findIndex((row) =>
+      row.id.startsWith('request-override:draft-mode')
+    );
+    const lastProxyIndex = rows.reduce(
+      (latest, row, index) =>
+        row.sourceKind === 'proxy_path_class' ? index : latest,
+      -1
+    );
+
+    expect(draftIndex).toBeGreaterThan(lastProxyIndex);
+  });
+
+  it('excludes machine rewrite paths from markdown storefront negotiation', () => {
+    const row = STOREFRONT_EDGE_INVENTORY_POLICY.extraRows.find(
+      ({ id }) => id === 'request-override:markdown-negotiation-storefront'
+    );
+
+    expect(row?.pathCondition).toEqual(
+      expect.objectContaining({
+        firstSegmentNotIn: expect.arrayContaining(['robots.txt', 'api']),
+        predicate: 'markdown_negotiation_storefront_excluding_machine',
+      })
+    );
+  });
 });

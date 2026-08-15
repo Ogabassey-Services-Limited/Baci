@@ -30,6 +30,14 @@ describe('STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS', () => {
           'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx',
       })
     );
+    expect(byId.get('automatic-subresource:supabase-cart-products')).toEqual(
+      expect.objectContaining({
+        methods: ['GET', 'OPTIONS'],
+        routePattern: '/rest/v1/products',
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/cart-page-wrapper.tsx',
+      })
+    );
     expect(byId.get('automatic-subresource:supabase-auth-signup')).toEqual(
       expect.objectContaining({
         methods: ['POST'],
