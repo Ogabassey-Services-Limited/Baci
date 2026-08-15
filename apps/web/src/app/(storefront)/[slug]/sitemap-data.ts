@@ -217,10 +217,14 @@ export async function getProductSitemapEntries({
     const { data, error } = (await supabase
       .from('products')
       .select(
-        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug), product_categories:product_categories(categories(slug))'
+        'id, name, slug, category, canonical_url, images, updated_at, category_id, categories:category_id(slug, is_active), product_categories:product_categories(category_id, categories(slug, is_active))'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'active')
+      .order('category_id', {
+        ascending: true,
+        referencedTable: 'product_categories',
+      })
       .order('id', { ascending: true })
       .range(from, from + pageSize - 1)) as {
       data: ProductWithCategory[] | null;

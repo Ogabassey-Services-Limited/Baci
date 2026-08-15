@@ -119,7 +119,7 @@ describe('ucp catalog adapters', () => {
     expect(product.url).toBe('https://ogabassey.com/laptops/legacy-laptop');
   });
 
-  it('keeps legacy category text ahead of a junction category without a direct join', () => {
+  it('keeps an active junction category ahead of legacy text without a direct join', () => {
     const product = mapUcpCatalogProductRow({
       baseUrl: 'https://ogabassey.com',
       currency: 'NGN',
@@ -138,7 +138,38 @@ describe('ucp catalog adapters', () => {
     });
 
     expect(product.url).toBe(
-      'https://ogabassey.com/laptops/legacy-category-laptop'
+      'https://ogabassey.com/featured-laptops/legacy-category-laptop'
+    );
+  });
+
+  it('uses the lowest active junction category id for the UCP URL', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        canonical_url: null,
+        categories: { is_active: false, slug: 'retired' },
+        id: 'multi-category-product',
+        merchant_id: 'merchant-1',
+        name: 'Multi-category product',
+        price: 900_000,
+        product_categories: [
+          {
+            category_id: 'category-z',
+            categories: { is_active: true, slug: 'z-category' },
+          },
+          {
+            category_id: 'category-a',
+            categories: { is_active: true, slug: 'a-category' },
+          },
+        ],
+        slug: 'multi-category-product',
+        status: 'active',
+      },
+    });
+
+    expect(product.url).toBe(
+      'https://ogabassey.com/a-category/multi-category-product'
     );
   });
 

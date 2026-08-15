@@ -23,7 +23,7 @@ type StorefrontProductForUcp = {
 export type UcpCatalogProductRow = {
   canonical_url?: string | null;
   category?: string | null;
-  categories?: { slug?: string | null } | null;
+  categories?: { is_active?: boolean | null; slug?: string | null } | null;
   description?: string | null;
   id: string;
   images?: unknown;
@@ -32,7 +32,8 @@ export type UcpCatalogProductRow = {
   name: string;
   price?: number | string | null;
   product_categories?: Array<{
-    categories?: { slug?: string | null } | null;
+    category_id?: string | null;
+    categories?: { is_active?: boolean | null; slug?: string | null } | null;
   }> | null;
   slug?: string | null;
   status?: string | null;
