@@ -3,12 +3,24 @@ import { render, screen } from '@testing-library/react-native';
 import { QuizScreenModals } from './QuizScreenModals';
 
 jest.mock('./QuizUsernameGateModal', () => ({
-  QuizUsernameGateModal: ({ visible }: { visible: boolean }) =>
-    visible ? <>{'username modal'}</> : null,
+  QuizUsernameGateModal: ({ visible }: { visible: boolean }) => {
+    if (!visible) return null;
+    const React = jest.requireActual('react') as typeof import('react');
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return React.createElement(Text, null, 'username modal');
+  },
 }));
 jest.mock('./QuizDateOfBirthGateModal', () => ({
-  QuizDateOfBirthGateModal: ({ visible }: { visible: boolean }) =>
-    visible ? <>{'date of birth modal'}</> : null,
+  QuizDateOfBirthGateModal: ({ visible }: { visible: boolean }) => {
+    if (!visible) return null;
+    const React = jest.requireActual('react') as typeof import('react');
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return React.createElement(Text, null, 'date of birth modal');
+  },
 }));
 
 describe('QuizScreenModals', () => {

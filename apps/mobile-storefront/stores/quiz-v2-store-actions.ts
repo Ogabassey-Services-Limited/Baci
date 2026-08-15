@@ -115,71 +115,77 @@ export function createQuizV2StoreActions({
         recoveryUserId: userId,
         selectedEventId: eventId,
       });
-      const envelope = await loadQuizRecoveryEnvelope(userId, eventId);
-      const recovered = await recoverer();
-      if (generation !== getGeneration()) return;
-      if (
-        recovered.availability === 'active' &&
-        recovered.attempt &&
-        isQuizOpenAtServerTime(recovered)
-      ) {
-        set({
-          startRequestId: envelope?.startRequestId ?? null,
-          v2Attempt: recovered.attempt,
-        });
+      try {
+        const envelope = await loadQuizRecoveryEnvelope(userId, eventId);
+        const recovered = await recoverer();
+        if (generation !== getGeneration()) return;
         if (
-          envelope?.pendingLockedOptionId &&
-          envelope.currentQuestionId === recovered.attempt.question?.id
+          recovered.availability === 'active' &&
+          recovered.attempt &&
+          isQuizOpenAtServerTime(recovered)
         ) {
           set({
-            status: 'submitting',
-            lockedOptionId: envelope.pendingLockedOptionId,
+            startRequestId: envelope?.startRequestId ?? null,
+            v2Attempt: recovered.attempt,
           });
-          await apply(
-            await resender(
-              envelope.pendingLockedOptionId,
-              envelope.currentQuestionId
-            )
-          );
-        } else await apply(recovered.attempt);
-        return;
-      }
-      const cancelled = recovered.availability === 'cancelled';
-      const pending = recovered.availability === 'pending_results';
-      const expiredActive =
-        recovered.availability === 'active' && recovered.attempt;
-      set({
-        status: cancelled || pending || expiredActive ? 'result' : 'ready',
-        v2Attempt: null,
-        v2LifecycleStatus: cancelled
-          ? 'event_cancelled'
-          : pending || expiredActive
-            ? 'pending_results'
-            : 'idle',
-        terminalContext:
-          cancelled || pending || expiredActive
-            ? recovered.attempt
-              ? createQuizTerminalContext(
-                  recovered.attempt.attemptId,
-                  eventId,
-                  recovered.attempt.eventEndsAt,
-                  recovered.attempt.serverNow
-                )
-              : envelope?.attemptId
+          if (
+            envelope?.pendingLockedOptionId &&
+            envelope.currentQuestionId === recovered.attempt.question?.id
+          ) {
+            set({
+              status: 'submitting',
+              lockedOptionId: envelope.pendingLockedOptionId,
+            });
+            await apply(
+              await resender(
+                envelope.pendingLockedOptionId,
+                envelope.currentQuestionId
+              )
+            );
+          } else await apply(recovered.attempt);
+          return;
+        }
+        const cancelled = recovered.availability === 'cancelled';
+        const pending = recovered.availability === 'pending_results';
+        const expiredActive =
+          recovered.availability === 'active' && recovered.attempt;
+        set({
+          status: cancelled || pending || expiredActive ? 'result' : 'ready',
+          v2Attempt: null,
+          v2LifecycleStatus: cancelled
+            ? 'event_cancelled'
+            : pending || expiredActive
+              ? 'pending_results'
+              : 'idle',
+          terminalContext:
+            cancelled || pending || expiredActive
+              ? recovered.attempt
                 ? createQuizTerminalContext(
-                    envelope.attemptId,
+                    recovered.attempt.attemptId,
                     eventId,
-                    recovered.eventEndsAt,
-                    recovered.serverNow
+                    recovered.attempt.eventEndsAt,
+                    recovered.attempt.serverNow
                   )
-                : null
-            : null,
-      });
-      await clearTerminalRecovery(
-        access,
-        eventId,
-        Boolean(cancelled && envelope)
-      );
+                : envelope?.attemptId
+                  ? createQuizTerminalContext(
+                      envelope.attemptId,
+                      eventId,
+                      recovered.eventEndsAt,
+                      recovered.serverNow
+                    )
+                  : null
+              : null,
+        });
+        await clearTerminalRecovery(
+          access,
+          eventId,
+          Boolean(cancelled && envelope)
+        );
+      } catch (error) {
+        if (generation === getGeneration()) {
+          set({ status: 'ready', error: getMessage(error) });
+        }
+      }
     },
     reconcileLifecycle: async (reconciler, nowMs = Date.now()) => {
       if (

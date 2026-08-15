@@ -83,6 +83,35 @@ export async function loadQuizRecoveryEnvelope(
   return null;
 }
 
+export async function loadQuizRecoveryEnvelopes(
+  userId: string
+): Promise<QuizRecoveryEnvelope[]> {
+  const prefix = `${KEY_PREFIX}:${encodeURIComponent(userId)}:`;
+  const keys = await asyncStorage.getAllKeys();
+  const eventIds = Array.from(
+    new Set(
+      keys
+        .filter((key) => key.startsWith(prefix))
+        .map((key) => key.slice(prefix.length))
+        .filter(Boolean)
+        .map((encodedEventId) => {
+          try {
+            return decodeURIComponent(encodedEventId);
+          } catch {
+            return null;
+          }
+        })
+        .filter((eventId): eventId is string => Boolean(eventId))
+    )
+  );
+  const envelopes = await Promise.all(
+    eventIds.map((eventId) => loadQuizRecoveryEnvelope(userId, eventId))
+  );
+  return envelopes
+    .filter((envelope): envelope is QuizRecoveryEnvelope => envelope !== null)
+    .sort((left, right) => right.generation - left.generation);
+}
+
 export function clearQuizRecoveryEnvelope(
   userId: string,
   eventId: string

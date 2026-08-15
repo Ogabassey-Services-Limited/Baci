@@ -2,6 +2,7 @@ import { asyncStorage } from '@/lib/storage';
 import {
   clearQuizRecoveryEnvelope,
   createQuizRecoveryEnvelope,
+  loadQuizRecoveryEnvelopes,
   loadQuizRecoveryEnvelope,
   saveQuizRecoveryEnvelope,
 } from './quiz-recovery-envelope';
@@ -51,5 +52,19 @@ describe('quiz recovery envelope', () => {
     await expect(
       loadQuizRecoveryEnvelope('user-1', 'event-1')
     ).resolves.toBeNull();
+  });
+
+  it('finds retained envelopes for a signed-in user after a restart', async () => {
+    const retained = createQuizRecoveryEnvelope({
+      ...envelope,
+      eventId: 'event/retained',
+    });
+    await saveQuizRecoveryEnvelope(retained);
+
+    await expect(loadQuizRecoveryEnvelopes('user-1')).resolves.toEqual([
+      retained,
+    ]);
+
+    await clearQuizRecoveryEnvelope('user-1', 'event/retained');
   });
 });

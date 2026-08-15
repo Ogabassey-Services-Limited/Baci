@@ -149,6 +149,24 @@ describe('quiz v2 store recovery', () => {
     ).resolves.toBeNull();
   });
 
+  it('returns to the ready state when persisted recovery cannot reach the server', async () => {
+    await act(async () =>
+      useQuizStore.getState().recoverEvent(
+        'user-1',
+        'event-1',
+        async () => {
+          throw new Error('network down');
+        },
+        jest.fn()
+      )
+    );
+
+    expect(useQuizStore.getState()).toMatchObject({
+      error: 'network down',
+      status: 'ready',
+    });
+  });
+
   it('coalesces lifecycle reconciliation to 15 seconds and observes cancellation', async () => {
     await act(async () =>
       useQuizStore

@@ -28,6 +28,7 @@ import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizResultPolling } from './use-quiz-result-polling';
+import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
@@ -62,6 +63,7 @@ export function QuizScreen({
     error,
     terminalContext,
     loadEvents,
+    recoverEvent,
     startEvent,
     startEventV2,
     lockAndSubmitAnswer,
@@ -89,6 +91,7 @@ export function QuizScreen({
       error: state.error,
       terminalContext: state.terminalContext,
       loadEvents: state.loadEvents,
+      recoverEvent: state.recoverEvent,
       startEvent: state.startEvent,
       startEventV2: state.startEventV2,
       lockAndSubmitAnswer: state.lockAndSubmitAnswer,
@@ -102,6 +105,14 @@ export function QuizScreen({
       setV2Result: state.setV2Result,
     }))
   );
+
+  const authUserId = useAuthStore((state) => state.user?.id ?? null);
+
+  useQuizPersistedRecovery({
+    enabled: status === 'ready',
+    recoverEvent,
+    userId: authUserId,
+  });
 
   useQuizResultPolling({
     attemptId: terminalContext?.attemptId ?? null,
