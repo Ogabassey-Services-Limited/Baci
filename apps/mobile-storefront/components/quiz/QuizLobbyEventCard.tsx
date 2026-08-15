@@ -79,7 +79,7 @@ export function QuizLobbyEventCard({
           <Text style={styles.badgeText}>
             {event.mode === 'test'
               ? 'TEST'
-              : event.status === 'active'
+              : effectiveStatus === 'active'
                 ? 'LIVE'
                 : 'QUIZ'}
           </Text>

@@ -44,7 +44,7 @@ export function createQuizV2StoreActions({
         expiryRetryable: false,
         error: null,
       });
-      await persist(attempt, null);
+      await persist(attempt, null).catch(() => undefined);
       return;
     }
     set({

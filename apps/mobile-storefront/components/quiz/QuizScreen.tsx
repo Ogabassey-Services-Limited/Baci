@@ -110,6 +110,7 @@ export function QuizScreen({
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
 
   useQuizPersistedRecovery({
+    canRecover: () => useQuizStore.getState().status === 'ready',
     enabled: status === 'ready',
     recoverEvent,
     userId: authUserId,
@@ -118,7 +119,8 @@ export function QuizScreen({
   useQuizResultPolling({
     attemptId: terminalContext?.attemptId ?? null,
     enabled: status === 'result' && v2LifecycleStatus === 'pending_results',
-    expectedUserId: useAuthStore.getState().user?.id ?? null,
+    expectedUserId: authUserId,
+    getCurrentUserId: () => useAuthStore.getState().user?.id ?? null,
     onResult: setV2Result,
   });
 

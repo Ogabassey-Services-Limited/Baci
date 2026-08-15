@@ -109,7 +109,6 @@ describe('QuizLobbyEventCard', () => {
         event={{
           endsAt: '2026-08-09T18:00:01.000Z',
           id: 'event-expiring',
-          mode: 'test',
           prizeName: 'iPhone XR',
           questionCount: 5,
           startsAt: '2026-08-09T17:50:00.000Z',
@@ -134,6 +133,8 @@ describe('QuizLobbyEventCard', () => {
     act(() => jest.advanceTimersByTime(1000));
 
     expect(screen.queryByText('until quiz ends')).toBeNull();
+    expect(screen.queryByText('LIVE')).toBeNull();
+    expect(screen.getByText('QUIZ')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Closed Expiring quiz' }).props
         .accessibilityState

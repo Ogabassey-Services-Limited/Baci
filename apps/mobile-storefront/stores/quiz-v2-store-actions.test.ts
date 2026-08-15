@@ -156,6 +156,28 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     });
   });
 
+  it('keeps the started attempt visible when persistence rejects after start', async () => {
+    mockPersist.mockRejectedValueOnce(new Error('storage full'));
+    const harness = createHarness();
+    const starter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.startEventV2(
+      {
+        eventId: 'event-1',
+        integrityTier: 'strong',
+        startRequestId: '77777777-7777-4777-8777-777777777777',
+        userId: 'user-1',
+      },
+      starter
+    );
+
+    expect(starter).toHaveBeenCalledTimes(1);
+    expect(harness.getState()).toMatchObject({
+      status: 'question',
+      v2Attempt: activeAttempt,
+    });
+  });
+
   it('starts with the requested id when recovery storage cannot be read', async () => {
     mockLoadRecoveryEnvelope.mockRejectedValueOnce(
       new Error('storage unavailable')

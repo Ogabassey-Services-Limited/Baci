@@ -8,12 +8,14 @@ import {
 } from '@/stores/quiz-recovery-envelope';
 
 interface UseQuizPersistedRecoveryInput {
+  canRecover?: () => boolean;
   enabled: boolean;
   recoverEvent: QuizV2StoreActions['recoverEvent'];
   userId: string | null;
 }
 
 export function useQuizPersistedRecovery({
+  canRecover = () => true,
   enabled,
   recoverEvent,
   userId,
@@ -24,8 +26,10 @@ export function useQuizPersistedRecovery({
   const mounted = useRef(false);
   const enabledRef = useRef(enabled);
   const previousEnabled = useRef(enabled);
+  const canRecoverRef = useRef(canRecover);
   const [retryNonce, setRetryNonce] = useState(0);
   enabledRef.current = enabled;
+  canRecoverRef.current = canRecover;
 
   useEffect(() => {
     mounted.current = true;
@@ -47,7 +51,7 @@ export function useQuizPersistedRecovery({
       setRetryNonce((nonce) => nonce + 1);
   }, [enabled, userId]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry; enabled is read through enabledRef so its own status transition does not cancel an active recovery.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry; the ownership guard keeps a recovery call alive across its own status transition.
   useEffect(() => {
     if (!userId) {
       attemptedUserId.current = null;
@@ -59,10 +63,11 @@ export function useQuizPersistedRecovery({
     if (recoveringUserId.current === userId) return;
     recoveringUserId.current = userId;
     let cancelled = false;
+    let recoveryOwnsStatus = false;
     const isCurrentRun = () =>
       !cancelled &&
       mounted.current &&
-      (enabledRef.current || recoveringUserId.current === userId);
+      (recoveryOwnsStatus || canRecoverRef.current());
 
     const recover = async () => {
       let shouldRetry = false;
@@ -80,6 +85,7 @@ export function useQuizPersistedRecovery({
         if (!isCurrentRun()) return;
         for (const envelope of envelopes) {
           if (!isCurrentRun()) return;
+          recoveryOwnsStatus = true;
           const outcome = await recoverEvent(
             userId,
             envelope.eventId,
@@ -104,6 +110,7 @@ export function useQuizPersistedRecovery({
               });
             }
           );
+          recoveryOwnsStatus = false;
           if (!isCurrentRun()) return;
           if (outcome === 'retry') {
             shouldRetry = true;
@@ -120,6 +127,7 @@ export function useQuizPersistedRecovery({
       } catch {
         shouldRetry = true;
       } finally {
+        recoveryOwnsStatus = false;
         if (recoveringUserId.current === userId) {
           recoveringUserId.current = null;
         }

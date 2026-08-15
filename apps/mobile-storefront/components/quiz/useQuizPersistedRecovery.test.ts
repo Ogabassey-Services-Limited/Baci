@@ -252,4 +252,32 @@ describe('useQuizPersistedRecovery', () => {
 
     expect(recoverEvent).not.toHaveBeenCalled();
   });
+
+  it('does not recover an envelope after a manual start takes ownership', async () => {
+    let resolveLoad!: (value: []) => void;
+    let canRecover = true;
+    jest
+      .mocked(loadQuizRecoveryEnvelopes)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (resolveLoad = resolve))
+      );
+    const recoverEvent = jest.fn<RecoverEvent>().mockResolvedValue('recovered');
+
+    renderHook(() =>
+      useQuizPersistedRecovery({
+        canRecover: () => canRecover,
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    canRecover = false;
+    await act(async () => {
+      resolveLoad([]);
+      await Promise.resolve();
+    });
+
+    expect(recoverEvent).not.toHaveBeenCalled();
+  });
 });

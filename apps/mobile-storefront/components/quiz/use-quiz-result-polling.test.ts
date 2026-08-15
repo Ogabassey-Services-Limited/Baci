@@ -194,4 +194,56 @@ describe('useQuizResultPolling', () => {
 
     await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(2));
   });
+
+  it('does not apply a result after the authenticated account changes', async () => {
+    let resolveFirst!: (result: {
+      attemptId: string;
+      availability: 'final';
+      availableAt: string;
+      rank: number;
+      score: number;
+      totalQuestions: number;
+    }) => void;
+    const firstRequest = new Promise<{
+      attemptId: string;
+      availability: 'final';
+      availableAt: string;
+      rank: number;
+      score: number;
+      totalQuestions: number;
+    }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const onResult = jest.fn();
+    let currentUserId = 'user-1';
+    jest.mocked(fetchQuizResult).mockReturnValueOnce(firstRequest);
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        getCurrentUserId: () => currentUserId,
+        onResult,
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+
+    currentUserId = 'user-2';
+    await act(async () => {
+      resolveFirst({
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt: '2026-08-09T20:26:20.000Z',
+        rank: 1,
+        score: 4,
+        totalQuestions: 5,
+      });
+      await Promise.resolve();
+    });
+
+    expect(onResult).not.toHaveBeenCalled();
+    act(() => jest.advanceTimersByTime(30_000));
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+  });
 });

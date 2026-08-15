@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
 import type { QuizV2Result } from '@/services/quiz-types';
@@ -21,13 +21,18 @@ export function useQuizResultPolling({
   attemptId,
   enabled,
   expectedUserId,
+  getCurrentUserId,
   onResult,
 }: {
   attemptId: string | null;
   enabled: boolean;
   expectedUserId: string | null;
+  getCurrentUserId?: () => string | null;
   onResult: (result: QuizV2Result) => void;
 }) {
+  const currentUserIdRef = useRef(getCurrentUserId);
+  currentUserIdRef.current = getCurrentUserId;
+
   useEffect(() => {
     if (!enabled || !attemptId || !expectedUserId) return;
 
@@ -55,6 +60,13 @@ export function useQuizResultPolling({
           nextDelayMs = getPendingPollDelayMs(result.availableAt);
         }
         if (cancelled) return;
+        if (
+          currentUserIdRef.current &&
+          currentUserIdRef.current() !== expectedUserId
+        ) {
+          cancelled = true;
+          return;
+        }
         onResult(result);
       } catch {
         shouldContinue = true;
