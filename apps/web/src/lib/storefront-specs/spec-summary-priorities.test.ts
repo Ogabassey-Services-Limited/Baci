@@ -6,11 +6,15 @@ describe('summary spec priorities', () => {
     const storagePriority = SUMMARY_SPEC_PRIORITIES.find(
       (entry) => entry.label === 'Storage'
     );
-    const internalStorageIndex = storagePriority?.candidates.findIndex(
+    if (!storagePriority) {
+      expect.fail('expected Storage summary priority');
+      return;
+    }
+    const internalStorageIndex = storagePriority.candidates.findIndex(
       (candidate) =>
         candidate[0] === 'Storage' && candidate[1] === 'Internal Storage'
     );
-    const cardSlotIndex = storagePriority?.candidates.findIndex(
+    const cardSlotIndex = storagePriority.candidates.findIndex(
       (candidate) => candidate[0] === 'Storage' && candidate[1] === 'Card Slot'
     );
 
