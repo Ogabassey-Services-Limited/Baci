@@ -32,6 +32,35 @@ describe('preview render policy', () => {
     ).toBe(false);
   });
 
+  it('rejects color variables that are not defined by the theme contract', () => {
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: {
+            backgroundColor: 'var(--theme-not-defined)',
+            id: 'header-1',
+          },
+          type: 'Header',
+        },
+        new Set()
+      )
+    ).toBe(false);
+
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: {
+            backgroundGradient:
+              'linear-gradient(90deg, var(--theme-not-defined), #ffffff)',
+            id: 'hero-1',
+          },
+          type: 'Hero',
+        },
+        new Set()
+      )
+    ).toBe(false);
+  });
+
   it('accepts bounded curated render props without allowing unreviewed props', () => {
     expect(
       previewRenderPolicy.isPuckComponent(

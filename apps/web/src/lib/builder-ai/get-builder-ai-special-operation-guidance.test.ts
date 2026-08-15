@@ -7,13 +7,13 @@ describe('getBuilderAiSpecialOperationGuidance', () => {
     expect(getBuilderAiSpecialOperationGuidance()).toEqual({
       updateCarouselSlide: {
         ctaLink: { maximumLength: 512, type: 'safe-link' },
-        ctaText: { maximumLength: 120, type: 'string' },
+        ctaText: { maximumLength: 120, required: true, type: 'string' },
         mediaMutation: {
           refusalCode: 'media-review',
           message: 'Requires an asset pipeline review.',
         },
         subtitle: { maximumLength: 2000, type: 'string' },
-        title: { maximumLength: 120, type: 'string' },
+        title: { maximumLength: 120, required: true, type: 'string' },
       },
       updateRoot: { title: { maximumLength: 120 } },
     });

@@ -8,6 +8,7 @@ import { createInsertableComponentProps } from '@/lib/builder-ai/builder-ai-comp
 import { hasDuplicateCarouselSlideTitle } from '@/lib/builder-ai/has-duplicate-carousel-slide-title';
 import { sanitizeBuilderAiProps } from '@/lib/builder-ai/sanitize-builder-ai-props';
 import { COMPONENT_SCHEMA } from './component-schema';
+import { projectCopilotReadableComponents } from './project-copilot-readable-components';
 
 const aiInsertableComponentTypes = builderDesignCapabilities.components
   .filter(({ aiInsertable }) => aiInsertable)
@@ -78,12 +79,7 @@ export function useCopilotBuilderActions({
     value: JSON.stringify({
       availableComponents: aiInsertableComponentSchema,
       editableComponents: COMPONENT_SCHEMA,
-      currentComponents: data.content?.map((c, index) => ({
-        index,
-        type: c.type,
-        id: c.props.id,
-        props: c.props,
-      })),
+      currentComponents: projectCopilotReadableComponents(data.content ?? []),
     }),
   });
 

@@ -1,4 +1,5 @@
 import type { BuilderData } from './builder-ai-edit';
+import { builderDesignCapabilities } from './builder-design-capabilities';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 import { previewRenderProjection } from './builder-preview-render-projection';
 import { previewSafeLinks } from './builder-preview-safe-links';
@@ -24,6 +25,7 @@ const gradientColor =
 const gradientPattern = new RegExp(
   `^(?:linear-gradient\\((?:[0-9]{1,3}deg, )?${gradientColor}(?:, ${gradientColor}){1,7}\\)|radial-gradient\\(${gradientColor}(?:, ${gradientColor}){1,7}\\))$`
 );
+const themeVariablePattern = /var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)/g;
 
 type PreviewComponentIdentity = { id: string; type: string };
 
@@ -40,15 +42,28 @@ function isBoundedText(value: unknown, maximum: number): boolean {
   );
 }
 
+function hasDefinedThemeVariables(value: string): boolean {
+  return [...value.matchAll(themeVariablePattern)].every(
+    ([, scope, token]) =>
+      scope === 'store' ||
+      builderDesignCapabilities.themeTokenKeys.includes(token)
+  );
+}
+
 function isSafeColor(value: unknown): boolean {
-  return typeof value === 'string' && colorPattern.test(value);
+  return (
+    typeof value === 'string' &&
+    colorPattern.test(value) &&
+    hasDefinedThemeVariables(value)
+  );
 }
 
 function isSafeGradient(value: unknown): boolean {
   return (
     typeof value === 'string' &&
     value.length <= MAX_GRADIENT_LENGTH &&
-    gradientPattern.test(value)
+    gradientPattern.test(value) &&
+    hasDefinedThemeVariables(value)
   );
 }
 

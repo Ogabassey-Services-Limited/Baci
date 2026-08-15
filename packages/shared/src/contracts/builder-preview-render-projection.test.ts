@@ -21,6 +21,14 @@ describe('preview render projection', () => {
     expect(previewRenderProjection.isAssetSource('/dashboard/settings')).toBe(
       false
     );
+    expect(
+      previewRenderProjection.isAssetSource(
+        '/images/../../api/llm/store/logo.png'
+      )
+    ).toBe(false);
+    expect(
+      previewRenderProjection.isAssetSource('/images/%2e%2e/api/logo.png')
+    ).toBe(false);
   });
 
   it('removes external assets and replaces known refused blocks with inert placeholders', () => {

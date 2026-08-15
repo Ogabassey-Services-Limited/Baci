@@ -10,7 +10,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isPreviewAssetPath(value: unknown): boolean {
-  return typeof value === 'string' && assetPathPattern.test(value);
+  if (typeof value !== 'string') return false;
+  try {
+    const decodedPath = decodeURIComponent(value);
+    if (
+      decodedPath
+        .split('/')
+        .some((segment) => segment === '.' || segment === '..')
+    ) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+  return assetPathPattern.test(value);
 }
 
 function isPreviewHttpsAsset(value: unknown): boolean {
