@@ -15,6 +15,8 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
+  chunkGitObjectIdsBySize,
+  MAX_GIT_OBJECT_BATCH_BYTES,
   sourceManifestBytes,
   TASK9_SOURCE_MANIFEST_MAX_BYTES,
 } from './source-manifest.mjs';
@@ -176,6 +178,32 @@ test('uses a handoff limit above the legacy one-megabyte manifest cap', () => {
         value: 'x'.repeat(TASK9_SOURCE_MANIFEST_MAX_BYTES),
       }),
     /source manifest exceeds size limit/
+  );
+});
+
+test('chunks verified Git blobs by bytes instead of only entry count', () => {
+  const sizes = new Map([
+    ['a', { size: 60 }],
+    ['b', { size: 60 }],
+    ['c', { size: 60 }],
+  ]);
+  assert.deepEqual(chunkGitObjectIdsBySize(['a', 'b', 'c'], sizes, 700), [
+    ['a', 'b'],
+    ['c'],
+  ]);
+  assert.doesNotThrow(() =>
+    chunkGitObjectIdsBySize(
+      ['large'],
+      new Map([['large', { size: MAX_GIT_OBJECT_BATCH_BYTES - 300 }]])
+    )
+  );
+  assert.throws(
+    () =>
+      chunkGitObjectIdsBySize(
+        ['too-large'],
+        new Map([['too-large', { size: MAX_GIT_OBJECT_BATCH_BYTES }]])
+      ),
+    /exceeds batch size limit/
   );
 });
 

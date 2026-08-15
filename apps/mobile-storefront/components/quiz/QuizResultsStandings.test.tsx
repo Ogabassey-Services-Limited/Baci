@@ -48,4 +48,36 @@ describe('QuizResultsStandings', () => {
     expect(screen.getByText('4 participants')).toBeTruthy();
     expect(screen.getByText('Bassey  (You)')).toBeTruthy();
   });
+
+  it('keeps the current player visible when their entry is below the top five', () => {
+    const entries: QuizLeaderboard['entries'] = Array.from(
+      { length: 7 },
+      (_, index) => ({
+        displayName: index === 6 ? 'Bassey' : `Player ${index + 1}`,
+        isCurrentCustomer: index === 6,
+        rank: index + 1,
+        score: 10 - index,
+        status: 'completed' as const,
+        submittedAt: null,
+        totalTimeSeconds: index + 1,
+      })
+    );
+
+    render(
+      <QuizResultsStandings
+        leaderboard={{
+          currentPlayer: null,
+          entries,
+          participantCount: 7,
+          status: 'published',
+        }}
+        leaderboardError={false}
+        participantCount={7}
+        styles={createQuizStyles(colors)}
+      />
+    );
+
+    expect(screen.getByText('Bassey  (You)')).toBeTruthy();
+    expect(screen.getByLabelText('Rank 7, Bassey, score 4')).toBeTruthy();
+  });
 });

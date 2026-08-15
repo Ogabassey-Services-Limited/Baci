@@ -21,12 +21,22 @@ export function QuizResultsStandings({
   participantCount,
   styles,
 }: QuizResultsStandingsProps) {
-  const rows: QuizLeaderboardEntry[] = leaderboard
-    ? leaderboard.currentPlayer &&
-      !leaderboard.entries.some((entry) => entry.isCurrentCustomer)
-      ? [...leaderboard.entries.slice(0, 4), leaderboard.currentPlayer]
-      : leaderboard.entries.slice(0, 5)
-    : [];
+  const topEntries = leaderboard?.entries.slice(0, 5) ?? [];
+  const currentPlayer =
+    leaderboard?.currentPlayer ??
+    leaderboard?.entries.find((entry) => entry.isCurrentCustomer);
+  const currentPlayerIsVisible = currentPlayer
+    ? topEntries.some(
+        (entry) =>
+          entry.isCurrentCustomer ||
+          (entry.rank === currentPlayer.rank &&
+            entry.displayName === currentPlayer.displayName)
+      )
+    : false;
+  const rows: QuizLeaderboardEntry[] =
+    currentPlayer && !currentPlayerIsVisible
+      ? [...topEntries, currentPlayer]
+      : topEntries;
 
   return (
     <View style={styles.finalStandings}>
