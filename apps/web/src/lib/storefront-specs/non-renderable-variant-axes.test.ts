@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { isRenderableVariantAxis } from './non-renderable-variant-axes';
+import {
+  isDisplayOnlyVariantAxis,
+  isRenderableVariantAxis,
+} from './non-renderable-variant-axes';
 
 describe('non-renderable-variant-axes', () => {
   it('filters exact non-renderable metadata axes from rendering regardless of count', () => {
@@ -12,6 +15,15 @@ describe('non-renderable-variant-axes', () => {
     expect(isRenderableVariantAxis('delivery_notice', 1)).toBe(false);
     expect(isRenderableVariantAxis('note', 2)).toBe(false);
     expect(isRenderableVariantAxis('notice', 2)).toBe(false);
+  });
+
+  it('marks informational metadata axes as display-only for commerce', () => {
+    expect(isDisplayOnlyVariantAxis('availability_note')).toBe(true);
+    expect(isDisplayOnlyVariantAxis('notice')).toBe(true);
+    expect(isDisplayOnlyVariantAxis('disclaimer')).toBe(true);
+    expect(isDisplayOnlyVariantAxis('color')).toBe(false);
+    expect(isDisplayOnlyVariantAxis('storage')).toBe(false);
+    expect(isDisplayOnlyVariantAxis('warranty')).toBe(false);
   });
 
   it('hides single-option warranty as informational metadata but renders multi-option warranty', () => {

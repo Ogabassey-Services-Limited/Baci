@@ -2,11 +2,14 @@
  * Canonical variant axes that are display-only metadata, swatches, or informational notes,
  * and should not be rendered as selectable attribute buttons in variant pickers.
  */
-const ALWAYS_NON_RENDERABLE_VARIANT_AXES = new Set([
+const SWATCH_ONLY_VARIANT_AXES = new Set([
   'color',
   'colour',
   'color_hex',
   'colour_hex',
+]);
+
+const DISPLAY_ONLY_METADATA_AXES = new Set([
   'availability_note',
   'availability',
   'note',
@@ -19,6 +22,13 @@ const ALWAYS_NON_RENDERABLE_VARIANT_AXES = new Set([
 ]);
 
 /**
+ * Informational metadata axes that must never block checkout even when variants differ.
+ */
+export function isDisplayOnlyVariantAxis(axis: string): boolean {
+  return DISPLAY_ONLY_METADATA_AXES.has(axis);
+}
+
+/**
  * Determines whether a variant axis should be rendered as an interactive picker.
  * Excludes non-renderable metadata axes and single-option condition/warranty axes.
  */
@@ -26,7 +36,11 @@ export function isRenderableVariantAxis(
   axis: string,
   optionCount: number
 ): boolean {
-  if (!axis || ALWAYS_NON_RENDERABLE_VARIANT_AXES.has(axis)) {
+  if (
+    !axis ||
+    SWATCH_ONLY_VARIANT_AXES.has(axis) ||
+    DISPLAY_ONLY_METADATA_AXES.has(axis)
+  ) {
     return false;
   }
 

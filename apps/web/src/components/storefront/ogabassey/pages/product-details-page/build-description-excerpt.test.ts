@@ -87,6 +87,13 @@ describe('buildDescriptionExcerpt', () => {
     );
   });
 
+  it('filters demonstrable product titles without treating unlisted short sentences as titles', () => {
+    const description =
+      'Dell XPS 16 9650. Built for reliable all-day performance. Storage: 2TB.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('returns the full text without appending "..." when the match is 200 chars or fewer', () => {
     const shortText = '<h2>Why It Worth</h2><p>Short benefit text.</p>';
     const result = buildDescriptionExcerpt(shortText);

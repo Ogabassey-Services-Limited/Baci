@@ -66,20 +66,49 @@ function isSpecSentence(sentence: string): boolean {
 
 function isProductTitleSentence(sentence: string): boolean {
   const trimmed = sentence.replace(/[.!?]+$/, '').trim();
-  const words = trimmed.split(/\s+/).filter(Boolean);
-
-  // Product titles and model fragments are short noun phrases without prose verbs,
-  // prepositions, determiners, or descriptive narrative words.
-  if (words.length > 8) {
+  if (!trimmed) {
     return false;
   }
 
-  const hasProseGrammarOrVerbs =
-    /\b(for|with|in|and|to|from|by|at|the|a|an|your|our|its|this|these|is|are|has|have|built|crafted|designed|engineered|delivers|features|provides|offers|experience|enjoy|capture|lasts|see|gives|lets|premium|perfect|sleek|durable|portable|compact|fast|powerful|great|reliable|quality|everyday|use|official|genuine|performance|battery|speed|life|system|power|action|button|groundbreaking|incredible)\b/i.test(
-      trimmed
-    );
+  const words = trimmed.split(/\s+/).filter(Boolean);
 
-  return !hasProseGrammarOrVerbs;
+  // Longer sentences are narrative prose, not bare catalog titles.
+  if (words.length > 12) {
+    return false;
+  }
+
+  // Sentence grammar or common narrative words — not a demonstrable product title.
+  if (
+    /\b(for|with|in|and|to|from|by|at|the|a|an|your|our|its|this|these|those|is|are|was|were|has|have|built|crafted|designed|engineered|delivers|features|provides|offers|experience|enjoy|capture|lasts|see|gives|lets|forged|featuring|every|when|where|because|sentence|paragraph|description|here|there|first|second|third|fourth|fifth)\b/i.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
+
+  if (/[®™©]/.test(trimmed)) {
+    return true;
+  }
+
+  // Catalog model lines such as iPhone 15 Pro Max or Dell XPS 16 9650.
+  if (
+    /\b[A-Za-z][\w&-]*\s+(?:\d+[A-Za-z]?|[A-Z]{2,})(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)?/i.test(
+      trimmed
+    )
+  ) {
+    return true;
+  }
+
+  const hasModelDigits = /\b\d{2,}\b/.test(trimmed);
+  const nameLikeTokens = words.filter((word) =>
+    /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d[\w.]*)$/.test(word)
+  ).length;
+
+  if (hasModelDigits && nameLikeTokens >= 2 && words.length <= 8) {
+    return true;
+  }
+
+  return false;
 }
 
 function filterProseText(text: string): string {
