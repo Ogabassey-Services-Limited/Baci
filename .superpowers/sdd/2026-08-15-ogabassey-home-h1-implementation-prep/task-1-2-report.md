@@ -88,7 +88,7 @@ Status: `DONE_WITH_CONCERNS`
   candidate, and made resource-hint validation an explicit type predicate.
 - Added malformed projection regressions for forged version and candidate
   shape, plus primitive/null validation-input coverage.
-- Focused suites now cover four colocated files (57 tests passed), including
+- Focused suites now cover four colocated files (58 tests passed), including
   the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
   passed; Biome and `git diff --check` passed.
 - The expected-preload rebuild remains intentional: it derives the canonical
