@@ -33,7 +33,7 @@ Status: `DONE_WITH_CONCERNS`
 - Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; the branch
   includes the documented Task 0, implementation, and review-fix commits.
 - Focused suites (direct shared Vitest binary with the Node environment override
-  because host jsdom is incompatible): **4 files, 57 tests passed**.
+  because host jsdom is incompatible): **4 files, 58 tests passed**.
 - Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
 - Current final runtime/test file lengths: 59, 116, 251, 248, 206, 164, and 94
@@ -121,3 +121,10 @@ Status: `DONE_WITH_CONCERNS`
 - Final exact-code-head review `f8c59e246a` was CLEAN for code, plan, boundary,
   and tests; CodeRabbit reported 0 findings. This does not claim the docs
   commit was reviewed.
+
+## Exact-identity correction
+
+- Published Hero slides now reject whitespace-padded CDN image URLs instead of
+  preserving a non-canonical candidate while the preload projection trims it.
+- Added a regression proving the padded published shell cannot produce a
+  projection; no route, cache, or rendering activation changed.

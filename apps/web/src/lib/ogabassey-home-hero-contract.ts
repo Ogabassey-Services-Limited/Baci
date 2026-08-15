@@ -115,7 +115,10 @@ function isValidSlide(
   ) {
     return false;
   }
-  return isOgabasseyCdnImageUrl(slide.imageUrl as string);
+  return (
+    slide.imageUrl === (slide.imageUrl as string).trim() &&
+    isOgabasseyCdnImageUrl(slide.imageUrl as string)
+  );
 }
 
 function isMerchantId(value: unknown): value is string {

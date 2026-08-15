@@ -120,6 +120,18 @@ describe('ogabasseyHomeHeroContract', () => {
         ],
       },
     ],
+    [
+      'non-canonical padded image URL',
+      {
+        ...createPublishedShell(),
+        slides: [
+          {
+            ...createPublishedShell().slides[0],
+            imageUrl: ` ${createPublishedShell().slides[0].imageUrl} `,
+          },
+        ],
+      },
+    ],
   ] as const)('rejects malformed published shell: %s', (_label, shell) => {
     expect(
       ogabasseyHomeHeroContract.project(
