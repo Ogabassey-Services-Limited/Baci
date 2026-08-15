@@ -144,12 +144,12 @@ export function createQuizV2StoreActions({
               status: 'submitting',
               lockedOptionId: envelope.pendingLockedOptionId,
             });
-            await apply(
-              await resender(
-                envelope.pendingLockedOptionId,
-                envelope.currentQuestionId
-              )
+            const resent = await resender(
+              envelope.pendingLockedOptionId,
+              envelope.currentQuestionId
             );
+            if (generation !== getGeneration()) return 'retry';
+            await apply(resent);
           } else await apply(recovered.attempt);
           return 'recovered';
         }
@@ -184,6 +184,7 @@ export function createQuizV2StoreActions({
                   )
                 : null
               : null,
+          error: null,
         });
         await clearTerminalRecovery(
           access,
