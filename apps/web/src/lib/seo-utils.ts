@@ -46,6 +46,7 @@ import { normalizeSocialUrl } from './social';
 import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
 import { stripVolatileProductPriceSentences } from './storefront-product-description';
 import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
+import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -654,7 +655,9 @@ export function generateProductSchema(
   const metaDescription = product.meta_description
     ? generateMetaDescription(product.meta_description, 500)
     : '';
-  const safeDescription = productDescription
+  const visibleDescriptionSupported =
+    productDescription && !isUnsupportedSpecValue(productDescription);
+  const safeDescription = visibleDescriptionSupported
     ? productDescription
     : metaDescription
       ? metaDescription
@@ -943,17 +946,18 @@ export function generateProductSchema(
       const mappedPropertySpecKey = propertyId
         ? getProductSchemaSpecKeyForPropertyId(propertyId)
         : undefined;
+      const candidateName =
+        typeof candidate.name === 'string' ? candidate.name.trim() : undefined;
       const isPropertyIdOnlyMerchantNegative =
         propertyId &&
         !mappedPropertySpecKey &&
-        candidate.name === undefined &&
+        !candidateName &&
         candidate.value === false;
       if (
         !isPropertyIdOnlyMerchantNegative &&
         !shouldIncludeProductSchemaSpec(product, {
           key: mappedPropertySpecKey,
-          label:
-            typeof candidate.name === 'string' ? candidate.name : undefined,
+          label: candidateName,
           value: candidateValue,
         })
       ) {

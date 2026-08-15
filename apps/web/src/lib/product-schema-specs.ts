@@ -19,6 +19,7 @@ import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabular
 import { shouldSuppressAuthoritativeFalseLegacySpec } from './should-suppress-authoritative-false-legacy-spec';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { isNetworkDeviceCategory } from './storefront-specs/is-network-device-category';
+import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
 
 interface ProductSchemaSpecCandidate {
@@ -26,6 +27,18 @@ interface ProductSchemaSpecCandidate {
   label?: string;
   section?: string;
   value: unknown;
+}
+
+function isPhoneOrComputerOperatingSystemValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized.startsWith('android') ||
+    normalized.startsWith('ios') ||
+    normalized.startsWith('windows') ||
+    normalized.startsWith('macos') ||
+    normalized.startsWith('mac os') ||
+    normalized === 'linux'
+  );
 }
 
 /**
@@ -183,7 +196,9 @@ export function shouldIncludeProductSchemaSpec(
     canonicalSpecKey === 'android_version' &&
     isOperatingSystemLabel &&
     typeof candidate.value === 'string' &&
-    candidate.value.trim().toLowerCase().startsWith('android')
+    candidate.value.trim().length > 0 &&
+    (isPhoneOrComputerOperatingSystemValue(candidate.value) ||
+      isUnsupportedSpecValue(candidate.value))
   ) {
     return false;
   }

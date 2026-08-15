@@ -4,6 +4,7 @@ import {
   resolveSupportedStorefrontProductCategoryRelation,
 } from '@/lib/storefront-product-category-name';
 import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
+import { isAccessoryLikeCategory } from './spec-accessory-classifier';
 import { getProductSpecFamily } from './spec-taxonomy';
 
 interface SpecDataCategorySource {
@@ -34,9 +35,13 @@ export function resolveSpecDataCategoryClassification(
 
   const categoryName = name && !isUnsupportedSpecValue(name) ? name : undefined;
   const slugClassificationName = slug?.replace(/-/g, ' ');
+  const slugFamily = slugClassificationName
+    ? getProductSpecFamily(slugClassificationName)
+    : 'general';
+  const slugIsAccessoryLike =
+    slugClassificationName && isAccessoryLikeCategory(slugClassificationName);
   const classificationName =
-    slugClassificationName &&
-    getProductSpecFamily(slugClassificationName) !== 'general'
+    slugClassificationName && (slugFamily !== 'general' || slugIsAccessoryLike)
       ? slugClassificationName
       : categoryName;
 

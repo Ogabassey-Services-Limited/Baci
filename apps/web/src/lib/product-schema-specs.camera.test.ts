@@ -85,4 +85,21 @@ describe('shouldIncludeProductSchemaSpec camera policies', () => {
       )
     ).toBe(true);
   });
+
+  it('rejects phone and computer operating system labels on cameras', () => {
+    for (const value of ['Android 14', 'iOS 17', 'Windows 11', 'macOS 14']) {
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Cameras', categories: null },
+          { label: 'Operating System', value }
+        )
+      ).toBe(false);
+      expect(
+        shouldIncludeProductSchemaSpec(
+          { category: 'Cameras', categories: null },
+          { label: 'OS', value }
+        )
+      ).toBe(false);
+    }
+  });
 });

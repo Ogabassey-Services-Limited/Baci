@@ -13,4 +13,16 @@ describe('resolveSpecDataCategoryClassification', () => {
       classificationName: 'action cameras',
     });
   });
+
+  it('uses accessory slug classification when display name is localized non-taxonomy', () => {
+    expect(
+      resolveSpecDataCategoryClassification({
+        categories: { name: '移动设备', slug: 'phone-accessories' },
+      })
+    ).toEqual({
+      hasCategory: true,
+      name: '移动设备',
+      classificationName: 'phone accessories',
+    });
+  });
 });

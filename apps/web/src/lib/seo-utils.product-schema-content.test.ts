@@ -39,6 +39,22 @@ describe('generateProductSchema content and custom properties', () => {
     );
   });
 
+  it('falls back to meta description when visible description is a placeholder', () => {
+    const schema = generateProductSchema(
+      makeSeoProduct({
+        description: 'N/A',
+        meta_description: 'Canon EOS R5 mirrorless camera with 45MP imaging.',
+      }),
+      'Ogabassey',
+      'NGN',
+      'NG'
+    );
+
+    expect(schema.description).toBe(
+      'Canon EOS R5 mirrorless camera with 45MP imaging.'
+    );
+  });
+
   it('filters stored additional properties through the current product taxonomy', () => {
     const schema = generateProductSchema(
       makeSeoProduct({
