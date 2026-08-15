@@ -1,14 +1,10 @@
 import { shouldIncludeProductSchemaSpec } from '@/lib/product-schema-specs';
-import {
-  resolveStorefrontProductCategoryName,
-  resolveSupportedStorefrontProductCategoryRelation,
-} from '@/lib/storefront-product-category-name';
 import { buildDescriptionKeySpecs } from './build-description-key-specs';
 import { dedupeSpecItems } from './dedupe-spec-items';
-import { isUnsupportedSpecValue } from './is-unsupported-spec-value';
 import { mergeSpecSections } from './merge-spec-sections';
 import { normalizeSpecItems } from './normalize-spec-items';
 import { normalizeSpecSections } from './normalize-spec-sections';
+import { resolveSpecDataCategoryClassification } from './resolve-spec-data-category-classification';
 import { buildDetailedSpecsFromKeySpecs } from './spec-key-specs';
 import {
   type ComparableProductKeySpecs,
@@ -53,21 +49,7 @@ interface SpecDataSource {
 }
 
 function resolveSourceCategory(source: SpecDataSource) {
-  const relation = Array.isArray(source.categories)
-    ? resolveSupportedStorefrontProductCategoryRelation(source.categories)
-    : source.categories;
-  const name = resolveStorefrontProductCategoryName({
-    categories: relation,
-    category: source.category,
-    category_slug: source.category_slug,
-  });
-
-  const categoryName = name && !isUnsupportedSpecValue(name) ? name : undefined;
-
-  return {
-    hasCategory: Boolean(categoryName),
-    name: categoryName ?? 'General',
-  };
+  return resolveSpecDataCategoryClassification(source);
 }
 
 function getVariantValue(
@@ -112,6 +94,7 @@ function filterPdpSpecItems(
 function filterPdpLegacySpecifications(
   sections: ProductSpecSection[],
   categoryName: string,
+  classificationName: string,
   productKeySpecs: ComparableProductKeySpecs | null | undefined
 ) {
   return sections.flatMap((section) => {
@@ -121,7 +104,7 @@ function filterPdpLegacySpecifications(
       .replace(/[^a-z0-9]+/g, ' ')
       .replace(/\s+/g, ' ');
     if (
-      getProductSpecFamily(categoryName) === 'camera' &&
+      getProductSpecFamily(classificationName) === 'camera' &&
       CAMERA_MOBILE_ONLY_SECTION_NAMES.has(normalizedSectionName)
     ) {
       return [];
@@ -140,7 +123,8 @@ function filterPdpLegacySpecifications(
 
 function buildGeneralFallbackSpecs(
   source: SpecDataSource,
-  categoryName: string
+  categoryName: string,
+  classificationName: string
 ): ProductSpecSection[] {
   const storageValue = getFirstSupportedFallbackValue(
     source.storage,
@@ -181,6 +165,7 @@ function buildGeneralFallbackSpecs(
   return filterPdpLegacySpecifications(
     [{ category: 'General', items }],
     categoryName,
+    classificationName,
     source.product_key_specs
   );
 }
@@ -212,13 +197,16 @@ export function buildProductSpecData(source: SpecDataSource) {
   const normalizedLegacySpecifications = normalizeSpecSections(
     source.specifications
   );
-  const { hasCategory: hasSourceCategory, name: sourceCategoryName } =
-    resolveSourceCategory(source);
+  const {
+    hasCategory: hasSourceCategory,
+    name: sourceCategoryName,
+    classificationName: sourceClassificationName,
+  } = resolveSourceCategory(source);
   // Unknown categories fail closed instead of inheriting the phone taxonomy.
   // This prevents a missing category join from turning camera or accessory
   // rows into phone-shaped PDP content.
   const specFamily = hasSourceCategory
-    ? getProductSpecFamily(sourceCategoryName)
+    ? getProductSpecFamily(sourceClassificationName)
     : 'general';
   const keySpecSections =
     source.product_key_specs &&
@@ -234,16 +222,19 @@ export function buildProductSpecData(source: SpecDataSource) {
   const detailedSpecifications = filterPdpLegacySpecifications(
     normalizedDetailedSpecs,
     sourceCategoryName,
+    sourceClassificationName,
     source.product_key_specs
   );
   const legacySpecifications = filterPdpLegacySpecifications(
     normalizedLegacySpecifications,
     sourceCategoryName,
+    sourceClassificationName,
     source.product_key_specs
   );
   const descriptionSpecifications = filterPdpLegacySpecifications(
     descriptionKeySpecs,
     sourceCategoryName,
+    sourceClassificationName,
     source.product_key_specs
   );
 
@@ -258,7 +249,11 @@ export function buildProductSpecData(source: SpecDataSource) {
       ? mergeSpecSections(storedSpecifications, keySpecSections)
       : keySpecSections.length > 0
         ? keySpecSections
-        : buildGeneralFallbackSpecs(source, sourceCategoryName);
+        : buildGeneralFallbackSpecs(
+            source,
+            sourceCategoryName,
+            sourceClassificationName
+          );
 
   const detailedSpecs = usesGeneralFallback
     ? mergeSpecSections(descriptionSpecifications, structuredSpecs)

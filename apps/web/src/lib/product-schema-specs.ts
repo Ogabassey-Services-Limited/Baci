@@ -2,12 +2,21 @@ import { normalizeProductSchemaSpecLabel } from './normalize-product-schema-spec
 import {
   classifyProductSchemaCategories,
   type ProductCategorySource,
-  type ProductKeySpecCapabilities,
 } from './product-schema-spec-classification';
+import {
+  AUDIO_CAPABILITY_SPEC_KEYS,
+  CAMERA_KEY_SPEC_KEYS,
+  CAMERA_ONLY_SPEC_KEYS,
+  COMPUTER_CELLULAR_SPEC_KEYS,
+  COMPUTER_HARDWARE_SPEC_KEYS,
+  NETWORK_DEVICE_CELLULAR_SPEC_KEYS,
+  PHONE_ONLY_SPEC_KEYS,
+} from './product-schema-spec-key-sets';
 import { shouldIncludeProductSchemaSpecByLabel } from './product-schema-spec-label-inclusion';
 import { PHONE_ONLY_SPEC_LABELS } from './product-schema-spec-label-policy';
 import { getProductSchemaSpecValueDecision } from './product-schema-spec-value-policy';
 import { getProductSchemaSpecKeyForLabel } from './product-schema-spec-vocabulary';
+import { shouldSuppressAuthoritativeFalseLegacySpec } from './should-suppress-authoritative-false-legacy-spec';
 import { isComputerExcludedSpecKey } from './storefront-specs/is-computer-excluded-spec-key';
 import { isNetworkDeviceCategory } from './storefront-specs/is-network-device-category';
 import { getKeySpecCategoriesForFamily } from './storefront-specs/spec-category-families';
@@ -18,83 +27,6 @@ interface ProductSchemaSpecCandidate {
   section?: string;
   value: unknown;
 }
-
-const CAMERA_ONLY_SPEC_KEYS = new Set([
-  'has_ois',
-  'has_reverse_charging',
-  'main_camera_mp',
-  'rear_camera_features',
-  'rear_camera_video',
-  'front_camera_mp',
-  'front_camera_features',
-  'front_camera_video',
-]);
-
-const CAMERA_KEY_SPEC_KEYS = new Set(
-  getKeySpecCategoriesForFamily('camera').flatMap((category) =>
-    category.fields.map((field) => field.key)
-  )
-);
-
-const PHONE_ONLY_SPEC_KEYS = new Set([
-  'android_version',
-  'fingerprint_type',
-  'has_5g',
-  'has_card_slot',
-  'has_fm_radio',
-  'has_headphone_jack',
-  'has_nfc',
-  'has_stereo_speakers',
-  'network_technology',
-  'sim_type',
-]);
-
-const AUDIO_CAPABILITY_SPEC_KEYS = new Set([
-  'has_headphone_jack',
-  'has_stereo_speakers',
-]);
-
-const COMPUTER_CELLULAR_SPEC_KEYS = new Set([
-  'has_5g',
-  'has_nfc',
-  'network_technology',
-  'sim_type',
-]);
-
-const NETWORK_DEVICE_CELLULAR_SPEC_KEYS = new Set([
-  'has_5g',
-  'network_technology',
-  'sim_type',
-]);
-
-const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
-
-const AUTHORITATIVE_FALSE_CAPABILITY_SUPPRESSIONS: Array<{
-  authoritativeKey: keyof ProductKeySpecCapabilities;
-  suppressedKeys: string[];
-}> = [
-  { authoritativeKey: 'has_card_slot', suppressedKeys: ['card_slot_type'] },
-  { authoritativeKey: 'has_ois', suppressedKeys: ['has_ois'] },
-  {
-    authoritativeKey: 'has_wireless_charging',
-    suppressedKeys: ['has_wireless_charging', 'wireless_charging_watt'],
-  },
-  { authoritativeKey: 'has_fm_radio', suppressedKeys: ['has_fm_radio'] },
-  { authoritativeKey: 'has_nfc', suppressedKeys: ['has_nfc'] },
-  { authoritativeKey: 'has_5g', suppressedKeys: ['has_5g'] },
-  {
-    authoritativeKey: 'has_headphone_jack',
-    suppressedKeys: ['has_headphone_jack'],
-  },
-  {
-    authoritativeKey: 'has_stereo_speakers',
-    suppressedKeys: ['has_stereo_speakers'],
-  },
-  {
-    authoritativeKey: 'has_reverse_charging',
-    suppressedKeys: ['has_reverse_charging'],
-  },
-];
 
 /**
  * Keeps phone-shaped fields and labels out of named non-phone product schemas.
@@ -129,6 +61,9 @@ export function shouldIncludeProductSchemaSpec(
   const isRadioLikeCategory = categoryNames.some((category) =>
     /\b(?:car stereo|radio|radios|audio|stereo)s?\b/.test(category)
   );
+  const isSmartTvCategory = categoryNames.some((category) =>
+    /\b(?:smart tvs?|televisions?)\b/.test(category)
+  );
   const isNetworkDevice = categoryNames.some(isNetworkDeviceCategory);
   const isAudioCategory = categoryNames.some((category) =>
     /\b(?:audio|speaker|speakers|headphones|earbuds|earphones|soundbars?)\b/.test(
@@ -146,15 +81,14 @@ export function shouldIncludeProductSchemaSpec(
 
   // Capability data is authoritative over legacy labels. This must precede
   // the mobile fast path because old PDP rows do not always retain their key.
-  if (canonicalSpecKey && product.product_key_specs) {
-    for (const suppression of AUTHORITATIVE_FALSE_CAPABILITY_SUPPRESSIONS) {
-      if (
-        product.product_key_specs[suppression.authoritativeKey] === false &&
-        suppression.suppressedKeys.includes(canonicalSpecKey)
-      ) {
-        return false;
-      }
-    }
+  if (
+    shouldSuppressAuthoritativeFalseLegacySpec(
+      product,
+      candidate,
+      canonicalSpecKey
+    )
+  ) {
+    return false;
   }
 
   const valueDecision = getProductSchemaSpecValueDecision({
@@ -303,7 +237,10 @@ export function shouldIncludeProductSchemaSpec(
       return true;
     }
 
-    if (canonicalSpecKey === 'android_version' && isOperatingSystemLabel) {
+    if (
+      canonicalSpecKey === 'android_version' &&
+      (isOperatingSystemLabel || (isSmartTvCategory && candidate.key))
+    ) {
       return true;
     }
 

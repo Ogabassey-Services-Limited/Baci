@@ -96,6 +96,36 @@ describe('shouldIncludeProductSchemaSpec non-phone capabilities', () => {
     ).toBe(false);
   });
 
+  it('preserves explicit false keyed capabilities on mobile products', () => {
+    const product = {
+      category: 'Smartphones',
+      categories: null,
+      product_key_specs: { has_5g: false },
+    };
+
+    expect(
+      shouldIncludeProductSchemaSpec(product, {
+        key: 'has_5g',
+        value: false,
+      })
+    ).toBe(true);
+    expect(
+      shouldIncludeProductSchemaSpec(product, {
+        key: 'has_headphone_jack',
+        value: false,
+      })
+    ).toBe(true);
+  });
+
+  it('retains keyed android_version for smart TV products', () => {
+    expect(
+      shouldIncludeProductSchemaSpec(
+        { category: 'Smart TVs', categories: null },
+        { key: 'android_version', value: '14' }
+      )
+    ).toBe(true);
+  });
+
   it('rejects legacy Android Version rows on non-phone products', () => {
     expect(
       shouldIncludeProductSchemaSpec(
