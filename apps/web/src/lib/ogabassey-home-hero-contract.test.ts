@@ -131,6 +131,7 @@ describe('ogabasseyHomeHeroContract', () => {
   it.each([
     'merchant-1',
     ' 6b5cb8a4-5575-456c-b936-8cdfae30db74 ',
+    '6b5cb8a4-5575-456c-b936-8cdfae30db74\n',
   ])('rejects malformed bound merchant ID: %s', (merchantId) => {
     expect(
       ogabasseyHomeHeroContract.project({

@@ -119,7 +119,11 @@ function isValidSlide(
 }
 
 function isMerchantId(value: unknown): value is string {
-  return typeof value === 'string' && MERCHANT_ID_PATTERN.test(value);
+  return (
+    typeof value === 'string' &&
+    value.length === 36 &&
+    MERCHANT_ID_PATTERN.test(value)
+  );
 }
 
 function isValidProjection(
