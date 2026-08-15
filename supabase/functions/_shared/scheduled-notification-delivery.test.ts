@@ -114,6 +114,83 @@ describe('processScheduledNotificationClaims', () => {
     vi.unstubAllGlobals();
   });
 
+  it('finalizes visible channels as sent when quiet-hour pushes are deferred', async () => {
+    vi.stubGlobal('Deno', { env: { get: () => undefined } });
+    const claim = {
+      action_url: null,
+      channels: ['in_app', 'push'],
+      delivery_claim_token: '123e4567-e89b-42d3-a456-426614174009',
+      expires_at: null,
+      id: 'd8543bf1-5f03-4fd1-8a2a-2f7f1658c3f9',
+      message: 'Mixed visible and quiet push notification',
+      target_merchant_ids: [],
+      target_segment: null,
+      target_type: 'all',
+      title: 'Mixed visible',
+    };
+    const calls: Array<{ args?: Record<string, unknown>; name: string }> = [];
+    const client = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        calls.push({ args, name });
+        if (name === 'get_scheduled_notification_recipient_page_v1') {
+          return {
+            data: [{ merchant_id: '456e4567-e89b-42d3-a456-426614174000' }],
+            error: null,
+          };
+        }
+        if (name === 'get_claimed_notification_push_tokens_v1') {
+          return {
+            data: [
+              {
+                push_token: 'ExponentPushToken[quiet-token]',
+                quiet_hours_end: '23:59',
+                quiet_hours_start: '00:00',
+                quiet_hours_time_zone: 'Africa/Lagos',
+              },
+            ],
+            error: null,
+          };
+        }
+        if (name === 'defer_notification_push_tokens_v1') {
+          return { data: 1, error: null };
+        }
+        if (name === 'get_notification_push_outbox_summary_v1') {
+          return {
+            data: {
+              dispatching: 0,
+              pending: 0,
+              rejected: 0,
+              unknown: 0,
+            },
+            error: null,
+          };
+        }
+        return { data: true, error: null };
+      },
+    };
+
+    const results = await processScheduledNotificationClaims(client, [claim]);
+
+    expect(results).toEqual([
+      { id: claim.id, recipients: 1, status: 'sent' },
+    ]);
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({
+        p_notification_id: claim.id,
+      }),
+      name: 'create_claimed_admin_notification_recipients_v1',
+    });
+    expect(calls).toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'sent' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    expect(calls).not.toContainEqual({
+      args: expect.objectContaining({ p_outcome: 'deferred' }),
+      name: 'finalize_scheduled_admin_notification_v1',
+    });
+    vi.unstubAllGlobals();
+  });
+
   it('sends non-quiet tokens before deferring the same broadcast', async () => {
     vi.stubGlobal('Deno', { env: { get: () => undefined } });
     vi.stubGlobal(

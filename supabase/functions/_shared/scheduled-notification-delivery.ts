@@ -31,6 +31,13 @@ class NotificationExpiredError extends Error {
   }
 }
 
+function hasVisibleDeliveryChannels(notification: ScheduledNotification) {
+  return (
+    notification.channels.includes('in_app') ||
+    notification.channels.includes('banner')
+  );
+}
+
 function throwIfExpired(notification: ScheduledNotification) {
   if (isExpired(notification)) throw new NotificationExpiredError();
 }
@@ -143,8 +150,23 @@ export async function processScheduledNotificationClaims(
         notification
       );
       if (hasDeferredPushes) {
-        await finalize(client, notification, 'deferred');
-        results.push({ id: notification.id, recipients, status: 'deferred' });
+        if (hasVisibleDeliveryChannels(notification)) {
+          const summary = await rpcOk(
+            client,
+            'get_notification_push_outbox_summary_v1',
+            {
+              p_claim_token: notification.delivery_claim_token,
+              p_notification_id: notification.id,
+            }
+          );
+          if (requiresPushOutcomeReview(summary))
+            throw new Error('Push outcome requires review');
+          await finalize(client, notification, 'sent');
+          results.push({ id: notification.id, recipients, status: 'sent' });
+        } else {
+          await finalize(client, notification, 'deferred');
+          results.push({ id: notification.id, recipients, status: 'deferred' });
+        }
         continue;
       }
       const summary = await rpcOk(
