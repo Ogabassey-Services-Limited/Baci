@@ -53,6 +53,7 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
       pathCondition: {
         firstSegmentIn: [
           'auth',
+          'baci-relay',
           'builder',
           'dashboard',
           'forgot-password',
@@ -86,9 +87,14 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
           'auth',
           'builder',
           'dashboard',
+          'forgot-password',
           'login',
           'onboarding',
+          'reset-password',
           'signup',
+          'staff',
+          'update-password',
+          'verify',
         ],
         precedence: 'before_path_decision',
         predicate: 'first_segment_allowlist',
@@ -109,6 +115,7 @@ export const STOREFRONT_EDGE_PROXY_HOST_ROWS: readonly InventoryRow[] = [
       pathCondition: {
         firstSegmentIn: [
           'auth',
+          'baci-relay',
           'builder',
           'dashboard',
           'forgot-password',

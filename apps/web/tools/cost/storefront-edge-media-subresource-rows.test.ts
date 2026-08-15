@@ -22,7 +22,7 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
-      ...Array.from({ length: 11 }, () => ({
+      ...Array.from({ length: 9 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
@@ -52,6 +52,11 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_upload_origin',
         methods: ['PUT', 'OPTIONS'],
       },
+      ...Array.from({ length: 2 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
       ...[
         'configured_klump_origin',
         'configured_paystack_asset_origin',
@@ -111,9 +116,7 @@ describe('external storefront media inventory', () => {
           'apps/web/src/components/storefront/new-template/checkout-page.tsx',
       })
     );
-    expect(
-      byId.get('automatic-subresource:negotiation-evidence-upload')
-    ).toEqual(
+    expect(byId.get('automatic-subresource:negotiation-evidence-upload')).toEqual(
       expect.objectContaining({
         methods: ['PUT', 'OPTIONS'],
       })

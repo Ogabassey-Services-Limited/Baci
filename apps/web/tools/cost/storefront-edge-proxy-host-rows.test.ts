@@ -58,10 +58,29 @@ describe('STOREFRONT_EDGE_PROXY_HOST_ROWS', () => {
           precedence: 'before_path_decision',
         },
         pathCondition: expect.objectContaining({
-          firstSegmentIn: expect.arrayContaining(['login', 'dashboard']),
+          firstSegmentIn: expect.arrayContaining([
+            'login',
+            'dashboard',
+            'baci-relay',
+          ]),
           predicate: 'first_segment_allowlist',
         }),
       })
+    );
+  });
+
+  it('preserves every platform-root application prefix', () => {
+    const row = STOREFRONT_EDGE_PROXY_HOST_ROWS.find(
+      ({ id }) => id === 'proxy:platform-route-root'
+    );
+    expect(row?.pathCondition?.firstSegmentIn).toEqual(
+      expect.arrayContaining([
+        'forgot-password',
+        'reset-password',
+        'staff',
+        'update-password',
+        'verify',
+      ])
     );
   });
 });
