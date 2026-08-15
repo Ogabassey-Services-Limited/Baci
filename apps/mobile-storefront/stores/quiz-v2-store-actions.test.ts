@@ -275,7 +275,9 @@ describe('createQuizV2StoreActions terminal expiry', () => {
         async () => {
           throw new Error('temporary recovery failure');
         },
-        jest.fn()
+        jest.fn<
+          (optionId: string, questionId: string) => Promise<QuizV2Attempt>
+        >(async () => activeAttempt)
       )
     ).resolves.toBe('retry');
     expect(harness.getState().error).toBe('temporary recovery failure');
@@ -290,7 +292,9 @@ describe('createQuizV2StoreActions terminal expiry', () => {
             attemptId: activeAttempt.attemptId,
             availability: 'pending_results',
           }),
-        jest.fn()
+        jest.fn<
+          (optionId: string, questionId: string) => Promise<QuizV2Attempt>
+        >(async () => activeAttempt)
       )
     ).resolves.toBe('recovered');
 
