@@ -3,6 +3,7 @@ import { AppState } from 'react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
+  fetchQuizParticipantCount,
 } from '@/services/quiz-leaderboard';
 import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
@@ -65,12 +66,20 @@ export function useQuizResultsLeaderboard({
           ? LIVE_REFRESH_INTERVAL_MS
           : FINAL_RETRY_INTERVAL_MS;
       try {
-        const result =
-          lifecycle === 'pending_results' && !eventHasEnded
-            ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })
-            : await fetchQuizLeaderboard({ eventId, expectedUserId });
+        const isLive = lifecycle === 'pending_results' && !eventHasEnded;
+        const [result, liveParticipantCount] = await Promise.all([
+          isLive
+            ? fetchQuizLiveLeaderboard({ eventId, expectedUserId })
+            : fetchQuizLeaderboard({ eventId, expectedUserId }),
+          isLive
+            ? fetchQuizParticipantCount({
+                eventId,
+                expectedUserId,
+              }).catch(() => null)
+            : Promise.resolve(null),
+        ]);
         if (!active) return;
-        setParticipantCount(result.participantCount);
+        setParticipantCount(liveParticipantCount ?? result.participantCount);
         if (result.status === 'published' || result.status === 'live') {
           setLeaderboard(result);
           hasLeaderboard.current = true;

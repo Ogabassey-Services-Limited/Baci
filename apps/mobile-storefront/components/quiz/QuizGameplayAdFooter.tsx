@@ -1,6 +1,5 @@
 import { Text, View } from 'react-native';
 import type { PaidEvent } from 'react-native-google-mobile-ads';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getQuizMobileAdsConfig } from '@/config/quiz-mobile-ads';
 import { useQuizMobileAds } from '@/hooks/use-quiz-mobile-ads';
 import { useTheme } from '@/hooks/useTheme';
@@ -47,8 +46,6 @@ function QuizGameplayAdPlacement({
   bannerUnitId: string;
   styles: ReturnType<typeof createQuizGameplayAdFooterStyles>;
 }) {
-  const insets = useSafeAreaInsets();
-
   const { BannerAd, BannerAdSize } =
     require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
 
@@ -63,7 +60,7 @@ function QuizGameplayAdPlacement({
   return (
     <View
       accessibilityLabel="Sponsored advertisement"
-      style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 8) }]}
+      style={styles.footer}
       testID="quiz-gameplay-ad-footer"
     >
       <Text style={styles.label}>Sponsored</Text>

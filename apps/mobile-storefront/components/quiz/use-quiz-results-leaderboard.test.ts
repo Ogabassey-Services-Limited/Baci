@@ -3,11 +3,13 @@ import { AppState, type AppStateStatus } from 'react-native';
 import {
   fetchQuizLeaderboard,
   fetchQuizLiveLeaderboard,
+  fetchQuizParticipantCount,
 } from '@/services/quiz-leaderboard';
 import { useQuizResultsLeaderboard } from './use-quiz-results-leaderboard';
 
 jest.mock('@/services/quiz-leaderboard', () => ({
   fetchQuizLeaderboard: jest.fn(),
+  fetchQuizParticipantCount: jest.fn(),
   fetchQuizLiveLeaderboard: jest.fn(),
 }));
 
@@ -22,9 +24,10 @@ describe('useQuizResultsLeaderboard', () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
-      participantCount: 3,
+      participantCount: null,
       status: 'live',
     });
+    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(3);
 
     const { result } = renderHook(() =>
       useQuizResultsLeaderboard({
@@ -38,6 +41,10 @@ describe('useQuizResultsLeaderboard', () => {
 
     await waitFor(() => expect(result.current.participantCount).toBe(3));
     expect(fetchQuizLiveLeaderboard).toHaveBeenCalledWith({
+      eventId: 'event-1',
+      expectedUserId: 'user-1',
+    });
+    expect(fetchQuizParticipantCount).toHaveBeenCalledWith({
       eventId: 'event-1',
       expectedUserId: 'user-1',
     });
@@ -91,9 +98,10 @@ describe('useQuizResultsLeaderboard', () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
-      participantCount: 3,
+      participantCount: null,
       status: 'live',
     });
+    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(3);
     jest.useFakeTimers();
 
     renderHook(() =>

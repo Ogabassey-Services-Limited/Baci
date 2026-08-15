@@ -12,7 +12,6 @@ import { submitQuizAnswerV2 } from '@/services/quiz-attempts';
 import { useAuthStore } from '@/stores/auth-store';
 import { useQuizStore } from '@/stores/quiz-store';
 import { createQuizV2LifecycleHandlers } from './create-quiz-v2-lifecycle-handlers';
-import { QuizDateOfBirthGateModal } from './QuizDateOfBirthGateModal';
 import { QuizErrorPanel } from './QuizErrorPanel';
 import { QuizEventsList } from './QuizEventsList';
 import { QuizGameplayAdFooter } from './QuizGameplayAdFooter';
@@ -23,8 +22,8 @@ import { QuizMusicPlayer } from './QuizMusicPlayer';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles } from './QuizScreen.styles';
+import { QuizScreenModals } from './QuizScreenModals';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
-import { QuizUsernameGateModal } from './QuizUsernameGateModal';
 import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
@@ -279,26 +278,7 @@ export function QuizScreen({
         active={status === 'question' || status === 'submitting'}
       />
 
-      <QuizUsernameGateModal
-        onCancel={usernameGate.cancelGate}
-        onSuccess={() => {
-          usernameGate.confirmGate();
-        }}
-        visible={usernameGate.isGateVisible}
-      />
-      <QuizDateOfBirthGateModal
-        errorMessage={dobGate.correctionError}
-        initialValue={
-          dobGate.correctionError
-            ? (dobGate.dateOfBirth ?? undefined)
-            : undefined
-        }
-        onCancel={dobGate.cancelGate}
-        onSuccess={() => {
-          dobGate.confirmGate(dobGate.generation);
-        }}
-        visible={dobGate.isGateVisible}
-      />
+      <QuizScreenModals dobGate={dobGate} usernameGate={usernameGate} />
     </View>
   );
 }

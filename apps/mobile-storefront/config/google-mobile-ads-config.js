@@ -6,6 +6,8 @@ const SAMPLE_APP_IDS = new Set([SAMPLE_ANDROID_APP_ID, SAMPLE_IOS_APP_ID]);
 const SAMPLE_BANNER_UNIT_IDS = new Set([
   'ca-app-pub-3940256099942544/6300978111',
   'ca-app-pub-3940256099942544/2934735716',
+  'ca-app-pub-3940256099942544/9214589741',
+  'ca-app-pub-3940256099942544/2435281174',
 ]);
 const TRACKING_USAGE_DESCRIPTION =
   'We use your activity to measure advertising performance and show more relevant offers across apps and websites.';

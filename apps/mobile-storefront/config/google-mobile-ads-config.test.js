@@ -118,6 +118,14 @@ describe('Google Mobile Ads Expo configuration', () => {
       'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
       'ca-app-pub-3940256099942544/2934735716',
     ],
+    [
+      'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
+      'ca-app-pub-3940256099942544/9214589741',
+    ],
+    [
+      'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
+      'ca-app-pub-3940256099942544/2435281174',
+    ],
   ])('rejects Google sample banner unit IDs in production (%s)', (key, value) => {
     expect(() =>
       buildGoogleMobileAdsExpoPlugin({
