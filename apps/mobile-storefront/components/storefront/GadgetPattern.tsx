@@ -43,8 +43,7 @@ export function GadgetPattern({
 
   return (
     <View
-      pointerEvents="none"
-      style={[styles.container, { height }]}
+      style={[styles.container, { height, pointerEvents: 'none' }]}
       testID="tech-backdrop"
     >
       <LinearGradient
