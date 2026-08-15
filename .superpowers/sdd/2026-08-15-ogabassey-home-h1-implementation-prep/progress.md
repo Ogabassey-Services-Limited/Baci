@@ -1,0 +1,28 @@
+# H1 implementation/prep progress
+
+- Plan: `docs/superpowers/plans/2026-08-15-ogabassey-home-h1-implementation-prep.md`
+- Frozen base: `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`
+- Boundary: inert implementation preparation only; activation and performance claims remain blocked by the documented H0/H0R gates.
+
+## Task 0 — prep contract
+
+- Implementation commit: `be3b0efcfcf13e675a66f754d36d7a09c2d97a76`
+- Review: spec pass; quality pass with minor wording/count concerns.
+- Documentation correction: `ee9c7234cc0717e132b7318d6f4e99a1b0c14f84` now says “three prep runtime modules” and records the verified 156-line plan length.
+
+## Tasks 1–2 — hero identity and preload projection
+
+- Implementation commit: `98cda1ce9e`
+- Initial review: blocked on malformed shell, merchant identity, foreign CDN, and null-preload validation.
+- Fix round 1/5: `1df850a3f1`
+- Scoped re-review: spec clean; quality clean; exact regressions present.
+- Fix round 2/5: `de11d3592a`
+- Scoped re-review: clean; test fixture now narrows the published-shell union without weakening runtime types.
+
+## Task 3 — integration and release gates
+
+- Focused tests: 3 files and 39 tests passed.
+- Full branch lint: passed with pre-existing warnings only.
+- Full branch typecheck: passed (6/6 tasks).
+- Full monorepo test attempt: 28,847 web tests passed; two unrelated validation tests failed because the sparse worktree omitted `scripts/` and `scripts-tmp/`, and because this untracked ledger made a clean-worktree guard refuse execution. The missing tracked paths were added to the sparse checkout; exact reruns remain pending after this ledger is committed.
+- Current-main reconciliation and final whole-branch review are pending.
