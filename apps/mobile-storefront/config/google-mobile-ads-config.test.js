@@ -108,4 +108,22 @@ describe('Google Mobile Ads Expo configuration', () => {
       })
     ).toThrow('EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID');
   });
+
+  it.each([
+    [
+      'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
+      'ca-app-pub-3940256099942544/6300978111',
+    ],
+    [
+      'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
+      'ca-app-pub-3940256099942544/2934735716',
+    ],
+  ])('rejects Google sample banner unit IDs in production (%s)', (key, value) => {
+    expect(() =>
+      buildGoogleMobileAdsExpoPlugin({
+        ...productionEnvironment,
+        [key]: value,
+      })
+    ).toThrow(key);
+  });
 });

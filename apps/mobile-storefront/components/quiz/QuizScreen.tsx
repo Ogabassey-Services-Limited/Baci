@@ -199,6 +199,11 @@ export function QuizScreen({
           primaryColor={colors.primary}
           showRetry={status === 'ready' || status === 'error'}
           styles={styles}
+          title={
+            status === 'question' || status === 'submitting'
+              ? 'We couldn’t continue the quiz'
+              : undefined
+          }
         />
       ) : null}
 

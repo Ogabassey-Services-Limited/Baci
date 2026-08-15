@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { QuizV2Attempt } from '@/services/quiz-types';
 import { createQuizV2RecoveryResponseApplier } from './quiz-v2-recovery-actions';
-import type { QuizV2StoreAccess } from './quiz-v2-store-action-helpers';
+import type { QuizV2StoreAccess } from './quiz-v2-store-access';
 
 const fallback: QuizV2Attempt = {
   attemptId: 'attempt-1',

@@ -2,7 +2,7 @@ import type {
   QuizActiveAttemptResponse,
   QuizV2Attempt,
 } from '@/services/quiz-types';
-import type { QuizV2StoreAccess } from './quiz-v2-store-action-helpers';
+import type { QuizV2StoreAccess } from './quiz-v2-store-access';
 
 interface CreateQuizV2ExpiryActionInput {
   access: QuizV2StoreAccess;

@@ -8,6 +8,7 @@ interface QuizErrorPanelProps {
   primaryColor: string;
   showRetry: boolean;
   styles: ReturnType<typeof createQuizStyles>;
+  title?: string;
 }
 
 export function QuizErrorPanel({
@@ -16,6 +17,7 @@ export function QuizErrorPanel({
   primaryColor,
   showRetry,
   styles,
+  title = 'We couldn’t start the quiz',
 }: QuizErrorPanelProps) {
   return (
     <View style={styles.container}>
@@ -27,7 +29,7 @@ export function QuizErrorPanel({
             color={primaryColor}
           />
         </View>
-        <Text style={styles.errorTitle}>We couldn&apos;t start the quiz</Text>
+        <Text style={styles.errorTitle}>{title}</Text>
         <Text accessibilityRole="alert" style={styles.errorDescription}>
           {description}
         </Text>

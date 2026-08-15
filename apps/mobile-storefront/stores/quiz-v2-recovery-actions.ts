@@ -2,12 +2,10 @@ import type {
   QuizActiveAttemptResponse,
   QuizV2Attempt,
 } from '@/services/quiz-types';
-import {
-  clearRecoveredQuizAttempt,
-  createQuizTerminalContext,
-  isQuizOpenAtServerTime,
-  type QuizV2StoreAccess,
-} from './quiz-v2-store-action-helpers';
+import { clearRecoveredQuizAttempt } from './quiz-v2-recovery-storage';
+import { isQuizOpenAtServerTime } from './quiz-v2-server-clock';
+import type { QuizV2StoreAccess } from './quiz-v2-store-access';
+import { createQuizTerminalContext } from './quiz-v2-terminal-context';
 
 export function createQuizV2RecoveryResponseApplier({
   access,

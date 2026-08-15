@@ -430,6 +430,7 @@ describe('QuizScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Submit failed');
+    expect(screen.getByText('We couldn’t continue the quiz')).toBeTruthy();
     expect(screen.getByText('What is 2 + 2?')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Submit answer' })).toBeTruthy();
     expect(submitQuizAnswer).toHaveBeenCalledWith({

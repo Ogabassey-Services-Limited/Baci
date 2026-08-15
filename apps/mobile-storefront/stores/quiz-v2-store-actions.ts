@@ -12,12 +12,12 @@ import {
   clearRecoveredQuizAttempt,
   clearTerminalRecovery,
   createQuizAttemptPersistence,
-  createQuizTerminalContext,
-  isQuizOpenAtServerTime,
-  type QuizV2StoreAccess,
-  resultLifecycle,
   saveQuizStartRequest,
-} from './quiz-v2-store-action-helpers';
+} from './quiz-v2-recovery-storage';
+import { createQuizTerminalContext } from './quiz-v2-terminal-context';
+import { isQuizOpenAtServerTime } from './quiz-v2-server-clock';
+import { resultLifecycle } from './quiz-v2-result-lifecycle';
+import type { QuizV2StoreAccess } from './quiz-v2-store-access';
 export const QUIZ_RECONCILIATION_INTERVAL_MS = 15_000;
 export function createQuizV2StoreActions({
   get,
