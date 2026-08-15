@@ -45,6 +45,12 @@ describe('previewInertLinkBlocks', () => {
     fetchSpy.mockRestore();
   });
 
+  it('returns the stateful Header as a React element for registry consumers', () => {
+    expect(() =>
+      previewInertLinkBlocks.Header.render({ glassEffect: true, sticky: true })
+    ).not.toThrow();
+  });
+
   it('matches the published mobile HeroCarousel viewport and theme tokens', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     render(

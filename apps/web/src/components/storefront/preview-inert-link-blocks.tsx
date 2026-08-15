@@ -206,11 +206,17 @@ function PreviewPlaceholder({
   );
 }
 
+function renderPreviewInertHeader(
+  props: Parameters<typeof PreviewInertHeader>[0]
+) {
+  return <PreviewInertHeader {...props} />;
+}
+
 export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewInertFooter },
   FAQ: { render: PreviewFAQ },
-  Header: { render: PreviewInertHeader },
+  Header: { render: renderPreviewInertHeader },
   Hero: { render: PreviewInertHero },
   HeroCarousel: { render: PreviewHeroCarousel },
   PreviewPlaceholder: { render: PreviewPlaceholder },
