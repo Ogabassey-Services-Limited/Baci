@@ -1,7 +1,6 @@
 import { render } from '@testing-library/react-native';
 import * as ReactNative from 'react-native';
-import { Image, Platform, StyleSheet } from 'react-native';
-import Svg from 'react-native-svg';
+import { Image, StyleSheet } from 'react-native';
 import { GadgetPattern } from './GadgetPattern';
 
 jest.mock('expo-linear-gradient', () => {
@@ -12,52 +11,18 @@ jest.mock('expo-linear-gradient', () => {
 });
 
 describe('GadgetPattern', () => {
-  const originalOS = Platform.OS;
-  const originalVersion = Platform.Version;
-
   afterEach(() => {
     jest.restoreAllMocks();
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: originalOS,
-    });
-    Object.defineProperty(Platform, 'Version', {
-      configurable: true,
-      value: originalVersion,
-    });
   });
 
-  it('does not mount the expensive SVG pattern on Android 9', () => {
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: 'android',
-    });
-    Object.defineProperty(Platform, 'Version', {
-      configurable: true,
-      value: 28,
-    });
-
-    const { UNSAFE_queryByType } = render(<GadgetPattern height={1500} />);
-
-    expect(UNSAFE_queryByType(Svg)).toBeNull();
-  });
-
-  it('replaces the SVG tree with one raster accent on current Android', () => {
-    Object.defineProperty(Platform, 'OS', {
-      configurable: true,
-      value: 'android',
-    });
-    Object.defineProperty(Platform, 'Version', {
-      configurable: true,
-      value: 29,
-    });
-
-    const { UNSAFE_queryByType, UNSAFE_getByType } = render(
+  it('renders one gradient and one raster accent for the static backdrop', () => {
+    const { getAllByTestId, UNSAFE_getAllByType } = render(
       <GadgetPattern height={1500} />
     );
 
-    expect(UNSAFE_queryByType(Svg)).toBeNull();
-    expect(UNSAFE_getByType(Image).props.resizeMode).toBe('contain');
+    expect(getAllByTestId('tech-backdrop-gradient')).toHaveLength(1);
+    expect(UNSAFE_getAllByType(Image)).toHaveLength(1);
+    expect(UNSAFE_getAllByType(Image)[0]?.props.resizeMode).toBe('contain');
   });
 
   it('uses light gradient stops for the light color scheme', () => {

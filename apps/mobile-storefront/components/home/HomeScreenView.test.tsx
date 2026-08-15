@@ -302,6 +302,7 @@ describe('HomeScreenView', () => {
     render(<HomeScreenView {...createProps()} isElite={true} />);
 
     expect(screen.getAllByText(/Gadget pattern/)).toHaveLength(1);
+    expect(screen.getByText('Gadget pattern default dark')).toBeTruthy();
   });
 
   it('renders the online error notice for an unsuccessful page request', () => {
