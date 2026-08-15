@@ -28,7 +28,10 @@ function createRow(
   };
 }
 
-function createPublishedShell(): OgabasseyHomeHeroShellInput {
+function createPublishedShell(): Extract<
+  OgabasseyHomeHeroShellInput,
+  { status: 'published' }
+> {
   const selectedProducts = selectOgabasseyLaunchProducts({
     launchCandidateRows: [
       createRow({

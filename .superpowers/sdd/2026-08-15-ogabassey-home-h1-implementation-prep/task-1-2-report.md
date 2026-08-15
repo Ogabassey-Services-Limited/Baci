@@ -74,3 +74,13 @@ Status: `DONE_WITH_CONCERNS`
   runtime (`MIMEType is not a constructor`); result: **3 files, 39 tests
   passed**.
 - Biome passed on all five owned files and `git diff --check` passed.
+
+## Fix round 2 review response
+
+- Narrowed the `createPublishedShell()` test helper to the published variant of
+  `OgabasseyHomeHeroShellInput`, fixing TypeScript union-property errors without
+  weakening runtime validation or assertions.
+- Focused suites: **3 files, 39 tests passed** (Node environment override).
+- `pnpm --filter @baci/web typecheck`: passed, including the tools/workers
+  project.
+- Biome on all five owned files: passed; `git diff --check`: passed.
