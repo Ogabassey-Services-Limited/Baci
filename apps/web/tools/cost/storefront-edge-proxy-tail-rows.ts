@@ -21,24 +21,20 @@ const sitemapOptions = (
 /** Terminal and host-conditioned proxy classes after explicit rewrites. */
 export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
   ...STOREFRONT_EDGE_PROXY_HOST_ROWS,
-  ...(process.env.MCP_SERVER_URL
-    ? [
-        createStorefrontEdgeProxyClass(
-          'proxy:platform-root-blog-sitemap',
-          '/blog/sitemap.xml',
-          ['GET', 'HEAD'],
-          'origin_dynamic',
-          'platform_root_blog_sitemap_rewrite',
-          {
-            hostCondition: {
-              hostKind: 'platform_root_domain',
-              precedence: 'before_path_decision',
-            },
-            sourcePath: 'apps/web/next.config.ts',
-          }
-        ),
-      ]
-    : []),
+  createStorefrontEdgeProxyClass(
+    'proxy:platform-root-blog-sitemap',
+    '/blog/sitemap.xml',
+    ['GET', 'HEAD'],
+    'origin_dynamic',
+    'platform_root_blog_sitemap_rewrite',
+    {
+      hostCondition: {
+        hostKind: 'platform_root_domain',
+        precedence: 'before_path_decision',
+      },
+      sourcePath: 'apps/web/next.config.ts',
+    }
+  ),
   sitemapOptions(
     'proxy:platform-root-blog-sitemap-options',
     '/blog/sitemap.xml',
@@ -138,22 +134,26 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
     },
     sourcePath: 'apps/web/src/app/sitemap.ts',
   }),
-  createStorefrontEdgeProxyClass(
-    'proxy:mcp-sse-rewrite',
-    '/mcp/sse',
-    ['ANY'],
-    'origin_dynamic',
-    'mcp_server_rewrite',
-    { sourcePath: 'apps/web/next.config.ts' }
-  ),
-  createStorefrontEdgeProxyClass(
-    'proxy:mcp-messages-rewrite',
-    '/mcp/messages',
-    ['ANY'],
-    'origin_dynamic',
-    'mcp_server_rewrite',
-    { sourcePath: 'apps/web/next.config.ts' }
-  ),
+  ...(process.env.MCP_SERVER_URL
+    ? [
+        createStorefrontEdgeProxyClass(
+          'proxy:mcp-sse-rewrite',
+          '/mcp/sse',
+          ['ANY'],
+          'origin_dynamic',
+          'mcp_server_rewrite',
+          { sourcePath: 'apps/web/next.config.ts' }
+        ),
+        createStorefrontEdgeProxyClass(
+          'proxy:mcp-messages-rewrite',
+          '/mcp/messages',
+          ['ANY'],
+          'origin_dynamic',
+          'mcp_server_rewrite',
+          { sourcePath: 'apps/web/next.config.ts' }
+        ),
+      ]
+    : []),
   createStorefrontEdgeProxyClass(
     'proxy:unknown-document',
     '/{*unlistedDocument}',

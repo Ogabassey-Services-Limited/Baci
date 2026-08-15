@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "5bc9c1d7bdc390679937bbb61301f4eb29ec3dd7",
+  "originMainSha": "415be52d2b7910915ca1aa0f1f859184152ddb41",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "7e1d3cdcad9309e40660bb9ff46af0ef053386a77ad89b4839136fcbf90f1a70",
-  "routingProxyInputSha256": "8acb5c9ce17a4c35ab81923792891f12ae1b7ed5ed417d20eddb684412162d2e",
+  "routingProxyInputSha256": "cf0ef77a3adead53bce030237b3ef3b085b5b7b55279b4fd11be2931fb47c2f1",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -3335,6 +3335,22 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "proxy:platform-root-blog-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "platform_root_blog_sitemap_rewrite",
+      "routePattern": "/blog/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "proxy:platform-root-blog-sitemap-options",
       "methods": [
         "OPTIONS"
@@ -4349,28 +4365,6 @@
       "reason": "next_config_redirect",
       "routePattern": "/phones/iphone-x-3gb-64gb-nfid",
       "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:mcp-messages-rewrite",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "mcp_server_rewrite",
-      "routePattern": "/mcp/messages",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/next.config.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:mcp-sse-rewrite",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "mcp_server_rewrite",
-      "routePattern": "/mcp/sse",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/next.config.ts"
     },
     {
       "decision": "edge_release",
@@ -7761,5 +7755,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "7c21badecf41ba188a76a41e853e7a0a3ddf984fbc4ee01cf7ef9688cc68dacc"
+  "inventorySha256": "06ed2bb44dc9802c84f137d98e5e45e3eaa5cc2a09ade59f247c1bb8c2396221"
 }
