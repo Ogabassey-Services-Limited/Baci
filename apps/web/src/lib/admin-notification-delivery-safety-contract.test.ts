@@ -22,6 +22,10 @@ const followUp = read(
 const worker = read(
   'supabase/functions/_shared/scheduled-notification-delivery.ts'
 );
+const pushDispatch = read(
+  'supabase/functions/_shared/scheduled-notification-push-dispatch.ts'
+);
+const workerSource = `${worker}\n${pushDispatch}`;
 const runner = read(
   'supabase/functions/process-scheduled-notifications/index.ts'
 );
@@ -31,11 +35,11 @@ describe('scheduled notification delivery safety contract', () => {
     expect(snapshot).toContain('admin_notification_audience_snapshot');
     expect(snapshot).toContain('renew_scheduled_notification_claim_v1');
     expect(snapshot).toContain('notifications_delivery_content_check');
-    expect(worker).toContain('snapshot_claimed_notification_audience_v1');
-    expect(worker).toContain(
+    expect(workerSource).toContain('snapshot_claimed_notification_audience_v1');
+    expect(workerSource).toContain(
       'await renewScheduledNotificationClaim(client, notification)'
     );
-    expect(worker).toContain('RECIPIENT_PAGE_SIZE = 500');
+    expect(workerSource).toContain('RECIPIENT_PAGE_SIZE = 500');
     expect(snapshot).toContain('scheduled_for is not null');
     expect(snapshot).toContain('notifications_delivery_content_check');
   });
@@ -46,10 +50,10 @@ describe('scheduled notification delivery safety contract', () => {
     );
     expect(outbox).toContain("status = 'dispatching'");
     expect(outbox).toContain("status = 'unknown'");
-    expect(worker).toContain('reserve_notification_push_batch_v1');
-    expect(worker).toContain('mark_notification_push_unknown_v1');
-    expect(worker).toContain('Push provider outcome unresolved');
-    expect(worker).toContain('AbortSignal.timeout(12_000)');
+    expect(workerSource).toContain('reserve_notification_push_batch_v1');
+    expect(workerSource).toContain('mark_notification_push_unknown_v1');
+    expect(workerSource).toContain('Push provider outcome unresolved');
+    expect(workerSource).toContain('AbortSignal.timeout(12_000)');
   });
 
   it('requires merchant-directory permission for explicit-target validation and exposes worker health', () => {
@@ -65,8 +69,10 @@ describe('scheduled notification delivery safety contract', () => {
     expect(followUp).toContain('claim_token <> p_claim_token');
     expect(followUp).toContain('record_notification_push_ticket_results_v1');
     expect(followUp).toContain("'accepted', 'rejected'");
-    expect(worker).toContain('record_notification_push_ticket_results_v1');
-    expect(worker).toContain('results.statuses');
+    expect(workerSource).toContain(
+      'record_notification_push_ticket_results_v1'
+    );
+    expect(workerSource).toContain('results.statuses');
   });
 
   it('records retry and execution failures instead of reporting them as success', () => {
