@@ -98,6 +98,37 @@ describe('fetchNotificationsRequest', () => {
     expect(unread.get()).toBe(7);
   });
 
+  it('does not queue a refresh when a concurrent append request is already in flight', async () => {
+    const { deps } = createDeps('cursor-1');
+    const pendingRefreshRef = { current: false };
+    deps.pendingRefreshRef = pendingRefreshRef;
+    let resolveResponse: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveResponse = resolve;
+          })
+      )
+    );
+
+    const first = fetchNotificationsRequest(true, deps);
+    await fetchNotificationsRequest(true, deps);
+
+    expect(pendingRefreshRef.current).toBe(false);
+    resolveResponse({
+      ok: true,
+      json: async () => ({
+        cursor: 'cursor-2',
+        data: [notification('next')],
+        has_more: true,
+        unread_count: null,
+      }),
+    } as Response);
+    await first;
+  });
+
   it('queues a realtime refresh that arrives during an in-flight fetch', async () => {
     const { deps } = createDeps();
     const pendingRefreshRef = { current: false };

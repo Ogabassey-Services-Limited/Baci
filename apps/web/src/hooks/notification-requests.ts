@@ -37,8 +37,9 @@ export async function fetchNotificationsRequest(
   } = deps;
 
   if (isFetchingRef.current) {
-    if (deps.pendingRefreshRef && deps.queueRefresh !== false)
+    if (!append && deps.pendingRefreshRef && deps.queueRefresh !== false) {
       deps.pendingRefreshRef.current = true;
+    }
     return;
   }
 

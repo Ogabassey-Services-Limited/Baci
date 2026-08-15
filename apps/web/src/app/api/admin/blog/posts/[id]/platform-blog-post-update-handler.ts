@@ -40,7 +40,15 @@ export async function updatePlatformBlogPost(
     }
 
     const { id } = parsedParams.data;
-    const body = sanitizeBlogPostData(await request.json());
+    const rawBody: unknown = await request.json();
+    if (
+      rawBody === null ||
+      typeof rawBody !== 'object' ||
+      Array.isArray(rawBody)
+    ) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+    const body = sanitizeBlogPostData(rawBody);
     const validated = blogPostSchema.partial().safeParse(body);
 
     if (!validated.success) {

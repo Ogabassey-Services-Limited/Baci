@@ -61,6 +61,20 @@ function createSupabase(updateResult?: { data: unknown; error: unknown }) {
 describe('updatePlatformBlogPost', () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it('rejects a null JSON body before sanitizing blog fields', async () => {
+    const response = await updatePlatformBlogPost(
+      new NextRequest('http://localhost/api/admin/blog/posts/post-1', {
+        body: 'null',
+        headers: { 'content-type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'post-1' }) }
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid route parameter before reading a post', async () => {
     const response = await updatePlatformBlogPost(request({ title: 'Title' }), {
       params: Promise.resolve({ id: '' }),
