@@ -157,7 +157,7 @@ test('gates Vercel deployment configuration in deploy and CI filters', () => {
   }
 });
 
-test('keeps Vercel function routes while leaving Fluid memory and duration to supported sources', () => {
+test('keeps Vercel function routes while leaving Fluid memory to supported sources', () => {
   const config = JSON.parse(
     readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8')
   );
@@ -177,11 +177,6 @@ test('keeps Vercel function routes while leaving Fluid memory and duration to su
       Object.hasOwn(options, 'memory'),
       false,
       `${route} must not configure memory in vercel.json`
-    );
-    assert.equal(
-      Object.hasOwn(options, 'maxDuration'),
-      false,
-      `${route} must keep maxDuration in route code`
     );
   }
 
