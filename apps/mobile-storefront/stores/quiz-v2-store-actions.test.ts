@@ -156,6 +156,33 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     });
   });
 
+  it('serializes concurrent starts before recovery storage resolves', async () => {
+    const harness = createHarness();
+    harness.set({ status: 'ready', v2Attempt: null });
+    let resolveLoad!: (value: null) => void;
+    mockLoadRecoveryEnvelope.mockReturnValueOnce(
+      new Promise<null>((resolve) => {
+        resolveLoad = resolve;
+      })
+    );
+    const starter = jest.fn(async () => activeAttempt);
+    const context: V2StartContext = {
+      eventId: 'event-1',
+      integrityTier: 'strong',
+      startRequestId: '55555555-5555-4555-8555-555555555555',
+      userId: 'user-1',
+    };
+
+    const firstStart = harness.actions.startEventV2(context, starter);
+    const secondStart = harness.actions.startEventV2(context, starter);
+    expect(starter).not.toHaveBeenCalled();
+
+    resolveLoad(null);
+    await Promise.all([firstStart, secondStart]);
+
+    expect(starter).toHaveBeenCalledTimes(1);
+  });
+
   it('does not write a stale starting state after recovery storage resolves', async () => {
     const harness = createHarness();
     let resolveLoad!: (value: null) => void;

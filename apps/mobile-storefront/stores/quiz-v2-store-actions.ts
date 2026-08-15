@@ -28,6 +28,7 @@ export function createQuizV2StoreActions({
   let lastReconciledAt = 0;
   let reconciliationInFlight = false;
   let retryInFlight = false;
+  let startInFlight = false;
   let lifecycleEpoch = 0;
   // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
   const access = { get, getGeneration, getMessage, set };
@@ -81,39 +82,46 @@ export function createQuizV2StoreActions({
     },
   });
   return {
-    startEventV2: async (context: V2StartContext, starter) => {
-      if (['starting', 'submitting'].includes(get().status)) return;
-      const generation = getGeneration();
-      const existing = await loadQuizRecoveryEnvelope(
-        context.userId,
-        context.eventId
-      );
-      if (generation !== getGeneration()) return;
-      const startRequestId = existing?.startRequestId ?? context.startRequestId;
-      set({
-        ...initialQuizV2State,
-        status: 'starting',
-        selectedEventId: context.eventId,
-        attemptIntegrityTier: context.integrityTier,
-        startRequestId,
-        recoveryUserId: context.userId,
-        error: null,
+    startEventV2: (context: V2StartContext, starter) => {
+      if (startInFlight || ['starting', 'submitting'].includes(get().status))
+        return Promise.resolve();
+      startInFlight = true;
+      return (async () => {
+        const generation = getGeneration();
+        const existing = await loadQuizRecoveryEnvelope(
+          context.userId,
+          context.eventId
+        );
+        if (generation !== getGeneration()) return;
+        const startRequestId =
+          existing?.startRequestId ?? context.startRequestId;
+        set({
+          ...initialQuizV2State,
+          status: 'starting',
+          selectedEventId: context.eventId,
+          attemptIntegrityTier: context.integrityTier,
+          startRequestId,
+          recoveryUserId: context.userId,
+          error: null,
+        });
+        try {
+          await saveQuizStartRequest(context, generation, startRequestId);
+        } catch {
+          // Recovery persistence is best-effort. A full or unavailable device
+          // store must not prevent the server start from running or strand the
+          // quiz in the starting state.
+        }
+        if (generation !== getGeneration()) return;
+        try {
+          const attempt = await starter(startRequestId);
+          if (generation === getGeneration()) await apply(attempt);
+        } catch (error) {
+          if (generation === getGeneration())
+            set({ status: 'ready', error: getMessage(error) });
+        }
+      })().finally(() => {
+        startInFlight = false;
       });
-      try {
-        await saveQuizStartRequest(context, generation, startRequestId);
-      } catch {
-        // Recovery persistence is best-effort. A full or unavailable device
-        // store must not prevent the server start from running or strand the
-        // quiz in the starting state.
-      }
-      if (generation !== getGeneration()) return;
-      try {
-        const attempt = await starter(startRequestId);
-        if (generation === getGeneration()) await apply(attempt);
-      } catch (error) {
-        if (generation === getGeneration())
-          set({ status: 'ready', error: getMessage(error) });
-      }
     },
     recoverEvent: async (userId, eventId, recoverer, resender) => {
       if (get().status === 'submitting') return 'retry';

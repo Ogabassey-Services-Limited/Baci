@@ -164,6 +164,48 @@ describe('useQuizPersistedRecovery', () => {
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
   });
 
+  it('does not restart recovery repeatedly while its status leaves ready', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-1',
+        currentQuestionId: null,
+        eventId: 'event-1',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    let rerender!: (props: { enabled: boolean }) => void;
+    const recoverEvent = jest
+      .fn<RecoverEvent>()
+      .mockImplementation(async () => {
+        await act(async () => {
+          rerender({ enabled: false });
+          await Promise.resolve();
+          rerender({ enabled: true });
+        });
+        return 'retry';
+      });
+    ({ rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useQuizPersistedRecovery({
+          enabled,
+          recoverEvent,
+          userId: 'user-1',
+        }),
+      { initialProps: { enabled: true } }
+    ));
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(recoverEvent).toHaveBeenCalledTimes(2);
+  });
+
   it('does not recover the previous account after a user switch during storage load', async () => {
     let resolveFirstLoad!: (value: []) => void;
     jest

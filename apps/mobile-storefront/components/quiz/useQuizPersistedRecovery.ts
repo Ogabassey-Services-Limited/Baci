@@ -23,6 +23,7 @@ export function useQuizPersistedRecovery({
   const retryScheduled = useRef(false);
   const mounted = useRef(false);
   const enabledRef = useRef(enabled);
+  const previousEnabled = useRef(enabled);
   const [retryNonce, setRetryNonce] = useState(0);
   enabledRef.current = enabled;
 
@@ -33,7 +34,13 @@ export function useQuizPersistedRecovery({
     };
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry.
+  useEffect(() => {
+    const becameEnabled = enabled && !previousEnabled.current;
+    previousEnabled.current = enabled;
+    if (becameEnabled) setRetryNonce((nonce) => nonce + 1);
+  }, [enabled]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry; enabled is read through enabledRef so its own status transition does not cancel an active recovery.
   useEffect(() => {
     if (!userId) {
       attemptedUserId.current = null;
@@ -46,7 +53,9 @@ export function useQuizPersistedRecovery({
     recoveringUserId.current = userId;
     let cancelled = false;
     const isCurrentRun = () =>
-      !cancelled && mounted.current && enabledRef.current;
+      !cancelled &&
+      mounted.current &&
+      (enabledRef.current || recoveringUserId.current === userId);
 
     const recover = async () => {
       let shouldRetry = false;
@@ -127,5 +136,5 @@ export function useQuizPersistedRecovery({
         recoveringUserId.current = null;
       }
     };
-  }, [enabled, recoverEvent, retryNonce, userId]);
+  }, [recoverEvent, retryNonce, userId]);
 }

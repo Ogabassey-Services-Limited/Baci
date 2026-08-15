@@ -57,6 +57,12 @@ BEGIN
   THEN
     RAISE EXCEPTION 'terminal recovery does not preserve the attempt id';
   END IF;
+  IF pg_catalog.strpos(
+    v_resume_definition,
+    'OR v_event.results_published_at IS NOT NULL'
+  ) > 0 THEN
+    RAISE EXCEPTION 'submitted attempts remain gated until the event closes';
+  END IF;
 END;
 $$;
 
