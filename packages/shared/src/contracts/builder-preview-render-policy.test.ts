@@ -50,6 +50,19 @@ describe('preview render policy', () => {
       previewRenderPolicy.isPuckComponent(
         {
           props: {
+            backgroundColor: 'var(--store-not-defined)',
+            id: 'header-1',
+          },
+          type: 'Header',
+        },
+        new Set()
+      )
+    ).toBe(false);
+
+    expect(
+      previewRenderPolicy.isPuckComponent(
+        {
+          props: {
             backgroundGradient:
               'linear-gradient(90deg, var(--theme-not-defined), #ffffff)',
             id: 'hero-1',

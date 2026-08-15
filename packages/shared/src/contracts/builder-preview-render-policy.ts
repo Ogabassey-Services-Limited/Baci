@@ -26,6 +26,52 @@ const gradientPattern = new RegExp(
   `^(?:linear-gradient\\((?:[0-9]{1,3}deg, )?${gradientColor}(?:, ${gradientColor}){1,7}\\)|radial-gradient\\(${gradientColor}(?:, ${gradientColor}){1,7}\\))$`
 );
 const themeVariablePattern = /var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)/g;
+const storeColorTokenKeys = new Set([
+  'accent',
+  'accent-text',
+  'background',
+  'background-text',
+  'border',
+  'foreground',
+  'on-primary',
+  'option-secondary',
+  'primary',
+  'primary-text',
+  'rating',
+  'secondary',
+  'secondary-text',
+]);
+const themeColorTokenKeys = new Set([
+  'border',
+  'button-accent-bg',
+  'button-accent-hover',
+  'button-accent-text',
+  'button-primary-bg',
+  'button-primary-hover',
+  'button-primary-text',
+  'button-secondary-bg',
+  'button-secondary-hover',
+  'button-secondary-text',
+  'card-bg',
+  'card-border',
+  'card-text',
+  'footer-bg',
+  'footer-link',
+  'footer-link-hover',
+  'footer-text',
+  'header-bg',
+  'header-icon',
+  'header-search-bg',
+  'header-search-border',
+  'header-text',
+  'input-bg',
+  'input-border',
+  'input-focus-border',
+  'input-placeholder',
+  'input-text',
+  'muted',
+  'muted-foreground',
+]);
 
 type PreviewComponentIdentity = { id: string; type: string };
 
@@ -43,10 +89,11 @@ function isBoundedText(value: unknown, maximum: number): boolean {
 }
 
 function hasDefinedThemeVariables(value: string): boolean {
-  return [...value.matchAll(themeVariablePattern)].every(
-    ([, scope, token]) =>
-      scope === 'store' ||
-      builderDesignCapabilities.themeTokenKeys.includes(token)
+  return [...value.matchAll(themeVariablePattern)].every(([, scope, token]) =>
+    scope === 'store'
+      ? storeColorTokenKeys.has(token)
+      : themeColorTokenKeys.has(token) ||
+        builderDesignCapabilities.themeTokenKeys.includes(token)
   );
 }
 
