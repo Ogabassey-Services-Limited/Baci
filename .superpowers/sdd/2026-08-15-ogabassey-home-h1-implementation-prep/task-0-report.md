@@ -27,7 +27,7 @@ Status: `DONE_WITH_CONCERNS`
 
 - `git merge-base --is-ancestor BASE_SHA HEAD`: passed.
 - V4 contract SHA recomputation: passed; matches the frozen hash above.
-- Prep plan length: 154 lines, below the repository 300-line planning ceiling.
+- Prep plan length: 156 lines, below the repository 300-line planning ceiling.
 - `git diff --check`: passed for tracked documentation changes.
 - Untracked prep-plan whitespace check with `git diff --no-index --check`:
   passed.

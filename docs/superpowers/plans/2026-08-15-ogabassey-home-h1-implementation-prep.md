@@ -107,7 +107,7 @@ The projection is a pure identity seam, not a renderer switch:
 - Assert no test calls a route, Supabase, cache, worker, provider, or network
   boundary. Assert projection output contains no control finalizer, provider
   response, tenant secret, or request identity beyond the bound merchant UUID.
-- Expected red state: tests fail because the four prep modules do not yet
+- Expected red state: tests fail because the three prep runtime modules do not yet
   exist or lack the required discriminated behavior.
 
 ### Task 2 — Implement the two pure projections
