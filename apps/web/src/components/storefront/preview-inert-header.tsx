@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react';
 import Image from 'next/image';
 
 type PreviewLink = {
@@ -159,16 +160,29 @@ export function PreviewInertHeader({
         }
       >
         {showSearch ? (
-          <button
-            aria-disabled="true"
-            className={`${searchStyleClasses[searchStyle]} ${searchRadiusClasses[searchRadius]}`}
-            data-search-radius={searchRadius}
-            data-search-style={searchStyle}
-            disabled
-            type="button"
-          >
-            Search
-          </button>
+          <>
+            <button
+              aria-disabled="true"
+              aria-label="Search"
+              className="md:hidden"
+              disabled
+              type="button"
+            >
+              <Search aria-hidden="true" className="size-5" />
+            </button>
+            <button
+              aria-disabled="true"
+              aria-label="Search"
+              className={`hidden md:inline-flex items-center gap-2 ${searchStyleClasses[searchStyle]} ${searchRadiusClasses[searchRadius]}`}
+              data-search-radius={searchRadius}
+              data-search-style={searchStyle}
+              disabled
+              type="button"
+            >
+              <Search aria-hidden="true" className="size-4" />
+              Search...
+            </button>
+          </>
         ) : null}
         {showAccount ? (
           <InertHeaderAction className="hidden sm:inline-flex">

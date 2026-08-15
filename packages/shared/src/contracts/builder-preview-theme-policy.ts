@@ -58,9 +58,27 @@ const number = 'number';
 const rendererColorPattern = /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})$/;
 const cssLengthPattern =
   /^(?:0|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]{1,3})?(?:px|rem|em|%|vh|vw|vmin|vmax))$/;
+const cssSignedLengthPattern =
+  /^(?:0|-?(?:0|[1-9][0-9]{0,3})(?:\.[0-9]{1,3})?(?:px|rem|em|vh|vw|vmin|vmax))$/;
+const cssBorderWidthPattern =
+  /^(?:0|(?:0|[1-9][0-9]{0,3})(?:\.[0-9]{1,3})?(?:px|rem|em|vh|vw|vmin|vmax)|thin|medium|thick)$/;
+const cssBorderStylePattern =
+  /^(?:none|hidden|dotted|dashed|solid|double|groove|ridge|inset|outset)$/;
 const cssDurationPattern = /^(?:0|(?:[0-9]{1,4})(?:\.[0-9]{1,3})?(?:ms|s))$/;
 const cssEasingPattern =
   /^(?:linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\((?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+))\)|steps\([1-9][0-9]{0,2}(?:,\s*(?:jump-start|jump-end|jump-none|jump-both|start|end))?\))$/;
+const cssFontFamilyName =
+  '[A-Za-z][A-Za-z0-9_-]*(?:\\s+[A-Za-z][A-Za-z0-9_-]*)*';
+const cssFontFamilyPattern = new RegExp(
+  `^${cssFontFamilyName}(?:\\s*,\\s*${cssFontFamilyName})*$`
+);
+const cssShadowLength =
+  '(?:0|-?(?:0|[1-9][0-9]{0,3})(?:\\.[0-9]{1,3})?(?:px|rem|em|vh|vw|vmin|vmax))';
+const cssShadowColor =
+  '(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch)\\([0-9.%\\s,/+-]{1,128}\\))';
+const cssBoxShadowPattern = new RegExp(
+  `^(?:none|(?:inset\\s+)?${cssShadowLength}\\s+${cssShadowLength}(?:\\s+${cssShadowLength}){0,2}\\s+${cssShadowColor}(?:\\s*,\\s*(?:inset\\s+)?${cssShadowLength}\\s+${cssShadowLength}(?:\\s+${cssShadowLength}){0,2}\\s+${cssShadowColor})*)$`
+);
 
 type ThemeShape =
   | typeof text
@@ -82,7 +100,28 @@ function hasOnlyKnownKeys(
   return Object.keys(value).every((key) => keys.includes(key));
 }
 
-function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
+function matchesThemeStringGrammar(value: string, path: string): boolean {
+  if (path.startsWith('.typography.fontFamily.'))
+    return cssFontFamilyPattern.test(value);
+  if (path.startsWith('.typography.fontSize.'))
+    return cssLengthPattern.test(value);
+  if (path.startsWith('.typography.letterSpacing.'))
+    return cssSignedLengthPattern.test(value);
+  if (path.startsWith('.spacing.') || path.startsWith('.layout.breakpoints.'))
+    return cssLengthPattern.test(value);
+  if (path.startsWith('.borders.width.'))
+    return cssBorderWidthPattern.test(value);
+  if (path.startsWith('.borders.radius.')) return cssLengthPattern.test(value);
+  if (path.startsWith('.borders.style.'))
+    return cssBorderStylePattern.test(value);
+  if (path.startsWith('.shadows.')) return cssBoxShadowPattern.test(value);
+  if (path.includes('.animations.duration.'))
+    return cssDurationPattern.test(value);
+  if (path.includes('.animations.easing.')) return cssEasingPattern.test(value);
+  return true;
+}
+
+function isSafeThemeText(value: unknown, path = ''): boolean {
   const allowsThemeVariable = path?.startsWith('.colors.') ?? false;
   const safeText =
     typeof value === 'string' &&
@@ -97,19 +136,7 @@ function isSafeThemeText(value: unknown, key?: string, path?: string): boolean {
         (allowsThemeVariable && name.toLowerCase() === 'var')
     );
   if (!safeText) return false;
-  if (
-    key?.toLowerCase().includes('padding') ||
-    key?.toLowerCase().includes('width') ||
-    key?.toLowerCase().includes('height') ||
-    key?.toLowerCase().includes('radius') ||
-    key?.toLowerCase().includes('maxwidth')
-  )
-    return cssLengthPattern.test(value as string);
-  if (path?.includes('.animations.duration.'))
-    return cssDurationPattern.test(value as string);
-  if (path?.includes('.animations.easing.'))
-    return cssEasingPattern.test(value as string);
-  return true;
+  return matchesThemeStringGrammar(value as string, path);
 }
 
 function isDefinedColorToken(value: string, path: string): boolean {
@@ -137,7 +164,6 @@ function matchesThemeShape(
   value: unknown,
   shape: ThemeShape,
   colorContext = false,
-  key?: string,
   path = ''
 ): boolean {
   if (shape === text) {
@@ -145,12 +171,12 @@ function matchesThemeShape(
     const pathHint = colorContext ? 'color' : '';
     if (pathHint === 'color')
       return (
-        isSafeThemeText(value, key, path) &&
+        isSafeThemeText(value, path) &&
         (rendererColorPattern.test(value) ||
           /^var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\)$/.test(value)) &&
         isDefinedColorToken(value, path)
       );
-    return isSafeThemeText(value, key, path);
+    return isSafeThemeText(value, path);
   }
   if (shape === number) return isSafeThemeNumber(value, path);
   if (!isRecord(value) || !hasOnlyKnownKeys(value, Object.keys(shape)))
@@ -163,7 +189,6 @@ function matchesThemeShape(
         child,
         expected,
         key === 'colors' || colorContext,
-        key,
         `${path}.${key}`
       )
     );

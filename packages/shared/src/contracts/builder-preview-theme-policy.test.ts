@@ -87,6 +87,62 @@ describe('preview theme policy', () => {
     ).toBe(false);
   });
 
+  it('rejects string values that do not match their selected CSS theme field', () => {
+    expect(
+      candidate({ typography: { fontSize: { base: 'not-a-size' } } }).success
+    ).toBe(false);
+    expect(
+      candidate({ typography: { letterSpacing: { normal: 'bananas' } } })
+        .success
+    ).toBe(false);
+    expect(
+      candidate({ borders: { style: { solid: 'bananas' } } }).success
+    ).toBe(false);
+    expect(candidate({ borders: { width: { normal: '2%' } } }).success).toBe(
+      false
+    );
+    expect(candidate({ shadows: { sm: 'bananas' } }).success).toBe(false);
+    expect(
+      candidate({ layout: { breakpoints: { sm: 'not-a-breakpoint' } } }).success
+    ).toBe(false);
+  });
+
+  it('accepts bounded CSS grammar for each non-color theme string group', () => {
+    expect(
+      candidate({ typography: { fontFamily: { body: 'Inter, sans-serif' } } })
+        .success
+    ).toBe(true);
+    expect(
+      candidate({ typography: { fontSize: { base: '1rem' } } }).success
+    ).toBe(true);
+    expect(
+      candidate({ typography: { letterSpacing: { tight: '-0.025em' } } })
+        .success
+    ).toBe(true);
+    expect(candidate({ borders: { style: { solid: 'solid' } } }).success).toBe(
+      true
+    );
+    expect(candidate({ borders: { width: { normal: '2px' } } }).success).toBe(
+      true
+    );
+    expect(candidate({ borders: { radius: { full: '9999px' } } }).success).toBe(
+      true
+    );
+    expect(
+      candidate({ shadows: { sm: '0 1px 2px rgb(0 0 0 / 0.05)' } }).success
+    ).toBe(true);
+    expect(
+      candidate({ layout: { breakpoints: { sm: '640px' } } }).success
+    ).toBe(true);
+    expect(candidate({ spacing: { md: '1rem' } }).success).toBe(true);
+    expect(
+      candidate({ animations: { duration: { fast: '150ms' } } }).success
+    ).toBe(true);
+    expect(
+      candidate({ animations: { easing: { easeIn: 'ease-in' } } }).success
+    ).toBe(true);
+  });
+
   it('rejects color variables outside the defined theme token set', () => {
     expect(
       candidate({ colors: { primary: 'var(--theme-not-defined)' } }).success

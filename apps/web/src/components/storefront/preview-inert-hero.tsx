@@ -53,6 +53,10 @@ export function PreviewInertHero({
   title,
 }: PreviewInertHeroProps) {
   const Heading = headingLevel;
+  const usesReadableGradientSurface = Boolean(
+    backgroundGradient && !backgroundImage
+  );
+  const usesImageOverlay = Boolean(overlay && backgroundImage);
   return (
     <AnimatedWrapper
       animation={{
@@ -64,7 +68,7 @@ export function PreviewInertHero({
     >
       <section
         aria-label="Preview hero"
-        className={`relative ${alignClasses[align]} ${paddingClasses[padding]}${overlay && backgroundImage ? ' text-store-background' : backgroundGradient ? ' text-store-background' : ''}`}
+        className={`relative ${alignClasses[align]} ${paddingClasses[padding]}${usesImageOverlay || usesReadableGradientSurface ? ' text-store-background' : ''}`}
         data-animation-delay={animationDelay}
         data-animation-duration={animationDuration}
         data-animation-trigger={animationTrigger}
@@ -81,10 +85,14 @@ export function PreviewInertHero({
             : undefined
         }
       >
-        {(overlay && backgroundImage) || backgroundGradient ? (
+        {usesImageOverlay || usesReadableGradientSurface ? (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-black/60"
+            className={`pointer-events-none absolute inset-0 ${
+              usesImageOverlay
+                ? 'bg-store-foreground/40'
+                : 'bg-store-foreground/60'
+            }`}
             data-testid="builder-preview-hero-overlay"
           />
         ) : null}

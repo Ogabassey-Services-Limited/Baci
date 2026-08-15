@@ -57,6 +57,32 @@ describe('saved Footer preview compatibility', () => {
     ).toBe(false);
   });
 
+  it('accepts saved quick links with duplicate labels and distinct safe URLs', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [
+        {
+          props: {
+            id: 'footer-1',
+            quickLinks: [
+              { label: 'Shop', url: '/collections/new' },
+              { label: 'Shop', url: '/collections/sale' },
+            ],
+          },
+          type: 'Footer',
+        },
+      ],
+      root: { props: { title: 'Home' } },
+    });
+
+    expect(result.success).toBe(true);
+    expect(
+      builderDesignCapabilityAdapter.isPropValue('Footer', 'quickLinks', [
+        { label: 'Shop', url: '/collections/new' },
+        { label: 'Shop', url: '/collections/sale' },
+      ])
+    ).toBe(false);
+  });
+
   it('accepts bounded social links and rejects unknown or unsafe platforms', () => {
     expect(
       builderPreviewCandidateConfigSchema.safeParse({

@@ -5,6 +5,9 @@ import { previewSafeLinks } from './builder-preview-safe-links';
 
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
+const MAX_FOOTER_QUICK_LINKS = 8;
+const MAX_FOOTER_QUICK_LINK_LABEL_LENGTH = 120;
+const MAX_FOOTER_QUICK_LINK_URL_LENGTH = 512;
 const colorPattern =
   /^(?:#[0-9a-fA-F]{3}|#[0-9a-fA-F]{4}|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|var\(--(?:store|theme)-[a-z][a-z0-9-]{0,48}\))$/;
 const animationTypes = new Set(
@@ -78,6 +81,23 @@ function isBoundedText(value: unknown, maximum: number): boolean {
     value.trim().length > 0 &&
     value.trim() === value &&
     value.length <= maximum
+  );
+}
+
+function isPreviewFooterQuickLinks(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_FOOTER_QUICK_LINKS &&
+    value.every(
+      (link) =>
+        isRecord(link) &&
+        Object.keys(link).length === 2 &&
+        Object.keys(link).every((key) => key === 'label' || key === 'url') &&
+        isBoundedText(link.label, MAX_FOOTER_QUICK_LINK_LABEL_LENGTH) &&
+        typeof link.url === 'string' &&
+        link.url.length <= MAX_FOOTER_QUICK_LINK_URL_LENGTH &&
+        builderDesignCapabilityAdapter.isSafeUrl(link.url)
+    )
   );
 }
 
@@ -239,6 +259,8 @@ export function isReviewedPreviewRenderProp(
   value: unknown
 ): boolean {
   if (value === undefined) return false;
+  if (componentType === 'Footer' && property === 'quickLinks')
+    return isPreviewFooterQuickLinks(value);
   if (componentType === 'Header' && property === 'ctaButton')
     return isCuratedRenderProp(componentType, property, value);
   const capability =

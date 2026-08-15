@@ -49,8 +49,11 @@ describe('PreviewInertHero', () => {
     );
 
     expect(screen.getByTestId('builder-preview-hero-overlay')).toHaveClass(
-      'bg-black/60'
+      'bg-store-foreground/40'
     );
+    expect(
+      screen.getByTestId('builder-preview-hero-overlay').className
+    ).not.toMatch(/\bbg-black\//);
 
     rerender(
       <PreviewInertHero
@@ -58,8 +61,8 @@ describe('PreviewInertHero', () => {
         title="Gradient hero"
       />
     );
-    expect(
-      screen.getByTestId('builder-preview-hero-overlay')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('builder-preview-hero-overlay')).toHaveClass(
+      'bg-store-foreground/60'
+    );
   });
 });

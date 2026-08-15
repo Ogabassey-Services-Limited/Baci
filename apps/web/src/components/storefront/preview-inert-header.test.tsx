@@ -23,7 +23,7 @@ describe('PreviewInertHeader', () => {
     expect(
       screen.getByRole('navigation', { name: 'Preview navigation' })
     ).toHaveClass('hidden', 'md:flex');
-    expect(screen.getByRole('button', { name: 'Search' })).toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Search' })).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Account' })).toHaveClass(
       'hidden',
       'sm:inline-flex'
@@ -71,15 +71,17 @@ describe('PreviewInertHeader', () => {
     );
 
     const header = screen.getByRole('banner');
-    const search = screen.getByRole('button', { name: 'Search' });
+    const desktopSearch = screen
+      .getAllByRole('button', { name: 'Search' })
+      .find((button) => button.classList.contains('md:inline-flex'));
     expect(header).toHaveAttribute('data-glass-effect', 'true');
     expect(header).toHaveClass('py-6');
     expect(header).not.toHaveClass('backdrop-blur-md');
     expect(header.style.color).toBe('white');
-    expect(search).toHaveAttribute('data-search-style', 'filled');
-    expect(search).toHaveAttribute('data-search-radius', 'full');
-    expect(search).toHaveClass('bg-muted', 'rounded-full');
-    expect(search).toBeDisabled();
+    expect(desktopSearch).toHaveAttribute('data-search-style', 'filled');
+    expect(desktopSearch).toHaveAttribute('data-search-radius', 'full');
+    expect(desktopSearch).toHaveClass('bg-muted', 'rounded-full');
+    expect(desktopSearch).toBeDisabled();
   });
 
   it('applies persisted storefront header colors', () => {
@@ -119,5 +121,26 @@ describe('PreviewInertHeader', () => {
       'hidden',
       'sm:inline-flex'
     );
+  });
+
+  it('renders an icon-only mobile search action alongside the desktop search control', () => {
+    render(
+      <PreviewInertHeader searchRadius="full" searchStyle="filled" showSearch />
+    );
+
+    const searches = screen.getAllByRole('button', { name: 'Search' });
+    const mobileSearch = searches.find((button) =>
+      button.classList.contains('md:hidden')
+    );
+    const desktopSearch = searches.find((button) =>
+      button.classList.contains('md:inline-flex')
+    );
+
+    expect(mobileSearch).toHaveClass('md:hidden');
+    expect(mobileSearch).not.toHaveTextContent('Search');
+    expect(mobileSearch).toBeDisabled();
+    expect(desktopSearch).toHaveClass('hidden', 'md:inline-flex');
+    expect(desktopSearch).toHaveTextContent('Search...');
+    expect(desktopSearch).toHaveClass('bg-muted', 'rounded-full');
   });
 });

@@ -158,6 +158,31 @@ describe('previewInertLinkBlocks', () => {
     ).toHaveAttribute('data-style', 'grid');
   });
 
+  it('matches published Hero overlay opacity with store theme colors', () => {
+    const { rerender } = render(
+      previewInertLinkBlocks.Hero.render({
+        backgroundImage: '/hero.webp',
+        overlay: true,
+        title: 'Image hero',
+      })
+    );
+
+    const overlay = screen.getByTestId('builder-preview-hero-overlay');
+    expect(overlay).toHaveClass('bg-store-foreground/40');
+    expect(overlay.className).not.toMatch(/\bbg-black\//);
+
+    rerender(
+      previewInertLinkBlocks.Hero.render({
+        backgroundGradient: 'linear-gradient(#123456, #654321)',
+        title: 'Gradient hero',
+      })
+    );
+
+    expect(screen.getByTestId('builder-preview-hero-overlay')).toHaveClass(
+      'bg-store-foreground/60'
+    );
+  });
+
   it('preserves FAQ animation settings through the inert animation wrapper', () => {
     render(
       previewInertLinkBlocks.FAQ.render({
