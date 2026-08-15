@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "23f3bd77ed3f49fed89bde1dd26596ccae011e10",
+  "originMainSha": "ade9089f8eb9c64b2f69db919fe8e2a88d95de48",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "7e1d3cdcad9309e40660bb9ff46af0ef053386a77ad89b4839136fcbf90f1a70",
-  "routingProxyInputSha256": "cf0ef77a3adead53bce030237b3ef3b085b5b7b55279b4fd11be2931fb47c2f1",
+  "routingProxyInputSha256": "2635184d11ded1a1930a1f1898095a2a1dfdf7828fb9feb8f1313fa3c20708b6",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -2028,6 +2028,38 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:transparent-textures-sustainability-leaf",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:transparent-textures-sustainability-wood",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -7755,5 +7787,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "1f6e984e4df2d8f0dd6a42fa3b8029da9b98694f1e8ce0fac171b79f3707bad1"
+  "inventorySha256": "a0999e727c0a362a0a31eb5649ad692eeb4c537f1c90ee6495a6853fe97836e1"
 }
