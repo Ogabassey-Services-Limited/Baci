@@ -90,7 +90,8 @@ describe('useQuizStore reset and explicit errors', () => {
     });
   });
 
-  it('retains pending-result recovery through an auth reset', () => {
+  it('retains pending-result recovery through an auth reset', async () => {
+    await Promise.resolve();
     const removeItem = jest
       .spyOn(asyncStorage, 'removeItem')
       .mockResolvedValue(undefined);
