@@ -115,6 +115,15 @@ const replaySourceReplacements = new Map<string, ReplaySourceReplacement>([
         '1b3eec0aa6d442ab9f3a61149e0839a0cad6aab80ea567200c815b9e2c98dee5',
     },
   ],
+  [
+    'supabase/migrations/20260812173500_quiz_event_results_v2_deny_client_policy.sql',
+    {
+      replacementPath:
+        'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
+      sourceSha256:
+        '2a1d2341ec3631c74b9d44043db1f67f80b51012a796aea6477231bedfab98ef',
+    },
+  ],
 ]);
 
 const replaySourceSupersessions = new Map<string, ReplaySourceSupersession>([
