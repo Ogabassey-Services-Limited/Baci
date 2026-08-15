@@ -41,6 +41,7 @@ export function GadgetPatternBackground({
         ]}
       >
         <GadgetPattern
+          colorScheme={colorScheme}
           opacity={patternOpacity}
           height={height}
           color={patternColor}

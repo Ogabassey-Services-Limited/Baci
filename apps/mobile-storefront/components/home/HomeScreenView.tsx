@@ -121,9 +121,10 @@ export function HomeScreenView({
       {shouldRenderDecorations && <SnowEffect />}
       <StatusBar barStyle="light-content" />
 
-      {shouldRenderDecorations && (
+      {shouldRenderDecorations && !isElite && (
         <View style={[StyleSheet.absoluteFill, { overflow: 'hidden' }]}>
           <GadgetPattern
+            colorScheme={colorScheme ?? 'light'}
             opacity={colorScheme === 'dark' ? 0.04 : 0.07}
             height={1500}
             color={colorScheme === 'dark' ? '#ffffff' : primaryColor}
@@ -141,7 +142,11 @@ export function HomeScreenView({
             },
           ]}
         >
-          <GadgetPattern opacity={0.25} height={ELITE_BACKDROP_HEIGHT} />
+          <GadgetPattern
+            colorScheme="dark"
+            opacity={0.14}
+            height={ELITE_BACKDROP_HEIGHT}
+          />
         </View>
       )}
 

@@ -23,6 +23,7 @@ export function useGadgetPatternAttribution(
           Platform.OS === 'android' ? Number(Platform.Version) : undefined,
         instance_id: instanceId.current,
         os: Platform.OS,
+        renderer: 'raster_gradient',
         variant,
       });
     }
@@ -31,6 +32,7 @@ export function useGadgetPatternAttribution(
       api_level:
         Platform.OS === 'android' ? Number(Platform.Version) : undefined,
       os: Platform.OS,
+      renderer: 'raster_gradient',
       variant,
     };
     return () => {

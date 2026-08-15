@@ -1,7 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import Constants from 'expo-constants';
 import { router, usePathname } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
@@ -57,6 +57,7 @@ export function DrawerMenu() {
 
   const appVersion = Constants.expoConfig?.version ?? '1.0.0';
   const currentYear = new Date().getFullYear();
+  const [shouldRenderPattern, setShouldRenderPattern] = useState(isOpen);
 
   // Animation values
   const translateX = useSharedValue(-DRAWER_WIDTH);
@@ -64,6 +65,7 @@ export function DrawerMenu() {
 
   useEffect(() => {
     if (isOpen) {
+      setShouldRenderPattern(true);
       translateX.set(
         withTiming(0, {
           duration: ANIMATION_DURATION,
@@ -73,10 +75,16 @@ export function DrawerMenu() {
       backdropOpacity.set(withTiming(1, { duration: ANIMATION_DURATION }));
     } else {
       translateX.set(
-        withTiming(-DRAWER_WIDTH, {
-          duration: ANIMATION_DURATION,
-          easing: Easing.in(Easing.cubic),
-        })
+        withTiming(
+          -DRAWER_WIDTH,
+          {
+            duration: ANIMATION_DURATION,
+            easing: Easing.in(Easing.cubic),
+          },
+          (finished) => {
+            if (finished) scheduleOnRN(setShouldRenderPattern, false);
+          }
+        )
       );
       backdropOpacity.set(withTiming(0, { duration: ANIMATION_DURATION }));
     }
@@ -202,14 +210,17 @@ export function DrawerMenu() {
             { pointerEvents: isOpen ? 'auto' : 'none' },
           ]}
         >
-          <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
-            <GadgetPattern
-              opacity={colorScheme === 'dark' ? 0.04 : 0.08}
-              height={SCREEN_HEIGHT}
-              variant="default"
-              color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
-            />
-          </View>
+          {shouldRenderPattern && (
+            <View style={{ ...StyleSheet.absoluteFill, overflow: 'hidden' }}>
+              <GadgetPattern
+                colorScheme={colorScheme ?? 'light'}
+                opacity={colorScheme === 'dark' ? 0.04 : 0.08}
+                height={SCREEN_HEIGHT}
+                variant="default"
+                color={colorScheme === 'dark' ? '#ffffff' : BRAND.primary}
+              />
+            </View>
+          )}
           {/* Header */}
           <View
             style={[
