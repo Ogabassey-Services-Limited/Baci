@@ -37,7 +37,7 @@ Status: `DONE_WITH_CONCERNS`
 - Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
 - Maximum touched runtime/test file length is 300 lines; all seven owned files
-  remain below the 300-line limit.
+  are at or below the 300-line limit.
 - Static import review found no route/cache/infra/provider/migration/VPS/
   deployment/proxy imports. The only cache/route wording is explanatory prose.
 - Full web typecheck passes via `pnpm --filter @baci/web typecheck`; the
