@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AnimatedWrapper } from '@/components/builder/animated-wrapper';
+import { ThemedButton } from '@/components/themed/themed-button';
 import { PreviewInertFooter } from './preview-inert-footer';
 import { PreviewInertHeader } from './preview-inert-header';
 import {
@@ -9,6 +10,12 @@ import {
 
 type PreviewCarouselProps = {
   slides?: PreviewInertHeroProps[];
+};
+
+type PreviewFlexProps = {
+  puck?: {
+    renderDropZone?: (props: { zone: string }) => ReactNode;
+  };
 };
 
 type PreviewButtonProps = {
@@ -50,12 +57,6 @@ const previewButtonSizeClasses: Record<PreviewButtonSize, string> = {
   sm: 'h-8 px-3 text-sm',
 };
 
-const previewButtonVariantClasses: Record<PreviewButtonVariant, string> = {
-  accent: 'bg-store-accent text-store-accent-text',
-  background: 'bg-store-background text-store-background-text',
-  primary: 'bg-store-primary text-store-primary-text',
-};
-
 const previewFaqStyleClasses = {
   accordion: 'space-y-3',
   grid: 'grid gap-4 sm:grid-cols-2',
@@ -65,14 +66,25 @@ const previewFaqStyleClasses = {
 function InertAction({
   children,
   className,
+  colorRole,
+  size,
 }: {
   children: ReactNode;
   className?: string;
+  colorRole?: PreviewButtonVariant;
+  size?: PreviewButtonSize;
 }) {
   return (
-    <button aria-disabled="true" className={className} disabled type="button">
+    <ThemedButton
+      aria-disabled="true"
+      className={className}
+      colorRole={colorRole}
+      disabled
+      size={size}
+      type="button"
+    >
       {children}
-    </button>
+    </ThemedButton>
   );
 }
 
@@ -81,42 +93,70 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
   const activeSlide = activeIndex >= 0 ? slides[activeIndex] : undefined;
 
   return (
-    <section
-      aria-label="Preview hero carousel"
-      className="relative h-[60vh] w-full overflow-hidden"
-      data-slide-count={slides.length}
-      data-active-slide-index={activeIndex}
-    >
-      {activeSlide ? (
-        <article
-          className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-store-primary-text"
-          data-slide-index={activeIndex}
-          key={`${activeIndex}:${activeSlide.title ?? ''}:${activeSlide.subtitle ?? ''}:${activeSlide.ctaText ?? ''}`}
-          style={
-            activeSlide.image
-              ? {
-                  backgroundImage: `url(${activeSlide.image})`,
-                  backgroundPosition: 'center',
-                  backgroundSize: 'cover',
-                }
-              : undefined
-          }
-        >
-          {activeSlide.image ? (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-linear-to-t from-store-foreground/90 via-store-foreground/40 to-transparent"
-            />
-          ) : null}
-          <div className="relative z-10">
-            <h2>{activeSlide.title}</h2>
-            {activeSlide.subtitle ? <p>{activeSlide.subtitle}</p> : null}
-            {activeSlide.ctaText ? (
-              <InertAction>{activeSlide.ctaText}</InertAction>
+    <>
+      <section
+        aria-label="Preview hero carousel"
+        className="relative h-[60vh] w-full overflow-hidden"
+        data-slide-count={slides.length}
+        data-active-slide-index={activeIndex}
+      >
+        {activeSlide ? (
+          <article
+            className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center text-store-primary-text"
+            data-slide-index={activeIndex}
+            key={`${activeIndex}:${activeSlide.title ?? ''}:${activeSlide.subtitle ?? ''}:${activeSlide.ctaText ?? ''}`}
+            style={
+              activeSlide.image
+                ? {
+                    backgroundImage: `url(${activeSlide.image})`,
+                    backgroundPosition: 'center',
+                    backgroundSize: 'cover',
+                  }
+                : undefined
+            }
+          >
+            {activeSlide.image ? (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-linear-to-t from-store-foreground/90 via-store-foreground/40 to-transparent"
+              />
             ) : null}
-          </div>
-        </article>
+            <div className="relative z-10">
+              <h2>{activeSlide.title}</h2>
+              {activeSlide.subtitle ? <p>{activeSlide.subtitle}</p> : null}
+              {activeSlide.ctaText ? (
+                <InertAction size="lg">{activeSlide.ctaText}</InertAction>
+              ) : null}
+            </div>
+          </article>
+        ) : null}
+      </section>
+      {slides.length > 1 ? (
+        <details
+          className="border-t border-store-border px-4 py-3 text-sm"
+          data-testid="builder-preview-carousel-slides"
+          open
+        >
+          <summary>Review {slides.length} slides</summary>
+          <ol className="mt-3 space-y-3">
+            {slides.slice(1).map((slide) => (
+              <li key={`${slide.title ?? ''}:${slide.ctaText ?? ''}`}>
+                <h3>{slide.title}</h3>
+                {slide.subtitle ? <p>{slide.subtitle}</p> : null}
+                {slide.ctaText ? <p>{slide.ctaText}</p> : null}
+              </li>
+            ))}
+          </ol>
+        </details>
       ) : null}
+    </>
+  );
+}
+
+function PreviewFlex({ puck }: PreviewFlexProps) {
+  return (
+    <section className="flex flex-col" data-testid="builder-preview-inert-flex">
+      {puck?.renderDropZone?.({ zone: 'children' }) ?? null}
     </section>
   );
 }
@@ -136,7 +176,9 @@ function PreviewButton({
       data-variant={variant}
     >
       <InertAction
-        className={`${previewButtonSizeClasses[size]} ${previewButtonVariantClasses[variant]}`}
+        className={previewButtonSizeClasses[size]}
+        colorRole={variant}
+        size={size}
       >
         {text}
       </InertAction>
@@ -175,7 +217,7 @@ function PreviewFAQ({
         <div className={previewFaqStyleClasses[style]} data-style={style}>
           {items.map((item) =>
             style === 'accordion' ? (
-              <details key={item.question}>
+              <details key={item.question} open>
                 <summary>{item.question}</summary>
                 {item.answer ? <p>{item.answer}</p> : null}
               </details>
@@ -216,6 +258,7 @@ export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewInertFooter },
   FAQ: { render: PreviewFAQ },
+  Flex: { render: PreviewFlex },
   Header: { render: renderPreviewInertHeader },
   Hero: { render: PreviewInertHero },
   HeroCarousel: { render: PreviewHeroCarousel },

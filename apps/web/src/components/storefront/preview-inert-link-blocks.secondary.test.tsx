@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { PreviewInertFooter } from './preview-inert-footer';
 import { previewInertLinkBlocks } from './preview-inert-link-blocks';
 
 describe('previewInertLinkBlocks secondary surfaces', () => {
@@ -37,8 +38,8 @@ describe('previewInertLinkBlocks secondary surfaces', () => {
   });
 
   it('uses published theme tokens when Footer colors are omitted', () => {
-    render(previewInertLinkBlocks.Footer.render({}));
-    expect(screen.getByTestId('builder-preview-inert-footer')).toHaveStyle({
+    const footer = PreviewInertFooter({});
+    expect(footer.props.style).toMatchObject({
       backgroundColor: 'var(--theme-footer-bg, #1A202C)',
       color: 'var(--theme-footer-text, #FFFFFF)',
     });

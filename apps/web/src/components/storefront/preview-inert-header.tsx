@@ -98,11 +98,7 @@ export function PreviewInertHeader({
   const isScrolledGlass = glassEffect && isScrolled;
   const effectiveTextColor =
     isScrolledGlass || !glassEffect ? textColor : undefined;
-  const effectiveBackgroundColor = isScrolledGlass
-    ? 'rgba(255, 255, 255, 0.8)'
-    : glassEffect
-      ? 'transparent'
-      : backgroundColor;
+  const effectiveBackgroundColor = glassEffect ? undefined : backgroundColor;
 
   useEffect(() => {
     if (!glassEffect) {
@@ -122,10 +118,12 @@ export function PreviewInertHeader({
   return (
     <header
       className={`${paddingClasses[paddingY]} ${layoutClasses[layout]}${
-        sticky ? ' fixed left-0 right-0 top-0 z-10' : ' relative'
-      }${isScrolledGlass ? ' backdrop-blur-md shadow-sm' : ''}${
-        glassEffect && !isScrolled ? ' text-store-primary-text' : ''
-      } z-0`}
+        sticky ? ' fixed left-0 right-0 top-0 z-50' : ' relative z-0'
+      }${
+        isScrolledGlass
+          ? ' bg-store-background/80 backdrop-blur-md shadow-sm text-store-foreground'
+          : ''
+      }${glassEffect && !isScrolled ? ' text-store-primary-text' : ''}`}
       data-glass-effect={String(glassEffect)}
       data-layout={layout}
       data-scroll-state={isScrolledGlass ? 'scrolled' : 'top'}
@@ -161,7 +159,16 @@ export function PreviewInertHeader({
               <span>{storeName}</span>
             </span>
           ) : (
-            storeName
+            <span className="flex items-center gap-2">
+              <span
+                aria-label={`${storeName} preview logo`}
+                className="flex size-8 items-center justify-center rounded-full bg-store-primary text-store-primary-text"
+                role="img"
+              >
+                {storeName.slice(0, 1).toUpperCase()}
+              </span>
+              <span>{storeName}</span>
+            </span>
           )}
         </strong>
       ) : null}
@@ -176,6 +183,13 @@ export function PreviewInertHeader({
                 : 'justify-self-center'
           }`}
         >
+          {navigationLinks.map((link) => (
+            <span key={link.label}>{link.label}</span>
+          ))}
+        </nav>
+      ) : null}
+      {showMenu && navigationLinks.length > 0 ? (
+        <nav aria-label="Preview mobile navigation" className="md:hidden">
           {navigationLinks.map((link) => (
             <span key={link.label}>{link.label}</span>
           ))}

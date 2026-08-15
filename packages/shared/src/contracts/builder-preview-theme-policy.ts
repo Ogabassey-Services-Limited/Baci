@@ -2,6 +2,7 @@ import { builderDesignCapabilities } from './builder-design-capabilities';
 import { builderPreviewThemeStaticShape } from './builder-preview-theme-static-shape';
 
 const themeStringPattern = /^[a-zA-Z0-9\s#%(),./+-]{1,512}$/;
+const fontFamilyStringPattern = /^[a-zA-Z0-9\s"#%(),./+-]{1,512}$/;
 const themeFunctionPattern = /([a-zA-Z][a-zA-Z0-9-]*)\s*\(/g;
 const safeThemeFunctionNames = new Set([
   'calc',
@@ -67,10 +68,11 @@ const cssBorderStylePattern =
 const cssDurationPattern = /^(?:0|(?:[0-9]{1,4})(?:\.[0-9]{1,3})?(?:ms|s))$/;
 const cssEasingPattern =
   /^(?:linear|ease|ease-in|ease-out|ease-in-out|cubic-bezier\((?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+)),\s*(?:0|1|(?:0?\.[0-9]+)|(?:1\.0+))\)|steps\([1-9][0-9]{0,2}(?:,\s*(?:jump-start|jump-end|jump-none|jump-both|start|end))?\))$/;
-const cssFontFamilyName =
+const cssUnquotedFontFamilyName =
   '[A-Za-z][A-Za-z0-9_-]*(?:\\s+[A-Za-z][A-Za-z0-9_-]*)*';
+const cssQuotedFontFamilyName = '"[A-Za-z][A-Za-z0-9 _-]*"';
 const cssFontFamilyPattern = new RegExp(
-  `^${cssFontFamilyName}(?:\\s*,\\s*${cssFontFamilyName})*$`
+  `^(?:${cssUnquotedFontFamilyName}|${cssQuotedFontFamilyName})(?:\\s*,\\s*(?:${cssUnquotedFontFamilyName}|${cssQuotedFontFamilyName}))*$`
 );
 const cssShadowLength =
   '(?:0|-?(?:0|[1-9][0-9]{0,3})(?:\\.[0-9]{1,3})?(?:px|rem|em|vh|vw|vmin|vmax))';
@@ -123,9 +125,12 @@ function matchesThemeStringGrammar(value: string, path: string): boolean {
 
 function isSafeThemeText(value: unknown, path = ''): boolean {
   const allowsThemeVariable = path?.startsWith('.colors.') ?? false;
+  const stringPattern = path.startsWith('.typography.fontFamily.')
+    ? fontFamilyStringPattern
+    : themeStringPattern;
   const safeText =
     typeof value === 'string' &&
-    themeStringPattern.test(value) &&
+    stringPattern.test(value) &&
     [...value].every((character) => {
       const code = character.codePointAt(0) ?? 0;
       return code > 31 && code !== 127;
@@ -137,6 +142,44 @@ function isSafeThemeText(value: unknown, path = ''): boolean {
     );
   if (!safeText) return false;
   return matchesThemeStringGrammar(value as string, path);
+}
+
+function hasCyclicStoreColorReferences(value: unknown): boolean {
+  const references = new Map<string, Set<string>>();
+
+  const collectReferences = (entry: unknown, path: string) => {
+    if (typeof entry === 'string') {
+      const match = /^var\(--store-([a-z][a-z0-9-]{0,48})\)$/.exec(entry);
+      if (!match) return;
+      for (const token of emittedStoreTokensByColorPath[path] ?? []) {
+        const targets = references.get(token) ?? new Set<string>();
+        targets.add(match[1]);
+        references.set(token, targets);
+      }
+      return;
+    }
+    if (!isRecord(entry)) return;
+    for (const [key, child] of Object.entries(entry))
+      collectReferences(child, `${path}.${key}`);
+  };
+
+  collectReferences(value, '');
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const hasCycle = (token: string): boolean => {
+    if (visiting.has(token)) return true;
+    if (visited.has(token)) return false;
+    visiting.add(token);
+    for (const target of references.get(token) ?? []) {
+      if (hasCycle(target)) return true;
+    }
+    visiting.delete(token);
+    visited.add(token);
+    return false;
+  };
+
+  return [...references.keys()].some(hasCycle);
 }
 
 function isDefinedColorToken(value: string, path: string): boolean {
@@ -232,7 +275,8 @@ function getValidationError(value: unknown): string | undefined {
   const shape = getCachedThemeShape();
   if (shape === undefined)
     return cachedThemeError ?? 'Preview theme manifest is invalid.';
-  return matchesThemeShape(value, shape)
+  return matchesThemeShape(value, shape) &&
+    !hasCyclicStoreColorReferences(value)
     ? undefined
     : 'Expected a bounded render-safe theme';
 }

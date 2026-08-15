@@ -85,7 +85,19 @@ function getPreviewTheme(config: BuilderPreviewConfig): ThemeConfiguration {
   ) as unknown as ThemeConfiguration;
 }
 
-function markHeaderBlocksAsPreview(blocks: unknown[]): unknown[] {
+function getPreviewMerchantDisplayName(
+  context: PreviewMerchantContext
+): string {
+  return context.slug
+    .split('-')
+    .map((segment) => `${segment.slice(0, 1).toUpperCase()}${segment.slice(1)}`)
+    .join(' ');
+}
+
+function markHeaderBlocksAsPreview(
+  blocks: unknown[],
+  merchantDisplayName: string
+): unknown[] {
   return blocks.map((block) => {
     if (
       typeof block !== 'object' ||
@@ -98,25 +110,38 @@ function markHeaderBlocksAsPreview(blocks: unknown[]): unknown[] {
     const candidate = block as { props: unknown; type: unknown };
     if (typeof candidate.props !== 'object' || candidate.props === null)
       return block;
+    const props = candidate.props as Record<string, unknown>;
+    const hasStoreName =
+      typeof props.storeName === 'string' && props.storeName.trim().length > 0;
     return {
       ...block,
       props:
         candidate.type === 'Header'
-          ? { ...candidate.props, isPreview: true }
+          ? {
+              ...props,
+              isPreview: true,
+              storeName: hasStoreName ? props.storeName : merchantDisplayName,
+            }
           : candidate.props,
     };
   });
 }
 
-function getPreviewData(config: BuilderPreviewConfig): Data {
+function getPreviewData(
+  config: BuilderPreviewConfig,
+  merchantContext: PreviewMerchantContext
+): Data {
+  const merchantDisplayName = getPreviewMerchantDisplayName(merchantContext);
   return {
     ...config,
-    content: markHeaderBlocksAsPreview(config.content),
+    content: markHeaderBlocksAsPreview(config.content, merchantDisplayName),
     zones: config.zones
       ? Object.fromEntries(
           Object.entries(config.zones).map(([zone, blocks]) => [
             zone,
-            Array.isArray(blocks) ? markHeaderBlocksAsPreview(blocks) : blocks,
+            Array.isArray(blocks)
+              ? markHeaderBlocksAsPreview(blocks, merchantDisplayName)
+              : blocks,
           ])
         )
       : undefined,
@@ -222,7 +247,7 @@ export function RenderBuilderConfig({
   onRendered,
 }: RenderBuilderConfigProps) {
   const theme = getPreviewTheme(config);
-  const previewData = getPreviewData(config);
+  const previewData = getPreviewData(config, merchantContext);
   const themeTokens = getCuratedThemeTokenProjection(theme) as CSSProperties;
   return (
     <PreviewContext merchantContext={merchantContext}>

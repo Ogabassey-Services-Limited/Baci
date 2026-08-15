@@ -19,7 +19,8 @@ describe('PreviewInertHeader', () => {
     const header = screen.getByRole('banner');
     expect(header).toHaveAttribute('data-layout', 'logo-center');
     expect(header).toHaveAttribute('data-sticky', 'true');
-    expect(header).toHaveClass('fixed', 'grid');
+    expect(header).toHaveClass('fixed', 'grid', 'z-50');
+    expect(header).not.toHaveClass('z-0');
     expect(
       screen.getByRole('navigation', { name: 'Preview navigation' })
     ).toHaveClass('hidden', 'md:flex');
@@ -57,6 +58,23 @@ describe('PreviewInertHeader', () => {
     expect(
       screen.queryByRole('navigation', { name: 'Preview navigation' })
     ).toBeNull();
+  });
+
+  it('shows accepted navigation labels in an inert mobile disclosure', () => {
+    render(
+      <PreviewInertHeader
+        navigationLinks={[{ label: 'Shop' }, { label: 'About' }]}
+        showMenu
+      />
+    );
+
+    const mobileNavigation = screen.getByRole('navigation', {
+      name: 'Preview mobile navigation',
+    });
+    expect(mobileNavigation).toHaveClass('md:hidden');
+    expect(mobileNavigation).toHaveTextContent('Shop');
+    expect(mobileNavigation).toHaveTextContent('About');
+    expect(mobileNavigation.querySelectorAll('a')).toHaveLength(0);
   });
 
   it('renders every supported search style, radius, glass, and padding control', () => {
@@ -114,6 +132,15 @@ describe('PreviewInertHeader', () => {
     expect(screen.getByText('Acme Store')).toBeInTheDocument();
   });
 
+  it('uses a merchant identity mark when the Header has no saved logo source', () => {
+    render(<PreviewInertHeader storeName="Acme Store" />);
+
+    expect(screen.getByLabelText('Acme Store preview logo')).toHaveTextContent(
+      'A'
+    );
+    expect(screen.getByText('Acme Store')).toBeInTheDocument();
+  });
+
   it('keeps the published mobile CTA breakpoint in the inert preview', () => {
     render(<PreviewInertHeader ctaButton={{ show: true, text: 'Shop now' }} />);
 
@@ -162,10 +189,14 @@ describe('PreviewInertHeader', () => {
     fireEvent.scroll(window);
 
     expect(header).toHaveAttribute('data-scroll-state', 'scrolled');
-    expect(header).toHaveClass('backdrop-blur-md', 'shadow-sm');
-    expect(header).toHaveStyle({
+    expect(header).toHaveClass(
+      'backdrop-blur-md',
+      'bg-store-background/80',
+      'shadow-sm'
+    );
+    expect(header).not.toHaveStyle({
       backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      color: '#123456',
     });
+    expect(header).toHaveStyle({ color: '#123456' });
   });
 });

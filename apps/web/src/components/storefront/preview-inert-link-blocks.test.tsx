@@ -116,7 +116,7 @@ describe('previewInertLinkBlocks', () => {
     expect(hero.closest('section')).toHaveClass('text-right', 'py-32');
   });
 
-  it('keeps default FAQ accordion answers collapsed', () => {
+  it('keeps FAQ accordion answers visible because preview interaction is inert', () => {
     render(
       previewInertLinkBlocks.FAQ.render({
         items: [{ answer: 'Ships in 3 days.', question: 'When does it ship?' }],
@@ -127,7 +127,38 @@ describe('previewInertLinkBlocks', () => {
     expect(screen.getByText('When does it ship?')).toBeInTheDocument();
     expect(
       screen.getByText('When does it ship?').closest('details')
-    ).not.toHaveAttribute('open');
+    ).toHaveAttribute('open');
+    expect(screen.getByText('Ships in 3 days.')).toBeVisible();
+  });
+
+  it('uses disabled themed buttons for standalone and carousel actions', () => {
+    render(
+      <>
+        {previewInertLinkBlocks.Button.render({
+          text: 'Shop collection',
+          variant: 'accent',
+        })}
+        {previewInertLinkBlocks.HeroCarousel.render({
+          slides: [{ ctaText: 'Shop carousel', title: 'Carousel' }],
+        })}
+      </>
+    );
+
+    expect(screen.getByRole('button', { name: 'Shop collection' })).toHaveClass(
+      'bg-store-accent',
+      'text-store-accent-text'
+    );
+    expect(screen.getByRole('button', { name: 'Shop carousel' })).toHaveClass(
+      'bg-store-primary',
+      'text-store-primary-text',
+      'h-12'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Shop collection' })
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Shop carousel' })
+    ).toBeDisabled();
   });
 
   it('reflects Header padding, Hero media/overlay, and FAQ style changes', () => {

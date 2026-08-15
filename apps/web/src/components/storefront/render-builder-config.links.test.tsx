@@ -81,6 +81,28 @@ describe('RenderBuilderConfig preview links', () => {
     expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
   });
 
+  it('projects a bounded merchant identity when Header branding props are omitted', () => {
+    render(
+      <RenderBuilderConfig
+        config={{
+          content: [{ props: { id: 'Header-1' }, type: 'Header' }],
+          root: { props: { title: 'Home' } },
+        }}
+        merchantContext={{
+          basePath: '/north-star-co',
+          id: 'preview-merchant-2',
+          slug: 'north-star-co',
+        }}
+      />
+    );
+
+    expect(screen.getByText('North Star Co')).toBeInTheDocument();
+    expect(
+      screen.getByLabelText('North Star Co preview logo')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Preview Store')).toBeNull();
+  });
+
   it('uses inert preview renderers so accepted link blocks cannot prefetch or navigate', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     render(

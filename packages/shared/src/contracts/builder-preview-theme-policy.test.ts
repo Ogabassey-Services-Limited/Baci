@@ -113,6 +113,11 @@ describe('preview theme policy', () => {
         .success
     ).toBe(true);
     expect(
+      candidate({
+        typography: { fontFamily: { body: '"Open Sans", sans-serif' } },
+      }).success
+    ).toBe(true);
+    expect(
       candidate({ typography: { fontSize: { base: '1rem' } } }).success
     ).toBe(true);
     expect(
@@ -189,6 +194,17 @@ describe('preview theme policy', () => {
     ).toBe(false);
     expect(
       candidate({ colors: { background: 'var(--store-background)' } }).success
+    ).toBe(false);
+  });
+
+  it('rejects indirect cycles among emitted store color tokens', () => {
+    expect(
+      candidate({
+        colors: {
+          button: { secondary: { background: 'var(--store-primary)' } },
+          primary: 'var(--store-secondary)',
+        },
+      }).success
     ).toBe(false);
   });
 
