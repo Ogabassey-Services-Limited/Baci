@@ -28,6 +28,7 @@ export const STOREFRONT_EDGE_INVENTORY_ROUTING_INPUT_PATHS = [
   'apps/web/src/components/storefront/ogabassey/pages/about-us.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx',
+  'apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/crypto-checkout.tsx',
   'apps/web/src/components/storefront/ogabassey/components/ProductVideo.tsx',
   'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx',

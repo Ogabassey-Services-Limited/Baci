@@ -22,7 +22,7 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
-      ...Array.from({ length: 9 }, () => ({
+      ...Array.from({ length: 11 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
@@ -60,11 +60,11 @@ describe('external storefront media inventory', () => {
       ...[
         'configured_klump_origin',
         'configured_paystack_asset_origin',
-        'configured_paystack_checkout_origin',
         'configured_korapay_origin',
         'configured_credpal_origin',
         'configured_credit_direct_origin',
         'configured_juicyway_origin',
+        'configured_paystack_checkout_origin',
         'configured_credpal_origin',
         'configured_credit_direct_origin',
         'configured_meta_origin',
@@ -99,6 +99,14 @@ describe('external storefront media inventory', () => {
       expect.objectContaining({
         sourcePath:
           'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx',
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:transparent-textures-sustainability-leaf')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx',
       })
     );
     expect(

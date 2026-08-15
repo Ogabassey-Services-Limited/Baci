@@ -64,6 +64,16 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx'
   ),
   mediaSubresource(
+    'transparent-textures-sustainability-leaf',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx'
+  ),
+  mediaSubresource(
+    'transparent-textures-sustainability-wood',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx'
+  ),
+  mediaSubresource(
     'crypto-qr',
     'configured_external_media_origin',
     'apps/web/src/components/storefront/ogabassey/pages/crypto-checkout.tsx'
