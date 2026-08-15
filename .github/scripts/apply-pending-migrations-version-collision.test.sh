@@ -219,6 +219,10 @@ PATH="$fake_bin:$PATH" \
 grep -q \
   'reconciled by append-only repair migration 20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql' \
   "$fixture_root/quiz-policy-output.log"
+grep -q \
+  "schema_migrations(version, name, statements).*20260815000000.*repair_quiz_event_results_v2_deny_client_policy" \
+  "$quiz_policy_query_log"
+grep -q 'pg_catalog.pg_policies' "$quiz_policy_query_log"
 if grep -q '^→ applying:        20260812173500' "$fixture_root/quiz-policy-output.log"; then
   echo 'The existing quiz deny policy must be reconciled before its duplicate CREATE POLICY runs' >&2
   exit 1
