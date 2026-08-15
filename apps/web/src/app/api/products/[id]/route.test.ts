@@ -179,8 +179,8 @@ const productUpdatePayloads: unknown[] = [];
 const lastVariantDeleteFilters: [string, unknown][] = [];
 // Captures every `.from('products').select(...)` argument (e.g. the pre-update
 // existingProduct fetch and the pre-delete purge-input fetch) so tests can
-// assert the Cloudflare purge reads the `categories:category_id(slug)` join and
-// the `product_categories(categories(slug))` junction.
+// assert the Cloudflare purge reads the direct category join (including its
+// activity flag) and the ordered product_categories junction projection.
 const productSelectArgs: string[] = [];
 // Ordered log of `products` table operations ('select' / 'delete') so tests can
 // assert the DELETE handler pre-reads the row BEFORE deleting it (the junction
@@ -786,7 +786,9 @@ describe('PUT /api/products/[id]', () => {
       );
       // The pre-update fetch must read the category_id join so the purge can
       // resolve the same join-driven canonical the storefront serves.
-      expect(productSelectArgs[0]).toContain('categories:category_id(slug)');
+      expect(productSelectArgs[0]).toContain(
+        'categories:category_id(slug, is_active)'
+      );
     });
 
     it('busts per-slug Next caches (old + new) before the rename purge', async () => {
@@ -950,7 +952,7 @@ describe('PUT /api/products/[id]', () => {
       );
       // The pre-update fetch must read the junction embed too.
       expect(productSelectArgs[0]).toContain(
-        'product_categories(categories(slug))'
+        'product_categories(category_id, categories(slug, is_active))'
       );
     });
 
@@ -1944,7 +1946,7 @@ describe('DELETE /api/products/[id]', () => {
       // join-driven canonical the storefront served (PR #2914).
       expect(
         productSelectArgs.some((arg) =>
-          arg.includes('categories:category_id(slug)')
+          arg.includes('categories:category_id(slug, is_active)')
         )
       ).toBe(true);
     });
@@ -2033,7 +2035,9 @@ describe('DELETE /api/products/[id]', () => {
       );
       expect(
         productSelectArgs.some((arg) =>
-          arg.includes('product_categories(categories(slug))')
+          arg.includes(
+            'product_categories(category_id, categories(slug, is_active))'
+          )
         )
       ).toBe(true);
     });

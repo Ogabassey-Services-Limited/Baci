@@ -61,7 +61,7 @@ export async function enrichProductPurgeEntries(
     const { data: productRows, error: productRowsError } = await supabase
       .from('products')
       .select(
-        'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+        'id, slug, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
       )
       .eq('merchant_id', merchantId)
       .in('id', idsToResolve);

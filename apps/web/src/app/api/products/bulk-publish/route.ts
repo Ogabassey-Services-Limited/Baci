@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .neq('status', 'active')
       .select(
-        'id, slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+        'id, slug, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
       );
 
     if (updateError) {

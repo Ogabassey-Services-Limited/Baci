@@ -43,12 +43,14 @@ export function defineArchiveRoutePurgeSuite({
 
     expect(
       mocks.selectArgs.some((arg) =>
-        arg.includes('categories:category_id(slug)')
+        arg.includes('categories:category_id(slug, is_active)')
       )
     ).toBe(true);
     expect(
       mocks.selectArgs.some((arg) =>
-        arg.includes('product_categories(categories(slug))')
+        arg.includes(
+          'product_categories(category_id, categories(slug, is_active))'
+        )
       )
     ).toBe(true);
   });

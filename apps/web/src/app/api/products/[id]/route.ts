@@ -270,13 +270,13 @@ export async function PUT(
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
       .select(
-        // `category` (legacy text) + `categories:category_id(slug)` (the direct
-        // join) + `product_categories(categories(slug))` (the junction) are read
+        // `category` (legacy text), the direct `category_id` join (including
+        // `is_active`), and the `product_categories` junction projection are read
         // here so the Cloudflare purge derives the OLD row's canonical segment
-        // from the OLD data with the full PR #2914 precedence (direct join →
-        // legacy text → junction). None of these are writable in this handler,
+        // from the OLD data with the full PR #2914 precedence (active direct
+        // join → active junction → legacy text). None of these are writable in this handler,
         // so they are also the product's current joined/junction categories.
-        'id, name, description, brand, color, slug, category, condition, condition_detail, has_variants, variant_model, categories:category_id(slug), product_categories(categories(slug))'
+        'id, name, description, brand, color, slug, category, condition, condition_detail, has_variants, variant_model, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -1024,11 +1024,11 @@ export async function DELETE(
     // be lost. Delete is a rare admin action, so the extra read round-trip is
     // acceptable. All three category sources are read so the purge resolves the
     // same join-driven canonical the storefront served with the full PR #2914
-    // precedence (direct join → legacy text → junction).
+    // precedence (active direct join → active junction → legacy text).
     const { data: productToDelete, error: preReadError } = await supabase
       .from('products')
       .select(
-        'slug, name, category, categories:category_id(slug), product_categories(categories(slug))'
+        'slug, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)

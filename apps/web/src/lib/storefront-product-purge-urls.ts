@@ -3,6 +3,7 @@ import {
   dedupePathSegmentsPreservingCasing,
   resolvePurgeHostnames,
 } from '@/lib/storefront-purge-shared';
+import { resolveStorefrontProductPurgeCategorySlug } from './storefront-product-purge-category';
 
 // Past this many DISTINCT product purge targets in one operation, use the
 // bounded hostname-wide Cloudflare purge instead of URL-by-URL fan-out. That
@@ -28,15 +29,19 @@ interface ProductPurgeCategoryInput {
   slug?: string | null;
   name?: string | null;
   category?: string | null;
-  categories?: { name?: string; slug?: string } | null;
+  categories?: {
+    is_active?: boolean | null;
+    name?: string;
+    slug?: string;
+  } | null;
   category_slug?: string | null;
 }
 
 /**
  * Derive the canonical category segment for a product's PDP purge URL by
  * reusing the SAME resolution `getProductUrl` performs for the storefront
- * canonical (PR #2914 precedence: direct category join → legacy text →
- * junction), then reading the leading path segment of the resolved path.
+ * canonical (active direct category join → active junction → legacy text),
+ * then reading the leading path segment of the resolved path.
  *
  * Returns null when the product resolves to the `/products/<slug>` fallback
  * (no category) so callers only emit the fallback PDP URL. NEVER throws: any
@@ -76,47 +81,6 @@ export function resolveProductPurgeCategorySegment(
 }
 
 /**
- * Normalize a PostgREST to-one category embed (`categories:category_id(slug)`),
- * which comes back as an object, an array, or null, to its single non-blank
- * slug (or null). Mirrors `firstJoinedCategory` in
- * `cached-product-canonical-paths.ts`.
- */
-function extractDirectJoinCategorySlug(categories: unknown): string | null {
-  const record = Array.isArray(categories) ? categories[0] : categories;
-  if (record && typeof record === 'object' && 'slug' in record) {
-    const slug = (record as { slug?: unknown }).slug;
-    if (typeof slug === 'string' && slug.trim()) {
-      return slug.trim();
-    }
-  }
-  return null;
-}
-
-/**
- * Normalize a PostgREST junction embed (`product_categories(categories(slug))`)
- * to the first non-blank joined category slug (or null). Mirrors the loop in
- * `normalizeJoinedCategory` (`cached-product-canonical-paths.ts`).
- */
-function extractJunctionCategorySlug(
-  productCategories: unknown
-): string | null {
-  if (!Array.isArray(productCategories)) {
-    return null;
-  }
-  for (const entry of productCategories) {
-    const categories =
-      entry && typeof entry === 'object'
-        ? (entry as { categories?: unknown }).categories
-        : null;
-    const slug = extractDirectJoinCategorySlug(categories);
-    if (slug) {
-      return slug;
-    }
-  }
-  return null;
-}
-
-/**
  * The raw PostgREST product row shape a purge caller reads to resolve a PDP's
  * canonical category segment: the legacy text column plus the direct
  * `category_id` join and the `product_categories` junction embeds.
@@ -131,9 +95,9 @@ export interface ProductPurgeCategoryRow {
   id?: string | null;
   name?: string | null;
   category?: string | null;
-  /** `categories:category_id(slug)` embed (object | array | null). */
+  /** `categories:category_id(slug, is_active)` embed (object | array | null). */
   categories?: unknown;
-  /** `product_categories(categories(slug))` junction embed. */
+  /** `product_categories(category_id, categories(slug, is_active))` embed. */
   product_categories?: unknown;
 }
 
@@ -141,24 +105,19 @@ export interface ProductPurgeCategoryRow {
  * Resolve a product's canonical PDP category segment from a raw product row,
  * applying the SAME precedence the storefront canonical uses
  * (`normalizeJoinedCategory`, PR #2914): the direct `category_id` join wins,
- * then the legacy text column (which suppresses the junction so `getProductUrl`
- * derives the slug from the text), and the `product_categories` junction only
- * when both are absent. Without this, a product assigned ONLY via the junction
- * (no `category_id`, no legacy text) would resolve to the `/products/<slug>`
- * fallback here while the storefront serves it under `/<junction-category>/…`,
- * leaving the categorized PDP and category listing un-purged. Never throws.
+ * then the active `product_categories` junction, and finally the legacy text.
+ * Without this, a product whose direct category was retired would purge the
+ * stale legacy URL while the storefront serves it under the active relation
+ * category, leaving the canonical PDP cache un-purged. Never throws.
  */
 export function resolveProductPurgeCategorySegmentForRow(
   row: ProductPurgeCategoryRow
 ): string | null {
-  const directSlug = extractDirectJoinCategorySlug(row.categories);
-  let joinedCategory: { slug: string } | null = null;
-  if (directSlug) {
-    joinedCategory = { slug: directSlug };
-  } else if (!row.category?.trim()) {
-    const junctionSlug = extractJunctionCategorySlug(row.product_categories);
-    joinedCategory = junctionSlug ? { slug: junctionSlug } : null;
-  }
+  const joinedSlug = resolveStorefrontProductPurgeCategorySlug({
+    categories: row.categories,
+    productCategories: row.product_categories,
+  });
+  const joinedCategory = joinedSlug ? { slug: joinedSlug } : null;
   // Legacy rows can carry a null/blank slug but stay addressable by id
   // (`/products/<id>`, `/<category>/<id>`), so resolve the segment against the
   // EFFECTIVE slug (id fallback). Without it, a null slug short-circuits
