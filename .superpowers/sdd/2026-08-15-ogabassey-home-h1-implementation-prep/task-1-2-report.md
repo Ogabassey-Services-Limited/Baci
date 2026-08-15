@@ -33,7 +33,7 @@ Status: `DONE_WITH_CONCERNS`
 - Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; the branch
   includes the documented Task 0, implementation, and review-fix commits.
 - Focused suites (direct shared Vitest binary with the Node environment override
-  because host jsdom is incompatible): **4 files, 68 tests passed**.
+  because host jsdom is incompatible): **4 files, 70 tests passed**.
 - Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
 - Maximum touched runtime/test file length is 300 lines; all seven owned files
@@ -88,7 +88,7 @@ Status: `DONE_WITH_CONCERNS`
   candidate, and made resource-hint validation an explicit type predicate.
 - Added malformed projection regressions for forged version and candidate
   shape, plus primitive/null validation-input coverage.
-- Focused suites now cover four colocated files (68 tests passed), including
+- Focused suites now cover four colocated files (70 tests passed), including
   the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
   passed; Biome and `git diff --check` passed.
 - The expected-preload rebuild remains intentional: it derives the canonical

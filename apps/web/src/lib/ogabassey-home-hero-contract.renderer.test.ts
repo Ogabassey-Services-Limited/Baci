@@ -148,6 +148,31 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
   });
 
   it.each([
+    'http://cdn.ogabassey.com/core-assets/products/hero.jpg',
+    'HTTPS://cdn.ogabassey.com/core-assets/products/hero.jpg',
+  ])('rejects forged non-canonical candidate image URL: %s', (imageUrl) => {
+    const { projection, preload } = createFixture();
+    const forgedProjection = {
+      ...projection,
+      candidate: { ...projection.candidate, imageUrl },
+    };
+    expect(
+      ogabasseyHomeHeroContract.preloadIdentity(forgedProjection)
+    ).toBeNull();
+    expect(
+      ogabasseyHomeHeroContract.assessRenderer({
+        preload,
+        projection: forgedProjection,
+        renderedSlides: [projection.candidate],
+        requestPublication: {
+          merchantId: projection.merchantId,
+          status: 'published',
+        },
+      })
+    ).toEqual({ reason: 'rendered_candidate_mismatch', valid: false });
+  });
+
+  it.each([
     null,
     1,
     {},

@@ -64,6 +64,7 @@ function isCanonicalCandidateImage(value: string): boolean {
   try {
     const url = new URL(value);
     return (
+      value.startsWith('https://') &&
       url.origin === OGABASSEY_CDN_ORIGIN &&
       url.username === '' &&
       url.password === '' &&
@@ -162,7 +163,7 @@ function isValidProjection(
     isMerchantId(projection.merchantId) &&
     Number.isInteger(projection.slideCount) &&
     projection.slideCount > 0 &&
-    isValidSlide(projection.candidate)
+    isValidSlide(projection.candidate, true)
   );
 }
 
