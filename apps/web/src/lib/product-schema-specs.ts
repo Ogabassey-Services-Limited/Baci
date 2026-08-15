@@ -2,6 +2,7 @@ import { normalizeProductSchemaSpecLabel } from './normalize-product-schema-spec
 import {
   classifyProductSchemaCategories,
   type ProductCategorySource,
+  type ProductKeySpecCapabilities,
 } from './product-schema-spec-classification';
 import { shouldIncludeProductSchemaSpecByLabel } from './product-schema-spec-label-inclusion';
 import { PHONE_ONLY_SPEC_LABELS } from './product-schema-spec-label-policy';
@@ -69,7 +70,7 @@ const NETWORK_DEVICE_CELLULAR_SPEC_KEYS = new Set([
 const COMPUTER_HARDWARE_SPEC_KEYS = new Set(['fingerprint_type']);
 
 const AUTHORITATIVE_FALSE_CAPABILITY_SUPPRESSIONS: Array<{
-  authoritativeKey: string;
+  authoritativeKey: keyof ProductKeySpecCapabilities;
   suppressedKeys: string[];
 }> = [
   { authoritativeKey: 'has_card_slot', suppressedKeys: ['card_slot_type'] },

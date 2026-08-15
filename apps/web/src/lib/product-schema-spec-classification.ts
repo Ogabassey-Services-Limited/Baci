@@ -6,21 +6,23 @@ import {
   isCameraLikeCategory,
 } from './storefront-specs/spec-taxonomy';
 
+export type ProductKeySpecCapabilities = {
+  has_5g?: boolean;
+  has_card_slot?: boolean;
+  has_fm_radio?: boolean;
+  has_headphone_jack?: boolean;
+  has_nfc?: boolean;
+  has_ois?: boolean;
+  has_reverse_charging?: boolean;
+  has_stereo_speakers?: boolean;
+  has_wireless_charging?: boolean;
+};
+
 export type ProductCategorySource = {
   categories?: { name?: string | null; slug?: string | null } | null;
   category?: string | null;
   category_slug?: string | null;
-  product_key_specs?: {
-    has_5g?: boolean;
-    has_card_slot?: boolean;
-    has_fm_radio?: boolean;
-    has_headphone_jack?: boolean;
-    has_nfc?: boolean;
-    has_ois?: boolean;
-    has_reverse_charging?: boolean;
-    has_stereo_speakers?: boolean;
-    has_wireless_charging?: boolean;
-  } | null;
+  product_key_specs?: ProductKeySpecCapabilities | null;
 };
 
 const PHONE_TABLET_LAPTOP_CATEGORY_WORDS = new Set([
