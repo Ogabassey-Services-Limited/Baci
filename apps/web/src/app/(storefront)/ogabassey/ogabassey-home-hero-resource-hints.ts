@@ -1,6 +1,7 @@
 import 'server-only';
 import { preconnect, prefetchDNS, preload } from 'react-dom';
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import { isOgabasseyCdnImageUrl } from '@/lib/ogabassey-cdn-image-url';
 import { ogabasseyHomeHeroResourceHintProjection } from '@/lib/ogabassey-home-hero-resource-hint-projection';
 
 /**
@@ -32,6 +33,11 @@ export function preloadOgabasseyHomeHeroResources(
   try {
     const projection = ogabasseyHomeHeroResourceHintProjection.build(src);
     if (!projection) {
+      if (typeof src === 'string' && isOgabasseyCdnImageUrl(src.trim())) {
+        console.error('Failed to emit home hero preload hints', {
+          error: new Error('Unable to build hero preload projection'),
+        });
+      }
       return;
     }
 

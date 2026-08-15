@@ -30,8 +30,8 @@ Status: `DONE_WITH_CONCERNS`
 
 ## Validation
 
-- Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; current HEAD
-  is eight commits ahead of `origin/main` and zero commits behind.
+- Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; the branch
+  includes the documented Task 0, implementation, and review-fix commits.
 - Focused suites (direct shared Vitest binary with the Node environment override
   because host jsdom is incompatible): **4 files, 56 tests passed**.
 - Biome on all seven owned runtime/test files: passed.
@@ -108,3 +108,13 @@ Status: `DONE_WITH_CONCERNS`
 - Updated the prep plan inventory and command to truthfully include seven owned
   files and four focused suites; controls and activation boundaries are
   unchanged.
+- Fix commit `d2dedf259c` is committed; this receipt awaits fresh final review.
+
+## Final evidence correction
+
+- The projection builder now catches transformation/loader failures and
+  returns `null`; the existing emitter preserves its fail-open error log for a
+  valid CDN source whose projection cannot be built.
+- The progress ledger and this report no longer claim a fixed branch-ahead
+  count or a pending uncommitted fix; they record the current committed state
+  and the amended 162-line plan.

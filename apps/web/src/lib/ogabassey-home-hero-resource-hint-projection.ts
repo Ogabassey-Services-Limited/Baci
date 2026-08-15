@@ -52,7 +52,7 @@ function canonicalIdentity(
   });
 }
 
-function buildProjection(
+function buildProjectionUnsafe(
   source: string | null | undefined
 ): OgabasseyHomeHeroResourceHintIdentity | null {
   const imageUrl = source?.trim();
@@ -103,6 +103,16 @@ function buildProjection(
       .update(canonicalIdentity(projection))
       .digest('hex'),
   };
+}
+
+function buildProjection(
+  source: string | null | undefined
+): OgabasseyHomeHeroResourceHintIdentity | null {
+  try {
+    return buildProjectionUnsafe(source);
+  } catch {
+    return null;
+  }
 }
 
 /** Pure source of truth for the homepage slide-zero preload identity. */

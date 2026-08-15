@@ -19,7 +19,7 @@
 - Fix round 2/5: `de11d3592a`
 - Scoped re-review: clean; test fixture now narrows the published-shell union without weakening runtime types.
 - Whole-branch review fixes: `a40c72b87d`
-- Current fix round: runtime projection/envelope hardening and regression coverage completed in the pending fix commit.
+- Current fix round: runtime projection/envelope hardening and regression coverage are committed in the latest fix commit; fresh review is pending.
 
 ## Task 3 — integration and release gates
 
@@ -28,5 +28,5 @@
 - Full branch typecheck: passed (6/6 tasks).
 - Full monorepo test attempt: 28,847 web tests passed; two unrelated validation tests failed because the sparse worktree omitted `scripts/` and `scripts-tmp/`, and because the then-untracked ledger made a clean-worktree guard refuse execution.
 - Validation-environment reconciliation: the missing tracked paths were added to the sparse checkout and this ledger was committed. Exact reruns then passed: `verify-event-pipeline-boundaries.live.test.ts` 1/1 and `cloudflare-evidence-process-isolation.test.ts` 1/1.
-- Current-main reconciliation: `origin/main` remains the frozen base and the branch is 8 commits ahead, 0 behind.
-- Final whole-branch review is pending this fix round.
+- Current-main reconciliation: `origin/main` remains the frozen base; no new base or contract drift is recorded.
+- Current prep plan length is 162 lines after the seven-file/four-suite amendment.
