@@ -144,6 +144,7 @@ describe('ogabasseyHomeHeroContract', () => {
     'merchant-1',
     ' 6b5cb8a4-5575-456c-b936-8cdfae30db74 ',
     '6b5cb8a4-5575-456c-b936-8cdfae30db74\n',
+    '6B5CB8A4-5575-456C-B936-8CDFAE30DB74',
   ])('rejects malformed bound merchant ID: %s', (merchantId) => {
     expect(
       ogabasseyHomeHeroContract.project({

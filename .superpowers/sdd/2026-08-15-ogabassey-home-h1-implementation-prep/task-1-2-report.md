@@ -33,11 +33,11 @@ Status: `DONE_WITH_CONCERNS`
 - Frozen base remains `bcdbf54cb591af2d9047afacaf75cdaaa29cccfa`; the branch
   includes the documented Task 0, implementation, and review-fix commits.
 - Focused suites (direct shared Vitest binary with the Node environment override
-  because host jsdom is incompatible): **4 files, 58 tests passed**.
+  because host jsdom is incompatible): **4 files, 63 tests passed**.
 - Biome on all seven owned runtime/test files: passed.
 - `git diff --check`: passed.
-- Current final runtime/test file lengths: 59, 116, 251, 248, 206, 164, and 94
-  lines; all are below the 300-line limit.
+- Maximum touched runtime/test file length is 261 lines; all seven owned files
+  remain below the 300-line limit.
 - Static import review found no route/cache/infra/provider/migration/VPS/
   deployment/proxy imports. The only cache/route wording is explanatory prose.
 - Full web typecheck passes via `pnpm --filter @baci/web typecheck`; the
@@ -83,12 +83,12 @@ Status: `DONE_WITH_CONCERNS`
 
 - Split renderer-assessment coverage into the colocated
   `ogabassey-home-hero-contract.renderer.test.ts`; current owned file lengths
-  are 59, 116, 251, 248, 206, 164, and 94 lines respectively, all below 300.
+  the maximum touched file is 261 lines, with all seven files below 300.
 - Narrowed every runtime slide through `isValidSlide` before selecting the
   candidate, and made resource-hint validation an explicit type predicate.
 - Added malformed projection regressions for forged version and candidate
   shape, plus primitive/null validation-input coverage.
-- Focused suites now cover four colocated files (58 tests passed), including
+- Focused suites now cover four colocated files (63 tests passed), including
   the unchanged emitter regression suite; `pnpm --filter @baci/web typecheck`
   passed; Biome and `git diff --check` passed.
 - The expected-preload rebuild remains intentional: it derives the canonical
@@ -128,3 +128,13 @@ Status: `DONE_WITH_CONCERNS`
   preserving a non-canonical candidate while the preload projection trims it.
 - Added a regression proving the padded published shell cannot produce a
   projection; no route, cache, or rendering activation changed.
+
+## Final scoped review corrections
+
+- Preserved CDN DNS/preconnect hints before projection building so transform
+  failures suppress only the image preload, not the origin hints.
+- Made renderer drift expectations explicit, used a well-formed foreign UUID,
+  enforced lowercase canonical UUIDs, and guarded `preloadIdentity` against
+  malformed runtime projections.
+- The pure projection remains fail-closed and does not log transform details;
+  the emitter owns its existing fail-open synthetic error log.

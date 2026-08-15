@@ -63,18 +63,28 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
       'merchant',
       {
         requestPublication: {
-          merchantId: 'foreign-merchant',
+          merchantId: '7b5cb8a4-5575-456c-b936-8cdfae30db74',
           status: 'published',
         },
       },
+      'merchant_mismatch',
     ],
     [
       'preload',
       { preload: { imageUrl: 'https://cdn.ogabassey.com/other.avif' } },
+      'preload_mismatch',
     ],
-    ['candidate', { renderedSlides: [{ id: 'other' }] }],
-    ['alt text', { renderedSlides: [{ imageAlt: 'Wrong alternative text' }] }],
-  ] as const)('rejects %s identity drift', (_label, mutation) => {
+    [
+      'candidate',
+      { renderedSlides: [{ id: 'other' }] },
+      'rendered_candidate_mismatch',
+    ],
+    [
+      'alt text',
+      { renderedSlides: [{ imageAlt: 'Wrong alternative text' }] },
+      'rendered_candidate_mismatch',
+    ],
+  ] as const)('rejects %s identity drift', (_label, mutation, expectedReason) => {
     const { projection, preload } = createFixture();
     expect(
       ogabasseyHomeHeroContract.assessRenderer({
@@ -90,15 +100,7 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
             ? mutation.requestPublication
             : { merchantId: projection.merchantId, status: 'published' },
       })
-    ).toEqual({
-      reason:
-        'requestPublication' in mutation
-          ? 'merchant_mismatch'
-          : 'preload' in mutation
-            ? 'preload_mismatch'
-            : 'rendered_candidate_mismatch',
-      valid: false,
-    });
+    ).toEqual({ reason: expectedReason, valid: false });
   });
 
   it('rejects null expected and supplied preload identities', () => {
@@ -114,6 +116,15 @@ describe('ogabasseyHomeHeroContract renderer assessment', () => {
         },
       })
     ).toEqual({ reason: 'preload_mismatch', valid: false });
+  });
+
+  it.each([
+    null,
+    1,
+    {},
+    { version: 2 },
+  ])('returns no preload identity for malformed runtime projection: %j', (projection) => {
+    expect(ogabasseyHomeHeroContract.preloadIdentity(projection)).toBeNull();
   });
 
   it('rejects forged projection versions and malformed candidates', () => {

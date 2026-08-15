@@ -31,18 +31,23 @@ export function preloadOgabasseyHomeHeroResources(
   src: string | null | undefined
 ): void {
   try {
-    const projection = ogabasseyHomeHeroResourceHintProjection.build(src);
-    if (!projection) {
-      if (typeof src === 'string' && isOgabasseyCdnImageUrl(src.trim())) {
-        console.error('Failed to emit home hero preload hints', {
-          error: new Error('Unable to build hero preload projection'),
-        });
-      }
+    const candidate = src?.trim();
+    if (!candidate || !isOgabasseyCdnImageUrl(candidate)) {
       return;
     }
-
+    // Preserve the origin hints even if a later image transform fails. The
+    // hints are safe for a canonical CDN candidate; only the image preload
+    // depends on the projection completing successfully.
     prefetchDNS(OGABASSEY_CDN_ORIGIN);
     preconnect(OGABASSEY_CDN_ORIGIN);
+
+    const projection = ogabasseyHomeHeroResourceHintProjection.build(src);
+    if (!projection) {
+      console.error('Failed to emit home hero preload hints', {
+        error: new Error('Unable to build hero preload projection'),
+      });
+      return;
+    }
 
     preload(projection.href, {
       as: projection.as,

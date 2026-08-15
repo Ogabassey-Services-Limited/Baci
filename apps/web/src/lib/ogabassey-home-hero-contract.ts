@@ -5,7 +5,7 @@ import {
 } from './ogabassey-home-hero-resource-hint-projection';
 
 const MERCHANT_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export interface OgabasseyHomeHeroSlideProjection {
   ctaLabel: string;
@@ -222,8 +222,11 @@ export const ogabasseyHomeHeroContract = {
   },
 
   preloadIdentity(
-    projection: OgabasseyHomeHeroProjection
+    projection: unknown
   ): OgabasseyHomeHeroResourceHintIdentity | null {
+    if (!isValidProjection(projection)) {
+      return null;
+    }
     return ogabasseyHomeHeroResourceHintProjection.build(
       projection.candidate.imageUrl
     );
