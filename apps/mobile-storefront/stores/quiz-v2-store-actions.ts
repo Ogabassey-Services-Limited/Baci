@@ -14,10 +14,10 @@ import {
   createQuizAttemptPersistence,
   saveQuizStartRequest,
 } from './quiz-v2-recovery-storage';
-import { createQuizTerminalContext } from './quiz-v2-terminal-context';
-import { isQuizOpenAtServerTime } from './quiz-v2-server-clock';
 import { resultLifecycle } from './quiz-v2-result-lifecycle';
+import { isQuizOpenAtServerTime } from './quiz-v2-server-clock';
 import type { QuizV2StoreAccess } from './quiz-v2-store-access';
+import { createQuizTerminalContext } from './quiz-v2-terminal-context';
 export const QUIZ_RECONCILIATION_INTERVAL_MS = 15_000;
 export function createQuizV2StoreActions({
   get,
@@ -108,7 +108,7 @@ export function createQuizV2StoreActions({
       }
     },
     recoverEvent: async (userId, eventId, recoverer, resender) => {
-      if (get().status === 'submitting') return;
+      if (get().status === 'submitting') return 'retry';
       const generation = getGeneration();
       set({
         status: 'starting',
@@ -118,7 +118,7 @@ export function createQuizV2StoreActions({
       try {
         const envelope = await loadQuizRecoveryEnvelope(userId, eventId);
         const recovered = await recoverer();
-        if (generation !== getGeneration()) return;
+        if (generation !== getGeneration()) return 'retry';
         if (
           recovered.availability === 'active' &&
           recovered.attempt &&
@@ -143,7 +143,7 @@ export function createQuizV2StoreActions({
               )
             );
           } else await apply(recovered.attempt);
-          return;
+          return 'recovered';
         }
         const cancelled = recovered.availability === 'cancelled';
         const pending = recovered.availability === 'pending_results';
@@ -179,12 +179,16 @@ export function createQuizV2StoreActions({
         await clearTerminalRecovery(
           access,
           eventId,
-          Boolean(cancelled && envelope)
+          Boolean(envelope && !(cancelled || pending || expiredActive))
         );
+        return cancelled || pending || expiredActive
+          ? 'recovered'
+          : 'not_found';
       } catch (error) {
         if (generation === getGeneration()) {
           set({ status: 'ready', error: getMessage(error) });
         }
+        return 'retry';
       }
     },
     reconcileLifecycle: async (reconciler, nowMs = Date.now()) => {

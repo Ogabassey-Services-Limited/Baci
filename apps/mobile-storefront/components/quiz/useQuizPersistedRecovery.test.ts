@@ -35,9 +35,7 @@ describe('useQuizPersistedRecovery', () => {
         version: 1,
       },
     ]);
-    jest
-      .mocked(getQuizDeviceFingerprint)
-      .mockResolvedValue('a'.repeat(64));
+    jest.mocked(getQuizDeviceFingerprint).mockResolvedValue('a'.repeat(64));
     jest.mocked(recoverActiveQuizAttempt).mockResolvedValue({
       availability: 'pending_results',
       eventEndsAt: '2026-08-04T12:05:00.000Z',
@@ -50,6 +48,7 @@ describe('useQuizPersistedRecovery', () => {
         recoverer: () => Promise<unknown>
       ) => {
         await recoverer();
+        return 'recovered' as const;
       }
     );
 
@@ -72,7 +71,7 @@ describe('useQuizPersistedRecovery', () => {
 
   it('does not re-run the same persisted recovery while the screen stays ready', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([]);
-    const recoverEvent = jest.fn();
+    const recoverEvent = jest.fn(async () => 'recovered' as const);
     const { rerender } = renderHook(
       ({ enabled }: { enabled: boolean }) =>
         useQuizPersistedRecovery({
@@ -88,5 +87,81 @@ describe('useQuizPersistedRecovery', () => {
       rerender({ enabled: true });
     });
     expect(loadQuizRecoveryEnvelopes).toHaveBeenCalledTimes(1);
+  });
+
+  it('discards stale envelopes until a later retained attempt is recovered', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: null,
+        currentQuestionId: null,
+        eventId: 'stale-event',
+        generation: 5,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+      {
+        attemptId: 'attempt-2',
+        currentQuestionId: null,
+        eventId: 'retained-event',
+        generation: 4,
+        pendingLockedOptionId: null,
+        startRequestId: '22222222-2222-4222-8222-222222222222',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    const recoverEvent = jest.fn(async (_userId: string, eventId: string) =>
+      eventId === 'stale-event'
+        ? ('not_found' as const)
+        : ('recovered' as const)
+    );
+
+    renderHook(() =>
+      useQuizPersistedRecovery({
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    expect(recoverEvent).toHaveBeenNthCalledWith(
+      2,
+      'user-1',
+      'retained-event',
+      expect.any(Function),
+      expect.any(Function)
+    );
+  });
+
+  it('allows one automatic retry after a transient recovery failure', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-1',
+        currentQuestionId: null,
+        eventId: 'event-1',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    const recoverEvent = jest
+      .fn()
+      .mockResolvedValueOnce('retry' as const)
+      .mockResolvedValueOnce('recovered' as const);
+
+    renderHook(() =>
+      useQuizPersistedRecovery({
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
   });
 });
