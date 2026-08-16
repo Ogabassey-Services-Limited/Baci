@@ -64,6 +64,7 @@ export function createQuizV2StoreActions({
       expiryRetryable: false,
       error: null,
     });
+    await persist(attempt, null).catch(() => undefined);
     if (attempt.status === 'event_cancelled')
       await clearRecoveredQuizAttempt(access, attempt.eventId).catch(
         () => undefined

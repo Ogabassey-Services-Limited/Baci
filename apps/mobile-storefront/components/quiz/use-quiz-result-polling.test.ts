@@ -103,6 +103,46 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
   });
 
+  it('backs off after consecutive result request failures', async () => {
+    jest.mocked(fetchQuizResult).mockRejectedValue(new Error('offline'));
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      jest.advanceTimersByTime(4_999);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      jest.advanceTimersByTime(9_999);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(3);
+  });
+
   it('pauses pending-result polling while the app is backgrounded', async () => {
     const listeners: Array<(state: AppStateStatus) => void> = [];
     jest

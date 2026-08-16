@@ -21,6 +21,9 @@ function getLeaderboardRows(leaderboard: QuizLeaderboard | null) {
 }
 
 function isPastQuizEvent(item: QuizEvent): boolean {
+  // Finalizing events have closed for play but their final standings are not
+  // public yet. Keep them out of history until the published board exists.
+  if (item.status === 'finalizing') return Boolean(item.resultsPublishedAt);
   if (['completed', 'closed', 'cancelled'].includes(item.status)) return true;
   if (!item.endsAt || !item.serverNow) return false;
   const endsAt = Date.parse(item.endsAt);

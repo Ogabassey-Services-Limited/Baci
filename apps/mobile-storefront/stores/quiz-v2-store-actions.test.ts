@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import type { QuizV2Attempt } from '@/services/quiz-types';
 import {
   initialQuizV2State,
   type V2StartContext,
@@ -226,5 +227,22 @@ describe('createQuizV2StoreActions terminal expiry', () => {
       lockedOptionId: null,
       status: 'question',
     });
+  });
+
+  it('persists a terminal envelope after the final answer', async () => {
+    const harness = createHarness();
+    const terminalAttempt: QuizV2Attempt = {
+      ...activeAttempt,
+      question: undefined,
+      status: 'submitted_pending_results',
+    };
+
+    await harness.actions.lockAndSubmitAnswer(
+      'a',
+      jest.fn(async () => terminalAttempt)
+    );
+
+    expect(mockPersist).toHaveBeenNthCalledWith(1, activeAttempt, 'a');
+    expect(mockPersist).toHaveBeenNthCalledWith(2, terminalAttempt, null);
   });
 });

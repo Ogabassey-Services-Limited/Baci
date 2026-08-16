@@ -127,6 +127,47 @@ describe('QuizLeaderboardScreen', () => {
     jest.useRealTimers();
   });
 
+  it('hides finalizing quizzes until final standings are published', async () => {
+    jest.mocked(fetchQuizEvents).mockResolvedValue([
+      {
+        endsAt: '2026-08-03T20:05:00Z',
+        id: 'event-finalizing',
+        prizeName: 'Phone',
+        questionCount: 20,
+        resultsPublishedAt: null,
+        startsAt: '2026-08-03T20:00:00Z',
+        status: 'finalizing',
+        title: 'Still finalizing',
+      },
+      {
+        endsAt: '2026-08-02T20:05:00Z',
+        id: 'event-published',
+        prizeName: 'Tablet',
+        questionCount: 5,
+        resultsPublishedAt: '2026-08-02T20:06:00Z',
+        startsAt: '2026-08-02T20:00:00Z',
+        status: 'finalizing',
+        title: 'Published finalizing quiz',
+      },
+    ]);
+
+    render(<QuizLeaderboardScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'View leaderboard for Still finalizing',
+      })
+    ).toBeNull();
+    expect(
+      screen.getByRole('button', {
+        name: 'View leaderboard for Published finalizing quiz',
+      })
+    ).toBeTruthy();
+  });
+
   it('keeps the current player visible when the public board is capped at 100 rows', async () => {
     jest.mocked(fetchQuizEvents).mockResolvedValue([
       {

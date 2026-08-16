@@ -17,6 +17,14 @@ function getPendingPollDelayMs(
   return QUIZ_RESULT_POLL_INTERVAL_MS;
 }
 
+function getFailedPollDelayMs(consecutiveFailures: number): number {
+  const exponent = Math.max(0, consecutiveFailures - 1);
+  return Math.min(
+    QUIZ_RESULT_POLL_INTERVAL_MS * 2 ** exponent,
+    QUIZ_RESULT_POLL_MAX_INTERVAL_MS
+  );
+}
+
 export function useQuizResultPolling({
   attemptId,
   enabled,
@@ -39,6 +47,7 @@ export function useQuizResultPolling({
     let cancelled = false;
     let inFlight = false;
     let resumeAfterFlight = false;
+    let consecutiveFailures = 0;
     let appIsActive =
       AppState.currentState !== 'background' &&
       AppState.currentState !== 'inactive';
@@ -55,6 +64,7 @@ export function useQuizResultPolling({
       let nextDelayMs = QUIZ_RESULT_POLL_INTERVAL_MS;
       try {
         const result = await fetchQuizResult({ attemptId, expectedUserId });
+        consecutiveFailures = 0;
         if (result.availability === 'pending') {
           shouldContinue = true;
           nextDelayMs = getPendingPollDelayMs(result.availableAt);
@@ -70,6 +80,8 @@ export function useQuizResultPolling({
         onResult(result);
       } catch {
         shouldContinue = true;
+        consecutiveFailures += 1;
+        nextDelayMs = getFailedPollDelayMs(consecutiveFailures);
       } finally {
         inFlight = false;
         if (cancelled || !shouldContinue) {
