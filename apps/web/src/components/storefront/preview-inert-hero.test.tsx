@@ -83,4 +83,21 @@ describe('PreviewInertHero', () => {
       'font-medium'
     );
   });
+
+  it('shows a bounded inert destination for ctaLink-only edits', () => {
+    render(
+      <PreviewInertHero
+        ctaLink="/collections/new-arrivals"
+        title="Store hero"
+      />
+    );
+
+    const destination = screen.getByRole('status', {
+      name: 'Preview CTA destination',
+    });
+    expect(destination).toHaveTextContent('/collections/new-arrivals');
+    expect(destination).toHaveClass('max-w-full', 'truncate');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
 });

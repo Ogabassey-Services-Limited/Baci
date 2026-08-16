@@ -17,6 +17,7 @@ export type PreviewInertHeroProps = {
     | 'scale-up';
   backgroundGradient?: string;
   backgroundImage?: string;
+  ctaLink?: string;
   ctaText?: string;
   headingLevel?: 'h1' | 'h2' | 'div';
   image?: string;
@@ -46,6 +47,7 @@ export function PreviewInertHero({
   animationType = 'none',
   backgroundGradient,
   backgroundImage,
+  ctaLink,
   ctaText,
   headingLevel = 'h1',
   overlay = false,
@@ -104,6 +106,15 @@ export function PreviewInertHero({
             <ThemedButton aria-disabled="true" disabled size="lg" type="button">
               {ctaText}
             </ThemedButton>
+          ) : null}
+          {ctaLink ? (
+            <output
+              aria-label="Preview CTA destination"
+              className="block max-w-full truncate text-xs opacity-80"
+              title={ctaLink}
+            >
+              {ctaLink}
+            </output>
           ) : null}
         </div>
       </section>
