@@ -60,7 +60,19 @@ function createFakeTools(directory) {
   const ghLog = join(directory, 'fake-gh.json');
   writeExecutable(
     codex,
-    `#!/usr/bin/env node\nimport { writeFileSync } from 'node:fs';\nwriteFileSync('remediation-e2e-fix.txt', 'fixed by fixture\\n');\nconsole.log('{"type":"turn.completed"}');\n`
+    `#!/usr/bin/env node
+import { writeFileSync } from 'node:fs';
+const args = process.argv.slice(2);
+if (args.includes('read-only')) {
+  console.log(JSON.stringify({
+    type: 'item.completed',
+    item: { text: 'RESEARCH_SUMMARY: the fixture failure is isolated to the generated worktree.\\nROOT_CAUSE_CONFIDENCE: high\\nOPTIONS_CONSIDERED:\\n- apply the smallest fixture change\\n- make an operational-only change\\nSELECTED_FIX: apply the smallest fixture change\\nVALIDATION_PLAN: run the focused fixture verification command' },
+  }));
+} else {
+  writeFileSync('remediation-e2e-fix.txt', 'fixed by fixture\\n');
+}
+console.log(JSON.stringify({ type: 'turn.completed' }));
+`
   );
   writeExecutable(
     gh,
