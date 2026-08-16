@@ -47,6 +47,7 @@ export function useQuizResultsLeaderboard({
       AppState.currentState !== 'background' &&
       AppState.currentState !== 'inactive';
     let loadInFlight = false;
+    let participantCountInFlight = false;
     let retryId: ReturnType<typeof setTimeout> | undefined;
     const schedule = (delayMs: number) => {
       if (!active || !appIsActive) return;
@@ -56,6 +57,21 @@ export function useQuizResultsLeaderboard({
         void load();
       }, delayMs);
     };
+    const loadParticipantCount = (isLive: boolean) => {
+      if (!isLive || participantCountInFlight) return;
+
+      participantCountInFlight = true;
+      void fetchQuizParticipantCount({ eventId, expectedUserId })
+        .then((count) => {
+          if (active) setParticipantCount(count);
+        })
+        .catch(() => {
+          // The count is supplementary; standings remain useful without it.
+        })
+        .finally(() => {
+          participantCountInFlight = false;
+        });
+    };
     const load = async () => {
       if (!active || !appIsActive || loadInFlight) return;
       loadInFlight = true;
@@ -64,19 +80,14 @@ export function useQuizResultsLeaderboard({
         ? LIVE_REFRESH_INTERVAL_MS
         : FINAL_RETRY_INTERVAL_MS;
       try {
-        const [result, liveParticipantCount] = await Promise.all([
-          isLive
-            ? fetchQuizLiveLeaderboard({ eventId, expectedUserId })
-            : fetchQuizLeaderboard({ eventId, expectedUserId }),
-          isLive
-            ? fetchQuizParticipantCount({
-                eventId,
-                expectedUserId,
-              }).catch(() => null)
-            : Promise.resolve(null),
-        ]);
+        loadParticipantCount(isLive);
+        const result = isLive
+          ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })
+          : await fetchQuizLeaderboard({ eventId, expectedUserId });
         if (!active) return;
-        setParticipantCount(liveParticipantCount ?? result.participantCount);
+        if (result.participantCount !== null) {
+          setParticipantCount(result.participantCount);
+        }
         if (result.status === 'published' || result.status === 'live') {
           setLeaderboard(result);
           hasLeaderboard.current = true;
