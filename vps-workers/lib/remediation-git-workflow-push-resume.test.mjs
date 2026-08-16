@@ -53,7 +53,7 @@ describe('remediation committed-branch retry', () => {
     const retried = runRemediationAutofix({ candidate, env, runner });
 
     assert.equal(retried.type, 'pr_opened');
-    assert.equal(codexAttempts, 1);
+    assert.equal(codexAttempts, 2);
     assert.equal(pushAttempts, 2);
     assert.equal(
       calls.filter((call) => call.join(' ').startsWith('git worktree add'))

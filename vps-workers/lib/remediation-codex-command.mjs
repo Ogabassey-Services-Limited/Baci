@@ -177,7 +177,7 @@ export function buildRemediationCodexCommand({
     '--ephemeral',
     '--skip-git-repo-check',
     ...(readOnly
-      ? ['--sandbox', 'workspace-write']
+      ? ['--sandbox', 'read-only']
       : ['--dangerously-bypass-approvals-and-sandbox']),
     '--ignore-user-config',
     '-C',

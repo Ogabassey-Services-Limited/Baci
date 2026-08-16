@@ -32,12 +32,26 @@ describe('remediation Docker workflow', () => {
     });
 
     assert.equal(result.type, 'no_changes');
-    const dockerCall = calls.find(([command]) => command === 'docker');
+    const dockerCall = calls.find(
+      ([command, ...args]) =>
+        command === 'docker' &&
+        args.includes('--dangerously-bypass-approvals-and-sandbox')
+    );
     assert.ok(dockerCall);
     assert.equal(dockerCall.includes('--cap-drop'), true);
     assert.equal(dockerCall.includes('ALL'), true);
     assert.equal(
       dockerCall.includes('--dangerously-bypass-approvals-and-sandbox'),
+      true
+    );
+    assert.equal(
+      calls.some(
+        ([command, ...args]) =>
+          command === 'docker' &&
+          args.includes('--sandbox') &&
+          args.includes('read-only') &&
+          args.includes('--read-only')
+      ),
       true
     );
     assert.equal(
@@ -73,7 +87,8 @@ describe('remediation Docker workflow', () => {
     assert.equal(result.type, 'pr_opened');
     const verificationCall = calls.find(
       ([command, ...args]) =>
-        command === 'docker' && args.some((arg) => arg.includes('pnpm turbo lint'))
+        command === 'docker' &&
+        args.some((arg) => arg.includes('pnpm turbo lint'))
     );
     assert.ok(verificationCall);
     assert.equal(

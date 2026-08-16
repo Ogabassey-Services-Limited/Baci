@@ -1,10 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import {
-  buildRemediationCodexCommand,
-  buildRemediationVerificationCommand,
-} from './remediation-codex-command.mjs';
+import { buildRemediationVerificationCommand } from './remediation-codex-command.mjs';
 import {
   assertCodexExecutionUsable,
   redactCodexError,
@@ -13,10 +10,8 @@ import {
 import { resumeCommittedRemediationBranch } from './remediation-committed-branch-resume.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
-import {
-  buildCodexRemediationPrompt,
-  evaluateMergePolicy,
-} from './remediation-policy.mjs';
+import { evaluateMergePolicy } from './remediation-policy.mjs';
+import { runRemediationCodexPhases } from './remediation-research-gate.mjs';
 import { writeRemediationResultArtifact } from './remediation-result-artifact.mjs';
 import { findRetainedRemediationWorktree } from './remediation-retained-worktree.mjs';
 import { parseRemediationStatusFiles } from './remediation-status-files.mjs';
@@ -66,7 +61,7 @@ function sanitizeRunId(value) {
 export function runRemediationAutofix({
   candidate,
   env = process.env,
-  prompt = buildCodexRemediationPrompt({ candidate }),
+  prompt,
   runner = defaultRunner,
 }) {
   const repoDir = env.BACI_REPO_DIR;
@@ -172,32 +167,33 @@ export function runRemediationAutofix({
         worktreeRemoteCommandOptions,
       });
     if (committedBranchResult) return committedBranchResult;
-    const codexCommand = buildRemediationCodexCommand({
+    const codexPhases = runRemediationCodexPhases({
+      candidate,
       codexBin,
-      env: commandEnv,
+      commandEnv,
       prompt,
       repoDir,
+      runner,
+      runCodex: runCodexChecked,
+      worktreeCommandOptions,
       worktreeDir,
     });
-    let codexExecution;
-    try {
-      codexExecution = runCodexChecked(
-        codexCommand.command,
-        codexCommand.args,
-        {
-          ...worktreeCommandOptions,
-          timeout: readPositiveInt(env.BACI_CODEX_TIMEOUT_MS, 6 * 60 * 1000),
-        }
-      );
-    } finally {
-      if (codexCommand.cleanup) {
-        runner(codexCommand.cleanup.command, codexCommand.cleanup.args, {
-          cwd: worktreeDir,
-          env: childEnv,
-          shell: false,
-        });
-      }
+    if (!codexPhases.research.accepted) {
+      const resultPath = writeRemediationResultArtifact({
+        candidate,
+        output: codexPhases.researchExecution.output,
+        outputDir: env.BACI_REMEDIATION_OUTPUT_DIR,
+      });
+      cleanupCompletedWorktree = true;
+      return {
+        branch,
+        reasons: codexPhases.research.reasons,
+        resultPath,
+        type: 'research_blocked',
+        worktreeDir,
+      };
     }
+    const codexExecution = codexPhases.implementationExecution;
     const resultPath = writeRemediationResultArtifact({
       candidate,
       output: codexExecution.output,
