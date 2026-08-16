@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QuizResultRoute } from './QuizResultRoute';
 import { createQuizStyles } from './QuizScreen.styles';
 
@@ -43,7 +43,13 @@ const styles = createQuizStyles({
 });
 
 describe('QuizResultRoute', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('dismisses the retained result only when another attempt is available', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-16T12:04:00.000Z'));
     const dismissRecovery = jest.fn();
     const onReset = jest.fn();
     const onRetryRecovery = jest.fn();
@@ -88,5 +94,51 @@ describe('QuizResultRoute', () => {
     expect(dismissRecovery).toHaveBeenCalledWith('event-1');
     expect(onReset).toHaveBeenCalledTimes(1);
     expect(onRetryRecovery).toHaveBeenCalledTimes(1);
+  });
+
+  it('removes play again when the universal event deadline advances past the player', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    render(
+      <QuizResultRoute
+        dismissRecovery={jest.fn()}
+        events={[
+          {
+            endsAt: new Date(5_000).toISOString(),
+            id: 'event-1',
+            maxAttempts: 2,
+            prizeName: 'Phone',
+            questionCount: 1,
+            startsAt: new Date(0).toISOString(),
+            status: 'active',
+            title: 'Retryable quiz',
+          },
+        ]}
+        expectedUserId="user-1"
+        lifecycle="pending_results"
+        onReset={jest.fn()}
+        onRetryRecovery={jest.fn()}
+        result={null}
+        styles={styles}
+        terminalContext={{
+          attemptId: 'attempt-1',
+          eventEndsAt: new Date(5_000).toISOString(),
+          eventId: 'event-1',
+          serverNow: new Date(0).toISOString(),
+          contractVersion: 2,
+        }}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'pending',
+          availableAt: null,
+        }}
+      />
+    );
+
+    expect(screen.getByText('true')).toBeTruthy();
+    act(() => {
+      jest.advanceTimersByTime(5_250);
+    });
+    expect(screen.getByText('false')).toBeTruthy();
   });
 });

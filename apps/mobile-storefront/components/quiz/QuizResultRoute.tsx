@@ -10,6 +10,8 @@ import type {
 import { QuizResultsPanel } from './QuizResultsPanel';
 import type { createQuizStyles } from './QuizScreen.styles';
 import { canPlayAnotherQuizAttempt } from './QuizScreen.utils';
+import { useQuizEventTimer } from './use-quiz-event-timer';
+import { useQuizServerClock } from './use-quiz-server-clock';
 
 type QuizStyles = ReturnType<typeof createQuizStyles>;
 
@@ -41,9 +43,19 @@ export function QuizResultRoute({
   const event = events.find(
     (candidate) => candidate.id === terminalContext?.eventId
   );
+  const { offsetMs } = useQuizServerClock(terminalContext?.serverNow ?? null);
+  const eventTimer = useQuizEventTimer({
+    eventEndsAt: terminalContext?.eventEndsAt ?? event?.endsAt ?? null,
+    isActive: false,
+    onExpire: () => undefined,
+    shouldTick: lifecycle === 'pending_results',
+    serverClockOffsetMs: offsetMs,
+  });
   const canPlayAgain = canPlayAnotherQuizAttempt(
     event,
-    terminalContext?.serverNow
+    eventTimer.hasEnded
+      ? (terminalContext?.eventEndsAt ?? event?.endsAt)
+      : terminalContext?.serverNow
   );
   return (
     <QuizResultsPanel
