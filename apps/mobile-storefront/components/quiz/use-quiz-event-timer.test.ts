@@ -52,4 +52,35 @@ describe('useQuizEventTimer', () => {
     expect(setIntervalSpy).not.toHaveBeenCalled();
     setIntervalSpy.mockRestore();
   });
+
+  it('does not tick a future inactive event', () => {
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
+    renderHook(() =>
+      useQuizEventTimer({
+        eventEndsAt: '2026-08-04T09:05:00.000Z',
+        isActive: false,
+        onExpire: jest.fn(),
+      })
+    );
+
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+    setIntervalSpy.mockRestore();
+  });
+
+  it('can tick an inactive timer when a pending result needs the countdown', () => {
+    const setIntervalSpy = jest.spyOn(global, 'setInterval');
+
+    renderHook(() =>
+      useQuizEventTimer({
+        eventEndsAt: '2026-08-04T09:05:00.000Z',
+        isActive: false,
+        onExpire: jest.fn(),
+        shouldTick: true,
+      })
+    );
+
+    expect(setIntervalSpy).toHaveBeenCalledTimes(1);
+    setIntervalSpy.mockRestore();
+  });
 });

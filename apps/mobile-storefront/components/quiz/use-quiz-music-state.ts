@@ -16,10 +16,16 @@ function formatCountdown(seconds: number): string {
 
 export function useQuizMusicState(input: QuizMusicStateInput) {
   const { offsetMs } = useQuizServerClock(input.serverNow ?? null);
+  const shouldTick =
+    Boolean(input.eventEndsAt) &&
+    ((input.hasActiveAttempt &&
+      (input.status === 'question' || input.status === 'submitting')) ||
+      (input.status === 'result' && input.lifecycle === 'pending_results'));
   const timer = useQuizEventTimer({
     eventEndsAt: input.eventEndsAt ?? null,
     isActive: Boolean(input.eventEndsAt),
     onExpire: () => undefined,
+    shouldTick,
     serverClockOffsetMs: offsetMs,
   });
   const shouldPlay =

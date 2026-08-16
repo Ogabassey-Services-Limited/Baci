@@ -46,6 +46,7 @@ export function QuizLobbyEventCard({
     eventEndsAt: event.endsAt,
     isActive: event.status === 'active',
     onExpire: () => undefined,
+    shouldTick: event.status === 'active',
     serverClockOffsetMs: serverClock.offsetMs,
   });
   const deadlineHasEnded = Boolean(event.endsAt) && hasEnded;

@@ -57,6 +57,7 @@ export function QuizResultsPanel({
     eventEndsAt,
     isActive: false,
     onExpire: () => undefined,
+    shouldTick: lifecycle === 'pending_results',
     serverClockOffsetMs: offsetMs,
   });
   const shouldLoadLeaderboard =

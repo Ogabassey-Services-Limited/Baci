@@ -13,11 +13,13 @@ export function useQuizEventTimer({
   eventEndsAt,
   isActive,
   onExpire,
+  shouldTick = isActive,
   serverClockOffsetMs = 0,
 }: {
   eventEndsAt: string | null;
   isActive: boolean;
   onExpire: () => void;
+  shouldTick?: boolean;
   serverClockOffsetMs?: number;
 }): { remainingSeconds: number; hasEnded: boolean } {
   const deadlineMs = eventEndsAt ? Date.parse(eventEndsAt) : Number.NaN;
@@ -45,6 +47,7 @@ export function useQuizEventTimer({
     };
     evaluate();
     if (
+      !shouldTick ||
       !Number.isFinite(deadlineMs) ||
       getEventRemainingMs(deadlineMs, serverClockOffsetMs) === 0
     )
@@ -57,7 +60,7 @@ export function useQuizEventTimer({
       if (intervalId) clearInterval(intervalId);
       subscription?.remove?.();
     };
-  }, [deadlineMs, isActive, serverClockOffsetMs]);
+  }, [deadlineMs, isActive, serverClockOffsetMs, shouldTick]);
 
   return {
     hasEnded: remainingMs === 0,
