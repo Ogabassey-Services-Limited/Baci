@@ -62,4 +62,13 @@ describe('QuizGameplayAdFooter', () => {
     expect(screen.getByTestId('quiz-gameplay-ad-footer')).toBeTruthy();
     expect(screen.getAllByTestId('quiz-banner-slot')).toHaveLength(1);
   });
+
+  it('does not retry ad initialization after the prewarm failed', () => {
+    render(<QuizGameplayAdFooter active prewarmFailed />);
+
+    expect(screen.queryByTestId('quiz-gameplay-ad-footer')).toBeNull();
+    expect(mockUseQuizMobileAds).toHaveBeenCalledWith(
+      expect.objectContaining({ requested: false })
+    );
+  });
 });

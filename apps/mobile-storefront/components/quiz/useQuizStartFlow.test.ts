@@ -118,6 +118,27 @@ describe('useQuizStartFlow', () => {
     await waitFor(() => expect(startEvent).toHaveBeenCalledTimes(1));
   });
 
+  it('blocks an ad prewarm retry after failure until a new quiz start', async () => {
+    const prepareQuizMobileAds = jest.fn().mockResolvedValue(false);
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        integrityTier: 'device',
+        prepareQuizMobileAds,
+        startEvent,
+      })
+    );
+
+    act(() => result.current.requestStart('event-1'));
+    dobOnStart('event-1');
+
+    await waitFor(() => expect(result.current.adsPrewarmFailed).toBe(true));
+    expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.requestStart('event-2'));
+
+    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(2));
+  });
+
   it('reopens the date-of-birth gate when the server rejects a stored DOB as under-18', async () => {
     mockStartQuizAttempt.mockRejectedValueOnce(
       new QuizServiceError(

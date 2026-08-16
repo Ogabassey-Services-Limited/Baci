@@ -115,7 +115,6 @@ export function QuizScreen({
     recoverEvent,
     userId: authUserId,
   });
-
   useQuizResultPolling({
     attemptId: terminalContext?.attemptId ?? null,
     enabled: status === 'result' && v2LifecycleStatus === 'pending_results',
@@ -139,19 +138,20 @@ export function QuizScreen({
     };
   }, [loadEvents, setError, status]);
 
-  const { dobGate, requestStart, usernameGate } = useQuizStartFlow({
-    events,
-    integrityTier,
-    prepareQuizMobileAds,
-    startEvent,
-    startEventV2: async (context, starter) => {
-      if (!context.userId) {
-        setError('Your session changed. Please try again.');
-        return;
-      }
-      await startEventV2({ ...context, userId: context.userId }, starter);
-    },
-  });
+  const { adsPrewarmFailed, dobGate, requestStart, usernameGate } =
+    useQuizStartFlow({
+      events,
+      integrityTier,
+      prepareQuizMobileAds,
+      startEvent,
+      startEventV2: async (context, starter) => {
+        if (!context.userId) {
+          setError('Your session changed. Please try again.');
+          return;
+        }
+        await startEventV2({ ...context, userId: context.userId }, starter);
+      },
+    });
 
   const { handleSubmit, handleTimeExpired, handleV2Answer } =
     createQuizAnswerHandlers({
@@ -291,6 +291,7 @@ export function QuizScreen({
 
       <QuizGameplayAdFooter
         active={status === 'question' || status === 'submitting'}
+        prewarmFailed={adsPrewarmFailed}
       />
 
       <QuizScreenModals dobGate={dobGate} usernameGate={usernameGate} />

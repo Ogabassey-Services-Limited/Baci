@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import {
   type QuizAttempt,
@@ -47,7 +47,7 @@ type StartEventV2 = (
   starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
 
-type PrepareQuizMobileAds = () => Promise<void>;
+type PrepareQuizMobileAds = () => Promise<boolean> | Promise<void>;
 
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
@@ -84,14 +84,26 @@ export function useQuizStartFlow({
   // gate can delay the start. Keep that acknowledgement scoped to the event
   // and this mounted flow; never manufacture acceptance for a v2 request.
   const acceptedTermsEventIdsRef = useRef(new Set<string>());
-  const quizAdsPreparationRef = useRef<Promise<void> | null>(null);
+  const quizAdsPreparationRef = useRef<Promise<boolean> | null>(null);
+  const quizAdsPrewarmFailedRef = useRef(false);
+  const [quizAdsPrewarmFailed, setQuizAdsPrewarmFailed] = useState(false);
 
-  const prepareAdsBeforeStart = () => {
-    if (!prepareQuizMobileAds) return Promise.resolve();
+  const prepareAdsBeforeStart = (): Promise<boolean> => {
+    if (!prepareQuizMobileAds) return Promise.resolve(true);
     if (!quizAdsPreparationRef.current) {
-      quizAdsPreparationRef.current = prepareQuizMobileAds().catch(
-        () => undefined
-      );
+      quizAdsPreparationRef.current = Promise.resolve()
+        .then(() => prepareQuizMobileAds())
+        .then((result) => {
+          const failed = result === false;
+          quizAdsPrewarmFailedRef.current = failed;
+          setQuizAdsPrewarmFailed(failed);
+          return !failed;
+        })
+        .catch(() => {
+          quizAdsPrewarmFailedRef.current = true;
+          setQuizAdsPrewarmFailed(true);
+          return false;
+        });
     }
     return quizAdsPreparationRef.current;
   };
@@ -233,6 +245,13 @@ export function useQuizStartFlow({
   });
 
   const requestStart = (eventId: string, termsAccepted?: true) => {
+    // A failed prewarm is scoped to the current timed attempt. A new start
+    // request is the safe point to allow another optional ad preparation.
+    if (quizAdsPrewarmFailedRef.current) {
+      quizAdsPrewarmFailedRef.current = false;
+      quizAdsPreparationRef.current = null;
+      setQuizAdsPrewarmFailed(false);
+    }
     if (termsAccepted) acceptedTermsEventIdsRef.current.add(eventId);
     void prepareAdsBeforeStart();
     usernameGate.requestStart(eventId);
@@ -244,5 +263,10 @@ export function useQuizStartFlow({
     reopenDobForCorrectionRef.current = dobGate.reopenForCorrection;
   });
 
-  return { dobGate, requestStart, usernameGate };
+  return {
+    adsPrewarmFailed: quizAdsPrewarmFailed,
+    dobGate,
+    requestStart,
+    usernameGate,
+  };
 }

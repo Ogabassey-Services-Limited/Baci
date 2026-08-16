@@ -36,7 +36,7 @@ describe('prepareQuizMobileAds', () => {
   });
 
   it('initializes consent and the native SDK before gameplay', async () => {
-    await prepareQuizMobileAds();
+    await expect(prepareQuizMobileAds()).resolves.toBe(true);
 
     expect(mockGetFeatureFlagValue).toHaveBeenCalledWith('quiz-mobile-ads');
     expect(mockInitializeQuizMobileAds).toHaveBeenCalledTimes(1);
@@ -56,7 +56,7 @@ describe('prepareQuizMobileAds', () => {
     );
     mockIsQuizMobileAdsAvailable.mockReturnValue(nativeAvailable);
 
-    await prepareQuizMobileAds();
+    await expect(prepareQuizMobileAds()).resolves.toBe(true);
 
     expect(mockGetFeatureFlagValue).not.toHaveBeenCalled();
     expect(mockInitializeQuizMobileAds).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe('prepareQuizMobileAds', () => {
   it('honors the runtime kill switch before initializing', async () => {
     mockGetFeatureFlagValue.mockResolvedValue(false);
 
-    await prepareQuizMobileAds();
+    await expect(prepareQuizMobileAds()).resolves.toBe(true);
 
     expect(mockInitializeQuizMobileAds).not.toHaveBeenCalled();
   });
@@ -75,7 +75,7 @@ describe('prepareQuizMobileAds', () => {
       throw new Error('invalid production ad configuration');
     });
 
-    await expect(prepareQuizMobileAds()).resolves.toBeUndefined();
+    await expect(prepareQuizMobileAds()).resolves.toBe(false);
 
     mockGetQuizMobileAdsConfig.mockReturnValue({
       bannerUnitId: 'ca-app-pub-1234567890123456/1234567890',
@@ -85,6 +85,6 @@ describe('prepareQuizMobileAds', () => {
       new Error('native SDK unavailable')
     );
 
-    await expect(prepareQuizMobileAds()).resolves.toBeUndefined();
+    await expect(prepareQuizMobileAds()).resolves.toBe(false);
   });
 });
