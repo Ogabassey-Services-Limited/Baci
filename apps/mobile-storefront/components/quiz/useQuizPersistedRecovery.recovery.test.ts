@@ -221,4 +221,35 @@ describe('useQuizPersistedRecovery recovery lifecycle', () => {
 
     expect(recoverEvent).not.toHaveBeenCalled();
   });
+
+  it('dismisses a retained attempt until the player explicitly starts it again', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-1',
+        currentQuestionId: null,
+        eventId: 'event-1',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    const recoverEvent = jest.fn<RecoverEvent>().mockResolvedValue('recovered');
+    const { result } = renderHook(() =>
+      useQuizPersistedRecovery({
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(1));
+    act(() => result.current.dismissRecovery('event-1'));
+    act(() => result.current.retryRecovery());
+    await waitFor(() =>
+      expect(loadQuizRecoveryEnvelopes).toHaveBeenCalledTimes(2)
+    );
+    expect(recoverEvent).toHaveBeenCalledTimes(1);
+  });
 });

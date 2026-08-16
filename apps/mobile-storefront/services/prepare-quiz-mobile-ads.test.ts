@@ -70,6 +70,23 @@ describe('prepareQuizMobileAds', () => {
     expect(mockInitializeQuizMobileAds).not.toHaveBeenCalled();
   });
 
+  it('does not initialize late when the prewarm signal is aborted during flag lookup', async () => {
+    let resolveFlag!: (value: boolean) => void;
+    mockGetFeatureFlagValue.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveFlag = resolve;
+      })
+    );
+    const controller = new AbortController();
+    const preparation = prepareQuizMobileAds(controller.signal);
+
+    controller.abort();
+    resolveFlag(true);
+
+    await expect(preparation).resolves.toBe(false);
+    expect(mockInitializeQuizMobileAds).not.toHaveBeenCalled();
+  });
+
   it('swallows configuration and SDK errors so the quiz can start', async () => {
     mockGetQuizMobileAdsConfig.mockImplementation(() => {
       throw new Error('invalid production ad configuration');

@@ -10,13 +10,18 @@ import { initializeQuizMobileAds } from './initialize-quiz-mobile-ads';
  * used by the start flow to prevent a second consent/SDK attempt once timed
  * gameplay has begun.
  */
-export async function prepareQuizMobileAds(): Promise<boolean> {
+export async function prepareQuizMobileAds(
+  signal?: AbortSignal
+): Promise<boolean> {
   try {
+    if (signal?.aborted) return false;
     const config = getQuizMobileAdsConfig();
     if (!config.enabled || !isQuizMobileAdsAvailable()) return true;
-    if ((await getFeatureFlagValue('quiz-mobile-ads')) === false) return true;
-    await initializeQuizMobileAds();
-    return true;
+    const enabled = await getFeatureFlagValue('quiz-mobile-ads');
+    if (signal?.aborted) return false;
+    if (enabled === false) return true;
+    await initializeQuizMobileAds(signal);
+    return !signal?.aborted;
   } catch {
     // Gameplay remains available when ads cannot be prepared on this client.
     return false;

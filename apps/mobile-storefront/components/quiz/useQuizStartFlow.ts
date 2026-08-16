@@ -13,6 +13,7 @@ import {
 import type { QuizV2Attempt } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 import { useAuthStore } from '@/stores/auth-store';
+import { createQuizAdsPrewarm } from './create-quiz-ads-prewarm';
 import { getQuizErrorMessage } from './QuizScreen.utils';
 import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 import { useQuizStartGate } from './useQuizStartGate';
@@ -22,7 +23,6 @@ import { useQuizStartGate } from './useQuizStartGate';
 // correction gate rather than stranding the shopper.
 const QUIZ_AGE_RESTRICTED_CODE = 'quiz_age_restricted';
 const START_FAILED_FALLBACK = 'Quiz action failed';
-const QUIZ_ADS_PREWARM_TIMEOUT_MS = 1500;
 
 function createQuizSessionChangedError(): QuizServiceError {
   return new QuizServiceError(
@@ -48,7 +48,7 @@ type StartEventV2 = (
   starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
 
-type PrepareQuizMobileAds = () => Promise<boolean>;
+type PrepareQuizMobileAds = (signal: AbortSignal) => Promise<boolean>;
 
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
@@ -66,11 +66,13 @@ export function useQuizStartFlow({
   events = [],
   integrityTier,
   prepareQuizMobileAds,
+  onBeforeStart,
   startEvent,
   startEventV2,
 }: {
   events?: QuizEvent[];
   integrityTier: QuizIntegrityTier;
+  onBeforeStart?: (eventId: string) => void;
   prepareQuizMobileAds?: PrepareQuizMobileAds;
   startEvent: StartEvent;
   startEventV2?: StartEventV2;
@@ -86,27 +88,19 @@ export function useQuizStartFlow({
   // and this mounted flow; never manufacture acceptance for a v2 request.
   const acceptedTermsEventIdsRef = useRef(new Set<string>());
   const quizAdsPreparationRef = useRef<Promise<boolean> | null>(null);
+  const quizAdsPrewarmCancelRef = useRef<(() => void) | null>(null);
   const quizAdsPrewarmFailedRef = useRef(false);
   const [quizAdsPrewarmFailed, setQuizAdsPrewarmFailed] = useState(false);
 
   const prepareAdsBeforeStart = (): Promise<boolean> => {
     if (!prepareQuizMobileAds) return Promise.resolve(true);
     if (!quizAdsPreparationRef.current) {
-      const preparation = Promise.resolve()
-        .then(() => prepareQuizMobileAds())
-        .then((result) => result !== false)
-        .catch(() => false);
-      const timeout = new Promise<false>((resolve) => {
-        setTimeout(() => resolve(false), QUIZ_ADS_PREWARM_TIMEOUT_MS);
+      const prewarm = createQuizAdsPrewarm(prepareQuizMobileAds, (failed) => {
+        quizAdsPrewarmFailedRef.current = failed;
+        setQuizAdsPrewarmFailed(failed);
       });
-      quizAdsPreparationRef.current = Promise.race([preparation, timeout]).then(
-        (prepared) => {
-          const failed = !prepared;
-          quizAdsPrewarmFailedRef.current = failed;
-          setQuizAdsPrewarmFailed(failed);
-          return prepared;
-        }
-      );
+      quizAdsPrewarmCancelRef.current = prewarm.cancel;
+      quizAdsPreparationRef.current = prewarm.promise;
     }
     return quizAdsPreparationRef.current;
   };
@@ -266,9 +260,11 @@ export function useQuizStartFlow({
   });
 
   const requestStart = (eventId: string, termsAccepted?: true) => {
+    onBeforeStart?.(eventId);
     // A failed prewarm is scoped to the current timed attempt. A new start
     // request is the safe point to allow another optional ad preparation.
     if (quizAdsPrewarmFailedRef.current) {
+      quizAdsPrewarmCancelRef.current?.();
       quizAdsPrewarmFailedRef.current = false;
       quizAdsPreparationRef.current = null;
       setQuizAdsPrewarmFailed(false);

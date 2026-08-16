@@ -46,6 +46,7 @@ export function useQuizPersistedRecovery({
   const canRecoverRef = useRef(canRecover);
   const handledTerminalEventIds = useRef<Set<string>>(new Set());
   const handledTerminalUserId = useRef<string | null>(null);
+  const dismissedTerminalEventIds = useRef<Set<string>>(new Set());
   const [retryNonce, setRetryNonce] = useState(0);
   enabledRef.current = enabled;
   canRecoverRef.current = canRecover;
@@ -60,6 +61,15 @@ export function useQuizPersistedRecovery({
     automaticRetryCount.current = 0;
     retryScheduled.current = false;
     setRetryNonce((nonce) => nonce + 1);
+  };
+
+  const dismissRecovery = (eventId: string) => {
+    if (!userId) return;
+    dismissedTerminalEventIds.current.add(eventId);
+  };
+
+  const allowRecovery = (eventId: string) => {
+    dismissedTerminalEventIds.current.delete(eventId);
   };
 
   useEffect(() => {
@@ -95,11 +105,13 @@ export function useQuizPersistedRecovery({
       retryScheduled.current = false;
       handledTerminalEventIds.current.clear();
       handledTerminalUserId.current = null;
+      dismissedTerminalEventIds.current.clear();
       return;
     }
     if (handledTerminalUserId.current !== userId) {
       handledTerminalEventIds.current.clear();
       handledTerminalUserId.current = userId;
+      dismissedTerminalEventIds.current.clear();
     }
     if (!enabled || attemptedUserId.current === userId) return;
     if (recoveringUserId.current === userId) return;
@@ -127,6 +139,7 @@ export function useQuizPersistedRecovery({
         );
         if (!isCurrentRun()) return;
         for (const envelope of envelopes) {
+          if (dismissedTerminalEventIds.current.has(envelope.eventId)) continue;
           if (handledTerminalEventIds.current.has(envelope.eventId)) continue;
           const isTerminalEnvelope = isRetainedTerminalEnvelope(envelope);
           if (!isCurrentRun() && !isTerminalEnvelope) return;
@@ -232,5 +245,5 @@ export function useQuizPersistedRecovery({
     };
   }, [recoverEvent, retryNonce, userId]);
 
-  return { retryRecovery };
+  return { allowRecovery, dismissRecovery, retryRecovery };
 }

@@ -21,7 +21,7 @@ import { QuizLiveQuestionCard } from './QuizLiveQuestionCard';
 import { createQuizLobbyStyles } from './QuizLobby.styles';
 import { QuizMusicPlayer } from './QuizMusicPlayer';
 import { QuizQuestionCard } from './QuizQuestionCard';
-import { QuizResultsPanel } from './QuizResultsPanel';
+import { QuizResultRoute } from './QuizResultRoute';
 import { createQuizStyles } from './QuizScreen.styles';
 import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
 import { QuizScreenModals } from './QuizScreenModals';
@@ -109,12 +109,13 @@ export function QuizScreen({
 
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
 
-  const { retryRecovery } = useQuizPersistedRecovery({
-    canRecover: () => useQuizStore.getState().status === 'ready',
-    enabled: status === 'ready',
-    recoverEvent,
-    userId: authUserId,
-  });
+  const { allowRecovery, dismissRecovery, retryRecovery } =
+    useQuizPersistedRecovery({
+      canRecover: () => useQuizStore.getState().status === 'ready',
+      enabled: status === 'ready',
+      recoverEvent,
+      userId: authUserId,
+    });
   useQuizResultPolling({
     attemptId: terminalContext?.attemptId ?? null,
     enabled: status === 'result' && v2LifecycleStatus === 'pending_results',
@@ -142,6 +143,7 @@ export function QuizScreen({
     useQuizStartFlow({
       events,
       integrityTier,
+      onBeforeStart: allowRecovery,
       prepareQuizMobileAds,
       startEvent,
       startEventV2: async (context, starter) => {
@@ -273,18 +275,16 @@ export function QuizScreen({
       ) : null}
 
       {status === 'result' ? (
-        <QuizResultsPanel
-          eventId={terminalContext?.eventId}
-          eventEndsAt={terminalContext?.eventEndsAt}
+        <QuizResultRoute
+          dismissRecovery={dismissRecovery}
+          events={events}
           expectedUserId={useAuthStore.getState().user?.id ?? null}
-          legacyResult={result}
           lifecycle={v2LifecycleStatus}
-          onReturnToQuizList={() => {
-            reset();
-            retryRecovery();
-          }}
-          serverNow={terminalContext?.serverNow}
+          onReset={reset}
+          onRetryRecovery={retryRecovery}
+          result={result}
           styles={styles}
+          terminalContext={terminalContext}
           v2Result={v2Result}
         />
       ) : null}

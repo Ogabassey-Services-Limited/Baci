@@ -18,7 +18,11 @@ const envelope = createQuizRecoveryEnvelope({
 });
 
 describe('quiz recovery envelope', () => {
-  afterEach(async () => clearQuizRecoveryEnvelope('user-1', 'event-1'));
+  afterEach(async () => {
+    await clearQuizRecoveryEnvelope('user-1', 'event-1');
+    await clearQuizRecoveryEnvelope('user-1', 'event-active');
+    await clearQuizRecoveryEnvelope('user-1', 'event-terminal');
+  });
 
   it('persists only the minimal account and event-bound recovery fields', async () => {
     await saveQuizRecoveryEnvelope(envelope);
@@ -66,5 +70,32 @@ describe('quiz recovery envelope', () => {
     ]);
 
     await clearQuizRecoveryEnvelope('user-1', 'event/retained');
+  });
+
+  it('prioritizes an active attempt over an older terminal envelope across restarts', async () => {
+    const terminal = createQuizRecoveryEnvelope({
+      ...envelope,
+      attemptId: 'attempt-terminal',
+      currentQuestionId: null,
+      eventId: 'event-terminal',
+      generation: 5,
+      pendingLockedOptionId: null,
+      persistedAt: '2026-08-01T10:00:00.000Z',
+    });
+    const active = createQuizRecoveryEnvelope({
+      ...envelope,
+      attemptId: 'attempt-active',
+      currentQuestionId: 'question-active',
+      eventId: 'event-active',
+      generation: 0,
+      persistedAt: '2026-08-02T10:00:00.000Z',
+    });
+    await saveQuizRecoveryEnvelope(terminal);
+    await saveQuizRecoveryEnvelope(active);
+
+    await expect(loadQuizRecoveryEnvelopes('user-1')).resolves.toEqual([
+      active,
+      terminal,
+    ]);
   });
 });

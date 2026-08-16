@@ -34,6 +34,7 @@ interface QuizResultsPanelProps {
   expectedUserId?: string | null;
   legacyResult: QuizResult | null;
   lifecycle: QuizV2LifecycleStatus;
+  allowPendingResultsExit?: boolean;
   onReturnToQuizList?: () => void;
   serverNow?: string | null;
   styles: QuizStyles;
@@ -46,6 +47,7 @@ export function QuizResultsPanel({
   expectedUserId = null,
   legacyResult,
   lifecycle,
+  allowPendingResultsExit = false,
   onReturnToQuizList,
   serverNow = null,
   styles,
@@ -183,15 +185,24 @@ export function QuizResultsPanel({
               </View>
             </>
           ) : null}
-          {onReturnToQuizList && lifecycle !== 'pending_results' ? (
+          {onReturnToQuizList &&
+          (lifecycle !== 'pending_results' || allowPendingResultsExit) ? (
             <View style={styles.resultActionBox}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Return to quiz list"
+                accessibilityLabel={
+                  lifecycle === 'pending_results'
+                    ? 'Play again'
+                    : 'Return to quiz list'
+                }
                 onPress={onReturnToQuizList}
                 style={styles.resultAction}
               >
-                <Text style={styles.secondaryButtonText}>Back to quizzes</Text>
+                <Text style={styles.secondaryButtonText}>
+                  {lifecycle === 'pending_results'
+                    ? 'Play again'
+                    : 'Back to quizzes'}
+                </Text>
                 <Ionicons
                   name="arrow-back"
                   size={20}

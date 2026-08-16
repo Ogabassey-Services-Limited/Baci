@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import type { QuizEvent } from '@/services/quiz';
 import { QuizServiceError } from '@/services/quiz-types';
 import {
+  canPlayAnotherQuizAttempt,
   formatRemainingTime,
   formatTimeRange,
   getEventStartButtonText,
@@ -11,6 +12,32 @@ import {
 } from './QuizScreen.utils';
 
 describe('QuizScreen utils', () => {
+  it('allows another attempt only while a multi-attempt event remains open', () => {
+    const event: QuizEvent = {
+      endsAt: '2026-08-16T12:05:00.000Z',
+      id: 'event-retry',
+      maxAttempts: 2,
+      prizeName: 'Phone',
+      questionCount: 3,
+      startsAt: '2026-08-16T12:00:00.000Z',
+      status: 'active',
+      title: 'Retryable test',
+    };
+
+    expect(canPlayAnotherQuizAttempt(event, '2026-08-16T12:04:00.000Z')).toBe(
+      true
+    );
+    expect(canPlayAnotherQuizAttempt(event, '2026-08-16T12:05:00.000Z')).toBe(
+      false
+    );
+    expect(
+      canPlayAnotherQuizAttempt({ ...event, maxAttempts: 1 }, event.serverNow)
+    ).toBe(false);
+    expect(canPlayAnotherQuizAttempt({ ...event, status: 'finalizing' })).toBe(
+      false
+    );
+  });
+
   it('formats event time ranges and handles unset times', () => {
     const event: QuizEvent = {
       endsAt: '2026-05-20T11:00:00',

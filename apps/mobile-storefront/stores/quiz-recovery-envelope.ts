@@ -11,7 +11,7 @@ const RECOVERY_VERSION = 1 as const;
 const KEY_PREFIX = 'baci:quiz-recovery:v1';
 
 // biome-ignore format: Compact schema keeps this recovery module below the repository limit.
-const recoveryEnvelopeSchema = z.strictObject({ attemptId: z.string().trim().min(1).nullable(), currentQuestionId: z.string().trim().min(1).nullable(), eventId: z.string().trim().min(1), generation: z.number().int().nonnegative(), pendingLockedOptionId: z.string().trim().min(1).nullable(), startRequestId: z.uuid(), userId: z.string().trim().min(1), version: z.literal(RECOVERY_VERSION) });
+const recoveryEnvelopeSchema = z.strictObject({ attemptId: z.string().trim().min(1).nullable(), currentQuestionId: z.string().trim().min(1).nullable(), eventId: z.string().trim().min(1), generation: z.number().int().nonnegative(), pendingLockedOptionId: z.string().trim().min(1).nullable(), persistedAt: z.iso.datetime({ offset: true }).optional(), startRequestId: z.uuid(), userId: z.string().trim().min(1), version: z.literal(RECOVERY_VERSION) });
 
 export type QuizRecoveryEnvelope = z.infer<typeof recoveryEnvelopeSchema>;
 
@@ -56,7 +56,11 @@ function recoveryKey(userId: string, eventId: string): string {
 export function createQuizRecoveryEnvelope(
   input: Omit<QuizRecoveryEnvelope, 'version'>
 ): QuizRecoveryEnvelope {
-  return recoveryEnvelopeSchema.parse({ ...input, version: RECOVERY_VERSION });
+  return recoveryEnvelopeSchema.parse({
+    ...input,
+    persistedAt: input.persistedAt ?? new Date().toISOString(),
+    version: RECOVERY_VERSION,
+  });
 }
 
 export async function saveQuizRecoveryEnvelope(
@@ -115,7 +119,29 @@ export async function loadQuizRecoveryEnvelopes(
   );
   return envelopes
     .filter((envelope): envelope is QuizRecoveryEnvelope => envelope !== null)
-    .sort((left, right) => right.generation - left.generation);
+    .sort((left, right) => {
+      const leftIsActive = !isRetainedTerminalEnvelope(left);
+      const rightIsActive = !isRetainedTerminalEnvelope(right);
+      if (leftIsActive !== rightIsActive) return leftIsActive ? -1 : 1;
+      const leftPersistedAt = left.persistedAt
+        ? Date.parse(left.persistedAt)
+        : Number.NaN;
+      const rightPersistedAt = right.persistedAt
+        ? Date.parse(right.persistedAt)
+        : Number.NaN;
+      if (!Number.isNaN(leftPersistedAt) && !Number.isNaN(rightPersistedAt)) {
+        return rightPersistedAt - leftPersistedAt;
+      }
+      return right.generation - left.generation;
+    });
+}
+
+function isRetainedTerminalEnvelope({
+  attemptId,
+  currentQuestionId,
+  pendingLockedOptionId,
+}: QuizRecoveryEnvelope): boolean {
+  return Boolean(attemptId && !currentQuestionId && !pendingLockedOptionId);
 }
 
 export function clearQuizRecoveryEnvelope(

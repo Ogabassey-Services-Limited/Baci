@@ -8,7 +8,14 @@ const log = createLogger('QuizMobileAds');
 let initializationPromise: Promise<QuizMobileAdsInitializationResult> | null =
   null;
 
-async function initialize(): Promise<QuizMobileAdsInitializationResult> {
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new Error('Quiz ad preparation was cancelled.');
+}
+
+async function initialize(
+  signal?: AbortSignal
+): Promise<QuizMobileAdsInitializationResult> {
+  throwIfAborted(signal);
   const {
     default: mobileAds,
     AdsConsent,
@@ -23,7 +30,9 @@ async function initialize(): Promise<QuizMobileAdsInitializationResult> {
     );
   }
 
+  throwIfAborted(signal);
   const { canRequestAds } = await AdsConsent.getConsentInfo();
+  throwIfAborted(signal);
   if (!canRequestAds) return { canRequestAds: false };
 
   const ads = mobileAds();
@@ -33,14 +42,20 @@ async function initialize(): Promise<QuizMobileAdsInitializationResult> {
     tagForUnderAgeOfConsent: false,
     testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
   });
+  throwIfAborted(signal);
   await ads.initialize();
 
   return { canRequestAds: true };
 }
 
-export function initializeQuizMobileAds(): Promise<QuizMobileAdsInitializationResult> {
+export function initializeQuizMobileAds(
+  signal?: AbortSignal
+): Promise<QuizMobileAdsInitializationResult> {
+  if (signal?.aborted) {
+    return Promise.reject(new Error('Quiz ad preparation was cancelled.'));
+  }
   if (!initializationPromise) {
-    initializationPromise = initialize().catch((error) => {
+    initializationPromise = initialize(signal).catch((error) => {
       initializationPromise = null;
       throw error;
     });

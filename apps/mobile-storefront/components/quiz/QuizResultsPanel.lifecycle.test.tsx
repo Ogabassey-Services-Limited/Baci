@@ -173,6 +173,31 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(screen.getByText(/Bassey/)).toBeTruthy();
   });
 
+  it('offers another attempt while a multi-attempt event is still open', () => {
+    const onReturnToQuizList = jest.fn();
+    render(
+      <QuizResultsPanel
+        allowPendingResultsExit
+        eventId="event-1"
+        eventEndsAt={new Date(30_000).toISOString()}
+        expectedUserId="user-1"
+        legacyResult={null}
+        lifecycle="pending_results"
+        onReturnToQuizList={onReturnToQuizList}
+        serverNow={new Date(0).toISOString()}
+        styles={createQuizStyles(colors)}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'pending',
+          availableAt: null,
+        }}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Play again' }));
+    expect(onReturnToQuizList).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps loaded standings visible while final publication is retried', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);

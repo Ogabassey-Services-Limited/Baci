@@ -147,3 +147,23 @@ export function formatRemainingTime(totalSeconds: number): string {
 export function shouldShowEventList(status: QuizScreenStatus): boolean {
   return status === 'ready' || status === 'starting';
 }
+
+export function canPlayAnotherQuizAttempt(
+  event: QuizEvent | undefined,
+  serverNow?: string | null
+): boolean {
+  if (
+    !event ||
+    (event.maxAttempts ?? 1) <= 1 ||
+    !['open', 'active'].includes(event.status)
+  ) {
+    return false;
+  }
+  if (!event.endsAt) return true;
+  const endsAt = Date.parse(event.endsAt);
+  if (Number.isNaN(endsAt)) return false;
+  const authoritativeNow = serverNow ?? event.serverNow;
+  if (!authoritativeNow) return true;
+  const now = Date.parse(authoritativeNow);
+  return !Number.isNaN(now) && endsAt > now;
+}

@@ -386,6 +386,11 @@ jobs:
       - name: Verify Storefront Module Size
         if: needs.changes.outputs.mobile_storefront == 'true'
         run: pnpm --filter @baci/mobile-storefront check:module-size
+      - name: Test Storefront Release Helper Scripts
+        if: needs.changes.outputs.mobile_storefront == 'true'
+        run: |
+          bash .github/scripts/android-storefront-release.test.sh
+          bash .github/scripts/ios-storefront-release.test.sh
       - name: Run Knip Dead Code Check
         if: needs.changes.outputs.web == 'true'
         run: pnpm knip
