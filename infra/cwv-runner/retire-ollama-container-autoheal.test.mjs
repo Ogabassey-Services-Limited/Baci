@@ -45,3 +45,43 @@ test('does not copy lexical Ollama metadata from a running container', async () 
   );
   assert.equal(output, '');
 });
+
+test('allows only canonical Docker socket environment values', async () => {
+  for (const socket of ['/var/run/docker.sock', '/run/docker.sock']) {
+    const output = await runFixture(
+      `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=${socket}"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *' cp '*) return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=${socket}"] "" {} null [] {} {} {} [] "bridge"'`
+    );
+    assert.equal(output, '');
+  }
+  await assert.rejects(
+    runFixture(
+      `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=/tmp/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=/tmp/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
+    ),
+    (error) => error.code === 2
+  );
+});
+
+test('does not let a duplicate PATH value hide a running config path', async () => {
+  await assert.rejects(
+    runFixture(
+      `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/etc/app.conf","CONFIG=/etc/app.conf"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/etc/app.conf","CONFIG=/etc/app.conf"] "" {} null [] {} {} {} [] "bridge"'`
+    ),
+    (error) => error.code === 2
+  );
+});
+
+test('excludes PATH before file-path validation', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/$UNEXPANDED/bin"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *' cp '*) return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/$UNEXPANDED/bin"] "" {} null [] {} {} {} [] "bridge"'`
+  );
+  assert.equal(output, '');
+});
+
+test('propagates an unsafe environment result through the container snapshot', async () => {
+  await assert.rejects(
+    runFixture(
+      `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=/tmp/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; container_configuration() { printf '%s\\n' 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=/tmp/docker.sock"] "" {} null [] {} {} {} [] "bridge"'; }; container_configuration_network_mode() { :; }; container_bind_mount_consumers() { :; }; container_argument_consumers() { :; }; container_option_argument_consumers() { :; }; container_healthcheck_consumers() { :; }; raw=$(temp_path); printf '%s\\n' generic-api >"$raw"; scan_container_snapshot all "$raw"`
+    ),
+    (error) => error.code === 2
+  );
+});
