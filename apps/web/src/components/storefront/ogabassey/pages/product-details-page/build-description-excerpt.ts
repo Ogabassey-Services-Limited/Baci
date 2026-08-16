@@ -2,14 +2,22 @@ function isSpecValue(value: string): boolean {
   const trimmed = value.replace(/[.!?]+$/, '').trim();
   const words = trimmed.split(/\s+/).filter(Boolean);
 
-  // Short values (<= 3 words) without prose grammatical connectors are specs (e.g. "Platinum", "Open Box", "128GB")
   const hasProseConnectors =
     /\b(the|a|an|your|our|its|this|these|every|each|all|with|for|in|on|at|from|to|into|through|across|without|and|or|so|than|as|you|we|it)\b/i.test(
       trimmed
     );
 
-  if (words.length <= 3 && !hasProseConnectors) {
-    return true;
+  const hasMarketingProse =
+    hasProseConnectors ||
+    /\b(?:powerful|great|excellent|premium|stunning|beautiful|amazing|incredible|reliable|advanced|innovative|customizable|vivid|brilliant|expansive|capture|see|every|detail|built|designed|engineered|delivers|features|offers|experience|enjoy|perfect|ideal|superior|enhanced|smooth|fast|quick|long|all-day|workflows?|service|system|magic|life)\b/i.test(
+      trimmed
+    ) ||
+    // Narrative phrasing after feature labels (e.g. "Capture life's magic.")
+    (words.length >= 2 && /['’]/.test(trimmed));
+
+  // Short labeled marketing blurbs should stay prose even without connectors.
+  if (hasMarketingProse) {
+    return false;
   }
 
   // Values with spec list delimiters (e.g. "48MP Main | 12MP Ultra Wide" or "12MP + 12MP")
@@ -24,18 +32,35 @@ function isSpecValue(value: string): boolean {
     );
 
   if (hasHardwareTokens) {
-    // Pure spec listing or short technical spec phrase
     if (!hasProseConnectors || words.length <= 6) {
       return true;
     }
   }
 
-  // If it has prose connectors and sufficient length, it is marketing prose
-  if (hasProseConnectors && words.length >= 4) {
-    return false;
+  const hasCatalogValueSignal =
+    /\b\d+\s*(?:gb|tb|mb|ghz|mhz|mah|wh|w|v|mp|fps|hz|inch|inches|"|'|nm|cores?)\b/i.test(
+      trimmed
+    ) ||
+    /^(?:new|open\s+box|like\s+new|brand\s+new|refurbished|renewed|used|pre-?owned)$/i.test(
+      trimmed
+    ) ||
+    /\([^)]*(?:upgradable|onboard|non-upgradable|nvme|pcie|ssd|ram)\b[^)]*\)/i.test(
+      trimmed
+    );
+
+  if (hasCatalogValueSignal) {
+    return true;
   }
 
-  return !hasProseConnectors;
+  // Short proper-noun catalog labels (brand, color) without marketing tone.
+  if (
+    words.length <= 3 &&
+    words.every((word) => /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d+[\w.-]*)$/.test(word))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function isSpecSentence(sentence: string): boolean {
@@ -95,16 +120,24 @@ function isProductTitleSentence(sentence: string): boolean {
     return false;
   }
 
+  // Promotional sentences that embed a model name are prose, not bare titles.
+  if (
+    /^(?:meet|discover|introducing|experience|explore|welcome|get|enjoy|upgrade|switch|choose|introducing)\b/i.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
+
   if (/[®™©]/.test(trimmed)) {
     return true;
   }
 
-  // Catalog model lines such as iPhone 15 Pro Max or Dell XPS 16 9650.
+  // Bare catalog model lines such as iPhone 15 Pro Max or Dell XPS 16 9650.
   if (
-    /\b[A-Za-z][\w&-]*\s+\d+[A-Za-z]?(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)*/i.test(
+    /^(?:[A-Za-z][\w&-]*\s+\d+[A-Za-z]?(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)*)$/i.test(
       trimmed
-    ) ||
-    /\b[A-Z][\w&-]*\s+[A-Z]{2,}\b/.test(trimmed)
+    )
   ) {
     return true;
   }

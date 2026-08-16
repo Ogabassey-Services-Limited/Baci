@@ -8,6 +8,7 @@ import {
   resolveVariantSelection,
 } from '@baci/shared/lib';
 import { useEffect, useState } from 'react';
+import { isDisplayOnlyVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
@@ -244,7 +245,10 @@ export function OgabasseyPdpCriticalCommerceProvider({
             key,
             variants,
             Object.fromEntries(
-              Object.entries(next).filter(([entryKey]) => entryKey !== key)
+              Object.entries(next).filter(
+                ([entryKey]) =>
+                  entryKey !== key && !isDisplayOnlyVariantAxis(entryKey)
+              )
             )
           ).includes(selectedValue);
         })

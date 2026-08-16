@@ -3,7 +3,7 @@ import {
   normalizeCanonicalProductCondition,
 } from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
-import { isRenderableVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
+import { isDisplayOnlyVariantAxis, isRenderableVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
@@ -114,10 +114,15 @@ export function getAvailableCriticalVariantOptions(
   explicitSelectedAttributes: Record<string, string>,
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
+  const constraintSelections = Object.fromEntries(
+    Object.entries(explicitSelectedAttributes).filter(
+      ([entryAxis]) => !isDisplayOnlyVariantAxis(entryAxis)
+    )
+  );
   const options = getAvailableOptionsForAxis(
     axis,
     variants,
-    explicitSelectedAttributes
+    constraintSelections
   );
 
   if (options.length > 0) {

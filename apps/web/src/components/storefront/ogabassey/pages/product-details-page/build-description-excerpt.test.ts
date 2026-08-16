@@ -115,6 +115,32 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('preserves display prose that contains an acronym without model digits', () => {
+    const html = '<h2>Why It is Worth Buying</h2><p>Premium OLED display.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Premium OLED display.');
+  });
+
+  it('preserves short labeled marketing sentences instead of treating them as specs', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Camera: Powerful camera system. Service: Great service.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Camera: Powerful camera system. Service: Great service.');
+  });
+
+  it('preserves feature prose without allowlisted connector words', () => {
+    const html =
+      "<h2>Why It is Worth Buying</h2><p>Camera: Capture life's magic.</p>";
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe("Camera: Capture life's magic.");
+  });
+
+  it('preserves promotional copy that embeds a model name', () => {
+    const description = 'Meet Galaxy S24 Ultra. Built for reliable all-day performance.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('returns the full text without appending "..." when the match is 200 chars or fewer', () => {
     const shortText = '<h2>Why It Worth</h2><p>Short benefit text.</p>';
     const result = buildDescriptionExcerpt(shortText);

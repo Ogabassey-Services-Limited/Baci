@@ -3,6 +3,7 @@ import {
   canonicalizeVariantAxis,
   getVariantAttributeOptions,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { isDisplayOnlyVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import type { Product } from '../../types';
 import type { ConditionType } from './product-condition';
 import type { ProductDetailsCurrentOffer } from './offer-resolution';
@@ -109,8 +110,10 @@ export function getVariantBackedSelections(
   variants: NormalizedProductDetails['variants']
 ) {
   return Object.fromEntries(
-    Object.entries(selectedAttributes).filter(([axis]) =>
-      hasVariantBackedAxis(axis, variants)
+    Object.entries(selectedAttributes).filter(
+      ([axis]) =>
+        hasVariantBackedAxis(axis, variants) &&
+        !isDisplayOnlyVariantAxis(axis)
     )
   );
 }

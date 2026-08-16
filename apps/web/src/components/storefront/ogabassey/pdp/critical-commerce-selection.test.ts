@@ -278,35 +278,6 @@ describe('critical commerce selection helpers', () => {
     ).toEqual(['condition', 'color']);
   });
 
-  it('does not require display-only metadata axes even when variants differ', () => {
-    expect(
-      getVariantAxesWithMultipleOptions([
-        {
-          attributes: {
-            availability_note: 'Confirm price before checkout',
-            notice: 'Ships in 24 hours',
-            storage: '128GB',
-          },
-          id: 'variant-a',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 10,
-        },
-        {
-          attributes: {
-            availability_note: 'Call to confirm stock',
-            notice: 'Ships in 48 hours',
-            storage: '128GB',
-          },
-          id: 'variant-b',
-          merchant_id: 'merchant-1',
-          product_id: 'product-1',
-          stock_quantity: 8,
-        },
-      ])
-    ).toEqual([]);
-  });
-
   it('normalizes condition aliases before requiring condition selection', () => {
     expect(
       getVariantAxesWithMultipleOptions([

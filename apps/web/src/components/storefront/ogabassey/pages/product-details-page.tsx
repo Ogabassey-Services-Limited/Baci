@@ -10,6 +10,7 @@ import { ProductMediaGallery } from './product-details-page/product-media-galler
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { getAvailableOptionsForAxis } from '../variant-attributes';
+import { getVariantBackedSelections } from './product-details-page/cart-helpers';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 import deferredLayoutStyles from './product-details-page/deferred-product-details-layout.module.css';
@@ -167,7 +168,12 @@ export function ProductDetailsPage({
           const reachable = getAvailableOptionsForAxis(
             key,
             productData.variants,
-            Object.fromEntries(Object.entries(next).filter(([k]) => k !== key)),
+            getVariantBackedSelections(
+              Object.fromEntries(
+                Object.entries(next).filter(([entryKey]) => entryKey !== key)
+              ),
+              productData.variants
+            ),
           );
           return reachable.includes(selectedValue);
         }),

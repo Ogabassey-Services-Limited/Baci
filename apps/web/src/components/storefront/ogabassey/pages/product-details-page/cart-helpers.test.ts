@@ -126,6 +126,39 @@ describe('cart helpers', () => {
     ).toEqual({ storage: '128GB' });
   });
 
+  it('omits display-only metadata from variant-backed availability constraints', () => {
+    const product = productFixture({
+      variants: [
+        {
+          attributes: {
+            availability_note: 'Confirm price before checkout',
+            storage: '128GB',
+          },
+          id: 'variant-128',
+          stock_quantity: 2,
+        },
+        {
+          attributes: {
+            availability_note: 'Call to confirm stock',
+            storage: '256GB',
+          },
+          id: 'variant-256',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(
+      getVariantBackedSelections(
+        {
+          availability_note: 'Confirm price before checkout',
+          storage: '128GB',
+        },
+        product.variants
+      )
+    ).toEqual({ storage: '128GB' });
+  });
+
   it('does not expose multi-option metadata fallbacks without variant-backed values', () => {
     const product = productFixture({
       storage: ['128GB', '256GB'],
