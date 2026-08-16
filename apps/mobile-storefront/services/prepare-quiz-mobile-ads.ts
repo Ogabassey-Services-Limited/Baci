@@ -1,7 +1,28 @@
 import { isQuizMobileAdsAvailable } from '@/components/quiz/is-quiz-mobile-ads-available';
 import { getQuizMobileAdsConfig } from '@/config/quiz-mobile-ads';
 import { getFeatureFlagValue } from '@/services/analytics-core';
-import { initializeQuizMobileAds } from './initialize-quiz-mobile-ads';
+import {
+  initializeQuizMobileAds,
+  prepareQuizMobileAdsConsent,
+} from './initialize-quiz-mobile-ads';
+
+export type PrepareQuizMobileAds = ((
+  signal?: AbortSignal
+) => Promise<boolean>) & {
+  prepareConsent?: () => Promise<void>;
+};
+
+async function prepareConsentBeforeStart(): Promise<void> {
+  try {
+    const config = getQuizMobileAdsConfig();
+    if (!config.enabled || !isQuizMobileAdsAvailable()) return;
+    const enabled = await getFeatureFlagValue('quiz-mobile-ads');
+    if (enabled === false) return;
+    await prepareQuizMobileAdsConsent();
+  } catch {
+    // The normal preparation path remains responsible for optional ad errors.
+  }
+}
 
 /**
  * Prepares consent and the native ads SDK before the timed attempt starts.
@@ -10,7 +31,7 @@ import { initializeQuizMobileAds } from './initialize-quiz-mobile-ads';
  * used by the start flow to prevent a second consent/SDK attempt once timed
  * gameplay has begun.
  */
-export async function prepareQuizMobileAds(
+async function prepareQuizMobileAdsImpl(
   signal?: AbortSignal
 ): Promise<boolean> {
   try {
@@ -27,3 +48,8 @@ export async function prepareQuizMobileAds(
     return false;
   }
 }
+
+export const prepareQuizMobileAds: PrepareQuizMobileAds = Object.assign(
+  prepareQuizMobileAdsImpl,
+  { prepareConsent: prepareConsentBeforeStart }
+);

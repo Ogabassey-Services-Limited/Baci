@@ -7,6 +7,7 @@ interface QuizMobileAdsInitializationResult {
 const log = createLogger('QuizMobileAds');
 let initializationPromise: Promise<QuizMobileAdsInitializationResult> | null =
   null;
+let consentPromise: Promise<void> | null = null;
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error('Quiz ad preparation was cancelled.');
@@ -22,14 +23,7 @@ async function initialize(
     MaxAdContentRating,
   } = require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads');
 
-  try {
-    await AdsConsent.gatherConsent();
-  } catch {
-    log.warn(
-      'Consent refresh unavailable; checking the previous consent state.'
-    );
-  }
-
+  await prepareQuizMobileAdsConsent(AdsConsent);
   throwIfAborted(signal);
   const { canRequestAds } = await AdsConsent.getConsentInfo();
   throwIfAborted(signal);
@@ -46,6 +40,37 @@ async function initialize(
   await ads.initialize();
 
   return { canRequestAds: true };
+}
+
+type QuizMobileAdsConsent = {
+  gatherConsent: () => Promise<unknown>;
+};
+
+export function prepareQuizMobileAdsConsent(
+  consent?: QuizMobileAdsConsent
+): Promise<void> {
+  if (!consentPromise) {
+    consentPromise = Promise.resolve()
+      .then(async () => {
+        const adsConsent =
+          consent ??
+          (
+            require('react-native-google-mobile-ads') as typeof import('react-native-google-mobile-ads')
+          ).AdsConsent;
+        try {
+          await adsConsent.gatherConsent();
+        } catch {
+          log.warn(
+            'Consent refresh unavailable; checking the previous consent state.'
+          );
+        }
+      })
+      .catch((error) => {
+        consentPromise = null;
+        throw error;
+      });
+  }
+  return consentPromise;
 }
 
 export function initializeQuizMobileAds(

@@ -28,4 +28,31 @@ describe('createQuizAdsPrewarm', () => {
     await Promise.resolve();
     expect(onFinished).toHaveBeenCalledTimes(1);
   });
+
+  it('waits for consent UI before starting the bounded SDK preparation timeout', async () => {
+    jest.useFakeTimers();
+    let resolveConsent!: () => void;
+    const prepare = Object.assign(
+      jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      {
+        prepareConsent: () =>
+          new Promise<void>((resolve) => {
+            resolveConsent = resolve;
+          }),
+      }
+    );
+    const onFinished = jest.fn();
+    const prewarm = createQuizAdsPrewarm(prepare, onFinished);
+
+    await Promise.resolve();
+    jest.advanceTimersByTime(1500);
+    await Promise.resolve();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(onFinished).not.toHaveBeenCalled();
+
+    resolveConsent();
+    await expect(prewarm.promise).resolves.toBe(true);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(onFinished).toHaveBeenCalledWith(false);
+  });
 });

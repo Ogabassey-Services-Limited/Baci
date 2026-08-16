@@ -108,4 +108,55 @@ describe('useQuizPersistedRecovery terminal envelopes', () => {
 
     expect(recoverEvent).not.toHaveBeenCalled();
   });
+
+  it('does not accept a terminal recovery after another event takes ownership', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-a',
+        currentQuestionId: null,
+        eventId: 'event-a',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+      {
+        attemptId: 'attempt-b',
+        currentQuestionId: null,
+        eventId: 'event-b',
+        generation: 2,
+        pendingLockedOptionId: null,
+        startRequestId: '22222222-2222-4222-8222-222222222222',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    let currentEvent = 'event-a';
+    const recoverEvent = jest
+      .fn<RecoverEvent>()
+      .mockImplementation(async (_userId, eventId) => {
+        expect(eventId).toBe('event-a');
+        currentEvent = 'event-b';
+        return 'recovered_terminal';
+      });
+
+    const { result } = renderHook(() =>
+      useQuizPersistedRecovery({
+        canRecover: (eventId) => !eventId || eventId === currentEvent,
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(1));
+    act(() => result.current.retryRecovery());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(recoverEvent).toHaveBeenCalledTimes(1);
+  });
 });

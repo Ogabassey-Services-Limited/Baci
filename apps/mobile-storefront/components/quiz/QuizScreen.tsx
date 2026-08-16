@@ -23,7 +23,11 @@ import { QuizMusicPlayer } from './QuizMusicPlayer';
 import { QuizQuestionCard } from './QuizQuestionCard';
 import { QuizResultRoute } from './QuizResultRoute';
 import { createQuizStyles } from './QuizScreen.styles';
-import { getQuizErrorMessage, shouldShowEventList } from './QuizScreen.utils';
+import {
+  getQuizErrorMessage,
+  isQuizRecoveryCurrent,
+  shouldShowEventList,
+} from './QuizScreen.utils';
 import { QuizScreenModals } from './QuizScreenModals';
 import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizMusicState } from './use-quiz-music-state';
@@ -33,11 +37,9 @@ import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
-
 const QUIZ_COPY = {
   actionFailed: 'Quiz action failed',
 } as const;
-
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
@@ -108,10 +110,10 @@ export function QuizScreen({
   );
 
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
-
   const { allowRecovery, dismissRecovery, retryRecovery } =
     useQuizPersistedRecovery({
-      canRecover: () => useQuizStore.getState().status === 'ready',
+      canRecover: (eventId) =>
+        isQuizRecoveryCurrent(useQuizStore.getState(), eventId),
       enabled: status === 'ready',
       recoverEvent,
       userId: authUserId,
@@ -123,7 +125,6 @@ export function QuizScreen({
     getCurrentUserId: () => useAuthStore.getState().user?.id ?? null,
     onResult: setV2Result,
   });
-
   useEffect(() => {
     let mounted = true;
     if (status === 'idle') {
@@ -138,7 +139,6 @@ export function QuizScreen({
       mounted = false;
     };
   }, [loadEvents, setError, status]);
-
   const { adsPrewarmFailed, dobGate, requestStart, usernameGate } =
     useQuizStartFlow({
       events,

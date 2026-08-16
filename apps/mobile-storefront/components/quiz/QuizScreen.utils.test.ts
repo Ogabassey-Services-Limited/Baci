@@ -8,6 +8,7 @@ import {
   getEventStartButtonText,
   getPrizeMomentLabel,
   getQuizErrorMessage,
+  isQuizRecoveryCurrent,
   shouldShowEventList,
 } from './QuizScreen.utils';
 
@@ -167,5 +168,15 @@ describe('QuizScreen utils', () => {
     expect(shouldShowEventList('result')).toBe(false);
     expect(shouldShowEventList('question')).toBe(false);
     expect(shouldShowEventList('loading')).toBe(false);
+  });
+
+  it('recognizes only the active event as recovery-owned', () => {
+    const state = { selectedEventId: 'event-a', status: 'result' };
+
+    expect(isQuizRecoveryCurrent(state, 'event-a')).toBe(true);
+    expect(isQuizRecoveryCurrent(state, 'event-b')).toBe(false);
+    expect(
+      isQuizRecoveryCurrent({ selectedEventId: null, status: 'ready' })
+    ).toBe(true);
   });
 });

@@ -77,6 +77,38 @@ describe('QuizLiveQuestionCard lifecycle', () => {
     expect(onRetryEventExpire).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps answers disabled while expiry reconciliation can be retried', () => {
+    render(
+      <QuizLiveQuestionCard
+        attempt={{
+          attemptId: 'a1',
+          eventEndsAt: new Date(30_000).toISOString(),
+          eventId: 'e1',
+          question: {
+            deadlineAt: new Date(10_000).toISOString(),
+            id: 'q1',
+            index: 1,
+            options: [{ id: 'o1', label: 'Lagos' }],
+            prompt: 'Capital?',
+            timeLimitSeconds: 10,
+            total: 1,
+          },
+          resultsAvailableAt: null,
+          serverNow: new Date(0).toISOString(),
+          status: 'in_progress',
+        }}
+        expiryRetryable
+        lockedOptionId={null}
+        onAnswer={jest.fn()}
+        styles={createQuizStyles(colors)}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Answer Lagos' })
+    ).toHaveAccessibilityState({ disabled: true, selected: false });
+  });
+
   it('unanswered_timeout_submits_once', () => {
     const onAnswer = jest.fn();
     const attempt = {

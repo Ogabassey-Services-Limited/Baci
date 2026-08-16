@@ -8,7 +8,7 @@ import {
 } from '@/stores/quiz-recovery-envelope';
 
 interface UseQuizPersistedRecoveryInput {
-  canRecover?: () => boolean;
+  canRecover?: (eventId?: string) => boolean;
   enabled: boolean;
   recoverEvent: QuizV2StoreActions['recoverEvent'];
   userId: string | null;
@@ -142,7 +142,9 @@ export function useQuizPersistedRecovery({
           if (dismissedTerminalEventIds.current.has(envelope.eventId)) continue;
           if (handledTerminalEventIds.current.has(envelope.eventId)) continue;
           const isTerminalEnvelope = isRetainedTerminalEnvelope(envelope);
-          if (!isCurrentRun() && !isTerminalEnvelope) return;
+          if (!isCurrentRun()) return;
+          if (isTerminalEnvelope && !canRecoverRef.current(envelope.eventId))
+            return;
           recoveryOwnsStatus = true;
           const outcome = await recoverEvent(
             userId,
@@ -169,6 +171,9 @@ export function useQuizPersistedRecovery({
             }
           );
           recoveryOwnsStatus = false;
+          const recoveryStillOwnsEvent = canRecoverRef.current(
+            envelope.eventId
+          );
           if (outcome === 'retry') {
             shouldRetry = true;
             return;
@@ -177,6 +182,7 @@ export function useQuizPersistedRecovery({
             outcome === 'recovered_terminal' ||
             (outcome === 'recovered' && isTerminalEnvelope)
           ) {
+            if (!recoveryStillOwnsEvent) return;
             // A result screen owns one terminal attempt at a time. Keep the
             // next retained prize for the next recovery pass so it cannot
             // overwrite the single terminal context currently being polled.

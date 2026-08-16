@@ -148,6 +148,20 @@ export function shouldShowEventList(status: QuizScreenStatus): boolean {
   return status === 'ready' || status === 'starting';
 }
 
+export function isQuizRecoveryCurrent(
+  state: { selectedEventId: string | null; status: string },
+  eventId?: string
+): boolean {
+  if (eventId) {
+    if (state.status === 'ready') return true;
+    return (
+      state.selectedEventId === eventId &&
+      ['question', 'submitting', 'result'].includes(state.status)
+    );
+  }
+  return state.status === 'ready';
+}
+
 export function canPlayAnotherQuizAttempt(
   event: QuizEvent | undefined,
   serverNow?: string | null

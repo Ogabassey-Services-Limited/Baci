@@ -115,7 +115,8 @@ export function QuizLiveQuestionCard({
       <View style={styles.answersList}>
         {question.options.map((option, index) => {
           const selected = lockedOptionId === option.id;
-          const disabled = lockedOptionId !== null || isSubmitting;
+          const disabled =
+            expiryRetryable || lockedOptionId !== null || isSubmitting;
           return (
             <Pressable
               key={option.id}

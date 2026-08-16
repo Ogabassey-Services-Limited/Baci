@@ -267,4 +267,53 @@ describe('QuizLeaderboardScreen', () => {
 
     expect(screen.queryByText('Old account')).toBeNull();
   });
+
+  it('reloads past quizzes after the account changes', async () => {
+    jest
+      .mocked(fetchQuizEvents)
+      .mockResolvedValueOnce([
+        {
+          endsAt: '2026-08-03T20:05:00Z',
+          id: 'event-old-account',
+          prizeName: 'Phone',
+          questionCount: 5,
+          startsAt: '2026-08-03T20:00:00Z',
+          status: 'completed',
+          title: 'Old account quiz',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          endsAt: '2026-08-04T20:05:00Z',
+          id: 'event-new-account',
+          prizeName: 'Tablet',
+          questionCount: 5,
+          startsAt: '2026-08-04T20:00:00Z',
+          status: 'completed',
+          title: 'New account quiz',
+        },
+      ]);
+
+    const { rerender } = render(<QuizLeaderboardScreen />);
+    expect(
+      await screen.findByRole('button', {
+        name: 'View leaderboard for Old account quiz',
+      })
+    ).toBeTruthy();
+
+    mockAuthState.user = { id: 'customer-2' };
+    rerender(<QuizLeaderboardScreen />);
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'View leaderboard for New account quiz',
+      })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', {
+        name: 'View leaderboard for Old account quiz',
+      })
+    ).toBeNull();
+    expect(fetchQuizEvents).toHaveBeenCalledTimes(2);
+  });
 });

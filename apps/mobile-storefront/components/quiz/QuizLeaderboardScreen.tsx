@@ -54,8 +54,12 @@ export function QuizLeaderboardScreen() {
     setError(null);
   }, [userId]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Account changes intentionally reload the past-event history.
   useEffect(() => {
     let active = true;
+    setEvents([]);
+    setLoading(true);
+    setError(null);
     fetchQuizEvents()
       .then((items) => {
         if (!active) return;
@@ -66,7 +70,7 @@ export function QuizLeaderboardScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [userId]);
 
   const loadLeaderboard = async (event: QuizEvent) => {
     const requestId = ++leaderboardRequestId.current;
