@@ -29,8 +29,18 @@ function request(eventId = EVENT_ID) {
   );
 }
 
-function authenticate(data: unknown, error: unknown = null) {
-  const rpc = vi.fn().mockResolvedValue({ data, error });
+function authenticate(
+  data: unknown,
+  error: unknown = null,
+  participantCount: unknown = null
+) {
+  const rpc = vi.fn((name: string) =>
+    Promise.resolve(
+      name === 'get_quiz_participant_count_public_v2'
+        ? { data: participantCount, error: null }
+        : { data, error }
+    )
+  );
   vi.mocked(requireQuizUser).mockResolvedValue({
     authMethod: 'cookie',
     response: null,
@@ -63,11 +73,15 @@ describe('quiz live leaderboard route', () => {
   });
 
   it('maps the live projection into the public response', async () => {
-    const rpc = authenticate({
-      current_player: ROW,
-      entries: [ROW],
-      status: 'live',
-    });
+    const rpc = authenticate(
+      {
+        current_player: ROW,
+        entries: [ROW],
+        status: 'live',
+      },
+      null,
+      42
+    );
     const { GET } = await import('./route');
     const response = await GET(request());
 
@@ -95,7 +109,7 @@ describe('quiz live leaderboard route', () => {
           totalTimeSeconds: 30.5,
         },
       ],
-      participantCount: null,
+      participantCount: 42,
       status: 'live',
     });
   });

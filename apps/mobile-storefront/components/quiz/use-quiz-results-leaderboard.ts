@@ -2,12 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
 import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
-import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 
 const FINAL_RETRY_INTERVAL_MS = 5_000;
-const LIVE_REFRESH_INTERVAL_MS = 1_000;
+const LIVE_REFRESH_INTERVAL_MS = 5_000;
 
 interface UseQuizResultsLeaderboardInput {
   enabled: boolean;
@@ -48,7 +47,6 @@ export function useQuizResultsLeaderboard({
       AppState.currentState !== 'background' &&
       AppState.currentState !== 'inactive';
     let loadInFlight = false;
-    let participantCountInFlight = false;
     let retryId: ReturnType<typeof setTimeout> | undefined;
     const schedule = (delayMs: number) => {
       if (!active || !appIsActive) return;
@@ -58,21 +56,6 @@ export function useQuizResultsLeaderboard({
         void load();
       }, delayMs);
     };
-    const loadParticipantCount = (isLive: boolean) => {
-      if (!isLive || participantCountInFlight) return;
-
-      participantCountInFlight = true;
-      void fetchQuizParticipantCount({ eventId, expectedUserId })
-        .then((count) => {
-          if (active) setParticipantCount(count);
-        })
-        .catch(() => {
-          // The count is supplementary; standings remain useful without it.
-        })
-        .finally(() => {
-          participantCountInFlight = false;
-        });
-    };
     const load = async () => {
       if (!active || !appIsActive || loadInFlight) return;
       loadInFlight = true;
@@ -80,7 +63,6 @@ export function useQuizResultsLeaderboard({
         ? LIVE_REFRESH_INTERVAL_MS
         : FINAL_RETRY_INTERVAL_MS;
       try {
-        loadParticipantCount(isLive);
         const result = isLive
           ? await fetchQuizLiveLeaderboard({ eventId, expectedUserId })
           : await fetchQuizLeaderboard({ eventId, expectedUserId });

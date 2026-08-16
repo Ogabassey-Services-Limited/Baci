@@ -112,6 +112,7 @@ export function useQuizStartFlow({
     return quizAdsPreparationRef.current;
   };
   const handleStart = async (eventId: string) => {
+    let startTransitionOwned = false;
     try {
       const startUserId = useAuthStore.getState().user?.id ?? null;
       const adsReady = await prepareAdsBeforeStart();
@@ -140,6 +141,7 @@ export function useQuizStartFlow({
           // Do not fall back to the v1 endpoint when the server declared v2.
           // The legacy store action owns the visible error state without making
           // a network start request.
+          startTransitionOwned = true;
           await startEvent(eventId, integrityTier, () =>
             Promise.reject(
               new QuizServiceError(
@@ -151,6 +153,7 @@ export function useQuizStartFlow({
           );
           return;
         }
+        startTransitionOwned = true;
         await startEventV2(
           {
             eventId,
@@ -211,23 +214,15 @@ export function useQuizStartFlow({
         );
         return;
       }
-      // startEvent owns the in-flight/error state and swallows starter failures
-      // into the store, so the age-gate recovery lives inside the starter (the
-      // only place the thrown error is observable).
+      // startEvent owns errors, so age-gate recovery stays inside the starter.
+      startTransitionOwned = true;
       await startEvent(eventId, integrityTier, async () => {
-        // Snapshot the signed-in shopper BEFORE any await. If the account signs
-        // out or switches during the fingerprint lookup or the request, we must
-        // not send (or reopen) the start under the new session — the quiz-store
-        // generation guard can only discard the response, not undo a server-side
-        // start that already spent the new shopper's attempt.
+        // Snapshot identity before any await; never send a switched shopper's start.
         const startUserId = useAuthStore.getState().user?.id ?? null;
-        // Resolve inside the starter so startEvent enters its synchronous
-        // in-flight state before this best-effort native lookup can yield.
         const deviceFingerprint = await getQuizDeviceFingerprint().catch(
           () => null
         );
-        // Re-verify identity immediately before issuing the request; abort if the
-        // shopper changed (or signed out) while the fingerprint was resolving.
+        // Re-verify identity immediately before issuing the request.
         if (
           startUserId === null ||
           useAuthStore.getState().user?.id !== startUserId
@@ -242,9 +237,7 @@ export function useQuizStartFlow({
             integrityTier,
           });
         } catch (error) {
-          // Reopen the gate so the rejected DOB can be corrected — only while the
-          // same shopper is still signed in, so a switch during the request can't
-          // open this stale event under the new session.
+          // Reopen DOB only while the same shopper is still signed in.
           if (
             error instanceof QuizServiceError &&
             error.code === QUIZ_AGE_RESTRICTED_CODE &&
@@ -259,9 +252,8 @@ export function useQuizStartFlow({
         }
       });
     } finally {
-      // Keep dismissed terminal recovery blocked until the start transition
-      // has loaded or replaced its persisted envelope.
-      onStartSettled?.(eventId);
+      // Consent/session failures return before the store owns a start.
+      if (startTransitionOwned) onStartSettled?.(eventId);
     }
   };
 

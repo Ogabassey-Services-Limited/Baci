@@ -2,7 +2,6 @@ import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { AppState, type AppStateStatus } from 'react-native';
 import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
 import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
-import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import { useQuizResultsLeaderboard } from './use-quiz-results-leaderboard';
 
 jest.mock('@/services/quiz-leaderboard', () => ({
@@ -10,9 +9,6 @@ jest.mock('@/services/quiz-leaderboard', () => ({
 }));
 jest.mock('@/services/quiz-live-leaderboard', () => ({
   fetchQuizLiveLeaderboard: jest.fn(),
-}));
-jest.mock('@/services/quiz-participant-count', () => ({
-  fetchQuizParticipantCount: jest.fn(),
 }));
 
 describe('useQuizResultsLeaderboard', () => {
@@ -26,10 +22,9 @@ describe('useQuizResultsLeaderboard', () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
-      participantCount: null,
+      participantCount: 3,
       status: 'live',
     });
-    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(3);
 
     const { result } = renderHook(() =>
       useQuizResultsLeaderboard({
@@ -46,27 +41,16 @@ describe('useQuizResultsLeaderboard', () => {
       eventId: 'event-1',
       expectedUserId: 'user-1',
     });
-    expect(fetchQuizParticipantCount).toHaveBeenCalledWith({
-      eventId: 'event-1',
-      expectedUserId: 'user-1',
-    });
     expect(fetchQuizLeaderboard).not.toHaveBeenCalled();
   });
 
-  it('does not wait for participant count before showing live standings', async () => {
-    let resolveParticipantCount!: (count: number) => void;
-    const participantCountPromise = new Promise<number>((resolve) => {
-      resolveParticipantCount = resolve;
-    });
+  it('uses the count returned with live standings without a second request', async () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
-      participantCount: null,
+      participantCount: 3,
       status: 'live',
     });
-    jest
-      .mocked(fetchQuizParticipantCount)
-      .mockReturnValue(participantCountPromise);
 
     const { result } = renderHook(() =>
       useQuizResultsLeaderboard({
@@ -81,12 +65,6 @@ describe('useQuizResultsLeaderboard', () => {
     await waitFor(() =>
       expect(result.current.leaderboard?.status).toBe('live')
     );
-    expect(result.current.participantCount).toBeNull();
-
-    await act(async () => {
-      resolveParticipantCount(3);
-      await participantCountPromise;
-    });
     await waitFor(() => expect(result.current.participantCount).toBe(3));
   });
 
@@ -176,10 +154,9 @@ describe('useQuizResultsLeaderboard', () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
-      participantCount: null,
+      participantCount: 3,
       status: 'live',
     });
-    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(3);
     jest.useFakeTimers();
 
     renderHook(() =>
@@ -206,5 +183,39 @@ describe('useQuizResultsLeaderboard', () => {
     await waitFor(() =>
       expect(fetchQuizLiveLeaderboard).toHaveBeenCalledTimes(2)
     );
+  });
+
+  it('keeps live refreshes below the shared per-minute API budget', async () => {
+    jest.useFakeTimers();
+    jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
+      currentPlayer: null,
+      entries: [],
+      participantCount: 3,
+      status: 'live',
+    });
+
+    renderHook(() =>
+      useQuizResultsLeaderboard({
+        enabled: true,
+        eventHasEnded: false,
+        eventId: 'event-1',
+        expectedUserId: 'user-1',
+        lifecycle: 'pending_results',
+      })
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(
+      jest.mocked(fetchQuizLiveLeaderboard).mock.calls.length
+    ).toBeLessThan(50);
   });
 });

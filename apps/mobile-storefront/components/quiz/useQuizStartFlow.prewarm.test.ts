@@ -150,10 +150,12 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
         { prepareConsent: () => new Promise<void>(() => {}) }
       );
       const onAdsConsentBlocked = jest.fn();
+      const onStartSettled = jest.fn();
       const { result } = renderHook(() =>
         useQuizStartFlow({
           integrityTier: 'device',
           onAdsConsentBlocked,
+          onStartSettled,
           prepareQuizMobileAds,
           startEvent,
         })
@@ -168,6 +170,7 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
       });
 
       expect(onAdsConsentBlocked).toHaveBeenCalledTimes(1);
+      expect(onStartSettled).not.toHaveBeenCalled();
       expect(startEvent).not.toHaveBeenCalled();
       expect(prepareQuizMobileAds).not.toHaveBeenCalled();
     } finally {

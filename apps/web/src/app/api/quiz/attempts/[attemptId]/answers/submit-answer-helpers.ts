@@ -210,6 +210,9 @@ export async function recoverReplayedAttemptResponse(
     award.createdAt
   );
   if (!claimExpiresAt) return rpcErrorResponse();
+  if (Date.parse(claimExpiresAt) <= Date.now()) {
+    return NextResponse.json({ ...baseResult, prizeEligible: false });
+  }
 
   try {
     return NextResponse.json(
