@@ -119,7 +119,9 @@ describe('useQuizStartFlow', () => {
   });
 
   it('blocks an ad prewarm retry after failure until a new quiz start', async () => {
-    const prepareQuizMobileAds = jest.fn().mockResolvedValue(false);
+    const prepareQuizMobileAds = jest
+      .fn<() => Promise<boolean>>()
+      .mockResolvedValue(false);
     const { result } = renderHook(() =>
       useQuizStartFlow({
         integrityTier: 'device',
