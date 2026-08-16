@@ -217,6 +217,57 @@ describe('useQuizStartFlow', () => {
     );
   });
 
+  it('keeps terminal recovery dismissed until the v2 start transition settles', async () => {
+    let releaseStart!: () => void;
+    const onStartSettled = jest.fn();
+    const startEventV2 = jest.fn(
+      async (
+        _context: unknown,
+        starter: (startRequestId: string) => Promise<QuizV2Attempt>
+      ) => {
+        await new Promise<void>((resolve) => {
+          releaseStart = resolve;
+        });
+        await starter('start-request-1');
+      }
+    );
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        events: [
+          {
+            contractVersion: 2,
+            endsAt: '2026-08-03T20:05:00Z',
+            id: 'event-v2-race',
+            mode: 'test',
+            prizeName: 'Phone',
+            questionCount: 1,
+            rulesVersion: 'quiz-rules-2026-08',
+            startsAt: '2026-08-03T20:00:00Z',
+            status: 'active',
+            title: 'Retry race',
+          },
+        ],
+        integrityTier: 'device',
+        onStartSettled,
+        startEvent,
+        startEventV2,
+      })
+    );
+
+    act(() => result.current.requestStart('event-v2-race', true));
+    dobOnStart('event-v2-race');
+    await waitFor(() => expect(startEventV2).toHaveBeenCalledTimes(1));
+    expect(onStartSettled).not.toHaveBeenCalled();
+
+    await act(async () => {
+      releaseStart();
+      await Promise.resolve();
+    });
+    await waitFor(() =>
+      expect(onStartSettled).toHaveBeenCalledWith('event-v2-race')
+    );
+  });
+
   it('reopens the DOB gate when a v2 start rejects the stored date of birth', async () => {
     mockStartQuizAttemptV2.mockRejectedValueOnce(
       new QuizServiceError(

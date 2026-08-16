@@ -143,7 +143,7 @@ export function QuizScreen({
     useQuizStartFlow({
       events,
       integrityTier,
-      onBeforeStart: allowRecovery,
+      onStartSettled: allowRecovery,
       prepareQuizMobileAds,
       startEvent,
       startEventV2: async (context, starter) => {

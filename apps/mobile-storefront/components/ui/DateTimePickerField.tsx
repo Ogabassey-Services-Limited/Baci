@@ -3,7 +3,8 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { Platform, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
+import { useColorScheme } from '@/components/useColorScheme';
 
 type DateTimePickerFieldMode = 'date' | 'time';
 

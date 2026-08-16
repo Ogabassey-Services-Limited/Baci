@@ -66,13 +66,13 @@ export function useQuizStartFlow({
   events = [],
   integrityTier,
   prepareQuizMobileAds,
-  onBeforeStart,
+  onStartSettled,
   startEvent,
   startEventV2,
 }: {
   events?: QuizEvent[];
   integrityTier: QuizIntegrityTier;
-  onBeforeStart?: (eventId: string) => void;
+  onStartSettled?: (eventId: string) => void;
   prepareQuizMobileAds?: PrepareQuizMobileAds;
   startEvent: StartEvent;
   startEventV2?: StartEventV2;
@@ -106,150 +106,156 @@ export function useQuizStartFlow({
   };
 
   const handleStart = async (eventId: string) => {
-    const startUserId = useAuthStore.getState().user?.id ?? null;
-    await prepareAdsBeforeStart();
-    const event = events.find((candidate) => candidate.id === eventId);
-    if (useAuthStore.getState().user?.id !== startUserId) {
-      const sessionChangedStarter = () =>
-        Promise.reject<never>(createQuizSessionChangedError());
-      if (event?.contractVersion === 2 && startEventV2) {
+    try {
+      const startUserId = useAuthStore.getState().user?.id ?? null;
+      await prepareAdsBeforeStart();
+      const event = events.find((candidate) => candidate.id === eventId);
+      if (useAuthStore.getState().user?.id !== startUserId) {
+        const sessionChangedStarter = () =>
+          Promise.reject<never>(createQuizSessionChangedError());
+        if (event?.contractVersion === 2 && startEventV2) {
+          await startEventV2(
+            {
+              eventId,
+              integrityTier,
+              startRequestId: createQuizStartRequestId(),
+              userId: null,
+            },
+            sessionChangedStarter
+          );
+        } else {
+          await startEvent(eventId, integrityTier, sessionChangedStarter);
+        }
+        return;
+      }
+      if (event?.contractVersion === 2) {
+        if (!startEventV2) {
+          // Do not fall back to the v1 endpoint when the server declared v2.
+          // The legacy store action owns the visible error state without making
+          // a network start request.
+          await startEvent(eventId, integrityTier, () =>
+            Promise.reject(
+              new QuizServiceError(
+                'This version of the app cannot start this quiz.',
+                'QUIZ_CONTRACT_UNSUPPORTED',
+                409
+              )
+            )
+          );
+          return;
+        }
         await startEventV2(
           {
             eventId,
             integrityTier,
             startRequestId: createQuizStartRequestId(),
-            userId: null,
+            userId: startUserId,
           },
-          sessionChangedStarter
-        );
-      } else {
-        await startEvent(eventId, integrityTier, sessionChangedStarter);
-      }
-      return;
-    }
-    if (event?.contractVersion === 2) {
-      if (!startEventV2) {
-        // Do not fall back to the v1 endpoint when the server declared v2.
-        // The legacy store action owns the visible error state without making
-        // a network start request.
-        await startEvent(eventId, integrityTier, () =>
-          Promise.reject(
-            new QuizServiceError(
-              'This version of the app cannot start this quiz.',
-              'QUIZ_CONTRACT_UNSUPPORTED',
-              409
-            )
-          )
+          async (startRequestId) => {
+            // Keep every v2 failure inside the store-owned async transition.
+            // In particular, a signed-out shopper must not create an unhandled
+            // rejection before the v2 action can expose its error state.
+            if (!startUserId) throw createQuizSessionChangedError();
+            if (!event.rulesVersion || !event.mode) {
+              throw new QuizServiceError(
+                'This quiz is missing required rules information.',
+                'QUIZ_CONTRACT_INVALID',
+                502
+              );
+            }
+            if (!acceptedTermsEventIdsRef.current.has(eventId)) {
+              throw new QuizServiceError(
+                'Please read and accept the quiz rules before playing.',
+                'QUIZ_TERMS_ACCEPTANCE_REQUIRED',
+                409
+              );
+            }
+            const deviceFingerprint = await getQuizDeviceFingerprint().catch(
+              () => null
+            );
+            if (useAuthStore.getState().user?.id !== startUserId) {
+              throw createQuizSessionChangedError();
+            }
+            try {
+              return await startQuizAttemptV2({
+                acceptedRulesVersion: event.rulesVersion,
+                deviceFingerprint,
+                eventId,
+                expectedUserId: startUserId,
+                integrityTier,
+                mode: event.mode,
+                startRequestId,
+                termsAccepted: true,
+              });
+            } catch (error) {
+              if (
+                error instanceof QuizServiceError &&
+                error.code === QUIZ_AGE_RESTRICTED_CODE &&
+                useAuthStore.getState().user?.id === startUserId
+              ) {
+                reopenDobForCorrectionRef.current?.(
+                  eventId,
+                  getQuizErrorMessage(error, START_FAILED_FALLBACK)
+                );
+              }
+              throw error;
+            }
+          }
         );
         return;
       }
-      await startEventV2(
-        {
-          eventId,
-          integrityTier,
-          startRequestId: createQuizStartRequestId(),
-          userId: startUserId,
-        },
-        async (startRequestId) => {
-          // Keep every v2 failure inside the store-owned async transition.
-          // In particular, a signed-out shopper must not create an unhandled
-          // rejection before the v2 action can expose its error state.
-          if (!startUserId) throw createQuizSessionChangedError();
-          if (!event.rulesVersion || !event.mode) {
-            throw new QuizServiceError(
-              'This quiz is missing required rules information.',
-              'QUIZ_CONTRACT_INVALID',
-              502
-            );
-          }
-          if (!acceptedTermsEventIdsRef.current.has(eventId)) {
-            throw new QuizServiceError(
-              'Please read and accept the quiz rules before playing.',
-              'QUIZ_TERMS_ACCEPTANCE_REQUIRED',
-              409
-            );
-          }
-          const deviceFingerprint = await getQuizDeviceFingerprint().catch(
-            () => null
-          );
-          if (useAuthStore.getState().user?.id !== startUserId) {
-            throw createQuizSessionChangedError();
-          }
-          try {
-            return await startQuizAttemptV2({
-              acceptedRulesVersion: event.rulesVersion,
-              deviceFingerprint,
-              eventId,
-              expectedUserId: startUserId,
-              integrityTier,
-              mode: event.mode,
-              startRequestId,
-              termsAccepted: true,
-            });
-          } catch (error) {
-            if (
-              error instanceof QuizServiceError &&
-              error.code === QUIZ_AGE_RESTRICTED_CODE &&
-              useAuthStore.getState().user?.id === startUserId
-            ) {
-              reopenDobForCorrectionRef.current?.(
-                eventId,
-                getQuizErrorMessage(error, START_FAILED_FALLBACK)
-              );
-            }
-            throw error;
-          }
-        }
-      );
-      return;
-    }
-    // startEvent owns the in-flight/error state and swallows starter failures
-    // into the store, so the age-gate recovery lives inside the starter (the
-    // only place the thrown error is observable).
-    await startEvent(eventId, integrityTier, async () => {
-      // Snapshot the signed-in shopper BEFORE any await. If the account signs
-      // out or switches during the fingerprint lookup or the request, we must
-      // not send (or reopen) the start under the new session — the quiz-store
-      // generation guard can only discard the response, not undo a server-side
-      // start that already spent the new shopper's attempt.
-      const startUserId = useAuthStore.getState().user?.id ?? null;
-      // Resolve inside the starter so startEvent enters its synchronous
-      // in-flight state before this best-effort native lookup can yield.
-      const deviceFingerprint = await getQuizDeviceFingerprint().catch(
-        () => null
-      );
-      // Re-verify identity immediately before issuing the request; abort if the
-      // shopper changed (or signed out) while the fingerprint was resolving.
-      if (
-        startUserId === null ||
-        useAuthStore.getState().user?.id !== startUserId
-      ) {
-        throw createQuizSessionChangedError();
-      }
-      try {
-        return await startQuizAttempt({
-          deviceFingerprint,
-          eventId,
-          expectedUserId: startUserId,
-          integrityTier,
-        });
-      } catch (error) {
-        // Reopen the gate so the rejected DOB can be corrected — only while the
-        // same shopper is still signed in, so a switch during the request can't
-        // open this stale event under the new session.
+      // startEvent owns the in-flight/error state and swallows starter failures
+      // into the store, so the age-gate recovery lives inside the starter (the
+      // only place the thrown error is observable).
+      await startEvent(eventId, integrityTier, async () => {
+        // Snapshot the signed-in shopper BEFORE any await. If the account signs
+        // out or switches during the fingerprint lookup or the request, we must
+        // not send (or reopen) the start under the new session — the quiz-store
+        // generation guard can only discard the response, not undo a server-side
+        // start that already spent the new shopper's attempt.
+        const startUserId = useAuthStore.getState().user?.id ?? null;
+        // Resolve inside the starter so startEvent enters its synchronous
+        // in-flight state before this best-effort native lookup can yield.
+        const deviceFingerprint = await getQuizDeviceFingerprint().catch(
+          () => null
+        );
+        // Re-verify identity immediately before issuing the request; abort if the
+        // shopper changed (or signed out) while the fingerprint was resolving.
         if (
-          error instanceof QuizServiceError &&
-          error.code === QUIZ_AGE_RESTRICTED_CODE &&
-          useAuthStore.getState().user?.id === startUserId
+          startUserId === null ||
+          useAuthStore.getState().user?.id !== startUserId
         ) {
-          reopenDobForCorrectionRef.current?.(
-            eventId,
-            getQuizErrorMessage(error, START_FAILED_FALLBACK)
-          );
+          throw createQuizSessionChangedError();
         }
-        throw error;
-      }
-    });
+        try {
+          return await startQuizAttempt({
+            deviceFingerprint,
+            eventId,
+            expectedUserId: startUserId,
+            integrityTier,
+          });
+        } catch (error) {
+          // Reopen the gate so the rejected DOB can be corrected — only while the
+          // same shopper is still signed in, so a switch during the request can't
+          // open this stale event under the new session.
+          if (
+            error instanceof QuizServiceError &&
+            error.code === QUIZ_AGE_RESTRICTED_CODE &&
+            useAuthStore.getState().user?.id === startUserId
+          ) {
+            reopenDobForCorrectionRef.current?.(
+              eventId,
+              getQuizErrorMessage(error, START_FAILED_FALLBACK)
+            );
+          }
+          throw error;
+        }
+      });
+    } finally {
+      // Keep dismissed terminal recovery blocked until the start transition
+      // has loaded or replaced its persisted envelope.
+      onStartSettled?.(eventId);
+    }
   };
 
   const dobGate = useQuizDateOfBirthGate((eventId) => {
@@ -260,7 +266,6 @@ export function useQuizStartFlow({
   });
 
   const requestStart = (eventId: string, termsAccepted?: true) => {
-    onBeforeStart?.(eventId);
     // A failed prewarm is scoped to the current timed attempt. A new start
     // request is the safe point to allow another optional ad preparation.
     if (quizAdsPrewarmFailedRef.current) {

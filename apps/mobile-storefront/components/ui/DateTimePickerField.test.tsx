@@ -4,16 +4,24 @@ import { Platform } from 'react-native';
 import { DateTimePickerField } from './DateTimePickerField';
 
 let mockPickerEventType: 'dismissed' | 'set' = 'set';
+let mockColorScheme: 'light' | 'dark' = 'light';
+let renderedThemeVariant: 'light' | 'dark' | undefined;
 
 type MockDateTimePickerProps = {
   mode: 'date' | 'time';
   onChange: (event: { type: 'dismissed' | 'set' }, date: Date) => void;
+  themeVariant?: 'light' | 'dark';
 };
+
+jest.mock('@/components/useColorScheme', () => ({
+  useColorScheme: () => mockColorScheme,
+}));
 
 jest.mock('@react-native-community/datetimepicker', () => {
   return {
     __esModule: true,
-    default: ({ mode, onChange }: MockDateTimePickerProps) => {
+    default: ({ mode, onChange, themeVariant }: MockDateTimePickerProps) => {
+      renderedThemeVariant = themeVariant;
       const { Pressable, Text } =
         jest.requireActual<typeof import('react-native')>('react-native');
 
@@ -40,6 +48,8 @@ jest.mock('@react-native-community/datetimepicker', () => {
 describe('DateTimePickerField', () => {
   beforeEach(() => {
     mockPickerEventType = 'set';
+    mockColorScheme = 'light';
+    renderedThemeVariant = undefined;
   });
 
   it('formats selected time values', () => {
@@ -78,6 +88,23 @@ describe('DateTimePickerField', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Mock date picker' }));
 
     expect(onChangeText).toHaveBeenCalledWith('2026-05-23');
+  });
+
+  it('passes the app appearance override to the native picker', () => {
+    mockColorScheme = 'dark';
+    render(
+      <DateTimePickerField
+        accessibilityLabel="Date of birth"
+        fallbackDisplay="Select your date of birth"
+        label="Date of birth"
+        mode="date"
+        onChangeText={jest.fn()}
+        value="1990-05-22"
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Date of birth' }));
+    expect(renderedThemeVariant).toBe('dark');
   });
 
   it('keeps the iOS picker open after a selection so Continue can submit it', () => {
