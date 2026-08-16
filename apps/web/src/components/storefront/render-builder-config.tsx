@@ -13,6 +13,7 @@ import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 import { previewInertLinkBlocks } from './preview-inert-link-blocks';
 import { PreviewNavigationGuard } from './preview-navigation-guard';
 import { PreviewProductGrid } from './preview-product-grid';
+import { PreviewRootTitle } from './preview-root-title';
 
 type PreviewMerchantContext = {
   basePath: string;
@@ -148,6 +149,11 @@ function getPreviewData(
   } as Data;
 }
 
+function getPreviewRootTitle(root: unknown): string {
+  if (!isThemeObject(root) || !isThemeObject(root.props)) return 'Home';
+  return typeof root.props.title === 'string' ? root.props.title : 'Home';
+}
+
 const previewBuilderConfig = {
   ...builderConfig,
   components: {
@@ -248,6 +254,7 @@ export function RenderBuilderConfig({
 }: RenderBuilderConfigProps) {
   const theme = getPreviewTheme(config);
   const previewData = getPreviewData(config, merchantContext);
+  const previewRootTitle = getPreviewRootTitle(config.root);
   const themeTokens = getCuratedThemeTokenProjection(theme) as CSSProperties;
   return (
     <PreviewContext merchantContext={merchantContext}>
@@ -261,6 +268,7 @@ export function RenderBuilderConfig({
         }}
       >
         <PreviewNavigationGuard>
+          <PreviewRootTitle title={previewRootTitle} />
           <Render config={previewBuilderConfig} data={previewData} />
         </PreviewNavigationGuard>
         {onRendered ? <RenderCommit onRendered={onRendered} /> : null}

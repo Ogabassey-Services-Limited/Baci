@@ -99,7 +99,7 @@ export const builderDesignCapabilityDefinitions: BuilderDesignCapability[] = [
     columns: {
       default: 3,
       maximum: 4,
-      minimum: 1,
+      minimum: 2,
       type: 'number',
       wholeNumber: true,
     },

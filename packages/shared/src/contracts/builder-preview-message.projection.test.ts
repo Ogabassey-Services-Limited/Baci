@@ -102,15 +102,6 @@ describe('builder preview media and refused-component projection', () => {
         { props: { id: 'text-1', title: 'Visible copy' }, type: 'Text' },
       ],
       root,
-      zones: {
-        aside: [
-          {
-            props: { id: 'image-1', src: 'https://cdn.example.test/old.webp' },
-            type: 'Image',
-          },
-          { props: { id: 'zone-text-1', title: 'Nested copy' }, type: 'Text' },
-        ],
-      },
     });
 
     expect(result.success).toBe(true);
@@ -121,15 +112,6 @@ describe('builder preview media and refused-component projection', () => {
       expect(result.data.candidateConfig.content[0]).toEqual({
         props: { id: 'code-1', label: 'CodeEmbed section' },
         type: 'PreviewPlaceholder',
-      });
-      expect(result.data.candidateConfig.zones).toEqual({
-        aside: [
-          {
-            props: { id: 'image-1', label: 'Image section' },
-            type: 'PreviewPlaceholder',
-          },
-          { props: { id: 'zone-text-1', title: 'Nested copy' }, type: 'Text' },
-        ],
       });
       expect(JSON.stringify(result.data.candidateConfig)).not.toContain(
         'ignored'

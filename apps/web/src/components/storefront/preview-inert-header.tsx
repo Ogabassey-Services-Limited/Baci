@@ -244,6 +244,9 @@ export function PreviewInertHeader({
         {showMenu ? <InertHeaderAction>Menu</InertHeaderAction> : null}
         {ctaButton?.show ? (
           <span className="inline-flex items-baseline gap-1">
+            <span className="text-xs opacity-70 sm:hidden">
+              {ctaButton.text} {ctaButton.url}
+            </span>
             <InertHeaderAction className="hidden sm:inline-flex">
               {ctaButton.text}
             </InertHeaderAction>

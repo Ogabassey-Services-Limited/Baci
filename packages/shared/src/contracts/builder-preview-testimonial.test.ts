@@ -22,29 +22,11 @@ describe('saved Testimonial avatar preview compatibility', () => {
         testimonial('testimonial-root', 'https://cdn.example.test/avatar.webp'),
       ],
       root: { props: { title: 'Home' } },
-      zones: {
-        aside: [testimonial('testimonial-zone', '/avatars/customer.webp')],
-      },
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.content[0]?.props).not.toHaveProperty('avatar');
-      expect(result.data.zones).toEqual({
-        aside: [
-          {
-            props: {
-              author: 'Ada Customer',
-              id: 'testimonial-zone',
-              quote: 'Reliable service and thoughtful support.',
-              rating: 5,
-              role: 'Verified customer',
-              avatar: '/avatars/customer.webp',
-            },
-            type: 'Testimonial',
-          },
-        ],
-      });
       expect(JSON.stringify(result.data)).not.toContain('cdn.example.test');
     }
   });

@@ -184,6 +184,9 @@ describe('PreviewInertHeader', () => {
       'sm:inline-flex'
     );
     expect(screen.getByText('/collections/new')).toBeInTheDocument();
+    expect(screen.getByText('Shop now /collections/new')).toHaveClass(
+      'sm:hidden'
+    );
     expect(screen.queryByRole('link', { name: 'Shop now' })).toBeNull();
   });
 

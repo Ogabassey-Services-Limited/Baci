@@ -105,6 +105,10 @@ describe('preview theme policy', () => {
     expect(
       candidate({ layout: { breakpoints: { sm: 'not-a-breakpoint' } } }).success
     ).toBe(false);
+    expect(
+      candidate({ typography: { fontSize: { base: 'calc(1rem + bananas)' } } })
+        .success
+    ).toBe(false);
   });
 
   it('accepts bounded CSS grammar for each non-color theme string group', () => {
@@ -121,6 +125,10 @@ describe('preview theme policy', () => {
       candidate({ typography: { fontSize: { base: '1rem' } } }).success
     ).toBe(true);
     expect(
+      candidate({ typography: { fontSize: { base: 'calc(1rem + 2px)' } } })
+        .success
+    ).toBe(true);
+    expect(
       candidate({ typography: { letterSpacing: { tight: '-0.025em' } } })
         .success
     ).toBe(true);
@@ -130,6 +138,9 @@ describe('preview theme policy', () => {
     expect(candidate({ borders: { width: { normal: '2px' } } }).success).toBe(
       true
     );
+    expect(
+      candidate({ borders: { width: { normal: 'calc(1px + 1px)' } } }).success
+    ).toBe(true);
     expect(candidate({ borders: { radius: { full: '9999px' } } }).success).toBe(
       true
     );
@@ -140,6 +151,9 @@ describe('preview theme policy', () => {
       candidate({ layout: { breakpoints: { sm: '640px' } } }).success
     ).toBe(true);
     expect(candidate({ spacing: { md: '1rem' } }).success).toBe(true);
+    expect(
+      candidate({ spacing: { md: 'clamp(1rem, 2vw, 3rem)' } }).success
+    ).toBe(true);
     expect(
       candidate({ animations: { duration: { fast: '150ms' } } }).success
     ).toBe(true);

@@ -103,7 +103,7 @@ describe('builder preview bridge render candidates', () => {
       }).success
     ).toBe(false);
     expect(message({ content: [], root, zones: { aside: [] } }).success).toBe(
-      true
+      false
     );
   });
 

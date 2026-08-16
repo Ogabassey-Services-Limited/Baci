@@ -90,6 +90,35 @@ describe('preview render policy carousel assets', () => {
     ).toBe(false);
   });
 
+  it('accepts omitted optional slide fields while validating any provided values', () => {
+    const candidate = (slide: Record<string, unknown>) =>
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [
+          {
+            props: { id: 'carousel-1', slides: [slide] },
+            type: 'HeroCarousel',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success;
+
+    expect(
+      candidate({
+        ctaText: 'Shop now',
+        image: '/images/slide.webp',
+        title: 'New collection',
+      })
+    ).toBe(true);
+    expect(
+      candidate({
+        ctaLink: 'javascript:alert(1)',
+        ctaText: 'Shop now',
+        image: '/images/slide.webp',
+        title: 'New collection',
+      })
+    ).toBe(false);
+  });
+
   it('rejects a carousel slide without validated artwork', () => {
     expect(
       builderPreviewCandidateConfigSchema.safeParse({

@@ -142,6 +142,16 @@ describe('builder preview candidate configuration', () => {
     expect(result.success).toBe(true);
   });
 
+  it('rejects an unbound legacy Puck zone that the preview cannot mount', () => {
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [],
+        root: { props: { title: 'Home' } },
+        zones: { aside: [] },
+      }).success
+    ).toBe(false);
+  });
+
   it('normalizes the minimal client fallback root title into Puck root props', () => {
     const result = builderPreviewCandidateConfigSchema.safeParse({
       content: [],

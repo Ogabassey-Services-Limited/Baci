@@ -152,24 +152,28 @@ function isPreviewCarouselSlide(value: unknown): boolean {
       'HeroCarousel',
       'updateCarouselSlide'
     ) ?? {};
+  const slideKeys = isRecord(value) ? Object.keys(value) : [];
   return (
     isRecord(value) &&
     Object.keys(value).length > 0 &&
     previewRenderProjection.isAssetSource(value.image) &&
-    Object.keys(specialProps).every((key) =>
-      Object.keys(value).includes(key)
-    ) &&
-    Object.entries(value).every(([property, propValue]) => {
-      if (propValue === undefined) return false;
-      if (property === 'image')
-        return previewRenderProjection.isAssetSource(propValue);
-      return builderDesignCapabilityAdapter.isSpecialPropValue(
-        'HeroCarousel',
-        'updateCarouselSlide',
-        property,
-        propValue
+    Object.entries(specialProps).every(([property, descriptor]) => {
+      if (!slideKeys.includes(property)) return descriptor.required !== true;
+      const propValue = value[property];
+      return (
+        propValue !== undefined &&
+        builderDesignCapabilityAdapter.isSpecialPropValue(
+          'HeroCarousel',
+          'updateCarouselSlide',
+          property,
+          propValue
+        )
       );
-    })
+    }) &&
+    slideKeys.every(
+      (property) =>
+        property === 'image' || Object.keys(specialProps).includes(property)
+    )
   );
 }
 
