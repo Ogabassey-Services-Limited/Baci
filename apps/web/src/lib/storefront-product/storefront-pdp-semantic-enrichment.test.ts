@@ -189,10 +189,11 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
   });
 
   it('classifies transport failures without fabricating an empty enrichment', async () => {
+    const responseStatus = 500;
     const { client } = createClient({
       data: null,
       error: { code: '57014', message: 'statement timeout' },
-      status: 500,
+      status: responseStatus,
     });
 
     await expect(
@@ -219,6 +220,7 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
         deadlineMs: 5_000,
         timeoutSignalAborted: false,
         errorCode: '57014',
+        responseStatus,
       })
     );
   });

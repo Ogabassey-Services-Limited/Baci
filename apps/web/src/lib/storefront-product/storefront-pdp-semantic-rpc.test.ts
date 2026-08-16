@@ -5,6 +5,18 @@ const loggerMocks = vi.hoisted(() => ({ warn: vi.fn() }));
 
 vi.mock('@/lib/logger', () => ({ logger: loggerMocks }));
 
+type AbortableQueryMock<T> = PromiseLike<T> & {
+  abortSignal: (signal: AbortSignal) => PromiseLike<T>;
+};
+
+function createAbortableQuery<T>(
+  response: T,
+  abortSignal: AbortableQueryMock<T>['abortSignal']
+): AbortableQueryMock<T> {
+  const promise = new Promise<T>((resolve) => resolve(response));
+  return Object.assign(promise, { abortSignal });
+}
+
 describe('runStorefrontPdpSemanticRpc', () => {
   beforeEach(() => {
     loggerMocks.warn.mockClear();
@@ -22,9 +34,10 @@ describe('runStorefrontPdpSemanticRpc', () => {
     );
     timeoutController.abort(timeoutError);
     vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal);
-    const query = {
-      abortSignal: vi.fn().mockRejectedValue(timeoutError),
-    } as never;
+    const abortSignal = vi.fn<(signal: AbortSignal) => PromiseLike<void>>(() =>
+      Promise.reject(timeoutError)
+    );
+    const query = createAbortableQuery<void>(undefined, abortSignal);
 
     await expect(
       runStorefrontPdpSemanticRpc(query, {
@@ -52,9 +65,10 @@ describe('runStorefrontPdpSemanticRpc', () => {
       .mockReturnValueOnce(4_001)
       .mockReturnValueOnce(4_001);
     const response = { data: [], error: null, status: 200 };
-    const query = {
-      abortSignal: vi.fn().mockResolvedValue(response),
-    } as never;
+    const abortSignal = vi.fn<
+      (signal: AbortSignal) => PromiseLike<typeof response>
+    >(() => Promise.resolve(response));
+    const query = createAbortableQuery(response, abortSignal);
 
     await expect(
       runStorefrontPdpSemanticRpc(query, {
