@@ -1,5 +1,8 @@
 import type { QuizV2Attempt } from '@/services/quiz-types';
-import type { V2StartContext } from './quiz-recovery-envelope';
+import type {
+  QuizRecoveryEnvelope,
+  V2StartContext,
+} from './quiz-recovery-envelope';
 import {
   clearQuizRecoveryEnvelope,
   createQuizRecoveryEnvelope,
@@ -57,4 +60,16 @@ export function saveQuizStartRequest(
       userId: context.userId,
     })
   );
+}
+
+export function resolveQuizStartRequestId(
+  existing: QuizRecoveryEnvelope | null,
+  requested: string
+): string {
+  const retainedTerminal = Boolean(
+    existing?.attemptId &&
+      !existing.currentQuestionId &&
+      !existing.pendingLockedOptionId
+  );
+  return retainedTerminal ? requested : (existing?.startRequestId ?? requested);
 }

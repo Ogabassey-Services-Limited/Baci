@@ -39,16 +39,22 @@ jest.mock('./quiz-recovery-envelope', () => {
     ) => mockLoadRecoveryEnvelope(...args),
   };
 });
-jest.mock('./quiz-v2-recovery-storage', () => ({
-  clearRecoveredQuizAttempt: mockClearRecoveredQuizAttempt,
-  clearTerminalRecovery: jest.fn(async () => undefined),
-  createQuizAttemptPersistence: jest.fn(() => mockPersist),
-  saveQuizStartRequest: (
-    context: V2StartContext,
-    generation: number,
-    startRequestId: string
-  ) => mockSaveQuizStartRequest(context, generation, startRequestId),
-}));
+jest.mock('./quiz-v2-recovery-storage', () => {
+  const actual = jest.requireActual<
+    typeof import('./quiz-v2-recovery-storage')
+  >('./quiz-v2-recovery-storage');
+  return {
+    ...actual,
+    clearRecoveredQuizAttempt: mockClearRecoveredQuizAttempt,
+    clearTerminalRecovery: jest.fn(async () => undefined),
+    createQuizAttemptPersistence: jest.fn(() => mockPersist),
+    saveQuizStartRequest: (
+      context: V2StartContext,
+      generation: number,
+      startRequestId: string
+    ) => mockSaveQuizStartRequest(context, generation, startRequestId),
+  };
+});
 
 export const activeAttempt: QuizV2Attempt = {
   attemptId: 'attempt-1',

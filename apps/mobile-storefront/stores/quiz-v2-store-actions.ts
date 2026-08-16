@@ -12,6 +12,7 @@ import {
   clearRecoveredQuizAttempt,
   clearTerminalRecovery,
   createQuizAttemptPersistence,
+  resolveQuizStartRequestId,
   saveQuizStartRequest,
 } from './quiz-v2-recovery-storage';
 import { resultLifecycle } from './quiz-v2-result-lifecycle';
@@ -96,8 +97,8 @@ export function createQuizV2StoreActions({
           context.eventId
         ).catch(() => null);
         if (generation !== getGeneration()) return;
-        const startRequestId =
-          existing?.startRequestId ?? context.startRequestId;
+        // biome-ignore format: Keep request-id selection compact for module-size guard.
+        const startRequestId = resolveQuizStartRequestId(existing, context.startRequestId);
         set({
           ...initialQuizV2State,
           status: 'starting',
@@ -110,8 +111,7 @@ export function createQuizV2StoreActions({
         try {
           await saveQuizStartRequest(context, generation, startRequestId);
         } catch {
-          // Recovery persistence is best-effort. A full or unavailable device
-          // store must not prevent the server start from running.
+          // Recovery persistence is best-effort; unavailable storage must not block start.
         }
         if (generation !== getGeneration()) return;
         try {

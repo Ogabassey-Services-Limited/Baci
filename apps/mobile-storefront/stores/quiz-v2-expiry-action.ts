@@ -33,7 +33,11 @@ export function createQuizV2ExpiryAction({
       return;
     expiryInFlightGeneration = generation;
     const expiryEpoch = nextLifecycleEpoch();
-    access.set({ error: null, expiryRetryable: false });
+    // Invalidate answer taps immediately while the authoritative expiry
+    // reconciliation is in flight. Without this transition, a tap can start
+    // a submission after the deadline and race the terminal response back to
+    // the question state with no attempt left to render.
+    access.set({ error: null, expiryRetryable: false, status: 'submitting' });
     try {
       const response = await reconciler();
       if (

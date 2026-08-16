@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 import type { QuizV2Attempt } from '@/services/quiz-types';
 import {
   initialQuizV2State,
+  type QuizRecoveryEnvelope,
   type V2StartContext,
 } from './quiz-recovery-envelope';
 import {
@@ -117,6 +118,38 @@ describe('createQuizV2StoreActions terminal expiry', () => {
       status: 'question',
       v2Attempt: activeAttempt,
     });
+  });
+
+  it('uses a fresh start request id after retaining a completed attempt', async () => {
+    const harness = createHarness();
+    const retained: QuizRecoveryEnvelope = {
+      attemptId: 'attempt-1',
+      currentQuestionId: null,
+      eventId: 'event-1',
+      generation: 0,
+      pendingLockedOptionId: null,
+      persistedAt: '2026-08-04T12:00:20.000Z',
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      userId: 'user-1',
+      version: 1,
+    };
+    mockLoadRecoveryEnvelope.mockResolvedValueOnce(retained);
+    const context: V2StartContext = {
+      eventId: 'event-1',
+      integrityTier: 'strong',
+      startRequestId: '22222222-2222-4222-8222-222222222222',
+      userId: 'user-1',
+    };
+    const starter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.startEventV2(context, starter);
+
+    expect(starter).toHaveBeenCalledWith(context.startRequestId);
+    expect(mockSaveQuizStartRequest).toHaveBeenCalledWith(
+      context,
+      0,
+      context.startRequestId
+    );
   });
 
   it('serializes concurrent starts before recovery storage resolves', async () => {

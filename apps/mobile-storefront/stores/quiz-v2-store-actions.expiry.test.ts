@@ -118,6 +118,32 @@ describe('createQuizV2StoreActions expiry and locked answers', () => {
     expect(reconciler).toHaveBeenCalledTimes(1);
   });
 
+  it('blocks answer taps while expiry reconciliation is pending', async () => {
+    const harness = createHarness();
+    let resolveReconciliation!: (value: QuizActiveAttemptResponse) => void;
+    const expiry = harness.actions.expireActiveEvent(
+      () =>
+        new Promise<QuizActiveAttemptResponse>((resolve) => {
+          resolveReconciliation = resolve;
+        })
+    );
+
+    expect(harness.getState().status).toBe('submitting');
+    const submitter = jest.fn(async () => activeAttempt);
+    await harness.actions.lockAndSubmitAnswer('b', submitter);
+    expect(submitter).not.toHaveBeenCalled();
+
+    resolveReconciliation(
+      response({ availability: 'pending_results', attempt: undefined })
+    );
+    await expiry;
+
+    expect(harness.getState()).toMatchObject({
+      status: 'result',
+      v2LifecycleStatus: 'pending_results',
+    });
+  });
+
   it('expiry_preserves_locked_answer_on_network_error', async () => {
     const harness = createHarness();
     harness.set({ lockedOptionId: 'a', status: 'submitting' });

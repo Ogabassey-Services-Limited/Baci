@@ -9,6 +9,7 @@ import {
   clearRecoveredQuizAttempt,
   clearTerminalRecovery,
   createQuizAttemptPersistence,
+  resolveQuizStartRequestId,
   saveQuizStartRequest,
 } from './quiz-v2-recovery-storage';
 import type { QuizV2StoreAccess } from './quiz-v2-store-access';
@@ -88,5 +89,31 @@ describe('quiz-v2-recovery-storage', () => {
     );
     expect(createQuizRecoveryEnvelope).toHaveBeenCalled();
     expect(saveQuizRecoveryEnvelope).toHaveBeenCalled();
+  });
+
+  it('uses a fresh request id after a retained terminal attempt', () => {
+    const existing = {
+      attemptId: 'attempt-1',
+      currentQuestionId: null,
+      eventId: 'event-1',
+      generation: 0,
+      pendingLockedOptionId: null,
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      userId: 'user-1',
+      version: 1 as const,
+    };
+
+    expect(
+      resolveQuizStartRequestId(
+        existing,
+        '22222222-2222-4222-8222-222222222222'
+      )
+    ).toBe('22222222-2222-4222-8222-222222222222');
+    expect(
+      resolveQuizStartRequestId(
+        { ...existing, currentQuestionId: 'question-1' },
+        '33333333-3333-4333-8333-333333333333'
+      )
+    ).toBe(existing.startRequestId);
   });
 });
