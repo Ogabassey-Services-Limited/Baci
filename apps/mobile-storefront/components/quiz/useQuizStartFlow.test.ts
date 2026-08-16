@@ -221,7 +221,7 @@ describe('useQuizStartFlow', () => {
     );
     const startEventV2 = jest.fn(
       async (
-        context: {
+        _context: {
           eventId: string;
           integrityTier: QuizIntegrityTier;
           startRequestId: string;
@@ -230,7 +230,6 @@ describe('useQuizStartFlow', () => {
         starter: (startRequestId: string) => Promise<QuizV2Attempt>
       ) => {
         await starter('start-request-1').catch(() => undefined);
-        return context;
       }
     );
     const { result } = renderHook(() =>
