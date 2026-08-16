@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-// Mock dotenv/config to prevent it from loading the local .env file during tests
+// Keep app-config tests hermetic by preventing dotenv from loading local .env.
 jest.mock('dotenv/config', () => ({}));
 
 const originalEnv = process.env;
