@@ -39,6 +39,9 @@ const mockClearStoredPushToken = jest.fn<() => Promise<void>>();
 const mockIsPushOptedOut = jest.fn<(userId: string) => Promise<boolean>>();
 const mockSetPushOptOut =
   jest.fn<(userId: string, optOut: boolean) => Promise<void>>();
+const mockTrackNotificationInteraction = jest.fn();
+const mockGetLastNotificationResponse =
+  jest.fn<() => Promise<Record<string, unknown> | null>>();
 
 jest.mock('expo-router', () => ({
   router: {
@@ -58,13 +61,16 @@ jest.mock('expo-notifications', () => ({
       };
     }
   ),
-  getLastNotificationResponseAsync: jest
-    .fn<() => Promise<null>>()
-    .mockResolvedValue(null),
+  getLastNotificationResponseAsync: mockGetLastNotificationResponse,
 }));
 
 jest.mock('@/services/push-notification-channels', () => ({
   ensureAndroidNotificationChannels: mockEnsureAndroidNotificationChannels,
+}));
+
+jest.mock('@/services/analytics', () => ({
+  trackError: jest.fn(),
+  trackNotificationInteraction: mockTrackNotificationInteraction,
 }));
 
 jest.mock('@/services/push-notifications', () => ({
@@ -108,6 +114,8 @@ describe('usePushNotifications', () => {
     jest.clearAllMocks();
     handleNotificationResponse.mockReset();
     mockNotificationResponseCallback = null;
+    mockTrackNotificationInteraction.mockReset();
+    mockGetLastNotificationResponse.mockResolvedValue(null);
     mockedUseAuthStore.mockImplementation((selector) =>
       selector({
         merchantId: 'merchant-1',
@@ -423,12 +431,73 @@ describe('usePushNotifications', () => {
     });
 
     act(() => {
-      mockNotificationResponseCallback?.({});
+      mockNotificationResponseCallback?.({
+        notification: {
+          request: {
+            identifier: 'notification-1',
+            content: {
+              data: {
+                notification_id: 'campaign-1',
+                notification_type: 'promotion',
+              },
+            },
+          },
+        },
+      });
     });
 
     expect(mockRouterPush).toHaveBeenCalledWith(
       '/utilities/history?type=power'
     );
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledWith(
+      'opened',
+      'promotion',
+      'campaign-1'
+    );
+  });
+
+  it('counts a notification tap once when Expo emits duplicate responses', async () => {
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockNotificationResponseCallback).not.toBeNull();
+    });
+
+    const response = {
+      notification: {
+        request: {
+          identifier: 'notification-duplicate',
+          content: { data: { notification_type: 'promotion' } },
+        },
+      },
+    };
+    act(() => {
+      mockNotificationResponseCallback?.(response);
+      mockNotificationResponseCallback?.(response);
+    });
+
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+  });
+
+  it('tracks a notification opened from a cold start', async () => {
+    mockGetLastNotificationResponse.mockResolvedValue({
+      notification: {
+        request: {
+          identifier: 'notification-cold-start',
+          content: { data: { notification_type: 'promotion' } },
+        },
+      },
+    });
+
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockTrackNotificationInteraction).toHaveBeenCalledWith(
+        'opened',
+        'promotion',
+        'notification-cold-start'
+      );
+    });
   });
 
   it('routes savings reminder notification taps to the wallet savings action', async () => {
@@ -448,7 +517,14 @@ describe('usePushNotifications', () => {
     });
 
     act(() => {
-      mockNotificationResponseCallback?.({});
+      mockNotificationResponseCallback?.({
+        notification: {
+          request: {
+            identifier: 'notification-2',
+            content: { data: { notification_type: 'savings_reminder' } },
+          },
+        },
+      });
     });
 
     expect(mockRouterPush).toHaveBeenCalledWith({

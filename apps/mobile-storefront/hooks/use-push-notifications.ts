@@ -11,7 +11,7 @@ import {
   setPushOptOut,
   storeLocalPushToken,
 } from '@/lib/push-token-storage';
-import { trackError } from '@/services/analytics';
+import { trackError, trackNotificationInteraction } from '@/services/analytics';
 import { ensureAndroidNotificationChannels } from '@/services/push-notification-channels';
 import {
   clearBadge,
@@ -188,6 +188,31 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   useEffect(() => {
     const cancelledRef = { current: false };
+    const openedNotificationIds = new Set<string>();
+
+    const processNotificationResponse = (
+      response: import('expo-notifications').NotificationResponse
+    ) => {
+      const content = response.notification.request.content;
+      const data = content.data as Record<string, unknown> | undefined;
+      const notificationId =
+        typeof data?.notification_id === 'string'
+          ? data.notification_id
+          : response.notification.request.identifier;
+      if (openedNotificationIds.has(notificationId)) return;
+      openedNotificationIds.add(notificationId);
+      trackNotificationInteraction(
+        'opened',
+        typeof data?.notification_type === 'string'
+          ? data.notification_type
+          : typeof data?.type === 'string'
+            ? data.type
+            : 'unknown',
+        notificationId
+      );
+      handleNotificationResponse(response, navigate);
+      clearBadge();
+    };
 
     _notificationsReady.then(() => {
       if (cancelledRef.current || !Notifications) return;
@@ -212,8 +237,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         Notifications.addNotificationResponseReceivedListener(
           (response: import('expo-notifications').NotificationResponse) => {
             log.info('Notification tapped:', response);
-            handleNotificationResponse(response, navigate);
-            clearBadge();
+            processNotificationResponse(response);
           }
         );
 
@@ -223,7 +247,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         ) => {
           if (response && !cancelledRef.current) {
             log.info('App launched from notification:', response);
-            handleNotificationResponse(response, navigate);
+            processNotificationResponse(response);
           }
         }
       );
