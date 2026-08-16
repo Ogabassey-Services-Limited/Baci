@@ -10,7 +10,7 @@ const candidate = {
 const defaultResearchResult = {
   status: 0,
   stdout:
-    '{"type":"item.completed","item":{"text":"RESEARCH_SUMMARY: traced the failure to the reported boundary.\\nROOT_CAUSE_CONFIDENCE: medium\\nOPTIONS_CONSIDERED:\\n- smallest code fix\\n- operational mitigation\\nSELECTED_FIX: smallest code fix\\nVALIDATION_PLAN: run the focused regression suite"}}\n{"type":"turn.completed"}\n',
+    '{"type":"item.completed","item":{"type":"agent_message","text":"RESEARCH_SUMMARY: traced the failure to the reported boundary.\\nROOT_CAUSE_CONFIDENCE: medium\\nOPTIONS_CONSIDERED:\\n- smallest code fix\\n- operational mitigation\\nSELECTED_FIX: smallest code fix\\nVALIDATION_PLAN: run the focused regression suite"}}\n{"type":"turn.completed"}\n',
   stderr: '',
 };
 const defaultImplementationResult = {

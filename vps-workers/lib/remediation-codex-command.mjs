@@ -1,6 +1,9 @@
 import { existsSync, lstatSync, mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+export const REMEDIATION_VERIFY_COMMAND =
+  'pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test';
+
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
 }
@@ -195,9 +198,9 @@ export function buildRemediationCodexCommand({
 export function buildRemediationVerificationCommand({
   env,
   repoDir,
-  verifyCommand,
   worktreeDir,
 }) {
+  const verifyCommand = REMEDIATION_VERIFY_COMMAND;
   const image = env.BACI_CODEX_DOCKER_IMAGE;
   if (!image) {
     return { args: ['-lc', verifyCommand], command: 'bash' };

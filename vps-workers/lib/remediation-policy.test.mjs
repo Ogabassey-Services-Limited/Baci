@@ -85,7 +85,10 @@ describe('remediation policy', () => {
     assert.doesNotMatch(prompt, /Research gate/);
     assert.match(prompt, /Implementation \(research was completed/);
     assert.match(prompt, /Run only focused tests/);
-    assert.match(prompt, /outer worker runs the wider pnpm turbo\s+gates/);
+    assert.match(prompt, /immutable gates/);
+    assert.match(prompt, /pnpm turbo lint/);
+    assert.match(prompt, /pnpm turbo typecheck/);
+    assert.match(prompt, /pnpm turbo test/);
     assert.match(prompt, /outer remediator to commit/);
     assert.doesNotMatch(prompt, /Create a draft pull request/);
     assert.match(prompt, /Do not modify protected files/);

@@ -20,7 +20,7 @@ describe('remediation git workflow output', () => {
         return {
           status: 0,
           stdout:
-            '{"type":"item.completed","item":{"text":"The cause is unclear."}}\n{"type":"turn.completed"}\n',
+            '{"type":"item.completed","item":{"type":"agent_message","text":"The cause is unclear."}}\n{"type":"turn.completed"}\n',
           stderr: '',
         };
       }
@@ -30,7 +30,6 @@ describe('remediation git workflow output', () => {
     const result = runRemediationAutofix({
       candidate,
       env: {
-        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
       },
@@ -62,6 +61,43 @@ describe('remediation git workflow output', () => {
     );
   });
 
+  it('retains a failed worktree when research is blocked and retention is enabled', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) => {
+      if (isResearchInvocation(command, args)) {
+        baseRunner(command, args, options);
+        return {
+          status: 0,
+          stdout:
+            '{"type":"item.completed","item":{"type":"agent_message","text":"The cause is unclear."}}\n{"type":"turn.completed"}\n',
+          stderr: '',
+        };
+      }
+      return baseRunner(command, args, options);
+    };
+
+    const result = runRemediationAutofix({
+      candidate,
+      env: {
+        BACI_REMEDIATION_RETAIN_FAILED_WORKTREE: '1',
+        BACI_REPO_DIR: '/repo',
+        BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
+      },
+      runner,
+    });
+
+    assert.equal(result.type, 'research_blocked');
+    assert.equal(
+      calls.some(
+        (call) =>
+          call[0] === 'git' &&
+          call.includes('worktree') &&
+          call.includes('remove')
+      ),
+      false
+    );
+  });
+
   it('preserves Codex output when an investigation makes no changes', () => {
     const outputDir = mkdtempSync(join(tmpdir(), 'baci-remediation-output-'));
     const { runner: baseRunner } = makeRunner({ statusOutput: '' });
@@ -81,7 +117,6 @@ describe('remediation git workflow output', () => {
     const result = runRemediationAutofix({
       candidate,
       env: {
-        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REMEDIATION_OUTPUT_DIR: outputDir,
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_RUN_ID: 'report-run',
@@ -119,7 +154,6 @@ describe('remediation git workflow output', () => {
     const result = runRemediationAutofix({
       candidate,
       env: {
-        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REMEDIATION_OUTPUT_DIR: outputDir,
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_RUN_ID: 'redacted-artifact',
@@ -161,7 +195,6 @@ describe('remediation git workflow output', () => {
     const result = runRemediationAutofix({
       candidate,
       env: {
-        BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
         BACI_REMEDIATION_OUTPUT_DIR: outputDir,
         BACI_REPO_DIR: '/repo',
         BACI_REMEDIATION_RUN_ID: 'paystack-artifact',
@@ -195,7 +228,6 @@ describe('remediation git workflow output', () => {
         runRemediationAutofix({
           candidate,
           env: {
-            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
             BACI_REMEDIATION_OUTPUT_DIR: outputDir,
             BACI_REPO_DIR: '/repo',
             BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
@@ -224,7 +256,6 @@ describe('remediation git workflow output', () => {
         runRemediationAutofix({
           candidate,
           env: {
-            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
             BACI_REPO_DIR: '/repo',
             BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
           },
@@ -254,7 +285,6 @@ describe('remediation git workflow output', () => {
         runRemediationAutofix({
           candidate,
           env: {
-            BACI_REMEDIATION_VERIFY_COMMAND: 'pnpm turbo lint',
             BACI_REPO_DIR: '/repo',
             BACI_REMEDIATION_WORKTREE_ROOT: '/worktrees',
           },

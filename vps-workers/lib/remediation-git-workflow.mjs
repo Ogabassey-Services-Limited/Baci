@@ -68,13 +68,6 @@ export function runRemediationAutofix({
   if (!repoDir) {
     throw new Error('BACI_REPO_DIR is required for autofix mode');
   }
-  const verifyCommand = env.BACI_REMEDIATION_VERIFY_COMMAND;
-  if (!verifyCommand) {
-    return {
-      reasons: ['BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode'],
-      type: 'configuration_blocked',
-    };
-  }
   const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
   const commandEnv = { ...process.env, ...env };
   const {
@@ -184,7 +177,6 @@ export function runRemediationAutofix({
         output: codexPhases.researchExecution.output,
         outputDir: env.BACI_REMEDIATION_OUTPUT_DIR,
       });
-      cleanupCompletedWorktree = true;
       return {
         branch,
         reasons: codexPhases.research.reasons,
@@ -229,7 +221,6 @@ export function runRemediationAutofix({
     const verificationCommand = buildRemediationVerificationCommand({
       env: commandEnv,
       repoDir,
-      verifyCommand,
       worktreeDir,
     });
     try {
