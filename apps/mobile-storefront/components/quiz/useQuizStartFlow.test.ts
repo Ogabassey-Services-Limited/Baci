@@ -93,8 +93,8 @@ describe('useQuizStartFlow', () => {
     let resolvePreparation!: () => void;
     const prepareQuizMobileAds = jest.fn(
       () =>
-        new Promise<void>((resolve) => {
-          resolvePreparation = resolve;
+        new Promise<boolean>((resolve) => {
+          resolvePreparation = () => resolve(true);
         })
     );
     const { result } = renderHook(() =>

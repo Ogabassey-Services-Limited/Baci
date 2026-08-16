@@ -47,7 +47,7 @@ type StartEventV2 = (
   starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
 
-type PrepareQuizMobileAds = () => Promise<boolean> | Promise<void>;
+type PrepareQuizMobileAds = () => Promise<boolean>;
 
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
