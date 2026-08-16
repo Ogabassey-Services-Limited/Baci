@@ -7,7 +7,7 @@ describe('PreviewInertHeader', () => {
     const { rerender } = render(
       <PreviewInertHeader
         layout="logo-center"
-        navigationLinks={[{ label: 'Shop' }]}
+        navigationLinks={[{ label: 'Shop', url: '/products' }]}
         showCart
         showMenu
         showSearch
@@ -33,7 +33,13 @@ describe('PreviewInertHeader', () => {
     expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
 
     rerender(
-      <PreviewInertHeader layout="logo-left-nav-right" showAccount={false} />
+      <PreviewInertHeader
+        layout="logo-left-nav-right"
+        showAccount={false}
+        showCart={false}
+        showMenu={false}
+        showSearch={false}
+      />
     );
 
     expect(header).toHaveAttribute('data-layout', 'logo-left-nav-right');
@@ -50,7 +56,7 @@ describe('PreviewInertHeader', () => {
   it('hides saved navigation links when the production menu control is disabled', () => {
     render(
       <PreviewInertHeader
-        navigationLinks={[{ label: 'Shop' }]}
+        navigationLinks={[{ label: 'Shop', url: '/products' }]}
         showMenu={false}
       />
     );
@@ -63,7 +69,10 @@ describe('PreviewInertHeader', () => {
   it('shows accepted navigation labels in an inert mobile disclosure', () => {
     render(
       <PreviewInertHeader
-        navigationLinks={[{ label: 'Shop' }, { label: 'About' }]}
+        navigationLinks={[
+          { label: 'Shop', url: '/products' },
+          { label: 'About', url: '/about' },
+        ]}
         showMenu
       />
     );
@@ -74,7 +83,29 @@ describe('PreviewInertHeader', () => {
     expect(mobileNavigation).toHaveClass('md:hidden');
     expect(mobileNavigation).toHaveTextContent('Shop');
     expect(mobileNavigation).toHaveTextContent('About');
+    expect(screen.getAllByText('/products')).toHaveLength(2);
+    expect(screen.getAllByText('/about')).toHaveLength(2);
     expect(mobileNavigation.querySelectorAll('a')).toHaveLength(0);
+  });
+
+  it('uses published Header action defaults while retaining explicit disabled controls', () => {
+    const { rerender } = render(<PreviewInertHeader />);
+
+    expect(screen.getAllByRole('button', { name: 'Search' })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Cart' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Menu' })).toBeDisabled();
+
+    rerender(
+      <PreviewInertHeader
+        showCart={false}
+        showMenu={false}
+        showSearch={false}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Search' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cart' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Menu' })).toBeNull();
   });
 
   it('renders every supported search style, radius, glass, and padding control', () => {

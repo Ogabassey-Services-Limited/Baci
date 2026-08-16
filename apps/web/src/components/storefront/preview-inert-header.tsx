@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 type PreviewLink = {
   label: string;
+  url: string;
 };
 
 type PreviewHeaderLayout =
@@ -73,6 +74,15 @@ function InertHeaderAction({
   );
 }
 
+function InertNavigationLink({ label, url }: PreviewLink) {
+  return (
+    <span className="inline-flex items-baseline gap-1">
+      <span>{label}</span>
+      <span className="text-xs opacity-70">{url}</span>
+    </span>
+  );
+}
+
 export function PreviewInertHeader({
   backgroundImage,
   backgroundColor,
@@ -84,11 +94,11 @@ export function PreviewInertHeader({
   paddingY = 'md',
   searchRadius = 'md',
   searchStyle = 'outline',
-  showCart = false,
+  showCart = true,
   showAccount = true,
   showLogo = true,
-  showMenu = false,
-  showSearch = false,
+  showMenu = true,
+  showSearch = true,
   sticky = false,
   storeName = 'Preview Store',
   textColor,
@@ -184,14 +194,14 @@ export function PreviewInertHeader({
           }`}
         >
           {navigationLinks.map((link) => (
-            <span key={link.label}>{link.label}</span>
+            <InertNavigationLink key={link.label} {...link} />
           ))}
         </nav>
       ) : null}
       {showMenu && navigationLinks.length > 0 ? (
         <nav aria-label="Preview mobile navigation" className="md:hidden">
           {navigationLinks.map((link) => (
-            <span key={link.label}>{link.label}</span>
+            <InertNavigationLink key={link.label} {...link} />
           ))}
         </nav>
       ) : null}

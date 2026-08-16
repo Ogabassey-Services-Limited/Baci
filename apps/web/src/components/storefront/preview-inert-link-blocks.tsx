@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
-import { AnimatedWrapper } from '@/components/builder/animated-wrapper';
 import { ThemedButton } from '@/components/themed/themed-button';
+import { PreviewInertFAQ } from './preview-inert-faq';
 import { PreviewInertFooter } from './preview-inert-footer';
 import { PreviewInertHeader } from './preview-inert-header';
 import {
@@ -20,6 +20,7 @@ type PreviewFlexProps = {
 
 type PreviewButtonProps = {
   align?: PreviewButtonAlign;
+  link?: string;
   size?: PreviewButtonSize;
   text?: string;
   variant?: PreviewButtonVariant;
@@ -30,16 +31,6 @@ type PreviewButtonAlign = 'left' | 'center' | 'right';
 type PreviewButtonSize = 'sm' | 'default' | 'lg';
 
 type PreviewButtonVariant = 'primary' | 'background' | 'accent';
-
-type PreviewFaqProps = Pick<
-  PreviewInertHeroProps,
-  'animationDelay' | 'animationDuration' | 'animationTrigger' | 'animationType'
-> & {
-  items?: { answer?: string; question?: string }[];
-  style?: 'accordion' | 'grid' | 'list';
-  subtitle?: string;
-  title?: string;
-};
 
 type PreviewPlaceholderProps = {
   label?: string;
@@ -56,12 +47,6 @@ const previewButtonSizeClasses: Record<PreviewButtonSize, string> = {
   lg: 'h-10 px-6 py-3 text-base',
   sm: 'h-8 px-3 text-sm',
 };
-
-const previewFaqStyleClasses = {
-  accordion: 'space-y-3',
-  grid: 'grid gap-4 sm:grid-cols-2',
-  list: 'space-y-2',
-} as const;
 
 function InertAction({
   children,
@@ -127,6 +112,15 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
               {activeSlide.ctaText ? (
                 <InertAction size="lg">{activeSlide.ctaText}</InertAction>
               ) : null}
+              {activeSlide.ctaLink ? (
+                <output
+                  aria-label={`Preview carousel slide ${activeIndex + 1} CTA destination`}
+                  className="block max-w-full truncate text-xs opacity-80"
+                  title={activeSlide.ctaLink}
+                >
+                  {activeSlide.ctaLink}
+                </output>
+              ) : null}
             </div>
           </article>
         ) : null}
@@ -139,11 +133,20 @@ function PreviewHeroCarousel({ slides = [] }: PreviewCarouselProps) {
         >
           <summary>Review {slides.length} slides</summary>
           <ol className="mt-3 space-y-3">
-            {slides.slice(1).map((slide) => (
+            {slides.slice(1).map((slide, index) => (
               <li key={`${slide.title ?? ''}:${slide.ctaText ?? ''}`}>
                 <h3>{slide.title}</h3>
                 {slide.subtitle ? <p>{slide.subtitle}</p> : null}
                 {slide.ctaText ? <p>{slide.ctaText}</p> : null}
+                {slide.ctaLink ? (
+                  <output
+                    aria-label={`Preview carousel slide ${index + 2} CTA destination`}
+                    className="block max-w-full truncate text-xs opacity-80"
+                    title={slide.ctaLink}
+                  >
+                    {slide.ctaLink}
+                  </output>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -163,6 +166,7 @@ function PreviewFlex({ puck }: PreviewFlexProps) {
 
 function PreviewButton({
   align = 'center',
+  link,
   size = 'default',
   text,
   variant = 'primary',
@@ -182,55 +186,16 @@ function PreviewButton({
       >
         {text}
       </InertAction>
+      {link ? (
+        <output
+          aria-label="Preview button destination"
+          className="max-w-full truncate text-xs opacity-80"
+          title={link}
+        >
+          {link}
+        </output>
+      ) : null}
     </div>
-  );
-}
-
-function PreviewFAQ({
-  animationDelay = 0,
-  animationDuration = 'normal',
-  animationTrigger = 'scroll',
-  animationType = 'none',
-  items = [],
-  style = 'accordion',
-  subtitle,
-  title,
-}: PreviewFaqProps) {
-  return (
-    <AnimatedWrapper
-      animation={{
-        delay: animationDelay,
-        duration: animationDuration,
-        trigger: animationTrigger === 'onload' ? 'immediate' : animationTrigger,
-        type: animationType,
-      }}
-    >
-      <section
-        aria-label="Preview FAQ"
-        data-animation-delay={animationDelay}
-        data-animation-duration={animationDuration}
-        data-animation-trigger={animationTrigger}
-        data-animation-type={animationType}
-      >
-        <h2>{title}</h2>
-        {subtitle ? <p>{subtitle}</p> : null}
-        <div className={previewFaqStyleClasses[style]} data-style={style}>
-          {items.map((item) =>
-            style === 'accordion' ? (
-              <details key={item.question} open>
-                <summary>{item.question}</summary>
-                {item.answer ? <p>{item.answer}</p> : null}
-              </details>
-            ) : (
-              <article key={item.question}>
-                <h3>{item.question}</h3>
-                {item.answer ? <p>{item.answer}</p> : null}
-              </article>
-            )
-          )}
-        </div>
-      </section>
-    </AnimatedWrapper>
   );
 }
 
@@ -257,7 +222,7 @@ function renderPreviewInertHeader(
 export const previewInertLinkBlocks = {
   Button: { render: PreviewButton },
   Footer: { render: PreviewInertFooter },
-  FAQ: { render: PreviewFAQ },
+  FAQ: { render: PreviewInertFAQ },
   Flex: { render: PreviewFlex },
   Header: { render: renderPreviewInertHeader },
   Hero: { render: PreviewInertHero },
