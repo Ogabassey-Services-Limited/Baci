@@ -28,7 +28,7 @@ export function createQuizV2StoreActions({
   let lastReconciledAt = 0;
   let reconciliationInFlight = false;
   let retryInFlight = false;
-  let startInFlight = false;
+  let startInFlightGeneration: number | null = null;
   let lifecycleEpoch = 0;
   // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
   const access = { get, getGeneration, getMessage, set };
@@ -64,9 +64,10 @@ export function createQuizV2StoreActions({
       expiryRetryable: false,
       error: null,
     });
-    if (attempt.status === 'event_cancelled') {
-      await clearRecoveredQuizAttempt(access, attempt.eventId);
-    }
+    if (attempt.status === 'event_cancelled')
+      await clearRecoveredQuizAttempt(access, attempt.eventId).catch(
+        () => undefined
+      );
   };
   const applyRecoveryResponse = createQuizV2RecoveryResponseApplier({
     access,
@@ -83,11 +84,12 @@ export function createQuizV2StoreActions({
   });
   return {
     startEventV2: (context: V2StartContext, starter) => {
-      if (startInFlight || ['starting', 'submitting'].includes(get().status))
+      const generation = getGeneration();
+      if (startInFlightGeneration === generation) return Promise.resolve();
+      if (['starting', 'submitting'].includes(get().status))
         return Promise.resolve();
-      startInFlight = true;
+      startInFlightGeneration = generation;
       return (async () => {
-        const generation = getGeneration();
         const existing = await loadQuizRecoveryEnvelope(
           context.userId,
           context.eventId
@@ -108,8 +110,7 @@ export function createQuizV2StoreActions({
           await saveQuizStartRequest(context, generation, startRequestId);
         } catch {
           // Recovery persistence is best-effort. A full or unavailable device
-          // store must not prevent the server start from running or strand the
-          // quiz in the starting state.
+          // store must not prevent the server start from running.
         }
         if (generation !== getGeneration()) return;
         try {
@@ -120,7 +121,8 @@ export function createQuizV2StoreActions({
             set({ status: 'ready', error: getMessage(error) });
         }
       })().finally(() => {
-        startInFlight = false;
+        if (startInFlightGeneration === generation)
+          startInFlightGeneration = null;
       });
     },
     recoverEvent: async (userId, eventId, recoverer, resender) => {

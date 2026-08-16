@@ -27,6 +27,7 @@ const mockSaveQuizStartRequest =
       startRequestId: string
     ) => Promise<void>
   >();
+const mockClearRecoveredQuizAttempt = jest.fn(async () => undefined);
 jest.mock('./quiz-recovery-envelope', () => {
   const actual = jest.requireActual<typeof import('./quiz-recovery-envelope')>(
     './quiz-recovery-envelope'
@@ -39,7 +40,7 @@ jest.mock('./quiz-recovery-envelope', () => {
   };
 });
 jest.mock('./quiz-v2-recovery-storage', () => ({
-  clearRecoveredQuizAttempt: jest.fn(async () => undefined),
+  clearRecoveredQuizAttempt: mockClearRecoveredQuizAttempt,
   clearTerminalRecovery: jest.fn(async () => undefined),
   createQuizAttemptPersistence: jest.fn(() => mockPersist),
   saveQuizStartRequest: (
@@ -73,6 +74,10 @@ const activeAttempt: QuizV2Attempt = {
 const activeQuestion = activeAttempt.question;
 if (!activeQuestion)
   throw new Error('The active-attempt fixture needs a question');
+const cancelledAttempt: QuizV2Attempt = {
+  ...activeAttempt,
+  status: 'event_cancelled',
+};
 
 function createHarness() {
   let generation = 0;
@@ -123,12 +128,14 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     mockPersist.mockResolvedValue(undefined);
     mockLoadRecoveryEnvelope.mockResolvedValue(null);
     mockSaveQuizStartRequest.mockResolvedValue(undefined);
+    mockClearRecoveredQuizAttempt.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     mockPersist.mockReset();
     mockLoadRecoveryEnvelope.mockReset();
     mockSaveQuizStartRequest.mockReset();
+    mockClearRecoveredQuizAttempt.mockReset();
   });
 
   it('still starts when recovery storage rejects the start envelope', async () => {
@@ -176,6 +183,28 @@ describe('createQuizV2StoreActions terminal expiry', () => {
       status: 'question',
       v2Attempt: activeAttempt,
     });
+  });
+
+  it('keeps cancellation terminal when recovery cleanup rejects', async () => {
+    mockClearRecoveredQuizAttempt.mockRejectedValueOnce(
+      new Error('storage unavailable')
+    );
+    const harness = createHarness();
+
+    await harness.actions.lockAndSubmitAnswer(
+      'a',
+      jest.fn(async () => cancelledAttempt)
+    );
+
+    expect(harness.getState()).toMatchObject({
+      status: 'result',
+      v2Attempt: null,
+      v2LifecycleStatus: 'event_cancelled',
+    });
+    expect(mockClearRecoveredQuizAttempt).toHaveBeenCalledWith(
+      expect.anything(),
+      'event-1'
+    );
   });
 
   it('starts with the requested id when recovery storage cannot be read', async () => {
@@ -229,6 +258,49 @@ describe('createQuizV2StoreActions terminal expiry', () => {
     await Promise.all([firstStart, secondStart]);
 
     expect(starter).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the start mutex when the account generation changes', async () => {
+    const harness = createHarness();
+    harness.set({ status: 'ready', v2Attempt: null });
+    let resolveFirstLoad!: (value: null) => void;
+    mockLoadRecoveryEnvelope.mockReturnValueOnce(
+      new Promise<null>((resolve) => {
+        resolveFirstLoad = resolve;
+      })
+    );
+    const first = harness.actions.startEventV2(
+      {
+        eventId: 'event-1',
+        integrityTier: 'strong',
+        startRequestId: '55555555-5555-4555-8555-555555555555',
+        userId: 'user-1',
+      },
+      jest.fn(async () => activeAttempt)
+    );
+
+    for (let attempts = 0; attempts < 10 && !resolveFirstLoad; attempts += 1)
+      await Promise.resolve();
+    if (!resolveFirstLoad) throw new Error('first start did not begin');
+
+    harness.setGeneration(1);
+    harness.set({ ...initialQuizV2State, status: 'ready' });
+    const secondStarter = jest.fn(async () => activeAttempt);
+    const second = harness.actions.startEventV2(
+      {
+        eventId: 'event-2',
+        integrityTier: 'strong',
+        startRequestId: '66666666-6666-4666-8666-666666666666',
+        userId: 'user-2',
+      },
+      secondStarter
+    );
+
+    await second;
+    expect(secondStarter).toHaveBeenCalledTimes(1);
+
+    resolveFirstLoad(null);
+    await first;
   });
 
   it('does not write a stale starting state after recovery storage resolves', async () => {
