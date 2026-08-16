@@ -108,6 +108,50 @@ describe('useQuizPersistedRecovery', () => {
     expect(loadQuizRecoveryEnvelopes).toHaveBeenCalledTimes(1);
   });
 
+  it('re-arms recovery when a later terminal envelope is created', async () => {
+    let envelopes: Awaited<ReturnType<typeof loadQuizRecoveryEnvelopes>> = [];
+    jest
+      .mocked(loadQuizRecoveryEnvelopes)
+      .mockImplementation(async () => envelopes);
+    const recoverEvent = jest
+      .fn<RecoverEvent>()
+      .mockResolvedValue('recovered_terminal');
+    const { result, rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useQuizPersistedRecovery({
+          enabled,
+          recoverEvent,
+          userId: 'user-1',
+        }),
+      { initialProps: { enabled: true } }
+    );
+
+    await waitFor(() => expect(loadQuizRecoveryEnvelopes).toHaveBeenCalled());
+    envelopes = [
+      {
+        attemptId: 'attempt-later',
+        currentQuestionId: null,
+        eventId: 'event-later',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+    ];
+    rerender({ enabled: false });
+    act(() => result.current.retryRecovery());
+    rerender({ enabled: true });
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(1));
+    expect(recoverEvent).toHaveBeenCalledWith(
+      'user-1',
+      'event-later',
+      expect.any(Function),
+      expect.any(Function)
+    );
+  });
+
   it('discards stale envelopes until a later retained attempt is recovered', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
       {

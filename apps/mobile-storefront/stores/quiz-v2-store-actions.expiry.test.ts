@@ -149,6 +149,34 @@ describe('createQuizV2StoreActions expiry and locked answers', () => {
     });
   });
 
+  it('allows a new account generation to retry while the old retry is pending', async () => {
+    const harness = createHarness();
+    harness.set({ lockedOptionId: 'a' });
+    let resolveFirst!: (attempt: QuizV2Attempt) => void;
+    const firstSubmitter = jest.fn(
+      () =>
+        new Promise<QuizV2Attempt>((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    const first = harness.actions.retryLockedAnswer(firstSubmitter);
+    if (!resolveFirst) throw new Error('first retry did not start');
+
+    harness.setGeneration(1);
+    harness.set({
+      lockedOptionId: 'b',
+      status: 'question',
+      v2Attempt: { ...activeAttempt, attemptId: 'attempt-2' },
+    });
+    const secondSubmitter = jest.fn(async () => activeAttempt);
+
+    await harness.actions.retryLockedAnswer(secondSubmitter);
+
+    expect(secondSubmitter).toHaveBeenCalledWith('b');
+    resolveFirst(activeAttempt);
+    await first;
+  });
+
   it('retry_locked_answer_ignores_failure_after_expiry', async () => {
     const harness = createHarness();
     harness.set({ lockedOptionId: 'a', status: 'submitting' });

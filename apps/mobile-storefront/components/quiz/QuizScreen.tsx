@@ -279,7 +279,10 @@ export function QuizScreen({
           expectedUserId={useAuthStore.getState().user?.id ?? null}
           legacyResult={result}
           lifecycle={v2LifecycleStatus}
-          onReturnToQuizList={reset}
+          onReturnToQuizList={() => {
+            reset();
+            retryRecovery();
+          }}
           serverNow={terminalContext?.serverNow}
           styles={styles}
           v2Result={v2Result}

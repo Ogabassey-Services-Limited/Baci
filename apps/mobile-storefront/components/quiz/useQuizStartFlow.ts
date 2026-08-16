@@ -109,8 +109,27 @@ export function useQuizStartFlow({
   };
 
   const handleStart = async (eventId: string) => {
+    const startUserId = useAuthStore.getState().user?.id ?? null;
     await prepareAdsBeforeStart();
     const event = events.find((candidate) => candidate.id === eventId);
+    if (useAuthStore.getState().user?.id !== startUserId) {
+      const sessionChangedStarter = () =>
+        Promise.reject<never>(createQuizSessionChangedError());
+      if (event?.contractVersion === 2 && startEventV2) {
+        await startEventV2(
+          {
+            eventId,
+            integrityTier,
+            startRequestId: createQuizStartRequestId(),
+            userId: null,
+          },
+          sessionChangedStarter
+        );
+      } else {
+        await startEvent(eventId, integrityTier, sessionChangedStarter);
+      }
+      return;
+    }
     if (event?.contractVersion === 2) {
       if (!startEventV2) {
         // Do not fall back to the v1 endpoint when the server declared v2.
@@ -127,7 +146,6 @@ export function useQuizStartFlow({
         );
         return;
       }
-      const startUserId = useAuthStore.getState().user?.id ?? null;
       await startEventV2(
         {
           eventId,

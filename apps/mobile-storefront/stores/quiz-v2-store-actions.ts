@@ -27,7 +27,7 @@ export function createQuizV2StoreActions({
 }: QuizV2StoreAccess): QuizV2StoreActions {
   let lastReconciledAt = 0;
   let reconciliationInFlight = false;
-  let retryInFlight = false;
+  let retryInFlightGeneration: number | null = null;
   let startInFlightGeneration: number | null = null;
   let lifecycleEpoch = 0;
   // biome-ignore format: Compact dependency bundle keeps this coordinator within the module budget.
@@ -266,11 +266,11 @@ export function createQuizV2StoreActions({
       }
     },
     retryLockedAnswer: async (submitter) => {
-      const optionId = get().lockedOptionId;
-      if (retryInFlight || !optionId || !get().v2Attempt?.question) return;
-      retryInFlight = true;
-      const generation = getGeneration();
+      const [optionId, generation] = [get().lockedOptionId, getGeneration()];
+      if (!optionId || !get().v2Attempt?.question) return;
       const retryEpoch = lifecycleEpoch;
+      if (retryInFlightGeneration === generation) return;
+      retryInFlightGeneration = generation;
       set({ status: 'submitting', error: null });
       try {
         const next = await submitter(optionId);
@@ -280,7 +280,8 @@ export function createQuizV2StoreActions({
         if (generation === getGeneration() && retryEpoch === lifecycleEpoch)
           set({ status: 'question', error: getMessage(error) });
       } finally {
-        retryInFlight = false;
+        if (retryInFlightGeneration === generation)
+          retryInFlightGeneration = null;
       }
     },
     setV2Result: (result) => {
