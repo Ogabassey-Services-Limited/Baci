@@ -55,4 +55,67 @@ describe('createQuizV2ExpiryAction', () => {
       status: 'question',
     });
   });
+
+  it('allows a new account generation to reconcile while the old one is pending', async () => {
+    let generation = 0;
+    let state = {
+      status: 'question',
+      v2Attempt: attempt,
+    } as unknown as QuizV2StoreState;
+    const access = {
+      get: () => state,
+      getGeneration: () => generation,
+      getMessage: (error: unknown) =>
+        error instanceof Error ? error.message : String(error),
+      set: (patch: Partial<QuizV2StoreState>) => {
+        state = { ...state, ...patch };
+      },
+    };
+    const applyRecoveryResponse = async (
+      _response: QuizActiveAttemptResponse,
+      _fallback: QuizV2Attempt
+    ) => undefined;
+    let lifecycleEpoch = 0;
+    const expire = createQuizV2ExpiryAction({
+      access,
+      applyRecoveryResponse,
+      getLifecycleEpoch: () => lifecycleEpoch,
+      nextLifecycleEpoch: () => {
+        lifecycleEpoch += 1;
+        return lifecycleEpoch;
+      },
+    });
+    let resolveFirst!: (response: QuizActiveAttemptResponse) => void;
+    const first = expire(
+      () =>
+        new Promise<QuizActiveAttemptResponse>((resolve) => {
+          resolveFirst = resolve;
+        })
+    );
+    await Promise.resolve();
+    generation = 1;
+    state = {
+      ...state,
+      error: null,
+      expiryRetryable: false,
+      v2Attempt: { ...attempt, attemptId: 'attempt-2' },
+    };
+
+    await expire(async () => {
+      throw new Error('account B network down');
+    });
+
+    expect(state).toMatchObject({
+      error: 'account B network down',
+      expiryRetryable: true,
+      status: 'question',
+    });
+    resolveFirst({
+      availability: 'none',
+      eventEndsAt: attempt.eventEndsAt,
+      serverNow: attempt.serverNow,
+    });
+    await first;
+    expect(state.error).toBe('account B network down');
+  });
 });

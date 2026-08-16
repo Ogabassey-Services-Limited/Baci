@@ -169,8 +169,8 @@ export function createQuizV2StoreActions({
           recovered.availability === 'active' && recovered.attempt;
         const terminalAttemptId =
           recovered.attempt?.attemptId ??
-          envelope?.attemptId ??
-          recovered.attemptId;
+          recovered.attemptId ??
+          envelope?.attemptId;
         const terminalEventEndsAt =
           recovered.attempt?.eventEndsAt ?? recovered.eventEndsAt;
         const terminalServerNow =

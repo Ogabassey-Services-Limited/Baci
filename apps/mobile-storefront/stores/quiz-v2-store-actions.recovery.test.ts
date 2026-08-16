@@ -42,6 +42,45 @@ describe('createQuizV2StoreActions recovery', () => {
     });
   });
 
+  it('prefers the server attempt id over a stale persisted envelope', async () => {
+    const harness = createHarness();
+    mockLoadRecoveryEnvelope.mockResolvedValueOnce({
+      attemptId: 'stale-attempt',
+      currentQuestionId: null,
+      eventId: 'event-1',
+      generation: 1,
+      pendingLockedOptionId: null,
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      userId: 'user-1',
+      version: 1,
+    });
+
+    await harness.actions.recoverEvent(
+      'user-1',
+      'event-1',
+      async () =>
+        response({
+          attempt: {
+            ...activeAttempt,
+            attemptId: 'server-attempt',
+            status: 'submitted_pending_results',
+          },
+          availability: 'pending_results',
+        }),
+      jest.fn<
+        (optionId: string, questionId: string) => Promise<QuizV2Attempt>
+      >()
+    );
+
+    expect(harness.getState()).toMatchObject({
+      status: 'result',
+      terminalContext: {
+        attemptId: 'server-attempt',
+        eventId: 'event-1',
+      },
+    });
+  });
+
   it('does not apply a resend response after the account generation changes', async () => {
     const harness = createHarness();
     mockLoadRecoveryEnvelope.mockResolvedValueOnce({

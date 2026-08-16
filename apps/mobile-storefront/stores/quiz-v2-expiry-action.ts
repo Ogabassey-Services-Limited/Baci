@@ -20,18 +20,18 @@ export function createQuizV2ExpiryAction({
   getLifecycleEpoch,
   nextLifecycleEpoch,
 }: CreateQuizV2ExpiryActionInput) {
-  let expiryInFlight = false;
+  let expiryInFlightGeneration: number | null = null;
 
   return async (reconciler: () => Promise<QuizActiveAttemptResponse>) => {
     const attempt = access.get().v2Attempt;
+    const generation = access.getGeneration();
     if (
-      expiryInFlight ||
+      expiryInFlightGeneration === generation ||
       !attempt ||
       !['question', 'submitting'].includes(access.get().status)
     )
       return;
-    expiryInFlight = true;
-    const generation = access.getGeneration();
+    expiryInFlightGeneration = generation;
     const expiryEpoch = nextLifecycleEpoch();
     access.set({ error: null, expiryRetryable: false });
     try {
@@ -50,7 +50,8 @@ export function createQuizV2ExpiryAction({
           error: access.getMessage(error),
         });
     } finally {
-      expiryInFlight = false;
+      if (expiryInFlightGeneration === generation)
+        expiryInFlightGeneration = null;
     }
   };
 }

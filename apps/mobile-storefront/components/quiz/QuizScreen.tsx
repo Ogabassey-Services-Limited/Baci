@@ -250,11 +250,14 @@ export function QuizScreen({
         </QuizGameplayScrollView>
       ) : null}
 
+      {music.shouldPlay ? (
+        <View style={styles.musicContainer}>
+          <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
+        </View>
+      ) : null}
+
       {(status === 'question' || status === 'submitting') && v2Attempt ? (
         <QuizGameplayScrollView styles={styles}>
-          {music.shouldPlay ? (
-            <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
-          ) : null}
           <QuizLiveQuestionCard
             attempt={v2Attempt}
             isSubmitting={status === 'submitting'}
@@ -267,12 +270,6 @@ export function QuizScreen({
             styles={styles}
           />
         </QuizGameplayScrollView>
-      ) : null}
-
-      {status === 'result' && music.shouldPlay ? (
-        <View style={styles.musicContainer}>
-          <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
-        </View>
       ) : null}
 
       {status === 'result' ? (
