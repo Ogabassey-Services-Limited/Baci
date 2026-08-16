@@ -123,25 +123,13 @@ jobs:
 
       - name: Expose PostHog CLI to Gradle
         shell: bash
-        run: |
-          POSTHOG_CLI_BIN="$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli"
-          if [ ! -x "$POSTHOG_CLI_BIN" ]; then
-            echo "::error::PostHog CLI is missing or not executable at $POSTHOG_CLI_BIN"
-            exit 1
-          fi
-          dirname "$POSTHOG_CLI_BIN" >> "$GITHUB_PATH"
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" expose-posthog-cli
 
       - name: Fix Hermes compiler path
         # RN 0.83+ ships hermesc in the hermes-compiler package, but
         # Gradle still resolves it via react-native/sdks/hermesc/.
         # Create a symlink so the build finds the binary.
-        run: |
-          HERMESC_SRC="$GITHUB_WORKSPACE/node_modules/hermes-compiler/hermesc"
-          HERMESC_DST="$GITHUB_WORKSPACE/node_modules/react-native/sdks/hermesc"
-          if [ -d "$HERMESC_SRC" ] && [ ! -e "$HERMESC_DST" ]; then
-            ln -s "$HERMESC_SRC" "$HERMESC_DST"
-            chmod +x "$HERMESC_DST/linux64-bin/hermesc" 2>/dev/null || true
-          fi
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" fix-hermes
 
       - name: Resolve version code
         id: version
@@ -153,29 +141,7 @@ jobs:
           GH_RUN_NUMBER: ${{ github.run_number }}
           VERSION_CODE_INPUT: ${{ inputs.version_code }}
           VERSION_CODE_BASE: ${{ env.VERSION_CODE_BASE }}
-        run: |
-          if [ "$GH_EVENT_NAME" = "workflow_dispatch" ] && [ -n "$VERSION_CODE_INPUT" ]; then
-            VERSION_CODE="$VERSION_CODE_INPUT"
-          elif [ "$GH_REF_TYPE" = "tag" ]; then
-            VERSION_CODE="${GH_REF_NAME#v}"
-            VERSION_CODE="${VERSION_CODE%-storefront}"
-          else
-            # Auto-bump: run_number + base offset to avoid collisions with
-            # previously uploaded version codes (EAS builds, earlier CI runs).
-            VERSION_CODE=$(( GH_RUN_NUMBER + VERSION_CODE_BASE ))
-          fi
-
-          if ! [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Use a positive integer (>=1)."
-            exit 1
-          fi
-          if [ "$VERSION_CODE" -gt 2100000000 ]; then
-            echo "::error::Invalid version code '$VERSION_CODE'. Must be a positive integer <= 2100000000."
-            exit 1
-          fi
-
-          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
-          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" resolve-version
 
       - name: Generate Android project via Expo prebuild
         working-directory: ${{ env.WORKING_DIR }}
@@ -214,27 +180,13 @@ jobs:
         # (withNoSplashImage.js) removes it from styles.xml, but if Expo
         # regenerates it during prebuild, strip it here as a safety net.
         working-directory: ${{ env.WORKING_DIR }}
-        run: |
-          STYLES="android/app/src/main/res/values/styles.xml"
-          if [ -f "$STYLES" ] && grep -q "splashscreen_logo" "$STYLES"; then
-            sed -i '/@drawable\/splashscreen_logo/d' "$STYLES"
-            echo "Removed splashscreen_logo reference from styles.xml"
-          fi
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" fix-splash
 
       - name: Decode keystore
         working-directory: ${{ env.WORKING_DIR }}
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_STOREFRONT_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::ANDROID_STOREFRONT_KEYSTORE_BASE64 secret is empty or not set"
-            exit 1
-          fi
-          KEYSTORE_PATH="$(mktemp "${RUNNER_TEMP}/storefront-release-keystore.XXXXXX")"
-          umask 077
-          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_PATH"
-          chmod 600 "$KEYSTORE_PATH"
-          echo "ANDROID_STOREFRONT_KEYSTORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" decode-keystore
 
       - name: Build Android App Bundle (storefront)
         working-directory: ${{ env.WORKING_DIR }}/android
@@ -270,10 +222,7 @@ jobs:
           SENTRY_URL: ${{ secrets.SENTRY_URL }}
           STOREFRONT_FACEBOOK_APP_ID: ${{ secrets.STOREFRONT_FACEBOOK_APP_ID }}
           STOREFRONT_FACEBOOK_CLIENT_TOKEN: ${{ secrets.STOREFRONT_FACEBOOK_CLIENT_TOKEN }}
-        run: |
-          GRADLE_ARGS="app:bundleRelease -x lint -x lintVitalAnalyzeRelease -x test --configure-on-demand --build-cache --max-workers=2 --no-daemon --stacktrace"
-          # shellcheck disable=SC2086
-          ./gradlew $GRADLE_ARGS
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" build
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -287,19 +236,7 @@ jobs:
       - name: Guard Google Play upload against stale main builds
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         id: upload_guard
-        run: |
-          CURRENT_MAIN_SHA="$(git ls-remote origin refs/heads/main | cut -f1)"
-          if [ -z "$CURRENT_MAIN_SHA" ]; then
-            echo "::error::Unable to determine current main HEAD"
-            exit 1
-          fi
-
-          if [ "${GITHUB_SHA}" = "$CURRENT_MAIN_SHA" ]; then
-            echo "allow_upload=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "allow_upload=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping Google Play upload because this run is not for the current main HEAD."
-          fi
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" upload-guard
         env:
           GITHUB_SHA: ${{ github.sha }}
 
@@ -337,23 +274,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERSION_CODE: ${{ steps.version.outputs.version_code }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::warning::Vercel credentials missing — skipping update-gate sync"
-            exit 0
-          fi
-          TEAM_QS=""
-          if [ -n "$VERCEL_ORG_ID" ]; then TEAM_QS="&teamId=${VERCEL_ORG_ID}"; fi
-          HTTP_CODE=$(curl -sS -o /tmp/vercel_env.json -w '%{http_code}' -X POST \
-            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?upsert=true${TEAM_QS}" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-            -H "Content-Type: application/json" \
-            -d "{\"key\":\"MOBILE_STOREFRONT_ANDROID_LATEST_BUILD\",\"value\":\"${VERSION_CODE}\",\"type\":\"encrypted\",\"target\":[\"production\"]}")
-          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
-            echo "Synced MOBILE_STOREFRONT_ANDROID_LATEST_BUILD=${VERSION_CODE} (HTTP ${HTTP_CODE})"
-          else
-            echo "::warning::Vercel env sync failed (HTTP ${HTTP_CODE}): $(cat /tmp/vercel_env.json)"
-          fi
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" sync-update-gate
 
       - name: Reconcile storefront Android live-build update gate
         if: >-
@@ -364,23 +285,8 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           ANDROID_LIVE_BUILD_SYNC_URL: https://usebaci.com/api/cron/android-live-build-sync?app=storefront
-        run: |
-          if [ -z "$CRON_SECRET" ]; then
-            echo "::warning::CRON_SECRET is missing; skipping non-fatal storefront Android live-build gate reconciliation"
-            exit 0
-          fi
-
-          if ! curl --fail-with-body --retry 3 --retry-all-errors --retry-delay 10 \
-            --connect-timeout 10 \
-            --max-time 60 \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "$ANDROID_LIVE_BUILD_SYNC_URL"; then
-            echo "::warning::Storefront Android live-build gate reconciliation failed after Play upload; release remains published"
-          fi
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" reconcile-live-build
 
       - name: Clean up release credentials
         if: always()
-        run: |
-          rm -f "${{ env.ANDROID_STOREFRONT_KEYSTORE_FILE }}"
-          rm -f "apps/mobile-storefront/android/app/google-services.json"
-          rm -f "apps/mobile-storefront/android/sentry.properties"
+        run: bash "${{ github.workspace }}/.github/scripts/android-storefront-release.sh" cleanup

@@ -14,6 +14,9 @@ interface UseQuizPersistedRecoveryInput {
   userId: string | null;
 }
 
+const AUTOMATIC_RECOVERY_RETRY_LIMIT = 1;
+const AUTOMATIC_RECOVERY_RETRY_DELAY_MS = 500;
+
 function isRetainedTerminalEnvelope({
   attemptId,
   currentQuestionId,
@@ -35,6 +38,8 @@ export function useQuizPersistedRecovery({
   const attemptedUserId = useRef<string | null>(null);
   const recoveringUserId = useRef<string | null>(null);
   const retryScheduled = useRef(false);
+  const automaticRetryCount = useRef(0);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(false);
   const enabledRef = useRef(enabled);
   const previousEnabled = useRef(enabled);
@@ -47,7 +52,12 @@ export function useQuizPersistedRecovery({
 
   const retryRecovery = () => {
     if (!userId) return;
+    if (retryTimer.current) {
+      clearTimeout(retryTimer.current);
+      retryTimer.current = null;
+    }
     attemptedUserId.current = null;
+    automaticRetryCount.current = 0;
     retryScheduled.current = false;
     setRetryNonce((nonce) => nonce + 1);
   };
@@ -75,8 +85,13 @@ export function useQuizPersistedRecovery({
   // biome-ignore lint/correctness/useExhaustiveDependencies: retryNonce intentionally retriggers the bounded recovery retry; the ownership guard keeps a recovery call alive across its own status transition.
   useEffect(() => {
     if (!userId) {
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+      }
       attemptedUserId.current = null;
       recoveringUserId.current = null;
+      automaticRetryCount.current = 0;
       retryScheduled.current = false;
       handledTerminalEventIds.current.clear();
       handledTerminalUserId.current = null;
@@ -103,6 +118,7 @@ export function useQuizPersistedRecovery({
         if (!isCurrentRun()) return;
         if (!envelopes.length) {
           attemptedUserId.current = userId;
+          automaticRetryCount.current = 0;
           retryScheduled.current = false;
           return;
         }
@@ -157,11 +173,13 @@ export function useQuizPersistedRecovery({
           if (!isCurrentRun() && !isTerminalEnvelope) return;
           if (outcome === 'recovered') {
             attemptedUserId.current = userId;
+            automaticRetryCount.current = 0;
             retryScheduled.current = false;
             return;
           }
         }
         attemptedUserId.current = userId;
+        automaticRetryCount.current = 0;
         retryScheduled.current = false;
       } catch {
         shouldRetry = true;
@@ -177,8 +195,25 @@ export function useQuizPersistedRecovery({
           !cancelled &&
           !retryScheduled.current
         ) {
-          retryScheduled.current = true;
-          setRetryNonce((nonce) => nonce + 1);
+          if (automaticRetryCount.current >= AUTOMATIC_RECOVERY_RETRY_LIMIT) {
+            // Stop failed persisted recovery from re-triggering on every
+            // render while leaving the user a deliberate retry action.
+            attemptedUserId.current = userId;
+          } else {
+            automaticRetryCount.current += 1;
+            retryScheduled.current = true;
+            retryTimer.current = setTimeout(() => {
+              retryTimer.current = null;
+              retryScheduled.current = false;
+              if (
+                mounted.current &&
+                enabledRef.current &&
+                attemptedUserId.current !== userId
+              ) {
+                setRetryNonce((nonce) => nonce + 1);
+              }
+            }, AUTOMATIC_RECOVERY_RETRY_DELAY_MS);
+          }
         }
       }
     };
@@ -186,6 +221,11 @@ export function useQuizPersistedRecovery({
     void recover();
     return () => {
       cancelled = true;
+      if (retryTimer.current) {
+        clearTimeout(retryTimer.current);
+        retryTimer.current = null;
+        retryScheduled.current = false;
+      }
       if (recoveringUserId.current === userId) {
         recoveringUserId.current = null;
       }

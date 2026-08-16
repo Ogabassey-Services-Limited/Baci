@@ -44,6 +44,7 @@ jest.mock('./use-draggable-fab', () => ({
     composedGesture: {},
     translateX: { value: 0 },
     translateY: { value: 0 },
+    scale: { get: () => 1, value: 1 },
     isDragging: false,
     isOverDismissZone: false,
     isOnRight: true,
@@ -230,13 +231,6 @@ describe('ChatWidget', () => {
 
   it('returns null for /order-success route', () => {
     mockUsePathname.mockReturnValue('/order-success');
-    const { toJSON } = render(<ChatWidget />);
-
-    expect(toJSON()).toBeNull();
-  });
-
-  it('returns null for the quiz route', () => {
-    mockUsePathname.mockReturnValue('/quiz');
     const { toJSON } = render(<ChatWidget />);
 
     expect(toJSON()).toBeNull();

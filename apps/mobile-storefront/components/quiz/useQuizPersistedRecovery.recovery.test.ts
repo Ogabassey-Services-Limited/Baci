@@ -143,6 +143,11 @@ describe('useQuizPersistedRecovery recovery lifecycle', () => {
     );
 
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(recoverEvent).toHaveBeenCalledTimes(2);
     act(() => result.current.retryRecovery());
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(3));
   });
