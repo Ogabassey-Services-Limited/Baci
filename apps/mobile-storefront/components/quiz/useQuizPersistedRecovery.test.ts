@@ -183,6 +183,37 @@ describe('useQuizPersistedRecovery', () => {
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
   });
 
+  it('allows a manual retry after the bounded automatic retry fails', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-1',
+        currentQuestionId: null,
+        eventId: 'event-1',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    const recoverEvent = jest
+      .fn<RecoverEvent>()
+      .mockResolvedValueOnce('retry')
+      .mockResolvedValueOnce('retry')
+      .mockResolvedValueOnce('recovered');
+    const { result } = renderHook(() =>
+      useQuizPersistedRecovery({
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    act(() => result.current.retryRecovery());
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(3));
+  });
+
   it('does not restart recovery repeatedly while its status leaves ready', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
       {

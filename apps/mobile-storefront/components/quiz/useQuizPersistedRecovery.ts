@@ -31,6 +31,13 @@ export function useQuizPersistedRecovery({
   enabledRef.current = enabled;
   canRecoverRef.current = canRecover;
 
+  const retryRecovery = () => {
+    if (!userId) return;
+    attemptedUserId.current = null;
+    retryScheduled.current = false;
+    setRetryNonce((nonce) => nonce + 1);
+  };
+
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -152,4 +159,6 @@ export function useQuizPersistedRecovery({
       }
     };
   }, [recoverEvent, retryNonce, userId]);
+
+  return { retryRecovery };
 }

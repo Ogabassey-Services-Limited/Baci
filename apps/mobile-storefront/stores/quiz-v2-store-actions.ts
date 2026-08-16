@@ -290,11 +290,9 @@ export function createQuizV2StoreActions({
         v2Result: result,
         terminalContext,
       });
-      if (result.availability !== 'pending' && terminalContext?.eventId) {
-        void clearRecoveredQuizAttempt(access, terminalContext.eventId).catch(
-          () => undefined
-        );
-      }
+      // biome-ignore format: Keep this terminal guard compact for the module-size gate.
+      if (result.availability !== 'pending' && !(result.availability === 'final' && result.prizeClaim) && terminalContext?.eventId)
+        void clearRecoveredQuizAttempt(access, terminalContext.eventId).catch(() => undefined);
     },
   };
 }

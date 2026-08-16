@@ -9,12 +9,10 @@ import {
 import { useTheme } from '@/hooks/useTheme';
 import { fetchQuizEvents } from '@/services/quiz';
 import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
-import type {
-  QuizEvent,
-  QuizLeaderboard,
-  QuizLeaderboardEntry,
-} from '@/services/quiz-types';
+import type { QuizEvent, QuizLeaderboard } from '@/services/quiz-types';
 import { useAuthStore } from '@/stores/auth-store';
+import { QuizLeaderboardParticipantCount } from './QuizLeaderboardParticipantCount';
+import { QuizLeaderboardRow } from './QuizLeaderboardRow';
 import { createQuizLeaderboardStyles } from './QuizLeaderboardScreen.styles';
 import { formatQuizClock } from './QuizScreen.utils';
 
@@ -29,49 +27,6 @@ function isPastQuizEvent(item: QuizEvent): boolean {
   const serverNow = Date.parse(item.serverNow);
   return (
     Number.isFinite(endsAt) && Number.isFinite(serverNow) && endsAt <= serverNow
-  );
-}
-
-function ParticipantCount({
-  count,
-  styles,
-}: {
-  count: number;
-  styles: ReturnType<typeof createQuizLeaderboardStyles>;
-}) {
-  return (
-    <Text style={styles.participantCount}>
-      {count} {count === 1 ? 'participant' : 'participants'}
-    </Text>
-  );
-}
-
-function LeaderboardRow({
-  entry,
-  styles,
-}: {
-  entry: QuizLeaderboardEntry;
-  styles: ReturnType<typeof createQuizLeaderboardStyles>;
-}) {
-  return (
-    <View
-      accessibilityLabel={`Rank ${entry.rank}, ${entry.displayName}, score ${entry.score}`}
-      style={[
-        styles.rankRow,
-        entry.rank <= 3 ? styles.podiumRow : undefined,
-        entry.isCurrentCustomer ? styles.currentRankRow : undefined,
-      ]}
-    >
-      <Text
-        style={[styles.rank, entry.rank <= 3 ? styles.podiumRank : undefined]}
-      >
-        #{entry.rank}
-      </Text>
-      <Text numberOfLines={1} style={styles.name}>
-        {entry.displayName}
-      </Text>
-      <Text style={styles.score}>{entry.score} pts</Text>
-    </View>
   );
 }
 
@@ -167,7 +122,7 @@ export function QuizLeaderboardScreen() {
               </Text>
               {leaderboard?.status === 'published' &&
               leaderboard.participantCount != null ? (
-                <ParticipantCount
+                <QuizLeaderboardParticipantCount
                   count={leaderboard.participantCount}
                   styles={styles}
                 />
@@ -202,7 +157,7 @@ export function QuizLeaderboardScreen() {
             )
           }
           renderItem={({ item }) => (
-            <LeaderboardRow entry={item} styles={styles} />
+            <QuizLeaderboardRow entry={item} styles={styles} />
           )}
         />
       </View>

@@ -109,7 +109,7 @@ export function QuizScreen({
 
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
 
-  useQuizPersistedRecovery({
+  const { retryRecovery } = useQuizPersistedRecovery({
     canRecover: () => useQuizStore.getState().status === 'ready',
     enabled: status === 'ready',
     recoverEvent,
@@ -208,7 +208,7 @@ export function QuizScreen({
         <QuizErrorPanel
           description={error}
           onRetry={() => {
-            void loadEvents(fetchQuizEvents);
+            void loadEvents(fetchQuizEvents).then(retryRecovery);
           }}
           primaryColor={colors.primary}
           showRetry={status === 'ready' || status === 'error'}
