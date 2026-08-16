@@ -42,6 +42,7 @@ export function cleanupRemediationWorktree({
   branch,
   childEnv,
   repoDir,
+  removeWorktree = true,
   runner,
   worktreeDir,
 }) {
@@ -66,6 +67,7 @@ export function cleanupRemediationWorktree({
     env: childEnv,
     runner,
   });
+  if (!removeWorktree) return resolvedWorktreeDir;
   runRemediationChecked(
     'git',
     ['worktree', 'remove', '--force', resolvedWorktreeDir],

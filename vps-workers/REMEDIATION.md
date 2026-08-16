@@ -50,6 +50,17 @@ payment libraries, migrations, GitHub workflows, and secret files. It never
 merges or requests auto-merge. Branch protection and human review remain
 authoritative; its GitHub token must not bypass required checks or reviews.
 
+Before Codex edits a remediation worktree, its prompt requires a research gate:
+the agent must reproduce and trace the evidence, check the installed versions
+and primary documentation, compare at least two plausible fixes (including an
+operational option), and report its confidence and validation plan. If no
+defensible fix is identified, it must leave the worktree unchanged. The
+remediator removes uncommitted failed worktrees and their per-run dependency
+stores by default. A committed-but-not-yet-pushed attempt keeps its worktree
+for push/PR recovery, but its dependency store is removed. Set
+`BACI_REMEDIATION_RETAIN_FAILED_WORKTREE=1` only for bounded debugging; even
+then, the dependency store is removed on terminal cleanup.
+
 `jobs/remediation-codex-canary.mjs` is a daily, Docker-only read-only check of
 the Codex toolchain. It shares the global remediation lock and writes its own
 `logs/remediation-codex-canary.log`. Set `BACI_REMEDIATION_CANARY_ENABLED=1`

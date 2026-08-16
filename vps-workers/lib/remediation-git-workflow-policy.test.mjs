@@ -30,7 +30,7 @@ describe('remediation git workflow policy and configuration', () => {
     );
     assert.equal(
       calls.some((call) => call.includes('remove')),
-      false
+      true
     );
   });
 
@@ -88,7 +88,7 @@ describe('remediation git workflow policy and configuration', () => {
     );
   });
 
-  it('preserves a changed worktree when verification fails', () => {
+  it('removes an uncommitted worktree when verification fails', () => {
     const { calls, runner } = makeRunner({
       verificationResult: {
         status: 1,
@@ -112,7 +112,7 @@ describe('remediation git workflow policy and configuration', () => {
     );
     assert.equal(
       calls.some((call) => call.includes('remove')),
-      false
+      true
     );
   });
 

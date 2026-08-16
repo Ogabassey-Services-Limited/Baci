@@ -203,11 +203,22 @@ ${evidence}
 </incident_data>
 
 Task:
-1. Reproduce or trace the failure from the evidence.
-2. Write or update regression tests first.
-3. Make the smallest production fix that addresses the root cause.
-4. Run focused tests, then wider repo gates if the change crosses shared code.
-5. Leave the verified changes in the worktree for the outer remediator to commit,
+Research gate (complete this before editing any file):
+1. Reproduce or trace the failure from the evidence and current source.
+2. Check the installed versions, configuration, and relevant official or
+   primary technical documentation when framework/provider behavior is involved.
+3. Compare at least two plausible solutions, including a non-code or operational
+   option when one exists. Explain the causal evidence, tradeoffs, and why the
+   selected option is the smallest safe fix.
+4. Put these headings in your final response before the implementation summary:
+   RESEARCH_SUMMARY, ROOT_CAUSE_CONFIDENCE, OPTIONS_CONSIDERED, SELECTED_FIX,
+   VALIDATION_PLAN. If no defensible fix is established, stop with no changes.
+
+Implementation:
+1. Write or update regression tests first.
+2. Make the smallest production fix that addresses the researched root cause.
+3. Run focused tests, then wider repo gates if the change crosses shared code.
+4. Leave the verified changes in the worktree for the outer remediator to commit,
    push, and open as a draft pull request.
 
 Execution boundary:
