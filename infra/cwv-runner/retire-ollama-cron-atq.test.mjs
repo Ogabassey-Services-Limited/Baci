@@ -133,6 +133,26 @@ test('accepts a fully absent at scheduler without weakening partial-state checks
   }
 });
 
+test('treats a fully absent at scheduler as no-op apply quiescence', async () => {
+  const { stdout } = await execFileAsync('sh', [
+    '-c',
+    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_cron_inventory_helper; load_at_quiescence_helper
+AT_JOB_DIR=/fixture/absent-atjobs
+cron_inventory_at_scheduler_absent() { :; }
+cron_inventory_require_empty_at_queue() { :; }
+at_submission_mount_state() { printf '%s\\n' absent; }
+at_create_bind_mount() { return 91; }
+expected=$(at_submission_state)
+[ "$expected" = '{"scheduler":"absent"}' ]
+quiesce_at_submissions "$expected"
+assert_at_submissions_quiesced "$expected"
+printf '%s\\n' absent-scheduler-quiesced`,
+    'retire-ollama-absent-at-apply-test',
+    script.pathname,
+  ]);
+  assert.equal(stdout, 'absent-scheduler-quiesced\n');
+});
+
 test('fails closed when atq returns an error', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');

@@ -34,7 +34,7 @@ test('ignores a stable canonical Docker socket bind instead of treating it as co
 
 test('does not docker-cp runtime PATH or DOCKER_SOCK values from a running container', async () => {
   const output = await runFixture(
-    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
+    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
   );
   assert.equal(output, '');
 });
@@ -49,13 +49,19 @@ test('does not copy lexical Ollama metadata from a running container', async () 
 test('allows only canonical Docker socket environment values', async () => {
   for (const socket of ['/var/run/docker.sock', '/run/docker.sock']) {
     const output = await runFixture(
-      `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=${socket}"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *' cp '*) return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=${socket}"] "" {} null [] {} {} {} [] "bridge"'`
+      `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"${socket}"}]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=${socket}"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *' cp '*) return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=${socket}"] "" {} null [] {} {} {} [] "bridge"'`
     );
     assert.equal(output, '');
   }
   await assert.rejects(
     runFixture(
       `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=/tmp/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=/tmp/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
+    ),
+    (error) => error.code === 2
+  );
+  await assert.rejects(
+    runFixture(
+      `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["DOCKER_SOCK=/var/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
     ),
     (error) => error.code === 2
   );
