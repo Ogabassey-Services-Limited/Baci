@@ -141,4 +141,57 @@ describe('QuizResultRoute', () => {
     });
     expect(screen.getByText('false')).toBeTruthy();
   });
+
+  it('dismisses a fresh final prize result before rearming recovery', () => {
+    const dismissRecovery = jest.fn();
+    render(
+      <QuizResultRoute
+        dismissRecovery={dismissRecovery}
+        events={[
+          {
+            endsAt: '2026-08-16T12:05:00.000Z',
+            id: 'event-1',
+            maxAttempts: 1,
+            prizeName: 'Phone',
+            questionCount: 1,
+            startsAt: '2026-08-16T12:00:00.000Z',
+            status: 'completed',
+            title: 'Prize quiz',
+          },
+        ]}
+        expectedUserId="user-1"
+        lifecycle="final"
+        onReset={jest.fn()}
+        onRetryRecovery={jest.fn()}
+        result={null}
+        styles={styles}
+        terminalContext={{
+          attemptId: 'attempt-1',
+          eventEndsAt: '2026-08-16T12:05:00.000Z',
+          eventId: 'event-1',
+          serverNow: '2026-08-16T12:05:00.000Z',
+          contractVersion: 2,
+        }}
+        v2Result={{
+          attemptId: 'attempt-1',
+          availability: 'final',
+          availableAt: '2026-08-16T12:06:00.000Z',
+          prizeClaim: {
+            awardId: 'award-1',
+            cartPath: '/checkout',
+            condition: null,
+            productId: 'product-1',
+            variantId: null,
+            voucherToken: 'voucher-1',
+          },
+          rank: 1,
+          score: 1,
+          totalQuestions: 1,
+        }}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'return' }));
+    expect(dismissRecovery).toHaveBeenCalledWith('event-1');
+  });
 });

@@ -66,11 +66,7 @@ export function QuizResultRoute({
       legacyResult={result}
       lifecycle={lifecycle}
       onReturnToQuizList={() => {
-        if (
-          lifecycle === 'pending_results' &&
-          canPlayAgain &&
-          terminalContext?.eventId
-        ) {
+        if (terminalContext?.eventId) {
           dismissRecovery(terminalContext.eventId);
         }
         onReset();
