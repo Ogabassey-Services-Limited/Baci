@@ -75,6 +75,7 @@ export function ImageZoomModal({
           source={{ uri: images[currentIndex] }}
           style={styles.image}
           contentFit="contain"
+          autoplay={false}
           transition={200}
           placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
           cachePolicy="memory-disk"
@@ -207,6 +208,7 @@ export function ImageZoomModal({
                     source={{ uri: img }}
                     style={styles.thumbnailImage}
                     contentFit="cover"
+                    autoplay={false}
                     placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
                     transition={150}
                     cachePolicy="memory-disk"

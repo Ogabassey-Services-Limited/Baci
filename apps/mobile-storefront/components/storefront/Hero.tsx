@@ -53,6 +53,7 @@ const heroImageProps = {
   placeholder: { blurhash: DEFAULT_HERO_BLURHASH },
   transition: 300,
   cachePolicy: 'memory-disk' as const, // Persist images for offline viewing
+  autoplay: false,
 };
 
 // --- SUB-COMPONENT: Elite Web-Alike Slide ---

@@ -52,6 +52,7 @@ export function ProductImageGallery({
             transition={300}
             placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
             cachePolicy="memory-disk"
+            autoplay={false}
           />
         </Animated.View>
         <LinearGradient
@@ -105,6 +106,7 @@ export function ProductImageGallery({
                   placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
                   transition={200}
                   cachePolicy="memory-disk"
+                  autoplay={false}
                 />
               </Pressable>
             ))}

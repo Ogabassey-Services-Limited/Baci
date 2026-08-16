@@ -127,9 +127,13 @@ export function SafeImage({
       transition={transition}
       cachePolicy={cachePolicy}
       contentFit={contentFit}
+      {...rest}
+      // Remote catalog images are untrusted and may be animated GIF/APNG/WebP.
+      // Keep the first frame without starting the native frame decoder loop;
+      // this avoids repeated large bitmap allocations on low-memory Android.
+      autoplay={false}
       onError={handleError}
       onLoadStart={handleLoadStart}
-      {...rest}
     />
   );
 }

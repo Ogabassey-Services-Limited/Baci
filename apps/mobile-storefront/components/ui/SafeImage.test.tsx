@@ -41,14 +41,23 @@ jest.mock('expo-image', () => {
   return {
     Image: ({
       onError,
+      autoplay,
+      accessibilityLabel,
       testID,
     }: {
       onError?: (error: { error: string }) => void;
+      autoplay?: boolean;
+      accessibilityLabel?: string;
       testID?: string;
     }) => {
-      const viewProps = { testID, onError } as unknown as React.ComponentProps<
-        typeof View
-      >;
+      const viewProps = {
+        testID,
+        onError,
+        autoplay,
+        accessible: true,
+        accessibilityRole: 'image',
+        accessibilityLabel,
+      } as unknown as React.ComponentProps<typeof View>;
       return <View {...viewProps} />;
     },
   };
@@ -85,6 +94,20 @@ describe('SafeImage', () => {
     expect(screen.getByTestId('fallback-icon').props.children).toBe(
       `image-outline:${Colors.dark.textSecondary}`
     );
+  });
+
+  it('does not autoplay animated remote images', () => {
+    render(
+      <SafeImage
+        testID="product-image"
+        accessibilityLabel="catalog image"
+        source={{ uri: 'https://example.com/catalog.gif' }}
+      />
+    );
+
+    expect(
+      screen.getByRole('image', { name: 'catalog image' }).props.autoplay
+    ).toBe(false);
   });
 
   it('lets callers override the fallback icon color', () => {
