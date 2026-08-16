@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const script = new URL('./retire-ollama.sh', import.meta.url);
+
+async function runFixture(command) {
+  const dir = await mkdtemp(join(tmpdir(), 'baci-retire-ollama-autoheal-'));
+  try {
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${command}`,
+      'fixture',
+      script.pathname,
+      dir,
+    ]);
+    return stdout;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+test('ignores a stable canonical Docker socket bind instead of treating it as config', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *) return 2;; esac; }; load_consumer_scanners; container_bind_mount_consumers generic-api`
+  );
+  assert.equal(output, '');
+});
+
+test('does not docker-cp runtime PATH or DOCKER_SOCK values from a running container', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
+  );
+  assert.equal(output, '');
+});
+
+test('does not copy lexical Ollama metadata from a running container', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","OLLAMA_HOST=http://127.0.0.1:11434"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","OLLAMA_HOST=http://127.0.0.1:11434"] "" {} null [] {} {} {} [] "bridge"'`
+  );
+  assert.equal(output, '');
+});
