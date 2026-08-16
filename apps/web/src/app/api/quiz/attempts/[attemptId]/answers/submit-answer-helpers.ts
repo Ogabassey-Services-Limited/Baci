@@ -6,7 +6,6 @@ import type { RawPrizeClaim } from './submit-answer-voucher';
 import {
   addSignedPrizeClaim,
   normalizePrizeCondition,
-  QUIZ_VOUCHER_TTL_MS,
   voucherTokenConfigResponse,
 } from './submit-answer-voucher';
 
@@ -112,25 +111,25 @@ export async function getAttemptPrizeAwardClaim(
   userId: string
 ): Promise<{
   claim: RawPrizeClaim | null;
-  createdAt: string | null;
+  claimExpiresAt: string | null;
   error: unknown;
 }> {
-  if (!supabase) return { claim: null, createdAt: null, error: null };
+  if (!supabase) return { claim: null, claimExpiresAt: null, error: null };
 
   const { data, error } = await supabase.rpc(
     'get_quiz_attempt_prize_claim_v2',
     { p_attempt_id: attemptId, p_user_id: userId }
   );
 
-  if (error) return { claim: null, createdAt: null, error };
+  if (error) return { claim: null, claimExpiresAt: null, error };
   if (!data || typeof data !== 'object') {
-    return { claim: null, createdAt: null, error: null };
+    return { claim: null, claimExpiresAt: null, error: null };
   }
 
   const record = data as {
     awardId?: unknown;
+    claimExpiresAt?: unknown;
     condition?: unknown;
-    createdAt?: unknown;
     productId?: unknown;
     variantId?: unknown;
   };
@@ -138,7 +137,7 @@ export async function getAttemptPrizeAwardClaim(
     typeof record.awardId !== 'string' ||
     typeof record.productId !== 'string'
   ) {
-    return { claim: null, createdAt: null, error: null };
+    return { claim: null, claimExpiresAt: null, error: null };
   }
 
   return {
@@ -148,7 +147,8 @@ export async function getAttemptPrizeAwardClaim(
       productId: record.productId,
       variantId: typeof record.variantId === 'string' ? record.variantId : null,
     },
-    createdAt: typeof record.createdAt === 'string' ? record.createdAt : null,
+    claimExpiresAt:
+      typeof record.claimExpiresAt === 'string' ? record.claimExpiresAt : null,
     error: null,
   };
 }
@@ -183,27 +183,19 @@ export async function recoverReplayedAttemptResponse(
 
   if (!award.claim) return NextResponse.json(baseResult);
 
-  // Re-issue with the ORIGINAL expiry (award mint time + TTL), not a fresh 7
-  // days, so replaying a days-old attempt cannot extend the redemption window.
-  // If the original window has already passed, the token mints expired and the
-  // orders route rejects it — the intended deadline still holds.
-  if (!award.createdAt) return rpcErrorResponse();
-  const awardCreatedAtMs = Date.parse(award.createdAt);
-  if (!Number.isFinite(awardCreatedAtMs)) return rpcErrorResponse();
-  const originalExpiresAtDate = new Date(
-    awardCreatedAtMs + QUIZ_VOUCHER_TTL_MS
-  );
-  if (!Number.isFinite(originalExpiresAtDate.getTime())) {
-    return rpcErrorResponse();
-  }
-  const originalExpiresAt = originalExpiresAtDate.toISOString();
+  // Re-issue with the persisted event-specific expiry, not a fresh fixed TTL,
+  // so replaying a days-old attempt cannot extend the redemption window.
+  if (!award.claimExpiresAt) return rpcErrorResponse();
+  const claimExpiresAtMs = Date.parse(award.claimExpiresAt);
+  if (!Number.isFinite(claimExpiresAtMs)) return rpcErrorResponse();
+  const claimExpiresAt = award.claimExpiresAt;
 
   try {
     return NextResponse.json(
       addSignedPrizeClaim(
         { ...baseResult, prizeClaim: award.claim },
         userId,
-        originalExpiresAt
+        claimExpiresAt
       )
     );
   } catch (tokenError) {

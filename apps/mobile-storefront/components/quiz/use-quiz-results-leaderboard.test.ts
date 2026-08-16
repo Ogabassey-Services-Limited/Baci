@@ -79,7 +79,12 @@ describe('useQuizResultsLeaderboard', () => {
     });
     expect(result.current.leaderboardError).toBe(true);
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
+      jest.advanceTimersByTime(4_999);
+      await Promise.resolve();
+    });
+    expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      jest.advanceTimersByTime(1);
       await Promise.resolve();
     });
 

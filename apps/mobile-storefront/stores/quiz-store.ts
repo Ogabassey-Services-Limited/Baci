@@ -203,14 +203,13 @@ export const useQuizStore = create<QuizStore>((set, get) => {
     reset: () => {
       const state = get();
       generation += 1;
-      const retainPendingRecovery =
-        state.v2LifecycleStatus === 'pending_results' &&
-        Boolean(state.terminalContext?.attemptId);
-      if (
-        state.recoveryUserId &&
-        state.selectedEventId &&
-        !retainPendingRecovery
-      )
+      const retainRecovery =
+        Boolean(state.terminalContext?.attemptId) &&
+        (state.v2LifecycleStatus === 'pending_results' ||
+          (state.v2LifecycleStatus === 'final' &&
+            state.v2Result?.availability === 'final' &&
+            Boolean(state.v2Result.prizeClaim)));
+      if (state.recoveryUserId && state.selectedEventId && !retainRecovery)
         void clearQuizRecoveryEnvelope(
           state.recoveryUserId,
           state.selectedEventId

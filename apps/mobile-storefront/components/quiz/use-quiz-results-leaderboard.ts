@@ -59,12 +59,11 @@ export function useQuizResultsLeaderboard({
     const load = async () => {
       if (!active || !appIsActive || loadInFlight) return;
       loadInFlight = true;
-      let retryDelayMs: number | null =
-        lifecycle === 'pending_results'
-          ? LIVE_REFRESH_INTERVAL_MS
-          : FINAL_RETRY_INTERVAL_MS;
+      const isLive = lifecycle === 'pending_results' && !eventHasEnded;
+      let retryDelayMs: number | null = isLive
+        ? LIVE_REFRESH_INTERVAL_MS
+        : FINAL_RETRY_INTERVAL_MS;
       try {
-        const isLive = lifecycle === 'pending_results' && !eventHasEnded;
         const [result, liveParticipantCount] = await Promise.all([
           isLive
             ? fetchQuizLiveLeaderboard({ eventId, expectedUserId })

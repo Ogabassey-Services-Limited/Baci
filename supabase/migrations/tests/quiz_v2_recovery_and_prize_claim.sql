@@ -47,6 +47,7 @@ BEGIN
 
   IF pg_catalog.strpos(v_claim_definition, 'SECURITY DEFINER') = 0
     OR pg_catalog.strpos(v_claim_definition, 'auth.uid() = p_user_id') = 0
+    OR pg_catalog.strpos(v_claim_definition, '''claimExpiresAt''') = 0
     OR pg_catalog.strpos(v_claim_definition, '''productId''') = 0
     OR pg_catalog.strpos(v_claim_definition, '''variantId''') = 0
   THEN

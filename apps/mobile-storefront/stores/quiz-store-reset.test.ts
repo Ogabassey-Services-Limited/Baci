@@ -116,4 +116,45 @@ describe('useQuizStore reset and explicit errors', () => {
     expect(removeItem).not.toHaveBeenCalled();
     removeItem.mockRestore();
   });
+
+  it('retains an unclaimed final prize recovery through an auth reset', async () => {
+    await Promise.resolve();
+    const removeItem = jest
+      .spyOn(asyncStorage, 'removeItem')
+      .mockResolvedValue(undefined);
+    useQuizStore.setState({
+      recoveryUserId: 'user-1',
+      selectedEventId: 'event-1',
+      status: 'result',
+      terminalContext: {
+        attemptId: 'attempt-1',
+        contractVersion: 2,
+        eventId: 'event-1',
+        eventEndsAt: '2026-08-04T12:05:00.000Z',
+        serverNow: '2026-08-04T12:05:00.000Z',
+      },
+      v2LifecycleStatus: 'final',
+      v2Result: {
+        attemptId: 'attempt-1',
+        availability: 'final',
+        availableAt: '2026-08-04T12:06:00.000Z',
+        prizeClaim: {
+          awardId: 'award-1',
+          cartPath: '/checkout',
+          condition: null,
+          productId: 'product-1',
+          variantId: null,
+          voucherToken: 'voucher-token',
+        },
+        rank: 1,
+        score: 2,
+        totalQuestions: 2,
+      },
+    });
+
+    act(() => useQuizStore.getState().reset());
+
+    expect(removeItem).not.toHaveBeenCalled();
+    removeItem.mockRestore();
+  });
 });

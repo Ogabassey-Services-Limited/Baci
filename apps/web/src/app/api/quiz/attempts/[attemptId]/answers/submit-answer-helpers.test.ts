@@ -5,7 +5,7 @@ import {
   recoverReplayedAttemptResponse,
 } from './submit-answer-helpers';
 
-function createSupabaseForRecoveredAward(createdAt: unknown) {
+function createSupabaseForRecoveredAward(claimExpiresAt: unknown) {
   const attemptQuery = createQueryResult({
     data: {
       status: 'submitted',
@@ -16,8 +16,8 @@ function createSupabaseForRecoveredAward(createdAt: unknown) {
   const awardQuery = createQueryResult({
     data: {
       awardId: '11111111-1111-4111-8111-111111111111',
+      claimExpiresAt,
       condition: 'new',
-      createdAt,
       productId: '22222222-2222-4222-8222-222222222222',
       variantId: null,
     },
@@ -80,9 +80,9 @@ describe('recoverReplayedAttemptResponse', () => {
   it.each([
     null,
     'not-a-date',
-  ])('fails closed when the recovered award created_at is %s', async (createdAt) => {
+  ])('fails closed when the recovered award claim expiry is %s', async (claimExpiresAt) => {
     const response = await recoverReplayedAttemptResponse(
-      createSupabaseForRecoveredAward(createdAt) as never,
+      createSupabaseForRecoveredAward(claimExpiresAt) as never,
       '33333333-3333-4333-8333-333333333333',
       '44444444-4444-4444-8444-444444444444'
     );

@@ -21,7 +21,7 @@ vi.mock('@/lib/logger', () => ({
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
 const AWARD_ID = '44444444-4444-4444-8444-444444444444';
-const AWARD_CREATED_AT = '2026-07-08T10:00:00.000Z';
+const AWARD_CLAIM_EXPIRES_AT = '2026-07-15T10:00:00.000Z';
 const PRODUCT_ID = '55555555-5555-4555-8555-555555555555';
 // A real auth UUID is required because a winning replay signs a voucher token,
 // whose payload schema validates `userId` as a UUID.
@@ -37,6 +37,13 @@ function jsonRequest(body: unknown) {
       method: 'POST',
     }
   );
+}
+
+function decodeVoucherExpiry(token: string): string {
+  const payload = JSON.parse(
+    Buffer.from(token.split('.')[1], 'base64url').toString('utf8')
+  );
+  return payload.expiresAt;
 }
 
 function mockReplaySupabase({
@@ -241,7 +248,7 @@ describe('submit quiz answer replay recovery', () => {
       },
       awardResult: {
         data: {
-          createdAt: AWARD_CREATED_AT,
+          claimExpiresAt: AWARD_CLAIM_EXPIRES_AT,
           awardId: AWARD_ID,
           productId: PRODUCT_ID,
           variantId: null,
@@ -278,6 +285,9 @@ describe('submit quiz answer replay recovery', () => {
     });
     expect(typeof body.prizeClaim.voucherToken).toBe('string');
     expect(body.prizeClaim.voucherToken.length).toBeGreaterThan(0);
+    expect(decodeVoucherExpiry(body.prizeClaim.voucherToken)).toBe(
+      AWARD_CLAIM_EXPIRES_AT
+    );
     expect(body.prizeClaim.cartPath).toContain(`quiz_award_id=${AWARD_ID}`);
     expect(rpc).toHaveBeenCalledWith('get_quiz_attempt_prize_claim_v2', {
       p_attempt_id: ATTEMPT_ID,
