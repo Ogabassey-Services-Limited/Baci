@@ -7,6 +7,7 @@ import {
   waitFor,
 } from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
+import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
 import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import {
   fetchQuizEvents,
@@ -21,20 +22,9 @@ jest.mock('@/components/quiz/QuizMusicPlayer', () => ({
 jest.mock('@/components/quiz/QuizGameplayAdFooter', () => ({
   QuizGameplayAdFooter: () => null,
 }));
-
-// The username gate pulls in additional modules (UsernamePrompt, the zod
-// username schema, the gate modal) that add one-time mount cost to whichever
-// test in this file runs first — that can push it past Jest's 5000ms default
-// under load. Widen this file's timeout rather than the shared jest config.
 jest.setTimeout(15000);
-
-// Defaults to a customer that already has a username so the pre-existing
-// start-flow tests below are unaffected by the username gate. The gate
-// itself is covered by the dedicated test further down.
 let mockUsername: string | null = 'ogafan';
 let mockAuthUserId: string | null = 'quiz-shopper';
-// Start-flow tests default to an adult DOB so the 18+ gate passes; the
-// dedicated date-of-birth gate tests below set it to null.
 let mockDateOfBirth: string | null = '1990-06-15';
 const mockSetUsername =
   jest.fn<
@@ -48,7 +38,6 @@ const mockSetDateOfBirth =
       dateOfBirth: string
     ) => Promise<{ success: boolean; error?: string; dateOfBirth?: string }>
   >();
-
 jest.mock('@/stores/auth-store', () => {
   const getState = () => ({
     customer: {
@@ -58,8 +47,6 @@ jest.mock('@/stores/auth-store', () => {
     },
     setUsername: mockSetUsername,
     setDateOfBirth: mockSetDateOfBirth,
-    // useQuizStartFlow reads getState().user?.id to guard against account
-    // switches, so the mock must expose the static getState method too.
     user: mockAuthUserId ? { id: mockAuthUserId } : null,
   });
   const useAuthStore = (
@@ -68,10 +55,6 @@ jest.mock('@/stores/auth-store', () => {
   useAuthStore.getState = getState;
   return { useAuthStore };
 });
-
-// The date-of-birth gate transitively renders DateTimePickerField, which
-// imports the native picker. Mock it so the module resolves and a tapped field
-// yields a fixed, valid past date (1990-05-23).
 type MockDateTimePickerProps = {
   onChange: (event: { type: 'set' }, date: Date) => void;
 };
@@ -91,7 +74,6 @@ jest.mock('@react-native-community/datetimepicker', () => ({
     );
   },
 }));
-
 const quizEventNow = Date.now();
 const quizEvent: QuizEvent = {
   endsAt: new Date(quizEventNow + 10 * 60 * 1000).toISOString(),
@@ -102,12 +84,8 @@ const quizEvent: QuizEvent = {
   status: 'open',
   title: 'Daily Prize Quiz',
 };
-
 const createFutureDeadline = (secondsFromNow: number) =>
   new Date(Date.now() + secondsFromNow * 1000).toISOString();
-
-// Entry is free, so a fresh attempt spends nothing. Overridable so the
-// deploy-window case (a stale database that still charged) can be exercised.
 const createQuizAttempt = (
   overrides: Partial<QuizAttempt> = {}
 ): QuizAttempt => ({
@@ -129,7 +107,6 @@ const createQuizAttempt = (
   },
   ...overrides,
 });
-
 const quizResult: QuizResult = {
   attemptId: 'attempt-1',
   correctAnswers: 1,
@@ -137,7 +114,6 @@ const quizResult: QuizResult = {
   status: 'completed',
   totalQuestions: 3,
 };
-
 function createDeferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -147,7 +123,6 @@ function createDeferred<T>() {
   });
   return { promise, reject, resolve };
 }
-
 async function acceptRulesAndStart() {
   fireEvent.press(
     await screen.findByRole('button', {
@@ -159,13 +134,9 @@ async function acceptRulesAndStart() {
   );
   fireEvent.press(screen.getByRole('button', { name: 'Accept and play quiz' }));
 }
-
-// Anti multi-accounting: QuizScreen sends a device fingerprint so the server can
-// share one attempt budget across every account started from this device.
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
   getQuizDeviceFingerprint: jest.fn(async () => 'a'.repeat(64)),
 }));
-
 jest.mock('@/services/quiz', () => ({
   fetchQuizEvents: jest.fn(),
   startQuizAttempt: jest.fn(),
@@ -190,108 +161,96 @@ describe('QuizScreen', () => {
       .mockImplementation(async () => createQuizAttempt());
     jest.mocked(submitQuizAnswer).mockResolvedValue(quizResult);
   });
-
   afterEach(() => {
     jest.clearAllMocks();
   });
-
-  // This is the first render in the file, so it absorbs React Native's one-time
-  // cold-start cost. Under `jest --runInBand` memory pressure (560+ suites) that
-  // can exceed the default 5s per-test timeout even though the flow itself is
-  // instant, so the first test gets extra headroom (see jest.setup.ts note on
-  // the same accumulated-pressure effect widening asyncUtilTimeout).
-  it('renders a load error as an accessible alert', async () => {
+  it('enters the pending state before device fingerprint lookup resolves', async () => {
+    const fingerprintDeferred = createDeferred<string>();
     jest
-      .mocked(fetchQuizEvents)
-      .mockRejectedValueOnce(new Error('Events offline'));
-
+      .mocked(getQuizDeviceFingerprint)
+      .mockReturnValueOnce(fingerprintDeferred.promise);
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Events offline'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Retry loading quiz events' })
-    );
+    await acceptRulesAndStart();
 
-    expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-  }, 15_000);
-
-  it('renders fetched quiz events', async () => {
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
-
-    expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
-    expect(screen.getByText('Win N50,000 store credit')).toBeTruthy();
-    expect(screen.getByText('Every second counts.')).toBeTruthy();
-    expect(
-      screen.getByRole('button', {
-        name: 'Play for free Daily Prize Quiz',
-      })
-    ).toBeTruthy();
-  });
-
-  it('disables start for scheduled quiz events', async () => {
-    jest
-      .mocked(fetchQuizEvents)
-      .mockResolvedValueOnce([{ ...quizEvent, status: 'scheduled' }]);
-
-    render(<QuizScreen integrityTier="device" locale="en-US" />);
-
-    const startButton = await screen.findByRole('button', {
-      name: 'Scheduled Daily Prize Quiz',
-    });
-    expect(screen.getByText('Scheduled')).toBeTruthy();
-    expect(startButton.props.accessibilityState).toMatchObject({
-      disabled: true,
-    });
-
-    fireEvent.press(startButton);
+    expect(await screen.findByText('Starting...')).toBeTruthy();
     expect(startQuizAttempt).not.toHaveBeenCalled();
+
+    await act(async () => {
+      fingerprintDeferred.resolve('c'.repeat(64));
+      await fingerprintDeferred.promise;
+    });
+
+    await waitFor(() =>
+      expect(startQuizAttempt).toHaveBeenCalledWith({
+        deviceFingerprint: 'c'.repeat(64),
+        eventId: 'event-1',
+        expectedUserId: 'quiz-shopper',
+        integrityTier: 'device',
+      })
+    );
   });
 
-  it('shows a pending start state and renders the first question after start', async () => {
+  // Deploy-window safety: an installed build can briefly talk to a database that
+  // has not applied the free-entry migration and still charged a point. The
+  // receipt must report what actually happened, not a hard-coded "free".
+  it('reports a real charge when a stale database still spent a point', async () => {
     const startDeferred = createDeferred<QuizAttempt>();
     jest.mocked(startQuizAttempt).mockReturnValueOnce(startDeferred.promise);
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     await acceptRulesAndStart();
 
-    expect(await screen.findByText('Starting...')).toBeTruthy();
-    expect(startQuizAttempt).toHaveBeenCalledWith({
-      deviceFingerprint: 'a'.repeat(64),
-      eventId: 'event-1',
-      expectedUserId: 'quiz-shopper',
-      integrityTier: 'device',
-    });
-
     await act(async () => {
-      startDeferred.resolve(createQuizAttempt());
+      startDeferred.resolve(
+        createQuizAttempt({ examPassPointsSpent: 1, remainingLoyaltyPoints: 4 })
+      );
       await startDeferred.promise;
     });
 
-    expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
-    expect(screen.getByText('Time left: 30s')).toBeTruthy();
     expect(
-      screen.getByText('Free entry — no loyalty points used.')
+      await screen.findByText('1 loyalty point used. 4 left.')
     ).toBeTruthy();
+    expect(
+      screen.queryByText('Free entry — no loyalty points used.')
+    ).toBeNull();
   });
 
-  it('resets quiz state when the authenticated user changes while mounted', async () => {
-    useQuizStore.setState({
-      attempt: createQuizAttempt(),
-      status: 'question',
-    });
-    const { rerender } = render(
-      <QuizScreen integrityTier="device" locale="en-US" />
-    );
-    expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
+  it('shows a pending submit state and renders a successful result', async () => {
+    const submitDeferred = createDeferred<QuizResult>();
+    jest.mocked(submitQuizAnswer).mockReturnValueOnce(submitDeferred.promise);
+    render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
-    act(() => {
-      mockAuthUserId = 'another-shopper';
-      rerender(<QuizScreen integrityTier="device" locale="en-US" />);
+    await acceptRulesAndStart();
+    fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
+
+    const submitButton = screen.getByRole('button', { name: 'Submit answer' });
+    fireEvent.press(submitButton);
+
+    expect(
+      screen.getByRole('button', { name: 'Submit answer' }).props
+        .accessibilityState
+    ).toMatchObject({ disabled: true });
+    expect(
+      screen.getByRole('button', { name: 'Answer 4' }).props.accessibilityState
+    ).toMatchObject({ disabled: true, selected: true });
+    expect(
+      screen.getByRole('button', { name: 'Answer 3' }).props.accessibilityState
+    ).toMatchObject({ disabled: true });
+    expect(submitQuizAnswer).toHaveBeenCalledWith({
+      answer: 'b',
+      attemptId: 'attempt-1',
+      clientAnsweredAt: expect.any(String),
+      integrityTier: 'strong',
+      questionId: 'question-1',
     });
 
-    await waitFor(() => expect(useQuizStore.getState().attempt).toBeNull());
-    expect(useQuizStore.getState().v2Attempt).toBeNull();
+    await act(async () => {
+      submitDeferred.resolve(quizResult);
+      await submitDeferred.promise;
+    });
+
+    expect(await screen.findByText('Result')).toBeTruthy();
+    expect(screen.getByText('1 of 3 correct')).toBeTruthy();
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
@@ -110,6 +110,13 @@ export function QuizScreen({
   );
 
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
+  const previousAuthUserIdRef = useRef(authUserId);
+  useEffect(() => {
+    if (previousAuthUserIdRef.current !== authUserId) {
+      previousAuthUserIdRef.current = authUserId;
+      reset();
+    }
+  }, [authUserId, reset]);
   const { allowRecovery, dismissRecovery, retryRecovery } =
     useQuizPersistedRecovery({
       canRecover: (eventId) =>
@@ -198,7 +205,6 @@ export function QuizScreen({
     serverNow: v2Attempt?.serverNow ?? terminalContext?.serverNow,
     status,
   });
-
   return (
     <View style={styles.screen}>
       {status === 'loading' ? (
@@ -206,7 +212,6 @@ export function QuizScreen({
           <ActivityIndicator accessibilityLabel="Loading quiz events" />
         </View>
       ) : null}
-
       {error && !dobGate.isGateVisible ? (
         <QuizErrorPanel
           description={error}
@@ -223,7 +228,6 @@ export function QuizScreen({
           }
         />
       ) : null}
-
       {!error && shouldShowEventList(status) ? (
         <QuizEventsList
           events={events}
@@ -235,7 +239,6 @@ export function QuizScreen({
           styles={lobbyStyles}
         />
       ) : null}
-
       {(status === 'question' || status === 'submitting') && attempt ? (
         <QuizGameplayScrollView styles={styles}>
           <QuizMusicPlayer />
@@ -252,13 +255,11 @@ export function QuizScreen({
           />
         </QuizGameplayScrollView>
       ) : null}
-
       {music.shouldPlay ? (
         <View style={styles.musicContainer}>
           <QuizMusicPlayer gameEndsIn={music.gameEndsIn} />
         </View>
       ) : null}
-
       {(status === 'question' || status === 'submitting') && v2Attempt ? (
         <QuizGameplayScrollView styles={styles}>
           <QuizLiveQuestionCard
@@ -274,7 +275,6 @@ export function QuizScreen({
           />
         </QuizGameplayScrollView>
       ) : null}
-
       {status === 'result' ? (
         <QuizResultRoute
           dismissRecovery={dismissRecovery}
