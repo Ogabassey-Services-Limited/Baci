@@ -208,6 +208,20 @@ describe('preview theme policy', () => {
     ).toBe(false);
   });
 
+  it('rejects direct and indirect cycles among emitted theme color tokens', () => {
+    expect(
+      candidate({ colors: { primary: 'var(--theme-primary)' } }).success
+    ).toBe(false);
+    expect(
+      candidate({
+        colors: {
+          primary: 'var(--theme-secondary)',
+          secondary: 'var(--theme-primary)',
+        },
+      }).success
+    ).toBe(false);
+  });
+
   it('enforces the CSS domains for theme number fields', () => {
     expect(
       candidate({ typography: { fontWeight: { normal: 1 } } }).success

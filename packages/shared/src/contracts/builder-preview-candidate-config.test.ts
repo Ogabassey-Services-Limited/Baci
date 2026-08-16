@@ -155,6 +155,26 @@ describe('builder preview candidate configuration', () => {
       });
   });
 
+  it('normalizes a supported root title while discarding unrelated legacy metadata', () => {
+    const result = builderPreviewCandidateConfigSchema.safeParse({
+      content: [],
+      root: { legacyRootFlag: true, title: 'Home' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.root).toEqual({ props: { title: 'Home' } });
+  });
+
+  it('does not discard sensitive legacy root metadata during normalization', () => {
+    expect(
+      builderPreviewCandidateConfigSchema.safeParse({
+        content: [],
+        root: { apiKey: 'must-not-survive', title: 'Home' },
+      }).success
+    ).toBe(false);
+  });
+
   it('normalizes empty persisted Puck roots to a safe default title', () => {
     for (const root of [{}, { props: {} }]) {
       const result = builderPreviewCandidateConfigSchema.safeParse({

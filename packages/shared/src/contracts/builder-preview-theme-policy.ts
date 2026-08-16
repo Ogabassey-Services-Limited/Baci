@@ -43,16 +43,24 @@ const previewStoreColorTokens = new Set([
   'secondary',
   'secondary-text',
 ]);
-const emittedStoreTokensByColorPath: Record<string, readonly string[]> = {
-  '.colors.accent': ['accent', 'rating'],
-  '.colors.background': ['background'],
-  '.colors.border': ['border'],
-  '.colors.button.accent.text': ['accent-text'],
-  '.colors.button.primary.text': ['on-primary', 'primary-text'],
-  '.colors.button.secondary.background': ['option-secondary', 'secondary'],
-  '.colors.button.secondary.text': ['secondary-text'],
-  '.colors.foreground': ['background-text', 'foreground'],
-  '.colors.primary': ['primary'],
+const emittedColorTokensByPath: Record<string, readonly string[]> = {
+  '.colors.accent': ['store-accent', 'store-rating', 'theme-accent'],
+  '.colors.background': ['store-background', 'theme-background'],
+  '.colors.border': ['store-border'],
+  '.colors.button.accent.text': ['store-accent-text'],
+  '.colors.button.primary.text': ['store-on-primary', 'store-primary-text'],
+  '.colors.button.secondary.background': [
+    'store-option-secondary',
+    'store-secondary',
+  ],
+  '.colors.button.secondary.text': ['store-secondary-text'],
+  '.colors.foreground': [
+    'store-background-text',
+    'store-foreground',
+    'theme-foreground',
+  ],
+  '.colors.primary': ['store-primary', 'theme-primary'],
+  '.colors.secondary': ['theme-secondary'],
 };
 const text = 'text';
 const number = 'number';
@@ -144,17 +152,20 @@ function isSafeThemeText(value: unknown, path = ''): boolean {
   return matchesThemeStringGrammar(value as string, path);
 }
 
-function hasCyclicStoreColorReferences(value: unknown): boolean {
+function hasCyclicColorReferences(value: unknown): boolean {
   const references = new Map<string, Set<string>>();
 
   const collectReferences = (entry: unknown, path: string) => {
     if (typeof entry === 'string') {
-      const match = /^var\(--store-([a-z][a-z0-9-]{0,48})\)$/.exec(entry);
+      const match = /^var\(--(store|theme)-([a-z][a-z0-9-]{0,48})\)$/.exec(
+        entry
+      );
       if (!match) return;
-      for (const token of emittedStoreTokensByColorPath[path] ?? []) {
-        const targets = references.get(token) ?? new Set<string>();
-        targets.add(match[1]);
-        references.set(token, targets);
+      const [, namespace, token] = match;
+      for (const source of emittedColorTokensByPath[path] ?? []) {
+        const targets = references.get(source) ?? new Set<string>();
+        targets.add(`${namespace}-${token}`);
+        references.set(source, targets);
       }
       return;
     }
@@ -187,10 +198,13 @@ function isDefinedColorToken(value: string, path: string): boolean {
   if (match === null) return true;
   const [, namespace, token] = match;
   if (namespace === 'theme')
-    return builderDesignCapabilities.themeTokenKeys.includes(token);
+    return (
+      builderDesignCapabilities.themeTokenKeys.includes(token) &&
+      !emittedColorTokensByPath[path]?.includes(`${namespace}-${token}`)
+    );
   return (
     previewStoreColorTokens.has(token) &&
-    !emittedStoreTokensByColorPath[path]?.includes(token)
+    !emittedColorTokensByPath[path]?.includes(`${namespace}-${token}`)
   );
 }
 
@@ -275,8 +289,7 @@ function getValidationError(value: unknown): string | undefined {
   const shape = getCachedThemeShape();
   if (shape === undefined)
     return cachedThemeError ?? 'Preview theme manifest is invalid.';
-  return matchesThemeShape(value, shape) &&
-    !hasCyclicStoreColorReferences(value)
+  return matchesThemeShape(value, shape) && !hasCyclicColorReferences(value)
     ? undefined
     : 'Expected a bounded render-safe theme';
 }

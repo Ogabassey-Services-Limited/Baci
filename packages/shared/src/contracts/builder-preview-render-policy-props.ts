@@ -2,6 +2,7 @@ import { builderDesignCapabilities } from './builder-design-capabilities';
 import { builderDesignCapabilityAdapter } from './builder-design-capability-adapter';
 import { previewRenderProjection } from './builder-preview-render-projection';
 import { previewSafeLinks } from './builder-preview-safe-links';
+import { isPreviewSavedArrayProp } from './builder-preview-saved-array-policy';
 
 const MAX_STORE_NAME_LENGTH = 120;
 const MAX_GRADIENT_LENGTH = 512;
@@ -259,6 +260,7 @@ export function isReviewedPreviewRenderProp(
   value: unknown
 ): boolean {
   if (value === undefined) return false;
+  if (isPreviewSavedArrayProp(componentType, property, value)) return true;
   if (componentType === 'Footer' && property === 'quickLinks')
     return isPreviewFooterQuickLinks(value);
   if (componentType === 'Header' && property === 'ctaButton')

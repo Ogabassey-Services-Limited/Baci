@@ -37,28 +37,29 @@ function hasRoot(value: unknown): boolean {
 function normalizePreviewRoot(value: unknown): unknown {
   if (!isRecord(value) || !isRecord(value.root)) return value;
   const root = value.root;
+  if (hasSensitiveField(root)) return value;
+
+  const rootTitle =
+    typeof root.title === 'string' && root.title.length <= 120
+      ? root.title
+      : root.title !== undefined
+        ? undefined
+        : isRecord(root.props) &&
+            typeof root.props.title === 'string' &&
+            root.props.title.length <= 120
+          ? root.props.title
+          : undefined;
+  if (root.title !== undefined && rootTitle === undefined) return value;
+  if (rootTitle !== undefined)
+    return { ...value, root: { props: { title: rootTitle } } };
+
   if (
     hasOnlyKeys(root, []) ||
-    (hasOnlyKeys(root, ['props']) &&
-      isRecord(root.props) &&
-      hasOnlyKeys(root.props, []))
+    (isRecord(root.props) && hasOnlyKeys(root.props, []))
   )
     return { ...value, root: { props: { title: 'Home' } } };
-  if (
-    hasOnlyKeys(root, ['props', 'title']) &&
-    isRecord(root.props) &&
-    hasOnlyKeys(root.props, ['title']) &&
-    typeof root.title === 'string' &&
-    root.title.length <= 120
-  )
-    return { ...value, root: { props: { title: root.title } } };
-  if (
-    !hasOnlyKeys(root, ['title']) ||
-    typeof root.title !== 'string' ||
-    root.title.length > 120
-  )
-    return value;
-  return { ...value, root: { props: { title: root.title } } };
+
+  return value;
 }
 
 function hasValidPuckCollections(value: unknown): boolean {
