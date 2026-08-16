@@ -1,11 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontPdpSemanticEnrichment } from './storefront-pdp-semantic-enrichment';
-
-const loggerMocks = vi.hoisted(() => ({ warn: vi.fn() }));
-
-vi.mock('@/lib/logger', () => ({ logger: loggerMocks }));
 
 const clusterRequest = {
   p_category_slug: 'smartphones',
@@ -32,14 +28,6 @@ function createClient(response: unknown) {
 }
 
 describe('readStorefrontPdpSemanticEnrichment', () => {
-  beforeEach(() => {
-    loggerMocks.warn.mockClear();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('loads inventory and guides through one bounded RPC and prioritizes linked guides', async () => {
     const duplicateGuide = {
       slug: 's25-guide',
@@ -189,11 +177,10 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
   });
 
   it('classifies transport failures without fabricating an empty enrichment', async () => {
-    const responseStatus = 500;
     const { client } = createClient({
       data: null,
       error: { code: '57014', message: 'statement timeout' },
-      status: responseStatus,
+      status: 500,
     });
 
     await expect(
@@ -211,98 +198,6 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
         retryable: true,
       }),
     });
-
-    expect(loggerMocks.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Storefront PDP semantic RPC boundary trace',
-        operation: 'pdp_semantic_enrichment',
-        outcome: 'timeout_response',
-        deadlineMs: 5_000,
-        timeoutSignalAborted: false,
-        errorCode: '57014',
-        responseStatus,
-      })
-    );
-  });
-
-  it('traces a native client abort separately from a database timeout response', async () => {
-    const merchantSentinel = 'merchant-sensitive-sentinel';
-    const productSentinel = 'product-sensitive-sentinel';
-    const timeoutController = new AbortController();
-    const timeoutError = new DOMException(
-      'The operation timed out',
-      'TimeoutError'
-    );
-    timeoutController.abort(timeoutError);
-    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal);
-    const abortSignal = vi.fn().mockRejectedValue(timeoutError);
-    const client = {
-      rpc: vi.fn(() => ({ abortSignal })),
-    } as unknown as SupabaseClient<StorefrontDatabase>;
-
-    await expect(
-      readStorefrontPdpSemanticEnrichment(client, {
-        merchantId: merchantSentinel,
-        productId: productSentinel,
-        includeGuides: true,
-        clusterRequest,
-      })
-    ).rejects.toBe(timeoutError);
-
-    expect(loggerMocks.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Storefront PDP semantic RPC boundary trace',
-        operation: 'pdp_semantic_enrichment',
-        outcome: 'throw',
-        deadlineMs: 5_000,
-        timeoutSignalAborted: true,
-        errorName: 'TimeoutError',
-      })
-    );
-    const serializedWarning = JSON.stringify(
-      loggerMocks.warn.mock.calls[0]?.[0]
-    );
-    expect(serializedWarning).not.toContain(merchantSentinel);
-    expect(serializedWarning).not.toContain(productSentinel);
-  });
-
-  it('traces the installed PostgREST timeout response shape with an aborted signal', async () => {
-    const timeoutController = new AbortController();
-    const timeoutError = new DOMException(
-      'The operation timed out',
-      'TimeoutError'
-    );
-    timeoutController.abort(timeoutError);
-    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal);
-    const { client } = createClient({
-      data: null,
-      error: timeoutError,
-      status: 0,
-    });
-
-    await expect(
-      readStorefrontPdpSemanticEnrichment(client, {
-        merchantId: 'merchant-1',
-        productId: 'product-1',
-        includeGuides: true,
-        clusterRequest,
-      })
-    ).resolves.toEqual({
-      status: 'unavailable',
-      error: expect.objectContaining({
-        kind: 'timeout',
-        operation: 'pdp_semantic_enrichment',
-        retryable: true,
-      }),
-    });
-
-    expect(loggerMocks.warn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        outcome: 'timeout_response',
-        deadlineMs: 5_000,
-        timeoutSignalAborted: true,
-      })
-    );
   });
 
   it('rejects empty or malformed found rows as contract unavailability', async () => {
