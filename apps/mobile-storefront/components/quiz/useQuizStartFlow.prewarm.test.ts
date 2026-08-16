@@ -93,6 +93,55 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
     await waitFor(() => expect(startEvent).toHaveBeenCalledTimes(1));
   });
 
+  it('does not prepare ads until both eligibility gates have passed', async () => {
+    const prepareQuizMobileAds = jest
+      .fn<() => Promise<boolean>>()
+      .mockResolvedValue(true);
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        integrityTier: 'device',
+        prepareQuizMobileAds,
+        startEvent,
+      })
+    );
+
+    act(() => result.current.requestStart('event-1'));
+    await Promise.resolve();
+    expect(prepareQuizMobileAds).not.toHaveBeenCalled();
+
+    dobOnStart('event-1');
+    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1));
+  });
+
+  it('continues the timed start when optional ad prewarm hangs', async () => {
+    jest.useFakeTimers();
+    try {
+      const prepareQuizMobileAds = jest.fn(
+        () => new Promise<boolean>(() => {})
+      );
+      const { result } = renderHook(() =>
+        useQuizStartFlow({
+          integrityTier: 'device',
+          prepareQuizMobileAds,
+          startEvent,
+        })
+      );
+
+      act(() => result.current.requestStart('event-1'));
+      dobOnStart('event-1');
+      await Promise.resolve();
+      act(() => jest.advanceTimersByTime(1500));
+      jest.useRealTimers();
+
+      await waitFor(() => {
+        expect(startEvent).toHaveBeenCalledTimes(1);
+        expect(result.current.adsPrewarmFailed).toBe(true);
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('blocks an ad prewarm retry after failure until a new quiz start', async () => {
     const prepareQuizMobileAds = jest
       .fn<() => Promise<boolean>>()
@@ -111,6 +160,7 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
     expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1);
 
     act(() => result.current.requestStart('event-2'));
+    dobOnStart('event-2');
     await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(2));
   });
 

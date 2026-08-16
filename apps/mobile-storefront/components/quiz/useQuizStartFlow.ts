@@ -22,6 +22,7 @@ import { useQuizStartGate } from './useQuizStartGate';
 // correction gate rather than stranding the shopper.
 const QUIZ_AGE_RESTRICTED_CODE = 'quiz_age_restricted';
 const START_FAILED_FALLBACK = 'Quiz action failed';
+const QUIZ_ADS_PREWARM_TIMEOUT_MS = 1500;
 
 function createQuizSessionChangedError(): QuizServiceError {
   return new QuizServiceError(
@@ -91,19 +92,21 @@ export function useQuizStartFlow({
   const prepareAdsBeforeStart = (): Promise<boolean> => {
     if (!prepareQuizMobileAds) return Promise.resolve(true);
     if (!quizAdsPreparationRef.current) {
-      quizAdsPreparationRef.current = Promise.resolve()
+      const preparation = Promise.resolve()
         .then(() => prepareQuizMobileAds())
-        .then((result) => {
-          const failed = result === false;
+        .then((result) => result !== false)
+        .catch(() => false);
+      const timeout = new Promise<false>((resolve) => {
+        setTimeout(() => resolve(false), QUIZ_ADS_PREWARM_TIMEOUT_MS);
+      });
+      quizAdsPreparationRef.current = Promise.race([preparation, timeout]).then(
+        (prepared) => {
+          const failed = !prepared;
           quizAdsPrewarmFailedRef.current = failed;
           setQuizAdsPrewarmFailed(failed);
-          return !failed;
-        })
-        .catch(() => {
-          quizAdsPrewarmFailedRef.current = true;
-          setQuizAdsPrewarmFailed(true);
-          return false;
-        });
+          return prepared;
+        }
+      );
     }
     return quizAdsPreparationRef.current;
   };
@@ -271,7 +274,6 @@ export function useQuizStartFlow({
       setQuizAdsPrewarmFailed(false);
     }
     if (termsAccepted) acceptedTermsEventIdsRef.current.add(eventId);
-    void prepareAdsBeforeStart();
     usernameGate.requestStart(eventId);
   };
 
