@@ -32,6 +32,7 @@ mobile_storefront:
   - 'apps/mobile-storefront/scripts/**'
   - 'apps/mobile-storefront/services/**'
   - 'apps/mobile-storefront/stores/**'
+  - '.github/actions/storefront-release-tests/**'
   - 'apps/mobile-storefront/package.json'
   - '.github/scripts/android-storefront-release.sh'
   - '.github/scripts/android-storefront-release.test.sh'

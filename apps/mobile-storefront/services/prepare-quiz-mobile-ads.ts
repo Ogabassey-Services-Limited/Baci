@@ -4,10 +4,12 @@ import { getFeatureFlagValue } from '@/services/analytics-core';
 import {
   initializeQuizMobileAds,
   prepareQuizMobileAdsConsent,
+  type QuizMobileAdsInitializationOptions,
 } from './initialize-quiz-mobile-ads';
 
 export type PrepareQuizMobileAds = ((
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: QuizMobileAdsInitializationOptions
 ) => Promise<boolean>) & {
   prepareConsent?: () => Promise<void>;
 };
@@ -32,7 +34,8 @@ async function prepareConsentBeforeStart(): Promise<void> {
  * gameplay has begun.
  */
 async function prepareQuizMobileAdsImpl(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: QuizMobileAdsInitializationOptions
 ): Promise<boolean> {
   try {
     if (signal?.aborted) return false;
@@ -41,7 +44,7 @@ async function prepareQuizMobileAdsImpl(
     const enabled = await getFeatureFlagValue('quiz-mobile-ads');
     if (signal?.aborted) return false;
     if (enabled === false) return true;
-    await initializeQuizMobileAds(signal);
+    await initializeQuizMobileAds(signal, options);
     return !signal?.aborted;
   } catch {
     // Gameplay remains available when ads cannot be prepared on this client.

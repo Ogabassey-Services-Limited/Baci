@@ -4,6 +4,11 @@ interface QuizMobileAdsInitializationResult {
   canRequestAds: boolean;
 }
 
+export interface QuizMobileAdsInitializationOptions {
+  /** Only a locally validated adult DOB may opt out of under-age treatment. */
+  ageVerified?: boolean;
+}
+
 const log = createLogger('QuizMobileAds');
 let initializationPromise: Promise<QuizMobileAdsInitializationResult> | null =
   null;
@@ -14,7 +19,8 @@ function throwIfAborted(signal?: AbortSignal): void {
 }
 
 async function initialize(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: QuizMobileAdsInitializationOptions = {}
 ): Promise<QuizMobileAdsInitializationResult> {
   throwIfAborted(signal);
   const {
@@ -33,7 +39,10 @@ async function initialize(
   await ads.setRequestConfiguration({
     maxAdContentRating: MaxAdContentRating.T,
     tagForChildDirectedTreatment: false,
-    tagForUnderAgeOfConsent: false,
+    // Unknown or under-age shoppers stay in the protective configuration. The
+    // quiz API remains the authority for participation; this only prevents an
+    // unverified client from configuring the SDK as an adult.
+    tagForUnderAgeOfConsent: options.ageVerified !== true,
     testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
   });
   throwIfAborted(signal);
@@ -74,13 +83,14 @@ export function prepareQuizMobileAdsConsent(
 }
 
 export function initializeQuizMobileAds(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: QuizMobileAdsInitializationOptions
 ): Promise<QuizMobileAdsInitializationResult> {
   if (signal?.aborted) {
     return Promise.reject(new Error('Quiz ad preparation was cancelled.'));
   }
   if (!initializationPromise) {
-    initializationPromise = initialize(signal).catch((error) => {
+    initializationPromise = initialize(signal, options).catch((error) => {
       initializationPromise = null;
       throw error;
     });

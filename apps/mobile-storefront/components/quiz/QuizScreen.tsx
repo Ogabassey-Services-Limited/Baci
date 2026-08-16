@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { useTheme } from '@/hooks/useTheme';
@@ -33,6 +33,7 @@ import { createQuizAnswerHandlers } from './quiz-answer-handlers';
 import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizResultPolling } from './use-quiz-result-polling';
+import { useQuizAccountChangeReset } from './useQuizAccountChangeReset';
 import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
@@ -110,13 +111,7 @@ export function QuizScreen({
   );
 
   const authUserId = useAuthStore((state) => state.user?.id ?? null);
-  const previousAuthUserIdRef = useRef(authUserId);
-  useEffect(() => {
-    if (previousAuthUserIdRef.current !== authUserId) {
-      previousAuthUserIdRef.current = authUserId;
-      reset();
-    }
-  }, [authUserId, reset]);
+  useQuizAccountChangeReset();
   const { allowRecovery, dismissRecovery, retryRecovery } =
     useQuizPersistedRecovery({
       canRecover: (eventId) =>

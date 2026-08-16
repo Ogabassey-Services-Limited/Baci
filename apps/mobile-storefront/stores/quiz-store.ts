@@ -63,6 +63,7 @@ interface QuizStore extends QuizV2StoreActions {
   ) => Promise<void>;
   setError: (message: string) => void;
   reset: () => void;
+  resetForAccountChange: () => void;
 }
 
 const initialState = {
@@ -152,10 +153,14 @@ export const useQuizStore = create<QuizStore>((set, get) => {
     ...initialState,
     ...v2Actions,
     loadEvents: async (loader) => {
+      const currentGeneration = generation;
       set({ status: 'loading', error: null });
       try {
-        set({ status: 'ready', events: await loader() });
+        const events = await loader();
+        if (generation !== currentGeneration) return;
+        set({ status: 'ready', events });
       } catch (error) {
+        if (generation !== currentGeneration) return;
         set({ status: 'ready', error: getMessage(error) });
       }
     },
@@ -214,6 +219,10 @@ export const useQuizStore = create<QuizStore>((set, get) => {
           state.recoveryUserId,
           state.selectedEventId
         ).catch(() => undefined);
+      set(initialState);
+    },
+    resetForAccountChange: () => {
+      generation += 1;
       set(initialState);
     },
   };

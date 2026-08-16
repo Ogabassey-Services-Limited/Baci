@@ -40,7 +40,9 @@ describe('initializeQuizMobileAds', () => {
   it('gathers consent before configuring and initializing the SDK', async () => {
     const { initializeQuizMobileAds } = await loadInitializer();
 
-    await expect(initializeQuizMobileAds()).resolves.toEqual({
+    await expect(
+      initializeQuizMobileAds(undefined, { ageVerified: true })
+    ).resolves.toEqual({
       canRequestAds: true,
     });
 
@@ -55,6 +57,21 @@ describe('initializeQuizMobileAds', () => {
     expect(mockInitialize).toHaveBeenCalledTimes(1);
     expect(mockGatherConsent.mock.invocationCallOrder[0]).toBeLessThan(
       mockInitialize.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('keeps the SDK in the protective under-age configuration until age is verified', async () => {
+    const { initializeQuizMobileAds } = await loadInitializer();
+
+    await expect(initializeQuizMobileAds()).resolves.toEqual({
+      canRequestAds: true,
+    });
+
+    expect(mockSetRequestConfiguration).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tagForChildDirectedTreatment: false,
+        tagForUnderAgeOfConsent: true,
+      })
     );
   });
 

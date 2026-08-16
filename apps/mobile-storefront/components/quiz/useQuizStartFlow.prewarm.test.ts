@@ -9,6 +9,7 @@ const mockStartQuizAttemptV2 = jest.fn<(args: unknown) => Promise<unknown>>();
 const mockGetFingerprint = jest.fn<() => Promise<string | null>>();
 let dobOnStart: (eventId: string) => void = () => {};
 let mockAuthUserId: string | null = 'user-a';
+let mockDateOfBirth: string | null = null;
 
 jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
   getQuizDeviceFingerprint: () => mockGetFingerprint(),
@@ -16,6 +17,7 @@ jest.mock('@/lib/get-quiz-device-fingerprint', () => ({
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: {
     getState: () => ({
+      customer: mockDateOfBirth ? { date_of_birth: mockDateOfBirth } : null,
       user: mockAuthUserId ? { id: mockAuthUserId } : null,
     }),
   },
@@ -60,6 +62,7 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthUserId = 'user-a';
+    mockDateOfBirth = null;
     mockGetFingerprint.mockResolvedValue('fp');
     mockStartQuizAttempt.mockResolvedValue({ attemptId: 'attempt-1' });
     mockStartQuizAttemptV2.mockResolvedValue({ attemptId: 'attempt-v2' });
@@ -91,6 +94,33 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(startEvent).toHaveBeenCalledTimes(1));
+  });
+
+  it('marks only a locally verified adult shopper for ad initialization', async () => {
+    mockDateOfBirth = '1990-06-15';
+    const prepareQuizMobileAds = jest
+      .fn<
+        (
+          signal: AbortSignal,
+          options?: { ageVerified?: boolean }
+        ) => Promise<boolean>
+      >()
+      .mockResolvedValue(true);
+    const { result } = renderHook(() =>
+      useQuizStartFlow({
+        integrityTier: 'device',
+        prepareQuizMobileAds,
+        startEvent,
+      })
+    );
+
+    act(() => result.current.requestStart('event-1'));
+    dobOnStart('event-1');
+
+    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1));
+    expect(prepareQuizMobileAds).toHaveBeenCalledWith(expect.any(AbortSignal), {
+      ageVerified: true,
+    });
   });
 
   it('does not prepare ads until both eligibility gates have passed', async () => {

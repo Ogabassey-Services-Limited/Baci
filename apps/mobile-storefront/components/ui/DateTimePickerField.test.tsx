@@ -137,6 +137,31 @@ describe('DateTimePickerField', () => {
     ).toBeNull();
   });
 
+  it('commits the displayed iOS value when Done is pressed without scrolling', () => {
+    if (Platform.OS !== 'ios') return;
+
+    const onChangeText = jest.fn();
+    render(
+      <DateTimePickerField
+        accessibilityLabel="Savings debit time"
+        fallbackDisplay="06:20"
+        label="Preferred debit time"
+        mode="time"
+        onChangeText={onChangeText}
+        value="not-a-real-value"
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Savings debit time' }));
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Done selecting Preferred debit time',
+      })
+    );
+
+    expect(onChangeText).toHaveBeenCalledWith('06:20');
+  });
+
   it('presents the iOS spinner in a full-width modal instead of the field row', () => {
     if (Platform.OS !== 'ios') return;
 

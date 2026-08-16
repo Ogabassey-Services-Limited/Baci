@@ -157,4 +157,29 @@ describe('useQuizStore reset and explicit errors', () => {
     expect(removeItem).not.toHaveBeenCalled();
     removeItem.mockRestore();
   });
+
+  it('preserves active recovery storage when an account switch resets the store', async () => {
+    const removeItem = jest
+      .spyOn(asyncStorage, 'removeItem')
+      .mockResolvedValue(undefined);
+    useQuizStore.setState({
+      recoveryUserId: 'user-1',
+      selectedEventId: 'event-1',
+      startRequestId: '11111111-1111-4111-8111-111111111111',
+      status: 'question',
+      v2LifecycleStatus: 'in_progress',
+    });
+
+    act(() => useQuizStore.getState().resetForAccountChange());
+    await Promise.resolve();
+
+    expect(removeItem).not.toHaveBeenCalled();
+    expect(useQuizStore.getState()).toMatchObject({
+      status: 'idle',
+      recoveryUserId: null,
+      selectedEventId: null,
+      v2LifecycleStatus: 'idle',
+    });
+    removeItem.mockRestore();
+  });
 });

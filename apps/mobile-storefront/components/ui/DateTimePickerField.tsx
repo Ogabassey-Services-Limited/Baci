@@ -104,6 +104,7 @@ export function DateTimePickerField({
   wrapperStyle,
 }: DateTimePickerFieldProps) {
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+  const [draftPickerValue, setDraftPickerValue] = useState<Date | null>(null);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const pickerValue =
@@ -117,11 +118,13 @@ export function DateTimePickerField({
     selectedDate?: Date
   ) => {
     if (event.type === 'dismissed') {
+      setDraftPickerValue(null);
       setIsPickerVisible(false);
       return;
     }
 
     if (selectedDate) {
+      setDraftPickerValue(selectedDate);
       onChangeText(formatPickerValue(selectedDate, mode));
     }
     // iOS spinner pickers emit `set` events while the user scrolls. Keep the
@@ -133,13 +136,26 @@ export function DateTimePickerField({
     }
   };
 
+  const handleOpenPicker = () => {
+    setDraftPickerValue(pickerValue);
+    setIsPickerVisible(true);
+  };
+
+  const handleDone = () => {
+    const valueToCommit = draftPickerValue ?? pickerValue;
+    const formattedValue = formatPickerValue(valueToCommit, mode);
+    if (formattedValue !== value) onChangeText(formattedValue);
+    setDraftPickerValue(null);
+    setIsPickerVisible(false);
+  };
+
   return (
     <View style={wrapperStyle}>
       <Text style={labelStyle}>{label}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
-        onPress={() => setIsPickerVisible(true)}
+        onPress={handleOpenPicker}
         style={fieldStyle}
       >
         <Text style={textStyle}>{value || fallbackDisplay}</Text>
@@ -172,7 +188,7 @@ export function DateTimePickerField({
               <Pressable
                 accessibilityLabel={`Done selecting ${label}`}
                 accessibilityRole="button"
-                onPress={() => setIsPickerVisible(false)}
+                onPress={handleDone}
                 style={styles.iosPickerDone}
               >
                 <Text

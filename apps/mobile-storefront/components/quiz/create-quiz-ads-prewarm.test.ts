@@ -56,6 +56,25 @@ describe('createQuizAdsPrewarm', () => {
     expect(onFinished).toHaveBeenCalledWith(false);
   });
 
+  it('passes the verified-age hint into the bounded preparation', async () => {
+    const prepare = jest
+      .fn<
+        (
+          signal: AbortSignal,
+          options?: { ageVerified?: boolean }
+        ) => Promise<boolean>
+      >()
+      .mockResolvedValue(true);
+    const prewarm = createQuizAdsPrewarm(prepare, jest.fn(), {
+      ageVerified: true,
+    });
+
+    await expect(prewarm.promise).resolves.toBe(true);
+    expect(prepare).toHaveBeenCalledWith(expect.any(AbortSignal), {
+      ageVerified: true,
+    });
+  });
+
   it('stops before gameplay when consent never settles', async () => {
     jest.useFakeTimers();
     const prepare = Object.assign(

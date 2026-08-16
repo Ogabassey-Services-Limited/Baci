@@ -1,13 +1,19 @@
 const QUIZ_ADS_PREWARM_TIMEOUT_MS = 1500;
 const QUIZ_ADS_CONSENT_TIMEOUT_MS = 10_000;
 
-type PrepareQuizMobileAds = ((signal: AbortSignal) => Promise<boolean>) & {
+export type QuizAdsPreparationOptions = { ageVerified?: boolean };
+
+export type PrepareQuizMobileAds = ((
+  signal: AbortSignal,
+  options?: QuizAdsPreparationOptions
+) => Promise<boolean>) & {
   prepareConsent?: () => Promise<void>;
 };
 
 export function createQuizAdsPrewarm(
   prepare: PrepareQuizMobileAds,
-  onFinished: (failed: boolean, consentTimedOut?: boolean) => void
+  onFinished: (failed: boolean, consentTimedOut?: boolean) => void,
+  options?: QuizAdsPreparationOptions
 ): { cancel: () => void; promise: Promise<boolean> } {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -15,7 +21,7 @@ export function createQuizAdsPrewarm(
   let consentTimedOut = false;
   const startPreparation = () => {
     const preparation = Promise.resolve()
-      .then(() => prepare(controller.signal))
+      .then(() => prepare(controller.signal, options))
       .then((result) => result !== false)
       .catch(() => false);
     const timeoutResult = new Promise<false>((resolve) => {

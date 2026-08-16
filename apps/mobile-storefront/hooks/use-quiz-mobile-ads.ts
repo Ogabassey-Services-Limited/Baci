@@ -7,6 +7,7 @@ import { initializeQuizMobileAds } from '@/services/initialize-quiz-mobile-ads';
 
 interface UseQuizMobileAdsOptions {
   config: QuizMobileAdsConfig;
+  ageVerified?: boolean;
   requested: boolean;
 }
 
@@ -25,6 +26,7 @@ const DISABLED_STATE: QuizMobileAdsState = {
 };
 
 export function useQuizMobileAds({
+  ageVerified = false,
   config,
   requested,
 }: UseQuizMobileAdsOptions): QuizMobileAdsState {
@@ -62,7 +64,9 @@ export function useQuizMobileAds({
         return;
       }
 
-      const result = await initializeQuizMobileAds().catch(() => null);
+      const result = await initializeQuizMobileAds(undefined, {
+        ageVerified,
+      }).catch(() => null);
       if (!active) return;
 
       if (!result) {
@@ -81,7 +85,7 @@ export function useQuizMobileAds({
     return () => {
       active = false;
     };
-  }, [bannerUnitId, config.enabled, requested]);
+  }, [ageVerified, bannerUnitId, config.enabled, requested]);
 
   return state;
 }

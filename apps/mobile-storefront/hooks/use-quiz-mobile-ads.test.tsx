@@ -65,6 +65,22 @@ describe('useQuizMobileAds', () => {
     );
   });
 
+  it('passes the verified-adult hint to SDK initialization', async () => {
+    const { result } = renderHook(() =>
+      useQuizMobileAds({
+        ageVerified: true,
+        config: enabledConfig,
+        requested: true,
+      })
+    );
+
+    await waitFor(() => expect(result.current.initialized).toBe(true));
+
+    expect(mockInitializeQuizMobileAds).toHaveBeenCalledWith(undefined, {
+      ageVerified: true,
+    });
+  });
+
   it('honors the runtime kill switch without initializing the SDK', async () => {
     mockGetFeatureFlagValue.mockResolvedValue(false);
     const { result } = renderHook(() =>

@@ -16,14 +16,16 @@ jest.mock('@/config/quiz-mobile-ads', () => ({
     enabled: true,
   }),
 }));
-const mockUseQuizMobileAds = jest.fn((_input: { requested: boolean }) => ({
-  bannerUnitId: 'ca-app-pub-3940256099942544/9214589741',
-  canRequestAds: true,
-  enabled: true,
-  initialized: true,
-}));
+const mockUseQuizMobileAds = jest.fn(
+  (_input: { ageVerified?: boolean; requested: boolean }) => ({
+    bannerUnitId: 'ca-app-pub-3940256099942544/9214589741',
+    canRequestAds: true,
+    enabled: true,
+    initialized: true,
+  })
+);
 jest.mock('@/hooks/use-quiz-mobile-ads', () => ({
-  useQuizMobileAds: (input: { requested: boolean }) =>
+  useQuizMobileAds: (input: { ageVerified?: boolean; requested: boolean }) =>
     mockUseQuizMobileAds(input),
 }));
 jest.mock('@/hooks/useTheme', () => ({

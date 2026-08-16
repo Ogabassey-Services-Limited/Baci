@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getQuizDeviceFingerprint } from '@/lib/get-quiz-device-fingerprint';
+import { isAdultDateOfBirth } from '@/schemas/date-of-birth';
 import {
   type QuizAttempt,
   type QuizEvent,
@@ -13,7 +14,10 @@ import {
 import type { QuizV2Attempt } from '@/services/quiz-types';
 import { QuizServiceError } from '@/services/quiz-types';
 import { useAuthStore } from '@/stores/auth-store';
-import { createQuizAdsPrewarm } from './create-quiz-ads-prewarm';
+import {
+  createQuizAdsPrewarm,
+  type PrepareQuizMobileAds,
+} from './create-quiz-ads-prewarm';
 import { getQuizErrorMessage } from './QuizScreen.utils';
 import { useQuizDateOfBirthGate } from './useQuizDateOfBirthGate';
 import { useQuizStartGate } from './useQuizStartGate';
@@ -47,8 +51,6 @@ type StartEventV2 = (
   },
   starter: (startRequestId: string) => Promise<QuizV2Attempt>
 ) => Promise<void>;
-
-type PrepareQuizMobileAds = (signal: AbortSignal) => Promise<boolean>;
 
 /**
  * Orchestrates the two first-play gates and the attempt start. A shopper must
@@ -94,7 +96,7 @@ export function useQuizStartFlow({
   const quizAdsPrewarmFailedRef = useRef(false);
   const quizAdsConsentBlockedRef = useRef(false);
   const [quizAdsPrewarmFailed, setQuizAdsPrewarmFailed] = useState(false);
-  const prepareAdsBeforeStart = (): Promise<boolean> => {
+  const prepareAdsBeforeStart = (ageVerified: boolean): Promise<boolean> => {
     if (!prepareQuizMobileAds) return Promise.resolve(true);
     if (!quizAdsPreparationRef.current) {
       const prewarm = createQuizAdsPrewarm(
@@ -104,7 +106,8 @@ export function useQuizStartFlow({
           quizAdsConsentBlockedRef.current = Boolean(consentTimedOut);
           setQuizAdsPrewarmFailed(failed);
           if (consentTimedOut) onAdsConsentBlocked?.();
-        }
+        },
+        { ageVerified }
       );
       quizAdsPrewarmCancelRef.current = prewarm.cancel;
       quizAdsPreparationRef.current = prewarm.promise;
@@ -115,7 +118,10 @@ export function useQuizStartFlow({
     let startTransitionOwned = false;
     try {
       const startUserId = useAuthStore.getState().user?.id ?? null;
-      const adsReady = await prepareAdsBeforeStart();
+      const ageVerified = isAdultDateOfBirth(
+        useAuthStore.getState().customer?.date_of_birth
+      );
+      const adsReady = await prepareAdsBeforeStart(ageVerified);
       if (!adsReady && quizAdsConsentBlockedRef.current) return;
       const event = events.find((candidate) => candidate.id === eventId);
       if (useAuthStore.getState().user?.id !== startUserId) {
