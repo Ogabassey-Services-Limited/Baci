@@ -51,6 +51,7 @@ describe('runStorefrontPdpSemanticRpc', () => {
       })
     ).rejects.toBe(timeoutError);
 
+    expect(abortSignal).toHaveBeenCalledWith(timeoutController.signal);
     expect(loggerMocks.warn).toHaveBeenCalledWith(
       expect.objectContaining({
         outcome: 'throw',
@@ -67,10 +68,10 @@ describe('runStorefrontPdpSemanticRpc', () => {
   });
 
   it('traces a slow successful response without changing its value', async () => {
-    vi.spyOn(performance, 'now')
-      .mockReturnValueOnce(0)
-      .mockReturnValueOnce(4_001)
-      .mockReturnValueOnce(4_001);
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(
+      new AbortController().signal
+    );
+    vi.spyOn(performance, 'now').mockReturnValueOnce(0).mockReturnValue(4_001);
     const response = { data: [], error: null, status: 200 };
     const abortSignal = vi.fn<
       (signal: AbortSignal) => PromiseLike<typeof response>

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { StorefrontDatabase } from '@/types/storefront-database';
 import { readStorefrontPdpSemanticEnrichment } from './storefront-pdp-semantic-enrichment';
 
