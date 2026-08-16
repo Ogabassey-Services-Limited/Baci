@@ -18,10 +18,16 @@ jest.mock('@/stores/quiz-store', () => ({
 
 describe('useQuizAccountChangeReset', () => {
   it('resets in-memory state when the authenticated account changes', () => {
-    const { rerender } = renderHook(() => useQuizAccountChangeReset());
+    const { rerender } = renderHook(
+      ({ tick }: { tick: number }) => {
+        void tick;
+        return useQuizAccountChangeReset();
+      },
+      { initialProps: { tick: 0 } }
+    );
 
     mockUserId = 'user-b';
-    act(() => rerender());
+    act(() => rerender({ tick: 1 }));
 
     expect(mockResetForAccountChange).toHaveBeenCalledTimes(1);
   });
