@@ -203,7 +203,7 @@ export function createQuizV2StoreActions({
           Boolean(envelope && !(cancelled || pending || expiredActive))
         );
         return cancelled || pending || expiredActive
-          ? 'recovered'
+          ? 'recovered_terminal'
           : 'not_found';
       } catch (error) {
         if (generation === getGeneration()) {

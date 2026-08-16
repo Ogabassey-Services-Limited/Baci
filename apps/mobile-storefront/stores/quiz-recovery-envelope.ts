@@ -22,7 +22,11 @@ export type QuizV2LifecycleStatus =
   | 'event_cancelled'
   | 'final';
 
-export type QuizRecoveryOutcome = 'recovered' | 'not_found' | 'retry';
+export type QuizRecoveryOutcome =
+  | 'recovered'
+  | 'recovered_terminal'
+  | 'not_found'
+  | 'retry';
 
 type QuizSurfaceStatus =
   | 'idle'

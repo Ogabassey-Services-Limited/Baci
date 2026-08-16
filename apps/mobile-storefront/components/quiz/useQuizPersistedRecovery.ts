@@ -39,6 +39,8 @@ export function useQuizPersistedRecovery({
   const enabledRef = useRef(enabled);
   const previousEnabled = useRef(enabled);
   const canRecoverRef = useRef(canRecover);
+  const handledTerminalEventIds = useRef<Set<string>>(new Set());
+  const handledTerminalUserId = useRef<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
   enabledRef.current = enabled;
   canRecoverRef.current = canRecover;
@@ -76,7 +78,13 @@ export function useQuizPersistedRecovery({
       attemptedUserId.current = null;
       recoveringUserId.current = null;
       retryScheduled.current = false;
+      handledTerminalEventIds.current.clear();
+      handledTerminalUserId.current = null;
       return;
+    }
+    if (handledTerminalUserId.current !== userId) {
+      handledTerminalEventIds.current.clear();
+      handledTerminalUserId.current = userId;
     }
     if (!enabled || attemptedUserId.current === userId) return;
     if (recoveringUserId.current === userId) return;
@@ -103,6 +111,7 @@ export function useQuizPersistedRecovery({
         );
         if (!isCurrentRun()) return;
         for (const envelope of envelopes) {
+          if (handledTerminalEventIds.current.has(envelope.eventId)) continue;
           const isTerminalEnvelope = isRetainedTerminalEnvelope(envelope);
           if (!isCurrentRun() && !isTerminalEnvelope) return;
           recoveryOwnsStatus = true;
@@ -131,17 +140,22 @@ export function useQuizPersistedRecovery({
             }
           );
           recoveryOwnsStatus = false;
-          if (!isCurrentRun() && !isTerminalEnvelope) return;
           if (outcome === 'retry') {
             shouldRetry = true;
             return;
           }
+          if (
+            outcome === 'recovered_terminal' ||
+            (outcome === 'recovered' && isTerminalEnvelope)
+          ) {
+            // A result screen owns one terminal attempt at a time. Keep the
+            // next retained prize for the next recovery pass so it cannot
+            // overwrite the single terminal context currently being polled.
+            handledTerminalEventIds.current.add(envelope.eventId);
+            return;
+          }
+          if (!isCurrentRun() && !isTerminalEnvelope) return;
           if (outcome === 'recovered') {
-            // Active attempts must remain the sole owner of the quiz surface.
-            // Retained terminal envelopes are independent results, however;
-            // continue through the list so one old prize result cannot block
-            // another after an account switch or app restart.
-            if (isTerminalEnvelope) continue;
             attemptedUserId.current = userId;
             retryScheduled.current = false;
             return;

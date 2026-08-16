@@ -68,7 +68,7 @@ describe('useQuizPersistedRecovery', () => {
     const recoverEvent = jest.fn<RecoverEvent>();
     recoverEvent.mockImplementation(async (_userId, _eventId, recoverer) => {
       await recoverer();
-      return 'recovered';
+      return 'recovered_terminal';
     });
 
     renderHook(() =>

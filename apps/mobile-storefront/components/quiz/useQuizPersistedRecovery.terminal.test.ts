@@ -24,7 +24,7 @@ jest.mock('@/stores/quiz-recovery-envelope', () => ({
 describe('useQuizPersistedRecovery terminal envelopes', () => {
   afterEach(() => jest.clearAllMocks());
 
-  it('recovers every retained terminal attempt instead of stopping at the first', async () => {
+  it('exposes retained terminal attempts one at a time', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
       {
         attemptId: 'attempt-1',
@@ -47,24 +47,21 @@ describe('useQuizPersistedRecovery terminal envelopes', () => {
         version: 1,
       },
     ]);
-    let canRecover = true;
     const recoverEvent = jest
       .fn<RecoverEvent>()
-      .mockImplementation(async () => {
-        canRecover = false;
-        return 'recovered';
-      });
+      .mockResolvedValue('recovered_terminal');
 
-    renderHook(() =>
-      useQuizPersistedRecovery({
-        canRecover: () => canRecover,
-        enabled: true,
-        recoverEvent,
-        userId: 'user-1',
-      })
+    const { rerender } = renderHook(
+      ({ enabled }: { enabled: boolean }) =>
+        useQuizPersistedRecovery({
+          enabled,
+          recoverEvent,
+          userId: 'user-1',
+        }),
+      { initialProps: { enabled: true } }
     );
 
-    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(1));
     expect(recoverEvent).toHaveBeenNthCalledWith(
       1,
       'user-1',
@@ -72,6 +69,9 @@ describe('useQuizPersistedRecovery terminal envelopes', () => {
       expect.any(Function),
       expect.any(Function)
     );
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
     expect(recoverEvent).toHaveBeenNthCalledWith(
       2,
       'user-1',

@@ -153,7 +153,7 @@ describe('createQuizV2StoreActions recovery', () => {
           (optionId: string, questionId: string) => Promise<QuizV2Attempt>
         >(async () => activeAttempt)
       )
-    ).resolves.toBe('recovered');
+    ).resolves.toBe('recovered_terminal');
 
     expect(harness.getState()).toMatchObject({
       error: null,
