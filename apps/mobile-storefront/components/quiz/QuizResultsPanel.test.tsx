@@ -1,7 +1,32 @@
-import { describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act, render, screen } from '@testing-library/react-native';
+import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
+import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
 import { QuizResultsPanel } from './QuizResultsPanel';
 import { createQuizStyles, type QuizThemeColors } from './QuizScreen.styles';
+
+jest.mock('./QuizPrizeClaimPanel', () => ({
+  QuizPrizeClaimPanel: () => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return React.createElement(Text, null, 'Claim your prize');
+  },
+}));
+
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+jest.mock('@/services/quiz-leaderboard', () => ({
+  fetchQuizLeaderboard: jest.fn(),
+}));
+jest.mock('@/services/quiz-live-leaderboard', () => ({
+  fetchQuizLiveLeaderboard: jest.fn(),
+}));
+jest.mock('@/services/quiz-participant-count', () => ({
+  fetchQuizParticipantCount: jest.fn(),
+}));
 
 const colors: QuizThemeColors = {
   background: '#000',
@@ -19,11 +44,37 @@ const colors: QuizThemeColors = {
 };
 
 describe('QuizResultsPanel', () => {
-  it('explains that terminal answers are saved while results finalize', () => {
+  beforeEach(() => {
+    jest.mocked(fetchQuizLiveLeaderboard).mockReset();
+    jest.mocked(fetchQuizParticipantCount).mockReset();
+    jest.mocked(fetchQuizParticipantCount).mockResolvedValue(1);
+  });
+
+  it('celebrates completion and explains the server-recorded tie-break time', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(0);
+    jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
+      currentPlayer: {
+        displayName: 'Bassey',
+        isCurrentCustomer: true,
+        rank: 1,
+        score: 4,
+        status: 'submitted',
+        submittedAt: new Date(0).toISOString(),
+        totalTimeSeconds: 10,
+      },
+      entries: [],
+      participantCount: 1,
+      status: 'live',
+    });
     render(
       <QuizResultsPanel
+        eventId="event-1"
+        eventEndsAt={new Date(30_000).toISOString()}
+        expectedUserId="user-1"
         legacyResult={null}
         lifecycle="pending_results"
+        serverNow={new Date(0).toISOString()}
         styles={createQuizStyles(colors)}
         v2Result={{
           attemptId: 'a1',
@@ -32,7 +83,20 @@ describe('QuizResultsPanel', () => {
         }}
       />
     );
-    expect(screen.getByText('Results are being finalized')).toBeTruthy();
-    expect(screen.getByText(/answers are saved/i)).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("You're all done!")).toBeTruthy();
+    expect(screen.getByText('You finished at')).toBeTruthy();
+    expect(screen.getByText(/:\d{2}:\d{2}/)).toBeTruthy();
+    expect(
+      screen.getByText('Finish time will be used as a tie breaker')
+    ).toBeTruthy();
+    expect(
+      screen.getByText('The leaderboard will appear when the quiz ends in')
+    ).toBeTruthy();
+    expect(screen.getByRole('timer').props.children).toBe('0:30');
+    jest.useRealTimers();
   });
 });

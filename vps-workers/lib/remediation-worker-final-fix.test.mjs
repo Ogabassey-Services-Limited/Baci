@@ -21,6 +21,8 @@ function candidate(overrides = {}) {
   };
 }
 
+const fixtureNow = () => Date.parse('2026-08-09T10:10:00.000Z');
+
 describe('remediation worker final recovery contracts', () => {
   it('cleans a legacy lifecycle lock after opening a PR under the global lock', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-pr-replay-'));
@@ -44,6 +46,7 @@ describe('remediation worker final recovery contracts', () => {
       autofixRunner: runner,
       candidateLoader: async () => [candidate()],
       env,
+      now: fixtureNow,
       workerName: 'final-fix',
     });
     assert.equal(existsSync(lifecycleLock), false);
@@ -55,6 +58,7 @@ describe('remediation worker final recovery contracts', () => {
       autofixRunner: runner,
       candidateLoader: async () => [newer],
       env,
+      now: fixtureNow,
       workerName: 'final-fix',
     });
     const lifecycle = JSON.parse(
@@ -90,6 +94,7 @@ describe('remediation worker final recovery contracts', () => {
         BACI_REMEDIATION_MAX_CANDIDATES_PER_RUN: '1',
         BACI_REMEDIATION_OUTPUT_DIR: directory,
       },
+      now: fixtureNow,
       workerName: 'final-fix',
     });
 
@@ -169,6 +174,7 @@ describe('remediation worker final recovery contracts', () => {
         BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
         BACI_REMEDIATION_OUTPUT_DIR: directory,
       },
+      now: fixtureNow,
       workerName: 'final-fix',
     });
     const newer = await runRemediationWorker({
@@ -183,6 +189,7 @@ describe('remediation worker final recovery contracts', () => {
         BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
         BACI_REMEDIATION_OUTPUT_DIR: directory,
       },
+      now: fixtureNow,
       workerName: 'final-fix',
     });
 

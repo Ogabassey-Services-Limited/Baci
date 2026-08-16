@@ -167,7 +167,6 @@ describe('Expo compliance', () => {
       ),
       'utf-8'
     );
-
     expect(workflowSource).toMatch(
       /mappingFile: \$\{\{ env\.WORKING_DIR \}\}\/android\/app\/build\/outputs\/mapping\/release\/mapping\.txt/
     );
@@ -181,6 +180,10 @@ describe('Expo compliance', () => {
       ),
       'utf-8'
     );
+    const releaseScriptSource = readFileSync(
+      path.resolve(ROOT, '../../.github/scripts/android-storefront-release.sh'),
+      'utf-8'
+    );
     const installStep = workflowSource.indexOf('name: Install dependencies');
     const exposeStep = workflowSource.indexOf(
       'name: Expose PostHog CLI to Gradle'
@@ -192,11 +195,11 @@ describe('Expo compliance', () => {
     expect(installStep).toBeGreaterThan(-1);
     expect(exposeStep).toBeGreaterThan(installStep);
     expect(buildStep).toBeGreaterThan(exposeStep);
-    expect(workflowSource).toContain(
+    expect(releaseScriptSource).toContain(
       '$GITHUB_WORKSPACE/node_modules/.bin/posthog-cli'
     );
-    expect(workflowSource).toContain('[ ! -x "$POSTHOG_CLI_BIN" ]');
-    expect(workflowSource).toContain(
+    expect(releaseScriptSource).toContain('[ ! -x "$POSTHOG_CLI_BIN" ]');
+    expect(releaseScriptSource).toContain(
       'dirname "$POSTHOG_CLI_BIN" >> "$GITHUB_PATH"'
     );
   });

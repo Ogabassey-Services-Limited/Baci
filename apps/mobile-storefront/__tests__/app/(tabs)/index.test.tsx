@@ -8,6 +8,7 @@ import {
   mockGetTemplateConfig,
   mockHomeFeedList,
   mockInvalidateQueries,
+  mockRecordPerformanceSurface,
   mockResetQueries,
   setupHomeScreenTestState,
 } from '../../../test-support/(tabs)/index.test-utils';
@@ -39,6 +40,14 @@ describe('HomeScreen', () => {
     expect(lastFeedProps()?.contentBottomPadding).toBe(
       getHomeContentBottomPadding(34, true)
     );
+  });
+
+  it('attributes the focused home performance surface', () => {
+    render(<HomeScreen />);
+
+    expect(mockRecordPerformanceSurface).toHaveBeenCalledWith('home', {
+      template_id: 'default',
+    });
   });
 
   it('uses tab-bar clearance only when the chat widget is disabled', () => {

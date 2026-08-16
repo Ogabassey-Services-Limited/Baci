@@ -79,4 +79,24 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
     sha256: '6992ec9ddf3e5432869385a2e0c4ca2aa7058319841d071330135d1cb25680f1',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815010000_quiz_v2_prize_claim_projection.sql',
+    sha256: '4f55d6b9fc41770102186a5b98b27e8762f9a677a14c1a356f7ac02b9d037b4a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815011000_quiz_v2_recovery_attempt_id.sql',
+    sha256: '012c1ca8884fdbf693b239a225f1abd83c90b81ef6e8b9e64a1bc546ba165ccd',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815100000_quiz_v2_open_window_recovery.sql',
+    sha256: '583fccc3083cf0050886133e38dc593ee2b98b73fa6a9f074fa6258847489d54',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260816090000_quiz_v2_prize_claim_expiry_projection.sql',
+    sha256: '53ef46143a9115696e04eec69b71fcae0f5d7e41b1219e85c73f9aded32efe23',
+  },
 ] as const;
