@@ -7,7 +7,11 @@ describe('storefront edge inventory routing input paths', () => {
     expect(STOREFRONT_EDGE_INVENTORY_ROUTING_INPUT_PATHS).toEqual(
       expect.arrayContaining([
         'apps/web/src/components/storefront/ogabassey/components/PaymentLogos.tsx',
+        'apps/web/src/components/storefront/ogabassey/components/Footer.tsx',
+        'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx',
         'apps/web/src/components/storefront/ogabassey/components/utility-checkout.ts',
+        'apps/web/src/config/platform.ts',
+        'apps/web/src/lib/social.ts',
         'apps/web/src/components/storefront/ogabassey/pages/privacy-policy.tsx',
         'apps/web/src/components/storefront/ogabassey/pages/legal-dispute.tsx',
         'apps/web/src/components/storefront/ogabassey/pages/sustainability.tsx',

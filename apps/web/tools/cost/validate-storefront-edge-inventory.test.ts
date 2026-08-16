@@ -63,8 +63,8 @@ describe('validateStorefrontEdgeInventory', () => {
     // Assert
     expect(result).toEqual({
       inventorySha256:
-        '88301053a0badba8729e0f13b76a05d6802d90090b754e066365bf3ae2a5264e',
-      rowCount: 527,
+        '23e01f909b60abccf7d6b475736f0c06a0130c6ee34fa46171ec8dd3ef8bcd69',
+      rowCount: 531,
       storefrontEntrypointCount: 76,
     });
   });

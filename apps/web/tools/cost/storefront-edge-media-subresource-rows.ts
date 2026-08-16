@@ -24,6 +24,10 @@ type MediaDestinationHostKind =
   | 'configured_snapchat_origin'
   | 'configured_twitter_origin'
   | 'configured_whatsapp_origin'
+  | 'configured_google_maps_origin'
+  | 'configured_merchant_social_origin'
+  | 'configured_app_store_origin'
+  | 'configured_play_store_origin'
   | 'configured_supabase_storage_origin';
 
 const mediaSubresource = (
@@ -220,5 +224,25 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'device-swap-whatsapp-navigation',
     'configured_whatsapp_origin',
     'apps/web/src/components/storefront/ogabassey/pages/swap.tsx'
+  ),
+  mediaSubresource(
+    'footer-google-maps-navigation',
+    'configured_google_maps_origin',
+    'apps/web/src/components/storefront/ogabassey/components/Footer.tsx'
+  ),
+  mediaSubresource(
+    'footer-merchant-social-navigation',
+    'configured_merchant_social_origin',
+    'apps/web/src/components/storefront/ogabassey/components/Footer.tsx'
+  ),
+  mediaSubresource(
+    'footer-app-store-navigation',
+    'configured_app_store_origin',
+    'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx'
+  ),
+  mediaSubresource(
+    'footer-play-store-navigation',
+    'configured_play_store_origin',
+    'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx'
   ),
 ];

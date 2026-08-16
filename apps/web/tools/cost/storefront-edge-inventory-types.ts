@@ -40,6 +40,10 @@ type StorefrontEdgeInventoryRow = Readonly<{
       | 'configured_snapchat_origin'
       | 'configured_twitter_origin'
       | 'configured_whatsapp_origin'
+      | 'configured_google_maps_origin'
+      | 'configured_merchant_social_origin'
+      | 'configured_app_store_origin'
+      | 'configured_play_store_origin'
       | 'configured_supabase_origin'
       | 'configured_supabase_storage_origin';
     precedence: 'before_path_decision';

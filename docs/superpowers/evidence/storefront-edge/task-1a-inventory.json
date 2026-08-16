@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "996d2b445a939d6e733fb88bd25c7afc5e369302",
+  "originMainSha": "1e69bd8595434c82c897424bf660f4ad71cdfe8e",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "43a7f584208d1420bec1ba0b726df4afc64ba2e0dfc563f62878ac90903d75ef",
-  "routingProxyInputSha256": "3a7640ecf8b9c8c518089891676b7c718b57a181582ec810b6409fed75103a55",
+  "routingProxyInputSha256": "c416b7d66d3a7acde7d0d2c3c33d2ed4fe467048f83c2e25a32fcf69064b81f2",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -2471,6 +2471,70 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/swap.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:footer-google-maps-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/Footer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_merchant_social_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:footer-merchant-social-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/Footer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_app_store_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:footer-app-store-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_play_store_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:footer-play-store-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx"
     },
     {
       "decision": "edge_release",
@@ -7807,5 +7871,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "88301053a0badba8729e0f13b76a05d6802d90090b754e066365bf3ae2a5264e"
+  "inventorySha256": "23e01f909b60abccf7d6b475736f0c06a0130c6ee34fa46171ec8dd3ef8bcd69"
 }

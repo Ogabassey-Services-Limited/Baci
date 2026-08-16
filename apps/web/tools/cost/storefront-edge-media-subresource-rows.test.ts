@@ -71,6 +71,11 @@ describe('external storefront media inventory', () => {
         'configured_tiktok_origin',
         'configured_snapchat_origin',
         'configured_twitter_origin',
+        'configured_whatsapp_origin',
+        'configured_google_maps_origin',
+        'configured_merchant_social_origin',
+        'configured_app_store_origin',
+        'configured_play_store_origin',
       ].map((hostKind) => ({
         decision: 'origin_dynamic',
         hostKind,
@@ -151,6 +156,50 @@ describe('external storefront media inventory', () => {
           'apps/web/src/components/storefront/ogabassey/pages/swap.tsx',
         destinationCondition: expect.objectContaining({
           hostKind: 'configured_whatsapp_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:footer-google-maps-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/Footer.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_google_maps_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:footer-merchant-social-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/Footer.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_merchant_social_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:footer-app-store-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_app_store_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:footer-play-store-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_play_store_origin',
         }),
       })
     );
