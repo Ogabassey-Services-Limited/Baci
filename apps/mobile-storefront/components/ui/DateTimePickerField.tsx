@@ -3,8 +3,16 @@ import DateTimePicker, {
 } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
-import { Platform, Pressable, Text, View } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 
 type DateTimePickerFieldMode = 'date' | 'time';
 
@@ -97,6 +105,7 @@ export function DateTimePickerField({
 }: DateTimePickerFieldProps) {
   const [isPickerVisible, setIsPickerVisible] = useState(false);
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
   const pickerValue =
     parsePickerValue(value, mode) ??
     // The native picker requires a Date object; use today only at the UI
@@ -135,27 +144,85 @@ export function DateTimePickerField({
       >
         <Text style={textStyle}>{value || fallbackDisplay}</Text>
       </Pressable>
-      {isPickerVisible ? (
+      {isPickerVisible && Platform.OS === 'ios' ? (
+        <Modal
+          accessibilityViewIsModal
+          animationType="slide"
+          onRequestClose={() => setIsPickerVisible(false)}
+          transparent
+          visible
+        >
+          <View
+            style={[
+              styles.iosPickerOverlay,
+              { backgroundColor: withAlpha(colors.black, 0.5) },
+            ]}
+          >
+            <View
+              style={[styles.iosPickerSheet, { backgroundColor: colors.card }]}
+            >
+              <DateTimePicker
+                accessibilityLabel={accessibilityLabel}
+                display="spinner"
+                mode={mode}
+                themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
+                value={pickerValue}
+                onChange={handlePickerChange}
+              />
+              <Pressable
+                accessibilityLabel={`Done selecting ${label}`}
+                accessibilityRole="button"
+                onPress={() => setIsPickerVisible(false)}
+                style={styles.iosPickerDone}
+              >
+                <Text
+                  style={[
+                    styles.iosPickerDoneText,
+                    { color: colors.primary },
+                    textStyle,
+                  ]}
+                >
+                  Done
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+      ) : isPickerVisible ? (
         <View>
           <DateTimePicker
             accessibilityLabel={accessibilityLabel}
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            display="default"
             mode={mode}
             themeVariant={colorScheme === 'dark' ? 'dark' : 'light'}
             value={pickerValue}
             onChange={handlePickerChange}
           />
-          {Platform.OS === 'ios' ? (
-            <Pressable
-              accessibilityLabel={`Done selecting ${label}`}
-              accessibilityRole="button"
-              onPress={() => setIsPickerVisible(false)}
-            >
-              <Text style={textStyle}>Done</Text>
-            </Pressable>
-          ) : null}
         </View>
       ) : null}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  iosPickerDone: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  iosPickerDoneText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  iosPickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    opacity: 0.98,
+  },
+  iosPickerSheet: {
+    borderTopLeftRadius: RADIUS['2xl'],
+    borderTopRightRadius: RADIUS['2xl'],
+    padding: SPACING.md,
+    width: '100%',
+  },
+});

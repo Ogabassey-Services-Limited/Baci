@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { Modal, Platform } from 'react-native';
 import { DateTimePickerField } from './DateTimePickerField';
 
 let mockPickerEventType: 'dismissed' | 'set' = 'set';
@@ -135,6 +135,29 @@ describe('DateTimePickerField', () => {
     expect(
       screen.queryByRole('button', { name: 'Mock date picker' })
     ).toBeNull();
+  });
+
+  it('presents the iOS spinner in a full-width modal instead of the field row', () => {
+    if (Platform.OS !== 'ios') return;
+
+    const rendered = render(
+      <DateTimePickerField
+        accessibilityLabel="Savings start date"
+        fallbackDisplay="YYYY-MM-DD"
+        label="Start date"
+        mode="date"
+        onChangeText={jest.fn()}
+        value="2026-05-22"
+        wrapperStyle={{ flex: 1 }}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Savings start date' }));
+
+    const modal = rendered.UNSAFE_getByType(Modal);
+    expect(modal.props.visible).toBe(true);
+    expect(modal.props.transparent).toBe(true);
+    expect(modal.props.accessibilityViewIsModal).toBe(true);
   });
 
   it('closes dismissed picker events without changing the value', () => {
