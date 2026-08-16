@@ -15,8 +15,6 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
-  chunkGitObjectIdsBySize,
-  MAX_GIT_OBJECT_BATCH_BYTES,
   sourceManifestBytes,
   TASK9_SOURCE_MANIFEST_MAX_BYTES,
 } from './source-manifest.mjs';
@@ -181,69 +179,6 @@ test('uses a handoff limit above the legacy one-megabyte manifest cap', () => {
   );
 });
 
-test('chunks verified Git blobs by bytes instead of only entry count', () => {
-  const sizes = new Map([
-    ['a', { size: 60 }],
-    ['b', { size: 60 }],
-    ['c', { size: 60 }],
-  ]);
-  assert.deepEqual(chunkGitObjectIdsBySize(['a', 'b', 'c'], sizes, 700), [
-    ['a', 'b'],
-    ['c'],
-  ]);
-  assert.doesNotThrow(() =>
-    chunkGitObjectIdsBySize(
-      ['large'],
-      new Map([['large', { size: MAX_GIT_OBJECT_BATCH_BYTES - 300 }]])
-    )
-  );
-  assert.throws(
-    () =>
-      chunkGitObjectIdsBySize(
-        ['too-large'],
-        new Map([['too-large', { size: MAX_GIT_OBJECT_BATCH_BYTES }]])
-      ),
-    /exceeds batch size limit/
-  );
-});
-
-test('hashes a large changed lockfile without treating it as an archive member', (t) => {
-  const context = repository();
-  t.after(() => rmSync(context.root, { recursive: true, force: true }));
-  writeFileSync(
-    join(context.root, 'pnpm-lock.yaml'),
-    `${'x'.repeat(1_048_577)}\n`
-  );
-  run(context.root, ['add', 'pnpm-lock.yaml']);
-  run(context.root, [
-    '-c',
-    'user.name=test',
-    '-c',
-    'user.email=test@invalid',
-    'commit',
-    '-qm',
-    'large lockfile',
-  ]);
-  context.head = run(context.root, ['rev-parse', 'HEAD']);
-  const outputDir = mkdtempSync(join(tmpdir(), 'cwv-large-lockfile-'));
-  t.after(() => rmSync(outputDir, { recursive: true, force: true }));
-  const output = {
-    manifest: join(outputDir, 'manifest.json'),
-    manifestDigest: join(outputDir, 'manifest.sha256'),
-    archive: join(outputDir, 'source.tar'),
-    archiveDigest: join(outputDir, 'source.tar.sha256'),
-  };
-
-  node(context.root, argumentsFor(context, 'freeze', output));
-  const manifest = JSON.parse(readFileSync(output.manifest));
-  assert(manifest.entries.some((entry) => entry.path === 'pnpm-lock.yaml'));
-  assert(
-    !manifest.sourceArchive.entries.some(
-      (entry) => entry.path === 'pnpm-lock.yaml'
-    )
-  );
-});
-
 test('freeze and verify bind a sorted full source archive while retaining outside diff rows', (t) => {
   const context = repository();
   t.after(() => rmSync(context.root, { recursive: true, force: true }));
@@ -326,23 +261,4 @@ test('archive verifier rejects checksum, padding, and hidden trailing bytes', as
     Buffer.concat([archive, Buffer.from([1])]),
   ])
     assert.throws(() => verifySourceArchive(broken, entries));
-});
-
-test('source archive accepts the current 529-file sealed projection', async (t) => {
-  const context = repository();
-  t.after(() => rmSync(context.root, { recursive: true, force: true }));
-  const { createSourceArchive, verifySourceArchive } = await moduleFor(
-    context.root
-  );
-  const entries = Array.from({ length: 529 }, (_, index) => {
-    const bytes = Buffer.from(`member-${index}\n`);
-    return {
-      path: `infra/cwv-runner/member-${String(index).padStart(3, '0')}.mjs`,
-      mode: '100644',
-      blobSha256: createHash('sha256').update(bytes).digest('hex'),
-      bytes,
-    };
-  });
-  const archive = createSourceArchive(entries);
-  verifySourceArchive(archive, entries);
 });

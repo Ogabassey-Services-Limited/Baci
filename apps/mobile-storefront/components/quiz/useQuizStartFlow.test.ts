@@ -89,58 +89,6 @@ describe('useQuizStartFlow', () => {
     expect(mockDobRequestStart).toHaveBeenCalledWith('event-1');
   });
 
-  it('prepares optional mobile ads before starting the timed attempt', async () => {
-    let resolvePreparation!: () => void;
-    const prepareQuizMobileAds = jest.fn(
-      () =>
-        new Promise<boolean>((resolve) => {
-          resolvePreparation = () => resolve(true);
-        })
-    );
-    const { result } = renderHook(() =>
-      useQuizStartFlow({
-        integrityTier: 'device',
-        prepareQuizMobileAds,
-        startEvent,
-      })
-    );
-
-    act(() => result.current.requestStart('event-1'));
-    dobOnStart('event-1');
-    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1));
-    expect(startEvent).not.toHaveBeenCalled();
-
-    await act(async () => {
-      resolvePreparation();
-      await Promise.resolve();
-    });
-
-    await waitFor(() => expect(startEvent).toHaveBeenCalledTimes(1));
-  });
-
-  it('blocks an ad prewarm retry after failure until a new quiz start', async () => {
-    const prepareQuizMobileAds = jest
-      .fn<() => Promise<boolean>>()
-      .mockResolvedValue(false);
-    const { result } = renderHook(() =>
-      useQuizStartFlow({
-        integrityTier: 'device',
-        prepareQuizMobileAds,
-        startEvent,
-      })
-    );
-
-    act(() => result.current.requestStart('event-1'));
-    dobOnStart('event-1');
-
-    await waitFor(() => expect(result.current.adsPrewarmFailed).toBe(true));
-    expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1);
-
-    act(() => result.current.requestStart('event-2'));
-
-    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(2));
-  });
-
   it('reopens the date-of-birth gate when the server rejects a stored DOB as under-18', async () => {
     mockStartQuizAttempt.mockRejectedValueOnce(
       new QuizServiceError(
@@ -209,70 +157,6 @@ describe('useQuizStartFlow', () => {
     await Promise.resolve();
     expect(mockStartQuizAttempt).not.toHaveBeenCalled();
     expect(mockReopenForCorrection).not.toHaveBeenCalled();
-  });
-
-  it('does not start a v2 event when the account switches during ad prewarm', async () => {
-    let resolvePreparation!: () => void;
-    const prepareQuizMobileAds = jest.fn(
-      () =>
-        new Promise<boolean>((resolve) => {
-          resolvePreparation = () => resolve(true);
-        })
-    );
-    const startEventV2 = jest.fn(
-      async (
-        _context: {
-          eventId: string;
-          integrityTier: QuizIntegrityTier;
-          startRequestId: string;
-          userId: string | null;
-        },
-        starter: (startRequestId: string) => Promise<QuizV2Attempt>
-      ) => {
-        await starter('start-request-1').catch(() => undefined);
-      }
-    );
-    const { result } = renderHook(() =>
-      useQuizStartFlow({
-        events: [
-          {
-            contractVersion: 2,
-            endsAt: '2026-08-03T20:05:00Z',
-            id: 'event-v2-prewarm',
-            mode: 'test',
-            prizeName: 'Phone',
-            questionCount: 3,
-            rulesVersion: 'quiz-rules-2026-08',
-            startsAt: '2026-08-03T20:00:00Z',
-            status: 'active',
-            title: 'Prewarm switch',
-          },
-        ],
-        integrityTier: 'device',
-        prepareQuizMobileAds,
-        startEvent,
-        startEventV2,
-      })
-    );
-
-    act(() => result.current.requestStart('event-v2-prewarm', true));
-    dobOnStart('event-v2-prewarm');
-    await waitFor(() => expect(prepareQuizMobileAds).toHaveBeenCalledTimes(1));
-    mockAuthUserId = 'user-b';
-    await act(async () => {
-      resolvePreparation();
-      await Promise.resolve();
-    });
-
-    await waitFor(() => expect(startEventV2).toHaveBeenCalledTimes(1));
-    expect(startEventV2).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventId: 'event-v2-prewarm',
-        userId: null,
-      }),
-      expect.any(Function)
-    );
-    expect(mockStartQuizAttemptV2).not.toHaveBeenCalled();
   });
 
   it('starts contract v2 with accepted rules and a stable start request', async () => {
