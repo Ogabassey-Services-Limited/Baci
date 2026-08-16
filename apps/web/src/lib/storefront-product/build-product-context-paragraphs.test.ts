@@ -254,4 +254,28 @@ describe('buildProductContextParagraphs', () => {
     expect(copy).toContain('OIS: Yes');
     expect(copy).not.toContain('Card Slot: No');
   });
+
+  it('classifies crawl facts from the stable category slug when the display name is localized', () => {
+    const paragraphs = buildProductContextParagraphs(
+      makeInput({
+        categorySlug: 'action-cameras',
+        categoryName: '相机',
+        currentProduct: {
+          slug: 'hero-action-cam',
+          name: 'Hero Action Cam',
+          price: 250_000,
+          category_slug: 'action-cameras',
+          product_key_specs: {
+            main_camera_mp: 24,
+            has_ois: true,
+          },
+        },
+      })
+    );
+
+    const copy = paragraphs.join(' ');
+    expect(copy).toContain('Effective Resolution: 24MP');
+    expect(copy).toContain('OIS: Yes');
+    expect(copy).toContain('相机');
+  });
 });

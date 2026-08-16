@@ -138,9 +138,11 @@ export function buildProductContextParagraphs({
   const comparisonSubject = brandName
     ? `${brandName} options`
     : `${categoryLabel.toLowerCase()} alternatives`;
+  const specClassificationCategory =
+    normalizeText(categorySlug) ?? categoryLabel;
   const specFacts = buildProductContextSpecFacts(
     currentProduct.product_key_specs,
-    categoryLabel
+    specClassificationCategory
   );
 
   const paragraphs = [

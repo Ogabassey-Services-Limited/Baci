@@ -1,10 +1,9 @@
 import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
-import { generateSlug } from '@/lib/seo-utils';
 import {
+  resolveMappedStorefrontProductCategorySlug,
   resolveStorefrontProductCategoryName,
-  resolveStorefrontProductCategorySlug,
 } from '@/lib/storefront-product-category-name';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -96,6 +95,7 @@ export interface DetailedCachedProduct {
   gtin?: string | null;
   mpn?: string | null;
   category?: string | null;
+  category_slug?: string | null;
   categories?:
     | {
         id: string;
@@ -151,13 +151,11 @@ export function mapDetailedCachedProductToProduct(
   const categoryInput = {
     categories: primaryCategory,
     category: detailedProduct.category,
+    category_slug: detailedProduct.category_slug,
   };
   const categoryName = resolveStorefrontProductCategoryName(categoryInput);
-  const resolvedCategorySlug =
-    resolveStorefrontProductCategorySlug(categoryInput);
-  const categorySlug = resolvedCategorySlug
-    ? generateSlug(resolvedCategorySlug)
-    : undefined;
+  const categorySlug =
+    resolveMappedStorefrontProductCategorySlug(categoryInput);
 
   return {
     id: detailedProduct.id,

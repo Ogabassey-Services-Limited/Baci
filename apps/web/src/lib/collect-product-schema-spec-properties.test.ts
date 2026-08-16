@@ -168,4 +168,20 @@ describe('collectProductSchemaSpecProperties', () => {
 
     expect(collector.getProperties()).toEqual([]);
   });
+
+  it('ignores legacy specification rows with non-string section names', () => {
+    const collector = collectProductSchemaSpecProperties(
+      makeSeoProduct({
+        category: 'Cameras',
+        specifications: [
+          {
+            category: 123 as unknown as string,
+            items: [{ label: 'Resolution', value: '48MP' }],
+          },
+        ],
+      })
+    );
+
+    expect(collector.getProperties()).toEqual([]);
+  });
 });

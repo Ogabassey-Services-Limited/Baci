@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  resolveMappedStorefrontProductCategorySlug,
   resolveStorefrontProductCategoryName,
   resolveStorefrontProductCategorySlug,
   resolveSupportedStorefrontProductCategoryRelation,
@@ -85,6 +86,26 @@ describe('resolveStorefrontProductCategorySlug', () => {
         category: 'Action Cameras',
       })
     ).toBe('Action Cameras');
+  });
+});
+
+describe('resolveMappedStorefrontProductCategorySlug', () => {
+  it('preserves authoritative joined slugs without re-slugifying them', () => {
+    expect(
+      resolveMappedStorefrontProductCategorySlug({
+        categories: { slug: 'smart?watches#gps' },
+        category: 'Smart Watches',
+      })
+    ).toBe('smart?watches#gps');
+  });
+
+  it('slugifies display-text fallbacks when no authoritative slug exists', () => {
+    expect(
+      resolveMappedStorefrontProductCategorySlug({
+        categories: { name: 'Action Cameras' },
+        category: 'Smartphones',
+      })
+    ).toBe('action-cameras');
   });
 });
 

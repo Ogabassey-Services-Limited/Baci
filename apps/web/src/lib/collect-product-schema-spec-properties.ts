@@ -21,6 +21,12 @@ function hasPresentSpecValue(
   return typeof value === 'number' || typeof value === 'boolean';
 }
 
+function normalizeLegacySpecSectionName(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
 export function collectProductSchemaSpecProperties(product: Product) {
   const collector = createProductSchemaAdditionalPropertyCollector();
   const keySpecs = product.product_key_specs;
@@ -192,6 +198,11 @@ export function collectProductSchemaSpecProperties(product: Product) {
         continue;
       }
 
+      const sectionName = normalizeLegacySpecSectionName(category.category);
+      if (category.category != null && sectionName === undefined) {
+        continue;
+      }
+
       for (const item of category.items) {
         const label =
           typeof item.label === 'string' ? item.label.trim() : undefined;
@@ -201,7 +212,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
 
         const canonicalKey = getProductSchemaSpecKeyForLabel(
           label,
-          category.category
+          sectionName
         );
         if (canonicalKey && populatedSpecKeys.has(canonicalKey)) {
           continue;
@@ -210,7 +221,7 @@ export function collectProductSchemaSpecProperties(product: Product) {
         if (
           shouldIncludeProductSchemaSpec(product, {
             label,
-            section: category.category,
+            section: sectionName,
             value: item.value,
           })
         ) {

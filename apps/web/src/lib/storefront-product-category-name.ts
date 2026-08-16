@@ -1,3 +1,4 @@
+import { generateSlug } from './seo-utils';
 import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 
 type StorefrontProductNamedCategory = {
@@ -64,6 +65,27 @@ export function resolveStorefrontProductCategorySlug(
   return categoryName && !isUnsupportedSpecValue(categoryName)
     ? categoryName
     : null;
+}
+
+/**
+ * Preserves authoritative joined or top-level slugs verbatim and slugifies
+ * only display-text fallbacks for URL serialization.
+ */
+export function resolveMappedStorefrontProductCategorySlug(
+  product: StorefrontProductCategoryNameInput
+): string | undefined {
+  const directSlug = product.categories?.slug?.trim();
+  if (directSlug && !isUnsupportedSpecValue(directSlug)) {
+    return directSlug;
+  }
+
+  const canonicalSlug = product.category_slug?.trim();
+  if (canonicalSlug && !isUnsupportedSpecValue(canonicalSlug)) {
+    return canonicalSlug;
+  }
+
+  const categoryName = resolveStorefrontProductCategoryName(product);
+  return categoryName ? generateSlug(categoryName) : undefined;
 }
 
 export function resolveSupportedStorefrontProductCategoryRelation(

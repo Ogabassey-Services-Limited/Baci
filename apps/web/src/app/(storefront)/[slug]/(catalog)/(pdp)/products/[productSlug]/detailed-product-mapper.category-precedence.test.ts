@@ -119,4 +119,29 @@ describe('mapDetailedCachedProductToProduct category precedence', () => {
       category_slug: 'action-cameras',
     });
   });
+
+  it('preserves joined category slugs that contain reserved delimiters', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'encoded-slug-category',
+        merchant_id: 'merchant-1',
+        name: 'Smart Watch',
+        status: 'active',
+        slug: 'smart-watch',
+        price: 100,
+        images: [],
+        category: 'Smart Watches',
+        categories: {
+          id: 'watch-category',
+          slug: 'smart?watches#gps',
+        },
+        product_variants: [],
+        specifications: null,
+        product_key_specs: null,
+      },
+      'merchant-1'
+    );
+
+    expect(product.category_slug).toBe('smart?watches#gps');
+  });
 });

@@ -47,4 +47,18 @@ describe('classifyProductSchemaCategories', () => {
       productFamily: 'camera',
     });
   });
+
+  it('ignores stale top-level category_slug when joined relation metadata exists', () => {
+    expect(
+      classifyProductSchemaCategories({
+        categories: { slug: 'phone-accessories' },
+        category_slug: 'smartphones',
+      })
+    ).toMatchObject({
+      categoryNames: ['phone accessories'],
+      hasAccessoryCategory: true,
+      isMobileCategory: false,
+      productFamily: 'general',
+    });
+  });
 });

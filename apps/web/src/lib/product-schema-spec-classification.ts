@@ -1,4 +1,5 @@
 import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
+import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 import { isAccessoryLikeCategory } from './storefront-specs/spec-accessory-classifier';
 import type { ProductSpecFamily } from './storefront-specs/spec-taxonomy';
 import {
@@ -68,12 +69,20 @@ function isPhoneTabletLaptopCategory(categoryName: string) {
   );
 }
 
+function hasAuthoritativeJoinedCategorySlug(product: ProductCategorySource) {
+  const relationSlug = product.categories?.slug?.trim();
+
+  return Boolean(relationSlug && !isUnsupportedSpecValue(relationSlug));
+}
+
 export function classifyProductSchemaCategories(
   product: ProductCategorySource
 ) {
   const preferredCategory = resolveStorefrontProductCategoryName(product);
   const relationSlug = product.categories?.slug?.trim();
-  const topLevelSlug = product.category_slug?.trim();
+  const topLevelSlug = hasAuthoritativeJoinedCategorySlug(product)
+    ? undefined
+    : product.category_slug?.trim();
   const rawCategoryNames = [
     preferredCategory,
     relationSlug,
