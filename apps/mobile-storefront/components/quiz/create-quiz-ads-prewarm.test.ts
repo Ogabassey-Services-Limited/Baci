@@ -55,4 +55,21 @@ describe('createQuizAdsPrewarm', () => {
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(onFinished).toHaveBeenCalledWith(false);
   });
+
+  it('stops before gameplay when consent never settles', async () => {
+    jest.useFakeTimers();
+    const prepare = Object.assign(
+      jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+      { prepareConsent: () => new Promise<void>(() => {}) }
+    );
+    const onFinished = jest.fn();
+    const prewarm = createQuizAdsPrewarm(prepare, onFinished);
+
+    await Promise.resolve();
+    jest.advanceTimersByTime(10_000);
+
+    await expect(prewarm.promise).resolves.toBe(false);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(onFinished).toHaveBeenCalledWith(true, true);
+  });
 });

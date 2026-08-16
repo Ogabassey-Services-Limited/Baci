@@ -29,9 +29,10 @@ export function useQuizResultsLeaderboard({
   const [participantCount, setParticipantCount] = useState<number | null>(null);
   const hasLeaderboard = useRef(false);
   const previousEventKey = useRef<string | null>(null);
+  const isLive = lifecycle === 'pending_results' && !eventHasEnded;
 
   useEffect(() => {
-    const eventKey = `${eventId ?? ''}:${expectedUserId ?? ''}`;
+    const eventKey = `${eventId ?? ''}:${expectedUserId ?? ''}:${isLive ? 'live' : 'final'}`;
     const eventChanged = previousEventKey.current !== eventKey;
     if (eventChanged) {
       previousEventKey.current = eventKey;
@@ -75,7 +76,6 @@ export function useQuizResultsLeaderboard({
     const load = async () => {
       if (!active || !appIsActive || loadInFlight) return;
       loadInFlight = true;
-      const isLive = lifecycle === 'pending_results' && !eventHasEnded;
       let retryDelayMs: number | null = isLive
         ? LIVE_REFRESH_INTERVAL_MS
         : FINAL_RETRY_INTERVAL_MS;
@@ -120,7 +120,7 @@ export function useQuizResultsLeaderboard({
       if (retryId) clearTimeout(retryId);
       subscription.remove();
     };
-  }, [enabled, eventHasEnded, eventId, expectedUserId, lifecycle]);
+  }, [enabled, eventId, expectedUserId, isLive]);
 
   return { leaderboard, leaderboardError, participantCount };
 }

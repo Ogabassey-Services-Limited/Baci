@@ -66,12 +66,14 @@ export function useQuizStartFlow({
   events = [],
   integrityTier,
   prepareQuizMobileAds,
+  onAdsConsentBlocked,
   onStartSettled,
   startEvent,
   startEventV2,
 }: {
   events?: QuizEvent[];
   integrityTier: QuizIntegrityTier;
+  onAdsConsentBlocked?: () => void;
   onStartSettled?: (eventId: string) => void;
   prepareQuizMobileAds?: PrepareQuizMobileAds;
   startEvent: StartEvent;
@@ -90,25 +92,30 @@ export function useQuizStartFlow({
   const quizAdsPreparationRef = useRef<Promise<boolean> | null>(null);
   const quizAdsPrewarmCancelRef = useRef<(() => void) | null>(null);
   const quizAdsPrewarmFailedRef = useRef(false);
+  const quizAdsConsentBlockedRef = useRef(false);
   const [quizAdsPrewarmFailed, setQuizAdsPrewarmFailed] = useState(false);
-
   const prepareAdsBeforeStart = (): Promise<boolean> => {
     if (!prepareQuizMobileAds) return Promise.resolve(true);
     if (!quizAdsPreparationRef.current) {
-      const prewarm = createQuizAdsPrewarm(prepareQuizMobileAds, (failed) => {
-        quizAdsPrewarmFailedRef.current = failed;
-        setQuizAdsPrewarmFailed(failed);
-      });
+      const prewarm = createQuizAdsPrewarm(
+        prepareQuizMobileAds,
+        (failed, consentTimedOut) => {
+          quizAdsPrewarmFailedRef.current = failed;
+          quizAdsConsentBlockedRef.current = Boolean(consentTimedOut);
+          setQuizAdsPrewarmFailed(failed);
+          if (consentTimedOut) onAdsConsentBlocked?.();
+        }
+      );
       quizAdsPrewarmCancelRef.current = prewarm.cancel;
       quizAdsPreparationRef.current = prewarm.promise;
     }
     return quizAdsPreparationRef.current;
   };
-
   const handleStart = async (eventId: string) => {
     try {
       const startUserId = useAuthStore.getState().user?.id ?? null;
-      await prepareAdsBeforeStart();
+      const adsReady = await prepareAdsBeforeStart();
+      if (!adsReady && quizAdsConsentBlockedRef.current) return;
       const event = events.find((candidate) => candidate.id === eventId);
       if (useAuthStore.getState().user?.id !== startUserId) {
         const sessionChangedStarter = () =>
@@ -271,6 +278,7 @@ export function useQuizStartFlow({
     if (quizAdsPrewarmFailedRef.current) {
       quizAdsPrewarmCancelRef.current?.();
       quizAdsPrewarmFailedRef.current = false;
+      quizAdsConsentBlockedRef.current = false;
       quizAdsPreparationRef.current = null;
       setQuizAdsPrewarmFailed(false);
     }
@@ -278,8 +286,7 @@ export function useQuizStartFlow({
     usernameGate.requestStart(eventId);
   };
 
-  // Keep the reopen handler reachable from handleStart, which is defined above
-  // dobGate to break the declaration cycle.
+  // Keep the reopen handler reachable from handleStart.
   useEffect(() => {
     reopenDobForCorrectionRef.current = dobGate.reopenForCorrection;
   });

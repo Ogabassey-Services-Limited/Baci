@@ -142,6 +142,39 @@ describe('useQuizStartFlow mobile-ad prewarm', () => {
     }
   });
 
+  it('keeps the timed start blocked when consent never settles', async () => {
+    jest.useFakeTimers();
+    try {
+      const prepareQuizMobileAds = Object.assign(
+        jest.fn<() => Promise<boolean>>().mockResolvedValue(true),
+        { prepareConsent: () => new Promise<void>(() => {}) }
+      );
+      const onAdsConsentBlocked = jest.fn();
+      const { result } = renderHook(() =>
+        useQuizStartFlow({
+          integrityTier: 'device',
+          onAdsConsentBlocked,
+          prepareQuizMobileAds,
+          startEvent,
+        })
+      );
+
+      act(() => result.current.requestStart('event-1'));
+      dobOnStart('event-1');
+      await Promise.resolve();
+      act(() => jest.advanceTimersByTime(10_000));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(onAdsConsentBlocked).toHaveBeenCalledTimes(1);
+      expect(startEvent).not.toHaveBeenCalled();
+      expect(prepareQuizMobileAds).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('blocks an ad prewarm retry after failure until a new quiz start', async () => {
     const prepareQuizMobileAds = jest
       .fn<() => Promise<boolean>>()

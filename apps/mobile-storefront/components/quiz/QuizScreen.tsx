@@ -143,6 +143,8 @@ export function QuizScreen({
     useQuizStartFlow({
       events,
       integrityTier,
+      onAdsConsentBlocked: () =>
+        setError('Finish the ad consent prompt, then try again.'),
       onStartSettled: allowRecovery,
       prepareQuizMobileAds,
       startEvent,
@@ -154,7 +156,6 @@ export function QuizScreen({
         await startEventV2({ ...context, userId: context.userId }, starter);
       },
     });
-
   const { handleSubmit, handleTimeExpired, handleV2Answer } =
     createQuizAnswerHandlers({
       attempt,
@@ -288,7 +289,6 @@ export function QuizScreen({
           v2Result={v2Result}
         />
       ) : null}
-
       <QuizGameplayAdFooter
         active={status === 'question' || status === 'submitting'}
         prewarmFailed={adsPrewarmFailed}

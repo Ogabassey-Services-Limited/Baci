@@ -198,7 +198,7 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(onReturnToQuizList).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps loaded standings visible while final publication is retried', async () => {
+  it('clears live standings when final publication begins', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
@@ -241,7 +241,8 @@ describe('QuizResultsPanel lifecycle', () => {
       jest.advanceTimersByTime(1_250);
       await Promise.resolve();
     });
-    expect(screen.getByText(/Bassey/)).toBeTruthy();
+    expect(screen.queryByText(/Bassey/)).toBeNull();
+    expect(screen.getByText(/Standings are reconnecting/)).toBeTruthy();
     expect(screen.queryByLabelText('Loading final standings')).toBeNull();
   });
 

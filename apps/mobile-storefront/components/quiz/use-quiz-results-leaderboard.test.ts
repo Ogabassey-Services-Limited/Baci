@@ -90,6 +90,40 @@ describe('useQuizResultsLeaderboard', () => {
     await waitFor(() => expect(result.current.participantCount).toBe(3));
   });
 
+  it('clears live standings before a failed final request', async () => {
+    jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
+      currentPlayer: null,
+      entries: [],
+      participantCount: null,
+      status: 'live',
+    });
+    jest
+      .mocked(fetchQuizLeaderboard)
+      .mockRejectedValue(new Error('not published'));
+    const { result, rerender } = renderHook(
+      (props: { eventHasEnded: boolean }) =>
+        useQuizResultsLeaderboard({
+          enabled: true,
+          eventHasEnded: props.eventHasEnded,
+          eventId: 'event-1',
+          expectedUserId: 'user-1',
+          lifecycle: 'pending_results',
+        }),
+      { initialProps: { eventHasEnded: false } }
+    );
+
+    await waitFor(() =>
+      expect(result.current.leaderboard?.status).toBe('live')
+    );
+    rerender({ eventHasEnded: true });
+
+    await waitFor(() => {
+      expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
+      expect(result.current.leaderboard).toBeNull();
+      expect(result.current.leaderboardError).toBe(true);
+    });
+  });
+
   it('retries final standings after the first publication request fails', async () => {
     jest.useFakeTimers();
     jest
