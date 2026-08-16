@@ -14,6 +14,18 @@ interface UseQuizPersistedRecoveryInput {
   userId: string | null;
 }
 
+function isRetainedTerminalEnvelope({
+  attemptId,
+  currentQuestionId,
+  pendingLockedOptionId,
+}: {
+  attemptId: string | null;
+  currentQuestionId: string | null;
+  pendingLockedOptionId: string | null;
+}) {
+  return Boolean(attemptId && !currentQuestionId && !pendingLockedOptionId);
+}
+
 export function useQuizPersistedRecovery({
   canRecover = () => true,
   enabled,
@@ -91,7 +103,8 @@ export function useQuizPersistedRecovery({
         );
         if (!isCurrentRun()) return;
         for (const envelope of envelopes) {
-          if (!isCurrentRun()) return;
+          const isTerminalEnvelope = isRetainedTerminalEnvelope(envelope);
+          if (!isCurrentRun() && !isTerminalEnvelope) return;
           recoveryOwnsStatus = true;
           const outcome = await recoverEvent(
             userId,
@@ -118,12 +131,17 @@ export function useQuizPersistedRecovery({
             }
           );
           recoveryOwnsStatus = false;
-          if (!isCurrentRun()) return;
+          if (!isCurrentRun() && !isTerminalEnvelope) return;
           if (outcome === 'retry') {
             shouldRetry = true;
             return;
           }
           if (outcome === 'recovered') {
+            // Active attempts must remain the sole owner of the quiz surface.
+            // Retained terminal envelopes are independent results, however;
+            // continue through the list so one old prize result cannot block
+            // another after an account switch or app restart.
+            if (isTerminalEnvelope) continue;
             attemptedUserId.current = userId;
             retryScheduled.current = false;
             return;

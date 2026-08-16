@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import type { requireQuizUser } from '@/app/api/quiz/_shared/route-helpers';
 import { rpcErrorResponse } from '@/app/api/quiz/_shared/route-helpers';
 import { QuizVoucherTokenConfigError } from '@/lib/quiz-voucher-token';
-import type { RawPrizeClaim } from './submit-answer-voucher';
 import {
   addSignedPrizeClaim,
   normalizePrizeCondition,
+  QUIZ_VOUCHER_TTL_MS,
+  type RawPrizeClaim,
   voucherTokenConfigResponse,
 } from './submit-answer-voucher';
 
@@ -112,24 +113,28 @@ export async function getAttemptPrizeAwardClaim(
 ): Promise<{
   claim: RawPrizeClaim | null;
   claimExpiresAt: string | null;
+  createdAt: string | null;
   error: unknown;
 }> {
-  if (!supabase) return { claim: null, claimExpiresAt: null, error: null };
+  if (!supabase)
+    return { claim: null, claimExpiresAt: null, createdAt: null, error: null };
 
   const { data, error } = await supabase.rpc(
     'get_quiz_attempt_prize_claim_v2',
     { p_attempt_id: attemptId, p_user_id: userId }
   );
 
-  if (error) return { claim: null, claimExpiresAt: null, error };
+  if (error)
+    return { claim: null, claimExpiresAt: null, createdAt: null, error };
   if (!data || typeof data !== 'object') {
-    return { claim: null, claimExpiresAt: null, error: null };
+    return { claim: null, claimExpiresAt: null, createdAt: null, error: null };
   }
 
   const record = data as {
     awardId?: unknown;
     claimExpiresAt?: unknown;
     condition?: unknown;
+    createdAt?: unknown;
     productId?: unknown;
     variantId?: unknown;
   };
@@ -137,7 +142,7 @@ export async function getAttemptPrizeAwardClaim(
     typeof record.awardId !== 'string' ||
     typeof record.productId !== 'string'
   ) {
-    return { claim: null, claimExpiresAt: null, error: null };
+    return { claim: null, claimExpiresAt: null, createdAt: null, error: null };
   }
 
   return {
@@ -149,8 +154,22 @@ export async function getAttemptPrizeAwardClaim(
     },
     claimExpiresAt:
       typeof record.claimExpiresAt === 'string' ? record.claimExpiresAt : null,
+    createdAt: typeof record.createdAt === 'string' ? record.createdAt : null,
     error: null,
   };
+}
+
+function resolveReplayClaimExpiry(
+  claimExpiresAt: string | null,
+  createdAt: string | null
+): string | null {
+  if (claimExpiresAt) {
+    return Number.isFinite(Date.parse(claimExpiresAt)) ? claimExpiresAt : null;
+  }
+  if (!createdAt) return null;
+  const createdAtMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdAtMs)) return null;
+  return new Date(createdAtMs + QUIZ_VOUCHER_TTL_MS).toISOString();
 }
 
 export async function recoverReplayedAttemptResponse(
@@ -184,11 +203,13 @@ export async function recoverReplayedAttemptResponse(
   if (!award.claim) return NextResponse.json(baseResult);
 
   // Re-issue with the persisted event-specific expiry, not a fresh fixed TTL,
-  // so replaying a days-old attempt cannot extend the redemption window.
-  if (!award.claimExpiresAt) return rpcErrorResponse();
-  const claimExpiresAtMs = Date.parse(award.claimExpiresAt);
-  if (!Number.isFinite(claimExpiresAtMs)) return rpcErrorResponse();
-  const claimExpiresAt = award.claimExpiresAt;
+  // so replaying a days-old attempt cannot extend the redemption window. A
+  // legacy award predating claim_expires_at uses its original created-at TTL.
+  const claimExpiresAt = resolveReplayClaimExpiry(
+    award.claimExpiresAt,
+    award.createdAt
+  );
+  if (!claimExpiresAt) return rpcErrorResponse();
 
   try {
     return NextResponse.json(
