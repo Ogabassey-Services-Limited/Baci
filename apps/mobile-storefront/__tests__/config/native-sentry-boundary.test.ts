@@ -64,12 +64,22 @@ describe('native Sentry initialization boundary', () => {
       ),
       'utf8'
     );
+    const releaseScriptSource = readFileSync(
+      path.resolve(
+        __dirname,
+        '../../../../.github/scripts/android-storefront-release.sh'
+      ),
+      'utf8'
+    );
     const cleanupStep = workflowSource.slice(
       workflowSource.indexOf('- name: Clean up release credentials')
     );
+    const cleanupSource = `${cleanupStep}\n${releaseScriptSource.slice(
+      releaseScriptSource.indexOf('  cleanup)')
+    )}`;
 
-    expect(cleanupStep).toContain('if: always()');
-    expect(cleanupStep).toContain(
+    expect(cleanupSource).toContain('if: always()');
+    expect(cleanupSource).toContain(
       'apps/mobile-storefront/android/sentry.properties'
     );
   });
