@@ -24,10 +24,10 @@ const previewProducts = Array.from(
 );
 
 export function PreviewProductGrid({
-  columns = 3,
-  limit = 6,
+  columns = 4,
+  limit = 12,
   showFilters = false,
-  title = 'Featured products',
+  title = 'Shop By',
 }: PreviewProductGridProps) {
   const productLimit = Math.min(Math.max(limit, 1), previewProducts.length);
   const gridColumns = Math.min(Math.max(columns, 1), 4);

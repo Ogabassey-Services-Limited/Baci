@@ -173,12 +173,18 @@ describe('PreviewInertHeader', () => {
   });
 
   it('keeps the published mobile CTA breakpoint in the inert preview', () => {
-    render(<PreviewInertHeader ctaButton={{ show: true, text: 'Shop now' }} />);
+    render(
+      <PreviewInertHeader
+        ctaButton={{ show: true, text: 'Shop now', url: '/collections/new' }}
+      />
+    );
 
     expect(screen.getByRole('button', { name: 'Shop now' })).toHaveClass(
       'hidden',
       'sm:inline-flex'
     );
+    expect(screen.getByText('/collections/new')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Shop now' })).toBeNull();
   });
 
   it('renders an icon-only mobile search action alongside the desktop search control', () => {

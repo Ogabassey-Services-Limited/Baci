@@ -72,6 +72,15 @@ export function PreviewInertFooter({
                       <InertFooterAction className="text-sm hover:underline underline-offset-4">
                         {link.label}
                       </InertFooterAction>
+                      {link.url ? (
+                        <output
+                          aria-label={`Preview footer link ${link.label} destination`}
+                          className="block max-w-full truncate text-xs opacity-80"
+                          title={link.url}
+                        >
+                          {link.url}
+                        </output>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

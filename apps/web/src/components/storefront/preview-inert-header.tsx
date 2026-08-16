@@ -17,7 +17,7 @@ type PreviewHeaderLayout =
 type PreviewHeaderProps = {
   backgroundImage?: string;
   backgroundColor?: string;
-  ctaButton?: { show: boolean; text: string };
+  ctaButton?: { show: boolean; text: string; url: string };
   glassEffect?: boolean;
   layout?: PreviewHeaderLayout;
   logoUrl?: string;
@@ -243,9 +243,14 @@ export function PreviewInertHeader({
         {showCart ? <InertHeaderAction>Cart</InertHeaderAction> : null}
         {showMenu ? <InertHeaderAction>Menu</InertHeaderAction> : null}
         {ctaButton?.show ? (
-          <InertHeaderAction className="hidden sm:inline-flex">
-            {ctaButton.text}
-          </InertHeaderAction>
+          <span className="inline-flex items-baseline gap-1">
+            <InertHeaderAction className="hidden sm:inline-flex">
+              {ctaButton.text}
+            </InertHeaderAction>
+            <span className="hidden text-xs opacity-70 sm:inline">
+              {ctaButton.url}
+            </span>
+          </span>
         ) : null}
       </div>
     </header>

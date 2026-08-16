@@ -25,7 +25,7 @@ describe('previewInertLinkBlocks', () => {
         })}
         {previewInertLinkBlocks.Button.render({ text: 'Shop button' })}
         {previewInertLinkBlocks.Header.render({
-          navigationLinks: [{ label: 'Shop' }],
+          navigationLinks: [{ label: 'Shop', url: '/products' }],
           storeName: 'Preview Store',
         })}
         {previewInertLinkBlocks.Footer.render({

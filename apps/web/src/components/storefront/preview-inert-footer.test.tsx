@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PreviewInertFooter } from './preview-inert-footer';
 
 describe('PreviewInertFooter', () => {
@@ -28,5 +28,27 @@ describe('PreviewInertFooter', () => {
     expect(screen.getByRole('button', { name: 'Contact' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'instagram' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Subscribe' })).toBeDisabled();
+  });
+
+  it('shows each saved quick-link destination without creating navigation', () => {
+    const fetchSpy = vi.spyOn(window, 'fetch');
+    render(
+      <PreviewInertFooter
+        quickLinks={[
+          { label: 'Contact', url: '/contact' },
+          { label: 'Shipping', url: '/shipping' },
+        ]}
+      />
+    );
+
+    expect(
+      screen.getByLabelText('Preview footer link Contact destination')
+    ).toHaveTextContent('/contact');
+    expect(
+      screen.getByLabelText('Preview footer link Shipping destination')
+    ).toHaveTextContent('/shipping');
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });

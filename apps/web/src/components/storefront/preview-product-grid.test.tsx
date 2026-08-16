@@ -3,6 +3,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { PreviewProductGrid } from './preview-product-grid';
 
 describe('PreviewProductGrid', () => {
+  it('matches published defaults for sparse saved ProductGrid configs', () => {
+    render(<PreviewProductGrid />);
+
+    expect(
+      screen.getByRole('heading', { name: 'Shop By', level: 2 })
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(12);
+    expect(screen.getByTestId('builder-preview-product-grid')).toHaveClass(
+      'lg:grid-cols-4'
+    );
+  });
+
   it('visibly applies candidate limit and showFilters controls without network access', () => {
     const fetchSpy = vi.spyOn(window, 'fetch');
     const { rerender } = render(
