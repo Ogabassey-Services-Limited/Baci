@@ -37,7 +37,12 @@ describe('runStorefrontPdpSemanticRpc', () => {
     const abortSignal = vi.fn<(signal: AbortSignal) => PromiseLike<void>>(() =>
       Promise.reject(timeoutError)
     );
-    const query = createAbortableQuery<void>(undefined, abortSignal);
+    const merchantSentinel = 'merchant-sensitive-sentinel';
+    const productSentinel = 'product-sensitive-sentinel';
+    const query = Object.assign(
+      createAbortableQuery<void>(undefined, abortSignal),
+      { merchantId: merchantSentinel, productId: productSentinel }
+    );
 
     await expect(
       runStorefrontPdpSemanticRpc(query, {
@@ -54,9 +59,11 @@ describe('runStorefrontPdpSemanticRpc', () => {
         errorName: 'TimeoutError',
       })
     );
-    expect(JSON.stringify(loggerMocks.warn.mock.calls[0]?.[0])).not.toContain(
-      'query-input'
+    const serializedWarning = JSON.stringify(
+      loggerMocks.warn.mock.calls[0]?.[0]
     );
+    expect(serializedWarning).not.toContain(merchantSentinel);
+    expect(serializedWarning).not.toContain(productSentinel);
   });
 
   it('traces a slow successful response without changing its value', async () => {

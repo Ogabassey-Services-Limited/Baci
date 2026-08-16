@@ -226,6 +226,8 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
   });
 
   it('traces a native client abort separately from a database timeout response', async () => {
+    const merchantSentinel = 'merchant-sensitive-sentinel';
+    const productSentinel = 'product-sensitive-sentinel';
     const timeoutController = new AbortController();
     const timeoutError = new DOMException(
       'The operation timed out',
@@ -240,8 +242,8 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
 
     await expect(
       readStorefrontPdpSemanticEnrichment(client, {
-        merchantId: 'merchant-1',
-        productId: 'product-1',
+        merchantId: merchantSentinel,
+        productId: productSentinel,
         includeGuides: true,
         clusterRequest,
       })
@@ -257,9 +259,11 @@ describe('readStorefrontPdpSemanticEnrichment', () => {
         errorName: 'TimeoutError',
       })
     );
-    expect(JSON.stringify(loggerMocks.warn.mock.calls[0]?.[0])).not.toContain(
-      'merchant-1'
+    const serializedWarning = JSON.stringify(
+      loggerMocks.warn.mock.calls[0]?.[0]
     );
+    expect(serializedWarning).not.toContain(merchantSentinel);
+    expect(serializedWarning).not.toContain(productSentinel);
   });
 
   it('traces the installed PostgREST timeout response shape with an aborted signal', async () => {
