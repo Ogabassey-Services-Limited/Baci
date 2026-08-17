@@ -12,7 +12,7 @@ import { useUtilityPurchase } from './use-utility-purchase';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
-import { WalletFundingPanel } from './WalletFundingPanel';
+import { UtilityWalletFundingPanel } from './UtilityWalletFundingPanel';
 import { UtilitySuccessView } from './UtilitySuccessView';
 import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
 import type { UtilityPaymentMethod } from './utility-types';
@@ -238,31 +238,24 @@ export const UtilityModal = ({
                 walletLoading={walletLoading}
               />
               {showFundingPanel && canFundByBankTransfer ? (
-                <div className="mt-3">
-                  <WalletFundingPanel
-                    account={fundingAccount}
-                    autoCreate
-                    customerId={customer?.id}
-                    customerPhone={customer?.phone ?? null}
-                    merchantSlug={merchant?.slug}
-                    onAccountCreated={setFundingAccount}
-                    onUpdateCustomerPhone={
-                      auth
-                        ? (phone) => auth.updateCustomer({ phone })
-                        : undefined
-                    }
-                    onRefreshBalance={refreshWallet}
-                    onReturnToPurchase={() => {
-                      // Prefill-only resume: collapse the funding panel and
-                      // preselect the wallet. The customer still presses Pay.
-                      setShowFundingPanel(false);
-                      setPayWithWallet(true);
-                    }}
-                    requiresConsent={requiresFundingAccountConsent}
-                    surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
-                    walletTransactions={walletTransactions}
-                  />
-                </div>
+                <UtilityWalletFundingPanel
+                  account={fundingAccount}
+                  autoCreate
+                  customerId={customer?.id}
+                  customerPhone={customer?.phone ?? null}
+                  merchantSlug={merchant?.slug}
+                  onAccountCreated={setFundingAccount}
+                  onRefreshBalance={refreshWallet}
+                  onReturnToPurchase={() => {
+                    // Prefill-only resume: collapse the funding panel and
+                    // preselect the wallet. The customer still presses Pay.
+                    setShowFundingPanel(false);
+                    setPayWithWallet(true);
+                  }}
+                  requiresConsent={requiresFundingAccountConsent}
+                  surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
+                  walletTransactions={walletTransactions}
+                />
               ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm
