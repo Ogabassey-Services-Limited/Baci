@@ -73,7 +73,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260813100100_fix_jumia_authorization_rotation_and_connect.sql',
+      'supabase/migrations/20260813100600_fix_jumia_authorization_rotation_and_connect.sql',
     sha256: '43e7c94a4b92024bc93776b4b19667f6f941e52485f88339e6de7ef33411ca0b',
   },
   {
