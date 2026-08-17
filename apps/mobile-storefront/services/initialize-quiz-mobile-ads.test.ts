@@ -116,6 +116,23 @@ describe('initializeQuizMobileAds', () => {
     expect(mockInitialize).toHaveBeenCalledTimes(1);
   });
 
+  it('reapplies age-sensitive configuration when the shopper identity changes', async () => {
+    const { initializeQuizMobileAds } = await loadInitializer();
+
+    await initializeQuizMobileAds(undefined, { ageVerified: false });
+    await initializeQuizMobileAds(undefined, { ageVerified: true });
+
+    expect(mockInitialize).toHaveBeenCalledTimes(1);
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tagForUnderAgeOfConsent: true })
+    );
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ tagForUnderAgeOfConsent: false })
+    );
+  });
+
   it('allows a later quiz to retry after native initialization fails', async () => {
     mockInitialize
       .mockRejectedValueOnce(new Error('native module unavailable'))

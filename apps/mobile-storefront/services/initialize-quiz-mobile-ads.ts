@@ -10,9 +10,10 @@ export interface QuizMobileAdsInitializationOptions {
 }
 
 const log = createLogger('QuizMobileAds');
-let initializationPromise: Promise<QuizMobileAdsInitializationResult> | null =
-  null;
 let consentPromise: Promise<void> | null = null;
+let nativeInitializationPromise: Promise<void> | null = null;
+let configurationPromise: Promise<void> = Promise.resolve();
+let configuredUnderAgeOfConsent: boolean | null = null;
 
 function throwIfAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw new Error('Quiz ad preparation was cancelled.');
@@ -36,17 +37,34 @@ async function initialize(
   if (!canRequestAds) return { canRequestAds: false };
 
   const ads = mobileAds();
-  await ads.setRequestConfiguration({
-    maxAdContentRating: MaxAdContentRating.T,
-    tagForChildDirectedTreatment: false,
-    // Unknown or under-age shoppers stay in the protective configuration. The
-    // quiz API remains the authority for participation; this only prevents an
-    // unverified client from configuring the SDK as an adult.
-    tagForUnderAgeOfConsent: options.ageVerified !== true,
-    testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
-  });
+  const underAgeOfConsent = options.ageVerified !== true;
+  configurationPromise = configurationPromise
+    .catch(() => undefined)
+    .then(async () => {
+      if (configuredUnderAgeOfConsent === underAgeOfConsent) return;
+      await ads.setRequestConfiguration({
+        maxAdContentRating: MaxAdContentRating.T,
+        tagForChildDirectedTreatment: false,
+        // Unknown or under-age shoppers stay in the protective configuration.
+        // The quiz API remains the authority for participation; this only
+        // prevents an unverified client from configuring the SDK as an adult.
+        tagForUnderAgeOfConsent: underAgeOfConsent,
+        testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
+      });
+      configuredUnderAgeOfConsent = underAgeOfConsent;
+    });
+  await configurationPromise;
   throwIfAborted(signal);
-  await ads.initialize();
+  if (!nativeInitializationPromise) {
+    nativeInitializationPromise = ads
+      .initialize()
+      .then(() => undefined)
+      .catch((error) => {
+        nativeInitializationPromise = null;
+        throw error;
+      });
+  }
+  await nativeInitializationPromise;
 
   return { canRequestAds: true };
 }
@@ -89,11 +107,5 @@ export function initializeQuizMobileAds(
   if (signal?.aborted) {
     return Promise.reject(new Error('Quiz ad preparation was cancelled.'));
   }
-  if (!initializationPromise) {
-    initializationPromise = initialize(signal, options).catch((error) => {
-      initializationPromise = null;
-      throw error;
-    });
-  }
-  return initializationPromise;
+  return initialize(signal, options);
 }

@@ -14,7 +14,7 @@ const fallback: QuizV2Attempt = {
 };
 
 describe('createQuizV2RecoveryResponseApplier', () => {
-  it('keeps an active question retryable when expiry reconciliation is unavailable', async () => {
+  it('leaves the question when an active attempt is no longer recoverable', async () => {
     const set = jest.fn();
     const access = {
       get: jest.fn(),
@@ -38,12 +38,20 @@ describe('createQuizV2RecoveryResponseApplier', () => {
       fallback
     );
 
-    expect(set).toHaveBeenCalledWith({
-      error: null,
-      expiryRetryable: true,
-      status: 'question',
-      v2Attempt: fallback,
-    });
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: null,
+        expiryRetryable: false,
+        status: 'result',
+        v2Attempt: null,
+        v2LifecycleStatus: 'final',
+        v2Result: {
+          attemptId: fallback.attemptId,
+          availability: 'unavailable',
+          reason: 'not_found',
+        },
+      })
+    );
     expect(apply).not.toHaveBeenCalled();
   });
 });

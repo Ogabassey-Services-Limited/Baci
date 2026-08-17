@@ -185,7 +185,7 @@ describe('useQuizResultsLeaderboard', () => {
     );
   });
 
-  it('keeps live refreshes below the shared per-minute API budget', async () => {
+  it('keeps live refreshes bounded for players behind one carrier NAT', async () => {
     jest.useFakeTimers();
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
@@ -214,8 +214,10 @@ describe('useQuizResultsLeaderboard', () => {
       await Promise.resolve();
     });
 
+    // One immediate load plus one five-second refresh per minute. The route
+    // has a dedicated bucket, so several players can share an IP safely.
     expect(
       jest.mocked(fetchQuizLiveLeaderboard).mock.calls.length
-    ).toBeLessThan(50);
+    ).toBeLessThanOrEqual(13);
   });
 });
