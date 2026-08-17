@@ -9,6 +9,8 @@
   "scripts": {
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
+    "cleanup-legacy-expense-receipts": "node jobs/cleanup-legacy-expense-receipts.mjs",
+    "cleanup-private-expense-receipts": "node jobs/cleanup-private-expense-receipts.mjs",
     "supabase-retention-cleanup": "node jobs/supabase-retention-cleanup.mjs",
     "cleanup-agentic-request-records": "node jobs/cleanup-agentic-request-records.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",

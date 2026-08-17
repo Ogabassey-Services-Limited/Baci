@@ -3,6 +3,10 @@ import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-creden
 import { frozenEventPipelineAuthoritySources } from '@/lib/events/event-pipeline-frozen-authority-sources';
 import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { eventPipelineLegacySdkImporters } from '@/lib/events/event-pipeline-legacy-sdk-importers';
+import {
+  eventPipelineExpenseCleanupAdjacentFunctions,
+  eventPipelineVpsRuntimeCallers,
+} from '@/lib/events/event-pipeline-vps-runtime-callers';
 import type { Database, Json } from '@/types/supabase';
 export function toEventPipelineJson(
   value: unknown,
@@ -131,7 +135,7 @@ const runtimeCallers = {
   'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
   'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
   'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
-  'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
+  ...eventPipelineVpsRuntimeCallers,
 } as const;
 export const EVENT_PIPELINE_BOUNDARY = {
   allFunctions: EVENT_PIPELINE_FUNCTION_NAMES,
@@ -140,6 +144,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     'cleanup_database_retention',
     'finish_cache_invalidation',
     'has_cache_invalidation_dead_letters',
+    ...eventPipelineExpenseCleanupAdjacentFunctions,
   ],
   authority: {
     adminImporters: eventPipelineAdminImporters,

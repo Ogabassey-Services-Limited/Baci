@@ -35,6 +35,9 @@ historical_migration_repair_spec() {
     20260812173500:quiz_event_results_v2_deny_client_policy)
       printf '%s\t%s\t%s\n' '20260815000000' 'repair_quiz_event_results_v2_deny_client_policy' '2a1d2341ec3631c74b9d44043db1f67f80b51012a796aea6477231bedfab98ef'
       ;;
+    20260815103000:capture_private_expense_receipt_cleanup)
+      printf '%s\t%s\t%s\n' '20260815220000' 'repair_capture_private_expense_receipt_cleanup' '64530e9b7d94d9e2f832a8464593af977cb0af18c727a1a1b54c62310550997b'
+      ;;
     *) return 1 ;;
   esac
 }
