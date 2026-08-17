@@ -642,6 +642,31 @@ describe('NegotiationModal', () => {
     );
   });
 
+  it('rejects an invalid evidence link before authentication or insert', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+    fireEvent.change(screen.getByLabelText('Link (Optional)'), {
+      target: { value: 'not-a-url' },
+    });
+
+    vi.useRealTimers();
+
+    const form = screen
+      .getByLabelText('Link (Optional)')
+      .closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    expect(mockGetUser).not.toHaveBeenCalled();
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith('Enter a valid http or https URL.');
+    alertSpy.mockRestore();
+  });
+
   it('requires either a proof upload or a link when both are provided', async () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
     render(<NegotiationModal {...defaultProps} />);

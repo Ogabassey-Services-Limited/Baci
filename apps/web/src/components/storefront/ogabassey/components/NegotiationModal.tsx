@@ -56,6 +56,7 @@ const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
+const INVALID_EVIDENCE_LINK_MESSAGE = 'Enter a valid http or https URL.';
 
 type NegotiationSupabaseClient = ReturnType<typeof createClient>;
 
@@ -72,6 +73,15 @@ async function resolveNegotiationCustomerId(
   }
 
   return user?.id ?? null;
+}
+
+function isValidEvidenceLink(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
 }
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
@@ -438,6 +448,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
     if (!trimmedLink && !uploadFile) {
       alert('Upload proof or paste a link before sending your request.');
+      return;
+    }
+
+    if (trimmedLink && !isValidEvidenceLink(trimmedLink)) {
+      alert(INVALID_EVIDENCE_LINK_MESSAGE);
       return;
     }
 

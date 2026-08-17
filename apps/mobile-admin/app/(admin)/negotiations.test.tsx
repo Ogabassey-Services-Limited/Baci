@@ -586,6 +586,23 @@ describe('NegotiationsScreen', () => {
   });
 
   it('directs merchants to manual follow-up for phone-only requests', async () => {
+    mocks.selectResult = {
+      data: [
+        {
+          created_at: '2026-08-10T06:12:04.000Z',
+          customer_email: null,
+          customer_id: null,
+          customer_phone: '0803 123 4567',
+          evidence_url: null,
+          id: 'negotiation-phone-only-1',
+          item_info: { name: 'Meta Quest 3 512GB' },
+          offered_price: 749_985,
+          status: 'pending',
+          type: 'single',
+        },
+      ],
+      error: null,
+    };
     vi.mocked(apiClient).mockResolvedValueOnce({
       manualContactAvailable: true,
       notified: false,
@@ -594,6 +611,13 @@ describe('NegotiationsScreen', () => {
     });
 
     render(<NegotiationsScreen />);
+
+    expect(
+      await screen.findByRole('button', { name: 'Call customer' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Message customer on WhatsApp' })
+    ).toBeInTheDocument();
 
     fireEvent.click(await screen.findByText('Accept Offer'));
 
