@@ -465,6 +465,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       return;
     }
 
+    const file = uploadFile;
+    if (!file) {
+      alert('Upload proof or paste a link before sending your request.');
+      return;
+    }
+
     if (!merchantId) {
       alert('Unable to submit request — merchant context unavailable.');
       return;
@@ -473,7 +479,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     setStatus('processing');
     try {
       const evidencePath = await uploadNegotiationEvidenceFile({
-        file: uploadFile,
+        file,
         merchantId,
       });
       await submitMerchantRequest(evidencePath, customerId);

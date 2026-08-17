@@ -3,7 +3,6 @@ import {
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
   summarizeCartForItemInfo,
 } from '@baci/shared/lib';
-import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { ImpactFeedbackStyle } from 'expo-haptics';
 import { useState } from 'react';
 import { Alert, Platform } from 'react-native';
@@ -11,10 +10,8 @@ import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { NegotiationStatus } from './NegotiationModalView';
 import { NEGOTIATION_CHEAPER_BUTTON_THRESHOLD } from './negotiation.constants';
-import {
-  buildNegotiationCustomerContact,
-  type NegotiationCustomerContact,
-} from './negotiation-customer-contact';
+import { getNegotiationCustomerContact } from './negotiation-customer-auth';
+import type { NegotiationCustomerContact } from './negotiation-customer-contact';
 import {
   createNegotiationSessionId,
   uploadNegotiationEvidence,
@@ -33,19 +30,6 @@ import type { UseNegotiationModalControllerParams } from './useNegotiationModalC
 
 const log = createLogger('NegotiationModal');
 void ensureNegotiationNativeModules();
-
-async function getNegotiationCustomerContact(phone: string) {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error && (!isAuthSessionMissingError(error) || user)) {
-    throw error;
-  }
-
-  return buildNegotiationCustomerContact(user?.id, phone);
-}
 
 export function useNegotiationModalController({
   currentPrice,
