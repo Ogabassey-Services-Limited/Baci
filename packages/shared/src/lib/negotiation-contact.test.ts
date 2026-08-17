@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildMailtoLink,
   buildTelLink,
   buildWhatsAppLink,
   isValidPhone,
@@ -95,5 +96,35 @@ describe('buildWhatsAppLink', () => {
 
   it('returns null for an unreachable number', () => {
     expect(buildWhatsAppLink('nope', 'hello')).toBeNull();
+  });
+});
+
+describe('buildMailtoLink', () => {
+  it('normalizes the recipient and encodes a follow-up subject and body', () => {
+    expect(
+      buildMailtoLink(
+        ' Buyer@Example.COM ',
+        'Negotiation follow-up',
+        'Hi! About your offer — '
+      )
+    ).toBe(
+      'mailto:buyer@example.com?subject=Negotiation%20follow-up&body=Hi!%20About%20your%20offer%20%E2%80%94'
+    );
+  });
+
+  it('returns a bare mailto link when no message fields are provided', () => {
+    expect(buildMailtoLink('buyer@example.com')).toBe(
+      'mailto:buyer@example.com'
+    );
+  });
+
+  it('omits blank subject and body fields', () => {
+    expect(buildMailtoLink('buyer@example.com', '   ', '\t')).toBe(
+      'mailto:buyer@example.com'
+    );
+  });
+
+  it('returns null for an invalid recipient', () => {
+    expect(buildMailtoLink('not-an-email', 'Subject')).toBeNull();
   });
 });

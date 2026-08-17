@@ -29,5 +29,9 @@ export function getContactValidationError({
     return 'Enter a valid Phone / WhatsApp number.';
   }
 
+  if (!email.trim() && !phone.trim()) {
+    return 'Provide an email address or Phone / WhatsApp number so we can send the merchant\'s decision.';
+  }
+
   return null;
 }

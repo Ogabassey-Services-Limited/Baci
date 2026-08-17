@@ -31,6 +31,9 @@ describe('negotiation modal validation helpers', () => {
         phone: '0803 123 4567',
       })
     ).toBeNull();
+    expect(getContactValidationError({ email: '', phone: '' })).toBe(
+      "Provide an email address or Phone / WhatsApp number so we can send the merchant's decision."
+    );
   });
 
   it('uses a typed validation error for modal request failures', () => {

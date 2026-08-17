@@ -70,6 +70,23 @@ describe('insertNegotiationRequest', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it('rejects a guest negotiation without a delivery channel', async () => {
+    await expect(
+      insertNegotiationRequest(createSupabaseMock(), {
+        currentPrice: 10_000,
+        itemId: 'product-1',
+        merchantId: 'merchant-1',
+        offeredPrice: 9000,
+        productName: 'Test Product',
+        type: 'single',
+      })
+    ).rejects.toThrow(
+      "Provide an email address or Phone / WhatsApp number so we can send the merchant's decision."
+    );
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it('surfaces Supabase insert failures', async () => {
     insert.mockResolvedValueOnce({
       error: new Error('insert failed'),
@@ -78,6 +95,7 @@ describe('insertNegotiationRequest', () => {
     await expect(
       insertNegotiationRequest(createSupabaseMock(), {
         currentPrice: 10_000,
+        customerEmail: 'buyer@example.com',
         itemId: 'product-1',
         merchantId: 'merchant-1',
         offeredPrice: 9000,
@@ -96,6 +114,7 @@ describe('insertNegotiationRequest', () => {
 
     await insertNegotiationRequest(createSupabaseMock(), {
       currentPrice: 10_000,
+      customerPhone: '0803 123 4567',
       itemId: 'product-1',
       merchantId: 'merchant-1',
       offeredPrice: 9000,
@@ -117,6 +136,7 @@ describe('insertNegotiationRequest', () => {
     await expect(
       insertNegotiationRequest(createSupabaseMock(), {
         currentPrice: 10_000,
+        customerEmail: 'buyer@example.com',
         merchantId: 'merchant-1',
         offeredPrice: 9000,
         productName: 'Entire Cart',

@@ -63,6 +63,12 @@ function reachUploadForm() {
   fireEvent.click(screen.getByText('Negotiate Again'));
   submitLowOffer('1000');
   fireEvent.click(screen.getByRole('button', { name: /i saw it cheaper/i }));
+  // Negotiations now require at least one delivery channel. Keep the shared
+  // upload-form fixture reachable while individual tests override this value
+  // for invalid, blank, or phone-only cases.
+  fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+    target: { value: 'buyer@example.com' },
+  });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────────

@@ -363,6 +363,7 @@ describe('useNegotiationModalController', () => {
     act(() => {
       result.current.setOffer('₦90,000');
       result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('0803 123 4567');
     });
     await act(async () => {
       await result.current.handleUploadSubmit();
@@ -377,6 +378,49 @@ describe('useNegotiationModalController', () => {
     expect(result.current.message).not.toContain('Request submitted');
   });
 
+  it('requires a phone number for guest review requests', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
+    );
+  });
+
+  it('validates guest contact before uploading selected evidence', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      assets: [{ uri: 'file://proof.png' }],
+      canceled: false,
+    });
+    const { result } = renderController();
+
+    await act(async () => {
+      await result.current.pickImage();
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockUploadNegotiationEvidence).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
+    );
+  });
+
   it('fails closed when a whole-cart request has no cart snapshot', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result } = renderController({
@@ -388,6 +432,7 @@ describe('useNegotiationModalController', () => {
     act(() => {
       result.current.setOffer('₦90,000');
       result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('0803 123 4567');
     });
     await act(async () => {
       await result.current.handleUploadSubmit();

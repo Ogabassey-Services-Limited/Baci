@@ -714,6 +714,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
               {/* Email (Optional) */}
               <div>
+                <p className="text-xs text-[hsl(var(--muted-foreground))] mb-3">
+                  Provide an email address or Phone / WhatsApp number so we can
+                  send the merchant&apos;s decision.
+                </p>
                 <label
                   htmlFor={emailInputId}
                   className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
