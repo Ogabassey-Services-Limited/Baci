@@ -176,7 +176,9 @@ export function useQuizPersistedRecovery({
           );
           if (outcome === 'retry') {
             shouldRetry = true;
-            return;
+            // A transient failure for one retained event must not hide a
+            // different terminal attempt that can still be recovered.
+            continue;
           }
           if (
             outcome === 'recovered_terminal' ||
@@ -197,9 +199,11 @@ export function useQuizPersistedRecovery({
             return;
           }
         }
-        attemptedUserId.current = userId;
-        automaticRetryCount.current = 0;
-        retryScheduled.current = false;
+        if (!shouldRetry) {
+          attemptedUserId.current = userId;
+          automaticRetryCount.current = 0;
+          retryScheduled.current = false;
+        }
       } catch {
         shouldRetry = true;
       } finally {

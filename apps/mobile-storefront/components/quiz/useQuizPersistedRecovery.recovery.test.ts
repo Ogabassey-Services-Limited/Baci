@@ -116,6 +116,52 @@ describe('useQuizPersistedRecovery recovery lifecycle', () => {
     await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
   });
 
+  it('continues to a retained terminal attempt after another event fails', async () => {
+    jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
+      {
+        attemptId: 'attempt-active',
+        currentQuestionId: 'question-1',
+        eventId: 'event-active',
+        generation: 2,
+        pendingLockedOptionId: null,
+        startRequestId: '11111111-1111-4111-8111-111111111111',
+        userId: 'user-1',
+        version: 1,
+      },
+      {
+        attemptId: 'attempt-terminal',
+        currentQuestionId: null,
+        eventId: 'event-terminal',
+        generation: 1,
+        pendingLockedOptionId: null,
+        startRequestId: '22222222-2222-4222-8222-222222222222',
+        userId: 'user-1',
+        version: 1,
+      },
+    ]);
+    const recoverEvent = jest
+      .fn<RecoverEvent>()
+      .mockResolvedValueOnce('retry')
+      .mockResolvedValueOnce('recovered_terminal');
+
+    renderHook(() =>
+      useQuizPersistedRecovery({
+        enabled: true,
+        recoverEvent,
+        userId: 'user-1',
+      })
+    );
+
+    await waitFor(() => expect(recoverEvent).toHaveBeenCalledTimes(2));
+    expect(recoverEvent).toHaveBeenNthCalledWith(
+      2,
+      'user-1',
+      'event-terminal',
+      expect.any(Function),
+      expect.any(Function)
+    );
+  });
+
   it('allows a manual retry after the bounded automatic retry fails', async () => {
     jest.mocked(loadQuizRecoveryEnvelopes).mockResolvedValue([
       {
