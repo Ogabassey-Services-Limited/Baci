@@ -125,6 +125,7 @@ export function useQuizPersistedRecovery({
 
     const recover = async () => {
       let shouldRetry = false;
+      let activeRecoveryRetry = false;
       try {
         const envelopes = await loadQuizRecoveryEnvelopes(userId);
         if (!isCurrentRun()) return;
@@ -142,6 +143,7 @@ export function useQuizPersistedRecovery({
           if (dismissedTerminalEventIds.current.has(envelope.eventId)) continue;
           if (handledTerminalEventIds.current.has(envelope.eventId)) continue;
           const isTerminalEnvelope = isRetainedTerminalEnvelope(envelope);
+          if (activeRecoveryRetry && !isTerminalEnvelope) continue;
           if (!isCurrentRun()) return;
           if (isTerminalEnvelope && !canRecoverRef.current(envelope.eventId))
             return;
@@ -176,8 +178,10 @@ export function useQuizPersistedRecovery({
           );
           if (outcome === 'retry') {
             shouldRetry = true;
+            if (!isTerminalEnvelope) activeRecoveryRetry = true;
             // A transient failure for one retained event must not hide a
-            // different terminal attempt that can still be recovered.
+            // different terminal attempt that can still be recovered, while
+            // another active attempt must not replace the failed one.
             continue;
           }
           if (

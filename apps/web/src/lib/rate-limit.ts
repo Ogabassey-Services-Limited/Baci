@@ -58,15 +58,26 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // review and open one without being throttled by the AI-call limit.
   '/api/merchant/quiz/activate': { maxRequests: 20, windowMs: 60_000 },
   '/api/quiz/attempts/start': { maxRequests: 20, windowMs: 60_000 },
-  // A player refreshes live standings and pending results on a bounded timer.
-  // Keep those quiz-specific buckets separate from unrelated API traffic so
-  // players behind one carrier NAT do not exhaust the generic per-IP budget.
-  '/api/quiz/attempts': { maxRequests: 120, windowMs: 60_000 },
+  // A player refreshes live standings on a bounded timer. Keep this bucket
+  // separate from unrelated API traffic so players behind one carrier NAT do
+  // not exhaust the generic per-IP budget.
   '/api/quiz/leaderboard': { maxRequests: 120, windowMs: 60_000 },
   '/api/quiz/awards/cash/claim': { maxRequests: 10, windowMs: 60_000 },
   '/api/quiz/prizes/grand/claim': { maxRequests: 10, windowMs: 60_000 },
   default: { maxRequests: 50, windowMs: 60_000 },
 };
+
+const DYNAMIC_RATE_LIMITS: ReadonlyArray<{
+  config: RateLimitConfig;
+  pattern: string;
+  pathname: RegExp;
+}> = [
+  {
+    config: { maxRequests: 120, windowMs: 60_000 },
+    pattern: '/api/quiz/attempts/:attemptId/result',
+    pathname: /^\/api\/quiz\/attempts\/[^/]+\/result\/?$/,
+  },
+];
 
 const IMEI_POLL_RATE_LIMIT: RateLimitConfig = {
   maxRequests: 120,
@@ -127,6 +138,13 @@ function getRateLimitConfig(pathname: string): {
   config: RateLimitConfig;
   pattern: string;
 } {
+  const dynamicMatch = DYNAMIC_RATE_LIMITS.find(({ pathname: matcher }) =>
+    matcher.test(pathname)
+  );
+  if (dynamicMatch) {
+    return { config: dynamicMatch.config, pattern: dynamicMatch.pattern };
+  }
+
   const segments = pathname.split('/').filter(Boolean);
   let node = rateLimitTrie;
   let lastConfig: RateLimitConfig | null = null;
