@@ -158,6 +158,19 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('preserves marketing prose that mentions trademarked feature names', () => {
+    const description = 'Retina® display brings stunning clarity.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Retina® display brings stunning clarity.');
+  });
+
+  it('still filters bare catalog titles that include trademark symbols', () => {
+    const description =
+      'iPhone 15 Pro Max®. Built for reliable all-day performance.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('returns the full text without appending "..." when the match is 200 chars or fewer', () => {
     const shortText = '<h2>Why It Worth</h2><p>Short benefit text.</p>';
     const result = buildDescriptionExcerpt(shortText);

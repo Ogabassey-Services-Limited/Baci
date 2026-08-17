@@ -128,13 +128,9 @@ function isProductTitleSentence(sentence: string): boolean {
     return false;
   }
 
-  if (/[®™©]/.test(trimmed)) {
-    return true;
-  }
-
-  // Bare catalog model lines such as iPhone 15 Pro Max or Dell XPS 16 9650.
+  // Bare catalog model lines such as iPhone 15 Pro Max® or Dell XPS 16 9650.
   if (
-    /^(?:[A-Za-z][\w&-]*\s+\d+[A-Za-z]?(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)*)$/i.test(
+    /^(?:[A-Za-z][\w&-]*\s+\d+[A-Za-z]?(?:\s+(?:Pro|Max|Plus|Ultra|Mini|Air|SE|XL|Lite|Edge|Note|Tab|Book|Pad|Watch|Buds|Series)\b)*)[®™©]?$/i.test(
       trimmed
     )
   ) {
