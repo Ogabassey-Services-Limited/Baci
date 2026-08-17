@@ -20,7 +20,7 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "25f4141babe83ed3846340d1f365374bacc4be89",
+  "originMainSha": "6d19b723ad4d23a30fcbfa15a2b93cc08bf4b1d7",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
@@ -4483,6 +4483,28 @@
       "sourceKind": "proxy_path_class"
     },
     {
+      "decision": "origin_dynamic",
+      "id": "proxy:mcp-messages-rewrite",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "mcp_server_rewrite",
+      "routePattern": "/mcp/messages",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:mcp-sse-rewrite",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "mcp_server_rewrite",
+      "routePattern": "/mcp/sse",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
       "decision": "edge_release",
       "id": "public-asset:badges/app-store-black.svg",
       "methods": [
@@ -7884,5 +7906,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "20c6af2c25e60ed1de0307151d9034bebc6dafd7b8b2560b2da552ecc601ac88"
+  "inventorySha256": "b71dac44722437d73eac77fd029dbf156479cdb85445b392c7e990a9d32c707f"
 }
