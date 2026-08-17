@@ -21,9 +21,8 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     ).toEqual(
       expect.arrayContaining([
         'proxy:api-prefix-passthrough',
-        ...(process.env.MCP_SERVER_URL
-          ? ['proxy:mcp-sse-rewrite', 'proxy:mcp-messages-rewrite']
-          : []),
+        'proxy:mcp-sse-rewrite',
+        'proxy:mcp-messages-rewrite',
         'proxy:platform-admin',
         'proxy:platform-route-root',
         'proxy:custom-domain-platform-route',
@@ -31,7 +30,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     );
     expect(
       dynamicRows.filter((row) => row.methods.includes('ANY'))
-    ).toHaveLength(process.env.MCP_SERVER_URL ? 6 : 4);
+    ).toHaveLength(6);
     expect(STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );

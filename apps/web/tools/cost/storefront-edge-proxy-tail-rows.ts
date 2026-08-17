@@ -134,26 +134,22 @@ export const STOREFRONT_EDGE_PROXY_TAIL_ROWS: readonly InventoryRow[] = [
     },
     sourcePath: 'apps/web/src/app/sitemap.ts',
   }),
-  ...(process.env.MCP_SERVER_URL
-    ? [
-        createStorefrontEdgeProxyClass(
-          'proxy:mcp-sse-rewrite',
-          '/mcp/sse',
-          ['ANY'],
-          'origin_dynamic',
-          'mcp_server_rewrite',
-          { sourcePath: 'apps/web/next.config.ts' }
-        ),
-        createStorefrontEdgeProxyClass(
-          'proxy:mcp-messages-rewrite',
-          '/mcp/messages',
-          ['ANY'],
-          'origin_dynamic',
-          'mcp_server_rewrite',
-          { sourcePath: 'apps/web/next.config.ts' }
-        ),
-      ]
-    : []),
+  createStorefrontEdgeProxyClass(
+    'proxy:mcp-sse-rewrite',
+    '/mcp/sse',
+    ['ANY'],
+    'origin_dynamic',
+    'mcp_server_rewrite',
+    { sourcePath: 'apps/web/next.config.ts' }
+  ),
+  createStorefrontEdgeProxyClass(
+    'proxy:mcp-messages-rewrite',
+    '/mcp/messages',
+    ['ANY'],
+    'origin_dynamic',
+    'mcp_server_rewrite',
+    { sourcePath: 'apps/web/next.config.ts' }
+  ),
   createStorefrontEdgeProxyClass(
     'proxy:unknown-document',
     '/{*unlistedDocument}',

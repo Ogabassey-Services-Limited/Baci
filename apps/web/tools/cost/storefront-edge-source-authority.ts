@@ -84,6 +84,29 @@ function gitBlobOid(bytes: Buffer) {
     .digest('hex');
 }
 
+async function assertApprovedCommitObject(
+  repoRoot: string,
+  objectId: string
+): Promise<void> {
+  const objectType = (
+    await runGit(repoRoot, ['cat-file', '-t', objectId])
+  )
+    .toString('utf8')
+    .trim();
+  if (objectType !== 'commit')
+    throw new Error('source tree does not match the approved commit');
+  try {
+    await runGit(repoRoot, [
+      'merge-base',
+      '--is-ancestor',
+      objectId,
+      'HEAD',
+    ]);
+  } catch {
+    throw new Error('source tree does not match the approved commit');
+  }
+}
+
 async function readApprovedFile(
   repoRoot: string,
   sourcePath: string,
@@ -112,6 +135,7 @@ export async function readStorefrontEdgeSourceAuthority(
   if (!/^[a-f0-9]{40}$/i.test(options.originMainSha))
     throw new Error('source tree does not match the approved commit');
   try {
+    await assertApprovedCommitObject(options.repoRoot, options.originMainSha);
     const approvedTree = parseGitTree(
       await runGit(options.repoRoot, [
         'ls-tree',

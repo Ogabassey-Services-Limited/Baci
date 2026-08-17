@@ -1,6 +1,8 @@
+import { execFile } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createStorefrontEdgeInventoryFixture } from './storefront-edge-inventory.test-support';
 import { STOREFRONT_EDGE_INVENTORY_POLICY } from './storefront-edge-inventory-policy';
@@ -12,6 +14,21 @@ const routeRoots = [
   'apps/web/src/app/(storefront)/ogabassey',
 ] as const;
 const apiRoot = 'apps/web/src/app/api';
+const execFileAsync = promisify(execFile);
+const fixtureGitConfig = [
+  '-c',
+  'commit.gpgsign=false',
+  '-c',
+  'core.hooksPath=/dev/null',
+  '-c',
+  'gc.auto=0',
+  '-c',
+  'maintenance.auto=0',
+  '-c',
+  'user.name=Inventory Test',
+  '-c',
+  'user.email=inventory@example.invalid',
+] as const;
 
 afterEach(async () => {
   await Promise.all(
@@ -86,6 +103,70 @@ describe('readStorefrontEdgeSourceAuthority', () => {
       readStorefrontEdgeSourceAuthority({
         apiRoot,
         originMainSha,
+        repoRoot,
+        routeRoots,
+        routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
+      })
+    ).rejects.toThrow('source tree does not match the approved commit');
+  });
+
+  it('rejects a tree object instead of a commit', async () => {
+    // Arrange
+    const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-tree-'));
+    temporaryRoots.push(repoRoot);
+    const commitSha = await createStorefrontEdgeInventoryFixture(repoRoot);
+    const { stdout } = await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      'rev-parse',
+      `${commitSha}^{tree}`,
+    ]);
+    const treeSha = stdout.trim();
+
+    // Act and assert
+    await expect(
+      readStorefrontEdgeSourceAuthority({
+        apiRoot,
+        originMainSha: treeSha,
+        repoRoot,
+        routeRoots,
+        routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
+      })
+    ).rejects.toThrow('source tree does not match the approved commit');
+  });
+
+  it('rejects a commit that is not reachable from HEAD', async () => {
+    // Arrange
+    const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-orphan-'));
+    temporaryRoots.push(repoRoot);
+    const orphanedSha = await createStorefrontEdgeInventoryFixture(repoRoot);
+    await writeFile(
+      join(repoRoot, 'apps/web/src/proxy.ts'),
+      '// amended fixture\n'
+    );
+    await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      ...fixtureGitConfig,
+      'add',
+      'apps/web/src/proxy.ts',
+    ]);
+    await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      ...fixtureGitConfig,
+      'commit',
+      '--quiet',
+      '--amend',
+      '-m',
+      'fixture amended',
+    ]);
+
+    // Act and assert
+    await expect(
+      readStorefrontEdgeSourceAuthority({
+        apiRoot,
+        originMainSha: orphanedSha,
         repoRoot,
         routeRoots,
         routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
