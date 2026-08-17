@@ -4,6 +4,7 @@ import {
   normalizePhoneToE164,
   summarizeCartForItemInfo,
 } from '@baci/shared/lib';
+import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import type { CartItem } from '@/hooks/cart';
 import type { createClient } from '@/lib/supabase/client';
 import { toNegotiationCartLine } from './negotiation-modal-cart';
@@ -26,6 +27,8 @@ export interface NegotiationRequestInput {
   offeredPrice: number;
   evidenceUrl?: string;
   customerEmail?: string | null;
+  /** Resolved by the modal before evidence upload; null is a known guest. */
+  customerId?: string | null;
   customerPhone?: string | null;
   variantId?: string;
   variantName?: string;
@@ -57,17 +60,22 @@ export async function insertNegotiationRequest(
   supabase: ReturnType<typeof createClient>,
   request: NegotiationRequestInput
 ): Promise<void> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  if (authError) {
-    console.warn('Auth check failed, continuing as guest:', authError.message);
+  let customerId = request.customerId;
+  if (customerId === undefined) {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    if (authError && (!isAuthSessionMissingError(authError) || user)) {
+      throw authError;
+    }
+    customerId = user?.id ?? null;
   }
 
   const validationError = getContactValidationError({
     email: request.customerEmail ?? '',
     phone: request.customerPhone ?? '',
+    isAuthenticated: Boolean(customerId),
   });
   if (validationError) {
     throw new NegotiationValidationError(validationError);
@@ -93,7 +101,7 @@ export async function insertNegotiationRequest(
   const { error } = await supabase.from('negotiation_requests').insert({
     merchant_id: request.merchantId,
     session_id: getOrCreateSessionId(),
-    customer_id: user?.id ?? null,
+    customer_id: customerId,
     type: request.type,
     item_info:
       request.type === 'single'

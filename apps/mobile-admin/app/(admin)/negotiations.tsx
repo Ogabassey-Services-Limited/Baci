@@ -27,6 +27,14 @@ import { supabase } from '@/lib/supabase';
 
 type NegotiationRequest = NegotiationCardRequest;
 
+type ResolveNegotiationResponse = {
+  channel?: 'email';
+  manualContactAvailable?: boolean;
+  notified: boolean;
+  reason?: 'no_customer_email' | 'no_delivery_channel';
+  status: 'accepted' | 'rejected';
+};
+
 // Module-scope helpers keep try/throw out of the component body so React
 // Compiler can memoize the screen (try/finally + throw-in-try are bailouts).
 async function loadNegotiationRequests(
@@ -40,7 +48,7 @@ async function loadNegotiationRequests(
   const { data, error } = await supabase
     .from('negotiation_requests')
     .select(
-      'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_phone, created_at, evidence_url'
+      'id, customer_id, type, status, offered_price, item_info, cart_snapshot, customer_email, customer_phone, created_at, evidence_url'
     )
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false });
@@ -84,7 +92,7 @@ export default function NegotiationsScreen() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({
+    mutationFn: ({
       id,
       status,
     }: {
@@ -92,13 +100,31 @@ export default function NegotiationsScreen() {
       status: 'accepted' | 'rejected';
     }) => {
       if (!merchant?.id) throw new Error('Merchant not found');
-      await apiClient('/api/negotiations/resolve', {
-        method: 'POST',
-        body: JSON.stringify({ negotiationId: id, status }),
-      });
+      return apiClient<ResolveNegotiationResponse>(
+        '/api/negotiations/resolve',
+        {
+          method: 'POST',
+          body: JSON.stringify({ negotiationId: id, status }),
+        }
+      );
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (result.notified) {
+        Alert.alert(
+          'Customer notified',
+          result.channel === 'email'
+            ? 'The decision email was accepted for delivery.'
+            : 'The decision notification was sent.'
+        );
+      } else {
+        Alert.alert(
+          'Status updated',
+          result.manualContactAvailable
+            ? 'The customer was not notified automatically. Use Call or WhatsApp to follow up.'
+            : 'The request was updated, but the customer has no available delivery channel.'
+        );
+      }
       // Return the invalidation promise so the mutation stays pending (and the
       // accept/reject actions stay disabled) until the refetched status lands,
       // preventing a stale-status flash before the queue reconciles.
