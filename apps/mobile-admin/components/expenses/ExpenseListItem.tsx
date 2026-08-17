@@ -70,7 +70,7 @@ export function ExpenseListItem({ item, merchant }: ExpenseListItemProps) {
             merchant?.payout_currency ?? 'NGN'
           )}
         </Text>
-        {item.receipt_url ? (
+        {item.receipt_url || item.receipt_storage_path ? (
           <Ionicons
             name="document-attach-outline"
             size={14}

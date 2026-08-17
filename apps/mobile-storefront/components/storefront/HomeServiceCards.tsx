@@ -60,7 +60,7 @@ const SERVICE_SHORTCUTS: ServiceShortcut[] = [
     accent: palette.emerald[500],
   },
   {
-    title: 'Super Quiz',
+    title: 'SuperQuiz',
     subtitle: 'Play for rewards',
     href: '/quiz',
     icon: 'trophy-outline',
@@ -83,7 +83,7 @@ export function HomeServiceCards({
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_BREAKPOINT;
 
-  // Horizontal scroll: Scale down slightly so part of the last card (Super Quiz) is visible
+  // Horizontal scroll: Scale down slightly so part of the last card (SuperQuiz) is visible
   const cardWidth = isCompact ? 98 : 114;
   const cardHeight = isCompact ? COMPACT_CARD_HEIGHT : CARD_HEIGHT;
   const [runnerProgress] = useState(() => new Animated.Value(0));

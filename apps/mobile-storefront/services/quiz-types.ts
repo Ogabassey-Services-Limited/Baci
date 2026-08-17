@@ -85,6 +85,7 @@ export type QuizActiveAttemptAvailability =
   | 'unavailable';
 
 export interface QuizActiveAttemptResponse {
+  attemptId?: string;
   attempt?: QuizV2Attempt;
   availability: QuizActiveAttemptAvailability;
   eventEndsAt: string | null;
@@ -184,6 +185,7 @@ export type QuizV2Result =
       availability: 'final';
       availableAt: string;
       claim?: { expiresAt: string; token: string };
+      prizeClaim?: QuizPrizeClaim;
       rank: number;
       score: number;
       totalQuestions: number;
@@ -207,6 +209,7 @@ export interface QuizLeaderboardEntry {
 export interface QuizLeaderboard {
   currentPlayer: QuizLeaderboardEntry | null;
   entries: QuizLeaderboardEntry[];
+  participantCount: number | null;
   status: 'published' | 'live' | 'live_hidden' | 'unavailable';
 }
 

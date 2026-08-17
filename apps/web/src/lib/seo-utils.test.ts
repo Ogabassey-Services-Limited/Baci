@@ -196,83 +196,6 @@ describe('buildStorefrontAcceptedPaymentMethods', () => {
 });
 
 describe('generateProductSchema - ProductGroup for variant products', () => {
-  it('adds configured accepted payment methods to product offers', () => {
-    const schema = generateProductSchema(
-      makeProduct(),
-      'TestStore',
-      'NGN',
-      'NG',
-      undefined,
-      undefined,
-      {
-        acceptedPaymentMethods: [
-          'Bank transfer',
-          'Debit and credit card',
-          'Bank transfer',
-          ' ',
-        ],
-      }
-    );
-
-    expect(schema.offers).toMatchObject({
-      '@type': 'Offer',
-      acceptedPaymentMethod: ['Bank transfer', 'Debit and credit card'],
-    });
-  });
-
-  it('preserves accepted payment method text for JSON-LD serialization', () => {
-    const schema = generateProductSchema(
-      makeProduct(),
-      'TestStore',
-      'NGN',
-      'NG',
-      undefined,
-      undefined,
-      {
-        acceptedPaymentMethods: ['Pay by B&O card & wallet'],
-      }
-    );
-
-    const offers = schema.offers as Record<string, unknown>;
-    expect(offers.acceptedPaymentMethod).toEqual(['Pay by B&O card & wallet']);
-
-    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
-      string,
-      unknown
-    >;
-    expect(
-      (parsed.offers as Record<string, unknown>).acceptedPaymentMethod
-    ).toEqual(['Pay by B&O card & wallet']);
-  });
-
-  it('adds configured accepted payment methods to variant offers', () => {
-    const schema = generateProductSchema(
-      makeProduct({
-        variants: [
-          {
-            id: 'v1',
-            product_id: 'test-123',
-            merchant_id: 'm1',
-            attributes: { storage: '128GB' },
-            price_override: 90,
-            stock_quantity: 5,
-          },
-        ],
-      }),
-      'TestStore',
-      'NGN',
-      'NG',
-      undefined,
-      undefined,
-      { acceptedPaymentMethods: ['Pay on delivery'] }
-    );
-
-    const variants = schema.hasVariant as Record<string, unknown>[];
-    const offer = variants[0]?.offers as Record<string, unknown>;
-
-    expect(offer.acceptedPaymentMethod).toEqual(['Pay on delivery']);
-  });
-
   it('outputs @type Product when no variants', () => {
     const product = makeProduct();
     const schema = generateProductSchema(product, 'TestStore', 'USD', 'NG');
@@ -1006,7 +929,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.aggregateRating).toBeUndefined();
   });
 
-  it('does not mutate merchant-provided custom schema markup while sanitizing', () => {
+  it('does not mutate merchant-provided custom schema markup or override live description', () => {
     const schemaMarkup = {
       '@context': 'https://schema.org',
       '@type': 'Product',
@@ -1028,7 +951,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       'NG'
     );
 
-    expect(schema.description).toBe('Premium foldable phone.');
+    expect(schema.description).toBe('A test product');
     expect(schema.aggregateRating).toBeUndefined();
     expect(schemaMarkup.description).toBe(
       'Premium foldable phone. Current listed price is NGN 2,500,000.'

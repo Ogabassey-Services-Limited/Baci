@@ -21,6 +21,7 @@ export const mockUsePageConfig = jest.fn();
 export const mockUseColorScheme = jest.fn(() => 'dark');
 export const mockUseIsFocused = jest.fn(() => true);
 export const mockRequestPermission = jest.fn(async () => 'granted');
+export const mockRecordPerformanceSurface = jest.fn();
 export const mockGetTemplateConfig = jest.fn(
   (_businessType?: string, _manualTemplateId?: string) => createTemplateConfig()
 );
@@ -180,6 +181,17 @@ jest.mock('@/lib/config', () => ({
     BUSINESS_TYPE: 'gadgets',
     TEMPLATE_ID: 'default',
   },
+}));
+
+jest.mock('@/lib/performance-attribution', () => ({
+  recordPerformanceSurface: (
+    surface: string,
+    details?: Record<string, unknown>
+  ) => mockRecordPerformanceSurface(surface, details),
+}));
+
+jest.mock('@sentry/react-native', () => ({
+  addBreadcrumb: jest.fn(),
 }));
 
 jest.mock('@/lib/templates', () => ({

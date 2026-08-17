@@ -12,7 +12,7 @@ export default function QuizRoute() {
     <>
       <Stack.Screen
         options={{
-          title: 'Quiz',
+          title: 'SuperQuiz',
           headerRight: () => (
             <Pressable
               accessibilityLabel="View previous quiz leaderboards"

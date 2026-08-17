@@ -14,13 +14,26 @@ import {
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 
+jest.mock('react-native-safe-area-context', () => {
+  const { View } =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    SafeAreaView: View,
+    useSafeAreaInsets: () => ({ bottom: 0, left: 0, right: 0, top: 0 }),
+  };
+});
+jest.mock('@/components/quiz/QuizMusicPlayer', () => ({
+  QuizMusicPlayer: () => null,
+}));
+
+const mockQuizEventNow = Date.now();
 const mockEvents: QuizEvent[] = [
   {
     id: 'event-1',
     title: 'Daily Prize Quiz',
     prizeName: 'N50,000 store credit',
-    startsAt: '2026-05-20T10:00:00.000Z',
-    endsAt: '2026-05-20T10:10:00.000Z',
+    startsAt: new Date(mockQuizEventNow - 60 * 1000).toISOString(),
+    endsAt: new Date(mockQuizEventNow + 10 * 60 * 1000).toISOString(),
     status: 'open',
     questionCount: 3,
   },
@@ -64,6 +77,7 @@ jest.mock('expo-router', () => {
         </View>
       ),
     },
+    useIsFocused: jest.fn(() => false),
     useRouter: () => ({ push: jest.fn() }),
   };
 });
@@ -138,7 +152,7 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     expect(
-      await screen.findByRole('header', { name: 'Quiz' })
+      await screen.findByRole('header', { name: 'SuperQuiz' })
     ).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {

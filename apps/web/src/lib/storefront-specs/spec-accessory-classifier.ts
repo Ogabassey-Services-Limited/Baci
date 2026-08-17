@@ -1,0 +1,49 @@
+const ACCESSORY_CATEGORY_MARKERS = [
+  'accessor',
+  'accessories',
+  'accessory',
+  'case',
+  'cases',
+  'keyboard',
+  'charger',
+  'cover',
+  'controller',
+  'controllers',
+  'stand',
+  'cable',
+  'adapter',
+  'mouse',
+  'sleeve',
+  'bag',
+  'dock',
+  'hub',
+  'band',
+  'strap',
+  'protector',
+  'grip',
+  'lens',
+  'lenses',
+  'battery',
+  'batteries',
+  'flash',
+  'flashes',
+  'gift card',
+  'gift cards',
+  'digital card',
+  'digital cards',
+  'memory card',
+  'memory cards',
+  'instant film',
+];
+
+export function isAccessoryLikeCategory(categoryName: string) {
+  const normalized = categoryName
+    .trim()
+    .toLowerCase()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ');
+
+  return ACCESSORY_CATEGORY_MARKERS.some((marker) =>
+    new RegExp(`(^|[^a-z])${marker}(s)?([^a-z]|$)`).test(normalized)
+  );
+}

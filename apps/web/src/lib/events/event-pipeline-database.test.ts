@@ -242,6 +242,16 @@ describe('event pipeline generated database boundary', () => {
       'apps/web/src/scripts/domain-event-worker.ts': ['read_domain_events_v1', 'record_event_worker_heartbeat_v1'],
       'apps/web/src/scripts/event-delivery-worker.ts': ['claim_event_deliveries_v1', 'record_event_worker_heartbeat_v1'],
       'apps/web/src/scripts/process-claimed-event-delivery.ts': ['finish_event_delivery_v1'],
+      'vps-workers/jobs/cleanup-legacy-expense-receipts.mjs': [
+        'authorize_legacy_expense_receipt_cleanup_deletion',
+        'claim_legacy_expense_receipt_cleanup_candidates',
+        'complete_legacy_expense_receipt_cleanup',
+      ],
+      'vps-workers/jobs/cleanup-private-expense-receipts.mjs': [
+        'authorize_expense_private_receipt_cleanup_deletion',
+        'claim_expense_private_receipt_cleanup_candidates',
+        'complete_expense_private_receipt_cleanup',
+      ],
       'vps-workers/jobs/supabase-retention-cleanup.mjs': ['cleanup_domain_event_pipeline_v1'],
     });
     for (const path of ['apps/web/src/scripts/process-domain-events.ts', 'apps/web/src/scripts/process-event-deliveries.ts']) {

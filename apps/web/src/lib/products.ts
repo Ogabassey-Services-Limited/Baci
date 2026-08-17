@@ -160,7 +160,8 @@ export interface ProductKeySpecs {
   model_numbers?: string;
   announced_date?: string;
   release_date?: string;
-  [key: string]: unknown;
+  recommended_for?: string[];
+  [key: string]: string | number | boolean | string[] | null | undefined;
 }
 
 export interface Product {

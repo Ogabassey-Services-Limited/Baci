@@ -34,7 +34,7 @@ describe('createQuizStyles', () => {
     expect(styles.answerButtonSelected.backgroundColor).toBe(
       mockColors.primaryLowOpacity
     );
-    expect(styles.progressFill.backgroundColor).toBe(mockColors.success);
+    expect(styles.progressFill.backgroundColor).toBe(mockColors.primary);
     expect(styles.resultTitle.color).toBe(mockColors.success);
   });
 

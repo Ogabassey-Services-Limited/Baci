@@ -6,6 +6,7 @@ import {
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
 } from '@baci/shared/lib';
+import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -14,6 +15,7 @@ import { createClient } from '@/lib/supabase/client';
 import { uploadNegotiationEvidenceFile } from './negotiation-evidence';
 import { computeCounterOffer } from './negotiation-modal-pricing';
 import { insertNegotiationRequest } from './negotiation-modal-request';
+import { NegotiationUploadForm } from './NegotiationUploadForm';
 import {
   NegotiationValidationError,
   getContactValidationError,
@@ -54,6 +56,33 @@ const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
 const FINAL_PRICE_MESSAGE =
   "That's the final price for this product. We can't discount it further.";
+const INVALID_EVIDENCE_LINK_MESSAGE = 'Enter a valid http or https URL.';
+
+type NegotiationSupabaseClient = ReturnType<typeof createClient>;
+
+async function resolveNegotiationCustomerId(
+  supabase: NegotiationSupabaseClient
+): Promise<string | null> {
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error && (!isAuthSessionMissingError(error) || user)) {
+    throw error;
+  }
+
+  return user?.id ?? null;
+}
+
+function isValidEvidenceLink(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   isOpen,
@@ -347,7 +376,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     }, 1500);
   };
 
-  const submitMerchantRequest = async (evidenceUrl?: string) => {
+  const submitMerchantRequest = async (
+    evidenceUrl: string | undefined,
+    customerId: string | null
+  ) => {
     if (!merchantId) {
       alert('Unable to submit request — merchant context unavailable.');
       return;
@@ -367,6 +399,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         currentPrice,
         offeredPrice: offerAmount,
         evidenceUrl,
+        customerId,
         customerEmail: email,
         customerPhone: phone,
         variantId,
@@ -407,24 +440,48 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const contactValidationError = getContactValidationError({ email, phone });
-    if (contactValidationError) {
-      alert(contactValidationError);
-      return;
-    }
-
     const trimmedLink = uploadLink.trim();
     if (trimmedLink && uploadFile) {
       alert('Use either a proof upload or a link, not both.');
       return;
     }
 
-    if (trimmedLink) {
-      await submitMerchantRequest(trimmedLink);
+    if (!trimmedLink && !uploadFile) {
+      alert('Upload proof or paste a link before sending your request.');
       return;
     }
 
-    if (!uploadFile) {
+    if (trimmedLink && !isValidEvidenceLink(trimmedLink)) {
+      alert(INVALID_EVIDENCE_LINK_MESSAGE);
+      return;
+    }
+
+    let customerId: string | null;
+    try {
+      customerId = await resolveNegotiationCustomerId(supabase);
+    } catch (error) {
+      console.error('Failed to verify negotiation customer:', error);
+      alert('Unable to verify your account. Please try again.');
+      return;
+    }
+
+    const contactValidationError = getContactValidationError({
+      email,
+      isAuthenticated: Boolean(customerId),
+      phone,
+    });
+    if (contactValidationError) {
+      alert(contactValidationError);
+      return;
+    }
+
+    if (trimmedLink) {
+      await submitMerchantRequest(trimmedLink, customerId);
+      return;
+    }
+
+    const file = uploadFile;
+    if (!file) {
       alert('Upload proof or paste a link before sending your request.');
       return;
     }
@@ -437,10 +494,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     setStatus('processing');
     try {
       const evidencePath = await uploadNegotiationEvidenceFile({
-        file: uploadFile,
+        file,
         merchantId,
       });
-      await submitMerchantRequest(evidencePath);
+      await submitMerchantRequest(evidencePath, customerId);
     } catch (error) {
       console.error('Failed to upload evidence:', error);
       if (!canApplyAsyncResult()) {
@@ -652,129 +709,23 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
             </div>
           )}
 
-          {/* Upload Evidence Form */}
           {status === 'upload' && (
-            <form
-              noValidate
+            <NegotiationUploadForm
+              email={email}
+              emailInputId={emailInputId}
+              onBack={() => setStatus('failed')}
+              onEmailChange={setEmail}
+              onFileChange={setUploadFile}
+              onLinkChange={setUploadLink}
+              onPhoneChange={setPhone}
               onSubmit={handleUploadSubmit}
-              className="space-y-4 animate-in fade-in slide-in-from-bottom-2"
-            >
-              <div className="bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/20 rounded-xl p-4">
-                <p className="text-sm text-[hsl(var(--card-foreground))] font-medium mb-2">
-                  📸 Saw it cheaper elsewhere?
-                </p>
-                <p className="text-xs text-[var(--store-primary)]">
-                  Upload proof (screenshot, photo) and we'll try to match or beat that price!
-                </p>
-              </div>
-
-              {/* File Upload */}
-              <div>
-                <label
-                  htmlFor={uploadFileInputId}
-                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
-                >
-                  Upload Proof
-                </label>
-                <div className="relative">
-                  <input
-                    id={uploadFileInputId}
-                    type="file"
-                    accept="image/*"
-                    aria-label="Upload proof"
-                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[hsl(var(--muted))] file:text-[hsl(var(--card-foreground))] hover:file:bg-[var(--store-primary)]/10"
-                  />
-                </div>
-                {uploadFile && (
-                  <p className="text-xs text-[var(--store-primary)] mt-2 flex items-center gap-1">
-                    <CheckCircle2 size={12} />
-                    {uploadFile.name}
-                  </p>
-                )}
-              </div>
-
-              {/* Link (Optional) */}
-              <div>
-                <label
-                  htmlFor={uploadLinkInputId}
-                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
-                >
-                  Link (Optional)
-                </label>
-                <input
-                  id={uploadLinkInputId}
-                  type="url"
-                  value={uploadLink}
-                  onChange={(e) => setUploadLink(e.target.value)}
-                  placeholder="https://example.com/product"
-                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
-                />
-              </div>
-
-              {/* Email (Optional) */}
-              <div>
-                <label
-                  htmlFor={emailInputId}
-                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
-                >
-                  Email Address (Optional)
-                </label>
-                <input
-                  id={emailInputId}
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
-                />
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  We can email you when the merchant accepts or rejects the offer.
-                </p>
-              </div>
-
-              {/* Phone / WhatsApp (Optional) */}
-              <div>
-                <label
-                  htmlFor={phoneInputId}
-                  className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2"
-                >
-                  Phone / WhatsApp (Optional)
-                </label>
-                <input
-                  id={phoneInputId}
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 0803 123 4567"
-                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
-                />
-                <p className="text-xs text-[hsl(var(--muted-foreground))] mt-1">
-                  So the merchant can reach you about this offer.
-                </p>
-              </div>
-
-              {/* Buttons */}
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setStatus('failed')}
-                  className="flex-1 bg-[hsl(var(--muted))] text-[hsl(var(--card-foreground))] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
-                >
-                  <Upload size={18} />
-                  Send for Review
-                </button>
-              </div>
-            </form>
+              phone={phone}
+              phoneInputId={phoneInputId}
+              uploadFile={uploadFile}
+              uploadFileInputId={uploadFileInputId}
+              uploadLink={uploadLink}
+              uploadLinkInputId={uploadLinkInputId}
+            />
           )}
 
           {status === 'submitted' && (

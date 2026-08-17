@@ -184,4 +184,14 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
       'supabase/migrations/20260815193000_repair_notification_codex_review_followups.sql',
     sha256: '0a2d641c7e5f0ba9234e4116f62a6b51b02ca4c33af3d0d69f17274ab27c8446',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260817210000_repair_admin_projected_error_code_filters.sql',
+    sha256: '127e4508c92b5cd49ffee9a6ce0663c8dcaf5dcf98ab12a3f74aece9be100cfb',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260817211000_repair_notification_segment_and_timezone_invariants.sql',
+    sha256: '424904a5925149a268aedc34424ae24b4684c8d034a0b294f827ac6f75626add',
+  },
 ] as const;

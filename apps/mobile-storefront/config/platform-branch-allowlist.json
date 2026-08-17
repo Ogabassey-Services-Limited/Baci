@@ -77,14 +77,6 @@
       "justification": "Reviewed iOS haptic branch for draggable chat FAB interactions."
     },
     {
-      "path": "components/storefront/GadgetPattern.tsx",
-      "justification": "Reviewed Android API 28 and older guard that suppresses a decorative SVG implicated in low-end-device ANR evidence while preserving Android 10+, iOS, and web rendering."
-    },
-    {
-      "path": "components/storefront/use-gadget-pattern-attribution.ts",
-      "justification": "Reviewed platform metadata used to attribute rendered GadgetPattern surfaces in native crash breadcrumbs."
-    },
-    {
       "path": "components/imei-check/imei-check-theme.ts",
       "justification": "Reviewed iOS-specific monospace font fallback for IMEI verdict formatting."
     },
@@ -181,6 +173,14 @@
       "justification": "Reviewed CSS box-shadow selection on web while preserving native product-card shadows."
     },
     {
+      "path": "components/storefront/GadgetPattern.tsx",
+      "justification": "Reviewed Android API 28 and older guard that suppresses a decorative SVG implicated in low-end-device ANR evidence while preserving Android 10+, iOS, and web rendering."
+    },
+    {
+      "path": "components/storefront/use-gadget-pattern-attribution.ts",
+      "justification": "Reviewed platform metadata used to attribute rendered GadgetPattern surfaces in native crash breadcrumbs."
+    },
+    {
       "path": "components/home/HomeScreenView.tsx",
       "justification": "Reviewed Android-only navigation bar button style override for dark home-screen system-bar content."
     },
@@ -219,6 +219,10 @@
     {
       "path": "components/ui/SnowEffect.tsx",
       "justification": "Reviewed CSS box-shadow selection on web while preserving native snowflake styling."
+    },
+    {
+      "path": "components/ui/DateTimePickerField.tsx",
+      "justification": "Reviewed native picker lifecycle: Android closes after a selection while iOS remains visible for wheel interaction until confirmation."
     },
     {
       "path": "hooks/cart-notifications.ts",
@@ -271,6 +275,10 @@
     {
       "path": "services/quiz-request.ts",
       "justification": "Reviewed quiz request metadata normalization to the backend-supported android, ios, and web platform values."
+    },
+    {
+      "path": "services/quiz-ad-analytics.ts",
+      "justification": "Reviewed quiz ad analytics platform normalization for Android, iOS, and web event metadata."
     },
     {
       "path": "services/savings-reminder-notifications.ts",

@@ -11,6 +11,8 @@
       "**",
       "!**/.next",
       "!**/node_modules",
+      "!**/.wrangler",
+      "!**/.qualification-dist",
       "!**/scripts",
       "!**/scripts-tmp",
       "!**/.gemini",
@@ -29,7 +31,8 @@
       "!**/src/templates",
       "!**/mcp-server",
       "!process_*.cjs",
-      "!**/public"
+      "!**/public",
+      "!**/.wrangler"
     ]
   },
   "css": {

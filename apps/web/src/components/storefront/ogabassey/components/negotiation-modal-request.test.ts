@@ -1,3 +1,4 @@
+import { AuthSessionMissingError } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { insertNegotiationRequest } from './negotiation-modal-request';
 import { NegotiationValidationError } from './negotiation-modal-validation';
@@ -70,6 +71,94 @@ describe('insertNegotiationRequest', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it('rejects a guest negotiation without a delivery channel', async () => {
+    getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+
+    await expect(
+      insertNegotiationRequest(createSupabaseMock(), {
+        currentPrice: 10_000,
+        itemId: 'product-1',
+        merchantId: 'merchant-1',
+        offeredPrice: 9000,
+        productName: 'Test Product',
+        type: 'single',
+      })
+    ).rejects.toThrow(
+      "Provide an email address or Phone / WhatsApp number so we can send the merchant's decision."
+    );
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('allows a guest negotiation when Supabase reports a missing session', async () => {
+    getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new AuthSessionMissingError(),
+    });
+
+    await insertNegotiationRequest(createSupabaseMock(), {
+      currentPrice: 10_000,
+      customerPhone: '0803 123 4567',
+      itemId: 'product-1',
+      merchantId: 'merchant-1',
+      offeredPrice: 9000,
+      productName: 'Test Product',
+      type: 'single',
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_id: null,
+        customer_phone: '2348031234567',
+      })
+    );
+  });
+
+  it('allows an authenticated request without duplicate contact details', async () => {
+    await insertNegotiationRequest(createSupabaseMock(), {
+      currentPrice: 10_000,
+      customerId: 'user-1',
+      itemId: 'product-1',
+      merchantId: 'merchant-1',
+      offeredPrice: 9000,
+      productName: 'Test Product',
+      type: 'single',
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_email: null,
+        customer_id: 'user-1',
+        customer_phone: null,
+      })
+    );
+    expect(getUser).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when authentication lookup returns an unexpected error', async () => {
+    getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('auth unavailable'),
+    });
+
+    await expect(
+      insertNegotiationRequest(createSupabaseMock(), {
+        currentPrice: 10_000,
+        customerEmail: 'buyer@example.com',
+        itemId: 'product-1',
+        merchantId: 'merchant-1',
+        offeredPrice: 9000,
+        productName: 'Test Product',
+        type: 'single',
+      })
+    ).rejects.toThrow('auth unavailable');
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
   it('surfaces Supabase insert failures', async () => {
     insert.mockResolvedValueOnce({
       error: new Error('insert failed'),
@@ -78,6 +167,7 @@ describe('insertNegotiationRequest', () => {
     await expect(
       insertNegotiationRequest(createSupabaseMock(), {
         currentPrice: 10_000,
+        customerEmail: 'buyer@example.com',
         itemId: 'product-1',
         merchantId: 'merchant-1',
         offeredPrice: 9000,
@@ -96,6 +186,7 @@ describe('insertNegotiationRequest', () => {
 
     await insertNegotiationRequest(createSupabaseMock(), {
       currentPrice: 10_000,
+      customerPhone: '0803 123 4567',
       itemId: 'product-1',
       merchantId: 'merchant-1',
       offeredPrice: 9000,
@@ -117,6 +208,7 @@ describe('insertNegotiationRequest', () => {
     await expect(
       insertNegotiationRequest(createSupabaseMock(), {
         currentPrice: 10_000,
+        customerEmail: 'buyer@example.com',
         merchantId: 'merchant-1',
         offeredPrice: 9000,
         productName: 'Entire Cart',

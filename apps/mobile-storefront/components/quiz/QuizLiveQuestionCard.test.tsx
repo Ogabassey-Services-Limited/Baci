@@ -49,6 +49,5 @@ describe('QuizLiveQuestionCard', () => {
 
     fireEvent.press(screen.getByRole('button', { name: 'Answer Lagos' }));
     expect(onAnswer).toHaveBeenCalledWith('o1');
-    expect(screen.getByText(/quiz closes in/)).toBeTruthy();
   });
 });

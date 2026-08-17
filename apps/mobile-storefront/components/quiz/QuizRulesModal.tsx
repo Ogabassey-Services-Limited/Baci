@@ -33,7 +33,7 @@ export function QuizRulesModal({
     <Modal
       animationType="slide"
       onRequestClose={onClose}
-      presentationStyle="pageSheet"
+      presentationStyle="overFullScreen"
       transparent
       visible={visible}
     >

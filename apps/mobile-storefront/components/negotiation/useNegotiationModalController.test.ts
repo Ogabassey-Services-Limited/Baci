@@ -7,6 +7,7 @@ import {
   it,
   jest,
 } from '@jest/globals';
+import { AuthSessionMissingError } from '@supabase/supabase-js';
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import type { CartItem } from '@/stores/cart-store';
@@ -14,6 +15,7 @@ import type { useNegotiationModalController as UseNegotiationModalController } f
 
 type AuthUserResponse = {
   data: { user: { id: string } | null };
+  error?: unknown | null;
 };
 
 type InsertResponse = {
@@ -355,6 +357,61 @@ describe('useNegotiationModalController', () => {
     );
   });
 
+  it('allows a guest submission when Supabase reports a missing session', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: new AuthSessionMissingError(),
+    });
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('0803 123 4567');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_id: null,
+        customer_phone: '2348031234567',
+      })
+    );
+  });
+
+  it('blocks evidence upload when the authentication check fails unexpectedly', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockGetUser.mockResolvedValue({
+      data: { user: null },
+      error: new Error('auth unavailable'),
+    });
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      assets: [{ uri: 'file://proof.png' }],
+      canceled: false,
+    });
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setPhone('0803 123 4567');
+    });
+    await act(async () => {
+      await result.current.pickImage();
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockUploadNegotiationEvidence).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Upload failed',
+      'Unable to upload evidence image. Please try again or use a link.'
+    );
+  });
+
   it('returns to upload state and alerts when the insert fails', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     mockInsert.mockResolvedValue({ error: new Error('permission denied') });
@@ -363,6 +420,7 @@ describe('useNegotiationModalController', () => {
     act(() => {
       result.current.setOffer('₦90,000');
       result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('0803 123 4567');
     });
     await act(async () => {
       await result.current.handleUploadSubmit();
@@ -377,6 +435,49 @@ describe('useNegotiationModalController', () => {
     expect(result.current.message).not.toContain('Request submitted');
   });
 
+  it('requires a phone number for guest review requests', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
+    );
+  });
+
+  it('validates guest contact before uploading selected evidence', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockLaunchImageLibraryAsync.mockResolvedValueOnce({
+      assets: [{ uri: 'file://proof.png' }],
+      canceled: false,
+    });
+    const { result } = renderController();
+
+    await act(async () => {
+      await result.current.pickImage();
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockUploadNegotiationEvidence).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
+    );
+  });
+
   it('fails closed when a whole-cart request has no cart snapshot', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     const { result } = renderController({
@@ -388,6 +489,7 @@ describe('useNegotiationModalController', () => {
     act(() => {
       result.current.setOffer('₦90,000');
       result.current.setUploadLink('https://proof.example/listing');
+      result.current.setPhone('0803 123 4567');
     });
     await act(async () => {
       await result.current.handleUploadSubmit();
