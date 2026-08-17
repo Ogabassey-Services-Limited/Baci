@@ -36,4 +36,23 @@ describe('WalletFundingPhonePrompt', () => {
 
     expect(onSubmit).toHaveBeenCalledWith('08012345678');
   });
+
+  it('displays a persistence error when saving a valid phone fails', async () => {
+    const user = userEvent.setup();
+    const errorMessage = 'Phone number could not be saved';
+    const onSubmit = vi.fn().mockResolvedValue({
+      error: errorMessage,
+      success: false,
+    });
+
+    render(<WalletFundingPhonePrompt onSubmit={onSubmit} />);
+
+    await user.type(
+      screen.getByRole('textbox', { name: /phone number/i }),
+      '08012345678'
+    );
+    await user.click(screen.getByRole('button', { name: /save and continue/i }));
+
+    expect(await screen.findByText(errorMessage)).toBeInTheDocument();
+  });
 });
