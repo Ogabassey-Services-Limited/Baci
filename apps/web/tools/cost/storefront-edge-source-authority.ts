@@ -21,8 +21,8 @@ const execFileAsync = promisify(execFile);
 
 function isIncludedRouteSource(sourcePath: string) {
   return (
-    /\.(?:css|ts|tsx)$/.test(sourcePath) &&
-    !/\.(?:spec|test)\.(?:ts|tsx)$/.test(sourcePath)
+    /\.(?:css|ts|tsx|js|jsx)$/.test(sourcePath) &&
+    !/\.(?:spec|test)\.(?:ts|tsx|js|jsx)$/.test(sourcePath)
   );
 }
 

@@ -10,18 +10,32 @@ type SourceFile = Readonly<{ bytes: Buffer; sourcePath: string }>;
 const METADATA_ROUTE_SUFFIXES = new Map<string, string>([
   ['apple-icon.ts', 'apple-icon'],
   ['apple-icon.tsx', 'apple-icon'],
+  ['apple-icon.js', 'apple-icon'],
+  ['apple-icon.jsx', 'apple-icon'],
   ['icon.ts', 'icon'],
   ['icon.tsx', 'icon'],
+  ['icon.js', 'icon'],
+  ['icon.jsx', 'icon'],
   ['manifest.ts', 'manifest.webmanifest'],
   ['manifest.tsx', 'manifest.webmanifest'],
+  ['manifest.js', 'manifest.webmanifest'],
+  ['manifest.jsx', 'manifest.webmanifest'],
   ['opengraph-image.ts', 'opengraph-image'],
   ['opengraph-image.tsx', 'opengraph-image'],
+  ['opengraph-image.js', 'opengraph-image'],
+  ['opengraph-image.jsx', 'opengraph-image'],
   ['robots.ts', 'robots.txt'],
   ['robots.tsx', 'robots.txt'],
+  ['robots.js', 'robots.txt'],
+  ['robots.jsx', 'robots.txt'],
   ['sitemap.ts', 'sitemap.xml'],
   ['sitemap.tsx', 'sitemap.xml'],
+  ['sitemap.js', 'sitemap.xml'],
+  ['sitemap.jsx', 'sitemap.xml'],
   ['twitter-image.ts', 'twitter-image'],
   ['twitter-image.tsx', 'twitter-image'],
+  ['twitter-image.js', 'twitter-image'],
+  ['twitter-image.jsx', 'twitter-image'],
 ]);
 function entrypointFileName(relativeSourcePath: string) {
   return relativeSourcePath.split('/').at(-1) ?? '';
@@ -32,9 +46,21 @@ function isEntrypoint(relativeSourcePath: string) {
   return (
     fileName === 'page.tsx' ||
     fileName === 'page.ts' ||
+    fileName === 'page.js' ||
+    fileName === 'page.jsx' ||
     fileName === 'route.ts' ||
     METADATA_ROUTE_SUFFIXES.has(fileName)
   );
+}
+
+function normalizeClassificationPath(relativeSourcePath: string) {
+  if (relativeSourcePath.endsWith('page.ts'))
+    return `${relativeSourcePath.slice(0, -'page.ts'.length)}page.tsx`;
+  if (relativeSourcePath.endsWith('page.js'))
+    return `${relativeSourcePath.slice(0, -'page.js'.length)}page.tsx`;
+  if (relativeSourcePath.endsWith('page.jsx'))
+    return `${relativeSourcePath.slice(0, -'page.jsx'.length)}page.tsx`;
+  return relativeSourcePath;
 }
 
 function normalizeRoutePattern(relativeSourcePath: string) {
@@ -57,6 +83,8 @@ function routeMethods(
   if (
     fileName === 'page.tsx' ||
     fileName === 'page.ts' ||
+    fileName === 'page.js' ||
+    fileName === 'page.jsx' ||
     METADATA_ROUTE_SUFFIXES.has(fileName)
   )
     return ['GET', 'HEAD'];
@@ -126,9 +154,7 @@ export function createStorefrontEdgeEntrypointRows(
   }
   const rows = entrypointSources.flatMap(({ bytes, sourcePath }) => {
     const relativeSourcePath = sourcePath.slice(prefix.length);
-    const classificationPath = relativeSourcePath.endsWith('page.ts')
-      ? `${relativeSourcePath.slice(0, -'page.ts'.length)}page.tsx`
-      : relativeSourcePath;
+    const classificationPath = normalizeClassificationPath(relativeSourcePath);
     const classification =
       STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.get(classificationPath);
     if (!classification)

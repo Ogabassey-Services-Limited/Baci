@@ -53,6 +53,14 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     join(blogPostRoot, 'view-counter.tsx'),
     "'use client';\nexport function ViewCounter() { return null; }\n"
   );
+  await writeFile(
+    join(blogPostRoot, 'blog-post-body.tsx'),
+    'export default function BlogPostBody() { return null; }\n'
+  );
+  await writeFile(
+    join(blogPostRoot, 'BlogPostBody.tsx'),
+    'export default function BlogPostBodyAlt() { return null; }\n'
+  );
   const siblingRouteRoot = join(
     repoRoot,
     'apps/web/src/app/(storefront)/ogabassey'

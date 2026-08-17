@@ -19,6 +19,8 @@ describe('storefront edge inventory routing input paths', () => {
         'apps/web/src/components/analytics/google-analytics.tsx',
         'apps/web/src/components/storefront/new-template/footer.tsx',
         'apps/web/src/components/storefront/ogabassey/pages/cart-page-wrapper.tsx',
+        'apps/web/src/components/storefront/ogabassey/pages/help-support.tsx',
+        'apps/web/src/components/storefront/ogabassey/pages/checkout/hooks/checkout-shipping-quote-loader.ts',
         'apps/web/src/lib/credit-direct-client.ts',
         'apps/web/src/lib/credpal.ts',
         'apps/web/src/lib/klump-sdk.ts',

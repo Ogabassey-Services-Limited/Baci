@@ -73,6 +73,33 @@ describe('external storefront media inventory', () => {
         'configured_twitter_origin',
         'configured_whatsapp_origin',
         'configured_google_maps_origin',
+        'configured_google_maps_origin',
+        'configured_twitter_origin',
+        'configured_meta_origin',
+      ].map((hostKind) => ({
+        decision: 'origin_dynamic',
+        hostKind,
+        methods: ['GET', 'HEAD'],
+      })),
+      ...Array.from({ length: 1 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      ...[
+        'configured_twitter_origin',
+        'configured_meta_origin',
+      ].map((hostKind) => ({
+        decision: 'origin_dynamic',
+        hostKind,
+        methods: ['GET', 'HEAD'],
+      })),
+      ...Array.from({ length: 1 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      ...[
         'configured_merchant_social_origin',
         'configured_app_store_origin',
         'configured_play_store_origin',
@@ -167,6 +194,39 @@ describe('external storefront media inventory', () => {
           'apps/web/src/components/storefront/ogabassey/components/Footer.tsx',
         destinationCondition: expect.objectContaining({
           hostKind: 'configured_google_maps_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:help-google-maps-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/help-support.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_google_maps_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:blog-share-twitter-blog-post-body')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_twitter_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:blog-share-meta-blog-post-body-alt')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_meta_origin',
         }),
       })
     );

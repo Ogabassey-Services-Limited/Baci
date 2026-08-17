@@ -231,6 +231,41 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'apps/web/src/components/storefront/ogabassey/components/Footer.tsx'
   ),
   mediaSubresource(
+    'help-google-maps-navigation',
+    'configured_google_maps_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/help-support.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-twitter-blog-post-body',
+    'configured_twitter_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-meta-blog-post-body',
+    'configured_meta_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-linkedin-blog-post-body',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-twitter-blog-post-body-alt',
+    'configured_twitter_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-meta-blog-post-body-alt',
+    'configured_meta_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx'
+  ),
+  mediaSubresource(
+    'blog-share-linkedin-blog-post-body-alt',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx'
+  ),
+  mediaSubresource(
     'footer-merchant-social-navigation',
     'configured_merchant_social_origin',
     'apps/web/src/components/storefront/ogabassey/components/Footer.tsx'
