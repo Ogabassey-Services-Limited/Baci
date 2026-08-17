@@ -53,6 +53,17 @@ describe('STOREFRONT_EDGE_MACHINE_ROWS', () => {
       })
     );
     expect(byId.get('machine:next-image')?.methods).toEqual(['ANY']);
+    expect(byId.get('proxy:platform-subdomain-next-static')).toEqual(
+      expect.objectContaining({
+        decision: 'edge_redirect',
+        hostCondition: {
+          hostKind: 'platform_subdomain',
+          precedence: 'before_path_decision',
+        },
+        routePattern: '/_next/static/{*asset}',
+        sourcePath: 'apps/web/src/proxy.ts',
+      })
+    );
     expect(byId.get('machine:vercel-insights-view')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',
