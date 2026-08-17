@@ -227,6 +227,14 @@ async function fetchAllJumiaOrders(
   return allOrders;
 }
 
+function formatJumiaOrderTimestamp(value: Date | number): string {
+  const date = typeof value === 'number' ? new Date(value) : value;
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error('Cannot format an invalid Jumia order timestamp');
+  }
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 // Helper: Send push notification via Expo
 async function sendPushNotification(
   token: string,
@@ -554,14 +562,14 @@ Deno.serve(async (req) => {
 
         // Capture sync start time once to avoid timestamp drift across pages
         // and to use as last_sync_at so no orders slip through the gap.
-        const syncStartedAt = new Date().toISOString();
+        const syncStartedAt = formatJumiaOrderTimestamp(new Date());
 
         // Use last_sync_at from the integration row as the lower bound so
         // cron pauses or outages longer than 10 minutes don't miss orders.
         // Fall back to 24 hours ago on first sync (when last_sync_at is null).
         const updatedAfter = integration.last_sync_at
           ? integration.last_sync_at
-          : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+          : formatJumiaOrderTimestamp(Date.now() - 24 * 60 * 60 * 1000);
 
         const orders = await fetchAllJumiaOrders(
           supabase,

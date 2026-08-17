@@ -1,29 +1,45 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { JumiaClient } from '@/lib/jumia/client';
+import { JumiaApiError } from '@/lib/jumia/helpers';
+import {
+  loadIntegrationScopedMappings,
+  pickPrimaryProductMapping,
+} from '@/lib/jumia/product-mapping-scope';
 import { createClient } from '@/lib/supabase/server';
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const productId = searchParams.get('productId');
+const QuerySchema = z.object({
+  productId: z.uuid(),
+  integrationId: z.uuid(),
+});
 
-  if (!productId) {
+export async function GET(request: Request) {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const parsed = QuerySchema.safeParse({
+    productId: searchParams.get('productId'),
+    integrationId: searchParams.get('integrationId'),
+  });
+
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Product ID is required' },
+      { error: 'Product ID and integration ID are required' },
       { status: 400 }
     );
   }
 
+  const { productId, integrationId } = parsed.data;
+
   try {
-    const supabase = createClient(await cookies());
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Get product to verify ownership
     const { data: product, error: productError } = await supabase
       .from('products')
       .select('merchant_id')
@@ -34,16 +50,33 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 });
     }
 
-    // Get Jumia mapping
-    const { data: mapping, error: mappingError } = await supabase
-      .from('jumia_product_mappings')
-      .select(
-        'id, product_id, jumia_sku, jumia_product_url, sync_status, last_synced_at, created_at'
-      )
-      .eq('product_id', productId)
-      .single();
+    let client: JumiaClient;
+    try {
+      client = await JumiaClient.forIntegration(
+        supabase,
+        product.merchant_id,
+        integrationId
+      );
+    } catch (err: unknown) {
+      if (err instanceof JumiaApiError && err.status === 404) {
+        return NextResponse.json(
+          { error: `Jumia integration not found: ${integrationId}` },
+          { status: 404 }
+        );
+      }
+      throw err;
+    }
 
-    if (mappingError && mappingError.code !== 'PGRST116') {
+    const { mappings, error: mappingError } =
+      await loadIntegrationScopedMappings({
+        supabase,
+        merchantId: product.merchant_id,
+        productId,
+        shopId: client.shopId,
+        marketplaceKey: client.marketplaceKey,
+      });
+
+    if (mappingError) {
       console.error('Error fetching Jumia mapping:', mappingError);
       return NextResponse.json(
         { error: 'Failed to fetch mapping' },
@@ -51,7 +84,10 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ mapping: mapping || null });
+    return NextResponse.json({
+      mapping: pickPrimaryProductMapping(mappings),
+      mappings,
+    });
   } catch (error) {
     console.error('API Error:', error);
     return NextResponse.json(

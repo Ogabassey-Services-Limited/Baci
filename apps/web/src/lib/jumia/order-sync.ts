@@ -1,9 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaClient } from '@/lib/jumia/client';
+import { getJumiaOrderQueryFilters } from '@/lib/jumia/order-query-filters';
 import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import {
+  formatJumiaOrderTimestamp,
   getJumiaSyncLowerBound,
   JUMIA_EXTERNAL_SOURCE,
   type MarketplaceIntegrationRow,
@@ -64,11 +66,15 @@ async function syncIntegration(
   let earliestFailedSyncAt: string | null = null;
   let earliestFailedSyncMs: number | null = null;
   const attemptedNotificationKeys = new Set<string>();
-  const syncStartedAt = new Date().toISOString();
+  const syncStartedAt = formatJumiaOrderTimestamp(new Date());
   const orders = await getAllOrders(client, {
     updatedAfter: getJumiaSyncLowerBound(integration.last_sync_at),
     updatedBefore: syncStartedAt,
     size: 100,
+    ...getJumiaOrderQueryFilters({
+      shopId: integration.shop_id ?? 'oauth',
+      countryCode: integration.country_code,
+    }),
   });
 
   const existingJumiaOrders = await loadExistingJumiaOrders(
@@ -282,7 +288,7 @@ export async function syncJumiaOrdersForActiveIntegrations(
 
   const { data, error } = await supabase
     .from('marketplace_integrations')
-    .select('id, merchant_id, shop_id, last_sync_at, sync_config')
+    .select('id, merchant_id, shop_id, country_code, last_sync_at, sync_config')
     .eq('platform', JUMIA_EXTERNAL_SOURCE)
     .eq('is_active', true);
 

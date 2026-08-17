@@ -272,7 +272,7 @@ describe('Jumia callback route', () => {
         }),
       ]),
       expect.objectContaining({
-        onConflict: 'merchant_id,platform,shop_id',
+        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
       })
     );
     expect(mockExchangeJumiaCode).toHaveBeenCalledWith(

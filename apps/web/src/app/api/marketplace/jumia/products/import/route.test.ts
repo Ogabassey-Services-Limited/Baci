@@ -11,8 +11,11 @@ const {
   mockForIntegration,
   mockGetAllProducts,
   mockRequireMerchantFeatureAccess,
+  mockMappingsEq,
 } = vi.hoisted(() => {
   const mockSelect = vi.fn();
+  const mockMappingsEq = vi.fn();
+  const mockMappingsIn = vi.fn().mockResolvedValue({ data: [], error: null });
   const mockSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'products') {
@@ -31,12 +34,15 @@ const {
         };
       }
       if (table === 'jumia_product_mappings') {
+        const chain = {
+          eq: (...args: unknown[]) => {
+            mockMappingsEq(...args);
+            return chain;
+          },
+          in: (...args: unknown[]) => mockMappingsIn(...args),
+        };
         return {
-          select: () => ({
-            eq: () => ({
-              in: vi.fn().mockResolvedValue({ data: [], error: null }),
-            }),
-          }),
+          select: () => chain,
           upsert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
@@ -52,6 +58,7 @@ const {
     mockForIntegration,
     mockGetAllProducts,
     mockRequireMerchantFeatureAccess,
+    mockMappingsEq,
   };
 });
 
@@ -311,5 +318,32 @@ describe('Products Import POST', () => {
     expect(json.summary.total).toBe(1);
     expect(json.summary.created).toBe(0);
     expect(json.warnings.missingPrice).toBe(2);
+  });
+
+  it('scopes mapped SKU lookups to the active Jumia integration', async () => {
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop-ng',
+      marketplaceKey: 'NG',
+    });
+    mockGetAllProducts.mockResolvedValue([
+      {
+        id: 'jp-1',
+        name: 'Shared SKU Product',
+        description: 'Desc',
+        images: [],
+        variations: [{ sellerSku: 'SHARED-SKU', globalPrice: { value: 1000 } }],
+      },
+    ]);
+    mockSelect.mockResolvedValue({ data: [], error: null });
+
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+
+    expect(res.status).toBe(200);
+    expect(mockGetAllProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'shop-ng' }),
+      expect.objectContaining({ status: 'active', shopId: 'shop-ng' })
+    );
+    expect(mockMappingsEq).toHaveBeenCalledWith('jumia_shop_id', 'shop-ng');
+    expect(mockMappingsEq).toHaveBeenCalledWith('marketplace_key', 'NG');
   });
 });

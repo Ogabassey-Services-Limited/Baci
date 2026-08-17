@@ -18,6 +18,8 @@ import {
   JumiaClient,
   jumiaErrorResponse,
 } from '@/lib/jumia/client';
+import { getJumiaOrderQueryFilters } from '@/lib/jumia/order-query-filters';
+import { formatJumiaOrderTimestamp } from '@/lib/jumia/order-sync-mappers';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
@@ -270,6 +272,10 @@ export async function POST(request: NextRequest) {
 
     const jumiaOrders = await getAllOrders(jumiaClient, {
       createdAfter: sevenDaysAgo.toISOString().split('T')[0],
+      ...getJumiaOrderQueryFilters({
+        shopId: jumiaClient.shopId,
+        countryCode: jumiaClient.countryCode,
+      }),
     });
 
     // Sync to our database
@@ -423,7 +429,10 @@ export async function POST(request: NextRequest) {
     // Update last_sync_at only on THIS integration row
     const { error: syncUpdateError } = await supabase
       .from('marketplace_integrations')
-      .update({ last_sync_at: new Date().toISOString(), sync_error: null })
+      .update({
+        last_sync_at: formatJumiaOrderTimestamp(new Date()),
+        sync_error: null,
+      })
       .eq('id', integrationId)
       .eq('merchant_id', merchantId);
 

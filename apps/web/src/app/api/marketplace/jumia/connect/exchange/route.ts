@@ -12,6 +12,10 @@ import {
 import { JumiaClient } from '@/lib/jumia/client';
 import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import {
+  getActiveSelfAuthorizedJumiaShopIds,
+  getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
+} from '@/lib/jumia/jumia-oauth-self-authorization-conflict';
+import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
@@ -136,6 +140,7 @@ export async function POST(request: NextRequest) {
       integrationId: 'temp',
       merchantId,
       shopId: 'oauth',
+      marketplaceKey: 'oauth',
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || '',
       tokenExpiresAt,
@@ -177,7 +182,7 @@ export async function POST(request: NextRequest) {
     // Check existing integrations
     const { data: existingIntegrations } = await auth.supabase
       .from('marketplace_integrations')
-      .select('shop_id, is_active')
+      .select('shop_id, is_active, connection_method')
       .eq('merchant_id', merchantId)
       .eq('platform', 'jumia');
 
@@ -186,12 +191,35 @@ export async function POST(request: NextRequest) {
         .filter((i) => i.is_active)
         .map((i) => i.shop_id)
     );
+    const activeSelfAuthorizedShopIds = getActiveSelfAuthorizedJumiaShopIds(
+      existingIntegrations ?? []
+    );
+
+    if (!isFallbackShop) {
+      const conflictingShopIds =
+        getJumiaOAuthShopIdsConflictingWithSelfAuthorization(
+          discoveredShops.map((shop) => shop.id),
+          activeSelfAuthorizedShopIds
+        );
+      if (conflictingShopIds.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              'This Jumia shop is already connected with self-authorization. Disconnect it before using OAuth.',
+            shopIds: conflictingShopIds,
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     // Build integration rows
     const integrationRows = discoveredShops.map((shop) => ({
       merchant_id: merchantId,
       platform: 'jumia' as const,
       shop_id: shop.id,
+      marketplace_key: 'oauth',
+      connection_method: 'oauth' as const,
       shop_name: shop.name || 'Jumia Shop',
       country_code: shop.businessClients?.some((bc) => bc.countryCode === 'NG')
         ? 'NG'
@@ -212,7 +240,7 @@ export async function POST(request: NextRequest) {
     const { error: upsertError } = await auth.supabase
       .from('marketplace_integrations')
       .upsert(integrationRows, {
-        onConflict: 'merchant_id,platform,shop_id',
+        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
       });
 
     if (upsertError) {

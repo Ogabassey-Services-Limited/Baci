@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       )
       .eq('merchant_id', merchantId)
       .eq('jumia_shop_id', jumiaClient.shopId)
+      .eq('marketplace_key', jumiaClient.marketplaceKey)
       .eq('sync_status', 'synced');
 
     if (mappingsError) {

@@ -15,12 +15,22 @@ const JUMIA_ORDER_NUMBER_PREFIX = 'JUMIA-';
 const DEFAULT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 const SYNC_OVERLAP_MS = 10 * 60 * 1000;
 
+/** Jumia order filters accept UTC timestamps at second precision only. */
+export function formatJumiaOrderTimestamp(value: Date | number): string {
+  const date = typeof value === 'number' ? new Date(value) : value;
+  if (!Number.isFinite(date.getTime())) {
+    throw new Error('Cannot format an invalid Jumia order timestamp');
+  }
+  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
+}
+
 export interface MarketplaceIntegrationRow {
   id: string;
   merchant_id: string;
   shop_id: string | null;
   last_sync_at: string | null;
   sync_config: unknown;
+  country_code?: string | null;
 }
 
 export interface ExistingJumiaOrderRow {
@@ -56,14 +66,16 @@ export function getJumiaSyncLowerBound(
   lastSyncAt: string | null,
   nowMs = Date.now()
 ): string {
-  if (!lastSyncAt) return new Date(nowMs - DEFAULT_LOOKBACK_MS).toISOString();
+  if (!lastSyncAt) {
+    return formatJumiaOrderTimestamp(nowMs - DEFAULT_LOOKBACK_MS);
+  }
 
   const parsed = new Date(lastSyncAt).getTime();
   if (!Number.isFinite(parsed)) {
-    return new Date(nowMs - DEFAULT_LOOKBACK_MS).toISOString();
+    return formatJumiaOrderTimestamp(nowMs - DEFAULT_LOOKBACK_MS);
   }
 
-  return new Date(Math.max(0, parsed - SYNC_OVERLAP_MS)).toISOString();
+  return formatJumiaOrderTimestamp(Math.max(0, parsed - SYNC_OVERLAP_MS));
 }
 
 export function getCustomerName(order: JumiaOrder): string {

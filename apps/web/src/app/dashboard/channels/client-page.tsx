@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Loader2,
   Package,
+  Plus,
   RefreshCw,
   Unlink,
   Zap,
@@ -15,6 +16,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import jumiaLogo from '@/assets/jumia-logo.png';
+import { PublishProductsDialog } from '@/components/products/jumia/publish-products-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,12 +37,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { ConnectJumiaDialog } from './connect-jumia-dialog';
+import { useJumiaChannelActions } from './use-jumia-channel-actions';
 import {
   disconnectIntegration,
   syncOrders,
-  syncStock,
   useJumiaIntegrations,
 } from './use-jumia-integrations';
 
@@ -69,6 +72,8 @@ export default function ChannelsClientPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  const merchantContext = useMerchantSafe();
+  const merchant = merchantContext?.merchant;
   const {
     integrations,
     setIntegrations,
@@ -78,10 +83,16 @@ export default function ChannelsClientPage() {
   } = useJumiaIntegrations();
 
   const [showConnectModal, setShowConnectModal] = useState(false);
-  const [syncingIds, setSyncingIds] = useState<Set<string>>(new Set());
-  const [stockSyncingIds, setStockSyncingIds] = useState<Set<string>>(
-    new Set()
-  );
+  const {
+    syncingIds,
+    stockSyncingIds,
+    approvalCheckingIds,
+    publishIntegrationId,
+    setPublishIntegrationId,
+    handleSync,
+    handleStockSync,
+    handleCheckApprovals,
+  } = useJumiaChannelActions({ refetch, toast });
   const [disconnectId, setDisconnectId] = useState<string | null>(null);
   const handledOauthParamsRef = useRef<string | null>(null);
 
@@ -154,50 +165,6 @@ export default function ChannelsClientPage() {
       });
     }
     setDisconnectId(null);
-  };
-
-  const handleSync = async (integrationId: string) => {
-    setSyncingIds((prev) => new Set(prev).add(integrationId));
-    const result = await syncOrders(integrationId);
-
-    if (result.ok) {
-      toast({ title: result.message });
-      void refetch();
-    } else {
-      toast({
-        title: 'Sync failed',
-        description: result.error,
-        variant: 'destructive',
-      });
-    }
-
-    setSyncingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(integrationId);
-      return next;
-    });
-  };
-
-  const handleStockSync = async (integrationId: string) => {
-    setStockSyncingIds((prev) => new Set(prev).add(integrationId));
-    const result = await syncStock(integrationId);
-
-    if (result.ok) {
-      toast({ title: result.message });
-      void refetch();
-    } else {
-      toast({
-        title: 'Stock sync failed',
-        description: result.error,
-        variant: 'destructive',
-      });
-    }
-
-    setStockSyncingIds((prev) => {
-      const next = new Set(prev);
-      next.delete(integrationId);
-      return next;
-    });
   };
 
   if (loading) {
@@ -303,6 +270,36 @@ export default function ChannelsClientPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!merchant?.id}
+                    onClick={() => {
+                      if (merchant?.id) {
+                        setPublishIntegrationId(integration.id);
+                      }
+                    }}
+                  >
+                    <Plus className="size-4" />
+                    <span className="ml-1.5">Add Products</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCheckApprovals(integration.id)}
+                    disabled={approvalCheckingIds.has(integration.id)}
+                  >
+                    {approvalCheckingIds.has(integration.id) ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-4" />
+                    )}
+                    <span className="ml-1.5">
+                      {approvalCheckingIds.has(integration.id)
+                        ? 'Checking approvals'
+                        : 'Check approvals'}
+                    </span>
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -415,6 +412,20 @@ export default function ChannelsClientPage() {
         onOpenChange={setShowConnectModal}
         onConnected={refetch}
       />
+
+      {merchant?.id && publishIntegrationId && (
+        <PublishProductsDialog
+          merchantId={merchant.id}
+          integrationId={publishIntegrationId}
+          countryCode={
+            integrations.find(
+              (integration) => integration.id === publishIntegrationId
+            )?.country_code ?? 'NG'
+          }
+          open
+          onOpenChange={(open) => !open && setPublishIntegrationId(null)}
+        />
+      )}
 
       {/* Disconnect Confirmation */}
       <AlertDialog

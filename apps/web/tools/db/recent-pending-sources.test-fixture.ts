@@ -53,6 +53,116 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260812090000_add_jumia_authorizations.sql',
+    sha256: '35f8406e5e839b902b0766649a4ed0e2922a06360edea3ef29fbb7df94eadea2',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813090000_dedupe_jumia_product_mappings_conflicts.sql',
+    sha256: '5f604a0cda3994bf87195a2537c7c35c2b4521ad749f36154b97928391f80402',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813090001_jumia_product_mappings_nulls_not_distinct_index.sql',
+    sha256: 'c80ccbe68c0a7dd873862867865206de97042cfe1d9ac92ee61bbac23d1a355e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813090002_jumia_product_mappings_nulls_not_distinct_constraint.sql',
+    sha256: '64f7741e3b82d73f3f6b4fa91be801cb6c78b953cf150bd263aa5b3b0bc00148',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813100100_fix_jumia_authorization_rotation_and_connect.sql',
+    sha256: '43e7c94a4b92024bc93776b4b19667f6f941e52485f88339e6de7ef33411ca0b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813110000_fix_jumia_connect_duplicates_and_worker_rotation.sql',
+    sha256: 'f15a292b6a774f2b67e04c80f5035221a74ca849f52ee2b0b229631103f74b1e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120000_jumia_oauth_marketplace_key_backfill.sql',
+    sha256: 'e4bfea9d6883fcd64a9ef9752f0f48a5c4c27389445b21bafb3e1ba04e1bb43e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120100_jumia_product_mappings_marketplace_key.sql',
+    sha256: 'ba0af6a1a50a8a295cd3cfd8e143f2ae2041f3293c49ade914240715d38e90f8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120200_jumia_product_mappings_marketplace_unique_index.sql',
+    sha256: '7c21a9fe39156b97b06c9611a6ec5c37e7f9866bff37d74b97fe0bd45389c306',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120300_jumia_product_mappings_marketplace_unique_constraint.sql',
+    sha256: 'ac826dcdc056d5d5f89e4c1933391459ea38f1f2be835734765d9b1fbdcd5f17',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120400_fix_jumia_persist_all_active_and_authorization_rls.sql',
+    sha256: '888841dc25e05537686053a74c2ef6f292f8ecdcf90abeefabf79fdd85699700',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260813120500_jumia_authorization_rotation_compare_and_swap.sql',
+    sha256: '23ddc4d0c743c42650fc2afb8635e67871182cb33377dddea80ecad90a31b029',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814143000_jumia_self_authorization_discoveries.sql',
+    sha256: 'c9bbd7b5153cc7b472a8224d1a934729efe5ba4a458b46eb8a0fbb9a28baa949',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql',
+    sha256: '646271ab9d7519e8260d547ffc74b850c4fc19ba76a9f4ca20014aa16e27a97e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814170000_jumia_self_authorization_discovery_hardening.sql',
+    sha256: '1dff3aa3be00a488d91786b549ac74cde85ac3218856df9dd404d0b103133ebe',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814180000_load_jumia_authorization_credentials_worker_rpc.sql',
+    sha256: '91a6fee3f274686b09d842ceca3485f1d54c38e3c4aac69c2b9adc96a5348aa3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814180100_jumia_product_mappings_staff_write_policy.sql',
+    sha256: '4a81e43506fd9724ca11b8f7ef86ed4161e8cc2dac8b9e5ef2b199e933967359',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814180200_jumia_authorization_refresh_lease_and_credential_rpc_fixes.sql',
+    sha256: 'e6f90c9bc296bf5a2cd260a36099d01363215ca6f5db64bf86e5f911926d9b4a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260814230000_repair_quiz_materialized_final_rankings_v2.sql',
+    sha256: '7ef50c43690f895f5778d48c9715b450a866a1fd72af23f2e34b702d33e09ca1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
+    sha256: '6992ec9ddf3e5432869385a2e0c4ca2aa7058319841d071330135d1cb25680f1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815140000_jumia_review_followup_refresh_view_discovery_and_purge.sql',
+    sha256: 'f9b97c4ed1e34d5ad9e34a9a62c2758330597a2982a73e8b3efc0de6509f01b0',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260815150000_jumia_restrict_credential_rotation_to_manage.sql',
+    sha256: 'de501a2875f033aaaeaa2cef565f4b88f77e1f981cfa5c2070be18cd397fab30',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260821171051_google_ads_connections_and_spend.sql',
     sha256: '1994ba5d58f278013d01a6b5f8ba0871f980a0f7223c0321875d4d5013df3c05',
   },

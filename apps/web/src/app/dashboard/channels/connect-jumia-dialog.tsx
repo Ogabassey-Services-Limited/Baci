@@ -1,6 +1,6 @@
 'use client';
 
-import { KeyRound, Loader2, Zap } from 'lucide-react';
+import { KeyRound, Zap } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -10,11 +10,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { connectWithToken } from './use-jumia-integrations';
+import {
+  ConnectJumiaManualForm,
+  getJumiaShopSelectionId,
+} from './connect-jumia-manual-form';
+import {
+  connectJumiaShops,
+  discoverJumiaShops,
+  type JumiaDiscoveredShop,
+} from './use-jumia-integrations';
 
 interface ConnectJumiaDialogProps {
   open: boolean;
@@ -29,36 +34,119 @@ export function ConnectJumiaDialog({
 }: ConnectJumiaDialogProps) {
   const { toast } = useToast();
   const [showManualForm, setShowManualForm] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [clientId, setClientId] = useState('');
   const [refreshToken, setRefreshToken] = useState('');
-  const [shopName, setShopName] = useState('');
+  const [activeDiscoveryId, setActiveDiscoveryId] = useState('');
+  const [discoveredShops, setDiscoveredShops] = useState<JumiaDiscoveredShop[]>(
+    []
+  );
+  const [selectedShopIds, setSelectedShopIds] = useState<Set<string>>(
+    new Set()
+  );
 
-  const handleManualConnect = async () => {
-    if (!refreshToken.trim()) return;
+  const resetManualForm = () => {
+    setClientId('');
+    setRefreshToken('');
+    setActiveDiscoveryId('');
+    setDiscoveredShops([]);
+    setSelectedShopIds(new Set());
+  };
 
-    setConnecting(true);
-    const result = await connectWithToken(refreshToken, shopName);
-    setConnecting(false);
+  const clearDiscoveryState = () => {
+    setActiveDiscoveryId('');
+    setDiscoveredShops([]);
+    setSelectedShopIds(new Set());
+  };
 
-    if (result.ok) {
-      toast({ title: 'Jumia account connected successfully!' });
-      onOpenChange(false);
-      setRefreshToken('');
-      setShopName('');
-      onConnected();
-    } else {
+  const handleDiscover = async () => {
+    if (!clientId.trim() || !refreshToken.trim()) return;
+
+    setDiscovering(true);
+    const result = await discoverJumiaShops(clientId, refreshToken);
+    setDiscovering(false);
+
+    if (!result.ok) {
+      clearDiscoveryState();
       toast({
-        title: 'Connection failed',
+        title: 'Discovery failed',
         description: result.error,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const shops = result.shops ?? [];
+    if (!result.discoveryId) {
+      clearDiscoveryState();
+      toast({
+        title: 'Discovery failed',
+        description: 'Shop discovery failed',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setDiscoveredShops(shops);
+    setActiveDiscoveryId(result.discoveryId);
+    setSelectedShopIds(
+      new Set(
+        shops
+          .filter((shop) => !shop.alreadyConnected)
+          .map((shop) => getJumiaShopSelectionId(shop))
+      )
+    );
+
+    if (shops.length === 0) {
+      toast({
+        title: 'No shops found',
+        description: 'Jumia did not return any shops for this authorization.',
         variant: 'destructive',
       });
     }
   };
 
+  const handleConnectSelected = async () => {
+    if (selectedShopIds.size === 0 || !activeDiscoveryId) return;
+
+    setConnecting(true);
+    const result = await connectJumiaShops(
+      clientId,
+      activeDiscoveryId,
+      Array.from(selectedShopIds)
+    );
+    setConnecting(false);
+
+    if (result.ok) {
+      toast({ title: 'Jumia account connected successfully!' });
+      onOpenChange(false);
+      resetManualForm();
+      setShowManualForm(false);
+      onConnected();
+      return;
+    }
+
+    toast({
+      title: 'Connection failed',
+      description: result.error,
+      variant: 'destructive',
+    });
+  };
+
+  const toggleShop = (shopId: string, disabled: boolean) => {
+    if (disabled) return;
+    setSelectedShopIds((current) => {
+      const next = new Set(current);
+      if (next.has(shopId)) next.delete(shopId);
+      else next.add(shopId);
+      return next;
+    });
+  };
+
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      setRefreshToken('');
-      setShopName('');
+      resetManualForm();
       setShowManualForm(false);
     }
     onOpenChange(isOpen);
@@ -72,7 +160,6 @@ export function ConnectJumiaDialog({
         </DialogHeader>
 
         <div className="space-y-5">
-          {/* OAuth (Primary) */}
           <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-900/30">
             <CardContent className="pt-5 space-y-3">
               <div className="flex items-center gap-2 font-semibold">
@@ -105,7 +192,6 @@ export function ConnectJumiaDialog({
             </div>
           </div>
 
-          {/* Manual Token */}
           <Button
             variant="outline"
             className="w-full"
@@ -116,44 +202,25 @@ export function ConnectJumiaDialog({
           </Button>
 
           {showManualForm && (
-            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
-              <p className="text-xs text-muted-foreground p-3 bg-muted rounded-md">
-                Go to <strong>Settings &rarr; Applications</strong> in Jumia
-                Vendor Center, create a &ldquo;Self Authorization&rdquo; app,
-                and copy the token.
-              </p>
-
-              <div className="space-y-2">
-                <Label htmlFor="shopName">Shop Name (optional)</Label>
-                <Input
-                  id="shopName"
-                  value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  placeholder="My Jumia Shop"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refreshToken">Refresh Token</Label>
-                <Textarea
-                  id="refreshToken"
-                  value={refreshToken}
-                  onChange={(e) => setRefreshToken(e.target.value)}
-                  placeholder="Paste your token..."
-                  rows={2}
-                  className="font-mono text-sm"
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                onClick={handleManualConnect}
-                disabled={connecting || !refreshToken.trim()}
-              >
-                {connecting && <Loader2 className="size-4 mr-2 animate-spin" />}
-                {connecting ? 'Connecting...' : 'Connect Token'}
-              </Button>
-            </div>
+            <ConnectJumiaManualForm
+              clientId={clientId}
+              refreshToken={refreshToken}
+              discovering={discovering}
+              connecting={connecting}
+              discoveredShops={discoveredShops}
+              selectedShopIds={selectedShopIds}
+              onClientIdChange={(value) => {
+                setClientId(value);
+                clearDiscoveryState();
+              }}
+              onRefreshTokenChange={(value) => {
+                setRefreshToken(value);
+                clearDiscoveryState();
+              }}
+              onDiscover={handleDiscover}
+              onConnectSelected={handleConnectSelected}
+              onToggleShop={toggleShop}
+            />
           )}
         </div>
       </DialogContent>

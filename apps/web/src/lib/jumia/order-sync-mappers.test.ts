@@ -5,6 +5,7 @@ import {
   buildJumiaCacheRow,
   buildJumiaOrderNumber,
   buildOrderItems,
+  formatJumiaOrderTimestamp,
   getJumiaSyncLowerBound,
   type MarketplaceIntegrationRow,
   mapJumiaShippingStatus,
@@ -96,12 +97,21 @@ describe('Jumia order sync mappers', () => {
   it('uses a fallback lookback and overlap for sync cursors', () => {
     const now = new Date('2026-04-25T12:00:00.000Z').getTime();
 
-    expect(getJumiaSyncLowerBound(null, now)).toBe('2026-04-18T12:00:00.000Z');
+    expect(getJumiaSyncLowerBound(null, now)).toBe('2026-04-18T12:00:00Z');
     expect(getJumiaSyncLowerBound('not-a-date', now)).toBe(
-      '2026-04-18T12:00:00.000Z'
+      '2026-04-18T12:00:00Z'
     );
     expect(getJumiaSyncLowerBound('2026-04-25T11:30:00.000Z', now)).toBe(
-      '2026-04-25T11:20:00.000Z'
+      '2026-04-25T11:20:00Z'
+    );
+  });
+
+  it('formats provider order timestamps without milliseconds', () => {
+    expect(
+      formatJumiaOrderTimestamp(new Date('2026-08-12T07:37:12.423Z'))
+    ).toBe('2026-08-12T07:37:12Z');
+    expect(() => formatJumiaOrderTimestamp(Number.NaN)).toThrow(
+      'Cannot format an invalid Jumia order timestamp'
     );
   });
 

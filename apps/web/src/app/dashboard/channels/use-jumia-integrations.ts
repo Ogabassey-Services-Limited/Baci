@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { fetchWithCsrf } from '@/lib/api-client';
+import {
+  type JumiaDiscoveredShop,
+  jumiaDiscoveredShopSchema,
+  jumiaSelfAuthorizationDiscoveryResponseSchema,
+} from '@/schemas/jumia/self-authorization';
+import { buildJumiaApprovalToastMessage } from './jumia-approval-toast';
 
 export interface JumiaIntegration {
   id: string;
@@ -12,6 +18,8 @@ export interface JumiaIntegration {
   last_sync_at: string | null;
   sync_error: string | null;
 }
+
+export type { JumiaDiscoveredShop };
 
 async function fetchJumiaIntegrations(): Promise<{
   integrations: JumiaIntegration[];
@@ -68,24 +76,83 @@ export function useJumiaIntegrations() {
   return { integrations, setIntegrations, loading, error, refetch };
 }
 
-export async function connectWithToken(
-  refreshToken: string,
-  shopName: string
+export async function discoverJumiaShops(
+  clientId: string,
+  refreshToken: string
+): Promise<{
+  ok: boolean;
+  shops?: JumiaDiscoveredShop[];
+  discoveryId?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetchWithCsrf('/api/marketplace/jumia/connect', {
+      method: 'POST',
+      body: JSON.stringify({
+        connectionType: 'self_authorization',
+        operation: 'discover',
+        clientId: clientId.trim(),
+        refreshToken: refreshToken.trim(),
+      }),
+    });
+
+    const data: unknown = await response.json();
+    if (!response.ok) {
+      const errorBody =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof data.error === 'string'
+          ? data.error
+          : 'Shop discovery failed';
+      return { ok: false, error: errorBody };
+    }
+
+    const parsed =
+      jumiaSelfAuthorizationDiscoveryResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      return { ok: false, error: 'Shop discovery failed' };
+    }
+
+    return {
+      ok: true,
+      shops: parsed.data.shops,
+      discoveryId: parsed.data.discoveryId,
+    };
+  } catch {
+    return {
+      ok: false,
+      error: 'Shop discovery failed — please try again',
+    };
+  }
+}
+
+export async function connectJumiaShops(
+  clientId: string,
+  discoveryId: string,
+  selectedShopIds: string[]
 ): Promise<{ ok: boolean; error?: string }> {
   try {
     const response = await fetchWithCsrf('/api/marketplace/jumia/connect', {
       method: 'POST',
       body: JSON.stringify({
         connectionType: 'self_authorization',
-        refreshToken: refreshToken.trim(),
-        shopName: shopName.trim() || 'My Jumia Shop',
-        countryCode: 'NG',
+        clientId: clientId.trim(),
+        discoveryId,
+        selectedShopIds,
       }),
     });
 
-    const data = await response.json();
+    const data: unknown = await response.json();
     if (!response.ok) {
-      return { ok: false, error: data.error || 'Connection failed' };
+      const errorBody =
+        typeof data === 'object' &&
+        data !== null &&
+        'error' in data &&
+        typeof data.error === 'string'
+          ? data.error
+          : 'Connection failed';
+      return { ok: false, error: errorBody };
     }
     return { ok: true };
   } catch {
@@ -154,3 +221,33 @@ export async function syncStock(
     return { ok: false, error: 'Stock sync failed — please try again' };
   }
 }
+
+export async function checkProductApprovals(
+  integrationId: string
+): Promise<{ ok: boolean; message?: string; error?: string }> {
+  try {
+    const response = await fetchWithCsrf(
+      `/api/marketplace/jumia/products/feed-status?integrationId=${encodeURIComponent(integrationId)}`,
+      { method: 'POST' }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: data.error || 'Could not check product approvals',
+      };
+    }
+    return {
+      ok: true,
+      message: buildJumiaApprovalToastMessage(data),
+    };
+  } catch {
+    return {
+      ok: false,
+      error: 'Could not check product approvals — please try again',
+    };
+  }
+}
+
+// Re-export for tests that assert shop shape validation.
+export { jumiaDiscoveredShopSchema };

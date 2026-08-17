@@ -110,7 +110,11 @@ describe('Jumia orders POST', () => {
     });
     mocks.hasPermission.mockReturnValue(true);
     mocks.requireMerchantFeatureAccess.mockResolvedValue(null);
-    mocks.forIntegration.mockResolvedValue({ shopId: 'shop-1' });
+    mocks.forIntegration.mockResolvedValue({
+      shopId: 'shop-1',
+      countryCode: 'NG',
+      marketplaceKey: 'Jumia Nigeria',
+    });
     mocks.getAllOrders.mockResolvedValue([]);
   });
 
@@ -162,6 +166,39 @@ describe('Jumia orders POST', () => {
       '00000000-0000-4000-8000-000000000001',
       INTEGRATION_ID
     );
-    expect(mocks.getAllOrders).toHaveBeenCalled();
+    expect(mocks.getAllOrders).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopId: 'shop-1',
+        countryCode: 'NG',
+        marketplaceKey: 'Jumia Nigeria',
+      }),
+      expect.objectContaining({
+        country: 'NG',
+        shopId: 'shop-1',
+        createdAfter: expect.any(String),
+      })
+    );
+  });
+
+  it('syncs orders on the default OAuth integration without country or shop filters', async () => {
+    mocks.forIntegration.mockResolvedValueOnce({
+      shopId: 'oauth',
+      countryCode: 'NG',
+      marketplaceKey: 'default',
+    });
+
+    const response = await POST(makePostRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.getAllOrders).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopId: 'oauth',
+        countryCode: 'NG',
+        marketplaceKey: 'default',
+      }),
+      expect.objectContaining({
+        createdAfter: expect.any(String),
+      })
+    );
   });
 });

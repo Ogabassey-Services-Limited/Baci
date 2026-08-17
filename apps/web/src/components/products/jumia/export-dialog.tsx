@@ -58,6 +58,7 @@ function buildExportPayload({
   return {
     integrationId,
     merchantId,
+    productId: product.id,
     name: sanitizeText(stripHtmlTags(product.name)),
     brand: {
       code: brand.code,
@@ -261,6 +262,7 @@ export function ExportToJumiaDialog({
             <Label>Jumia Category (Required)</Label>
             <JumiaCategorySelector
               merchantId={merchantId}
+              integrationId={integrationId}
               value={categoryCode ?? undefined}
               onSelect={(code) => {
                 setCategoryCode(code);
@@ -273,6 +275,7 @@ export function ExportToJumiaDialog({
             <Label>Jumia Brand (Required)</Label>
             <JumiaBrandSelector
               merchantId={merchantId}
+              integrationId={integrationId}
               value={brand}
               onSelect={setBrand}
             />

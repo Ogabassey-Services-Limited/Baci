@@ -8,31 +8,43 @@ import { createJumiaMobileReturnUrl } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
+import {
+  getConfiguredAppUrl,
+  getJumiaAuthorizationEncryptionKey,
+  getJumiaClientId,
+} from '@/env';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  getJumiaAuthUrl,
+  getJumiaRedirectUri,
+  JumiaApiError,
+} from '@/lib/jumia/helpers';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
+import { purgeOrphanedJumiaAuthorization } from '@/lib/jumia/purge-orphaned-jumia-authorization';
 import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import {
+  jumiaSelfAuthorizationDiscoverySchema,
+  jumiaSelfAuthorizationSelectionSchema,
+} from '@/schemas/jumia/self-authorization';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
 import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
+import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
 
-const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
+const _jumiaConnectSchema = z.union([
+  jumiaSelfAuthorizationDiscoverySchema,
   z.object({
     connectionType: z.literal('self_authorization'),
-    refreshToken: z.string().min(1, 'Refresh token is required'),
-    shopId: z.string().optional(),
-    shopName: z.string().optional(),
-    countryCode: z.string().length(2).optional(),
+    ...jumiaSelfAuthorizationSelectionSchema.shape,
   }),
   z.object({
     connectionType: z.literal('oauth'),
@@ -120,48 +132,29 @@ export async function POST(request: NextRequest) {
 
     // Check connection type
     if (body.connectionType === 'self_authorization') {
-      // Self Authorization: Merchant provides their refresh token directly
-      // This is for machine-to-machine connections
-      const { refreshToken, shopId, shopName, countryCode } = body;
-
-      // Store the integration with refresh token
-      const { data: integration, error: insertError } = await supabase
-        .from('marketplace_integrations')
-        .upsert(
-          {
-            merchant_id: merchantId,
-            platform: 'jumia',
-            shop_id: shopId || 'default',
-            shop_name: shopName || 'My Jumia Shop',
-            country_code: countryCode || 'NG',
-            refresh_token: refreshToken,
-            is_active: true,
-            sync_config: { products: true, orders: true, stock: true },
-          },
-          {
-            onConflict: 'merchant_id,platform,shop_id',
-          }
-        )
-        .select('id, shop_id, shop_name')
-        .single();
-
-      if (insertError) {
-        console.error('[Jumia Connect] Database error:', insertError);
+      const encryptionKey = getJumiaAuthorizationEncryptionKey();
+      if (!encryptionKey) {
         return NextResponse.json(
-          { error: 'Failed to save integration' },
-          { status: 500 }
+          { error: 'Jumia self-authorization is not configured' },
+          { status: 503 }
         );
       }
-
-      return NextResponse.json({
-        success: true,
-        message: 'Jumia account connected successfully',
-        integration: {
-          id: integration.id,
-          shopId: integration.shop_id,
-          shopName: integration.shop_name,
-        },
-      });
+      try {
+        return await handleJumiaSelfAuthorizationConnectRequest({
+          body,
+          encryptionKey,
+          merchantId,
+          supabase,
+        });
+      } catch (error) {
+        if (error instanceof JumiaApiError) {
+          return NextResponse.json(
+            { error: error.message },
+            { status: error.status }
+          );
+        }
+        throw error;
+      }
     } else {
       // OAuth flow: Redirect to Jumia authorization
       const jumiaClientId = getJumiaClientId();
@@ -539,6 +532,12 @@ export async function DELETE(request: NextRequest) {
         { status: 404 }
       );
     }
+
+    await purgeOrphanedJumiaAuthorization(
+      auth.supabase,
+      merchantContext.merchantId,
+      integrationId
+    );
 
     return NextResponse.json({
       success: true,

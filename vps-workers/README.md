@@ -145,6 +145,7 @@ Variable purposes:
 - `QUIZ_RPC_SERVER_SECRET`, `QUIZ_DEVICE_HASH_PEPPER`: Required by the shared environment schema when `QUIZ_PHASE=production`; the device pepper must be at least 32 characters.
 - `EXPO_ACCESS_TOKEN`: Expo token used for push notification delivery and related mobile app operations.
 - `JUMIA_CLIENT_ID`: Jumia application/client identifier used when refreshing integration credentials.
+- `JUMIA_AUTHORIZATION_ENCRYPTION_KEY`: Base64-encoded 32-byte server-only key used to decrypt and rotate self-authorized Jumia grants.
 - `BACI_WEB_BASE_URL`: HTTPS base URL for retained web cron endpoint calls and direct Petrock remediation URLs, for example `https://ogabassey.com`. Direct Petrock execution rejects credentials and non-HTTPS values.
 - `CRON_SECRET`: Shared secret that must match the web deployment and protect cron endpoints.
 - `OLLAMA_STOREFRONT_BASE_URL`: Local/private Ollama base URL for async storefront generation. Use `http://localhost:11434` when Ollama runs on the same VPS.

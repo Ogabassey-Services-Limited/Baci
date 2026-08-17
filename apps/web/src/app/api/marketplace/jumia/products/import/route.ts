@@ -126,7 +126,10 @@ export async function POST(req: NextRequest) {
     // 2. Fetch all products from Jumia (auto-paginating)
     let jumiaProducts: Awaited<ReturnType<typeof getAllProducts>>;
     try {
-      jumiaProducts = await getAllProducts(jumia, { status: 'active' });
+      jumiaProducts = await getAllProducts(jumia, {
+        status: 'active',
+        shopId: jumia.shopId,
+      });
     } catch (fetchErr) {
       const message =
         fetchErr instanceof Error ? fetchErr.message : 'Unknown error';
@@ -239,6 +242,8 @@ export async function POST(req: NextRequest) {
         .from('jumia_product_mappings')
         .select('id, jumia_sku')
         .eq('merchant_id', merchantId)
+        .eq('jumia_shop_id', jumia.shopId)
+        .eq('marketplace_key', jumia.marketplaceKey)
         .in('jumia_sku', skus);
 
     if (mappingsQueryError) {
@@ -276,6 +281,7 @@ export async function POST(req: NextRequest) {
         jumia_sku: sku,
         jumia_seller_sku: sku,
         jumia_shop_id: jumia.shopId,
+        marketplace_key: jumia.marketplaceKey,
         jumia_price: entry.price,
         jumia_product_id: entry.productId,
         is_active: true,

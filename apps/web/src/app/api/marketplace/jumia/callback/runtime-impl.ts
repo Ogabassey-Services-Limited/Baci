@@ -10,6 +10,10 @@ import {
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
 import { getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  getActiveSelfAuthorizedJumiaShopIds,
+  getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
+} from '@/lib/jumia/jumia-oauth-self-authorization-conflict';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
@@ -226,6 +230,7 @@ export async function GET(request: NextRequest) {
       integrationId: 'temp',
       merchantId,
       shopId: 'oauth',
+      marketplaceKey: 'oauth',
       accessToken: tokens.access_token,
       refreshToken: tokens.refresh_token || '',
       tokenExpiresAt: tokenExpiresAt,
@@ -253,7 +258,7 @@ export async function GET(request: NextRequest) {
     const { data: existingIntegrations, error: existingIntegrationsError } =
       await supabase
         .from('marketplace_integrations')
-        .select('shop_id,is_active')
+        .select('shop_id,is_active,connection_method')
         .eq('merchant_id', merchantId)
         .eq('platform', 'jumia');
 
@@ -271,6 +276,9 @@ export async function GET(request: NextRequest) {
       (existingIntegrations ?? [])
         .filter((integration) => integration.is_active)
         .map((integration) => integration.shop_id)
+    );
+    const activeSelfAuthorizedShopIds = getActiveSelfAuthorizedJumiaShopIds(
+      existingIntegrations ?? []
     );
 
     let isFallbackShop = false;
@@ -297,10 +305,31 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    if (!isFallbackShop) {
+      const conflictingShopIds =
+        getJumiaOAuthShopIdsConflictingWithSelfAuthorization(
+          discoveredShops.map((shop) => shop.id),
+          activeSelfAuthorizedShopIds
+        );
+      if (conflictingShopIds.length > 0) {
+        logger.warn({
+          message:
+            'Jumia Callback rejected OAuth because shop already uses self-authorization',
+          merchantId,
+          shopIds: conflictingShopIds,
+        });
+        return jumiaOAuthCallbackRedirect.create(request, {
+          error: 'shop_already_self_authorized',
+          shops: conflictingShopIds.join(','),
+        });
+      }
+    }
+
     const integrationRows = discoveredShops.map((shop) => ({
       merchant_id: merchantId,
       platform: 'jumia' as const,
       shop_id: shop.id,
+      marketplace_key: 'oauth',
       shop_name: shop.name || 'Jumia Shop',
       country_code: shop.businessClients?.some((bc) => bc.countryCode === 'NG')
         ? 'NG'
@@ -308,6 +337,8 @@ export async function GET(request: NextRequest) {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token ?? null,
       token_expires_at: tokenExpiresAt.toISOString(),
+      connection_method: 'oauth' as const,
+      jumia_authorization_id: null,
       is_active: !isFallbackShop,
       sync_config: {
         products: true,
@@ -320,7 +351,7 @@ export async function GET(request: NextRequest) {
     const { error: insertError } = await supabase
       .from('marketplace_integrations')
       .upsert(integrationRows, {
-        onConflict: 'merchant_id,platform,shop_id',
+        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
       });
 
     if (insertError) {

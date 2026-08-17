@@ -311,7 +311,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
           shop_id: 'shop-1',
         }),
       ],
-      { onConflict: 'merchant_id,platform,shop_id' }
+      { onConflict: 'merchant_id,platform,shop_id,marketplace_key' }
     );
   });
 

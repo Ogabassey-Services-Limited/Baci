@@ -237,4 +237,13 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_NEGOTIATION_PENDING_SOURCES,
   ...EXPECTED_PENDING_TAIL_SOURCES.late,
   ...EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES,
-].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
+]
+  .sort((left, right) =>
+    left.repositoryPath.localeCompare(right.repositoryPath)
+  )
+  .filter(
+    (source, index, sources) =>
+      sources.findIndex(
+        (candidate) => candidate.repositoryPath === source.repositoryPath
+      ) === index
+  );
