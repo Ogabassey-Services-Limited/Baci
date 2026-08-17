@@ -1,5 +1,5 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { createQuizLobbyStyles } from './QuizLobby.styles';
 import { QuizLobbyEventCard } from './QuizLobbyEventCard';
 import type { QuizThemeColors } from './QuizScreen.styles';
@@ -23,6 +23,10 @@ const colors: QuizThemeColors = {
 };
 
 describe('QuizLobbyEventCard', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('renders the product spotlight and universal close timing once', () => {
     const onOpenRules = jest.fn();
     render(
@@ -56,9 +60,12 @@ describe('QuizLobbyEventCard', () => {
     );
 
     expect(screen.getByText('Win iPhone XR')).toBeTruthy();
+    expect(screen.getByText("Tonight's Prize")).toBeTruthy();
     expect(screen.getByText('open box')).toBeTruthy();
     expect(screen.getByText('20 questions')).toBeTruthy();
     expect(screen.getByText('10s each')).toBeTruthy();
+    expect(screen.getByText('until quiz ends')).toBeTruthy();
+    expect(screen.queryByText('until entries close')).toBeNull();
     fireEvent.press(
       screen.getByRole('button', { name: 'Play for free Redmi Warriors' })
     );
@@ -91,5 +98,46 @@ describe('QuizLobbyEventCard', () => {
     );
     expect(onOpenRules).not.toHaveBeenCalled();
     expect(onResume).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the card immediately when its countdown reaches zero', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-08-09T18:00:00.000Z'));
+
+    render(
+      <QuizLobbyEventCard
+        event={{
+          endsAt: '2026-08-09T18:00:01.000Z',
+          id: 'event-expiring',
+          prizeName: 'iPhone XR',
+          questionCount: 5,
+          startsAt: '2026-08-09T17:50:00.000Z',
+          status: 'active',
+          timePerQuestionSeconds: 10,
+          timeZone: 'Africa/Lagos',
+          title: 'Expiring quiz',
+        }}
+        isResume={false}
+        isStarting={false}
+        onOpenRules={jest.fn()}
+        onResume={jest.fn()}
+        serverNow="2026-08-09T18:00:00.000Z"
+        styles={createQuizLobbyStyles(colors)}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Play for free Expiring quiz' })
+    ).toBeTruthy();
+
+    act(() => jest.advanceTimersByTime(1000));
+
+    expect(screen.queryByText('until quiz ends')).toBeNull();
+    expect(screen.queryByText('LIVE')).toBeNull();
+    expect(screen.getByText('QUIZ')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Closed Expiring quiz' }).props
+        .accessibilityState
+    ).toEqual({ disabled: true });
   });
 });

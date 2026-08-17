@@ -27,6 +27,7 @@ import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
 
 const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
+const HEADER_VISIBILITY_ANIMATION_DURATION_MS = 180;
 
 const handleSearchSubmit = (): void => {
   Keyboard.dismiss();
@@ -83,7 +84,9 @@ export default function HomeScreen() {
     if (headerVisibilityTarget.get() === target) return;
 
     headerVisibilityTarget.set(target);
-    headerVisibility.set(withTiming(target, { duration: 180 }));
+    headerVisibility.set(
+      withTiming(target, { duration: HEADER_VISIBILITY_ANIMATION_DURATION_MS })
+    );
   };
 
   const handleSearch = () => {
