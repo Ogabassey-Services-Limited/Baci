@@ -5,6 +5,13 @@ import MenuScreen from './menu';
 
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
+  expenseAccess: {
+    canCreate: false,
+    canEdit: false,
+    canView: true,
+    error: null as Error | null,
+    isLoading: false,
+  },
   hasFeature: vi.fn(),
   hasFullProAccess: vi.fn(),
   isPro: true,
@@ -101,6 +108,10 @@ vi.mock('@/hooks/useAuth', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useExpenseAccess', () => ({
+  useExpenseAccess: () => mocks.expenseAccess,
+}));
+
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
     isLoading: mocks.merchantLoading,
@@ -154,6 +165,13 @@ describe('MenuScreen', () => {
     vi.stubGlobal('__DEV__', false);
     mocks.hasFeature.mockReturnValue(true);
     mocks.hasFullProAccess.mockReturnValue(false);
+    mocks.expenseAccess = {
+      canCreate: false,
+      canEdit: false,
+      canView: true,
+      error: null,
+      isLoading: false,
+    };
     mocks.isPro = true;
     mocks.merchantLoading = false;
     mocks.merchant = {
@@ -174,45 +192,38 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Account')).toBeTruthy();
   });
 
-  it('routes accessible feature rows directly', () => {
+  it('renders Expenses when the caller can view expenses', () => {
     render(<MenuScreen />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
-    );
-
-    expect(mocks.router.push).toHaveBeenCalledWith('/domains');
+    expect(
+      screen.getByRole('button', {
+        name: 'Expenses. Track spending and receipts',
+      })
+    ).toBeTruthy();
   });
 
-  it('routes feature rows when RevenueCat reports Pro', () => {
-    mocks.hasFeature.mockReturnValue(false);
+  it.each([
+    ['denied access', { canView: false, isLoading: false, error: null }],
+    ['loading access', { canView: false, isLoading: true, error: null }],
+    [
+      'failed access',
+      { canView: false, isLoading: false, error: new Error('No access') },
+    ],
+  ])('omits Expenses structurally during %s', (_state, access) => {
+    mocks.expenseAccess = {
+      canCreate: false,
+      canEdit: false,
+      ...access,
+    };
 
     render(<MenuScreen />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
-    );
-
-    expect(mocks.router.push).toHaveBeenCalledWith('/domains');
-    expect(mocks.alert).not.toHaveBeenCalled();
-  });
-
-  it('does not route locked feature rows without DB or RevenueCat access', () => {
-    mocks.hasFeature.mockReturnValue(false);
-    mocks.isPro = false;
-
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /Domains\. Custom domain settings/i })
-    );
-
-    expect(mocks.router.push).not.toHaveBeenCalledWith('/domains');
-    expect(mocks.alert).toHaveBeenCalledWith(
-      'Baci Pro',
-      'Domains is available on Baci Pro.',
-      expect.any(Array)
-    );
+    expect(
+      screen.queryByRole('button', {
+        name: 'Expenses. Track spending and receipts',
+      })
+    ).toBeNull();
+    expect(screen.queryByText('Expenses')).toBeNull();
   });
 
   it('navigates to negotiations from the menu', () => {
@@ -237,64 +248,5 @@ describe('MenuScreen', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/repairs');
-  });
-
-  it('opens the subscription screen from the free plan card', () => {
-    mocks.hasFeature.mockReturnValue(false);
-    mocks.isPro = false;
-
-    render(<MenuScreen />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Free Plan UPGRADE/i }));
-
-    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/subscribe');
-  });
-
-  it('shows Pro status when the merchant has a server-backed Pro entitlement', () => {
-    mocks.hasFullProAccess.mockReturnValue(true);
-    mocks.isPro = false;
-    mocks.merchant = {
-      id: 'merchant-1',
-      plan_expires_at: null,
-      plan_tier: 'pro',
-      premium_features: [],
-    };
-
-    render(<MenuScreen />);
-
-    expect(screen.getByText(/Baci Pro Merchant Active/i)).toBeTruthy();
-    expect(screen.queryByText(/Free Plan UPGRADE/i)).toBeNull();
-  });
-
-  it('keeps the upgrade card for product-limit-only grants', () => {
-    mocks.hasFeature.mockImplementation(
-      (_merchant: unknown, feature: unknown) => feature === 'product_limit'
-    );
-    mocks.hasFullProAccess.mockReturnValue(false);
-    mocks.isPro = false;
-    mocks.merchant = {
-      id: 'merchant-1',
-      plan_expires_at: null,
-      plan_tier: 'free',
-      premium_features: ['product_limit'],
-    };
-
-    render(<MenuScreen />);
-
-    expect(screen.getByText(/Free Plan UPGRADE/i)).toBeTruthy();
-    expect(screen.queryByText(/Baci Pro Merchant Active/i)).toBeNull();
-  });
-
-  it('passes loading state to the subscription card for non-Pro merchant loads', () => {
-    mocks.isPro = false;
-    mocks.merchantLoading = true;
-
-    render(<MenuScreen />);
-
-    expect(
-      screen.getByRole('button', {
-        name: /Loading subscription status.*Free Plan UPGRADE/i,
-      })
-    ).toBeTruthy();
   });
 });

@@ -74,8 +74,17 @@ const expense = (overrides: Partial<Expense> = {}): Expense => ({
   category: 'Inventory',
   date: '2026-05-05T00:00:00.000Z',
   description: 'Office internet',
+  created_by_user_id: null,
+  group_id: null,
   id: 'expense-1',
+  merchant_id: '00000000-0000-4000-8000-000000000001',
+  payment_method: null,
+  receipt_storage_path: null,
   receipt_url: null,
+  reference: null,
+  updated_at: '2026-05-05T00:00:00.000Z',
+  updated_by_user_id: null,
+  vendor_name: null,
   ...overrides,
 });
 
@@ -131,6 +140,19 @@ describe('ExpenseListItem', () => {
     rerender(
       <ExpenseListItem
         item={expense({ receipt_url: 'https://example.com/receipt.jpg' })}
+      />
+    );
+
+    expect(
+      document.querySelector('[data-icon="document-attach-outline"]')
+    ).toBeInTheDocument();
+
+    rerender(
+      <ExpenseListItem
+        item={expense({
+          receipt_url: null,
+          receipt_storage_path: 'merchant/expenses/receipt.jpg',
+        })}
       />
     );
 

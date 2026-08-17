@@ -75,6 +75,10 @@ const defaultLedgers: CredentialReaderLedgers = {
       '47bea3bc3ac77a939febb07b99c4ec4edf6f16f33f310dddd23ec2a4cbe2c0ad',
     'vps-workers/jobs/cleanup-agentic-request-records.mjs':
       '29d02f20900fe0d476d57b2620dd324a4830ff200a66fc3b4454aaf48047dd19',
+    'vps-workers/jobs/cleanup-legacy-expense-receipts.mjs':
+      '642437579009d3bfcf70dba0ed26b67e49f17eb4ed65f16cf6d6924bc80d4bd4',
+    'vps-workers/jobs/cleanup-private-expense-receipts.mjs':
+      'fa73f2cb71434ab15e08a49326f52cefb3ab02b262b8ed6cb8d5b0175dbd60e5',
     'vps-workers/jobs/cleanup-import-uploads.mjs':
       '00c9de97809d2ba2280276f875506f62a56fea4c4cf89d09ade132df3105a385',
     'vps-workers/jobs/cleanup-push-tokens.mjs':

@@ -99,4 +99,14 @@ export const REPAIR_CASES = [
       'supabase/migrations/20260815000000_repair_quiz_event_results_v2_deny_client_policy.sql',
     ordinal: 129,
   },
+  {
+    label: 'Private expense receipt cleanup capture',
+    historicalPath:
+      'supabase/migrations/20260815103000_capture_private_expense_receipt_cleanup.sql',
+    historicalSha256:
+      '64530e9b7d94d9e2f832a8464593af977cb0af18c727a1a1b54c62310550997b',
+    repairPath:
+      'supabase/migrations/20260815220000_repair_capture_private_expense_receipt_cleanup.sql',
+    ordinal: 129,
+  },
 ] as const;
