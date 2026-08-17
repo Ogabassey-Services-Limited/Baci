@@ -50,6 +50,7 @@ export const STOREFRONT_EDGE_MACHINE_SOURCE_PATHS = {
   '/_vercel/speed-insights/vitals':
     'apps/web/src/components/analytics/deferred-platform-insights.tsx',
   '/ads.txt': 'apps/web/src/app/ads.txt/route.ts',
+  '/app-ads.txt': 'apps/web/src/app/app-ads.txt/route.ts',
   '/agent-commerce.json': 'apps/web/src/app/agent-commerce.json/route.ts',
   '/agent-trust.json': 'apps/web/src/app/agent-trust.json/route.ts',
   '/auth.md': 'apps/web/src/app/auth.md/route.ts',

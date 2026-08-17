@@ -163,6 +163,12 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
   ),
   metadataOptions('machine:manifest-options', '/manifest.webmanifest'),
   machineFamily('machine:ads', '/ads.txt', ['GET', 'HEAD'], 'origin_dynamic'),
+  machineFamily(
+    'machine:app-ads',
+    STOREFRONT_AGENT_ROUTES.appAds,
+    ['GET', 'HEAD'],
+    'origin_dynamic'
+  ),
   machineFamily('machine:openapi', STOREFRONT_AGENT_ROUTES.openApi, [
     'GET',
     'HEAD',

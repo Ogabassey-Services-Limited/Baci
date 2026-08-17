@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "dbc3871cd54cad8cbd3d91ba9745f9c42579ff50",
+  "originMainSha": "25f4141babe83ed3846340d1f365374bacc4be89",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
-  "routeTreeSha256": "43a7f584208d1420bec1ba0b726df4afc64ba2e0dfc563f62878ac90903d75ef",
-  "routingProxyInputSha256": "c416b7d66d3a7acde7d0d2c3c33d2ed4fe467048f83c2e25a32fcf69064b81f2",
+  "routeTreeSha256": "f9a98f6a5a3e6e1680ff9746d694aa065a7117728632260ddda21e0a7abf82b9",
+  "routingProxyInputSha256": "249a9cf3cc250bad1c2ca15af1a26b5dd8f31e3cb0b1e81a21284447852cee8b",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -5056,6 +5056,19 @@
     },
     {
       "decision": "origin_dynamic",
+      "id": "machine:app-ads",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/app-ads.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/app-ads.txt/route.ts"
+    },
+    {
+      "decision": "origin_dynamic",
       "id": "machine:llms",
       "methods": [
         "GET",
@@ -7871,5 +7884,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "ad46e9c2438048aee36d8dd2b8e46cfcfab084144df32051d1316f8c3b4190de"
+  "inventorySha256": "20c6af2c25e60ed1de0307151d9034bebc6dafd7b8b2560b2da552ecc601ac88"
 }
