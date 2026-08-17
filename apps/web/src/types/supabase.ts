@@ -3956,36 +3956,57 @@ export type Database = {
           branch_id: string | null;
           category: string;
           created_at: string;
+          created_by_user_id: string | null;
           date: string;
           description: string | null;
+          group_id: string | null;
           id: string;
           merchant_id: string;
+          payment_method: string | null;
+          receipt_storage_path: string | null;
           receipt_url: string | null;
+          reference: string | null;
           updated_at: string;
+          updated_by_user_id: string | null;
+          vendor_name: string | null;
         };
         Insert: {
           amount?: number;
           branch_id?: string | null;
           category: string;
           created_at?: string;
+          created_by_user_id?: string | null;
           date?: string;
           description?: string | null;
+          group_id?: string | null;
           id?: string;
           merchant_id: string;
+          payment_method?: string | null;
+          receipt_storage_path?: string | null;
           receipt_url?: string | null;
+          reference?: string | null;
           updated_at?: string;
+          updated_by_user_id?: string | null;
+          vendor_name?: string | null;
         };
         Update: {
           amount?: number;
           branch_id?: string | null;
           category?: string;
           created_at?: string;
+          created_by_user_id?: string | null;
           date?: string;
           description?: string | null;
+          group_id?: string | null;
           id?: string;
           merchant_id?: string;
+          payment_method?: string | null;
+          receipt_storage_path?: string | null;
           receipt_url?: string | null;
+          reference?: string | null;
           updated_at?: string;
+          updated_by_user_id?: string | null;
+          vendor_name?: string | null;
         };
         Relationships: [
           {
@@ -3993,6 +4014,20 @@ export type Database = {
             columns: ['branch_id'];
             isOneToOne: false;
             referencedRelation: 'branches';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'expenses_created_by_user_id_fkey';
+            columns: ['created_by_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'expenses_group_id_fkey';
+            columns: ['group_id'];
+            isOneToOne: false;
+            referencedRelation: 'expense_groups';
             referencedColumns: ['id'];
           },
           {
@@ -4011,6 +4046,62 @@ export type Database = {
           },
           {
             foreignKeyName: 'expenses_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'top_merchants';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'expenses_updated_by_user_id_fkey';
+            columns: ['updated_by_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      expense_groups: {
+        Row: {
+          archived_at: string | null;
+          created_at: string;
+          id: string;
+          merchant_id: string;
+          name: string;
+          updated_at: string;
+        };
+        Insert: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          merchant_id: string;
+          name: string;
+          updated_at?: string;
+        };
+        Update: {
+          archived_at?: string | null;
+          created_at?: string;
+          id?: string;
+          merchant_id?: string;
+          name?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'expense_groups_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchant_health';
+            referencedColumns: ['merchant_id'];
+          },
+          {
+            foreignKeyName: 'expense_groups_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'expense_groups_merchant_id_fkey';
             columns: ['merchant_id'];
             isOneToOne: false;
             referencedRelation: 'top_merchants';
@@ -15924,6 +16015,22 @@ export type Database = {
         };
         Returns: boolean;
       };
+      authorize_expense_private_receipt_cleanup_deletion: {
+        Args: {
+          p_expense_id?: string | null;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
+      };
+      authorize_legacy_expense_receipt_cleanup_deletion: {
+        Args: {
+          p_expense_id: string;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
+      };
       claim_cache_invalidations: {
         Args: { p_batch_size?: number; p_worker_id?: string };
         Returns: {
@@ -15971,6 +16078,22 @@ export type Database = {
           domain_event_id: string;
           id: string;
           payload: Json;
+        }[];
+      };
+      claim_expense_private_receipt_cleanup_candidates: {
+        Args: { p_limit?: number };
+        Returns: {
+          expense_id: string | null;
+          merchant_id: string;
+          storage_path: string;
+        }[];
+      };
+      claim_legacy_expense_receipt_cleanup_candidates: {
+        Args: { p_limit?: number };
+        Returns: {
+          expense_id: string;
+          merchant_id: string;
+          storage_path: string;
         }[];
       };
       claim_manual_payment_side_effect: {
@@ -16314,6 +16437,22 @@ export type Database = {
       compact_product_search_text: {
         Args: { search_text: string };
         Returns: string;
+      };
+      complete_expense_private_receipt_cleanup: {
+        Args: {
+          p_expense_id?: string | null;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
+      };
+      complete_legacy_expense_receipt_cleanup: {
+        Args: {
+          p_expense_id: string;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
       };
       complete_order_gateway_payment: {
         Args: {
@@ -16879,6 +17018,14 @@ export type Database = {
         }[];
       };
       delete_current_storefront_account: { Args: never; Returns: undefined };
+      delete_legacy_expense_receipt: {
+        Args: {
+          p_expense_id: string;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
+      };
       delete_merchant_payment_credential: {
         Args: { p_merchant_id: string; p_provider: string };
         Returns: undefined;
@@ -18531,6 +18678,18 @@ export type Database = {
           merchant_id: string;
           merchant_slug: string;
         }[];
+      };
+      queue_expense_private_receipt_cleanup: {
+        Args: {
+          p_expense_id: string;
+          p_merchant_id: string;
+          p_storage_path: string;
+        };
+        Returns: boolean;
+      };
+      queue_unreferenced_expense_private_receipt_cleanup: {
+        Args: { p_merchant_id: string; p_storage_path: string };
+        Returns: boolean;
       };
       quiz_answer_key_hash: { Args: { p_answer: string }; Returns: string };
       quiz_answer_key_matches: {

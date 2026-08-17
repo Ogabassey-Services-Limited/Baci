@@ -1,7 +1,12 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import type { QuizV2Attempt } from '@/services/quiz-types';
 import { createQuizV2RecoveryResponseApplier } from './quiz-v2-recovery-actions';
+import { clearRecoveredQuizAttempt } from './quiz-v2-recovery-storage';
 import type { QuizV2StoreAccess } from './quiz-v2-store-access';
+
+jest.mock('./quiz-v2-recovery-storage', () => ({
+  clearRecoveredQuizAttempt: jest.fn(async () => undefined),
+}));
 
 const fallback: QuizV2Attempt = {
   attemptId: 'attempt-1',
@@ -14,10 +19,10 @@ const fallback: QuizV2Attempt = {
 };
 
 describe('createQuizV2RecoveryResponseApplier', () => {
-  it('keeps an active question retryable when expiry reconciliation is unavailable', async () => {
+  it('leaves the question when an active attempt is no longer recoverable', async () => {
     const set = jest.fn();
     const access = {
-      get: jest.fn(),
+      get: jest.fn(() => ({ recoveryUserId: 'user-1' })),
       getGeneration: jest.fn(() => 0),
       getMessage: jest.fn(() => ''),
       set,
@@ -38,12 +43,21 @@ describe('createQuizV2RecoveryResponseApplier', () => {
       fallback
     );
 
-    expect(set).toHaveBeenCalledWith({
-      error: null,
-      expiryRetryable: true,
-      status: 'question',
-      v2Attempt: fallback,
-    });
+    expect(set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: null,
+        expiryRetryable: false,
+        status: 'result',
+        v2Attempt: null,
+        v2LifecycleStatus: 'final',
+        v2Result: {
+          attemptId: fallback.attemptId,
+          availability: 'unavailable',
+          reason: 'not_found',
+        },
+      })
+    );
     expect(apply).not.toHaveBeenCalled();
+    expect(clearRecoveredQuizAttempt).toHaveBeenCalledWith(access, 'event-1');
   });
 });

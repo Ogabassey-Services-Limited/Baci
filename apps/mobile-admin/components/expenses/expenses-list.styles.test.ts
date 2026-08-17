@@ -36,4 +36,18 @@ describe('expenses-list styles', () => {
       textTransform: 'uppercase',
     });
   });
+
+  it('keeps the filter control and grouped summary metadata compact', () => {
+    expect(styles.filterButton).toMatchObject({
+      alignItems: 'center',
+      borderRadius: RADIUS.full,
+      borderWidth: 1,
+      flexDirection: 'row',
+      minHeight: SPACING.touchTarget,
+    });
+    expect(styles.sectionHeaderSummary).toMatchObject({
+      flexDirection: 'row',
+      gap: SPACING.xs,
+    });
+  });
 });

@@ -116,6 +116,76 @@ describe('initializeQuizMobileAds', () => {
     expect(mockInitialize).toHaveBeenCalledTimes(1);
   });
 
+  it('reapplies age-sensitive configuration when the shopper identity changes', async () => {
+    const { initializeQuizMobileAds } = await loadInitializer();
+
+    await initializeQuizMobileAds(undefined, { ageVerified: false });
+    await initializeQuizMobileAds(undefined, { ageVerified: true });
+
+    expect(mockInitialize).toHaveBeenCalledTimes(1);
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tagForUnderAgeOfConsent: true })
+    );
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ tagForUnderAgeOfConsent: false })
+    );
+  });
+
+  it('serializes overlapping identities in invocation order', async () => {
+    let resolveGatherConsent!: (value: unknown) => void;
+    mockGatherConsent.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveGatherConsent = resolve;
+        })
+    );
+    let resolveFirstConsentInfo:
+      | ((value: { canRequestAds: boolean }) => void)
+      | undefined;
+    mockGetConsentInfo
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveFirstConsentInfo = resolve;
+          })
+      )
+      .mockResolvedValueOnce({ canRequestAds: true });
+    const { initializeQuizMobileAds } = await loadInitializer();
+
+    const underAgeRequest = initializeQuizMobileAds(undefined, {
+      ageVerified: false,
+    });
+    const verifiedAdultRequest = initializeQuizMobileAds(undefined, {
+      ageVerified: true,
+    });
+    for (let attempt = 0; attempt < 10 && !resolveGatherConsent; attempt++) {
+      await Promise.resolve();
+    }
+    if (!resolveGatherConsent) {
+      throw new Error('Consent gathering did not start.');
+    }
+    resolveGatherConsent({});
+    for (let attempt = 0; attempt < 10 && !resolveFirstConsentInfo; attempt++) {
+      await Promise.resolve();
+    }
+    if (!resolveFirstConsentInfo) {
+      throw new Error('The first consent lookup did not start.');
+    }
+    resolveFirstConsentInfo({ canRequestAds: true });
+    await Promise.all([underAgeRequest, verifiedAdultRequest]);
+
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ tagForUnderAgeOfConsent: true })
+    );
+    expect(mockSetRequestConfiguration).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ tagForUnderAgeOfConsent: false })
+    );
+  });
+
   it('allows a later quiz to retry after native initialization fails', async () => {
     mockInitialize
       .mockRejectedValueOnce(new Error('native module unavailable'))
