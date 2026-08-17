@@ -200,7 +200,7 @@ describe('OgabasseyV2Wallet', () => {
     });
   });
 
-  it('withholds consent when the customer has no phone (create would 400)', async () => {
+  it('passes a missing phone through so the panel can collect it at point of need', async () => {
     const user = userEvent.setup();
     mockUseCustomerAuth.mockReturnValue({
       customer: { id: 'customer-1', phone: null },
@@ -227,8 +227,12 @@ describe('OgabasseyV2Wallet', () => {
 
     expect(fundingPanelProps.current).toMatchObject({
       account: null,
-      requiresConsent: false,
+      customerPhone: null,
+      requiresConsent: true,
     });
+    expect(fundingPanelProps.current?.onUpdateCustomerPhone).toEqual(
+      expect.any(Function)
+    );
   });
 
   it('refetches the wallet when the funding panel requests a balance refresh', async () => {

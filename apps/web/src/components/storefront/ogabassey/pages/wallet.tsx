@@ -36,6 +36,7 @@ export function OgabasseyV2Wallet({
     customer,
     isAuthenticated,
     isLoading: isAuthLoading,
+    updateCustomer,
     user,
   } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
@@ -181,9 +182,12 @@ export function OgabasseyV2Wallet({
             {showFundingPanel ? (
               <WalletPageFundingPanel
                 customerId={customer?.id}
-                customerPhone={customer?.phone}
+                customerPhone={customer?.phone ?? null}
                 merchantSlug={merchant?.slug}
                 onRefresh={() => setRefreshToken((token) => token + 1)}
+                onUpdateCustomerPhone={async (phone) =>
+                  updateCustomer({ phone })
+                }
                 setWallet={setWallet}
                 wallet={wallet}
               />
