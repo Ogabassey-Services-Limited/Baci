@@ -86,14 +86,13 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
       })),
-      ...[
-        'configured_twitter_origin',
-        'configured_meta_origin',
-      ].map((hostKind) => ({
-        decision: 'origin_dynamic',
-        hostKind,
-        methods: ['GET', 'HEAD'],
-      })),
+      ...['configured_twitter_origin', 'configured_meta_origin'].map(
+        (hostKind) => ({
+          decision: 'origin_dynamic',
+          hostKind,
+          methods: ['GET', 'HEAD'],
+        })
+      ),
       ...Array.from({ length: 1 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
