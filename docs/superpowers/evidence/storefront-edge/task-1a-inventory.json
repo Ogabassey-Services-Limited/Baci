@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "ad61970bc3113a9fd546f1245ca93c1aa8007acb",
+  "originMainSha": "6720d2843233301ca643c63f4cf4266b7fa6ee10",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
-  "routeTreeSha256": "f9a98f6a5a3e6e1680ff9746d694aa065a7117728632260ddda21e0a7abf82b9",
-  "routingProxyInputSha256": "77715a84dee4e23ab582260817efe1b98539c7d773b2c7a636cb6f557188e4e1",
+  "routeTreeSha256": "e4984bbdc0affcc7c3d39ac853752398bf5f585b43a834f71b033a8c4a6fecd6",
+  "routingProxyInputSha256": "d1bede89d41cbfdd941a35b84135e186f02c1a19f802e34e4c913ea407d80052",
   "rows": [
     {
       "decision": "origin_dynamic",
@@ -2503,6 +2503,118 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/components/Footer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:help-google-maps-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/help-support.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_twitter_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-twitter-blog-post-body",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_meta_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-meta-blog-post-body",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-linkedin-blog-post-body",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/blog-post-body.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_twitter_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-twitter-blog-post-body-alt",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_meta_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-meta-blog-post-body-alt",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-share-linkedin-blog-post-body-alt",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -7922,5 +8034,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "34d6b131b1ac640fd7d0543ae435a317c3efebcee832142e91b999920ad5810c"
+  "inventorySha256": "e84706ff28a633aa34220eaf38f19c3db2331a66197dee3c105933d703802a1c"
 }
