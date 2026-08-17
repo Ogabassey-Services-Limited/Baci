@@ -77,6 +77,7 @@ jest.mock('expo-router', () => {
         </View>
       ),
     },
+    useIsFocused: jest.fn(() => false),
     useRouter: () => ({ push: jest.fn() }),
   };
 });

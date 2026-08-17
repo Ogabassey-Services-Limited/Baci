@@ -84,13 +84,10 @@ describe('createQuizV2StoreActions expiry and locked answers', () => {
     });
   });
 
-  it.each([
-    'none',
-    'unavailable',
-  ] as const)('expiry_keeps_the_question_retryable when reconciliation returns %s', async (availability) => {
+  it('expiry_keeps_the_question_retryable when reconciliation returns none', async () => {
     const harness = createHarness();
     await harness.actions.expireActiveEvent(async () =>
-      response({ availability, attempt: undefined })
+      response({ availability: 'none', attempt: undefined })
     );
 
     expect(harness.getState()).toMatchObject({
@@ -98,6 +95,26 @@ describe('createQuizV2StoreActions expiry and locked answers', () => {
       expiryRetryable: true,
       status: 'question',
       v2Attempt: activeAttempt,
+    });
+  });
+
+  it('expiry_enters an unavailable terminal result when recovery is no longer possible', async () => {
+    const harness = createHarness();
+    await harness.actions.expireActiveEvent(async () =>
+      response({ availability: 'unavailable', attempt: undefined })
+    );
+
+    expect(harness.getState()).toMatchObject({
+      error: null,
+      expiryRetryable: false,
+      status: 'result',
+      v2Attempt: null,
+      v2LifecycleStatus: 'final',
+      v2Result: {
+        attemptId: activeAttempt.attemptId,
+        availability: 'unavailable',
+        reason: 'not_found',
+      },
     });
   });
 
