@@ -29,7 +29,7 @@ describe('useQuizFinalResultRefresh', () => {
 
   it('refreshes the final result when returning from checkout', async () => {
     jest.mocked(fetchQuizResult).mockResolvedValue(finalResult);
-    const onResult = jest.fn<(result: QuizV2Result) => void>();
+    const onResult = jest.fn<void, [QuizV2Result]>();
 
     const { rerender } = renderHook(
       ({ tick }: { tick: number }) => {
