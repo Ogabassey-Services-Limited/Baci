@@ -136,8 +136,25 @@ describe('buildDescriptionExcerpt', () => {
   });
 
   it('preserves promotional copy that embeds a model name', () => {
-    const description = 'Meet Galaxy S24 Ultra. Built for reliable all-day performance.';
+    const description =
+      'Meet Galaxy S24 Ultra. Built for reliable all-day performance.';
     const result = buildDescriptionExcerpt(description);
+    expect(result).toBe(
+      'Meet Galaxy S24 Ultra. Built for reliable all-day performance.'
+    );
+  });
+
+  it('extracts prose from paragraphs with nested inline formatting', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Built for <strong>reliable</strong> all-day performance.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
+  it('treats labeled technical values with connectors as specs not prose', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Storage: 2TB SSD and 64GB RAM.</p><p>Built for reliable all-day performance.</p>';
+    const result = buildDescriptionExcerpt(html);
     expect(result).toBe('Built for reliable all-day performance.');
   });
 

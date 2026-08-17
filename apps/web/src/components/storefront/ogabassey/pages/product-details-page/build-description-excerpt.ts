@@ -7,25 +7,12 @@ function isSpecValue(value: string): boolean {
       trimmed
     );
 
-  const hasMarketingProse =
-    hasProseConnectors ||
-    /\b(?:powerful|great|excellent|premium|stunning|beautiful|amazing|incredible|reliable|advanced|innovative|customizable|vivid|brilliant|expansive|capture|see|every|detail|built|designed|engineered|delivers|features|offers|experience|enjoy|perfect|ideal|superior|enhanced|smooth|fast|quick|long|all-day|workflows?|service|system|magic|life)\b/i.test(
-      trimmed
-    ) ||
-    // Narrative phrasing after feature labels (e.g. "Capture life's magic.")
-    (words.length >= 2 && /['’]/.test(trimmed));
-
-  // Short labeled marketing blurbs should stay prose even without connectors.
-  if (hasMarketingProse) {
-    return false;
-  }
-
   // Values with spec list delimiters (e.g. "48MP Main | 12MP Ultra Wide" or "12MP + 12MP")
   if (/[|/+]/.test(trimmed) && /\d+\s*(?:mp|gb|tb|hz|w|mah|v)/i.test(trimmed)) {
     return true;
   }
 
-  // Hardware measurement / technical token detection
+  // Hardware measurement / technical token detection — evaluate before marketing prose.
   const hasHardwareTokens =
     /\b(?:\d+\s*(?:gb|tb|mb|ghz|mhz|mah|wh|w|v|mp|fps|hz|inch|inches|"|'|nm|core|cores|bit)|nvme|pcie|ssd|hdd|ddr\d*|lpddr\d*|amoled|oled|retina|ips|lcd|esim|nano-?sim|snapdragon|bionic|geforce|radeon|intel|ryzen|upgradable|onboard)\b/i.test(
       trimmed
@@ -58,6 +45,18 @@ function isSpecValue(value: string): boolean {
     words.every((word) => /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d+[\w.-]*)$/.test(word))
   ) {
     return true;
+  }
+
+  const hasMarketingProse =
+    hasProseConnectors ||
+    /\b(?:powerful|great|excellent|premium|stunning|beautiful|amazing|incredible|reliable|advanced|innovative|customizable|vivid|brilliant|expansive|capture|see|every|detail|built|designed|engineered|delivers|features|offers|experience|enjoy|perfect|ideal|superior|enhanced|smooth|fast|quick|long|all-day|workflows?|service|system|magic|life)\b/i.test(
+      trimmed
+    ) ||
+    // Narrative phrasing after feature labels (e.g. "Capture life's magic.")
+    (words.length >= 2 && /['’]/.test(trimmed));
+
+  if (hasMarketingProse) {
+    return false;
   }
 
   return false;
@@ -154,6 +153,22 @@ function isProductTitleSentence(sentence: string): boolean {
   return false;
 }
 
+function stripInlineHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function extractParagraphInnerHtml(
+  html: string,
+  pattern: RegExp
+): string | null {
+  const match = html.match(pattern);
+  if (!match?.[1]) {
+    return null;
+  }
+
+  return stripInlineHtml(match[1]);
+}
+
 function filterProseText(text: string): string {
   const sentences = text
     .split(/(?<=[.!?])\s+/)
@@ -168,12 +183,13 @@ function filterProseText(text: string): string {
 export function buildDescriptionExcerpt(description: string) {
   if (!description) return '';
 
-  const worthMatch = description.match(
-    /<h2[^>]*>Why[^<]*Worth[^<]*<\/h2>\s*<p>([^<]+)/i
+  const worthParagraphHtml = extractParagraphInnerHtml(
+    description,
+    /<h2[^>]*>Why[^<]*Worth[^<]*<\/h2>\s*<p>([\s\S]*?)<\/p>/i
   );
 
-  if (worthMatch?.[1]) {
-    const benefitText = filterProseText(worthMatch[1].trim());
+  if (worthParagraphHtml) {
+    const benefitText = filterProseText(worthParagraphHtml);
     if (benefitText) {
       return benefitText.length > 200
         ? `${benefitText.substring(0, 200)}...`
@@ -181,9 +197,12 @@ export function buildDescriptionExcerpt(description: string) {
     }
   }
 
-  const secondParagraph = description.match(/<\/p>\s*<p>([^<]+)/);
-  if (secondParagraph?.[1]) {
-    const text = filterProseText(secondParagraph[1].trim());
+  const secondParagraphHtml = extractParagraphInnerHtml(
+    description,
+    /<\/p>\s*<p>([\s\S]*?)<\/p>/i
+  );
+  if (secondParagraphHtml) {
+    const text = filterProseText(secondParagraphHtml);
     if (text) {
       return text.length > 200 ? `${text.substring(0, 200)}...` : text;
     }

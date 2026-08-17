@@ -199,15 +199,15 @@ describe('storefront variant attribute helpers', () => {
       { attributes: { Storage: '128GB' }, condition: 'used' },
       { attributes: { Storage: '256GB' }, condition: 'used' },
     ];
-    expect(getRenderableVariantAxes(usedVariants, [])).toEqual(['storage']);
+    const usedAxes = getRenderableVariantAxes(usedVariants, []);
+    expect(usedAxes).toEqual(['storage']);
 
     const unspecifiedVariants = [
       { attributes: { Storage: '128GB' } },
       { attributes: { Storage: '256GB' } },
     ];
-    expect(getRenderableVariantAxes(unspecifiedVariants, [])).toEqual([
-      'storage',
-    ]);
+    const unspecifiedAxes = getRenderableVariantAxes(unspecifiedVariants, []);
+    expect(unspecifiedAxes).toEqual(['storage']);
   });
 
   it('inherits the parent condition when deriving renderable condition axes', () => {

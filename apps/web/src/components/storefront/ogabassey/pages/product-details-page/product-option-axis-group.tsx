@@ -45,7 +45,7 @@ export function ProductOptionAxisGroup({
   return (
     <div className="mb-8 space-y-6">
       <div>
-        <label className="flex items-center justify-between text-sm font-bold text-gray-900">
+        <label className="flex items-center justify-between text-sm font-bold text-store-foreground">
           {isSingleOption ? (
             <span>{label}</span>
           ) : (
@@ -75,10 +75,10 @@ export function ProductOptionAxisGroup({
                 disabled={!isAvailable}
                 className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all ${
                   !isAvailable
-                    ? 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
+                    ? 'cursor-not-allowed border-store-border/60 text-store-foreground/30 line-through'
                     : isSelected
                       ? 'border-store-primary bg-store-primary/5 text-store-primary ring-2 ring-store-primary/20 active:scale-95'
-                      : 'border-gray-200 text-gray-700 active:scale-95 md:hover:border-gray-400 md:hover:bg-gray-50'
+                      : 'border-store-border text-store-foreground active:scale-95 md:hover:border-store-primary/40 md:hover:bg-store-secondary'
                 }`}
                 aria-label={`Select ${value} ${label.toLowerCase()}${!isAvailable ? ' (unavailable)' : ''}`}
                 aria-pressed={isSelected}

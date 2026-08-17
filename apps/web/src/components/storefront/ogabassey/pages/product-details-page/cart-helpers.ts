@@ -110,11 +110,13 @@ export function getVariantBackedSelections(
   variants: NormalizedProductDetails['variants']
 ) {
   return Object.fromEntries(
-    Object.entries(selectedAttributes).filter(
-      ([axis]) =>
-        hasVariantBackedAxis(axis, variants) &&
-        !isDisplayOnlyVariantAxis(axis)
-    )
+    Object.entries(selectedAttributes).filter(([axis]) => {
+      const normalizedAxis = canonicalizeVariantAxis(axis);
+      return (
+        hasVariantBackedAxis(normalizedAxis, variants) &&
+        !isDisplayOnlyVariantAxis(normalizedAxis)
+      );
+    })
   );
 }
 
