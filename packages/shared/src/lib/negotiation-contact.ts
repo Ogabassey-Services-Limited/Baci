@@ -10,6 +10,8 @@
  * keeps the write side and the link-building read side in agreement.
  */
 
+import { normalizeNegotiationCustomerEmail } from './negotiation-email';
+
 /** Default dialing code for the pilot market (Nigeria). */
 export const DEFAULT_DIAL_CODE = '234';
 
@@ -113,4 +115,30 @@ export function buildWhatsAppLink(
   const base = `https://wa.me/${e164}`;
   const text = message?.trim();
   return text ? `${base}?text=${encodeURIComponent(text)}` : base;
+}
+
+/**
+ * Mail client deep link for a validated negotiation email address. Optional
+ * subject/body values are URL-encoded so merchant follow-up opens prefilled
+ * without allowing malformed recipient values into the link.
+ */
+export function buildMailtoLink(
+  rawEmail: string | null | undefined,
+  subject?: string,
+  body?: string
+): string | null {
+  const email = normalizeNegotiationCustomerEmail(rawEmail);
+  if (!email) {
+    return null;
+  }
+
+  const query = [
+    subject?.trim() ? `subject=${encodeURIComponent(subject.trim())}` : null,
+    body?.trim() ? `body=${encodeURIComponent(body.trim())}` : null,
+  ].filter((value): value is string => value !== null);
+  const encodedRecipient = encodeURIComponent(email).replace(/%40/g, '@');
+
+  return query.length > 0
+    ? `mailto:${encodedRecipient}?${query.join('&')}`
+    : `mailto:${encodedRecipient}`;
 }

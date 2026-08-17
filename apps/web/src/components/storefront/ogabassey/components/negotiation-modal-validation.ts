@@ -17,9 +17,11 @@ export function normalizeOptionalEmail(email?: string | null): string | null {
 export function getContactValidationError({
   email,
   phone,
+  isAuthenticated = false,
 }: {
   email: string;
   phone: string;
+  isAuthenticated?: boolean;
 }): string | null {
   if (email.trim() && !normalizeOptionalEmail(email)) {
     return 'Enter a valid email address.';
@@ -27,6 +29,10 @@ export function getContactValidationError({
 
   if (phone.trim() && !normalizePhoneToE164(phone)) {
     return 'Enter a valid Phone / WhatsApp number.';
+  }
+
+  if (!isAuthenticated && !email.trim() && !phone.trim()) {
+    return 'Provide an email address or Phone / WhatsApp number so we can send the merchant\'s decision.';
   }
 
   return null;
