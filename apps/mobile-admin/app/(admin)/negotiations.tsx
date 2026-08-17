@@ -29,6 +29,7 @@ type NegotiationRequest = NegotiationCardRequest;
 
 type ResolveNegotiationResponse = {
   channel?: 'email';
+  manualContactAvailable?: boolean;
   notified: boolean;
   reason?: 'no_customer_email' | 'no_delivery_channel';
   status: 'accepted' | 'rejected';
@@ -119,7 +120,9 @@ export default function NegotiationsScreen() {
       } else {
         Alert.alert(
           'Status updated',
-          'The request was updated, but the customer has no available delivery channel.'
+          result.manualContactAvailable
+            ? 'The customer was not notified automatically. Use Call or WhatsApp to follow up.'
+            : 'The request was updated, but the customer has no available delivery channel.'
         );
       }
       // Return the invalidation promise so the mutation stays pending (and the

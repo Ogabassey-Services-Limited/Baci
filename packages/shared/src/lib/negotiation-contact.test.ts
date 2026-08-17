@@ -127,4 +127,16 @@ describe('buildMailtoLink', () => {
   it('returns null for an invalid recipient', () => {
     expect(buildMailtoLink('not-an-email', 'Subject')).toBeNull();
   });
+
+  it('encodes recipient query delimiters before building a mailto link', () => {
+    const link = buildMailtoLink(
+      'buyer?bcc=attacker%40example.com&x=x@valid.com',
+      'Subject'
+    );
+
+    expect(link).toBe(
+      'mailto:buyer%3Fbcc%3Dattacker%2540example.com%26x%3Dx@valid.com?subject=Subject'
+    );
+    expect(link).not.toContain('?bcc=');
+  });
 });

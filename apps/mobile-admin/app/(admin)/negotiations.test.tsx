@@ -238,12 +238,19 @@ vi.mock('react-native', () => {
       children,
       disabled,
       onPress,
+      accessibilityLabel,
     }: {
+      accessibilityLabel?: string;
       children?: ReactNode;
       disabled?: boolean;
       onPress?: () => void;
     }) => (
-      <button disabled={disabled} onClick={() => onPress?.()} type="button">
+      <button
+        aria-label={accessibilityLabel}
+        disabled={disabled}
+        onClick={() => onPress?.()}
+        type="button"
+      >
         {children}
       </button>
     ),
@@ -500,7 +507,7 @@ describe('NegotiationsScreen', () => {
     render(<NegotiationsScreen />);
 
     expect(await screen.findByText('buyer@example.com')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('Email'));
+    fireEvent.click(screen.getByRole('button', { name: 'Email customer' }));
 
     await waitFor(() => {
       expect(mocks.openURL).toHaveBeenCalledWith(
@@ -574,6 +581,26 @@ describe('NegotiationsScreen', () => {
       expect(Alert.alert).toHaveBeenCalledWith(
         'Status updated',
         'The request was updated, but the customer has no available delivery channel.'
+      );
+    });
+  });
+
+  it('directs merchants to manual follow-up for phone-only requests', async () => {
+    vi.mocked(apiClient).mockResolvedValueOnce({
+      manualContactAvailable: true,
+      notified: false,
+      reason: 'no_customer_email',
+      status: 'accepted',
+    });
+
+    render(<NegotiationsScreen />);
+
+    fireEvent.click(await screen.findByText('Accept Offer'));
+
+    await waitFor(() => {
+      expect(Alert.alert).toHaveBeenCalledWith(
+        'Status updated',
+        'The customer was not notified automatically. Use Call or WhatsApp to follow up.'
       );
     });
   });

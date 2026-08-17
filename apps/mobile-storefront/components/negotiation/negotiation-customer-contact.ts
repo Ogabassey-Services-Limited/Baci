@@ -6,7 +6,7 @@ export type NegotiationCustomerContact = {
   userId: string | null;
 };
 
-export function getGuestNegotiationPhoneError(
+function getGuestNegotiationPhoneError(
   userId: string | null | undefined,
   normalizedPhone: string | null
 ): string | null {

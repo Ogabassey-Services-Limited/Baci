@@ -418,6 +418,61 @@ describe('NegotiationModal', () => {
     expect(insertPayload.session_id).not.toBe('web-session');
   });
 
+  it('allows signed-in customers to submit without duplicate contact details', async () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: '' },
+    });
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    await act(async () => {
+      fireEvent.submit(fileInput.closest('form') as HTMLFormElement);
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_id: 'user-abc',
+        customer_email: null,
+        customer_phone: null,
+      })
+    );
+  });
+
+  it('blocks submission when authentication verification fails unexpectedly', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: new Error('auth unavailable'),
+    });
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    vi.useRealTimers();
+
+    await act(async () => {
+      fireEvent.submit(fileInput.closest('form') as HTMLFormElement);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Unable to verify your account. Please try again.'
+    );
+    alertSpy.mockRestore();
+  });
+
   it('persists selected variant details for single-product merchant review', async () => {
     render(
       <NegotiationModal

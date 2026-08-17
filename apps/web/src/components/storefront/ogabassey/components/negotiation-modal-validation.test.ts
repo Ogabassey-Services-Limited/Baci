@@ -36,6 +36,32 @@ describe('negotiation modal validation helpers', () => {
     );
   });
 
+  it('allows authenticated customers to omit contact fields', () => {
+    // Arrange
+    const input = { email: '', isAuthenticated: true, phone: '' };
+
+    // Act
+    const result = getContactValidationError(input);
+
+    // Assert
+    expect(result).toBeNull();
+  });
+
+  it('rejects invalid email input for authenticated customers', () => {
+    // Arrange
+    const input = {
+      email: 'not an email',
+      isAuthenticated: true,
+      phone: '',
+    };
+
+    // Act
+    const result = getContactValidationError(input);
+
+    // Assert
+    expect(result).toBe('Enter a valid email address.');
+  });
+
   it('uses a typed validation error for modal request failures', () => {
     const error = new NegotiationValidationError('Invalid contact');
 

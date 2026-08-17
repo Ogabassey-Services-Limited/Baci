@@ -136,8 +136,9 @@ export function buildMailtoLink(
     subject?.trim() ? `subject=${encodeURIComponent(subject.trim())}` : null,
     body?.trim() ? `body=${encodeURIComponent(body.trim())}` : null,
   ].filter((value): value is string => value !== null);
+  const encodedRecipient = encodeURIComponent(email).replace(/%40/g, '@');
 
   return query.length > 0
-    ? `mailto:${email}?${query.join('&')}`
-    : `mailto:${email}`;
+    ? `mailto:${encodedRecipient}?${query.join('&')}`
+    : `mailto:${encodedRecipient}`;
 }
