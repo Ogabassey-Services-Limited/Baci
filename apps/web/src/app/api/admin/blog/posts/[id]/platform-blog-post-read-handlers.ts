@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { revalidatePlatformBlog } from '@/lib/cache-revalidation';
 import { createClient } from '@/lib/supabase/server';
+import { platformBlogRouteParamsSchema } from '@/schemas/platform-blog-route-params';
 import {
   PLATFORM_BLOG_DETAIL_SELECT,
   type PlatformBlogRouteParams,
-  platformBlogRouteParamsSchema,
 } from './platform-blog-post-route-schema';
 
 export async function getPlatformBlogPost({ params }: PlatformBlogRouteParams) {

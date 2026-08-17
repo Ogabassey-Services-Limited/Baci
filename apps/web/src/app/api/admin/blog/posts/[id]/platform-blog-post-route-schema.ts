@@ -1,9 +1,3 @@
-import { z } from 'zod';
-
-export const platformBlogRouteParamsSchema = z.object({
-  id: z.string().min(1),
-});
-
 export type PlatformBlogRouteParams = {
   params: Promise<{ id: string }>;
 };

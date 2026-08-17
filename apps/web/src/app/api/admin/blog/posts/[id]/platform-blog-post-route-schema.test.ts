@@ -1,23 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PLATFORM_BLOG_DETAIL_SELECT,
-  platformBlogRouteParamsSchema,
-} from './platform-blog-post-route-schema';
-
-describe('platformBlogRouteParamsSchema', () => {
-  it('accepts a non-empty post identifier', () => {
-    expect(
-      platformBlogRouteParamsSchema.safeParse({ id: 'post-1' }).success
-    ).toBe(true);
-  });
-
-  it('rejects empty or missing post identifiers', () => {
-    expect(platformBlogRouteParamsSchema.safeParse({ id: '' }).success).toBe(
-      false
-    );
-    expect(platformBlogRouteParamsSchema.safeParse({}).success).toBe(false);
-  });
-});
+import { PLATFORM_BLOG_DETAIL_SELECT } from './platform-blog-post-route-schema';
 
 describe('PLATFORM_BLOG_DETAIL_SELECT', () => {
   it('uses an explicit platform post projection', () => {
