@@ -34,13 +34,12 @@ import { useQuizMusicState } from './use-quiz-music-state';
 import { useQuizQuestionTimer } from './use-quiz-question-timer';
 import { useQuizResultPolling } from './use-quiz-result-polling';
 import { useQuizAccountChangeReset } from './useQuizAccountChangeReset';
+import { useQuizFinalResultRefresh } from './useQuizFinalResultRefresh';
 import { useQuizPersistedRecovery } from './useQuizPersistedRecovery';
 import { useQuizStartFlow } from './useQuizStartFlow';
 
 const log = createLogger('Quiz');
-const QUIZ_COPY = {
-  actionFailed: 'Quiz action failed',
-} as const;
+const QUIZ_COPY = { actionFailed: 'Quiz action failed' } as const;
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
@@ -125,6 +124,12 @@ export function QuizScreen({
     enabled: status === 'result' && v2LifecycleStatus === 'pending_results',
     expectedUserId: authUserId,
     getCurrentUserId: () => useAuthStore.getState().user?.id ?? null,
+    onResult: setV2Result,
+  });
+  useQuizFinalResultRefresh({
+    attemptId: terminalContext?.attemptId ?? null,
+    enabled: status === 'result' && v2LifecycleStatus === 'final',
+    expectedUserId: authUserId,
     onResult: setV2Result,
   });
   useEffect(() => {
@@ -288,7 +293,6 @@ export function QuizScreen({
         active={status === 'question' || status === 'submitting'}
         prewarmFailed={adsPrewarmFailed}
       />
-
       <QuizScreenModals dobGate={dobGate} usernameGate={usernameGate} />
     </View>
   );

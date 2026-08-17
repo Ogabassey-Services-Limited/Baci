@@ -30,6 +30,18 @@ describe('quiz route rate limits', () => {
     expect(result.limit).toBe(expectedLimit);
   });
 
+  it.each([
+    ['/api/quiz/attempts/attempt-1/answers', 50],
+    ['/api/quiz/attempts/active', 50],
+    ['/api/quiz/attempts/attempt-1/finalize-awards', 50],
+  ])('keeps non-polling attempt routes on the default limit: %s', async (path, expectedLimit) => {
+    const result = await checkRateLimit(
+      new NextRequest(`http://localhost:3000${path}`)
+    );
+
+    expect(result.limit).toBe(expectedLimit);
+  });
+
   it('blocks the expensive generate route after its 5-request budget', async () => {
     const url = 'http://localhost:3000/api/merchant/quiz/generate';
 

@@ -26,16 +26,38 @@ export function createQuizV2RecoveryResponseApplier({
       await apply(response.attempt);
       return;
     }
-    if (
-      response.availability === 'none' ||
-      response.availability === 'unavailable'
-    ) {
+    if (response.availability === 'none') {
       access.set({
         status: 'question',
         v2Attempt: fallback,
         expiryRetryable: true,
         error: null,
       });
+      return;
+    }
+    if (response.availability === 'unavailable') {
+      access.set({
+        status: 'result',
+        v2Attempt: null,
+        v2LifecycleStatus: 'final',
+        v2Result: {
+          attemptId: response.attemptId ?? fallback.attemptId,
+          availability: 'unavailable',
+          reason: 'not_found',
+        },
+        terminalContext: createQuizTerminalContext(
+          response.attemptId ?? fallback.attemptId,
+          fallback.eventId,
+          response.eventEndsAt ?? fallback.eventEndsAt,
+          response.serverNow ?? fallback.serverNow
+        ),
+        lockedOptionId: null,
+        expiryRetryable: false,
+        error: null,
+      });
+      await clearRecoveredQuizAttempt(access, fallback.eventId).catch(
+        () => undefined
+      );
       return;
     }
     const expiredActive =
