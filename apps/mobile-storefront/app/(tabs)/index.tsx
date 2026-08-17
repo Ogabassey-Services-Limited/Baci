@@ -22,7 +22,7 @@ import { useMerchant } from '@/hooks/use-merchant';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { CONFIG } from '@/lib/config';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
-import { recordPerformanceSurface } from '@/lib/performance-attribution';
+import { setPerformanceSurfaceFocus } from '@/lib/performance-attribution';
 import { resolveHomeBlocks } from '@/lib/resolve-home-blocks';
 import { getTemplateConfig } from '@/lib/templates';
 
@@ -203,9 +203,9 @@ export default function HomeScreen() {
       message: `home:${isFocused ? 'focused' : 'unfocused'}`,
     });
     recordCrashBreadcrumb('home:state', { focused: isFocused });
-    if (isFocused) {
-      recordPerformanceSurface('home', { template_id: CONFIG.TEMPLATE_ID });
-    }
+    setPerformanceSurfaceFocus('home', isFocused, {
+      template_id: CONFIG.TEMPLATE_ID,
+    });
   }, [isFocused]);
 
   useEffect(() => {

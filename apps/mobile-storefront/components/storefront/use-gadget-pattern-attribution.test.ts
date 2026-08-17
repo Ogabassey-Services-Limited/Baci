@@ -7,6 +7,7 @@ jest.mock('@/lib/crash-diagnostics', () => ({
   recordCrashBreadcrumb: jest.fn(),
 }));
 jest.mock('@/lib/performance-attribution', () => ({
+  clearPerformanceSurface: jest.fn(),
   recordPerformanceSurface: jest.fn(),
 }));
 

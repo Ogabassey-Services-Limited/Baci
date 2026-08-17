@@ -2,7 +2,10 @@ import * as Sentry from '@sentry/react-native';
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import { recordCrashBreadcrumb } from '@/lib/crash-diagnostics';
-import { recordPerformanceSurface } from '@/lib/performance-attribution';
+import {
+  clearPerformanceSurface,
+  recordPerformanceSurface,
+} from '@/lib/performance-attribution';
 
 let nextGadgetPatternId = 0;
 
@@ -36,6 +39,9 @@ export function useGadgetPatternAttribution(
       variant,
     };
     return () => {
+      clearPerformanceSurface('gadget_pattern', {
+        instance_id: instanceId.current,
+      });
       recordCrashBreadcrumb(`gadget_pattern:unmounted:${instanceId.current}`, {
         ...details,
         instance_id: instanceId.current,
@@ -46,6 +52,7 @@ export function useGadgetPatternAttribution(
         level: 'info',
         message: `gadget_pattern:unmounted:${variant}:${instanceId.current}`,
       });
+      recorded.current = false;
     };
   }, [rendered, variant]);
 }
