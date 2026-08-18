@@ -1,15 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/helpers';
-import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
 import {
   JumiaSelfAuthorizationTokenResponseSchema,
   JumiaTokenResponseSchema,
 } from '@/schemas/jumia';
-import {
-  acquireJumiaAuthorizationRefreshLease,
-  type JumiaAuthorizationRefreshState,
-  reloadSharedAuthorizationCredentials,
-} from './jumia-authorization-refresh-lease';
+import { acquireJumiaAuthorizationRefreshLease } from './jumia-authorization-refresh-lease';
+import { persistJumiaAuthorizationRotation } from './jumia-client-token-rotation';
 
 const REQUEST_TIMEOUT_MS = 30_000;
 const MISSING_REFRESH_TOKEN_SYNC_ERROR =
@@ -53,40 +49,7 @@ function getScopedSupabaseForPersistence(
   );
 }
 
-async function encryptRotatedCredentials(
-  state: JumiaClientTokenPersistenceState,
-  refreshToken: string,
-  accessToken: string,
-  clientKeyHash: string
-): Promise<string> {
-  const { getJumiaAuthorizationEncryptionKey } = await import('@/env');
-  const { jumiaAuthorizationCrypto } = await import(
-    '@/lib/jumia/authorization-crypto'
-  );
-  const key = getJumiaAuthorizationEncryptionKey();
-  if (!key) {
-    throw new JumiaApiError(
-      500,
-      'Jumia authorization encryption is not configured'
-    );
-  }
-  return jumiaAuthorizationCrypto.encrypt(
-    {
-      clientId: state.clientId,
-      refreshToken,
-      accessToken,
-    },
-    key,
-    jumiaAuthorizationCrypto.buildAuthorizationContext(
-      state.merchantId,
-      clientKeyHash
-    )
-  );
-}
-
-function toRefreshState(
-  state: JumiaClientTokenPersistenceState
-): JumiaAuthorizationRefreshState {
+function toRefreshState(state: JumiaClientTokenPersistenceState) {
   if (!state.authorizationId) {
     throw new JumiaApiError(
       500,
@@ -201,56 +164,24 @@ async function refreshJumiaClientAccessTokenOnce(
       : state.refreshTokenExpiresAt;
 
     if (state.authorizationId) {
-      const authorizationGrant = await loadJumiaAuthorizationGrant(
-        supabase,
-        state.authorizationId,
-        state.merchantId
-      );
-      const ciphertext = await encryptRotatedCredentials(
-        state,
-        refreshToken,
-        data.access_token,
-        authorizationGrant.client_key_hash
-      );
-      const { data: rotationVersion, error: updateError } = await supabase.rpc(
-        'rotate_jumia_authorization_credentials',
-        {
-          p_authorization_id: state.authorizationId,
-          p_credential_ciphertext: ciphertext,
-          p_token_expires_at: tokenExpiresAt.toISOString(),
-          p_refresh_token_expires_at: refreshTokenExpiresAt?.toISOString(),
-          p_expected_rotation_version: state.authorizationRotationVersion ?? 1,
-          p_refresh_lease_token: refreshLeaseToken,
-        }
-      );
-
-      if (updateError) {
-        const isStaleRotation =
-          updateError.code === '40001' ||
-          updateError.message?.includes('Stale Jumia authorization rotation');
-        if (isStaleRotation) {
-          return reloadSharedAuthorizationCredentials(
-            toRefreshState(state),
-            supabase
-          );
-        }
+      const selfAuthorizationData =
+        JumiaSelfAuthorizationTokenResponseSchema.safeParse(data);
+      if (!selfAuthorizationData.success || !refreshLeaseToken) {
         throw new JumiaApiError(
-          500,
-          `Failed to persist refreshed token for integration ${state.integrationId}`,
-          updateError
+          502,
+          'Jumia did not return a rotated refresh token and expiry'
         );
       }
-
-      return {
-        accessToken: data.access_token,
-        refreshToken,
+      return persistJumiaAuthorizationRotation({
+        state,
+        supabase,
+        refreshLeaseToken,
+        data: selfAuthorizationData.data,
         tokenExpiresAt,
-        refreshTokenExpiresAt,
-        authorizationRotationVersion:
-          typeof rotationVersion === 'number'
-            ? rotationVersion
-            : state.authorizationRotationVersion,
-      };
+        refreshTokenExpiresAt: new Date(
+          Date.now() + selfAuthorizationData.data.refresh_expires_in * 1000
+        ),
+      });
     }
 
     const { error: updateError } = await supabase

@@ -401,13 +401,31 @@ describe('Products Export POST', () => {
 
   it('returns 207 when mapping finalize fails after Jumia accepts the feed', async () => {
     mockCreateProduct.mockResolvedValue('feed-abc');
-    mockMappingIn.mockResolvedValue({ error: { message: 'update fail' } });
+    mockMappingIn
+      .mockResolvedValueOnce({ error: { message: 'update fail' } })
+      .mockResolvedValueOnce({ error: { message: 'update fail' } })
+      .mockResolvedValueOnce({ error: null });
     const res = await POST(makePostRequest(VALID_BODY));
     expect(res.status).toBe(207);
     const json = await res.json();
     expect(json.partial).toBe(true);
     expect(json.feedId).toBe('feed-abc');
-    expect(json.error).toContain('Retry the export to recover');
+    expect(json.error).toContain('Feed-status reconciliation will recover');
+  });
+
+  it('reports when an accepted feed cannot be recorded for reconciliation', async () => {
+    mockCreateProduct.mockResolvedValue('feed-abc');
+    mockMappingIn.mockResolvedValue({ error: { message: 'update fail' } });
+
+    const res = await POST(makePostRequest(VALID_BODY));
+
+    expect(res.status).toBe(207);
+    const json = await res.json();
+    expect(json.partial).toBe(true);
+    expect(json.feedId).toBe('feed-abc');
+    expect(json.error).toContain(
+      'automatic reconciliation could not be recorded'
+    );
   });
 
   it('maps exported SKUs to matching variant IDs', async () => {

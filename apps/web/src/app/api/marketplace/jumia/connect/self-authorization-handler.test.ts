@@ -10,12 +10,14 @@ const validated = {
   shops: [
     {
       id: 'shop-1',
+      businessClientCode: 'NG-1',
       name: 'Shop One',
       countryCode: 'NG',
       marketplace: 'Jumia Nigeria',
     },
     {
       id: 'shop-2',
+      businessClientCode: 'NG-2',
       name: 'Shop Two',
       countryCode: 'NG',
       marketplace: 'Jumia Nigeria',
@@ -92,6 +94,7 @@ describe('Jumia Self Authorization handler', () => {
       p_shop_names: ['Shop One'],
       p_country_codes: ['NG'],
       p_marketplace_labels: ['Jumia Nigeria'],
+      p_business_client_codes: ['NG-1'],
     });
     await expect(response.json()).resolves.toEqual({
       connected: [{ id: 'shop-1', name: 'Shop One' }],
@@ -103,14 +106,16 @@ describe('Jumia Self Authorization handler', () => {
     const shops = [
       {
         id: 'shop-1',
-        selectionKey: 'shop-1:Jumia Ghana',
+        selectionKey: 'shop-1:GH-1',
+        businessClientCode: 'GH-1',
         name: 'Ghana Shop',
         countryCode: 'GH',
         marketplace: 'Jumia Ghana',
       },
       {
         id: 'shop-1',
-        selectionKey: 'shop-1:Jumia Nigeria',
+        selectionKey: 'shop-1:NG-1',
+        businessClientCode: 'NG-1',
         name: 'Nigeria Shop',
         countryCode: 'NG',
         marketplace: 'Jumia Nigeria',
@@ -144,7 +149,7 @@ describe('Jumia Self Authorization handler', () => {
       merchantId: '00000000-0000-4000-8000-000000000001',
       existingShopIds: new Set(),
       rpc,
-      selectedShopIds: ['shop-1:Jumia Ghana', 'shop-1:Jumia Nigeria'],
+      selectedShopIds: ['shop-1:GH-1', 'shop-1:NG-1'],
       validate,
       encrypt: vi.fn().mockReturnValue('opaque-ciphertext'),
     });
@@ -153,6 +158,13 @@ describe('Jumia Self Authorization handler', () => {
       connected: [{ id: 'shop-1', name: 'Ghana Shop' }],
       alreadyConnected: [{ id: 'shop-1', name: 'Nigeria Shop' }],
     });
+    expect(rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization',
+      expect.objectContaining({
+        p_shop_ids: ['shop-1', 'shop-1'],
+        p_business_client_codes: ['GH-1', 'NG-1'],
+      })
+    );
   });
 
   it('skips shops already connected through OAuth before persistence', async () => {

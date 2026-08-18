@@ -162,10 +162,10 @@ export async function validateJumiaSelfAuthorization(
     );
     return marketplaces.map((marketplace) => ({
       id: shop.id,
+      businessClientCode: marketplace.code,
       ...(marketplaces.length > 1
         ? {
             selectionKey: `${shop.id}:${marketplace.code}`,
-            businessClientCode: marketplace.code,
           }
         : {}),
       name: shop.name,

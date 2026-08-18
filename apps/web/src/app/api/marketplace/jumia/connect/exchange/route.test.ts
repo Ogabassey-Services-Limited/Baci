@@ -13,6 +13,7 @@ const {
   mockGetMerchantIdForApiUser,
   mockGetShops,
   mockMarketplaceUpsert,
+  mockExistingIntegrations,
 } = vi.hoisted(() => {
   return {
     mockRpc: vi.fn(),
@@ -22,6 +23,11 @@ const {
     mockGetMerchantIdForApiUser: vi.fn(),
     mockGetShops: vi.fn(),
     mockMarketplaceUpsert: vi.fn(),
+    mockExistingIntegrations: [] as Array<{
+      shop_id: string;
+      is_active: boolean;
+      connection_method: string;
+    }>,
   };
 });
 
@@ -82,7 +88,7 @@ function createMarketplaceIntegrationsBuilder() {
     select: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({
-          data: [],
+          data: mockExistingIntegrations,
           error: null,
         }),
       }),
@@ -163,6 +169,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     vi.clearAllMocks();
     mockFeaturePlanTier.mockReturnValue('pro');
     mockMarketplaceUpsert.mockResolvedValue({ error: null });
+    mockExistingIntegrations.length = 0;
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -296,6 +303,28 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
       ],
       { onConflict: 'merchant_id,platform,shop_id,marketplace_key' }
     );
+  });
+
+  it('rejects OAuth when the discovered shop is already self-authorized', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    setupTokenExchange();
+    setupShopDiscovery();
+    mockExistingIntegrations.push({
+      shop_id: 'shop-1',
+      is_active: true,
+      connection_method: 'self_authorization',
+    });
+
+    const res = await POST(
+      makeRequest({ code: 'self-auth-shop', ticketId: TICKET_ID })
+    );
+
+    expect(res.status).toBe(409);
+    await expect(res.json()).resolves.toMatchObject({
+      shopIds: ['shop-1'],
+    });
+    expect(mockMarketplaceUpsert).not.toHaveBeenCalled();
   });
 
   it('returns incomplete when only fallback shop is created', async () => {

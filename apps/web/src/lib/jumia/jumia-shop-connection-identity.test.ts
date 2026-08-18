@@ -33,7 +33,7 @@ describe('jumiaShopConnectionIdentities', () => {
       {
         shop_id: 'shop-1',
         country_code: 'NG',
-        marketplace_key: 'Jumia Nigeria Retail',
+        marketplace_key: 'NG-RETAIL',
         connection_method: 'self_authorization',
       },
     ]);

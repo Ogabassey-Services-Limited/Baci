@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   finalizeJumiaExportReservation,
+  markJumiaExportReservationForReconciliation,
   reserveJumiaExportMappings,
 } from './export-product-reservation';
 
@@ -21,8 +22,10 @@ function buildSupabase(
   const deleteBuilder = {
     eq: vi.fn(),
     in: vi.fn(),
+    is: vi.fn(),
   };
   deleteBuilder.eq.mockReturnValue(deleteBuilder);
+  deleteBuilder.is.mockReturnValue(deleteBuilder);
   deleteBuilder.in.mockResolvedValue({
     error: options.deleteError ?? null,
   });
@@ -106,17 +109,21 @@ describe('reserveJumiaExportMappings', () => {
     ]);
   });
 
-  it('clears previously failed mappings before inserting a retry reservation', async () => {
+  it('replaces a failed mapping by stable variant identity when its SKU changes', async () => {
     const { from, del } = buildSupabase();
 
     await reserveJumiaExportMappings({
       ...baseArgs,
+      exportVariations: [
+        { sellerSku: 'SKU-NEW', price: 1500, currency: 'NGN' },
+      ],
+      variantIdsBySku: new Map([['SKU-NEW', 'variant-1']]),
       supabase: { from } as never,
     });
 
     expect(del).toHaveBeenCalled();
     const deleteBuilder = del.mock.results[0]?.value;
-    expect(deleteBuilder.in).not.toHaveBeenCalled();
+    expect(deleteBuilder.eq).toHaveBeenCalledWith('variant_id', 'variant-1');
   });
 
   it('maps unique violations to an in-progress conflict', async () => {
@@ -165,5 +172,61 @@ describe('finalizeJumiaExportReservation', () => {
       })
     ).resolves.toBe(true);
     expect(inMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('retains the accepted feed ID when finalization is unrecoverable', async () => {
+    const builder = {
+      eq: vi.fn(),
+      in: vi.fn().mockResolvedValue({ error: null }),
+      is: vi.fn(),
+    };
+    builder.eq.mockReturnValue(builder);
+    builder.is.mockReturnValue(builder);
+    const update = vi.fn(() => builder);
+    const from = vi.fn(() => ({ update }));
+
+    await expect(
+      markJumiaExportReservationForReconciliation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        feedId: 'feed-accepted',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(true);
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        last_feed_id: 'feed-accepted',
+        sync_status: 'pending',
+      })
+    );
+  });
+
+  it('reports when the accepted feed cannot be recorded for reconciliation', async () => {
+    const builder = {
+      eq: vi.fn(),
+      in: vi.fn().mockResolvedValue({ error: { message: 'update failed' } }),
+      is: vi.fn(),
+    };
+    builder.eq.mockReturnValue(builder);
+    builder.is.mockReturnValue(builder);
+    const from = vi.fn(() => ({ update: vi.fn(() => builder) }));
+
+    await expect(
+      markJumiaExportReservationForReconciliation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        feedId: 'feed-accepted',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(false);
   });
 });

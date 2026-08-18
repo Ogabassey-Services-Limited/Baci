@@ -25,8 +25,17 @@ vi.mock('@/lib/jumia/load-jumia-authorization-grant', () => ({
 
 import {
   acquireJumiaAuthorizationRefreshLease,
+  claimJumiaAuthorizationRefreshLease,
   REFRESH_LEASE_BUSY_RETRIES,
 } from './jumia-authorization-refresh-lease';
+
+const refreshState = {
+  integrationId: 'integration-1',
+  merchantId: 'merchant-1',
+  authorizationId: 'auth-1',
+  authorizationRotationVersion: 1,
+  tokenExpiresAt: new Date('2026-01-01T00:00:00.000Z'),
+};
 
 describe('acquireJumiaAuthorizationRefreshLease', () => {
   beforeEach(() => {
@@ -113,5 +122,59 @@ describe('acquireJumiaAuthorizationRefreshLease', () => {
 
     expect(rpc).toHaveBeenCalledTimes(REFRESH_LEASE_BUSY_RETRIES);
     setTimeoutSpy.mockRestore();
+  });
+
+  it('does not return expired credentials just because rotation version advanced', async () => {
+    vi.mocked(loadJumiaAuthorizationGrant).mockResolvedValue({
+      credential_ciphertext: 'stored-ciphertext',
+      token_expires_at: '2026-01-01T00:00:00.000Z',
+      refresh_token_expires_at: '2026-12-31T10:00:00.000Z',
+      rotation_version: 2,
+      client_key_hash: 'a'.repeat(64),
+    } as never);
+
+    const setTimeoutSpy = vi
+      .spyOn(global, 'setTimeout')
+      .mockImplementation((handler) => {
+        if (typeof handler === 'function') handler();
+        return 0 as never;
+      });
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: '55P03', message: 'refresh already in progress' },
+    });
+
+    await expect(
+      acquireJumiaAuthorizationRefreshLease(
+        {
+          integrationId: 'integration-1',
+          merchantId: 'merchant-1',
+          authorizationId: 'auth-1',
+          authorizationRotationVersion: 1,
+          tokenExpiresAt: new Date('2026-01-01T00:00:00.000Z'),
+        },
+        { rpc } as never
+      )
+    ).rejects.toMatchObject({ status: 503 });
+
+    expect(rpc).toHaveBeenCalledTimes(REFRESH_LEASE_BUSY_RETRIES);
+    setTimeoutSpy.mockRestore();
+  });
+
+  it('returns a clear forbidden error when view-only refresh is denied', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        code: '42501',
+        message: 'Not authorized to refresh Jumia credentials',
+      },
+    });
+
+    await expect(
+      claimJumiaAuthorizationRefreshLease(refreshState, { rpc } as never)
+    ).rejects.toMatchObject({
+      status: 403,
+      message: expect.stringContaining('integrations.manage'),
+    });
   });
 });

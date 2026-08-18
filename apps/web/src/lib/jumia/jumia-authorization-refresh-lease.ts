@@ -50,6 +50,14 @@ export async function claimJumiaAuthorizationRefreshLease(
     return { status: 'stale' };
   }
 
+  if (error?.code === '42501') {
+    throw new JumiaApiError(
+      403,
+      'Jumia credential refresh requires integrations.manage permission; reconnect or ask a manager',
+      error
+    );
+  }
+
   if (
     error?.code === '55P03' ||
     error?.message?.includes('refresh already in progress')
@@ -128,14 +136,14 @@ function hasFreshSharedCredentials(
   }
 ): boolean {
   const startVersion = state.authorizationRotationVersion ?? 1;
+  const tokenIsFresh =
+    reloaded.tokenExpiresAt.getTime() >
+    Math.max(Date.now(), state.tokenExpiresAt?.getTime() ?? 0);
   if (reloaded.authorizationRotationVersion > startVersion) {
-    return true;
+    return tokenIsFresh;
   }
 
-  return (
-    reloaded.tokenExpiresAt.getTime() >
-    Math.max(Date.now(), state.tokenExpiresAt?.getTime() ?? 0)
-  );
+  return tokenIsFresh;
 }
 
 export async function acquireJumiaAuthorizationRefreshLease(

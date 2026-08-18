@@ -118,6 +118,9 @@ async function connect(args: {
     p_shop_names: shopsToConnect.map((shop) => shop.name),
     p_country_codes: shopsToConnect.map((shop) => shop.countryCode),
     p_marketplace_labels: shopsToConnect.map((shop) => shop.marketplace),
+    p_business_client_codes: shopsToConnect.map(
+      (shop) => shop.businessClientCode ?? shop.marketplace
+    ),
   });
 
   if (error || !data) {

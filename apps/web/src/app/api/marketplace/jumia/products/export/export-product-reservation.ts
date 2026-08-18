@@ -94,22 +94,35 @@ export async function reserveJumiaExportMappings(
   }
 
   const variantIdsBySku = new Map(args.variantIdsBySku);
-  const { error: clearError } = await args.supabase
-    .from('jumia_product_mappings')
-    .delete()
-    .eq('merchant_id', args.merchantId)
-    .eq('product_id', productId)
-    .eq('jumia_shop_id', args.shopId)
-    .eq('marketplace_key', args.marketplaceKey)
-    .eq('sync_status', 'error');
+  const variantIds = [
+    ...new Set(
+      args.exportVariations.map(
+        (variation) => variantIdsBySku.get(variation.sellerSku) ?? null
+      )
+    ),
+  ];
+  for (const variantId of variantIds) {
+    let clearQuery = args.supabase
+      .from('jumia_product_mappings')
+      .delete()
+      .eq('merchant_id', args.merchantId)
+      .eq('product_id', productId)
+      .eq('jumia_shop_id', args.shopId)
+      .eq('marketplace_key', args.marketplaceKey)
+      .eq('sync_status', 'error');
+    clearQuery = variantId
+      ? clearQuery.eq('variant_id', variantId)
+      : clearQuery.is('variant_id', null);
+    const { error: clearError } = await clearQuery;
 
-  if (clearError) {
-    return {
-      ok: false,
-      status: 500,
-      error: 'Failed to replace a previously failed Jumia export mapping',
-      code: 'jumia_export_reservation_failed',
-    };
+    if (clearError) {
+      return {
+        ok: false,
+        status: 500,
+        error: 'Failed to replace a previously failed Jumia export mapping',
+        code: 'jumia_export_reservation_failed',
+      };
+    }
   }
 
   const mappingRows = args.exportVariations.map((variation) => ({
@@ -182,7 +195,7 @@ export async function finalizeJumiaExportReservation(
   return (await persistFeedId()) || (await persistFeedId());
 }
 
-export async function markJumiaExportReservationUnrecoverable(
+export async function markJumiaExportReservationForReconciliation(
   supabase: SupabaseClient,
   args: {
     merchantId: string;
@@ -192,12 +205,15 @@ export async function markJumiaExportReservationUnrecoverable(
     feedId: string;
     exportVariations: ExportVariation[];
   }
-): Promise<void> {
+): Promise<boolean> {
   const skus = args.exportVariations.map((variation) => variation.sellerSku);
-  await supabase
+  const { error } = await supabase
     .from('jumia_product_mappings')
     .update({
-      sync_status: 'error',
+      last_feed_id: args.feedId,
+      // Keep the accepted feed pending so feed-status reconciliation can
+      // recover the mapping even when finalization itself failed.
+      sync_status: 'pending',
       sync_error: `Jumia accepted feed ${args.feedId}, but the local mapping could not store the feed ID`,
       last_synced_at: new Date().toISOString(),
     })
@@ -208,6 +224,8 @@ export async function markJumiaExportReservationUnrecoverable(
     .eq('sync_status', 'pending')
     .is('last_feed_id', null)
     .in('jumia_sku', skus);
+
+  return !error;
 }
 
 export async function releaseJumiaExportReservation(

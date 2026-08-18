@@ -357,4 +357,65 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DO $$
+DECLARE
+  v_user_id uuid := '9f100000-0000-4000-8000-000000000001';
+  v_merchant_id uuid := '9f100000-0000-4000-8000-000000000002';
+  v_distinct_count integer;
+BEGIN
+  SELECT count(*)
+  INTO v_distinct_count
+  FROM public.persist_jumia_self_authorization(
+    v_merchant_id,
+    repeat('a', 64),
+    repeat('d', 32),
+    now() + interval '1 hour',
+    now() + interval '30 days',
+    ARRAY['shop-2', 'shop-2'],
+    ARRAY['Shop Two', 'Shop Two'],
+    ARRAY['NG', 'NG'],
+    ARRAY['Nigeria', 'Ghana'],
+    ARRAY['NG', 'GH']
+  );
+
+  IF v_distinct_count IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'same-shop distinct business-client selections were not preserved';
+  END IF;
+
+  IF (SELECT count(*)
+      FROM public.marketplace_integrations
+      WHERE merchant_id = v_merchant_id
+        AND platform = 'jumia'
+        AND shop_id = 'shop-2'
+        AND is_active = true) IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'same-shop distinct business-client integrations were not stored';
+  END IF;
+
+  INSERT INTO public.marketplace_integrations (
+    merchant_id, platform, shop_id, marketplace_key, country_code,
+    connection_method, is_active
+  ) VALUES (
+    v_merchant_id, 'jumia', 'shop-3', 'default', 'NG', 'oauth', true
+  );
+
+  BEGIN
+    PERFORM public.persist_jumia_self_authorization(
+      v_merchant_id,
+      repeat('a', 64),
+      repeat('e', 32),
+      now() + interval '1 hour',
+      now() + interval '30 days',
+      ARRAY['shop-3'],
+      ARRAY['Shop Three'],
+      ARRAY['NG'],
+      ARRAY['Nigeria'],
+      ARRAY['NG']
+    );
+    RAISE EXCEPTION 'self-authorization did not reject an active OAuth shop';
+  EXCEPTION WHEN unique_violation THEN
+    NULL;
+  END;
+END;
+$$ LANGUAGE plpgsql;
+
 ROLLBACK;

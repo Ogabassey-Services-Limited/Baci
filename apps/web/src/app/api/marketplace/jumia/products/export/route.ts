@@ -12,7 +12,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import {
   finalizeJumiaExportReservation,
-  markJumiaExportReservationUnrecoverable,
+  markJumiaExportReservationForReconciliation,
   releaseJumiaExportReservation,
   reserveJumiaExportMappings,
 } from './export-product-reservation';
@@ -256,21 +256,23 @@ export async function POST(req: NextRequest) {
         message: 'Jumia export mapping finalize failed',
         feed_id: feedId,
       });
-      await markJumiaExportReservationUnrecoverable(supabase, {
-        merchantId,
-        productId: reservation.productId,
-        shopId: jumia.shopId,
-        marketplaceKey: jumia.marketplaceKey,
-        feedId,
-        exportVariations,
-      });
+      const reconciliationRecorded =
+        await markJumiaExportReservationForReconciliation(supabase, {
+          merchantId,
+          productId: reservation.productId,
+          shopId: jumia.shopId,
+          marketplaceKey: jumia.marketplaceKey,
+          feedId,
+          exportVariations,
+        });
       return NextResponse.json(
         {
           success: false,
           partial: true,
           feedId,
-          error:
-            'Product export initiated but local mapping failed to save feed ID. Retry the export to recover.',
+          error: reconciliationRecorded
+            ? 'Product export initiated but local mapping failed to save feed ID. Feed-status reconciliation will recover the accepted feed.'
+            : 'Product export initiated, but automatic reconciliation could not be recorded. Contact support and provide the feed ID.',
         },
         { status: 207 }
       );

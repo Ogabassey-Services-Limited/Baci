@@ -57,6 +57,7 @@ describe('validateJumiaSelfAuthorization', () => {
     expect(result.shops).toEqual([
       {
         id: 'shop-1',
+        businessClientCode: 'NG',
         name: 'Merchant Shop',
         countryCode: 'NG',
         marketplace: 'Jumia Nigeria',
