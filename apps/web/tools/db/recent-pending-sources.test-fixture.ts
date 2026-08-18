@@ -178,6 +178,16 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260818140000_jumia_authorization_manage_load_compatibility.sql',
+    sha256: 'e496722654c36b1b42d81d5e1d5e3064e45641fd47f15a217073538f92fba045',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260818150000_jumia_self_authorization_business_client_persistence.sql',
+    sha256: 'd0e8e57379bc2480f430912ce952cb40d4258187881ff54bf2fceec06bf8a1fe',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260821171051_google_ads_connections_and_spend.sql',
     sha256: '1994ba5d58f278013d01a6b5f8ba0871f980a0f7223c0321875d4d5013df3c05',
   },
