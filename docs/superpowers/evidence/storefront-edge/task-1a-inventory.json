@@ -20,14 +20,28 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "6720d2843233301ca643c63f4cf4266b7fa6ee10",
+  "originMainSha": "c3fcc0f333028fc56937f0cf814cce6c56157d49",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "e4984bbdc0affcc7c3d39ac853752398bf5f585b43a834f71b033a8c4a6fecd6",
-  "routingProxyInputSha256": "d1bede89d41cbfdd941a35b84135e186f02c1a19f802e34e4c913ea407d80052",
+  "routingProxyInputSha256": "a98ae4ea0d923edc75694395945ce3ecc675afdbfbde996576936c383262b228",
   "rows": [
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:no-trailing-slash",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "trailing_slash_canonicalization",
+      "routePattern": "/{*document}/",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "trailing_slash_excluding_well_known"
+      }
+    },
     {
       "decision": "origin_dynamic",
       "id": "api-route:agentic/carts/route.ts",
@@ -2619,6 +2633,214 @@
     {
       "decision": "origin_dynamic",
       "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-video-panel-youtube-thumbnail",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogVideoPanel.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-video-panel-youtube-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogVideoPanel.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:chat-markdown-image",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/chat/markdown-renderer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:chat-markdown-link-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/chat/markdown-renderer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_carrier_tracking_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:track-order-carrier-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/track-order/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_mycover_flow_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:mycover-flow-client-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-client.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_mycover_flow_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:mycover-flow-footer-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-footer-actions.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_mycover_certificate_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:mycover-certificate-client-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-client.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_mycover_certificate_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:mycover-certificate-footer-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-footer-actions.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:post-purchase-google-review-order-success",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/order-success-page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:post-purchase-google-review-checkout-success",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/success/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:post-purchase-google-review-commerce-order-success",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(commerce)/order-success/page.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_google_maps_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:post-purchase-google-review-customer-order",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/customer-order-actions.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
         "hostKind": "configured_merchant_social_origin",
         "precedence": "before_path_decision"
       },
@@ -2682,86 +2904,6 @@
     },
     {
       "decision": "origin_dynamic",
-      "id": "server-action:blog-post-view-count",
-      "methods": [
-        "POST"
-      ],
-      "reason": "automatic_blog_view_count",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "next-action"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/blog/{postSlug}",
-      "sourceKind": "automatic_subresource",
-      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "server-action:blog-post-view-count-slug-prefixed",
-      "methods": [
-        "POST"
-      ],
-      "reason": "automatic_blog_view_count",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "next-action"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
-      "sourceKind": "automatic_subresource",
-      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "server-action:repair-booking",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_server_action",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "next-action"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/repair",
-      "sourceKind": "server_action",
-      "sourcePath": "apps/web/src/app/actions/repair.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "server-action:repair-booking-slug-prefixed",
-      "methods": [
-        "POST"
-      ],
-      "reason": "explicit_storefront_server_action",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "next-action"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/repair",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourceKind": "server_action",
-      "sourcePath": "apps/web/src/app/actions/repair.ts"
-    },
-    {
-      "decision": "origin_dynamic",
       "id": "proxy:auth-confirm",
       "methods": [
         "GET",
@@ -2812,20 +2954,6 @@
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "api_prefix_passthrough"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:no-trailing-slash",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "trailing_slash_canonicalization",
-      "routePattern": "/{*document}/",
-      "sourceKind": "proxy_path_class",
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "trailing_slash_excluding_well_known"
       }
     },
     {
@@ -3882,6 +4010,86 @@
         ],
         "precedence": "before_path_decision"
       }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "server-action:blog-post-view-count",
+      "methods": [
+        "POST"
+      ],
+      "reason": "automatic_blog_view_count",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "next-action"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/blog/{postSlug}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "server-action:blog-post-view-count-slug-prefixed",
+      "methods": [
+        "POST"
+      ],
+      "reason": "automatic_blog_view_count",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "next-action"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/actions.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "server-action:repair-booking",
+      "methods": [
+        "POST"
+      ],
+      "reason": "explicit_storefront_server_action",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "next-action"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/repair",
+      "sourceKind": "server_action",
+      "sourcePath": "apps/web/src/app/actions/repair.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "server-action:repair-booking-slug-prefixed",
+      "methods": [
+        "POST"
+      ],
+      "reason": "explicit_storefront_server_action",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "next-action"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/repair",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourceKind": "server_action",
+      "sourcePath": "apps/web/src/app/actions/repair.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -8034,5 +8242,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "e84706ff28a633aa34220eaf38f19c3db2331a66197dee3c105933d703802a1c"
+  "inventorySha256": "2332933dff614d9f84879b58068681f1c44abc572ec3789f6eef2bb40c4839cb"
 }
