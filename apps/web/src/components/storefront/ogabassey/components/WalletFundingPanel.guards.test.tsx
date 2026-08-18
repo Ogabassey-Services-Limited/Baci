@@ -17,25 +17,49 @@ describe('WalletFundingPanel CTA guards', () => {
     [
       'phone persistence is unavailable',
       { customerPhone: '', merchantSlug: 'ogabassey' },
+      true,
+      true,
     ],
     [
       'merchant context is unresolved',
       { customerPhone: undefined, merchantSlug: undefined },
+      true,
+      false,
     ],
-  ])('disables account creation when %s', (_reason, overrides) => {
-    render(
-      <WalletFundingPanel
-        account={null}
-        merchantSlug={overrides.merchantSlug}
-        customerPhone={overrides.customerPhone}
-        onAccountCreated={vi.fn()}
-        requiresConsent={true}
-        surface="utility_modal"
-      />
-    );
+    [
+      'phone and merchant context are available',
+      { customerPhone: '08012345678', merchantSlug: 'ogabassey' },
+      false,
+      false,
+    ],
+  ])(
+    'gates account creation when %s',
+    (_reason, overrides, disabled, unavailable) => {
+      render(
+        <WalletFundingPanel
+          account={null}
+          merchantSlug={overrides.merchantSlug}
+          customerPhone={overrides.customerPhone}
+          onAccountCreated={vi.fn()}
+          requiresConsent={true}
+          surface="utility_modal"
+        />
+      );
 
-    expect(
-      screen.getByRole('button', { name: /get my account number/i })
-    ).toBeDisabled();
-  });
+      if (unavailable) {
+        expect(
+          screen.getByText(/bank transfer funding is not available/i)
+        ).toBeInTheDocument();
+      }
+
+      const button = screen.getByRole('button', {
+        name: /get my account number/i,
+      });
+      if (disabled) {
+        expect(button).toBeDisabled();
+      } else {
+        expect(button).toBeEnabled();
+      }
+    }
+  );
 });

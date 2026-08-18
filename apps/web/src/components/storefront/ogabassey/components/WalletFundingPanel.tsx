@@ -4,7 +4,7 @@ import type {
   StorefrontWalletFundingAccount,
   StorefrontWalletTransaction,
 } from '@baci/shared';
-import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Landmark, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { captureClientEvent } from '@/lib/posthog/capture-client-event';
@@ -16,6 +16,7 @@ import { isWalletFundingCheckLoopEnabled } from '@/lib/wallet-funding-check-loop
 import { requestFundingAccount } from './wallet-funding-account-request';
 import { useWalletFundingCreditPoll } from './use-wallet-funding-credit-poll';
 import { WalletFundingCheckStatus } from './WalletFundingCheckStatus';
+import { WalletFundingConsent } from './WalletFundingConsent';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
 import { WalletFundingPhonePrompt } from './WalletFundingPhonePrompt';
 
@@ -68,6 +69,7 @@ export function WalletFundingPanel({
   const [error, setError] = useState<string | null>(null);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
   const [phonePromptOverride, setPhonePromptOverride] = useState(false);
+  const [phoneRetryPending, setPhoneRetryPending] = useState(false);
   const [savedPhone, setSavedPhone] = useState<string | null>(null);
   const [surfaceReported, setSurfaceReported] = useState(false);
   // Id of the detected top-up. The return-to-purchase CTA stays gated until the
@@ -155,6 +157,7 @@ export function WalletFundingPanel({
         result.reason === WALLET_FUNDING_TELEMETRY.reasons.customerPhoneRequired
       ) {
         setPhonePromptOverride(true);
+        setPhoneRetryPending(true);
       }
       setError(result.message);
     }
@@ -180,6 +183,11 @@ export function WalletFundingPanel({
   };
 
   useEffect(() => {
+    if (phoneRetryPending && !needsPhone && merchantSlug) {
+      setPhoneRetryPending(false);
+      void handleCreate();
+      return;
+    }
     if (
       !autoCreate ||
       autoCreateAttempted ||
@@ -263,29 +271,13 @@ export function WalletFundingPanel({
       ) : requiresConsent && needsPhone && onUpdateCustomerPhone ? (
         <WalletFundingPhonePrompt onSubmit={handlePhoneSubmit} />
       ) : requiresConsent ? (
-        <>
-          <p className="text-xs text-gray-600">
-            {WALLET_FUNDING_COPY.consentBlurb}
-          </p>
-          <p className="text-xs font-medium text-store-primary">
-            {WALLET_FUNDING_COPY.feeNote}
-          </p>
-          <button
-            type="button"
-            disabled={creating || needsPhone || !merchantSlug}
-            onClick={handleCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-store-primary px-3 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {creating ? (
-              <>
-                <Loader2 className="animate-spin" size={14} />
-                {WALLET_FUNDING_COPY.creating}
-              </>
-            ) : (
-              WALLET_FUNDING_COPY.consentCta
-            )}
-          </button>
-        </>
+        <WalletFundingConsent
+          creating={creating}
+          merchantSlug={merchantSlug}
+          needsPhone={needsPhone}
+          onCreate={handleCreate}
+          showUnavailable={needsPhone && !onUpdateCustomerPhone}
+        />
       ) : (
         <p className="text-xs text-gray-600">
           {WALLET_FUNDING_COPY.unavailable}
