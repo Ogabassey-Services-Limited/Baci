@@ -453,13 +453,17 @@ describe('ProductDetailsPage', () => {
   });
 
   it('keeps negotiation modal behind a dynamic client boundary', () => {
-    const source = readFileSync(
+    const pageSource = readFileSync(
       'src/components/storefront/ogabassey/pages/product-details-page.tsx',
       'utf8'
     );
+    const lazySource = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page/product-details-page-lazy-components.ts',
+      'utf8'
+    );
 
-    expect(source).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
-    expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
+    expect(pageSource).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
+    expect(lazySource).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
   it('forwards the product brand to the negotiation modal for brand-aware policy', () => {
@@ -494,15 +498,19 @@ describe('ProductDetailsPage', () => {
   });
 
   it('keeps post-action modal and cart animation code out of the initial client graph', () => {
-    const source = readFileSync(
+    const pageSource = readFileSync(
       'src/components/storefront/ogabassey/pages/product-details-page.tsx',
       'utf8'
     );
+    const lazySource = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page/product-details-page-lazy-components.ts',
+      'utf8'
+    );
 
-    expect(source).not.toMatch(/import\s*{\s*FlyToCartAnimation\s*}\s*from/);
-    expect(source).not.toMatch(/import\s*{\s*SelectionRequiredModal\s*}\s*from/);
-    expect(source).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
-    expect(source).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
+    expect(pageSource).not.toMatch(/import\s*{\s*FlyToCartAnimation\s*}\s*from/);
+    expect(pageSource).not.toMatch(/import\s*{\s*SelectionRequiredModal\s*}\s*from/);
+    expect(lazySource).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
+    expect(lazySource).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
   });
 
   it('uses the real review count and exposes the reviews tab panel semantics', async () => {
