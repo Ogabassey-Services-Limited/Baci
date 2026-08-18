@@ -104,6 +104,13 @@ describe('remediation worker final recovery contracts', () => {
         .length,
       1
     );
+    const promptAction = result.actions.find(
+      (action) => action.type === 'prompt_written'
+    );
+    assert.ok(promptAction);
+    const prompt = readFileSync(promptAction.path, 'utf8');
+    assert.match(prompt, /Research only/);
+    assert.doesNotMatch(prompt, /research was completed and accepted/);
   });
 
   it('rejects journal path collisions before loading candidates', async () => {

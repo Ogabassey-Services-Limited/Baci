@@ -55,6 +55,7 @@ export function runRemediationCodexCanary({
   const command = buildRemediationCodexCommand({
     codexBin: env.CODEX_BIN || 'codex',
     env: commandEnv,
+    enableSearch: false,
     prompt: CANARY_PROMPT,
     readOnly: true,
     repoDir,

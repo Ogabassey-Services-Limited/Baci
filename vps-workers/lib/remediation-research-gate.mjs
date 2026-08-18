@@ -4,6 +4,7 @@ import {
   appendValidatedResearch,
   buildCodexRemediationPrompt,
   buildCodexResearchPrompt,
+  MAX_VALIDATED_RESEARCH_CHARS,
 } from './remediation-policy.mjs';
 import { readPositiveInt } from './remediation-worker-config.mjs';
 
@@ -20,7 +21,6 @@ const MIN_SECTION_LENGTHS = {
   SELECTED_FIX: 12,
   VALIDATION_PLAN: 12,
 };
-const MAX_RESEARCH_REPORT_CHARS = 12_000;
 
 function textFromContent(content) {
   if (typeof content === 'string') return content;
@@ -94,7 +94,7 @@ function sectionFor(text, heading) {
 export function validateCodexResearchResult(stdout) {
   const extracted = extractCodexResearchText(stdout);
   const text = redactCodexOutput(extracted)
-    .slice(0, MAX_RESEARCH_REPORT_CHARS)
+    .slice(0, MAX_VALIDATED_RESEARCH_CHARS)
     .replaceAll('<', '\\u003c')
     .trim();
   const sections = Object.fromEntries(
@@ -118,7 +118,13 @@ export function validateCodexResearchResult(stdout) {
   }
   const optionLines = (sections.OPTIONS_CONSIDERED || '')
     .split(/\r?\n/)
-    .filter((line) => /^\s*(?:[-*]|\d+[.)])\s+\S+/.test(line));
+    .filter((line) =>
+      [
+        /^\s*(?:[-*]|\d+[.)])\s+\S+/,
+        /^\s*(?:#{1,6}\s*)?Option\s+[A-Z0-9]+\s*(?::|[.)-])\s*\S+/i,
+        /^\s*(?:#{1,6}\s*)?Option\s+[A-Z0-9]+\s*$/i,
+      ].some((pattern) => pattern.test(line))
+    );
   if (sections.OPTIONS_CONSIDERED && optionLines.length < 2) {
     reasons.push('research must compare at least two plausible options');
   }
@@ -157,6 +163,7 @@ export function runRemediationCodexPhase({
     readOnly,
     repoDir,
     worktreeDir,
+    enableSearch: true,
   });
   try {
     return runCodex(command.command, command.args, {

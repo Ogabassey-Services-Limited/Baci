@@ -1,17 +1,20 @@
 import { cleanupRemediationWorktree } from './remediation-worktree-cleanup.mjs';
 
 export function cleanupRemediationAttempt(
-  { childEnv, repoDir, runner, worktreeDir },
+  { branch, childEnv, repoDir, runner, worktreeDir },
   cleanupCompletedWorktree,
   cleanupWorktreeOnCompletion,
   committedLocally,
   retainFailedWorktree
 ) {
   if (!cleanupWorktreeOnCompletion) return;
+  const removeWorktree =
+    cleanupCompletedWorktree || !(committedLocally || retainFailedWorktree);
   cleanupRemediationWorktree({
+    branch,
     childEnv,
-    removeWorktree:
-      cleanupCompletedWorktree || !(committedLocally || retainFailedWorktree),
+    removeBranch: removeWorktree && !committedLocally,
+    removeWorktree,
     repoDir,
     runner,
     worktreeDir,

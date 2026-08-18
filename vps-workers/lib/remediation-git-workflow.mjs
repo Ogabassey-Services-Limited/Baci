@@ -276,7 +276,7 @@ export function runRemediationAutofix({
     };
   } finally {
     cleanupRemediationAttempt(
-      { childEnv, repoDir, runner, worktreeDir },
+      { branch, childEnv, repoDir, runner, worktreeDir },
       cleanupCompletedWorktree,
       cleanupWorktreeOnCompletion,
       committedLocally,
