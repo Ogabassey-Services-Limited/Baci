@@ -158,6 +158,19 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('filters bare catalog titles with embedded alphanumeric model tokens', () => {
+    const description = 'Galaxy S24 Ultra. Storage: 256GB.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('');
+  });
+
+  it('filters lowercase enum catalog values for common specification labels', () => {
+    const description =
+      'Color: silver. Platform: ios. Connectivity: wifi. Built for reliable all-day performance.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('preserves marketing prose that mentions trademarked feature names', () => {
     const description = 'Retina® display brings stunning clarity.';
     const result = buildDescriptionExcerpt(description);

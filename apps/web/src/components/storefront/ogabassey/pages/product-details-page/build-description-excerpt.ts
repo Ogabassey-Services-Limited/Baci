@@ -1,3 +1,20 @@
+function isEnumCatalogLabel(label: string): boolean {
+  return ['color', 'colour', 'condition', 'platform', 'connectivity'].includes(
+    label.toLowerCase().trim()
+  );
+}
+
+function isEnumCatalogValue(value: string): boolean {
+  const trimmed = value.replace(/[.!?]+$/, '').trim();
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  if (words.length !== 1) {
+    return false;
+  }
+
+  return /^[a-z][a-z0-9_-]*$/i.test(words[0]);
+}
+
 function isSpecValue(value: string): boolean {
   const trimmed = value.replace(/[.!?]+$/, '').trim();
   const words = trimmed.split(/\s+/).filter(Boolean);
@@ -82,6 +99,11 @@ function isSpecSentence(sentence: string): boolean {
     const value = knownLabelMatch[1].trim();
     if (!value) return true;
 
+    const label = knownLabelMatch[0].split(':')[0];
+    if (isEnumCatalogLabel(label) && isEnumCatalogValue(value)) {
+      return true;
+    }
+
     return isSpecValue(value);
   }
 
@@ -137,9 +159,11 @@ function isProductTitleSentence(sentence: string): boolean {
     return true;
   }
 
-  const hasModelDigits = /\b\d{2,}\b/.test(trimmed);
+  const hasModelDigits =
+    /\b\d{2,}\b/.test(trimmed) ||
+    words.some((word) => /[A-Za-z]+\d+[A-Za-z]*/.test(word));
   const nameLikeTokens = words.filter((word) =>
-    /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d[\w.]*)$/.test(word)
+    /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d[\w.]*|[A-Za-z]*\d+[A-Za-z]*)$/.test(word)
   ).length;
 
   if (hasModelDigits && nameLikeTokens >= 2 && words.length <= 8) {
