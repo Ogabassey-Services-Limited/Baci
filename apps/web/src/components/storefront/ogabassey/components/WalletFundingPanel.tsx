@@ -272,7 +272,7 @@ export function WalletFundingPanel({
           </p>
           <button
             type="button"
-            disabled={creating}
+            disabled={creating || needsPhone || !merchantSlug}
             onClick={handleCreate}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-store-primary px-3 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
           >
