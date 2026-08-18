@@ -5,9 +5,9 @@ import {
   type InternationalShipmentOrderItem,
   toInternationalShipmentItemsFromOrder,
 } from '@/lib/shipping/international-shipment-items';
+import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
   buildReceiver,
-  buildSender,
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
@@ -59,6 +59,8 @@ type MerchantRecord = {
   business_name: string | null;
   business_address: string | null;
   phone: string | null;
+  registered_address: unknown;
+  state_code: string | null;
 };
 
 type ExistingShipmentRecord = {
@@ -318,7 +320,9 @@ export async function bookOrderShipment(
   );
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
-    .select('business_name, business_address, phone')
+    .select(
+      'business_name, business_address, phone, registered_address, state_code'
+    )
     .eq('id', merchantId)
     .single();
   const typedMerchant = merchant as MerchantRecord | null;
@@ -361,10 +365,17 @@ export async function bookOrderShipment(
           phone: orderReceiver.phone,
         }
       : orderReceiver;
+  const merchantSender = buildMerchantSenderInfo({
+    businessAddress: typedMerchant.business_address,
+    businessName: typedMerchant.business_name,
+    phone: typedMerchant.phone,
+    registeredAddress: typedMerchant.registered_address,
+    stateCode: typedMerchant.state_code,
+  });
   const sender =
     isGiglInternationalQuote && storedQuoteRequest?.sender
       ? storedQuoteRequest.sender
-      : buildSender(typedMerchant);
+      : merchantSender;
   const items =
     isGiglInternationalQuote && storedQuoteRequest
       ? toInternationalShipmentItemsFromOrder(

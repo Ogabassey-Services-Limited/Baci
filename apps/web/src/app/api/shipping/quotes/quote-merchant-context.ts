@@ -4,7 +4,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { deriveMerchantLocation } from '@/lib/shipping/order-shipment-booking-utils';
+import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import type { ShippingAddress } from '@/lib/shipping/types';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -20,6 +20,8 @@ type MerchantDetails = {
   phone: string | null;
   country: string | null;
   payout_currency: string | null;
+  registered_address: unknown;
+  state_code: string | null;
 };
 
 export type QuoteMerchantContextResult =
@@ -186,7 +188,9 @@ async function resolveMerchantDetails(
 ): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
   const { data, error } = await supabase
     .from('merchants')
-    .select('business_name, business_address, phone, country, payout_currency')
+    .select(
+      'business_name, business_address, phone, country, payout_currency, registered_address, state_code'
+    )
     .eq('id', merchantId)
     .maybeSingle();
 
@@ -200,19 +204,6 @@ async function resolveMerchantDetails(
   }
 
   return (data as MerchantDetails | null) ?? null;
-}
-
-function buildSenderInfo(details: MerchantDetails): ShippingAddress {
-  const location = deriveMerchantLocation(details.business_address);
-  return {
-    name: details.business_name || 'Merchant',
-    phone: details.phone || '',
-    address: location.address,
-    city: location.city,
-    state: location.state,
-    country: 'Nigeria',
-    countryCode: 'NG',
-  };
 }
 
 export async function resolveQuoteMerchantContext({
@@ -270,7 +261,13 @@ export async function resolveQuoteMerchantContext({
       merchantCountry = details.country;
       merchantPayoutCurrency = details.payout_currency;
       if (data.shipmentType === 'international' || !senderInfo) {
-        senderInfo = buildSenderInfo(details);
+        senderInfo = buildMerchantSenderInfo({
+          businessAddress: details.business_address,
+          businessName: details.business_name,
+          phone: details.phone,
+          registeredAddress: details.registered_address,
+          stateCode: details.state_code,
+        });
       }
     }
   }

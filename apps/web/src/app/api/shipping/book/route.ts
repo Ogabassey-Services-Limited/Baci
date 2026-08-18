@@ -7,8 +7,8 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
+import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
-  deriveMerchantLocation,
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
@@ -124,25 +124,20 @@ export async function POST(request: NextRequest) {
     if (!senderInfo) {
       const { data: merchantDetails } = await supabase
         .from('merchants')
-        .select('business_name, business_address, phone')
+        .select(
+          'business_name, business_address, phone, registered_address, state_code'
+        )
         .eq('id', merchantId)
         .single();
 
-      const location = deriveMerchantLocation(
-        merchantDetails?.business_address
-      );
-      senderInfo = {
-        name:
-          merchantDetails?.business_name ||
-          merchantContext.businessName ||
-          'Merchant',
-        phone: merchantDetails?.phone || '',
-        address: location.address,
-        city: location.city,
-        state: location.state,
-        country: 'Nigeria',
-        countryCode: 'NG',
-      };
+      senderInfo = buildMerchantSenderInfo({
+        businessAddress: merchantDetails?.business_address ?? null,
+        businessName:
+          merchantDetails?.business_name ?? merchantContext.businessName,
+        phone: merchantDetails?.phone ?? null,
+        registeredAddress: merchantDetails?.registered_address,
+        stateCode: merchantDetails?.state_code ?? null,
+      });
     }
 
     const quotePayload = resolveBookingQuoteRequestPayload(
