@@ -1,6 +1,9 @@
 import { existsSync, lstatSync, mkdirSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+export const REMEDIATION_VERIFY_COMMAND =
+  'pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test';
+
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
 }
@@ -91,13 +94,14 @@ function addDependencyMounts({
 export function buildRemediationCodexCommand({
   codexBin,
   env,
+  enableSearch = true,
   prompt,
   readOnly = false,
   repoDir,
   worktreeDir,
 }) {
   const codexArgs = [
-    ...(readOnly ? [] : ['--search']),
+    ...(enableSearch ? ['--search'] : []),
     'exec',
     '--json',
     '--ephemeral',
@@ -170,14 +174,14 @@ export function buildRemediationCodexCommand({
     '-lc',
     'umask 077; mkdir -p "$CODEX_HOME"; chmod 700 "$CODEX_HOME"; cp /codex-auth/auth.json "$CODEX_HOME/auth.json"; chmod 600 "$CODEX_HOME/auth.json"; exec /opt/codex/bin/codex "$@"',
     'codex',
-    ...(readOnly ? [] : ['--search']),
+    ...(enableSearch ? ['--search'] : []),
     ...(readOnly ? [] : ['--enable', 'use_legacy_landlock']),
     'exec',
     '--json',
     '--ephemeral',
     '--skip-git-repo-check',
     ...(readOnly
-      ? ['--sandbox', 'workspace-write']
+      ? ['--sandbox', 'read-only']
       : ['--dangerously-bypass-approvals-and-sandbox']),
     '--ignore-user-config',
     '-C',
@@ -195,9 +199,9 @@ export function buildRemediationCodexCommand({
 export function buildRemediationVerificationCommand({
   env,
   repoDir,
-  verifyCommand,
   worktreeDir,
 }) {
+  const verifyCommand = REMEDIATION_VERIFY_COMMAND;
   const image = env.BACI_CODEX_DOCKER_IMAGE;
   if (!image) {
     return { args: ['-lc', verifyCommand], command: 'bash' };

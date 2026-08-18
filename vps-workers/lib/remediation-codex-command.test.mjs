@@ -23,7 +23,7 @@ describe('remediation Codex command', () => {
     assert.equal(result.args.includes('--json'), true);
   });
 
-  it('omits search for the native read-only canary command', () => {
+  it('enables search for a native read-only research command', () => {
     const result = buildRemediationCodexCommand({
       codexBin: 'codex',
       env: { HOME: '/home/worker' },
@@ -33,9 +33,23 @@ describe('remediation Codex command', () => {
       worktreeDir: '/repo',
     });
 
-    assert.equal(result.args.includes('--search'), false);
+    assert.equal(result.args.includes('--search'), true);
     assert.equal(result.args.includes('--sandbox'), true);
     assert.equal(result.args.includes('read-only'), true);
+  });
+
+  it('allows the read-only canary to disable web search explicitly', () => {
+    const result = buildRemediationCodexCommand({
+      codexBin: 'codex',
+      enableSearch: false,
+      env: { HOME: '/home/worker' },
+      prompt: 'Return a canary response only.',
+      readOnly: true,
+      repoDir: '/repo',
+      worktreeDir: '/repo',
+    });
+
+    assert.equal(result.args.includes('--search'), false);
   });
 
   it('isolates VPS Codex inside a capability-free Docker container', () => {
@@ -116,6 +130,7 @@ describe('remediation Codex command', () => {
         CODEX_HOME: '/home/worker/.codex',
         HOME: '/home/worker',
       },
+      enableSearch: false,
       prompt: 'Return a canary response only.',
       readOnly: true,
       repoDir: '/repo',
@@ -125,7 +140,8 @@ describe('remediation Codex command', () => {
     assert.equal(result.args.includes('--read-only'), true);
     assert.equal(result.args.includes('--search'), false);
     assert.equal(result.args.includes('--sandbox'), true);
-    assert.equal(result.args.includes('workspace-write'), true);
+    assert.equal(result.args.includes('read-only'), true);
+    assert.equal(result.args.includes('workspace-write'), false);
     assert.equal(
       result.args.includes('--dangerously-bypass-approvals-and-sandbox'),
       false

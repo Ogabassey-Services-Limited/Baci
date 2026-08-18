@@ -110,7 +110,6 @@ BACI_REPO_DIR=/opt/baci/app
 CI=true
 PUPPETEER_SKIP_DOWNLOAD=1
 BACI_REMEDIATION_WORKTREE_ROOT=/opt/baci/remediation-worktrees
-BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
 SENTRY_REMEDIATION_AUTH_TOKEN=...
 SENTRY_ORG=...
@@ -166,7 +165,7 @@ Variable purposes:
 - `CI`: Keep set to `true` for cron/systemd worker runs so package-manager checks fail or repair non-interactively instead of prompting in a headless shell.
 - `PUPPETEER_SKIP_DOWNLOAD`: Keep set to `1` for worker wrappers. The import/Jumia/AI wrappers do not need Puppeteer's managed browser, and skipping the browser download prevents dependency bootstrap from blocking cron jobs when a checkout is refreshed.
 - `BACI_REMEDIATION_WORKTREE_ROOT`: Directory where isolated remediation worktrees are created. Defaults beside `BACI_REPO_DIR`.
-- `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in the same dependency-mounted remediator image used by Codex.
+- `BACI_REMEDIATION_RETAIN_FAILED_WORKTREE`: Set to `1` only for bounded debugging when an uncommitted failed attempt must be inspected. The default removes failed uncommitted worktrees and all per-run pnpm stores; committed attempts retain only the worktree needed for push/PR recovery.
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
 - `SENTRY_REMEDIATION_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_URL`: Server-only Sentry issue API configuration used by the mobile remediator. Use a dedicated token with `event:read`; release/source-map upload credentials are not sufficient. These values are deliberately removed from the Codex and test subprocess environments.
 - `BACI_SENTRY_REMEDIATION_MAX_PAGES`: Maximum Sentry issue pages inspected before failing closed. Each page requests Sentry's maximum 100 issues; default is `10` and the hard cap is `50`.

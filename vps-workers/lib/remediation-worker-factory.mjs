@@ -5,7 +5,10 @@ import { createRemediationDraftPrStatusResolver } from './remediation-draft-pr-s
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { reconcileRemediationLifecycle } from './remediation-lifecycle-recovery.mjs';
 import { retryRemediationNotifications } from './remediation-notification-retry.mjs';
-import { buildCodexRemediationPrompt } from './remediation-policy.mjs';
+import {
+  buildCodexRemediationPrompt,
+  buildCodexResearchPrompt,
+} from './remediation-policy.mjs';
 import { createRemediationPrJournal } from './remediation-pr-journal.mjs';
 import { writeRemediationPrompt } from './remediation-prompt-file.mjs';
 import { createRemediationState } from './remediation-state.mjs';
@@ -195,8 +198,11 @@ export function createRemediationWorker({
           continue;
         }
       }
-      const prompt = buildCodexRemediationPrompt({ candidate });
-      const path = writeRemediationPrompt({ candidate, outputDir });
+      const prompt =
+        mode === 'autofix'
+          ? buildCodexRemediationPrompt({ candidate })
+          : buildCodexResearchPrompt({ candidate });
+      const path = writeRemediationPrompt({ candidate, outputDir, prompt });
       actions.push({ path, type: 'prompt_written' });
       logger.log(`[${workerName}] wrote ${path}`);
       if (mode !== 'autofix') {

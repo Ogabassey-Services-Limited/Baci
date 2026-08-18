@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { REMEDIATION_VERIFY_COMMAND } from './remediation-codex-command.mjs';
 import { runRemediationAutofix } from './remediation-git-workflow.mjs';
 import { remediationGitWorkflowTestFixtures } from './remediation-git-workflow.test-helpers.mjs';
 
@@ -161,8 +162,9 @@ describe('remediation git workflow', () => {
       true
     );
     assert.ok(
-      calls.findIndex((call) => call.join(' ') === 'bash -lc pnpm turbo lint') <
-        calls.findIndex((call) => call.includes('push'))
+      calls.findIndex(
+        (call) => call.join(' ') === `bash -lc ${REMEDIATION_VERIFY_COMMAND}`
+      ) < calls.findIndex((call) => call.includes('push'))
     );
     assert.equal(
       calls.some(

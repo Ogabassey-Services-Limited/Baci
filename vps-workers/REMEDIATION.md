@@ -29,8 +29,8 @@ runs Codex in an ephemeral Docker container with all Linux capabilities dropped,
 temporary worktree writable. The deploy script builds the pinned
 `Dockerfile.codex-remediator` image and injects its immutable commit tag into
 both remediation cron entries. The worker then inspects changed files, runs
-`BACI_REMEDIATION_VERIFY_COMMAND` without provider secrets in the same
-dependency-mounted remediator image, pushes a `codex/<source>-remediation-*`
+the immutable lint, typecheck, and test gates without provider secrets in the
+same dependency-mounted remediator image, pushes a `codex/<source>-remediation-*`
 branch, and opens a draft pull request. Each tick handles a bounded candidate
 batch so a noisy incident backlog cannot monopolize the worker.
 
@@ -49,6 +49,21 @@ The worker blocks protected changes to `proxy.ts`, payment/auth/webhook routes,
 payment libraries, migrations, GitHub workflows, and secret files. It never
 merges or requests auto-merge. Branch protection and human review remain
 authoritative; its GitHub token must not bypass required checks or reviews.
+
+Before Codex edits a remediation worktree, the worker runs a separate
+read-only research phase. That phase must reproduce and trace the evidence,
+check installed versions and primary documentation, compare at least two
+plausible fixes, and include an operational or non-code option only when one is
+plausibly available. It must report its confidence and validation plan in the
+required structured headings. If the report is missing, incomplete, or no
+defensible fix is identified, the worker stops before edits, verification, or
+commit. Only an accepted report starts the write-enabled implementation phase;
+that phase runs focused tests in the sandbox while the outer worker owns wider
+pnpm turbo gates. The remediator removes uncommitted failed worktrees and their per-run dependency
+stores by default. A committed-but-not-yet-pushed attempt keeps its worktree
+for push/PR recovery, but its dependency store is removed. Set
+`BACI_REMEDIATION_RETAIN_FAILED_WORKTREE=1` only for bounded debugging; even
+then, the dependency store is removed on terminal cleanup.
 
 `jobs/remediation-codex-canary.mjs` is a daily, Docker-only read-only check of
 the Codex toolchain. It shares the global remediation lock and writes its own
