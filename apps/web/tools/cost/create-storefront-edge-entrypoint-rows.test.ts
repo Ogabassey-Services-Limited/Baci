@@ -5,11 +5,13 @@ import { STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS } from './storefront-edge-en
 const routeRoot = 'apps/web/src/app/(storefront)/[slug]';
 
 function entrypointSource(relativeSourcePath: string) {
+  const isRouteHandler =
+    relativeSourcePath.endsWith('route.ts') ||
+    relativeSourcePath.endsWith('route.js') ||
+    relativeSourcePath.endsWith('route.jsx');
   return {
     bytes: Buffer.from(
-      relativeSourcePath.endsWith('route.ts')
-        ? 'export async function GET() {}'
-        : 'export default function Page() {}'
+      isRouteHandler ? 'export async function GET() {}' : 'export default function Page() {}'
     ),
     sourcePath: `${routeRoot}/${relativeSourcePath}`,
   };
@@ -182,6 +184,34 @@ describe('createStorefrontEdgeEntrypointRows', () => {
       createStorefrontEdgeEntrypointRows(routeRoot, routeSources)
     ).toThrow(
       'storefront entrypoint has no reviewed classification: (subscriptions)/manage/page.tsx'
+    );
+  });
+
+  it('classifies JavaScript route handlers through their route.ts classification', () => {
+    // Arrange
+    const routeSources = [
+      ...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()
+        .filter((path) => path !== '(blog)/blog/[...catchAll]/route.ts')
+        .map(entrypointSource),
+      entrypointSource('(blog)/blog/[...catchAll]/route.js'),
+    ];
+
+    // Act
+    const rows = createStorefrontEdgeEntrypointRows(routeRoot, routeSources);
+
+    // Assert
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'storefront:(blog)/blog/[...catchAll]/route.js',
+          routePattern: '/blog/{*catchAll}',
+        }),
+        expect.objectContaining({
+          id: 'storefront:(blog)/blog/[...catchAll]/route.js:options',
+          methods: ['OPTIONS'],
+          reason: 'automatic_options_response',
+        }),
+      ])
     );
   });
 });

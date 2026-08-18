@@ -41,6 +41,14 @@ function entrypointFileName(relativeSourcePath: string) {
   return relativeSourcePath.split('/').at(-1) ?? '';
 }
 
+function isRouteHandlerFileName(fileName: string) {
+  return (
+    fileName === 'route.ts' ||
+    fileName === 'route.js' ||
+    fileName === 'route.jsx'
+  );
+}
+
 function isEntrypoint(relativeSourcePath: string) {
   const fileName = entrypointFileName(relativeSourcePath);
   return (
@@ -48,7 +56,7 @@ function isEntrypoint(relativeSourcePath: string) {
     fileName === 'page.ts' ||
     fileName === 'page.js' ||
     fileName === 'page.jsx' ||
-    fileName === 'route.ts' ||
+    isRouteHandlerFileName(fileName) ||
     METADATA_ROUTE_SUFFIXES.has(fileName)
   );
 }
@@ -60,6 +68,10 @@ function normalizeClassificationPath(relativeSourcePath: string) {
     return `${relativeSourcePath.slice(0, -'page.js'.length)}page.tsx`;
   if (relativeSourcePath.endsWith('page.jsx'))
     return `${relativeSourcePath.slice(0, -'page.jsx'.length)}page.tsx`;
+  if (relativeSourcePath.endsWith('route.js'))
+    return `${relativeSourcePath.slice(0, -'route.js'.length)}route.ts`;
+  if (relativeSourcePath.endsWith('route.jsx'))
+    return `${relativeSourcePath.slice(0, -'route.jsx'.length)}route.ts`;
   return relativeSourcePath;
 }
 
@@ -133,7 +145,9 @@ export function createStorefrontEdgeEntrypointRows(
     return isEntrypoint(sourcePath.slice(prefix.length));
   });
   const discoveredEntrypoints = new Set(
-    entrypointSources.map(({ sourcePath }) => sourcePath.slice(prefix.length))
+    entrypointSources.map(({ sourcePath }) =>
+      normalizeClassificationPath(sourcePath.slice(prefix.length))
+    )
   );
   for (const expected of STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS) {
     if (!discoveredEntrypoints.has(expected))
@@ -183,7 +197,7 @@ export function createStorefrontEdgeEntrypointRows(
       },
     };
     if (
-      (relativeSourcePath.endsWith('route.ts') ||
+      (isRouteHandlerFileName(entrypointFileName(relativeSourcePath)) ||
         METADATA_ROUTE_SUFFIXES.has(entrypointFileName(relativeSourcePath))) &&
       methods.length > 0 &&
       !methods.includes('OPTIONS')
