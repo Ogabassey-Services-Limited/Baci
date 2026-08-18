@@ -41,4 +41,22 @@ describe('buildMerchantSenderInfo', () => {
 
     expect(sender.state).toBe('Abuja');
   });
+
+  it('preserves numeric registered postal codes', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '2 Olaide Tomori Street, Ikeja, Lagos',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: {
+        city: 'Ikeja',
+        country: 'Nigeria',
+        postal_code: 100001,
+        state: 'Lagos',
+        street: '2 Olaide Tomori Street',
+      },
+      stateCode: 'LA',
+    });
+
+    expect(sender.postalCode).toBe('100001');
+  });
 });

@@ -26,14 +26,21 @@ function readString(
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
+function readPostalCode(record: Record<string, unknown>): string | null {
+  const value = record.postal_code ?? record.postalCode;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
 function parseRegisteredAddress(value: unknown): RegisteredAddress | null {
   if (!isRecord(value)) return null;
 
   const address: RegisteredAddress = {
     city: readString(value, 'city'),
     country: readString(value, 'country'),
-    postal_code:
-      readString(value, 'postal_code') ?? readString(value, 'postalCode'),
+    postal_code: readPostalCode(value),
     state: readString(value, 'state'),
     street: readString(value, 'street'),
   };
@@ -63,12 +70,7 @@ function resolveStateFromCode(stateCode: string | null): string | null {
 }
 
 function formatRegisteredAddress(address: RegisteredAddress): string {
-  return [
-    address.street,
-    address.city,
-    address.state,
-    address.postal_code ?? address.postalCode,
-  ]
+  return [address.street, address.city, address.state, address.postal_code]
     .map((part) => part?.trim() ?? '')
     .filter(Boolean)
     .join(', ');
@@ -95,9 +97,6 @@ export function buildMerchantSenderInfo(
     state: state || (hasLetters(location.state) ? location.state : 'Lagos'),
     country: 'Nigeria',
     countryCode: 'NG',
-    postalCode:
-      registeredAddress?.postal_code ??
-      registeredAddress?.postalCode ??
-      undefined,
+    postalCode: registeredAddress?.postal_code ?? undefined,
   };
 }
