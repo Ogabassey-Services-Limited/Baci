@@ -45,7 +45,7 @@ describe('ConnectJumiaDialog', () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/web application oauth/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/temporary.*requires re-login when the token expires/i)
+      screen.getByText(/temporary.*re-login after.*token expires/i)
     ).toBeInTheDocument();
 
     const link = screen.getByRole('link', { name: /connect with jumia/i });

@@ -17,6 +17,12 @@ const CREDENTIALS = {
   accessToken: 'short-lived-access-token',
 };
 
+function flipFirstBase64UrlByte(value: string): string {
+  const bytes = Buffer.from(value, 'base64url');
+  bytes[0] = (bytes[0] ?? 0) ^ 1;
+  return bytes.toString('base64url');
+}
+
 describe('Jumia authorization encryption', () => {
   it('round-trips credentials with authenticated encryption', () => {
     const ciphertext = jumiaAuthorizationCrypto.encrypt(
@@ -78,7 +84,13 @@ describe('Jumia authorization encryption', () => {
       KEY,
       CONTEXT
     );
-    const tampered = `${ciphertext.slice(0, -1)}${ciphertext.endsWith('A') ? 'B' : 'A'}`;
+    const envelope = JSON.parse(
+      Buffer.from(ciphertext, 'base64url').toString('utf8')
+    ) as { data: string };
+    envelope.data = flipFirstBase64UrlByte(envelope.data);
+    const tampered = Buffer.from(JSON.stringify(envelope), 'utf8').toString(
+      'base64url'
+    );
 
     expect(() =>
       jumiaAuthorizationCrypto.decrypt(tampered, KEY, CONTEXT)
@@ -94,9 +106,7 @@ describe('Jumia authorization encryption', () => {
     const envelope = JSON.parse(
       Buffer.from(ciphertext, 'base64url').toString('utf8')
     ) as { tag: string };
-    envelope.tag = `${envelope.tag.slice(0, -1)}${
-      envelope.tag.endsWith('A') ? 'B' : 'A'
-    }`;
+    envelope.tag = flipFirstBase64UrlByte(envelope.tag);
     const tampered = Buffer.from(JSON.stringify(envelope), 'utf8').toString(
       'base64url'
     );

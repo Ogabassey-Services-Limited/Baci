@@ -8,18 +8,14 @@ import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
-import { JumiaClient } from '@/lib/jumia/client';
 import { getJumiaRedirectUri } from '@/lib/jumia/helpers';
-import {
-  getActiveSelfAuthorizedJumiaShopIds,
-  getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
-} from '@/lib/jumia/jumia-oauth-self-authorization-conflict';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
 import { logger } from '@/lib/logger';
 import { getMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { runJumiaOAuthCallbackDiagnostic } from './oauth-diagnostic';
 import { parseJumiaOAuthDiagnosticContext } from './oauth-diagnostic-context';
 import { exchangeJumiaOAuthTokens } from './oauth-exchange';
+import { persistJumiaOAuthConnection } from './oauth-persistence';
 import { jumiaOAuthCallbackRedirect } from './oauth-redirect';
 
 /** RFC 6749 standard error codes plus common Jumia-specific ones. */
@@ -224,164 +220,32 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
-
-    const tempClient = new JumiaClient({
-      integrationId: 'temp',
+    const persistence = await persistJumiaOAuthConnection({
       merchantId,
-      shopId: 'oauth',
-      marketplaceKey: 'oauth',
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || '',
-      tokenExpiresAt: tokenExpiresAt,
       supabase: auth.supabase,
+      tokens,
     });
-
-    let discoveredShops: Awaited<ReturnType<typeof tempClient.getShops>>;
-    try {
-      discoveredShops = await tempClient.getShops();
-    } catch (shopError) {
-      logger.error({
-        message: 'Jumia Callback Failed to fetch shops, using fallback',
-        merchantId,
-        error:
-          shopError instanceof Error
-            ? {
-                message: shopError.message,
-                code: (shopError as Error & { code?: string }).code,
-              }
-            : 'Unknown error',
-      });
-      discoveredShops = [];
-    }
-    const supabase = auth.supabase;
-    const { data: existingIntegrations, error: existingIntegrationsError } =
-      await supabase
-        .from('marketplace_integrations')
-        .select('shop_id,is_active,connection_method')
-        .eq('merchant_id', merchantId)
-        .eq('platform', 'jumia');
-
-    if (existingIntegrationsError) {
-      logger.error({
-        message: 'Jumia Callback Failed to load existing integrations',
-        merchantId,
-        error: existingIntegrationsError,
-      });
+    if (persistence.status === 'database_error') {
       return jumiaOAuthCallbackRedirect.create(request, {
         error: 'database_error',
       });
     }
-    const existingActiveShopIds = new Set(
-      (existingIntegrations ?? [])
-        .filter((integration) => integration.is_active)
-        .map((integration) => integration.shop_id)
-    );
-    const activeSelfAuthorizedShopIds = getActiveSelfAuthorizedJumiaShopIds(
-      existingIntegrations ?? []
-    );
-
-    let isFallbackShop = false;
-    if (discoveredShops.length === 0) {
-      logger.warn({
-        message: 'Jumia Callback No shops discovered',
-        merchantId,
-      });
-      isFallbackShop = true;
-      discoveredShops.push({
-        id: 'oauth',
-        name: 'Jumia Shop',
-        email: '',
-        businessClients: [
-          {
-            name: 'Jumia Nigeria',
-            code: 'jumia_ng',
-            countryCode: 'NG',
-            countryName: 'Nigeria',
-            status: 'active',
-            shortCode: 'NG',
-          },
-        ],
-      });
-    }
-
-    if (!isFallbackShop) {
-      const conflictingShopIds =
-        getJumiaOAuthShopIdsConflictingWithSelfAuthorization(
-          discoveredShops.map((shop) => shop.id),
-          activeSelfAuthorizedShopIds
-        );
-      if (conflictingShopIds.length > 0) {
-        logger.warn({
-          message:
-            'Jumia Callback rejected OAuth because shop already uses self-authorization',
-          merchantId,
-          shopIds: conflictingShopIds,
-        });
-        return jumiaOAuthCallbackRedirect.create(request, {
-          error: 'shop_already_self_authorized',
-          shops: conflictingShopIds.join(','),
-        });
-      }
-    }
-
-    const integrationRows = discoveredShops.map((shop) => ({
-      merchant_id: merchantId,
-      platform: 'jumia' as const,
-      shop_id: shop.id,
-      marketplace_key: 'oauth',
-      shop_name: shop.name || 'Jumia Shop',
-      country_code: shop.businessClients?.some((bc) => bc.countryCode === 'NG')
-        ? 'NG'
-        : (shop.businessClients?.[0]?.countryCode ?? 'NG'),
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token ?? null,
-      token_expires_at: tokenExpiresAt.toISOString(),
-      connection_method: 'oauth' as const,
-      jumia_authorization_id: null,
-      is_active: !isFallbackShop,
-      sync_config: {
-        products: true,
-        orders: true,
-        stock: true,
-        businessClients: shop.businessClients ?? [],
-      },
-    }));
-
-    const { error: insertError } = await supabase
-      .from('marketplace_integrations')
-      .upsert(integrationRows, {
-        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
-      });
-
-    if (insertError) {
-      logger.error({
-        message: 'Jumia Callback Database error while persisting shops',
-        shopIds: integrationRows.map((row) => row.shop_id),
-        error: insertError,
-      });
+    if (persistence.status === 'shop_already_self_authorized') {
       return jumiaOAuthCallbackRedirect.create(request, {
-        error: 'database_error',
+        error: 'shop_already_self_authorized',
+        shops: persistence.shopIds.join(','),
       });
     }
-
-    const newShopIds = integrationRows
-      .filter(
-        (integration) =>
-          integration.is_active &&
-          !existingActiveShopIds.has(integration.shop_id)
-      )
-      .map((integration) => integration.shop_id);
     // VARIANT-TEST: REMOVE — append the variant outcome to the redirect so it
     // surfaces in the browser URL bar (no need to dig through Vercel logs).
     const variantResult = variant
       ? `${variant}:has_refresh=${tokens.refresh_token ? 'true' : 'false'},re_exp=${tokens.refresh_expires_in ?? 'null'}`
       : undefined;
     const redirectQuery: Record<string, string | undefined> =
-      newShopIds.length > 0
+      persistence.shopIds.length > 0
         ? {
             success: 'jumia_connected',
-            shops: newShopIds.join(','),
+            shops: persistence.shopIds.join(','),
           }
         : {
             success: 'jumia_connected',

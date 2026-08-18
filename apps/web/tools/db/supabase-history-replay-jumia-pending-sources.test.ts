@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260815150000_jumia_restrict_credential_rotation_to_manage.sql'
+      '20260818130000_allow_anon_jumia_discovery_purge_rpc.sql'
     );
   });
 });

@@ -53,7 +53,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260812090000_add_jumia_authorizations.sql',
+      'supabase/migrations/20260812090001_add_jumia_authorizations.sql',
     sha256: '35f8406e5e839b902b0766649a4ed0e2922a06360edea3ef29fbb7df94eadea2',
   },
   {
@@ -160,6 +160,21 @@ export const RECENT_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260815150000_jumia_restrict_credential_rotation_to_manage.sql',
     sha256: 'de501a2875f033aaaeaa2cef565f4b88f77e1f981cfa5c2070be18cd397fab30',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260818100000_jumia_self_authorization_refresh_expiry.sql',
+    sha256: 'db77294ee08c07077c78222890bf750d9e7cf32e77fb0159f3d2e504a902d75a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260818120000_jumia_oauth_handoff_ticket_rpcs.sql',
+    sha256: '7d3dce35fd24a0e0f325857eede26ad0fa52eeeb022e83d98c994823a1bf0f68',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260818130000_allow_anon_jumia_discovery_purge_rpc.sql',
+    sha256: 'dcdf450d195f59c417ee172716fc0315c89d938da966ef46c73b20e8c9ed8769',
   },
   {
     repositoryPath:

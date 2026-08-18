@@ -3,6 +3,7 @@ import { getCronSecret } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { purgeExpiredJumiaSelfAuthorizationDiscoveries } from '@/lib/jumia/purge-expired-jumia-self-authorization-discoveries';
 import { logger } from '@/lib/logger';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();
@@ -20,7 +21,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const deleted = await purgeExpiredJumiaSelfAuthorizationDiscoveries();
+    const deleted = await purgeExpiredJumiaSelfAuthorizationDiscoveries(
+      createAnonClient()
+    );
     return NextResponse.json({ deleted });
   } catch (error) {
     logger.error({

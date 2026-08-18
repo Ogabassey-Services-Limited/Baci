@@ -1,5 +1,4 @@
 export const eventPipelineAdminImporters = [
-  'apps/web/src/app/api/cron/purge-jumia-self-authorization-discoveries/route.ts',
   'apps/web/src/app/api/orders/route.ts',
   'apps/web/src/app/api/payments/juicyway/webhook/route.ts',
   'apps/web/src/app/api/platform/events/platform-event-forwarding.ts',

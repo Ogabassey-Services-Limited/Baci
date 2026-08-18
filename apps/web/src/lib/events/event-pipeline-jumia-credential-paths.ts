@@ -1,12 +1,15 @@
 const envPath = 'apps/web/src/env.ts';
-const adminPath = 'apps/web/src/lib/supabase/admin.ts';
 const client = 'apps/web/src/lib/jumia/client.ts';
 const clientConfig = 'apps/web/src/lib/jumia/jumia-client-config.ts';
 const tokenPersistence =
   'apps/web/src/lib/jumia/jumia-client-token-persistence.ts';
-const purgeDiscoveries =
-  'apps/web/src/lib/jumia/purge-expired-jumia-self-authorization-discoveries.ts';
+const refreshLease =
+  'apps/web/src/lib/jumia/jumia-authorization-refresh-lease.ts';
 const jumiaHelpers = 'apps/web/src/lib/jumia/helpers.ts';
+const oauthPersistence =
+  'apps/web/src/app/api/marketplace/jumia/callback/oauth-persistence.ts';
+const mobileTicket =
+  'apps/web/src/app/api/marketplace/jumia/connect/mobile-ticket.ts';
 const callbackRoot = 'apps/web/src/app/api/marketplace/jumia/callback';
 const callbackFlow = `${callbackRoot}/callback-flow.ts`;
 const callbackHandler = `${callbackRoot}/handler.ts`;
@@ -18,6 +21,7 @@ const clientCredentialSuffixes = [
   [client, clientConfig, envPath],
   [client, tokenPersistence, envPath],
   [client, tokenPersistence, jumiaHelpers, envPath],
+  [client, tokenPersistence, refreshLease, envPath],
 ] as const;
 
 const jumiaApiRoutesUsingClient = [
@@ -45,22 +49,42 @@ function withPrefix(
 
 const callbackRuntimeImplPaths = withPrefix(
   [callbackRuntimeImpl],
-  [[envPath], [jumiaHelpers, envPath], ...clientCredentialSuffixes]
+  [
+    [envPath],
+    [jumiaHelpers, envPath],
+    ...clientCredentialSuffixes,
+    ...withPrefix([oauthPersistence], clientCredentialSuffixes),
+  ]
 );
 
 const callbackRuntimePaths = withPrefix(
   [callbackRuntime, callbackRuntimeImpl],
-  [[envPath], [jumiaHelpers, envPath], ...clientCredentialSuffixes]
+  [
+    [envPath],
+    [jumiaHelpers, envPath],
+    ...clientCredentialSuffixes,
+    ...withPrefix([oauthPersistence], clientCredentialSuffixes),
+  ]
 );
 
 const callbackFlowPaths = withPrefix(
   [callbackFlow, callbackRuntime, callbackRuntimeImpl],
-  [[envPath], [jumiaHelpers, envPath], ...clientCredentialSuffixes]
+  [
+    [envPath],
+    [jumiaHelpers, envPath],
+    ...clientCredentialSuffixes,
+    ...withPrefix([oauthPersistence], clientCredentialSuffixes),
+  ]
 );
 
 const callbackHandlerPaths = withPrefix(
   [callbackHandler, callbackFlow, callbackRuntime, callbackRuntimeImpl],
-  [[envPath], [jumiaHelpers, envPath], ...clientCredentialSuffixes]
+  [
+    [envPath],
+    [jumiaHelpers, envPath],
+    ...clientCredentialSuffixes,
+    ...withPrefix([oauthPersistence], clientCredentialSuffixes),
+  ]
 );
 
 const callbackRoutePaths = withPrefix(
@@ -71,7 +95,12 @@ const callbackRoutePaths = withPrefix(
     callbackRuntime,
     callbackRuntimeImpl,
   ],
-  [[envPath], [jumiaHelpers, envPath], ...clientCredentialSuffixes]
+  [
+    [envPath],
+    [jumiaHelpers, envPath],
+    ...clientCredentialSuffixes,
+    ...withPrefix([oauthPersistence], clientCredentialSuffixes),
+  ]
 );
 
 export { clientCredentialSuffixes, jumiaApiRoutesUsingClient };
@@ -109,9 +138,12 @@ export const eventPipelineJumiaCredentialPaths = [
   [client, clientConfig, envPath],
   [client, tokenPersistence, envPath],
   [client, tokenPersistence, jumiaHelpers, envPath],
+  [client, tokenPersistence, refreshLease, envPath],
   [clientConfig, envPath],
   [tokenPersistence, envPath],
   [tokenPersistence, jumiaHelpers, envPath],
+  [tokenPersistence, refreshLease, envPath],
+  [refreshLease, envPath],
   ...withPrefix(
     ['apps/web/src/lib/jumia/order-sync.ts'],
     clientCredentialSuffixes
@@ -119,13 +151,13 @@ export const eventPipelineJumiaCredentialPaths = [
   ['apps/web/src/lib/jumia/self-authorization.ts', jumiaHelpers, envPath],
   [
     'apps/web/src/app/api/cron/purge-jumia-self-authorization-discoveries/route.ts',
-    purgeDiscoveries,
-    adminPath,
-  ],
-  [
-    'apps/web/src/app/api/cron/purge-jumia-self-authorization-discoveries/route.ts',
-    purgeDiscoveries,
-    adminPath,
     envPath,
   ],
+  [mobileTicket, envPath],
+  [
+    'apps/web/src/app/api/marketplace/jumia/connect/route.ts',
+    mobileTicket,
+    envPath,
+  ],
+  ...withPrefix([oauthPersistence], clientCredentialSuffixes),
 ] as const;
