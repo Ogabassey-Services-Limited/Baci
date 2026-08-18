@@ -4,6 +4,8 @@
 
 BEGIN;
 
+DROP FUNCTION IF EXISTS public.get_admin_merchant_health();
+
 CREATE OR REPLACE FUNCTION public.get_admin_merchant_health()
 RETURNS TABLE(
   merchant_id uuid,

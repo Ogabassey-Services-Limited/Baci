@@ -216,6 +216,9 @@ describe('admin analytics migration contract', () => {
   });
 
   it('derives merchant activity from live paid sales, never stale health rows', () => {
+    expect(merchantSalesSql).toContain(
+      'drop function if exists public.get_admin_merchant_health()'
+    );
     expect(merchantSalesSql).toContain('from public.orders');
     expect(merchantSalesSql).toContain(
       "lower(coalesce(nullif(btrim(o.payment_status), ''), 'unknown')) = 'paid'"

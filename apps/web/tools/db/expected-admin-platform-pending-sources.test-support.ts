@@ -29,7 +29,7 @@ export const ADMIN_PLATFORM_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260805150020_repair_admin_merchant_sales_activity.sql',
-    sha256: 'a85140f78054612786aac117a5be52833f45aff4346429f3b71b5b872bb7de58',
+    sha256: 'd24fa0fcd0493f78b5032d1565ea370253b2ed499e61b5c873eef7d7e3bcc934',
   },
   {
     repositoryPath:
