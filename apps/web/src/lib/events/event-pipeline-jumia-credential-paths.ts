@@ -1,8 +1,13 @@
 const envPath = 'apps/web/src/env.ts';
+const adminPath = 'apps/web/src/lib/supabase/admin.ts';
 const client = 'apps/web/src/lib/jumia/client.ts';
 const clientConfig = 'apps/web/src/lib/jumia/jumia-client-config.ts';
 const tokenPersistence =
   'apps/web/src/lib/jumia/jumia-client-token-persistence.ts';
+const refreshLease =
+  'apps/web/src/lib/jumia/jumia-authorization-refresh-lease.ts';
+const purgeDiscoveries =
+  'apps/web/src/lib/jumia/purge-expired-jumia-self-authorization-discoveries.ts';
 const jumiaHelpers = 'apps/web/src/lib/jumia/helpers.ts';
 const callbackRoot = 'apps/web/src/app/api/marketplace/jumia/callback';
 const callbackFlow = `${callbackRoot}/callback-flow.ts`;
@@ -15,6 +20,16 @@ const clientCredentialSuffixes = [
   [client, clientConfig, envPath],
   [client, tokenPersistence, envPath],
   [client, tokenPersistence, jumiaHelpers, envPath],
+  [client, tokenPersistence, adminPath],
+  [client, tokenPersistence, adminPath, envPath],
+  [client, tokenPersistence, refreshLease, adminPath],
+  [client, tokenPersistence, refreshLease, adminPath, envPath],
+  [tokenPersistence, adminPath],
+  [tokenPersistence, adminPath, envPath],
+  [tokenPersistence, refreshLease, adminPath],
+  [tokenPersistence, refreshLease, adminPath, envPath],
+  [refreshLease, adminPath],
+  [refreshLease, adminPath, envPath],
 ] as const;
 
 const jumiaApiRoutesUsingClient = [
@@ -114,4 +129,28 @@ export const eventPipelineJumiaCredentialPaths = [
     clientCredentialSuffixes
   ),
   ['apps/web/src/lib/jumia/self-authorization.ts', jumiaHelpers, envPath],
+  [
+    'apps/web/src/app/api/cron/purge-jumia-self-authorization-discoveries/route.ts',
+    purgeDiscoveries,
+    adminPath,
+  ],
+  [
+    'apps/web/src/app/api/cron/purge-jumia-self-authorization-discoveries/route.ts',
+    purgeDiscoveries,
+    adminPath,
+    envPath,
+  ],
+  [purgeDiscoveries, adminPath],
+  [purgeDiscoveries, adminPath, envPath],
+  [
+    'apps/web/src/app/api/marketplace/jumia/connect/route.ts',
+    purgeDiscoveries,
+    adminPath,
+  ],
+  [
+    'apps/web/src/app/api/marketplace/jumia/connect/route.ts',
+    purgeDiscoveries,
+    adminPath,
+    envPath,
+  ],
 ] as const;

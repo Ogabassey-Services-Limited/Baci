@@ -52,6 +52,15 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
   };
 });
 
+function createMarketplaceIntegrationsBuilder() {
+  const thirdEq = vi.fn().mockResolvedValue({ data: [], error: null });
+  const secondEq = vi.fn(() => ({ eq: thirdEq }));
+  const firstEq = vi.fn(() => ({ eq: secondEq }));
+  return {
+    select: vi.fn(() => ({ eq: firstEq })),
+  };
+}
+
 function createUpsertBuilder() {
   return {
     upsert: (...args: unknown[]) => {
@@ -92,11 +101,15 @@ const mockSupabase = {
     ],
     error: null,
   }),
-  from: vi.fn<(...args: unknown[]) => unknown>((table) =>
-    table === 'merchants'
-      ? createMerchantFeatureBuilder()
-      : createUpsertBuilder()
-  ),
+  from: vi.fn<(...args: unknown[]) => unknown>((table) => {
+    if (table === 'merchants') {
+      return createMerchantFeatureBuilder();
+    }
+    if (table === 'marketplace_integrations') {
+      return createMarketplaceIntegrationsBuilder();
+    }
+    return createUpsertBuilder();
+  }),
 };
 
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
