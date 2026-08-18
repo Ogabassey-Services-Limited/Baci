@@ -4,7 +4,7 @@ import type {
   StorefrontWalletFundingAccount,
   StorefrontWalletTransaction,
 } from '@baci/shared';
-import { Copy, Landmark, Loader2, RefreshCw } from 'lucide-react';
+import { Copy, Landmark, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 import { captureClientEvent } from '@/lib/posthog/capture-client-event';
@@ -16,7 +16,9 @@ import { isWalletFundingCheckLoopEnabled } from '@/lib/wallet-funding-check-loop
 import { requestFundingAccount } from './wallet-funding-account-request';
 import { useWalletFundingCreditPoll } from './use-wallet-funding-credit-poll';
 import { WalletFundingCheckStatus } from './WalletFundingCheckStatus';
+import { WalletFundingConsent } from './WalletFundingConsent';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
+import { WalletFundingPhonePrompt } from './WalletFundingPhonePrompt';
 
 interface WalletFundingPanelProps {
   account: StorefrontWalletFundingAccount | null;
@@ -28,8 +30,14 @@ interface WalletFundingPanelProps {
   autoCreate?: boolean;
   /** Signed-in customer id, stamped on funnel events to join client/server legs. */
   customerId?: string;
+  /** Existing profile phone; `undefined` means the caller did not provide profile state. */
+  customerPhone?: string | null;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
+  /** Persists a phone collected at the point of DVA creation. */
+  onUpdateCustomerPhone?: (
+    phone: string
+  ) => Promise<{ success: boolean; error?: string }>;
   /** Called once the check loop detects a NEW `wallet_topup` credit. */
   onCredited?: () => void;
   onRefreshBalance?: () => void;
@@ -46,8 +54,10 @@ export function WalletFundingPanel({
   account,
   autoCreate = false,
   customerId,
+  customerPhone,
   merchantSlug,
   onAccountCreated,
+  onUpdateCustomerPhone,
   onCredited,
   onRefreshBalance,
   onReturnToPurchase,
@@ -58,6 +68,9 @@ export function WalletFundingPanel({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [autoCreateAttempted, setAutoCreateAttempted] = useState(false);
+  const [phonePromptOverride, setPhonePromptOverride] = useState(false);
+  const [phoneRetryPending, setPhoneRetryPending] = useState(false);
+  const [savedPhone, setSavedPhone] = useState<string | null>(null);
   const [surfaceReported, setSurfaceReported] = useState(false);
   // Id of the detected top-up. The return-to-purchase CTA stays gated until the
   // REFRESHED wallet snapshot actually contains this credit — returning before
@@ -92,6 +105,11 @@ export function WalletFundingPanel({
       (transaction) => transaction.id === creditedTransactionId
     );
 
+  const effectiveCustomerPhone = savedPhone ?? customerPhone;
+  const needsPhone =
+    phonePromptOverride ||
+    (customerPhone !== undefined && !effectiveCustomerPhone?.trim());
+
   // Fire the funnel-entry event once, but only after the merchant context has
   // resolved — a pre-merchant mount would lose the attribution. State-guarded
   // (not a dependency array) to match the auto-create effect below.
@@ -110,7 +128,7 @@ export function WalletFundingPanel({
   });
 
   const handleCreate = async () => {
-    if (!merchantSlug || creating) return;
+    if (!merchantSlug || creating || needsPhone) return;
     captureClientEvent(WALLET_FUNDING_TELEMETRY.events.createAttempted, {
       surface,
       auto_create: autoCreate,
@@ -135,18 +153,48 @@ export function WalletFundingPanel({
         merchant_slug: merchantSlug,
         customer_id: customerId,
       });
+      if (
+        result.reason === WALLET_FUNDING_TELEMETRY.reasons.customerPhoneRequired
+      ) {
+        setPhonePromptOverride(true);
+        setPhoneRetryPending(true);
+      }
       setError(result.message);
     }
     setCreating(false);
   };
 
+  const handlePhoneSubmit = async (phone: string) => {
+    if (!onUpdateCustomerPhone) {
+      return {
+        success: false,
+        error: WALLET_FUNDING_COPY.unavailable,
+      };
+    }
+
+    const result = await onUpdateCustomerPhone(phone);
+    if (result.success) {
+      setSavedPhone(phone);
+      setPhonePromptOverride(false);
+      setAutoCreateAttempted(false);
+      setError(null);
+    }
+    return result;
+  };
+
   useEffect(() => {
+    if (phoneRetryPending && !needsPhone && merchantSlug) {
+      setPhoneRetryPending(false);
+      void handleCreate();
+      return;
+    }
     if (
       !autoCreate ||
       autoCreateAttempted ||
       account ||
       !requiresConsent ||
-      !merchantSlug
+      !merchantSlug ||
+      needsPhone
     ) {
       return;
     }
@@ -220,30 +268,16 @@ export function WalletFundingPanel({
             </button>
           ) : null}
         </>
+      ) : requiresConsent && needsPhone && onUpdateCustomerPhone ? (
+        <WalletFundingPhonePrompt onSubmit={handlePhoneSubmit} />
       ) : requiresConsent ? (
-        <>
-          <p className="text-xs text-gray-600">
-            {WALLET_FUNDING_COPY.consentBlurb}
-          </p>
-          <p className="text-xs font-medium text-store-primary">
-            {WALLET_FUNDING_COPY.feeNote}
-          </p>
-          <button
-            type="button"
-            disabled={creating}
-            onClick={handleCreate}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-store-primary px-3 py-2.5 text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {creating ? (
-              <>
-                <Loader2 className="animate-spin" size={14} />
-                {WALLET_FUNDING_COPY.creating}
-              </>
-            ) : (
-              WALLET_FUNDING_COPY.consentCta
-            )}
-          </button>
-        </>
+        <WalletFundingConsent
+          creating={creating}
+          merchantSlug={merchantSlug}
+          needsPhone={needsPhone}
+          onCreate={handleCreate}
+          showUnavailable={needsPhone && !onUpdateCustomerPhone}
+        />
       ) : (
         <p className="text-xs text-gray-600">
           {WALLET_FUNDING_COPY.unavailable}

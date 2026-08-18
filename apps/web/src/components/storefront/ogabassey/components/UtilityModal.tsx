@@ -12,7 +12,7 @@ import { useUtilityPurchase } from './use-utility-purchase';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';
 import { BillPaymentForm } from './utility/BillPaymentForm';
 import { UtilityPaymentMethodSelector } from './UtilityPaymentMethodSelector';
-import { WalletFundingPanel } from './WalletFundingPanel';
+import { UtilityWalletFundingPanel } from './UtilityWalletFundingPanel';
 import { UtilitySuccessView } from './UtilitySuccessView';
 import { UtilityTabs, type UtilityTabId } from './UtilityTabs';
 import type { UtilityPaymentMethod } from './utility-types';
@@ -60,14 +60,14 @@ export const UtilityModal = ({
   );
   const [showFundingPanel, setShowFundingPanel] = useState(false);
   const canUseWallet = isAuthenticated && walletBalance > 0;
-  // Offer bank-transfer funding when the merchant has wallet DVAs on and
-  // either the customer already has an account (viewing needs no phone) or
-  // has a usable phone for creation — otherwise the create-account flow
-  // returns WALLET_DVA_DISABLED or CUSTOMER_PHONE_REQUIRED.
+  // The DVA is the customer's wallet funding account. Offer the action when
+  // the merchant supports DVAs and the wallet API says either an account
+  // exists or account creation is available; the panel collects a missing
+  // phone at the point of need instead of hiding the action.
   const canFundByBankTransfer =
     isAuthenticated &&
     walletDvaEnabled &&
-    (Boolean(fundingAccount) || Boolean(customer?.phone?.trim()));
+    (Boolean(fundingAccount) || requiresFundingAccountConsent);
   const selectedPaymentMethod: UtilityPaymentMethod =
     canUseWallet && payWithWallet ? 'wallet' : 'card';
 
@@ -238,25 +238,24 @@ export const UtilityModal = ({
                 walletLoading={walletLoading}
               />
               {showFundingPanel && canFundByBankTransfer ? (
-                <div className="mt-3">
-                  <WalletFundingPanel
-                    account={fundingAccount}
-                    autoCreate
-                    customerId={customer?.id}
-                    merchantSlug={merchant?.slug}
-                    onAccountCreated={setFundingAccount}
-                    onRefreshBalance={refreshWallet}
-                    onReturnToPurchase={() => {
-                      // Prefill-only resume: collapse the funding panel and
-                      // preselect the wallet. The customer still presses Pay.
-                      setShowFundingPanel(false);
-                      setPayWithWallet(true);
-                    }}
-                    requiresConsent={requiresFundingAccountConsent}
-                    surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
-                    walletTransactions={walletTransactions}
-                  />
-                </div>
+                <UtilityWalletFundingPanel
+                  account={fundingAccount}
+                  autoCreate
+                  customerId={customer?.id}
+                  customerPhone={customer?.phone ?? null}
+                  merchantSlug={merchant?.slug}
+                  onAccountCreated={setFundingAccount}
+                  onRefreshBalance={refreshWallet}
+                  onReturnToPurchase={() => {
+                    // Prefill-only resume: collapse the funding panel and
+                    // preselect the wallet. The customer still presses Pay.
+                    setShowFundingPanel(false);
+                    setPayWithWallet(true);
+                  }}
+                  requiresConsent={requiresFundingAccountConsent}
+                  surface={WALLET_FUNDING_TELEMETRY.surfaces.utilityModal}
+                  walletTransactions={walletTransactions}
+                />
               ) : null}
               {(activeTab === 'airtime' || activeTab === 'data') && (
                 <AirtimeDataForm

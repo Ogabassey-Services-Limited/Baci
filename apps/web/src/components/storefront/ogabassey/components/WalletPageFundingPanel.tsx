@@ -9,6 +9,9 @@ interface WalletPageFundingPanelProps {
   customerId: string | undefined;
   customerPhone: string | null | undefined;
   merchantSlug: string | undefined;
+  onUpdateCustomerPhone?: (
+    phone: string
+  ) => Promise<{ success: boolean; error?: string }>;
   onRefresh: () => void;
   setWallet: Dispatch<SetStateAction<StorefrontWallet | null>>;
   wallet: StorefrontWallet | null;
@@ -25,6 +28,7 @@ export function WalletPageFundingPanel({
   customerId,
   customerPhone,
   merchantSlug,
+  onUpdateCustomerPhone,
   onRefresh,
   setWallet,
   wallet,
@@ -33,6 +37,7 @@ export function WalletPageFundingPanel({
     <WalletFundingPanel
       account={wallet?.fundingAccount ?? null}
       customerId={customerId}
+      customerPhone={customerPhone}
       merchantSlug={merchantSlug}
       onAccountCreated={(account) =>
         setWallet((current) =>
@@ -46,13 +51,13 @@ export function WalletPageFundingPanel({
         )
       }
       onRefreshBalance={onRefresh}
+      onUpdateCustomerPhone={onUpdateCustomerPhone}
       // Baseline for the funding check loop: the top-up credits the wallet
       // already had before the customer left to transfer.
       walletTransactions={wallet?.transactions ?? []}
       requiresConsent={
         wallet?.requiresFundingAccountConsent === true &&
-        wallet?.walletDvaEnabled === true &&
-        Boolean(customerPhone?.trim())
+        wallet?.walletDvaEnabled === true
       }
       surface={WALLET_FUNDING_TELEMETRY.surfaces.walletPage}
     />
