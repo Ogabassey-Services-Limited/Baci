@@ -4,7 +4,7 @@ import type { NormalizedProductDetails } from '@/components/storefront/ogabassey
 
 type VariantList = NormalizedProductDetails['variants'];
 
-export function getAvailabilityConstraintsForAxis(
+function getAvailabilityConstraintsForAxis(
   selections: Record<string, string>,
   targetAxis: string,
   variants: VariantList

@@ -162,11 +162,18 @@ function isProductTitleSentence(sentence: string): boolean {
   const hasModelDigits =
     /\b\d{2,}\b/.test(trimmed) ||
     words.some((word) => /[A-Za-z]+\d+[A-Za-z]*/.test(word));
-  const nameLikeTokens = words.filter((word) =>
-    /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d[\w.]*|[A-Za-z]*\d+[A-Za-z]*)$/.test(word)
+  const bareTitleTokenCount = words.filter((word) =>
+    /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d[\w.]*|[A-Z][A-Za-z]*\d+[A-Za-z]*|[®™©])$/.test(
+      word
+    )
   ).length;
 
-  if (hasModelDigits && nameLikeTokens >= 2 && words.length <= 8) {
+  if (
+    hasModelDigits &&
+    bareTitleTokenCount === words.length &&
+    words.length >= 2 &&
+    words.length <= 8
+  ) {
     return true;
   }
 

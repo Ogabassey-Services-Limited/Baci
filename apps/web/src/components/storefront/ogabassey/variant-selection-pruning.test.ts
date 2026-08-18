@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { NormalizedProductDetails } from '@/components/storefront/ogabassey/pages/product-details-page/product-normalization';
-import {
-  getAvailabilityConstraintsForAxis,
-  pruneSelectionsByVariantAvailability,
-} from './variant-selection-pruning';
+import { pruneSelectionsByVariantAvailability } from './variant-selection-pruning';
 
 const variants = [
   {
@@ -47,18 +44,19 @@ describe('pruneSelectionsByVariantAvailability', () => {
       pruneSelectionsByVariantAvailability(next, 'storage', undefined)
     ).toEqual(next);
   });
-});
 
-describe('getAvailabilityConstraintsForAxis', () => {
-  it('excludes the target axis and display-only metadata axes', () => {
-    const selections = {
-      storage: '256GB',
-      color: 'Black',
+  it('ignores non-variant metadata when evaluating sibling reachability', () => {
+    const next = {
+      storage: '512GB',
+      color: 'Silver',
       warranty: '12 months',
     };
+    const result = pruneSelectionsByVariantAvailability(
+      next,
+      'storage',
+      variants
+    );
 
-    expect(
-      getAvailabilityConstraintsForAxis(selections, 'color', variants)
-    ).toEqual({ storage: '256GB' });
+    expect(result).toEqual({ storage: '512GB' });
   });
 });

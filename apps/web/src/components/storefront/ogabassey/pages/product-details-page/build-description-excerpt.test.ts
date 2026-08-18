@@ -164,6 +164,12 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('');
   });
 
+  it('preserves marketing prose that starts with an embedded model name', () => {
+    const description = 'Galaxy S24 Ultra unlocks creativity.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Galaxy S24 Ultra unlocks creativity.');
+  });
+
   it('filters lowercase enum catalog values for common specification labels', () => {
     const description =
       'Color: silver. Platform: ios. Connectivity: wifi. Built for reliable all-day performance.';
