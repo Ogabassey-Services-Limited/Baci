@@ -61,6 +61,10 @@ export async function createStorefrontEdgeInventoryFixture(repoRoot: string) {
     join(blogPostRoot, 'BlogPostBody.tsx'),
     'export default function BlogPostBodyAlt() { return null; }\n'
   );
+  await writeFile(
+    join(blogPostRoot, 'BlogVideoPanel.tsx'),
+    'export function BlogVideoPanel() { return null; }\n'
+  );
   const siblingRouteRoot = join(
     repoRoot,
     'apps/web/src/app/(storefront)/ogabassey'

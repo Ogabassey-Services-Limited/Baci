@@ -143,8 +143,15 @@ export async function createStorefrontEdgeInventory(
         )
     )
   );
+  const PROXY_CANONICALIZATION_ROW_IDS = new Set(['proxy:no-trailing-slash']);
   const preRouteRows = extraRows.filter(
     (row) => row.sourceKind !== 'storefront_entrypoint' && isPreRouteRow(row)
+  );
+  const proxyCanonicalizationRows = preRouteRows.filter((row) =>
+    PROXY_CANONICALIZATION_ROW_IDS.has(row.id)
+  );
+  const preRouteRowsAfterCanonicalization = preRouteRows.filter(
+    (row) => !PROXY_CANONICALIZATION_ROW_IDS.has(row.id)
   );
   const routeRows = [
     ...extraRows.filter(
@@ -180,10 +187,11 @@ export async function createStorefrontEdgeInventory(
   // Preserve API terminal placement: exact API rows must be followed by the
   // closed API default before unrelated storefront route phases begin.
   const rows = [
+    ...proxyCanonicalizationRows,
     ...apiRows,
     STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow,
     ...relayRows,
-    ...preRouteRows,
+    ...preRouteRowsAfterCanonicalization,
     ...routeRows,
     ...terminalRows,
   ];

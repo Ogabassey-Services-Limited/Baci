@@ -27,7 +27,7 @@ function isIncludedRouteSource(sourcePath: string) {
 }
 
 function isIncludedApiSource(sourcePath: string) {
-  return sourcePath.endsWith('/route.ts');
+  return /\/route\.(?:ts|js|jsx)$/.test(sourcePath);
 }
 
 async function listCurrentSources(

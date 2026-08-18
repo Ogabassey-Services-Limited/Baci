@@ -98,6 +98,36 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
       })),
+      ...Array.from({ length: 2 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      ...Array.from({ length: 2 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_external_media_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      {
+        decision: 'origin_dynamic',
+        hostKind: 'configured_carrier_tracking_origin',
+        methods: ['GET', 'HEAD'],
+      },
+      ...Array.from({ length: 2 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_mycover_flow_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      ...Array.from({ length: 2 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_mycover_certificate_origin',
+        methods: ['GET', 'HEAD'],
+      })),
+      ...Array.from({ length: 4 }, () => ({
+        decision: 'origin_dynamic',
+        hostKind: 'configured_google_maps_origin',
+        methods: ['GET', 'HEAD'],
+      })),
       ...[
         'configured_merchant_social_origin',
         'configured_app_store_origin',

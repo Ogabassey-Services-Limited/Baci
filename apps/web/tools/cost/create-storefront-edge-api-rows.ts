@@ -24,6 +24,10 @@ function compareApiRoutePatterns(left: string, right: string) {
   return 0;
 }
 
+function isApiRouteSource(sourcePath: string) {
+  return /\/route\.(?:ts|js|jsx)$/.test(sourcePath);
+}
+
 /** Creates an exact dynamic-origin row for every real Next API route handler. */
 export function createStorefrontEdgeApiRows(
   apiRoot: string,
@@ -32,7 +36,7 @@ export function createStorefrontEdgeApiRows(
   const prefix = `${apiRoot.replace(/\/$/, '')}/`;
   return apiSources
     .map<InventoryRow>(({ bytes, sourcePath }) => {
-      if (!sourcePath.startsWith(prefix) || !sourcePath.endsWith('/route.ts'))
+      if (!sourcePath.startsWith(prefix) || !isApiRouteSource(sourcePath))
         throw new Error('storefront API source is outside the API route root');
       const relativeSourcePath = sourcePath.slice(prefix.length);
       const methods = extractStorefrontRouteMethods(bytes.toString('utf8'), {

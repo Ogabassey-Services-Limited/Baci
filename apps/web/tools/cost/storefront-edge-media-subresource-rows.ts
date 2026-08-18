@@ -25,6 +25,9 @@ type MediaDestinationHostKind =
   | 'configured_twitter_origin'
   | 'configured_whatsapp_origin'
   | 'configured_google_maps_origin'
+  | 'configured_mycover_flow_origin'
+  | 'configured_mycover_certificate_origin'
+  | 'configured_carrier_tracking_origin'
   | 'configured_merchant_social_origin'
   | 'configured_app_store_origin'
   | 'configured_play_store_origin'
@@ -264,6 +267,71 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ROWS: readonly InventoryRow[] = [
     'blog-share-linkedin-blog-post-body-alt',
     'configured_external_media_origin',
     'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogPostBody.tsx'
+  ),
+  mediaSubresource(
+    'blog-video-panel-youtube-thumbnail',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogVideoPanel.tsx'
+  ),
+  mediaSubresource(
+    'blog-video-panel-youtube-navigation',
+    'configured_external_media_origin',
+    'apps/web/src/app/(storefront)/[slug]/(blog)/blog/[postSlug]/BlogVideoPanel.tsx'
+  ),
+  mediaSubresource(
+    'chat-markdown-image',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/components/chat/markdown-renderer.tsx'
+  ),
+  mediaSubresource(
+    'chat-markdown-link-navigation',
+    'configured_external_media_origin',
+    'apps/web/src/components/storefront/ogabassey/components/chat/markdown-renderer.tsx'
+  ),
+  mediaSubresource(
+    'track-order-carrier-navigation',
+    'configured_carrier_tracking_origin',
+    'apps/web/src/app/(storefront)/[slug]/(commerce)/track-order/page.tsx'
+  ),
+  mediaSubresource(
+    'mycover-flow-client-navigation',
+    'configured_mycover_flow_origin',
+    'apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-client.tsx'
+  ),
+  mediaSubresource(
+    'mycover-flow-footer-navigation',
+    'configured_mycover_flow_origin',
+    'apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-footer-actions.tsx'
+  ),
+  mediaSubresource(
+    'mycover-certificate-client-navigation',
+    'configured_mycover_certificate_origin',
+    'apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-client.tsx'
+  ),
+  mediaSubresource(
+    'mycover-certificate-footer-navigation',
+    'configured_mycover_certificate_origin',
+    'apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/insurance/insurance-policy-footer-actions.tsx'
+  ),
+  mediaSubresource(
+    'post-purchase-google-review-order-success',
+    'configured_google_maps_origin',
+    'apps/web/src/components/storefront/ogabassey/pages/order-success-page.tsx'
+  ),
+  mediaSubresource(
+    'post-purchase-google-review-checkout-success',
+    'configured_google_maps_origin',
+    'apps/web/src/app/(storefront)/[slug]/(commerce)/checkout/success/page.tsx'
+  ),
+  mediaSubresource(
+    'post-purchase-google-review-commerce-order-success',
+    'configured_google_maps_origin',
+    'apps/web/src/app/(storefront)/[slug]/(commerce)/order-success/page.tsx'
+  ),
+  mediaSubresource(
+    'post-purchase-google-review-customer-order',
+    'configured_google_maps_origin',
+    'apps/web/src/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/customer-order-actions.tsx'
   ),
   mediaSubresource(
     'footer-merchant-social-navigation',

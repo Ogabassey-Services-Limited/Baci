@@ -24,6 +24,8 @@ describe('storefront edge inventory routing input paths', () => {
         'apps/web/src/lib/credit-direct-client.ts',
         'apps/web/src/lib/credpal.ts',
         'apps/web/src/lib/klump-sdk.ts',
+        'apps/web/src/components/storefront/blocks/header.tsx',
+        'packages/shared/src/storefront/post-purchase-actions.ts',
       ])
     );
   });
