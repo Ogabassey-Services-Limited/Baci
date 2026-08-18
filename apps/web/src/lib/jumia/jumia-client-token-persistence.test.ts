@@ -3,16 +3,10 @@ import { JumiaApiError } from '@/lib/jumia/helpers';
 
 const encrypt = vi.fn();
 const decrypt = vi.fn();
-const adminRpc = vi.fn();
+const rpc = vi.fn();
 
 vi.mock('@/env', () => ({
   getJumiaAuthorizationEncryptionKey: () => 'test-key',
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({
-    rpc: (...args: unknown[]) => adminRpc(...args),
-  }),
 }));
 
 vi.mock('@/lib/jumia/authorization-crypto', () => ({
@@ -28,6 +22,7 @@ vi.mock('@/lib/jumia/load-jumia-authorization-grant', () => ({
   loadJumiaAuthorizationGrant: vi.fn().mockResolvedValue({
     credential_ciphertext: 'stored-ciphertext',
     token_expires_at: '2026-03-27T10:00:00.000Z',
+    refresh_token_expires_at: '2026-03-28T10:00:00.000Z',
     rotation_version: 1,
     client_key_hash: 'a'.repeat(64),
   }),
@@ -39,7 +34,7 @@ describe('refreshJumiaClientAccessToken', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     encrypt.mockReturnValue('encrypted-ciphertext');
-    adminRpc.mockReset();
+    rpc.mockReset();
   });
 
   it('throws when refresh token is missing', async () => {
@@ -70,7 +65,7 @@ describe('refreshJumiaClientAccessToken', () => {
   });
 
   it('encrypts the refreshed access token into rotated credentials', async () => {
-    adminRpc
+    rpc
       .mockResolvedValueOnce({
         data: 'lease-token',
         error: null,
@@ -79,15 +74,14 @@ describe('refreshJumiaClientAccessToken', () => {
         data: 2,
         error: null,
       });
-    const supabase = {
-      rpc: vi.fn(),
-    };
+    const supabase = { rpc };
     const fetchWithThrottle = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           access_token: 'fresh-access-token',
           refresh_token: 'fresh-refresh-token',
           expires_in: 3600,
+          refresh_expires_in: 86400,
           token_type: 'Bearer',
         }),
         { status: 200 }
@@ -104,6 +98,7 @@ describe('refreshJumiaClientAccessToken', () => {
         authorizationId: 'auth-1',
         authorizationRotationVersion: 1,
         tokenExpiresAt: null,
+        refreshTokenExpiresAt: null,
         supabase: supabase as never,
         apiBase: 'https://api.jumia.test',
       },
@@ -119,7 +114,7 @@ describe('refreshJumiaClientAccessToken', () => {
       'test-key',
       `merchant-1:${'a'.repeat(64)}`
     );
-    expect(adminRpc).toHaveBeenNthCalledWith(
+    expect(rpc).toHaveBeenNthCalledWith(
       1,
       'claim_jumia_authorization_refresh_lease',
       expect.objectContaining({
@@ -127,24 +122,25 @@ describe('refreshJumiaClientAccessToken', () => {
         p_expected_rotation_version: 1,
       })
     );
-    expect(adminRpc).toHaveBeenNthCalledWith(
+    expect(rpc).toHaveBeenNthCalledWith(
       2,
       'rotate_jumia_authorization_credentials',
       expect.objectContaining({
         p_credential_ciphertext: 'encrypted-ciphertext',
+        p_refresh_token_expires_at: expect.any(String),
         p_refresh_lease_token: 'lease-token',
       })
     );
   });
 
   it('reuses an in-flight refresh for the same authorization grant', async () => {
-    adminRpc.mockImplementation(async (name: string) => {
+    rpc.mockImplementation(async (name: string) => {
       if (name === 'claim_jumia_authorization_refresh_lease') {
         return { data: 'lease-token', error: null };
       }
       return { data: 2, error: null };
     });
-    const supabase = { rpc: vi.fn() };
+    const supabase = { rpc };
     let releaseFetch: (() => void) | undefined;
     const fetchGate = new Promise<void>((resolve) => {
       releaseFetch = resolve;
@@ -156,6 +152,7 @@ describe('refreshJumiaClientAccessToken', () => {
           access_token: 'fresh-access-token',
           refresh_token: 'fresh-refresh-token',
           expires_in: 3600,
+          refresh_expires_in: 86400,
           token_type: 'Bearer',
         }),
         { status: 200 }
@@ -170,6 +167,7 @@ describe('refreshJumiaClientAccessToken', () => {
       authorizationId: 'auth-1',
       authorizationRotationVersion: 1,
       tokenExpiresAt: null,
+      refreshTokenExpiresAt: null,
       supabase: supabase as never,
       apiBase: 'https://api.jumia.test',
     };
@@ -192,5 +190,45 @@ describe('refreshJumiaClientAccessToken', () => {
     expect(firstResult.accessToken).toBe('fresh-access-token');
     expect(secondResult.accessToken).toBe('fresh-access-token');
     expect(fetchWithThrottle).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when self-authorization refresh omits rotated credentials', async () => {
+    rpc.mockResolvedValueOnce({ data: 'lease-token', error: null });
+    const fetchWithThrottle = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          access_token: 'fresh-access-token',
+          expires_in: 3600,
+          token_type: 'Bearer',
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(
+      refreshJumiaClientAccessToken(
+        {
+          integrationId: 'integration-1',
+          merchantId: 'merchant-1',
+          accessToken: 'stale-access',
+          refreshToken: 'refresh-token',
+          clientId: 'client-id',
+          authorizationId: 'auth-1',
+          authorizationRotationVersion: 1,
+          tokenExpiresAt: null,
+          refreshTokenExpiresAt: new Date('2026-03-28T10:00:00.000Z'),
+          supabase: { rpc } as never,
+          apiBase: 'https://api.jumia.test',
+        },
+        fetchWithThrottle
+      )
+    ).rejects.toMatchObject({
+      status: 502,
+      message:
+        'Jumia API Error (502): Jumia did not return a rotated refresh token and expiry',
+    });
+
+    expect(encrypt).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

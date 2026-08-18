@@ -1,8 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { JumiaTokenResponseSchema } from '@/schemas/jumia';
+import {
+  JumiaSelfAuthorizationTokenResponseSchema,
+  JumiaTokenResponseSchema,
+} from '@/schemas/jumia';
 import {
   acquireJumiaAuthorizationRefreshLease,
   type JumiaAuthorizationRefreshState,
@@ -31,6 +33,7 @@ export type JumiaClientTokenPersistenceState = {
   authorizationId?: string;
   authorizationRotationVersion?: number;
   tokenExpiresAt: Date | null;
+  refreshTokenExpiresAt?: Date | null;
   supabase: SupabaseClient | null;
   apiBase: string;
 };
@@ -97,6 +100,7 @@ function toRefreshState(
     authorizationId: state.authorizationId,
     authorizationRotationVersion: state.authorizationRotationVersion,
     tokenExpiresAt: state.tokenExpiresAt,
+    refreshTokenExpiresAt: state.refreshTokenExpiresAt,
   };
 }
 
@@ -176,9 +180,25 @@ async function refreshJumiaClientAccessTokenOnce(
       );
     }
 
-    const data = JumiaTokenResponseSchema.parse(await response.json());
+    const tokenResponseSchema = state.authorizationId
+      ? JumiaSelfAuthorizationTokenResponseSchema
+      : JumiaTokenResponseSchema;
+    let data: ReturnType<typeof tokenResponseSchema.parse>;
+    try {
+      data = tokenResponseSchema.parse(await response.json());
+    } catch {
+      throw new JumiaApiError(
+        502,
+        state.authorizationId
+          ? 'Jumia did not return a rotated refresh token and expiry'
+          : 'Jumia returned an invalid token response'
+      );
+    }
     const tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
-    const refreshToken = data.refresh_token || state.refreshToken;
+    const refreshToken = data.refresh_token ?? state.refreshToken;
+    const refreshTokenExpiresAt = data.refresh_expires_in
+      ? new Date(Date.now() + data.refresh_expires_in * 1000)
+      : state.refreshTokenExpiresAt;
 
     if (state.authorizationId) {
       const authorizationGrant = await loadJumiaAuthorizationGrant(
@@ -192,18 +212,17 @@ async function refreshJumiaClientAccessTokenOnce(
         data.access_token,
         authorizationGrant.client_key_hash
       );
-      const { data: rotationVersion, error: updateError } =
-        await createAdminClient().rpc(
-          'rotate_jumia_authorization_credentials',
-          {
-            p_authorization_id: state.authorizationId,
-            p_credential_ciphertext: ciphertext,
-            p_token_expires_at: tokenExpiresAt.toISOString(),
-            p_expected_rotation_version:
-              state.authorizationRotationVersion ?? 1,
-            p_refresh_lease_token: refreshLeaseToken,
-          }
-        );
+      const { data: rotationVersion, error: updateError } = await supabase.rpc(
+        'rotate_jumia_authorization_credentials',
+        {
+          p_authorization_id: state.authorizationId,
+          p_credential_ciphertext: ciphertext,
+          p_token_expires_at: tokenExpiresAt.toISOString(),
+          p_refresh_token_expires_at: refreshTokenExpiresAt?.toISOString(),
+          p_expected_rotation_version: state.authorizationRotationVersion ?? 1,
+          p_refresh_lease_token: refreshLeaseToken,
+        }
+      );
 
       if (updateError) {
         const isStaleRotation =
@@ -226,6 +245,7 @@ async function refreshJumiaClientAccessTokenOnce(
         accessToken: data.access_token,
         refreshToken,
         tokenExpiresAt,
+        refreshTokenExpiresAt,
         authorizationRotationVersion:
           typeof rotationVersion === 'number'
             ? rotationVersion
@@ -255,6 +275,7 @@ async function refreshJumiaClientAccessTokenOnce(
       accessToken: data.access_token,
       refreshToken,
       tokenExpiresAt,
+      refreshTokenExpiresAt,
     };
   } catch (error) {
     if (

@@ -5,7 +5,6 @@ import type { z } from 'zod';
 import { jumiaAuthorizationCrypto } from '@/lib/jumia/authorization-crypto';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
 import { buildExistingJumiaShopIds } from '@/lib/jumia/jumia-shop-connection-identity';
-import { purgeExpiredJumiaSelfAuthorizationDiscoveriesOpportunistically } from '@/lib/jumia/purge-expired-jumia-self-authorization-discoveries';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
   consumeJumiaSelfAuthorizationDiscovery,
@@ -49,7 +48,6 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
 
   try {
     if ('operation' in body && body.operation === 'discover') {
-      purgeExpiredJumiaSelfAuthorizationDiscoveriesOpportunistically();
       let existingShopIds: Set<string>;
       try {
         existingShopIds = await loadExistingJumiaShopIds(supabase, merchantId);
@@ -98,7 +96,6 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
-    purgeExpiredJumiaSelfAuthorizationDiscoveriesOpportunistically();
     let existingShopIds: Set<string>;
     try {
       existingShopIds = await loadExistingJumiaShopIds(supabase, merchantId);

@@ -51,6 +51,9 @@ describe('validateJumiaSelfAuthorization', () => {
     );
     expect(fetchMock.mock.calls[1][0]).toBe('https://vendor.example/shops');
     expect(result.credentials.refreshToken).toBe('rotated-secret');
+    expect(Date.parse(result.refreshTokenExpiresAt)).toBeGreaterThan(
+      Date.now()
+    );
     expect(result.shops).toEqual([
       {
         id: 'shop-1',
@@ -61,12 +64,13 @@ describe('validateJumiaSelfAuthorization', () => {
     ]);
   });
 
-  it('keeps the submitted refresh token when Jumia does not rotate it', async () => {
+  it('rejects a self-authorization response without a newly rotated refresh token', async () => {
     fetchMock
       .mockResolvedValueOnce(
         Response.json({
           access_token: 'access-secret',
           expires_in: 3600,
+          refresh_expires_in: 86400,
           token_type: 'Bearer',
         })
       )
@@ -92,12 +96,12 @@ describe('validateJumiaSelfAuthorization', () => {
         })
       );
 
-    const result = await validateJumiaSelfAuthorization(
-      { clientId: 'client-secret', refreshToken: 'refresh-secret' },
-      { fetch: fetchMock, baseUrl: 'https://vendor.example' }
-    );
-
-    expect(result.credentials.refreshToken).toBe('refresh-secret');
+    await expect(
+      validateJumiaSelfAuthorization(
+        { clientId: 'client-secret', refreshToken: 'refresh-secret' },
+        { fetch: fetchMock, baseUrl: 'https://vendor.example' }
+      )
+    ).rejects.toThrow('Jumia returned an invalid token response');
   });
 
   it('adds selection keys when one shop has multiple active marketplaces', async () => {
@@ -107,6 +111,7 @@ describe('validateJumiaSelfAuthorization', () => {
           access_token: 'access-secret',
           refresh_token: 'rotated-secret',
           expires_in: 3600,
+          refresh_expires_in: 86400,
           token_type: 'Bearer',
         })
       )
@@ -172,6 +177,7 @@ describe('validateJumiaSelfAuthorization', () => {
           access_token: 'access-secret',
           refresh_token: 'rotated-secret',
           expires_in: 3600,
+          refresh_expires_in: 86400,
           token_type: 'Bearer',
         })
       )

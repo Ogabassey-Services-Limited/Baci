@@ -160,15 +160,41 @@ export function ConnectJumiaDialog({
         </DialogHeader>
 
         <div className="space-y-5">
+          <Card className="border-emerald-200 bg-emerald-50/50 dark:bg-emerald-900/10 dark:border-emerald-900/30">
+            <CardContent className="pt-5 space-y-3">
+              <div className="flex items-center gap-2 font-semibold">
+                <KeyRound className="size-5 text-emerald-600" />
+                Self Authorization
+                <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">
+                  Recommended
+                </span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Recommended for continuous and background sync. Use a Jumia Self
+                Authorization app so Baci can renew access automatically.
+              </p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowManualForm(!showManualForm)}
+              >
+                <KeyRound className="size-4 mr-2" />
+                {showManualForm
+                  ? 'Hide Self Authorization'
+                  : 'Enter Refresh Token'}
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card className="border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 dark:border-orange-900/30">
             <CardContent className="pt-5 space-y-3">
               <div className="flex items-center gap-2 font-semibold">
                 <Zap className="size-5 text-orange-500" />
-                Fast Connection
+                Web Application OAuth
               </div>
               <p className="text-sm text-muted-foreground">
-                Log in to your Jumia Vendor Center account to connect
-                automatically.
+                Temporary connection for a quick start. You will need to
+                re-login after the Jumia access token expires.
               </p>
               <Button
                 className="w-full bg-[#f68b1e] hover:bg-[#e07e1b]"
@@ -191,15 +217,6 @@ export function ConnectJumiaDialog({
               </span>
             </div>
           </div>
-
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setShowManualForm(!showManualForm)}
-          >
-            <KeyRound className="size-4 mr-2" />
-            {showManualForm ? 'Hide Manual Entry' : 'Enter Refresh Token'}
-          </Button>
 
           {showManualForm && (
             <ConnectJumiaManualForm

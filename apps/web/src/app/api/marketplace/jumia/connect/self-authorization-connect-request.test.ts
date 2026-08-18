@@ -9,6 +9,10 @@ import {
 import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 
+const { mockCreateAdminClient } = vi.hoisted(() => ({
+  mockCreateAdminClient: vi.fn(),
+}));
+
 vi.mock('@/lib/jumia/self-authorization', () => ({
   validateJumiaSelfAuthorization: vi.fn(),
 }));
@@ -41,12 +45,9 @@ vi.mock('./self-authorization-handler', () => ({
   },
 }));
 
-vi.mock(
-  '@/lib/jumia/purge-expired-jumia-self-authorization-discoveries',
-  () => ({
-    purgeExpiredJumiaSelfAuthorizationDiscoveriesOpportunistically: vi.fn(),
-  })
-);
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: mockCreateAdminClient,
+}));
 
 function buildSupabase(existing: unknown[] = []) {
   return {
@@ -100,6 +101,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
         accessToken: 'access-1',
       },
       accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+      refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
       shops: [],
     });
     vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
@@ -130,6 +132,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
         existingShopIds: new Set(['shop-1', 'shop-1:NG']),
       })
     );
+    expect(mockCreateAdminClient).not.toHaveBeenCalled();
   });
 
   it('consumes discovery credentials only after a successful connect', async () => {

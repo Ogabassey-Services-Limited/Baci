@@ -1,7 +1,7 @@
 import { getJumiaBaseUrl, JumiaApiError } from '@/lib/jumia/helpers';
 import {
+  JumiaSelfAuthorizationTokenResponseSchema,
   JumiaShopsResponseSchema,
-  JumiaTokenResponseSchema,
 } from '@/schemas/jumia';
 import type { JumiaSelfAuthorizationCredentials } from '@/schemas/jumia/self-authorization';
 
@@ -19,6 +19,7 @@ export type SafeJumiaShop = {
 export type ValidatedSelfAuthorization = {
   credentials: JumiaSelfAuthorizationCredentials & { accessToken: string };
   accessTokenExpiresAt: string;
+  refreshTokenExpiresAt: string;
   shops: SafeJumiaShop[];
 };
 
@@ -124,7 +125,7 @@ export async function validateJumiaSelfAuthorization(
       }
       return await parseJumiaJson(
         tokenResponse,
-        JumiaTokenResponseSchema,
+        JumiaSelfAuthorizationTokenResponseSchema,
         'Jumia returned an invalid token response'
       );
     }
@@ -183,11 +184,14 @@ export async function validateJumiaSelfAuthorization(
   return {
     credentials: {
       clientId: submitted.clientId,
-      refreshToken: tokens.refresh_token ?? submitted.refreshToken,
+      refreshToken: tokens.refresh_token,
       accessToken: tokens.access_token,
     },
     accessTokenExpiresAt: new Date(
       Date.now() + tokens.expires_in * 1000
+    ).toISOString(),
+    refreshTokenExpiresAt: new Date(
+      Date.now() + tokens.refresh_expires_in * 1000
     ).toISOString(),
     shops,
   };

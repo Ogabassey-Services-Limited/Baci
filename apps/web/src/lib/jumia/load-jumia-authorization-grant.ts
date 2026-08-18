@@ -4,6 +4,7 @@ import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
 type JumiaAuthorizationGrantRow = {
   credential_ciphertext: string;
   token_expires_at: string;
+  refresh_token_expires_at: string;
   rotation_version: number;
   client_key_hash: string;
 };
@@ -33,6 +34,8 @@ export async function loadJumiaAuthorizationGrant(
     typeof row.credential_ciphertext !== 'string' ||
     !('token_expires_at' in row) ||
     typeof row.token_expires_at !== 'string' ||
+    !('refresh_token_expires_at' in row) ||
+    typeof row.refresh_token_expires_at !== 'string' ||
     !('rotation_version' in row) ||
     typeof row.rotation_version !== 'number' ||
     !('client_key_hash' in row) ||

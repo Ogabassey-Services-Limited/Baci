@@ -16,6 +16,7 @@ type JumiaIntegrationRow = {
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+  refresh_token_expires_at?: string | null;
   connection_method: string | null;
   jumia_authorization_id: string | null;
 };
@@ -32,6 +33,7 @@ export type JumiaClientConfig = {
   authorizationId?: string;
   authorizationRotationVersion?: number;
   tokenExpiresAt: Date | null;
+  refreshTokenExpiresAt?: Date | null;
   supabase: SupabaseClient;
 };
 
@@ -43,6 +45,7 @@ async function toJumiaClientConfig(
   let accessToken = row.access_token;
   let clientId: string | undefined;
   let tokenExpiresAt = row.token_expires_at;
+  let refreshTokenExpiresAt: string | null | undefined = null;
   let authorizationRotationVersion: number | undefined;
   if (
     row.connection_method === 'self_authorization' &&
@@ -71,6 +74,7 @@ async function toJumiaClientConfig(
     accessToken = credentials.accessToken;
     clientId = credentials.clientId;
     tokenExpiresAt = authorization.token_expires_at;
+    refreshTokenExpiresAt = authorization.refresh_token_expires_at;
     authorizationRotationVersion = authorization.rotation_version;
   }
   return {
@@ -85,6 +89,9 @@ async function toJumiaClientConfig(
     authorizationId: row.jumia_authorization_id ?? undefined,
     authorizationRotationVersion,
     tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt) : null,
+    refreshTokenExpiresAt: refreshTokenExpiresAt
+      ? new Date(refreshTokenExpiresAt)
+      : null,
     supabase,
   };
 }

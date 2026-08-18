@@ -3,6 +3,8 @@ import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorizatio
 
 vi.mock('@/env', () => ({
   getJumiaAuthorizationEncryptionKey: () => 'test-key',
+  getSupabaseServiceRoleKey: () => 'test-service-role-key',
+  getSupabaseUrl: () => 'https://example.supabase.co',
 }));
 
 vi.mock('@/lib/jumia/authorization-crypto', () => ({
@@ -32,6 +34,7 @@ describe('acquireJumiaAuthorizationRefreshLease', () => {
     vi.mocked(loadJumiaAuthorizationGrant).mockResolvedValue({
       credential_ciphertext: 'stored-ciphertext',
       token_expires_at: '2026-12-31T10:00:00.000Z',
+      refresh_token_expires_at: '2026-12-31T10:00:00.000Z',
       rotation_version: 2,
       client_key_hash: 'a'.repeat(64),
     } as never);
@@ -63,6 +66,7 @@ describe('acquireJumiaAuthorizationRefreshLease', () => {
       reloaded: expect.objectContaining({
         accessToken: 'fresh-access',
         authorizationRotationVersion: 2,
+        refreshTokenExpiresAt: new Date('2026-12-31T10:00:00.000Z'),
       }),
     });
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -72,6 +76,7 @@ describe('acquireJumiaAuthorizationRefreshLease', () => {
     vi.mocked(loadJumiaAuthorizationGrant).mockResolvedValue({
       credential_ciphertext: 'stored-ciphertext',
       token_expires_at: '2026-01-01T00:00:00.000Z',
+      refresh_token_expires_at: '2026-01-01T00:00:00.000Z',
       rotation_version: 1,
       client_key_hash: 'a'.repeat(64),
     } as never);

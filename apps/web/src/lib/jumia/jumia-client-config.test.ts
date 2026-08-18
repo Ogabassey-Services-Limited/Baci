@@ -141,6 +141,7 @@ describe('jumia-client-config', () => {
     mockLoadGrant.mockResolvedValue({
       credential_ciphertext: 'opaque-ciphertext',
       token_expires_at: '2026-04-01T10:00:00.000Z',
+      refresh_token_expires_at: '2026-05-01T10:00:00.000Z',
       rotation_version: 3,
       client_key_hash: 'c'.repeat(64),
     });
@@ -188,6 +189,9 @@ describe('jumia-client-config', () => {
       authorizationId: 'auth-1',
       authorizationRotationVersion: 3,
     });
+    expect(config.refreshTokenExpiresAt).toEqual(
+      new Date('2026-05-01T10:00:00.000Z')
+    );
   });
 
   it('throws when the self-authorization grant is unavailable', async () => {

@@ -157,6 +157,7 @@ vi.mock('@/lib/jumia/self-authorization', () => ({
       accessToken: 'access-1',
     },
     accessTokenExpiresAt: '2030-01-01T00:00:00.000Z',
+    refreshTokenExpiresAt: '2030-02-01T00:00:00.000Z',
     shops: [
       {
         id: 'shop-1',
@@ -684,6 +685,8 @@ describe('Connect GET', () => {
                   is_active: true,
                   last_sync_at: null,
                   sync_error: null,
+                  connection_method: 'self_authorization',
+                  token_expires_at: '2030-01-01T00:00:00.000Z',
                 },
               ],
             }),
@@ -706,6 +709,8 @@ describe('Connect GET', () => {
           is_active: true,
           last_sync_at: null,
           sync_error: null,
+          connection_method: 'self_authorization',
+          token_expires_at: '2030-01-01T00:00:00.000Z',
         },
       ],
     });

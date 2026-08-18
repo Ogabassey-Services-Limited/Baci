@@ -113,6 +113,7 @@ async function connect(args: {
       `${args.merchantId}:${clientKeyHash}`
     ),
     p_token_expires_at: validated.accessTokenExpiresAt,
+    p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
     p_shop_ids: shopsToConnect.map((shop) => shop.id),
     p_shop_names: shopsToConnect.map((shop) => shop.name),
     p_country_codes: shopsToConnect.map((shop) => shop.countryCode),

@@ -4,7 +4,6 @@
  */
 
 import crypto from 'node:crypto';
-import { createJumiaMobileReturnUrl } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -30,13 +29,13 @@ import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import {
   jumiaSelfAuthorizationDiscoverySchema,
   jumiaSelfAuthorizationSelectionSchema,
 } from '@/schemas/jumia/self-authorization';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
+import { handleJumiaMobileTicket } from './mobile-ticket';
 import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
 import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
 
@@ -226,89 +225,11 @@ export async function GET(request: NextRequest) {
       return diagnosticPreAuthResponse;
     }
 
-    // --- Mobile ticket flow (runs before cookie auth) ---
-    const ticket = searchParams.get('ticket');
-    if (
-      ticket &&
-      connectionType === 'oauth' &&
-      searchParams.get('platform') === 'mobile'
-    ) {
-      const ticketParsed = z.uuid().safeParse(ticket);
-      if (!ticketParsed.success) {
-        return NextResponse.redirect(
-          createJumiaMobileReturnUrl({ error: 'invalid_ticket' })
-        );
-      }
-
-      // Check OAuth config BEFORE consuming the ticket so we never
-      // waste a one-time ticket when configuration is missing.
-      const jumiaClientId = getJumiaClientId();
-      const appUrl = getConfiguredAppUrl();
-      if (!jumiaClientId || !appUrl) {
-        return NextResponse.redirect(
-          createJumiaMobileReturnUrl({ error: 'oauth_not_configured' })
-        );
-      }
-
-      // Generate state up-front so we can bind it atomically with redemption
-      const state = crypto.randomBytes(16).toString('hex');
-
-      // Atomically redeem the ticket AND bind the OAuth state in a single UPDATE
-      const adminClient = createAdminClient();
-      const { data: ticketData, error: ticketError } = await adminClient
-        .from('oauth_handoff_tickets')
-        .update({
-          status: 'redeemed',
-          redeemed_at: new Date().toISOString(),
-          oauth_state: state,
-          expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-        })
-        .eq('id', ticketParsed.data)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString())
-        .select('merchant_id')
-        .single();
-
-      if (ticketError || !ticketData) {
-        return NextResponse.redirect(
-          createJumiaMobileReturnUrl({ error: 'ticket_invalid' })
-        );
-      }
-
-      const redirectUrl = getJumiaAuthUrl({
-        clientId: jumiaClientId,
-        redirectUri: getJumiaRedirectUri(appUrl),
-        state,
-      });
-
-      const response = NextResponse.redirect(redirectUrl);
-      response.cookies.set('jumia_oauth_state', state, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-      response.cookies.set('jumia_merchant_id', ticketData.merchant_id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-      response.cookies.set('jumia_oauth_platform', 'mobile', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-      response.cookies.set('jumia_ticket_id', ticketParsed.data, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 10, // 10 minutes
-      });
-
-      return response;
-    }
+    const mobileTicketResponse = await handleJumiaMobileTicket(
+      request,
+      searchParams
+    );
+    if (mobileTicketResponse) return mobileTicketResponse;
 
     // --- Shared cookie/bearer auth flow ---
     const auth = await authenticateApiRequest(request);
@@ -420,7 +341,7 @@ export async function GET(request: NextRequest) {
     const { data: integrations, error: integrationsError } = await auth.supabase
       .from('marketplace_integrations')
       .select(
-        'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error'
+        'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error, connection_method, token_expires_at'
       )
       .eq('merchant_id', merchantId)
       .eq('platform', 'jumia')

@@ -30,6 +30,7 @@ export class JumiaClient {
   readonly marketplaceKey: string;
   private accessToken: string | null;
   private tokenExpiresAt: Date | null;
+  private refreshTokenExpiresAt: Date | null;
   private refreshToken: string;
   private clientId: string;
   private authorizationId: string | undefined;
@@ -49,6 +50,7 @@ export class JumiaClient {
     authorizationId?: string;
     authorizationRotationVersion?: number;
     tokenExpiresAt: Date | null;
+    refreshTokenExpiresAt?: Date | null;
     environment?: JumiaEnvironment;
     supabase?: SupabaseClient;
   }) {
@@ -66,6 +68,7 @@ export class JumiaClient {
     this.authorizationId = config.authorizationId;
     this.authorizationRotationVersion = config.authorizationRotationVersion;
     this.tokenExpiresAt = config.tokenExpiresAt;
+    this.refreshTokenExpiresAt = config.refreshTokenExpiresAt ?? null;
     this.environment = config.environment ?? getJumiaEnvironment();
     this.supabase = config.supabase ?? null;
   }
@@ -111,6 +114,7 @@ export class JumiaClient {
         authorizationId: this.authorizationId,
         authorizationRotationVersion: this.authorizationRotationVersion,
         tokenExpiresAt: this.tokenExpiresAt,
+        refreshTokenExpiresAt: this.refreshTokenExpiresAt,
         supabase: this.supabase,
         apiBase: this.apiBase,
       },
@@ -125,6 +129,9 @@ export class JumiaClient {
     }
     if (updates.tokenExpiresAt !== undefined) {
       this.tokenExpiresAt = updates.tokenExpiresAt;
+    }
+    if (updates.refreshTokenExpiresAt !== undefined) {
+      this.refreshTokenExpiresAt = updates.refreshTokenExpiresAt ?? null;
     }
     if (updates.clientId !== undefined) {
       this.clientId = updates.clientId;

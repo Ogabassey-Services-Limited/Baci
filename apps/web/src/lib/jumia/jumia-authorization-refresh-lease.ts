@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 export const REFRESH_LEASE_SECONDS = 45;
 export const REFRESH_LEASE_BUSY_RETRIES = 10;
@@ -13,6 +12,7 @@ export type JumiaAuthorizationRefreshState = {
   authorizationId: string;
   authorizationRotationVersion?: number;
   tokenExpiresAt: Date | null;
+  refreshTokenExpiresAt?: Date | null;
 };
 
 function delay(ms: number): Promise<void> {
@@ -29,7 +29,7 @@ export async function claimJumiaAuthorizationRefreshLease(
   | { status: 'busy' }
   | { status: 'stale' }
 > {
-  const { data, error } = await createAdminClient().rpc(
+  const { data, error } = await _supabase.rpc(
     'claim_jumia_authorization_refresh_lease',
     {
       p_authorization_id: state.authorizationId,
@@ -73,6 +73,7 @@ export async function reloadSharedAuthorizationCredentials(
   clientId: string;
   tokenExpiresAt: Date;
   authorizationRotationVersion: number;
+  refreshTokenExpiresAt: Date;
 }> {
   const { getJumiaAuthorizationEncryptionKey } = await import('@/env');
   const { jumiaAuthorizationCrypto } = await import(
@@ -92,6 +93,14 @@ export async function reloadSharedAuthorizationCredentials(
     state.merchantId
   );
 
+  const refreshTokenExpiresAt = authorization.refresh_token_expires_at;
+  if (!refreshTokenExpiresAt) {
+    throw new JumiaApiError(
+      500,
+      'Jumia authorization refresh-token expiry is unavailable'
+    );
+  }
+
   const credentials = jumiaAuthorizationCrypto.decrypt(
     authorization.credential_ciphertext,
     key,
@@ -106,6 +115,7 @@ export async function reloadSharedAuthorizationCredentials(
     refreshToken: credentials.refreshToken,
     clientId: credentials.clientId,
     tokenExpiresAt: new Date(authorization.token_expires_at),
+    refreshTokenExpiresAt: new Date(refreshTokenExpiresAt),
     authorizationRotationVersion: authorization.rotation_version,
   };
 }
@@ -162,6 +172,7 @@ export async function acquireJumiaAuthorizationRefreshLease(
         ...currentState,
         authorizationRotationVersion: reloaded.authorizationRotationVersion,
         tokenExpiresAt: reloaded.tokenExpiresAt,
+        refreshTokenExpiresAt: reloaded.refreshTokenExpiresAt,
       };
       continue;
     }

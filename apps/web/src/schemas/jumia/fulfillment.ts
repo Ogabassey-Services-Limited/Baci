@@ -7,6 +7,7 @@ import { z } from 'zod';
 import {
   FulfillmentErrorItemSchema,
   FulfillmentPackageSchema,
+  ReadyToShipPackageSchema,
 } from '@/schemas/jumia/shared';
 
 /** Shared cancellation-reason shape used in cancel success/error items. */
@@ -29,7 +30,7 @@ export const JumiaPackV2ResponseSchema = z
       .object({
         packages: z.array(
           z.object({
-            orderItems: z.string(),
+            orderItems: z.array(z.string().min(1)).min(1),
             error: z.string(),
           })
         ),
@@ -47,7 +48,7 @@ export const JumiaReadyToShipResponseSchema = z
   .object({
     success: z
       .object({
-        packages: z.array(FulfillmentPackageSchema),
+        packages: z.array(ReadyToShipPackageSchema),
         total: z.number(),
       })
       .optional(),
@@ -71,6 +72,7 @@ export const JumiaCancelResponseSchema = z
         orderItems: z.array(
           z.object({
             id: z.string(),
+            countryCode: z.string().regex(/^[A-Z]{2}$/),
             cancellationReason: JumiaCancellationReason,
           })
         ),
@@ -107,9 +109,15 @@ export const JumiaPrintLabelsResponseSchema = z
       .object({
         labels: z.array(
           z.object({
-            orderItems: z.string(),
+            orderItemIds: z.array(z.string().min(1)).min(1),
             trackingNumber: z.string(),
-            label: z.url(),
+            countryCode: z.string().regex(/^[A-Z]{2}$/),
+            label: z
+              .string()
+              .regex(
+                /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
+                'Label must be base64-encoded content'
+              ),
           })
         ),
         total: z.number(),

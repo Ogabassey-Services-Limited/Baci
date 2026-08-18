@@ -6,6 +6,7 @@ const credentials = { clientId: 'client-id', refreshToken: 'refresh-token' };
 const validated = {
   credentials: { ...credentials, accessToken: 'access-token' },
   accessTokenExpiresAt: '2026-08-13T12:00:00.000Z',
+  refreshTokenExpiresAt: '2026-09-13T12:00:00.000Z',
   shops: [
     {
       id: 'shop-1',
@@ -86,6 +87,7 @@ describe('Jumia Self Authorization handler', () => {
         .digest('hex'),
       p_credential_ciphertext: 'opaque-ciphertext',
       p_token_expires_at: validated.accessTokenExpiresAt,
+      p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
       p_shop_ids: ['shop-1'],
       p_shop_names: ['Shop One'],
       p_country_codes: ['NG'],

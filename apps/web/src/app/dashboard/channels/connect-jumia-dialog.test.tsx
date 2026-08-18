@@ -40,6 +40,14 @@ describe('ConnectJumiaDialog', () => {
   it('renders the OAuth connect button as a link', () => {
     render(<ConnectJumiaDialog {...defaultProps} />);
 
+    expect(
+      screen.getByText(/recommended for continuous and background sync/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/web application oauth/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/temporary.*requires re-login when the token expires/i)
+    ).toBeInTheDocument();
+
     const link = screen.getByRole('link', { name: /connect with jumia/i });
     expect(link).toHaveAttribute(
       'href',

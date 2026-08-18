@@ -4,6 +4,8 @@
  */
 
 export {
+  type JumiaSelfAuthorizationTokenResponse,
+  JumiaSelfAuthorizationTokenResponseSchema,
   type JumiaTokenError,
   JumiaTokenErrorSchema,
   type JumiaTokenResponse,
@@ -83,6 +85,8 @@ export {
   FulfillmentErrorItemSchema,
   type FulfillmentPackage,
   FulfillmentPackageSchema,
+  type ReadyToShipPackage,
+  ReadyToShipPackageSchema,
   type ShippingAddress,
   ShippingAddressSchema,
 } from '@/schemas/jumia/shared';

@@ -19,7 +19,6 @@ import {
   getMerchantFeatureAccess,
   merchantFeatureUpgradeResponse,
 } from '@/lib/merchant-feature-gates';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 const bodySchema = z.object({
   code: z.string().min(1).max(2048),
@@ -86,23 +85,15 @@ export async function POST(request: NextRequest) {
       return merchantFeatureUpgradeResponse('marketplace_sync');
     }
 
-    // Atomically consume the ticket — verifies ownership + status + expiry
-    const adminClient = createAdminClient();
-    const { data: ticket, error: ticketError } = await adminClient
-      .from('oauth_handoff_tickets')
-      .update({
-        status: 'exchanged',
-        exchanged_at: new Date().toISOString(),
-      })
-      .eq('id', ticketId)
-      .eq('status', 'redeemed')
-      .eq('user_id', auth.user.id)
-      .eq('merchant_id', merchantId)
-      .gt('expires_at', new Date().toISOString())
-      .select('id')
-      .single();
+    // Atomically consume the ticket — the RPC verifies auth.uid ownership,
+    // merchant permission, status, and expiry inside one transaction.
+    const { data: ticketConsumed, error: ticketError } =
+      await auth.supabase.rpc('exchange_jumia_oauth_handoff_ticket', {
+        p_merchant_id: merchantId,
+        p_ticket_id: ticketId,
+      });
 
-    if (ticketError || !ticket) {
+    if (ticketError || ticketConsumed !== true) {
       return NextResponse.json(
         { error: 'Invalid or expired ticket' },
         { status: 403 }
@@ -228,6 +219,9 @@ export async function POST(request: NextRequest) {
       refresh_token: tokens.refresh_token ?? null,
       token_expires_at: tokenExpiresAt.toISOString(),
       is_active: !isFallbackShop,
+      // OAuth integrations must not retain a Self Authorization grant when
+      // the same shop switches connection methods.
+      jumia_authorization_id: null,
       sync_config: {
         products: true,
         orders: true,

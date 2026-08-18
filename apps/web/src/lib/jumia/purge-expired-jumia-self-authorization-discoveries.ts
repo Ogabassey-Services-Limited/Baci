@@ -1,4 +1,3 @@
-import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function purgeExpiredJumiaSelfAuthorizationDiscoveries(): Promise<number> {
@@ -14,13 +13,4 @@ export async function purgeExpiredJumiaSelfAuthorizationDiscoveries(): Promise<n
   }
 
   return typeof data === 'number' ? data : 0;
-}
-
-export function purgeExpiredJumiaSelfAuthorizationDiscoveriesOpportunistically(): void {
-  void purgeExpiredJumiaSelfAuthorizationDiscoveries().catch((error) => {
-    logger.error({
-      message: 'Failed to opportunistically purge expired Jumia discoveries',
-      error: error instanceof Error ? error.message : String(error),
-    });
-  });
 }

@@ -9,6 +9,7 @@ describe('loadJumiaAuthorizationGrant', () => {
           {
             credential_ciphertext: 'opaque-ciphertext',
             token_expires_at: '2026-03-27T10:00:00.000Z',
+            refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
             rotation_version: 2,
             client_key_hash: 'a'.repeat(64),
           },
@@ -22,6 +23,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     ).resolves.toEqual({
       credential_ciphertext: 'opaque-ciphertext',
       token_expires_at: '2026-03-27T10:00:00.000Z',
+      refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
       rotation_version: 2,
       client_key_hash: 'a'.repeat(64),
     });
@@ -47,5 +49,25 @@ describe('loadJumiaAuthorizationGrant', () => {
     ).rejects.toThrow(
       /Jumia API Error \(404\): Jumia authorization grant not found/
     );
+  });
+
+  it('rejects a grant row without refresh-token expiry metadata', async () => {
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: [
+          {
+            credential_ciphertext: 'opaque-ciphertext',
+            token_expires_at: '2026-03-27T10:00:00.000Z',
+            rotation_version: 2,
+            client_key_hash: 'a'.repeat(64),
+          },
+        ],
+        error: null,
+      }),
+    };
+
+    await expect(
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
+    ).rejects.toMatchObject({ status: 404 });
   });
 });

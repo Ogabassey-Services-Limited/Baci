@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /* ------------------------------------------------------------------ */
 
 const {
-  mockAdminFrom,
+  mockRpc,
   mockAuthenticateApiRequest,
   mockExchangeJumiaCode,
   mockFeaturePlanTier,
@@ -15,7 +15,7 @@ const {
   mockMarketplaceUpsert,
 } = vi.hoisted(() => {
   return {
-    mockAdminFrom: vi.fn(),
+    mockRpc: vi.fn(),
     mockAuthenticateApiRequest: vi.fn(),
     mockExchangeJumiaCode: vi.fn(),
     mockFeaturePlanTier: vi.fn(() => 'pro'),
@@ -30,10 +30,6 @@ vi.mock('@/lib/api-auth', () => ({
     mockAuthenticateApiRequest(...args),
   getMerchantIdForApiUser: (...args: unknown[]) =>
     mockGetMerchantIdForApiUser(...args),
-}));
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({ from: mockAdminFrom })),
 }));
 
 vi.mock('@/env', () => ({
@@ -96,6 +92,7 @@ function createMarketplaceIntegrationsBuilder() {
 }
 
 const mockUserSupabase = {
+  rpc: (...args: unknown[]) => mockRpc(...args),
   from: vi.fn((table: string) =>
     table === 'merchants'
       ? createMerchantFeatureBuilder()
@@ -123,24 +120,8 @@ function setupAuth() {
   mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
 }
 
-function createChainableMock(result: {
-  data: unknown;
-  error: unknown;
-}): Record<string, unknown> {
-  const chain: Record<string, unknown> = {};
-  chain.eq = vi.fn().mockReturnValue(chain);
-  chain.gt = vi.fn().mockReturnValue(chain);
-  chain.select = vi.fn().mockReturnValue(chain);
-  chain.single = vi.fn().mockResolvedValue(result);
-  chain.update = vi.fn().mockReturnValue(chain);
-  return chain;
-}
-
 function setupTicketConsume(success = true) {
-  const result = success
-    ? { data: { id: TICKET_ID }, error: null }
-    : { data: null, error: { message: 'No rows' } };
-  mockAdminFrom.mockReturnValue(createChainableMock(result));
+  mockRpc.mockResolvedValue({ data: success, error: null });
 }
 
 function setupTokenExchange() {
@@ -264,7 +245,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
       code: 'requires_upgrade',
       error: 'Marketplace sync requires Baci Pro',
     });
-    expect(mockAdminFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 200 with shops on successful exchange', async () => {
@@ -307,6 +288,8 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
       [
         expect.objectContaining({
           access_token: 'only-access',
+          connection_method: 'oauth',
+          jumia_authorization_id: null,
           refresh_token: null,
           shop_id: 'shop-1',
         }),
