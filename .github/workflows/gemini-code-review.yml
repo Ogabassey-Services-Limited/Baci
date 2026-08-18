@@ -320,8 +320,8 @@ jobs:
       - name: Run Gemini 3.7 Flash review
         id: gemini
         if: steps.command.outputs.should_run == 'true' && steps.diff.outputs.should_review == 'true'
-        # Tolerate flaky Gemini-API runs so the workflow still posts a fallback
-        # review and resolves the commit status instead of hard-failing here.
+        # Keep the step non-fatal long enough to post fallback context; the gate
+        # below still fails when Gemini does not return a usable review.
         continue-on-error: true
         env:
           # The Gemini CLI refuses to run in an "untrusted" workspace (the CI
@@ -410,6 +410,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           HEAD_SHA: ${{ steps.diff.outputs.head_sha }}
+          GEMINI_SUMMARY: ${{ steps.gemini.outputs.summary }}
+          GEMINI_OUTCOME: ${{ steps.gemini.outcome }}
           PR_LABELS: ${{ toJson(github.event.pull_request.labels || github.event.issue.labels) }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -425,6 +427,14 @@ jobs:
               -f target_url="${RUN_URL}" >/dev/null || true
           }
 
+          summary="${GEMINI_SUMMARY:-}"
+          outcome="${GEMINI_OUTCOME:-}"
+          if [[ "${outcome}" != "success" || -z "${summary//[[:space:]]/}" ]]; then
+            echo "::error::Gemini did not produce a successful review summary (step outcome: ${outcome:-unknown})."
+            set_status "failure" "Gemini review failed or returned no summary"
+            exit 1
+          fi
+
           # Escape hatch: human verification can bypass the gate via a label.
           if printf '%s' "${PR_LABELS:-[]}" | jq -e '.[] | select(.name == "bypass-ai-gate")' >/dev/null 2>&1; then
             echo "::notice::Gemini gate bypassed via 'bypass-ai-gate' label."
@@ -433,9 +443,9 @@ jobs:
           fi
 
           if [[ ! -f "${body_file}" ]]; then
-            echo "No review body produced by Gemini. Treating as advisory pass."
-            set_status "success" "No review produced (advisory pass)"
-            exit 0
+            echo "::error::No review body was produced by Gemini."
+            set_status "failure" "Gemini review body missing"
+            exit 1
           fi
 
           # Match only structured HIGH/CRITICAL bullet findings ("- high:", "- critical:",
