@@ -95,7 +95,9 @@ export function HomeServiceCards({
         toValue: 1,
         duration: BORDER_RUNNER_DURATION,
         easing: Easing.linear,
-        useNativeDriver: true,
+        // Keep this short-lived home decoration out of React Native's legacy
+        // native Animated graph, which can retain nodes across list unmounts.
+        useNativeDriver: false,
       })
     );
 
