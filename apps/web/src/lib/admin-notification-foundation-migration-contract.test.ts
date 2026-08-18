@@ -19,10 +19,10 @@ const notificationMigrationNames = [
   '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
   '20260811150001_prune_terminal_notification_audience_snapshots.sql',
   '20260812110001_harden_notification_delivery_and_operations_access.sql',
-  '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+  '20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql',
   '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
-  '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
-  '20260813140000_repair_notification_deferral_and_finalize.sql',
+  '20260817221000_allow_repeated_quiet_hour_deferrals.sql',
+  '20260817222000_repair_notification_deferral_and_finalize.sql',
   '20260814130000_separate_quiet_deferral_failure_attempts.sql',
   '20260814140000_repair_notification_manager_rls_and_access_roster.sql',
 ] as const;
@@ -63,10 +63,10 @@ describe('admin notification foundation migration contract', () => {
       '20260809184000_repair_admin_notification_dashboard_literal_search.sql',
       '20260811150001_prune_terminal_notification_audience_snapshots.sql',
       '20260812110001_harden_notification_delivery_and_operations_access.sql',
-      '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+      '20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql',
       '20260812123000_preserve_started_notifications_during_quiet_deferral.sql',
-      '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
-      '20260813140000_repair_notification_deferral_and_finalize.sql',
+      '20260817221000_allow_repeated_quiet_hour_deferrals.sql',
+      '20260817222000_repair_notification_deferral_and_finalize.sql',
       '20260814130000_separate_quiet_deferral_failure_attempts.sql',
       '20260814140000_repair_notification_manager_rls_and_access_roster.sql',
     ]);
@@ -129,7 +129,7 @@ describe('admin notification foundation migration contract', () => {
 
   it('prunes a stale terminal lease snapshot and reschedules quiet-hour delivery without resetting delivery start', () => {
     const sql = readMigrations([
-      '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+      '20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql',
     ]);
 
     expect(sql).toContain('n.delivery_attempts >= 3');
@@ -149,7 +149,7 @@ describe('admin notification foundation migration contract', () => {
       "p_outcome not in ('sent', 'retry', 'expired', 'deferred')"
     );
     const repeatedDeferralSql = readMigrations([
-      '20260812130000_allow_repeated_quiet_hour_deferrals.sql',
+      '20260817221000_allow_repeated_quiet_hour_deferrals.sql',
     ]);
     expect(repeatedDeferralSql).toContain(
       "n.delivery_attempts < 3 or n.delivery_last_error = 'quiet_hours_deferred'"

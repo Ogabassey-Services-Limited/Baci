@@ -20,7 +20,7 @@ const ownedMigrationFiles = [
   '20260805150020_repair_admin_merchant_sales_activity.sql',
   '20260805151350_repair_admin_platform_order_counts.sql',
   '20260811120002_repair_admin_platform_analytics_breakdown_currency_scope.sql',
-  '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+  '20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql',
 ];
 const readMigrationSql = (filename: string) =>
   readFileSync(resolve(migrationDirectory, filename), 'utf8').toLowerCase();
@@ -114,7 +114,7 @@ describe('admin analytics migration contract', () => {
 
   it('pairs NGN AOV with NGN paid-order counts while retaining all-currency order totals', () => {
     const repairSql = readMigrationSql(
-      '20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql'
+      '20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql'
     );
     expect(repairSql).toContain('as ngn_paid_orders');
     expect(repairSql).toContain('cs.paid_gmv / cs.ngn_paid_orders');

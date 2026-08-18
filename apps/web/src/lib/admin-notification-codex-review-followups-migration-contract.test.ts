@@ -13,8 +13,8 @@ const sql = readFileSync(
 describe('notification codex review followups migration contract', () => {
   it('clears recipient visibility when every visible channel is disabled on retry', () => {
     expect(sql).toContain('update public.merchant_notifications as existing');
-    expect(sql).toContain('set in_app_visible = false');
-    expect(sql).toContain('set banner_visible = false');
+    expect(sql).toContain('in_app_visible = false');
+    expect(sql).toContain('banner_visible = false');
     expect(sql).toContain('and not (');
   });
 

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { EXPECTED_PAYSTACK_PENDING_SOURCES } from './expected-paystack-pending-sources.test-support';
 import { PAYSTACK_PENDING_SOURCES } from './supabase-history-replay-paystack-pending-sources';
 
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..');
@@ -23,7 +24,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
   it('contains the ordered paystack pending batch without malformed rows', () => {
     const sources = parseSources(PAYSTACK_PENDING_SOURCES);
 
-    expect(sources.length).toBeGreaterThan(0);
+    expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
       'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql'
     );

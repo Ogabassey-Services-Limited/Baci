@@ -126,7 +126,7 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260812120000_repair_admin_aov_and_notification_quiet_delivery.sql',
+      'supabase/migrations/20260817220000_repair_admin_aov_and_notification_quiet_delivery.sql',
     sha256: 'ef7e7be81bcbb9ebb9a2e459335187d0f77565bfe046a79cf773240e211527be',
   },
   {
@@ -136,12 +136,12 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260812130000_allow_repeated_quiet_hour_deferrals.sql',
+      'supabase/migrations/20260817221000_allow_repeated_quiet_hour_deferrals.sql',
     sha256: '1e145952ecbc039049c16f1b39d7b7d4f3c1d7c99fa88396409f03554febf2bc',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260813140000_repair_notification_deferral_and_finalize.sql',
+      'supabase/migrations/20260817222000_repair_notification_deferral_and_finalize.sql',
     sha256: '77a2fdc7b2035b9dc831e5c4434fd367ccf2038a02efcd3750a3800ab8dc2c93',
   },
   {
@@ -171,7 +171,7 @@ export const ADMIN_PLATFORM_REPAIR_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260815103000_repair_quiet_deferral_snapshots_and_blog_audit.sql',
+      'supabase/migrations/20260817223000_repair_quiet_deferral_snapshots_and_blog_audit.sql',
     sha256: '67e756dda8e921739584b1f5cc80e149338125bde8f9257506fccdac4532825c',
   },
   {

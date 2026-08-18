@@ -19,7 +19,9 @@ describe('admin codex p2 followups migration contract', () => {
     expect(errorFilterSql).toContain(
       'private.project_admin_error_code_v1(delivery.last_error_code) = p_error_code'
     );
-    expect(errorFilterSql).toContain("raise exception 'invalid_projected_error_code'");
+    expect(errorFilterSql).toContain(
+      "raise exception 'invalid_projected_error_code'"
+    );
   });
 
   it('filters replay selection by projected delivery error codes', () => {
