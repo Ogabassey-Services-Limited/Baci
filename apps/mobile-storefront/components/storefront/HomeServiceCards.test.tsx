@@ -87,6 +87,21 @@ describe('HomeServiceCards', () => {
     expect(Animated.loop).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps the moving outline out of the native animated graph', () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    const rendered = render(<HomeServiceCards />);
+
+    try {
+      expect(timing).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ useNativeDriver: false })
+      );
+    } finally {
+      rendered.unmount();
+      timing.mockRestore();
+    }
+  });
+
   it('stops the moving outline animation on unmount', () => {
     const { unmount } = render(<HomeServiceCards />);
 
