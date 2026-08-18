@@ -1,9 +1,13 @@
 import { eventPipelineAdminImporters } from '@/lib/events/event-pipeline-authority-paths';
 import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-credential-paths';
-import { frozenEventPipelineAuthoritySources } from '@/lib/events/event-pipeline-frozen-authority-sources';
+import {
+  eventPipelineFrozenRoutes,
+  frozenEventPipelineAuthoritySources,
+} from '@/lib/events/event-pipeline-frozen-authority-sources';
 import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { eventPipelineLegacySdkImporters } from '@/lib/events/event-pipeline-legacy-sdk-importers';
 import {
+  eventPipelineAdminAdjacentFunctions,
   eventPipelineExpenseCleanupAdjacentFunctions,
   eventPipelineVpsRuntimeCallers,
 } from '@/lib/events/event-pipeline-vps-runtime-callers';
@@ -108,25 +112,11 @@ export const EVENT_PIPELINE_FUNCTION_NAMES = [
   'route_domain_event_v1',
   'select_event_pipeline_replay_ids_v1',
 ] as const satisfies readonly (keyof Database['public']['Functions'])[];
-const frozenRoutes = {
-  'apps/web/src/app/api/analytics/ads/route.ts':
-    'b714f0bedeed7bded973fbe743c74517622ea8e0069dfca35051752dc45571dd',
-  'apps/web/src/app/api/analytics/facebook-capi/route.ts':
-    'f41e1de587645b8fdb2af8af180eb581b2bfeecae688670d7b5c7a80088b7c32',
-  'apps/web/src/app/api/analytics/ga4/route.ts':
-    '9e9b8c3edb1636d2f27e9551568d5036778fce6ab54272f1fd3b77cfd0f88c9f',
-  'apps/web/src/app/api/analytics/snapchat/route.ts':
-    '1a7898d59038b6a37e057e74da3907f4a42da9c25c7236e9d324d7b1516e4cd3',
-  'apps/web/src/app/api/analytics/tiktok/route.ts':
-    '4d59510f6a72ae25dd45c8cc8ea6762a709bf745286140a7a9e1aa4b64ee942e',
-  'apps/web/src/app/api/platform/events/route.ts':
-    'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
-} as const;
 const columns = (value: string) => value.split(' ');
 // biome-ignore format: compact RPC ownership map preserves the 300-line verifier gate.
 const runtimeCallers = {
   'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts': ['claim_cache_invalidations', 'finish_cache_invalidation', 'has_cache_invalidation_dead_letters'],
-  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_v1', 'list_event_pipeline_deliveries_v1', 'list_event_pipeline_ingress_failures_v1'],
+  'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts': ['get_event_pipeline_operations_admin_v3', 'list_event_pipeline_deliveries_admin_v3', 'list_event_pipeline_ingress_failures_admin_v3'],
   'apps/web/src/app/api/admin/event-pipeline/replay/route.ts': ['replay_event_deliveries_batch_v1', 'replay_ingress_dead_letter_v1', 'select_event_pipeline_replay_ids_v1'],
   'apps/web/src/lib/events/enqueue-paid-order-domain-event.ts': ['enqueue_domain_event_v1'],
   'apps/web/src/lib/events/record-analytics-domain-event.ts': ['record_analytics_domain_event_v1'],
@@ -144,12 +134,13 @@ export const EVENT_PIPELINE_BOUNDARY = {
     'cleanup_database_retention',
     'finish_cache_invalidation',
     'has_cache_invalidation_dead_letters',
+    ...eventPipelineAdminAdjacentFunctions,
     ...eventPipelineExpenseCleanupAdjacentFunctions,
   ],
   authority: {
     adminImporters: eventPipelineAdminImporters,
     bareClientImporters: [
-      ...Object.keys(frozenRoutes),
+      ...Object.keys(eventPipelineFrozenRoutes),
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/analytics/fetch-analytics-platform-config.ts',
@@ -166,7 +157,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
     ],
     legacySdkImporters: eventPipelineLegacySdkImporters,
     serverImporters: [
-      ...Object.keys(frozenRoutes),
+      ...Object.keys(eventPipelineFrozenRoutes),
       'apps/web/src/app/(platform)/onboarding/actions.ts',
       'apps/web/src/app/api/admin/event-pipeline/dead-letters/route.ts',
       'apps/web/src/app/api/admin/event-pipeline/replay/route.ts',
@@ -192,7 +183,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
   callers: runtimeCallers,
   frozenAuthoritySources: frozenEventPipelineAuthoritySources,
   frozenProjectionFiles: {},
-  frozenRoutes,
+  frozenRoutes: eventPipelineFrozenRoutes,
   functions: {
     serviceRoleMetrics: ['get_domain_event_queue_metrics_v1'],
     sqlInternal: ['is_event_ingress_capability_v1', 'replay_event_delivery_v1'],

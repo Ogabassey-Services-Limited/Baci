@@ -69,4 +69,21 @@ describe('serviceRoleCredentialAuthority', () => {
       })
     ).toEqual([]);
   });
+
+  it('retains tracked maintenance authority while retiring the RLS analytics route reader', () => {
+    const paths = Object.keys(
+      serviceRoleCredentialAuthority.ledgers.preExistingReaderHashes
+    );
+
+    expect(paths).toEqual(
+      expect.arrayContaining([
+        'apps/web/scripts-tmp/check-cdn-access.ts',
+        'scripts-tmp/check-cdn-access.ts',
+        'scripts/backfill-feed-images.ts',
+      ])
+    );
+    expect(paths).not.toContain(
+      'apps/web/src/app/api/platform/analytics-config/route.ts'
+    );
+  });
 });

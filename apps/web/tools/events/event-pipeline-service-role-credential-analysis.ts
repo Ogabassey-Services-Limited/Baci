@@ -63,8 +63,6 @@ const defaultLedgers: CredentialReaderLedgers = {
       '5a05fb0b5bcfb445c8527cce70d02912fb050db2fb98604d91c2d43b9c566377',
     'apps/web/src/app/api/ai-jobs/worker/route.ts':
       '3cd51c9f0c4aeba362afd3d37e1a4b2d29107bedb6bdf2f75c9860cdc28fa42a',
-    'apps/web/src/app/api/platform/analytics-config/route.ts':
-      '28a184d0112fcb9d27e9f451252dfddcad8d893a3efe5eb1502e21c95b1587a7',
     'apps/web/src/app/api/shipping/self-fulfill/route.ts':
       'cb7a3220da0b16017bd9d56c5d1aeeb87438088a0603e03f88bd10958b0209da',
     'apps/web/src/app/api/shipping/webhooks/[provider]/route.ts':

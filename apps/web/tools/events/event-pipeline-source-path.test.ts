@@ -17,6 +17,7 @@ describe('isTestSourcePath', () => {
     'apps/web/src/app/api/cron/agentic-commerce-health/route.test-setup.ts',
     'apps/web/src/app/dashboard/blog/edit.test-support.tsx',
     'apps/web/src/app/api/products/archive-route-validation.test-suite.ts',
+    'apps/web/src/app/api/cron/agentic-commerce-health/route.test-setup.ts',
     'apps/web/src/lib/events/fixture.test-helper.ts',
     'apps/web/src/lib/events/fixture.test-fixture.ts',
   ])('recognizes %s', (path) => {

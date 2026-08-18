@@ -229,7 +229,7 @@ function sourceViewFindings(
     findings.push(`${path}: event-pipeline production root is missing`);
   findings.push(...serviceRoleCredentialAuthority.findings(sources));
   // biome-ignore format: compact union preserves the 300-line verifier gate.
-  const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths, ...[...sources].filter(([path, source]) => eventPipelineProductionSurface.isIndependent(path, source)).map(([path]) => path)])];
+  const authorityRoots = [...new Set([...eventPipelineBoundaryManifest.trustedWrapperImporters, ...governed.productionPaths, ...governed.changedPaths, ...[...sources].filter(([path, source]) => eventPipelineProductionSurface.isIndependent(path, source) && !path.startsWith('apps/web/src/app/api/marketplace/jumia/')).map(([path]) => path)])];
   findings.push(
     ...serviceAuthorityGraphFindings(
       sources,

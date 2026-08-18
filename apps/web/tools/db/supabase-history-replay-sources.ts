@@ -5,6 +5,7 @@
 // manifest verifier re-hashes the on-disk migration, so never edit a migration
 // after registering it without recomputing its hash here.
 
+import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
@@ -251,7 +252,24 @@ c3e73bdc49a901993f4422b89a6e88405681c36fcb068138f7a0ad46cc7c50e2 20260806000100_
 2e7b6ea5f55a5c6df81f20abc015ddf4d77699be6d74f2720713dd728e3d7933 20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql
 c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql
 `;
-const PENDING_SOURCES = `${PENDING_SOURCES_HEAD}${EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS}`;
+const PENDING_SOURCES = [
+  PENDING_SOURCES_HEAD,
+  ADMIN_PLATFORM_PENDING_SOURCES,
+  EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
+]
+  .flatMap((sourceBlock) => sourceBlock.trim().split('\n'))
+  .sort((left, right) => {
+    const leftFilename = left.split(' ')[1] ?? '';
+    const rightFilename = right.split(' ')[1] ?? '';
+    if (leftFilename < rightFilename) {
+      return -1;
+    }
+    if (leftFilename > rightFilename) {
+      return 1;
+    }
+    return 0;
+  })
+  .join('\n');
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
 20260625173604\t20260714010000_scope_feature_settings_read_policies.sql\t31091717a01f66c683c87e77a2f62245732df023b6dd61055855cf7ff78cff9f\tsuperseded-final-state

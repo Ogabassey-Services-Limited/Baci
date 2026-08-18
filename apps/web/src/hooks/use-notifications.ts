@@ -1,275 +1,31 @@
 'use client';
 
-import {
-  type Dispatch,
-  type SetStateAction,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
-import { fetchWithCsrf } from '@/lib/api-client';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
   ActiveBanner,
   MerchantNotificationWithDetails,
-  NotificationBroadcastPayload,
 } from '@/types/notifications';
 import type { MerchantData } from './merchant/types';
+import {
+  dismissBannerNotification,
+  dismissNotification,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from './notification-actions';
+import {
+  fetchActiveBannersRequest,
+  fetchNotificationsRequest,
+} from './notification-requests';
 import { useMerchant, useMerchantSafe } from './use-merchant-client';
 
-type SupabaseClient = ReturnType<typeof createClient>;
-
-interface FetchNotificationsDeps {
-  cursor: string | null;
-  isFetchingRef: { current: boolean };
-  setIsLoading: Dispatch<SetStateAction<boolean>>;
-  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>;
-  setUnreadCount: Dispatch<SetStateAction<number>>;
-  setHasMore: Dispatch<SetStateAction<boolean>>;
-  setCursor: Dispatch<SetStateAction<string | null>>;
-  setError: Dispatch<SetStateAction<string | null>>;
-}
-
-/**
- * Fetch notifications from the API. Hoisted to module scope so the
- * try/finally finalizer doesn't bail out React Compiler on the hook.
- */
-async function fetchNotificationsRequest(
-  append: boolean,
-  deps: FetchNotificationsDeps
-): Promise<void> {
-  const {
-    cursor,
-    isFetchingRef,
-    setIsLoading,
-    setNotifications,
-    setUnreadCount,
-    setHasMore,
-    setCursor,
-    setError,
-  } = deps;
-
-  // Prevent duplicate parallel fetches
-  if (isFetchingRef.current && !append) {
-    return;
-  }
-
-  try {
-    if (!append) {
-      isFetchingRef.current = true;
-      setIsLoading(true);
-    }
-
-    const params = new URLSearchParams();
-    params.set('limit', '20');
-    if (append && cursor) {
-      params.set('cursor', cursor);
-    }
-
-    const response = await fetch(`/api/notifications?${params.toString()}`);
-    // Implement throttling to prevent 429s
-    if (response.status === 429) {
-      console.warn('Rate limit exceeded for notifications.');
-      setError('Notifications are rate limited. Please try again later.');
-      return;
-    }
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      // Don't throw for 429s or other actionable errors, just log and return
-      console.error(
-        'Failed to fetch notifications:',
-        response.status,
-        errorData
-      );
-      return;
-    }
-
-    const data = await response.json();
-
-    if (append) {
-      setNotifications((prev) => [...prev, ...data.data]);
-    } else {
-      setNotifications(data.data);
-    }
-
-    setUnreadCount(data.unread_count);
-    setHasMore(data.has_more);
-    setCursor(data.cursor);
-    setError(null);
-  } catch (err) {
-    console.error('Error fetching notifications:', err);
-    setError(
-      err instanceof Error ? err.message : 'Failed to fetch notifications'
-    );
-  } finally {
-    setIsLoading(false);
-    isFetchingRef.current = false;
-  }
-}
-
-/**
- * Fetch active banners. Module-scope helper to keep the hook compilable.
- */
-async function fetchActiveBannersRequest(
-  merchantId: string,
-  supabase: SupabaseClient,
-  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
-): Promise<void> {
-  try {
-    const { data, error: bannerError } = await supabase.rpc(
-      'get_active_banners',
-      { p_merchant_id: merchantId }
-    );
-
-    if (bannerError) {
-      console.error('Error fetching banners:', bannerError);
-      return;
-    }
-
-    setActiveBanners(data || []);
-  } catch (err) {
-    console.error('Error fetching active banners:', err);
-  }
-}
-
-/**
- * Mark a notification as read. Throw lives in module scope so the
- * try/catch ThrowStatement doesn't bail out React Compiler on the hook.
- */
-async function markNotificationAsRead(
-  id: string,
-  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
-  setUnreadCount: Dispatch<SetStateAction<number>>
-): Promise<void> {
-  try {
-    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ read: true }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to mark as read');
-    }
-
-    const data = await response.json();
-
-    // Update local state
-    setNotifications((prev) =>
-      prev.map((n) =>
-        n.id === id ? { ...n, read_at: new Date().toISOString() } : n
-      )
-    );
-    setUnreadCount(data.unread_count);
-  } catch (err) {
-    console.error('Error marking notification as read:', err);
-    throw err;
-  }
-}
-
-/**
- * Mark all notifications as read.
- */
-async function markAllNotificationsAsRead(
-  notifications: MerchantNotificationWithDetails[],
-  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
-  setUnreadCount: Dispatch<SetStateAction<number>>
-): Promise<void> {
-  try {
-    // Check if there are any unread notifications
-    const hasUnread = notifications.some((n) => !n.read_at);
-    if (!hasUnread) return;
-
-    const response = await fetchWithCsrf('/api/notifications/mark-all-read', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to mark all as read');
-    }
-
-    // Update local state
-    setNotifications((prev) =>
-      prev.map((n) => ({
-        ...n,
-        read_at: n.read_at || new Date().toISOString(),
-      }))
-    );
-    setUnreadCount(0);
-  } catch (err) {
-    console.error('Error marking all as read:', err);
-    throw err;
-  }
-}
-
-/**
- * Dismiss a notification (removes from list).
- */
-async function dismissNotification(
-  id: string,
-  setNotifications: Dispatch<SetStateAction<MerchantNotificationWithDetails[]>>,
-  setUnreadCount: Dispatch<SetStateAction<number>>
-): Promise<void> {
-  try {
-    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dismissed: true }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to dismiss notification');
-    }
-
-    const data = await response.json();
-
-    // Remove from local state
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    setUnreadCount(data.unread_count);
-  } catch (err) {
-    console.error('Error dismissing notification:', err);
-    throw err;
-  }
-}
-
-/**
- * Dismiss a banner notification.
- */
-async function dismissBannerNotification(
-  id: string,
-  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
-): Promise<void> {
-  try {
-    const response = await fetchWithCsrf(`/api/notifications/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ banner_dismissed: true }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to dismiss banner');
-    }
-
-    // Remove from active banners
-    setActiveBanners((prev) => prev.filter((b) => b.id !== id));
-  } catch (err) {
-    console.error('Error dismissing banner:', err);
-    throw err;
-  }
-}
-
 interface UseNotificationsReturn {
-  // Data
   notifications: MerchantNotificationWithDetails[];
   unreadCount: number;
   activeBanners: ActiveBanner[];
   isLoading: boolean;
   error: string | null;
   hasMore: boolean;
-
-  // Actions
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   dismiss: (id: string) => Promise<void>;
@@ -278,12 +34,7 @@ interface UseNotificationsReturn {
   refetch: () => Promise<void>;
 }
 
-/**
- * Custom hook for managing merchant notifications with Supabase Broadcast
- *
- * Uses Supabase Realtime Broadcast (not Postgres Changes) for real-time updates.
- * This is the 2025 best practice for scalable notification systems.
- */
+/** Custom hook for merchant notifications backed by durable recipient rows. */
 export function useNotifications(): UseNotificationsReturn {
   const { merchant } = useMerchant();
   return useNotificationsForMerchant(merchant);
@@ -301,22 +52,19 @@ function useNotificationsForMerchant(
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [cursor, setCursor] = useState<string | null>(null);
-
   const supabaseRef = useRef(createClient());
   const channelRef = useRef<ReturnType<
     typeof supabaseRef.current.channel
   > | null>(null);
-  const isFetchingRef = useRef(false); // Prevent duplicate parallel fetches
+  const isFetchingRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
 
-  /**
-   * Fetch notifications from the API
-   */
   const fetchNotifications = async (append = false) => {
     if (!merchant?.id) return;
-
     await fetchNotificationsRequest(append, {
       cursor,
       isFetchingRef,
+      pendingRefreshRef,
       setIsLoading,
       setNotifications,
       setUnreadCount,
@@ -326,12 +74,8 @@ function useNotificationsForMerchant(
     });
   };
 
-  /**
-   * Fetch active banners
-   */
   const fetchActiveBanners = async () => {
     if (!merchant?.id) return;
-
     await fetchActiveBannersRequest(
       merchant.id,
       supabaseRef.current,
@@ -339,80 +83,78 @@ function useNotificationsForMerchant(
     );
   };
 
-  /**
-   * Set up Supabase Broadcast subscription
-   */
+  /** Subscribe only to this merchant's durable rows; no global payload exists. */
   useEffect(() => {
     if (!merchant?.id) return;
 
     const supabase = supabaseRef.current;
-
-    // Subscribe to global notifications channel
-    // Merchants filter messages by their ID client-side
-    const channel = supabase.channel('notifications:global', {
-      config: { broadcast: { self: false } },
-    });
-
+    const channel = supabase.channel(`merchant-notifications:${merchant.id}`);
     channel
-      .on('broadcast', { event: 'new_notification' }, (payload) => {
-        const data = payload.payload as NotificationBroadcastPayload & {
-          target_merchant_ids?: string[];
-        };
-
-        // Check if this notification is for the current merchant
-        if (merchant && data.target_merchant_ids?.includes(merchant.id)) {
-          // Add the new notification to the top of the list
-          const newNotification: MerchantNotificationWithDetails = {
-            id: data.merchant_notification_id,
-            notification_id: data.notification.id,
-            merchant_id: merchant.id,
-            read_at: null,
-            dismissed_at: null,
-            banner_dismissed_at: null,
-            created_at: data.created_at,
-            notification: {
-              ...data.notification,
-              template_id: null,
-              target_type: 'all',
-              target_merchant_ids: [],
-              target_segment: null,
-              scheduled_for: null,
-              expires_at: null,
-              created_by: '',
-              created_at: data.created_at,
-              sent_at: data.created_at,
-              is_system: false,
-            },
-          };
-
-          setNotifications((prev) => [newNotification, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-
-          // If it's a banner notification, update banners
-          if (data.notification.channels.includes('banner')) {
-            setActiveBanners((prev) => [
-              {
-                id: data.merchant_notification_id,
-                notification_id: data.notification.id,
-                title: data.notification.title,
-                message: data.notification.message,
-                notification_type: data.notification.notification_type,
-                priority: data.notification.priority,
-                action_url: data.notification.action_url,
-                action_label: data.notification.action_label,
-                created_at: data.created_at,
-              },
-              ...prev,
-            ]);
-          }
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          filter: `merchant_id=eq.${merchant.id}`,
+          schema: 'public',
+          table: 'merchant_notifications',
+        },
+        () => {
+          void fetchNotificationsRequest(false, {
+            cursor: null,
+            isFetchingRef,
+            pendingRefreshRef,
+            setCursor,
+            setError,
+            setHasMore,
+            setIsLoading,
+            setNotifications,
+            setUnreadCount,
+          });
+          void fetchActiveBannersRequest(
+            merchant.id,
+            supabase,
+            setActiveBanners
+          );
         }
-      })
-      .subscribe((_status, err) => {
-        if (err) {
-          console.warn('Notification subscription error:', err.message);
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          filter: `merchant_id=eq.${merchant.id}`,
+          schema: 'public',
+          table: 'merchant_notifications',
+        },
+        () => {
+          // Delivery finalization updates durable recipient rows in the same
+          // transaction as the parent becomes sent, making already-mounted
+          // merchant clients refetch only after the parent is visible.
+          void fetchNotificationsRequest(false, {
+            cursor: null,
+            isFetchingRef,
+            pendingRefreshRef,
+            setCursor,
+            setError,
+            setHasMore,
+            setIsLoading,
+            setNotifications,
+            setUnreadCount,
+          });
+          void fetchActiveBannersRequest(
+            merchant.id,
+            supabase,
+            setActiveBanners
+          );
+        }
+      )
+      .subscribe((_status, subscriptionError) => {
+        if (subscriptionError) {
+          console.warn(
+            'Notification subscription error:',
+            subscriptionError.message
+          );
         }
       });
-
     channelRef.current = channel;
 
     return () => {
@@ -421,56 +163,39 @@ function useNotificationsForMerchant(
         channelRef.current = null;
       }
     };
-  }, [merchant?.id, merchant]);
+  }, [merchant?.id]);
 
-  /**
-   * Initial fetch
-   */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: listing actual deps instead of function refs avoids infinite loop without React Compiler
+  // biome-ignore lint/correctness/useExhaustiveDependencies: function refs would loop
   useEffect(() => {
     fetchNotifications();
     fetchActiveBanners();
   }, [merchant?.id]);
 
-  /**
-   * Mark a notification as read
-   */
   const markAsRead = (id: string) =>
     markNotificationAsRead(id, setNotifications, setUnreadCount);
-
-  /**
-   * Mark all notifications as read
-   */
   const markAllAsRead = () =>
     markAllNotificationsAsRead(notifications, setNotifications, setUnreadCount);
-
-  /**
-   * Dismiss a notification (removes from list)
-   */
   const dismiss = (id: string) =>
     dismissNotification(id, setNotifications, setUnreadCount);
-
-  /**
-   * Dismiss a banner notification
-   */
   const dismissBanner = (id: string) =>
     dismissBannerNotification(id, setActiveBanners);
-
-  /**
-   * Load more notifications (cursor-based pagination)
-   */
   const loadMore = async () => {
-    if (hasMore && cursor) {
-      await fetchNotifications(true);
-    }
+    if (hasMore && cursor) await fetchNotifications(true);
   };
-
-  /**
-   * Refetch all notifications
-   */
   const refetch = async () => {
     setCursor(null);
-    await fetchNotifications(false);
+    await fetchNotificationsRequest(false, {
+      cursor: null,
+      isFetchingRef,
+      pendingRefreshRef,
+      queueRefresh: false,
+      setCursor,
+      setError,
+      setHasMore,
+      setIsLoading,
+      setNotifications,
+      setUnreadCount,
+    });
     await fetchActiveBanners();
   };
 
@@ -490,14 +215,11 @@ function useNotificationsForMerchant(
   };
 }
 
-/**
- * Compatibility wrapper for optional notification UI.
- */
+/** Compatibility wrapper for optional notification UI. */
 export function useNotificationsSafe(): UseNotificationsReturn | null {
   const merchantContext = useMerchantSafe();
   const notifications = useNotificationsForMerchant(
     merchantContext?.merchant ?? null
   );
-
   return merchantContext ? notifications : null;
 }

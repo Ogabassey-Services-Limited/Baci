@@ -32,7 +32,7 @@ export default function NotificationPreferencesPage() {
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: reloadToken intentionally retriggers the load on retry
+  // biome-ignore lint/correctness/useExhaustiveDependencies: retry token reloads preferences
   useEffect(() => {
     let isStale = false;
 
@@ -91,6 +91,7 @@ export default function NotificationPreferencesPage() {
         banner_enabled: preferences.banner_enabled,
         quiet_hours_start: preferences.quiet_hours_start,
         quiet_hours_end: preferences.quiet_hours_end,
+        quiet_hours_time_zone: preferences.quiet_hours_time_zone,
       }),
     })
       .then((response) => {
@@ -165,7 +166,6 @@ export default function NotificationPreferencesPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/dashboard/notifications">
@@ -182,7 +182,6 @@ export default function NotificationPreferencesPage() {
         </div>
       </div>
 
-      {/* Channels */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -229,7 +228,6 @@ export default function NotificationPreferencesPage() {
         </CardContent>
       </Card>
 
-      {/* Quiet Hours */}
       <Card>
         <CardHeader>
           <CardTitle>Quiet Hours</CardTitle>
@@ -264,6 +262,17 @@ export default function NotificationPreferencesPage() {
               />
             </div>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="quiet_time_zone">Time Zone</Label>
+            <Input
+              id="quiet_time_zone"
+              value={preferences?.quiet_hours_time_zone || 'Africa/Lagos'}
+              onChange={(e) =>
+                updatePreference({ quiet_hours_time_zone: e.target.value })
+              }
+              placeholder="Africa/Lagos"
+            />
+          </div>
           <p className="text-xs text-muted-foreground">
             During quiet hours, notifications will still be delivered but won't
             show alerts.
@@ -271,7 +280,6 @@ export default function NotificationPreferencesPage() {
         </CardContent>
       </Card>
 
-      {/* Save Button */}
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
           {isSaving ? (
