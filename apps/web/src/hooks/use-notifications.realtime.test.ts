@@ -1,7 +1,8 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './use-notifications.test-support';
 import { useNotifications } from './use-notifications';
+import { renderNotificationsHook } from './use-notifications.test-render';
 import {
   notificationMocks,
   resetNotificationHookMocks,
@@ -33,7 +34,7 @@ function isVoidHandler(value: unknown): value is () => void {
 
 describe('useNotifications Realtime subscription', () => {
   it('subscribes to only the current merchant for INSERT and UPDATE changes', async () => {
-    renderHook(() => useNotifications());
+    renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => {
       expect(notificationMocks.supabaseChannel).toHaveBeenCalledWith(
@@ -64,14 +65,14 @@ describe('useNotifications Realtime subscription', () => {
   it('does not subscribe when merchant context is absent', async () => {
     setMerchant(null);
 
-    renderHook(() => useNotifications());
+    renderNotificationsHook(() => useNotifications());
     await Promise.resolve();
 
     expect(notificationMocks.supabaseChannel).not.toHaveBeenCalled();
   });
 
   it('removes the merchant-scoped channel on unmount', async () => {
-    const { unmount } = renderHook(() => useNotifications());
+    const { unmount } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => {
       expect(notificationMocks.supabaseChannel).toHaveBeenCalled();
@@ -92,7 +93,7 @@ describe('useNotifications Realtime subscription', () => {
       return notificationMocks.channel;
     });
 
-    renderHook(() => useNotifications());
+    renderNotificationsHook(() => useNotifications());
 
     await waitFor(() =>
       expect(notificationMocks.channel.subscribe).toHaveBeenCalled()
@@ -106,13 +107,31 @@ describe('useNotifications Realtime subscription', () => {
     warn.mockRestore();
   });
 
+  it('bugfix: bell and banner share one merchant-notifications channel', async () => {
+    function useBellAndBanner() {
+      return [useNotifications(), useNotifications()] as const;
+    }
+
+    renderNotificationsHook(() => useBellAndBanner());
+
+    await waitFor(() => {
+      expect(notificationMocks.supabaseChannel).toHaveBeenCalledTimes(1);
+    });
+    expect(notificationMocks.supabaseChannel).toHaveBeenCalledWith(
+      'merchant-notifications:merchant-123'
+    );
+    expect(notificationMocks.channel.subscribe).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the dashboard usable when channel setup throws synchronously', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     notificationMocks.channel.on.mockImplementationOnce(() => {
       throw new Error('channel is already subscribed');
     });
 
-    expect(() => renderHook(() => useNotifications())).not.toThrow();
+    expect(() =>
+      renderNotificationsHook(() => useNotifications())
+    ).not.toThrow();
 
     await waitFor(() =>
       expect(warn).toHaveBeenCalledWith(
@@ -127,7 +146,7 @@ describe('useNotifications Realtime subscription', () => {
   });
 
   it('refetches after the finalized recipient UPDATE that follows a hidden INSERT', async () => {
-    renderHook(() => useNotifications());
+    renderNotificationsHook(() => useNotifications());
 
     await waitFor(() =>
       expect(notificationMocks.channel.on).toHaveBeenCalledWith(

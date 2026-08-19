@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './use-notifications.test-support';
 import { useNotifications, useNotificationsSafe } from './use-notifications';
+import { renderNotificationsHook } from './use-notifications.test-render';
 import {
   activeBanner,
   notificationMocks,
@@ -18,7 +19,7 @@ describe('useNotifications fetching', () => {
   it('returns the initial loading state and all actions without a merchant', () => {
     setMerchant(null);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     expect(result.current).toMatchObject({
       activeBanners: [],
@@ -51,7 +52,7 @@ describe('useNotifications fetching', () => {
     );
     notificationMocks.rpc.mockResolvedValue({ data: banners, error: null });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(global.fetch).toHaveBeenCalledWith(
@@ -70,7 +71,7 @@ describe('useNotifications fetching', () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal('fetch', fetchSpy);
 
-    renderHook(() => useNotifications());
+    renderNotificationsHook(() => useNotifications());
     await Promise.resolve();
 
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -86,7 +87,7 @@ describe('useNotifications fetching', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current).toMatchObject({
@@ -107,7 +108,7 @@ describe('useNotifications fetching', () => {
     );
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => {
       expect(result.current.error).toBe(
@@ -132,7 +133,7 @@ describe('useNotifications fetching', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => {
       expect(error).toHaveBeenCalledWith(
@@ -155,7 +156,7 @@ describe('useNotifications fetching', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     fetchMock.mockClear();
@@ -169,7 +170,7 @@ describe('useNotifications fetching', () => {
   });
 
   it('does not reconnect when merchant context rerenders with the same ID', async () => {
-    const { rerender } = renderHook(() => useNotifications());
+    const { rerender } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => {
       expect(notificationMocks.supabaseChannel).toHaveBeenCalledTimes(1);
@@ -194,7 +195,7 @@ describe('useNotifications fetching', () => {
     );
     vi.stubGlobal('fetch', fetchMock);
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
     let refetch: Promise<void> | undefined;
@@ -224,7 +225,7 @@ describe('useNotificationsSafe', () => {
   it('returns the notifications result when merchant context exists', async () => {
     setSafeMerchant();
 
-    const { result } = renderHook(() => useNotificationsSafe());
+    const { result } = renderNotificationsHook(() => useNotificationsSafe());
 
     expect(result.current?.notifications).toEqual([]);
     await waitFor(() => expect(result.current?.isLoading).toBe(false));

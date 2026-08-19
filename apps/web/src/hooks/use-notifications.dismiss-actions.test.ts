@@ -1,7 +1,8 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './use-notifications.test-support';
 import { useNotifications } from './use-notifications';
+import { renderNotificationsHook } from './use-notifications.test-render';
 import {
   activeBanner,
   notificationMocks,
@@ -26,7 +27,7 @@ describe('useNotifications dismissal actions', () => {
         ok: true,
       });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.notifications).toHaveLength(1));
     await result.current.dismiss('notif-1');
@@ -46,7 +47,7 @@ describe('useNotifications dismissal actions', () => {
   it('throws when dismissing a notification fails', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await expect(result.current.dismiss('notif-1')).rejects.toThrow(
       'Failed to dismiss notification'
@@ -71,7 +72,7 @@ describe('useNotifications dismissal actions', () => {
       })
       .mockResolvedValueOnce({ json: async () => ({}), ok: true });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.activeBanners).toHaveLength(1));
     await result.current.dismissBanner('banner-1');
@@ -89,7 +90,7 @@ describe('useNotifications dismissal actions', () => {
   it('throws when dismissing an active banner fails', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await expect(result.current.dismissBanner('banner-1')).rejects.toThrow(
       'Failed to dismiss banner'
@@ -104,7 +105,7 @@ describe('useNotifications dismissal actions', () => {
   });
 
   it('refetches notifications and banners', async () => {
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(global.fetch).toHaveBeenCalled());
     vi.clearAllMocks();
