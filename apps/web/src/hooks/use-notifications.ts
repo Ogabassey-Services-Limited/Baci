@@ -89,73 +89,87 @@ function useNotificationsForMerchant(
 
     const supabase = supabaseRef.current;
     const channel = supabase.channel(`merchant-notifications:${merchant.id}`);
-    channel
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          filter: `merchant_id=eq.${merchant.id}`,
-          schema: 'public',
-          table: 'merchant_notifications',
-        },
-        () => {
-          void fetchNotificationsRequest(false, {
-            cursor: null,
-            isFetchingRef,
-            pendingRefreshRef,
-            setCursor,
-            setError,
-            setHasMore,
-            setIsLoading,
-            setNotifications,
-            setUnreadCount,
-          });
-          void fetchActiveBannersRequest(
-            merchant.id,
-            supabase,
-            setActiveBanners
-          );
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          filter: `merchant_id=eq.${merchant.id}`,
-          schema: 'public',
-          table: 'merchant_notifications',
-        },
-        () => {
-          // Delivery finalization updates durable recipient rows in the same
-          // transaction as the parent becomes sent, making already-mounted
-          // merchant clients refetch only after the parent is visible.
-          void fetchNotificationsRequest(false, {
-            cursor: null,
-            isFetchingRef,
-            pendingRefreshRef,
-            setCursor,
-            setError,
-            setHasMore,
-            setIsLoading,
-            setNotifications,
-            setUnreadCount,
-          });
-          void fetchActiveBannersRequest(
-            merchant.id,
-            supabase,
-            setActiveBanners
-          );
-        }
-      )
-      .subscribe((_status, subscriptionError) => {
-        if (subscriptionError) {
-          console.warn(
-            'Notification subscription error:',
-            subscriptionError.message
-          );
-        }
-      });
     channelRef.current = channel;
+
+    try {
+      channel
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            filter: `merchant_id=eq.${merchant.id}`,
+            schema: 'public',
+            table: 'merchant_notifications',
+          },
+          () => {
+            void fetchNotificationsRequest(false, {
+              cursor: null,
+              isFetchingRef,
+              pendingRefreshRef,
+              setCursor,
+              setError,
+              setHasMore,
+              setIsLoading,
+              setNotifications,
+              setUnreadCount,
+            });
+            void fetchActiveBannersRequest(
+              merchant.id,
+              supabase,
+              setActiveBanners
+            );
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            filter: `merchant_id=eq.${merchant.id}`,
+            schema: 'public',
+            table: 'merchant_notifications',
+          },
+          () => {
+            // Delivery finalization updates durable recipient rows in the same
+            // transaction as the parent becomes sent, making already-mounted
+            // merchant clients refetch only after the parent is visible.
+            void fetchNotificationsRequest(false, {
+              cursor: null,
+              isFetchingRef,
+              pendingRefreshRef,
+              setCursor,
+              setError,
+              setHasMore,
+              setIsLoading,
+              setNotifications,
+              setUnreadCount,
+            });
+            void fetchActiveBannersRequest(
+              merchant.id,
+              supabase,
+              setActiveBanners
+            );
+          }
+        )
+        .subscribe((_status, subscriptionError) => {
+          if (subscriptionError) {
+            console.warn(
+              'Notification subscription error:',
+              subscriptionError.message
+            );
+          }
+        });
+    } catch (error) {
+      // Realtime setup can throw synchronously when a channel is already
+      // subscribed (for example during a fast client remount). Notifications
+      // still load through the initial API request, so keep the dashboard
+      // usable and clean up the partially-created channel.
+      console.warn(
+        'Notification subscription setup failed:',
+        error instanceof Error ? error.message : 'Unknown subscription error'
+      );
+      void supabase.removeChannel(channel);
+      channelRef.current = null;
+    }
 
     return () => {
       if (channelRef.current) {

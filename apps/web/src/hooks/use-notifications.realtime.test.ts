@@ -106,6 +106,26 @@ describe('useNotifications Realtime subscription', () => {
     warn.mockRestore();
   });
 
+  it('keeps the dashboard usable when channel setup throws synchronously', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    notificationMocks.channel.on.mockImplementationOnce(() => {
+      throw new Error('channel is already subscribed');
+    });
+
+    expect(() => renderHook(() => useNotifications())).not.toThrow();
+
+    await waitFor(() =>
+      expect(warn).toHaveBeenCalledWith(
+        'Notification subscription setup failed:',
+        'channel is already subscribed'
+      )
+    );
+    expect(notificationMocks.removeChannel).toHaveBeenCalledWith(
+      notificationMocks.channel
+    );
+    warn.mockRestore();
+  });
+
   it('refetches after the finalized recipient UPDATE that follows a hidden INSERT', async () => {
     renderHook(() => useNotifications());
 
