@@ -93,4 +93,6 @@ test('run-lefthook-pnpm prepends the hook pnpm wrapper to PATH', () => {
   assert.match(source, /is-sparse-checkout\.sh/);
   assert.match(source, /PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false/);
   assert.match(source, /PNPM_CONFIG_ALLOW_UNUSED_PATCHES=true/);
+  assert.match(source, /PUPPETEER_SKIP_DOWNLOAD=/);
+  assert.match(source, /PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD=/);
 });
