@@ -51,4 +51,30 @@ describe('isStorefrontRequiredApiSourcePath', () => {
       )
     ).toBe(false);
   });
+
+  it('admits JavaScript route handlers (.js, .jsx, .tsx)', () => {
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/orders/route.js'
+      )
+    ).toBe(true);
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/storefront/orders/[id]/route.jsx'
+      )
+    ).toBe(true);
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/cart/validate/route.tsx'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects non-route files regardless of extension', () => {
+    expect(
+      isStorefrontRequiredApiSourcePath(
+        'apps/web/src/app/api/orders/utils.ts'
+      )
+    ).toBe(false);
+  });
 });

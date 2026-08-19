@@ -88,6 +88,7 @@ export const STOREFRONT_EDGE_INVENTORY_ROUTING_INPUT_PATHS = [
   'apps/web/src/components/storefront/ogabassey/pages/checkout-page.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/help-support.tsx',
   'apps/web/src/components/storefront/ogabassey/pages/checkout/hooks/checkout-shipping-quote-loader.ts',
+  'apps/web/src/components/storefront/ogabassey/pages/checkout/hooks/use-storefront-customer-session.ts',
   'apps/web/src/components/storefront/checkout-identity-modal.tsx',
   'apps/web/src/components/storefront/checkout-auth-modal.tsx',
   'apps/web/src/components/storefront/ogabassey/components/CheckoutIdentityModal.tsx',

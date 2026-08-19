@@ -67,14 +67,15 @@ const STOREFRONT_API_SOURCE_PATHS = new Set([
 
 /** Limits edge-origin API inventory to reviewed customer storefront routes. */
 export function isStorefrontRequiredApiSourcePath(sourcePath: string): boolean {
+  const routeSuffixPattern = /\/route\.[tj]sx?$/;
   if (
     !sourcePath.startsWith(API_SOURCE_ROOT) ||
-    !sourcePath.endsWith('/route.ts')
+    !routeSuffixPattern.test(sourcePath)
   )
     return false;
   const relativePath = sourcePath
     .slice(API_SOURCE_ROOT.length)
-    .replace(/\/route\.ts$/, '');
+    .replace(routeSuffixPattern, '');
   return (
     relativePath.startsWith('storefront/') ||
     STOREFRONT_API_SOURCE_PATHS.has(relativePath)
