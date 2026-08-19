@@ -73,4 +73,14 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_CONTENT_ROWS: readonly InventoryR
       'configured_external_media_origin',
       'apps/web/src/components/storefront/new-template/footer.tsx'
     ),
+    mediaSubresource(
+      'blog-content-renderer-external',
+      'configured_external_media_origin',
+      'apps/web/src/components/blog/renderer/BlogContentRenderer.tsx'
+    ),
+    mediaSubresource(
+      'blog-safe-html-external',
+      'configured_external_media_origin',
+      'apps/web/src/components/ui/safe-html.tsx'
+    ),
   ];

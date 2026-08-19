@@ -131,4 +131,14 @@ export const STOREFRONT_EDGE_MEDIA_SUBRESOURCE_NAVIGATION_ROWS: readonly Invento
       'configured_play_store_origin',
       'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx'
     ),
+    mediaSubresource(
+      'receipt-claim-app-store-navigation',
+      'configured_app_store_origin',
+      'apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx'
+    ),
+    mediaSubresource(
+      'receipt-claim-play-store-navigation',
+      'configured_play_store_origin',
+      'apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx'
+    ),
   ];

@@ -22,7 +22,7 @@ describe('external storefront media inventory', () => {
         hostKind: 'configured_supabase_storage_origin',
         methods: ['GET', 'HEAD'],
       },
-      ...Array.from({ length: 11 }, () => ({
+      ...Array.from({ length: 13 }, () => ({
         decision: 'origin_dynamic',
         hostKind: 'configured_external_media_origin',
         methods: ['GET', 'HEAD'],
@@ -131,6 +131,8 @@ describe('external storefront media inventory', () => {
       ...[
         'configured_merchant_social_origin',
         'configured_app_store_origin',
+        'configured_app_store_origin',
+        'configured_play_store_origin',
         'configured_play_store_origin',
       ].map((hostKind) => ({
         decision: 'origin_dynamic',
@@ -287,6 +289,28 @@ describe('external storefront media inventory', () => {
       expect.objectContaining({
         sourcePath:
           'apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_play_store_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:receipt-claim-app-store-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx',
+        destinationCondition: expect.objectContaining({
+          hostKind: 'configured_app_store_origin',
+        }),
+      })
+    );
+    expect(
+      byId.get('automatic-subresource:receipt-claim-play-store-navigation')
+    ).toEqual(
+      expect.objectContaining({
+        sourcePath:
+          'apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx',
         destinationCondition: expect.objectContaining({
           hostKind: 'configured_play_store_origin',
         }),

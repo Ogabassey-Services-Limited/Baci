@@ -8,6 +8,8 @@ const BLOG_SNIPPET_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/BlogSnippet.tsx';
 const NEGOTIATION_SOURCE =
   'apps/web/src/components/storefront/ogabassey/components/negotiation-modal-request.ts';
+const NEGOTIATION_MODAL_SOURCE =
+  'apps/web/src/components/storefront/ogabassey/components/NegotiationModal.tsx';
 const OGA_CHECKOUT_SOURCE =
   'apps/web/src/components/storefront/ogabassey/pages/checkout-page.tsx';
 const CHECKOUT_IDENTITY_SOURCE =
@@ -84,6 +86,12 @@ export const STOREFRONT_EDGE_SUPABASE_SUBRESOURCE_ROWS: readonly InventoryRow[] 
       '/auth/v1/user',
       ['GET', 'OPTIONS'],
       NEGOTIATION_SOURCE
+    ),
+    supabaseSubresource(
+      'auth-user-negotiation-modal',
+      '/auth/v1/user',
+      ['GET', 'OPTIONS'],
+      NEGOTIATION_MODAL_SOURCE
     ),
     supabaseSubresource(
       'negotiation-requests',

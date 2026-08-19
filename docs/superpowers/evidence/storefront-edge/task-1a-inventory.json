@@ -20,13 +20,13 @@
     "scope": "approved_pilot_hosts_and_complete_browser_automatic_traffic",
     "zeroDenominatorVerdict": "NOT_PROVEN"
   },
-  "originMainSha": "ebdcb382c635314fc9b6100eb533c3c343560f05",
+  "originMainSha": "1c278bdc9ae72f37c3d921b88276cc17fedc6ff3",
   "pilotCandidateHostnameSha256": "6ecb417105cfa291c7286367f438872a3bf9e3d11bd6d32383aaf2a3e7c39705",
   "pilotCandidateHostnames": [
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "e4984bbdc0affcc7c3d39ac853752398bf5f585b43a834f71b033a8c4a6fecd6",
-  "routingProxyInputSha256": "173ecd8c24f3348f86f1d92a30cc9b9c0ac7fdb7f1d60fe92b06192bb8afe6e5",
+  "routingProxyInputSha256": "b775b24fc292463a67eee7e51a3f3229872f91e802fab7611518f49446fe887c",
   "rows": [
     {
       "decision": "edge_redirect",
@@ -1851,6 +1851,22 @@
         "hostKind": "configured_supabase_origin",
         "precedence": "before_path_decision"
       },
+      "id": "automatic-subresource:supabase-auth-user-negotiation-modal",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "reason": "browser_supabase_query_requires_external_origin",
+      "routePattern": "/auth/v1/user",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/components/NegotiationModal.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_supabase_origin",
+        "precedence": "before_path_decision"
+      },
       "id": "automatic-subresource:supabase-negotiation-requests",
       "methods": [
         "POST",
@@ -2164,6 +2180,38 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/new-template/footer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-content-renderer-external",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/blog/renderer/BlogContentRenderer.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_external_media_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:blog-safe-html-external",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/ui/safe-html.tsx"
     },
     {
       "decision": "origin_dynamic",
@@ -2885,6 +2933,38 @@
       "routePattern": "/{*externalMediaPath?}",
       "sourceKind": "automatic_subresource",
       "sourcePath": "apps/web/src/components/storefront/ogabassey/components/FooterAppPayments.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_app_store_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:receipt-claim-app-store-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx"
+    },
+    {
+      "decision": "origin_dynamic",
+      "destinationCondition": {
+        "hostKind": "configured_play_store_origin",
+        "precedence": "before_path_decision"
+      },
+      "id": "automatic-subresource:receipt-claim-play-store-navigation",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "browser_external_media_request",
+      "routePattern": "/{*externalMediaPath?}",
+      "sourceKind": "automatic_subresource",
+      "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx"
     },
     {
       "decision": "edge_release",
@@ -8242,5 +8322,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "e08cbca3488568d8c4630af4a0ab8d0d277c390d3df8ed465f4c45cab3961d02"
+  "inventorySha256": "06fe54c1ba236cdc2e3a2a6eeca606bbaf50b6d0b8f848767d100ecd9cf42554"
 }

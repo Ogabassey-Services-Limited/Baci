@@ -11,7 +11,9 @@ function entrypointSource(relativeSourcePath: string) {
     relativeSourcePath.endsWith('route.jsx');
   return {
     bytes: Buffer.from(
-      isRouteHandler ? 'export async function GET() {}' : 'export default function Page() {}'
+      isRouteHandler
+        ? 'export async function GET() {}'
+        : 'export default function Page() {}'
     ),
     sourcePath: `${routeRoot}/${relativeSourcePath}`,
   };
