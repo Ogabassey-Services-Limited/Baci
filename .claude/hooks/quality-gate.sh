@@ -222,7 +222,9 @@ if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
     exit 0
   fi
   sparse_install='.github/scripts/pnpm-install-sparse-worktree.sh --frozen-lockfile'
-  if [ -x "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh"; then
+  if [ -x "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh"; then
+    install_hint="Linked worktree: ensure node_modules symlinks to a full install, or run \`$sparse_install\`"
+  elif [ -x "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-sparse-checkout.sh"; then
     install_hint="Run \`$sparse_install\` in this sparse worktree"
   else
     install_hint='Run `pnpm install` in this worktree'
@@ -241,8 +243,32 @@ else
   PNPM=(bash "$PNPM")
 fi
 
+if [ -x "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh"; then
+  # Turbo invokes nested `pnpm run` in each package. When we call the turbo
+  # binary directly (below), those subprocesses must inherit sparse/linked
+  # worktree pnpm settings and the hook-bin wrapper.
+  export PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
+  export PNPM_CONFIG_ALLOW_UNUSED_PATCHES=true
+  export BACI_REAL_PNPM="${BACI_REAL_PNPM:-$(command -v pnpm)}"
+  export PATH="$ACTIVE_DIR/ci_scripts/hook-bin:$PATH"
+fi
+
+TURBO_SPARSE_FILTERS=()
+if [ -x "$ACTIVE_DIR/ci_scripts/turbo-sparse-exclude-filters.sh" ]; then
+  while IFS= read -r -d '' filter; do
+    TURBO_SPARSE_FILTERS+=("$filter")
+  done < <(sh "$ACTIVE_DIR/ci_scripts/turbo-sparse-exclude-filters.sh")
+fi
+
+# Prefer the worktree-local turbo binary. `pnpm turbo` can re-trigger install /
+# deps-status checks in sparse worktrees even when node_modules/.bin/turbo exists.
+TURBO_CMD=("${PNPM[@]}" turbo)
+if [ -x "$ACTIVE_DIR/node_modules/.bin/turbo" ]; then
+  TURBO_CMD=("$ACTIVE_DIR/node_modules/.bin/turbo")
+fi
+
 # Run Biome lint check (~2-5s)
-LINT_RESULT=$("${PNPM[@]}" turbo lint 2>&1)
+LINT_RESULT=$("${TURBO_CMD[@]}" lint "${TURBO_SPARSE_FILTERS[@]}" 2>&1)
 LINT_EXIT=$?
 
 if [ $LINT_EXIT -ne 0 ]; then
@@ -253,10 +279,20 @@ if [ $LINT_EXIT -ne 0 ]; then
 fi
 
 # Run TypeScript type check (~10-30s)
-TYPE_RESULT=$("${PNPM[@]}" turbo typecheck 2>&1)
+TYPE_RESULT=$("${TURBO_CMD[@]}" typecheck "${TURBO_SPARSE_FILTERS[@]}" 2>&1)
 TYPE_EXIT=$?
 
 if [ $TYPE_EXIT -ne 0 ]; then
+  if echo "$TYPE_RESULT" | grep -q 'Command "turbo" not found'; then
+    jq -n --arg reason "Cannot run typecheck: turbo is not installed in $(pwd). Run \`pnpm install\` in this worktree (or set QUALITY_GATE_SKIP_DEPS=1 if you rely on CI)." \
+      '{"decision": "block", "reason": $reason}'
+    exit 0
+  fi
+  if echo "$TYPE_RESULT" | grep -q 'You can learn about all of the compiler options'; then
+    jq -n --arg reason "Typecheck failed because a workspace package is missing tsconfig.json (common in sparse worktrees). Expand sparse checkout, work from a full worktree, or rely on PR CI with QUALITY_GATE_SKIP_DEPS=1." \
+      '{"decision": "block", "reason": $reason}'
+    exit 0
+  fi
   TRIMMED=$(echo "$TYPE_RESULT" | tail -30)
   jq -n --arg reason "TypeScript errors detected. Fix all type errors before completing:\n\n$TRIMMED" \
     '{"decision": "block", "reason": $reason}'
@@ -264,7 +300,7 @@ if [ $TYPE_EXIT -ne 0 ]; then
 fi
 
 # Run tests (~5-30s)
-TEST_RESULT=$("${PNPM[@]}" turbo test 2>&1)
+TEST_RESULT=$("${TURBO_CMD[@]}" test "${TURBO_SPARSE_FILTERS[@]}" 2>&1)
 TEST_EXIT=$?
 
 if [ $TEST_EXIT -ne 0 ]; then
