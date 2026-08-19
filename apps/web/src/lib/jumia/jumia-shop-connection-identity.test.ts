@@ -52,4 +52,29 @@ describe('jumiaShopConnectionIdentities', () => {
       )
     ).toBe(true);
   });
+
+  it('does not block unconnected business clients under the same shop', () => {
+    const existing = buildExistingJumiaShopIds([
+      {
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        connection_method: 'self_authorization',
+      },
+    ]);
+
+    expect(
+      isJumiaShopAlreadyConnected(
+        {
+          id: 'shop-1',
+          selectionKey: 'shop-1:NG-EXPRESS',
+          businessClientCode: 'NG-EXPRESS',
+          name: 'Shop One Express',
+          countryCode: 'NG',
+          marketplace: 'Jumia Nigeria Express',
+        },
+        existing
+      )
+    ).toBe(false);
+  });
 });

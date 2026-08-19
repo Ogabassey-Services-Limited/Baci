@@ -298,8 +298,12 @@ export async function syncJumiaOrdersForActiveIntegrations(
   const integrations = (data || []) as MarketplaceIntegrationRow[];
   result.integrations = integrations.length;
 
+  const syncedOrderScopes = new Set<string>();
   for (const integration of integrations) {
     try {
+      const orderScope = `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}`;
+      if (syncedOrderScopes.has(orderScope)) continue;
+      syncedOrderScopes.add(orderScope);
       await syncIntegration(supabase, integration, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

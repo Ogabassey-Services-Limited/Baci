@@ -15,11 +15,10 @@ export function buildExistingJumiaShopIds(
       if (!row.shop_id) return [];
       const byCountry = `${row.shop_id}:${row.country_code}`;
       if (row.connection_method === 'self_authorization') {
-        const identities = [row.shop_id, byCountry];
         if (row.marketplace_key && row.marketplace_key !== 'default') {
-          identities.push(`${row.shop_id}:${row.marketplace_key}`);
+          return [`${row.shop_id}:${row.marketplace_key}`];
         }
-        return identities;
+        return [byCountry];
       }
       return [row.shop_id, byCountry];
     })

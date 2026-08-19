@@ -24,7 +24,10 @@ export async function executePackAction(args: {
     status: string
   ) => Promise<{ syncWarning: string; details: string } | undefined>;
 }) {
-  const providers = await getShipmentProviders(args.client, args.targetItemIds);
+  const hasExplicitProvider = args.shipmentProviderId && args.trackingCode;
+  const providers = hasExplicitProvider
+    ? undefined
+    : await getShipmentProviders(args.client, args.targetItemIds);
   const selection = resolvePackProviders(
     args.targetItemIds,
     Array.isArray(providers?.orderItems) ? providers.orderItems : [],

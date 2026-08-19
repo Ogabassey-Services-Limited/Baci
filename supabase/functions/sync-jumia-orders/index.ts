@@ -534,7 +534,8 @@ Deno.serve(async (req) => {
       .from('marketplace_integrations')
       .select(INTEGRATION_COLUMNS)
       .eq('platform', 'jumia')
-      .eq('is_active', true);
+      .eq('is_active', true)
+      .neq('connection_method', 'self_authorization');
 
     if (intError) {
       throw new Error(`Database error: ${intError.message}`);

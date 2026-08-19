@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { executePackAction } from './pack-action';
 
-vi.mock('@/lib/jumia/orders', () => ({
-  getShipmentProviders: vi.fn(async () => ({
+const { mockGetShipmentProviders } = vi.hoisted(() => ({
+  mockGetShipmentProviders: vi.fn(async () => ({
     orderItems: [
       {
         id: 'ITEM-1',
@@ -10,6 +10,9 @@ vi.mock('@/lib/jumia/orders', () => ({
       },
     ],
   })),
+}));
+vi.mock('@/lib/jumia/orders', () => ({
+  getShipmentProviders: mockGetShipmentProviders,
 }));
 vi.mock('@/lib/jumia/fulfillment', () => ({ packOrderV2: vi.fn() }));
 describe('executePackAction', () => {
@@ -25,5 +28,26 @@ describe('executePackAction', () => {
     expect(result).toEqual({
       error: 'trackingCode is required for the selected shipment provider',
     });
+  });
+
+  it('skips provider discovery when both shipmentProviderId and trackingCode are supplied', async () => {
+    const { packOrderV2 } = await import('@/lib/jumia/fulfillment');
+    vi.mocked(packOrderV2).mockResolvedValue({
+      success: { total: 1, packages: [] },
+    } as never);
+    mockGetShipmentProviders.mockClear();
+
+    await executePackAction({
+      client: {} as never,
+      targetItemIds: ['ITEM-1'],
+      shipmentProviderId: 'SP-EXPLICIT',
+      trackingCode: 'TRACK-123',
+      isAllItems: true,
+      orderId: 'ORDER-1',
+      merchantId: 'MERCHANT-1',
+      updateOrderStatus: vi.fn(),
+    });
+
+    expect(mockGetShipmentProviders).not.toHaveBeenCalled();
   });
 });
