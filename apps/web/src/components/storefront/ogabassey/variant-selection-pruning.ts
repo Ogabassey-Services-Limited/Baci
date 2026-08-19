@@ -1,5 +1,8 @@
 import { getAvailableOptionsForAxis } from '@/components/storefront/ogabassey/variant-attributes';
-import { getVariantBackedSelections } from '@/components/storefront/ogabassey/pages/product-details-page/cart-helpers';
+import {
+  getVariantBackedSelections,
+  hasVariantBackedAxis,
+} from '@/components/storefront/ogabassey/pages/product-details-page/cart-helpers';
 import type { NormalizedProductDetails } from '@/components/storefront/ogabassey/pages/product-details-page/product-normalization';
 
 type VariantList = NormalizedProductDetails['variants'];
@@ -29,6 +32,10 @@ export function pruneSelectionsByVariantAvailability(
   return Object.fromEntries(
     Object.entries(next).filter(([key, selectedValue]) => {
       if (key === changedAxis) {
+        return true;
+      }
+
+      if (!hasVariantBackedAxis(key, variants)) {
         return true;
       }
 

@@ -4,10 +4,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProductDetailsPageOverlays } from './product-details-page-overlays';
 import type { NormalizedProductDetails } from './product-normalization';
 
-vi.mock('./product-details-page-lazy-components', () => ({
+vi.mock('./product-details-lazy-fly-to-cart-animation', () => ({
   FlyToCartAnimation: () => <div data-testid="fly-to-cart" />,
+}));
+vi.mock('./product-details-lazy-selection-required-modal', () => ({
   SelectionRequiredModal: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="selection-required-modal" /> : null,
+}));
+vi.mock('./product-details-lazy-negotiation-modal', () => ({
   NegotiationModal: () => <div data-testid="negotiation-modal" />,
 }));
 
@@ -26,7 +30,7 @@ describe('product-details-page lazy boundaries', () => {
       'utf8'
     );
     const lazySource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page/product-details-page-lazy-components.ts',
+      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-negotiation-modal.ts',
       'utf8'
     );
 
@@ -39,15 +43,19 @@ describe('product-details-page lazy boundaries', () => {
       'src/components/storefront/ogabassey/pages/product-details-page.tsx',
       'utf8'
     );
-    const lazySource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page/product-details-page-lazy-components.ts',
+    const flyToCartSource = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-fly-to-cart-animation.ts',
+      'utf8'
+    );
+    const selectionModalSource = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-selection-required-modal.ts',
       'utf8'
     );
 
     expect(pageSource).not.toMatch(/import\s*{\s*FlyToCartAnimation\s*}\s*from/);
     expect(pageSource).not.toMatch(/import\s*{\s*SelectionRequiredModal\s*}\s*from/);
-    expect(lazySource).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
-    expect(lazySource).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
+    expect(flyToCartSource).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
+    expect(selectionModalSource).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
   });
 
   it('does not mount the selection modal in the overlay runtime when closed', () => {

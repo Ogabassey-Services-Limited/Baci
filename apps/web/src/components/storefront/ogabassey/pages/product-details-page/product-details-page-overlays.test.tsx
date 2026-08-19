@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ProductDetailsPageOverlays } from './product-details-page-overlays';
 import type { NormalizedProductDetails } from './product-normalization';
 
-vi.mock('./product-details-page-lazy-components', () => ({
+vi.mock('./product-details-lazy-fly-to-cart-animation', () => ({
   FlyToCartAnimation: ({
     imageSrc,
     onComplete,
@@ -15,6 +15,8 @@ vi.mock('./product-details-page-lazy-components', () => ({
       {imageSrc}
     </button>
   ),
+}));
+vi.mock('./product-details-lazy-selection-required-modal', () => ({
   SelectionRequiredModal: ({
     isOpen,
     onClose,
@@ -29,6 +31,8 @@ vi.mock('./product-details-page-lazy-components', () => ({
         </button>
       </div>
     ) : null,
+}));
+vi.mock('./product-details-lazy-negotiation-modal', () => ({
   NegotiationModal: ({
     onClose,
     productName,

@@ -1,11 +1,9 @@
 'use client';
 
 import type { NormalizedProductDetails } from './product-normalization';
-import {
-  FlyToCartAnimation,
-  NegotiationModal,
-  SelectionRequiredModal,
-} from './product-details-page-lazy-components';
+import { FlyToCartAnimation } from './product-details-lazy-fly-to-cart-animation';
+import { NegotiationModal } from './product-details-lazy-negotiation-modal';
+import { SelectionRequiredModal } from './product-details-lazy-selection-required-modal';
 
 interface ProductDetailsPageOverlaysProps {
   animatingParticles: DOMRect[];

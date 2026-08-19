@@ -1,4 +1,4 @@
-import { BannerCarousel } from './product-details-page-lazy-components';
+import { BannerCarousel } from './product-details-lazy-banner-carousel';
 
 interface ProductDetailsBannerSectionProps {
   isDesktop: boolean;
@@ -9,7 +9,6 @@ export function ProductDetailsBannerSection({
 }: ProductDetailsBannerSectionProps) {
   return (
     <section
-      data-testid="product-banner-carousel"
       aria-label="Product banner carousel"
       className="mx-auto mb-8 hidden min-h-[208px] max-w-[1400px] px-4 md:block md:px-6"
     >

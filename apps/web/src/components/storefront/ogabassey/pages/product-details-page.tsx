@@ -11,9 +11,7 @@ import { ProductPurchasePanel } from './product-details-page/product-purchase-pa
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 import deferredLayoutStyles from './product-details-page/deferred-product-details-layout.module.css';
-import {
-  AdUnit,
-} from './product-details-page/product-details-page-lazy-components';
+import { AdUnit } from './product-details-page/product-details-lazy-ad-unit';
 import { ProductDetailsBannerSection } from './product-details-page/product-details-banner-section';
 import { ProductDetailsPageOverlays } from './product-details-page/product-details-page-overlays';
 import { useIsDesktopViewport } from './product-details-page/use-is-desktop-viewport';

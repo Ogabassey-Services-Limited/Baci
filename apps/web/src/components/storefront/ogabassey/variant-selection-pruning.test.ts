@@ -45,6 +45,27 @@ describe('pruneSelectionsByVariantAvailability', () => {
     ).toEqual(next);
   });
 
+  it('preserves fallback-only axes when a variant-backed axis changes', () => {
+    const fallbackOnlyVariants = [
+      {
+        id: 'v1',
+        attributes: { storage: '1TB' },
+        condition: 'new' as const,
+        price_modifier: 0,
+        stock_quantity: 5,
+      },
+    ] as NonNullable<NormalizedProductDetails['variants']>;
+
+    const next = { storage: '1TB', platform: 'PS5' };
+    const result = pruneSelectionsByVariantAvailability(
+      next,
+      'storage',
+      fallbackOnlyVariants
+    );
+
+    expect(result).toEqual({ storage: '1TB', platform: 'PS5' });
+  });
+
   it('ignores non-variant metadata when evaluating sibling reachability', () => {
     const next = {
       storage: '512GB',
@@ -57,6 +78,6 @@ describe('pruneSelectionsByVariantAvailability', () => {
       variants
     );
 
-    expect(result).toEqual({ storage: '512GB' });
+    expect(result).toEqual({ storage: '512GB', warranty: '12 months' });
   });
 });
