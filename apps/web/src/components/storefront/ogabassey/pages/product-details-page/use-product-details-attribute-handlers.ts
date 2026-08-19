@@ -37,7 +37,14 @@ export function useProductDetailsAttributeHandlers({
 
   const handleModalAttributeSelection = (axis: string, value: string) => {
     const label = formatAxisLabel(axis);
-    setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
+    setSelectedAttributes((prev) => {
+      const next = { ...prev, [axis]: value };
+      return pruneSelectionsByVariantAvailability(
+        next,
+        axis,
+        productData.variants
+      );
+    });
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
 

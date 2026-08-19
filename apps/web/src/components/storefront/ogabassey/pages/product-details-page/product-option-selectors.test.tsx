@@ -267,6 +267,6 @@ describe('ProductOptionSelectors — dependent variant filtering', () => {
     expect(
       screen.getByRole('button', { name: /Select 256GB storage/i })
     ).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/STORAGE:/i)).toBeInTheDocument();
+    expect(screen.getByText(/STORAGE:/i)).toHaveTextContent('256GB');
   });
 });

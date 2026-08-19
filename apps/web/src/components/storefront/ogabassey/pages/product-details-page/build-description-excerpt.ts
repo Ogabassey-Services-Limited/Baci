@@ -91,6 +91,10 @@ function isSpecSentence(sentence: string): boolean {
     return true;
   }
 
+  if (/^availability:\s*/i.test(trimmed)) {
+    return true;
+  }
+
   // Feature lines like "Storage: 2TB SSD" vs "Display: See every detail..."
   const knownLabelMatch = trimmed.match(
     /^(?:storage|ram|color|colour|condition|platform|display|battery|camera|processor|gpu|sim\s*type|connectivity|warranty):\s*(.+)$/i
@@ -212,7 +216,7 @@ export function buildDescriptionExcerpt(description: string) {
 
   const worthParagraphHtml = extractParagraphInnerHtml(
     description,
-    /<h2[^>]*>Why[^<]*Worth[^<]*<\/h2>\s*<p>([\s\S]*?)<\/p>/i
+    /<h2[^>]*>Why[^<]*Worth[^<]*<\/h2>\s*<p\b[^>]*>([\s\S]*?)<\/p>/i
   );
 
   if (worthParagraphHtml) {
@@ -226,7 +230,7 @@ export function buildDescriptionExcerpt(description: string) {
 
   const secondParagraphHtml = extractParagraphInnerHtml(
     description,
-    /<\/p>\s*<p>([\s\S]*?)<\/p>/i
+    /<\/p>\s*<p\b[^>]*>([\s\S]*?)<\/p>/i
   );
   if (secondParagraphHtml) {
     const text = filterProseText(secondParagraphHtml);

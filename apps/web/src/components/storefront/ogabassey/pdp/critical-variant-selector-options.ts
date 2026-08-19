@@ -115,9 +115,10 @@ export function getAvailableCriticalVariantOptions(
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
   const constraintSelections = Object.fromEntries(
-    Object.entries(explicitSelectedAttributes).filter(
-      ([entryAxis]) => !isDisplayOnlyVariantAxis(entryAxis)
-    )
+    Object.entries(explicitSelectedAttributes).filter(([entryAxis]) => {
+      const normalizedAxis = canonicalizeVariantAxis(entryAxis);
+      return !isDisplayOnlyVariantAxis(normalizedAxis);
+    })
   );
   const options = getAvailableOptionsForAxis(
     axis,

@@ -43,4 +43,46 @@ describe('getDeliveryEstimate', () => {
 
     expect(result).toBe(expected);
   });
+
+  it('rolls month boundaries correctly for Lagos delivery windows', () => {
+    const boundaryDate = new Date('2024-01-31T12:00:00Z');
+    const plus1 = new Date(boundaryDate);
+    plus1.setDate(boundaryDate.getDate() + 1);
+    const plus2 = new Date(boundaryDate);
+    plus2.setDate(boundaryDate.getDate() + 2);
+
+    const fmt = (d: Date) =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Africa/Lagos',
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }).format(d);
+    const expected = `${fmt(plus1)} - ${fmt(plus2)}`;
+
+    const result = getDeliveryEstimate('Lagos', boundaryDate);
+
+    expect(result).toBe(expected);
+  });
+
+  it('rolls month boundaries correctly for Outside Lagos delivery windows', () => {
+    const boundaryDate = new Date('2024-01-31T12:00:00Z');
+    const plus3 = new Date(boundaryDate);
+    plus3.setDate(boundaryDate.getDate() + 3);
+    const plus5 = new Date(boundaryDate);
+    plus5.setDate(boundaryDate.getDate() + 5);
+
+    const fmt = (d: Date) =>
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Africa/Lagos',
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      }).format(d);
+    const expected = `${fmt(plus3)} - ${fmt(plus5)}`;
+
+    const result = getDeliveryEstimate('Outside Lagos', boundaryDate);
+
+    expect(result).toBe(expected);
+  });
 });

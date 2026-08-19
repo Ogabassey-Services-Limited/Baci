@@ -127,4 +127,43 @@ describe('useProductDetailsAttributeHandlers', () => {
     expect(selectedAttributes).toEqual({ storage: '256GB' });
     expect(missingFields).toEqual([]);
   });
+
+  it('prunes incompatible sibling selections from modal attribute changes', () => {
+    vi.mocked(pruneSelectionsByVariantAvailability).mockReturnValueOnce({
+      storage: '512GB',
+    });
+
+    let selectedAttributes: Record<string, string> = {
+      storage: '256GB',
+      color: 'Silver',
+    };
+    const setSelectedAttributes: Dispatch<SetStateAction<Record<string, string>>> =
+      createStateSetter(
+        () => selectedAttributes,
+        (next) => {
+          selectedAttributes = next;
+        }
+      );
+
+    const { result } = renderHook(() =>
+      useProductDetailsAttributeHandlers({
+        formatAxisLabel: () => 'Storage',
+        handleColorSelection: vi.fn(),
+        productData,
+        setMissingFields: vi.fn(),
+        setSelectedAttributes,
+      })
+    );
+
+    act(() => {
+      result.current.handleModalAttributeSelection('storage', '512GB');
+    });
+
+    expect(pruneSelectionsByVariantAvailability).toHaveBeenCalledWith(
+      { storage: '512GB', color: 'Silver' },
+      'storage',
+      productData.variants
+    );
+    expect(selectedAttributes).toEqual({ storage: '512GB' });
+  });
 });

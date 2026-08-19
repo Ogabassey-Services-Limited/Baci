@@ -177,6 +177,27 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('filters standalone availability status metadata', () => {
+    const description =
+      'Availability: in stock. Built for reliable all-day performance.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
+  it('extracts worth paragraph when the paragraph tag has attributes', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p class="lead">Built for reliable performance.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Built for reliable performance.');
+  });
+
+  it('extracts the second paragraph when the paragraph tag has attributes', () => {
+    const html =
+      '<p>Storage: 256GB.</p><p data-testid="benefit">Built for reliable performance.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Built for reliable performance.');
+  });
+
   it('preserves marketing prose that mentions trademarked feature names', () => {
     const description = 'Retina® display brings stunning clarity.';
     const result = buildDescriptionExcerpt(description);

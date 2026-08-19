@@ -282,4 +282,31 @@ describe('critical variant selector options', () => {
 
     expect(renderableVariantAxes).toEqual(['storage', 'warranty']);
   });
+
+  it('excludes canonicalized availability note aliases from availability constraints', () => {
+    const variants = [
+      {
+        attributes: { storage: '128GB', availability_note: 'A' },
+        id: 'variant-128',
+        merchant_id: 'merchant-1',
+        product_id: 'product-1',
+        stock_quantity: 2,
+      },
+      {
+        attributes: { storage: '256GB', availability_note: 'B' },
+        id: 'variant-256',
+        merchant_id: 'merchant-1',
+        product_id: 'product-1',
+        stock_quantity: 2,
+      },
+    ];
+
+    const options = getAvailableCriticalVariantOptions(
+      'storage',
+      variants,
+      { 'Availability note': 'A', storage: '128GB' }
+    );
+
+    expect(options).toEqual(['128GB', '256GB']);
+  });
 });

@@ -73,20 +73,22 @@ export function ProductDetailsPageOverlays({
         />
       ))}
 
-      <SelectionRequiredModal
-        effectiveAxes={effectiveAxes}
-        formatAxisLabel={formatAxisLabel}
-        getAxisOptions={getAxisOptions}
-        isOpen={isSelectionModalOpen}
-        missingFields={missingFields}
-        onClose={onCloseSelectionModal}
-        onConfirm={onConfirmSelection}
-        onSelectAttribute={onSelectAttribute}
-        onSelectColor={onSelectColor}
-        productData={productData}
-        selectedAttributes={selectedAttributes}
-        selectedColor={selectedColor}
-      />
+      {isSelectionModalOpen ? (
+        <SelectionRequiredModal
+          effectiveAxes={effectiveAxes}
+          formatAxisLabel={formatAxisLabel}
+          getAxisOptions={getAxisOptions}
+          isOpen
+          missingFields={missingFields}
+          onClose={onCloseSelectionModal}
+          onConfirm={onConfirmSelection}
+          onSelectAttribute={onSelectAttribute}
+          onSelectColor={onSelectColor}
+          productData={productData}
+          selectedAttributes={selectedAttributes}
+          selectedColor={selectedColor}
+        />
+      ) : null}
 
       {isNegotiationOpen ? (
         <NegotiationModal
