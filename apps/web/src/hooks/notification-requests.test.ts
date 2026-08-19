@@ -163,4 +163,36 @@ describe('fetchNotificationsRequest', () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
     resolvers.shift()?.(response);
   });
+
+  it('does not apply list state after the request generation is superseded', async () => {
+    const { deps, notifications, unread } = createDeps();
+    let current = true;
+    deps.isCurrent = () => current;
+    let resolveResponse: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveResponse = resolve;
+          })
+      )
+    );
+
+    const pending = fetchNotificationsRequest(false, deps);
+    current = false;
+    resolveResponse({
+      ok: true,
+      json: async () => ({
+        cursor: null,
+        data: [notification('stale')],
+        has_more: false,
+        unread_count: 9,
+      }),
+    } as Response);
+    await pending;
+
+    expect(notifications.get()).toEqual([]);
+    expect(unread.get()).toBe(7);
+  });
 });

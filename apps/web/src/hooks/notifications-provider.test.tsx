@@ -29,7 +29,7 @@ describe('NotificationsProvider', () => {
     expect(result.current.first).toBe(result.current.second);
   });
 
-  it('renders children', () => {
+  it('starts with an empty notification list', () => {
     const { result } = renderHook(() => useNotifications(), {
       wrapper: NotificationsProvider,
     });

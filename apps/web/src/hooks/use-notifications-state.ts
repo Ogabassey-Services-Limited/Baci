@@ -52,33 +52,51 @@ export function useNotificationsState(
   > | null>(null);
   const isFetchingRef = useRef(false);
   const pendingRefreshRef = useRef(false);
+  const fetchGenerationRef = useRef(0);
 
   const fetchNotifications = async (append = false) => {
     if (!merchant?.id) return;
+    const generation = fetchGenerationRef.current;
     await fetchNotificationsRequest(append, {
       cursor,
+      isCurrent: () => fetchGenerationRef.current === generation,
       isFetchingRef,
       pendingRefreshRef,
+      setCursor,
+      setError,
+      setHasMore,
       setIsLoading,
       setNotifications,
       setUnreadCount,
-      setHasMore,
-      setCursor,
-      setError,
     });
   };
 
   const fetchActiveBanners = async () => {
     if (!merchant?.id) return;
+    const generation = fetchGenerationRef.current;
     await fetchActiveBannersRequest(
       merchant.id,
       supabaseRef.current,
-      setActiveBanners
+      setActiveBanners,
+      () => fetchGenerationRef.current === generation
     );
   };
 
   /** Subscribe only to this merchant's durable rows; no global payload exists. */
   useEffect(() => {
+    const isCurrent = beginNotificationFetchGeneration(
+      fetchGenerationRef,
+      isFetchingRef,
+      pendingRefreshRef
+    );
+    setNotifications([]);
+    setUnreadCount(0);
+    setActiveBanners([]);
+    setCursor(null);
+    setHasMore(false);
+    setError(null);
+    setIsLoading(true);
+
     if (!merchant?.id) return;
 
     const supabase = supabaseRef.current;
@@ -98,6 +116,7 @@ export function useNotificationsState(
           () => {
             void fetchNotificationsRequest(false, {
               cursor: null,
+              isCurrent,
               isFetchingRef,
               pendingRefreshRef,
               setCursor,
@@ -110,7 +129,8 @@ export function useNotificationsState(
             void fetchActiveBannersRequest(
               merchant.id,
               supabase,
-              setActiveBanners
+              setActiveBanners,
+              isCurrent
             );
           }
         )
@@ -128,6 +148,7 @@ export function useNotificationsState(
             // merchant clients refetch only after the parent is visible.
             void fetchNotificationsRequest(false, {
               cursor: null,
+              isCurrent,
               isFetchingRef,
               pendingRefreshRef,
               setCursor,
@@ -140,7 +161,8 @@ export function useNotificationsState(
             void fetchActiveBannersRequest(
               merchant.id,
               supabase,
-              setActiveBanners
+              setActiveBanners,
+              isCurrent
             );
           }
         )
@@ -165,18 +187,31 @@ export function useNotificationsState(
       channelRef.current = null;
     }
 
+    void fetchNotificationsRequest(false, {
+      cursor: null,
+      isCurrent,
+      isFetchingRef,
+      pendingRefreshRef,
+      setCursor,
+      setError,
+      setHasMore,
+      setIsLoading,
+      setNotifications,
+      setUnreadCount,
+    });
+    void fetchActiveBannersRequest(
+      merchant.id,
+      supabase,
+      setActiveBanners,
+      isCurrent
+    );
+
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [merchant?.id]);
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: function refs would loop
-  useEffect(() => {
-    fetchNotifications();
-    fetchActiveBanners();
   }, [merchant?.id]);
 
   const markAsRead = (id: string) =>
@@ -191,9 +226,11 @@ export function useNotificationsState(
     if (hasMore && cursor) await fetchNotifications(true);
   };
   const refetch = async () => {
+    const generation = fetchGenerationRef.current;
     setCursor(null);
     await fetchNotificationsRequest(false, {
       cursor: null,
+      isCurrent: () => fetchGenerationRef.current === generation,
       isFetchingRef,
       pendingRefreshRef,
       queueRefresh: false,
@@ -221,4 +258,16 @@ export function useNotificationsState(
     loadMore,
     refetch,
   };
+}
+
+function beginNotificationFetchGeneration(
+  fetchGenerationRef: { current: number },
+  isFetchingRef: { current: boolean },
+  pendingRefreshRef: { current: boolean }
+) {
+  fetchGenerationRef.current += 1;
+  isFetchingRef.current = false;
+  pendingRefreshRef.current = false;
+  const generation = fetchGenerationRef.current;
+  return () => fetchGenerationRef.current === generation;
 }

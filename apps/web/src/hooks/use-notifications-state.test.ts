@@ -1,9 +1,11 @@
-import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantData } from './merchant/types';
 import './use-notifications.test-support';
 import {
   notificationMocks,
+  notificationResponse,
+  notificationRow,
   resetNotificationHookMocks,
 } from './use-notifications.test-support';
 import { useNotificationsState } from './use-notifications-state';
@@ -29,5 +31,59 @@ describe('useNotificationsState', () => {
     await Promise.resolve();
 
     expect(notificationMocks.supabaseChannel).not.toHaveBeenCalled();
+  });
+
+  it('does not apply an earlier merchant response after switching merchants', async () => {
+    let resolveFirstRequest!: (response: {
+      json: () => Promise<ReturnType<typeof notificationResponse>>;
+      ok: boolean;
+    }) => void;
+    const firstRequest = new Promise<{
+      json: () => Promise<ReturnType<typeof notificationResponse>>;
+      ok: boolean;
+    }>((resolve) => {
+      resolveFirstRequest = resolve;
+    });
+    const merchantBNotification = notificationRow({
+      id: 'merchant-b-notification',
+      merchant_id: 'merchant-b',
+    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => firstRequest)
+      .mockResolvedValueOnce({
+        json: async () => notificationResponse([merchantBNotification]),
+        ok: true,
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ merchant }: { merchant: MerchantData | null }) =>
+        useNotificationsState(merchant),
+      {
+        initialProps: { merchant: { id: 'merchant-a' } as MerchantData },
+      }
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    rerender({ merchant: { id: 'merchant-b' } as MerchantData });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(result.current.notifications).toEqual([merchantBNotification]);
+    });
+
+    await act(async () => {
+      resolveFirstRequest({
+        json: async () =>
+          notificationResponse([
+            notificationRow({ id: 'stale-merchant-a-notification' }),
+          ]),
+        ok: true,
+      });
+      await firstRequest;
+    });
+
+    expect(result.current.notifications).toEqual([merchantBNotification]);
   });
 });

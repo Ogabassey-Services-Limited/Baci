@@ -18,6 +18,7 @@ export interface FetchNotificationsDeps {
   setHasMore: Dispatch<SetStateAction<boolean>>;
   setCursor: Dispatch<SetStateAction<string | null>>;
   setError: Dispatch<SetStateAction<string | null>>;
+  isCurrent?: () => boolean;
 }
 
 /** Fetch paginated recipient notifications from the authenticated API. */
@@ -36,6 +37,10 @@ export async function fetchNotificationsRequest(
     setError,
   } = deps;
 
+  if (!isRequestCurrent(deps)) {
+    return;
+  }
+
   if (isFetchingRef.current) {
     if (!append && deps.pendingRefreshRef && deps.queueRefresh !== false) {
       deps.pendingRefreshRef.current = true;
@@ -45,7 +50,9 @@ export async function fetchNotificationsRequest(
 
   try {
     isFetchingRef.current = true;
-    if (!append) setIsLoading(true);
+    if (!append) {
+      applyIfCurrent(deps, () => setIsLoading(true));
+    }
 
     const params = new URLSearchParams({ limit: '20' });
     if (append && cursor) params.set('cursor', cursor);
@@ -53,7 +60,9 @@ export async function fetchNotificationsRequest(
     const response = await fetch(`/api/notifications?${params.toString()}`);
     if (response.status === 429) {
       console.warn('Rate limit exceeded for notifications.');
-      setError('Notifications are rate limited. Please try again later.');
+      applyIfCurrent(deps, () =>
+        setError('Notifications are rate limited. Please try again later.')
+      );
       return;
     }
 
@@ -64,33 +73,55 @@ export async function fetchNotificationsRequest(
         response.status,
         errorData
       );
-      setError('Notifications could not be loaded. Please try again.');
+      applyIfCurrent(deps, () =>
+        setError('Notifications could not be loaded. Please try again.')
+      );
       return;
     }
 
     const data = await response.json();
-    setNotifications((previous) =>
-      append ? appendUniqueNotifications(previous, data.data) : data.data
-    );
-    if (typeof data.unread_count === 'number') {
-      setUnreadCount(data.unread_count);
-    }
-    setHasMore(data.has_more);
-    setCursor(data.cursor);
-    setError(null);
+    applyIfCurrent(deps, () => {
+      setNotifications((previous) =>
+        append ? appendUniqueNotifications(previous, data.data) : data.data
+      );
+      if (typeof data.unread_count === 'number') {
+        setUnreadCount(data.unread_count);
+      }
+      setHasMore(data.has_more);
+      setCursor(data.cursor);
+      setError(null);
+    });
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    setError(
-      error instanceof Error ? error.message : 'Failed to fetch notifications'
+    applyIfCurrent(deps, () =>
+      setError(
+        error instanceof Error ? error.message : 'Failed to fetch notifications'
+      )
     );
   } finally {
-    if (!append) setIsLoading(false);
-    isFetchingRef.current = false;
-    if (deps.pendingRefreshRef?.current) {
-      deps.pendingRefreshRef.current = false;
-      void fetchNotificationsRequest(false, { ...deps, cursor: null });
+    if (isRequestCurrent(deps)) {
+      if (!append) setIsLoading(false);
+      isFetchingRef.current = false;
+      if (deps.pendingRefreshRef?.current) {
+        deps.pendingRefreshRef.current = false;
+        void fetchNotificationsRequest(false, { ...deps, cursor: null });
+      }
     }
   }
+}
+
+function isRequestCurrent(deps: Pick<FetchNotificationsDeps, 'isCurrent'>) {
+  return deps.isCurrent?.() !== false;
+}
+
+function applyIfCurrent(
+  deps: Pick<FetchNotificationsDeps, 'isCurrent'>,
+  apply: () => void
+) {
+  if (!isRequestCurrent(deps)) {
+    return;
+  }
+  apply();
 }
 
 function appendUniqueNotifications(
@@ -108,7 +139,8 @@ function appendUniqueNotifications(
 export async function fetchActiveBannersRequest(
   merchantId: string,
   supabase: SupabaseClient,
-  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>
+  setActiveBanners: Dispatch<SetStateAction<ActiveBanner[]>>,
+  isCurrent?: () => boolean
 ): Promise<void> {
   try {
     const { data, error: bannerError } = await supabase.rpc(
@@ -118,6 +150,10 @@ export async function fetchActiveBannersRequest(
 
     if (bannerError) {
       console.error('Error fetching banners:', bannerError);
+      return;
+    }
+
+    if (isCurrent?.() === false) {
       return;
     }
 
