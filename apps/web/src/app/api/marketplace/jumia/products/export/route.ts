@@ -221,13 +221,21 @@ export async function POST(req: NextRequest) {
         },
       ]);
     } catch (feedError) {
-      await releaseJumiaExportReservation(supabase, {
+      const released = await releaseJumiaExportReservation(supabase, {
         merchantId,
         productId: reservation.productId,
         shopId: jumia.shopId,
         marketplaceKey: jumia.marketplaceKey,
         exportVariations,
       });
+      if (!released) {
+        logger.error({
+          message:
+            'Failed to release Jumia export reservation after createProduct failure',
+          merchant_id: merchantId,
+          product_id: reservation.productId,
+        });
+      }
       if (feedError instanceof JumiaApiError) {
         logger.error({
           message: 'Jumia createProduct feed failed',

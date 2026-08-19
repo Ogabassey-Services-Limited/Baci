@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   finalizeJumiaExportReservation,
   markJumiaExportReservationForReconciliation,
+  releaseJumiaExportReservation,
   reserveJumiaExportMappings,
 } from './export-product-reservation';
 
@@ -228,5 +229,77 @@ describe('finalizeJumiaExportReservation', () => {
         ],
       })
     ).resolves.toBe(false);
+  });
+});
+
+describe('releaseJumiaExportReservation', () => {
+  it('returns true when pending reservations are deleted', async () => {
+    const builder = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      is: vi.fn(),
+    };
+    builder.eq.mockReturnValue(builder);
+    builder.is.mockReturnValue(builder);
+    builder.in.mockResolvedValue({ error: null });
+    const from = vi.fn(() => ({ delete: vi.fn(() => builder) }));
+
+    await expect(
+      releaseJumiaExportReservation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(true);
+  });
+
+  it('marks pending reservations as error when delete fails', async () => {
+    const deleteBuilder = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      is: vi.fn(),
+    };
+    deleteBuilder.eq.mockReturnValue(deleteBuilder);
+    deleteBuilder.is.mockReturnValue(deleteBuilder);
+    deleteBuilder.in.mockResolvedValue({
+      error: { message: 'db unavailable' },
+    });
+
+    const updateBuilder = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      is: vi.fn(),
+    };
+    updateBuilder.eq.mockReturnValue(updateBuilder);
+    updateBuilder.is.mockReturnValue(updateBuilder);
+    updateBuilder.in.mockResolvedValue({ error: null });
+    const update = vi.fn(() => updateBuilder);
+    const from = vi.fn(() => ({
+      delete: vi.fn(() => deleteBuilder),
+      update,
+    }));
+
+    await expect(
+      releaseJumiaExportReservation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(true);
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sync_status: 'error',
+        sync_error: expect.stringContaining('db unavailable'),
+      })
+    );
   });
 });

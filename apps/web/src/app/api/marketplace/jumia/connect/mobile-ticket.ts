@@ -4,7 +4,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
 import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
-import { createClient } from '@/lib/supabase/server';
+import { createAnonClient } from '@/lib/supabase/anon';
 
 const mobileTicketSchema = z.uuid();
 
@@ -36,7 +36,7 @@ export async function handleJumiaMobileTicket(
   }
   const state = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const supabase = await createClient();
+  const supabase = createAnonClient();
   const { data: redeemed, error } = await supabase.rpc(
     'redeem_jumia_oauth_handoff_ticket',
     {

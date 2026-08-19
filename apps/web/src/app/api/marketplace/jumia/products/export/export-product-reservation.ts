@@ -237,9 +237,9 @@ export async function releaseJumiaExportReservation(
     marketplaceKey: string;
     exportVariations: ExportVariation[];
   }
-): Promise<void> {
+): Promise<boolean> {
   const skus = args.exportVariations.map((variation) => variation.sellerSku);
-  await supabase
+  const { error: deleteError } = await supabase
     .from('jumia_product_mappings')
     .delete()
     .eq('merchant_id', args.merchantId)
@@ -249,4 +249,25 @@ export async function releaseJumiaExportReservation(
     .eq('sync_status', 'pending')
     .is('last_feed_id', null)
     .in('jumia_sku', skus);
+
+  if (!deleteError) {
+    return true;
+  }
+
+  const { error: markError } = await supabase
+    .from('jumia_product_mappings')
+    .update({
+      sync_status: 'error',
+      sync_error: `Failed to release export reservation: ${deleteError.message}`,
+      last_synced_at: new Date().toISOString(),
+    })
+    .eq('merchant_id', args.merchantId)
+    .eq('product_id', args.productId)
+    .eq('jumia_shop_id', args.shopId)
+    .eq('marketplace_key', args.marketplaceKey)
+    .eq('sync_status', 'pending')
+    .is('last_feed_id', null)
+    .in('jumia_sku', skus);
+
+  return !markError;
 }

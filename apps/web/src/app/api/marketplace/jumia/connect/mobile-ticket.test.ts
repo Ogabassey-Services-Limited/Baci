@@ -1,11 +1,14 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { handleJumiaMobileTicket } from './mobile-ticket';
 
-const { mockCreateClient, mockGetJumiaAuthUrl, mockRpc } = vi.hoisted(() => ({
-  mockCreateClient: vi.fn(),
-  mockGetJumiaAuthUrl: vi.fn(),
-  mockRpc: vi.fn(),
-}));
+const { mockCreateAnonClient, mockGetJumiaAuthUrl, mockRpc } = vi.hoisted(
+  () => ({
+    mockCreateAnonClient: vi.fn(),
+    mockGetJumiaAuthUrl: vi.fn(),
+    mockRpc: vi.fn(),
+  })
+);
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: vi.fn(() => 'https://usebaci.com'),
   getJumiaClientId: vi.fn(() => 'client-id'),
@@ -16,8 +19,8 @@ vi.mock('@/lib/jumia/helpers', () => ({
     () => 'https://usebaci.com/api/marketplace/jumia/callback'
   ),
 }));
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: (...args: unknown[]) => mockCreateClient(...args),
+vi.mock('@/lib/supabase/anon', () => ({
+  createAnonClient: (...args: unknown[]) => mockCreateAnonClient(...args),
 }));
 
 const TICKET_ID = '00000000-0000-4000-8000-000000000099';
@@ -31,14 +34,13 @@ function makeRequest(value: string): NextRequest {
 describe('handleJumiaMobileTicket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateClient.mockResolvedValue({ rpc: mockRpc });
+    mockCreateAnonClient.mockReturnValue({ rpc: mockRpc });
     mockGetJumiaAuthUrl.mockReturnValue(
       'https://vendor-api.jumia.com/login?state=state'
     );
     mockRpc.mockResolvedValue({ data: true, error: null });
   });
   it('returns null for ordinary OAuth requests', async () => {
-    const { handleJumiaMobileTicket } = await import('./mobile-ticket');
     await expect(
       handleJumiaMobileTicket(
         makeRequest('connectionType=oauth'),
@@ -48,7 +50,6 @@ describe('handleJumiaMobileTicket', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
   it('rejects malformed tickets without touching the database', async () => {
-    const { handleJumiaMobileTicket } = await import('./mobile-ticket');
     const response = await handleJumiaMobileTicket(
       makeRequest('connectionType=oauth&platform=mobile&ticket=bad'),
       new URLSearchParams('connectionType=oauth&platform=mobile&ticket=bad')
@@ -57,11 +58,11 @@ describe('handleJumiaMobileTicket', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
   it('redeems a valid ticket and sets only handoff cookies', async () => {
-    const { handleJumiaMobileTicket } = await import('./mobile-ticket');
     const response = await handleJumiaMobileTicket(
       makeRequest(query),
       new URLSearchParams(query)
     );
+    expect(mockCreateAnonClient).toHaveBeenCalledTimes(1);
     expect(response?.status).toBe(307);
     expect(mockRpc).toHaveBeenCalledWith(
       'redeem_jumia_oauth_handoff_ticket',
@@ -79,7 +80,6 @@ describe('handleJumiaMobileTicket', () => {
     );
   });
   it('fails closed when redemption rejects the ticket', async () => {
-    const { handleJumiaMobileTicket } = await import('./mobile-ticket');
     mockRpc.mockResolvedValue({ data: false, error: null });
     const response = await handleJumiaMobileTicket(
       makeRequest(query),
