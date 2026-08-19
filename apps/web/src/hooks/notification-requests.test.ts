@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantNotificationWithDetails } from '@/types/notifications';
-import { fetchNotificationsRequest } from './notification-requests';
+import {
+  type FetchNotificationsDeps,
+  fetchNotificationsRequest,
+} from './notification-requests';
 
 function state<T>(initial: T) {
   let value = initial;
@@ -22,18 +25,20 @@ function createDeps(cursor: string | null = null) {
   const hasMore = state(false);
   const nextCursor = state<string | null>(cursor);
   const error = state<string | null>(null);
+  const deps: FetchNotificationsDeps = {
+    cursor,
+    isFetchingRef: { current: false },
+    pendingRefreshRef: { current: false },
+    setIsLoading: loading.set,
+    setNotifications: notifications.set,
+    setUnreadCount: unread.set,
+    setHasMore: hasMore.set,
+    setCursor: nextCursor.set,
+    setError: error.set,
+  };
+
   return {
-    deps: {
-      cursor,
-      isFetchingRef: { current: false },
-      pendingRefreshRef: { current: false },
-      setIsLoading: loading.set,
-      setNotifications: notifications.set,
-      setUnreadCount: unread.set,
-      setHasMore: hasMore.set,
-      setCursor: nextCursor.set,
-      setError: error.set,
-    },
+    deps,
     error,
     hasMore,
     notifications,
