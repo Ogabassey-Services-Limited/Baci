@@ -22,15 +22,25 @@ describe('external storefront media inventory', () => {
     expect(hostCounts.get('configured_supabase_storage_origin')).toBe(1);
     expect(hostCounts.get('configured_supabase_storage_upload_origin')).toBe(1);
     expect(hostCounts.get('configured_google_tag_manager_origin')).toBe(1);
-    expect(hostCounts.get('configured_google_analytics_collection_origin')).toBe(1);
+    expect(
+      hostCounts.get('configured_google_analytics_collection_origin')
+    ).toBe(1);
     expect(hostCounts.get('configured_carrier_tracking_origin')).toBe(1);
     expect(hostCounts.get('configured_klump_origin')).toBe(1);
     expect(hostCounts.get('configured_whatsapp_origin')).toBe(1);
     expect(hostCounts.get('configured_merchant_social_origin')).toBe(1);
-    expect((hostCounts.get('configured_app_store_origin') ?? 0)).toBeGreaterThanOrEqual(2);
-    expect((hostCounts.get('configured_play_store_origin') ?? 0)).toBeGreaterThanOrEqual(2);
-    expect((hostCounts.get('configured_google_maps_origin') ?? 0)).toBeGreaterThanOrEqual(4);
-    expect((hostCounts.get('configured_external_media_origin') ?? 0)).toBeGreaterThanOrEqual(10);
+    expect(
+      hostCounts.get('configured_app_store_origin') ?? 0
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      hostCounts.get('configured_play_store_origin') ?? 0
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      hostCounts.get('configured_google_maps_origin') ?? 0
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      hostCounts.get('configured_external_media_origin') ?? 0
+    ).toBeGreaterThanOrEqual(10);
 
     const postRow = summaries.find(
       (s) => s.hostKind === 'configured_google_analytics_collection_origin'

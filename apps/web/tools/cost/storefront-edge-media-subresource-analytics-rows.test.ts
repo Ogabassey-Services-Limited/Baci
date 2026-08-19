@@ -3,7 +3,9 @@ import { STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ANALYTICS_ROWS } from './storefront-e
 
 describe('storefront edge media subresource analytics rows', () => {
   it('exports analytics pixel and widget rows', () => {
-    expect(STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ANALYTICS_ROWS.length).toBeGreaterThan(0);
+    expect(
+      STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ANALYTICS_ROWS.length
+    ).toBeGreaterThan(0);
     expect(
       STOREFRONT_EDGE_MEDIA_SUBRESOURCE_ANALYTICS_ROWS.every(
         (r) => r.sourceKind === 'automatic_subresource'

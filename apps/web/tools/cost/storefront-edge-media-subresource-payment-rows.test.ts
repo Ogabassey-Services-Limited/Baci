@@ -3,7 +3,9 @@ import { STOREFRONT_EDGE_MEDIA_SUBRESOURCE_PAYMENT_ROWS } from './storefront-edg
 
 describe('storefront edge media subresource payment rows', () => {
   it('exports checkout, BNPL, and payment logo rows', () => {
-    expect(STOREFRONT_EDGE_MEDIA_SUBRESOURCE_PAYMENT_ROWS.length).toBeGreaterThan(0);
+    expect(
+      STOREFRONT_EDGE_MEDIA_SUBRESOURCE_PAYMENT_ROWS.length
+    ).toBeGreaterThan(0);
   });
 
   it('binds paystack asset and checkout rows to reviewed sources', () => {

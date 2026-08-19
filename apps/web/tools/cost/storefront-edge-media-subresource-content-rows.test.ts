@@ -3,7 +3,9 @@ import { STOREFRONT_EDGE_MEDIA_SUBRESOURCE_CONTENT_ROWS } from './storefront-edg
 
 describe('storefront edge media subresource content rows', () => {
   it('exports CDN, storage, and template media rows', () => {
-    expect(STOREFRONT_EDGE_MEDIA_SUBRESOURCE_CONTENT_ROWS.length).toBeGreaterThan(0);
+    expect(
+      STOREFRONT_EDGE_MEDIA_SUBRESOURCE_CONTENT_ROWS.length
+    ).toBeGreaterThan(0);
   });
 
   it('starts with the default CDN and storage rows', () => {
@@ -17,7 +19,9 @@ describe('storefront edge media subresource content rows', () => {
 
   it('includes blog content renderer and safe-html rows', () => {
     const ids = STOREFRONT_EDGE_MEDIA_SUBRESOURCE_CONTENT_ROWS.map((r) => r.id);
-    expect(ids).toContain('automatic-subresource:blog-content-renderer-external');
+    expect(ids).toContain(
+      'automatic-subresource:blog-content-renderer-external'
+    );
     expect(ids).toContain('automatic-subresource:blog-safe-html-external');
   });
 });

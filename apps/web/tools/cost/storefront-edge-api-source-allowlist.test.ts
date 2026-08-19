@@ -54,9 +54,7 @@ describe('isStorefrontRequiredApiSourcePath', () => {
 
   it('admits JavaScript route handlers (.js, .jsx, .tsx)', () => {
     expect(
-      isStorefrontRequiredApiSourcePath(
-        'apps/web/src/app/api/orders/route.js'
-      )
+      isStorefrontRequiredApiSourcePath('apps/web/src/app/api/orders/route.js')
     ).toBe(true);
     expect(
       isStorefrontRequiredApiSourcePath(
@@ -72,9 +70,7 @@ describe('isStorefrontRequiredApiSourcePath', () => {
 
   it('rejects non-route files regardless of extension', () => {
     expect(
-      isStorefrontRequiredApiSourcePath(
-        'apps/web/src/app/api/orders/utils.ts'
-      )
+      isStorefrontRequiredApiSourcePath('apps/web/src/app/api/orders/utils.ts')
     ).toBe(false);
   });
 });
