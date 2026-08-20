@@ -41,7 +41,7 @@ function createRouter(): BuilderAiDraftActionsParams['router'] {
     push: vi.fn(),
     refresh: vi.fn(),
     replace: vi.fn(),
-  };
+  } as BuilderAiDraftActionsParams['router'];
 }
 
 function createParams(
