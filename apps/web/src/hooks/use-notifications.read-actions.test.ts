@@ -1,7 +1,8 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import './use-notifications.test-support';
 import { useNotifications } from './use-notifications';
+import { renderNotificationsHook } from './use-notifications.test-render';
 import {
   notificationMocks,
   notificationResponse,
@@ -28,7 +29,7 @@ describe('useNotifications read actions', () => {
         ok: true,
       });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.notifications).toHaveLength(1));
     await result.current.markAsRead('notif-1');
@@ -50,7 +51,7 @@ describe('useNotifications read actions', () => {
   it('throws when marking a notification as read fails', async () => {
     global.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await expect(result.current.markAsRead('notif-1')).rejects.toThrow(
       'Failed to mark as read'
@@ -76,7 +77,7 @@ describe('useNotifications read actions', () => {
         ok: true,
       });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.notifications).toHaveLength(1));
     await result.current.markAllAsRead();
@@ -112,7 +113,7 @@ describe('useNotifications read actions', () => {
         status: 500,
       });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.notifications).toHaveLength(1));
     await expect(result.current.markAllAsRead()).rejects.toThrow(
@@ -130,7 +131,7 @@ describe('useNotifications read actions', () => {
       ok: true,
     });
 
-    const { result } = renderHook(() => useNotifications());
+    const { result } = renderNotificationsHook(() => useNotifications());
 
     await waitFor(() => expect(result.current.notifications).toHaveLength(1));
     await result.current.markAllAsRead();

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MerchantNotificationWithDetails } from '@/types/notifications';
-import { fetchNotificationsRequest } from './notification-requests';
+import {
+  type FetchNotificationsDeps,
+  fetchNotificationsRequest,
+} from './notification-requests';
 
 function state<T>(initial: T) {
   let value = initial;
@@ -22,18 +25,20 @@ function createDeps(cursor: string | null = null) {
   const hasMore = state(false);
   const nextCursor = state<string | null>(cursor);
   const error = state<string | null>(null);
+  const deps: FetchNotificationsDeps = {
+    cursor,
+    isFetchingRef: { current: false },
+    pendingRefreshRef: { current: false },
+    setIsLoading: loading.set,
+    setNotifications: notifications.set,
+    setUnreadCount: unread.set,
+    setHasMore: hasMore.set,
+    setCursor: nextCursor.set,
+    setError: error.set,
+  };
+
   return {
-    deps: {
-      cursor,
-      isFetchingRef: { current: false },
-      pendingRefreshRef: { current: false },
-      setIsLoading: loading.set,
-      setNotifications: notifications.set,
-      setUnreadCount: unread.set,
-      setHasMore: hasMore.set,
-      setCursor: nextCursor.set,
-      setError: error.set,
-    },
+    deps,
     error,
     hasMore,
     notifications,
@@ -162,5 +167,37 @@ describe('fetchNotificationsRequest', () => {
     await Promise.resolve();
     expect(global.fetch).toHaveBeenCalledTimes(2);
     resolvers.shift()?.(response);
+  });
+
+  it('does not apply list state after the request generation is superseded', async () => {
+    const { deps, notifications, unread } = createDeps();
+    let current = true;
+    deps.isCurrent = () => current;
+    let resolveResponse: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            resolveResponse = resolve;
+          })
+      )
+    );
+
+    const pending = fetchNotificationsRequest(false, deps);
+    current = false;
+    resolveResponse({
+      ok: true,
+      json: async () => ({
+        cursor: null,
+        data: [notification('stale')],
+        has_more: false,
+        unread_count: 9,
+      }),
+    } as Response);
+    await pending;
+
+    expect(notifications.get()).toEqual([]);
+    expect(unread.get()).toBe(7);
   });
 });
