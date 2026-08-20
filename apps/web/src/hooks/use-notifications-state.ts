@@ -95,7 +95,7 @@ export function useNotificationsState(
     setCursor(null);
     setHasMore(false);
     setError(null);
-    setIsLoading(true);
+    setIsLoading(Boolean(merchant?.id));
 
     if (!merchant?.id) return;
 

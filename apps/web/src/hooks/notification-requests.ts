@@ -99,6 +99,9 @@ export async function fetchNotificationsRequest(
       )
     );
   } finally {
+    // A superseded request must not clear the flag owned by a newer request.
+    // beginNotificationFetchGeneration resets it when the merchant generation
+    // changes before the next request starts.
     if (isRequestCurrent(deps)) {
       if (!append) setIsLoading(false);
       isFetchingRef.current = false;

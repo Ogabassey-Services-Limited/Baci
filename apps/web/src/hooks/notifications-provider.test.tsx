@@ -1,10 +1,8 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import './use-notifications.test-support';
-import {
-  NotificationsProvider,
-  useNotifications,
-} from './notifications-provider';
+import { NotificationsProvider } from './notifications-provider';
+import { useNotifications } from './use-notifications';
 import { renderNotificationsHook } from './use-notifications.test-render';
 import { resetNotificationHookMocks } from './use-notifications.test-support';
 

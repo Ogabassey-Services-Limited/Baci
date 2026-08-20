@@ -33,6 +33,12 @@ describe('useNotificationsState', () => {
     expect(notificationMocks.supabaseChannel).not.toHaveBeenCalled();
   });
 
+  it('does not remain loading when merchant context is absent', () => {
+    const { result } = renderHook(() => useNotificationsState(null));
+
+    expect(result.current.isLoading).toBe(false);
+  });
+
   it('does not apply an earlier merchant response after switching merchants', async () => {
     let resolveFirstRequest!: (response: {
       json: () => Promise<ReturnType<typeof notificationResponse>>;

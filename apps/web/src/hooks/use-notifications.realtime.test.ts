@@ -145,6 +145,32 @@ describe('useNotifications Realtime subscription', () => {
     warn.mockRestore();
   });
 
+  it('cleans up when subscribe throws after both handlers are registered', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    notificationMocks.channel.subscribe.mockImplementation(() => {
+      throw new Error('subscribe failed');
+    });
+
+    try {
+      expect(() =>
+        renderNotificationsHook(() => useNotifications())
+      ).not.toThrow();
+
+      await waitFor(() =>
+        expect(warn).toHaveBeenCalledWith(
+          'Notification subscription setup failed:',
+          'subscribe failed'
+        )
+      );
+      expect(notificationMocks.channel.on).toHaveBeenCalledTimes(2);
+      expect(notificationMocks.removeChannel).toHaveBeenCalledWith(
+        notificationMocks.channel
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it('refetches after the finalized recipient UPDATE that follows a hidden INSERT', async () => {
     renderNotificationsHook(() => useNotifications());
 

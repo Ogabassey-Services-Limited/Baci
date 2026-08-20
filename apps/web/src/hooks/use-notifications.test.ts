@@ -16,7 +16,7 @@ import {
 beforeEach(resetNotificationHookMocks);
 
 describe('useNotifications fetching', () => {
-  it('returns the initial loading state and all actions without a merchant', () => {
+  it('starts idle and exposes all actions without a merchant', () => {
     setMerchant(null);
 
     const { result } = renderNotificationsHook(() => useNotifications());
@@ -25,7 +25,7 @@ describe('useNotifications fetching', () => {
       activeBanners: [],
       error: null,
       hasMore: false,
-      isLoading: true,
+      isLoading: false,
       notifications: [],
       unreadCount: 0,
     });
