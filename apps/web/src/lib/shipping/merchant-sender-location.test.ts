@@ -42,6 +42,25 @@ describe('buildMerchantSenderInfo', () => {
     expect(sender.state).toBe('Abuja');
   });
 
+  it('canonicalizes structured Abuja (FCT) state labels for GIGL station matching', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '29 Yedseram Crescent, Maitama, 904101',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: {
+        city: 'Maitama',
+        country: 'Nigeria',
+        postal_code: '904101',
+        state: 'Abuja (FCT)',
+        street: '29 Yedseram Crescent',
+      },
+      stateCode: 'FC',
+    });
+
+    expect(sender.state).toBe('Abuja');
+    expect(sender.state).not.toBe('Abuja (FCT)');
+  });
+
   it('preserves numeric registered postal codes', () => {
     const sender = buildMerchantSenderInfo({
       businessAddress: '2 Olaide Tomori Street, Ikeja, Lagos',

@@ -21,7 +21,6 @@ type MerchantDetails = {
   phone: string | null;
   country: string | null;
   payout_currency: string | null;
-  registered_address: unknown;
   state_code: string | null;
 };
 
@@ -184,15 +183,25 @@ async function resolveStorefrontMerchantId(
 }
 
 async function resolveMerchantLookupClient(
-  request: HeaderReader
+  request: HeaderReader,
+  supabase: SupabaseClient
 ): Promise<SupabaseClient> {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7)
     : undefined;
 
+  // Only install a Bearer JWT after it validates. An expired/invalid token on a
+  // trusted storefront request must fall through to the cookie/anonymous client
+  // so published-store RLS can still load sender fields for checkout quotes.
   if (token) {
-    return createScopedClient(token);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+    if (!error && user) {
+      return createScopedClient(token);
+    }
   }
 
   return await createServerSupabaseClient();
@@ -202,10 +211,13 @@ async function resolveMerchantDetails(
   supabase: SupabaseClient,
   merchantId: string
 ): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
+  // Do not select registered_address here: anon only has it via the temporary
+  // Option-B bridge (removal scheduled 2026-08-24). Durable sender fields are
+  // business_address + state_code (permanent / restored anon grants).
   const { data, error } = await supabase
     .from('merchants')
     .select(
-      'business_name, business_address, phone, country, payout_currency, registered_address, state_code'
+      'business_name, business_address, phone, country, payout_currency, state_code'
     )
     .eq('id', merchantId)
     .maybeSingle();
@@ -268,7 +280,10 @@ export async function resolveQuoteMerchantContext({
   let merchantPayoutCurrency: string | null | undefined;
 
   if (trustedSenderMerchantId) {
-    const merchantLookupClient = await resolveMerchantLookupClient(request);
+    const merchantLookupClient = await resolveMerchantLookupClient(
+      request,
+      supabase
+    );
     const details = await resolveMerchantDetails(
       merchantLookupClient,
       trustedSenderMerchantId
@@ -282,7 +297,7 @@ export async function resolveQuoteMerchantContext({
           businessAddress: details.business_address,
           businessName: details.business_name,
           phone: details.phone,
-          registeredAddress: details.registered_address,
+          registeredAddress: null,
           stateCode: details.state_code,
         });
       }

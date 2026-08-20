@@ -579,7 +579,6 @@ describe('resolveQuoteMerchantContext', () => {
                     phone: '08012345678',
                     country: 'NG',
                     payout_currency: 'NGN',
-                    registered_address: null,
                     state_code: null,
                   }
                 : null,
@@ -625,5 +624,82 @@ describe('resolveQuoteMerchantContext', () => {
         .mocked(adminSupabase.from)
         .mock.calls.filter(([table]) => table === 'merchants')
     ).toHaveLength(1);
+  });
+
+  describe('bugfix: invalid Bearer on trusted storefront', () => {
+    it('falls back to the anonymous cookie client instead of installing a stale Bearer token', async () => {
+      const adminSupabase = createSupabase();
+      vi.mocked(adminSupabase.auth.getUser).mockResolvedValue({
+        data: { user: null },
+        error: { message: 'JWT expired', name: 'AuthApiError', status: 401 },
+      } as never);
+
+      const anonymousMerchantFrom = vi.fn((table: string) => {
+        const filters: Record<string, string> = {};
+        const query = {
+          eq: vi.fn((column: string, value: string) => {
+            filters[column] = value;
+            return query;
+          }),
+          maybeSingle: vi.fn(() =>
+            Promise.resolve({
+              data:
+                table === 'merchants' && filters.id === 'merchant-1'
+                  ? {
+                      business_address: '29 Yedseram Crescent, Maitama, 904101',
+                      business_name: 'Anon Storefront Merchant',
+                      phone: '08012345678',
+                      country: 'NG',
+                      payout_currency: 'NGN',
+                      state_code: 'FC',
+                    }
+                  : null,
+              error: null,
+            })
+          ),
+        };
+        return {
+          select: vi.fn((columns: string) => {
+            expect(columns).not.toContain('registered_address');
+            return query;
+          }),
+        };
+      });
+
+      mockCreateServerClient.mockResolvedValue({
+        auth: {
+          getUser: vi.fn().mockResolvedValue({
+            data: { user: null },
+            error: null,
+          }),
+        },
+        from: anonymousMerchantFrom,
+      });
+
+      const result = await resolveQuoteMerchantContext({
+        data: { shipmentType: 'domestic' },
+        request: createRequest({
+          host: 'ogabassey.usebaci.com',
+          'x-merchant-slug': 'ogabassey',
+          authorization: 'Bearer stale-or-expired-token',
+        }),
+        supabase: adminSupabase as never,
+      });
+
+      expect(result).toEqual({
+        ok: true,
+        merchantId: 'merchant-1',
+        merchantCountry: 'NG',
+        merchantPayoutCurrency: 'NGN',
+        senderInfo: expect.objectContaining({
+          name: 'Anon Storefront Merchant',
+          city: 'Maitama',
+          state: 'Abuja',
+        }),
+      });
+      expect(mockCreateScopedClient).not.toHaveBeenCalled();
+      expect(mockCreateServerClient).toHaveBeenCalled();
+      expect(anonymousMerchantFrom).toHaveBeenCalledWith('merchants');
+    });
   });
 });

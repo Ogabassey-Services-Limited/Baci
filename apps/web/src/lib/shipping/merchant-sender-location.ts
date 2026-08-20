@@ -128,7 +128,11 @@ function resolveMerchantState({
   const structuredState = hasLetters(registeredAddress?.state)
     ? registeredAddress.state
     : null;
-  if (structuredState) return structuredState;
+  // Canonicalize labels like "Abuja (FCT)" before returning — raw values make
+  // GIGL normalize to abujafct while stations use abuja, so quotes fail.
+  if (structuredState) {
+    return resolveStateFromLabel(structuredState) ?? structuredState;
+  }
 
   const stateFromCode = resolveStateFromCode(stateCode);
   if (stateFromCode) return stateFromCode;
