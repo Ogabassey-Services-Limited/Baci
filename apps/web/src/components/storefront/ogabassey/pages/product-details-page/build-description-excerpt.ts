@@ -8,11 +8,22 @@ function isEnumCatalogValue(value: string): boolean {
   const trimmed = value.replace(/[.!?]+$/, '').trim();
   const words = trimmed.split(/\s+/).filter(Boolean);
 
-  if (words.length !== 1) {
+  // Short enum-shaped phrases only (e.g. "space gray", "playstation 5", "dual sim").
+  if (words.length === 0 || words.length > 4) {
     return false;
   }
 
-  return /^[a-z][a-z0-9_-]*$/i.test(words[0]);
+  if (
+    /\b(the|a|an|your|our|its|this|these|with|for|in|on|at|from|to|and|or)\b/i.test(
+      trimmed
+    )
+  ) {
+    return false;
+  }
+
+  return words.every((word) =>
+    /^(?:[a-z][a-z0-9_-]*|\d+[a-z0-9_-]*)$/i.test(word)
+  );
 }
 
 function isSpecValue(value: string): boolean {

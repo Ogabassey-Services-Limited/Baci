@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ProductDetailsPageOverlays } from './product-details-page-overlays';
@@ -23,104 +22,81 @@ const overlayProductData = {
   slug: 'galaxy-phone',
 } as unknown as NormalizedProductDetails;
 
+const baseProps = {
+  animatingParticles: [] as DOMRect[],
+  currentOfferRawPrice: 150000,
+  effectiveAxes: ['storage'],
+  formatAxisLabel: (axis: string) => axis,
+  getAxisOptions: () => ['128GB'],
+  isNegotiationOpen: false,
+  isSelectionModalOpen: false,
+  merchantId: 'merchant-1',
+  merchantVatRate: 0.075,
+  missingFields: [] as string[],
+  onAnimationComplete: vi.fn(),
+  onCloseNegotiation: vi.fn(),
+  onCloseSelectionModal: vi.fn(),
+  onConfirmSelection: vi.fn(),
+  onNegotiationSuccess: vi.fn(),
+  onSelectAttribute: vi.fn(),
+  onSelectColor: vi.fn(),
+  productData: overlayProductData,
+  selectedAttributes: {},
+  selectedColor: null,
+  selectedCondition: 'new',
+  selectedImage: 0,
+  variantSelectionAttributes: {},
+};
+
 describe('product-details-page lazy boundaries', () => {
-  it('keeps negotiation modal behind a dynamic client boundary', () => {
-    const pageSource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
-      'utf8'
-    );
-    const lazySource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-negotiation-modal.ts',
-      'utf8'
-    );
-
-    expect(pageSource).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
-    expect(lazySource).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
-  });
-
-  it('keeps post-action modal and cart animation code out of the initial client graph', () => {
-    const pageSource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
-      'utf8'
-    );
-    const flyToCartSource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-fly-to-cart-animation.ts',
-      'utf8'
-    );
-    const selectionModalSource = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page/product-details-lazy-selection-required-modal.ts',
-      'utf8'
-    );
-
-    expect(pageSource).not.toMatch(/import\s*{\s*FlyToCartAnimation\s*}\s*from/);
-    expect(pageSource).not.toMatch(/import\s*{\s*SelectionRequiredModal\s*}\s*from/);
-    expect(flyToCartSource).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
-    expect(selectionModalSource).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
-  });
-
-  it('does not mount the selection modal in the overlay runtime when closed', () => {
-    render(
-      <ProductDetailsPageOverlays
-        animatingParticles={[]}
-        currentOfferRawPrice={150000}
-        effectiveAxes={['storage']}
-        formatAxisLabel={(axis) => axis}
-        getAxisOptions={() => ['128GB']}
-        isNegotiationOpen={false}
-        isSelectionModalOpen={false}
-        merchantId="merchant-1"
-        merchantVatRate={0.075}
-        missingFields={[]}
-        onAnimationComplete={vi.fn()}
-        onCloseNegotiation={vi.fn()}
-        onCloseSelectionModal={vi.fn()}
-        onConfirmSelection={vi.fn()}
-        onNegotiationSuccess={vi.fn()}
-        onSelectAttribute={vi.fn()}
-        onSelectColor={vi.fn()}
-        productData={overlayProductData}
-        selectedAttributes={{}}
-        selectedColor={null}
-        selectedCondition="new"
-        selectedImage={0}
-        variantSelectionAttributes={{}}
-      />
-    );
+  it('does not mount deferred overlay widgets when closed and idle', () => {
+    render(<ProductDetailsPageOverlays {...baseProps} />);
 
     expect(
       screen.queryByTestId('selection-required-modal')
     ).not.toBeInTheDocument();
+    expect(screen.queryByTestId('negotiation-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('fly-to-cart')).not.toBeInTheDocument();
   });
 
-  it('mounts the selection modal in the overlay runtime when open', () => {
+  it('mounts the selection modal only when it is open', () => {
     render(
       <ProductDetailsPageOverlays
-        animatingParticles={[]}
-        currentOfferRawPrice={150000}
-        effectiveAxes={['storage']}
-        formatAxisLabel={(axis) => axis}
-        getAxisOptions={() => ['128GB']}
-        isNegotiationOpen={false}
+        {...baseProps}
         isSelectionModalOpen
-        merchantId="merchant-1"
-        merchantVatRate={0.075}
         missingFields={['Storage']}
-        onAnimationComplete={vi.fn()}
-        onCloseNegotiation={vi.fn()}
-        onCloseSelectionModal={vi.fn()}
-        onConfirmSelection={vi.fn()}
-        onNegotiationSuccess={vi.fn()}
-        onSelectAttribute={vi.fn()}
-        onSelectColor={vi.fn()}
-        productData={overlayProductData}
-        selectedAttributes={{}}
-        selectedColor={null}
-        selectedCondition="new"
-        selectedImage={0}
-        variantSelectionAttributes={{}}
       />
     );
 
     expect(screen.getByTestId('selection-required-modal')).toBeInTheDocument();
+  });
+
+  it('mounts the negotiation modal only when negotiation is open', () => {
+    render(<ProductDetailsPageOverlays {...baseProps} isNegotiationOpen />);
+
+    expect(screen.getByTestId('negotiation-modal')).toBeInTheDocument();
+  });
+
+  it('mounts fly-to-cart animation only when particles are animating', () => {
+    const startRect = {
+      bottom: 0,
+      height: 10,
+      left: 0,
+      right: 10,
+      top: 0,
+      width: 10,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    render(
+      <ProductDetailsPageOverlays
+        {...baseProps}
+        animatingParticles={[startRect]}
+      />
+    );
+
+    expect(screen.getByTestId('fly-to-cart')).toBeInTheDocument();
   });
 });

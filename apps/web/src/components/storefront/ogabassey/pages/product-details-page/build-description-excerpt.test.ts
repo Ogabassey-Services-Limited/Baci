@@ -177,6 +177,13 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
+  it('filters multiword enum catalog values for common specification labels', () => {
+    const description =
+      'Color: space gray. Platform: playstation 5. Connectivity: dual sim. Built for reliable all-day performance.';
+    const result = buildDescriptionExcerpt(description);
+    expect(result).toBe('Built for reliable all-day performance.');
+  });
+
   it('filters standalone availability status metadata', () => {
     const description =
       'Availability: in stock. Built for reliable all-day performance.';
