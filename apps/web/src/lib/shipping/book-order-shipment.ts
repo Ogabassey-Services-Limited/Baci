@@ -18,6 +18,7 @@ import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.i
 import type {
   BookingRequest,
   ShipmentBookingResult,
+  ShippingAddress,
   ShippingProviderCode,
 } from '@/lib/shipping/types';
 
@@ -101,7 +102,8 @@ export interface BookOrderShipmentResult {
 async function resolveQuote(
   supabase: SupabaseClient,
   quote: QuoteRecord,
-  provider: ShippingProviderCode
+  provider: ShippingProviderCode,
+  senderOverride?: ShippingAddress
 ): Promise<QuoteRecord> {
   const needsRefresh =
     new Date(quote.expires_at) < new Date() ||
@@ -120,10 +122,18 @@ async function resolveQuote(
     );
   }
 
-  const freshQuotes = await shippingService.getProviderQuotes(provider, {
+  const refreshRequest = {
     ...quoteRequest,
     sessionId: crypto.randomUUID(),
-  });
+    ...(senderOverride && quoteRequest.shipmentType === 'domestic'
+      ? { sender: senderOverride }
+      : {}),
+  };
+
+  const freshQuotes = await shippingService.getProviderQuotes(
+    provider,
+    refreshRequest
+  );
   const replacement = selectPreferredQuote(freshQuotes, {
     serviceTier: quote.service_tier,
     carrierName: quote.carrier_name,
@@ -138,6 +148,10 @@ async function resolveQuote(
     );
   }
 
+  // Persist the refresh payload so domestic quotes no longer carry a stale
+  // postal-code sender state into later booking/refresh attempts.
+  const persistedQuoteRequest = refreshRequest;
+
   const nextQuote: QuoteRecord = {
     id: replacement.id,
     merchant_id: quote.merchant_id,
@@ -149,7 +163,7 @@ async function resolveQuote(
     estimated_days: replacement.estimatedDays,
     provider_rate_id: replacement.providerRateId || null,
     expires_at: replacement.expiresAt.toISOString(),
-    quote_request: quoteRequest,
+    quote_request: persistedQuoteRequest,
     provider_metadata: replacement.rawResponse,
   };
 
@@ -157,7 +171,7 @@ async function resolveQuote(
     {
       id: nextQuote.id,
       merchant_id: quote.merchant_id,
-      session_id: quoteRequest.sessionId,
+      session_id: persistedQuoteRequest.sessionId,
       provider,
       service_tier: nextQuote.service_tier,
       carrier_name: nextQuote.carrier_name,
@@ -166,7 +180,7 @@ async function resolveQuote(
       estimated_days: nextQuote.estimated_days,
       provider_rate_id: nextQuote.provider_rate_id,
       expires_at: nextQuote.expires_at,
-      quote_request: quoteRequest,
+      quote_request: persistedQuoteRequest,
       provider_metadata: nextQuote.provider_metadata,
     },
     { onConflict: 'id' }
@@ -313,11 +327,6 @@ export async function bookOrderShipment(
     );
   }
 
-  const resolvedQuote = await resolveQuote(
-    supabase,
-    typedStoredQuote,
-    typedOrder.shipping_provider
-  );
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select(
@@ -334,6 +343,21 @@ export async function bookOrderShipment(
       'MERCHANT_NOT_FOUND'
     );
   }
+
+  const merchantSender = buildMerchantSenderInfo({
+    businessAddress: typedMerchant.business_address,
+    businessName: typedMerchant.business_name,
+    phone: typedMerchant.phone,
+    registeredAddress: typedMerchant.registered_address,
+    stateCode: typedMerchant.state_code,
+  });
+
+  const resolvedQuote = await resolveQuote(
+    supabase,
+    typedStoredQuote,
+    typedOrder.shipping_provider,
+    merchantSender
+  );
 
   const storedQuoteRequest = parseStoredQuoteRequest(
     resolvedQuote.quote_request
@@ -365,13 +389,6 @@ export async function bookOrderShipment(
           phone: orderReceiver.phone,
         }
       : orderReceiver;
-  const merchantSender = buildMerchantSenderInfo({
-    businessAddress: typedMerchant.business_address,
-    businessName: typedMerchant.business_name,
-    phone: typedMerchant.phone,
-    registeredAddress: typedMerchant.registered_address,
-    stateCode: typedMerchant.state_code,
-  });
   const sender =
     isGiglInternationalQuote && storedQuoteRequest?.sender
       ? storedQuoteRequest.sender

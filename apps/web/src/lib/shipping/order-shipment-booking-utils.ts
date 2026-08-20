@@ -250,6 +250,10 @@ function normalizeLocationToken(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function isPostalCodeSegment(value: string): boolean {
+  return /^\d{5,6}$/.test(value.trim());
+}
+
 export function deriveMerchantLocation(
   addressValue: string | null | undefined
 ): {
@@ -287,6 +291,14 @@ export function deriveMerchantLocation(
       address,
       city: secondLast,
       state: last,
+    };
+  }
+
+  if (isPostalCodeSegment(last)) {
+    return {
+      address,
+      city: secondLast,
+      state: '',
     };
   }
 

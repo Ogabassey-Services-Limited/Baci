@@ -6,6 +6,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import type { ShippingAddress } from '@/lib/shipping/types';
+import { createScopedClient } from '@/lib/supabase/scoped';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
 type QuoteInput = {
@@ -182,6 +183,21 @@ async function resolveStorefrontMerchantId(
   return domainRow?.merchant_id;
 }
 
+async function resolveMerchantLookupClient(
+  request: HeaderReader
+): Promise<SupabaseClient> {
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7)
+    : undefined;
+
+  if (token) {
+    return createScopedClient(token);
+  }
+
+  return await createServerSupabaseClient();
+}
+
 async function resolveMerchantDetails(
   supabase: SupabaseClient,
   merchantId: string
@@ -252,8 +268,9 @@ export async function resolveQuoteMerchantContext({
   let merchantPayoutCurrency: string | null | undefined;
 
   if (trustedSenderMerchantId) {
+    const merchantLookupClient = await resolveMerchantLookupClient(request);
     const details = await resolveMerchantDetails(
-      supabase,
+      merchantLookupClient,
       trustedSenderMerchantId
     );
     if (details && 'ok' in details) return details;

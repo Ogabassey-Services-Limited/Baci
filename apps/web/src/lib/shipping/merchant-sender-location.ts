@@ -1,4 +1,5 @@
 import type { RegisteredAddress } from '@baci/shared';
+import { NIGERIAN_CITIES_FALLBACK } from '@/app/api/shipping/locations/fallback-locations';
 import {
   getSubdivisions,
   resolveSubdivisionCode,
@@ -52,6 +53,10 @@ function hasLetters(value: string | null | undefined): value is string {
   return Boolean(value?.trim() && /[a-z]/i.test(value));
 }
 
+function normalizeCityToken(value: string): string {
+  return value.trim().toLowerCase();
+}
+
 function resolveStateFromCode(stateCode: string | null): string | null {
   const normalized = stateCode?.trim().toUpperCase();
   if (!normalized) return null;
@@ -69,11 +74,69 @@ function resolveStateFromCode(stateCode: string | null): string | null {
   return subdivision?.name.replace(/\s+\(FCT\)$/i, '') ?? null;
 }
 
+function resolveStateFromLabel(
+  stateLabel: string | null | undefined
+): string | null {
+  if (!stateLabel?.trim()) return null;
+
+  const subdivisionCode = resolveSubdivisionCode('NG', stateLabel);
+  if (!subdivisionCode) return null;
+
+  const subdivision = getSubdivisions('NG').find(
+    (candidate) => candidate.code === subdivisionCode
+  );
+  return subdivision?.name.replace(/\s+\(FCT\)$/i, '') ?? null;
+}
+
+function inferStateFromNigerianCity(
+  city: string | null | undefined
+): string | null {
+  if (!city?.trim()) return null;
+
+  const normalizedCity = normalizeCityToken(city);
+  for (const [stateLabel, cities] of Object.entries(NIGERIAN_CITIES_FALLBACK)) {
+    if (
+      cities.some(
+        (candidate) => normalizeCityToken(candidate) === normalizedCity
+      )
+    ) {
+      return resolveStateFromLabel(stateLabel);
+    }
+  }
+
+  return resolveStateFromLabel(city);
+}
+
 function formatRegisteredAddress(address: RegisteredAddress): string {
   return [address.street, address.city, address.state, address.postal_code]
     .map((part) => part?.trim() ?? '')
     .filter(Boolean)
     .join(', ');
+}
+
+function resolveMerchantState({
+  registeredAddress,
+  stateCode,
+  locationCity,
+  locationState,
+}: {
+  registeredAddress: RegisteredAddress | null;
+  stateCode: string | null;
+  locationCity: string;
+  locationState: string;
+}): string {
+  const structuredState = hasLetters(registeredAddress?.state)
+    ? registeredAddress.state
+    : null;
+  if (structuredState) return structuredState;
+
+  const stateFromCode = resolveStateFromCode(stateCode);
+  if (stateFromCode) return stateFromCode;
+
+  if (hasLetters(locationState)) return locationState;
+
+  const city = registeredAddress?.city || locationCity;
+  return inferStateFromNigerianCity(city) ?? '';
 }
 
 export function buildMerchantSenderInfo(
@@ -82,19 +145,21 @@ export function buildMerchantSenderInfo(
   const registeredAddress = parseRegisteredAddress(details.registeredAddress);
   const addressValue =
     details.businessAddress?.trim() ||
-    (registeredAddress ? formatRegisteredAddress(registeredAddress) : 'Lagos');
+    (registeredAddress ? formatRegisteredAddress(registeredAddress) : '');
   const location = deriveMerchantLocation(addressValue);
-  const structuredState = hasLetters(registeredAddress?.state)
-    ? registeredAddress?.state
-    : null;
-  const state = structuredState || resolveStateFromCode(details.stateCode);
+  const state = resolveMerchantState({
+    registeredAddress,
+    stateCode: details.stateCode,
+    locationCity: location.city,
+    locationState: location.state,
+  });
 
   return {
     name: details.businessName || 'Merchant',
     phone: details.phone || '',
     address: location.address,
     city: registeredAddress?.city || location.city,
-    state: state || (hasLetters(location.state) ? location.state : 'Lagos'),
+    state,
     country: 'Nigeria',
     countryCode: 'NG',
     postalCode: registeredAddress?.postal_code ?? undefined,

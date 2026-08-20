@@ -198,6 +198,16 @@ describe('order-shipment-booking-utils', () => {
     });
   });
 
+  it('does not treat a trailing postal code as the merchant state', () => {
+    expect(
+      deriveMerchantLocation('29 Yedseram Crescent, Maitama, 904101')
+    ).toMatchObject({
+      address: '29 Yedseram Crescent, Maitama, 904101',
+      city: 'Maitama',
+      state: '',
+    });
+  });
+
   it('falls back to the final segment when a two-part address starts with a street', () => {
     expect(deriveMerchantLocation('12 Allen Avenue, Ikeja')).toMatchObject({
       address: '12 Allen Avenue, Ikeja',

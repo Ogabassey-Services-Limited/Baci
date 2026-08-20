@@ -3,9 +3,14 @@ import type { ShippingAddress } from '@/lib/shipping/types';
 import { resolveQuoteMerchantContext } from './quote-merchant-context';
 
 const mockCreateServerClient = vi.hoisted(() => vi.fn());
+const mockCreateScopedClient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: mockCreateServerClient,
+}));
+
+vi.mock('@/lib/supabase/scoped', () => ({
+  createScopedClient: mockCreateScopedClient,
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -142,6 +147,58 @@ function createSupabase({
   };
 }
 
+function createMerchantLookupClientMock(
+  overrides: Record<
+    string,
+    {
+      business_address: string;
+      business_name: string;
+      phone: string;
+      country?: string | null;
+      payout_currency?: string | null;
+      registered_address?: unknown;
+      state_code?: string | null;
+    }
+  > = {
+    'merchant-1': {
+      business_address: '1 Merchant Road, Ikeja, Lagos',
+      business_name: 'Merchant Store',
+      phone: '08012345678',
+      country: 'NG',
+      payout_currency: 'NGN',
+    },
+    'merchant-renamed': {
+      business_address: '1 Merchant Road, Ikeja, Lagos',
+      business_name: 'Renamed Store',
+      phone: '08055554444',
+    },
+  }
+) {
+  return {
+    from: vi.fn((table: string) => {
+      const filters: Record<string, string> = {};
+      const query = {
+        eq: vi.fn((column: string, value: string) => {
+          filters[column] = value;
+          return query;
+        }),
+        maybeSingle: vi.fn(() => {
+          if (table !== 'merchants' || !filters.id) {
+            return Promise.resolve({ data: null, error: null });
+          }
+
+          const merchant = overrides[filters.id];
+          return Promise.resolve({
+            data: merchant ?? null,
+            error: null,
+          });
+        }),
+      };
+      return { select: vi.fn(() => query) };
+    }),
+  };
+}
+
 describe('resolveQuoteMerchantContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -155,6 +212,7 @@ describe('resolveQuoteMerchantContext', () => {
       },
     });
     vi.mocked(hasPermission).mockReturnValue(true);
+    const merchantLookupClient = createMerchantLookupClientMock();
     mockCreateServerClient.mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -162,7 +220,9 @@ describe('resolveQuoteMerchantContext', () => {
           error: null,
         }),
       },
+      ...merchantLookupClient,
     });
+    mockCreateScopedClient.mockReturnValue(merchantLookupClient);
   });
 
   it('resolves sender details from a trusted storefront subdomain header', async () => {
@@ -180,6 +240,8 @@ describe('resolveQuoteMerchantContext', () => {
     expect(result).toEqual({
       ok: true,
       merchantId: 'merchant-1',
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'NGN',
       senderInfo: expect.objectContaining({
         name: 'Merchant Store',
         phone: '08012345678',
@@ -342,6 +404,7 @@ describe('resolveQuoteMerchantContext', () => {
 
   it('uses trusted storefront context when an authenticated user lacks fulfillment permission', async () => {
     const supabase = createSupabase();
+    const merchantLookupClient = createMerchantLookupClientMock();
     vi.mocked(hasPermission).mockReturnValue(false);
     mockCreateServerClient.mockResolvedValue({
       auth: {
@@ -350,6 +413,7 @@ describe('resolveQuoteMerchantContext', () => {
           error: null,
         }),
       },
+      ...merchantLookupClient,
     });
 
     const result = await resolveQuoteMerchantContext({
@@ -364,6 +428,8 @@ describe('resolveQuoteMerchantContext', () => {
     expect(result).toEqual({
       ok: true,
       merchantId: 'merchant-1',
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'NGN',
       senderInfo: expect.objectContaining({
         name: 'Merchant Store',
         phone: '08012345678',
@@ -374,6 +440,22 @@ describe('resolveQuoteMerchantContext', () => {
 
   it('passes through the resolved merchant country on a trusted storefront subdomain', async () => {
     const supabase = createSupabase({ merchantCountry: 'IN' });
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: null,
+        }),
+      },
+      ...createMerchantLookupClientMock({
+        'merchant-1': {
+          business_address: '1 Merchant Road, Ikeja, Lagos',
+          business_name: 'Merchant Store',
+          phone: '08012345678',
+          country: 'IN',
+        },
+      }),
+    });
 
     const result = await resolveQuoteMerchantContext({
       data: { shipmentType: 'international' },
@@ -402,6 +484,23 @@ describe('resolveQuoteMerchantContext', () => {
       merchantCountry: 'NG',
       merchantPayoutCurrency: 'GHS',
     });
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: null,
+        }),
+      },
+      ...createMerchantLookupClientMock({
+        'merchant-1': {
+          business_address: '1 Merchant Road, Ikeja, Lagos',
+          business_name: 'Merchant Store',
+          phone: '08012345678',
+          country: 'NG',
+          payout_currency: 'GHS',
+        },
+      }),
+    });
 
     const result = await resolveQuoteMerchantContext({
       data: { shipmentType: 'international' },
@@ -428,6 +527,7 @@ describe('resolveQuoteMerchantContext', () => {
 
   it('prefers trusted storefront context over an ambient authenticated merchant session', async () => {
     const supabase = createSupabase();
+    const merchantLookupClient = createMerchantLookupClientMock();
     mockCreateServerClient.mockResolvedValue({
       auth: {
         getUser: vi.fn().mockResolvedValue({
@@ -435,6 +535,7 @@ describe('resolveQuoteMerchantContext', () => {
           error: null,
         }),
       },
+      ...merchantLookupClient,
     });
 
     const result = await resolveQuoteMerchantContext({
@@ -449,11 +550,80 @@ describe('resolveQuoteMerchantContext', () => {
     expect(result).toEqual({
       ok: true,
       merchantId: 'merchant-1',
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'NGN',
       senderInfo: expect.objectContaining({
         name: 'Merchant Store',
         phone: '08012345678',
         city: 'Ikeja',
       }),
     });
+  });
+
+  it('loads trusted sender details through the request-scoped merchant lookup client', async () => {
+    const adminSupabase = createSupabase();
+    const scopedMerchantFrom = vi.fn((table: string) => {
+      const filters: Record<string, string> = {};
+      const query = {
+        eq: vi.fn((column: string, value: string) => {
+          filters[column] = value;
+          return query;
+        }),
+        maybeSingle: vi.fn(() =>
+          Promise.resolve({
+            data:
+              table === 'merchants' && filters.id === 'merchant-1'
+                ? {
+                    business_address: '29 Yedseram Crescent, Maitama, 904101',
+                    business_name: 'Scoped Merchant Store',
+                    phone: '08012345678',
+                    country: 'NG',
+                    payout_currency: 'NGN',
+                    registered_address: null,
+                    state_code: null,
+                  }
+                : null,
+            error: null,
+          })
+        ),
+      };
+      return { select: vi.fn(() => query) };
+    });
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: null },
+          error: null,
+        }),
+      },
+      from: scopedMerchantFrom,
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: { shipmentType: 'domestic' },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: adminSupabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'NGN',
+      senderInfo: expect.objectContaining({
+        name: 'Scoped Merchant Store',
+        city: 'Maitama',
+        state: 'Abuja',
+      }),
+    });
+    expect(scopedMerchantFrom).toHaveBeenCalledWith('merchants');
+    expect(
+      vi
+        .mocked(adminSupabase.from)
+        .mock.calls.filter(([table]) => table === 'merchants')
+    ).toHaveLength(1);
   });
 });

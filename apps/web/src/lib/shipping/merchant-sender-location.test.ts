@@ -60,3 +60,21 @@ describe('buildMerchantSenderInfo', () => {
     expect(sender.postalCode).toBe('100001');
   });
 });
+
+describe('bugfix: legacy free-text-only merchant address', () => {
+  it('does not default Abuja merchants to Lagos when business_address ends in a postal code', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '29 Yedseram Crescent, Maitama, 904101',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: null,
+    });
+
+    expect(sender).toMatchObject({
+      city: 'Maitama',
+      state: 'Abuja',
+    });
+    expect(sender.state).not.toBe('Lagos');
+  });
+});
