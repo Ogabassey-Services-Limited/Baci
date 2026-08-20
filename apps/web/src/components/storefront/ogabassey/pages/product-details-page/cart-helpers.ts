@@ -1,4 +1,5 @@
 import type { Product as CartProduct } from '@/lib/products';
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import {
   canonicalizeVariantAxis,
   getVariantAttributeOptions,
@@ -81,6 +82,17 @@ function getVariantBackedAxisOptions(
 
   const normalizedAxis = canonicalizeVariantAxis(axis);
   const options = new Set<string>();
+
+  if (normalizedAxis === 'condition') {
+    for (const variant of variants) {
+      const value = normalizeCanonicalProductCondition(variant.condition);
+      if (value) {
+        options.add(value);
+      }
+    }
+
+    return Array.from(options);
+  }
 
   for (const variant of variants) {
     for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {

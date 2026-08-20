@@ -80,4 +80,31 @@ describe('pruneSelectionsByVariantAvailability', () => {
 
     expect(result).toEqual({ storage: '512GB', warranty: '12 months' });
   });
+
+  it('drops incompatible storage when condition changes and condition lives on variant.condition', () => {
+    const conditionVariants = [
+      {
+        id: 'v-new-128',
+        attributes: { storage: '128GB' },
+        condition: 'new' as const,
+        price_modifier: 0,
+        stock_quantity: 5,
+      },
+      {
+        id: 'v-used-256',
+        attributes: { storage: '256GB' },
+        condition: 'used' as const,
+        price_modifier: 0,
+        stock_quantity: 3,
+      },
+    ] as NonNullable<NormalizedProductDetails['variants']>;
+
+    const result = pruneSelectionsByVariantAvailability(
+      { condition: 'used', storage: '128GB' },
+      'condition',
+      conditionVariants
+    );
+
+    expect(result).toEqual({ condition: 'used' });
+  });
 });

@@ -107,6 +107,33 @@ describe('cart helpers', () => {
     expect(hasVariantBackedAxis('platform', product.variants)).toBe(false);
   });
 
+  it('treats top-level variant.condition as a variant-backed condition axis', () => {
+    const product = productFixture({
+      variants: [
+        {
+          attributes: { storage: '128GB' },
+          condition: 'new',
+          id: 'variant-new',
+          stock_quantity: 2,
+        },
+        {
+          attributes: { storage: '256GB' },
+          condition: 'used',
+          id: 'variant-used',
+          stock_quantity: 2,
+        },
+      ],
+    });
+
+    expect(hasVariantBackedAxis('condition', product.variants)).toBe(true);
+    expect(
+      getVariantBackedSelections(
+        { condition: 'new', storage: '128GB' },
+        product.variants
+      )
+    ).toEqual({ condition: 'new', storage: '128GB' });
+  });
+
   it('keeps only selected axes backed by variant rows', () => {
     const product = productFixture({
       variants: [
