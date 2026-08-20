@@ -267,11 +267,9 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('returns 500 when merchant sender lookup fails', async () => {
-    mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, { message: 'database unavailable' })
-    );
+    mockCreateAdminClient.mockReturnValue(buildSupabaseMock({ id: 'user-1' }));
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, { message: 'database unavailable' })
     );
     const { POST } = await import('./route');
 
@@ -285,11 +283,9 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('does not treat a missing authenticated merchant row as a query failure', async () => {
-    mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, null)
-    );
+    mockCreateAdminClient.mockReturnValue(buildSupabaseMock({ id: 'user-1' }));
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, null)
     );
     const { POST } = await import('./route');
 
@@ -303,16 +299,17 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('returns empty quotes with a Nigerian-merchants-only warning for a non-NG merchant', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Bengaluru',
+      country: 'IN',
+      phone: '+919876543210',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Bengaluru',
-        country: 'IN',
-        phone: '+919876543210',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
@@ -330,16 +327,17 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('still fetches quotes when the merchant country is Nigeria', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: 'NG',
+      phone: '08012345678',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Lagos',
-        country: 'NG',
-        phone: '08012345678',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
@@ -350,16 +348,17 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('still fetches quotes when the merchant country is null', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: null,
+      phone: '08012345678',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Lagos',
-        country: null,
-        phone: '08012345678',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
@@ -370,17 +369,18 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('returns empty quotes when the merchant payout currency is not NGN even for an NG merchant', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: 'NG',
+      payout_currency: 'GHS',
+      phone: '08012345678',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Lagos',
-        country: 'NG',
-        payout_currency: 'GHS',
-        phone: '08012345678',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
@@ -398,17 +398,18 @@ describe('POST /api/shipping/quotes', () => {
   });
 
   it('returns empty quotes for a non-NGN payout merchant with no country set', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Accra',
+      country: null,
+      payout_currency: 'GHS',
+      phone: '+233201234567',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Accra',
-        country: null,
-        payout_currency: 'GHS',
-        phone: '+233201234567',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
