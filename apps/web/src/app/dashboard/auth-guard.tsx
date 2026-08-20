@@ -6,7 +6,9 @@ import { DashboardProviders } from './providers';
 
 const TRUSTED_NONCE_PATTERN = /^[\w-]{16,128}$/;
 
-function getTrustedRequestNonce(headersList: Headers): string | undefined {
+export function getTrustedRequestNonce(
+  headersList: Headers
+): string | undefined {
   // proxy.ts overwrites x-nonce for protected routes before this Server
   // Component runs. Validate the value before passing it to CSP consumers.
   const nonce = headersList.get('x-nonce');

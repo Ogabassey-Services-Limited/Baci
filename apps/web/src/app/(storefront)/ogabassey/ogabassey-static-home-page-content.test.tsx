@@ -132,7 +132,7 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(mockPreloadHeroResources).toHaveBeenCalledWith(SHELL_SLIDE.imageUrl);
   });
 
-  it('shows only publication-safe geometry while the publication owner suspends', async () => {
+  it('paints the image-only publication-safe shell while the publication owner suspends', async () => {
     mockDynamicContentSuspends.value = true;
 
     render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
@@ -140,12 +140,18 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(
       screen.queryByRole('region', { name: /permanent critical hero/i })
     ).not.toBeInTheDocument();
-    expect(
-      document.querySelector(
-        '[data-ogabassey-publication-safe-hero-fallback="true"]'
-      )
-    ).toBeInTheDocument();
-    expect(document.querySelector('a, button, img')).not.toBeInTheDocument();
+    const fallback = document.querySelector(
+      '[data-ogabassey-publication-safe-hero-fallback="true"]'
+    );
+    expect(fallback).toBeInTheDocument();
+    // The LCP hero image paints in the shell (LCP at FCP)...
+    const image = fallback?.querySelector('img');
+    expect(image).toBeInTheDocument();
+    expect(image).toHaveAttribute('alt', '');
+    // ...but the security line holds: no shopping UI, no product copy.
+    expect(document.querySelector('a, button')).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain(SHELL_SLIDE.name);
+    expect(document.body.textContent).not.toContain(SHELL_SLIDE.priceLabel);
     expect(
       document.querySelector(
         '[data-ogabassey-publication-safe-utility-fallback="true"]'
@@ -154,6 +160,25 @@ describe('OgabasseyStaticHomePageContent', () => {
     expect(
       screen.queryByRole('region', { name: /dynamic home content/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('keeps the suspending shell image-free when the published feed is empty', async () => {
+    mockDynamicContentSuspends.value = true;
+    mockResolveHeroShell.mockResolvedValue({
+      status: 'published',
+      merchantId: 'merchant-1',
+      slides: [],
+    });
+
+    render(await OgabasseyStaticHomePageContent({ pathPrefix: '' }));
+
+    expect(
+      document.querySelector(
+        '[data-ogabassey-publication-safe-hero-fallback="true"]'
+      )
+    ).toBeInTheDocument();
+    expect(document.querySelector('img, picture')).not.toBeInTheDocument();
+    expect(document.querySelector('a, button')).not.toBeInTheDocument();
   });
 
   it('fails closed without shopping UI when the shell lookup fails open', async () => {

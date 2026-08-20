@@ -1,13 +1,12 @@
 'use client';
 
 import type { User } from '@supabase/supabase-js';
-import { ThemeProvider } from 'next-themes';
 import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { UpgradeModalProvider } from '@/components/dashboard/upgrade-modal';
 import { AuthProvider } from '@/contexts/auth-context';
 import { MotionNonceProvider } from '@/contexts/MotionNonceProvider';
-import { NonceProvider, useNonce } from '@/contexts/NonceProvider';
+import { NonceProvider } from '@/contexts/NonceProvider';
 import { ProductProvider } from '@/contexts/product-context';
 import type { MerchantData, StaffAccess } from '@/hooks/use-merchant';
 import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
@@ -64,33 +63,23 @@ function DashboardProvidersContent({
   initialMerchant,
   initialStaffAccess,
 }: DashboardProvidersContentProps) {
-  const { nonce } = useNonce();
-
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="system"
-      enableSystem
-      disableTransitionOnChange
-      nonce={nonce}
-    >
-      <MotionNonceProvider>
-        <AuthProvider initialUser={initialUser}>
-          <CsrfInitializer />
-          <MerchantProvider
-            initialMerchant={initialMerchant}
-            initialStaffAccess={initialStaffAccess}
-          >
-            <ProductProvider>
-              <UpgradeModalProvider>
-                <DashboardClientLayout>
-                  <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-                </DashboardClientLayout>
-              </UpgradeModalProvider>
-            </ProductProvider>
-          </MerchantProvider>
-        </AuthProvider>
-      </MotionNonceProvider>
-    </ThemeProvider>
+    <MotionNonceProvider>
+      <AuthProvider initialUser={initialUser}>
+        <CsrfInitializer />
+        <MerchantProvider
+          initialMerchant={initialMerchant}
+          initialStaffAccess={initialStaffAccess}
+        >
+          <ProductProvider>
+            <UpgradeModalProvider>
+              <DashboardClientLayout>
+                <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+              </DashboardClientLayout>
+            </UpgradeModalProvider>
+          </ProductProvider>
+        </MerchantProvider>
+      </AuthProvider>
+    </MotionNonceProvider>
   );
 }

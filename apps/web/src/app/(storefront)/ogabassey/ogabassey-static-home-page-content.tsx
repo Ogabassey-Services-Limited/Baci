@@ -41,10 +41,11 @@ export async function OgabasseyStaticHomePageContent({
   // Cached-only lookup (never request APIs — those stay in the dynamic
   // subtree). Slides are inert data here: only the request-scoped subtree may
   // turn them into shopping UI after it confirms the current publication
-  // state. The slide-0 preload intentionally stays early for LCP discovery. In
-  // the narrow stale-shell window it can disclose/fetch the formerly public
-  // image URL, but it cannot render product UI or expose PDP navigation; the
-  // visible surface is tenant- and publication-gated below.
+  // state. The slide-0 preload intentionally stays early for LCP discovery, and
+  // the fallback below paints that same image (image only) so LCP lands at FCP.
+  // In the narrow stale-shell window it can disclose/fetch the formerly public
+  // image URL, but it cannot render product copy or expose PDP navigation; the
+  // shopping surface is tenant- and publication-gated below.
   const heroShell = await resolveOgabasseyHomeHeroShell();
   const shellSlides =
     heroShell?.status === 'published' ? heroShell.slides : null;
@@ -58,14 +59,16 @@ export async function OgabasseyStaticHomePageContent({
     <>
       <JsonLd data={ogabasseyStaticHomepageSchema} />
       <OgabasseyHomeStyleLoader />
-      {/* The fallback reserves the critical viewport without emitting product
-          copy, images, links or controls. The sole shopping Hero is rendered
-          only after the request-scoped publication guard succeeds. */}
+      {/* The fallback paints slide-0's decorative hero image (image only) to
+          reserve the critical viewport and land LCP at FCP, while emitting no
+          product copy, prices, links or controls. The sole shopping Hero is
+          rendered only after the request-scoped publication guard succeeds. */}
       <Suspense
         fallback={
           shellSlides ? (
             <OgabasseyPublicationSafeHeroFallback
               hasCarouselControls={shellSlides.length > 1}
+              heroImageUrl={shellSlides[0]?.imageUrl ?? null}
             />
           ) : null
         }
