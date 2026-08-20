@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { fetchTransactionReviewRows } from '@/lib/fetch-transaction-review-rows';
-import { filterCancelledTransactionReviewRows } from '@/lib/filter-cancelled-transaction-review-rows';
+import { filterExcludedTransactionReviewRows } from '@/lib/filter-excluded-transaction-review-rows';
 import { isTransactionReviewSchemaCacheError } from '@/lib/is-transaction-review-schema-cache-error';
 import {
   buildTransactionReviewRangeFilters,
@@ -173,7 +173,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
       }
 
       return mapTransactionOrderRows(
-        filterCancelledTransactionReviewRows(
+        filterExcludedTransactionReviewRows(
           (data ?? []) as unknown as TransactionReviewOrderRow[]
         )
       );

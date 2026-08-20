@@ -1,13 +1,12 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { renderHook, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   fetchTransactionReviewRows: vi.fn(),
   mapTransactionOrderRows: vi.fn(),
-  useQuery: vi.fn(),
-}));
-
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: mocks.useQuery,
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -25,10 +24,23 @@ vi.mock('@/lib/transaction-review', () => ({
 
 import { useTransactionReview } from './useTransactionReview';
 
+function createWrapper() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return React.createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      children
+    );
+  };
+}
+
 describe('useTransactionReview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.useQuery.mockImplementation((options) => options);
     mocks.mapTransactionOrderRows.mockImplementation((rows) => rows);
   });
 
@@ -53,11 +65,11 @@ describe('useTransactionReview', () => {
         error: null,
       });
 
-    const query = useTransactionReview() as unknown as {
-      queryFn: () => Promise<unknown>;
-    };
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
 
-    const result = await query.queryFn();
+    await waitFor(() => expect(result.current.data).toEqual([]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
       2,
@@ -67,6 +79,48 @@ describe('useTransactionReview', () => {
       })
     );
     expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([]);
-    expect(result).toEqual([]);
+    expect(result.current.data).toEqual([]);
+  });
+
+  it('does not map a returned order into transaction review results', async () => {
+    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'active-order',
+          shipping_status: 'pending',
+        },
+        {
+          id: 'returned-order',
+          shipping_status: 'returned',
+        },
+      ],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current.data).toEqual([
+        {
+          id: 'active-order',
+          shipping_status: 'pending',
+        },
+      ])
+    );
+
+    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([
+      {
+        id: 'active-order',
+        shipping_status: 'pending',
+      },
+    ]);
+    expect(result.current.data).toEqual([
+      {
+        id: 'active-order',
+        shipping_status: 'pending',
+      },
+    ]);
   });
 });
