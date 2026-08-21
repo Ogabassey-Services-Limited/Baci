@@ -44,6 +44,7 @@ function mockJunctionOnlyProduct() {
     {
       id: 'product-1',
       name: 'Laptop',
+      price: 100,
       product_categories: [{ categories: { slug: 'laptops' } }],
       slug: 'thin-laptop',
       status: 'active',
