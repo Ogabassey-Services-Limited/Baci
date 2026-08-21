@@ -68,7 +68,8 @@ export async function GET(request: NextRequest) {
     .select('product_id')
     .eq('merchant_id', merchantId)
     .eq('jumia_shop_id', integration.shop_id)
-    .eq('marketplace_key', integration.marketplace_key ?? 'default');
+    .eq('marketplace_key', integration.marketplace_key ?? 'default')
+    .neq('sync_status', 'error');
 
   if (error) {
     return NextResponse.json(

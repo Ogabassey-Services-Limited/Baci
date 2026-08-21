@@ -94,35 +94,24 @@ export async function reserveJumiaExportMappings(
   }
 
   const variantIdsBySku = new Map(args.variantIdsBySku);
-  const variantIds = [
-    ...new Set(
-      args.exportVariations.map(
-        (variation) => variantIdsBySku.get(variation.sellerSku) ?? null
-      )
-    ),
-  ];
-  for (const variantId of variantIds) {
-    let clearQuery = args.supabase
-      .from('jumia_product_mappings')
-      .delete()
-      .eq('merchant_id', args.merchantId)
-      .eq('product_id', productId)
-      .eq('jumia_shop_id', args.shopId)
-      .eq('marketplace_key', args.marketplaceKey)
-      .eq('sync_status', 'error');
-    clearQuery = variantId
-      ? clearQuery.eq('variant_id', variantId)
-      : clearQuery.is('variant_id', null);
-    const { error: clearError } = await clearQuery;
+  // Clear every failed mapping for this product/integration scope so removed
+  // variants from a prior rejected export cannot poison later update feeds.
+  const { error: clearError } = await args.supabase
+    .from('jumia_product_mappings')
+    .delete()
+    .eq('merchant_id', args.merchantId)
+    .eq('product_id', productId)
+    .eq('jumia_shop_id', args.shopId)
+    .eq('marketplace_key', args.marketplaceKey)
+    .eq('sync_status', 'error');
 
-    if (clearError) {
-      return {
-        ok: false,
-        status: 500,
-        error: 'Failed to replace a previously failed Jumia export mapping',
-        code: 'jumia_export_reservation_failed',
-      };
-    }
+  if (clearError) {
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to replace a previously failed Jumia export mapping',
+      code: 'jumia_export_reservation_failed',
+    };
   }
 
   const mappingRows = args.exportVariations.map((variation) => ({

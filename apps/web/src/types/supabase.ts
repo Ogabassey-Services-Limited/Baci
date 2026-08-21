@@ -16805,6 +16805,14 @@ export type Database = {
         Args: { p_merchant_id: string; p_ticket_id: string };
         Returns: boolean;
       };
+      finalize_jumia_oauth_handoff_ticket: {
+        Args: { p_merchant_id: string; p_ticket_id: string };
+        Returns: boolean;
+      };
+      release_jumia_oauth_handoff_ticket: {
+        Args: { p_merchant_id: string; p_ticket_id: string };
+        Returns: boolean;
+      };
       cleanup_old_push_attempts: { Args: never; Returns: number };
       cleanup_old_push_tickets: { Args: never; Returns: number };
       cleanup_rate_limit_logs: {

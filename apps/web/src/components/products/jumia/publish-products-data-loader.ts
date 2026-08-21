@@ -14,7 +14,7 @@ export async function loadMappedProductIds(
     { signal }
   );
   if (!response.ok) {
-    return new Set();
+    throw new Error('Failed to load mapped Jumia products');
   }
   const payload: unknown = await response.json();
   if (
@@ -23,7 +23,7 @@ export async function loadMappedProductIds(
     !('productIds' in payload) ||
     !Array.isArray(payload.productIds)
   ) {
-    return new Set();
+    throw new Error('Failed to load mapped Jumia products');
   }
   return new Set(
     payload.productIds.filter(

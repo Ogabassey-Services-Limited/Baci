@@ -25,11 +25,14 @@ function buildSupabase(
     in: vi.fn(),
     is: vi.fn(),
   };
-  deleteBuilder.eq.mockReturnValue(deleteBuilder);
-  deleteBuilder.is.mockReturnValue(deleteBuilder);
-  deleteBuilder.in.mockResolvedValue({
-    error: options.deleteError ?? null,
+  deleteBuilder.eq.mockImplementation((column: string, value: unknown) => {
+    if (column === 'sync_status' && value === 'error') {
+      return Promise.resolve({ error: options.deleteError ?? null });
+    }
+    return deleteBuilder;
   });
+  deleteBuilder.is.mockReturnValue(deleteBuilder);
+  deleteBuilder.in.mockReturnValue(deleteBuilder);
   const del = vi.fn().mockReturnValue(deleteBuilder);
 
   const from = vi.fn((table: string) => {
@@ -110,7 +113,7 @@ describe('reserveJumiaExportMappings', () => {
     ]);
   });
 
-  it('replaces a failed mapping by stable variant identity when its SKU changes', async () => {
+  it('clears all failed mappings for the product scope before reserving', async () => {
     const { from, del } = buildSupabase();
 
     await reserveJumiaExportMappings({
@@ -124,7 +127,11 @@ describe('reserveJumiaExportMappings', () => {
 
     expect(del).toHaveBeenCalled();
     const deleteBuilder = del.mock.results[0]?.value;
-    expect(deleteBuilder.eq).toHaveBeenCalledWith('variant_id', 'variant-1');
+    expect(deleteBuilder.eq).toHaveBeenCalledWith('sync_status', 'error');
+    expect(deleteBuilder.eq).not.toHaveBeenCalledWith(
+      'variant_id',
+      'variant-1'
+    );
   });
 
   it('maps unique violations to an in-progress conflict', async () => {

@@ -27,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { stripHtmlTags } from '@/lib/sanitize-core';
+import { resolveJumiaLabelUrl } from './resolve-jumia-label-url';
 
 function isValidHttpUrl(url: string | undefined): url is string {
   if (!url) return false;
@@ -178,15 +179,15 @@ async function runOrderAction(
       return;
     }
 
-    const validLabels = data.labels.filter(
-      (entry): entry is { label: string } =>
-        typeof entry.label === 'string' && isValidHttpUrl(entry.label)
-    );
+    const validLabels = data.labels.flatMap((entry) => {
+      const labelUrl = resolveJumiaLabelUrl(entry.label);
+      return labelUrl ? [{ label: labelUrl }] : [];
+    });
 
     if (validLabels.length === 0) {
       toast({
         title: 'No Valid Labels',
-        description: 'No valid printable label URLs were returned.',
+        description: 'No valid printable labels were returned.',
         variant: 'destructive',
       });
       refetch();

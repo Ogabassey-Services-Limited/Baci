@@ -52,9 +52,11 @@ function createSupabaseMock() {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockResolvedValue({
-                  data: [{ product_id: 'product-1' }],
-                  error: null,
+                eq: vi.fn().mockReturnValue({
+                  neq: vi.fn().mockResolvedValue({
+                    data: [{ product_id: 'product-1' }],
+                    error: null,
+                  }),
                 }),
               }),
             }),
