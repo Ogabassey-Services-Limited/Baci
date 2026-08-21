@@ -1,6 +1,7 @@
 #!/bin/sh
 # shellcheck disable=SC1090 # Sealed sibling selected beside the scanner helper.
 CONTAINER_STABILITY_ATTEMPTS=3; case ${helper:-} in */retire-ollama-consumers.sh) consumer_closure_helper=${helper%/*}/retire-ollama-consumer-closure.sh;; *) consumer_closure_helper="$SCRIPT_DIR/retire-ollama-consumer-closure.sh";; esac; [ -f "$consumer_closure_helper" ] && [ ! -L "$consumer_closure_helper" ] || return 2; . "$consumer_closure_helper"
+case ${helper:-} in */retire-ollama-consumers.sh) consumer_archive_helper=${helper%/*}/retire-ollama-running-archive.sh;; *) consumer_archive_helper="$SCRIPT_DIR/retire-ollama-running-archive.sh";; esac; [ -f "$consumer_archive_helper" ] && [ ! -L "$consumer_archive_helper" ] || return 2; . "$consumer_archive_helper"
 case ${helper:-} in */retire-ollama-consumers.sh) consumer_running_helper=${helper%/*}/retire-ollama-running-container.sh;; *) consumer_running_helper="$SCRIPT_DIR/retire-ollama-running-container.sh";; esac; [ -f "$consumer_running_helper" ] && [ ! -L "$consumer_running_helper" ] || return 2; . "$consumer_running_helper"
 consumer_hardening_named_volumes() {
   definition=$1; captured=$(consumer_snapshot "$definition") || return 2; hardening_snapshot=${captured%%|*}; hardening_identity=${captured#*|}; definition_record="$definition|$(sha "$hardening_snapshot")|$hardening_identity"; refs=$(temp_path); records=$(temp_path)

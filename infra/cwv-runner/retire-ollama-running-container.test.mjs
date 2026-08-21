@@ -26,7 +26,7 @@ async function runFixture(command) {
   }
 }
 
-const metadataDocker = `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.Healthcheck}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;;`;
+const metadataDocker = `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.Healthcheck}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'container export generic-api'*) printf '%s\\n' 'clean live filesystem';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;;`;
 
 test('emits digest-bound evidence when the immutable running image contains Ollama markers', async () => {
   const output = await runFixture(
@@ -37,6 +37,34 @@ test('emits digest-bound evidence when the immutable running image contains Olla
     /^running-container-image:[0-9a-f]{64}\|[0-9a-f]{64}\|[0-9a-f]{64}$/m
   );
   assert.doesNotMatch(output, /filesystem|11434/);
+});
+
+test('emits digest-bound evidence for Ollama markers in the live writable layer', async () => {
+  const liveFilesystem = metadataDocker.replace(
+    "printf '%s\\n' 'clean live filesystem'",
+    "printf '%s\\n' 'runtime.conf endpoint=http://127.0.0.1:11434'"
+  );
+  const output = await runFixture(
+    `${liveFilesystem} *'image save ${imageId}'*) printf '%s\\n' 'clean image filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.match(
+    output,
+    /^running-container-filesystem:[0-9a-f]{64}\|[0-9a-f]{64}\|[0-9a-f]{64}$/m
+  );
+  assert.doesNotMatch(output, /runtime\.conf|11434/);
+});
+
+test('fails closed when live writable-layer exports drift', async () => {
+  const driftingFilesystem = metadataDocker.replace(
+    "*'container export generic-api'*) printf '%s\\n' 'clean live filesystem';;",
+    '*\'container export generic-api\'*) count=$(cat "$2/export-count" 2>/dev/null || printf 0); count=$((count + 1)); printf \'%s\' "$count" >"$2/export-count"; printf \'filesystem-%s\' "$count";;'
+  );
+  await assert.rejects(
+    runFixture(
+      `${driftingFilesystem} *'image save ${imageId}'*) printf '%s\\n' 'clean image filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+    ),
+    (error) => error.code === 2
+  );
 });
 
 test('accepts a safe absolute running-container argument', async () => {
@@ -116,6 +144,15 @@ test('fails closed when a running-image export hangs past the watchdog', async (
       `${metadataDocker} *'image save ${imageId}'*) exec sleep 120;; *) return 2;; esac; }; load_consumer_scanners; RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=1; running_container_validate generic-api /generic-api 'stable-config'`
     ),
     (error) => error.code === 2
+  );
+});
+
+test('keeps enforcing the deadline after archive output is complete', async () => {
+  await assert.rejects(
+    runFixture(
+      'load_consumer_scanners; status="$2/status"; clock="$2/clock"; printf \'0\\n\' >"$status"; sleep 3 & sleeper=$!; running_container_now() { if [ -e "$clock" ]; then printf \'3\\n\'; else : >"$clock"; printf \'1\\n\'; fi; }; running_container_wait_group 2 "$sleeper" -- "$status"'
+    ),
+    (error) => error.code === 124
   );
 });
 

@@ -5,8 +5,8 @@ RECOVERY_PROC_ROOT=$(recovery_proc_root_for_uid "$(/usr/bin/id -u)" "${RETIRE_OL
 RECOVERY_CONTAINER_COMMAND_PATH=${RECOVERY_CONTAINER_COMMAND_PATH:-}
 RECOVERY_CONTAINER_PORTS_FILE=${RECOVERY_CONTAINER_PORTS_FILE:-}
 RECOVERY_SOURCE_SHA=${SCRIPT_DIR##*/}; RECOVERY_SOURCE_ROOT=/srv/baci-cwv/source; RECOVERY_RECEIPT_ROOT=/srv/baci-cwv/retired-ollama/recovery-scan; : "${RECOVERY_RECEIPT_ROOT}"
-RECOVERY_CONSUMERS_HELPER="$SCRIPT_DIR/retire-ollama-consumers.sh"; RECOVERY_CONSUMER_CLOSURE_HELPER="$SCRIPT_DIR/retire-ollama-consumer-closure.sh"
-[ -f "$RECOVERY_CONSUMERS_HELPER" ] && [ ! -L "$RECOVERY_CONSUMERS_HELPER" ] && [ -f "$RECOVERY_CONSUMER_CLOSURE_HELPER" ] && [ ! -L "$RECOVERY_CONSUMER_CLOSURE_HELPER" ] || review_required 'recovery consumer scanner helper missing'
+RECOVERY_CONSUMERS_HELPER="$SCRIPT_DIR/retire-ollama-consumers.sh"; RECOVERY_RUNNING_CONTAINER_HELPER="$SCRIPT_DIR/retire-ollama-running-container.sh"; RECOVERY_RUNNING_ARCHIVE_HELPER="$SCRIPT_DIR/retire-ollama-running-archive.sh"; RECOVERY_CONSUMER_CLOSURE_HELPER="$SCRIPT_DIR/retire-ollama-consumer-closure.sh"
+[ -f "$RECOVERY_CONSUMERS_HELPER" ] && [ ! -L "$RECOVERY_CONSUMERS_HELPER" ] && [ -f "$RECOVERY_RUNNING_CONTAINER_HELPER" ] && [ ! -L "$RECOVERY_RUNNING_CONTAINER_HELPER" ] && [ -f "$RECOVERY_RUNNING_ARCHIVE_HELPER" ] && [ ! -L "$RECOVERY_RUNNING_ARCHIVE_HELPER" ] && [ -f "$RECOVERY_CONSUMER_CLOSURE_HELPER" ] && [ ! -L "$RECOVERY_CONSUMER_CLOSURE_HELPER" ] || review_required 'recovery consumer scanner helper missing'
 RECOVERY_RECEIPTS_HELPER="$SCRIPT_DIR/retire-ollama-recovery-receipts.sh"; RECOVERY_PROCESS_FILES_HELPER="$SCRIPT_DIR/retire-ollama-process-files.sh"
 [ -f "$RECOVERY_RECEIPTS_HELPER" ] && [ ! -L "$RECOVERY_RECEIPTS_HELPER" ] && [ -f "$RECOVERY_PROCESS_FILES_HELPER" ] && [ ! -L "$RECOVERY_PROCESS_FILES_HELPER" ] || review_required 'recovery helper missing'
 . "$RECOVERY_RECEIPTS_HELPER"; . "$RECOVERY_PROCESS_FILES_HELPER"

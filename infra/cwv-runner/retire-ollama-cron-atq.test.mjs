@@ -153,6 +153,61 @@ printf '%s\\n' absent-scheduler-quiesced`,
   assert.equal(stdout, 'absent-scheduler-quiesced\n');
 });
 
+test('production apply loads the cron inventory before checking an absent at scheduler', async () => {
+  const source = await fixture();
+  const receiptDirectory = join(source.root, 'receipts');
+  await Promise.all([
+    mkdir(receiptDirectory),
+    writeFile(
+      join(source.root, 'receipt.json'),
+      '{"scan":{"dependencies":[]}}\n'
+    ),
+    writeFile(
+      join(source.root, 'inventory.json'),
+      '{"reviewStatus":"approved"}\n'
+    ),
+  ]);
+  try {
+    await execFileAsync(
+      'sh',
+      [
+        '-c',
+        `. "$1"; SCRIPT_DIR=$(dirname "$1")
+RECEIPT_DIR=$2; RECEIPT=$3; INVENTORY=$4
+root() { :; }
+canonical_receipt() { :; }; assert_approved_dependency_classes() { :; }; assert_zero_consumers() { :; }
+approved_dependency_sha() { printf 'approved\\n'; }; dependency_sha() { printf 'approved\\n'; }
+ensure_receipt_dir() { :; }; pending_for() { printf '%s.pending\\n' "$1"; }; publish_pending() { mv "$1" "$2"; }
+completion_metrics() { printf '{"cgroupMemoryBytes":0,"hostAvailableMemoryBytes":0,"modelStoreBytes":0}\\n'; }
+canonical_receipt_digest() { printf '%064d\\n' 0; }
+record_action() { :; }; revalidate_before() { :; }; assert_scheduled_mutations_quiesced() { :; }
+cron_mutation_state() { printf '[]\\n'; }; quiesce_cron_mutations() { :; }; assert_postcondition() { :; }
+install_crontab() { :; }; disable_unit() { :; }; remove_container() { :; }; delete_models() { :; }
+load_at_quiescence_helper() { . "$SCRIPT_DIR/retire-ollama-at-quiescence.sh"; cron_mutation_state() { printf '[]\\n'; }; quiesce_cron_mutations() { :; }; assert_postcondition() { :; }; assert_scheduled_mutations_quiesced() { :; }; }
+apply
+`,
+        'retire-ollama-absent-at-production-apply-test',
+        script.pathname,
+        receiptDirectory,
+        join(source.root, 'receipt.json'),
+        join(source.root, 'inventory.json'),
+      ],
+      {
+        ...unprivileged,
+        env: {
+          ...process.env,
+          RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+          RETIRE_OLLAMA_ATQ: join(source.root, 'absent-atq'),
+          RETIRE_OLLAMA_AT_ABSENCE_ROOT: source.root,
+          RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: '',
+        },
+      }
+    );
+  } finally {
+    await rm(source.root, { recursive: true, force: true });
+  }
+});
+
 test('fails closed when atq returns an error', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
