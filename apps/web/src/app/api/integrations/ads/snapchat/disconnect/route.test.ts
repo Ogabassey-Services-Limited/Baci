@@ -58,4 +58,25 @@ describe('Snapchat Ads disconnect route', () => {
       { p_merchant_id: 'merchant' }
     );
   });
+
+  it('rejects invalid CSRF and RPC errors without exposing provider data', async () => {
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { rpc: vi.fn() },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: false });
+    expect(
+      (
+        await DELETE(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/disconnect',
+            { method: 'DELETE' }
+          )
+        )
+      ).status
+    ).toBe(403);
+  });
 });
