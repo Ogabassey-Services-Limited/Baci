@@ -114,13 +114,34 @@ export async function markMetaAdsReauthRequired(input: {
 }
 
 function shouldRequireReauth(error: unknown): boolean {
-  if (error instanceof MetaAdsProviderError) {
-    return (
-      error.code === 'META_ADS_ACCESS_REVOKED' ||
-      error.code === 'META_ADS_ADS_READ_NOT_GRANTED'
-    );
+  const candidateCode =
+    error instanceof MetaAdsProviderError
+      ? error.code
+      : error && typeof error === 'object'
+        ? (error as { code?: unknown }).code
+        : null;
+  const code =
+    typeof candidateCode === 'string'
+      ? candidateCode
+      : error instanceof Error
+        ? error.message
+        : null;
+  return (
+    code === 'META_ADS_REAUTH_REQUIRED' ||
+    code === 'META_ADS_ACCESS_REVOKED' ||
+    code === 'META_ADS_ADS_READ_NOT_GRANTED'
+  );
+}
+
+function reauthFailureCode(error: unknown): string {
+  if (
+    error &&
+    typeof error === 'object' &&
+    typeof (error as { code?: unknown }).code === 'string'
+  ) {
+    return (error as { code: string }).code;
   }
-  return error instanceof Error && error.message === 'META_ADS_REAUTH_REQUIRED';
+  return error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED';
 }
 
 export async function syncMetaAdsSpendForMerchant(
@@ -158,8 +179,7 @@ export async function syncMetaAdsSpendForMerchant(
       try {
         await markMetaAdsReauthRequired({
           connection,
-          failureCode:
-            error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+          failureCode: reauthFailureCode(error),
           merchantId: input.merchantId,
           supabase: input.supabase,
         });
@@ -167,9 +187,7 @@ export async function syncMetaAdsSpendForMerchant(
         throw new MetaAdsSyncError('META_ADS_REAUTH_PERSIST_FAILED');
       }
     }
-    throw new MetaAdsSyncError(
-      error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED'
-    );
+    throw new MetaAdsSyncError(reauthFailureCode(error));
   }
   const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
   const activeSync = inFlightSyncs.get(syncKey);
@@ -284,8 +302,7 @@ async function syncSelectedMetaAdsAccount(input: {
       try {
         await markMetaAdsReauthRequired({
           connection: input.connection,
-          failureCode:
-            error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+          failureCode: reauthFailureCode(error),
           merchantId: input.merchantId,
           supabase: input.supabase,
         });
