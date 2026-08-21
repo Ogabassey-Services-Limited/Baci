@@ -37,6 +37,7 @@ let query: {
   eq: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
 };
 
 function mockJunctionOnlyProduct() {
@@ -54,6 +55,10 @@ function mockJunctionOnlyProduct() {
     eq: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
     order: vi.fn(() => query),
+    range: vi.fn(async (from: number, to: number) => ({
+      data: rows.slice(from, to + 1),
+      error: null,
+    })),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
     from: vi.fn(() => ({ select: vi.fn(() => query) })),

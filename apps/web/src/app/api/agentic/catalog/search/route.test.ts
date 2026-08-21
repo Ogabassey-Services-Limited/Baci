@@ -58,6 +58,7 @@ let query: {
   limit: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
 };
 
 function mockProductRows(rows: ProductRow[]) {
@@ -73,6 +74,10 @@ function mockProductRows(rows: ProductRow[]) {
     limit: vi.fn(async () => ({ data: rows, error: null })),
     or: vi.fn(() => query),
     order: vi.fn(() => query),
+    range: vi.fn(async (from: number, to: number) => ({
+      data: rows.slice(from, to + 1),
+      error: null,
+    })),
   };
   mockSelect = vi.fn(() => query);
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
@@ -177,6 +182,31 @@ describe('POST /api/agentic/catalog/search', () => {
 
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'free-product',
+    ]);
+  });
+
+  it('backfills filter-only results after refusing invalid candidates', async () => {
+    mockProductRows([
+      { id: 'bad-price-1', name: 'Bad 1', price: -1, status: 'active' },
+      { id: 'bad-price-2', name: 'Bad 2', price: Number.NaN, status: 'active' },
+      { id: 'valid-product', name: 'Valid', price: 100, status: 'active' },
+    ]);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({
+          filters: { category: 'phones' },
+          pagination: { limit: 1 },
+        }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(query.range).toHaveBeenNthCalledWith(1, 0, 1);
+    expect(query.range).toHaveBeenNthCalledWith(2, 2, 3);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'valid-product',
     ]);
   });
 

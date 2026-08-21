@@ -133,31 +133,48 @@ export async function POST(request: NextRequest) {
       referencedTable: 'product_categories',
     });
 
-  const { data, error } = await query
-    .order('created_at', { ascending: false })
-    .limit(candidateLimit);
-  if (error) {
-    return NextResponse.json(
-      { error: 'Catalog search failed' },
-      { status: 500 }
-    );
-  }
-
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
-  const products = filterActiveUcpCatalogProductRows(
-    (data ?? []) as UcpCatalogProductRow[]
-  )
-    .map((row) =>
-      mapUcpCatalogProductRow({
-        baseUrl,
-        currency: CATALOG_CURRENCY,
-        row,
-      })
+  const orderedQuery = query.order('created_at', { ascending: false });
+  const products: UcpCatalogProduct[] = [];
+  let candidateOffset = 0;
+  while (
+    products.length < limit &&
+    candidateOffset < MAX_CATALOG_SEARCH_CANDIDATES
+  ) {
+    const requestLimit = Math.min(
+      candidateLimit,
+      MAX_CATALOG_SEARCH_CANDIDATES - candidateOffset
+    );
+    const { data, error } = await orderedQuery.range(
+      candidateOffset,
+      candidateOffset + requestLimit - 1
+    );
+    if (error) {
+      return NextResponse.json(
+        { error: 'Catalog search failed' },
+        { status: 500 }
+      );
+    }
+
+    const batchProducts = filterActiveUcpCatalogProductRows(
+      (data ?? []) as UcpCatalogProductRow[]
     )
-    .filter(
-      (product): product is NonNullable<typeof product> => product !== null
-    )
-    .slice(0, limit);
+      .map((row) =>
+        mapUcpCatalogProductRow({
+          baseUrl,
+          currency: CATALOG_CURRENCY,
+          row,
+        })
+      )
+      .filter(
+        (product): product is NonNullable<typeof product> => product !== null
+      );
+    products.push(...batchProducts);
+    candidateOffset += requestLimit;
+    if ((data ?? []).length < requestLimit) {
+      break;
+    }
+  }
 
   return NextResponse.json(
     buildUcpCatalogProductsResponse({
