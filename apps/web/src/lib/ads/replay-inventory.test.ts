@@ -31,6 +31,10 @@ const providerNeutralNonceMigrationName =
   '20260821180006_provider_neutral_ads_oauth_state_nonces.sql' as const;
 const providerNeutralNonceMigrationHash =
   '5a9a72a1a7cba1a0c097f022a717929e5b2beea9e17b19f34c0a980e08353efb' as const;
+const providerNeutralNonceHardeningMigrationName =
+  '20260821180007_harden_provider_neutral_ads_oauth_state_nonce_rpcs.sql' as const;
+const providerNeutralNonceHardeningMigrationHash =
+  'cf598ab0dee239574844efa89ab648e17a1f634cac66d5a3a506c9cc39395866' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -164,6 +168,27 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(providerNeutralNonceMigrationName);
     expect(pendingSources).toContain(providerNeutralNonceMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${providerNeutralNonceHardeningMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(providerNeutralNonceHardeningMigrationHash);
+    expect(historySources).toContain(
+      `${providerNeutralNonceHardeningMigrationHash} ${providerNeutralNonceHardeningMigrationName}`
+    );
+    expect(pendingSources).toContain(
+      providerNeutralNonceHardeningMigrationName
+    );
+    expect(pendingSources).toContain(
+      providerNeutralNonceHardeningMigrationHash
+    );
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {
