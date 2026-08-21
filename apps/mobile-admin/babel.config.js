@@ -3,12 +3,6 @@ module.exports = (api) => {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      [
-        'babel-plugin-react-compiler',
-        {
-          target: '19',
-        },
-      ],
       // Bundle mode (worklets 0.10 stable) loads worklets from the JS bundle
       // instead of duplicating them per runtime — recovers the Hermes/Android
       // memory cost of importing reanimated. No jest gating needed: admin

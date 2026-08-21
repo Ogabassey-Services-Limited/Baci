@@ -54,6 +54,15 @@ describe('mobile-admin app config PostHog wiring', () => {
   });
 });
 
+describe('mobile-admin React Compiler configuration', () => {
+  it('enables the SDK 57 React Compiler experiment', async () => {
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.experiments?.reactCompiler).toBe(true);
+  });
+});
+
 describe('mobile-admin app config version resolution', () => {
   it('uses APP_VERSION as the versionName (Android release auto-increment)', async () => {
     vi.stubEnv('APP_VERSION', '2.0.640');

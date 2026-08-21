@@ -289,6 +289,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     favicon: './assets/images/favicon.png',
   },
   experiments: {
+    // SDK 57's supported React Compiler integration configures Babel through
+    // Expo, keeping compiler behavior consistent across native and web builds.
+    reactCompiler: true,
     // typedRoutes disabled: generated .expo/types/router.d.ts only includes
     // (auth) routes and misses all (admin) routes, causing false TS errors.
     typedRoutes: false,
