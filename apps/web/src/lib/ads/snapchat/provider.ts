@@ -5,7 +5,6 @@ import { requestSnapchatAdsJson, SnapchatAdsProviderError } from './request';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const INTEGER = /^\d+$/;
-const MAX_ASYNC_POLLS = 8;
 
 export { SnapchatAdsProviderError } from './request';
 export interface SnapchatAdsAccount {
@@ -24,6 +23,10 @@ export interface SnapchatAdsDailyReport {
   spendAmountDecimal: string;
   spendDate: string;
   spendMicros: string;
+  sourceEndTime: string;
+  sourceStartTime: string;
+  conversionDataProcessedEndTime: string | null;
+  finalizedDataEndTime: string | null;
   timezoneName: string;
 }
 type RecordValue = Record<string, unknown>;
@@ -61,7 +64,7 @@ function isTimezone(value: string): boolean {
     return false;
   }
 }
-function dateParts(epoch: number, timezone: string) {
+export function snapchatAdsLocalDate(epoch: number, timezone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     day: '2-digit',
     month: '2-digit',
@@ -200,22 +203,34 @@ function statsList(payload: unknown): RecordValue[] {
       record(root.data)?.timeseries_stats
   );
 }
+function isoTimestamp(value: unknown): string | null {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value))
+    ? value
+    : null;
+}
 function parseReports(
   payload: unknown,
   input: { accountId: string; currencyCode: string; timezoneName: string }
 ): SnapchatAdsDailyReport[] {
   const rows = statsList(payload);
+  const root = record(payload);
+  const finalizedDataEndTime = isoTimestamp(root?.finalized_data_end_time);
+  const conversionDataProcessedEndTime = isoTimestamp(
+    root?.conversion_data_processed_end_time
+  );
   if (!rows.length && !record(payload))
     throw new SnapchatAdsProviderError('SNAPCHAT_ADS_REPORT_RESPONSE_INVALID');
   const parsed = rows.flatMap((row) => {
     const stats = record(row.stats);
     const start = row.start_time;
+    const end = row.end_time;
     const micros = integer(stats?.spend);
     const impressions = integer(stats?.impressions);
     const swipes = integer(stats?.swipes);
     const purchases = decimal(stats?.conversion_purchases);
     if (
       typeof start !== 'string' ||
+      typeof end !== 'string' ||
       !micros ||
       !impressions ||
       !swipes ||
@@ -223,7 +238,8 @@ function parseReports(
     )
       return [];
     const timestamp = Date.parse(start);
-    if (!Number.isFinite(timestamp)) return [];
+    if (!Number.isFinite(timestamp) || !Number.isFinite(Date.parse(end)))
+      return [];
     return [
       {
         accountId: input.accountId,
@@ -232,8 +248,12 @@ function parseReports(
         currencyCode: input.currencyCode,
         impressions,
         spendAmountDecimal: microToDecimal(micros),
-        spendDate: dateParts(timestamp, input.timezoneName),
+        spendDate: snapchatAdsLocalDate(timestamp, input.timezoneName),
         spendMicros: micros,
+        sourceEndTime: end,
+        sourceStartTime: start,
+        conversionDataProcessedEndTime,
+        finalizedDataEndTime,
         timezoneName: input.timezoneName,
       },
     ];
@@ -241,11 +261,6 @@ function parseReports(
   if (rows.length !== parsed.length)
     throw new SnapchatAdsProviderError('SNAPCHAT_ADS_REPORT_ROWS_INVALID');
   return parsed;
-}
-function asyncStatus(payload: unknown): string | null {
-  const root = record(payload);
-  const status = root?.status ?? record(root?.report_run)?.status;
-  return typeof status === 'string' ? status.toUpperCase() : null;
 }
 export async function fetchSnapchatAdsDailyReport(
   input: {
@@ -256,9 +271,7 @@ export async function fetchSnapchatAdsDailyReport(
     startDate: string;
     timezoneName: string;
   },
-  fetchImpl: typeof fetch = fetch,
-  sleep: (milliseconds: number) => Promise<void> = (ms) =>
-    new Promise((resolve) => setTimeout(resolve, ms))
+  fetchImpl: typeof fetch = fetch
 ): Promise<SnapchatAdsDailyReport[]> {
   if (
     !input.accountId ||
@@ -288,7 +301,7 @@ export async function fetchSnapchatAdsDailyReport(
   url.searchParams.set('action_report_time', 'conversion');
   url.searchParams.set('swipe_up_attribution_window', '28_DAY');
   url.searchParams.set('view_attribution_window', '1_DAY');
-  let payload = await requestSnapchatAdsJson(
+  const payload = await requestSnapchatAdsJson(
     url,
     { headers: { Authorization: `Bearer ${input.accessToken}` } },
     'SNAPCHAT_ADS_REPORT_FAILED',
@@ -296,33 +309,8 @@ export async function fetchSnapchatAdsDailyReport(
   );
   const root = record(payload);
   const reportRunId = root?.report_run_id;
-  if (typeof reportRunId === 'string' && reportRunId) {
-    for (let poll = 0; poll < MAX_ASYNC_POLLS; poll += 1) {
-      const pollUrl = new URL(
-        `${SNAPCHAT_ADS_API_ROOT}/adaccounts/${encodeURIComponent(input.accountId)}/stats_report`
-      );
-      pollUrl.searchParams.set('report_run_id', reportRunId);
-      payload = await requestSnapchatAdsJson(
-        pollUrl,
-        { headers: { Authorization: `Bearer ${input.accessToken}` } },
-        'SNAPCHAT_ADS_ASYNC_REPORT_FAILED',
-        fetchImpl
-      );
-      const status = asyncStatus(payload);
-      if (status === 'COMPLETED' || status === 'SUCCESS') break;
-      if (status === 'FAILED' || status === 'CANCELED')
-        throw new SnapchatAdsProviderError('SNAPCHAT_ADS_ASYNC_REPORT_FAILED');
-      if (
-        status !== 'STARTED' &&
-        status !== 'RUNNING' &&
-        status !== 'PROCESSING'
-      )
-        throw new SnapchatAdsProviderError('SNAPCHAT_ADS_ASYNC_REPORT_INVALID');
-      await sleep(Math.min(30_000, 250 * 2 ** poll));
-    }
-    if (!statsList(payload).length)
-      throw new SnapchatAdsProviderError('SNAPCHAT_ADS_ASYNC_REPORT_TIMEOUT');
-  }
+  if (typeof reportRunId === 'string' && reportRunId)
+    throw new SnapchatAdsProviderError('SNAPCHAT_ADS_ASYNC_REPORT_UNSUPPORTED');
   return parseReports(payload, input);
 }
 function nextDate(date: string): string {

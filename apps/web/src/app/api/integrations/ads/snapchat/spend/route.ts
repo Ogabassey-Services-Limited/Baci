@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { SNAPCHAT_ADS_PROVIDER } from '@/lib/ads/snapchat/constants';
+import { snapchatAdsLocalDate } from '@/lib/ads/snapchat/provider';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -9,9 +10,9 @@ import { snapchatAdsSpendQuerySchema } from '@/schemas/snapchat-ads';
 
 const SELECT =
   'provider_customer_id, spend_date, currency_code, spend_amount_decimal, spend_micros, impressions, clicks, conversions, account_timezone, attribution_metadata, fetched_at' as const;
-function dates(now = new Date()) {
-  const endDate = now.toISOString().slice(0, 10);
-  const start = new Date(now);
+function dates(timezone: string, now = new Date()) {
+  const endDate = snapchatAdsLocalDate(now.getTime(), timezone);
+  const start = new Date(`${endDate}T00:00:00.000Z`);
   start.setUTCDate(start.getUTCDate() - 30);
   return { endDate, startDate: start.toISOString().slice(0, 10) };
 }
@@ -27,7 +28,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'analytics', 'view'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const defaults = dates();
+  const connection = await auth.supabase
+    .from('merchant_ad_connections')
+    .select('account_timezone')
+    .eq('merchant_id', access.merchantId)
+    .eq('provider', SNAPCHAT_ADS_PROVIDER)
+    .maybeSingle();
+  if (connection.error)
+    return NextResponse.json(
+      { error: 'Failed to read Snapchat Ads connection status' },
+      { status: 500 }
+    );
+  const defaults = dates(connection.data?.account_timezone ?? 'UTC');
   const parsed = snapchatAdsSpendQuerySchema.safeParse({
     accountId: request.nextUrl.searchParams.get('accountId') ?? undefined,
     endDate: request.nextUrl.searchParams.get('endDate') ?? defaults.endDate,

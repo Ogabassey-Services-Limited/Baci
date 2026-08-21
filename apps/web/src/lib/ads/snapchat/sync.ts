@@ -1,11 +1,10 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { encryptAdsToken } from '@/lib/ads/crypto';
 import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
 import {
-  resolveSnapchatAdsAccessToken,
-  resolveSnapchatAdsRefreshToken,
+  getSnapchatAdsUsableAccessToken,
+  SnapchatAdsTokenRefreshError,
 } from './access-token';
 import { getSnapchatAdsConfig } from './config';
 import {
@@ -13,10 +12,10 @@ import {
   SNAPCHAT_ADS_REQUIRED_SCOPES,
   SNAPCHAT_ADS_TRAILING_SYNC_DAYS,
 } from './constants';
-import { refreshSnapchatAdsAccessToken } from './oauth';
 import {
   fetchSnapchatAdsDailyReport,
   listSnapchatAdsAccounts,
+  snapchatAdsLocalDate,
 } from './provider';
 
 export class SnapchatAdsSyncError extends Error {
@@ -33,9 +32,10 @@ const activeSyncs = new Map<
 export function snapchatAdsTrailingStartDate(
   startDate: string,
   endDate: string,
+  timezone: string,
   now = new Date()
 ): string {
-  const today = now.toISOString().slice(0, 10);
+  const today = snapchatAdsLocalDate(now.getTime(), timezone);
   if (endDate < today) return startDate;
   const trailing = new Date(`${endDate}T00:00:00.000Z`);
   trailing.setUTCDate(trailing.getUTCDate() - SNAPCHAT_ADS_TRAILING_SYNC_DAYS);
@@ -109,52 +109,26 @@ export async function syncSnapchatAdsSpendForMerchant(
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_ACCOUNT_NOT_SELECTED');
   let token: string;
   try {
-    token = resolveSnapchatAdsAccessToken(connection, config);
+    token = await getSnapchatAdsUsableAccessToken({
+      config,
+      connection,
+      merchantId: input.merchantId,
+      supabase: input.supabase,
+    });
   } catch (error) {
-    throw new SnapchatAdsSyncError(codeOf(error));
-  }
-  const startDate = snapchatAdsTrailingStartDate(
-    input.startDate,
-    input.endDate
-  );
-  if (
-    connection.token_expires_at &&
-    Date.parse(connection.token_expires_at) <= Date.now()
-  ) {
-    try {
-      const grant = await refreshSnapchatAdsAccessToken({
-        ...config,
-        refreshToken: resolveSnapchatAdsRefreshToken(connection, config),
-      });
-      const updated = await input.supabase.rpc(
-        'update_merchant_ads_connection_token',
-        {
-          p_access_token_ciphertext: encryptAdsToken(
-            grant.accessToken,
-            config.tokenEncryptionKey,
-            SNAPCHAT_ADS_PROVIDER
-          ),
-          p_merchant_id: input.merchantId,
-          p_provider: SNAPCHAT_ADS_PROVIDER,
-          p_token_expires_at: new Date(
-            Date.now() + grant.expiresIn * 1000
-          ).toISOString(),
-        }
-      );
-      if (updated.error || updated.data !== true)
-        throw new SnapchatAdsSyncError('TOKEN_REFRESH_WRITE_FAILED');
-      token = grant.accessToken;
-    } catch (error) {
+    if (
+      error instanceof SnapchatAdsTokenRefreshError &&
+      error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED'
+    )
       await markSnapchatAdsReauthRequired({
         connection,
-        failureCode: codeOf(error),
+        failureCode: error.code,
         merchantId: input.merchantId,
         supabase: input.supabase,
       });
-      throw error;
-    }
+    throw new SnapchatAdsSyncError(codeOf(error));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${startDate}:${input.endDate}`;
+  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
   const current = activeSyncs.get(key);
   if (current) return current;
   const work = (async () => {
@@ -164,6 +138,11 @@ export async function syncSnapchatAdsSpendForMerchant(
       ).find((item) => item.accountId === connection.provider_customer_id);
       if (!account)
         throw new SnapchatAdsSyncError('SNAPCHAT_ADS_ACCOUNT_NOT_ACCESSIBLE');
+      const startDate = snapchatAdsTrailingStartDate(
+        input.startDate,
+        input.endDate,
+        account.timezoneName
+      );
       const reports = await fetchSnapchatAdsDailyReport(
         {
           accessToken: token,
@@ -192,6 +171,13 @@ export async function syncSnapchatAdsSpendForMerchant(
           provider: SNAPCHAT_ADS_PROVIDER,
           providerClicksLabel: 'Swipe Ups',
           providerConversionsLabel: 'Snapchat-attributed purchases',
+          snapchatConversionDataProcessedEndTime:
+            report.conversionDataProcessedEndTime,
+          snapchatFinalizedDataEndTime: report.finalizedDataEndTime,
+          snapchatSourceInterval: {
+            endTime: report.sourceEndTime,
+            startTime: report.sourceStartTime,
+          },
           swipeUpAttributionWindow: '28_DAY',
           viewAttributionWindow: '1_DAY',
         },
@@ -243,15 +229,4 @@ export async function syncSnapchatAdsSpendForMerchant(
   } finally {
     activeSyncs.delete(key);
   }
-}
-
-export function encryptedSnapchatRefreshTokenForStorage(
-  refreshToken: string,
-  tokenEncryptionKey: string
-): string {
-  return encryptAdsToken(
-    refreshToken,
-    tokenEncryptionKey,
-    SNAPCHAT_ADS_PROVIDER
-  );
 }

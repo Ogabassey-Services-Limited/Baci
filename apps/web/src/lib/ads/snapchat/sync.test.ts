@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const resolveToken = vi.fn();
+const usableToken = vi.fn();
 const config = vi.fn();
 const accounts = vi.fn();
 const reports = vi.fn();
 
 vi.mock('./access-token', () => ({
-  resolveSnapchatAdsAccessToken: (...args: unknown[]) => resolveToken(...args),
+  getSnapchatAdsUsableAccessToken: (...args: unknown[]) => usableToken(...args),
+  SnapchatAdsTokenRefreshError: class SnapchatAdsTokenRefreshError extends Error {},
 }));
 vi.mock('./config', () => ({
   getSnapchatAdsConfig: (...args: unknown[]) => config(...args),
@@ -27,7 +28,7 @@ describe('Snapchat Ads sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     config.mockReturnValue({ tokenEncryptionKey: 'key' });
-    resolveToken.mockReturnValue('token');
+    usableToken.mockResolvedValue('token');
     accounts.mockResolvedValue([
       {
         accountId: 'ad-1',
@@ -99,6 +100,7 @@ describe('Snapchat Ads sync', () => {
       snapchatAdsTrailingStartDate(
         '2026-08-20',
         '2026-08-21',
+        'Africa/Lagos',
         new Date('2026-08-21T12:00:00Z')
       )
     ).toBe('2026-07-22');

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { SNAPCHAT_ADS_PROVIDER } from '@/lib/ads/snapchat/constants';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -25,10 +24,10 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const result = await auth.supabase.rpc('delete_merchant_ads_connection', {
-    p_merchant_id: access.merchantId,
-    p_provider: SNAPCHAT_ADS_PROVIDER,
-  });
+  const result = await auth.supabase.rpc(
+    'delete_snapchat_ads_connection_and_spend',
+    { p_merchant_id: access.merchantId }
+  );
   return result.error || result.data !== true
     ? NextResponse.json(
         { error: 'Failed to disconnect Snapchat Ads' },

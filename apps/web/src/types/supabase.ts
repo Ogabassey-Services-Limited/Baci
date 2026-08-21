@@ -17967,6 +17967,25 @@ export type Database = {
           token_expires_at: string | null;
         }[];
       };
+      consume_snapchat_ads_oauth_state_nonce: {
+        Args: {
+          p_merchant_id: string;
+          p_nonce: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      reserve_snapchat_ads_oauth_state_nonce: {
+        Args: {
+          p_expires_at: string;
+          p_merchant_id: string;
+          p_nonce: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       get_merchant_balance: {
         Args: { currency_param: string; merchant_id_param: string };
         Returns: number;
@@ -20481,6 +20500,10 @@ export type Database = {
       };
       delete_merchant_ads_connection: {
         Args: { p_merchant_id: string; p_provider: string };
+        Returns: boolean;
+      };
+      delete_snapchat_ads_connection_and_spend: {
+        Args: { p_merchant_id: string };
         Returns: boolean;
       };
       mark_merchant_ads_connection_synced: {

@@ -1,8 +1,10 @@
 import 'server-only';
 
-import { decryptAdsToken } from '@/lib/ads/crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { decryptAdsToken, encryptAdsToken } from '@/lib/ads/crypto';
 import type { SnapchatAdsConfig } from './config';
 import { SNAPCHAT_ADS_PROVIDER } from './constants';
+import { refreshSnapchatAdsAccessToken, type SnapchatAdsGrant } from './oauth';
 
 export interface SnapchatAdsEncryptedConnection {
   access_token_ciphertext: string | null;
@@ -41,4 +43,66 @@ export function resolveSnapchatAdsRefreshToken(
   } catch {
     throw new Error('SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED');
   }
+}
+
+export class SnapchatAdsTokenRefreshError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+    this.name = 'SnapchatAdsTokenRefreshError';
+  }
+}
+
+export async function getSnapchatAdsUsableAccessToken(input: {
+  config: SnapchatAdsConfig;
+  connection: SnapchatAdsEncryptedConnection;
+  merchantId: string;
+  supabase: SupabaseClient;
+}): Promise<string> {
+  const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
+  const expiresAt = input.connection.token_expires_at
+    ? Date.parse(input.connection.token_expires_at)
+    : Number.NaN;
+  if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return token;
+  let grant: SnapchatAdsGrant;
+  try {
+    grant = await refreshSnapchatAdsAccessToken({
+      ...input.config,
+      refreshToken: resolveSnapchatAdsRefreshToken(
+        input.connection,
+        input.config
+      ),
+    });
+  } catch (error) {
+    const status =
+      error &&
+      typeof error === 'object' &&
+      typeof (error as { status?: unknown }).status === 'number'
+        ? (error as { status: number }).status
+        : undefined;
+    throw new SnapchatAdsTokenRefreshError(
+      status === 400 || status === 401 || status === 403
+        ? 'SNAPCHAT_ADS_REFRESH_REJECTED'
+        : 'SNAPCHAT_ADS_REFRESH_FAILED'
+    );
+  }
+  const updated = await input.supabase.rpc(
+    'update_merchant_ads_connection_token',
+    {
+      p_access_token_ciphertext: encryptAdsToken(
+        grant.accessToken,
+        input.config.tokenEncryptionKey,
+        SNAPCHAT_ADS_PROVIDER
+      ),
+      p_merchant_id: input.merchantId,
+      p_provider: SNAPCHAT_ADS_PROVIDER,
+      p_token_expires_at: new Date(
+        Date.now() + grant.expiresIn * 1000
+      ).toISOString(),
+    }
+  );
+  if (updated.error || updated.data !== true)
+    throw new SnapchatAdsTokenRefreshError(
+      'SNAPCHAT_ADS_TOKEN_REFRESH_WRITE_FAILED'
+    );
+  return grant.accessToken;
 }

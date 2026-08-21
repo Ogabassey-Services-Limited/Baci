@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+import { SNAPCHAT_ADS_API_ROOT } from './constants';
 import {
   fetchSnapchatAdsDailyReport,
   listSnapchatAdsAccounts,
 } from './provider';
 
 describe('Snapchat Ads provider', () => {
+  it('pins the documented fixed v1 Ads API origin', () => {
+    expect(SNAPCHAT_ADS_API_ROOT).toBe('https://adsapi.snapchat.com/v1');
+  });
   it('discovers only active nested ad accounts with their organization and timezone', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -55,6 +59,8 @@ describe('Snapchat Ads provider', () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
+          conversion_data_processed_end_time: '2026-03-10T00:00:00Z',
+          finalized_data_end_time: '2026-03-09T04:00:00Z',
           timeseries_stats: [
             {
               end_time: '2026-03-09T04:00:00Z',
@@ -87,11 +93,60 @@ describe('Snapchat Ads provider', () => {
         spendAmountDecimal: '9007199254.740993',
         spendDate: '2026-03-08',
         spendMicros: '9007199254740993',
+        conversionDataProcessedEndTime: '2026-03-10T00:00:00Z',
+        finalizedDataEndTime: '2026-03-09T04:00:00Z',
+        sourceEndTime: '2026-03-09T04:00:00Z',
+        sourceStartTime: '2026-03-08T05:00:00Z',
       }),
     ]);
     const url = new URL(fetchImpl.mock.calls[0]?.[0].toString());
     expect(url.searchParams.get('granularity')).toBe('DAY');
     expect(url.searchParams.get('start_time')).toBe('2026-03-08T05:00:00.000Z');
     expect(url.searchParams.get('end_time')).toBe('2026-03-09T04:00:00.000Z');
+  });
+  it('rejects report-run responses because v1 only supports synchronous daily summaries', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ report_run_id: 'opaque-run' }))
+      );
+    await expect(
+      fetchSnapchatAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'ad-1',
+          currencyCode: 'USD',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'UTC',
+        },
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ASYNC_REPORT_UNSUPPORTED' });
+  });
+  it.each([
+    'STARTED',
+    'RUNNING',
+    'COMPLETED',
+    'FAILED',
+  ])('rejects an async %s state rather than falsely reporting success', async (status) => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ report_run_id: 'run', status }))
+      );
+    await expect(
+      fetchSnapchatAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'ad-1',
+          currencyCode: 'USD',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'UTC',
+        },
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ASYNC_REPORT_UNSUPPORTED' });
   });
 });

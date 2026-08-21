@@ -1,5 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { resolveSnapchatAdsAccessToken } from '@/lib/ads/snapchat/access-token';
+import {
+  getSnapchatAdsUsableAccessToken,
+  SnapchatAdsTokenRefreshError,
+} from '@/lib/ads/snapchat/access-token';
 import {
   getSnapchatAdsConfig,
   SNAPCHAT_ADS_CONFIG_MISSING,
@@ -47,12 +50,12 @@ async function revoked(
     Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
   >
 ) {
-  if (
-    !current ||
-    !(error instanceof SnapchatAdsProviderError) ||
-    error.code !== 'SNAPCHAT_ADS_ACCESS_REVOKED'
-  )
-    return null;
+  const shouldMarkReauth =
+    (error instanceof SnapchatAdsProviderError &&
+      error.code === 'SNAPCHAT_ADS_ACCESS_REVOKED') ||
+    (error instanceof SnapchatAdsTokenRefreshError &&
+      error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED');
+  if (!current || !shouldMarkReauth) return null;
   try {
     await markSnapchatAdsReauthRequired({
       connection: current,
@@ -107,11 +110,14 @@ export async function GET(request: NextRequest) {
     if (read.connection?.status !== 'active')
       return NextResponse.json({ accounts: [], connected: false });
     current = read.connection;
+    const config = getSnapchatAdsConfig();
     const accounts = await listSnapchatAdsAccounts({
-      accessToken: resolveSnapchatAdsAccessToken(
-        current,
-        getSnapchatAdsConfig()
-      ),
+      accessToken: await getSnapchatAdsUsableAccessToken({
+        config,
+        connection: current,
+        merchantId: access.merchantId,
+        supabase: auth.supabase,
+      }),
     });
     return NextResponse.json({
       accounts: accounts.map((account) => ({
@@ -175,12 +181,15 @@ export async function PATCH(request: NextRequest) {
         { status: 404 }
       );
     current = read.connection;
+    const config = getSnapchatAdsConfig();
     const account = (
       await listSnapchatAdsAccounts({
-        accessToken: resolveSnapchatAdsAccessToken(
-          current,
-          getSnapchatAdsConfig()
-        ),
+        accessToken: await getSnapchatAdsUsableAccessToken({
+          config,
+          connection: current,
+          merchantId: access.merchantId,
+          supabase: auth.supabase,
+        }),
       })
     ).find((item) => item.accountId === parsed.data.accountId);
     if (!account)

@@ -81,4 +81,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260821180003_expand_meta_ads_reauth_reason_allowlist.sql',
     sha256: '4312b9ad198bd16bb8bf20191e786e24a34a97f928da5e9031399f6a7da47960',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821180004_snapchat_ads_oauth_and_disconnect.sql',
+    sha256: 'eac8c22a9d2d2ad1decbde111f60921b880cf478f4123d3441b5e0e291ccb3ca',
+  },
 ];

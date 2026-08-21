@@ -31,16 +31,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   try {
     const config = getSnapchatAdsConfig();
+    const nonce = generateAdsRandomValue(24);
     const state = createAdsOAuthState(
       {
         merchantId: access.merchantId,
-        nonce: generateAdsRandomValue(24),
+        nonce,
         provider: SNAPCHAT_ADS_PROVIDER,
         redirectUri: config.redirectUri,
         userId: auth.user.id,
       },
       config.oauthStateSecret
     );
+    const reserved = await auth.supabase.rpc(
+      'reserve_snapchat_ads_oauth_state_nonce',
+      {
+        p_expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+        p_merchant_id: access.merchantId,
+        p_nonce: nonce,
+        p_redirect_uri: config.redirectUri,
+        p_user_id: auth.user.id,
+      }
+    );
+    if (reserved.error || reserved.data !== true)
+      return NextResponse.json(
+        { error: 'Snapchat Ads authorization unavailable' },
+        { status: 503 }
+      );
     const response = NextResponse.redirect(
       buildSnapchatAdsAuthorizationUrl(config, state)
     );

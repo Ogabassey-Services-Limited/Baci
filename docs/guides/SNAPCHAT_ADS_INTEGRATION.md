@@ -20,7 +20,9 @@ There is no discovered commercial or creator-partnership prerequisite for ordina
 - Stats: account-level `DAY` rows use local-midnight boundaries in the selected account's IANA timezone, including DST 23/25-hour days.
 - Spend remains an exact integer micro-currency value; only a string decimal display value is derived.
 - `swipes` is stored in normalized `clicks` but labelled **Swipe Ups**. `conversion_purchases` is labelled **Snapchat-attributed purchases** and is never treated as Baci order revenue.
-- Normal requests are synchronous; an async `report_run_id` is polled with bounded exponential delay. Provider response bodies and signed download URLs are discarded.
+- V1 daily-account sync is intentionally synchronous-only. A `report_run_id` response fails closed with a stable unsupported-report error; Baci does not follow provider-signed report URLs or retain raw CSV/Excel data until that separate async ingestion flow is designed and reviewed.
 - Requests are serialized below the documented per-token limit; 429/5xx get bounded retries. 401/403 marks the stored connection reconnect-required rather than retrying indefinitely.
 
 Official references (retrieved 2026-08-21): [Marketing API home](https://developers.snap.com/marketing-api/home), [OAuth](https://developers.snap.com/marketing-api/Ads-API/authentication), [Quick Start](https://developers.snap.com/marketing-api/Ads-API/quick-start), [Organizations](https://developers.snap.com/marketing-api/Ads-API/organizations), [Ad Accounts](https://developers.snap.com/marketing-api/Ads-API/ad-accounts), [Measurement](https://developers.snap.com/marketing-api/Ads-API/measurement), [Rate limits](https://developers.snap.com/marketing-api/Ads-API/rate-limits), [Roles](https://developers.snap.com/marketing-api/Ads-API/roles), and [OAuth FAQ](https://developers.snap.com/marketing-api/Ads-API/faq).
+
+The current limiter is process-local and deliberately conservative, but it does not coordinate multiple serverless instances against Snap's app-wide quota. Before production enablement, an owner must add or designate a shared queue/limiter and cap connector concurrency accordingly.
