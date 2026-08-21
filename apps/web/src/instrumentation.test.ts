@@ -52,13 +52,30 @@ describe('instrumentation register', () => {
           reason: 'redis_success' | 'redis_unavailable' | 'redis_error';
         }) => void)
       | undefined;
-    hook?.({ backend: 'memory', reason: 'redis_error' });
 
-    expect(captureServerEventMock).toHaveBeenCalledWith('rate_limit_backend', {
-      backend: 'memory',
-      reason: 'redis_error',
-      telemetry_source: 'rate_limit',
-    });
+    hook?.({ backend: 'memory', reason: 'redis_error' });
+    hook?.({ backend: 'memory', reason: 'redis_error' });
+    hook?.({ backend: 'redis', reason: 'redis_success' });
+
+    expect(captureServerEventMock).toHaveBeenCalledTimes(2);
+    expect(captureServerEventMock).toHaveBeenNthCalledWith(
+      1,
+      'rate_limit_backend',
+      {
+        backend: 'memory',
+        reason: 'redis_error',
+        telemetry_source: 'rate_limit',
+      }
+    );
+    expect(captureServerEventMock).toHaveBeenNthCalledWith(
+      2,
+      'rate_limit_backend',
+      {
+        backend: 'redis',
+        reason: 'redis_success',
+        telemetry_source: 'rate_limit',
+      }
+    );
   });
 
   it('logs invalid quiz phase configuration that fails before the deployment assertion', async () => {
