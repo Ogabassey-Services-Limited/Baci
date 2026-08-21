@@ -31,6 +31,8 @@ describe('storefront edge inventory routing input paths', () => {
         'apps/web/src/lib/credpal.ts',
         'apps/web/src/lib/klump-sdk.ts',
         'apps/web/src/components/storefront/blocks/header.tsx',
+        'apps/web/src/components/storefront/blocks/footer.tsx',
+        'apps/web/src/components/storefront/templates/premium-default.tsx',
         'packages/shared/src/storefront/post-purchase-actions.ts',
         'apps/web/src/components/builder/config.tsx',
         'apps/web/src/components/storefront/storefront-form.tsx',

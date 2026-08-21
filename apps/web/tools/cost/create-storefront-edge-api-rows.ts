@@ -25,7 +25,7 @@ function compareApiRoutePatterns(left: string, right: string) {
 }
 
 function isApiRouteSource(sourcePath: string) {
-  return /\/route\.(?:ts|js|jsx)$/.test(sourcePath);
+  return /\/route\.(?:ts|tsx|js|jsx)$/.test(sourcePath);
 }
 
 /** Creates an exact dynamic-origin row for every real Next API route handler. */

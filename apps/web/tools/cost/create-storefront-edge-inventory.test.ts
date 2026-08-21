@@ -200,6 +200,20 @@ describe('createStorefrontEdgeInventory', () => {
     ).toBeLessThan(
       inventory.rows.findIndex(({ id }) => id === 'proxy:unsupported-method')
     );
+    expect(
+      inventory.rows.findIndex(
+        ({ id }) => id === 'proxy:platform-route-subdomain'
+      )
+    ).toBeLessThan(
+      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+    );
+    expect(
+      inventory.rows.findIndex(
+        ({ id }) => id === 'proxy:retired-host-platform-route'
+      )
+    ).toBeLessThan(
+      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+    );
     const apiRowIndexes = inventory.rows
       .map((row, index) => ({ row, index }))
       .filter(({ row }) => row.sourceKind === 'api_route')

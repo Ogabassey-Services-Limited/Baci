@@ -153,6 +153,15 @@ export async function createStorefrontEdgeInventory(
   const preRouteRowsAfterCanonicalization = preRouteRows.filter(
     (row) => !PROXY_CANONICALIZATION_ROW_IDS.has(row.id)
   );
+  // Live proxy.ts evaluates matchesMainAppRoute() (including baci-relay) on
+  // platform hosts before storefront/relay resolution. Host-conditioned proxy
+  // rows must therefore precede the unconditional relay family.
+  const platformHostPreRouteRows = preRouteRowsAfterCanonicalization.filter(
+    (row) => Boolean(row.hostCondition)
+  );
+  const pathOnlyPreRouteRows = preRouteRowsAfterCanonicalization.filter(
+    (row) => !row.hostCondition
+  );
   const routeRows = [
     ...extraRows.filter(
       (row) =>
@@ -190,8 +199,9 @@ export async function createStorefrontEdgeInventory(
     ...proxyCanonicalizationRows,
     ...apiRows,
     STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow,
+    ...platformHostPreRouteRows,
     ...relayRows,
-    ...preRouteRowsAfterCanonicalization,
+    ...pathOnlyPreRouteRows,
     ...routeRows,
     ...terminalRows,
   ];

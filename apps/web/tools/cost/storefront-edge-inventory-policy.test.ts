@@ -133,16 +133,7 @@ describe('STOREFRONT_EDGE_INVENTORY_POLICY', () => {
     expect(byId.get('machine:next-image')).toEqual(
       expect.objectContaining({ decision: 'edge_terminal', methods: ['ANY'] })
     );
-    expect(rowById.get('proxy:platform-subdomain-next-static')).toEqual(
-      expect.objectContaining({
-        decision: 'edge_redirect',
-        hostCondition: {
-          hostKind: 'platform_subdomain',
-          precedence: 'before_path_decision',
-        },
-        routePattern: '/_next/static/{*asset}',
-      })
-    );
+    expect(rowById.get('proxy:platform-subdomain-next-static')).toBeUndefined();
     expect(byId.get('machine:next-static')).toEqual(
       expect.objectContaining({
         decision: 'origin_dynamic',

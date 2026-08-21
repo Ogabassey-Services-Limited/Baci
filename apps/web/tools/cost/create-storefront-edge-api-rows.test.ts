@@ -85,4 +85,22 @@ describe('createStorefrontEdgeApiRows', () => {
       `storefront API route exports no HTTP method: ${apiRoot}/invalid/route.ts`
     );
   });
+
+  it('admits TypeScript JSX route handlers (.tsx)', () => {
+    const rows = createStorefrontEdgeApiRows(apiRoot, [
+      {
+        bytes: Buffer.from('export async function GET() {}\n'),
+        sourcePath: `${apiRoot}/cart/validate/route.tsx`,
+      },
+    ]);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: 'api-route:cart/validate/route.tsx',
+        methods: ['GET', 'HEAD', 'OPTIONS'],
+        routePattern: '/api/cart/validate',
+        sourcePath: `${apiRoot}/cart/validate/route.tsx`,
+      }),
+    ]);
+  });
 });

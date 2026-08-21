@@ -125,19 +125,6 @@ export const STOREFRONT_EDGE_MACHINE_ROWS: readonly InventoryRow[] = [
     'origin_dynamic'
   ),
   {
-    decision: 'edge_redirect',
-    id: 'proxy:platform-subdomain-next-static',
-    methods: ['GET', 'HEAD'],
-    reason: 'platform_root_next_static_redirect',
-    routePattern: '/_next/static/{*asset}',
-    sourceKind: 'proxy_path_class',
-    sourcePath: 'apps/web/src/proxy.ts',
-    hostCondition: {
-      hostKind: 'platform_subdomain',
-      precedence: 'before_path_decision',
-    },
-  },
-  {
     ...machineFamily('machine:next-static', '/_next/static/{*asset}', [
       'GET',
       'HEAD',
