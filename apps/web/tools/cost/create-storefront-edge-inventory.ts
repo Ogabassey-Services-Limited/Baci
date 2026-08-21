@@ -157,10 +157,10 @@ export async function createStorefrontEdgeInventory(
   // platform hosts before storefront/relay resolution. Host-conditioned proxy
   // rows must therefore precede the unconditional relay family.
   const platformHostPreRouteRows = preRouteRowsAfterCanonicalization.filter(
-    (row) => Boolean(row.hostCondition)
+    (row) => 'hostCondition' in row && Boolean(row.hostCondition)
   );
   const pathOnlyPreRouteRows = preRouteRowsAfterCanonicalization.filter(
-    (row) => !row.hostCondition
+    (row) => !('hostCondition' in row && row.hostCondition)
   );
   const routeRows = [
     ...extraRows.filter(
