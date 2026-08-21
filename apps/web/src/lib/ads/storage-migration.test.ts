@@ -6,6 +6,10 @@ const migrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260821180000_provider_neutral_ads_storage.sql'
 );
+const hardeningMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260821180001_harden_provider_neutral_ads_rpcs.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -36,5 +40,17 @@ describe('provider-neutral ads storage migration', () => {
       'access_token_ciphertext,\n  refresh_token_ciphertext'
     );
     expect(sql).toContain('upsert_merchant_ads_spend_daily');
+  });
+
+  it('reserves Google v1 storage for its legacy RPCs and locks new RPC paths', () => {
+    const sql = readFileSync(hardeningMigrationPath, 'utf8').toLowerCase();
+
+    expect(sql).toContain(
+      "p_provider not in ('meta_ads', 'tiktok_ads', 'snapchat_ads')"
+    );
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).not.toContain('set search_path = public, pg_temp');
+    expect(sql).toContain('pg_catalog.jsonb_typeof');
+    expect(sql).toContain('pg_catalog.btrim');
   });
 });

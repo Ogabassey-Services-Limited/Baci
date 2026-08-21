@@ -66,4 +66,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260821180000_provider_neutral_ads_storage.sql',
     sha256: '1bc92dcee4cef48f4a30747ee378c81c3f0483e573d159df3b367bf7edee632d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821180001_harden_provider_neutral_ads_rpcs.sql',
+    sha256: 'c5dc059fe41ebed2824b0d9b6275bd8d58b691c5cb561fc039bb80348834d563',
+  },
 ];

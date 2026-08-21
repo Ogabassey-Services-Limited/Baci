@@ -9,6 +9,15 @@ export const ADS_PROVIDERS = [
 
 export type AdsProvider = (typeof ADS_PROVIDERS)[number];
 
+export const ADS_OAUTH_STORAGE_PROVIDERS = [
+  'meta_ads',
+  'tiktok_ads',
+  'snapchat_ads',
+] as const;
+
+export type AdsOAuthStorageProvider =
+  (typeof ADS_OAUTH_STORAGE_PROVIDERS)[number];
+
 export interface AdsConnectionMetadata {
   accountTimezone: string | null;
   lastSyncedAt: string | null;
@@ -73,6 +82,12 @@ const NON_NEGATIVE_INTEGER = /^\d+$/;
 
 export function isAdsProvider(value: string): value is AdsProvider {
   return ADS_PROVIDERS.includes(value as AdsProvider);
+}
+
+export function isAdsOAuthStorageProvider(
+  value: string
+): value is AdsOAuthStorageProvider {
+  return ADS_OAUTH_STORAGE_PROVIDERS.includes(value as AdsOAuthStorageProvider);
 }
 
 function assertNonNegativeDecimal(value: string, field: string): void {

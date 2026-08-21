@@ -8,7 +8,10 @@ import {
   randomBytes,
   timingSafeEqual,
 } from 'node:crypto';
-import { type AdsProvider, isAdsProvider } from './contract';
+import {
+  type AdsOAuthStorageProvider,
+  isAdsOAuthStorageProvider,
+} from './contract';
 
 function encode(value: Buffer): string {
   return value.toString('base64url');
@@ -30,15 +33,18 @@ function encryptionKeyBytes(value: string): Buffer {
   return decoded;
 }
 
-function providerAad(provider: AdsProvider): Buffer {
+function providerAad(provider: AdsOAuthStorageProvider): Buffer {
   return Buffer.from(`baci:ads:${provider}:token`, 'utf8');
 }
 
 export function encryptAdsToken(
   token: string,
   encryptionKey: string,
-  provider: AdsProvider
+  provider: AdsOAuthStorageProvider
 ): string {
+  if (!isAdsOAuthStorageProvider(provider)) {
+    throw new Error('Google Ads must use its legacy v1 token path');
+  }
   const iv = randomBytes(12);
   const cipher = createCipheriv(
     'aes-256-gcm',
@@ -56,14 +62,14 @@ export function encryptAdsToken(
 export function decryptAdsToken(
   encoded: string,
   encryptionKey: string,
-  provider: AdsProvider
+  provider: AdsOAuthStorageProvider
 ): string {
   const [version, encodedProvider, ivPart, tagPart, ciphertextPart, extra] =
     encoded.split('.');
   if (
     version !== 'v2' ||
     !encodedProvider ||
-    !isAdsProvider(encodedProvider) ||
+    !isAdsOAuthStorageProvider(encodedProvider) ||
     encodedProvider !== provider ||
     !ivPart ||
     !tagPart ||
