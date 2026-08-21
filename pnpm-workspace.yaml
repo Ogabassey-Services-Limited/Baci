@@ -202,7 +202,6 @@ overrides:
   lodash: "4.18.1"
   lodash-es: "4.18.1"
   diff: "^8.0.3"
-  react-native-screens: "4.25.2"
   # SDK 57 alignment — keep in lockstep with react-native-worklets above.
   react-native-reanimated: "4.5.1"
   react-native-svg: "15.15.5"

@@ -78,6 +78,23 @@ vi.mock('@/components/ui/SafeImage', () => ({
   ),
 }));
 
+vi.mock('expo-image', () => ({
+  Image: ({
+    onError,
+    source,
+  }: {
+    onError?: () => void;
+    source: { cacheKey?: string; uri: string };
+  }) => (
+    <img
+      alt="Product preview"
+      data-cache-key={source.cacheKey}
+      data-src={source.uri}
+      onError={onError}
+    />
+  ),
+}));
+
 vi.mock('@/components/product/VariantConditionEditor', () => ({
   VariantConditionEditor: () => (
     <div>

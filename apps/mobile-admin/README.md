@@ -82,7 +82,8 @@ baci-mobile-admin/
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ and npm
+- Node.js 24.x (the version required by the workspace)
+- pnpm 11.7.0 via Corepack (do not use npm or Yarn)
 - Expo CLI
 - iOS Simulator (Mac) or Android Emulator
 
