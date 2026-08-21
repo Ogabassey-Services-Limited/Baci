@@ -14,7 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('react-native', () => ({ Alert: { alert: mocks.alert } }));
-vi.mock('@react-navigation/native', () => ({
+vi.mock('expo-router', () => ({
   useNavigation: () => ({ dispatch: mocks.dispatch }),
 }));
 vi.mock('expo-image-picker', () => ({

@@ -6,7 +6,7 @@ import {
   detailExpenseId,
   getExpenseDetailMocks,
   resetExpenseDetailMocks,
-} from './[id].test-fixtures';
+} from '@/test/expenses/expense-detail.test-fixtures';
 
 const { default: ExpenseDetailScreen } = await import('./[id]');
 const mocks = getExpenseDetailMocks();

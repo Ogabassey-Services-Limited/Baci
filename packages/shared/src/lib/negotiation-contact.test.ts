@@ -5,6 +5,7 @@ import {
   buildWhatsAppLink,
   isValidPhone,
   normalizePhoneToE164,
+  normalizeStoredE164Phone,
 } from './negotiation-contact';
 
 describe('normalizePhoneToE164', () => {
@@ -52,6 +53,28 @@ describe('normalizePhoneToE164', () => {
   it('returns null for junk that is too short or too long', () => {
     expect(normalizePhoneToE164('12')).toBeNull();
     expect(normalizePhoneToE164('+1234567890123456789')).toBeNull();
+  });
+});
+
+describe('normalizeStoredE164Phone', () => {
+  it('preserves international account phones without applying the default dial code', () => {
+    expect(normalizeStoredE164Phone('15551234567')).toBe('15551234567');
+    expect(normalizeStoredE164Phone('+442012345678')).toBe('442012345678');
+  });
+
+  it('rejects national, formatted, and implausible account phone values', () => {
+    expect(normalizeStoredE164Phone('08031234567')).toBeNull();
+    expect(normalizeStoredE164Phone('+234 803 123 4567')).toBeNull();
+    expect(normalizeStoredE164Phone('12')).toBeNull();
+  });
+
+  it('enforces the E.164 digit boundaries and rejects non-string values', () => {
+    expect(normalizeStoredE164Phone('12345678')).toBe('12345678');
+    expect(normalizeStoredE164Phone('1'.repeat(15))).toBe('1'.repeat(15));
+    expect(normalizeStoredE164Phone('1'.repeat(16))).toBeNull();
+    expect(normalizeStoredE164Phone(null)).toBeNull();
+    expect(normalizeStoredE164Phone(undefined)).toBeNull();
+    expect(normalizeStoredE164Phone(12345678 as never)).toBeNull();
   });
 });
 

@@ -185,6 +185,7 @@ export function useNegotiationModalController({
         merchant_id: merchantId,
         session_id: createNegotiationSessionId(),
         customer_id: customerContact.userId,
+        customer_email: customerContact.normalizedEmail,
         type,
         item_info: buildNegotiationRequestItemInfo({
           itemInfo,
