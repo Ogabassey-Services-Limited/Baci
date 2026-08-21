@@ -22,48 +22,44 @@ afterEach(async () => {
 });
 
 describe('createStorefrontEdgeInventory CLI', () => {
-  it(
-    'creates and validates an artifact through the installed tsx runtime',
-    async () => {
-      const repoRoot = await mkdtemp(join(tmpdir(), 'storefront-edge-cli-'));
-      temporaryRoots.push(repoRoot);
-      const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);
-      const output = join(repoRoot, 'task-1a-inventory.json');
-      const created = await execFileAsync(process.execPath, [
-        tsxCliPath,
-        join(toolDirectory, 'create-storefront-edge-inventory-cli.ts'),
-        '--repo-root',
-        repoRoot,
-        '--source-sha',
-        originMainSha,
-        '--pilot-hostname',
-        'pilot.usebaci.com',
-        '--posthog-relay-path',
-        '/baci-relay',
-        '--output',
-        output,
-      ]);
-      const validated = await execFileAsync(process.execPath, [
-        tsxCliPath,
-        join(toolDirectory, 'validate-storefront-edge-inventory.ts'),
-        '--repo-root',
-        repoRoot,
-        '--source-sha',
-        originMainSha,
-        '--input',
-        output,
-        '--pilot-hostname',
-        'pilot.usebaci.com',
-        '--posthog-relay-path',
-        '/baci-relay',
-      ]);
-      expect(JSON.parse(created.stdout)).toEqual(
-        expect.objectContaining({ rowCount: expect.any(Number) })
-      );
-      expect(JSON.parse(validated.stdout)).toEqual(
-        expect.objectContaining({ storefrontEntrypointCount: 76 })
-      );
-    },
-    60_000
-  );
+  it('creates and validates an artifact through the installed tsx runtime', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'storefront-edge-cli-'));
+    temporaryRoots.push(repoRoot);
+    const originMainSha = await createStorefrontEdgeInventoryFixture(repoRoot);
+    const output = join(repoRoot, 'task-1a-inventory.json');
+    const created = await execFileAsync(process.execPath, [
+      tsxCliPath,
+      join(toolDirectory, 'create-storefront-edge-inventory-cli.ts'),
+      '--repo-root',
+      repoRoot,
+      '--source-sha',
+      originMainSha,
+      '--pilot-hostname',
+      'pilot.usebaci.com',
+      '--posthog-relay-path',
+      '/baci-relay',
+      '--output',
+      output,
+    ]);
+    const validated = await execFileAsync(process.execPath, [
+      tsxCliPath,
+      join(toolDirectory, 'validate-storefront-edge-inventory.ts'),
+      '--repo-root',
+      repoRoot,
+      '--source-sha',
+      originMainSha,
+      '--input',
+      output,
+      '--pilot-hostname',
+      'pilot.usebaci.com',
+      '--posthog-relay-path',
+      '/baci-relay',
+    ]);
+    expect(JSON.parse(created.stdout)).toEqual(
+      expect.objectContaining({ rowCount: expect.any(Number) })
+    );
+    expect(JSON.parse(validated.stdout)).toEqual(
+      expect.objectContaining({ storefrontEntrypointCount: 76 })
+    );
+  }, 60_000);
 });
