@@ -45,6 +45,7 @@ describe('Snapchat Ads spend route', () => {
       order: vi.fn().mockResolvedValue({
         data: [
           {
+            access_token_ciphertext: 'SNAP_SPEND_SENTINEL',
             account_timezone: 'UTC',
             attribution_metadata: { provider: 'snapchat_ads' },
             clicks: '2',
@@ -85,6 +86,85 @@ describe('Snapchat Ads spend route', () => {
       clicksLabel: 'Swipe Ups',
       spendMicros: '1200000',
     });
-    expect(JSON.stringify(body)).not.toContain('access_token');
+    expect(JSON.stringify(body)).not.toContain('SNAP_SPEND_SENTINEL');
+  });
+
+  it('denies viewers without analytics permission before reading connections', async () => {
+    const from = vi.fn();
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { from },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(false);
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/snapchat/spend')
+    );
+    expect(response.status).toBe(403);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it('returns safe validation and query failures without provider sentinels', async () => {
+    const validConnection = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { account_timezone: 'UTC' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const failedConnection = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { access_token_ciphertext: 'SNAP_CONNECTION_SENTINEL' },
+        error: { message: 'SNAP_CONNECTION_SENTINEL' },
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const failedSpend = {
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({
+        data: [{ provider_body: 'SNAP_SPEND_QUERY_SENTINEL' }],
+        error: { message: 'SNAP_SPEND_QUERY_SENTINEL' },
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(validConnection)
+      .mockReturnValueOnce(validConnection)
+      .mockReturnValueOnce(failedSpend)
+      .mockReturnValueOnce(failedConnection);
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { from },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+
+    const invalid = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/spend?startDate=nope'
+      )
+    );
+    expect(invalid.status).toBe(400);
+    const spendFailure = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/snapchat/spend')
+    );
+    expect(spendFailure.status).toBe(500);
+    expect(JSON.stringify(await spendFailure.json())).not.toContain(
+      'SNAP_SPEND_QUERY_SENTINEL'
+    );
+    const connectionFailure = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/snapchat/spend')
+    );
+    expect(connectionFailure.status).toBe(500);
+    expect(JSON.stringify(await connectionFailure.json())).not.toContain(
+      'SNAP_CONNECTION_SENTINEL'
+    );
   });
 });

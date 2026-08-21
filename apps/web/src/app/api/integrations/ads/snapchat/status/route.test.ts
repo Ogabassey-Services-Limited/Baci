@@ -33,6 +33,7 @@ describe('Snapchat Ads status route', () => {
   it('returns safe active connection metadata without ciphertext', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({
       data: {
+        access_token_ciphertext: 'SNAP_STATUS_CIPHERTEXT_SENTINEL',
         account_timezone: 'UTC',
         created_at: 'created',
         last_synced_at: null,
@@ -65,7 +66,9 @@ describe('Snapchat Ads status route', () => {
     const body = await response.json();
     expect(response.status).toBe(200);
     expect(body.connection).not.toHaveProperty('access_token_ciphertext');
-    expect(JSON.stringify(body)).not.toContain('token-secret');
+    expect(JSON.stringify(body)).not.toContain(
+      'SNAP_STATUS_CIPHERTEXT_SENTINEL'
+    );
   });
 
   it('denies callers without analytics or integrations view permission', async () => {
@@ -81,5 +84,45 @@ describe('Snapchat Ads status route', () => {
         )
       ).status
     ).toBe(403);
+  });
+
+  it('returns merchant-not-found and database failures without connection data', async () => {
+    auth.mockResolvedValue({ error: null, supabase: {}, user: { id: 'user' } });
+    access.mockResolvedValue(null);
+    permission.mockReturnValue(true);
+    expect(
+      (
+        await GET(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/status'
+          )
+        )
+      ).status
+    ).toBe(404);
+
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { access_token_ciphertext: 'SNAP_STATUS_DB_SENTINEL' },
+      error: { message: 'SNAP_STATUS_DB_SENTINEL' },
+    });
+    const query = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle,
+      select: vi.fn().mockReturnThis(),
+    };
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn().mockReturnValue(query) },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/status'
+      )
+    );
+    expect(response.status).toBe(500);
+    expect(JSON.stringify(await response.json())).not.toContain(
+      'SNAP_STATUS_DB_SENTINEL'
+    );
   });
 });

@@ -59,7 +59,7 @@ describe('Snapchat Ads disconnect route', () => {
     );
   });
 
-  it('rejects invalid CSRF and RPC errors without exposing provider data', async () => {
+  it('rejects invalid CSRF before permission or RPC work', async () => {
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc: vi.fn() },
@@ -78,5 +78,41 @@ describe('Snapchat Ads disconnect route', () => {
         )
       ).status
     ).toBe(403);
+  });
+
+  it('denies permissions and hides RPC failure sentinels', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: false,
+      error: { message: 'SNAP_DISCONNECT_SENTINEL' },
+    });
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    csrf.mockResolvedValue({ valid: true });
+    permission.mockReturnValue(false);
+    const forbidden = await DELETE(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/disconnect',
+        { method: 'DELETE' }
+      )
+    );
+    expect(forbidden.status).toBe(403);
+    expect(rpc).not.toHaveBeenCalled();
+
+    permission.mockReturnValue(true);
+    const failure = await DELETE(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/disconnect',
+        { method: 'DELETE' }
+      )
+    );
+    expect(failure.status).toBe(500);
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(JSON.stringify(await failure.json())).not.toContain(
+      'SNAP_DISCONNECT_SENTINEL'
+    );
   });
 });
