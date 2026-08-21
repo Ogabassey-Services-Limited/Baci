@@ -106,6 +106,7 @@ export function WalletSavingsProgressModal({
               source={{ uri: goal.product_image }}
               style={styles.deviceImage}
               contentFit="contain"
+              autoplay={false}
             />
           ) : (
             <View style={styles.devicePlaceholder}>

@@ -188,6 +188,7 @@ export function WalletSavingsDeviceSwapModal({
                       source={{ uri: row.image }}
                       style={styles.image}
                       contentFit="contain"
+                      autoplay={false}
                     />
                   ) : (
                     <Ionicons

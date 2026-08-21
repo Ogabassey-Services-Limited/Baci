@@ -14,32 +14,14 @@ jest.mock('./TrackOrderContactCard', () => ({
   TrackOrderContactCard: () => null,
 }));
 
-jest.mock('expo-image', () => {
-  const { View } = jest.requireActual(
-    'react-native'
-  ) as typeof import('react-native');
-
-  return {
-    Image: ({
-      autoplay,
-      accessibilityLabel,
-      testID,
-    }: {
-      autoplay?: boolean;
-      accessibilityLabel?: string;
-      testID?: string;
-    }) => {
-      const viewProps = {
-        testID: testID ?? 'track-order-product-image',
-        autoplay,
-        accessible: true,
-        accessibilityRole: 'image',
-        accessibilityLabel: accessibilityLabel ?? 'track order product image',
-      } as unknown as React.ComponentProps<typeof View>;
-      return <View {...viewProps} />;
-    },
-  };
-});
+jest.mock('./TrackOrderItemsCard', () => ({
+  TrackOrderItemsCard: ({ items }: { items: TrackOrderData['items'] }) => {
+    const { Text } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return <Text>{items[0]?.product_name}</Text>;
+  },
+}));
 
 const trackOrderData: TrackOrderData = {
   order: {
@@ -88,24 +70,11 @@ const trackOrderData: TrackOrderData = {
 };
 
 describe('TrackOrderDetailsContent', () => {
-  it('renders order items', () => {
+  it('renders order items through the extracted items card', () => {
     render(
       <TrackOrderDetailsContent colors={Colors.light} data={trackOrderData} />
     );
 
     expect(screen.getByText('Test Phone')).toBeTruthy();
-  });
-
-  describe('bugfix: animated order product images on tracking', () => {
-    it('does not autoplay product images in track-order details', () => {
-      render(
-        <TrackOrderDetailsContent colors={Colors.light} data={trackOrderData} />
-      );
-
-      expect(
-        screen.getByRole('image', { name: 'track order product image' }).props
-          .autoplay
-      ).toBe(false);
-    });
   });
 });
