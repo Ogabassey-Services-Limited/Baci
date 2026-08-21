@@ -98,6 +98,7 @@ export function QuizLobbyEventCard({
         <View style={styles.prizeImageFrame}>
           <Image
             accessibilityLabel={`${event.prizeName} prize image`}
+            autoplay={false}
             cachePolicy="memory-disk"
             contentFit="contain"
             onError={() => setImageFailed(true)}

@@ -151,6 +151,7 @@ export function JustLaunchedCarousel() {
               accessibilityLabel={item.name}
               cachePolicy="memory-disk"
               contentFit="contain"
+              autoplay={false}
               placeholder={{ blurhash: BLURHASH }}
               source={{ uri: imageUri }}
               style={styles.image}

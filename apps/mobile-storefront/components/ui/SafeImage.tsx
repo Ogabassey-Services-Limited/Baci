@@ -43,6 +43,7 @@ export function SafeImage({
   cachePolicy = 'memory-disk',
   contentFit = 'cover',
   onLoadError,
+  onLoadStart,
   fallbackComponent,
   showFallbackIcon = true,
   fallbackStyle,
@@ -82,12 +83,13 @@ export function SafeImage({
     }
   };
 
-  // Reset error state when source changes
+  // Reset error state when source changes, then forward to any caller callback.
   const handleLoadStart = () => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
     }
+    onLoadStart?.();
   };
 
   // If we have a custom fallback component, use it
@@ -127,9 +129,13 @@ export function SafeImage({
       transition={transition}
       cachePolicy={cachePolicy}
       contentFit={contentFit}
+      {...rest}
+      // Remote catalog images are untrusted and may be animated GIF/APNG/WebP.
+      // Keep the first frame without starting the native frame decoder loop;
+      // this avoids repeated large bitmap allocations on low-memory Android.
+      autoplay={false}
       onError={handleError}
       onLoadStart={handleLoadStart}
-      {...rest}
     />
   );
 }

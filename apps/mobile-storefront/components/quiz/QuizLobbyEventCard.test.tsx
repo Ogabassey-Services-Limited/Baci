@@ -4,7 +4,28 @@ import { createQuizLobbyStyles } from './QuizLobby.styles';
 import { QuizLobbyEventCard } from './QuizLobbyEventCard';
 import type { QuizThemeColors } from './QuizScreen.styles';
 
-jest.mock('expo-image', () => ({ Image: 'Image' }));
+jest.mock('expo-image', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    Image: ({
+      autoplay,
+      accessibilityLabel,
+    }: {
+      autoplay?: boolean;
+      accessibilityLabel?: string;
+    }) =>
+      React.createElement(View, {
+        accessibilityLabel,
+        accessibilityRole: 'image',
+        accessible: true,
+        autoplay,
+      } as never),
+  };
+});
 jest.mock('@react-native-vector-icons/ionicons', () => 'Ionicons');
 
 const colors: QuizThemeColors = {
@@ -70,6 +91,41 @@ describe('QuizLobbyEventCard', () => {
       screen.getByRole('button', { name: 'Play for free Redmi Warriors' })
     );
     expect(onOpenRules).toHaveBeenCalledWith(true);
+  });
+
+  describe('bugfix: animated quiz prize images', () => {
+    it('does not autoplay prize product images', () => {
+      render(
+        <QuizLobbyEventCard
+          event={{
+            endsAt: null,
+            id: 'event-1',
+            prizeName: 'iPhone XR',
+            questionCount: 5,
+            prizeProduct: {
+              condition: null,
+              id: 'p1',
+              imageUrl: 'https://example.com/xr.gif',
+              name: 'iPhone XR',
+              variantId: null,
+            },
+            startsAt: null,
+            status: 'active',
+            title: 'Prize quiz',
+          }}
+          isResume={false}
+          isStarting={false}
+          onOpenRules={jest.fn()}
+          onResume={jest.fn()}
+          styles={createQuizLobbyStyles(colors)}
+        />
+      );
+
+      expect(
+        screen.getByRole('image', { name: 'iPhone XR prize image' }).props
+          .autoplay
+      ).toBe(false);
+    });
   });
 
   it('resumes without requesting another acceptance gate', () => {

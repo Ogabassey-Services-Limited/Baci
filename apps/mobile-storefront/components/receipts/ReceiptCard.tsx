@@ -89,6 +89,7 @@ export function ReceiptCard({
               contentFit="contain"
               cachePolicy="memory-disk"
               transition={150}
+              autoplay={false}
               accessibilityLabel={firstItem.product_name}
             />
           ) : (

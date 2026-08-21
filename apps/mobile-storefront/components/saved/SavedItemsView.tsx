@@ -73,6 +73,7 @@ function SavedItemCard({
             placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
             transition={200}
             cachePolicy="memory-disk"
+            autoplay={false}
           />
           {discountPercentage !== null && discountPercentage > 0 ? (
             <View
