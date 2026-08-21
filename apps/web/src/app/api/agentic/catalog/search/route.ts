@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
       .filter(
         (product): product is NonNullable<typeof product> => product !== null
       );
-    products.push(...batchProducts);
+    products.push(...batchProducts.slice(0, limit - products.length));
     candidateOffset += requestLimit;
     if ((data ?? []).length < requestLimit) {
       break;

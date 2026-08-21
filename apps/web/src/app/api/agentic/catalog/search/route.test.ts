@@ -210,6 +210,29 @@ describe('POST /api/agentic/catalog/search', () => {
     ]);
   });
 
+  it('bounds filter-only results when a valid batch exceeds the page size', async () => {
+    mockProductRows([
+      { id: 'product-1', name: 'First', price: 100, status: 'active' },
+      { id: 'product-2', name: 'Second', price: 200, status: 'active' },
+    ]);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({
+          filters: { category: 'phones' },
+          pagination: { limit: 1 },
+        }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(body.products).toHaveLength(1);
+    expect(body.products[0]).toEqual(
+      expect.objectContaining({ id: 'product-1' })
+    );
+  });
+
   it('does not use select star in Supabase queries', async () => {
     await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
