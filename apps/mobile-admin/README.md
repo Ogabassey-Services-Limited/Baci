@@ -48,7 +48,7 @@ The Baci Mobile Admin is a React Native application built with Expo, designed sp
 
 ## Tech Stack
 
-- **Framework**: Expo 54 + React Native 0.81
+- **Framework**: Expo 57 + React Native 0.86
 - **Language**: TypeScript 6.0
 - **Navigation**: Expo Router (file-based routing)
 - **State Management**: Zustand + TanStack Query
@@ -221,6 +221,33 @@ All apps use the same:
 - Supabase database with RLS policies
 - Edge Functions for business logic
 - Shared data models and validation (Zod schemas)
+
+### EAS Update and release policy
+
+The admin app has a production OTA foundation, but local development remains
+Metro/dev-client based. Run `pnpm start` (or
+`pnpm --filter baci-mobile-admin android:metro` for the checked-in LAN Android
+workflow); these commands do not publish updates or consume the EAS Update
+service.
+
+Release builds are isolated by channel:
+
+- `preview` builds receive only the `preview` channel.
+- `production` builds receive only the `production` channel.
+- The `development` profile intentionally has no update channel; Metro is the
+  intended JavaScript source for local development.
+
+Runtime compatibility uses Expo's `fingerprint` policy, so native dependency,
+SDK, or config changes produce a new runtime and require a new binary before
+an OTA can target it. Release updates use `ON_LOAD` with a zero-millisecond
+fallback timeout: the embedded or already-cached bundle starts immediately,
+while a compatible download is applied on the next restart. Hermes bytecode
+diff support is enabled to reduce subsequent update downloads.
+
+Publishing is an owner-approved release action. Before publishing to
+`production`, validate the same update on a preview build, confirm the target
+runtime fingerprint, and record a rollback plan. Never publish from a Metro
+session or commit credentials to this repository.
 
 ## Key Differences from Storefront
 

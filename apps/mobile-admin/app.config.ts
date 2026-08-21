@@ -105,6 +105,8 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
 const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim();
 const posthogHost =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
+const EAS_PROJECT_ID = '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9';
+const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
 
 /**
  * Expo App Configuration
@@ -116,6 +118,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'baci',
   owner: 'ogabassey-services-limited',
   version: _appVersion ?? '2.0.1',
+  runtimeVersion: {
+    policy: 'fingerprint',
+  },
+  updates: {
+    // Release builds check in the background at launch and keep using the
+    // embedded/cached bundle immediately. A downloaded update is applied on
+    // the next restart, preserving a working startup path during outages.
+    checkAutomatically: 'ON_LOAD',
+    enableBsdiffPatchSupport: true,
+    enabled: true,
+    fallbackToCacheTimeout: 0,
+    url: EAS_UPDATE_URL,
+    useEmbeddedUpdate: true,
+  },
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -321,7 +337,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       isConfigured: isTikTokBusinessConfigured,
     },
     eas: {
-      projectId: '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9',
+      projectId: EAS_PROJECT_ID,
     },
     router: {},
   },
