@@ -11,6 +11,7 @@ import type { Instrumentation } from 'next';
 import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 
 const reportedRateLimitBackends = new Set<string>();
+const pendingRateLimitBackends = new Set<string>();
 
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 
@@ -71,13 +72,35 @@ export async function register() {
       ]);
     setRateLimitDiagnosticHook((diagnostic) => {
       const key = `${diagnostic.backend}:${diagnostic.reason}`;
-      if (reportedRateLimitBackends.has(key)) return;
-      reportedRateLimitBackends.add(key);
-      void captureServerEvent('rate_limit_backend', {
-        backend: diagnostic.backend,
-        reason: diagnostic.reason,
-        telemetry_source: 'rate_limit',
-      });
+      if (
+        reportedRateLimitBackends.has(key) ||
+        pendingRateLimitBackends.has(key)
+      ) {
+        return;
+      }
+      pendingRateLimitBackends.add(key);
+      let delivery: ReturnType<typeof captureServerEvent>;
+      try {
+        delivery = captureServerEvent('rate_limit_backend', {
+          backend: diagnostic.backend,
+          reason: diagnostic.reason,
+          telemetry_source: 'rate_limit',
+        });
+      } catch {
+        pendingRateLimitBackends.delete(key);
+        return;
+      }
+      void Promise.resolve(delivery).then(
+        (captured) => {
+          pendingRateLimitBackends.delete(key);
+          if (captured) {
+            reportedRateLimitBackends.add(key);
+          }
+        },
+        () => {
+          pendingRateLimitBackends.delete(key);
+        }
+      );
     });
 
     // Fail-loud (not fail-fatal): if this is a production deployment but

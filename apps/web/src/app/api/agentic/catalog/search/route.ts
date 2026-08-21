@@ -23,6 +23,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
 const CATALOG_CURRENCY = 'NGN';
+const MAX_CATALOG_SEARCH_CANDIDATES = 100;
 const PRODUCT_SELECT =
   'id, merchant_id, name, description, price, images, slug, canonical_url, stock, stock_quantity, manage_stock, status, category, categories:category_id(slug, is_active), product_categories:product_categories(category_id, categories(slug, is_active)), created_at';
 
@@ -49,6 +50,10 @@ export async function POST(request: NextRequest) {
   }
 
   const limit = parsed.data.pagination?.limit ?? 20;
+  // Fetch extra candidates because the adapter intentionally refuses rows
+  // with unusable catalog identity or pricing. The response is still bounded
+  // to the caller's requested page size below.
+  const candidateLimit = Math.min(MAX_CATALOG_SEARCH_CANDIDATES, limit * 2);
   let ranked: StorefrontSearchResult | null = null;
   if (parsed.data.query) {
     try {
@@ -56,7 +61,7 @@ export async function POST(request: NextRequest) {
         supabase: context.supabase,
         merchantId: context.merchant.id,
         query: parsed.data.query,
-        limit,
+        limit: candidateLimit,
         trackAnalytics: false,
       });
     } catch (error: unknown) {
@@ -78,7 +83,7 @@ export async function POST(request: NextRequest) {
       referencedTable: 'product_categories',
     });
 
-  const rankedProductIds = ranked?.productIds.slice(0, limit) ?? [];
+  const rankedProductIds = ranked?.productIds.slice(0, candidateLimit) ?? [];
 
   if (ranked) {
     if (rankedProductIds.length === 0) {
@@ -94,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await (ranked
     ? query.limit(rankedProductIds.length)
-    : query.order('created_at', { ascending: false }).limit(limit));
+    : query.order('created_at', { ascending: false }).limit(candidateLimit));
   if (error) {
     return NextResponse.json(
       { error: 'Catalog search failed' },
@@ -123,7 +128,8 @@ export async function POST(request: NextRequest) {
       (a, b) =>
         (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
         (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
-    );
+    )
+    .slice(0, limit);
 
   return NextResponse.json(
     buildUcpCatalogProductsResponse({

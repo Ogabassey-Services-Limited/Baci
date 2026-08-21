@@ -235,8 +235,12 @@ describe('POST /api/agentic/catalog/search', () => {
     );
     const body = await response.json();
 
-    expect(query.in).toHaveBeenCalledWith('id', ['product-2', 'product-1']);
-    expect(query.limit).toHaveBeenCalledWith(2);
+    expect(query.in).toHaveBeenCalledWith('id', [
+      'product-2',
+      'product-1',
+      'product-3',
+    ]);
+    expect(query.limit).toHaveBeenCalledWith(3);
     expect(query.order).toHaveBeenCalledWith('category_id', {
       ascending: true,
       referencedTable: 'product_categories',
@@ -303,6 +307,42 @@ describe('POST /api/agentic/catalog/search', () => {
 
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'free-product',
+    ]);
+  });
+
+  it('fills the requested page after refusing an invalid ranked candidate', async () => {
+    mockRankedProductRows(
+      [
+        {
+          id: 'bad-price',
+          name: 'Bad',
+          price: -1,
+          slug: 'bad-price',
+          status: 'active',
+        },
+        {
+          id: 'valid-product',
+          name: 'Valid product',
+          price: 100,
+          slug: 'valid-product',
+          status: 'active',
+        },
+      ],
+      ['bad-price', 'valid-product']
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'product', pagination: { limit: 1 } }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(query.in).toHaveBeenCalledWith('id', ['bad-price', 'valid-product']);
+    expect(query.limit).toHaveBeenCalledWith(2);
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'valid-product',
     ]);
   });
 

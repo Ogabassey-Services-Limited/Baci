@@ -32,7 +32,30 @@ export type RateLimitDiagnostic = {
 
 type RateLimitDiagnosticHook = (diagnostic: RateLimitDiagnostic) => void;
 
-let rateLimitDiagnosticHook: RateLimitDiagnosticHook | undefined;
+type RateLimitDiagnosticState = {
+  hook?: RateLimitDiagnosticHook;
+};
+
+// Next can compile the proxy and instrumentation entrypoints into separate
+// bundles. Keep the hook in a process-global registry so those copies observe
+// the same diagnostic sink instead of each retaining an isolated module local.
+const RATE_LIMIT_DIAGNOSTIC_STATE_KEY =
+  '__baci_rate_limit_diagnostic_state__' as const;
+
+function getRateLimitDiagnosticState(): RateLimitDiagnosticState {
+  const globalState = globalThis as typeof globalThis & {
+    [RATE_LIMIT_DIAGNOSTIC_STATE_KEY]?: RateLimitDiagnosticState;
+  };
+
+  const existingState = globalState[RATE_LIMIT_DIAGNOSTIC_STATE_KEY];
+  if (existingState) {
+    return existingState;
+  }
+
+  const nextState: RateLimitDiagnosticState = {};
+  globalState[RATE_LIMIT_DIAGNOSTIC_STATE_KEY] = nextState;
+  return nextState;
+}
 
 /**
  * Installs an optional backend diagnostic sink. The sink receives no request
@@ -42,12 +65,12 @@ let rateLimitDiagnosticHook: RateLimitDiagnosticHook | undefined;
 export function setRateLimitDiagnosticHook(
   hook: RateLimitDiagnosticHook | undefined
 ): void {
-  rateLimitDiagnosticHook = hook;
+  getRateLimitDiagnosticState().hook = hook;
 }
 
 function reportRateLimitDiagnostic(diagnostic: RateLimitDiagnostic): void {
   try {
-    rateLimitDiagnosticHook?.(diagnostic);
+    getRateLimitDiagnosticState().hook?.(diagnostic);
   } catch {
     // Diagnostics are best-effort and must never change request behavior.
   }
@@ -291,5 +314,5 @@ export function __resetRateLimitStoreForTesting(): void {
   }
   memoryStore.clear();
   upstashLimiters.clear();
-  rateLimitDiagnosticHook = undefined;
+  getRateLimitDiagnosticState().hook = undefined;
 }

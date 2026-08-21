@@ -43,6 +43,7 @@ describe('instrumentation register', () => {
 
   it('wires fixed-cardinality rate-limit outcomes to server telemetry', async () => {
     vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    captureServerEventMock.mockResolvedValue(true);
 
     await register();
 
@@ -76,6 +77,26 @@ describe('instrumentation register', () => {
         telemetry_source: 'rate_limit',
       }
     );
+  });
+
+  it('retries a diagnostic after telemetry delivery fails', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+    captureServerEventMock.mockResolvedValue(false);
+
+    await register();
+
+    const hook = setRateLimitDiagnosticHookMock.mock.calls.at(-1)?.[0] as
+      | ((diagnostic: {
+          backend: 'redis' | 'memory';
+          reason: 'redis_success' | 'redis_unavailable' | 'redis_error';
+        }) => void)
+      | undefined;
+
+    hook?.({ backend: 'memory', reason: 'redis_unavailable' });
+    await Promise.resolve();
+    hook?.({ backend: 'memory', reason: 'redis_unavailable' });
+
+    expect(captureServerEventMock).toHaveBeenCalledTimes(2);
   });
 
   it('logs invalid quiz phase configuration that fails before the deployment assertion', async () => {
