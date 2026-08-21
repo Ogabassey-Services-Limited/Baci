@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const rpc = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -30,6 +31,11 @@ vi.mock('@/lib/ads/tiktok/oauth', () => ({
 import { GET } from './route';
 
 describe('TikTok Ads connect route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    rpc.mockResolvedValue({ data: true, error: null });
+  });
+
   it('denies OAuth before state generation when unauthenticated', async () => {
     authenticate.mockResolvedValue({
       error: 'Unauthorized',
@@ -50,7 +56,7 @@ describe('TikTok Ads connect route', () => {
   it('rejects an authenticated user without integrations manage permission', async () => {
     authenticate.mockResolvedValue({
       error: null,
-      supabase: {},
+      supabase: { rpc },
       user: { id: 'user' },
     });
     access.mockResolvedValue({ merchantId: 'merchant' });
@@ -69,7 +75,7 @@ describe('TikTok Ads connect route', () => {
   it('redirects an authorized merchant with an HttpOnly signed-state cookie', async () => {
     authenticate.mockResolvedValue({
       error: null,
-      supabase: {},
+      supabase: { rpc },
       user: { id: 'user' },
     });
     access.mockResolvedValue({ merchantId: 'merchant' });
@@ -85,5 +91,26 @@ describe('TikTok Ads connect route', () => {
       'baci_tiktok_ads_oauth_state=signed-state'
     );
     expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    expect(rpc).toHaveBeenCalledWith(
+      'reserve_merchant_ads_oauth_state_nonce',
+      expect.objectContaining({ p_nonce: 'nonce', p_provider: 'tiktok_ads' })
+    );
+  });
+
+  it('does not redirect if the signed state nonce cannot be reserved', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    rpc.mockResolvedValueOnce({ data: false, error: null });
+
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/connect')
+    );
+
+    expect(response.status).toBe(503);
   });
 });

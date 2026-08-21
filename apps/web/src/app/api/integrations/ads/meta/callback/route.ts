@@ -71,6 +71,16 @@ export async function GET(request: NextRequest) {
     userId: auth.user.id,
   });
   if (!verifiedState) return callbackRedirect('error', 'invalid_state');
+  const { data: nonceConsumed, error: nonceConsumeError } =
+    await auth.supabase.rpc('consume_merchant_ads_oauth_state_nonce', {
+      p_merchant_id: access.merchantId,
+      p_nonce: verifiedState.nonce,
+      p_provider: META_ADS_PROVIDER,
+      p_redirect_uri: config.redirectUri,
+      p_user_id: auth.user.id,
+    });
+  if (nonceConsumeError || !nonceConsumed)
+    return callbackRedirect('error', 'invalid_state');
   if (parsedQuery.data.error)
     return callbackRedirect('error', 'provider_denied');
   if (!parsedQuery.data.code) return callbackRedirect('error', 'missing_code');

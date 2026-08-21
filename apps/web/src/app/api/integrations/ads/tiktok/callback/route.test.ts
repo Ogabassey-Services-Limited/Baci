@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authenticate = vi.fn();
 const compare = vi.fn();
@@ -42,6 +42,10 @@ vi.mock('@/lib/ads/tiktok/config', () => ({
 import { GET } from './route';
 
 describe('TikTok Ads callback route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('rejects state replay/mismatch and never reflects an attacker callback host', async () => {
     authenticate.mockResolvedValue({
       error: null,
@@ -61,15 +65,20 @@ describe('TikTok Ads callback route', () => {
   });
 
   it('rejects a state-validated callback that omitted the required reporting scopes', async () => {
+    const rpc = vi.fn((name: string) => {
+      if (name === 'consume_merchant_ads_oauth_state_nonce')
+        return Promise.resolve({ data: true, error: null });
+      return Promise.resolve({ data: null, error: null });
+    });
     authenticate.mockResolvedValue({
       error: null,
-      supabase: {},
+      supabase: { rpc },
       user: { id: 'user' },
     });
     compare.mockReturnValue(true);
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(true);
-    verifyState.mockReturnValue({ merchantId: 'merchant' });
+    verifyState.mockReturnValue({ merchantId: 'merchant', nonce: 'nonce' });
     exchange.mockResolvedValue({
       accessToken: 'token',
       advertiserIds: ['opaque-001'],
@@ -87,7 +96,11 @@ describe('TikTok Ads callback route', () => {
   });
 
   it('accepts exact state and required scopes then persists only encrypted token metadata', async () => {
-    const rpc = vi.fn().mockResolvedValue({ error: null });
+    const rpc = vi.fn((name: string) => {
+      if (name === 'consume_merchant_ads_oauth_state_nonce')
+        return Promise.resolve({ data: true, error: null });
+      return Promise.resolve({ data: null, error: null });
+    });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -118,5 +131,32 @@ describe('TikTok Ads callback route', () => {
         p_scopes: ['44', '100'],
       })
     );
+  });
+
+  it('rejects a consumed state before exchanging a replayed authorization code', async () => {
+    const rpc = vi.fn((name: string) => {
+      if (name === 'consume_merchant_ads_oauth_state_nonce')
+        return Promise.resolve({ data: false, error: null });
+      return Promise.resolve({ data: null, error: null });
+    });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({ merchantId: 'merchant', nonce: 'nonce' });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/callback?state=state&code=code',
+        { headers: { cookie: 'baci_tiktok_ads_oauth_state=state' } }
+      )
+    );
+
+    expect(response.headers.get('location')).toContain('reason=invalid_state');
+    expect(exchange).not.toHaveBeenCalled();
   });
 });

@@ -17976,6 +17976,27 @@ export type Database = {
         };
         Returns: boolean;
       };
+      consume_merchant_ads_oauth_state_nonce: {
+        Args: {
+          p_merchant_id: string;
+          p_nonce: string;
+          p_provider: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      reserve_merchant_ads_oauth_state_nonce: {
+        Args: {
+          p_expires_at: string;
+          p_merchant_id: string;
+          p_nonce: string;
+          p_provider: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       reserve_snapchat_ads_oauth_state_nonce: {
         Args: {
           p_expires_at: string;

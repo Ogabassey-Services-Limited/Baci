@@ -32,16 +32,33 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   try {
     const config = getTikTokAdsConfig();
+    const nonce = generateAdsRandomValue(24);
     const state = createAdsOAuthState(
       {
         merchantId: access.merchantId,
-        nonce: generateAdsRandomValue(24),
+        nonce,
         provider: TIKTOK_ADS_PROVIDER,
         redirectUri: config.redirectUri,
         userId: auth.user.id,
       },
       config.oauthStateSecret
     );
+    const { data: nonceReserved, error: nonceReserveError } =
+      await auth.supabase.rpc('reserve_merchant_ads_oauth_state_nonce', {
+        p_expires_at: new Date(
+          Date.now() + TIKTOK_ADS_OAUTH_COOKIE_MAX_AGE * 1000
+        ).toISOString(),
+        p_merchant_id: access.merchantId,
+        p_nonce: nonce,
+        p_provider: TIKTOK_ADS_PROVIDER,
+        p_redirect_uri: config.redirectUri,
+        p_user_id: auth.user.id,
+      });
+    if (nonceReserveError || !nonceReserved)
+      return NextResponse.json(
+        { error: 'TikTok Ads integration unavailable' },
+        { status: 503 }
+      );
     const response = NextResponse.redirect(
       buildTikTokAdsAuthorizationUrl(config, state)
     );

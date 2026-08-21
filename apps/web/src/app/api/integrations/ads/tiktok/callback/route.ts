@@ -61,14 +61,22 @@ export async function GET(request: NextRequest) {
   if (!access) return redirect('error', 'merchant_mismatch');
   if (!hasPermission(access, 'integrations', 'manage'))
     return redirect('error', 'forbidden');
-  if (
-    !verifyAdsOAuthState(state, config.oauthStateSecret, {
-      merchantId: access.merchantId,
-      provider: TIKTOK_ADS_PROVIDER,
-      redirectUri: config.redirectUri,
-      userId: auth.user.id,
-    })
-  )
+  const verifiedState = verifyAdsOAuthState(state, config.oauthStateSecret, {
+    merchantId: access.merchantId,
+    provider: TIKTOK_ADS_PROVIDER,
+    redirectUri: config.redirectUri,
+    userId: auth.user.id,
+  });
+  if (!verifiedState) return redirect('error', 'invalid_state');
+  const { data: nonceConsumed, error: nonceConsumeError } =
+    await auth.supabase.rpc('consume_merchant_ads_oauth_state_nonce', {
+      p_merchant_id: access.merchantId,
+      p_nonce: verifiedState.nonce,
+      p_provider: TIKTOK_ADS_PROVIDER,
+      p_redirect_uri: config.redirectUri,
+      p_user_id: auth.user.id,
+    });
+  if (nonceConsumeError || !nonceConsumed)
     return redirect('error', 'invalid_state');
   if (query.data.error) return redirect('error', 'provider_denied');
   if (!query.data.code) return redirect('error', 'missing_code');

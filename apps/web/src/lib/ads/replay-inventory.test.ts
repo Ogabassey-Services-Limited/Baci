@@ -27,6 +27,10 @@ const snapchatRefreshMigrationName =
   '20260821180005_snapchat_ads_atomic_refresh_tokens.sql' as const;
 const snapchatRefreshMigrationHash =
   'c71e54d8a1ea2af6809ecc50d6e6582358806501eb851f17861dfab611f10359' as const;
+const providerNeutralNonceMigrationName =
+  '20260821180006_provider_neutral_ads_oauth_state_nonces.sql' as const;
+const providerNeutralNonceMigrationHash =
+  '5a9a72a1a7cba1a0c097f022a717929e5b2beea9e17b19f34c0a980e08353efb' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -143,6 +147,23 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(snapchatRefreshMigrationName);
     expect(pendingSources).toContain(snapchatRefreshMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${providerNeutralNonceMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(providerNeutralNonceMigrationHash);
+    expect(historySources).toContain(
+      `${providerNeutralNonceMigrationHash} ${providerNeutralNonceMigrationName}`
+    );
+    expect(pendingSources).toContain(providerNeutralNonceMigrationName);
+    expect(pendingSources).toContain(providerNeutralNonceMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {
