@@ -78,6 +78,12 @@ VALUES (
   '{}'
 );
 
+SELECT pg_catalog.set_config(
+  'app.audit_actor_user_id',
+  'f42e4d43-0000-4000-8000-000000000102',
+  true
+);
+
 INSERT INTO public.merchants (id, user_id, email, business_name, slug)
 VALUES (
   'f42e4d43-0000-4000-8000-000000000101',
