@@ -1,20 +1,32 @@
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
-const configSource = readFileSync(
-  resolve(__dirname, 'babel.config.js'),
-  'utf8'
-);
+type BabelConfig = {
+  plugins?: unknown[];
+};
+
+const require = createRequire(import.meta.url);
 
 describe('mobile-admin Babel configuration', () => {
   it('leaves React Compiler configuration to Expo SDK 57 app config', () => {
-    expect(configSource).not.toContain('babel-plugin-react-compiler');
+    const loadConfig = require('./babel.config.js') as (api: {
+      cache: (value: boolean) => void;
+    }) => BabelConfig;
+    const config = loadConfig({ cache: () => undefined });
+
+    expect(config.plugins).not.toContain('babel-plugin-react-compiler');
   });
 
-  it('retains worklets bundle mode for the native runtime', () => {
-    expect(configSource).toContain(
-      "['react-native-worklets/plugin', { bundleMode: true }]"
-    );
+  it('uses the supported worklets transform without experimental bundle mode', () => {
+    const loadConfig = require('./babel.config.js') as (api: {
+      cache: (value: boolean) => void;
+    }) => BabelConfig;
+    const config = loadConfig({ cache: () => undefined });
+
+    expect(config.plugins).toContain('react-native-worklets/plugin');
+    expect(config.plugins).not.toContainEqual([
+      'react-native-worklets/plugin',
+      expect.objectContaining({ bundleMode: true }),
+    ]);
   });
 });

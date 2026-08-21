@@ -110,11 +110,6 @@ overrides:
   react-native-phone-number-input: "2.1.0"
   react-native-safe-area-context: "5.8.0"
   react-native-webview: "13.16.1"
-  # Worklets bundle-mode support (SDK 57): official Software Mansion patches —
-  # metro (index .worklets/* modules for SHA-1) + metro-runtime (Fast Refresh
-  # to worklet runtimes). Refresh both patches when bumping metro.
-  metro: "0.84.4"
-  metro-runtime: "0.84.4"
   # --- Security / dedupe overrides ---
   # Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.
   defu: "6.1.6"
@@ -320,9 +315,7 @@ patchedDependencies:
   "react-native-purchases@10.4.2": "patches/react-native-purchases@10.4.2.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
-  "metro@0.84.4": "patches/metro@0.84.4.patch"
-  "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
-  react-native@0.86.0: patches/react-native@0.86.0.patch
+  react-native@0.86.2: patches/react-native@0.86.2.patch
   # Xcode 26.2 (CI macos-26 image) cannot resolve `abs` in 57.0.3's Date
   # guard at all — C++ interop pulls the C stdlib overloads into scope next
   # to Swift's ("ambiguous use of 'abs'"), which has broken every iOS
