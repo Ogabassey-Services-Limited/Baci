@@ -24,7 +24,7 @@ describe('rate-limit diagnostics', () => {
     ]);
   });
 
-  it('swallows sink failures', () => {
+  it('swallows synchronous sink failures', () => {
     setRateLimitDiagnosticHook(() => {
       throw new Error('diagnostic sink unavailable');
     });
@@ -35,5 +35,18 @@ describe('rate-limit diagnostics', () => {
         reason: 'redis_success',
       })
     ).not.toThrow();
+  });
+
+  it('swallows rejected asynchronous sink failures', async () => {
+    setRateLimitDiagnosticHook(async () => {
+      throw new Error('diagnostic sink unavailable');
+    });
+
+    await expect(
+      reportRateLimitDiagnostic({
+        backend: 'redis',
+        reason: 'redis_error',
+      })
+    ).resolves.toBeUndefined();
   });
 });

@@ -4,7 +4,13 @@ export type RateLimitDiagnostic = {
   reason: 'redis_success' | 'redis_unavailable' | 'redis_error';
 };
 
-type RateLimitDiagnosticHook = (diagnostic: RateLimitDiagnostic) => void;
+type RateLimitDiagnosticHook = (
+  diagnostic: RateLimitDiagnostic
+) => void | Promise<void>;
+type RateLimitDiagnosticAsyncHook = (
+  diagnostic: RateLimitDiagnostic
+) => Promise<void>;
+type RateLimitDiagnosticSyncHook = (diagnostic: RateLimitDiagnostic) => void;
 
 type RateLimitDiagnosticState = {
   hook?: RateLimitDiagnosticHook;
@@ -37,6 +43,12 @@ function getRateLimitDiagnosticState(): RateLimitDiagnosticState {
  * observability can never affect rate-limit decisions.
  */
 export function setRateLimitDiagnosticHook(
+  hook: RateLimitDiagnosticAsyncHook | undefined
+): void;
+export function setRateLimitDiagnosticHook(
+  hook: RateLimitDiagnosticSyncHook | undefined
+): void;
+export function setRateLimitDiagnosticHook(
   hook: RateLimitDiagnosticHook | undefined
 ): void {
   getRateLimitDiagnosticState().hook = hook;
@@ -44,11 +56,16 @@ export function setRateLimitDiagnosticHook(
 
 export function reportRateLimitDiagnostic(
   diagnostic: RateLimitDiagnostic
-): void {
+): Promise<void> {
   try {
-    getRateLimitDiagnosticState().hook?.(diagnostic);
+    return Promise.resolve(
+      getRateLimitDiagnosticState().hook?.(diagnostic)
+    ).catch(() => {
+      // Diagnostics are best-effort and must never change request behavior.
+    });
   } catch {
     // Diagnostics are best-effort and must never change request behavior.
+    return Promise.resolve();
   }
 }
 

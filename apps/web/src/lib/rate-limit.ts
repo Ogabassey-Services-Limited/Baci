@@ -177,7 +177,10 @@ async function applyRateLimit(
     try {
       const upstashKey = `${identifier}:${pattern}`;
       const result = await limiter.limit(upstashKey);
-      reportRateLimitDiagnostic({ backend: 'redis', reason: 'redis_success' });
+      void reportRateLimitDiagnostic({
+        backend: 'redis',
+        reason: 'redis_success',
+      });
       return {
         allowed: result.success,
         limit: result.limit,
@@ -186,10 +189,13 @@ async function applyRateLimit(
       };
     } catch {
       // Redis error — fall through to in-memory
-      reportRateLimitDiagnostic({ backend: 'memory', reason: 'redis_error' });
+      void reportRateLimitDiagnostic({
+        backend: 'memory',
+        reason: 'redis_error',
+      });
     }
   } else {
-    reportRateLimitDiagnostic({
+    void reportRateLimitDiagnostic({
       backend: 'memory',
       reason: 'redis_unavailable',
     });
