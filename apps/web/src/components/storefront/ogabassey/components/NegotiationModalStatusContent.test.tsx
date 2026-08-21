@@ -45,6 +45,25 @@ describe('NegotiationModalStatusContent', () => {
     expect(onShowUpload).toHaveBeenCalledOnce();
   });
 
+  it('hides merchant review immediately below the final counter boundary', () => {
+    render(
+      <NegotiationModalStatusContent
+        attemptCount={COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1}
+        counterOffer={95_000}
+        message="One attempt remains"
+        onAcceptCounter={vi.fn()}
+        onClose={vi.fn()}
+        onNegotiateAgain={vi.fn()}
+        onShowUpload={vi.fn()}
+        status="failed"
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /saw it cheaper/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('hides counter-price actions when no counter offer is available', () => {
     render(
       <NegotiationModalStatusContent
@@ -83,6 +102,7 @@ describe('NegotiationModalStatusContent', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Request Sent' })).toBeVisible();
+    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite');
     expect(screen.getByText('Request submitted')).toBeVisible();
   });
 

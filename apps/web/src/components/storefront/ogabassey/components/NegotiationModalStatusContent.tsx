@@ -47,7 +47,11 @@ export function NegotiationModalStatusContent({
 
   if (status === 'success') {
     return (
-      <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
+      <div
+        aria-live="polite"
+        className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2"
+        role="status"
+      >
         <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
           <CheckCircle2 size={28} className="text-[var(--store-primary)]" />
         </div>
@@ -70,7 +74,11 @@ export function NegotiationModalStatusContent({
 
   if (status === 'failed') {
     return (
-      <div className="flex flex-col items-center justify-center py-2 text-center animate-in shake duration-300">
+      <div
+        aria-live="polite"
+        className="flex flex-col items-center justify-center py-2 text-center animate-in shake duration-300"
+        role="status"
+      >
         <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
           <HandCoins size={28} className="text-[var(--store-primary)]" />
         </div>
@@ -120,7 +128,11 @@ export function NegotiationModalStatusContent({
   if (status === 'final' || status === 'submitted') {
     const submitted = status === 'submitted';
     return (
-      <div className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in slide-in-from-bottom-2">
+      <div
+        aria-live="polite"
+        className="flex flex-col items-center justify-center py-4 text-center animate-in fade-in slide-in-from-bottom-2"
+        role="status"
+      >
         <div className="size-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
           {submitted ? (
             <CheckCircle2 size={28} className="text-[var(--store-primary)]" />

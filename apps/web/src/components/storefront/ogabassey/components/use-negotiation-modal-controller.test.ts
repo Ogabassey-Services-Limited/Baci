@@ -1,9 +1,14 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { submitNegotiationUpload } from './negotiation-modal-upload';
 import { useNegotiationModalController } from './use-negotiation-modal-controller';
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ auth: { getUser: vi.fn() } }),
+}));
+
+vi.mock('./negotiation-modal-upload', () => ({
+  submitNegotiationUpload: vi.fn(),
 }));
 
 const options = {
@@ -66,6 +71,65 @@ describe('useNegotiationModalController', () => {
     expect(result.current.status).toBe('failed');
     expect(result.current.counterOffer).toBe(99_000);
     expect(result.current.attemptCount).toBe(1);
+  });
+
+  it('accepts a counter offer and reports its final price', () => {
+    vi.useFakeTimers();
+    const { result } = renderHook(() =>
+      useNegotiationModalController(options)
+    );
+    act(() => result.current.setOffer('80000'));
+    act(() =>
+      result.current.handleSubmit({ preventDefault: vi.fn() } as never)
+    );
+    act(() => vi.advanceTimersByTime(1500));
+
+    act(() => result.current.handleAcceptCounter());
+
+    expect(result.current.status).toBe('success');
+    expect(options.onSuccess).toHaveBeenCalledWith(99_000);
+  });
+
+  it('does not accept a missing counter offer', () => {
+    const { result } = renderHook(() =>
+      useNegotiationModalController(options)
+    );
+
+    act(() => result.current.handleAcceptCounter());
+
+    expect(result.current.status).toBe('input');
+    expect(options.onSuccess).not.toHaveBeenCalled();
+  });
+
+  it('forwards the contact and evidence fields to upload submission', async () => {
+    vi.mocked(submitNegotiationUpload).mockResolvedValue(undefined);
+    const file = new File(['proof'], 'proof.png', { type: 'image/png' });
+    const { result } = renderHook(() =>
+      useNegotiationModalController(options)
+    );
+    act(() => {
+      result.current.setEmail('buyer@example.com');
+      result.current.setOffer('90000');
+      result.current.setPhone('08031234567');
+      result.current.setUploadFile(file);
+      result.current.setUploadLink('');
+    });
+
+    await act(async () => {
+      await result.current.handleUploadSubmit({
+        preventDefault: vi.fn(),
+      } as never);
+    });
+
+    expect(submitNegotiationUpload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'buyer@example.com',
+        offer: '90000',
+        phone: '08031234567',
+        uploadFile: file,
+        uploadLink: '',
+      })
+    );
   });
 
   it('keeps a discounted non-negotiable product at its final price', () => {

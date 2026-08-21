@@ -194,6 +194,33 @@ describe('submitNegotiationUpload', () => {
     expect(insertNegotiationRequest).not.toHaveBeenCalled();
   });
 
+  it('reuses an uploaded evidence object when insertion fails and is retried', async () => {
+    const file = new File(['proof'], 'proof.png', { type: 'image/png' });
+    vi.mocked(resolveNegotiationCustomer).mockResolvedValue({
+      customerEmail: 'buyer@example.com',
+      customerId: 'customer-1',
+      customerPhone: null,
+    });
+    vi.mocked(uploadNegotiationEvidenceFile).mockResolvedValue(
+      'merchant-1/evidence.png'
+    );
+    vi.mocked(insertNegotiationRequest)
+      .mockRejectedValueOnce(new Error('insert failed'))
+      .mockResolvedValueOnce(undefined);
+
+    await submitNegotiationUpload({ ...baseOptions, uploadFile: file });
+    await submitNegotiationUpload({ ...baseOptions, uploadFile: file });
+
+    expect(uploadNegotiationEvidenceFile).toHaveBeenCalledTimes(1);
+    expect(insertNegotiationRequest).toHaveBeenCalledTimes(2);
+    expect(insertNegotiationRequest).toHaveBeenNthCalledWith(
+      2,
+      baseOptions.supabase,
+      expect.objectContaining({ evidenceUrl: 'merchant-1/evidence.png' })
+    );
+    expect(baseOptions.setStatus).toHaveBeenLastCalledWith('submitted');
+  });
+
   it('rejects a request without merchant context', async () => {
     vi.mocked(resolveNegotiationCustomer).mockResolvedValue({
       customerEmail: 'buyer@example.com',

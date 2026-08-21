@@ -24,6 +24,15 @@ function FocusHarness({
   );
 }
 
+function EmptyFocusHarness() {
+  const { dialogRef } = useNegotiationModalFocus({
+    isOpen: true,
+    onClose: vi.fn(),
+    status: 'input',
+  });
+  return createElement('div', { ref: dialogRef, role: 'dialog', tabIndex: -1 });
+}
+
 describe('useNegotiationModalFocus', () => {
   it('focuses the offer and closes on Escape', async () => {
     const onClose = vi.fn();
@@ -34,6 +43,24 @@ describe('useNegotiationModalFocus', () => {
     );
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('ignores Escape when the modal is closed', () => {
+    const onClose = vi.fn();
+    render(createElement(FocusHarness, { isOpen: false, onClose }));
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('focuses the dialog on Tab when it has no focusable controls', async () => {
+    render(createElement(EmptyFocusHarness));
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveFocus());
+
+    fireEvent.keyDown(document, { key: 'Tab' });
+
+    expect(screen.getByRole('dialog')).toHaveFocus();
   });
 
   it('wraps forward tab focus from the last action', async () => {

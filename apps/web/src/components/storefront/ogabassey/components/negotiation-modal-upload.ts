@@ -33,6 +33,11 @@ interface SubmitNegotiationUploadOptions {
   variantName?: string;
 }
 
+const uploadedEvidenceByFile = new WeakMap<
+  File,
+  { evidencePath: string; merchantId: string }
+>();
+
 function isValidEvidenceLink(value: string): boolean {
   try {
     const parsed = new URL(value);
@@ -114,7 +119,9 @@ export async function submitNegotiationUpload({
   const customerEmail = email.trim().toLowerCase() || customer.customerEmail;
   const customerPhone = phone.trim() || customer.customerPhone;
 
-  const submitMerchantRequest = async (evidenceUrl: string | undefined) => {
+  const submitMerchantRequest = async (
+    evidenceUrl: string | undefined
+  ): Promise<boolean> => {
     setStatus('processing');
     try {
       await insertNegotiationRequest(supabase, {
@@ -136,20 +143,22 @@ export async function submitNegotiationUpload({
         variantId,
         variantName,
       });
-      if (!canApplyAsyncResult()) return;
+      if (!canApplyAsyncResult()) return true;
       setStatus('submitted');
       setMessage(
         "Request submitted! We'll notify you as soon as the merchant reviews your offer."
       );
+      return true;
     } catch (error) {
       console.error('Failed to submit request:', error);
-      if (!canApplyAsyncResult()) return;
+      if (!canApplyAsyncResult()) return false;
       alert(
         error instanceof NegotiationValidationError
           ? error.message
           : 'Failed to submit request. Please try again.'
       );
       setStatus('upload');
+      return false;
     }
   };
 
@@ -164,11 +173,19 @@ export async function submitNegotiationUpload({
 
   setStatus('processing');
   try {
-    const evidencePath = await uploadNegotiationEvidenceFile({
-      file: uploadFile,
-      merchantId,
-    });
-    await submitMerchantRequest(evidencePath);
+    const cachedEvidence = uploadedEvidenceByFile.get(uploadFile);
+    const evidencePath =
+      cachedEvidence?.merchantId === merchantId
+        ? cachedEvidence.evidencePath
+        : await uploadNegotiationEvidenceFile({
+            file: uploadFile,
+            merchantId,
+          });
+    uploadedEvidenceByFile.set(uploadFile, { evidencePath, merchantId });
+    const submitted = await submitMerchantRequest(evidencePath);
+    if (submitted) {
+      uploadedEvidenceByFile.delete(uploadFile);
+    }
   } catch (error) {
     console.error('Failed to upload evidence:', error);
     if (!canApplyAsyncResult()) return;
