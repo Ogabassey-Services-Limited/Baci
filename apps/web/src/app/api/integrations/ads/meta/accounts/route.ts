@@ -11,6 +11,10 @@ import {
   MetaAdsProviderError,
 } from '@/lib/ads/meta/provider';
 import {
+  MetaAdsReauthPersistenceError,
+  markMetaAdsReauthRequired,
+} from '@/lib/ads/meta/sync';
+import {
   authenticateApiRequest,
   getUserAccess,
   hasPermission,
@@ -44,6 +48,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  let connection: {
+    access_token_ciphertext: string | null;
+    provider_customer_id: string | null;
+  } | null = null;
   try {
     const config = getMetaAdsConfig();
     const result = await connectionForMerchant(
@@ -57,6 +65,7 @@ export async function GET(request: NextRequest) {
       );
     if (result.connection?.status !== 'active')
       return NextResponse.json({ accounts: [], connected: false });
+    connection = result.connection;
     const accounts = await listMetaAdsAccounts(
       resolveMetaAdsAccessToken(result.connection, config)
     );
@@ -73,6 +82,29 @@ export async function GET(request: NextRequest) {
       connected: true,
     });
   } catch (error) {
+    if (
+      connection &&
+      ((error instanceof MetaAdsProviderError &&
+        error.code === 'META_ADS_ACCESS_REVOKED') ||
+        (error &&
+          typeof error === 'object' &&
+          (error as { code?: unknown }).code === 'META_ADS_ACCESS_REVOKED'))
+    ) {
+      try {
+        await markMetaAdsReauthRequired({
+          connection,
+          failureCode: 'META_ADS_ACCESS_REVOKED',
+          merchantId: access.merchantId,
+          supabase: auth.supabase,
+        });
+      } catch (persistError) {
+        if (persistError instanceof MetaAdsReauthPersistenceError)
+          return NextResponse.json(
+            { error: persistError.code },
+            { status: 502 }
+          );
+      }
+    }
     if (
       error instanceof MetaAdsConfigError ||
       (error instanceof Error && error.name === 'MetaAdsConfigError')
@@ -119,6 +151,10 @@ export async function PATCH(request: NextRequest) {
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   let body: unknown;
+  let connection: {
+    access_token_ciphertext: string | null;
+    provider_customer_id: string | null;
+  } | null = null;
   try {
     body = await request.json();
   } catch {
@@ -145,6 +181,7 @@ export async function PATCH(request: NextRequest) {
         { error: 'Meta Ads is not connected' },
         { status: 404 }
       );
+    connection = result.connection;
     const accounts = await listMetaAdsAccounts(
       resolveMetaAdsAccessToken(result.connection, getMetaAdsConfig())
     );
@@ -177,6 +214,29 @@ export async function PATCH(request: NextRequest) {
       );
     return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {
+    if (
+      connection &&
+      ((error instanceof MetaAdsProviderError &&
+        error.code === 'META_ADS_ACCESS_REVOKED') ||
+        (error &&
+          typeof error === 'object' &&
+          (error as { code?: unknown }).code === 'META_ADS_ACCESS_REVOKED'))
+    ) {
+      try {
+        await markMetaAdsReauthRequired({
+          connection,
+          failureCode: 'META_ADS_ACCESS_REVOKED',
+          merchantId: access.merchantId,
+          supabase: auth.supabase,
+        });
+      } catch (persistError) {
+        if (persistError instanceof MetaAdsReauthPersistenceError)
+          return NextResponse.json(
+            { error: persistError.code },
+            { status: 502 }
+          );
+      }
+    }
     if (
       error instanceof MetaAdsConfigError ||
       (error instanceof Error && error.name === 'MetaAdsConfigError')

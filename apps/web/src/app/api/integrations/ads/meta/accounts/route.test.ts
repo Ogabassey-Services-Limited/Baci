@@ -9,6 +9,7 @@ const listAccounts = vi.fn();
 const resolveToken = vi.fn();
 const rpc = vi.fn();
 const getConfig = vi.fn();
+const markReauth = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -29,6 +30,12 @@ vi.mock('@/lib/ads/meta/provider', () => ({
   listMetaAdsAccounts: (...args: unknown[]) => listAccounts(...args),
   MetaAdsProviderError: class MetaAdsProviderError extends Error {},
 }));
+vi.mock('@/lib/ads/meta/sync', () => ({
+  markMetaAdsReauthRequired: (...args: unknown[]) => markReauth(...args),
+  MetaAdsReauthPersistenceError: class MetaAdsReauthPersistenceError extends Error {
+    code = 'META_ADS_REAUTH_PERSIST_FAILED';
+  },
+}));
 
 import { GET, PATCH } from './route';
 
@@ -44,6 +51,7 @@ describe('Meta Ads accounts route', () => {
     permission.mockReturnValue(true);
     csrf.mockResolvedValue({ valid: true });
     getConfig.mockReturnValue({});
+    markReauth.mockResolvedValue(undefined);
     resolveToken.mockReturnValue('access');
     listAccounts.mockResolvedValue([
       {
@@ -94,6 +102,9 @@ describe('Meta Ads accounts route', () => {
     );
     expect(revoked.status).toBe(502);
     expect((await revoked.json()).error).toBe('META_ADS_ACCESS_REVOKED');
+    expect(markReauth).toHaveBeenCalledWith(
+      expect.objectContaining({ failureCode: 'META_ADS_ACCESS_REVOKED' })
+    );
   });
   it('does not discover accounts without authentication', async () => {
     authenticate.mockResolvedValue({

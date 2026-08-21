@@ -27,6 +27,15 @@ export class MetaAdsSyncError extends Error {
   }
 }
 
+export class MetaAdsReauthPersistenceError extends Error {
+  readonly code = 'META_ADS_REAUTH_PERSIST_FAILED';
+
+  constructor() {
+    super('META_ADS_REAUTH_PERSIST_FAILED');
+    this.name = 'MetaAdsReauthPersistenceError';
+  }
+}
+
 const inFlightSyncs = new Map<
   string,
   Promise<{ accountId: string; rowsWritten: number }>
@@ -58,7 +67,7 @@ function actionCount(actions: MetaAdsDailyInsight['actions']): string {
   );
 }
 
-async function markMetaAdsReauthRequired(input: {
+export async function markMetaAdsReauthRequired(input: {
   connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
@@ -67,27 +76,32 @@ async function markMetaAdsReauthRequired(input: {
   merchantId: string;
   supabase: SupabaseClient;
 }): Promise<void> {
-  if (!input.connection.access_token_ciphertext) return;
-  await input.supabase.rpc('upsert_merchant_ads_connection', {
-    p_access_token_ciphertext: input.connection.access_token_ciphertext,
-    p_account_timezone: null,
-    p_attribution_metadata: {
-      provider: 'meta_ads',
-      reauthRequired: true,
-    },
-    p_merchant_id: input.merchantId,
-    p_metadata: {
-      failureCode: input.failureCode,
-      reauthRequired: true,
-    },
-    p_provider: META_ADS_PROVIDER,
-    p_provider_account_label: null,
-    p_provider_customer_id: input.connection.provider_customer_id,
-    p_refresh_token_ciphertext: null,
-    p_scopes: ['ads_read'],
-    p_status: 'error',
-    p_token_expires_at: null,
-  });
+  if (!input.connection.access_token_ciphertext)
+    throw new MetaAdsReauthPersistenceError();
+  const { data, error } = await input.supabase.rpc(
+    'upsert_merchant_ads_connection',
+    {
+      p_access_token_ciphertext: input.connection.access_token_ciphertext,
+      p_account_timezone: null,
+      p_attribution_metadata: {
+        provider: 'meta_ads',
+        reauthRequired: true,
+      },
+      p_merchant_id: input.merchantId,
+      p_metadata: {
+        failureCode: input.failureCode,
+        reauthRequired: true,
+      },
+      p_provider: META_ADS_PROVIDER,
+      p_provider_account_label: null,
+      p_provider_customer_id: input.connection.provider_customer_id,
+      p_refresh_token_ciphertext: null,
+      p_scopes: ['ads_read'],
+      p_status: 'error',
+      p_token_expires_at: null,
+    }
+  );
+  if (error || !data) throw new MetaAdsReauthPersistenceError();
 }
 
 function shouldRequireReauth(error: unknown): boolean {
@@ -132,19 +146,23 @@ export async function syncMetaAdsSpendForMerchant(
     accessToken = resolveMetaAdsAccessToken(connection, config);
   } catch (error) {
     if (shouldRequireReauth(error)) {
-      await markMetaAdsReauthRequired({
-        connection,
-        failureCode:
-          error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
-        merchantId: input.merchantId,
-        supabase: input.supabase,
-      });
+      try {
+        await markMetaAdsReauthRequired({
+          connection,
+          failureCode:
+            error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+          merchantId: input.merchantId,
+          supabase: input.supabase,
+        });
+      } catch {
+        throw new MetaAdsSyncError('META_ADS_REAUTH_PERSIST_FAILED');
+      }
     }
     throw new MetaAdsSyncError(
       error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED'
     );
   }
-  const syncKey = `${input.merchantId}:${connection.provider_customer_id}`;
+  const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
   const activeSync = inFlightSyncs.get(syncKey);
   if (activeSync) return activeSync;
   const syncPromise = syncSelectedMetaAdsAccount({
@@ -254,13 +272,17 @@ async function syncSelectedMetaAdsAccount(input: {
     return { accountId: account.accountId, rowsWritten };
   } catch (error) {
     if (shouldRequireReauth(error)) {
-      await markMetaAdsReauthRequired({
-        connection: input.connection,
-        failureCode:
-          error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
-        merchantId: input.merchantId,
-        supabase: input.supabase,
-      });
+      try {
+        await markMetaAdsReauthRequired({
+          connection: input.connection,
+          failureCode:
+            error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+          merchantId: input.merchantId,
+          supabase: input.supabase,
+        });
+      } catch {
+        throw new MetaAdsSyncError('META_ADS_REAUTH_PERSIST_FAILED');
+      }
     }
     if (error instanceof MetaAdsSyncError) throw error;
     throw error;
