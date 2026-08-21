@@ -243,7 +243,8 @@ export function parseMetaAdsDailyInsights(
 export async function listMetaAdsAccounts(
   accessToken: string,
   fetchImpl: typeof fetch = fetch,
-  sleep?: (milliseconds: number) => Promise<void>
+  sleep?: (milliseconds: number) => Promise<void>,
+  onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void
 ): Promise<MetaAdsAccount[]> {
   let next: URL | null = new URL(`${META_ADS_GRAPH_ROOT}/me/adaccounts`);
   next.searchParams.set(
@@ -258,7 +259,8 @@ export async function listMetaAdsAccounts(
       accessToken,
       'META_ADS_ACCOUNT_DISCOVERY_FAILED',
       fetchImpl,
-      sleep
+      sleep,
+      onTelemetry
     );
     const record =
       payload && typeof payload === 'object' && !Array.isArray(payload)

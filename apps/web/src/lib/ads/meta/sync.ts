@@ -178,9 +178,14 @@ async function syncSelectedMetaAdsAccount(input: {
 }): Promise<{ accountId: string; rowsWritten: number }> {
   let usageTelemetry: MetaAdsUsageTelemetry | null = null;
   try {
+    const collectTelemetry = (telemetry: MetaAdsUsageTelemetry) => {
+      usageTelemetry = telemetry;
+    };
     const accounts = await listMetaAdsAccounts(
       input.accessToken,
-      input.fetchImpl
+      input.fetchImpl,
+      undefined,
+      collectTelemetry
     );
     const account = accounts.find(
       (candidate) =>
@@ -196,9 +201,7 @@ async function syncSelectedMetaAdsAccount(input: {
       },
       input.fetchImpl,
       undefined,
-      (telemetry) => {
-        usageTelemetry = telemetry;
-      }
+      collectTelemetry
     );
     const fetchedAt = new Date().toISOString();
     const records = insights.map((insight) => ({
