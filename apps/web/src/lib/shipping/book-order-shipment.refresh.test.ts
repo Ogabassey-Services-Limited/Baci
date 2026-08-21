@@ -58,7 +58,11 @@ const correctedSender = {
   postalCode: '100001',
 };
 
-function createSupabase() {
+function createSupabase({
+  upsertError = null,
+}: {
+  upsertError?: { message: string } | null;
+} = {}) {
   const order = {
     id: 'order-1',
     customer_name: 'Customer',
@@ -154,7 +158,7 @@ function createSupabase() {
         return {
           select: vi.fn(() => quoteSelect),
           update: vi.fn(() => update),
-          upsert: vi.fn().mockResolvedValue({ error: null }),
+          upsert: vi.fn().mockResolvedValue({ error: upsertError }),
         };
       }
       if (table === 'merchants') return { select: vi.fn(() => merchantSelect) };
@@ -207,5 +211,23 @@ describe('bugfix: expired domestic quote refresh sender', () => {
       'GIGL',
       expect.objectContaining({ sender: correctedSender })
     );
+  });
+
+  it('does not book when persisting the refreshed quote fails', async () => {
+    await expect(
+      bookOrderShipment(
+        createSupabase({ upsertError: { message: 'upsert failed' } }),
+        'merchant-1',
+        'order-1'
+      )
+    ).rejects.toEqual(
+      expect.objectContaining({
+        code: 'QUOTE_REFRESH_PERSIST_FAILED',
+        status: 500,
+      })
+    );
+
+    expect(shippingService.getProviderQuotes).toHaveBeenCalled();
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 });

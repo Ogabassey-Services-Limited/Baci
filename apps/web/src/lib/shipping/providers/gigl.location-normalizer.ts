@@ -2,8 +2,10 @@ const ABUJA_LOCATION_ALIASES = [
   'abuja',
   'fct',
   'fctabuja',
+  'abujafct',
   'federalcapitalterritory',
   'abujafederalcapitalterritory',
+  'federalcapitalterritoryabuja',
 ];
 
 export function normalizeGiglLocation(value: string): string {

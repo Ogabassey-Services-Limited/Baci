@@ -32,22 +32,10 @@ vi.mock(
   }
 );
 
-vi.mock('@/lib/shipping/merchant-sender-location', () => ({
-  buildMerchantSenderInfo: vi.fn().mockReturnValue({
-    name: 'Ogabassey',
-    phone: '08000000000',
-    address: '2 Olaide Tomori Street, Ikeja, 100001',
-    city: 'Ikeja',
-    state: 'Lagos',
-    country: 'Nigeria',
-    countryCode: 'NG',
-  }),
-}));
-
 const { bookOrderShipment } = await import('./book-order-shipment');
 const { shippingService } = await import('@/lib/shipping');
 
-const merchantSender = {
+const quoteSender = {
   name: 'Ogabassey',
   phone: '08000000000',
   address: '2 Olaide Tomori Street, Ikeja, 100001',
@@ -87,7 +75,7 @@ function createSupabase() {
     quote_request: {
       sessionId: 'session-1',
       shipmentType: 'domestic',
-      sender: merchantSender,
+      sender: quoteSender,
       receiver: {
         ...order.shipping_address,
         name: order.customer_name,
@@ -179,7 +167,17 @@ describe('bookOrderShipment sender selection', () => {
 
     expect(shippingService.bookShipment).toHaveBeenCalledWith(
       'GIGL',
-      expect.objectContaining({ sender: merchantSender })
+      expect.objectContaining({
+        sender: expect.objectContaining({
+          name: 'Merchant',
+          phone: '08000000002',
+          city: 'Ikeja',
+          state: 'Lagos',
+          postalCode: '100001',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        }),
+      })
     );
   });
 });

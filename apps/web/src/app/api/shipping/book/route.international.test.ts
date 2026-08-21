@@ -182,6 +182,27 @@ function buildSupabaseMock({
       if (table === 'shipments') {
         return { insert: vi.fn(() => mutationChain) };
       }
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Registered Merchant Store',
+                business_address: '9 Registered Road, Ikeja, Lagos',
+                phone: '+2348012345678',
+                registered_address: {
+                  city: 'Ikeja',
+                  state: 'Lagos',
+                  street: '9 Registered Road',
+                },
+                state_code: 'LA',
+              },
+              error: null,
+            }),
+          })),
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
   };

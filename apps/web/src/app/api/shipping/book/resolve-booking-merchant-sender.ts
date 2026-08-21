@@ -1,0 +1,54 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
+import type { ShippingAddress } from '@/lib/shipping/types';
+
+type MerchantSenderRow = {
+  business_address: string | null;
+  business_name: string | null;
+  phone: string | null;
+  registered_address: unknown;
+  state_code: string | null;
+};
+
+export type ResolveBookingMerchantSenderResult =
+  | { ok: true; sender: ShippingAddress }
+  | { error: string; ok: false; status: number };
+
+/**
+ * Loads the registered merchant origin for domestic booking. Callers must not
+ * trust request-controlled sender payloads for domestic quotes.
+ */
+export async function resolveBookingMerchantSender(
+  supabase: SupabaseClient,
+  merchantId: string,
+  fallbackBusinessName?: string | null
+): Promise<ResolveBookingMerchantSenderResult> {
+  const { data, error } = await supabase
+    .from('merchants')
+    .select(
+      'business_name, business_address, phone, registered_address, state_code'
+    )
+    .eq('id', merchantId)
+    .single();
+
+  if (error || !data) {
+    console.error('Error fetching merchant for booking sender:', error);
+    return {
+      error: 'Failed to resolve merchant sender',
+      ok: false,
+      status: 500,
+    };
+  }
+
+  const merchant = data as MerchantSenderRow;
+  return {
+    ok: true,
+    sender: buildMerchantSenderInfo({
+      businessAddress: merchant.business_address,
+      businessName: merchant.business_name ?? fallbackBusinessName ?? null,
+      phone: merchant.phone,
+      registeredAddress: merchant.registered_address,
+      stateCode: merchant.state_code,
+    }),
+  };
+}

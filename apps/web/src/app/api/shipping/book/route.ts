@@ -7,7 +7,6 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { shippingService } from '@/lib/shipping';
-import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
@@ -19,6 +18,7 @@ import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
+import { resolveBookingMerchantSender } from './resolve-booking-merchant-sender';
 import { buildShipmentInsertPayload } from './shipment-insert-payload';
 
 export async function POST(request: NextRequest) {
@@ -120,24 +120,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let senderInfo = data.sender;
-    if (!senderInfo) {
-      const { data: merchantDetails } = await supabase
-        .from('merchants')
-        .select(
-          'business_name, business_address, phone, registered_address, state_code'
-        )
-        .eq('id', merchantId)
-        .single();
-
-      senderInfo = buildMerchantSenderInfo({
-        businessAddress: merchantDetails?.business_address ?? null,
-        businessName:
-          merchantDetails?.business_name ?? merchantContext.businessName,
-        phone: merchantDetails?.phone ?? null,
-        registeredAddress: merchantDetails?.registered_address,
-        stateCode: merchantDetails?.state_code ?? null,
-      });
+    // Domestic bookings ignore request-controlled data.sender and always use
+    // the registered merchant origin. International quotes keep the saved
+    // quotePayload.sender from the stored international request.
+    const merchantSenderResult = await resolveBookingMerchantSender(
+      supabase,
+      merchantId,
+      merchantContext.businessName
+    );
+    if (!merchantSenderResult.ok) {
+      return NextResponse.json(
+        { error: merchantSenderResult.error },
+        { status: merchantSenderResult.status }
+      );
     }
 
     const quotePayload = resolveBookingQuoteRequestPayload(
@@ -167,7 +162,8 @@ export async function POST(request: NextRequest) {
         { status: quoteValidation.status }
       );
     }
-    const resolvedSenderInfo = quotePayload.sender ?? senderInfo;
+    const resolvedSenderInfo =
+      quotePayload.sender ?? merchantSenderResult.sender;
 
     const bookingRequest: BookingRequest = {
       orderId: data.orderId,

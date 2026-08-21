@@ -105,6 +105,24 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
     eq: vi.fn(),
   };
   shippingQuoteUpdateChain.eq.mockReturnValue(shippingQuoteUpdateChain);
+  const merchantSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: {
+        business_name: 'Registered Merchant Store',
+        business_address: '9 Registered Road, Ikeja, Lagos',
+        phone: '+2348012345678',
+        registered_address: {
+          city: 'Ikeja',
+          postal_code: '100001',
+          state: 'Lagos',
+          street: '9 Registered Road',
+        },
+        state_code: 'LA',
+      },
+      error: null,
+    }),
+  };
 
   return {
     auth: {
@@ -140,6 +158,12 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
             shipmentInsertPayloads.push(payload);
             return shipmentInsertChain;
           }),
+        };
+      }
+
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => merchantSelectChain),
         };
       }
 
@@ -237,5 +261,36 @@ describe('POST /api/shipping/book', () => {
     expect(body).toEqual({ error: 'Forbidden' });
     expect(mockBookShipment).not.toHaveBeenCalled();
     expect(shipmentInsertPayloads).toEqual([]);
+  });
+
+  describe('bugfix: ignore request-controlled domestic sender', () => {
+    it('books with the registered merchant sender when the request sender differs', async () => {
+      const { POST } = await import('./route');
+
+      const response = await POST(buildBookingRequest());
+
+      expect(response.status).toBe(201);
+      expect(mockBookShipment).toHaveBeenCalledWith(
+        'GIGL',
+        expect.objectContaining({
+          sender: expect.objectContaining({
+            name: 'Registered Merchant Store',
+            phone: '+2348012345678',
+            city: 'Ikeja',
+            state: 'Lagos',
+            postalCode: '100001',
+          }),
+        })
+      );
+      expect(mockBookShipment).not.toHaveBeenCalledWith(
+        'GIGL',
+        expect.objectContaining({
+          sender: expect.objectContaining({
+            name: 'Merchant Store',
+            address: '1 Merchant Road',
+          }),
+        })
+      );
+    });
   });
 });

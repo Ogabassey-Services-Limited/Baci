@@ -26,5 +26,12 @@ describe('GIGL station state aliases', () => {
     ).resolves.toEqual({
       station: expect.objectContaining({ StationId: 4 }),
     });
+
+    await expect(service.findStationForCity('Kubwa', 'Abuja')).resolves.toEqual(
+      expect.objectContaining({
+        StationId: 4,
+        StateName: 'FCT - Abuja',
+      })
+    );
   });
 });

@@ -167,7 +167,7 @@ async function resolveQuote(
     provider_metadata: replacement.rawResponse,
   };
 
-  await supabase.from('shipping_quotes').upsert(
+  const { error: upsertError } = await supabase.from('shipping_quotes').upsert(
     {
       id: nextQuote.id,
       merchant_id: quote.merchant_id,
@@ -185,6 +185,14 @@ async function resolveQuote(
     },
     { onConflict: 'id' }
   );
+
+  if (upsertError) {
+    throw new OrderShipmentBookingError(
+      'Failed to persist the refreshed shipping quote.',
+      500,
+      'QUOTE_REFRESH_PERSIST_FAILED'
+    );
+  }
 
   return nextQuote;
 }
