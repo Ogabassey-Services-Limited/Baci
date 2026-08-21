@@ -194,7 +194,7 @@ export const RECENT_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260821100100_jumia_oauth_handoff_ticket_claim_finalize.sql',
-    sha256: '2afe8a6a8c4bf8f6de32ac4a4b21eb63b271e47ea5229e28ffb0c6d8024e74a4',
+    sha256: '2afe8a6a8c4bf8f6de32ac4a4b21eb63b271e47ea5229e28ffb0c6d6924e74a4',
   },
   {
     repositoryPath:

@@ -93,7 +93,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     });
   });
 
-  it('includes raw shop ids for single-marketplace self-authorizations during discovery', async () => {
+  it('scopes single-marketplace self-authorizations to shop:country during discovery', async () => {
     vi.mocked(validateJumiaSelfAuthorization).mockResolvedValue({
       credentials: {
         clientId: 'client-1',
@@ -129,7 +129,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
 
     expect(jumiaSelfAuthorizationHandler.discover).toHaveBeenCalledWith(
       expect.objectContaining({
-        existingShopIds: new Set(['shop-1', 'shop-1:NG']),
+        existingShopIds: new Set(['shop-1:NG']),
       })
     );
     expect(mockCreateAdminClient).not.toHaveBeenCalled();

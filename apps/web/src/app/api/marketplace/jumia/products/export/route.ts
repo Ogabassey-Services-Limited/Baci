@@ -6,20 +6,15 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
-import { createProduct } from '@/lib/jumia/feeds';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-import {
-  finalizeJumiaExportReservation,
-  markJumiaExportReservationForReconciliation,
-  releaseJumiaExportReservation,
-  reserveJumiaExportMappings,
-} from './export-product-reservation';
+import { reserveJumiaExportMappings } from './export-product-reservation';
 import {
   loadJumiaMarketplaceCurrency,
   resolveAuthorizedExportProduct,
 } from './export-product-source';
+import { submitJumiaExportFeed } from './submit-jumia-export-feed';
 
 const VariationSchema = z.object({
   sellerSku: z.string().trim().min(1),
@@ -198,99 +193,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let feedId: string;
-    try {
-      feedId = await createProduct(jumia, jumia.shopId, [
-        {
-          name: { value: exportName },
-          brand,
-          category,
-          description: exportDescription
-            ? { value: exportDescription }
-            : undefined,
-          images: exportImages,
-          variations: exportVariations.map((variation) => ({
-            sellerSku: variation.sellerSku,
-            globalPrice: {
-              value: variation.price,
-              currency: variation.currency,
-            },
-            stock: variation.stock,
-            attributes: variation.attributes,
-          })),
-        },
-      ]);
-    } catch (feedError) {
-      const released = await releaseJumiaExportReservation(supabase, {
-        merchantId,
-        productId: reservation.productId,
-        shopId: jumia.shopId,
-        marketplaceKey: jumia.marketplaceKey,
-        exportVariations,
-      });
-      if (!released) {
-        logger.error({
-          message:
-            'Failed to release Jumia export reservation after createProduct failure',
-          merchant_id: merchantId,
-          product_id: reservation.productId,
-        });
-      }
-      if (feedError instanceof JumiaApiError) {
-        logger.error({
-          message: 'Jumia createProduct feed failed',
-          error: feedError,
-          status: feedError.status,
-        });
-        return NextResponse.json(
-          { error: `Jumia product export failed: ${feedError.message}` },
-          { status: feedError.status }
-        );
-      }
-      throw feedError;
-    }
-
-    const finalized = await finalizeJumiaExportReservation(supabase, {
+    const submitted = await submitJumiaExportFeed({
+      jumia,
+      supabase,
       merchantId,
       productId: reservation.productId,
       shopId: jumia.shopId,
       marketplaceKey: jumia.marketplaceKey,
-      feedId,
+      exportName,
+      exportDescription,
+      exportImages,
+      brand,
+      category,
       exportVariations,
     });
-
-    if (!finalized) {
-      logger.error({
-        message: 'Jumia export mapping finalize failed',
-        feed_id: feedId,
-      });
-      const reconciliationRecorded =
-        await markJumiaExportReservationForReconciliation(supabase, {
-          merchantId,
-          productId: reservation.productId,
-          shopId: jumia.shopId,
-          marketplaceKey: jumia.marketplaceKey,
-          feedId,
-          exportVariations,
-        });
-      return NextResponse.json(
-        {
-          success: false,
-          partial: true,
-          feedId,
-          error: reconciliationRecorded
-            ? 'Product export initiated but local mapping failed to save feed ID. Feed-status reconciliation will recover the accepted feed.'
-            : 'Product export initiated, but automatic reconciliation could not be recorded. Contact support and provide the feed ID.',
-        },
-        { status: 207 }
-      );
+    if (!submitted.ok) {
+      return NextResponse.json(submitted.body, { status: submitted.status });
     }
 
     const primarySku = exportVariations[0]?.sellerSku ?? '';
 
     return NextResponse.json({
       success: true,
-      feedId,
+      feedId: submitted.feedId,
       message:
         'Product export initiated. Check Jumia Vendor Center for status.',
       note: `Product mapping reserved for SKU "${primarySku}".`,

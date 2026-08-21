@@ -3,6 +3,7 @@ const client = 'apps/web/src/lib/jumia/client.ts';
 const clientConfig = 'apps/web/src/lib/jumia/jumia-client-config.ts';
 const tokenPersistence =
   'apps/web/src/lib/jumia/jumia-client-token-persistence.ts';
+const tokenRotation = 'apps/web/src/lib/jumia/jumia-client-token-rotation.ts';
 const refreshLease =
   'apps/web/src/lib/jumia/jumia-authorization-refresh-lease.ts';
 const jumiaHelpers = 'apps/web/src/lib/jumia/helpers.ts';
@@ -22,6 +23,9 @@ const clientCredentialSuffixes = [
   [client, tokenPersistence, envPath],
   [client, tokenPersistence, jumiaHelpers, envPath],
   [client, tokenPersistence, refreshLease, envPath],
+  [client, tokenPersistence, tokenRotation, envPath],
+  [client, tokenPersistence, tokenRotation, jumiaHelpers, envPath],
+  [client, tokenPersistence, tokenRotation, refreshLease, envPath],
 ] as const;
 
 const jumiaApiRoutesUsingClient = [
@@ -125,6 +129,17 @@ export const eventPipelineJumiaCredentialPaths = [
     )
   ),
   [
+    'apps/web/src/app/api/marketplace/jumia/products/export/route.ts',
+    'apps/web/src/app/api/marketplace/jumia/products/export/submit-jumia-export-feed.ts',
+    jumiaHelpers,
+    envPath,
+  ],
+  [
+    'apps/web/src/app/api/marketplace/jumia/products/export/submit-jumia-export-feed.ts',
+    jumiaHelpers,
+    envPath,
+  ],
+  [
     'apps/web/src/app/api/marketplace/jumia/products/route.ts',
     jumiaHelpers,
     envPath,
@@ -139,10 +154,19 @@ export const eventPipelineJumiaCredentialPaths = [
   [client, tokenPersistence, envPath],
   [client, tokenPersistence, jumiaHelpers, envPath],
   [client, tokenPersistence, refreshLease, envPath],
+  [client, tokenPersistence, tokenRotation, envPath],
+  [client, tokenPersistence, tokenRotation, jumiaHelpers, envPath],
+  [client, tokenPersistence, tokenRotation, refreshLease, envPath],
   [clientConfig, envPath],
   [tokenPersistence, envPath],
   [tokenPersistence, jumiaHelpers, envPath],
   [tokenPersistence, refreshLease, envPath],
+  [tokenPersistence, tokenRotation, envPath],
+  [tokenPersistence, tokenRotation, jumiaHelpers, envPath],
+  [tokenPersistence, tokenRotation, refreshLease, envPath],
+  [tokenRotation, envPath],
+  [tokenRotation, jumiaHelpers, envPath],
+  [tokenRotation, refreshLease, envPath],
   [refreshLease, envPath],
   ...withPrefix(
     ['apps/web/src/lib/jumia/order-sync.ts'],

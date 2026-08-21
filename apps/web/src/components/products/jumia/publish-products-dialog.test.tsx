@@ -41,20 +41,28 @@ describe('PublishProductsDialog', () => {
   it('loads products and submits the selected product for approval', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          products: [
-            {
-              id: 'p1',
-              name: 'Phone',
-              sku: 'SKU-1',
-              price: 100,
-              stock: 3,
-              images: [{ url: 'https://cdn.example.com/phone.jpg' }],
-            },
-          ],
-        }),
+      vi.fn((url: string) => {
+        if (url.includes('mapped-product-ids')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ productIds: [] }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            products: [
+              {
+                id: 'p1',
+                name: 'Phone',
+                sku: 'SKU-1',
+                price: 100,
+                stock: 3,
+                images: [{ url: 'https://cdn.example.com/phone.jpg' }],
+              },
+            ],
+          }),
+        });
       })
     );
     render(
