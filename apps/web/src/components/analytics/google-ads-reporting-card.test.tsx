@@ -1,0 +1,181 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: mockFetchWithCsrf,
+}));
+
+import {
+  GOOGLE_ADS_CONNECT_PATH,
+  GoogleAdsReportingCard,
+} from './google-ads-reporting-card';
+
+describe('GoogleAdsReportingCard', () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockReset();
+    mockFetchWithCsrf.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('offers a connect action when the reporting account is disconnected', () => {
+    render(<GoogleAdsReportingCard />);
+
+    expect(
+      screen.getByText(/connect a google ads reporting account/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /connect google ads/i })
+    ).toHaveAttribute('href', GOOGLE_ADS_CONNECT_PATH);
+  });
+
+  it('keeps loading state explicit and does not show metric values', () => {
+    render(<GoogleAdsReportingCard loading />);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Loading Google Ads reporting'
+    );
+    expect(screen.queryByText('Spend')).not.toBeInTheDocument();
+  });
+
+  it('shows a recoverable error without exposing provider details', () => {
+    render(
+      <GoogleAdsReportingCard
+        reporting={{
+          connectionStatus: 'error',
+          error: 'Google Ads reporting is temporarily unavailable.',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText('Google Ads reporting is temporarily unavailable.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /reconnect google ads/i })
+    ).toHaveAttribute('href', GOOGLE_ADS_CONNECT_PATH);
+  });
+
+  it('does not imply reporting is ready before an account is selected', () => {
+    render(
+      <GoogleAdsReportingCard
+        reporting={{
+          connectionStatus: 'connected',
+          needsAccountSelection: true,
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(/select a reporting account to start importing/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Spend')).not.toBeInTheDocument();
+  });
+
+  it('forwards the sync callback after an account selection completes', async () => {
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accounts: [{ customerId: '1234567890', selected: false }],
+        }),
+        { status: 200 }
+      )
+    );
+    mockFetchWithCsrf
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }));
+    const onSynced = vi.fn();
+
+    render(
+      <GoogleAdsReportingCard
+        onSynced={onSynced}
+        reporting={{
+          connectionStatus: 'connected',
+          needsAccountSelection: true,
+        }}
+      />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /select google ads account/i })
+    );
+    await screen.findByRole('radio', { name: /••••7890/i });
+    fireEvent.click(screen.getByRole('button', { name: /save account/i }));
+
+    await waitFor(() => expect(onSynced).toHaveBeenCalledTimes(1));
+  });
+
+  it('renders only metrics supplied by the reporting provider', () => {
+    render(
+      <GoogleAdsReportingCard
+        reporting={{
+          accountName: 'Baci reporting account',
+          connectionStatus: 'connected',
+          currency: 'NGN',
+          metrics: {
+            clicks: 48,
+            conversions: 3,
+            ctr: 2.4,
+            impressions: 2000,
+            spend: 12500,
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText('Spend')).toBeInTheDocument();
+    expect(screen.getByText('Impressions')).toBeInTheDocument();
+    expect(screen.getByText('Clicks')).toBeInTheDocument();
+    expect(screen.getByText('CTR')).toBeInTheDocument();
+    expect(screen.getByText('Conversions')).toBeInTheDocument();
+    expect(screen.queryByText('CPC')).not.toBeInTheDocument();
+    expect(screen.queryByText('ROAS')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('Source: Google Ads reporting')
+    ).toBeInTheDocument();
+  });
+
+  it('shows ROAS only when the server supplies an attributed-revenue basis', () => {
+    const { rerender } = render(
+      <GoogleAdsReportingCard
+        reporting={{
+          connectionStatus: 'connected',
+          metrics: { roas: 2.1 },
+        }}
+      />
+    );
+
+    expect(screen.queryByText('ROAS')).not.toBeInTheDocument();
+
+    rerender(
+      <GoogleAdsReportingCard
+        reporting={{
+          connectionStatus: 'connected',
+          currency: 'NGN',
+          metrics: {
+            endDate: '2026-08-21T00:00:00.000Z',
+            roas: 2.1,
+            roasBasis: 'baci-attributed-revenue',
+            spend: 1000,
+            startDate: '2026-08-01T00:00:00.000Z',
+          },
+        }}
+      />
+    );
+
+    expect(screen.getByText('ROAS')).toBeInTheDocument();
+    expect(
+      screen.getByText(/roas uses baci-attributed revenue/i)
+    ).toBeInTheDocument();
+  });
+});

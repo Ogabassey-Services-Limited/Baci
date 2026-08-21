@@ -1,8 +1,14 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
+import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { analyticsDashboardSpecializedSchemas } from '@/schemas/analytics-dashboard-specialized';
 
 /**
  * Inventory Alerts API
@@ -27,7 +33,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const { searchParams } = new URL(request.url);
+    const parsedQuery =
+      analyticsDashboardSpecializedSchemas.inventoryAlertsQuery.safeParse({
+        status: searchParams.get('status') ?? undefined,
+        type: searchParams.get('type') ?? undefined,
+      });
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+    }
+
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -35,15 +58,21 @@ export async function GET(request: NextRequest) {
       );
     }
     const merchantId = merchantContext.merchantId;
-
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status') || 'active';
-    const alertType = searchParams.get('type');
+    if (!hasPermission(toUserAccess(merchantContext), 'products', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const { status, type: alertType } = parsedQuery.data;
 
     let query = supabase
       .from('inventory_alerts')
       .select(`
-        *,
+        id,
+        alert_type,
+        current_stock,
+        status,
+        product_id,
+        variant_id,
+        created_at,
         products (
           id,
           name,
@@ -100,16 +129,6 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // CSRF protection
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -120,7 +139,37 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+    const parsedBody =
+      analyticsDashboardSpecializedSchemas.inventoryAlertsAction.safeParse(
+        body
+      );
+    if (!parsedBody.success) {
+      return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+    }
+
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -128,23 +177,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
     const merchantId = merchantContext.merchantId;
-
-    const body = await request.json();
-    const { alertIds, action } = body;
-
-    if (!alertIds || !Array.isArray(alertIds) || alertIds.length === 0) {
-      return NextResponse.json(
-        { error: 'alertIds array is required' },
-        { status: 400 }
-      );
+    if (!hasPermission(toUserAccess(merchantContext), 'products', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
-    if (!['acknowledge', 'resolve'].includes(action)) {
-      return NextResponse.json(
-        { error: 'action must be "acknowledge" or "resolve"' },
-        { status: 400 }
-      );
-    }
+    const { action, alertIds } = parsedBody.data;
 
     const updates: Record<string, unknown> = {
       updated_at: new Date().toISOString(),

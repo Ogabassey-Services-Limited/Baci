@@ -15,17 +15,20 @@ import {
 import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
 
 // Module-scope helper keeps the try/finally out of the component body
 // (React Compiler cannot lower try/finally inside components yet).
 async function fetchBaseAnalytics({
   from,
+  merchantId,
   to,
   signal,
   setBaseAnalytics,
   setLoadingAnalytics,
 }: {
   from: Date;
+  merchantId: string;
   to: Date;
   signal: AbortSignal;
   setBaseAnalytics: Dispatch<SetStateAction<AnalyticsData | null>>;
@@ -38,6 +41,7 @@ async function fetchBaseAnalytics({
       endDate: to.toISOString(),
     });
     const response = await fetch(`/api/analytics?${queryParams.toString()}`, {
+      headers: { 'x-baci-merchant-id': merchantId },
       signal,
     });
     if (response.ok) {
@@ -100,27 +104,12 @@ export default function AnalyticsClientPage() {
     Partial<AnalyticsData>
   >({});
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
 
   // Derived state
   const analyticsData: AnalyticsData | null = baseAnalytics
     ? { ...baseAnalytics, ...categoryAnalytics }
     : null;
-
-  // Placeholder fetch functions for specialized categories - implementation pending
-  const fetchInventoryData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
-
-  const fetchSegmentData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
-
-  const fetchAdAnalyticsData = () => {
-    // TODO: Implement actual data fetching
-    return {};
-  };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
@@ -130,6 +119,7 @@ export default function AnalyticsClientPage() {
 
     fetchBaseAnalytics({
       from: date.from,
+      merchantId: merchant.id,
       to: date.to,
       signal: controller.signal,
       setBaseAnalytics,
@@ -137,41 +127,45 @@ export default function AnalyticsClientPage() {
     });
 
     return () => controller.abort();
-  }, [merchant?.id, date]);
+  }, [date.from, date.to, merchant?.id]);
 
   // Fetch specialized data when category changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
-    let isCancelled = false;
+    const controller = new AbortController();
+    setCategoryAnalytics({});
 
-    async function fetchCategoryData() {
-      if (!merchant) return;
-
-      let newData = {};
-
-      try {
-        if (activeCategory === 'inventory') {
-          newData = await fetchInventoryData();
-        } else if (activeCategory === 'segments') {
-          newData = await fetchSegmentData();
-        } else if (activeCategory === 'ads') {
-          newData = await fetchAdAnalyticsData();
-        }
-
-        if (!isCancelled) {
-          setCategoryAnalytics(newData);
-        }
-      } catch (error) {
-        console.error('Error fetching category data:', error);
-      }
+    if (!merchant || !date.from || !date.to) {
+      return () => controller.abort();
     }
 
-    fetchCategoryData();
+    fetchAnalyticsCategoryData({
+      category: activeCategory,
+      from: date.from,
+      merchantId: merchant.id,
+      refreshKey: analyticsRefreshKey > 0 ? analyticsRefreshKey : undefined,
+      signal: controller.signal,
+      to: date.to,
+    })
+      .then((categoryData) => {
+        if (!controller.signal.aborted) {
+          setCategoryAnalytics(categoryData);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        console.error('Error fetching category analytics:', error);
+        if (!controller.signal.aborted) {
+          setCategoryAnalytics({});
+        }
+      });
 
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeCategory, merchant?.id]);
+    return () => controller.abort();
+  }, [activeCategory, analyticsRefreshKey, date.from, date.to, merchant?.id]);
+
+  const handleAdsReportingSynced = () => {
+    setAnalyticsRefreshKey((currentKey) => currentKey + 1);
+  };
 
   const handleExport = async (format: 'csv' | 'pdf') => {
     if (!analyticsData) {
@@ -256,6 +250,7 @@ export default function AnalyticsClientPage() {
         loading={loadingAnalytics}
         activeCategory={activeCategory}
         merchant={merchant}
+        onAdsReportingSynced={handleAdsReportingSynced}
       />
     </div>
   );

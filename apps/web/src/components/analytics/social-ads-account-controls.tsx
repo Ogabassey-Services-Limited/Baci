@@ -1,0 +1,293 @@
+'use client';
+
+import {
+  AlertCircle,
+  Check,
+  ListRestart,
+  Loader2,
+  RefreshCcw,
+} from 'lucide-react';
+import { useState } from 'react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { fetchWithCsrf } from '@/lib/api-client';
+import type { SocialAdsProvider } from './social-ads-reporting-card';
+
+interface SocialAdsAccount {
+  accountId: string;
+  currencyCode: string | null;
+  label: string;
+  selected: boolean;
+  timezoneName: string | null;
+}
+
+interface SocialAdsAccountControlsProps {
+  displayName: string;
+  needsAccountSelection: boolean;
+  onSynced?: () => void;
+  provider: SocialAdsProvider;
+}
+
+const PROVIDER_PATH_SEGMENT: Record<SocialAdsProvider, string> = {
+  meta_ads: 'meta',
+  snapchat_ads: 'snapchat',
+  tiktok_ads: 'tiktok',
+};
+
+function defaultSyncWindow() {
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 30);
+  return {
+    endDate: end.toISOString().slice(0, 10),
+    startDate: start.toISOString().slice(0, 10),
+  };
+}
+
+async function responseError(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: unknown };
+    return typeof payload.error === 'string' ? payload.error : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function parseAccounts(value: unknown): SocialAdsAccount[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const row = item as Record<string, unknown>;
+    if (typeof row.accountId !== 'string' || typeof row.label !== 'string') {
+      return [];
+    }
+    return [
+      {
+        accountId: row.accountId,
+        currencyCode:
+          typeof row.currencyCode === 'string' ? row.currencyCode : null,
+        label: row.label,
+        selected: row.selected === true,
+        timezoneName:
+          typeof row.timezoneName === 'string' ? row.timezoneName : null,
+      },
+    ];
+  });
+}
+
+export function SocialAdsAccountControls({
+  displayName,
+  needsAccountSelection,
+  onSynced,
+  provider,
+}: SocialAdsAccountControlsProps) {
+  const path = `/api/integrations/ads/${PROVIDER_PATH_SEGMENT[provider]}`;
+  const [accounts, setAccounts] = useState<SocialAdsAccount[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isChoosing, setIsChoosing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadAccounts = async () => {
+    setIsChoosing(true);
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${path}/accounts`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        throw new Error(
+          await responseError(
+            response,
+            `Unable to load ${displayName} accounts.`
+          )
+        );
+      }
+      const payload = (await response.json()) as { accounts?: unknown };
+      const nextAccounts = parseAccounts(payload.accounts);
+      setAccounts(nextAccounts);
+      setSelectedId(
+        nextAccounts.find((account) => account.selected)?.accountId ??
+          nextAccounts[0]?.accountId ??
+          null
+      );
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : `Unable to load ${displayName} accounts.`
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const sync = async () => {
+    const response = await fetchWithCsrf(`${path}/sync`, {
+      body: JSON.stringify(defaultSyncWindow()),
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error(
+        await responseError(response, `Unable to sync ${displayName}.`)
+      );
+    }
+  };
+
+  const syncNow = async () => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await sync();
+      onSynced?.();
+    } catch (syncError) {
+      setError(
+        syncError instanceof Error
+          ? syncError.message
+          : `Unable to sync ${displayName}.`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const saveAccount = async () => {
+    if (!selectedId) return;
+    setIsSaving(true);
+    setError(null);
+    try {
+      const response = await fetchWithCsrf(`${path}/accounts`, {
+        body: JSON.stringify({ accountId: selectedId }),
+        method: 'PATCH',
+      });
+      if (!response.ok) {
+        throw new Error(
+          await responseError(
+            response,
+            `Unable to select ${displayName} account.`
+          )
+        );
+      }
+      await sync();
+      setAccounts((current) =>
+        current.map((account) => ({
+          ...account,
+          selected: account.accountId === selectedId,
+        }))
+      );
+      setIsChoosing(false);
+      onSynced?.();
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : `Unable to select ${displayName} account.`
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {!isChoosing && (
+        <div className="flex flex-wrap gap-2">
+          {!needsAccountSelection && (
+            <Button
+              disabled={isSaving}
+              onClick={syncNow}
+              size="sm"
+              type="button"
+            >
+              {isSaving ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="size-4" />
+              )}
+              Sync now
+            </Button>
+          )}
+          <Button
+            onClick={loadAccounts}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <ListRestart className="size-4" />
+            {needsAccountSelection ? 'Select account' : 'Change account'}
+          </Button>
+        </div>
+      )}
+
+      {isChoosing && isLoading && (
+        <div
+          className="flex items-center gap-2 text-sm text-muted-foreground"
+          role="status"
+        >
+          <Loader2 className="size-4 animate-spin" />
+          Loading {displayName} accounts…
+        </div>
+      )}
+
+      {isChoosing && !isLoading && accounts.length === 0 && !error && (
+        <p className="text-sm text-muted-foreground">
+          No accessible {displayName} accounts were found.
+        </p>
+      )}
+
+      {isChoosing && !isLoading && accounts.length > 0 && (
+        <div
+          aria-label={`${displayName} accounts`}
+          className="space-y-2"
+          role="radiogroup"
+        >
+          {accounts.map((account) => (
+            <label
+              className="flex cursor-pointer items-center justify-between rounded-lg border p-2 text-sm"
+              key={account.accountId}
+            >
+              <span>
+                {account.label}
+                {(account.currencyCode || account.timezoneName) && (
+                  <span className="block text-xs text-muted-foreground">
+                    {[account.currencyCode, account.timezoneName]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                )}
+              </span>
+              <input
+                checked={selectedId === account.accountId}
+                name={`${provider}-account`}
+                onChange={() => setSelectedId(account.accountId)}
+                type="radio"
+              />
+            </label>
+          ))}
+          <Button
+            disabled={isSaving || !selectedId}
+            onClick={saveAccount}
+            size="sm"
+            type="button"
+          >
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
+            Save account and sync
+          </Button>
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}

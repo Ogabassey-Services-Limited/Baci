@@ -1,0 +1,44 @@
+import { describe, expect, it } from 'vitest';
+import { mapGoogleAdsReporting } from './google-ads-analytics-mapper';
+
+describe('mapGoogleAdsReporting', () => {
+  it('maps daily provider snapshots without exposing customer identifiers', () => {
+    const result = mapGoogleAdsReporting({
+      connected: true,
+      currencyCode: 'NGN',
+      customerId: '1234567890',
+      daily: [
+        {
+          clicks: 12,
+          conversions: 2,
+          impressions: 1200,
+          spend: 500,
+        },
+      ],
+    });
+
+    expect(result).toMatchObject({
+      connectionStatus: 'connected',
+      currency: 'NGN',
+      metrics: {
+        clicks: 12,
+        conversions: 2,
+        impressions: 1200,
+        spend: 500,
+      },
+    });
+    expect(result).not.toHaveProperty('customerId');
+  });
+
+  it('keeps missing values undefined instead of inventing zero metrics', () => {
+    expect(
+      mapGoogleAdsReporting({ connected: true, customerId: null })
+    ).toMatchObject({
+      connectionStatus: 'connected',
+      needsAccountSelection: true,
+    });
+    expect(
+      mapGoogleAdsReporting({ connected: true, customerId: null })?.metrics
+    ).toBeUndefined();
+  });
+});

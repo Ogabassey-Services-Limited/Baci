@@ -1,7 +1,9 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
 import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
 import { fetchAnalyticsPlatformConfig } from '@/lib/analytics/analytics-platform-config';
+import { fetchAdReportingSnapshots } from '@/lib/analytics/fetch-ad-reporting-snapshots';
 import { hasPermission } from '@/lib/api-auth';
 import { cache, generateCacheKey } from '@/lib/cache';
 import {
@@ -9,6 +11,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { analyticsQuerySchema } from '@/schemas/analytics-query';
 
 /**
  * Ad Conversion Analytics API
@@ -33,17 +36,6 @@ interface PlatformStats {
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Process-local analytics cache write only; no user or database state is mutated by GET.
 export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const startDateParam = searchParams.get('startDate');
-    const endDateParam = searchParams.get('endDate');
-
-    // Default to last 30 days if no dates provided
-    const now = new Date();
-    const endDate = endDateParam ? new Date(endDateParam) : now;
-    const startDate = startDateParam
-      ? new Date(startDateParam)
-      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
 
@@ -55,8 +47,37 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const { searchParams } = new URL(request.url);
+    const parsedQuery = analyticsQuerySchema.safeParse({
+      cacheBust: searchParams.get('cacheBust') || undefined,
+      endDate: searchParams.get('endDate') || undefined,
+      startDate: searchParams.get('startDate') || undefined,
+    });
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        { code: 'INVALID_QUERY', error: 'Invalid query parameters' },
+        { status: 400 }
+      );
+    }
+
+    // Default to last 30 days if no dates provided
+    const now = new Date();
+    const endDate = parsedQuery.data.endDate
+      ? new Date(parsedQuery.data.endDate)
+      : now;
+    const startDate = parsedQuery.data.startDate
+      ? new Date(parsedQuery.data.startDate)
+      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
     // Resolve merchant context (supports both owners and staff members)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -88,7 +109,10 @@ export async function GET(request: Request) {
     );
 
     // Try cached data (5 minute TTL)
-    const cachedData = cache.get<Record<string, unknown>>(cacheKey);
+    const shouldBypassCache = parsedQuery.data.cacheBust !== undefined;
+    const cachedData = shouldBypassCache
+      ? undefined
+      : cache.get<Record<string, unknown>>(cacheKey);
     if (cachedData) {
       return NextResponse.json(cachedData);
     }
@@ -109,6 +133,16 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
+
+    // Spend snapshots are optional: an unconnected merchant or a not-yet-run
+    // sync must not erase the conversion analytics response. Keep the provider
+    // credentials out of this projection and expose only reporting metadata.
+    const { googleAds, socialAds } = await fetchAdReportingSnapshots({
+      endDate: endDate.toISOString().slice(0, 10),
+      merchantId,
+      startDate: startDate.toISOString().slice(0, 10),
+      supabase,
+    });
 
     // Calculate platform stats
     const platformStats: Record<string, PlatformStats> = {
@@ -269,10 +303,14 @@ export async function GET(request: Request) {
         ordersWithClickIds,
         ordersWithLDU,
       },
+      socialAds,
+      ...(googleAds ? { googleAds } : {}),
     };
 
     // Cache for 5 minutes
-    cache.set(cacheKey, responseData, 300);
+    if (!shouldBypassCache) {
+      cache.set(cacheKey, responseData, 300);
+    }
 
     return NextResponse.json(responseData);
   } catch (error) {

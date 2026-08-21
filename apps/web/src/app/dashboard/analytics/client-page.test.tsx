@@ -1,8 +1,12 @@
-import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { render, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mockUseSearchParams = vi.hoisted(() =>
+  vi.fn(() => new URLSearchParams())
+);
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: vi.fn(() => new URLSearchParams()),
+  useSearchParams: mockUseSearchParams,
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
@@ -19,7 +23,16 @@ vi.mock('@/lib/analytics-export', () => ({
 }));
 vi.mock('@/components/analytics/analytics-category-nav', () => ({
   AnalyticsCategoryNav: () => null,
-  VALID_CATEGORIES: ['overview'],
+  VALID_CATEGORIES: [
+    'overview',
+    'finance',
+    'products',
+    'customers',
+    'marketing',
+    'inventory',
+    'segments',
+    'ads',
+  ],
 }));
 vi.mock('@/components/analytics/analytics-filters', () => ({
   AnalyticsFilters: () => null,
@@ -34,8 +47,95 @@ vi.mock('@/components/ui/bag-loader', () => ({
 import AnalyticsClientPage from './client-page';
 
 describe('AnalyticsClientPage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    mockUseSearchParams.mockReturnValue(new URLSearchParams());
+  });
+
   it('renders without crashing', () => {
     const { container } = render(<AnalyticsClientPage />);
     expect(container).toBeDefined();
+  });
+
+  it('loads inventory analytics for the selected merchant and date range', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=inventory')
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.includes('/api/analytics?')) {
+          return new Response(JSON.stringify({}), { status: 200 });
+        }
+        if (url.includes('/api/inventory/alerts?')) {
+          return new Response(
+            JSON.stringify({
+              alerts: [
+                {
+                  alert_type: 'low_stock',
+                  current_stock: 2,
+                  id: 'alert-1',
+                  products: { name: 'Phone' },
+                  status: 'active',
+                },
+              ],
+            }),
+            { status: 200 }
+          );
+        }
+        if (url.includes('/api/inventory/forecast?')) {
+          return new Response(
+            JSON.stringify({
+              forecasts: [
+                {
+                  avgDailySales: 1,
+                  currentStock: 2,
+                  daysOfStock: 2,
+                  productId: 'product-1',
+                  productName: 'Phone',
+                  salesTrend: 'increasing',
+                },
+              ],
+              summary: { critical: 1, outOfStock: 0, warning: 0 },
+            }),
+            { status: 200 }
+          );
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      });
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('/api/inventory/alerts?')
+        )
+      ).toBe(true);
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes('/api/inventory/forecast?')
+        )
+      ).toBe(true);
+    });
+
+    const baseRequest = fetchMock.mock.calls.find(([input]) =>
+      String(input).includes('/api/analytics?')
+    );
+    expect(baseRequest?.[1]).toEqual(
+      expect.objectContaining({
+        headers: { 'x-baci-merchant-id': 'm-1' },
+      })
+    );
+
+    const inventoryRequest = fetchMock.mock.calls.find(([input]) =>
+      String(input).includes('/api/inventory/alerts?')
+    );
+    expect(inventoryRequest?.[1]).toEqual(
+      expect.objectContaining({
+        headers: { 'x-baci-merchant-id': 'm-1' },
+      })
+    );
   });
 });

@@ -1,8 +1,14 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
+import { hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { createClient } from '@/lib/supabase/server';
+import { analyticsDashboardSpecializedSchemas } from '@/schemas/analytics-dashboard-specialized';
 
 /**
  * Inventory Forecasting API
@@ -51,7 +57,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const { searchParams } = new URL(request.url);
+    const parsedQuery =
+      analyticsDashboardSpecializedSchemas.inventoryForecastQuery.safeParse({
+        limit: searchParams.get('limit') ?? undefined,
+        lowStockOnly: searchParams.get('lowStockOnly') ?? undefined,
+        page: searchParams.get('page') ?? undefined,
+        productId: searchParams.get('productId') ?? undefined,
+      });
+    if (!parsedQuery.success) {
+      return NextResponse.json({ error: 'Invalid query' }, { status: 400 });
+    }
+
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: requestedMerchant.merchantId,
+    });
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -59,15 +84,10 @@ export async function GET(request: NextRequest) {
       );
     }
     const merchantId = merchantContext.merchantId;
-
-    const { searchParams } = new URL(request.url);
-    const productId = searchParams.get('productId');
-    const lowStockOnly = searchParams.get('lowStockOnly') === 'true';
-    const page = Number.parseInt(searchParams.get('page') || '1', 10);
-    const limit = Math.min(
-      Number.parseInt(searchParams.get('limit') || '20', 10),
-      100
-    );
+    if (!hasPermission(toUserAccess(merchantContext), 'products', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+    const { limit, lowStockOnly, page, productId } = parsedQuery.data;
     const offset = (page - 1) * limit;
 
     // If specific product requested

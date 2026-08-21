@@ -1,5 +1,6 @@
 'use client';
 
+import type { MerchantAnalyticsResponse } from '@baci/shared';
 import {
   Activity,
   AlertTriangle,
@@ -30,16 +31,45 @@ import {
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import {
+  type AnalyticsDetailWidgetId,
+  AnalyticsDetailWidgets,
+} from '@/components/analytics/analytics-detail-widgets';
+import { hydrateDashboardLayoutConfig } from '@/components/analytics/analytics-grid-layout-hydration';
+import {
+  ANALYTICS_WIDGET_IDS_BY_CATEGORY,
+  type Layouts,
+  resolveCategoryLayouts,
+} from '@/components/analytics/analytics-grid-layouts';
+import {
   RevenueChart,
   SalesByChannelChart,
 } from '@/components/analytics/chart-components';
 import { formatMetricChange } from '@/components/analytics/format-metric-change';
+import {
+  GoogleAdsReportingCard,
+  type GoogleAdsReportingData,
+} from '@/components/analytics/google-ads-reporting-card';
+import {
+  SocialAdsReportingCard,
+  type SocialAdsReportingData,
+} from '@/components/analytics/social-ads-reporting-card';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { MerchantData } from '@/hooks/merchant/types';
-import { saveDashboardLayoutPreference } from '@/lib/analytics/save-dashboard-layout-preference';
+import {
+  fetchDashboardLayoutPreference,
+  saveDashboardLayoutPreference,
+} from '@/lib/analytics/save-dashboard-layout-preference';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
+
+const ANALYTICS_DETAIL_WIDGET_IDS: readonly AnalyticsDetailWidgetId[] = [
+  'orders-chart',
+  'brand-breakdown',
+  'customer-breakdown',
+  'supplier-breakdown',
+  'blog-performance',
+];
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -76,10 +106,6 @@ const PERCENT_FORMATTER = new Intl.NumberFormat('en-US', {
 function loadGridLayoutStyles(): void {
   import('react-grid-layout/css/styles.css');
   import('react-resizable/css/styles.css');
-}
-
-function resolveCategoryLayouts(activeCategory: string): Layouts {
-  return CATEGORY_LAYOUTS[activeCategory] ?? DEFAULT_LAYOUTS;
 }
 
 interface MetricData {
@@ -121,7 +147,10 @@ interface ProductRecord {
   sku?: string;
   revenue: number;
   units?: number;
-  sales?: number;
+}
+
+export function formatTopProductUnits(units: number | undefined): string {
+  return `${units ?? 0} units sold`;
 }
 
 // ... other interfaces unchanged ...
@@ -148,6 +177,7 @@ export interface SegmentInfo {
   count: number;
   avg_clv?: number;
   avg_order_value?: number;
+  total_revenue?: number;
 }
 
 export interface SegmentSummary {
@@ -166,8 +196,8 @@ export interface AdPlatformData {
 }
 
 export interface AdAnalyticsSummary {
-  totalSpend: number;
-  totalRoas: number;
+  totalSpend?: number;
+  totalRoas?: number;
   totalOrders: number;
   trackingRate: number;
   clickAttributionRate: number;
@@ -179,9 +209,12 @@ export interface AdAnalyticsSummary {
 export interface AdAnalyticsDetails {
   ordersWithClickIds: number;
   ordersWithLDU: number;
+  ordersWithTracking: number;
 }
 
 export interface AdAnalyticsData {
+  googleAds?: GoogleAdsReportingData;
+  socialAds?: SocialAdsReportingData;
   summary: AdAnalyticsSummary;
   details: AdAnalyticsDetails;
   platforms: AdPlatformData[];
@@ -190,296 +223,48 @@ export interface AdAnalyticsData {
 }
 
 export interface AnalyticsData {
+  blog?: MerchantAnalyticsResponse['blog'];
+  brandBreakdown?: MerchantAnalyticsResponse['brandBreakdown'];
   summary?: AnalyticsSummary;
-  chartData?: Array<{ date: string; revenue: number }>;
+  chartData?: MerchantAnalyticsResponse['chartData'];
+  customerBreakdown?: MerchantAnalyticsResponse['customerBreakdown'];
   revenueOverTime?: unknown[];
   salesByChannel?: Array<{ name: string; value: number }>;
   salesByPaymentMethod?: Array<{ name: string; value: number }>;
   recentSales?: SaleRecord[];
   topProducts?: ProductRecord[];
+  supplierAnalytics?: MerchantAnalyticsResponse['supplierAnalytics'];
+  topBrand?: MerchantAnalyticsResponse['topBrand'];
+  topCustomer?: MerchantAnalyticsResponse['topCustomer'];
+  topPaymentMethod?: MerchantAnalyticsResponse['topPaymentMethod'];
+  topSupplier?: MerchantAnalyticsResponse['topSupplier'];
   paymentMethods?: Array<{ name: string; value: number }>;
   // Inventory data
   inventoryAlerts?: InventoryAlert[];
   inventoryForecasts?: InventoryForecast[];
   lowStockCount?: number;
   outOfStockCount?: number;
+  resolvedInventoryAlertCount?: number;
   // Segment data
   segmentSummary?: SegmentSummary;
   // Ad analytics data
   adAnalytics?: AdAnalyticsData;
 }
 
-type Layouts = ResponsiveLayouts;
-
 interface DraggableAnalyticsGridProps {
   data: AnalyticsData;
   loading: boolean;
   activeCategory: AnalyticsCategory;
   merchant: MerchantData | null;
+  onAdsReportingSynced?: () => void;
 }
-
-const DEFAULT_LAYOUTS: Layouts = {
-  lg: [
-    // Row 1: Primary KPIs (3 cards across -> w: 4)
-    { i: 'summary-revenue', x: 0, y: 0, w: 4, h: 1 },
-    { i: 'summary-orders', x: 4, y: 0, w: 4, h: 1 },
-    { i: 'summary-profit', x: 8, y: 0, w: 4, h: 1 },
-
-    // Row 2: Primary KPIs continued
-    { i: 'summary-customers', x: 0, y: 1, w: 4, h: 1 },
-    { i: 'summary-tax', x: 4, y: 1, w: 4, h: 1 },
-    { i: 'summary-active', x: 8, y: 1, w: 4, h: 1 },
-
-    // Row 3: Secondary KPIs (4 cards across -> w: 3)
-    { i: 'summary-aov', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-margin', x: 3, y: 2, w: 3, h: 1 },
-    { i: 'summary-refund-rate', x: 6, y: 2, w: 3, h: 1 },
-    { i: 'summary-revenue-per-customer', x: 9, y: 2, w: 3, h: 1 },
-
-    // Row 4: Payment Methods (fits in 4 cols flow?)
-    // Payment methods was w:4 h:2. Let's keep it similar or adapt.
-    // In CSS grid secondary, payment methods was explicitly NOT in the secondary grid (lines 649-686).
-    // It was in "Charts & Detailed Views Grid" (line 689) which is lg:grid-cols-3.
-    // So Payment Methods is in a 3-col grid. w: 4 is correct for 12-col grid.
-
-    // Row 4: Charts & Detailed Views (3 cols -> w: 4)
-    { i: 'revenue-chart', x: 0, y: 3, w: 8, h: 3 }, // Spans 2 cols (2/3) -> w: 8
-    { i: 'payment-methods', x: 8, y: 3, w: 4, h: 3 }, // Spans 1 col (1/3) -> w: 4
-
-    // Row 5: Lists (stacked)
-    { i: 'sales-channel', x: 0, y: 6, w: 6, h: 3 },
-    { i: 'recent-sales', x: 6, y: 6, w: 6, h: 3 },
-    { i: 'top-products', x: 0, y: 9, w: 12, h: 3 },
-
-    // Inventory widgets
-    { i: 'inventory-summary', x: 0, y: 0, w: 3, h: 1 },
-    { i: 'inventory-alerts', x: 3, y: 0, w: 4, h: 2 },
-    { i: 'inventory-forecast', x: 7, y: 0, w: 5, h: 3 },
-    { i: 'low-stock-products', x: 0, y: 1, w: 3, h: 2 },
-
-    // Segment widgets
-    { i: 'segment-overview', x: 0, y: 0, w: 3, h: 2 },
-    { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
-    { i: 'at-risk-customers', x: 6, y: 0, w: 3, h: 2 },
-    { i: 'champions-list', x: 9, y: 0, w: 3, h: 2 },
-
-    // Ad analytics widgets
-    { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
-    { i: 'ads-platforms', x: 6, y: 0, w: 6, h: 2 },
-    { i: 'ads-attribution', x: 0, y: 2, w: 6, h: 2 },
-    { i: 'ads-privacy', x: 6, y: 2, w: 6, h: 2 },
-  ],
-  md: [
-    // On md (10 cols), make cards take full width or half width
-    { i: 'sales-channel', x: 5, y: 0, w: 5, h: 3 },
-    { i: 'summary-revenue', x: 0, y: 0, w: 5, h: 1 },
-    { i: 'summary-orders', x: 5, y: 1, w: 5, h: 1 },
-    { i: 'summary-profit', x: 5, y: 1, w: 5, h: 1 },
-    { i: 'summary-customers', x: 0, y: 1, w: 5, h: 1 },
-    { i: 'summary-tax', x: 0, y: 1, w: 5, h: 1 },
-    { i: 'summary-active', x: 0, y: 2, w: 5, h: 1 },
-    { i: 'summary-aov', x: 0, y: 2, w: 5, h: 1 },
-    { i: 'summary-margin', x: 5, y: 2, w: 5, h: 1 },
-    { i: 'summary-refund-rate', x: 5, y: 2, w: 5, h: 1 },
-    { i: 'summary-revenue-per-customer', x: 0, y: 3, w: 5, h: 1 },
-    { i: 'revenue-chart', x: 0, y: 4, w: 10, h: 3 },
-    { i: 'payment-methods', x: 0, y: 7, w: 5, h: 3 },
-    { i: 'recent-sales', x: 0, y: 10, w: 5, h: 3 },
-    { i: 'top-products', x: 5, y: 10, w: 5, h: 3 },
-    { i: 'inventory-alerts', x: 0, y: 0, w: 5, h: 2 },
-    { i: 'inventory-forecast', x: 5, y: 0, w: 5, h: 3 },
-    { i: 'inventory-summary', x: 0, y: 2, w: 5, h: 1 },
-    { i: 'low-stock-products', x: 5, y: 3, w: 5, h: 2 },
-    { i: 'segment-overview', x: 0, y: 0, w: 5, h: 2 },
-    { i: 'segment-distribution', x: 5, y: 0, w: 5, h: 2 },
-    { i: 'at-risk-customers', x: 0, y: 2, w: 5, h: 2 },
-    { i: 'champions-list', x: 5, y: 2, w: 5, h: 2 },
-    { i: 'ads-overview', x: 0, y: 0, w: 5, h: 2 },
-    { i: 'ads-platforms', x: 5, y: 0, w: 5, h: 2 },
-    { i: 'ads-attribution', x: 0, y: 2, w: 5, h: 2 },
-    { i: 'ads-privacy', x: 5, y: 2, w: 5, h: 2 },
-  ],
-  sm: [
-    // On sm (6 cols), stack in 2 columns
-    { i: 'sales-channel', x: 0, y: 10, w: 6, h: 3 },
-    { i: 'summary-revenue', x: 0, y: 0, w: 3, h: 1 },
-    { i: 'summary-orders', x: 3, y: 0, w: 3, h: 1 },
-    { i: 'summary-profit', x: 3, y: 0, w: 3, h: 1 },
-    { i: 'summary-customers', x: 0, y: 1, w: 3, h: 1 },
-    { i: 'summary-tax', x: 0, y: 1, w: 3, h: 1 },
-    { i: 'summary-active', x: 3, y: 1, w: 3, h: 1 },
-    { i: 'summary-aov', x: 3, y: 1, w: 3, h: 1 },
-    { i: 'summary-margin', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-refund-rate', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'summary-revenue-per-customer', x: 3, y: 2, w: 3, h: 1 },
-    { i: 'revenue-chart', x: 0, y: 3, w: 6, h: 3 },
-    { i: 'payment-methods', x: 0, y: 6, w: 6, h: 3 },
-    { i: 'recent-sales', x: 0, y: 13, w: 6, h: 3 },
-    { i: 'top-products', x: 0, y: 16, w: 6, h: 3 },
-    { i: 'inventory-alerts', x: 0, y: 0, w: 3, h: 2 },
-    { i: 'inventory-forecast', x: 3, y: 0, w: 3, h: 3 },
-    { i: 'inventory-summary', x: 0, y: 2, w: 3, h: 1 },
-    { i: 'low-stock-products', x: 0, y: 3, w: 6, h: 2 },
-    { i: 'segment-overview', x: 0, y: 0, w: 3, h: 2 },
-    { i: 'segment-distribution', x: 3, y: 0, w: 3, h: 2 },
-    { i: 'at-risk-customers', x: 0, y: 2, w: 6, h: 2 },
-    { i: 'champions-list', x: 0, y: 4, w: 6, h: 2 },
-    { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
-    { i: 'ads-platforms', x: 0, y: 2, w: 6, h: 2 },
-    { i: 'ads-attribution', x: 0, y: 4, w: 6, h: 2 },
-    { i: 'ads-privacy', x: 0, y: 6, w: 6, h: 2 },
-  ],
-  xs: [
-    // On xs (4 cols), cards take 2 or 4 cols
-    { i: 'sales-channel', x: 0, y: 10, w: 4, h: 3 },
-    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
-    { i: 'summary-orders', x: 2, y: 0, w: 2, h: 1 },
-    { i: 'summary-profit', x: 2, y: 0, w: 2, h: 1 },
-    { i: 'summary-customers', x: 0, y: 1, w: 2, h: 1 },
-    { i: 'summary-tax', x: 0, y: 1, w: 2, h: 1 },
-    { i: 'summary-active', x: 2, y: 1, w: 2, h: 1 },
-    { i: 'summary-aov', x: 2, y: 1, w: 2, h: 1 },
-    { i: 'summary-margin', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-refund-rate', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-revenue-per-customer', x: 2, y: 2, w: 2, h: 1 },
-    { i: 'revenue-chart', x: 0, y: 3, w: 4, h: 3 },
-    { i: 'payment-methods', x: 0, y: 6, w: 4, h: 3 },
-    { i: 'recent-sales', x: 0, y: 13, w: 4, h: 3 },
-    { i: 'top-products', x: 0, y: 16, w: 4, h: 3 },
-    { i: 'inventory-alerts', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'inventory-forecast', x: 2, y: 0, w: 2, h: 3 },
-    { i: 'inventory-summary', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'low-stock-products', x: 0, y: 3, w: 4, h: 2 },
-    { i: 'segment-overview', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'segment-distribution', x: 2, y: 0, w: 2, h: 2 },
-    { i: 'at-risk-customers', x: 0, y: 2, w: 4, h: 2 },
-    { i: 'champions-list', x: 0, y: 4, w: 4, h: 2 },
-    { i: 'ads-overview', x: 0, y: 0, w: 4, h: 2 },
-    { i: 'ads-platforms', x: 0, y: 2, w: 4, h: 2 },
-    { i: 'ads-attribution', x: 0, y: 4, w: 4, h: 2 },
-    { i: 'ads-privacy', x: 0, y: 6, w: 4, h: 2 },
-  ],
-  xxs: [
-    // On xxs (2 cols), everything full width
-    { i: 'sales-channel', x: 0, y: 10, w: 2, h: 3 },
-    { i: 'summary-revenue', x: 0, y: 0, w: 2, h: 1 },
-    { i: 'summary-orders', x: 0, y: 1, w: 2, h: 1 },
-    { i: 'summary-profit', x: 0, y: 1, w: 2, h: 1 },
-    { i: 'summary-customers', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-tax', x: 0, y: 2, w: 2, h: 1 },
-    { i: 'summary-active', x: 0, y: 3, w: 2, h: 1 },
-    { i: 'summary-aov', x: 0, y: 3, w: 2, h: 1 },
-    { i: 'summary-margin', x: 0, y: 4, w: 2, h: 1 },
-    { i: 'summary-refund-rate', x: 0, y: 4, w: 2, h: 1 },
-    { i: 'summary-revenue-per-customer', x: 0, y: 5, w: 2, h: 1 },
-    { i: 'revenue-chart', x: 0, y: 6, w: 2, h: 3 },
-    { i: 'payment-methods', x: 0, y: 9, w: 2, h: 3 },
-    { i: 'recent-sales', x: 0, y: 13, w: 2, h: 3 },
-    { i: 'top-products', x: 0, y: 16, w: 2, h: 3 },
-    { i: 'inventory-alerts', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'inventory-forecast', x: 0, y: 2, w: 2, h: 3 },
-    { i: 'inventory-summary', x: 0, y: 5, w: 2, h: 1 },
-    { i: 'low-stock-products', x: 0, y: 6, w: 2, h: 2 },
-    { i: 'segment-overview', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'segment-distribution', x: 0, y: 2, w: 2, h: 2 },
-    { i: 'at-risk-customers', x: 0, y: 4, w: 2, h: 2 },
-    { i: 'champions-list', x: 0, y: 6, w: 2, h: 2 },
-    { i: 'ads-overview', x: 0, y: 0, w: 2, h: 2 },
-    { i: 'ads-platforms', x: 0, y: 2, w: 2, h: 2 },
-    { i: 'ads-attribution', x: 0, y: 4, w: 2, h: 2 },
-    { i: 'ads-privacy', x: 0, y: 6, w: 2, h: 2 },
-  ],
-};
-
-const CATEGORY_LAYOUTS: Record<string, Layouts> = {
-  products: {
-    lg: [
-      { i: 'summary-orders', x: 0, y: 0, w: 3, h: 1 },
-      { i: 'summary-refund-rate', x: 3, y: 0, w: 3, h: 1 },
-      { i: 'top-products', x: 6, y: 0, w: 6, h: 4 },
-    ],
-    md: [
-      { i: 'summary-orders', x: 0, y: 0, w: 5, h: 1 },
-      { i: 'summary-refund-rate', x: 5, y: 0, w: 5, h: 1 },
-      { i: 'top-products', x: 0, y: 1, w: 10, h: 4 },
-    ],
-    sm: [
-      { i: 'summary-orders', x: 0, y: 0, w: 3, h: 1 },
-      { i: 'summary-refund-rate', x: 3, y: 0, w: 3, h: 1 },
-      { i: 'top-products', x: 0, y: 1, w: 6, h: 4 },
-    ],
-    xs: [
-      { i: 'summary-orders', x: 0, y: 0, w: 2, h: 1 },
-      { i: 'summary-refund-rate', x: 2, y: 0, w: 2, h: 1 },
-      { i: 'top-products', x: 0, y: 1, w: 4, h: 4 },
-    ],
-    xxs: [
-      { i: 'summary-orders', x: 0, y: 0, w: 2, h: 1 },
-      { i: 'summary-refund-rate', x: 0, y: 1, w: 2, h: 1 },
-      { i: 'top-products', x: 0, y: 2, w: 2, h: 4 },
-    ],
-  },
-  customers: {
-    lg: [
-      { i: 'summary-customers', x: 0, y: 0, w: 3, h: 1 },
-      { i: 'summary-active', x: 3, y: 0, w: 3, h: 1 },
-    ],
-    md: [
-      { i: 'summary-customers', x: 0, y: 0, w: 5, h: 1 },
-      { i: 'summary-active', x: 5, y: 0, w: 5, h: 1 },
-    ],
-    sm: [
-      { i: 'summary-customers', x: 0, y: 0, w: 3, h: 1 },
-      { i: 'summary-active', x: 3, y: 0, w: 3, h: 1 },
-    ],
-    xs: [
-      { i: 'summary-customers', x: 0, y: 0, w: 2, h: 1 },
-      { i: 'summary-active', x: 2, y: 0, w: 2, h: 1 },
-    ],
-    xxs: [
-      { i: 'summary-customers', x: 0, y: 0, w: 2, h: 1 },
-      { i: 'summary-active', x: 0, y: 1, w: 2, h: 1 },
-    ],
-  },
-  ads: {
-    lg: [
-      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
-      { i: 'ads-platforms', x: 6, y: 0, w: 6, h: 2 },
-      { i: 'ads-attribution', x: 0, y: 2, w: 6, h: 2 },
-      { i: 'ads-privacy', x: 6, y: 2, w: 6, h: 2 },
-    ],
-    md: [
-      { i: 'ads-overview', x: 0, y: 0, w: 5, h: 2 },
-      { i: 'ads-platforms', x: 5, y: 0, w: 5, h: 2 },
-      { i: 'ads-attribution', x: 0, y: 2, w: 5, h: 2 },
-      { i: 'ads-privacy', x: 5, y: 2, w: 5, h: 2 },
-    ],
-    sm: [
-      { i: 'ads-overview', x: 0, y: 0, w: 6, h: 2 },
-      { i: 'ads-platforms', x: 0, y: 2, w: 6, h: 2 },
-      { i: 'ads-attribution', x: 0, y: 4, w: 6, h: 2 },
-      { i: 'ads-privacy', x: 0, y: 6, w: 6, h: 2 },
-    ],
-    xs: [
-      { i: 'ads-overview', x: 0, y: 0, w: 4, h: 2 },
-      { i: 'ads-platforms', x: 0, y: 2, w: 4, h: 2 },
-      { i: 'ads-attribution', x: 0, y: 4, w: 4, h: 2 },
-      { i: 'ads-privacy', x: 0, y: 6, w: 4, h: 2 },
-    ],
-    xxs: [
-      { i: 'ads-overview', x: 0, y: 0, w: 2, h: 2 },
-      { i: 'ads-platforms', x: 0, y: 2, w: 2, h: 2 },
-      { i: 'ads-attribution', x: 0, y: 4, w: 2, h: 2 },
-      { i: 'ads-privacy', x: 0, y: 6, w: 2, h: 2 },
-    ],
-  },
-};
 
 export function DraggableAnalyticsGrid({
   data,
   loading,
   activeCategory,
   merchant,
+  onAdsReportingSynced,
 }: DraggableAnalyticsGridProps) {
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -492,23 +277,67 @@ export function DraggableAnalyticsGrid({
     resolveCategoryLayouts(activeCategory)
   );
   const [prevCategory, setPrevCategory] = useState(activeCategory);
+  const [prevMerchantId, setPrevMerchantId] = useState(merchant?.id);
 
   // Sync layouts to the active category during render (instead of an effect)
   // so users never see a stale layout between the prop change and the commit.
-  if (activeCategory !== prevCategory) {
+  if (activeCategory !== prevCategory || merchant?.id !== prevMerchantId) {
     setPrevCategory(activeCategory);
+    setPrevMerchantId(merchant?.id);
     setLayouts(resolveCategoryLayouts(activeCategory));
   }
 
+  // Hydrate the selected merchant/category layout after the default layout is
+  // in place. Abort and generation checks prevent stale responses from a
+  // previous merchant or category overwriting the active layout.
+  useEffect(() => {
+    if (!merchant?.id) return;
+
+    const controller = new AbortController();
+
+    void fetchDashboardLayoutPreference(merchant.id, controller.signal)
+      .then((layoutConfig) => {
+        if (controller.signal.aborted) return;
+
+        const hydratedLayouts = hydrateDashboardLayoutConfig(
+          layoutConfig,
+          activeCategory
+        );
+        if (hydratedLayouts) {
+          setLayouts(hydratedLayouts);
+        }
+      })
+      .catch((error: unknown) => {
+        if (
+          controller.signal.aborted ||
+          (error instanceof Error && error.name === 'AbortError')
+        ) {
+          return;
+        }
+        console.error('Failed to hydrate dashboard layout:', error);
+      });
+
+    return () => controller.abort();
+  }, [activeCategory, merchant?.id]);
+
   // Save layout change
-  const onLayoutChange = (currentLayout: Layout, allLayouts: Layouts) => {
-    setLayouts(allLayouts);
+  const onLayoutChange = (
+    _currentLayout: Layout,
+    allLayouts: ResponsiveLayouts
+  ) => {
+    const completeLayouts: Layouts = {
+      ...resolveCategoryLayouts(activeCategory),
+      ...allLayouts,
+    };
+    setLayouts(completeLayouts);
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
     // Fire-and-forget pattern for saving layout preferences
-    void saveDashboardLayoutPreference(currentLayout).catch((error) => {
-      console.error('Failed to save layout:', error);
-    });
+    void saveDashboardLayoutPreference(completeLayouts, merchant?.id).catch(
+      (error) => {
+        console.error('Failed to save layout:', error);
+      }
+    );
   };
 
   const atRiskSegment = data?.segmentSummary?.segments?.find(
@@ -525,7 +354,10 @@ export function DraggableAnalyticsGrid({
         {/* AI Insights skeleton - already handled by AIInsightsPanel */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0 w-full">
-            <AIInsightsPanel activeCategory={activeCategory} />
+            <AIInsightsPanel
+              activeCategory={activeCategory}
+              merchantId={merchant?.id}
+            />
           </div>
         </div>
         {/* Grid skeleton */}
@@ -576,62 +408,11 @@ export function DraggableAnalyticsGrid({
 
   // Filter widgets based on active category
   const isWidgetVisible = (key: string) => {
-    // Overview shows all standard widgets but not specialized inventory/segment/ads widgets
     if (activeCategory === 'overview') {
-      const specializedWidgets = [
-        'inventory-alerts',
-        'inventory-forecast',
-        'inventory-summary',
-        'low-stock-products',
-        'segment-overview',
-        'segment-distribution',
-        'at-risk-customers',
-        'champions-list',
-        'ads-overview',
-        'ads-platforms',
-        'ads-attribution',
-        'ads-privacy',
-      ];
-      return !specializedWidgets.includes(key);
+      return ANALYTICS_WIDGET_IDS_BY_CATEGORY.overview.includes(key);
     }
 
-    const categoryMap: Record<string, string[]> = {
-      finance: [
-        'summary-revenue',
-        'revenue-chart',
-        'recent-sales',
-        'summary-profit',
-        'summary-tax',
-        'payment-methods',
-        'summary-aov',
-        'summary-margin',
-        'summary-revenue-per-customer',
-        'financial-summary',
-      ],
-      products: [
-        'summary-orders',
-        'top-products',
-        'summary-refund-rate',
-        'summary-units',
-      ],
-      customers: ['summary-customers', 'summary-active'],
-      marketing: ['sales-channel'],
-      inventory: [
-        'inventory-alerts',
-        'inventory-forecast',
-        'inventory-summary',
-        'low-stock-products',
-      ],
-      segments: [
-        'segment-overview',
-        'segment-distribution',
-        'at-risk-customers',
-        'champions-list',
-      ],
-      ads: ['ads-overview', 'ads-platforms', 'ads-attribution', 'ads-privacy'],
-    };
-
-    return categoryMap[activeCategory]?.includes(key);
+    return ANALYTICS_WIDGET_IDS_BY_CATEGORY[activeCategory]?.includes(key);
   };
 
   const summary = data?.summary || {
@@ -703,6 +484,7 @@ export function DraggableAnalyticsGrid({
   );
 
   const { chartData, recentSales, topProducts, salesByChannel } = data || {};
+  const paymentMethods = data?.salesByPaymentMethod ?? [];
 
   if (!isEditMode) {
     // VIEW MODE: Use native CSS Grid for perfect responsiveness
@@ -710,7 +492,10 @@ export function DraggableAnalyticsGrid({
       <div className="w-full max-w-full overflow-hidden space-y-4">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0 w-full">
-            <AIInsightsPanel activeCategory={activeCategory} />
+            <AIInsightsPanel
+              activeCategory={activeCategory}
+              merchantId={merchant?.id}
+            />
           </div>
           <Button
             variant="outline"
@@ -747,7 +532,7 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit 📈',
+              'Gross Profit 📈',
               formatCurrency(summary.profit?.value || 0),
               summary.profit?.change || 0,
               DollarSign,
@@ -777,7 +562,7 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-active') &&
             renderMetricCard(
               'summary-active',
-              'Active Now 🟢',
+              'Orders Last Hour 🟢',
               summary.activeNow.value.toString(),
               summary.activeNow.change,
               Activity,
@@ -834,13 +619,88 @@ export function DraggableAnalyticsGrid({
             )}
         </div>
 
+        {isWidgetVisible('analytics-highlights') && (
+          <BentoCard title="Business Highlights ✨" className="w-full">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded-xl bg-primary/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Top brand
+                </p>
+                <p className="mt-2 truncate text-lg font-bold">
+                  {data.topBrand?.name || 'No brand data'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.topBrand
+                    ? formatCurrency(
+                        data.topBrand.revenue ?? data.topBrand.value
+                      )
+                    : '—'}
+                </p>
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Top supplier
+                </p>
+                <p className="mt-2 truncate text-lg font-bold">
+                  {data.topSupplier?.supplierName || 'No supplier data'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.topSupplier
+                    ? `${formatCurrency(data.topSupplier.grossProfit)} gross profit`
+                    : '—'}
+                </p>
+              </div>
+              <div className="rounded-xl bg-blue-500/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Blog views
+                </p>
+                <p className="mt-2 text-lg font-bold">
+                  {(data.blog?.totalViews || 0).toLocaleString()}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.blog?.publishedPosts || 0} published posts
+                </p>
+              </div>
+              <div className="rounded-xl bg-amber-500/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Top payment method
+                </p>
+                <p className="mt-2 truncate text-lg font-bold">
+                  {data.topPaymentMethod?.name || 'No payment data'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.topPaymentMethod
+                    ? `${data.topPaymentMethod.value.toFixed(1)}% of payment revenue`
+                    : '—'}
+                </p>
+              </div>
+              <div className="rounded-xl bg-violet-500/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Top customer
+                </p>
+                <p className="mt-2 truncate text-lg font-bold">
+                  {data.topCustomer?.name || 'No customer data'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {data.topCustomer
+                    ? `${formatCurrency(data.topCustomer.revenue ?? 0)} revenue`
+                    : '—'}
+                </p>
+              </div>
+            </div>
+          </BentoCard>
+        )}
+
         {/* Charts & Detailed Views Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Revenue Chart - Spans 2 columns on lg */}
           {isWidgetVisible('revenue-chart') && (
             <div className="lg:col-span-2 min-h-[400px]">
               <BentoCard title="Revenue Over Time" className="h-full">
-                <RevenueChart data={chartData || []} />
+                <RevenueChart
+                  data={chartData || []}
+                  valueFormatter={formatCurrency}
+                />
               </BentoCard>
             </div>
           )}
@@ -873,7 +733,9 @@ export function DraggableAnalyticsGrid({
                         <div key={pm.name} className="space-y-2">
                           <div className="flex justify-between text-sm">
                             <span>{pm.name}</span>
-                            <span className="font-medium">{percentage}%</span>
+                            <span className="font-medium">
+                              {formatCurrency(pm.value)} · {percentage}%
+                            </span>
                           </div>
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div
@@ -946,12 +808,29 @@ export function DraggableAnalyticsGrid({
           </div>
         )}
 
+        {/* Additional base analytics breakdowns */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {ANALYTICS_DETAIL_WIDGET_IDS.map((widgetId) =>
+            isWidgetVisible(widgetId) ? (
+              <AnalyticsDetailWidgets
+                data={data}
+                formatCurrency={formatCurrency}
+                key={widgetId}
+                widgetId={widgetId}
+              />
+            ) : null
+          )}
+        </div>
+
         {/* Bottom Lists Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {isWidgetVisible('sales-channel') && (
             <div className="min-h-[350px]">
               <BentoCard title="Sales by Channel 📊" className="h-full">
-                <SalesByChannelChart data={salesByChannel || []} />
+                <SalesByChannelChart
+                  data={salesByChannel || []}
+                  valueFormatter={formatCurrency}
+                />
               </BentoCard>
             </div>
           )}
@@ -1017,7 +896,7 @@ export function DraggableAnalyticsGrid({
                           {product.name}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {product.sales} sales
+                          {formatTopProductUnits(product.units)}
                         </div>
                       </div>
                     </div>
@@ -1193,7 +1072,7 @@ export function DraggableAnalyticsGrid({
                       <p className="text-sm text-muted-foreground">
                         Orders tracked with ad click IDs for better attribution
                       </p>
-                      <div className="grid grid-cols-3 gap-3">
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div className="p-3 rounded-lg bg-blue-500/10 text-center">
                           <div className="text-xl font-bold text-blue-600">
                             {data.adAnalytics.summary.trackingRate}%
@@ -1218,11 +1097,20 @@ export function DraggableAnalyticsGrid({
                             With Click IDs
                           </div>
                         </div>
+                        <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
+                          <div className="text-xl font-bold text-emerald-600">
+                            {data.adAnalytics.details.ordersWithTracking}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            With Tracking
+                          </div>
+                        </div>
                       </div>
                       <div className="text-xs text-muted-foreground mt-4">
                         Click IDs (fbclid, ttclid, gclid, sccid) help platforms
                         attribute conversions to the original ad click for
-                        better ROAS measurement.
+                        better attribution. Ad spend and ROAS appear after a
+                        reporting account is connected.
                       </div>
                     </div>
                   ) : (
@@ -1280,6 +1168,23 @@ export function DraggableAnalyticsGrid({
                 </BentoCard>
               </div>
             )}
+
+            {isWidgetVisible('ads-reporting') && (
+              <div className="min-h-[300px] lg:col-span-2">
+                <GoogleAdsReportingCard
+                  onSynced={onAdsReportingSynced}
+                  reporting={data?.adAnalytics?.googleAds}
+                />
+              </div>
+            )}
+            {isWidgetVisible('social-ads-reporting') && (
+              <div className="min-h-[300px] lg:col-span-2">
+                <SocialAdsReportingCard
+                  onSynced={onAdsReportingSynced}
+                  reporting={data?.adAnalytics?.socialAds}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1291,7 +1196,10 @@ export function DraggableAnalyticsGrid({
     <div className="w-full">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
         <div className="flex-1 min-w-0 w-full">
-          <AIInsightsPanel activeCategory={activeCategory} />
+          <AIInsightsPanel
+            activeCategory={activeCategory}
+            merchantId={merchant?.id}
+          />
         </div>
         <Button
           variant="default"
@@ -1354,10 +1262,19 @@ export function DraggableAnalyticsGrid({
               Users,
               (summary.revenuePerCustomer?.change || 0) >= 0 ? 'up' : 'down'
             )}
+          {isWidgetVisible('summary-units') &&
+            renderMetricCard(
+              'summary-units',
+              'Units Sold 🛒',
+              (summary.totalUnitsSold || 0).toString(),
+              0,
+              Package,
+              'up'
+            )}
           {isWidgetVisible('summary-profit') &&
             renderMetricCard(
               'summary-profit',
-              'Net Profit 📈',
+              'Gross Profit 📈',
               formatCurrency(summary.profit?.value || 0),
               summary.profit?.change || 0,
               DollarSign,
@@ -1376,28 +1293,184 @@ export function DraggableAnalyticsGrid({
               (summary.taxDue?.change || 0) <= 0 ? 'up' : 'down'
             )}
 
+          {isWidgetVisible('analytics-highlights') && (
+            <div key="analytics-highlights">
+              <BentoCard title="Business Highlights ✨" className="h-full">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="rounded-xl bg-primary/5 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Top brand
+                    </p>
+                    <p className="mt-2 truncate text-lg font-bold">
+                      {data.topBrand?.name || 'No brand data'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.topBrand
+                        ? formatCurrency(
+                            data.topBrand.revenue ?? data.topBrand.value
+                          )
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-emerald-500/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Top supplier
+                    </p>
+                    <p className="mt-2 truncate text-lg font-bold">
+                      {data.topSupplier?.supplierName || 'No supplier data'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.topSupplier
+                        ? `${formatCurrency(data.topSupplier.grossProfit)} gross profit`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-blue-500/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Blog views
+                    </p>
+                    <p className="mt-2 text-lg font-bold">
+                      {(data.blog?.totalViews || 0).toLocaleString()}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.blog?.publishedPosts || 0} published posts
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-amber-500/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Top payment method
+                    </p>
+                    <p className="mt-2 truncate text-lg font-bold">
+                      {data.topPaymentMethod?.name || 'No payment data'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.topPaymentMethod
+                        ? `${data.topPaymentMethod.value.toFixed(1)}% of payment revenue`
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-violet-500/10 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Top customer
+                    </p>
+                    <p className="mt-2 truncate text-lg font-bold">
+                      {data.topCustomer?.name || 'No customer data'}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {data.topCustomer
+                        ? `${formatCurrency(data.topCustomer.revenue ?? 0)} revenue`
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+              </BentoCard>
+            </div>
+          )}
+
+          {isWidgetVisible('financial-summary') && (
+            <div key="financial-summary">
+              <BentoCard title="Financial Position 🏦" className="h-full">
+                <div className="grid grid-cols-1 gap-6 rounded-2xl bg-slate-900 p-4 text-white md:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Subtotal
+                    </p>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(summary.subtotal || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Shipping
+                    </p>
+                    <p className="text-2xl font-bold text-blue-400">
+                      {formatCurrency(summary.shipping || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Tax (VAT)
+                    </p>
+                    <p className="text-2xl font-bold text-purple-400">
+                      {formatCurrency(summary.tax || 0)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                      Discounts
+                    </p>
+                    <p className="text-2xl font-bold text-red-400">
+                      -{formatCurrency(summary.discounts || 0)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between border-t border-border/50 p-4">
+                  <span className="text-lg font-bold">Net Sales</span>
+                  <span className="text-2xl font-black text-primary">
+                    {formatCurrency(summary.revenue.value)}
+                  </span>
+                </div>
+              </BentoCard>
+            </div>
+          )}
+
+          {ANALYTICS_DETAIL_WIDGET_IDS.map((widgetId) =>
+            isWidgetVisible(widgetId) ? (
+              <AnalyticsDetailWidgets
+                data={data}
+                formatCurrency={formatCurrency}
+                key={widgetId}
+                widgetId={widgetId}
+              />
+            ) : null
+          )}
+
           {isWidgetVisible('payment-methods') && (
             <div key="payment-methods">
               <BentoCard title="Payment Methods 💳" className="h-full">
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Credit Card</span>
-                      <span className="font-medium">65%</span>
+                  {paymentMethods.length ? (
+                    paymentMethods.map((pm, idx) => {
+                      const totalValue = paymentMethods.reduce(
+                        (acc, curr) => acc + curr.value,
+                        0
+                      );
+                      const percentage = totalValue
+                        ? Math.round((pm.value / totalValue) * 100)
+                        : 0;
+                      const colors = [
+                        'bg-primary',
+                        'bg-blue-500',
+                        'bg-purple-500',
+                        'bg-amber-500',
+                        'bg-slate-500',
+                      ];
+
+                      return (
+                        <div key={pm.name} className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>{pm.name}</span>
+                            <span className="font-medium">
+                              {formatCurrency(pm.value)} · {percentage}%
+                            </span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full',
+                                colors[idx % colors.length]
+                              )}
+                              style={{ width: `${percentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-sm italic text-muted-foreground">
+                      No payment data available
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-primary w-[65%]" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>PayPal</span>
-                      <span className="font-medium">35%</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-500 w-[35%]" />
-                    </div>
-                  </div>
+                  )}
                 </div>
               </BentoCard>
             </div>
@@ -1433,7 +1506,7 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('summary-active') &&
             renderMetricCard(
               'summary-active',
-              'Active Now 🟢',
+              'Orders Last Hour 🟢',
               summary.activeNow.value.toString(),
               summary.activeNow.change,
               Activity,
@@ -1443,7 +1516,10 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('revenue-chart') && (
             <div key="revenue-chart">
               <BentoCard title="Revenue Over Time" className="h-full">
-                <RevenueChart data={data?.chartData || []} />
+                <RevenueChart
+                  data={data?.chartData || []}
+                  valueFormatter={formatCurrency}
+                />
               </BentoCard>
             </div>
           )}
@@ -1479,7 +1555,10 @@ export function DraggableAnalyticsGrid({
           {isWidgetVisible('sales-channel') && (
             <div key="sales-channel">
               <BentoCard title="Sales by Channel 📊" className="h-full">
-                <SalesByChannelChart data={data?.salesByChannel || []} />
+                <SalesByChannelChart
+                  data={data?.salesByChannel || []}
+                  valueFormatter={formatCurrency}
+                />
               </BentoCard>
             </div>
           )}
@@ -1499,7 +1578,7 @@ export function DraggableAnalyticsGrid({
                         <div>
                           <p className="text-sm font-medium">{product.name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {product.sales ?? 0} sales
+                            {formatTopProductUnits(product.units)}
                           </p>
                         </div>
                       </div>
@@ -1540,9 +1619,7 @@ export function DraggableAnalyticsGrid({
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-500">
-                      {data?.inventoryAlerts?.filter(
-                        (a) => a.status === 'resolved'
-                      ).length || 0}
+                      {data?.resolvedInventoryAlertCount || 0}
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Resolved
@@ -1873,12 +1950,12 @@ export function DraggableAnalyticsGrid({
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30 text-center">
                       <div className="text-lg font-bold">
-                        {championsSegment?.avg_order_value
-                          ? formatCurrency(championsSegment.avg_order_value)
+                        {championsSegment?.total_revenue
+                          ? formatCurrency(championsSegment.total_revenue)
                           : 'N/A'}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        Avg Order
+                        Segment Revenue
                       </div>
                     </div>
                     <div className="p-3 rounded-lg bg-muted/30 text-center">
@@ -1898,6 +1975,23 @@ export function DraggableAnalyticsGrid({
                   </p>
                 </div>
               </BentoCard>
+            </div>
+          )}
+
+          {isWidgetVisible('ads-reporting') && (
+            <div key="ads-reporting">
+              <GoogleAdsReportingCard
+                onSynced={onAdsReportingSynced}
+                reporting={data?.adAnalytics?.googleAds}
+              />
+            </div>
+          )}
+          {isWidgetVisible('social-ads-reporting') && (
+            <div key="social-ads-reporting">
+              <SocialAdsReportingCard
+                onSynced={onAdsReportingSynced}
+                reporting={data?.adAnalytics?.socialAds}
+              />
             </div>
           )}
         </ResponsiveGridLayout>
