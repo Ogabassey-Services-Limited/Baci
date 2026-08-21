@@ -1,5 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
-import { Alert, Image, Linking, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Alert, Linking, Pressable, Text, View } from 'react-native';
 import { TrackOrderTimelineCard } from '@/components/track-order/TrackOrderTimelineCard';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
@@ -193,6 +194,8 @@ function TrackOrderItemsCard({
             <Image
               source={{ uri: item.product_image }}
               style={styles.itemImage}
+              contentFit="cover"
+              autoplay={false}
             />
           ) : (
             <View

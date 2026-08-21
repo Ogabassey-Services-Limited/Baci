@@ -1,5 +1,6 @@
 import { formatOrderItemOptionLabel } from '@baci/shared/lib';
-import { Image, Text, TouchableOpacity, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Text, TouchableOpacity, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
@@ -46,6 +47,8 @@ export function OrderDetailsItemsCard({
                 uri: item.image_url || 'https://via.placeholder.com/80',
               }}
               style={styles.itemImage}
+              contentFit="cover"
+              autoplay={false}
               accessible
               accessibilityRole="image"
               accessibilityLabel={`${item.product_name || 'Product'} image`}
