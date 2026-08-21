@@ -105,7 +105,7 @@ function parseReportRows(
     if (!row) return [];
     const dimensions = record(row.dimensions);
     const metrics = record(row.metrics);
-    const advertiserId = dimensions?.advertiser_id ?? row.advertiser_id;
+    const advertiserId = dimensions?.advertiser_id;
     const rawDate = dimensions?.stat_time_day;
     const date = typeof rawDate === 'string' ? rawDate.slice(0, 10) : '';
     const spend = metrics?.spend;
@@ -123,7 +123,8 @@ function parseReportRows(
       !ISO_DATE.test(date) ||
       typeof spend !== 'string' ||
       !DECIMAL.test(spend) ||
-      (advertiserId !== undefined && advertiserId !== fallback.accountId) ||
+      typeof advertiserId !== 'string' ||
+      advertiserId !== fallback.accountId ||
       typeof currency !== 'string' ||
       !/^[A-Z]{3}$/.test(currency) ||
       typeof timezone !== 'string' ||

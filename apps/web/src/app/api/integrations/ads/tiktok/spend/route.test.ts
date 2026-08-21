@@ -48,4 +48,51 @@ describe('TikTok Ads spend route', () => {
       ).status
     ).toBe(403);
   });
+
+  it('returns exact decimal provider-labelled spend to an authorized analytics reader', async () => {
+    const query = {
+      eq: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
+      order: vi.fn(),
+      select: vi.fn(),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.gte.mockReturnValue(query);
+    query.lte.mockReturnValue(query);
+    query.order.mockResolvedValue({
+      data: [
+        {
+          account_timezone: 'Africa/Lagos',
+          attribution_metadata: { provider: 'tiktok_ads' },
+          clicks: '2',
+          conversions: '1',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-20T00:00:00Z',
+          impressions: '10',
+          provider_customer_id: 'opaque-001',
+          reach: '8',
+          spend_amount_decimal: '1.000000001',
+          spend_date: '2026-08-20',
+        },
+      ],
+      error: null,
+    });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn(() => query) },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/spend')
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      currencyCode: 'NGN',
+      rows: [expect.objectContaining({ spendAmountDecimal: '1.000000001' })],
+    });
+  });
 });

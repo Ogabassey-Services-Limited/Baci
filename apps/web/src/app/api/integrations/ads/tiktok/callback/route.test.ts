@@ -19,8 +19,12 @@ vi.mock('@/lib/ads/tiktok/oauth', () => ({
   exchangeTikTokAdsAuthorizationCode: (...args: unknown[]) => exchange(...args),
   TikTokAdsOAuthError: class TikTokAdsOAuthError extends Error {},
 }));
+const encrypt = vi.fn<(token: string, key: string, provider: string) => string>(
+  () => 'v2.tiktok_ads.iv.tag.ciphertext'
+);
 vi.mock('@/lib/ads/crypto', () => ({
-  encryptAdsToken: vi.fn(),
+  encryptAdsToken: (token: string, key: string, provider: string) =>
+    encrypt(token, key, provider),
   timingSafeStringEqual: (...args: unknown[]) => compare(...args),
 }));
 vi.mock('@/lib/ads/tiktok/config', () => ({
@@ -79,6 +83,40 @@ describe('TikTok Ads callback route', () => {
     );
     expect(response.headers.get('location')).toContain(
       'reason=required_scopes_missing'
+    );
+  });
+
+  it('accepts exact state and required scopes then persists only encrypted token metadata', async () => {
+    const rpc = vi.fn().mockResolvedValue({ error: null });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({ merchantId: 'merchant' });
+    exchange.mockResolvedValue({
+      accessToken: 'token',
+      advertiserIds: ['opaque-001'],
+      scopes: ['44', '100'],
+    });
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/callback?state=state&code=code',
+        { headers: { cookie: 'baci_tiktok_ads_oauth_state=state' } }
+      )
+    );
+    expect(response.headers.get('location')).toContain('tiktok_ads=connected');
+    expect(encrypt).toHaveBeenCalledWith('token', 'key', 'tiktok_ads');
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.objectContaining({
+        p_access_token_ciphertext: 'v2.tiktok_ads.iv.tag.ciphertext',
+        p_refresh_token_ciphertext: null,
+        p_scopes: ['44', '100'],
+      })
     );
   });
 });

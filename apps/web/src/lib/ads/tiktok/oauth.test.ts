@@ -32,15 +32,18 @@ describe('TikTok Ads OAuth', () => {
         })
       )
     );
+    const acquire = vi.fn().mockResolvedValue(undefined);
     await expect(
       exchangeTikTokAdsAuthorizationCode(
         { appId: 'app', appSecret: 'secret', code: 'code' },
-        fetchImpl
+        fetchImpl,
+        acquire
       )
     ).resolves.toEqual({
       accessToken: 'token',
       advertiserIds: ['opaque-id'],
       scopes: ['44', '100'],
     });
+    expect(acquire).toHaveBeenCalledOnce();
   });
 });

@@ -13,6 +13,17 @@ const csrf = vi.fn();
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
 }));
+const sync = vi.fn();
+vi.mock('@/lib/ads/tiktok/sync', () => ({
+  syncTikTokAdsSpendForMerchant: (...args: unknown[]) => sync(...args),
+  TikTokAdsSyncError: class TikTokAdsSyncError extends Error {},
+}));
+vi.mock('@/lib/ads/tiktok/config', () => ({
+  TikTokAdsConfigError: class TikTokAdsConfigError extends Error {},
+}));
+vi.mock('@/lib/ads/tiktok/provider', () => ({
+  TikTokAdsProviderError: class TikTokAdsProviderError extends Error {},
+}));
 
 import { POST } from './route';
 
@@ -57,5 +68,32 @@ describe('TikTok Ads sync route', () => {
         )
       ).status
     ).toBe(400);
+  });
+
+  it('runs an authenticated valid CSRF/Zod sync and returns the normalized success', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: true });
+    sync.mockResolvedValue({ accountId: 'opaque-001', rowsWritten: 2 });
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
+        body: JSON.stringify({
+          startDate: '2026-08-01',
+          endDate: '2026-08-31',
+        }),
+        method: 'POST',
+      })
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      accountId: 'opaque-001',
+      rowsWritten: 2,
+      synced: true,
+    });
   });
 });

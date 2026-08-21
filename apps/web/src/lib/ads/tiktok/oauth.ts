@@ -3,6 +3,7 @@ import 'server-only';
 import { z } from 'zod';
 import type { TikTokAdsConfig } from './config';
 import { TIKTOK_ADS_API_ROOT } from './constants';
+import { tiktokAdsProviderRateLimiter } from './rate-limit';
 
 export class TikTokAdsOAuthError extends Error {
   readonly code: string;
@@ -46,8 +47,10 @@ export function buildTikTokAdsAuthorizationUrl(
 
 export async function exchangeTikTokAdsAuthorizationCode(
   input: Pick<TikTokAdsConfig, 'appId' | 'appSecret'> & { code: string },
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  acquire: () => Promise<void> = () => tiktokAdsProviderRateLimiter.acquire()
 ): Promise<TikTokAdsGrant> {
+  await acquire();
   const response = await fetchImpl(
     `${TIKTOK_ADS_API_ROOT}/oauth2/access_token/`,
     {
