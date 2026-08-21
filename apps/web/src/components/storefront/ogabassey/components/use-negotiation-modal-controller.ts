@@ -1,0 +1,237 @@
+import {
+  COUNTER_NEGOTIATION_DISCOUNT_STEPS,
+  isProductNegotiable,
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+} from '@baci/shared/lib';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { CartItem } from '@/hooks/cart';
+import { createClient } from '@/lib/supabase/client';
+import { computeCounterOffer } from './negotiation-modal-pricing';
+import { submitNegotiationUpload } from './negotiation-modal-upload';
+
+export type NegotiationStatus =
+  | 'input'
+  | 'processing'
+  | 'success'
+  | 'failed'
+  | 'final'
+  | 'upload'
+  | 'submitted';
+
+interface NegotiationControllerOptions {
+  cart?: CartItem[];
+  condition?: string;
+  currentPrice: number;
+  isOpen: boolean;
+  itemId?: string;
+  merchantId: string;
+  onSuccess: (finalPrice: number) => void;
+  productBrand?: string;
+  productName: string;
+  productSlug?: string;
+  type: 'single' | 'total';
+  variantAttributes?: Record<string, string>;
+  variantId?: string;
+  variantName?: string;
+  vatRate: number;
+}
+
+const AI_REVIEW_MESSAGE =
+  'Your offer was accepted by our AI and is subject to human review.';
+const FINAL_PRICE_MESSAGE =
+  "That's the final price for this product. We can't discount it further.";
+const COUNTER_OFFER_REPLIES = [
+  "That's a bit low. But I can do:",
+  "We're getting closer. The best I can do is:",
+  'This is my absolute final offer:',
+] as const;
+export function useNegotiationModalController({
+  cart,
+  condition,
+  currentPrice,
+  isOpen,
+  itemId,
+  merchantId,
+  onSuccess,
+  productBrand,
+  productName,
+  productSlug,
+  type,
+  variantAttributes,
+  variantId,
+  variantName,
+  vatRate,
+}: NegotiationControllerOptions) {
+  const [offer, setOffer] = useState('');
+  const [status, setStatus] = useState<NegotiationStatus>('input');
+  const [message, setMessage] = useState('');
+  const [attemptCount, setAttemptCount] = useState(0);
+  const [counterOffer, setCounterOffer] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadLink, setUploadLink] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [supabase] = useState(() => createClient());
+  const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
+
+  const clearSubmitTimeout = () => {
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current);
+      submitTimeoutRef.current = null;
+    }
+  };
+  const canApplyAsyncResult = () => isMountedRef.current && isOpenRef.current;
+
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) {
+      setOffer('');
+      setStatus('input');
+      setMessage('');
+      setAttemptCount(0);
+      setCounterOffer(null);
+      setUploadFile(null);
+      setUploadLink('');
+      setEmail('');
+      setPhone('');
+    }
+  }
+
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+    clearSubmitTimeout();
+  }, [isOpen]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      clearSubmitTimeout();
+    };
+  }, []);
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!offer) return;
+
+    const offerAmount = Number.parseFloat(offer);
+    if (
+      !Number.isFinite(offerAmount) ||
+      offerAmount <= 0 ||
+      offerAmount > currentPrice
+    ) {
+      setMessage(
+        `Enter an offer between ₦1 and ₦${currentPrice.toLocaleString()}.`
+      );
+      return;
+    }
+
+    setMessage('');
+    setStatus('processing');
+    clearSubmitTimeout();
+    submitTimeoutRef.current = setTimeout(() => {
+      submitTimeoutRef.current = null;
+      if (!canApplyAsyncResult()) return;
+
+      const discountAmount = currentPrice - offerAmount;
+      if (
+        discountAmount > Number.EPSILON &&
+        !isProductNegotiable({ brand: productBrand, name: productName })
+      ) {
+        setCounterOffer(null);
+        setMessage(FINAL_PRICE_MESSAGE);
+        setStatus('final');
+        return;
+      }
+
+      if (
+        discountAmount <=
+        currentPrice * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE + Number.EPSILON
+      ) {
+        setMessage(AI_REVIEW_MESSAGE);
+        setStatus('success');
+        onSuccess(offerAmount);
+        return;
+      }
+
+      const step = Math.min(
+        attemptCount,
+        COUNTER_NEGOTIATION_DISCOUNT_STEPS.length - 1
+      );
+      setCounterOffer(
+        computeCounterOffer(
+          currentPrice,
+          COUNTER_NEGOTIATION_DISCOUNT_STEPS[step],
+          vatRate
+        )
+      );
+      setMessage(
+        COUNTER_OFFER_REPLIES[
+          Math.min(step, COUNTER_OFFER_REPLIES.length - 1)
+        ] ?? COUNTER_OFFER_REPLIES[COUNTER_OFFER_REPLIES.length - 1]
+      );
+      setStatus('failed');
+      setAttemptCount((count) => count + 1);
+    }, 1500);
+  };
+
+  const handleUploadSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    await submitNegotiationUpload({
+      canApplyAsyncResult,
+      cart,
+      condition,
+      currentPrice,
+      email,
+      itemId,
+      merchantId,
+      offer,
+      phone,
+      productBrand,
+      productName,
+      productSlug,
+      setMessage,
+      setStatus,
+      supabase,
+      type,
+      uploadFile,
+      uploadLink,
+      variantAttributes,
+      variantId,
+      variantName,
+    });
+  };
+
+  const handleAcceptCounter = () => {
+    if (!counterOffer) return;
+    setMessage(AI_REVIEW_MESSAGE);
+    setStatus('success');
+    onSuccess(counterOffer);
+  };
+
+  return {
+    attemptCount,
+    counterOffer,
+    email,
+    handleAcceptCounter,
+    handleSubmit,
+    handleUploadSubmit,
+    message,
+    offer,
+    phone,
+    setEmail,
+    setMessage,
+    setOffer,
+    setPhone,
+    setStatus,
+    setUploadFile,
+    setUploadLink,
+    status,
+    uploadFile,
+    uploadLink,
+  };
+}

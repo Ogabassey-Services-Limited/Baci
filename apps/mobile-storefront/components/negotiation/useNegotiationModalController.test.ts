@@ -464,6 +464,36 @@ describe('useNegotiationModalController', () => {
     );
   });
 
+  it('requires direct contact when the signed-in account has no email or phone', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    mockGetUser.mockResolvedValueOnce({
+      data: {
+        user: {
+          email: undefined,
+          id: 'customer-without-contact',
+          phone: undefined,
+        },
+      },
+      error: null,
+    });
+    const { result } = renderController();
+
+    act(() => {
+      result.current.setOffer('₦90,000');
+      result.current.setUploadLink('https://proof.example/listing');
+    });
+    await act(async () => {
+      await result.current.handleUploadSubmit();
+    });
+
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('upload');
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Error',
+      'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
+    );
+  });
+
   it('validates guest contact before uploading selected evidence', async () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
     mockLaunchImageLibraryAsync.mockResolvedValueOnce({

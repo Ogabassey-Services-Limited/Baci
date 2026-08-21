@@ -81,6 +81,23 @@ export function normalizePhoneToE164(
   return digits;
 }
 
+/**
+ * Validate a phone value supplied by an identity provider as already-E.164.
+ * Unlike customer-entered national numbers, account phones must never inherit
+ * the storefront's default dial code.
+ */
+export function normalizeStoredE164Phone(
+  raw: string | null | undefined
+): string | null {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  const digits = trimmed.startsWith('+') ? trimmed.slice(1) : trimmed;
+  return /^[1-9][0-9]{7,14}$/.test(digits) ? digits : null;
+}
+
 /** True when `raw` normalizes to a plausible phone number. */
 export function isValidPhone(
   raw: string | null | undefined,

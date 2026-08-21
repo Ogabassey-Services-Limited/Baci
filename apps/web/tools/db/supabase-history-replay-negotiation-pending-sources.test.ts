@@ -7,16 +7,20 @@ import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-repla
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..');
 
 describe('negotiation pending replay sources', () => {
-  it('pins the contact-enforcement migration to its checked-in bytes', async () => {
-    const [sha256, filename, ...extra] =
-      NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS.split(' ');
-    if (!sha256 || !filename || extra.length !== 0) {
-      throw new Error('Invalid negotiation pending replay source row');
-    }
+  it('pins each contact-enforcement migration to its checked-in bytes', async () => {
+    const rows = NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS.split('\n');
+    expect(rows).toHaveLength(2);
 
-    const migration = await readFile(
-      path.join(REPOSITORY_ROOT, 'supabase/migrations', filename)
-    );
-    expect(createHash('sha256').update(migration).digest('hex')).toBe(sha256);
+    for (const row of rows) {
+      const [sha256, filename, ...extra] = row.split(' ');
+      if (!sha256 || !filename || extra.length !== 0) {
+        throw new Error('Invalid negotiation pending replay source row');
+      }
+
+      const migration = await readFile(
+        path.join(REPOSITORY_ROOT, 'supabase/migrations', filename)
+      );
+      expect(createHash('sha256').update(migration).digest('hex')).toBe(sha256);
+    }
   });
 });

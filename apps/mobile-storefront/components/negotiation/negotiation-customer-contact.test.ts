@@ -31,7 +31,7 @@ describe('buildNegotiationCustomerContact', () => {
     const customer = {
       email: null,
       id: 'customer-1',
-      phone: '+234 803 123 4567',
+      phone: '15551234567',
     };
 
     const result = buildNegotiationCustomerContact(customer, '');
@@ -39,9 +39,18 @@ describe('buildNegotiationCustomerContact', () => {
     expect(result).toEqual({
       errorMessage: null,
       normalizedEmail: null,
-      normalizedPhone: '2348031234567',
+      normalizedPhone: '15551234567',
       userId: 'customer-1',
     });
+  });
+
+  it('does not apply the Nigerian dial code to a non-Nigerian account phone', () => {
+    const result = buildNegotiationCustomerContact(
+      { email: null, id: 'customer-1', phone: '+442012345678' },
+      ''
+    );
+
+    expect(result.normalizedPhone).toBe('442012345678');
   });
 
   it('requires direct contact when a signed-in account has no email or phone', () => {

@@ -2,6 +2,7 @@ import {
   buildCartSnapshot,
   buildNegotiationSingleItemInfo,
   normalizePhoneToE164,
+  normalizeStoredE164Phone,
   summarizeCartForItemInfo,
 } from '@baci/shared/lib';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
@@ -79,7 +80,7 @@ export async function insertNegotiationRequest(
   }
 
   const accountEmail = normalizeOptionalEmail(user?.email);
-  const accountPhone = normalizePhoneToE164(user?.phone);
+  const accountPhone = normalizeStoredE164Phone(user?.phone);
   const validationError = getContactValidationError({
     allowMissingContact: Boolean(accountEmail || accountPhone),
     email: request.customerEmail ?? '',

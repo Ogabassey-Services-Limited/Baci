@@ -1,6 +1,7 @@
 import {
   normalizeNegotiationCustomerEmail,
   normalizePhoneToE164,
+  normalizeStoredE164Phone,
 } from '@baci/shared/lib';
 
 export type NegotiationAccountContact = {
@@ -29,9 +30,10 @@ export function buildNegotiationCustomerContact(
   account: NegotiationAccountContact | null | undefined,
   phone: string
 ): NegotiationCustomerContact {
-  const rawPhone = phone.trim() ? phone : account?.phone;
   const normalizedEmail = normalizeNegotiationCustomerEmail(account?.email);
-  const normalizedPhone = normalizePhoneToE164(rawPhone);
+  const normalizedPhone = phone.trim()
+    ? normalizePhoneToE164(phone)
+    : normalizeStoredE164Phone(account?.phone);
   const errorMessage = phone.trim()
     ? normalizedPhone
       ? null

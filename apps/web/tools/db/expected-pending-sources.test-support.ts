@@ -235,6 +235,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260821100000_enforce_negotiation_customer_contact.sql',
     sha256: '5888dcc4c1d0dde7c0827fdec4e66f9f8041f706fd16a94b8ba608dd034e50fe',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821120000_validate_negotiation_customer_email.sql',
+    sha256: 'f2a7c095b4d5a1c1630d69e62c4bb92840a6e55b82eeb0fe43eb03ba2d7e231f',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

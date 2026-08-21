@@ -97,21 +97,38 @@ VALUES (
 ALTER TABLE public.negotiation_requests
   DISABLE TRIGGER enforce_negotiation_customer_contact;
 INSERT INTO public.negotiation_requests (
-  id, merchant_id, customer_id, session_id, type, offered_price, status
+  id, merchant_id, customer_id, customer_email, customer_phone,
+  session_id, type, offered_price, status
 )
-VALUES (
-  'f42e4d43-0000-4000-8000-000000000103',
-  'f42e4d43-0000-4000-8000-000000000101',
-  NULL,
-  'legacy-mobile-session',
-  'single',
-  9000,
-  'pending'
-);
+VALUES
+  (
+    'f42e4d43-0000-4000-8000-000000000103',
+    'f42e4d43-0000-4000-8000-000000000101',
+    NULL,
+    NULL,
+    NULL,
+    'legacy-mobile-session',
+    'single',
+    9000,
+    'pending'
+  ),
+  (
+    'f42e4d43-0000-4000-8000-000000000106',
+    'f42e4d43-0000-4000-8000-000000000101',
+    NULL,
+    'Legacy@Example.COM',
+    '2348031234567',
+    'legacy-format-session',
+    'single',
+    9000,
+    'pending'
+  );
 ALTER TABLE public.negotiation_requests
   ENABLE TRIGGER enforce_negotiation_customer_contact;
 
 DO $$
+DECLARE
+  invalid_contact text;
 BEGIN
   -- Status-only updates must keep working for legacy rows.
   SET LOCAL ROLE authenticated;
@@ -123,11 +140,21 @@ BEGIN
   UPDATE public.negotiation_requests
   SET status = 'rejected'
   WHERE id = 'f42e4d43-0000-4000-8000-000000000103';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'legacy status-only update was blocked';
+  END IF;
   RESET ROLE;
 
   -- The trigger protects even RLS-bypassing writers.
   SET LOCAL ROLE service_role;
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+  UPDATE public.negotiation_requests
+  SET customer_phone = '2348031234568'
+  WHERE id = 'f42e4d43-0000-4000-8000-000000000106';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'legacy unchanged email format blocked a phone correction';
+  END IF;
+
   BEGIN
     INSERT INTO public.negotiation_requests (
       merchant_id, session_id, type, offered_price
@@ -144,6 +171,68 @@ BEGIN
         RAISE;
       END IF;
   END;
+
+  -- These format and length cases also run as service_role so the assertions
+  -- prove trigger enforcement independently of RLS.
+  FOREACH invalid_contact IN ARRAY ARRAY[
+    '08031234567',
+    '+2348031234567',
+    ' 2348031234567 '
+  ] LOOP
+    BEGIN
+      INSERT INTO public.negotiation_requests (
+        merchant_id, customer_phone, session_id, type, offered_price
+      ) VALUES (
+        'f42e4d43-0000-4000-8000-000000000101',
+        invalid_contact,
+        'invalid-phone-' || md5(invalid_contact),
+        'single',
+        9000
+      );
+      RAISE EXCEPTION 'invalid phone unexpectedly succeeded: %', invalid_contact;
+    EXCEPTION
+      WHEN check_violation THEN
+        IF SQLERRM <> 'invalid_negotiation_customer_phone' THEN
+          RAISE;
+        END IF;
+    END;
+  END LOOP;
+
+  FOREACH invalid_contact IN ARRAY ARRAY[
+    'x',
+    'buyer@example',
+    ' buyer@example.com ',
+    'Buyer@Example.COM',
+    repeat('a', 243) || '@example.com'
+  ] LOOP
+    BEGIN
+      INSERT INTO public.negotiation_requests (
+        merchant_id, customer_email, session_id, type, offered_price
+      ) VALUES (
+        'f42e4d43-0000-4000-8000-000000000101',
+        invalid_contact,
+        'invalid-email-' || md5(invalid_contact),
+        'single',
+        9000
+      );
+      RAISE EXCEPTION 'invalid email unexpectedly succeeded: %', invalid_contact;
+    EXCEPTION
+      WHEN check_violation THEN
+        IF SQLERRM <> 'invalid_negotiation_customer_email' THEN
+          RAISE;
+        END IF;
+    END;
+  END LOOP;
+
+  INSERT INTO public.negotiation_requests (
+    merchant_id, customer_email, session_id, type, offered_price
+  ) VALUES (
+    'f42e4d43-0000-4000-8000-000000000101',
+    repeat('a', 242) || '@example.com',
+    'valid-email-254',
+    'single',
+    9000
+  );
   RESET ROLE;
 
   -- A normalized phone is accepted for an anonymous guest.

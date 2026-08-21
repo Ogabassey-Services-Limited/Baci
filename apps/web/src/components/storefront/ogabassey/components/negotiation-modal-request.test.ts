@@ -144,10 +144,10 @@ describe('insertNegotiationRequest', () => {
     expect(getUser).toHaveBeenCalledTimes(1);
   });
 
-  it('persists a normalized account phone when account email and form contact are blank', async () => {
+  it('preserves an E.164 account phone when account email and form contact are blank', async () => {
     getUser.mockResolvedValueOnce({
       data: {
-        user: { email: null, id: 'user-1', phone: '0803 123 4567' },
+        user: { email: null, id: 'user-1', phone: '15551234567' },
       },
       error: null,
     });
@@ -167,7 +167,7 @@ describe('insertNegotiationRequest', () => {
       expect.objectContaining({
         customer_email: null,
         customer_id: 'user-1',
-        customer_phone: '2348031234567',
+        customer_phone: '15551234567',
       })
     );
   });

@@ -1,11 +1,24 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const appDirectory = path.resolve(__dirname, '../app');
-const applicationDirectories = ['app', 'components', 'hooks', 'lib'].map(
-  (directory) => path.resolve(__dirname, '..', directory)
-);
+const applicationDirectories = [
+  'app',
+  'components',
+  'config',
+  'constants',
+  'context',
+  'hooks',
+  'lib',
+  'schemas',
+  'services',
+  'stores',
+  'types',
+  'utils',
+]
+  .map((directory) => path.resolve(__dirname, '..', directory))
+  .filter((directory) => existsSync(directory));
 
 function walkFiles(directory: string): string[] {
   return readdirSync(directory).flatMap((entry) => {
