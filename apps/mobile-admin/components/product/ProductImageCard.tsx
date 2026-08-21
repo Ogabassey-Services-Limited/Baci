@@ -1,4 +1,6 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
+import { Image as ExpoImage } from 'expo-image';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -6,7 +8,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import SafeImage from '@/components/ui/SafeImage';
 import type { ThemeColors } from '@/constants/theme';
 
 interface ProductImageCardProps {
@@ -22,6 +23,13 @@ export function ProductImageCard({
   isUploading,
   onPress,
 }: ProductImageCardProps) {
+  const [hasImageError, setHasImageError] = useState(false);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the transient error state when the CDN URL changes.
+  useEffect(() => {
+    setHasImageError(false);
+  }, [imageUrl]);
+
   return (
     <Pressable
       style={[
@@ -38,12 +46,20 @@ export function ProductImageCard({
         <View style={[styles.placeholder, { backgroundColor: colors.inputBg }]}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : imageUrl ? (
+      ) : imageUrl && !hasImageError ? (
         <View>
-          <SafeImage
-            source={{ uri: imageUrl }}
-            style={styles.image}
+          <ExpoImage
+            accessible
+            accessibilityLabel="Product preview"
+            cachePolicy="memory-disk"
             contentFit="cover"
+            onError={() => setHasImageError(true)}
+            placeholderContentFit="cover"
+            source={{
+              cacheKey: `baci-product-image:${imageUrl}`,
+              uri: imageUrl,
+            }}
+            style={styles.image}
             transition={200}
           />
           <View style={styles.overlay}>
@@ -52,6 +68,26 @@ export function ProductImageCard({
               Change Image
             </Text>
           </View>
+        </View>
+      ) : imageUrl && hasImageError ? (
+        <View
+          accessibilityLabel="Product image unavailable"
+          accessibilityRole="image"
+          style={[styles.placeholder, { backgroundColor: colors.inputBg }]}
+        >
+          <Ionicons
+            name="image-outline"
+            size={48}
+            color={colors.textSecondary}
+          />
+          <Text
+            style={[styles.placeholderText, { color: colors.textSecondary }]}
+          >
+            Image unavailable
+          </Text>
+          <Text style={[styles.retryText, { color: colors.textSecondary }]}>
+            Tap to upload a new image
+          </Text>
         </View>
       ) : (
         <View style={[styles.placeholder, { backgroundColor: colors.inputBg }]}>
@@ -101,5 +137,9 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  retryText: {
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
