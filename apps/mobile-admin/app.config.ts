@@ -187,6 +187,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
+    // Keep the physical-device development client on its last working
+    // project. Do not set defaultLaunchURL: LAN addresses are ephemeral and
+    // a baked-in URL would be unsafe for preview/release builds.
+    [
+      'expo-dev-client',
+      {
+        launchMode: 'most-recent',
+      },
+    ],
     [
       'expo-splash-screen',
       {
