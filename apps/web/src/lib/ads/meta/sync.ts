@@ -101,7 +101,16 @@ export async function markMetaAdsReauthRequired(input: {
       p_token_expires_at: null,
     }
   );
-  if (error || !data) throw new MetaAdsReauthPersistenceError();
+  if (!error && data) return;
+  const marker = await input.supabase.rpc(
+    'mark_merchant_ads_connection_reauth',
+    {
+      p_merchant_id: input.merchantId,
+      p_reason: input.failureCode,
+    }
+  );
+  if (marker.error || marker.data !== true)
+    throw new MetaAdsReauthPersistenceError();
 }
 
 function shouldRequireReauth(error: unknown): boolean {

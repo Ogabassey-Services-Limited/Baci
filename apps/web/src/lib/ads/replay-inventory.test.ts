@@ -11,6 +11,10 @@ const hardeningMigrationName =
   '20260821180001_harden_provider_neutral_ads_rpcs.sql' as const;
 const hardeningMigrationHash =
   'c5dc059fe41ebed2824b0d9b6275bd8d58b691c5cb561fc039bb80348834d563' as const;
+const metaReauthMigrationName =
+  '20260821180002_meta_ads_reauth_status.sql' as const;
+const metaReauthMigrationHash =
+  'f0c8ee6d1f3b7b3e2eb06380c8be94fe797ed9781c1ba00d59b49ea1836b589c' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -59,6 +63,23 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(hardeningMigrationName);
     expect(pendingSources).toContain(hardeningMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${metaReauthMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(metaReauthMigrationHash);
+    expect(historySources).toContain(
+      `${metaReauthMigrationHash} ${metaReauthMigrationName}`
+    );
+    expect(pendingSources).toContain(metaReauthMigrationName);
+    expect(pendingSources).toContain(metaReauthMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {

@@ -20487,6 +20487,10 @@ export type Database = {
         Args: { p_merchant_id: string; p_provider: string };
         Returns: boolean;
       };
+      mark_merchant_ads_connection_reauth: {
+        Args: { p_merchant_id: string; p_reason: string };
+        Returns: boolean;
+      };
       set_merchant_ads_account: {
         Args: {
           p_account_timezone: string | null;

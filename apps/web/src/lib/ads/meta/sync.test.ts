@@ -147,7 +147,7 @@ describe('Meta Ads sync', () => {
     );
   });
 
-  it('surfaces a stable error when reauth-state persistence is denied', async () => {
+  it('falls back to the dedicated durable marker when generic reauth upsert is denied', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');
     });
@@ -165,6 +165,44 @@ describe('Meta Ads sync', () => {
           error: null,
         });
       if (name === 'upsert_merchant_ads_connection')
+        return Promise.resolve({ data: null, error: { message: 'denied' } });
+      return Promise.resolve({ data: true, error: null });
+    });
+    await expect(
+      syncMetaAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth',
+      expect.objectContaining({ p_reason: 'META_ADS_REAUTH_REQUIRED' })
+    );
+  });
+
+  it('surfaces a stable error only when both reauth persistence paths fail', async () => {
+    mockResolve.mockImplementationOnce(() => {
+      throw new Error('META_ADS_REAUTH_REQUIRED');
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: 'cipher',
+              provider_customer_id: 'act_12',
+              status: 'active',
+              token_expires_at: '2026-10-20T00:00:00Z',
+            },
+          ],
+          error: null,
+        });
+      if (
+        name === 'upsert_merchant_ads_connection' ||
+        name === 'mark_merchant_ads_connection_reauth'
+      )
         return Promise.resolve({ data: null, error: { message: 'denied' } });
       return Promise.resolve({ data: true, error: null });
     });
