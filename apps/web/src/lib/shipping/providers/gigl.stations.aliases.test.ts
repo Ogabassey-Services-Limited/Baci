@@ -2,8 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 describe('GIGL station state aliases', () => {
   it('matches Abuja requests with GIGL FCT station state names', async () => {
+    const { GiglApiClient } = await import('./gigl.auth');
     const { GiglStationsService } = await import('./gigl.stations');
-    const service = new GiglStationsService({} as never);
+    const safeFetch = (
+      url: string,
+      options?: RequestInit & { timeout?: number }
+    ) => fetch(url, options);
+    const service = new GiglStationsService(
+      new GiglApiClient({ safeFetch, log: vi.fn() })
+    );
     vi.spyOn(service, 'getStations').mockResolvedValue([
       {
         StationId: 4,
