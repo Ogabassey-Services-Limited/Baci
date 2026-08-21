@@ -59,6 +59,25 @@ $$;
 ALTER TABLE public.negotiation_requests
   DISABLE TRIGGER trigger_new_negotiation;
 
+INSERT INTO auth.users (
+  id, instance_id, aud, role, email, encrypted_password,
+  email_confirmed_at, created_at, updated_at,
+  raw_app_meta_data, raw_user_meta_data
+)
+VALUES (
+  'f42e4d43-0000-4000-8000-000000000102',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'negotiation-contact-owner@example.com',
+  'test',
+  now(),
+  now(),
+  now(),
+  '{}',
+  '{}'
+);
+
 INSERT INTO public.merchants (id, user_id, email, business_name, slug)
 VALUES (
   'f42e4d43-0000-4000-8000-000000000101',
