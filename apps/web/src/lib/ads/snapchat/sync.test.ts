@@ -17,7 +17,10 @@ vi.mock('./provider', async (importOriginal) => ({
   listSnapchatAdsAccounts: (...args: unknown[]) => accounts(...args),
 }));
 
-import { syncSnapchatAdsSpendForMerchant } from './sync';
+import {
+  snapchatAdsTrailingStartDate,
+  syncSnapchatAdsSpendForMerchant,
+} from './sync';
 
 describe('Snapchat Ads sync', () => {
   const rpc = vi.fn();
@@ -90,6 +93,15 @@ describe('Snapchat Ads sync', () => {
         ],
       })
     );
+  });
+  it('resyncs a bounded conversion-attribution window for a current report', () => {
+    expect(
+      snapchatAdsTrailingStartDate(
+        '2026-08-20',
+        '2026-08-21',
+        new Date('2026-08-21T12:00:00Z')
+      )
+    ).toBe('2026-07-22');
   });
   it('marks the persisted connection as reconnect-required after a revoked provider token', async () => {
     reports.mockRejectedValueOnce(

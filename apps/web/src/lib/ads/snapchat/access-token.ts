@@ -25,3 +25,20 @@ export function resolveSnapchatAdsAccessToken(
     throw new Error('SNAPCHAT_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
   }
 }
+
+export function resolveSnapchatAdsRefreshToken(
+  connection: SnapchatAdsEncryptedConnection,
+  config: SnapchatAdsConfig
+): string {
+  if (!connection.refresh_token_ciphertext)
+    throw new Error('SNAPCHAT_ADS_REAUTH_REQUIRED');
+  try {
+    return decryptAdsToken(
+      connection.refresh_token_ciphertext,
+      config.tokenEncryptionKey,
+      SNAPCHAT_ADS_PROVIDER
+    );
+  } catch {
+    throw new Error('SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED');
+  }
+}
