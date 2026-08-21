@@ -14,10 +14,9 @@ describe('TikTok Ads provider', () => {
           data: {
             list: [
               {
-                advertiser_id: 'opaque-001',
                 dimensions: {
+                  advertiser_id: 'opaque-001',
                   stat_time_day: '2026-08-20 00:00:00',
-                  timezone: 'Africa/Lagos',
                 },
                 metrics: {
                   spend: '9007199254740993.123456789',
@@ -39,6 +38,7 @@ describe('TikTok Ads provider', () => {
         {
           accessToken: 'token',
           accountId: 'opaque-001',
+          timezoneName: 'Africa/Lagos',
           startDate: '2026-08-20',
           endDate: '2026-08-20',
         },
@@ -50,6 +50,90 @@ describe('TikTok Ads provider', () => {
         timezoneName: 'Africa/Lagos',
       }),
     ]);
+    expect(
+      new URL(fetchImpl.mock.calls[0]?.[0].toString()).searchParams.get(
+        'dimensions'
+      )
+    ).toBe('["advertiser_id","stat_time_day"]');
+  });
+
+  it('fails a nonempty report with a discarded malformed row instead of reporting an empty successful sync', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 0,
+          data: {
+            list: [
+              {
+                dimensions: {
+                  advertiser_id: 'opaque-001',
+                  stat_time_day: '2026-08-20 00:00:00',
+                },
+                metrics: {
+                  clicks: '2',
+                  conversion: '1',
+                  currency: 'NGN',
+                  impressions: '10',
+                  spend: '1.25',
+                },
+              },
+            ],
+            page_info: { page: 1, total_page: 1 },
+          },
+        })
+      )
+    );
+    await expect(
+      fetchTikTokAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'opaque-001',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+        },
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: 'TIKTOK_ADS_REPORT_ROWS_INVALID' });
+  });
+
+  it('rejects number integer metrics before JavaScript can hide precision loss', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 0,
+          data: {
+            list: [
+              {
+                dimensions: {
+                  advertiser_id: 'opaque-001',
+                  stat_time_day: '2026-08-20 00:00:00',
+                },
+                metrics: {
+                  clicks: '2',
+                  conversion: '1',
+                  currency: 'NGN',
+                  impressions: 9007199254740992,
+                  spend: '1.25',
+                },
+              },
+            ],
+            page_info: { page: 1, total_page: 1 },
+          },
+        })
+      )
+    );
+    await expect(
+      fetchTikTokAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'opaque-001',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'Africa/Lagos',
+        },
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: 'TIKTOK_ADS_REPORT_ROWS_INVALID' });
   });
   it('retries bounded TikTok throttles without retaining error bodies', async () => {
     const fetchImpl = vi

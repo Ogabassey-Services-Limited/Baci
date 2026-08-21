@@ -93,6 +93,12 @@ export async function markTikTokAdsReauthRequired(input: {
   if (error || !data) throw new TikTokAdsReauthPersistenceError();
 }
 function errorCode(error: unknown): string {
+  if (
+    error &&
+    typeof error === 'object' &&
+    typeof (error as { code?: unknown }).code === 'string'
+  )
+    return (error as { code: string }).code;
   return error instanceof TikTokAdsProviderError ||
     error instanceof TikTokAdsSyncError
     ? error.code
@@ -159,7 +165,13 @@ export async function syncTikTokAdsSpendForMerchant(
       let rowsWritten = 0;
       for (const range of tiktokAdsDateChunks(input.startDate, input.endDate)) {
         const reports = await fetchTikTokAdsDailyReport(
-          { accessToken: token, accountId: account.accountId, ...range },
+          {
+            accessToken: token,
+            accountId: account.accountId,
+            currencyCode: account.currencyCode,
+            timezoneName: account.timezoneName,
+            ...range,
+          },
           fetchImpl
         );
         const firstReport = reports[0];

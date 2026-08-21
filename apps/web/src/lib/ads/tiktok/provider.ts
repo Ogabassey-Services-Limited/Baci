@@ -2,23 +2,14 @@ import 'server-only';
 
 import { z } from 'zod';
 import { TIKTOK_ADS_API_ROOT } from './constants';
+import { requestTikTokAdsJson, TikTokAdsProviderError } from './request';
 
 const DECIMAL = /^\d+(?:\.\d+)?$/;
 const INTEGER = /^\d+$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const MAX_RETRIES = 3;
 const MAX_PAGES = 20;
 
-export class TikTokAdsProviderError extends Error {
-  readonly code: string;
-  readonly status?: number;
-  constructor(code: string, status?: number) {
-    super(code);
-    this.code = code;
-    this.name = 'TikTokAdsProviderError';
-    this.status = status;
-  }
-}
+export { TikTokAdsProviderError } from './request';
 
 export interface TikTokAdsAccount {
   accountId: string;
@@ -44,80 +35,13 @@ export type TikTokAdsAsyncTaskStatus =
   | 'FAILED'
   | 'CANCELED';
 
-function payloadCode(payload: unknown): string | null {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload))
-    return null;
-  const code = (payload as { code?: unknown }).code;
-  return typeof code === 'string' || typeof code === 'number'
-    ? String(code)
-    : null;
-}
 function record(payload: unknown): Record<string, unknown> | null {
   return payload && typeof payload === 'object' && !Array.isArray(payload)
     ? (payload as Record<string, unknown>)
     : null;
 }
 function asInteger(value: unknown): string | null {
-  const stringValue = typeof value === 'number' ? String(value) : value;
-  return typeof stringValue === 'string' && INTEGER.test(stringValue)
-    ? stringValue
-    : null;
-}
-function waitMs(response: Response, attempt: number): number {
-  const retryAfter = Number(response.headers.get('retry-after'));
-  return Math.min(
-    300_000,
-    Math.max(
-      250 * 2 ** attempt,
-      Number.isFinite(retryAfter) ? retryAfter * 1000 : 0
-    )
-  );
-}
-
-async function requestTikTokJson(
-  url: URL,
-  init: RequestInit,
-  failureCode: string,
-  fetchImpl: typeof fetch,
-  sleep: (milliseconds: number) => Promise<void> = (ms) =>
-    new Promise((resolve) => setTimeout(resolve, ms))
-): Promise<unknown> {
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
-    const response = await fetchImpl(url, init);
-    let payload: unknown = null;
-    try {
-      payload = await response.json();
-    } catch {
-      /* Never retain provider bodies. */
-    }
-    const code = payloadCode(payload);
-    // TikTok can return a success envelope with this header when its result is
-    // truncated. Never persist partial spend as a successful daily snapshot.
-    if (
-      response.ok &&
-      code === '0' &&
-      !response.headers.has('x-tt-ads-throttle')
-    )
-      return payload;
-    if (response.status === 401)
-      throw new TikTokAdsProviderError(
-        'TIKTOK_ADS_ACCESS_REVOKED',
-        response.status
-      );
-    const throttled =
-      response.status === 429 ||
-      code === '40100' ||
-      response.headers.has('x-tt-ads-throttle');
-    if (!throttled && response.status < 500)
-      throw new TikTokAdsProviderError(failureCode, response.status);
-    if (attempt === MAX_RETRIES - 1)
-      throw new TikTokAdsProviderError(
-        throttled ? 'TIKTOK_ADS_THROTTLED' : failureCode,
-        response.status
-      );
-    await sleep(waitMs(response, attempt));
-  }
-  throw new TikTokAdsProviderError(failureCode);
+  return typeof value === 'string' && INTEGER.test(value) ? value : null;
 }
 
 const accountSchema = z.object({
@@ -138,12 +62,12 @@ export async function listTikTokAdsAccounts(
   const url = new URL(`${TIKTOK_ADS_API_ROOT}/oauth2/advertiser/get/`);
   url.searchParams.set('app_id', input.appId);
   url.searchParams.set('secret', input.appSecret);
-  const payload = await requestTikTokJson(
+  const payload = await requestTikTokAdsJson(
     url,
     { headers: { 'Access-Token': input.accessToken } },
     'TIKTOK_ADS_ACCOUNT_DISCOVERY_FAILED',
     fetchImpl,
-    sleep
+    { sleep }
   );
   const data = record(record(payload)?.data);
   const list = data?.list;
@@ -166,21 +90,28 @@ export async function listTikTokAdsAccounts(
 
 function parseReportRows(
   payload: unknown,
-  accountId: string
+  fallback: {
+    accountId: string;
+    currencyCode: string | null;
+    timezoneName: string | null;
+  }
 ): TikTokAdsDailyReport[] {
   const data = record(record(payload)?.data);
   const list = data?.list;
-  if (!Array.isArray(list)) return [];
-  return list.flatMap((item) => {
+  if (!Array.isArray(list))
+    throw new TikTokAdsProviderError('TIKTOK_ADS_REPORT_RESPONSE_INVALID');
+  const parsedRows = list.flatMap((item) => {
     const row = record(item);
-    if (!row || row.advertiser_id !== accountId) return [];
+    if (!row) return [];
     const dimensions = record(row.dimensions);
     const metrics = record(row.metrics);
+    const advertiserId = dimensions?.advertiser_id ?? row.advertiser_id;
     const rawDate = dimensions?.stat_time_day;
     const date = typeof rawDate === 'string' ? rawDate.slice(0, 10) : '';
     const spend = metrics?.spend;
-    const currency = metrics?.currency;
-    const timezone = dimensions?.timezone ?? row.timezone;
+    const currency = metrics?.currency ?? fallback.currencyCode;
+    const timezone =
+      dimensions?.timezone ?? row.timezone ?? fallback.timezoneName;
     const impressions = asInteger(metrics?.impressions);
     const clicks = asInteger(metrics?.clicks);
     const conversions =
@@ -192,6 +123,7 @@ function parseReportRows(
       !ISO_DATE.test(date) ||
       typeof spend !== 'string' ||
       !DECIMAL.test(spend) ||
+      (advertiserId !== undefined && advertiserId !== fallback.accountId) ||
       typeof currency !== 'string' ||
       !/^[A-Z]{3}$/.test(currency) ||
       typeof timezone !== 'string' ||
@@ -203,7 +135,7 @@ function parseReportRows(
       return [];
     return [
       {
-        accountId,
+        accountId: fallback.accountId,
         clicks,
         conversions,
         currencyCode: currency,
@@ -215,6 +147,9 @@ function parseReportRows(
       },
     ];
   });
+  if (list.length > 0 && parsedRows.length !== list.length)
+    throw new TikTokAdsProviderError('TIKTOK_ADS_REPORT_ROWS_INVALID');
+  return parsedRows;
 }
 
 function nextPage(payload: unknown): number | null {
@@ -231,8 +166,10 @@ export async function fetchTikTokAdsDailyReport(
   input: {
     accessToken: string;
     accountId: string;
+    currencyCode?: string | null;
     endDate: string;
     startDate: string;
+    timezoneName?: string | null;
   },
   fetchImpl: typeof fetch = fetch,
   sleep?: (milliseconds: number) => Promise<void>
@@ -251,7 +188,7 @@ export async function fetchTikTokAdsDailyReport(
     for (const [key, value] of Object.entries({
       advertiser_id: input.accountId,
       data_level: 'AUCTION_ADVERTISER',
-      dimensions: JSON.stringify(['stat_time_day']),
+      dimensions: JSON.stringify(['advertiser_id', 'stat_time_day']),
       end_date: input.endDate,
       metrics: JSON.stringify([
         'spend',
@@ -268,14 +205,20 @@ export async function fetchTikTokAdsDailyReport(
       start_date: input.startDate,
     }))
       url.searchParams.set(key, value);
-    const payload = await requestTikTokJson(
+    const payload = await requestTikTokAdsJson(
       url,
       { headers: { 'Access-Token': input.accessToken } },
       'TIKTOK_ADS_REPORT_FAILED',
       fetchImpl,
-      sleep
+      { sleep }
     );
-    results.push(...parseReportRows(payload, input.accountId));
+    results.push(
+      ...parseReportRows(payload, {
+        accountId: input.accountId,
+        currencyCode: input.currencyCode ?? null,
+        timezoneName: input.timezoneName ?? null,
+      })
+    );
     const next = nextPage(payload);
     if (!next) return results;
     page = next;
