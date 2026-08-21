@@ -89,7 +89,12 @@ export function mapUcpCatalogProductRow({
   baseUrl: string;
   currency: string;
   row: UcpCatalogProductRow;
-}) {
+}): UcpCatalogProduct | null {
+  const numericPrice = toFiniteNonNegativeNumber(row.price);
+  if (numericPrice === null || !row.id.trim() || !row.name.trim()) {
+    return null;
+  }
+
   const manageStock = coerceStorefrontManageStock(row.manage_stock);
   const availability = getStorefrontAgentAvailability({
     manage_stock: manageStock,
@@ -104,7 +109,7 @@ export function mapUcpCatalogProductRow({
     image_url: extractPrimaryImageUrl(row.images),
     in_stock: availability.is_purchasable,
     name: row.name,
-    price: toIntegerAmount(row.price),
+    price: numericPrice,
     product_url: buildAgentProductUrl({
       baseUrl,
       product: {
@@ -180,17 +185,17 @@ function extractPrimaryImageUrl(images: unknown): string | null {
   return null;
 }
 
-function toIntegerAmount(value: number | string | null | undefined): number {
+function toFiniteNonNegativeNumber(
+  value: number | string | null | undefined
+): number | null {
   const numericValue =
     typeof value === 'number'
       ? value
-      : typeof value === 'string'
-        ? Number.parseFloat(value)
-        : 0;
+      : typeof value === 'string' && value.trim()
+        ? Number(value.trim())
+        : Number.NaN;
 
-  if (!Number.isFinite(numericValue)) {
-    return 0;
-  }
-
-  return Math.max(0, Math.round(numericValue));
+  return Number.isFinite(numericValue) && numericValue >= 0
+    ? Math.round(numericValue)
+    : null;
 }

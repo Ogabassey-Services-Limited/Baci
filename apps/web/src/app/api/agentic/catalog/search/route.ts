@@ -116,6 +116,9 @@ export async function POST(request: NextRequest) {
         row,
       })
     )
+    .filter(
+      (product): product is NonNullable<typeof product> => product !== null
+    )
     .sort(
       (a, b) =>
         (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -

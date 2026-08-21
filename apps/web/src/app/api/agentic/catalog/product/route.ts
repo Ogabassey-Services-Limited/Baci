@@ -72,6 +72,13 @@ export async function POST(request: NextRequest) {
     row,
   });
 
+  if (!product) {
+    return NextResponse.json(
+      { error: 'Product is not publishable to the agentic catalog' },
+      { status: 422 }
+    );
+  }
+
   return NextResponse.json(buildUcpCatalogProductResponse(product));
 }
 

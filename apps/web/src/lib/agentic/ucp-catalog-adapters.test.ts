@@ -202,6 +202,61 @@ describe('ucp catalog adapters', () => {
     expect(product.variants[0]?.availability).toEqual({ available: true });
   });
 
+  it('refuses rows with unknown prices instead of publishing a free product', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        id: 'unknown-price',
+        merchant_id: 'merchant-1',
+        name: 'Unpriced item',
+        price: null,
+        status: 'active',
+      },
+    });
+
+    expect(product).toBeNull();
+  });
+
+  it('refuses rows with non-finite or negative prices', () => {
+    const base = {
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        id: 'invalid-price',
+        merchant_id: 'merchant-1',
+        name: 'Invalid item',
+        status: 'active',
+      } as const,
+    };
+
+    expect(
+      mapUcpCatalogProductRow({
+        ...base,
+        row: { ...base.row, price: '123abc' },
+      })
+    ).toBeNull();
+    expect(
+      mapUcpCatalogProductRow({ ...base, row: { ...base.row, price: -1 } })
+    ).toBeNull();
+  });
+
+  it('preserves a valid zero price', () => {
+    const product = mapUcpCatalogProductRow({
+      baseUrl: 'https://ogabassey.com',
+      currency: 'NGN',
+      row: {
+        id: 'free-item',
+        merchant_id: 'merchant-1',
+        name: 'Free item',
+        price: '0',
+        status: 'active',
+      },
+    });
+
+    expect(product?.price_range.min.amount).toBe(0);
+  });
+
   it('builds a UCP capability envelope for product detail responses', () => {
     const product = mapStorefrontProductToUcpCatalogProduct({
       currency: 'NGN',

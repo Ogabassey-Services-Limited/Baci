@@ -79,10 +79,14 @@ export async function POST(request: NextRequest) {
       })
     );
 
+  const publishableProducts = products.filter(
+    (product): product is NonNullable<typeof product> => product !== null
+  );
+
   return NextResponse.json(
     buildUcpCatalogProductsResponse({
       capability: UCP_CATALOG_LOOKUP_CAPABILITY,
-      products,
+      products: publishableProducts,
     })
   );
 }

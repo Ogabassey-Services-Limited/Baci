@@ -44,7 +44,7 @@ type ProductRow = {
   categories?: { slug?: string | null } | null;
   id: string;
   name: string;
-  price?: number;
+  price?: number | string | null;
   product_categories?: Array<{ categories?: { slug?: string | null } | null }>;
   slug?: string;
   status?: string;
@@ -271,7 +271,7 @@ describe('POST /api/agentic/catalog/search', () => {
   it('omits unpublished products returned by the database', async () => {
     mockProductRows([
       { id: 'draft-product', name: 'Draft', status: 'draft' },
-      { id: 'product-1', name: 'Live', status: 'active' },
+      { id: 'product-1', name: 'Live', price: 0, status: 'active' },
     ]);
 
     const response = await POST(
@@ -284,6 +284,25 @@ describe('POST /api/agentic/catalog/search', () => {
 
     expect(body.products).toEqual([
       expect.objectContaining({ id: 'product-1' }),
+    ]);
+  });
+
+  it('omits active products with malformed prices', async () => {
+    mockProductRows([
+      { id: 'bad-price', name: 'Bad', price: '123abc', status: 'active' },
+      { id: 'free-product', name: 'Free', price: 0, status: 'active' },
+    ]);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'phone' }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'free-product',
     ]);
   });
 
