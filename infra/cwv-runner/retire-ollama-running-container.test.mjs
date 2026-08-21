@@ -50,6 +50,17 @@ test('accepts a safe absolute running-container argument', async () => {
   assert.equal(output, '');
 });
 
+test('accepts a safe bare running-container entrypoint used by Docker images', async () => {
+  const bareEntrypoint = metadataDocker.replace(
+    '"/docker-entrypoint"',
+    '"docker-entrypoint.sh"'
+  );
+  const output = await runFixture(
+    `${bareEntrypoint} *'image save ${imageId}'*) printf '%s\\n' 'filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
+});
+
 test('exports one immutable image twice for two containers sharing its ID', async () => {
   const sharedImageDocker = metadataDocker.replace(
     'docker() { case "$*" in',
@@ -111,7 +122,7 @@ test('fails closed when a running-image export hangs past the watchdog', async (
 test('shares one deadline across both immutable running-image saves', async () => {
   await assert.rejects(
     runFixture(
-      `first_save="$2/first-save"; second_save="$2/second-save"; ${metadataDocker} *'image save ${imageId}'*) if [ ! -e "$first_save" ]; then : >"$first_save"; else : >"$second_save"; fi; printf '%s\\n' 'filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_now() { [ -e "$second_save" ] && printf '%s\\n' 3 || printf '%s\\n' 1; }; RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=2; running_container_validate generic-api /generic-api 'stable-config'`
+      `${metadataDocker} *'image save ${imageId}'*) printf '%s\\n' 'filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_now() { [ -p "\${running_image_hash_fifo:-}" ] && printf '%s\\n' 3 || printf '%s\\n' 1; }; RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=2; running_container_validate generic-api /generic-api 'stable-config'`
     ),
     (error) => error.code === 2
   );

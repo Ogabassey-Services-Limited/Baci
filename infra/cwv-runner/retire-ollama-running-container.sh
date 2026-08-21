@@ -108,7 +108,7 @@ running_container_validate_json() {
   running_json_kind=$2
   case "$running_json_kind" in
     path)
-      /usr/bin/jq -e 'type == "string" and test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not)' "$running_json_file" >/dev/null || return 2
+      /usr/bin/jq -e 'type == "string" and if startswith("/") then test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not) else test("^[A-Za-z0-9][A-Za-z0-9._+-]*$") and . != "." and . != ".." end' "$running_json_file" >/dev/null || return 2
       ;;
     args)
       /usr/bin/jq -e 'type == "array" and length <= 256 and all(.[]; type == "string" and ((startswith("/") | not) or (test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not))))' "$running_json_file" >/dev/null || return 2
