@@ -3,6 +3,7 @@ import {
   fetchMetaAdsDailyInsights,
   listMetaAdsAccounts,
   parseMetaAdsDailyInsights,
+  validateMetaAdsGrant,
 } from './provider';
 
 describe('Meta Ads provider', () => {
@@ -104,5 +105,177 @@ describe('Meta Ads provider', () => {
       )
     ).resolves.toEqual([]);
     expect(sleep).toHaveBeenCalledOnce();
+  });
+
+  it('retains only safe usage/reset telemetry and honors a bounded reset hint', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 613 } }), {
+          headers: {
+            'x-ad-account-usage': JSON.stringify({ call_count: 10 }),
+            'x-fb-ads-insights-throttle': JSON.stringify({
+              estimated_time_to_regain_access: 3,
+            }),
+          },
+          status: 400,
+        })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: [] })));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const telemetry = vi.fn();
+    await fetchMetaAdsDailyInsights(
+      {
+        accessToken: 'access',
+        accountId: 'act_1',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+      },
+      fetchImpl,
+      sleep,
+      telemetry
+    );
+    expect(sleep).toHaveBeenCalledWith(3000);
+    expect(telemetry).toHaveBeenNthCalledWith(1, {
+      adAccountCallCount: 10,
+      businessUseCaseCallCount: null,
+      insightsThrottleResetSeconds: 3,
+    });
+  });
+
+  it('collects every bounded same-origin Insights page before returning rows', async () => {
+    const firstRow = {
+      account_id: '1',
+      clicks: '1',
+      date_start: '2026-08-20',
+      date_stop: '2026-08-20',
+      impressions: '2',
+      spend: '3.10',
+    };
+    const secondRow = {
+      ...firstRow,
+      date_start: '2026-08-21',
+      date_stop: '2026-08-21',
+    };
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: [firstRow],
+            paging: {
+              next: 'https://graph.facebook.com/v25.0/act_1/insights?after=next',
+            },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: [secondRow] }), { status: 200 })
+      );
+    await expect(
+      fetchMetaAdsDailyInsights(
+        {
+          accessToken: 'access',
+          accountId: 'act_1',
+          endDate: '2026-08-21',
+          startDate: '2026-08-20',
+        },
+        fetchImpl
+      )
+    ).resolves.toHaveLength(2);
+  });
+
+  it('validates user-token type, provider identity, expiry, and ads_read', async () => {
+    const successResponses = () => [
+      new Response(
+        JSON.stringify({
+          data: {
+            app_id: 'app',
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            is_valid: true,
+            type: 'USER',
+            user_id: 'provider-user',
+          },
+        }),
+        { status: 200 }
+      ),
+      new Response(JSON.stringify({ id: 'provider-user' }), { status: 200 }),
+      new Response(
+        JSON.stringify({
+          data: [{ permission: 'ads_read', status: 'granted' }],
+        }),
+        { status: 200 }
+      ),
+    ];
+    const fetchImpl = vi.fn<typeof fetch>();
+    for (const response of successResponses())
+      fetchImpl.mockResolvedValueOnce(response);
+    await expect(
+      validateMetaAdsGrant(
+        { accessToken: 'access', appId: 'app', appSecret: 'secret' },
+        fetchImpl
+      )
+    ).resolves.toEqual({ providerUserId: 'provider-user' });
+
+    for (const data of [
+      {
+        app_id: 'app',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        is_valid: true,
+        type: 'APP',
+        user_id: 'provider-user',
+      },
+      {
+        app_id: 'app',
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        is_valid: true,
+        type: 'USER',
+      },
+      {
+        app_id: 'app',
+        expires_at: Math.floor(Date.now() / 1000) - 1,
+        is_valid: true,
+        type: 'USER',
+        user_id: 'provider-user',
+      },
+    ]) {
+      const rejected = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ data }), { status: 200 })
+        );
+      await expect(
+        validateMetaAdsGrant(
+          { accessToken: 'access', appId: 'app', appSecret: 'secret' },
+          rejected
+        )
+      ).rejects.toMatchObject({ code: 'META_ADS_TOKEN_INVALID' });
+    }
+    const mismatch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              app_id: 'app',
+              expires_at: Math.floor(Date.now() / 1000) + 3600,
+              is_valid: true,
+              type: 'USER',
+              user_id: 'provider-user',
+            },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ id: 'another-user' }), { status: 200 })
+      );
+    await expect(
+      validateMetaAdsGrant(
+        { accessToken: 'access', appId: 'app', appSecret: 'secret' },
+        mismatch
+      )
+    ).rejects.toMatchObject({ code: 'META_ADS_PROVIDER_IDENTITY_MISMATCH' });
   });
 });

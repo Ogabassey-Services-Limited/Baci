@@ -13,6 +13,8 @@ import {
   fetchMetaAdsDailyInsights,
   listMetaAdsAccounts,
   type MetaAdsDailyInsight,
+  MetaAdsProviderError,
+  type MetaAdsUsageTelemetry,
 } from './provider';
 
 export class MetaAdsSyncError extends Error {
@@ -25,11 +27,77 @@ export class MetaAdsSyncError extends Error {
   }
 }
 
+const inFlightSyncs = new Map<
+  string,
+  Promise<{ accountId: string; rowsWritten: number }>
+>();
+
+function addExactDecimalStrings(values: string[]): string {
+  const maxScale = values.reduce(
+    (maximum, value) => Math.max(maximum, value.split('.')[1]?.length ?? 0),
+    0
+  );
+  const total = values.reduce((sum, value) => {
+    const [whole, fractional = ''] = value.split('.');
+    return sum + BigInt(`${whole}${fractional.padEnd(maxScale, '0')}`);
+  }, 0n);
+  if (maxScale === 0) return total.toString();
+  const padded = total.toString().padStart(maxScale + 1, '0');
+  const whole = padded.slice(0, -maxScale);
+  const fractional = padded.slice(-maxScale).replace(/0+$/, '');
+  return fractional ? `${whole}.${fractional}` : whole;
+}
+
 function actionCount(actions: MetaAdsDailyInsight['actions']): string {
-  return actions
-    .filter((action) => META_ADS_CONVERSION_ACTION_TYPES.has(action.actionType))
-    .reduce((total, action) => total + Number(action.value), 0)
-    .toString();
+  return addExactDecimalStrings(
+    actions
+      .filter((action) =>
+        META_ADS_CONVERSION_ACTION_TYPES.has(action.actionType)
+      )
+      .map((action) => action.value)
+  );
+}
+
+async function markMetaAdsReauthRequired(input: {
+  connection: {
+    access_token_ciphertext: string | null;
+    provider_customer_id: string | null;
+  };
+  failureCode: string;
+  merchantId: string;
+  supabase: SupabaseClient;
+}): Promise<void> {
+  if (!input.connection.access_token_ciphertext) return;
+  await input.supabase.rpc('upsert_merchant_ads_connection', {
+    p_access_token_ciphertext: input.connection.access_token_ciphertext,
+    p_account_timezone: null,
+    p_attribution_metadata: {
+      provider: 'meta_ads',
+      reauthRequired: true,
+    },
+    p_merchant_id: input.merchantId,
+    p_metadata: {
+      failureCode: input.failureCode,
+      reauthRequired: true,
+    },
+    p_provider: META_ADS_PROVIDER,
+    p_provider_account_label: null,
+    p_provider_customer_id: input.connection.provider_customer_id,
+    p_refresh_token_ciphertext: null,
+    p_scopes: ['ads_read'],
+    p_status: 'error',
+    p_token_expires_at: null,
+  });
+}
+
+function shouldRequireReauth(error: unknown): boolean {
+  if (error instanceof MetaAdsProviderError) {
+    return (
+      error.code === 'META_ADS_ACCESS_REVOKED' ||
+      error.code === 'META_ADS_ADS_READ_NOT_GRANTED'
+    );
+  }
+  return error instanceof Error && error.message === 'META_ADS_REAUTH_REQUIRED';
 }
 
 export async function syncMetaAdsSpendForMerchant(
@@ -63,70 +131,135 @@ export async function syncMetaAdsSpendForMerchant(
   try {
     accessToken = resolveMetaAdsAccessToken(connection, config);
   } catch (error) {
+    if (shouldRequireReauth(error)) {
+      await markMetaAdsReauthRequired({
+        connection,
+        failureCode:
+          error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+        merchantId: input.merchantId,
+        supabase: input.supabase,
+      });
+    }
     throw new MetaAdsSyncError(
       error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED'
     );
   }
-  const accounts = await listMetaAdsAccounts(accessToken, fetchImpl);
-  const account = accounts.find(
-    (candidate) => candidate.accountId === connection.provider_customer_id
-  );
-  if (!account) throw new MetaAdsSyncError('META_ADS_ACCOUNT_NOT_ACCESSIBLE');
-  const insights = await fetchMetaAdsDailyInsights(
-    {
-      accessToken,
-      accountId: account.accountId,
-      endDate: input.endDate,
-      startDate: input.startDate,
-    },
-    fetchImpl
-  );
-  const fetchedAt = new Date().toISOString();
-  const records = insights.map((insight) => ({
-    account_timezone: account.timezoneName,
-    attribution_metadata: {
-      actionValues: insight.actionValues,
-      actions: insight.actions,
-      attributionSetting: insight.attributionSetting,
-      provider: 'meta_ads',
-      providerAttributedConversionAllowlistVersion:
-        META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
-      providerDateStart: insight.dateStart,
-      providerDateStop: insight.dateStop,
-      providerTimezoneOffsetHours: account.timezoneOffsetHours,
-      providerVersion: 'v25.0',
-    },
-    clicks: insight.clicks,
-    conversions: actionCount(insight.actions),
-    currency_code: account.currencyCode,
-    fetched_at: fetchedAt,
-    impressions: insight.impressions,
-    provider_customer_id: insight.accountId,
-    reach: insight.reach,
-    // Legacy Google compatibility column only. Meta's authoritative amount is
-    // the exact decimal field below and is never reconstructed from this value.
-    spend_micros: '0',
-    spend_amount_decimal: insight.spendAmountDecimal,
-    spend_date: insight.dateStart,
-  }));
-  let rowsWritten = 0;
-  if (records.length > 0) {
-    const { data, error } = await input.supabase.rpc(
-      'upsert_merchant_ads_spend_daily',
+  const syncKey = `${input.merchantId}:${connection.provider_customer_id}`;
+  const activeSync = inFlightSyncs.get(syncKey);
+  if (activeSync) return activeSync;
+  const syncPromise = syncSelectedMetaAdsAccount({
+    accessToken,
+    connection,
+    endDate: input.endDate,
+    fetchImpl,
+    merchantId: input.merchantId,
+    startDate: input.startDate,
+    supabase: input.supabase,
+  });
+  inFlightSyncs.set(syncKey, syncPromise);
+  try {
+    return await syncPromise;
+  } finally {
+    inFlightSyncs.delete(syncKey);
+  }
+}
+
+async function syncSelectedMetaAdsAccount(input: {
+  accessToken: string;
+  connection: {
+    access_token_ciphertext: string | null;
+    provider_customer_id: string | null;
+  };
+  endDate: string;
+  fetchImpl: typeof fetch;
+  merchantId: string;
+  startDate: string;
+  supabase: SupabaseClient;
+}): Promise<{ accountId: string; rowsWritten: number }> {
+  let usageTelemetry: MetaAdsUsageTelemetry | null = null;
+  try {
+    const accounts = await listMetaAdsAccounts(
+      input.accessToken,
+      input.fetchImpl
+    );
+    const account = accounts.find(
+      (candidate) =>
+        candidate.accountId === input.connection.provider_customer_id
+    );
+    if (!account) throw new MetaAdsSyncError('META_ADS_ACCOUNT_NOT_ACCESSIBLE');
+    const insights = await fetchMetaAdsDailyInsights(
       {
-        p_merchant_id: input.merchantId,
-        p_provider: META_ADS_PROVIDER,
-        p_rows: records,
+        accessToken: input.accessToken,
+        accountId: account.accountId,
+        endDate: input.endDate,
+        startDate: input.startDate,
+      },
+      input.fetchImpl,
+      undefined,
+      (telemetry) => {
+        usageTelemetry = telemetry;
       }
     );
-    if (error) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
-    rowsWritten = data ?? records.length;
+    const fetchedAt = new Date().toISOString();
+    const records = insights.map((insight) => ({
+      account_timezone: account.timezoneName,
+      attribution_metadata: {
+        actionValues: insight.actionValues,
+        actions: insight.actions,
+        attributionSetting: insight.attributionSetting,
+        provider: 'meta_ads',
+        providerAttributedConversionAllowlistVersion:
+          META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
+        providerDateStart: insight.dateStart,
+        providerDateStop: insight.dateStop,
+        providerTimezoneOffsetHours: account.timezoneOffsetHours,
+        providerVersion: 'v25.0',
+        usageTelemetry,
+      },
+      clicks: insight.clicks,
+      conversions: actionCount(insight.actions),
+      currency_code: account.currencyCode,
+      fetched_at: fetchedAt,
+      impressions: insight.impressions,
+      provider_customer_id: insight.accountId,
+      reach: insight.reach,
+      // Legacy Google compatibility column only. Meta's authoritative amount is
+      // the exact decimal field below and is never reconstructed from this value.
+      spend_micros: '0',
+      spend_amount_decimal: insight.spendAmountDecimal,
+      spend_date: insight.dateStart,
+    }));
+    let rowsWritten = 0;
+    if (records.length > 0) {
+      const { data, error } = await input.supabase.rpc(
+        'upsert_merchant_ads_spend_daily',
+        {
+          p_merchant_id: input.merchantId,
+          p_provider: META_ADS_PROVIDER,
+          p_rows: records,
+        }
+      );
+      if (error) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
+      rowsWritten = data ?? records.length;
+    }
+    const { data: synced, error: syncedError } = await input.supabase.rpc(
+      'mark_merchant_ads_connection_synced',
+      { p_merchant_id: input.merchantId, p_provider: META_ADS_PROVIDER }
+    );
+    if (syncedError || synced !== true)
+      throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
+    return { accountId: account.accountId, rowsWritten };
+  } catch (error) {
+    if (shouldRequireReauth(error)) {
+      await markMetaAdsReauthRequired({
+        connection: input.connection,
+        failureCode:
+          error instanceof Error ? error.message : 'META_ADS_REAUTH_REQUIRED',
+        merchantId: input.merchantId,
+        supabase: input.supabase,
+      });
+    }
+    if (error instanceof MetaAdsSyncError) throw error;
+    throw error;
   }
-  const { data: synced, error: syncedError } = await input.supabase.rpc(
-    'mark_merchant_ads_connection_synced',
-    { p_merchant_id: input.merchantId, p_provider: META_ADS_PROVIDER }
-  );
-  if (syncedError || synced !== true)
-    throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
-  return { accountId: account.accountId, rowsWritten };
 }

@@ -34,19 +34,24 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to read Meta Ads connection status' },
       { status: 500 }
     );
+  const tokenExpired =
+    data?.status === 'active' &&
+    (!data.token_expires_at ||
+      Date.parse(data.token_expires_at) <= Date.now() + 60_000);
+  const reportedStatus = tokenExpired ? 'reauth_required' : data?.status;
   return NextResponse.json({
-    connected: data?.status === 'active',
+    connected: data?.status === 'active' && !tokenExpired,
     connection: data
       ? {
           accountTimezone: data.account_timezone,
           createdAt: data.created_at,
           lastSyncedAt: data.last_synced_at,
           needsAccountSelection:
-            data.status === 'active' && !data.provider_customer_id,
+            reportedStatus === 'active' && !data.provider_customer_id,
           provider: data.provider,
           providerAccountId: data.provider_customer_id,
           providerAccountLabel: data.provider_account_label,
-          status: data.status,
+          status: reportedStatus,
           tokenExpiresAt: data.token_expires_at,
           updatedAt: data.updated_at,
         }

@@ -8,6 +8,7 @@ const csrf = vi.fn();
 const listAccounts = vi.fn();
 const resolveToken = vi.fn();
 const rpc = vi.fn();
+const getConfig = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -16,12 +17,17 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
 }));
-vi.mock('@/lib/ads/meta/config', () => ({ getMetaAdsConfig: () => ({}) }));
+vi.mock('@/lib/ads/meta/config', () => ({
+  getMetaAdsConfig: (...args: unknown[]) => getConfig(...args),
+  META_ADS_CONFIG_MISSING: 'Meta Ads integration is not configured',
+  MetaAdsConfigError: class MetaAdsConfigError extends Error {},
+}));
 vi.mock('@/lib/ads/meta/access-token', () => ({
   resolveMetaAdsAccessToken: (...args: unknown[]) => resolveToken(...args),
 }));
 vi.mock('@/lib/ads/meta/provider', () => ({
   listMetaAdsAccounts: (...args: unknown[]) => listAccounts(...args),
+  MetaAdsProviderError: class MetaAdsProviderError extends Error {},
 }));
 
 import { GET, PATCH } from './route';
@@ -37,6 +43,7 @@ describe('Meta Ads accounts route', () => {
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(true);
     csrf.mockResolvedValue({ valid: true });
+    getConfig.mockReturnValue({});
     resolveToken.mockReturnValue('access');
     listAccounts.mockResolvedValue([
       {
@@ -62,6 +69,31 @@ describe('Meta Ads accounts route', () => {
           })
         : Promise.resolve({ data: true, error: null })
     );
+  });
+
+  it('distinguishes missing configuration from provider authorization errors', async () => {
+    getConfig.mockImplementationOnce(() => {
+      const error = new Error('missing');
+      error.name = 'MetaAdsConfigError';
+      throw error;
+    });
+    const configuration = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/accounts')
+    );
+    expect(configuration.status).toBe(503);
+    expect((await configuration.json()).error).toBe(
+      'Meta Ads integration is not configured'
+    );
+    listAccounts.mockRejectedValueOnce(
+      Object.assign(new Error('META_ADS_ACCESS_REVOKED'), {
+        code: 'META_ADS_ACCESS_REVOKED',
+      })
+    );
+    const revoked = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/accounts')
+    );
+    expect(revoked.status).toBe(502);
+    expect((await revoked.json()).error).toBe('META_ADS_ACCESS_REVOKED');
   });
   it('does not discover accounts without authentication', async () => {
     authenticate.mockResolvedValue({

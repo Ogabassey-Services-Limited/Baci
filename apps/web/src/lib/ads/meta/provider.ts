@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { META_ADS_GRAPH_ROOT } from './oauth';
 
 const MAX_ACCOUNT_PAGES = 20;
+const MAX_INSIGHTS_PAGES = 20;
 const MAX_RETRIES = 3;
 const RETRYABLE_META_CODES = new Set([4, 17, 613, 80000, 80003, 80004, 80014]);
 const DECIMAL = /^\d+(?:\.\d+)?$/;
@@ -48,6 +49,12 @@ export interface MetaAdsDailyInsight {
   spendAmountDecimal: string;
 }
 
+export interface MetaAdsUsageTelemetry {
+  adAccountCallCount: number | null;
+  businessUseCaseCallCount: number | null;
+  insightsThrottleResetSeconds: number | null;
+}
+
 const accountSchema = z.object({
   account_id: z.string().regex(/^\d+$/).optional(),
   account_status: z.union([z.number(), z.string()]).optional(),
@@ -67,18 +74,62 @@ function providerErrorCode(payload: unknown): number | null {
   return typeof code === 'number' && Number.isInteger(code) ? code : null;
 }
 
+function finiteNonNegativeNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function parseUsageTelemetry(headers: Headers): MetaAdsUsageTelemetry | null {
+  const parseObject = (name: string): Record<string, unknown> | null => {
+    const header = headers.get(name);
+    if (!header) return null;
+    try {
+      const parsed: unknown = JSON.parse(header);
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
+  };
+  const adAccount = parseObject('x-ad-account-usage');
+  const businessUseCase = parseObject('x-business-use-case-usage');
+  const throttle = parseObject('x-fb-ads-insights-throttle');
+  const adsInsights = businessUseCase?.ads_insights;
+  const businessEntry = Array.isArray(adsInsights) ? adsInsights[0] : null;
+  const retryAfter = finiteNonNegativeNumber(headers.get('retry-after'));
+  const telemetry = {
+    adAccountCallCount: finiteNonNegativeNumber(adAccount?.call_count),
+    businessUseCaseCallCount: finiteNonNegativeNumber(
+      businessEntry && typeof businessEntry === 'object'
+        ? (businessEntry as Record<string, unknown>).call_count
+        : null
+    ),
+    insightsThrottleResetSeconds:
+      finiteNonNegativeNumber(throttle?.estimated_time_to_regain_access) ??
+      retryAfter,
+  };
+  return Object.values(telemetry).some((value) => value !== null)
+    ? telemetry
+    : null;
+}
+
 async function fetchMetaJson(
   url: URL,
   accessToken: string,
   failureCode: string,
   fetchImpl: typeof fetch,
   sleep: (milliseconds: number) => Promise<void> = (milliseconds) =>
-    new Promise((resolve) => setTimeout(resolve, milliseconds))
+    new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void
 ): Promise<unknown> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     const response = await fetchImpl(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
+    const telemetry = parseUsageTelemetry(response.headers);
+    if (telemetry) onTelemetry?.(telemetry);
     let payload: unknown = null;
     try {
       payload = await response.json();
@@ -86,14 +137,22 @@ async function fetchMetaJson(
       // Provider bodies are intentionally discarded.
     }
     if (response.ok) return payload;
+    const metaCode = providerErrorCode(payload);
+    if (response.status === 401 || metaCode === 190) {
+      throw new MetaAdsProviderError(
+        'META_ADS_ACCESS_REVOKED',
+        response.status
+      );
+    }
     const retryable =
       response.status === 429 ||
       response.status >= 500 ||
-      RETRYABLE_META_CODES.has(providerErrorCode(payload) ?? -1);
+      RETRYABLE_META_CODES.has(metaCode ?? -1);
     if (!retryable || attempt === MAX_RETRIES - 1) {
       throw new MetaAdsProviderError(failureCode, response.status);
     }
-    await sleep(250 * 2 ** attempt);
+    const resetHintMs = (telemetry?.insightsThrottleResetSeconds ?? 0) * 1000;
+    await sleep(Math.min(60_000, Math.max(250 * 2 ** attempt, resetHintMs)));
   }
   throw new MetaAdsProviderError(failureCode);
 }
@@ -242,7 +301,8 @@ export async function fetchMetaAdsDailyInsights(
     startDate: string;
   },
   fetchImpl: typeof fetch = fetch,
-  sleep?: (milliseconds: number) => Promise<void>
+  sleep?: (milliseconds: number) => Promise<void>,
+  onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void
 ): Promise<MetaAdsDailyInsight[]> {
   if (
     !/^act_\d+$/.test(input.accountId) ||
@@ -259,27 +319,51 @@ export async function fetchMetaAdsDailyInsights(
     JSON.stringify({ since: input.startDate, until: input.endDate })
   );
   url.searchParams.set('time_increment', '1');
+  url.searchParams.set('limit', '100');
   url.searchParams.set(
     'fields',
     'account_id,account_name,date_start,date_stop,spend,impressions,clicks,reach,actions,action_values,attribution_setting'
   );
   url.searchParams.set('use_unified_attribution_setting', 'true');
-  return parseMetaAdsDailyInsights(
-    await fetchMetaJson(
-      url,
+  const expectedPath = `/${META_ADS_GRAPH_ROOT.split('/').at(-1)}/${input.accountId}/insights`;
+  const insights: MetaAdsDailyInsight[] = [];
+  let next: URL | null = url;
+  for (let page = 0; next && page < MAX_INSIGHTS_PAGES; page += 1) {
+    const payload = await fetchMetaJson(
+      next,
       input.accessToken,
       'META_ADS_INSIGHTS_FAILED',
       fetchImpl,
-      sleep
-    ),
-    input.accountId
-  );
+      sleep,
+      onTelemetry
+    );
+    insights.push(...parseMetaAdsDailyInsights(payload, input.accountId));
+    const record =
+      payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? (payload as { paging?: { next?: unknown } })
+        : null;
+    const nextValue = record?.paging?.next;
+    try {
+      next = typeof nextValue === 'string' ? new URL(nextValue) : null;
+      if (
+        next &&
+        (next.origin !== 'https://graph.facebook.com' ||
+          next.pathname !== expectedPath)
+      ) {
+        throw new Error('unexpected insights paging URL');
+      }
+    } catch {
+      throw new MetaAdsProviderError('META_ADS_INSIGHTS_PAGING_INVALID');
+    }
+  }
+  if (next) throw new MetaAdsProviderError('META_ADS_INSIGHTS_PAGING_LIMIT');
+  return insights;
 }
 
 export async function validateMetaAdsGrant(
   input: { accessToken: string; appId: string; appSecret: string },
   fetchImpl: typeof fetch = fetch
-): Promise<void> {
+): Promise<{ providerUserId: string }> {
   const debugUrl = new URL(`${META_ADS_GRAPH_ROOT}/debug_token`);
   debugUrl.searchParams.set('input_token', input.accessToken);
   debugUrl.searchParams.set(
@@ -296,11 +380,46 @@ export async function validateMetaAdsGrant(
     debugPayload &&
     typeof debugPayload === 'object' &&
     !Array.isArray(debugPayload)
-      ? (debugPayload as { data?: { app_id?: unknown; is_valid?: unknown } })
-          .data
+      ? (
+          debugPayload as {
+            data?: {
+              app_id?: unknown;
+              expires_at?: unknown;
+              is_valid?: unknown;
+              type?: unknown;
+              user_id?: unknown;
+            };
+          }
+        ).data
       : null;
-  if (data?.is_valid !== true || String(data.app_id) !== input.appId)
+  const expiresAt = finiteNonNegativeNumber(data?.expires_at);
+  const providerUserId =
+    typeof data?.user_id === 'string' && data.user_id.trim()
+      ? data.user_id
+      : null;
+  if (
+    data?.is_valid !== true ||
+    String(data.app_id) !== input.appId ||
+    String(data.type).toUpperCase() !== 'USER' ||
+    !providerUserId ||
+    expiresAt === null ||
+    expiresAt <= Date.now() / 1000 + 60
+  )
     throw new MetaAdsProviderError('META_ADS_TOKEN_INVALID');
+  const meUrl = new URL(`${META_ADS_GRAPH_ROOT}/me`);
+  meUrl.searchParams.set('fields', 'id');
+  const mePayload = await fetchMetaJson(
+    meUrl,
+    input.accessToken,
+    'META_ADS_PROVIDER_IDENTITY_CHECK_FAILED',
+    fetchImpl
+  );
+  const meId =
+    mePayload && typeof mePayload === 'object' && !Array.isArray(mePayload)
+      ? (mePayload as { id?: unknown }).id
+      : null;
+  if (typeof meId !== 'string' || meId !== providerUserId)
+    throw new MetaAdsProviderError('META_ADS_PROVIDER_IDENTITY_MISMATCH');
   const permissionsUrl = new URL(`${META_ADS_GRAPH_ROOT}/me/permissions`);
   const permissionsPayload = await fetchMetaJson(
     permissionsUrl,
@@ -325,4 +444,5 @@ export async function validateMetaAdsGrant(
     );
   if (!hasAdsRead)
     throw new MetaAdsProviderError('META_ADS_ADS_READ_NOT_GRANTED');
+  return { providerUserId };
 }

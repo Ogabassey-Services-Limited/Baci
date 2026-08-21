@@ -14,6 +14,7 @@ vi.mock('./access-token', () => ({
 vi.mock('./provider', () => ({
   fetchMetaAdsDailyInsights: (...args: unknown[]) => mockInsights(...args),
   listMetaAdsAccounts: (...args: unknown[]) => mockAccounts(...args),
+  MetaAdsProviderError: class MetaAdsProviderError extends Error {},
 }));
 
 import { syncMetaAdsSpendForMerchant } from './sync';
@@ -87,6 +88,61 @@ describe('Meta Ads sync', () => {
             }),
           }),
         ],
+      })
+    );
+  });
+
+  it('adds large and fractional selected action values without Number precision loss', async () => {
+    mockInsights.mockResolvedValueOnce([
+      {
+        accountId: 'act_12',
+        actions: [
+          { actionType: 'purchase', value: '9007199254740993.5' },
+          { actionType: 'purchase', value: '0.25' },
+        ],
+        actionValues: [],
+        attributionSetting: null,
+        clicks: '0',
+        dateStart: '2026-08-20',
+        dateStop: '2026-08-20',
+        impressions: '0',
+        reach: null,
+        spendAmountDecimal: '0',
+      },
+    ]);
+    await syncMetaAdsSpendForMerchant({
+      merchantId: 'merchant',
+      startDate: '2026-08-20',
+      endDate: '2026-08-20',
+      supabase: { rpc } as never,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_spend_daily',
+      expect.objectContaining({
+        p_rows: [
+          expect.objectContaining({ conversions: '9007199254740993.75' }),
+        ],
+      })
+    );
+  });
+
+  it('persists an error state when the encrypted token is expired', async () => {
+    mockResolve.mockImplementationOnce(() => {
+      throw new Error('META_ADS_REAUTH_REQUIRED');
+    });
+    await expect(
+      syncMetaAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.objectContaining({
+        p_metadata: expect.objectContaining({ reauthRequired: true }),
+        p_status: 'error',
       })
     );
   });

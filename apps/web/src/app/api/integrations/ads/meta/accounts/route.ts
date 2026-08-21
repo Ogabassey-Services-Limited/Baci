@@ -3,9 +3,13 @@ import { resolveMetaAdsAccessToken } from '@/lib/ads/meta/access-token';
 import {
   getMetaAdsConfig,
   META_ADS_CONFIG_MISSING,
+  MetaAdsConfigError,
 } from '@/lib/ads/meta/config';
 import { META_ADS_PROVIDER } from '@/lib/ads/meta/constants';
-import { listMetaAdsAccounts } from '@/lib/ads/meta/provider';
+import {
+  listMetaAdsAccounts,
+  MetaAdsProviderError,
+} from '@/lib/ads/meta/provider';
 import {
   authenticateApiRequest,
   getUserAccess,
@@ -68,9 +72,29 @@ export async function GET(request: NextRequest) {
       ),
       connected: true,
     });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof MetaAdsConfigError ||
+      (error instanceof Error && error.name === 'MetaAdsConfigError')
+    ) {
+      return NextResponse.json(
+        { error: META_ADS_CONFIG_MISSING },
+        { status: 503 }
+      );
+    }
+    if (
+      error instanceof MetaAdsProviderError ||
+      (error &&
+        typeof error === 'object' &&
+        typeof (error as { code?: unknown }).code === 'string')
+    ) {
+      return NextResponse.json(
+        { error: (error as { code: string }).code },
+        { status: 502 }
+      );
+    }
     return NextResponse.json(
-      { error: META_ADS_CONFIG_MISSING },
+      { error: 'META_ADS_AUTHORIZATION_UNAVAILABLE' },
       { status: 502 }
     );
   }
@@ -152,9 +176,29 @@ export async function PATCH(request: NextRequest) {
         { status: 500 }
       );
     return NextResponse.json({ accountId: account.accountId, selected: true });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof MetaAdsConfigError ||
+      (error instanceof Error && error.name === 'MetaAdsConfigError')
+    ) {
+      return NextResponse.json(
+        { error: META_ADS_CONFIG_MISSING },
+        { status: 503 }
+      );
+    }
+    if (
+      error instanceof MetaAdsProviderError ||
+      (error &&
+        typeof error === 'object' &&
+        typeof (error as { code?: unknown }).code === 'string')
+    ) {
+      return NextResponse.json(
+        { error: (error as { code: string }).code },
+        { status: 502 }
+      );
+    }
     return NextResponse.json(
-      { error: 'Meta Ads authorization expired' },
+      { error: 'META_ADS_AUTHORIZATION_UNAVAILABLE' },
       { status: 502 }
     );
   }

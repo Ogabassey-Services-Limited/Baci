@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       ...config,
       accessToken: shortLived.access_token,
     });
-    await validateMetaAdsGrant({
+    const grant = await validateMetaAdsGrant({
       accessToken: longLived.access_token,
       appId: config.appId,
       appSecret: config.appSecret,
@@ -105,7 +105,10 @@ export async function GET(request: NextRequest) {
           providerVersion: 'v25.0',
         },
         p_merchant_id: access.merchantId,
-        p_metadata: { graphVersion: 'v25.0' },
+        p_metadata: {
+          graphVersion: 'v25.0',
+          providerUserId: grant.providerUserId,
+        },
         p_provider: META_ADS_PROVIDER,
         p_provider_account_label: null,
         p_provider_customer_id: null,
