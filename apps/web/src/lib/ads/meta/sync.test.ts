@@ -1,0 +1,93 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockConfig = vi.fn();
+const mockResolve = vi.fn();
+const mockAccounts = vi.fn();
+const mockInsights = vi.fn();
+
+vi.mock('./config', () => ({
+  getMetaAdsConfig: (...args: unknown[]) => mockConfig(...args),
+}));
+vi.mock('./access-token', () => ({
+  resolveMetaAdsAccessToken: (...args: unknown[]) => mockResolve(...args),
+}));
+vi.mock('./provider', () => ({
+  fetchMetaAdsDailyInsights: (...args: unknown[]) => mockInsights(...args),
+  listMetaAdsAccounts: (...args: unknown[]) => mockAccounts(...args),
+}));
+
+import { syncMetaAdsSpendForMerchant } from './sync';
+
+describe('Meta Ads sync', () => {
+  const rpc = vi.fn();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockConfig.mockReturnValue({});
+    mockResolve.mockReturnValue('access');
+    mockAccounts.mockResolvedValue([
+      {
+        accountId: 'act_12',
+        currencyCode: 'NGN',
+        label: 'Account',
+        timezoneName: 'Africa/Lagos',
+        timezoneOffsetHours: '1',
+      },
+    ]);
+    mockInsights.mockResolvedValue([
+      {
+        accountId: 'act_12',
+        actions: [{ actionType: 'purchase', value: '1' }],
+        actionValues: [{ actionType: 'purchase', value: '999.99' }],
+        attributionSetting: '7d_click',
+        clicks: '2',
+        dateStart: '2026-08-20',
+        dateStop: '2026-08-20',
+        impressions: '10',
+        reach: '9',
+        spendAmountDecimal: '10.000000001',
+      },
+    ]);
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: 'cipher',
+              provider_customer_id: 'act_12',
+              status: 'active',
+              token_expires_at: '2026-10-20T00:00:00Z',
+            },
+          ],
+          error: null,
+        });
+      if (name === 'upsert_merchant_ads_spend_daily')
+        return Promise.resolve({ data: 1, error: null });
+      return Promise.resolve({ data: true, error: null });
+    });
+  });
+
+  it('requires a selected discovered account and writes exact Meta decimals plus labelled actions', async () => {
+    await expect(
+      syncMetaAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toEqual({ accountId: 'act_12', rowsWritten: 1 });
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_spend_daily',
+      expect.objectContaining({
+        p_rows: [
+          expect.objectContaining({
+            spend_amount_decimal: '10.000000001',
+            spend_micros: '0',
+            attribution_metadata: expect.objectContaining({
+              actions: [{ actionType: 'purchase', value: '1' }],
+            }),
+          }),
+        ],
+      })
+    );
+  });
+});
