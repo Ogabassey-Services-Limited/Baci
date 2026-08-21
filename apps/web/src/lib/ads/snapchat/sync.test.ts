@@ -1,0 +1,116 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const resolveToken = vi.fn();
+const config = vi.fn();
+const accounts = vi.fn();
+const reports = vi.fn();
+
+vi.mock('./access-token', () => ({
+  resolveSnapchatAdsAccessToken: (...args: unknown[]) => resolveToken(...args),
+}));
+vi.mock('./config', () => ({
+  getSnapchatAdsConfig: (...args: unknown[]) => config(...args),
+}));
+vi.mock('./provider', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./provider')>()),
+  fetchSnapchatAdsDailyReport: (...args: unknown[]) => reports(...args),
+  listSnapchatAdsAccounts: (...args: unknown[]) => accounts(...args),
+}));
+
+import { syncSnapchatAdsSpendForMerchant } from './sync';
+
+describe('Snapchat Ads sync', () => {
+  const rpc = vi.fn();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    config.mockReturnValue({ tokenEncryptionKey: 'key' });
+    resolveToken.mockReturnValue('token');
+    accounts.mockResolvedValue([
+      {
+        accountId: 'ad-1',
+        currencyCode: 'USD',
+        label: 'Account',
+        organizationId: 'org-1',
+        timezoneName: 'America/New_York',
+      },
+    ]);
+    reports.mockResolvedValue([
+      {
+        accountId: 'ad-1',
+        clicks: '2',
+        conversions: '1',
+        currencyCode: 'USD',
+        impressions: '10',
+        spendAmountDecimal: '1.25',
+        spendDate: '2026-08-20',
+        spendMicros: '1250000',
+        timezoneName: 'America/New_York',
+      },
+    ]);
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: 'access',
+              provider_customer_id: 'ad-1',
+              refresh_token_ciphertext: 'refresh',
+              status: 'active',
+              token_expires_at: '2026-09-01T00:00:00.000Z',
+            },
+          ],
+          error: null,
+        });
+      return Promise.resolve({
+        data: name === 'upsert_merchant_ads_spend_daily' ? 1 : true,
+        error: null,
+      });
+    });
+  });
+  it('rediscovers the selected account and persists exact micro-currency with Snap labels', async () => {
+    await expect(
+      syncSnapchatAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toEqual({ accountId: 'ad-1', rowsWritten: 1 });
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_spend_daily',
+      expect.objectContaining({
+        p_rows: [
+          expect.objectContaining({
+            attribution_metadata: expect.objectContaining({
+              providerClicksLabel: 'Swipe Ups',
+              providerConversionsLabel: 'Snapchat-attributed purchases',
+            }),
+            spend_micros: '1250000',
+          }),
+        ],
+      })
+    );
+  });
+  it('marks the persisted connection as reconnect-required after a revoked provider token', async () => {
+    reports.mockRejectedValueOnce(
+      Object.assign(new Error('revoked'), {
+        code: 'SNAPCHAT_ADS_ACCESS_REVOKED',
+      })
+    );
+    await expect(
+      syncSnapchatAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ACCESS_REVOKED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.objectContaining({
+        p_status: 'error',
+        p_refresh_token_ciphertext: 'refresh',
+      })
+    );
+  });
+});

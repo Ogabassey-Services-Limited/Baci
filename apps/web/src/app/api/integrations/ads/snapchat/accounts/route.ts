@@ -1,0 +1,215 @@
+import { type NextRequest, NextResponse } from 'next/server';
+import { resolveSnapchatAdsAccessToken } from '@/lib/ads/snapchat/access-token';
+import {
+  getSnapchatAdsConfig,
+  SNAPCHAT_ADS_CONFIG_MISSING,
+  SnapchatAdsConfigError,
+} from '@/lib/ads/snapchat/config';
+import { SNAPCHAT_ADS_PROVIDER } from '@/lib/ads/snapchat/constants';
+import {
+  listSnapchatAdsAccounts,
+  SnapchatAdsProviderError,
+} from '@/lib/ads/snapchat/provider';
+import { markSnapchatAdsReauthRequired } from '@/lib/ads/snapchat/sync';
+import {
+  authenticateApiRequest,
+  getUserAccess,
+  hasPermission,
+} from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { snapchatAdsAccountSelectionSchema } from '@/schemas/snapchat-ads';
+
+type SecretConnection = {
+  access_token_ciphertext: string | null;
+  provider_customer_id: string | null;
+  refresh_token_ciphertext: string | null;
+  status: string;
+  token_expires_at: string | null;
+};
+async function connection(
+  supabase: Awaited<ReturnType<typeof authenticateApiRequest>>['supabase'],
+  merchantId: string
+) {
+  if (!supabase) return null;
+  const result = await supabase.rpc('get_merchant_ads_connection_secret', {
+    p_merchant_id: merchantId,
+    p_provider: SNAPCHAT_ADS_PROVIDER,
+  });
+  return result.error
+    ? { error: true as const }
+    : { connection: result.data?.[0] as SecretConnection | null };
+}
+async function revoked(
+  error: unknown,
+  current: SecretConnection | null,
+  merchantId: string,
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
+  >
+) {
+  if (
+    !current ||
+    !(error instanceof SnapchatAdsProviderError) ||
+    error.code !== 'SNAPCHAT_ADS_ACCESS_REVOKED'
+  )
+    return null;
+  try {
+    await markSnapchatAdsReauthRequired({
+      connection: current,
+      failureCode: error.code,
+      merchantId,
+      supabase,
+    });
+    return null;
+  } catch {
+    return NextResponse.json(
+      { error: 'SNAPCHAT_ADS_REAUTH_PERSIST_FAILED' },
+      { status: 502 }
+    );
+  }
+}
+function providerFailure(error: unknown) {
+  if (error instanceof SnapchatAdsConfigError)
+    return NextResponse.json(
+      { error: SNAPCHAT_ADS_CONFIG_MISSING },
+      { status: 503 }
+    );
+  return NextResponse.json(
+    {
+      error:
+        error instanceof SnapchatAdsProviderError
+          ? error.code
+          : 'SNAPCHAT_ADS_AUTHORIZATION_UNAVAILABLE',
+    },
+    { status: 502 }
+  );
+}
+export async function GET(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase)
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
+  const access = await getUserAccess(auth.supabase);
+  if (!access)
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  if (!hasPermission(access, 'integrations', 'manage'))
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  let current: SecretConnection | null = null;
+  try {
+    const read = await connection(auth.supabase, access.merchantId);
+    if (!read || ('error' in read && read.error))
+      return NextResponse.json(
+        { error: 'Failed to read Snapchat Ads connection' },
+        { status: 500 }
+      );
+    if (read.connection?.status !== 'active')
+      return NextResponse.json({ accounts: [], connected: false });
+    current = read.connection;
+    const accounts = await listSnapchatAdsAccounts({
+      accessToken: resolveSnapchatAdsAccessToken(
+        current,
+        getSnapchatAdsConfig()
+      ),
+    });
+    return NextResponse.json({
+      accounts: accounts.map((account) => ({
+        accountId: account.accountId,
+        currencyCode: account.currencyCode,
+        label: account.label,
+        organizationId: account.organizationId,
+        selected: account.accountId === current?.provider_customer_id,
+        timezoneName: account.timezoneName,
+      })),
+      connected: true,
+    });
+  } catch (error) {
+    return (
+      (await revoked(error, current, access.merchantId, auth.supabase)) ??
+      providerFailure(error)
+    );
+  }
+}
+export async function PATCH(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase)
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid)
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
+    );
+  const access = await getUserAccess(auth.supabase);
+  if (!access)
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  if (!hasPermission(access, 'integrations', 'manage'))
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+  }
+  const parsed = snapchatAdsAccountSelectionSchema.safeParse(body);
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  let current: SecretConnection | null = null;
+  try {
+    const read = await connection(auth.supabase, access.merchantId);
+    if (!read || ('error' in read && read.error))
+      return NextResponse.json(
+        { error: 'Failed to read Snapchat Ads connection' },
+        { status: 500 }
+      );
+    if (!read.connection)
+      return NextResponse.json(
+        { error: 'Snapchat Ads is not connected' },
+        { status: 404 }
+      );
+    current = read.connection;
+    const account = (
+      await listSnapchatAdsAccounts({
+        accessToken: resolveSnapchatAdsAccessToken(
+          current,
+          getSnapchatAdsConfig()
+        ),
+      })
+    ).find((item) => item.accountId === parsed.data.accountId);
+    if (!account)
+      return NextResponse.json(
+        { error: 'Snapchat Ads account is not accessible' },
+        { status: 400 }
+      );
+    const result = await auth.supabase.rpc('set_merchant_ads_account', {
+      p_account_timezone: account.timezoneName,
+      p_attribution_metadata: {
+        currencyCode: account.currencyCode,
+        organizationId: account.organizationId,
+        providerVersion: 'v1',
+      },
+      p_merchant_id: access.merchantId,
+      p_provider: SNAPCHAT_ADS_PROVIDER,
+      p_provider_account_label: account.label,
+      p_provider_customer_id: account.accountId,
+    });
+    return result.error || result.data !== true
+      ? NextResponse.json(
+          { error: 'Failed to select Snapchat Ads account' },
+          { status: 500 }
+        )
+      : NextResponse.json({ accountId: account.accountId, selected: true });
+  } catch (error) {
+    return (
+      (await revoked(error, current, access.merchantId, auth.supabase)) ??
+      providerFailure(error)
+    );
+  }
+}
