@@ -1,8 +1,10 @@
 import type { Product as CartProduct } from '@/lib/products';
+import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import {
   canonicalizeVariantAxis,
   getVariantAttributeOptions,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { isDisplayOnlyVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import type { Product } from '../../types';
 import type { ConditionType } from './product-condition';
 import type { ProductDetailsCurrentOffer } from './offer-resolution';
@@ -81,6 +83,17 @@ function getVariantBackedAxisOptions(
   const normalizedAxis = canonicalizeVariantAxis(axis);
   const options = new Set<string>();
 
+  if (normalizedAxis === 'condition') {
+    for (const variant of variants) {
+      const value = normalizeCanonicalProductCondition(variant.condition);
+      if (value) {
+        options.add(value);
+      }
+    }
+
+    return Array.from(options);
+  }
+
   for (const variant of variants) {
     for (const [rawAxis, value] of Object.entries(variant.attributes || {})) {
       if (canonicalizeVariantAxis(rawAxis) !== normalizedAxis) {
@@ -109,9 +122,13 @@ export function getVariantBackedSelections(
   variants: NormalizedProductDetails['variants']
 ) {
   return Object.fromEntries(
-    Object.entries(selectedAttributes).filter(([axis]) =>
-      hasVariantBackedAxis(axis, variants)
-    )
+    Object.entries(selectedAttributes).filter(([axis]) => {
+      const normalizedAxis = canonicalizeVariantAxis(axis);
+      return (
+        hasVariantBackedAxis(normalizedAxis, variants) &&
+        !isDisplayOnlyVariantAxis(normalizedAxis)
+      );
+    })
   );
 }
 

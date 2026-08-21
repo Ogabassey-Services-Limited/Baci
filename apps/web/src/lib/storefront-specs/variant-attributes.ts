@@ -1,4 +1,5 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
+import { isRenderableVariantAxis } from './non-renderable-variant-axes';
 
 interface VariantAttributeDefinition {
   options?: unknown;
@@ -154,23 +155,6 @@ function getVariantAxisValue(
   return normalizedAttributes[axis];
 }
 
-function isRenderableVariantAxis(axis: string, options: string[]) {
-  if (
-    axis === 'color' ||
-    axis === 'colour' ||
-    axis === 'color_hex' ||
-    axis === 'colour_hex'
-  ) {
-    return false;
-  }
-
-  if (axis === 'condition') {
-    return options.length > 1;
-  }
-
-  return options.length > 0;
-}
-
 export function mergeVariantAxisOptions(
   variants: VariantAttributeCarrier[] | null | undefined,
   source: VariantAttributeSource,
@@ -262,7 +246,7 @@ export function getRenderableVariantAxes(
   return Object.entries(
     mergeVariantAxisOptions(variants, source, fallbackCondition)
   )
-    .filter(([axis, options]) => isRenderableVariantAxis(axis, options))
+    .filter(([axis, options]) => isRenderableVariantAxis(axis, options.length))
     .sort(([leftAxis], [rightAxis]) => {
       const leftPriority = priorityOrder.indexOf(leftAxis);
       const rightPriority = priorityOrder.indexOf(rightAxis);

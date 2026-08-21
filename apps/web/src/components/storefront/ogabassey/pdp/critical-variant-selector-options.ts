@@ -3,18 +3,11 @@ import {
   normalizeCanonicalProductCondition,
 } from '@baci/shared/lib';
 import type { Product as CartProduct } from '@/lib/products';
+import { isDisplayOnlyVariantAxis, isRenderableVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import {
   canonicalizeVariantAxis,
   getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
-
-// Color is represented by product imagery, and color_hex is only swatch metadata.
-const NON_RENDERABLE_CRITICAL_VARIANT_AXES = new Set([
-  'color',
-  'colour',
-  'color_hex',
-  'colour_hex',
-]);
 
 export function formatVariantAxisLabel(axis: string) {
   const labels: Record<string, string> = {
@@ -101,17 +94,8 @@ function isRenderableCriticalVariantAxis(
   variants: CartProduct['variants'],
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
-  if (!axis || NON_RENDERABLE_CRITICAL_VARIANT_AXES.has(axis)) {
-    return false;
-  }
-
   const options = getVariantAxisOptions(variants, axis, fallbackAxisOptions);
-
-  if (axis === 'condition') {
-    return options.length > 1;
-  }
-
-  return options.length > 0;
+  return isRenderableVariantAxis(axis, options.length);
 }
 
 export function getRenderableCriticalVariantAxes(
@@ -130,10 +114,16 @@ export function getAvailableCriticalVariantOptions(
   explicitSelectedAttributes: Record<string, string>,
   fallbackAxisOptions: Record<string, string[]> = {}
 ) {
+  const constraintSelections = Object.fromEntries(
+    Object.entries(explicitSelectedAttributes).filter(([entryAxis]) => {
+      const normalizedAxis = canonicalizeVariantAxis(entryAxis);
+      return !isDisplayOnlyVariantAxis(normalizedAxis);
+    })
+  );
   const options = getAvailableOptionsForAxis(
     axis,
     variants,
-    explicitSelectedAttributes
+    constraintSelections
   );
 
   if (options.length > 0) {

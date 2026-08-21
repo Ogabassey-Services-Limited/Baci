@@ -10,8 +10,8 @@ import {
 import { useEffect, useState } from 'react';
 import {
   canonicalizeVariantAxis,
-  getAvailableOptionsForAxis,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { pruneSelectionsByVariantAvailability } from '@/components/storefront/ogabassey/variant-selection-pruning';
 import { useCart } from '@/hooks/cart';
 import {
   buildVariantCartProduct,
@@ -233,21 +233,10 @@ export function OgabasseyPdpCriticalCommerceProvider({
     );
     setSelectedAttributes((current) => {
       const next = { ...current, [normalizedAxis]: value.trim() };
-
-      return Object.fromEntries(
-        Object.entries(next).filter(([key, selectedValue]) => {
-          if (key === normalizedAxis) {
-            return true;
-          }
-
-          return getAvailableOptionsForAxis(
-            key,
-            variants,
-            Object.fromEntries(
-              Object.entries(next).filter(([entryKey]) => entryKey !== key)
-            )
-          ).includes(selectedValue);
-        })
+      return pruneSelectionsByVariantAvailability(
+        next,
+        normalizedAxis,
+        variants
       );
     });
   }

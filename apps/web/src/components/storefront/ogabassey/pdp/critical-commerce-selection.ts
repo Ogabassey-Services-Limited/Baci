@@ -1,6 +1,7 @@
 import { normalizeCanonicalProductCondition } from '@baci/shared/lib';
 import type { Product as CartProduct, ProductVariant } from '@/lib/products';
 import { canonicalizeVariantAxis } from '@/components/storefront/ogabassey/variant-attributes';
+import { isDisplayOnlyVariantAxis } from '@/lib/storefront-specs/non-renderable-variant-axes';
 import {
   COMPACT_OPTIONS,
   type CurrencyConfig,
@@ -202,7 +203,7 @@ export function getVariantAxesWithMultipleOptions(variants: ProductVariant[]) {
   }
 
   return Object.entries(axisValues)
-    .filter(([, values]) => values.size > 1)
+    .filter(([axis, values]) => values.size > 1 && !isDisplayOnlyVariantAxis(axis))
     .map(([axis]) => axis);
 }
 
