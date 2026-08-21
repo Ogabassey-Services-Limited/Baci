@@ -12,9 +12,12 @@ export const publishProductSchema = z.object({
   image: z.string().optional(),
   images: z
     .array(
-      z.object({
-        url: z.string().optional(),
-      })
+      z.union([
+        z.string(),
+        z.object({
+          url: z.string().optional(),
+        }),
+      ])
     )
     .optional(),
   variants: z

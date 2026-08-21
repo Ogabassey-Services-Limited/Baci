@@ -34,6 +34,7 @@ function makeRequest(value: string): NextRequest {
 describe('handleJumiaMobileTicket', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     mockCreateAnonClient.mockReturnValue({ rpc: mockRpc });
     mockGetJumiaAuthUrl.mockReturnValue(
       'https://vendor-api.jumia.com/login?state=state'
@@ -58,6 +59,9 @@ describe('handleJumiaMobileTicket', () => {
     expect(mockRpc).not.toHaveBeenCalled();
   });
   it('redeems a valid ticket and sets only handoff cookies', async () => {
+    const now = Date.parse('2026-08-21T12:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
     const response = await handleJumiaMobileTicket(
       makeRequest(query),
       new URLSearchParams(query)
@@ -69,7 +73,7 @@ describe('handleJumiaMobileTicket', () => {
       expect.objectContaining({
         p_ticket_id: TICKET_ID,
         p_oauth_state: expect.any(String),
-        p_redeemed_expires_at: expect.any(String),
+        p_redeemed_expires_at: new Date(now + 10 * 60 * 1000).toISOString(),
       })
     );
     expect(response?.headers.get('set-cookie')).toContain(

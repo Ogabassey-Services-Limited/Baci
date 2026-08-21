@@ -56,6 +56,23 @@ describe('publishProductSchema', () => {
     });
   });
 
+  it('accepts legacy string image entries alongside object image entries', () => {
+    expect(
+      publishProductSchema.parse({
+        id: 'product-1',
+        name: 'Sample Product',
+        price: 1999,
+        images: [
+          'https://cdn.example.com/legacy.jpg',
+          { url: 'https://cdn.example.com/object.jpg' },
+        ],
+      }).images
+    ).toEqual([
+      'https://cdn.example.com/legacy.jpg',
+      { url: 'https://cdn.example.com/object.jpg' },
+    ]);
+  });
+
   it('accepts variants that inherit the parent price or lack a SKU', () => {
     expect(
       publishProductSchema.parse({

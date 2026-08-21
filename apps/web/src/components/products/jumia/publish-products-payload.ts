@@ -8,7 +8,7 @@ interface PublishPayloadProduct {
   price: number;
   stock?: number;
   image?: string;
-  images?: Array<{ url?: string }>;
+  images?: Array<string | { url?: string }>;
   variants?: Array<{
     sku?: string | null;
     price_override?: number | null;
@@ -77,7 +77,9 @@ function getProductVariations(product: PublishPayloadProduct) {
 
 function collectPublishImageUrls(product: PublishPayloadProduct): string[] {
   const imageUrls = (product.images ?? [])
-    .map((image) => image.url?.trim())
+    .map((image) =>
+      typeof image === 'string' ? image.trim() : image.url?.trim()
+    )
     .filter((url): url is string =>
       Boolean(url && isAbsoluteHttpUrl(url) && !isCatalogPlaceholderImage(url))
     );

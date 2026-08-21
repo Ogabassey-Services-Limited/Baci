@@ -8,6 +8,8 @@ import {
 } from './jumia-authorization-refresh-lease';
 import type { JumiaClientTokenPersistenceState } from './jumia-client-token-persistence';
 
+const JUMIA_ROTATION_PERSIST_ATTEMPTS = 3;
+
 async function encryptRotatedCredentials(
   state: JumiaClientTokenPersistenceState,
   refreshToken: string,
@@ -60,19 +62,33 @@ export async function persistJumiaAuthorizationRotation(args: {
     data.access_token,
     authorizationGrant.client_key_hash
   );
-  const { data: rotationVersion, error: updateError } = await supabase.rpc(
-    'rotate_jumia_authorization_credentials',
-    {
-      p_authorization_id: authorizationId,
-      p_credential_ciphertext: ciphertext,
-      p_token_expires_at: args.tokenExpiresAt.toISOString(),
-      p_refresh_token_expires_at: args.refreshTokenExpiresAt.toISOString(),
-      p_expected_rotation_version: state.authorizationRotationVersion ?? 1,
-      p_refresh_lease_token: refreshLeaseToken,
-    }
-  );
 
-  if (updateError) {
+  const rotationRpcArgs = {
+    p_authorization_id: authorizationId,
+    p_credential_ciphertext: ciphertext,
+    p_token_expires_at: args.tokenExpiresAt.toISOString(),
+    p_refresh_token_expires_at: args.refreshTokenExpiresAt.toISOString(),
+    p_expected_rotation_version: state.authorizationRotationVersion ?? 1,
+    p_refresh_lease_token: refreshLeaseToken,
+  };
+
+  let rotationVersion: unknown;
+  let updateError: { code?: string; message?: string } | null = null;
+  for (
+    let attempt = 1;
+    attempt <= JUMIA_ROTATION_PERSIST_ATTEMPTS;
+    attempt += 1
+  ) {
+    const result = await supabase.rpc(
+      'rotate_jumia_authorization_credentials',
+      rotationRpcArgs
+    );
+    rotationVersion = result.data;
+    updateError = result.error;
+    if (!updateError) {
+      break;
+    }
+
     const isStaleRotation =
       updateError.code === '40001' ||
       updateError.message?.includes('Stale Jumia authorization rotation');
@@ -87,6 +103,13 @@ export async function persistJumiaAuthorizationRotation(args: {
       };
       return reloadSharedAuthorizationCredentials(refreshState, supabase);
     }
+
+    if (attempt === JUMIA_ROTATION_PERSIST_ATTEMPTS) {
+      break;
+    }
+  }
+
+  if (updateError) {
     throw new JumiaApiError(
       500,
       `Failed to persist refreshed token for integration ${state.integrationId}`,

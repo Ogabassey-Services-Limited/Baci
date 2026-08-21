@@ -35,7 +35,7 @@ export async function handleJumiaMobileTicket(
     );
   }
   const state = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
   const supabase = createAnonClient();
   const { data: redeemed, error } = await supabase.rpc(
     'redeem_jumia_oauth_handoff_ticket',

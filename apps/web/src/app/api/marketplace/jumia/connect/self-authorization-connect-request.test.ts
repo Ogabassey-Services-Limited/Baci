@@ -45,6 +45,15 @@ vi.mock('./self-authorization-handler', () => ({
   },
 }));
 
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mockCreateAdminClient,
 }));
@@ -160,6 +169,36 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
 
     expect(response.ok).toBe(true);
     expect(loadJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
+    expect(consumeJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
+  });
+
+  it('returns the successful connect response when discovery cleanup fails transiently', async () => {
+    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
+      'ciphertext'
+    );
+    vi.mocked(consumeJumiaSelfAuthorizationDiscovery).mockRejectedValue(
+      new Error('discovery cleanup unavailable')
+    );
+    vi.mocked(jumiaSelfAuthorizationHandler.connect).mockResolvedValue(
+      NextResponse.json({ connected: ['shop-1'] })
+    );
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        clientId: 'client-1',
+        selectedShopIds: ['shop-1'],
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: buildSupabase(),
+    });
+
+    expect(response.ok).toBe(true);
+    await expect(response.json()).resolves.toEqual({
+      connected: ['shop-1'],
+    });
     expect(consumeJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
   });
 

@@ -29,6 +29,7 @@ import {
   readFullFailureState,
   withFullFailureState,
 } from './order-sync-state';
+import { selectJumiaOrderSyncIntegrations } from './select-jumia-order-sync-integrations';
 
 const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
 const INITIAL_SYNC_CURSOR = 'initial-sync';
@@ -298,12 +299,8 @@ export async function syncJumiaOrdersForActiveIntegrations(
   const integrations = (data || []) as MarketplaceIntegrationRow[];
   result.integrations = integrations.length;
 
-  const syncedOrderScopes = new Set<string>();
-  for (const integration of integrations) {
+  for (const integration of selectJumiaOrderSyncIntegrations(integrations)) {
     try {
-      const orderScope = `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}`;
-      if (syncedOrderScopes.has(orderScope)) continue;
-      syncedOrderScopes.add(orderScope);
       await syncIntegration(supabase, integration, result);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';

@@ -11,6 +11,7 @@ import {
   createJumiaSelfAuthorizationDiscovery,
   loadJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
+import { logger } from '@/lib/logger';
 import type {
   jumiaSelfAuthorizationDiscoverySchema,
   jumiaSelfAuthorizationSelectionSchema,
@@ -147,11 +148,21 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       encrypt: jumiaAuthorizationCrypto.encrypt,
     });
     if (response.ok) {
-      await consumeJumiaSelfAuthorizationDiscovery(supabase, {
-        discoveryId: body.discoveryId,
-        merchantId,
-        clientKeyHash,
-      });
+      try {
+        await consumeJumiaSelfAuthorizationDiscovery(supabase, {
+          discoveryId: body.discoveryId,
+          merchantId,
+          clientKeyHash,
+        });
+      } catch (cleanupError) {
+        logger.warn({
+          message:
+            'Jumia self-authorization connect succeeded but discovery cleanup failed',
+          error: cleanupError,
+          discovery_id: body.discoveryId,
+          merchant_id: merchantId,
+        });
+      }
     }
     return response;
   } catch (error) {

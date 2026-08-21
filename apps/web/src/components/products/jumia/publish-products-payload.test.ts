@@ -50,6 +50,30 @@ describe('buildJumiaPublishPayload', () => {
 
     expect(payload.images).toEqual([]);
   });
+
+  it('maps legacy string image entries into the Jumia feed payload', () => {
+    const payload = buildJumiaPublishPayload(
+      {
+        id: 'prod-1',
+        name: 'Phone',
+        sku: 'SKU-1',
+        price: 100,
+        images: [
+          'https://cdn.example.com/legacy.jpg',
+          { url: 'https://cdn.example.com/object.jpg' },
+        ],
+      },
+      'integration-1',
+      42,
+      { code: 1, name: 'Generic' },
+      'NGN'
+    );
+
+    expect(payload.images).toEqual([
+      { url: 'https://cdn.example.com/legacy.jpg', primary: true },
+      { url: 'https://cdn.example.com/object.jpg', primary: false },
+    ]);
+  });
 });
 
 describe('getJumiaPublishBlockReason', () => {
