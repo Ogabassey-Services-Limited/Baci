@@ -4,6 +4,7 @@ import {
   __resetRateLimitStoreForTesting,
   checkImeiPollRateLimit,
   checkRateLimit,
+  setRateLimitDiagnosticHook,
 } from './rate-limit';
 
 // Dedicated coverage for the quiz-specific rate-limit entries added for launch.
@@ -81,5 +82,26 @@ describe('quiz route rate limits', () => {
       limit: 120,
       remaining: 0,
     });
+  });
+
+  it('reports an unconfigured Redis fallback with fixed-cardinality diagnostics', async () => {
+    const diagnostics: unknown[] = [];
+    setRateLimitDiagnosticHook((diagnostic) => diagnostics.push(diagnostic));
+
+    await checkRateLimit(new NextRequest('http://localhost:3000/api/unknown'));
+
+    expect(diagnostics).toEqual([
+      { backend: 'memory', reason: 'redis_unavailable' },
+    ]);
+  });
+
+  it('ignores diagnostic sink failures and preserves the rate-limit result', async () => {
+    setRateLimitDiagnosticHook(() => {
+      throw new Error('diagnostic sink unavailable');
+    });
+
+    await expect(
+      checkRateLimit(new NextRequest('http://localhost:3000/api/unknown'))
+    ).resolves.toMatchObject({ allowed: true });
   });
 });

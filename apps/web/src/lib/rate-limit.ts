@@ -24,6 +24,35 @@ interface RateLimitResult {
   resetTime: number;
 }
 
+/** Fixed-cardinality signal for observing which limiter backend served a check. */
+export type RateLimitDiagnostic = {
+  backend: 'redis' | 'memory';
+  reason: 'redis_success' | 'redis_unavailable' | 'redis_error';
+};
+
+type RateLimitDiagnosticHook = (diagnostic: RateLimitDiagnostic) => void;
+
+let rateLimitDiagnosticHook: RateLimitDiagnosticHook | undefined;
+
+/**
+ * Installs an optional backend diagnostic sink. The sink receives no request
+ * identifiers, route names, or provider details, and failures are ignored so
+ * observability can never affect rate-limit decisions.
+ */
+export function setRateLimitDiagnosticHook(
+  hook: RateLimitDiagnosticHook | undefined
+): void {
+  rateLimitDiagnosticHook = hook;
+}
+
+function reportRateLimitDiagnostic(diagnostic: RateLimitDiagnostic): void {
+  try {
+    rateLimitDiagnosticHook?.(diagnostic);
+  } catch {
+    // Diagnostics are best-effort and must never change request behavior.
+  }
+}
+
 const IMEI_POLL_RATE_LIMIT: RateLimitConfig = {
   maxRequests: 120,
   windowMs: 60_000,
@@ -170,6 +199,7 @@ async function applyRateLimit(
     try {
       const upstashKey = `${identifier}:${pattern}`;
       const result = await limiter.limit(upstashKey);
+      reportRateLimitDiagnostic({ backend: 'redis', reason: 'redis_success' });
       return {
         allowed: result.success,
         limit: result.limit,
@@ -178,7 +208,13 @@ async function applyRateLimit(
       };
     } catch {
       // Redis error — fall through to in-memory
+      reportRateLimitDiagnostic({ backend: 'memory', reason: 'redis_error' });
     }
+  } else {
+    reportRateLimitDiagnostic({
+      backend: 'memory',
+      reason: 'redis_unavailable',
+    });
   }
 
   // Fallback to in-memory
@@ -255,4 +291,5 @@ export function __resetRateLimitStoreForTesting(): void {
   }
   memoryStore.clear();
   upstashLimiters.clear();
+  rateLimitDiagnosticHook = undefined;
 }

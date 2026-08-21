@@ -10,6 +10,8 @@
 import type { Instrumentation } from 'next';
 import { getNextErrorDigest } from '@/lib/errors/next-error-digest';
 
+const reportedRateLimitBackends = new Set<string>();
+
 const QUERY_OR_HASH_PATTERN = /[?#]/;
 
 function stripQueryAndHash(path: string): string {
@@ -57,6 +59,25 @@ export async function register() {
         'deployment.environment':
           process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
       },
+    });
+
+    // Keep backend visibility in the existing server telemetry stream. Emit
+    // each fixed-cardinality outcome once per process to avoid per-request
+    // analytics traffic; the hook contains no request or provider details.
+    const [{ setRateLimitDiagnosticHook }, { captureServerEvent }] =
+      await Promise.all([
+        import('@/lib/rate-limit'),
+        import('@/lib/posthog/server'),
+      ]);
+    setRateLimitDiagnosticHook((diagnostic) => {
+      const key = `${diagnostic.backend}:${diagnostic.reason}`;
+      if (reportedRateLimitBackends.has(key)) return;
+      reportedRateLimitBackends.add(key);
+      void captureServerEvent('rate_limit_backend', {
+        backend: diagnostic.backend,
+        reason: diagnostic.reason,
+        telemetry_source: 'rate_limit',
+      });
     });
 
     // Fail-loud (not fail-fatal): if this is a production deployment but

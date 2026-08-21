@@ -3,13 +3,20 @@ import { onRequestError, register } from './instrumentation';
 
 const registerOTelMock = vi.hoisted(() => vi.fn());
 const captureServerExceptionMock = vi.hoisted(() => vi.fn());
+const captureServerEventMock = vi.hoisted(() => vi.fn());
+const setRateLimitDiagnosticHookMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@vercel/otel', () => ({
   registerOTel: registerOTelMock,
 }));
 
 vi.mock('@/lib/posthog/server', () => ({
+  captureServerEvent: captureServerEventMock,
   captureServerException: captureServerExceptionMock,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+  setRateLimitDiagnosticHook: setRateLimitDiagnosticHookMock,
 }));
 
 afterEach(() => {
@@ -30,6 +37,27 @@ describe('instrumentation register', () => {
         'deployment.environment': 'preview',
       },
       serviceName: 'baci-web',
+    });
+    expect(setRateLimitDiagnosticHookMock).toHaveBeenCalledOnce();
+  });
+
+  it('wires fixed-cardinality rate-limit outcomes to server telemetry', async () => {
+    vi.stubEnv('NEXT_RUNTIME', 'nodejs');
+
+    await register();
+
+    const hook = setRateLimitDiagnosticHookMock.mock.calls.at(-1)?.[0] as
+      | ((diagnostic: {
+          backend: 'redis' | 'memory';
+          reason: 'redis_success' | 'redis_unavailable' | 'redis_error';
+        }) => void)
+      | undefined;
+    hook?.({ backend: 'memory', reason: 'redis_error' });
+
+    expect(captureServerEventMock).toHaveBeenCalledWith('rate_limit_backend', {
+      backend: 'memory',
+      reason: 'redis_error',
+      telemetry_source: 'rate_limit',
     });
   });
 
