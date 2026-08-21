@@ -73,7 +73,7 @@ export async function reconcileWedgedGatewayOrders({
   const { data: candidates, error: lookupError } = await supabase
     .from('transactions')
     .select(
-      'id, created_at, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, metadata, status, orders!inner(id, payment_status, cancelled_at)'
+      'id, created_at, order_id, merchant_id, amount, currency, platform_fee, gateway, gateway_reference, metadata, status, orders!transactions_order_id_fkey!inner(id, payment_status, cancelled_at)'
     )
     .eq('transaction_type', 'payment')
     .or('status.eq.completed,and(status.eq.pending,gateway.eq.juicyway)')
