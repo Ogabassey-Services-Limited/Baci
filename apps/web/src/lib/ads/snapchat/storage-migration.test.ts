@@ -6,6 +6,10 @@ const migration = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260821180004_snapchat_ads_oauth_and_disconnect.sql'
 );
+const refreshMigration = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260821180005_snapchat_ads_atomic_refresh_tokens.sql'
+);
 
 describe('Snapchat Ads security migration', () => {
   it('atomically consumes OAuth nonces and deletes spend before its connection', () => {
@@ -18,5 +22,18 @@ describe('Snapchat Ads security migration', () => {
     expect(sql).toContain('delete from public.merchant_ad_connections');
     expect(sql).toContain("set search_path = ''");
     expect(sql).toContain('enable row level security');
+  });
+
+  it('uses a compare-and-swap update to persist replacement refresh tokens', () => {
+    const sql = readFileSync(refreshMigration, 'utf8').toLowerCase();
+    expect(sql).toContain('update_snapchat_ads_connection_tokens');
+    expect(sql).toContain(
+      'refresh_token_ciphertext = p_refresh_token_ciphertext'
+    );
+    expect(sql).toContain(
+      'refresh_token_ciphertext = p_current_refresh_token_ciphertext'
+    );
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).toContain('grant execute');
   });
 });

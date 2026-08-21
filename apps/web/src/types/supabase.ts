@@ -20534,6 +20534,16 @@ export type Database = {
         };
         Returns: boolean;
       };
+      update_snapchat_ads_connection_tokens: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_current_refresh_token_ciphertext: string;
+          p_merchant_id: string;
+          p_refresh_token_ciphertext: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
       upsert_merchant_ads_connection: {
         Args: {
           p_access_token_ciphertext: string;

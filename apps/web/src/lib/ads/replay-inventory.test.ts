@@ -23,6 +23,10 @@ const snapchatSecurityMigrationName =
   '20260821180004_snapchat_ads_oauth_and_disconnect.sql' as const;
 const snapchatSecurityMigrationHash =
   'eac8c22a9d2d2ad1decbde111f60921b880cf478f4123d3441b5e0e291ccb3ca' as const;
+const snapchatRefreshMigrationName =
+  '20260821180005_snapchat_ads_atomic_refresh_tokens.sql' as const;
+const snapchatRefreshMigrationHash =
+  'c71e54d8a1ea2af6809ecc50d6e6582358806501eb851f17861dfab611f10359' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -122,6 +126,23 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(snapchatSecurityMigrationName);
     expect(pendingSources).toContain(snapchatSecurityMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${snapchatRefreshMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(snapchatRefreshMigrationHash);
+    expect(historySources).toContain(
+      `${snapchatRefreshMigrationHash} ${snapchatRefreshMigrationName}`
+    );
+    expect(pendingSources).toContain(snapchatRefreshMigrationName);
+    expect(pendingSources).toContain(snapchatRefreshMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {

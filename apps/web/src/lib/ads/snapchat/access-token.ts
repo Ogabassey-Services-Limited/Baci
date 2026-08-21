@@ -63,6 +63,8 @@ export async function getSnapchatAdsUsableAccessToken(input: {
     ? Date.parse(input.connection.token_expires_at)
     : Number.NaN;
   if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return token;
+  if (!input.connection.refresh_token_ciphertext)
+    throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
   let grant: SnapchatAdsGrant;
   try {
     grant = await refreshSnapchatAdsAccessToken({
@@ -86,15 +88,21 @@ export async function getSnapchatAdsUsableAccessToken(input: {
     );
   }
   const updated = await input.supabase.rpc(
-    'update_merchant_ads_connection_token',
+    'update_snapchat_ads_connection_tokens',
     {
       p_access_token_ciphertext: encryptAdsToken(
         grant.accessToken,
         input.config.tokenEncryptionKey,
         SNAPCHAT_ADS_PROVIDER
       ),
+      p_current_refresh_token_ciphertext:
+        input.connection.refresh_token_ciphertext,
       p_merchant_id: input.merchantId,
-      p_provider: SNAPCHAT_ADS_PROVIDER,
+      p_refresh_token_ciphertext: encryptAdsToken(
+        grant.refreshToken,
+        input.config.tokenEncryptionKey,
+        SNAPCHAT_ADS_PROVIDER
+      ),
       p_token_expires_at: new Date(
         Date.now() + grant.expiresIn * 1000
       ).toISOString(),
