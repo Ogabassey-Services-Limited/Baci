@@ -72,4 +72,43 @@ describe('Snapchat Ads sync route', () => {
     );
     expect(invalid.status).toBe(400);
   });
+
+  it('drives CSRF, permission, and malformed JSON denials before sync work', async () => {
+    auth.mockResolvedValue({ error: null, supabase: {}, user: { id: 'user' } });
+    csrf.mockResolvedValue({ valid: false });
+    expect(
+      (
+        await POST(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/sync',
+            { body: '{}', method: 'POST' }
+          )
+        )
+      ).status
+    ).toBe(403);
+    csrf.mockResolvedValue({ valid: true });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(false);
+    expect(
+      (
+        await POST(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/sync',
+            { body: '{}', method: 'POST' }
+          )
+        )
+      ).status
+    ).toBe(403);
+    permission.mockReturnValue(true);
+    expect(
+      (
+        await POST(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/sync',
+            { body: '{', method: 'POST' }
+          )
+        )
+      ).status
+    ).toBe(400);
+  });
 });

@@ -115,4 +115,46 @@ describe('Snapchat Ads accounts route', () => {
       expect.objectContaining({ p_provider_customer_id: 'ad-1' })
     );
   });
+
+  it('drives permission, CSRF, Zod, and inaccessible-account branches', async () => {
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { rpc: vi.fn().mockResolvedValue({ data: [], error: null }) },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(false);
+    expect(
+      (
+        await GET(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/accounts'
+          )
+        )
+      ).status
+    ).toBe(403);
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: false });
+    expect(
+      (
+        await PATCH(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/accounts',
+            { body: '{}', method: 'PATCH' }
+          )
+        )
+      ).status
+    ).toBe(403);
+    csrf.mockResolvedValue({ valid: true });
+    expect(
+      (
+        await PATCH(
+          new NextRequest(
+            'https://usebaci.com/api/integrations/ads/snapchat/accounts',
+            { body: '{}', method: 'PATCH' }
+          )
+        )
+      ).status
+    ).toBe(400);
+  });
 });
