@@ -38,6 +38,8 @@ describe('UCP catalog adapter validation', () => {
   it('refuses rows with non-finite or negative prices', () => {
     expect(mapRow({ price: '123abc' })).toBeNull();
     expect(mapRow({ price: -1 })).toBeNull();
+    expect(mapRow({ price: Number.NaN })).toBeNull();
+    expect(mapRow({ price: Number.POSITIVE_INFINITY })).toBeNull();
   });
 
   it('preserves a valid zero price', () => {

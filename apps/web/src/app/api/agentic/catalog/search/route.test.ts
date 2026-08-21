@@ -82,17 +82,40 @@ function mockProductRows(rows: ProductRow[]) {
 }
 
 function mockRankedProductRows(rows: ProductRow[], rankedIds: string[]) {
-  mockRpc = vi.fn().mockResolvedValue({
-    data: rankedIds.map((id) => ({
-      product_id: id,
-      total_count: rankedIds.length,
-    })),
-    error: null,
-  });
+  return mockRankedProductBatches([
+    { rankedIds, rows, totalCount: rankedIds.length },
+  ]);
+}
+
+function mockRankedProductBatches(
+  batches: Array<{
+    rankedIds: string[];
+    rows: ProductRow[];
+    totalCount: number;
+  }>
+) {
+  const rows = batches.flatMap((batch) => batch.rows);
+  let requestedIds: string[] = [];
+  mockRpc = vi.fn();
+  for (const batch of batches) {
+    mockRpc.mockResolvedValueOnce({
+      data: batch.rankedIds.map((id) => ({
+        product_id: id,
+        total_count: batch.totalCount,
+      })),
+      error: null,
+    });
+  }
   query = {
     eq: vi.fn(() => query),
-    in: vi.fn(() => query),
-    limit: vi.fn(async () => ({ data: rows, error: null })),
+    in: vi.fn((_column: string, ids: string[]) => {
+      requestedIds = ids;
+      return query;
+    }),
+    limit: vi.fn(async () => ({
+      data: rows.filter((row) => requestedIds.includes(row.id)),
+      error: null,
+    })),
     or: vi.fn(() => query),
     order: vi.fn(() => query),
   };
@@ -311,25 +334,41 @@ describe('POST /api/agentic/catalog/search', () => {
   });
 
   it('fills the requested page after refusing an invalid ranked candidate', async () => {
-    mockRankedProductRows(
-      [
-        {
-          id: 'bad-price',
-          name: 'Bad',
-          price: -1,
-          slug: 'bad-price',
-          status: 'active',
-        },
-        {
-          id: 'valid-product',
-          name: 'Valid product',
-          price: 100,
-          slug: 'valid-product',
-          status: 'active',
-        },
-      ],
-      ['bad-price', 'valid-product']
-    );
+    mockRankedProductBatches([
+      {
+        rankedIds: ['bad-price-1', 'bad-price-2'],
+        rows: [
+          {
+            id: 'bad-price-1',
+            name: 'Bad 1',
+            price: -1,
+            slug: 'bad-price-1',
+            status: 'active',
+          },
+          {
+            id: 'bad-price-2',
+            name: 'Bad 2',
+            price: Number.NaN,
+            slug: 'bad-price-2',
+            status: 'active',
+          },
+        ],
+        totalCount: 3,
+      },
+      {
+        rankedIds: ['valid-product'],
+        rows: [
+          {
+            id: 'valid-product',
+            name: 'Valid product',
+            price: 100,
+            slug: 'valid-product',
+            status: 'active',
+          },
+        ],
+        totalCount: 3,
+      },
+    ]);
 
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
@@ -339,11 +378,53 @@ describe('POST /api/agentic/catalog/search', () => {
     );
     const body = await response.json();
 
-    expect(query.in).toHaveBeenCalledWith('id', ['bad-price', 'valid-product']);
-    expect(query.limit).toHaveBeenCalledWith(2);
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 2, result_offset: 2 })
+    );
+    expect(query.in).toHaveBeenNthCalledWith(1, 'id', [
+      'bad-price-1',
+      'bad-price-2',
+    ]);
+    expect(query.in).toHaveBeenNthCalledWith(2, 'id', ['valid-product']);
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'valid-product',
     ]);
+  });
+
+  it('stops ranked backfill at the cumulative candidate cap', async () => {
+    const rankedIds = Array.from(
+      { length: 100 },
+      (_, index) => `bad-price-${index}`
+    );
+    mockRankedProductBatches([
+      {
+        rankedIds,
+        rows: rankedIds.map((id) => ({
+          id,
+          name: id,
+          price: -1,
+          status: 'active',
+        })),
+        totalCount: 101,
+      },
+    ]);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'product', pagination: { limit: 50 } }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ result_limit: 100, result_offset: 0 })
+    );
   });
 
   it('does not use select star in Supabase queries', async () => {
@@ -358,6 +439,18 @@ describe('POST /api/agentic/catalog/search', () => {
   });
 
   it('selects junction categories for legacy category-only products', async () => {
+    mockRankedProductRows(
+      [
+        {
+          id: 'legacy-product',
+          name: 'Legacy product',
+          price: 100,
+          status: 'active',
+        },
+      ],
+      ['legacy-product']
+    );
+
     await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
         body: JSON.stringify({ query: 'phone' }),

@@ -12,13 +12,11 @@ import {
   filterActiveUcpCatalogProductRows,
   mapUcpCatalogProductRow,
   UCP_CATALOG_SEARCH_CAPABILITY,
+  type UcpCatalogProduct,
   type UcpCatalogProductRow,
 } from '@/lib/agentic/ucp-catalog-adapters';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import {
-  type StorefrontSearchResult,
-  searchStorefrontProducts,
-} from '@/lib/storefront-search';
+import { searchStorefrontProducts } from '@/lib/storefront-search';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
 
@@ -54,16 +52,59 @@ export async function POST(request: NextRequest) {
   // with unusable catalog identity or pricing. The response is still bounded
   // to the caller's requested page size below.
   const candidateLimit = Math.min(MAX_CATALOG_SEARCH_CANDIDATES, limit * 2);
-  let ranked: StorefrontSearchResult | null = null;
+  let rankedProducts: UcpCatalogProduct[] | null = null;
+  const rankedProductIds: string[] = [];
   if (parsed.data.query) {
+    rankedProducts = [];
+    let rankedSearchOffset = 0;
+    let rankedSearchTotal = Number.POSITIVE_INFINITY;
     try {
-      ranked = await searchStorefrontProducts({
-        supabase: context.supabase,
-        merchantId: context.merchant.id,
-        query: parsed.data.query,
-        limit: candidateLimit,
-        trackAnalytics: false,
-      });
+      while (
+        rankedProducts.length < limit &&
+        rankedSearchOffset < rankedSearchTotal &&
+        rankedSearchOffset < MAX_CATALOG_SEARCH_CANDIDATES
+      ) {
+        const remainingCandidateBudget =
+          MAX_CATALOG_SEARCH_CANDIDATES - rankedSearchOffset;
+        const requestLimit = Math.min(candidateLimit, remainingCandidateBudget);
+        const ranked = await searchStorefrontProducts({
+          supabase: context.supabase,
+          merchantId: context.merchant.id,
+          query: parsed.data.query,
+          limit: requestLimit,
+          offset: rankedSearchOffset,
+          trackAnalytics: false,
+        });
+        rankedSearchTotal = ranked.count;
+
+        if (ranked.productIds.length === 0) {
+          break;
+        }
+
+        const batchProductIds = ranked.productIds
+          .slice(0, requestLimit)
+          .filter((id) => !rankedProductIds.includes(id));
+        const batchProducts = await fetchCatalogProductsByIds({
+          baseUrl: buildRequestScopedStoreUrl(
+            context.merchant,
+            request.headers
+          ),
+          currency: CATALOG_CURRENCY,
+          merchantId: context.merchant.id,
+          productIds: batchProductIds,
+          supabase: context.supabase,
+        });
+        if (batchProducts.error) {
+          return NextResponse.json(
+            { error: 'Catalog search failed' },
+            { status: 500 }
+          );
+        }
+
+        rankedProductIds.push(...batchProductIds);
+        rankedProducts.push(...batchProducts.products);
+        rankedSearchOffset += requestLimit;
+      }
     } catch (error: unknown) {
       console.error('Agentic catalog search failed:', error);
       return NextResponse.json(
@@ -73,7 +114,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  let query = context.supabase
+  if (rankedProducts) {
+    return NextResponse.json(
+      buildUcpCatalogProductsResponse({
+        capability: UCP_CATALOG_SEARCH_CAPABILITY,
+        products: rankedProducts.slice(0, limit),
+      })
+    );
+  }
+
+  const query = context.supabase
     .from('products')
     .select(PRODUCT_SELECT)
     .eq('merchant_id', context.merchant.id)
@@ -83,23 +133,9 @@ export async function POST(request: NextRequest) {
       referencedTable: 'product_categories',
     });
 
-  const rankedProductIds = ranked?.productIds.slice(0, candidateLimit) ?? [];
-
-  if (ranked) {
-    if (rankedProductIds.length === 0) {
-      return NextResponse.json(
-        buildUcpCatalogProductsResponse({
-          capability: UCP_CATALOG_SEARCH_CAPABILITY,
-          products: [],
-        })
-      );
-    }
-    query = query.in('id', rankedProductIds);
-  }
-
-  const { data, error } = await (ranked
-    ? query.limit(rankedProductIds.length)
-    : query.order('created_at', { ascending: false }).limit(candidateLimit));
+  const { data, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(candidateLimit);
   if (error) {
     return NextResponse.json(
       { error: 'Catalog search failed' },
@@ -108,9 +144,6 @@ export async function POST(request: NextRequest) {
   }
 
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
-  const order = new Map(
-    rankedProductIds.map((id, index) => [id, index] as const)
-  );
   const products = filterActiveUcpCatalogProductRows(
     (data ?? []) as UcpCatalogProductRow[]
   )
@@ -124,11 +157,6 @@ export async function POST(request: NextRequest) {
     .filter(
       (product): product is NonNullable<typeof product> => product !== null
     )
-    .sort(
-      (a, b) =>
-        (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
-        (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
-    )
     .slice(0, limit);
 
   return NextResponse.json(
@@ -137,6 +165,56 @@ export async function POST(request: NextRequest) {
       products,
     })
   );
+}
+
+async function fetchCatalogProductsByIds({
+  baseUrl,
+  currency,
+  merchantId,
+  productIds,
+  supabase,
+}: {
+  baseUrl: string;
+  currency: string;
+  merchantId: string;
+  productIds: string[];
+  supabase: SupabaseClient;
+}): Promise<{ error: unknown | null; products: UcpCatalogProduct[] }> {
+  if (productIds.length === 0) {
+    return { error: null, products: [] };
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .select(PRODUCT_SELECT)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'active')
+    .order('category_id', {
+      ascending: true,
+      referencedTable: 'product_categories',
+    })
+    .in('id', productIds)
+    .limit(productIds.length);
+
+  if (error) {
+    return { error, products: [] };
+  }
+
+  const order = new Map(productIds.map((id, index) => [id, index] as const));
+  const products = filterActiveUcpCatalogProductRows(
+    (data ?? []) as UcpCatalogProductRow[]
+  )
+    .map((row) => mapUcpCatalogProductRow({ baseUrl, currency, row }))
+    .filter(
+      (product): product is NonNullable<typeof product> => product !== null
+    )
+    .sort(
+      (a, b) =>
+        (order.get(a.id) ?? Number.MAX_SAFE_INTEGER) -
+        (order.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+    );
+
+  return { error: null, products };
 }
 
 async function resolveCatalogContext(
