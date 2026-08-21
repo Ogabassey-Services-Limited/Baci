@@ -51,4 +51,19 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260811090000_repair_shipment_tracking_generation_order_id_ambiguity.sql',
     sha256: 'f50772f7fb481dc232078f4b87a8031ab746674e7ecd5fcf2bccb3099519b376',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821171051_google_ads_connections_and_spend.sql',
+    sha256: '1994ba5d58f278013d01a6b5f8ba0871f980a0f7223c0321875d4d5013df3c05',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821174945_google_ads_secret_rpcs.sql',
+    sha256: '6462c129ad02b0745800bad0ccbd81e6edb09b4af853c5de05bf0c1befc464b2',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260821180000_provider_neutral_ads_storage.sql',
+    sha256: '1bc92dcee4cef48f4a30747ee378c81c3f0483e573d159df3b367bf7edee632d',
+  },
 ];
