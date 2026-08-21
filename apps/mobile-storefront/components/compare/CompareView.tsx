@@ -162,6 +162,7 @@ export function CompareView({
                     style={styles.productImage}
                     contentFit="cover"
                     placeholder={{ blurhash: BLURHASH_VARIANTS.default }}
+                    autoplay={false}
                   />
                   <Text
                     style={[styles.productName, { color: colors.text }]}

@@ -43,6 +43,7 @@ export function SafeImage({
   cachePolicy = 'memory-disk',
   contentFit = 'cover',
   onLoadError,
+  onLoadStart,
   fallbackComponent,
   showFallbackIcon = true,
   fallbackStyle,
@@ -82,12 +83,13 @@ export function SafeImage({
     }
   };
 
-  // Reset error state when source changes
+  // Reset error state when source changes, then forward to any caller callback.
   const handleLoadStart = () => {
     if (hasError) {
       setHasError(false);
       setErrorCount(0);
     }
+    onLoadStart?.();
   };
 
   // If we have a custom fallback component, use it

@@ -141,6 +141,7 @@ export default function SavedTabScreen() {
               source={{ uri: item.image }}
               style={styles.productImage}
               contentFit="cover"
+              autoplay={false}
             />
             <View style={styles.productInfo}>
               <Text

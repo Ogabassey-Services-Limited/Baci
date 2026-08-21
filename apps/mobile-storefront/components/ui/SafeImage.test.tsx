@@ -41,11 +41,13 @@ jest.mock('expo-image', () => {
   return {
     Image: ({
       onError,
+      onLoadStart,
       autoplay,
       accessibilityLabel,
       testID,
     }: {
       onError?: (error: { error: string }) => void;
+      onLoadStart?: () => void;
       autoplay?: boolean;
       accessibilityLabel?: string;
       testID?: string;
@@ -53,6 +55,7 @@ jest.mock('expo-image', () => {
       const viewProps = {
         testID,
         onError,
+        onLoadStart,
         autoplay,
         accessible: true,
         accessibilityRole: 'image',
@@ -108,6 +111,25 @@ describe('SafeImage', () => {
     expect(
       screen.getByRole('image', { name: 'catalog image' }).props.autoplay
     ).toBe(false);
+  });
+
+  describe('bugfix: caller onLoadStart overwritten by SafeImage handler', () => {
+    it('invokes the caller onLoadStart callback when load starts', () => {
+      const onLoadStart = jest.fn();
+
+      render(
+        <SafeImage
+          testID="product-image"
+          accessibilityLabel="catalog image"
+          source={{ uri: 'https://example.com/catalog.gif' }}
+          onLoadStart={onLoadStart}
+        />
+      );
+
+      fireEvent(screen.getByTestId('product-image'), 'loadStart');
+
+      expect(onLoadStart).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('lets callers override the fallback icon color', () => {
