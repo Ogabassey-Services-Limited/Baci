@@ -17,7 +17,6 @@ import { parseOrderResponse } from './orders.response';
 import {
   type CreateOrderRequest,
   CreateOrderRequestSchema,
-  type OrderItem,
   type OrderResponse,
 } from './orders.schemas';
 

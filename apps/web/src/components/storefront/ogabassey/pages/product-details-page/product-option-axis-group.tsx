@@ -45,7 +45,7 @@ export function ProductOptionAxisGroup({
   return (
     <div className="mb-8 space-y-6">
       <div>
-        <label className="flex items-center justify-between text-sm font-bold text-store-foreground">
+        <div className="flex items-center justify-between text-sm font-bold text-store-foreground">
           {isSingleOption ? (
             <span>{label}</span>
           ) : (
@@ -61,7 +61,7 @@ export function ProductOptionAxisGroup({
               * Required
             </span>
           )}
-        </label>
+        </div>
         <div className="mt-3 flex flex-wrap gap-3">
           {options.map((value) => {
             const isAvailable =

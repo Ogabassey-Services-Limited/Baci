@@ -87,6 +87,39 @@ describe('ProductOptionAxisGroup', () => {
     expect(handleSelect).toHaveBeenCalledWith('storage', '256GB');
   });
 
+  it('shows the selection prompt and required indicator when no option is selected', () => {
+    render(
+      <ProductOptionAxisGroup
+        axis="storage"
+        formatAxisLabel={(axis) => axis.toUpperCase()}
+        getAxisOptions={() => ['128GB', '256GB']}
+        onSelectAttribute={vi.fn()}
+        productData={sampleProductData}
+        selectedAttributes={{}}
+      />
+    );
+
+    expect(screen.getByText(/Select storage/i)).toBeInTheDocument();
+    expect(screen.getByText('* Required')).toBeInTheDocument();
+  });
+
+  it('keeps multi-option buttons outside a label so they retain button semantics', () => {
+    render(
+      <ProductOptionAxisGroup
+        axis="storage"
+        formatAxisLabel={(axis) => axis.toUpperCase()}
+        getAxisOptions={() => ['128GB', '256GB']}
+        onSelectAttribute={vi.fn()}
+        productData={sampleProductData}
+        selectedAttributes={{}}
+      />
+    );
+
+    const option = screen.getByRole('button', { name: /128GB/i });
+    expect(option.closest('label')).toBeNull();
+    expect(option.tagName).toBe('BUTTON');
+  });
+
   it('returns null when there are no options for the axis', () => {
     const { container } = render(
       <ProductOptionAxisGroup

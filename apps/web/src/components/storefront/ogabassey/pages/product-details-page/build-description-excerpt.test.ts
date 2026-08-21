@@ -26,14 +26,15 @@ describe('buildDescriptionExcerpt', () => {
   });
 
   it('falls back to the second paragraph when no "Why Worth" H2 is present', () => {
-    const html = '<p>First paragraph.</p><p>Second paragraph content here.</p>';
+    const html =
+      '<p>Storage: 256GB.</p><p>Built for reliable everyday performance.</p>';
     const result = buildDescriptionExcerpt(html);
-    expect(result).toBe('Second paragraph content here.');
+    expect(result).toBe('Built for reliable everyday performance.');
   });
 
   it('filters specification sentences from second paragraph with prose and specs', () => {
     const html =
-      '<p>First paragraph.</p><p>A premium flagship phone. Storage: 1TB NVMe. RAM: 16GB.</p>';
+      '<p>Storage: 128GB.</p><p>A premium flagship phone. Storage: 1TB NVMe. RAM: 16GB.</p>';
     const result = buildDescriptionExcerpt(html);
     expect(result).toBe('A premium flagship phone.');
   });
@@ -78,12 +79,12 @@ describe('buildDescriptionExcerpt', () => {
     expect(result).toBe('Built for reliable all-day performance.');
   });
 
-  it('falls back to plain text sentences (3rd–5th) when no paragraph structure matches', () => {
+  it('returns filtered plain-text prose in document order', () => {
     const description =
-      'First sentence here. Second sentence here. Third sentence here. Fourth sentence here. Fifth sentence here.';
+      'Dell XPS 16 9650. Built for reliable studio workflows. Engineered for intense creative sessions.';
     const result = buildDescriptionExcerpt(description);
     expect(result).toBe(
-      'Third sentence here. Fourth sentence here. Fifth sentence here.'
+      'Built for reliable studio workflows. Engineered for intense creative sessions.'
     );
   });
 
@@ -110,7 +111,7 @@ describe('buildDescriptionExcerpt', () => {
 
   it('filters product titles from the second-paragraph branch before returning prose', () => {
     const html =
-      '<p>First paragraph.</p><p>Dell XPS 16 9650. Built for reliable all-day performance.</p>';
+      '<p>Storage: 128GB.</p><p>Dell XPS 16 9650. Built for reliable all-day performance.</p>';
     const result = buildDescriptionExcerpt(html);
     expect(result).toBe('Built for reliable all-day performance.');
   });
@@ -250,7 +251,23 @@ describe('buildDescriptionExcerpt', () => {
       'iPhone 15 Pro Max. Forged in titanium and featuring the groundbreaking A17 Pro chip. Customizable Action button and powerful camera system.';
     const result = buildDescriptionExcerpt(prose);
     expect(result).toBe(
-      'Customizable Action button and powerful camera system.'
+      'Forged in titanium and featuring the groundbreaking A17 Pro chip. Customizable Action button and powerful camera system.'
     );
+  });
+
+  it('preserves title-case marketing values that would otherwise look like catalog labels', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Camera: Great Photos.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Camera: Great Photos.');
+  });
+
+  it('decodes common HTML entities after stripping tags', () => {
+    const html =
+      '<h2>Why It is Worth Buying</h2><p>Speed &amp;amp; battery&amp;nbsp;built for creators.</p>';
+    const result = buildDescriptionExcerpt(html);
+    expect(result).toBe('Speed & battery built for creators.');
+    expect(result).not.toContain('&amp;');
+    expect(result).not.toContain('&nbsp;');
   });
 });

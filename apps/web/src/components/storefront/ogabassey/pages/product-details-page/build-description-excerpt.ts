@@ -1,3 +1,25 @@
+const DESCRIPTION_EXCERPT_MAX_LENGTH = 200;
+
+function truncateExcerpt(text: string): string {
+  if (text.length <= DESCRIPTION_EXCERPT_MAX_LENGTH) {
+    return text;
+  }
+
+  return `${text.substring(0, DESCRIPTION_EXCERPT_MAX_LENGTH)}...`;
+}
+
+function decodeBasicHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/gi, '&')
+    .replace(/&amp;/gi, '&')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/gi, "'");
+}
+
 function isEnumCatalogLabel(label: string): boolean {
   return ['color', 'colour', 'condition', 'platform', 'connectivity'].includes(
     label.toLowerCase().trim()
@@ -67,14 +89,6 @@ function isSpecValue(value: string): boolean {
     return true;
   }
 
-  // Short proper-noun catalog labels (brand, color) without marketing tone.
-  if (
-    words.length <= 3 &&
-    words.every((word) => /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d+[\w.-]*)$/.test(word))
-  ) {
-    return true;
-  }
-
   const hasMarketingProse =
     hasProseConnectors ||
     /\b(?:powerful|great|excellent|premium|stunning|beautiful|amazing|incredible|reliable|advanced|innovative|customizable|vivid|brilliant|expansive|capture|see|every|detail|built|designed|engineered|delivers|features|offers|experience|enjoy|perfect|ideal|superior|enhanced|smooth|fast|quick|long|all-day|workflows?|service|system|magic|life)\b/i.test(
@@ -83,8 +97,17 @@ function isSpecValue(value: string): boolean {
     // Narrative phrasing after feature labels (e.g. "Capture life's magic.")
     (words.length >= 2 && /['’]/.test(trimmed));
 
+  // Marketing must win over short title-case phrases like "Great Photos".
   if (hasMarketingProse) {
     return false;
+  }
+
+  // Short proper-noun catalog labels (brand, color) without marketing tone.
+  if (
+    words.length <= 3 &&
+    words.every((word) => /^(?:[A-Z][\w-]*|[A-Z]{2,}|\d+[\w.-]*)$/.test(word))
+  ) {
+    return true;
   }
 
   return false;
@@ -149,7 +172,7 @@ function isProductTitleSentence(sentence: string): boolean {
 
   // Sentence grammar or common narrative words — not a demonstrable product title.
   if (
-    /\b(for|with|in|and|to|from|by|at|the|a|an|your|our|its|this|these|those|is|are|was|were|has|have|built|crafted|designed|engineered|delivers|features|provides|offers|experience|enjoy|capture|lasts|see|gives|lets|forged|featuring|every|when|where|because|sentence|paragraph|description|here|there|first|second|third|fourth|fifth)\b/i.test(
+    /\b(for|with|in|and|to|from|by|at|the|a|an|your|our|its|this|these|those|is|are|was|were|has|have|built|crafted|designed|engineered|delivers|features|provides|offers|experience|enjoy|capture|lasts|see|gives|lets|forged|featuring|every|when|where|because|there)\b/i.test(
       trimmed
     )
   ) {
@@ -196,7 +219,9 @@ function isProductTitleSentence(sentence: string): boolean {
 }
 
 function stripInlineHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return decodeBasicHtmlEntities(html.replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function extractParagraphInnerHtml(
@@ -233,9 +258,7 @@ export function buildDescriptionExcerpt(description: string) {
   if (worthParagraphHtml) {
     const benefitText = filterProseText(worthParagraphHtml);
     if (benefitText) {
-      return benefitText.length > 200
-        ? `${benefitText.substring(0, 200)}...`
-        : benefitText;
+      return truncateExcerpt(benefitText);
     }
   }
 
@@ -246,12 +269,13 @@ export function buildDescriptionExcerpt(description: string) {
   if (secondParagraphHtml) {
     const text = filterProseText(secondParagraphHtml);
     if (text) {
-      return text.length > 200 ? `${text.substring(0, 200)}...` : text;
+      return truncateExcerpt(text);
     }
   }
 
-  const plainText = description
-    .replace(/<[^>]+>/g, ' ')
+  const plainText = decodeBasicHtmlEntities(
+    description.replace(/<[^>]+>/g, ' ')
+  )
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -272,18 +296,5 @@ export function buildDescriptionExcerpt(description: string) {
     return '';
   }
 
-  // When 3+ sentences exist in plain text, sentences 1-2 are typically product title/header lines.
-  // Prefer taking sentences 3-5 (index 2-4) filtered of specs and bare titles.
-  if (allSentences.length >= 3) {
-    const candidateSlice = allSentences
-      .slice(2, 5)
-      .filter((s) => !isSpecSentence(s) && !isProductTitleSentence(s));
-    const excerpt = candidateSlice.join(' ');
-    if (excerpt) {
-      return excerpt.length > 200 ? `${excerpt.substring(0, 200)}...` : excerpt;
-    }
-  }
-
-  const joined = proseSentences.join(' ');
-  return joined.length > 200 ? `${joined.substring(0, 200)}...` : joined;
+  return truncateExcerpt(proseSentences.join(' '));
 }

@@ -72,4 +72,27 @@ describe('useIsDesktopViewport', () => {
 
     expect(mediaQuery.removeEventListener).toHaveBeenCalled();
   });
+
+  it('uses the legacy MediaQueryList listener APIs when addEventListener is unavailable', () => {
+    const { mediaQuery } = createMatchMedia(true);
+    Object.defineProperty(mediaQuery, 'addEventListener', {
+      configurable: true,
+      value: undefined,
+    });
+    Object.defineProperty(mediaQuery, 'removeEventListener', {
+      configurable: true,
+      value: undefined,
+    });
+    vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
+
+    const { unmount } = renderHook(() => useIsDesktopViewport());
+
+    expect(mediaQuery.addListener).toHaveBeenCalledTimes(1);
+    const handler = vi.mocked(mediaQuery.addListener).mock.calls[0]?.[0];
+    expect(typeof handler).toBe('function');
+
+    unmount();
+
+    expect(mediaQuery.removeListener).toHaveBeenCalledWith(handler);
+  });
 });
