@@ -230,6 +230,11 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_PAYSTACK_PENDING_SOURCES,
   ...ADMIN_PLATFORM_PENDING_SOURCES,
   ...EXPECTED_EXPENSE_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260821100000_enforce_negotiation_customer_contact.sql',
+    sha256: '5888dcc4c1d0dde7c0827fdec4e66f9f8041f706fd16a94b8ba608dd034e50fe',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );

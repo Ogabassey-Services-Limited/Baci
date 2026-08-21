@@ -14,7 +14,9 @@ import type { CartItem } from '@/stores/cart-store';
 import type { useNegotiationModalController as UseNegotiationModalController } from './useNegotiationModalController';
 
 type AuthUserResponse = {
-  data: { user: { id: string } | null };
+  data: {
+    user: { email?: string; id: string; phone?: string | null } | null;
+  };
   error?: unknown | null;
 };
 
@@ -178,7 +180,9 @@ describe('useNegotiationModalController', () => {
   });
 
   it('submits single-item review requests with selected variant details', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
+    mockGetUser.mockResolvedValue({
+      data: { user: { email: 'buyer@example.com', id: 'customer-1' } },
+    });
     const { result } = renderController({
       itemInfo: {
         brand: 'Apple',
@@ -227,7 +231,9 @@ describe('useNegotiationModalController', () => {
   });
 
   it('drops blank single-item metadata before submitting merchant review requests', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
+    mockGetUser.mockResolvedValue({
+      data: { user: { email: 'buyer@example.com', id: 'customer-1' } },
+    });
     const { result } = renderController({
       itemInfo: {
         brand: ' ',
@@ -271,7 +277,9 @@ describe('useNegotiationModalController', () => {
   });
 
   it('submits whole-cart review requests with a cart snapshot and summary', async () => {
-    mockGetUser.mockResolvedValue({ data: { user: { id: 'customer-1' } } });
+    mockGetUser.mockResolvedValue({
+      data: { user: { email: 'buyer@example.com', id: 'customer-1' } },
+    });
     const cartItems: CartItem[] = [
       createCartItem({
         brand: 'Apple',
@@ -321,6 +329,7 @@ describe('useNegotiationModalController', () => {
         },
       ],
       customer_id: 'customer-1',
+      customer_email: 'buyer@example.com',
       customer_phone: null,
       evidence_url: 'https://proof.example/listing',
       item_info: {

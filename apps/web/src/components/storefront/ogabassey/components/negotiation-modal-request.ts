@@ -60,29 +60,39 @@ export async function insertNegotiationRequest(
   supabase: ReturnType<typeof createClient>,
   request: NegotiationRequestInput
 ): Promise<void> {
-  let customerId = request.customerId;
-  if (customerId === undefined) {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError && (!isAuthSessionMissingError(authError) || user)) {
-      throw authError;
-    }
-    customerId = user?.id ?? null;
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError && (!isAuthSessionMissingError(authError) || user)) {
+    throw authError;
   }
 
+  const customerId = user?.id ?? null;
+  if (
+    request.customerId !== undefined &&
+    request.customerId !== customerId
+  ) {
+    throw new NegotiationValidationError(
+      'Customer session changed. Please try again.'
+    );
+  }
+
+  const accountEmail = normalizeOptionalEmail(user?.email);
+  const accountPhone = normalizePhoneToE164(user?.phone);
   const validationError = getContactValidationError({
+    allowMissingContact: Boolean(accountEmail || accountPhone),
     email: request.customerEmail ?? '',
     phone: request.customerPhone ?? '',
-    isAuthenticated: Boolean(customerId),
   });
   if (validationError) {
     throw new NegotiationValidationError(validationError);
   }
 
-  const normalizedPhone = normalizePhoneToE164(request.customerPhone);
-  const normalizedEmail = normalizeOptionalEmail(request.customerEmail);
+  const normalizedPhone =
+    normalizePhoneToE164(request.customerPhone) ?? accountPhone;
+  const normalizedEmail =
+    normalizeOptionalEmail(request.customerEmail) ?? accountEmail;
 
   const cartSnapshot =
     request.type === 'total'

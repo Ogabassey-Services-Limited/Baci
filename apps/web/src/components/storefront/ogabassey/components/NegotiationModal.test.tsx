@@ -80,7 +80,7 @@ describe('NegotiationModal', () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
     vi.spyOn(Math, 'random').mockReturnValue(0.123456);
     mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-abc' } },
+      data: { user: { email: 'account@example.com', id: 'user-abc' } },
     });
     mockEvidenceFetch.mockResolvedValue({
       json: async () => ({
@@ -418,7 +418,7 @@ describe('NegotiationModal', () => {
     expect(insertPayload.session_id).not.toBe('web-session');
   });
 
-  it('allows signed-in customers to submit without duplicate contact details', async () => {
+  it('persists account email when signed-in customers omit contact fields', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
     reachUploadForm();
@@ -439,7 +439,7 @@ describe('NegotiationModal', () => {
     expect(mockInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         customer_id: 'user-abc',
-        customer_email: null,
+        customer_email: 'account@example.com',
         customer_phone: null,
       })
     );
@@ -773,6 +773,36 @@ describe('NegotiationModal', () => {
     expect(
       screen.getByRole('button', { name: /send for review/i })
     ).toBeInTheDocument();
+    alertSpy.mockRestore();
+  });
+
+  it('does not upload evidence when a signed-in customer has no direct contact', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    mockGetUser.mockResolvedValue({
+      data: { user: { email: null, id: 'user-without-contact', phone: null } },
+    });
+    render(<NegotiationModal {...defaultProps} />);
+
+    reachUploadForm();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.change(screen.getByLabelText('Email Address (Optional)'), {
+      target: { value: '' },
+    });
+
+    vi.useRealTimers();
+
+    await act(async () => {
+      fireEvent.submit(fileInput.closest('form') as HTMLFormElement);
+    });
+
+    expect(mockEvidenceFetch).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      "Provide an email address or Phone / WhatsApp number so we can send the merchant's decision."
+    );
     alertSpy.mockRestore();
   });
 

@@ -3,6 +3,8 @@ import { vi } from 'vitest';
 import type { ExpenseDetail } from '@/components/expenses/types';
 import type { ExpenseGroup } from '@/schemas/expense-group';
 
+// Kept outside app/ so Expo Router never bundles Vitest-only helpers as routes.
+
 export const detailExpenseId = '6d89c8af-7bef-4b78-a7b5-9c2a63f691e9';
 
 export const detailExpenseFixture = (): ExpenseDetail => ({

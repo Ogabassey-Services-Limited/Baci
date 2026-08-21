@@ -89,6 +89,11 @@ jobs:
           PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD: 'true'
         run: pnpm install --frozen-lockfile
 
+      - name: Verify Expo Router release tree
+        run: >-
+          pnpm --filter baci-mobile-admin exec vitest run
+          scripts/expo-router-app-tree.test.ts
+
       - name: Expose PostHog CLI to Xcode
         run: |
           POSTHOG_CLI_JS="$(node --print "require.resolve('@posthog/cli/run-posthog-cli.js')")"

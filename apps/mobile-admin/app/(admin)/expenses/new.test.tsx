@@ -197,15 +197,12 @@ vi.mock('expo-router', () => ({
       <>{options?.headerLeft?.()}</>
     ),
   },
+  useNavigation: () => ({ dispatch: vi.fn() }),
   useRouter: () => mocks.router,
 }));
 vi.mock('expo-router/react-navigation', () => ({
   usePreventRemove: vi.fn(),
 }));
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ dispatch: vi.fn() }),
-}));
-
 vi.mock('@react-native-vector-icons/ionicons', () => ({
   default: () => null,
   Ionicons: () => null,

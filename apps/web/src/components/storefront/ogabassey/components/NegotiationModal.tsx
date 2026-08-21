@@ -5,6 +5,7 @@ import {
   COUNTER_NEGOTIATION_DISCOUNT_STEPS,
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+  normalizePhoneToE164,
 } from '@baci/shared/lib';
 import { isAuthSessionMissingError } from '@supabase/supabase-js';
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
@@ -19,6 +20,7 @@ import { NegotiationUploadForm } from './NegotiationUploadForm';
 import {
   NegotiationValidationError,
   getContactValidationError,
+  normalizeOptionalEmail,
 } from './negotiation-modal-validation';
 
 export { deriveCartLineNegotiationProps } from './negotiation-modal-cart';
@@ -60,9 +62,15 @@ const INVALID_EVIDENCE_LINK_MESSAGE = 'Enter a valid http or https URL.';
 
 type NegotiationSupabaseClient = ReturnType<typeof createClient>;
 
-async function resolveNegotiationCustomerId(
+interface NegotiationCustomerSession {
+  customerEmail: string | null;
+  customerId: string | null;
+  customerPhone: string | null;
+}
+
+async function resolveNegotiationCustomer(
   supabase: NegotiationSupabaseClient
-): Promise<string | null> {
+): Promise<NegotiationCustomerSession> {
   const {
     data: { user },
     error,
@@ -72,7 +80,11 @@ async function resolveNegotiationCustomerId(
     throw error;
   }
 
-  return user?.id ?? null;
+  return {
+    customerEmail: normalizeOptionalEmail(user?.email),
+    customerId: user?.id ?? null,
+    customerPhone: normalizePhoneToE164(user?.phone),
+  };
 }
 
 function isValidEvidenceLink(value: string): boolean {
@@ -456,9 +468,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       return;
     }
 
-    let customerId: string | null;
+    let customerSession: NegotiationCustomerSession;
     try {
-      customerId = await resolveNegotiationCustomerId(supabase);
+      customerSession = await resolveNegotiationCustomer(supabase);
     } catch (error) {
       console.error('Failed to verify negotiation customer:', error);
       alert('Unable to verify your account. Please try again.');
@@ -466,8 +478,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     }
 
     const contactValidationError = getContactValidationError({
+      allowMissingContact: Boolean(
+        customerSession.customerEmail || customerSession.customerPhone
+      ),
       email,
-      isAuthenticated: Boolean(customerId),
       phone,
     });
     if (contactValidationError) {
@@ -476,7 +490,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     }
 
     if (trimmedLink) {
-      await submitMerchantRequest(trimmedLink, customerId);
+      await submitMerchantRequest(trimmedLink, customerSession.customerId);
       return;
     }
 
@@ -497,7 +511,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         file,
         merchantId,
       });
-      await submitMerchantRequest(evidencePath, customerId);
+      await submitMerchantRequest(evidencePath, customerSession.customerId);
     } catch (error) {
       console.error('Failed to upload evidence:', error);
       if (!canApplyAsyncResult()) {

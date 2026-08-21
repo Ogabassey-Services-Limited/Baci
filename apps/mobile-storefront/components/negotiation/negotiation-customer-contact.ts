@@ -1,34 +1,47 @@
-import { normalizePhoneToE164 } from '@baci/shared/lib';
+import {
+  normalizeNegotiationCustomerEmail,
+  normalizePhoneToE164,
+} from '@baci/shared/lib';
+
+export type NegotiationAccountContact = {
+  email?: string | null;
+  id: string;
+  phone?: string | null;
+};
 
 export type NegotiationCustomerContact = {
   errorMessage: string | null;
+  normalizedEmail: string | null;
   normalizedPhone: string | null;
   userId: string | null;
 };
 
-function getGuestNegotiationPhoneError(
-  userId: string | null | undefined,
+function getMissingNegotiationContactError(
+  normalizedEmail: string | null,
   normalizedPhone: string | null
 ): string | null {
-  return !userId && !normalizedPhone
+  return !normalizedEmail && !normalizedPhone
     ? 'Enter a Phone / WhatsApp number so the merchant can reach you about this offer.'
     : null;
 }
 
 export function buildNegotiationCustomerContact(
-  userId: string | null | undefined,
+  account: NegotiationAccountContact | null | undefined,
   phone: string
 ): NegotiationCustomerContact {
-  const normalizedPhone = normalizePhoneToE164(phone);
+  const rawPhone = phone.trim() ? phone : account?.phone;
+  const normalizedEmail = normalizeNegotiationCustomerEmail(account?.email);
+  const normalizedPhone = normalizePhoneToE164(rawPhone);
   const errorMessage = phone.trim()
     ? normalizedPhone
       ? null
       : 'Enter a valid Phone / WhatsApp number.'
-    : getGuestNegotiationPhoneError(userId, normalizedPhone);
+    : getMissingNegotiationContactError(normalizedEmail, normalizedPhone);
 
   return {
     errorMessage,
+    normalizedEmail,
     normalizedPhone,
-    userId: userId ?? null,
+    userId: account?.id ?? null,
   };
 }

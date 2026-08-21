@@ -10,7 +10,9 @@ import { AuthSessionMissingError } from '@supabase/supabase-js';
 import type { getNegotiationCustomerContact as GetNegotiationCustomerContact } from './negotiation-customer-auth';
 
 type AuthUserResponse = {
-  data: { user: { id: string } | null };
+  data: {
+    user: { email?: string; id: string; phone?: string | null } | null;
+  };
   error?: unknown | null;
 };
 
@@ -51,6 +53,7 @@ describe('getNegotiationCustomerContact', () => {
       getNegotiationCustomerContact('0803 123 4567')
     ).resolves.toEqual({
       errorMessage: null,
+      normalizedEmail: null,
       normalizedPhone: '2348031234567',
       userId: null,
     });
@@ -68,14 +71,15 @@ describe('getNegotiationCustomerContact', () => {
     );
   });
 
-  it('preserves the authenticated user id without requiring a phone', async () => {
+  it('persists the authenticated account email when phone is empty', async () => {
     mockGetUser.mockResolvedValueOnce({
-      data: { user: { id: 'customer-1' } },
+      data: { user: { email: 'buyer@example.com', id: 'customer-1' } },
       error: null,
     });
 
-    await expect(getNegotiationCustomerContact('')).resolves.toMatchObject({
+    await expect(getNegotiationCustomerContact('')).resolves.toEqual({
       errorMessage: null,
+      normalizedEmail: 'buyer@example.com',
       normalizedPhone: null,
       userId: 'customer-1',
     });

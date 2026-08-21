@@ -36,9 +36,9 @@ describe('negotiation modal validation helpers', () => {
     );
   });
 
-  it('allows authenticated customers to omit contact fields', () => {
+  it('can defer missing contact validation to the authoritative submitter', () => {
     // Arrange
-    const input = { email: '', isAuthenticated: true, phone: '' };
+    const input = { allowMissingContact: true, email: '', phone: '' };
 
     // Act
     const result = getContactValidationError(input);
@@ -47,11 +47,11 @@ describe('negotiation modal validation helpers', () => {
     expect(result).toBeNull();
   });
 
-  it('rejects invalid email input for authenticated customers', () => {
+  it('rejects invalid form email even when an account contact exists', () => {
     // Arrange
     const input = {
       email: 'not an email',
-      isAuthenticated: true,
+      allowMissingContact: true,
       phone: '',
     };
 

@@ -1,5 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from 'expo-router';
 import { usePreventRemove } from 'expo-router/react-navigation';
 import { useRef } from 'react';
 import { Alert } from 'react-native';

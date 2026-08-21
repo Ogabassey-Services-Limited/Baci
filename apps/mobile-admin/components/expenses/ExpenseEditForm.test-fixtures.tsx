@@ -219,6 +219,7 @@ vi.mock('expo-router', () => ({
       <>{options?.headerLeft?.()}</>
     ),
   },
+  useNavigation: () => ({ dispatch: editFormMocks.dispatch }),
   useRouter: () => editFormMocks.router,
 }));
 vi.mock('expo-router/react-navigation', () => ({
@@ -226,9 +227,6 @@ vi.mock('expo-router/react-navigation', () => ({
     editFormMocks.preventRemoveEnabled = prevent;
     editFormMocks.preventRemoveCallback = callback;
   },
-}));
-vi.mock('@react-navigation/native', () => ({
-  useNavigation: () => ({ dispatch: editFormMocks.dispatch }),
 }));
 vi.mock('@react-native-vector-icons/ionicons', () => ({ default: () => null }));
 vi.mock('react-native', () => ({

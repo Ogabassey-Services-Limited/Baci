@@ -1,0 +1,2 @@
+export const NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS =
+  '5888dcc4c1d0dde7c0827fdec4e66f9f8041f706fd16a94b8ba608dd034e50fe 20260821100000_enforce_negotiation_customer_contact.sql';

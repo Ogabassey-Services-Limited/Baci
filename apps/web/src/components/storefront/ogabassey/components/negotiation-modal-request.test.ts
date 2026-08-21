@@ -19,7 +19,13 @@ describe('insertNegotiationRequest', () => {
     vi.clearAllMocks();
     window.sessionStorage.clear();
     getUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
+      data: {
+        user: {
+          email: 'account@example.com',
+          id: 'user-1',
+          phone: null,
+        },
+      },
       error: null,
     });
     insert.mockResolvedValue({ error: null });
@@ -117,7 +123,7 @@ describe('insertNegotiationRequest', () => {
     );
   });
 
-  it('allows an authenticated request without duplicate contact details', async () => {
+  it('persists verified account contact for an authenticated request', async () => {
     await insertNegotiationRequest(createSupabaseMock(), {
       currentPrice: 10_000,
       customerId: 'user-1',
@@ -130,12 +136,84 @@ describe('insertNegotiationRequest', () => {
 
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        customer_email: null,
+        customer_email: 'account@example.com',
         customer_id: 'user-1',
         customer_phone: null,
       })
     );
-    expect(getUser).not.toHaveBeenCalled();
+    expect(getUser).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists a normalized account phone when account email and form contact are blank', async () => {
+    getUser.mockResolvedValueOnce({
+      data: {
+        user: { email: null, id: 'user-1', phone: '0803 123 4567' },
+      },
+      error: null,
+    });
+    const request = {
+      currentPrice: 10_000,
+      customerId: 'user-1',
+      itemId: 'product-1',
+      merchantId: 'merchant-1',
+      offeredPrice: 9000,
+      productName: 'Test Product',
+      type: 'single' as const,
+    };
+
+    await insertNegotiationRequest(createSupabaseMock(), request);
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_email: null,
+        customer_id: 'user-1',
+        customer_phone: '2348031234567',
+      })
+    );
+  });
+
+  it('rejects an authenticated request when account and form have no contact', async () => {
+    getUser.mockResolvedValueOnce({
+      data: { user: { email: null, id: 'user-1', phone: null } },
+      error: null,
+    });
+    const request = {
+      currentPrice: 10_000,
+      customerId: 'user-1',
+      itemId: 'product-1',
+      merchantId: 'merchant-1',
+      offeredPrice: 9000,
+      productName: 'Test Product',
+      type: 'single' as const,
+    };
+
+    const result = insertNegotiationRequest(createSupabaseMock(), request);
+
+    await expect(result).rejects.toThrow(
+      "Provide an email address or Phone / WhatsApp number so we can send the merchant's decision."
+    );
+
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a caller-supplied customer id that does not match the session', async () => {
+    const request = {
+      currentPrice: 10_000,
+      customerId: 'another-user',
+      itemId: 'product-1',
+      merchantId: 'merchant-1',
+      offeredPrice: 9000,
+      productName: 'Test Product',
+      type: 'single' as const,
+    };
+
+    const result = insertNegotiationRequest(createSupabaseMock(), request);
+
+    await expect(result).rejects.toThrow(
+      'Customer session changed. Please try again.'
+    );
+
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it('fails closed when authentication lookup returns an unexpected error', async () => {

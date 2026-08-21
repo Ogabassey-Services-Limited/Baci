@@ -120,6 +120,11 @@ jobs:
           store-dir: ${{ env.PNPM_STORE_DIR }}
           install-command: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
 
+      - name: Verify Expo Router release tree
+        run: >-
+          pnpm --filter baci-mobile-admin exec vitest run
+          scripts/expo-router-app-tree.test.ts
+
       - name: Normalize PostHog CLI executable bit
         run: |
           POSTHOG_CLI_JS="$(node --print "require.resolve('@posthog/cli/run-posthog-cli.js')")"

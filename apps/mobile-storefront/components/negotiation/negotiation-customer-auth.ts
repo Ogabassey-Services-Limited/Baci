@@ -12,5 +12,5 @@ export async function getNegotiationCustomerContact(phone: string) {
     throw error;
   }
 
-  return buildNegotiationCustomerContact(user?.id, phone);
+  return buildNegotiationCustomerContact(user, phone);
 }
