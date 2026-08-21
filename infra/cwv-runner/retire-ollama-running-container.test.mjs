@@ -26,7 +26,7 @@ async function runFixture(command) {
   }
 }
 
-const metadataDocker = `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.Healthcheck}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'container export generic-api'*) printf '%s\\n' 'clean live filesystem';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;;`;
+const metadataDocker = `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json (index .Config "Healthcheck")}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'container export generic-api'*) printf '%s\\n' 'clean live filesystem';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;;`;
 
 test('emits digest-bound evidence when the immutable running image contains Ollama markers', async () => {
   const output = await runFixture(
@@ -89,6 +89,38 @@ test('accepts a safe bare running-container entrypoint used by Docker images', a
   assert.equal(output, '');
 });
 
+test('accepts Docker root as a running-container working directory', async () => {
+  const rootWorkingDirectory = metadataDocker.replace(
+    "printf '%s\\n' '\"\"'",
+    "printf '%s\\n' '\"/\"'"
+  );
+  const output = await runFixture(
+    `${rootWorkingDirectory} *'image save ${imageId}'*) printf '%s\\n' 'filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
+});
+
+test('serializes an absent Docker healthcheck as null', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'index .Config "Healthcheck"'*) printf '%s\\n' 'generic-api /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"';; *) return 2;; esac; }; load_consumer_scanners; container_configuration generic-api`
+  );
+  assert.equal(
+    output,
+    'generic-api /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"\n'
+  );
+});
+
+test('accepts a running container with no healthcheck property', async () => {
+  const absentHealthcheck = metadataDocker.replace(
+    '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}',
+    'null'
+  );
+  const output = await runFixture(
+    `${absentHealthcheck} *'image save ${imageId}'*) printf '%s\\n' 'filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
+});
+
 test('exports one immutable image twice for two containers sharing its ID', async () => {
   const sharedImageDocker = metadataDocker.replace(
     'docker() { case "$*" in',
@@ -136,6 +168,37 @@ test('fails closed when the retained running-image archive exceeds the byte limi
     ),
     (error) => error.code === 2
   );
+});
+
+test('uses a separate bounded allowance for large live container filesystems', async () => {
+  const largeFilesystem = metadataDocker.replace(
+    "printf '%s\\n' 'clean live filesystem'",
+    "printf '%s' '0123456789'"
+  );
+  const output = await runFixture(
+    `${largeFilesystem} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; RUNNING_CONTAINER_IMAGE_MAX_BYTES=8; RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=16; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
+});
+
+test('still rejects a live container filesystem above its own byte limit', async () => {
+  const largeFilesystem = metadataDocker.replace(
+    "printf '%s\\n' 'clean live filesystem'",
+    "printf '%s' '0123456789'"
+  );
+  await assert.rejects(
+    runFixture(
+      `${largeFilesystem} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; RUNNING_CONTAINER_IMAGE_MAX_BYTES=16; RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=8; running_container_validate generic-api /generic-api 'stable-config'`
+    ),
+    (error) => error.code === 2
+  );
+});
+
+test('uses a separate deadline for large live container filesystem exports', async () => {
+  const output = await runFixture(
+    `${metadataDocker} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; clock="$2/filesystem-clock"; running_container_now() { if [ -n "\${running_filesystem_save_fifo:-}" ]; then if [ -e "$clock" ]; then printf '2\\n'; else : >"$clock"; printf '0\\n'; fi; else printf '0\\n'; fi; }; RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=1; RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=3; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
 });
 
 test('fails closed when a running-image export hangs past the watchdog', async () => {

@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
+import {
+  mkdir,
+  mkdtemp,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -104,3 +111,105 @@ for (const unsafeName of ['line\nbreak.conf', 'pipe|name.conf']) {
     }
   });
 }
+
+test('binds a Let’s Encrypt-style relative certificate symlink within the mounted tree', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-letsencrypt-'))
+  );
+  const mounted = join(directory, 'letsencrypt');
+  const archive = join(mounted, 'archive', 'api.example');
+  const live = join(mounted, 'live', 'api.example');
+  try {
+    await mkdir(archive, { recursive: true });
+    await mkdir(live, { recursive: true });
+    const certificate = join(archive, 'cert1.pem');
+    const link = join(live, 'cert.pem');
+    await writeFile(certificate, 'endpoint=http://127.0.0.1:11434\n');
+    await symlink('../../archive/api.example/cert1.pem', link);
+
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${portableFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; output=$(temp_path); container_bind_directory_snapshot "$3" "$output"; cat "$output"; container_bind_directory_consumers generic-api "$3" /etc/letsencrypt`,
+      'retire-ollama-container-bind-letsencrypt-test',
+      script.pathname,
+      directory,
+      mounted,
+    ]);
+
+    assert.match(
+      stdout,
+      new RegExp(`^@link:${link.replaceAll('/', '\\/')}\\|`, 'm')
+    );
+    assert.match(
+      stdout,
+      new RegExp(`^${certificate.replaceAll('/', '\\/')}\\|`, 'm')
+    );
+    assert.match(
+      stdout,
+      /^container-bind-directory:generic-api:\/etc\/letsencrypt\|/m
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
+test('fails closed for a relative bind-tree symlink that escapes the mounted tree', async () => {
+  const parent = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-symlink-escape-'))
+  );
+  const directory = join(parent, 'mounted');
+  try {
+    await mkdir(directory);
+    await writeFile(join(parent, 'outside.conf'), 'clean\n');
+    await symlink('../outside.conf', join(directory, 'escape.conf'));
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${portableFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; output=$(temp_path); container_bind_directory_snapshot "$3" "$output"`,
+        'retire-ollama-container-bind-symlink-escape-test',
+        script.pathname,
+        parent,
+        directory,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(parent, { force: true, recursive: true });
+  }
+});
+
+test('fails closed when an internal bind-tree symlink changes between snapshots', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-symlink-drift-'))
+  );
+  const mounted = join(directory, 'letsencrypt');
+  const archive = join(mounted, 'archive', 'api.example');
+  const live = join(mounted, 'live', 'api.example');
+  try {
+    await mkdir(archive, { recursive: true });
+    await mkdir(live, { recursive: true });
+    await writeFile(join(archive, 'cert1.pem'), 'first\n');
+    await writeFile(join(archive, 'cert2.pem'), 'second\n');
+    await symlink(
+      '../../archive/api.example/cert1.pem',
+      join(live, 'cert.pem')
+    );
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${portableFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; mutation_root=$3; consumer_matched_fingerprint() { if [ ! -e "$mutation_root/mutated" ]; then rm "$mutation_root/letsencrypt/live/api.example/cert.pem"; ln -s ../../archive/api.example/cert2.pem "$mutation_root/letsencrypt/live/api.example/cert.pem"; : >"$mutation_root/mutated"; fi; return 1; }; container_bind_directory_consumers generic-api "$3/letsencrypt" /etc/letsencrypt`,
+        'retire-ollama-container-bind-symlink-drift-test',
+        script.pathname,
+        directory,
+        directory,
+      ])
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});

@@ -1,7 +1,10 @@
 #!/bin/sh
 RUNNING_CONTAINER_IMAGE_MAX_BYTES=1073741824
+RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=4294967296
 # shellcheck disable=SC2034 # Consumed by the running-container helper after sourcing.
 RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=120
+# shellcheck disable=SC2034 # Consumed by the running-container helper after sourcing.
+RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=300
 
 running_container_now() { /bin/date +%s; }
 
@@ -56,8 +59,17 @@ running_container_archive_command() {
   esac
 }
 
+running_container_archive_limit() {
+  case "$1" in
+    image) printf '%s\n' "$RUNNING_CONTAINER_IMAGE_MAX_BYTES" ;;
+    container) printf '%s\n' "$RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES" ;;
+    *) return 2 ;;
+  esac
+}
+
 running_container_archive_save_bounded() {
   running_save_kind=$1; running_save_id=$2; running_save_output=$3; running_save_fifo=$4; running_save_status=$5; running_save_deadline=$6
+  running_save_limit=$(running_container_archive_limit "$running_save_kind") || return 2
   rm -f "$running_save_output" "$running_save_fifo" "$running_save_status"
   mkfifo "$running_save_fifo" || return 2
   : >"$running_save_status" || { rm -f "$running_save_fifo"; return 2; }
@@ -67,7 +79,7 @@ running_container_archive_save_bounded() {
     my ($output, $status, $limit) = @ARGV; binmode STDIN; open my $fh, ">", $output or exit 2; binmode $fh;
     my ($total, $ok) = (0, 1); while (read(STDIN, my $chunk, 65536)) { $total += length($chunk); if ($total > $limit) { $ok = 0; last; } print {$fh} $chunk or $ok = 0; last unless $ok; }
     close $fh; open my $sf, ">", $status or exit 2; print {$sf} ($ok ? "0\n" : "2\n"); close $sf; exit($ok ? 0 : 2);
-  ' "$running_save_output" "$running_save_status" "$RUNNING_CONTAINER_IMAGE_MAX_BYTES" <"$running_save_fifo" &
+  ' "$running_save_output" "$running_save_status" "$running_save_limit" <"$running_save_fifo" &
   running_save_reader_pid=$!
   running_container_wait_group "$running_save_deadline" "$running_save_reader_pid" "$running_save_pid" -- "$running_save_status"; running_save_group_status=$?
   rm -f "$running_save_fifo"
@@ -76,6 +88,7 @@ running_container_archive_save_bounded() {
 
 running_container_archive_hash_stream() {
   running_hash_kind=$1; running_hash_id=$2; running_hash_output=$3; running_hash_fifo=$4; running_hash_status_file=$5; running_hash_deadline=$6
+  running_hash_limit=$(running_container_archive_limit "$running_hash_kind") || return 2
   running_hash_digest_fifo=$(temp_path)
   rm -f "$running_hash_fifo" "$running_hash_digest_fifo" "$running_hash_output" "$running_hash_status_file"
   mkfifo "$running_hash_fifo" "$running_hash_digest_fifo" || return 2
@@ -88,7 +101,7 @@ running_container_archive_hash_stream() {
     my ($status, $limit) = @ARGV; binmode STDIN; my ($total, $ok) = (0, 1);
     while (read(STDIN, my $chunk, 65536)) { $total += length($chunk); if ($total > $limit) { $ok = 0; last; } print $chunk or $ok = 0; last unless $ok; }
     open my $sf, ">", $status or exit 2; print {$sf} ($ok ? "0\n" : "2\n"); close $sf; exit($ok ? 0 : 2);
-  ' "$running_hash_status_file" "$RUNNING_CONTAINER_IMAGE_MAX_BYTES" <"$running_hash_fifo" >"$running_hash_digest_fifo" 2>/dev/null &
+  ' "$running_hash_status_file" "$running_hash_limit" <"$running_hash_fifo" >"$running_hash_digest_fifo" 2>/dev/null &
   running_hash_reader_pid=$!
   running_container_wait_group "$running_hash_deadline" "$running_hash_reader_pid" "$running_hash_sum_pid" "$running_hash_pid" -- "$running_hash_status_file" "$running_hash_output"; running_hash_group_status=$?
   rm -f "$running_hash_fifo" "$running_hash_digest_fifo"

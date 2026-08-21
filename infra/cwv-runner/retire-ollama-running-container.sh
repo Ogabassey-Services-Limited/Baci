@@ -69,14 +69,14 @@ running_container_validate() {
   running_container_pair "$running_id" '{{json .Config.WorkingDir}}' "$running_working_first" "$running_working_second" || { running_cleanup; return 2; }
   running_container_pair "$running_id" '{{json .Args}}' "$running_args_first" "$running_args_second" || { running_cleanup; return 2; }
   running_container_pair "$running_id" '{{json .Config.Env}}' "$running_env_first" "$running_env_second" || { running_cleanup; return 2; }
-  running_container_pair "$running_id" '{{json .Config.Healthcheck}}' "$running_health_first" "$running_health_second" || { running_cleanup; return 2; }
+  running_container_pair "$running_id" '{{json (index .Config "Healthcheck")}}' "$running_health_first" "$running_health_second" || { running_cleanup; return 2; }
   running_container_pair "$running_id" '{{json .Mounts}}' "$running_mounts_first" "$running_mounts_second" || { running_cleanup; return 2; }
   [ "$(cat "$running_name_first")" = "$running_name" ] || { running_cleanup; return 2; }
   [ "$(cat "$running_state_first")" = true ] || { running_cleanup; return 2; }
   running_image_id=$(cat "$running_image_first")
   printf '%s\n' "$running_image_id" | grep -Eq '^sha256:[0-9a-f]{64}$' || { running_cleanup; return 2; }
   running_container_validate_json "$running_path_first" path || { running_cleanup; return 2; }
-  /usr/bin/jq -e 'type == "string" and (. == "" or (test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not)))' "$running_working_first" >/dev/null || { running_cleanup; return 2; }
+  /usr/bin/jq -e 'type == "string" and (. == "" or . == "/" or (test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not)))' "$running_working_first" >/dev/null || { running_cleanup; return 2; }
   running_container_validate_json "$running_args_first" args || { running_cleanup; return 2; }
   running_container_validate_json "$running_env_first" env || { running_cleanup; return 2; }
   running_container_validate_json "$running_health_first" health || { running_cleanup; return 2; }
@@ -123,7 +123,7 @@ running_container_validate() {
   running_filesystem_save_first=$(temp_path); running_filesystem_save_fifo=$(temp_path); running_filesystem_save_status=$(temp_path)
   running_filesystem_hash=$(temp_path); running_filesystem_hash_fifo=$(temp_path); running_filesystem_hash_status=$(temp_path)
   running_filesystem_started_at=$(running_container_now) || { running_cleanup; return 2; }
-  running_filesystem_deadline=$((running_filesystem_started_at + RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS))
+  running_filesystem_deadline=$((running_filesystem_started_at + RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS))
   running_container_archive_save_bounded container "$running_id" "$running_filesystem_save_first" "$running_filesystem_save_fifo" "$running_filesystem_save_status" "$running_filesystem_deadline" || { running_cleanup; return 2; }
   running_filesystem_sha=$(sha "$running_filesystem_save_first") || { running_cleanup; return 2; }
   running_filesystem_second_sha=$(running_container_archive_hash_stream container "$running_id" "$running_filesystem_hash" "$running_filesystem_hash_fifo" "$running_filesystem_hash_status" "$running_filesystem_deadline") || { running_cleanup; return 2; }
