@@ -26,22 +26,8 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "e4984bbdc0affcc7c3d39ac853752398bf5f585b43a834f71b033a8c4a6fecd6",
-  "routingProxyInputSha256": "ef7494237abbc1f200bb10984389a10a69f8b0bd86c989267b8b574a3b67c857",
+  "routingProxyInputSha256": "9091b3f6d523819653491b58f30be88a98a0b17520cb15a21d9cddba64c065b6",
   "rows": [
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:no-trailing-slash",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "trailing_slash_canonicalization",
-      "routePattern": "/{*document}/",
-      "sourceKind": "proxy_path_class",
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "trailing_slash_excluding_well_known"
-      }
-    },
     {
       "decision": "origin_dynamic",
       "id": "api-route:agentic/carts/route.ts",
@@ -1531,816 +1517,106 @@
       "sourceKind": "api_family"
     },
     {
-      "decision": "edge_redirect",
-      "id": "proxy:retired-slug-machine-path",
+      "decision": "origin_dynamic",
+      "id": "machine:posthog-relay-root",
       "methods": [
-        "GET",
-        "HEAD"
+        "ANY"
       ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{*machinePath?}",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/src/proxy.ts",
-      "hostCondition": {
-        "hostKind": "retired_platform_subdomain_alias",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentNotIn": [
-          "api"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "retired_alias_storefront_path"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:retired-slug-llms",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/llms.txt",
-      "sourceKind": "proxy_path_class",
-      "sourcePath": "apps/web/src/proxy.ts",
-      "hostCondition": {
-        "hostKind": "retired_platform_subdomain_alias",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_release",
-      "id": "machine:indexnow-key-root",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_machine_family",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "reason": "configured_posthog_relay",
+      "routePattern": "/baci-relay",
       "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
+      "sourcePath": "apps/web/src/proxy.ts"
     },
     {
       "decision": "origin_dynamic",
-      "id": "machine:indexnow-key-root-options",
+      "id": "machine:posthog-relay-children",
       "methods": [
-        "OPTIONS"
+        "ANY"
       ],
-      "reason": "automatic_options_response",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "reason": "configured_posthog_relay",
+      "routePattern": "/baci-relay/{*path?}",
       "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_release",
-      "id": "machine:indexnow-key-custom-domain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_machine_family",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "machine:indexnow-key-custom-domain-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_release",
-      "id": "machine:indexnow-key-platform-subdomain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "explicit_storefront_machine_family",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "machine:indexnow-key-platform-subdomain-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "machine:robots-platform-root-rewrite",
-      "methods": [
-        "GET",
-        "HEAD",
-        "OPTIONS"
-      ],
-      "reason": "explicit_storefront_machine_family",
-      "routePattern": "/robots.txt",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/app/robots.ts",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_release",
-      "id": "public-asset:favicon.ico-platform-root",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "platform_root_public_favicon",
-      "routePattern": "/favicon.ico",
-      "sourceKind": "public_asset",
-      "sourcePath": "apps/web/public/favicon.ico",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:auth-confirm",
-      "methods": [
-        "GET",
-        "HEAD",
-        "OPTIONS"
-      ],
-      "reason": "custom_domain_auth_confirmation",
-      "routePattern": "/auth/confirm",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/auth/confirm/route.ts"
+      "sourcePath": "apps/web/src/proxy.ts"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:root-domain-retired-slug-markdown",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{retiredSlug}/{*storefrontMarkdownPath}.md",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "retired_storefront_slug_prefix"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:api-prefix-passthrough",
+      "id": "next:user-legacy",
       "methods": [
         "ANY"
       ],
-      "reason": "proxy_api_prefix_passthrough",
-      "routePattern": "/{*apiPrefixPath?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "api_prefix_passthrough"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/user/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:slug-blog-post-status-redirect",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "resolved_blog_post_status_redirect",
-      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "blog_post_status_redirect"
-      }
-    },
-    {
-      "decision": "edge_terminal",
-      "id": "proxy:slug-blog-post-status-missing",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "resolved_blog_post_status_missing",
-      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "blog_post_status_missing"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:slug-blog-listing-status-redirect",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "resolved_blog_listing_status_redirect",
-      "routePattern": "/{storefrontIdentifier}/blog/{*listingPath?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "blog_listing_status_redirect"
-      }
-    },
-    {
-      "decision": "edge_terminal",
-      "id": "proxy:slug-blog-listing-status-missing",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "resolved_blog_listing_status_missing",
-      "routePattern": "/{storefrontIdentifier}/blog/{*listingPath?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "blog_listing_status_missing"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:legacy-terms-alias-custom-domain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "canonical_terms_alias",
-      "routePattern": "/terms-and-conditions",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:legacy-terms-alias-platform-subdomain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "canonical_terms_alias",
-      "routePattern": "/terms-and-conditions",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:legacy-terms-of-service-custom-domain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "canonical_terms_alias",
-      "routePattern": "/terms-of-service",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:legacy-terms-of-service-platform-subdomain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "canonical_terms_alias",
-      "routePattern": "/terms-of-service",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:redundant-slug-prefix",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "custom_domain_slug_prefix_canonicalization",
-      "routePattern": "/{currentSlug}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "redundant_storefront_slug_prefix"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:current-slug-api",
-      "methods": [
-        "DELETE",
-        "OPTIONS",
-        "PATCH",
-        "POST",
-        "PUT"
-      ],
-      "reason": "current_slug_api_rewrite_preserves_body",
-      "routePattern": "/{currentSlug}/api/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "current_storefront_slug_api"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:retired-slug-document",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{retiredSlug}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "retired_storefront_slug_prefix"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:legacy-blog-host",
+      "id": "next:home-legacy",
       "methods": [
         "ANY"
       ],
-      "reason": "legacy_blog_hostname_redirect",
-      "routePattern": "/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "hostnameIn": [
-          "blog.ogabassey.com"
-        ],
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-admin",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "platform_subdomain_admin_requires_auth",
-      "routePattern": "/admin/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentIn": [
-          "admin"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "first_segment_allowlist"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/home/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:platform-route-subdomain",
+      "id": "next:blog-iphone-xr",
       "methods": [
         "ANY"
       ],
-      "reason": "platform_route_subdomain_redirect",
-      "routePattern": "/{platformRoutePrefix}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentIn": [
-          "auth",
-          "baci-relay",
-          "builder",
-          "dashboard",
-          "forgot-password",
-          "login",
-          "onboarding",
-          "reset-password",
-          "signup",
-          "staff",
-          "update-password",
-          "verify"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "first_segment_allowlist"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/iphone-xr-in-2025-is-this-still-a-good-deal",
+      "sourceKind": "proxy_path_class"
     },
     {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-route-root",
+      "decision": "edge_redirect",
+      "id": "next:blog-samsung-s21",
       "methods": [
         "ANY"
       ],
-      "reason": "platform_root_application_route_preserved",
-      "routePattern": "/{platformRoutePrefix}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentIn": [
-          "admin",
-          "auth",
-          "builder",
-          "dashboard",
-          "forgot-password",
-          "login",
-          "onboarding",
-          "reset-password",
-          "signup",
-          "staff",
-          "update-password",
-          "verify"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "first_segment_allowlist"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:retired-host-platform-route",
+      "id": "next:blog-wwdc",
       "methods": [
         "ANY"
       ],
-      "reason": "retired_subdomain_platform_route_redirect",
-      "routePattern": "/{platformRoutePrefix}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "retired_platform_subdomain_alias",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentIn": [
-          "auth",
-          "baci-relay",
-          "builder",
-          "dashboard",
-          "forgot-password",
-          "login",
-          "onboarding",
-          "reset-password",
-          "signup",
-          "staff",
-          "update-password",
-          "verify"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "first_segment_allowlist"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:retired-slug-host",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{*storefrontPath?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "retired_platform_subdomain_alias",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentNotIn": [
-          "api"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "retired_alias_storefront_path"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:custom-domain-platform-route",
+      "id": "next:blog-wwdc-date",
       "methods": [
         "ANY"
       ],
-      "reason": "custom_domain_platform_route_preserved",
-      "routePattern": "/{platformRoutePrefix}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "firstSegmentIn": [
-          "admin",
-          "builder",
-          "dashboard",
-          "login",
-          "reset-password"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "first_segment_allowlist"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:subdomain-custom-domain",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "canonical_custom_domain_redirect",
-      "routePattern": "/{*storefrontPath?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision",
-        "requiresActiveCanonicalCustomDomain": true
-      },
-      "pathCondition": {
-        "firstSegmentNotIn": [
-          "api"
-        ],
-        "precedence": "before_path_decision",
-        "predicate": "canonical_custom_domain_redirect_non_api"
-      }
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "proxy:root-domain-current-slug",
+      "id": "next:blog-wwdc-prefix",
       "methods": [
         "ANY"
       ],
-      "reason": "current_storefront_custom_domain_redirect",
-      "routePattern": "/{currentSlug}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision",
-        "requiresActiveCanonicalCustomDomain": true
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "current_storefront_custom_domain_redirect"
-      }
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
-      "id": "proxy:root-domain-retired-slug",
+      "id": "next:blog-wwdc-double-encoded",
       "methods": [
-        "GET",
-        "HEAD"
+        "ANY"
       ],
-      "reason": "retired_storefront_alias_redirect",
-      "routePattern": "/{retiredSlug}/{*path?}",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "pathCondition": {
-        "precedence": "before_path_decision",
-        "predicate": "retired_storefront_slug_prefix"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-root-blog-sitemap",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "platform_root_blog_sitemap_rewrite",
-      "routePattern": "/blog/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/next.config.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-root-blog-sitemap-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/blog/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/next.config.ts"
-    },
-    {
-      "decision": "edge_release",
-      "id": "proxy:platform-root-slug-sitemap",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "storefront_root_sitemap_rewrite",
-      "routePattern": "/{storefrontIdentifier}/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-root-slug-sitemap-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/{storefrontIdentifier}/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:root-sitemap",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "storefront_root_sitemap_requires_origin",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:root-sitemap-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "custom_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:subdomain-sitemap",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "storefront_root_sitemap_requires_origin",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:subdomain-sitemap-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_subdomain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-root-sitemap",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "platform_root_sitemap_dynamic",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "proxy:platform-root-sitemap-options",
-      "methods": [
-        "OPTIONS"
-      ],
-      "reason": "automatic_options_response",
-      "routePattern": "/sitemap.xml",
-      "sourceKind": "proxy_path_class",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourcePath": "apps/web/src/app/sitemap.ts"
+      "reason": "next_config_redirect",
+      "routePattern": "/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/{*path?}",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
@@ -2377,6 +1653,16 @@
         ],
         "precedence": "before_path_decision"
       }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:iphone-nfid",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/phones/iphone-x-3gb-64gb-nfid",
+      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "edge_redirect",
@@ -2537,93 +1823,111 @@
       }
     },
     {
-      "decision": "origin_dynamic",
-      "id": "server-action:repair-booking-slug-prefixed",
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-terms",
       "methods": [
-        "POST"
+        "ANY"
       ],
-      "reason": "explicit_storefront_server_action",
-      "requestCondition": {
-        "anyHeaderMatch": [
-          {
-            "name": "next-action"
-          }
-        ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/repair",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      },
-      "sourceKind": "server_action",
-      "sourcePath": "apps/web/src/app/actions/repair.ts"
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/terms",
+      "sourceKind": "proxy_path_class"
     },
     {
-      "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-slug-root",
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-privacy",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/privacy",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-about",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/about",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-faq",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/faq",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-pages-contact",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/pages/contact",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-terms-of-service",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/terms-of-service",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "next:slug-privacy-policy",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "next_config_redirect",
+      "routePattern": "/{slug}/privacy-policy",
+      "sourceKind": "proxy_path_class"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:no-trailing-slash",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "trailing_slash_canonicalization",
+      "routePattern": "/{*document}/",
+      "sourceKind": "proxy_path_class",
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "trailing_slash_excluding_well_known"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-machine-path",
       "methods": [
         "GET",
         "HEAD"
       ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
-        ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{*machinePath?}",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/src/proxy.ts",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
         "precedence": "before_path_decision"
       },
-      "routePattern": "/{storefrontIdentifier}/blog",
-      "sourceKind": "request_override",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
-      }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "request-override:draft-mode-slug-nested",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "reason": "next_draft_mode_cookie_requires_origin",
-      "requestCondition": {
-        "anyCookiePresent": [
-          "__next_preview_data",
-          "__prerender_bypass"
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "api"
         ],
-        "precedence": "before_path_decision"
-      },
-      "routePattern": "/{storefrontIdentifier}/blog/{*path}",
-      "sourceKind": "request_override",
-      "hostCondition": {
-        "hostKind": "platform_root_domain",
-        "precedence": "before_path_decision"
+        "precedence": "before_path_decision",
+        "predicate": "retired_alias_storefront_path"
       }
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "machine:posthog-relay-root",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "configured_posthog_relay",
-      "routePattern": "/baci-relay",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/proxy.ts"
-    },
-    {
-      "decision": "origin_dynamic",
-      "id": "machine:posthog-relay-children",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "configured_posthog_relay",
-      "routePattern": "/baci-relay/{*path?}",
-      "sourceKind": "machine_family",
-      "sourcePath": "apps/web/src/proxy.ts"
     },
     {
       "decision": "origin_dynamic",
@@ -2638,6 +1942,132 @@
       "sourcePath": "apps/web/next.config.ts",
       "requestCondition": {
         "pathMembership": "current_origin_next_build_manifest",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-llms",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/llms.txt",
+      "sourceKind": "proxy_path_class",
+      "sourcePath": "apps/web/src/proxy.ts",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:indexnow-key-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:indexnow-key-root-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:indexnow-key-custom-domain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:indexnow-key-custom-domain-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_release",
+      "id": "machine:indexnow-key-platform-subdomain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:indexnow-key-platform-subdomain-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/0751d5c882ab3d7c013ecbfe9e624d71.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/0751d5c882ab3d7c013ecbfe9e624d71.txt/route.ts",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "machine:robots-platform-root-rewrite",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "explicit_storefront_machine_family",
+      "routePattern": "/robots.txt",
+      "sourceKind": "machine_family",
+      "sourcePath": "apps/web/src/app/robots.ts",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
         "precedence": "before_path_decision"
       }
     },
@@ -3875,6 +3305,76 @@
       "sourcePath": "apps/web/src/components/storefront/ogabassey/pages/receipt-claim-app-download-banner.tsx"
     },
     {
+      "decision": "edge_release",
+      "id": "public-asset:favicon.ico-platform-root",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "platform_root_public_favicon",
+      "routePattern": "/favicon.ico",
+      "sourceKind": "public_asset",
+      "sourcePath": "apps/web/public/favicon.ico",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:auth-confirm",
+      "methods": [
+        "GET",
+        "HEAD",
+        "OPTIONS"
+      ],
+      "reason": "custom_domain_auth_confirmation",
+      "routePattern": "/auth/confirm",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/auth/confirm/route.ts"
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:root-domain-retired-slug-markdown",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{retiredSlug}/{*storefrontMarkdownPath}.md",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:api-prefix-passthrough",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "proxy_api_prefix_passthrough",
+      "routePattern": "/{*apiPrefixPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "api_prefix_passthrough"
+      }
+    },
+    {
       "decision": "edge_terminal",
       "id": "proxy:blog-wordpress-probe",
       "methods": [
@@ -3948,6 +3448,44 @@
     },
     {
       "decision": "edge_redirect",
+      "id": "proxy:slug-blog-post-status-redirect",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_post_status_redirect",
+      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_post_status_redirect"
+      }
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:slug-blog-post-status-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_post_status_missing",
+      "routePattern": "/{storefrontIdentifier}/blog/{postSlug}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_post_status_missing"
+      }
+    },
+    {
+      "decision": "edge_redirect",
       "id": "proxy:blog-post-status-redirect",
       "methods": [
         "GET",
@@ -3959,6 +3497,44 @@
       "pathCondition": {
         "precedence": "before_path_decision",
         "predicate": "blog_post_status_redirect"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:slug-blog-listing-status-redirect",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_listing_status_redirect",
+      "routePattern": "/{storefrontIdentifier}/blog/{*listingPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_listing_status_redirect"
+      }
+    },
+    {
+      "decision": "edge_terminal",
+      "id": "proxy:slug-blog-listing-status-missing",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "resolved_blog_listing_status_missing",
+      "routePattern": "/{storefrontIdentifier}/blog/{*listingPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "blog_listing_status_missing"
       }
     },
     {
@@ -4050,6 +3626,66 @@
     },
     {
       "decision": "edge_redirect",
+      "id": "proxy:legacy-terms-alias-custom-domain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "canonical_terms_alias",
+      "routePattern": "/terms-and-conditions",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:legacy-terms-alias-platform-subdomain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "canonical_terms_alias",
+      "routePattern": "/terms-and-conditions",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:legacy-terms-of-service-custom-domain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "canonical_terms_alias",
+      "routePattern": "/terms-of-service",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:legacy-terms-of-service-platform-subdomain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "canonical_terms_alias",
+      "routePattern": "/terms-of-service",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "edge_redirect",
       "id": "proxy:lowercase-document",
       "methods": [
         "ANY"
@@ -4108,6 +3744,47 @@
       }
     },
     {
+      "decision": "edge_redirect",
+      "id": "proxy:redundant-slug-prefix",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "custom_domain_slug_prefix_canonicalization",
+      "routePattern": "/{currentSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "redundant_storefront_slug_prefix"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:current-slug-api",
+      "methods": [
+        "DELETE",
+        "OPTIONS",
+        "PATCH",
+        "POST",
+        "PUT"
+      ],
+      "reason": "current_slug_api_rewrite_preserves_body",
+      "routePattern": "/{currentSlug}/api/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "current_storefront_slug_api"
+      }
+    },
+    {
       "decision": "origin_dynamic",
       "id": "proxy:retired-slug-api",
       "methods": [
@@ -4126,6 +3803,422 @@
         "precedence": "before_path_decision",
         "predicate": "retired_storefront_slug_prefix"
       }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-document",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{retiredSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:legacy-blog-host",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "legacy_blog_hostname_redirect",
+      "routePattern": "/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "hostnameIn": [
+          "blog.ogabassey.com"
+        ],
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-admin",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "platform_subdomain_admin_requires_auth",
+      "routePattern": "/admin/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "admin"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:platform-route-subdomain",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "platform_route_subdomain_redirect",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "auth",
+          "baci-relay",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "onboarding",
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-route-root",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "platform_root_application_route_preserved",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "admin",
+          "auth",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "onboarding",
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-host-platform-route",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "retired_subdomain_platform_route_redirect",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "auth",
+          "baci-relay",
+          "builder",
+          "dashboard",
+          "forgot-password",
+          "login",
+          "onboarding",
+          "reset-password",
+          "signup",
+          "staff",
+          "update-password",
+          "verify"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:retired-slug-host",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{*storefrontPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "retired_platform_subdomain_alias",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "api"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "retired_alias_storefront_path"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:custom-domain-platform-route",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "custom_domain_platform_route_preserved",
+      "routePattern": "/{platformRoutePrefix}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "firstSegmentIn": [
+          "admin",
+          "builder",
+          "dashboard",
+          "login",
+          "reset-password"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "first_segment_allowlist"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:subdomain-custom-domain",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "canonical_custom_domain_redirect",
+      "routePattern": "/{*storefrontPath?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision",
+        "requiresActiveCanonicalCustomDomain": true
+      },
+      "pathCondition": {
+        "firstSegmentNotIn": [
+          "api"
+        ],
+        "precedence": "before_path_decision",
+        "predicate": "canonical_custom_domain_redirect_non_api"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:root-domain-current-slug",
+      "methods": [
+        "ANY"
+      ],
+      "reason": "current_storefront_custom_domain_redirect",
+      "routePattern": "/{currentSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision",
+        "requiresActiveCanonicalCustomDomain": true
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "current_storefront_custom_domain_redirect"
+      }
+    },
+    {
+      "decision": "edge_redirect",
+      "id": "proxy:root-domain-retired-slug",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "retired_storefront_alias_redirect",
+      "routePattern": "/{retiredSlug}/{*path?}",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "pathCondition": {
+        "precedence": "before_path_decision",
+        "predicate": "retired_storefront_slug_prefix"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-blog-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "platform_root_blog_sitemap_rewrite",
+      "routePattern": "/blog/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-blog-sitemap-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/blog/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/next.config.ts"
+    },
+    {
+      "decision": "edge_release",
+      "id": "proxy:platform-root-slug-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_root_sitemap_rewrite",
+      "routePattern": "/{storefrontIdentifier}/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-slug-sitemap-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/{storefrontIdentifier}/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:root-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_root_sitemap_requires_origin",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:root-sitemap-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "custom_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:subdomain-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "storefront_root_sitemap_requires_origin",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:subdomain-sitemap-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_subdomain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-sitemap",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "platform_root_sitemap_dynamic",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "proxy:platform-root-sitemap-options",
+      "methods": [
+        "OPTIONS"
+      ],
+      "reason": "automatic_options_response",
+      "routePattern": "/sitemap.xml",
+      "sourceKind": "proxy_path_class",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
+      "sourcePath": "apps/web/src/app/sitemap.ts"
     },
     {
       "decision": "edge_terminal",
@@ -4196,6 +4289,29 @@
         "precedence": "before_path_decision"
       },
       "routePattern": "/repair",
+      "sourceKind": "server_action",
+      "sourcePath": "apps/web/src/app/actions/repair.ts"
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "server-action:repair-booking-slug-prefixed",
+      "methods": [
+        "POST"
+      ],
+      "reason": "explicit_storefront_server_action",
+      "requestCondition": {
+        "anyHeaderMatch": [
+          {
+            "name": "next-action"
+          }
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/repair",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      },
       "sourceKind": "server_action",
       "sourcePath": "apps/web/src/app/actions/repair.ts"
     },
@@ -4294,14 +4410,48 @@
       "sourceKind": "request_override"
     },
     {
-      "decision": "edge_redirect",
-      "id": "next:blog-wwdc-date",
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-slug-root",
       "methods": [
-        "ANY"
+        "GET",
+        "HEAD"
       ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/2025/06/10/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
-      "sourceKind": "proxy_path_class"
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog",
+      "sourceKind": "request_override",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
+    },
+    {
+      "decision": "origin_dynamic",
+      "id": "request-override:draft-mode-slug-nested",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "reason": "next_draft_mode_cookie_requires_origin",
+      "requestCondition": {
+        "anyCookiePresent": [
+          "__next_preview_data",
+          "__prerender_bypass"
+        ],
+        "precedence": "before_path_decision"
+      },
+      "routePattern": "/{storefrontIdentifier}/blog/{*path}",
+      "sourceKind": "request_override",
+      "hostCondition": {
+        "hostKind": "platform_root_domain",
+        "precedence": "before_path_decision"
+      }
     },
     {
       "decision": "origin_dynamic",
@@ -4564,36 +4714,6 @@
       "sourcePath": "apps/web/src/app/(storefront)/[slug]/(customer)/receipts/claim/[token]/page.tsx"
     },
     {
-      "decision": "edge_redirect",
-      "id": "next:blog-wwdc",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/wwdc-2025-5-game%e2%80%91changing-apple-announcements/{*path?}",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:blog-wwdc-double-encoded",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/wwdc%25e2%2580%25912025%25e2%2580%25915-game-changing-apple-announcements/{*path?}",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:blog-wwdc-prefix",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/wwdc%e2%80%912025%e2%80%915-game-changing-apple-announcements/{*path?}",
-      "sourceKind": "proxy_path_class"
-    },
-    {
       "decision": "origin_dynamic",
       "id": "machine:feed-agentProducts",
       "methods": [
@@ -4851,36 +4971,6 @@
       "routePattern": "/.well-known/ucp",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/src/app/.well-known/ucp/route.ts"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:blog-iphone-xr",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/iphone-xr-in-2025-is-this-still-a-good-deal",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:blog-samsung-s21",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/blog/why-the-samsung-galaxy-s21-ultra-is-still-a-top-pick-in-2024",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:iphone-nfid",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/phones/iphone-x-3gb-64gb-nfid",
-      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "origin_dynamic",
@@ -5368,26 +5458,6 @@
       "routePattern": "/.well-known/{*unlisted?}",
       "sourceKind": "machine_family",
       "sourcePath": "apps/web/src/app/.well-known/[...rest]/route.ts"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:home-legacy",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/home/{*path?}",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:user-legacy",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/user/{*path?}",
-      "sourceKind": "proxy_path_class"
     },
     {
       "decision": "origin_dynamic",
@@ -6801,56 +6871,6 @@
       }
     },
     {
-      "decision": "edge_redirect",
-      "id": "next:slug-pages-about",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/pages/about",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:slug-pages-contact",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/pages/contact",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:slug-pages-faq",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/pages/faq",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:slug-pages-privacy",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/pages/privacy",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:slug-pages-terms",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/pages/terms",
-      "sourceKind": "proxy_path_class"
-    },
-    {
       "decision": "edge_release",
       "reason": "public_release_surface",
       "id": "storefront:(catalog)/(listing)/[category]/brands/[brandSlug]/families/[familySlug]/page.tsx",
@@ -7765,26 +7785,6 @@
       }
     },
     {
-      "decision": "edge_redirect",
-      "id": "next:slug-privacy-policy",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/privacy-policy",
-      "sourceKind": "proxy_path_class"
-    },
-    {
-      "decision": "edge_redirect",
-      "id": "next:slug-terms-of-service",
-      "methods": [
-        "ANY"
-      ],
-      "reason": "next_config_redirect",
-      "routePattern": "/{slug}/terms-of-service",
-      "sourceKind": "proxy_path_class"
-    },
-    {
       "decision": "origin_dynamic",
       "id": "request-override:query-dependent-blog-root-slug-prefixed",
       "methods": [
@@ -8306,5 +8306,5 @@
     }
   ],
   "schemaVersion": 6,
-  "inventorySha256": "40dfedd3814a6c5843755256900e88da842072298eac1a96987540ed2a11d49c"
+  "inventorySha256": "4c71cd932d8ee3b4935a552d07ef770dfbf72087d53d5448e5df0385584279e5"
 }

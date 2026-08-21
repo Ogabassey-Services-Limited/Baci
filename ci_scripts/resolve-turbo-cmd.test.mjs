@@ -7,7 +7,8 @@ const source = readFileSync(
   'utf8'
 );
 
-test('emits TURBO_CMD and FILTERS sentinel tokens', () => {
+test('emits ENV, TURBO_CMD, and FILTERS sentinel tokens', () => {
+  assert.match(source, /---ENV---/);
   assert.match(source, /---TURBO_CMD---/);
   assert.match(source, /---FILTERS---/);
 });
@@ -22,4 +23,9 @@ test('checks for dep-less worktree before configuring pnpm', () => {
 
 test('prefers local turbo binary over pnpm turbo', () => {
   assert.match(source, /node_modules\/\.bin\/turbo/);
+});
+
+test('emits dep-less pnpm env for the parent process to export', () => {
+  assert.match(source, /PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false/);
+  assert.match(source, /PNPM_CONFIG_ALLOW_UNUSED_PATCHES=true/);
 });

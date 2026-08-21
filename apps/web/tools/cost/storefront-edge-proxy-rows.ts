@@ -12,6 +12,7 @@ const proxyClass = createStorefrontEdgeProxyClass;
 
 /** Closed directional classes mirrored from the current storefront proxy. */
 export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
+  ...STOREFRONT_EDGE_NEXT_REDIRECT_ROWS,
   ...STOREFRONT_EDGE_PROXY_REWRITE_ROWS,
   proxyClass(
     'proxy:no-trailing-slash',
@@ -275,5 +276,4 @@ export const STOREFRONT_EDGE_PROXY_ROWS: readonly InventoryRow[] = [
     }
   ),
   ...STOREFRONT_EDGE_PROXY_TAIL_ROWS,
-  ...STOREFRONT_EDGE_NEXT_REDIRECT_ROWS,
 ];

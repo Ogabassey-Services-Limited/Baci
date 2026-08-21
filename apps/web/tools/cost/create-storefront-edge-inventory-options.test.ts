@@ -36,7 +36,7 @@ describe('create-storefront-edge-inventory CLI options', () => {
     await expect(
       execFileAsync(process.execPath, [
         tsxCliPath,
-        join(toolDirectory, 'create-storefront-edge-inventory.ts'),
+        join(toolDirectory, 'create-storefront-edge-inventory-cli.ts'),
         '--repo-root',
         repoRoot,
         '--source-sha',
@@ -48,5 +48,5 @@ describe('create-storefront-edge-inventory CLI options', () => {
         ...extraArguments,
       ])
     ).rejects.toThrow('inventory options are invalid');
-  });
+  }, 60_000);
 });

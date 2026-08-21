@@ -1,7 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { resolve } from 'node:path';
 import { createStorefrontEdgeApiRows } from './create-storefront-edge-api-rows';
 import { createStorefrontEdgeEntrypointRows } from './create-storefront-edge-entrypoint-rows';
 import { isStorefrontRequiredApiSourcePath } from './storefront-edge-api-source-allowlist';
@@ -26,6 +24,7 @@ const ROUTE_ROOTS = [
 ] as const;
 const ROUTE_ROOT = ROUTE_ROOTS[0];
 const API_ROOT = 'apps/web/src/app/api';
+const PROXY_CANONICALIZATION_ROW_IDS = new Set(['proxy:no-trailing-slash']);
 
 const sha256 = (value: string | Buffer) =>
   createHash('sha256').update(value).digest('hex');
@@ -43,11 +42,16 @@ function routeSpecificity(row: InventoryRow) {
 
 function isPreRouteRow(row: InventoryRow) {
   return Boolean(
-    row.hostCondition ||
-      row.pathCondition ||
-      row.destinationCondition ||
-      row.requestCondition?.precedence === 'before_path_decision'
+    ('hostCondition' in row && row.hostCondition) ||
+      ('pathCondition' in row && row.pathCondition) ||
+      ('destinationCondition' in row && row.destinationCondition) ||
+      ('requestCondition' in row &&
+        row.requestCondition?.precedence === 'before_path_decision')
   );
+}
+
+function isNextRedirectRow(row: InventoryRow) {
+  return row.reason === 'next_config_redirect';
 }
 
 function normalizeHostnames(hostnames: readonly string[]) {
@@ -143,9 +147,14 @@ export async function createStorefrontEdgeInventory(
         )
     )
   );
-  const PROXY_CANONICALIZATION_ROW_IDS = new Set(['proxy:no-trailing-slash']);
+  // Next.config redirects run before Proxy. Live proxy.ts also handles
+  // isPostHogRelayPath() before URL canonicalization and host routing.
+  const nextRedirectRows = extraRows.filter(isNextRedirectRow);
   const preRouteRows = extraRows.filter(
-    (row) => row.sourceKind !== 'storefront_entrypoint' && isPreRouteRow(row)
+    (row) =>
+      row.sourceKind !== 'storefront_entrypoint' &&
+      !isNextRedirectRow(row) &&
+      isPreRouteRow(row)
   );
   const proxyCanonicalizationRows = preRouteRows.filter((row) =>
     PROXY_CANONICALIZATION_ROW_IDS.has(row.id)
@@ -153,19 +162,11 @@ export async function createStorefrontEdgeInventory(
   const preRouteRowsAfterCanonicalization = preRouteRows.filter(
     (row) => !PROXY_CANONICALIZATION_ROW_IDS.has(row.id)
   );
-  // Live proxy.ts evaluates matchesMainAppRoute() (including baci-relay) on
-  // platform hosts before storefront/relay resolution. Host-conditioned proxy
-  // rows must therefore precede the unconditional relay family.
-  const platformHostPreRouteRows = preRouteRowsAfterCanonicalization.filter(
-    (row) => 'hostCondition' in row && Boolean(row.hostCondition)
-  );
-  const pathOnlyPreRouteRows = preRouteRowsAfterCanonicalization.filter(
-    (row) => !('hostCondition' in row && row.hostCondition)
-  );
   const routeRows = [
     ...extraRows.filter(
       (row) =>
         row.sourceKind !== 'storefront_entrypoint' &&
+        !isNextRedirectRow(row) &&
         !isPreRouteRow(row) &&
         (row.decision !== 'edge_terminal' ||
           row.sourceKind === 'machine_family')
@@ -189,6 +190,7 @@ export async function createStorefrontEdgeInventory(
   const terminalRows = extraRows.filter(
     (row) =>
       row.sourceKind !== 'storefront_entrypoint' &&
+      !isNextRedirectRow(row) &&
       row.decision === 'edge_terminal' &&
       !isPreRouteRow(row) &&
       row.sourceKind !== 'machine_family'
@@ -196,12 +198,12 @@ export async function createStorefrontEdgeInventory(
   // Preserve API terminal placement: exact API rows must be followed by the
   // closed API default before unrelated storefront route phases begin.
   const rows = [
-    ...proxyCanonicalizationRows,
     ...apiRows,
     STOREFRONT_EDGE_INVENTORY_POLICY.apiTerminalRow,
-    ...platformHostPreRouteRows,
     ...relayRows,
-    ...pathOnlyPreRouteRows,
+    ...nextRedirectRows,
+    ...proxyCanonicalizationRows,
+    ...preRouteRowsAfterCanonicalization,
     ...routeRows,
     ...terminalRows,
   ];
@@ -232,75 +234,4 @@ export async function createStorefrontEdgeInventory(
     ...payload,
     inventorySha256: sha256(canonicalizeStorefrontEdgeInventoryValue(payload)),
   };
-}
-
-function parseArguments(args: readonly string[]) {
-  const allowedOptions = new Set([
-    '--output',
-    '--pilot-hostname',
-    '--posthog-relay-path',
-    '--repo-root',
-    '--source-sha',
-  ]);
-  const values = new Map<string, string[]>();
-  for (let index = 0; index < args.length; index += 2) {
-    const option = args[index];
-    const value = args[index + 1];
-    if (
-      !option ||
-      !allowedOptions.has(option) ||
-      !value ||
-      (option !== '--pilot-hostname' && values.has(option))
-    )
-      throw new Error('inventory options are invalid');
-    values.set(option, [...(values.get(option) ?? []), value]);
-  }
-  const repoRoot = values.get('--repo-root')?.[0];
-  const originMainSha = values.get('--source-sha')?.[0];
-  const output = values.get('--output')?.[0];
-  const posthogRelayPath = values.get('--posthog-relay-path')?.[0];
-  const pilotCandidateHostnames = values.get('--pilot-hostname') ?? [];
-  if (
-    !repoRoot ||
-    !originMainSha ||
-    !output ||
-    !posthogRelayPath ||
-    pilotCandidateHostnames.length === 0
-  )
-    throw new Error(
-      'inventory requires --repo-root, --source-sha, --output, --pilot-hostname, and --posthog-relay-path'
-    );
-  return {
-    options: {
-      originMainSha,
-      pilotCandidateHostnames,
-      posthogRelayPath,
-      repoRoot,
-    },
-    output,
-  };
-}
-
-async function runCli(args: readonly string[]) {
-  const { options, output } = parseArguments(args);
-  const inventory = await createStorefrontEdgeInventory(options);
-  await mkdir(dirname(resolve(output)), { recursive: true });
-  await writeFile(resolve(output), `${JSON.stringify(inventory, null, 2)}\n`, {
-    mode: 0o600,
-  });
-  process.stdout.write(
-    `${JSON.stringify({ inventorySha256: inventory.inventorySha256, rowCount: inventory.rows.length })}\n`
-  );
-}
-
-if (
-  process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href
-) {
-  runCli(process.argv.slice(2)).catch((error: unknown) => {
-    process.stderr.write(
-      `${error instanceof Error ? error.stack : String(error)}\n`
-    );
-    process.exitCode = 1;
-  });
 }

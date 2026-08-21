@@ -155,50 +155,12 @@ fi
 
 cd "$ACTIVE_DIR" || exit 0
 
-# Check that new/modified source files have colocated test files
-# Exempt: types, config, index barrels, test files, route files, CSS, non-code files
-#
-# Scope: staged + untracked only (NOT unstaged). The session-end hook should
-# audit files actually about to ship, not accumulated WIP. Auditing the full
-# working tree against HEAD fires every session against any uncommitted work,
-# even when the current task touches none of it.
+# Check that new/modified source files have colocated test files.
+# Exempt rules live in ci_scripts/quality-gate-missing-tests.sh.
 MISSING_TESTS=""
-for FILE in $(git diff --name-only --cached --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
-  # Strip trailing whitespace/CR from git output
-  FILE=$(echo "$FILE" | tr -d '\r' | xargs)
-  [ -z "$FILE" ] && continue
-  # Only check .ts/.tsx files in source directories
-  case "$FILE" in
-    apps/*/src/**/*.ts|apps/*/src/**/*.tsx|packages/*/src/**/*.ts|packages/*/src/**/*.tsx) ;;
-    *) continue ;;
-  esac
-  # Skip files that don't need tests
-  BASENAME=$(basename "$FILE")
-  case "$BASENAME" in
-    *.test.ts|*.test.tsx|*.spec.ts|*.spec.tsx) continue ;;  # Already a test
-    *.d.ts) continue ;;                                      # Declaration files
-    index.ts|index.tsx) continue ;;                          # Barrel re-exports
-    page.tsx|layout.tsx|loading.tsx|error.tsx) continue ;;   # Next.js route files
-    not-found.tsx|template.tsx|default.tsx) continue ;;      # Next.js route files
-    global-error.tsx|route.ts) continue ;;                   # Next.js route/error files
-    globals.css|*.css) continue ;;                           # Style files
-  esac
-  case "$FILE" in
-    */types/*|*/types.ts|*/types.tsx) continue ;;            # Type-only files
-    */config/*|*/constants/*) continue ;;                    # Config/constants
-    */ui/*) continue ;;                                      # shadcn base components
-    */contexts/*) continue ;;                                # React context providers
-    */templates/*) continue ;;                               # Store templates
-  esac
-  # Derive expected test file path using bash parameter expansion
-  DIR=$(dirname "$FILE")
-  EXT="${BASENAME##*.}"
-  BASE="${BASENAME%.*}"
-  TEST_FILE="$DIR/$BASE.test.$EXT"
-  if [ ! -f "$TEST_FILE" ]; then
-    MISSING_TESTS="$MISSING_TESTS\n  - $FILE (expected: $TEST_FILE)"
-  fi
-done
+if [ -x "$ACTIVE_DIR/ci_scripts/quality-gate-missing-tests.sh" ]; then
+  MISSING_TESTS=$(sh "$ACTIVE_DIR/ci_scripts/quality-gate-missing-tests.sh" || true)
+fi
 
 if [ -n "$MISSING_TESTS" ]; then
   jq -n --arg reason "Missing test files for new/modified source files. Create colocated tests:\n$MISSING_TESTS\n\nSee .ruler/07-testing.md for test requirements." \
@@ -236,35 +198,28 @@ if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
   exit 0
 fi
 
-PNPM="$ACTIVE_DIR/ci_scripts/run-lefthook-pnpm.sh"
-if [ ! -x "$PNPM" ]; then
-  PNPM=(pnpm)
-else
-  PNPM=(bash "$PNPM")
-fi
-
-if [ -x "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh" ] && sh "$ACTIVE_DIR/ci_scripts/is-dep-less-worktree.sh"; then
-  # Turbo invokes nested `pnpm run` in each package. When we call the turbo
-  # binary directly (below), those subprocesses must inherit sparse/linked
-  # worktree pnpm settings and the hook-bin wrapper.
-  export PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
-  export PNPM_CONFIG_ALLOW_UNUSED_PATCHES=true
-  export BACI_REAL_PNPM="${BACI_REAL_PNPM:-$(command -v pnpm)}"
-  export PATH="$ACTIVE_DIR/ci_scripts/hook-bin:$PATH"
-fi
-
+# Resolve the turbo command and worktree-aware pnpm configuration via a
+# focused helper (keeps this stop hook under the 300-line budget).
+TURBO_CMD=()
 TURBO_SPARSE_FILTERS=()
-if [ -x "$ACTIVE_DIR/ci_scripts/turbo-sparse-exclude-filters.sh" ]; then
-  while IFS= read -r -d '' filter; do
-    TURBO_SPARSE_FILTERS+=("$filter")
-  done < <(sh "$ACTIVE_DIR/ci_scripts/turbo-sparse-exclude-filters.sh")
+if [ -x "$ACTIVE_DIR/ci_scripts/resolve-turbo-cmd.sh" ]; then
+  _section=""
+  while IFS= read -r -d '' token; do
+    case "$token" in
+      ---ENV---) _section=env ;;
+      ---TURBO_CMD---) _section=cmd ;;
+      ---FILTERS---) _section=filters ;;
+      *)
+        if [ "$_section" = "env" ]; then
+          export "${token?}"
+        elif [ "$_section" = "cmd" ]; then TURBO_CMD+=("$token")
+        elif [ "$_section" = "filters" ]; then TURBO_SPARSE_FILTERS+=("$token")
+        fi ;;
+    esac
+  done < <(ACTIVE_DIR="$ACTIVE_DIR" bash "$ACTIVE_DIR/ci_scripts/resolve-turbo-cmd.sh")
 fi
-
-# Prefer the worktree-local turbo binary. `pnpm turbo` can re-trigger install /
-# deps-status checks in sparse worktrees even when node_modules/.bin/turbo exists.
-TURBO_CMD=("${PNPM[@]}" turbo)
-if [ -x "$ACTIVE_DIR/node_modules/.bin/turbo" ]; then
-  TURBO_CMD=("$ACTIVE_DIR/node_modules/.bin/turbo")
+if [ ${#TURBO_CMD[@]} -eq 0 ]; then
+  TURBO_CMD=(pnpm turbo)
 fi
 
 # Run Biome lint check (~2-5s)

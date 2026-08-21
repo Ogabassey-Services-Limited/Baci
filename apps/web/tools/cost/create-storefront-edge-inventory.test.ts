@@ -201,18 +201,26 @@ describe('createStorefrontEdgeInventory', () => {
       inventory.rows.findIndex(({ id }) => id === 'proxy:unsupported-method')
     );
     expect(
+      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+    ).toBeLessThan(
+      inventory.rows.findIndex(({ id }) => id === 'proxy:no-trailing-slash')
+    );
+    expect(
+      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+    ).toBeLessThan(
       inventory.rows.findIndex(
         ({ id }) => id === 'proxy:platform-route-subdomain'
       )
-    ).toBeLessThan(
-      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
     );
     expect(
-      inventory.rows.findIndex(
-        ({ id }) => id === 'proxy:retired-host-platform-route'
-      )
+      inventory.rows.findIndex(({ id }) => id === 'next:home-legacy')
     ).toBeLessThan(
-      inventory.rows.findIndex(({ id }) => id === 'machine:posthog-relay-root')
+      inventory.rows.findIndex(({ id }) => id === 'proxy:no-trailing-slash')
+    );
+    expect(
+      inventory.rows.findIndex(({ id }) => id === 'next:user-legacy')
+    ).toBeLessThan(
+      inventory.rows.findIndex(({ id }) => id === 'proxy:no-trailing-slash')
     );
     const apiRowIndexes = inventory.rows
       .map((row, index) => ({ row, index }))
