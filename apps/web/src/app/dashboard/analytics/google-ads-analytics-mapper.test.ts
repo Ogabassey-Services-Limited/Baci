@@ -11,6 +11,7 @@ describe('mapGoogleAdsReporting', () => {
         {
           clicks: 12,
           conversions: 2,
+          date: '2026-08-20',
           impressions: 1200,
           spend: 500,
         },
@@ -23,8 +24,12 @@ describe('mapGoogleAdsReporting', () => {
       metrics: {
         clicks: 12,
         conversions: 2,
+        cpc: 41.666666666666664,
+        ctr: 1,
+        endDate: '2026-08-20',
         impressions: 1200,
         spend: 500,
+        startDate: '2026-08-20',
       },
     });
     expect(result).not.toHaveProperty('customerId');
@@ -40,5 +45,19 @@ describe('mapGoogleAdsReporting', () => {
     expect(
       mapGoogleAdsReporting({ connected: true, customerId: null })?.metrics
     ).toBeUndefined();
+  });
+
+  it('preserves explicit reporting failures instead of rendering them as disconnected', () => {
+    expect(
+      mapGoogleAdsReporting({
+        connected: false,
+        dataStatus: 'error',
+        error: 'Reporting data is temporarily unavailable.',
+      })
+    ).toMatchObject({
+      connectionStatus: 'error',
+      dataStatus: 'error',
+      error: 'Reporting data is temporarily unavailable.',
+    });
   });
 });

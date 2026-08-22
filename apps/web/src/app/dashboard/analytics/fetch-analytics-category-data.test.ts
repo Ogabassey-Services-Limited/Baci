@@ -5,6 +5,13 @@ const merchantId = 'merchant-1';
 const from = new Date('2026-08-01T00:00:00.000Z');
 const to = new Date('2026-08-07T23:59:59.999Z');
 
+function localCalendarDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function response(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status });
 }
@@ -254,12 +261,8 @@ describe('fetchAnalyticsCategoryData', () => {
     });
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(String(url)).toContain('/api/analytics/ads?');
-    expect(String(url)).toContain(
-      `startDate=${encodeURIComponent(from.toISOString())}`
-    );
-    expect(String(url)).toContain(
-      `endDate=${encodeURIComponent(to.toISOString())}`
-    );
+    expect(String(url)).toContain(`startDate=${localCalendarDate(from)}`);
+    expect(String(url)).toContain(`endDate=${localCalendarDate(to)}`);
     expect(init).toEqual(
       expect.objectContaining({
         headers: { 'x-baci-merchant-id': merchantId },
@@ -326,6 +329,25 @@ describe('fetchAnalyticsCategoryData', () => {
 
     const [url] = fetchMock.mock.calls[0] ?? [];
     expect(String(url)).toContain('cacheBust=3');
+  });
+
+  it('sends date-picker calendar dates instead of UTC instants', async () => {
+    fetchMock.mockResolvedValue(response({}));
+    const localFrom = new Date(2026, 7, 1, 0, 0, 0);
+    const localTo = new Date(2026, 7, 2, 23, 59, 59);
+
+    await fetchAnalyticsCategoryData({
+      category: 'ads',
+      from: localFrom,
+      merchantId,
+      signal: new AbortController().signal,
+      to: localTo,
+    });
+
+    const [url] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain('startDate=2026-08-01');
+    expect(String(url)).toContain('endDate=2026-08-02');
+    expect(String(url)).not.toContain('T00%3A00%3A00');
   });
 
   it('preserves mixed-currency and stale social reporting without changing legacy attribution', async () => {

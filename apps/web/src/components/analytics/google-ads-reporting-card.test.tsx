@@ -63,6 +63,25 @@ describe('GoogleAdsReportingCard', () => {
     ).toHaveAttribute('href', GOOGLE_ADS_CONNECT_PATH);
   });
 
+  it('keeps a connected reporting account controllable after a spend read error', () => {
+    render(
+      <GoogleAdsReportingCard
+        reporting={{
+          connectionStatus: 'error',
+          dataStatus: 'error',
+          error: 'Google Ads reporting is temporarily unavailable.',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /reconnect google ads/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('does not imply reporting is ready before an account is selected', () => {
     render(
       <GoogleAdsReportingCard
@@ -137,7 +156,9 @@ describe('GoogleAdsReportingCard', () => {
     expect(screen.getByText('Impressions')).toBeInTheDocument();
     expect(screen.getByText('Clicks')).toBeInTheDocument();
     expect(screen.getByText('CTR')).toBeInTheDocument();
-    expect(screen.getByText('Conversions')).toBeInTheDocument();
+    expect(
+      screen.getByText('Google-attributed conversions')
+    ).toBeInTheDocument();
     expect(screen.queryByText('CPC')).not.toBeInTheDocument();
     expect(screen.queryByText('ROAS')).not.toBeInTheDocument();
     expect(
@@ -145,37 +166,30 @@ describe('GoogleAdsReportingCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows ROAS only when the server supplies an attributed-revenue basis', () => {
-    const { rerender } = render(
-      <GoogleAdsReportingCard
-        reporting={{
-          connectionStatus: 'connected',
-          metrics: { roas: 2.1 },
-        }}
-      />
-    );
-
-    expect(screen.queryByText('ROAS')).not.toBeInTheDocument();
-
-    rerender(
+  it('keeps an existing account controllable and labels stale provider data', () => {
+    render(
       <GoogleAdsReportingCard
         reporting={{
           connectionStatus: 'connected',
           currency: 'NGN',
+          isStale: true,
           metrics: {
-            endDate: '2026-08-21T00:00:00.000Z',
-            roas: 2.1,
-            roasBasis: 'baci-attributed-revenue',
+            endDate: '2026-08-21',
             spend: 1000,
-            startDate: '2026-08-01T00:00:00.000Z',
+            startDate: '2026-08-01',
           },
         }}
       />
     );
 
-    expect(screen.getByText('ROAS')).toBeInTheDocument();
     expect(
-      screen.getByText(/roas uses baci-attributed revenue/i)
+      screen.getByText(/reporting data may be stale/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Reporting window: 2026-08-01 – 2026-08-21')
     ).toBeInTheDocument();
   });
 });

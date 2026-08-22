@@ -8,6 +8,9 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import { dashboardPreferencesSchema } from '@/schemas/dashboard-preferences';
+
+const MAX_DASHBOARD_PREFERENCES_BODY_BYTES = 32 * 1024;
 
 export async function GET(_request: Request) {
   try {
@@ -107,8 +110,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const { layout_config, visible_cards } = body;
+    const declaredLength = Number(request.headers.get('content-length'));
+    if (
+      Number.isFinite(declaredLength) &&
+      declaredLength > MAX_DASHBOARD_PREFERENCES_BODY_BYTES
+    ) {
+      return NextResponse.json(
+        { error: 'Dashboard preferences payload is too large' },
+        { status: 413 }
+      );
+    }
+
+    const rawBody = await request.text();
+    if (
+      new TextEncoder().encode(rawBody).byteLength >
+      MAX_DASHBOARD_PREFERENCES_BODY_BYTES
+    ) {
+      return NextResponse.json(
+        { error: 'Dashboard preferences payload is too large' },
+        { status: 413 }
+      );
+    }
+
+    let body: unknown;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+    }
+
+    const parsedBody = dashboardPreferencesSchema.safeParse(body);
+    if (!parsedBody.success) {
+      return NextResponse.json(
+        { error: 'Invalid dashboard preferences' },
+        { status: 400 }
+      );
+    }
 
     const requestedMerchant = parseRequestedMerchantId(request);
     if (requestedMerchant.response) {
@@ -139,8 +176,10 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           merchant_id: merchantId,
-          layout_config: layout_config || [],
-          visible_cards: visible_cards,
+          layout_config: parsedBody.data.layout_config ?? [],
+          ...(parsedBody.data.visible_cards !== undefined
+            ? { visible_cards: parsedBody.data.visible_cards }
+            : {}),
           updated_at: new Date().toISOString(),
         },
         {

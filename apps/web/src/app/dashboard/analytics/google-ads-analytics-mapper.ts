@@ -55,6 +55,11 @@ function asGoogleAdsConnectionStatus(
   return undefined;
 }
 
+function asGoogleAdsDataStatus(value: unknown): 'error' | 'ready' | undefined {
+  if (value === 'error' || value === 'ready') return value;
+  return undefined;
+}
+
 function mapGoogleAdsMetricNumber(
   metrics: JsonRecord,
   ...keys: string[]
@@ -81,6 +86,18 @@ function sumGoogleAdsRows(rows: JsonRecord[], key: string): number | undefined {
   return hasValue ? total : undefined;
 }
 
+function getGoogleAdsWindowBoundary(
+  rows: JsonRecord[],
+  boundary: 'endDate' | 'startDate'
+): string | undefined {
+  const dates = rows
+    .map((row) => asOptionalString(row.date))
+    .filter((date): date is string => date !== undefined)
+    .sort();
+  if (dates.length === 0) return undefined;
+  return boundary === 'startDate' ? dates[0] : dates.at(-1);
+}
+
 export function mapGoogleAdsReporting(
   value: unknown
 ): GoogleAdsReportingData | undefined {
@@ -90,48 +107,64 @@ export function mapGoogleAdsReporting(
   const connection = asRecord(googleAds.connection);
   const metricsRecord = asRecord(googleAds.metrics) ?? googleAds;
   const rows = asArray(googleAds.rows ?? googleAds.daily);
+  const clicks =
+    mapGoogleAdsMetricNumber(metricsRecord, 'clicks') ??
+    sumGoogleAdsRows(rows, 'clicks');
+  const impressions =
+    mapGoogleAdsMetricNumber(metricsRecord, 'impressions') ??
+    sumGoogleAdsRows(rows, 'impressions');
+  const spend =
+    mapGoogleAdsMetricNumber(metricsRecord, 'spend', 'totalSpend') ??
+    sumGoogleAdsRows(rows, 'spend');
   const metrics: GoogleAdsReportingMetrics = {
-    clicks:
-      mapGoogleAdsMetricNumber(metricsRecord, 'clicks') ??
-      sumGoogleAdsRows(rows, 'clicks'),
+    clicks,
     conversions:
       mapGoogleAdsMetricNumber(
         metricsRecord,
         'conversions',
         'totalConversions'
       ) ?? sumGoogleAdsRows(rows, 'conversions'),
-    cpc: mapGoogleAdsMetricNumber(metricsRecord, 'cpc'),
-    ctr: mapGoogleAdsMetricNumber(metricsRecord, 'ctr'),
-    endDate: asOptionalString(metricsRecord.endDate ?? googleAds.endDate),
-    impressions:
-      mapGoogleAdsMetricNumber(metricsRecord, 'impressions') ??
-      sumGoogleAdsRows(rows, 'impressions'),
-    roas: mapGoogleAdsMetricNumber(metricsRecord, 'roas'),
-    spend:
-      mapGoogleAdsMetricNumber(metricsRecord, 'spend', 'totalSpend') ??
-      sumGoogleAdsRows(rows, 'spend'),
-    startDate: asOptionalString(metricsRecord.startDate ?? googleAds.startDate),
+    cpc:
+      mapGoogleAdsMetricNumber(metricsRecord, 'cpc') ??
+      (spend !== undefined && clicks !== undefined && clicks > 0
+        ? spend / clicks
+        : undefined),
+    ctr:
+      mapGoogleAdsMetricNumber(metricsRecord, 'ctr') ??
+      (clicks !== undefined && impressions !== undefined && impressions > 0
+        ? (clicks / impressions) * 100
+        : undefined),
+    endDate:
+      asOptionalString(metricsRecord.endDate ?? googleAds.endDate) ??
+      getGoogleAdsWindowBoundary(rows, 'endDate'),
+    impressions,
+    spend,
+    startDate:
+      asOptionalString(metricsRecord.startDate ?? googleAds.startDate) ??
+      getGoogleAdsWindowBoundary(rows, 'startDate'),
   };
-
-  const roasBasis = asOptionalString(metricsRecord.roasBasis);
-  if (roasBasis === 'baci-attributed-revenue') {
-    metrics.roasBasis = roasBasis;
-  }
 
   const hasMetrics = Object.values(metrics).some(
     (metric) => metric !== undefined
   );
+  const dataStatus = asGoogleAdsDataStatus(
+    googleAds.dataStatus ?? connection?.dataStatus
+  );
   const status =
-    asGoogleAdsConnectionStatus(
-      connection?.status ?? googleAds.connectionStatus ?? googleAds.status
-    ) ??
-    (connection?.connected === true || googleAds.connected === true
-      ? 'connected'
-      : connection?.connected === false || googleAds.connected === false
-        ? 'disconnected'
-        : hasMetrics
+    dataStatus === 'error' ||
+    typeof googleAds.error === 'string' ||
+    typeof connection?.error === 'string'
+      ? 'error'
+      : (asGoogleAdsConnectionStatus(
+          connection?.status ?? googleAds.connectionStatus ?? googleAds.status
+        ) ??
+        (connection?.connected === true || googleAds.connected === true
           ? 'connected'
-          : undefined);
+          : connection?.connected === false || googleAds.connected === false
+            ? 'disconnected'
+            : hasMetrics
+              ? 'connected'
+              : undefined));
 
   return {
     accountName: asOptionalString(
@@ -141,9 +174,13 @@ export function mapGoogleAdsReporting(
     currency: asOptionalString(
       connection?.currency ?? googleAds.currency ?? googleAds.currencyCode
     ),
+    dataStatus,
     error: asOptionalString(connection?.error ?? googleAds.error),
+    isStale: googleAds.isStale === true,
     lastSyncedAt: asOptionalString(
-      googleAds.lastSyncedAt ?? googleAds.last_synced_at
+      connection?.lastSyncedAt ??
+        googleAds.lastSyncedAt ??
+        googleAds.last_synced_at
     ),
     metrics: hasMetrics ? metrics : undefined,
     needsAccountSelection:

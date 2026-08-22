@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Loader2,
   MousePointerClick,
-  RefreshCcw,
   TrendingUp,
 } from 'lucide-react';
 import { GoogleAdsAccountPicker } from '@/components/analytics/google-ads-account-picker';
@@ -32,9 +31,6 @@ export interface GoogleAdsReportingMetrics {
   ctr?: number;
   endDate?: string;
   impressions?: number;
-  roas?: number;
-  /** Required before ROAS is shown as an attributed Baci metric. */
-  roasBasis?: 'baci-attributed-revenue';
   spend?: number;
   startDate?: string;
 }
@@ -48,7 +44,9 @@ export type GoogleAdsConnectionStatus =
 export interface GoogleAdsReportingData {
   connectionStatus?: GoogleAdsConnectionStatus;
   currency?: string;
+  dataStatus?: 'error' | 'ready';
   error?: string;
+  isStale?: boolean;
   lastSyncedAt?: string;
   metrics?: GoogleAdsReportingMetrics;
   needsAccountSelection?: boolean;
@@ -84,7 +82,7 @@ function formatCurrency(value: number, currency: string): string {
 
 function formatMetric(
   value: number,
-  kind: 'currency' | 'number' | 'percent' | 'ratio',
+  kind: 'currency' | 'number' | 'percent',
   currency: string
 ): string {
   if (kind === 'currency') {
@@ -95,21 +93,13 @@ function formatMetric(
     return `${value.toFixed(2)}%`;
   }
 
-  if (kind === 'ratio') {
-    return `${value.toFixed(2)}x`;
-  }
-
   return formatNumber(value);
 }
 
 function formatWindow(metrics: GoogleAdsReportingMetrics): string | null {
   if (!metrics.startDate || !metrics.endDate) return null;
 
-  const start = new Date(metrics.startDate);
-  const end = new Date(metrics.endDate);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
-
-  return `${start.toLocaleDateString('en-US', { dateStyle: 'medium' })} – ${end.toLocaleDateString('en-US', { dateStyle: 'medium' })}`;
+  return `${metrics.startDate} – ${metrics.endDate}`;
 }
 
 export function GoogleAdsReportingCard({
@@ -124,11 +114,6 @@ export function GoogleAdsReportingCard({
   const currency = reporting?.currency ?? 'USD';
   const metrics = reporting?.metrics;
   const periodLabel = metrics ? formatWindow(metrics) : null;
-  const canShowRoas =
-    metrics?.roas !== undefined &&
-    metrics.spend !== undefined &&
-    metrics.roasBasis === 'baci-attributed-revenue' &&
-    Boolean(metrics.startDate && metrics.endDate && reporting?.currency);
 
   return (
     <BentoCard
@@ -154,7 +139,11 @@ export function GoogleAdsReportingCard({
                 'Google Ads reporting could not be loaded. Your store analytics are still available.'}
             </AlertDescription>
           </Alert>
-          <GoogleAdsConnectButton label="Reconnect Google Ads" />
+          {reporting?.dataStatus === 'error' ? (
+            <GoogleAdsAccountPicker onSynced={onSynced} />
+          ) : (
+            <GoogleAdsConnectButton label="Reconnect Google Ads" />
+          )}
         </div>
       ) : status !== 'connected' ? (
         <div className="space-y-3">
@@ -252,14 +241,7 @@ export function GoogleAdsReportingCard({
                   currency
                 )}
                 icon={<CheckCircle2 className="size-3.5" />}
-                label="Conversions"
-              />
-            )}
-            {canShowRoas && metrics.roas !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatMetric(metrics.roas, 'ratio', currency)}
-                icon={<RefreshCcw className="size-3.5" />}
-                label="ROAS"
+                label="Google-attributed conversions"
               />
             )}
           </div>
@@ -272,12 +254,33 @@ export function GoogleAdsReportingCard({
               </span>
             )}
           </div>
-          {canShowRoas && (
-            <p className="text-xs text-muted-foreground">
-              ROAS uses Baci-attributed revenue and Google Ads spend for the
-              same reporting window and currency.
-            </p>
+          {reporting?.isStale && (
+            <Alert>
+              <AlertCircle className="size-4" />
+              <AlertDescription>
+                Reporting data may be stale. Sync the selected account to
+                refresh provider-reported metrics.
+              </AlertDescription>
+            </Alert>
           )}
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-xs text-muted-foreground">
+              Sync the selected account or choose another accessible Google Ads
+              account. Provider-attributed conversions remain separate from Baci
+              order attribution and revenue.
+            </p>
+            <GoogleAdsAccountPicker
+              onSynced={onSynced}
+              syncWindow={
+                metrics.startDate && metrics.endDate
+                  ? {
+                      endDate: metrics.endDate,
+                      startDate: metrics.startDate,
+                    }
+                  : undefined
+              }
+            />
+          </div>
         </div>
       )}
     </BentoCard>

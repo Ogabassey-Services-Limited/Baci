@@ -27,8 +27,10 @@ function nonNegativeMicros(value: number | string): string {
 
 export interface GoogleAdsAnalyticsSnapshot {
   connected: boolean;
+  connectionStatus: 'connected' | 'disconnected' | 'error';
   currencyCode?: string;
   customerId: string | null;
+  dataStatus: 'error' | 'ready';
   daily?: Array<{
     clicks: number;
     conversions: number;
@@ -41,17 +43,65 @@ export interface GoogleAdsAnalyticsSnapshot {
   }>;
   lastSyncedAt: string | null;
   needsAccountSelection: boolean;
+  error?: string;
+  isStale: boolean;
   spend?: number;
   spendMicros?: string;
 }
 
+interface BuildGoogleAdsAnalyticsSnapshotOptions {
+  connectionReadFailed?: boolean;
+  now?: Date;
+  spendReadFailed?: boolean;
+}
+
+const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+
+function latestTimestamp(values: Array<string | null>): string | null {
+  let latest: string | null = null;
+  let latestTime = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    if (!value) continue;
+    const time = Date.parse(value);
+    if (Number.isFinite(time) && time > latestTime) {
+      latest = value;
+      latestTime = time;
+    }
+  }
+  return latest;
+}
+
 export function buildGoogleAdsAnalyticsSnapshot(
   connection: GoogleAdsAnalyticsConnection | null,
-  rows: GoogleAdsAnalyticsSpendRow[]
+  rows: GoogleAdsAnalyticsSpendRow[],
+  {
+    connectionReadFailed = false,
+    now = new Date(),
+    spendReadFailed = false,
+  }: BuildGoogleAdsAnalyticsSnapshotOptions = {}
 ): GoogleAdsAnalyticsSnapshot | undefined {
+  if (connectionReadFailed) {
+    return {
+      connected: false,
+      connectionStatus: 'error',
+      customerId: null,
+      dataStatus: 'error',
+      error: 'Google Ads reporting is temporarily unavailable.',
+      isStale: false,
+      lastSyncedAt: null,
+      needsAccountSelection: false,
+    };
+  }
+
   if (!connection) return undefined;
-  const selectedCustomerId =
-    connection.status === 'active' ? connection.provider_customer_id : null;
+  const connected = connection.status === 'active';
+  const connectionStatus =
+    connection.status === 'error'
+      ? 'error'
+      : connected
+        ? 'connected'
+        : 'disconnected';
+  const selectedCustomerId = connected ? connection.provider_customer_id : null;
   const selectedRows = selectedCustomerId
     ? rows.filter((row) => row.provider_customer_id === selectedCustomerId)
     : [];
@@ -68,26 +118,47 @@ export function buildGoogleAdsAnalyticsSnapshot(
       spendMicros,
     };
   });
+  const lastSyncedAt = latestTimestamp([
+    connection.last_synced_at,
+    ...daily.map((row) => row.fetchedAt),
+  ]);
+  const isStale =
+    connected &&
+    lastSyncedAt !== null &&
+    now.getTime() - Date.parse(lastSyncedAt) > STALE_AFTER_MS;
+  const dataStatus = spendReadFailed ? 'error' : 'ready';
+  const error =
+    dataStatus === 'error'
+      ? 'Google Ads reporting is temporarily unavailable.'
+      : connectionStatus === 'error'
+        ? 'This connection needs to be reauthorized.'
+        : undefined;
   if (daily.length === 0) {
     return {
-      connected: connection.status === 'active',
+      connected,
+      connectionStatus,
       customerId: connection.provider_customer_id,
-      lastSyncedAt: connection.last_synced_at,
-      needsAccountSelection:
-        connection.status === 'active' && !connection.provider_customer_id,
+      dataStatus,
+      error,
+      isStale,
+      lastSyncedAt,
+      needsAccountSelection: connected && !connection.provider_customer_id,
     };
   }
 
   let spendMicros = 0n;
   for (const row of daily) spendMicros += BigInt(row.spendMicros);
   return {
-    connected: connection.status === 'active',
+    connected,
+    connectionStatus,
     currencyCode: daily[0]?.currencyCode,
     customerId: connection.provider_customer_id,
+    dataStatus,
     daily,
-    lastSyncedAt: connection.last_synced_at,
-    needsAccountSelection:
-      connection.status === 'active' && !connection.provider_customer_id,
+    error,
+    isStale,
+    lastSyncedAt,
+    needsAccountSelection: connected && !connection.provider_customer_id,
     spend: Number(spendMicros) / 1_000_000,
     spendMicros: spendMicros.toString(),
   };

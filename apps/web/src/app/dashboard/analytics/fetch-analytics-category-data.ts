@@ -52,6 +52,13 @@ function asString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() !== '' ? value : fallback;
 }
 
+function formatLocalCalendarDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 async function fetchAnalyticsJson(
   path: string,
   merchantId: string,
@@ -202,8 +209,10 @@ async function fetchAdAnalyticsData(
   signal: AbortSignal
 ): Promise<Partial<AnalyticsData>> {
   const params = new URLSearchParams({
-    endDate: to.toISOString(),
-    startDate: from.toISOString(),
+    // The ads endpoint accepts calendar dates. Converting date-picker values
+    // through ISO/UTC here shifts account-local provider spend windows.
+    endDate: formatLocalCalendarDate(to),
+    startDate: formatLocalCalendarDate(from),
   });
   if (refreshKey !== undefined) {
     params.set('cacheBust', String(refreshKey));

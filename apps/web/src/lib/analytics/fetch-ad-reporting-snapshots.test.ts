@@ -145,4 +145,72 @@ describe('fetchAdReportingSnapshots', () => {
     );
     expect(selectedColumns.join(' ')).toContain('provider_customer_id');
   });
+
+  it('preserves a Google connection read failure for the dashboard state', async () => {
+    const results = [
+      { data: null, error: { message: 'read failed' } },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    ];
+    const terminals = ['maybeSingle', 'order', 'in', 'order'] as const;
+    let index = 0;
+    const from = vi.fn(() =>
+      chainResult(
+        results[index] ?? { data: [], error: null },
+        terminals[index++]
+      )
+    );
+
+    const result = await fetchAdReportingSnapshots({
+      endDate: '2026-08-22',
+      merchantId: 'merchant-1',
+      startDate: '2026-08-01',
+      supabase: { from } as never,
+    });
+
+    expect(result.googleAds).toMatchObject({
+      connectionStatus: 'error',
+      dataStatus: 'error',
+      error: 'Google Ads reporting is temporarily unavailable.',
+    });
+  });
+
+  it('keeps the Google connection state when its spend read fails', async () => {
+    const results = [
+      {
+        data: {
+          last_synced_at: '2026-08-22T09:00:00.000Z',
+          provider_customer_id: 'google-1',
+          status: 'active',
+        },
+        error: null,
+      },
+      { data: null, error: { message: 'read failed' } },
+      { data: [], error: null },
+      { data: [], error: null },
+    ];
+    const terminals = ['maybeSingle', 'order', 'in', 'order'] as const;
+    let index = 0;
+    const from = vi.fn(() =>
+      chainResult(
+        results[index] ?? { data: [], error: null },
+        terminals[index++]
+      )
+    );
+
+    const result = await fetchAdReportingSnapshots({
+      endDate: '2026-08-22',
+      merchantId: 'merchant-1',
+      startDate: '2026-08-01',
+      supabase: { from } as never,
+    });
+
+    expect(result.googleAds).toMatchObject({
+      connected: true,
+      connectionStatus: 'connected',
+      dataStatus: 'error',
+      error: 'Google Ads reporting is temporarily unavailable.',
+    });
+  });
 });

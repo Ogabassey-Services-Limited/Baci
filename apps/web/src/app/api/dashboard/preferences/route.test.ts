@@ -115,6 +115,84 @@ describe('dashboard preferences merchant context', () => {
     );
   });
 
+  it('accepts a valid responsive layout containing only known widgets', async () => {
+    const query = createQuery({
+      data: { layout_config: { lg: [] }, visible_cards: ['ads-reporting'] },
+      error: null,
+    });
+    mocks.createClient.mockReturnValue({
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+      },
+      from: vi.fn(() => query),
+    });
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/dashboard/preferences', {
+        body: JSON.stringify({
+          layout_config: {
+            lg: [{ h: 3, i: 'ads-reporting', w: 12, x: 0, y: 4 }],
+          },
+          visible_cards: ['ads-reporting'],
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(query.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout_config: {
+          lg: [{ h: 3, i: 'ads-reporting', w: 12, x: 0, y: 4 }],
+        },
+        visible_cards: ['ads-reporting'],
+      }),
+      { onConflict: 'merchant_id' }
+    );
+  });
+
+  it('returns 400 for malformed JSON without persisting preferences', async () => {
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/dashboard/preferences', {
+        body: '{',
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for a layout with an unapproved widget id', async () => {
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/dashboard/preferences', {
+        body: JSON.stringify({
+          layout_config: [{ h: 1, i: 'unapproved-widget', w: 1, x: 0, y: 0 }],
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized preferences payload before parsing it', async () => {
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/dashboard/preferences', {
+        body: '{}',
+        headers: { 'content-length': String(32 * 1024 + 1) },
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(413);
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
   it('authenticates before rejecting an invalid CSRF token', async () => {
     const getUser = vi.fn().mockResolvedValue({ data: { user: null } });
     mocks.createClient.mockReturnValue({ auth: { getUser } });

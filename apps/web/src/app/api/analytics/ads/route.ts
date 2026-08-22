@@ -11,7 +11,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import { analyticsQuerySchema } from '@/schemas/analytics-query';
+import { adsAnalyticsQuerySchema } from '@/schemas/ads-analytics-query';
 
 /**
  * Ad Conversion Analytics API
@@ -33,6 +33,20 @@ interface PlatformStats {
   clickAttributed: number; // Orders with click ID from this platform
 }
 
+function getUtcCalendarDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
+function getDefaultCalendarDateRange(now: Date): {
+  endDate: string;
+  startDate: string;
+} {
+  const endDate = getUtcCalendarDate(now);
+  const start = new Date(now);
+  start.setUTCDate(start.getUTCDate() - 30);
+  return { endDate, startDate: getUtcCalendarDate(start) };
+}
+
 // react-doctor-disable-next-line react-doctor/nextjs-no-side-effect-in-get-handler -- Process-local analytics cache write only; no user or database state is mutated by GET.
 export async function GET(request: Request) {
   try {
@@ -48,7 +62,7 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-    const parsedQuery = analyticsQuerySchema.safeParse({
+    const parsedQuery = adsAnalyticsQuerySchema.safeParse({
       cacheBust: searchParams.get('cacheBust') || undefined,
       endDate: searchParams.get('endDate') || undefined,
       startDate: searchParams.get('startDate') || undefined,
@@ -60,14 +74,14 @@ export async function GET(request: Request) {
       );
     }
 
-    // Default to last 30 days if no dates provided
-    const now = new Date();
-    const endDate = parsedQuery.data.endDate
-      ? new Date(parsedQuery.data.endDate)
-      : now;
-    const startDate = parsedQuery.data.startDate
-      ? new Date(parsedQuery.data.startDate)
-      : new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    // Date-only parameters are deliberate: provider spend_date is an account-
+    // local calendar date. Legacy Baci order attribution uses the same UTC
+    // calendar-day boundary, with the end date inclusive through its final ms.
+    const defaultRange = getDefaultCalendarDateRange(new Date());
+    const startDate = parsedQuery.data.startDate ?? defaultRange.startDate;
+    const endDate = parsedQuery.data.endDate ?? defaultRange.endDate;
+    const orderStart = `${startDate}T00:00:00.000Z`;
+    const orderEnd = `${endDate}T23:59:59.999Z`;
 
     const requestedMerchant = parseRequestedMerchantId(request);
     if (requestedMerchant.response) {
@@ -104,8 +118,8 @@ export async function GET(request: Request) {
     const cacheKey = generateCacheKey(
       'ad-analytics',
       merchantId,
-      startDate.toISOString(),
-      endDate.toISOString()
+      startDate,
+      endDate
     );
 
     // Try cached data (5 minute TTL)
@@ -123,8 +137,8 @@ export async function GET(request: Request) {
       .select('id, total, ad_tracking, created_at, payment_status')
       .eq('merchant_id', merchantId)
       .eq('payment_status', 'paid')
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString());
+      .gte('created_at', orderStart)
+      .lte('created_at', orderEnd);
 
     if (ordersError) {
       console.error('Error fetching orders:', ordersError);
@@ -138,9 +152,9 @@ export async function GET(request: Request) {
     // sync must not erase the conversion analytics response. Keep the provider
     // credentials out of this projection and expose only reporting metadata.
     const { googleAds, socialAds } = await fetchAdReportingSnapshots({
-      endDate: endDate.toISOString().slice(0, 10),
+      endDate,
       merchantId,
-      startDate: startDate.toISOString().slice(0, 10),
+      startDate,
       supabase,
     });
 

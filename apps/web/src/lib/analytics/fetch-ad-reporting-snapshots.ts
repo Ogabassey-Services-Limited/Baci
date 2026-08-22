@@ -61,12 +61,14 @@ export async function fetchAdReportingSnapshots({
   ]);
 
   return {
-    googleAds: googleConnectionError
-      ? undefined
-      : buildGoogleAdsAnalyticsSnapshot(
-          googleConnection,
-          googleRowsError ? [] : (googleRows ?? [])
-        ),
+    googleAds: buildGoogleAdsAnalyticsSnapshot(
+      googleConnection,
+      googleRows ?? [],
+      {
+        connectionReadFailed: Boolean(googleConnectionError),
+        spendReadFailed: Boolean(googleRowsError),
+      }
+    ),
     socialAds: buildSocialAdsAnalyticsSnapshot({
       connectionReadFailed: Boolean(socialConnectionError),
       connections: socialConnections ?? [],
