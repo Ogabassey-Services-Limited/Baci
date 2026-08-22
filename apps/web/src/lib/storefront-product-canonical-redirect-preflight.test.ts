@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createAbortSignalTimeout } from './abort-signal-timeout';
 import {
   removeNativeAbortSignalTimeout,
   restoreAbortSignalTimeout,
@@ -9,6 +10,8 @@ import {
   makeStorefrontPdpPreflightRow,
   rpcImplResolving,
 } from './storefront-product-canonical-redirect.test-utils';
+
+vi.mock('./abort-signal-timeout', { spy: true });
 
 const BASE_OPTIONS = {
   origin: 'https://ogabassey.com',
@@ -75,6 +78,55 @@ describe('getStorefrontProductCanonicalRedirectResult preflight handling', () =>
         p_product_slug: 'iphone-15',
       },
       expect.any(AbortSignal)
+    );
+  });
+
+  it('fails open on a canonical RPC timeout without changing real RPC-error handling', async () => {
+    const rpcImpl = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException('operation timed out', 'TimeoutError')
+      );
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        ...BASE_OPTIONS,
+        identifier: 'canonical-timeout.example',
+        rpcImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({
+        reason: 'timeout',
+        surface: 'product-canonical',
+      })
+    );
+    expect(vi.mocked(createAbortSignalTimeout)).toHaveBeenCalledWith(3_000);
+  });
+
+  it('keeps a real PostgREST product-read error classified as has-error', async () => {
+    const rpcImpl = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST202', message: 'product read failed' },
+    });
+
+    await expect(
+      getStorefrontProductCanonicalRedirectResult({
+        ...BASE_OPTIONS,
+        identifier: 'canonical-read-error.example',
+        rpcImpl,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({
+        reason: 'has-error',
+        surface: 'product-canonical',
+        detail: 'PGRST202 product read failed',
+      })
     );
   });
 

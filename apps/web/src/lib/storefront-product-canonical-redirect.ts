@@ -15,6 +15,12 @@ import {
   type StorefrontPreflightRpcImpl,
 } from './storefront-preflight-rpc';
 
+// Production query stats show rare `get_storefront_pdp_preflight` tails just
+// below the anon role's 3s statement-timeout ceiling. Keep the broader
+// preflight transport budget at 2s, but give this canonical verdict enough
+// bounded headroom to avoid turning a valid product read into a fail-open.
+const PRODUCT_CANONICAL_DEFAULT_TIMEOUT_MS = 3_000;
+
 interface ProductCanonicalRedirectOptions {
   /**
    * Public request origin. Retained so the proxy call sites stay untouched;
@@ -100,7 +106,7 @@ export async function getStorefrontProductCanonicalRedirectResult(
     {
       failOpenContext,
       rpcImpl: opts.rpcImpl,
-      timeoutMs: opts.timeoutMs,
+      timeoutMs: opts.timeoutMs ?? PRODUCT_CANONICAL_DEFAULT_TIMEOUT_MS,
     }
   );
   if (row === null) {
