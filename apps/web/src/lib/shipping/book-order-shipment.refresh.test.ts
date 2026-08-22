@@ -68,6 +68,37 @@ const correctedSender = {
   postalCode: '100001',
 };
 
+type StoredSender = typeof staleSender | typeof correctedSender;
+
+function stubShippingService() {
+  vi.clearAllMocks();
+  vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
+    {
+      id: 'quote-refreshed',
+      provider: 'GIGL',
+      serviceTier: 'GoStandard',
+      carrierName: 'GIG Logistics',
+      displayName: 'GIG Logistics - GoStandard',
+      price: 2500,
+      currency: 'NGN',
+      estimatedDays: 3,
+      pickupIncluded: true,
+      insuranceIncluded: false,
+      providerRateId: 'GIGL_4_0',
+      expiresAt: new Date(Date.now() + 86_400_000),
+      rawResponse: {},
+    },
+  ]);
+  vi.mocked(shippingService.bookShipment).mockResolvedValue({
+    provider: 'GIGL',
+    providerShipmentId: 'waybill-1',
+    trackingNumber: 'waybill-1',
+    carrierName: 'GIG Logistics',
+    status: 'booked',
+    rawResponse: {},
+  });
+}
+
 function createSupabase({
   upsertError = null,
   quoteExpiresAt = new Date(Date.now() - 60_000).toISOString(),
@@ -75,7 +106,7 @@ function createSupabase({
 }: {
   upsertError?: { message: string } | null;
   quoteExpiresAt?: string;
-  storedSender?: typeof staleSender;
+  storedSender?: StoredSender;
 } = {}) {
   const order = {
     id: 'order-1',
@@ -183,32 +214,7 @@ function createSupabase({
 
 describe('bugfix: expired domestic quote refresh sender', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
-      {
-        id: 'quote-refreshed',
-        provider: 'GIGL',
-        serviceTier: 'GoStandard',
-        carrierName: 'GIG Logistics',
-        displayName: 'GIG Logistics - GoStandard',
-        price: 2500,
-        currency: 'NGN',
-        estimatedDays: 3,
-        pickupIncluded: true,
-        insuranceIncluded: false,
-        providerRateId: 'GIGL_4_0',
-        expiresAt: new Date(Date.now() + 86_400_000),
-        rawResponse: {},
-      },
-    ]);
-    vi.mocked(shippingService.bookShipment).mockResolvedValue({
-      provider: 'GIGL',
-      providerShipmentId: 'waybill-1',
-      trackingNumber: 'waybill-1',
-      carrierName: 'GIG Logistics',
-      status: 'booked',
-      rawResponse: {},
-    });
+    stubShippingService();
   });
 
   it('refreshes expired domestic quotes with the server-resolved merchant sender', async () => {
@@ -248,32 +254,7 @@ describe('bugfix: expired domestic quote refresh sender', () => {
 
 describe('bugfix: unexpired domestic quote sender mismatch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
-      {
-        id: 'quote-refreshed',
-        provider: 'GIGL',
-        serviceTier: 'GoStandard',
-        carrierName: 'GIG Logistics',
-        displayName: 'GIG Logistics - GoStandard',
-        price: 2500,
-        currency: 'NGN',
-        estimatedDays: 3,
-        pickupIncluded: true,
-        insuranceIncluded: false,
-        providerRateId: 'GIGL_4_0',
-        expiresAt: new Date(Date.now() + 86_400_000),
-        rawResponse: {},
-      },
-    ]);
-    vi.mocked(shippingService.bookShipment).mockResolvedValue({
-      provider: 'GIGL',
-      providerShipmentId: 'waybill-1',
-      trackingNumber: 'waybill-1',
-      carrierName: 'GIG Logistics',
-      status: 'booked',
-      rawResponse: {},
-    });
+    stubShippingService();
   });
 
   it('refreshes an unexpired quote when the stored sender differs from the registered merchant origin', async () => {
@@ -293,6 +274,23 @@ describe('bugfix: unexpired domestic quote sender mismatch', () => {
         sender: correctedSender,
       })
     );
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({ sender: correctedSender })
+    );
+  });
+
+  it('does not refresh an unexpired quote when the stored sender already matches', async () => {
+    await bookOrderShipment(
+      createSupabase({
+        quoteExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        storedSender: correctedSender,
+      }),
+      'merchant-1',
+      'order-1'
+    );
+
+    expect(shippingService.getProviderQuotes).not.toHaveBeenCalled();
     expect(shippingService.bookShipment).toHaveBeenCalledWith(
       'GIGL',
       expect.objectContaining({ sender: correctedSender })

@@ -114,6 +114,29 @@ function formatRegisteredAddress(address: RegisteredAddress): string {
     .join(', ');
 }
 
+const STATE_LEVEL_CITY_ALIASES = new Set(['lagos', 'abuja', 'fct']);
+
+function resolveMerchantCity({
+  registeredAddress,
+  locationCity,
+}: {
+  registeredAddress: RegisteredAddress | null;
+  locationCity: string;
+}): string {
+  const structuredCity = registeredAddress?.city?.trim();
+  if (!structuredCity) return locationCity;
+
+  const hasStructuredState = hasLetters(registeredAddress?.state);
+  if (
+    !hasStructuredState &&
+    STATE_LEVEL_CITY_ALIASES.has(normalizeCityToken(structuredCity))
+  ) {
+    return locationCity;
+  }
+
+  return structuredCity;
+}
+
 function resolveMerchantState({
   registeredAddress,
   stateCode,
@@ -162,7 +185,10 @@ export function buildMerchantSenderInfo(
     name: details.businessName || 'Merchant',
     phone: details.phone || '',
     address: location.address,
-    city: registeredAddress?.city || location.city,
+    city: resolveMerchantCity({
+      registeredAddress,
+      locationCity: location.city,
+    }),
     state,
     country: 'Nigeria',
     countryCode: 'NG',

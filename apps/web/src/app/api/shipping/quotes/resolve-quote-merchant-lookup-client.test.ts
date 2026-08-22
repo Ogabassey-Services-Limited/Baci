@@ -13,9 +13,13 @@ vi.mock('@/lib/supabase/scoped', () => ({
 }));
 
 describe('resolveQuoteMerchantLookupClient', () => {
+  const serverClient = { kind: 'server' as const };
+  const scopedClient = { kind: 'scoped' as const };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCreateServerClient.mockResolvedValue({ from: vi.fn() });
+    mockCreateServerClient.mockResolvedValue(serverClient);
+    mockCreateScopedClient.mockReturnValue(scopedClient);
   });
 
   it('falls back to the cookie client when the Bearer token is rejected', async () => {
@@ -40,8 +44,59 @@ describe('resolveQuoteMerchantLookupClient', () => {
       supabase as never
     );
 
+    expect(supabase.auth.getUser).toHaveBeenCalledWith('stale-token');
     expect(mockCreateServerClient).toHaveBeenCalled();
     expect(mockCreateScopedClient).not.toHaveBeenCalled();
-    expect(client).toEqual(await mockCreateServerClient.mock.results[0]?.value);
+    expect(client).toBe(serverClient);
+  });
+
+  it('returns a scoped client when the Bearer token validates', async () => {
+    const supabase = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1' } },
+          error: null,
+        }),
+      },
+    };
+
+    const client = await resolveQuoteMerchantLookupClient(
+      {
+        headers: {
+          get: (name) =>
+            name.toLowerCase() === 'authorization'
+              ? 'Bearer valid-token'
+              : null,
+        },
+      },
+      supabase as never
+    );
+
+    expect(supabase.auth.getUser).toHaveBeenCalledWith('valid-token');
+    expect(mockCreateScopedClient).toHaveBeenCalledWith('valid-token');
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+    expect(client).toBe(scopedClient);
+  });
+
+  it('returns the server client without auth when authorization is absent', async () => {
+    const supabase = {
+      auth: {
+        getUser: vi.fn(),
+      },
+    };
+
+    const client = await resolveQuoteMerchantLookupClient(
+      {
+        headers: {
+          get: () => null,
+        },
+      },
+      supabase as never
+    );
+
+    expect(supabase.auth.getUser).not.toHaveBeenCalled();
+    expect(mockCreateScopedClient).not.toHaveBeenCalled();
+    expect(mockCreateServerClient).toHaveBeenCalled();
+    expect(client).toBe(serverClient);
   });
 });

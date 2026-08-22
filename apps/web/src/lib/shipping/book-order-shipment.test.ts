@@ -24,13 +24,6 @@ vi.mock(
         city: 'Lagos',
         state: 'Lagos',
       }),
-      buildSender: vi.fn().mockReturnValue({
-        name: 'Test Store',
-        phone: '08098765432',
-        address: '456 Market Rd',
-        city: 'Lagos',
-        state: 'Lagos',
-      }),
       toShipmentItems: vi
         .fn()
         .mockReturnValue([{ name: 'Widget', quantity: 2, weight: 1 }]),

@@ -195,6 +195,14 @@ async function resolveQuote(
   );
 
   if (upsertError) {
+    console.error('Failed to persist refreshed shipping quote', {
+      error: upsertError,
+      code: upsertError.code,
+      message: upsertError.message,
+      quoteId: nextQuote.id,
+      merchantId: quote.merchant_id,
+      provider,
+    });
     throw new OrderShipmentBookingError(
       'Failed to persist the refreshed shipping quote.',
       500,

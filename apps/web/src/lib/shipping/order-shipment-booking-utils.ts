@@ -23,12 +23,6 @@ type OrderItemRecord = {
   price: number | string | null;
 };
 
-type MerchantRecord = {
-  business_name: string | null;
-  business_address: string | null;
-  phone: string | null;
-};
-
 type OrderRecord = {
   customer_name: string | null;
   customer_email: string | null;
@@ -344,19 +338,5 @@ export function deriveMerchantLocation(
     address,
     city: parts[0],
     state: last,
-  };
-}
-
-export function buildSender(merchant: MerchantRecord): ShippingAddress {
-  const location = deriveMerchantLocation(merchant.business_address);
-
-  return {
-    name: merchant.business_name || 'Merchant',
-    phone: merchant.phone || '',
-    address: location.address,
-    city: location.city,
-    state: location.state,
-    country: 'Nigeria',
-    countryCode: 'NG',
   };
 }

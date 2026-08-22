@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 describe('GIGL station state aliases', () => {
-  it('matches Abuja requests with GIGL FCT station state names', async () => {
+  async function createServiceWithStations() {
     const { GiglApiClient } = await import('./gigl.auth');
     const { GiglStationsService } = await import('./gigl.stations');
     const safeFetch = (
@@ -24,6 +24,11 @@ describe('GIGL station state aliases', () => {
         Longitude: undefined,
       },
     ]);
+    return service;
+  }
+
+  it('matches Abuja requests with GIGL FCT station state names', async () => {
+    const service = await createServiceWithStations();
 
     await expect(
       service.resolveStationForLocation({
@@ -40,5 +45,20 @@ describe('GIGL station state aliases', () => {
         StateName: 'FCT - Abuja',
       })
     );
+  });
+
+  it('returns null for non-Abuja locations that do not match the station list', async () => {
+    const service = await createServiceWithStations();
+
+    await expect(
+      service.resolveStationForLocation({
+        city: 'Ikeja',
+        state: 'Lagos',
+      })
+    ).resolves.toBeNull();
+
+    await expect(
+      service.findStationForCity('Ikeja', 'Lagos')
+    ).resolves.toBeNull();
   });
 });

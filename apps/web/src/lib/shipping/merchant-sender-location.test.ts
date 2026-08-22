@@ -113,3 +113,93 @@ describe('bugfix: legacy free-text-only merchant address', () => {
     expect(sender.city).not.toBe('Lagos');
   });
 });
+
+describe('bugfix: state-level registered city with empty state', () => {
+  const quotePathSender = (details: {
+    businessAddress: string;
+    stateCode: string | null;
+  }) =>
+    buildMerchantSenderInfo({
+      businessAddress: details.businessAddress,
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: details.stateCode,
+    });
+
+  const bookingPathSender = (details: {
+    businessAddress: string;
+    registeredAddress: {
+      city: string;
+      postal_code?: string;
+      state: string | null;
+      street: string;
+    };
+    stateCode: string | null;
+  }) =>
+    buildMerchantSenderInfo({
+      businessAddress: details.businessAddress,
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: details.registeredAddress,
+      stateCode: details.stateCode,
+    });
+
+  it('aligns Lagos quote and booking senders on the parsed locality city', () => {
+    const businessAddress = '2 Olaide Tomori Street, Ikeja, Lagos, 100001';
+
+    const quoteSender = quotePathSender({
+      businessAddress,
+      stateCode: 'LA',
+    });
+    const bookingSender = bookingPathSender({
+      businessAddress,
+      registeredAddress: {
+        city: 'Lagos',
+        postal_code: '100001',
+        state: null,
+        street: '2 Olaide Tomori Street',
+      },
+      stateCode: 'LA',
+    });
+
+    expect(quoteSender).toMatchObject({
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+    expect(bookingSender).toMatchObject({
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+    expect(bookingSender.city).toBe(quoteSender.city);
+  });
+
+  it('aligns Abuja quote and booking senders on the parsed locality city', () => {
+    const businessAddress = '29 Yedseram Crescent, Maitama, 904101';
+
+    const quoteSender = quotePathSender({
+      businessAddress,
+      stateCode: 'FC',
+    });
+    const bookingSender = bookingPathSender({
+      businessAddress,
+      registeredAddress: {
+        city: 'Abuja',
+        postal_code: '904101',
+        state: null,
+        street: '29 Yedseram Crescent',
+      },
+      stateCode: 'FC',
+    });
+
+    expect(quoteSender).toMatchObject({
+      city: 'Maitama',
+      state: 'Abuja',
+    });
+    expect(bookingSender).toMatchObject({
+      city: 'Maitama',
+      state: 'Abuja',
+    });
+    expect(bookingSender.city).toBe(quoteSender.city);
+  });
+});
