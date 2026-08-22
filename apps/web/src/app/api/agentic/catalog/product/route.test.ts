@@ -111,6 +111,28 @@ describe('POST /api/agentic/catalog/product', () => {
     expect(response.status).toBe(404);
   });
 
+  it('returns 422 when an active product has no publishable price', async () => {
+    mockProductRow({
+      id: 'unpriced-product',
+      name: 'Unpriced item',
+      price: undefined,
+      status: 'active',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/product', {
+        body: JSON.stringify({ id: 'unpriced-product' }),
+        method: 'POST',
+      })
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      error: 'Product is not publishable to the agentic catalog',
+    });
+    expect(response.status).toBe(422);
+  });
+
   it('selects junction categories for legacy category-only products', async () => {
     const select = vi.fn(() => query);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
@@ -136,6 +158,7 @@ describe('POST /api/agentic/catalog/product', () => {
     mockProductRow({
       id: 'product-1',
       name: 'Laptop',
+      price: 0,
       product_categories: [{ categories: { slug: 'laptops' } }],
       slug: 'thin-laptop',
       status: 'active',

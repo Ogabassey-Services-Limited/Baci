@@ -41,7 +41,7 @@ type ProductRow = {
   categories?: { slug?: string | null } | null;
   id: string;
   name: string;
-  price?: number;
+  price?: number | string | null;
   product_categories?: Array<{ categories?: { slug?: string | null } | null }>;
   slug?: string;
   status?: string;
@@ -126,6 +126,26 @@ describe('POST /api/agentic/catalog/lookup', () => {
     expect(query.in).not.toHaveBeenCalled();
   });
 
+  it('omits active products with malformed prices', async () => {
+    mockProductRows([
+      { id: 'bad-price', name: 'Bad', price: '123abc', status: 'active' },
+      { id: 'free-product', name: 'Free', price: 0, status: 'active' },
+    ]);
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/lookup', {
+        body: JSON.stringify({ ids: ['bad-price', 'free-product'] }),
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(body.products.map((product: { id: string }) => product.id)).toEqual([
+      'free-product',
+    ]);
+  });
+
   it('selects junction categories for legacy category-only products', async () => {
     const select = vi.fn(() => query);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
@@ -152,6 +172,7 @@ describe('POST /api/agentic/catalog/lookup', () => {
       {
         id: 'product-1',
         name: 'Laptop',
+        price: 0,
         product_categories: [{ categories: { slug: 'laptops' } }],
         slug: 'thin-laptop',
         status: 'active',

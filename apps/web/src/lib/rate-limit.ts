@@ -5,6 +5,7 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { rateLimitDiagnostics } from './rate-limit-diagnostics';
 import { getRateLimitConfig } from './rate-limit-routes';
 import { getRedis } from './redis';
 
@@ -23,6 +24,9 @@ interface RateLimitResult {
   remaining: number;
   resetTime: number;
 }
+
+export type { RateLimitDiagnostic } from './rate-limit-diagnostics';
+export const setRateLimitDiagnosticHook = rateLimitDiagnostics.setHook;
 
 const IMEI_POLL_RATE_LIMIT: RateLimitConfig = {
   maxRequests: 120,
@@ -170,6 +174,10 @@ async function applyRateLimit(
     try {
       const upstashKey = `${identifier}:${pattern}`;
       const result = await limiter.limit(upstashKey);
+      void rateLimitDiagnostics.report({
+        backend: 'redis',
+        reason: 'redis_success',
+      });
       return {
         allowed: result.success,
         limit: result.limit,
@@ -178,7 +186,16 @@ async function applyRateLimit(
       };
     } catch {
       // Redis error — fall through to in-memory
+      void rateLimitDiagnostics.report({
+        backend: 'memory',
+        reason: 'redis_error',
+      });
     }
+  } else {
+    void rateLimitDiagnostics.report({
+      backend: 'memory',
+      reason: 'redis_unavailable',
+    });
   }
 
   // Fallback to in-memory
@@ -255,4 +272,5 @@ export function __resetRateLimitStoreForTesting(): void {
   }
   memoryStore.clear();
   upstashLimiters.clear();
+  rateLimitDiagnostics.reset();
 }

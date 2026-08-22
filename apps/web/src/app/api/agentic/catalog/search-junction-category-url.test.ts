@@ -35,8 +35,12 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 let query: {
   eq: ReturnType<typeof vi.fn>;
+  gte: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
+  range: ReturnType<typeof vi.fn>;
 };
 
 function mockJunctionOnlyProduct() {
@@ -44,6 +48,7 @@ function mockJunctionOnlyProduct() {
     {
       id: 'product-1',
       name: 'Laptop',
+      price: 100,
       product_categories: [{ categories: { slug: 'laptops' } }],
       slug: 'thin-laptop',
       status: 'active',
@@ -51,8 +56,15 @@ function mockJunctionOnlyProduct() {
   ];
   query = {
     eq: vi.fn(() => query),
+    gte: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
+    lte: vi.fn(() => query),
     order: vi.fn(() => query),
+    or: vi.fn(() => query),
+    range: vi.fn(async (from: number, to: number) => ({
+      data: rows.slice(from, to + 1),
+      error: null,
+    })),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({
     from: vi.fn(() => ({ select: vi.fn(() => query) })),
