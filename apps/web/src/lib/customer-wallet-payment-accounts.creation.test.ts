@@ -100,6 +100,59 @@ describe('customer wallet payment account creation', () => {
     expect(createDedicatedAccountForWallet).not.toHaveBeenCalled();
   });
 
+  it('trims whitespace from local customer names before DVA creation', async () => {
+    vi.mocked(createOrGetCustomer).mockResolvedValue({
+      success: true,
+      data: {
+        customer_code: 'CUS_trimmed',
+        email: 'jane@example.com',
+        first_name: null,
+        id: 100,
+        last_name: null,
+        phone: '+2348012345678',
+      },
+    });
+    vi.mocked(createDedicatedAccountForWallet).mockResolvedValue({
+      success: true,
+      data: {
+        accountName: 'Ogabassey/Jane Doe',
+        accountNumber: '2222222222',
+        bankName: 'Test Bank',
+        bankSlug: 'test-bank',
+        currency: 'NGN',
+        providerAccountId: '98',
+        providerCustomerCode: 'CUS_trimmed',
+        providerSubaccountCode: 'ACCT_merchant123',
+      },
+    });
+
+    const accountQuery = createMaybeSingleQuery(null);
+    const orderAliasQuery = createSelectRowsQuery([]);
+    const { query: insertQuery } = createInsertQuery({
+      ...existingAccountRow,
+      account_number: '2222222222',
+      provider_customer_code: 'CUS_trimmed',
+    });
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(accountQuery)
+        .mockReturnValueOnce(orderAliasQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    await ensureCustomerWalletPaymentAccount({
+      consentedAt: new Date('2026-05-21T10:00:00.000Z'),
+      customer: { ...customer, first_name: ' Jane ', last_name: ' Doe ' },
+      merchant,
+      supabase,
+    });
+
+    expect(createDedicatedAccountForWallet).toHaveBeenCalledWith(
+      expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' })
+    );
+  });
+
   it('prefers a complete local name pair over stale provider names', async () => {
     vi.mocked(createOrGetCustomer).mockResolvedValue({
       success: true,
