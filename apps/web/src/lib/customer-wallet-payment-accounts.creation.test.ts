@@ -100,6 +100,91 @@ describe('customer wallet payment account creation', () => {
     expect(createDedicatedAccountForWallet).not.toHaveBeenCalled();
   });
 
+  it('prefers a complete local name pair over stale provider names', async () => {
+    vi.mocked(createOrGetCustomer).mockResolvedValue({
+      success: true,
+      data: {
+        customer_code: 'CUS_existing',
+        email: 'jane@example.com',
+        first_name: 'OldFirst',
+        id: 100,
+        last_name: 'OldLast',
+        phone: '+2348012345678',
+      },
+    });
+    vi.mocked(createDedicatedAccountForWallet).mockResolvedValue({
+      success: true,
+      data: {
+        accountName: 'Ogabassey/Jane Doe',
+        accountNumber: '2222222222',
+        bankName: 'Test Bank',
+        bankSlug: 'test-bank',
+        currency: 'NGN',
+        providerAccountId: '98',
+        providerCustomerCode: 'CUS_existing',
+        providerSubaccountCode: 'ACCT_merchant123',
+      },
+    });
+
+    const accountQuery = createMaybeSingleQuery(null);
+    const orderAliasQuery = createSelectRowsQuery([]);
+    const { query: insertQuery } = createInsertQuery({
+      ...existingAccountRow,
+      account_number: '2222222222',
+      provider_customer_code: 'CUS_existing',
+    });
+    const supabase = {
+      from: vi
+        .fn()
+        .mockReturnValueOnce(accountQuery)
+        .mockReturnValueOnce(orderAliasQuery)
+        .mockReturnValueOnce(insertQuery),
+    } as unknown as SupabaseClient;
+
+    await ensureCustomerWalletPaymentAccount({
+      consentedAt: new Date('2026-05-21T10:00:00.000Z'),
+      customer,
+      merchant,
+      supabase,
+    });
+
+    expect(createDedicatedAccountForWallet).toHaveBeenCalledWith(
+      expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' })
+    );
+  });
+
+  it('rejects mixed name sources when neither pair is complete', async () => {
+    vi.mocked(createOrGetCustomer).mockResolvedValue({
+      success: true,
+      data: {
+        customer_code: 'CUS_mixed_names',
+        email: 'jane@example.com',
+        first_name: 'ProviderFirst',
+        id: 100,
+        last_name: null,
+        phone: '+2348012345678',
+      },
+    });
+
+    const accountQuery = createMaybeSingleQuery(null);
+    const supabase = {
+      from: vi.fn().mockReturnValue(accountQuery),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      ensureCustomerWalletPaymentAccount({
+        consentedAt: new Date('2026-05-21T10:00:00.000Z'),
+        customer: { ...customer, first_name: null, last_name: 'LocalLast' },
+        merchant,
+        supabase,
+      })
+    ).rejects.toMatchObject({
+      code: 'CUSTOMER_NAME_REQUIRED',
+    });
+
+    expect(createDedicatedAccountForWallet).not.toHaveBeenCalled();
+  });
+
   it('uses provider customer names when local profile names are missing', async () => {
     vi.mocked(createOrGetCustomer).mockResolvedValue({
       success: true,

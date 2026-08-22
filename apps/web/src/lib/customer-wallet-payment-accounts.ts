@@ -82,24 +82,25 @@ function getRequiredCustomerNames({
   customer: CustomerWalletPaymentCustomer;
   paystackCustomer: { first_name: string | null; last_name: string | null };
 }) {
-  // Prefer Paystack's record when it already has names, while retaining the
-  // locally captured values when the provider omits them from its response.
-  // Never synthesize identity from an email or phone number.
-  const firstName =
-    getOptionalCustomerName(paystackCustomer.first_name) ??
-    getOptionalCustomerName(customer.first_name);
-  const lastName =
-    getOptionalCustomerName(paystackCustomer.last_name) ??
-    getOptionalCustomerName(customer.last_name);
+  const localFirstName = getOptionalCustomerName(customer.first_name);
+  const localLastName = getOptionalCustomerName(customer.last_name);
+  const providerFirstName = getOptionalCustomerName(
+    paystackCustomer.first_name
+  );
+  const providerLastName = getOptionalCustomerName(paystackCustomer.last_name);
 
-  if (!firstName || !lastName) {
-    throw new CustomerWalletPaymentAccountError(
-      'CUSTOMER_NAME_REQUIRED',
-      CUSTOMER_NAME_REQUIRED_MESSAGE
-    );
+  if (localFirstName && localLastName) {
+    return { firstName: localFirstName, lastName: localLastName };
   }
 
-  return { firstName, lastName };
+  if (providerFirstName && providerLastName) {
+    return { firstName: providerFirstName, lastName: providerLastName };
+  }
+
+  throw new CustomerWalletPaymentAccountError(
+    'CUSTOMER_NAME_REQUIRED',
+    CUSTOMER_NAME_REQUIRED_MESSAGE
+  );
 }
 
 function normalizePaystackWalletDedicatedAccount({

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { CUSTOMER_NAME_REQUIRED_MESSAGE } from '@/lib/customer-wallet-payment-account-types';
 import type { CreateOrderWalletFundingIntentResult } from '@/lib/order-wallet-funding-intents';
 
-export function getFallbackStatus(code: string) {
+function getFallbackStatus(code: string) {
   if (
     code === 'WALLET_DVA_DISABLED' ||
     code === 'WALLET_ORDER_AUTO_DEBIT_DISABLED'
