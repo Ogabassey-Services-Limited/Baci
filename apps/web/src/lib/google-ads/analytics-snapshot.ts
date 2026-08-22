@@ -50,7 +50,12 @@ export function buildGoogleAdsAnalyticsSnapshot(
   rows: GoogleAdsAnalyticsSpendRow[]
 ): GoogleAdsAnalyticsSnapshot | undefined {
   if (!connection) return undefined;
-  const daily = rows.map((row) => {
+  const selectedCustomerId =
+    connection.status === 'active' ? connection.provider_customer_id : null;
+  const selectedRows = selectedCustomerId
+    ? rows.filter((row) => row.provider_customer_id === selectedCustomerId)
+    : [];
+  const daily = selectedRows.map((row) => {
     const spendMicros = nonNegativeMicros(row.spend_micros);
     return {
       clicks: nonNegativeNumber(row.clicks),

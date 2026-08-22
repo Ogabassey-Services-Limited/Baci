@@ -51,7 +51,7 @@ export async function fetchAdReportingSnapshots({
     supabase
       .from('merchant_ad_spend_daily')
       .select(
-        'provider, spend_date, currency_code, spend_amount_decimal, impressions, clicks, conversions, reach, account_timezone, fetched_at'
+        'provider, provider_customer_id, spend_date, currency_code, spend_amount_decimal, impressions, clicks, conversions, reach, account_timezone, fetched_at'
       )
       .eq('merchant_id', merchantId)
       .in('provider', [...SOCIAL_ADS_REPORTING_PROVIDERS])

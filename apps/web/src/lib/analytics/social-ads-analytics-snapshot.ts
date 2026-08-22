@@ -24,6 +24,7 @@ interface SocialAdsSpendRow {
   fetched_at: string;
   impressions: number | string | null;
   provider: string;
+  provider_customer_id: string;
   reach: number | string | null;
   spend_amount_decimal: number | string | null;
   spend_date: string;
@@ -141,9 +142,19 @@ export function buildSocialAdsAnalyticsSnapshot({
   spendRows,
   startDate,
 }: BuildSocialAdsAnalyticsSnapshotOptions) {
+  const selectedSpendRows = spendRows.filter((row) => {
+    const connection = connections.find(
+      (candidate) => candidate.provider === row.provider
+    );
+    return (
+      connection?.status === 'active' &&
+      Boolean(connection.provider_customer_id) &&
+      row.provider_customer_id === connection.provider_customer_id
+    );
+  });
   const providers = SOCIAL_ADS_REPORTING_PROVIDERS.map((provider) => {
     const connection = connections.find((row) => row.provider === provider);
-    const rows = spendRows.filter((row) => row.provider === provider);
+    const rows = selectedSpendRows.filter((row) => row.provider === provider);
     const lastSyncedAt = latestTimestamp([
       connection?.last_synced_at ?? null,
       ...rows.map((row) => row.fetched_at),
@@ -204,7 +215,7 @@ export function buildSocialAdsAnalyticsSnapshot({
       provider,
     };
   });
-  const allSpend = spendByCurrency(spendRows);
+  const allSpend = spendByCurrency(selectedSpendRows);
 
   return {
     attributionNotice:

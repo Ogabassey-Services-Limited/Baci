@@ -33,6 +33,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           fetched_at: '2026-08-22T09:00:00.000Z',
           impressions: '100',
           provider: 'meta_ads',
+          provider_customer_id: 'act_1',
           reach: '80',
           spend_amount_decimal: '9007199254740993.123456789',
           spend_date: '2026-08-22',
@@ -45,9 +46,23 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           fetched_at: '2026-08-22T09:00:00.000Z',
           impressions: '50',
           provider: 'meta_ads',
+          provider_customer_id: 'act_1',
           reach: '20',
           spend_amount_decimal: '0.876543211',
           spend_date: '2026-08-22',
+        },
+        {
+          account_timezone: 'America/New_York',
+          clicks: '99',
+          conversions: '20',
+          currency_code: 'USD',
+          fetched_at: '2026-08-21T09:00:00.000Z',
+          impressions: '999',
+          provider: 'meta_ads',
+          provider_customer_id: 'act_old',
+          reach: '900',
+          spend_amount_decimal: '500',
+          spend_date: '2026-08-21',
         },
         {
           account_timezone: 'UTC',
@@ -57,6 +72,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           fetched_at: '2026-08-22T08:00:00.000Z',
           impressions: '200',
           provider: 'tiktok_ads',
+          provider_customer_id: 'advertiser-1',
           reach: '150',
           spend_amount_decimal: '10.50',
           spend_date: '2026-08-22',
@@ -85,6 +101,115 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
       provider: 'meta_ads',
     });
     expect(snapshot.attributionNotice).toContain('separate from Baci');
+  });
+
+  it('binds metrics only to each active selected account after switches and reconnects', () => {
+    const snapshot = buildSocialAdsAnalyticsSnapshot({
+      connections: [
+        {
+          account_timezone: 'UTC',
+          last_synced_at: null,
+          provider: 'meta_ads',
+          provider_account_label: null,
+          provider_customer_id: null,
+          status: 'active',
+        },
+        {
+          account_timezone: 'UTC',
+          last_synced_at: '2026-08-22T08:00:00.000Z',
+          provider: 'tiktok_ads',
+          provider_account_label: 'Needs reconnect',
+          provider_customer_id: 'advertiser-1',
+          status: 'error',
+        },
+        {
+          account_timezone: 'UTC',
+          last_synced_at: '2026-08-22T09:00:00.000Z',
+          provider: 'snapchat_ads',
+          provider_account_label: 'Current Snap',
+          provider_customer_id: 'snap-new',
+          status: 'active',
+        },
+      ],
+      endDate: '2026-08-22',
+      spendRows: [
+        {
+          account_timezone: 'UTC',
+          clicks: '10',
+          conversions: '1',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-20T09:00:00.000Z',
+          impressions: '100',
+          provider: 'meta_ads',
+          provider_customer_id: 'act-old',
+          reach: '80',
+          spend_amount_decimal: '100',
+          spend_date: '2026-08-20',
+        },
+        {
+          account_timezone: 'UTC',
+          clicks: '20',
+          conversions: '2',
+          currency_code: 'USD',
+          fetched_at: '2026-08-21T08:00:00.000Z',
+          impressions: '200',
+          provider: 'tiktok_ads',
+          provider_customer_id: 'advertiser-1',
+          reach: '160',
+          spend_amount_decimal: '200',
+          spend_date: '2026-08-21',
+        },
+        {
+          account_timezone: 'UTC',
+          clicks: '30',
+          conversions: '3',
+          currency_code: 'EUR',
+          fetched_at: '2026-08-21T09:00:00.000Z',
+          impressions: '300',
+          provider: 'snapchat_ads',
+          provider_customer_id: 'snap-old',
+          reach: '240',
+          spend_amount_decimal: '300',
+          spend_date: '2026-08-21',
+        },
+        {
+          account_timezone: 'UTC',
+          clicks: '4',
+          conversions: '0.5',
+          currency_code: 'GBP',
+          fetched_at: '2026-08-22T09:00:00.000Z',
+          impressions: '40',
+          provider: 'snapchat_ads',
+          provider_customer_id: 'snap-new',
+          reach: '32',
+          spend_amount_decimal: '12.50',
+          spend_date: '2026-08-22',
+        },
+      ],
+      startDate: '2026-08-01',
+    });
+
+    expect(snapshot.providers[0]).toMatchObject({
+      metrics: null,
+      needsAccountSelection: true,
+      provider: 'meta_ads',
+    });
+    expect(snapshot.providers[1]).toMatchObject({
+      connectionStatus: 'error',
+      metrics: null,
+      provider: 'tiktok_ads',
+    });
+    expect(snapshot.providers[2]).toMatchObject({
+      metrics: {
+        clicks: '4',
+        spendByCurrency: [{ currencyCode: 'GBP', spendAmountDecimal: '12.5' }],
+      },
+      provider: 'snapchat_ads',
+    });
+    expect(snapshot.spendByCurrency).toEqual([
+      { currencyCode: 'GBP', spendAmountDecimal: '12.5' },
+    ]);
+    expect(snapshot.mixedCurrencies).toBe(false);
   });
 
   it('reports disconnected, account-selection, stale, and read-error states', () => {

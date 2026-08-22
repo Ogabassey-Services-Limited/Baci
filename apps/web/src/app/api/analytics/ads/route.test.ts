@@ -118,6 +118,7 @@ describe('GET /api/analytics/ads', () => {
             fetched_at: '2026-08-22T09:00:00.000Z',
             impressions: '100',
             provider: 'meta_ads',
+            provider_customer_id: 'act_1',
             reach: '80',
             spend_amount_decimal: '1250.50',
             spend_date: '2026-08-20',
@@ -134,7 +135,7 @@ describe('GET /api/analytics/ads', () => {
 
     const response = await GET(
       new Request(
-        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01T00%3A00%3A00.000Z&endDate=2026-08-22T23%3A59%3A59.000Z'
+        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
       )
     );
     const body = await response.json();
@@ -164,19 +165,68 @@ describe('GET /api/analytics/ads', () => {
     );
     expect(JSON.stringify(body)).not.toContain('must-not-leak');
   });
+
+  it('uses inclusive UTC instants for legacy orders while preserving date-only provider windows', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+    });
+    mockFetchAnalyticsPlatformConfig.mockResolvedValue({
+      facebook_capi_token: null,
+      facebook_pixel_id: null,
+      ga4_api_secret: null,
+      google_analytics_id: null,
+      offline_conversions_enabled: true,
+      snapchat_capi_token: null,
+      snapchat_pixel_id: null,
+      tiktok_access_token: null,
+      tiktok_pixel_id: null,
+    });
+
+    const ordersQuery = chainResult({ data: [], error: null }, 'lte');
+    const results = [
+      ordersQuery,
+      chainResult({ data: null, error: null }, 'maybeSingle'),
+      chainResult({ data: [], error: null }, 'order'),
+      chainResult({ data: [], error: null }, 'in'),
+      chainResult({ data: [], error: null }, 'order'),
+    ];
+    mockFrom.mockImplementation(() => results.shift());
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(ordersQuery.gte).toHaveBeenCalledWith(
+      'created_at',
+      '2026-08-01T00:00:00.000Z'
+    );
+    expect(ordersQuery.lte).toHaveBeenCalledWith(
+      'created_at',
+      '2026-08-22T23:59:59.999Z'
+    );
+  });
 });
 
 function chainResult(
   result: { data: unknown; error: unknown } | undefined,
   terminal: 'in' | 'lte' | 'maybeSingle' | 'order' | undefined
-): Record<string, unknown> {
+): Record<string, ReturnType<typeof vi.fn>> {
   const resolved = result ?? { data: null, error: null };
-  const chain: Record<string, unknown> = {};
+  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
   for (const method of ['eq', 'gte', 'in', 'lte', 'order', 'select']) {
-    chain[method] = () =>
-      method === terminal ? Promise.resolve(resolved) : chain;
+    chain[method] = vi.fn(() =>
+      method === terminal ? Promise.resolve(resolved) : chain
+    );
   }
-  chain.maybeSingle = () =>
-    terminal === 'maybeSingle' ? Promise.resolve(resolved) : chain;
+  chain.maybeSingle = vi.fn(() =>
+    terminal === 'maybeSingle' ? Promise.resolve(resolved) : chain
+  );
   return chain;
 }
