@@ -91,13 +91,10 @@ export function mapUcpCatalogProductRow({
   row: UcpCatalogProductRow;
 }): UcpCatalogProduct | null {
   const numericPrice = toFiniteNonNegativeNumber(row.price);
-  if (
-    numericPrice === null ||
-    typeof row.id !== 'string' ||
-    typeof row.name !== 'string' ||
-    !row.id.trim() ||
-    !row.name.trim()
-  ) {
+  const trimmedId = typeof row.id === 'string' ? row.id?.trim() : undefined;
+  const trimmedName =
+    typeof row.name === 'string' ? row.name?.trim() : undefined;
+  if (numericPrice === null || !trimmedId || !trimmedName) {
     return null;
   }
 
@@ -111,10 +108,10 @@ export function mapUcpCatalogProductRow({
   return mapStorefrontProductToUcpCatalogProduct({
     currency,
     description: row.description,
-    id: row.id,
+    id: trimmedId,
     image_url: extractPrimaryImageUrl(row.images),
     in_stock: availability.is_purchasable,
-    name: row.name,
+    name: trimmedName,
     price: numericPrice,
     product_url: buildAgentProductUrl({
       baseUrl,
@@ -122,8 +119,8 @@ export function mapUcpCatalogProductRow({
         canonical_url: row.canonical_url ?? null,
         category: row.category ?? null,
         categories: resolveStorefrontProductCategory(row),
-        id: row.id,
-        name: row.name,
+        id: trimmedId,
+        name: trimmedName,
         slug: row.slug ?? undefined,
       },
     }),
