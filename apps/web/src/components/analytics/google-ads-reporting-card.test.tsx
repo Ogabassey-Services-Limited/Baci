@@ -39,7 +39,10 @@ describe('GoogleAdsReportingCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /connect google ads/i })
-    ).toHaveAttribute('href', GOOGLE_ADS_CONNECT_PATH);
+    ).toHaveAttribute(
+      'href',
+      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=550e8400-e29b-41d4-a716-446655440000`
+    );
   });
 
   it('keeps loading state explicit and does not show metric values', () => {
@@ -66,7 +69,10 @@ describe('GoogleAdsReportingCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /reconnect google ads/i })
-    ).toHaveAttribute('href', GOOGLE_ADS_CONNECT_PATH);
+    ).toHaveAttribute(
+      'href',
+      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=550e8400-e29b-41d4-a716-446655440000`
+    );
   });
 
   it('keeps a connected reporting account controllable after a spend read error', () => {

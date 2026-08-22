@@ -147,7 +147,10 @@ export function GoogleAdsReportingCard({
               onSynced={onSynced}
             />
           ) : (
-            <GoogleAdsConnectButton label="Reconnect Google Ads" />
+            <GoogleAdsConnectButton
+              label="Reconnect Google Ads"
+              merchantId={merchant?.id}
+            />
           )}
         </div>
       ) : status !== 'connected' ? (
@@ -156,7 +159,7 @@ export function GoogleAdsReportingCard({
             Connect a Google Ads reporting account to bring ad spend,
             impressions, clicks, and conversion metrics into this dashboard.
           </p>
-          <GoogleAdsConnectButton />
+          <GoogleAdsConnectButton merchantId={merchant?.id} />
         </div>
       ) : reporting?.needsAccountSelection ? (
         <div className="space-y-3">
@@ -180,7 +183,10 @@ export function GoogleAdsReportingCard({
               Metrics will appear after the first reporting sync.
             </p>
           </div>
-          <GoogleAdsConnectButton label="Reconnect Google Ads" />
+          <GoogleAdsConnectButton
+            label="Reconnect Google Ads"
+            merchantId={merchant?.id}
+          />
         </div>
       ) : (
         <div className="space-y-3">
