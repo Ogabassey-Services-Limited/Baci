@@ -3,6 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
 
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({
+    merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
+  }),
+}));
+
 vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: mockFetchWithCsrf,
 }));
@@ -132,6 +138,14 @@ describe('GoogleAdsReportingCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /save account/i }));
 
     await waitFor(() => expect(onSynced).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/integrations/ads/google/accounts',
+      expect.objectContaining({
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
+      })
+    );
   });
 
   it('renders only metrics supplied by the reporting provider', () => {

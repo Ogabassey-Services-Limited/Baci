@@ -17,6 +17,7 @@ interface GoogleAdsAccount {
 
 interface GoogleAdsAccountPickerProps {
   className?: string;
+  merchantId?: string;
   onSynced?: () => void;
   syncWindow?: {
     endDate: string;
@@ -53,6 +54,7 @@ async function readError(
 
 export function GoogleAdsAccountPicker({
   className,
+  merchantId,
   onSynced,
   syncWindow,
 }: GoogleAdsAccountPickerProps) {
@@ -75,6 +77,7 @@ export function GoogleAdsAccountPicker({
     try {
       const response = await fetch(ACCOUNTS_PATH, {
         credentials: 'include',
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       });
       if (!response.ok) {
         throw new Error(
@@ -127,6 +130,7 @@ export function GoogleAdsAccountPicker({
     try {
       const selectionResponse = await fetchWithCsrf(ACCOUNTS_PATH, {
         body: JSON.stringify({ customerId: selectedCustomerId }),
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'PATCH',
       });
       if (!selectionResponse.ok) {
@@ -140,6 +144,7 @@ export function GoogleAdsAccountPicker({
 
       const response = await fetchWithCsrf(SYNC_PATH, {
         body: JSON.stringify(syncWindow ?? getDefaultSyncWindow()),
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',
       });
       if (!response.ok) {

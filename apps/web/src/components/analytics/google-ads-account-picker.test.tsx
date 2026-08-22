@@ -36,7 +36,9 @@ describe('GoogleAdsAccountPicker', () => {
       })
     );
 
-    render(<GoogleAdsAccountPicker />);
+    render(
+      <GoogleAdsAccountPicker merchantId="550e8400-e29b-41d4-a716-446655440000" />
+    );
     fireEvent.click(
       screen.getByRole('button', { name: /select google ads account/i })
     );
@@ -50,7 +52,12 @@ describe('GoogleAdsAccountPicker', () => {
     expect(screen.queryByText('123-456-7890')).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/integrations/ads/google/accounts',
-      expect.objectContaining({ credentials: 'include' })
+      expect.objectContaining({
+        credentials: 'include',
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
+      })
     );
   });
 
@@ -67,6 +74,7 @@ describe('GoogleAdsAccountPicker', () => {
     const onSynced = vi.fn();
     render(
       <GoogleAdsAccountPicker
+        merchantId="550e8400-e29b-41d4-a716-446655440000"
         onSynced={onSynced}
         syncWindow={{ endDate: '2026-08-21', startDate: '2026-08-01' }}
       />
@@ -84,6 +92,9 @@ describe('GoogleAdsAccountPicker', () => {
       '/api/integrations/ads/google/accounts',
       expect.objectContaining({
         body: JSON.stringify({ customerId: '1234567890' }),
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
         method: 'PATCH',
       })
     );
@@ -95,6 +106,9 @@ describe('GoogleAdsAccountPicker', () => {
           endDate: '2026-08-21',
           startDate: '2026-08-01',
         }),
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
         method: 'POST',
       })
     );

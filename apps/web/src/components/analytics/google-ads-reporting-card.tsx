@@ -13,6 +13,7 @@ import { GoogleAdsConnectButton } from '@/components/analytics/google-ads-connec
 import { GoogleAdsMetric } from '@/components/analytics/google-ads-metric';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { cn } from '@/lib/utils';
 
 export { GOOGLE_ADS_CONNECT_PATH } from './google-ads-connect-path';
@@ -108,6 +109,7 @@ export function GoogleAdsReportingCard({
   onSynced,
   reporting,
 }: GoogleAdsReportingCardProps) {
+  const { merchant } = useMerchant();
   const status =
     reporting?.connectionStatus ??
     (reporting?.metrics ? 'connected' : 'disconnected');
@@ -140,7 +142,10 @@ export function GoogleAdsReportingCard({
             </AlertDescription>
           </Alert>
           {reporting?.dataStatus === 'error' ? (
-            <GoogleAdsAccountPicker onSynced={onSynced} />
+            <GoogleAdsAccountPicker
+              merchantId={merchant?.id}
+              onSynced={onSynced}
+            />
           ) : (
             <GoogleAdsConnectButton label="Reconnect Google Ads" />
           )}
@@ -159,7 +164,10 @@ export function GoogleAdsReportingCard({
             Google Ads is connected. Select a reporting account to start
             importing spend and campaign metrics.
           </p>
-          <GoogleAdsAccountPicker onSynced={onSynced} />
+          <GoogleAdsAccountPicker
+            merchantId={merchant?.id}
+            onSynced={onSynced}
+          />
         </div>
       ) : !metrics ? (
         <div className="space-y-3">
@@ -270,6 +278,7 @@ export function GoogleAdsReportingCard({
               order attribution and revenue.
             </p>
             <GoogleAdsAccountPicker
+              merchantId={merchant?.id}
               onSynced={onSynced}
               syncWindow={
                 metrics.startDate && metrics.endDate
