@@ -17,6 +17,9 @@ const { resolveAndroidGoogleServicesFile } =
     }) => string;
   };
 
+const { resolveUpdateChannel } =
+  require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
+
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
   rawAndroidVersionCode === undefined
@@ -107,6 +110,7 @@ const posthogHost =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
 const EAS_PROJECT_ID = '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9';
 const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
+const updateChannel = resolveUpdateChannel(process.env);
 
 /**
  * Expo App Configuration
@@ -129,6 +133,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     enableBsdiffPatchSupport: true,
     enabled: true,
     fallbackToCacheTimeout: 0,
+    requestHeaders: {
+      'expo-channel-name': updateChannel,
+    },
     url: EAS_UPDATE_URL,
     useEmbeddedUpdate: true,
   },

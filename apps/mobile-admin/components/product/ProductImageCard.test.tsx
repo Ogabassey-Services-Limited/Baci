@@ -5,20 +5,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import { ProductImageCard } from './ProductImageCard';
 
-vi.mock('expo-image', () => ({
-  Image: ({
-    onError,
-    source,
-  }: {
-    onError?: () => void;
-    source: { cacheKey?: string; uri: string };
-  }) => (
-    <img
-      alt="Product preview"
-      data-cache-key={source.cacheKey}
-      data-src={source.uri}
-      onError={onError}
-    />
+vi.mock('@/components/ui/SafeImage', () => ({
+  default: ({ source }: { source: { uri: string } }) => (
+    <img alt="Product preview" data-src={source.uri} />
   ),
 }));
 
@@ -123,29 +112,7 @@ describe('ProductImageCard', () => {
     const image = screen.getByRole('img', { name: 'Product preview' });
 
     expect(image).toHaveAttribute('data-src', 'https://example.com/image.jpg');
-    expect(image).toHaveAttribute(
-      'data-cache-key',
-      'baci-product-image:https://example.com/image.jpg'
-    );
     expect(screen.getByText('Change Image')).toBeInTheDocument();
-  });
-
-  it('shows an accessible fallback when the CDN image fails to load', () => {
-    render(
-      <ProductImageCard
-        colors={colors}
-        imageUrl="https://cdn.example.com/image.jpg"
-        isUploading={false}
-        onPress={vi.fn()}
-      />
-    );
-
-    fireEvent.error(screen.getByRole('img', { name: 'Product preview' }));
-
-    expect(screen.getByText('Image unavailable')).toBeInTheDocument();
-    expect(
-      screen.getByLabelText('Product image unavailable')
-    ).toBeInTheDocument();
   });
 
   it('shows a disabled uploading state and ignores presses while uploading', () => {

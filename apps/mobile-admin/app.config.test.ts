@@ -282,4 +282,28 @@ describe('mobile-admin EAS Update foundation', () => {
       useEmbeddedUpdate: true,
     });
   });
+
+  it('embeds the production update channel for local release prebuilds', async () => {
+    vi.stubEnv('EAS_BUILD_PROFILE', '');
+    vi.stubEnv('EXPO_PUBLIC_ENV', '');
+    vi.stubEnv('EXPO_UPDATE_CHANNEL', '');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.updates?.requestHeaders).toEqual({
+      'expo-channel-name': 'production',
+    });
+  });
+
+  it('honors an explicit preview channel override', async () => {
+    vi.stubEnv('EXPO_UPDATE_CHANNEL', 'preview');
+
+    const { default: buildConfig } = await import('./app.config');
+    const config = buildConfig(TEST_CONFIG_CONTEXT);
+
+    expect(config.updates?.requestHeaders).toEqual({
+      'expo-channel-name': 'preview',
+    });
+  });
 });
