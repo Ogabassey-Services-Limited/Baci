@@ -52,6 +52,11 @@ describe('UCP catalog adapter validation', () => {
     expect(mapRow({ id: '   ' })).toBeNull();
   });
 
+  it('refuses rows with a nullish id or name', () => {
+    expect(mapRow({ id: null })).toBeNull();
+    expect(mapRow({ name: undefined })).toBeNull();
+  });
+
   it('refuses rows with a whitespace-only name', () => {
     expect(mapRow({ name: '   ' })).toBeNull();
   });

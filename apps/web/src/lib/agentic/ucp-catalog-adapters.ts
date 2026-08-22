@@ -25,11 +25,11 @@ export type UcpCatalogProductRow = {
   category?: string | null;
   categories?: { is_active?: boolean | null; slug?: string | null } | null;
   description?: string | null;
-  id: string;
+  id?: string | null;
   images?: unknown;
   manage_stock?: boolean | null;
   merchant_id: string;
-  name: string;
+  name?: string | null;
   price?: number | string | null;
   product_categories?: Array<{
     category_id?: string | null;
@@ -91,7 +91,13 @@ export function mapUcpCatalogProductRow({
   row: UcpCatalogProductRow;
 }): UcpCatalogProduct | null {
   const numericPrice = toFiniteNonNegativeNumber(row.price);
-  if (numericPrice === null || !row.id.trim() || !row.name.trim()) {
+  if (
+    numericPrice === null ||
+    typeof row.id !== 'string' ||
+    typeof row.name !== 'string' ||
+    !row.id.trim() ||
+    !row.name.trim()
+  ) {
     return null;
   }
 
