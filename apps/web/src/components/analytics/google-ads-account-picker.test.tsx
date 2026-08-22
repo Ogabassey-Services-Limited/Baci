@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
@@ -23,6 +29,7 @@ describe('GoogleAdsAccountPicker', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -127,5 +134,41 @@ describe('GoogleAdsAccountPicker', () => {
     expect(
       await screen.findByText('Google Ads account discovery failed.')
     ).toBeInTheDocument();
+  });
+
+  it('syncs the local calendar day near a positive-offset midnight boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 21, 0, 30));
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        accounts: [{ customerId: '1234567890', selected: false }],
+      })
+    );
+    mockFetchWithCsrf
+      .mockResolvedValueOnce(jsonResponse({ selected: true }))
+      .mockResolvedValueOnce(jsonResponse({ synced: true }));
+
+    render(<GoogleAdsAccountPicker />);
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: /select google ads account/i })
+      );
+      await Promise.resolve();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /save account/i }));
+      await Promise.resolve();
+    });
+
+    expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
+      2,
+      '/api/integrations/ads/google/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          startDate: '2026-07-22',
+        }),
+      })
+    );
   });
 });

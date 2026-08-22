@@ -153,6 +153,43 @@ describe('dashboard preferences merchant context', () => {
     );
   });
 
+  it('preserves the saved layout when updating only visible cards', async () => {
+    const query = createQuery({
+      data: {
+        layout_config: {
+          lg: [{ h: 3, i: 'ads-reporting', w: 12, x: 0, y: 4 }],
+        },
+        visible_cards: ['social-ads-reporting'],
+      },
+      error: null,
+    });
+    mocks.createClient.mockReturnValue({
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+      },
+      from: vi.fn(() => query),
+    });
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/dashboard/preferences', {
+        body: JSON.stringify({ visible_cards: ['social-ads-reporting'] }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(query.upsert).toHaveBeenCalledWith(
+      {
+        merchant_id: 'merchant-1',
+        updated_at: expect.any(String),
+        visible_cards: ['social-ads-reporting'],
+      },
+      { onConflict: 'merchant_id' }
+    );
+  });
+
   it('returns 400 for malformed JSON without persisting preferences', async () => {
     const response = await POST(
       new NextRequest('https://usebaci.com/api/dashboard/preferences', {

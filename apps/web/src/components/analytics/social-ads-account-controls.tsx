@@ -10,6 +10,7 @@ import {
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { buildDefaultAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
 import type { SocialAdsProvider } from './social-ads-reporting-card';
 
@@ -34,16 +35,6 @@ const PROVIDER_PATH_SEGMENT: Record<SocialAdsProvider, string> = {
   snapchat_ads: 'snapchat',
   tiktok_ads: 'tiktok',
 };
-
-function defaultSyncWindow() {
-  const end = new Date();
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 30);
-  return {
-    endDate: end.toISOString().slice(0, 10),
-    startDate: start.toISOString().slice(0, 10),
-  };
-}
 
 async function responseError(response: Response, fallback: string) {
   try {
@@ -129,7 +120,7 @@ export function SocialAdsAccountControls({
 
   const sync = async () => {
     const response = await fetchWithCsrf(`${path}/sync`, {
-      body: JSON.stringify(defaultSyncWindow()),
+      body: JSON.stringify(buildDefaultAdsSyncWindow()),
       headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       method: 'POST',
     });

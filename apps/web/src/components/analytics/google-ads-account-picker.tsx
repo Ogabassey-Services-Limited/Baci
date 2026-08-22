@@ -4,6 +4,7 @@ import { AlertCircle, Check, ListRestart, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { buildDefaultAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -22,16 +23,6 @@ interface GoogleAdsAccountPickerProps {
   syncWindow?: {
     endDate: string;
     startDate: string;
-  };
-}
-
-function getDefaultSyncWindow(): { endDate: string; startDate: string } {
-  const end = new Date();
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 30);
-  return {
-    endDate: end.toISOString().slice(0, 10),
-    startDate: start.toISOString().slice(0, 10),
   };
 }
 
@@ -143,7 +134,7 @@ export function GoogleAdsAccountPicker({
       }
 
       const response = await fetchWithCsrf(SYNC_PATH, {
-        body: JSON.stringify(syncWindow ?? getDefaultSyncWindow()),
+        body: JSON.stringify(syncWindow ?? buildDefaultAdsSyncWindow()),
         headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',
       });

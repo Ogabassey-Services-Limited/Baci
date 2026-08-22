@@ -176,7 +176,9 @@ export async function POST(request: NextRequest) {
       .upsert(
         {
           merchant_id: merchantId,
-          layout_config: parsedBody.data.layout_config ?? [],
+          ...(parsedBody.data.layout_config !== undefined
+            ? { layout_config: parsedBody.data.layout_config }
+            : {}),
           ...(parsedBody.data.visible_cards !== undefined
             ? { visible_cards: parsedBody.data.visible_cards }
             : {}),

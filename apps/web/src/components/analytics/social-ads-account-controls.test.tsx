@@ -1,5 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SocialAdsAccountControls } from './social-ads-account-controls';
 
 const fetchWithCsrf = vi.fn();
@@ -11,6 +17,10 @@ describe('SocialAdsAccountControls', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     fetchWithCsrf.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('selects an accessible account and starts a provider sync', async () => {
@@ -102,5 +112,33 @@ describe('SocialAdsAccountControls', () => {
     expect(
       await screen.findByText('TikTok reporting is unavailable')
     ).toBeInTheDocument();
+  });
+
+  it('syncs the local calendar day near a positive-offset midnight boundary', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 7, 21, 0, 30));
+    fetchWithCsrf.mockResolvedValue(new Response('{}'));
+
+    render(
+      <SocialAdsAccountControls
+        displayName="Meta Ads"
+        needsAccountSelection={false}
+        provider="meta_ads"
+      />
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+      await Promise.resolve();
+    });
+
+    expect(fetchWithCsrf).toHaveBeenCalledWith(
+      '/api/integrations/ads/meta/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          startDate: '2026-07-22',
+        }),
+      })
+    );
   });
 });

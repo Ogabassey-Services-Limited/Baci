@@ -67,13 +67,18 @@ const visibleCardId = z
     message: 'Unknown dashboard card',
   });
 
-const layoutItem = z.object({
-  h: z.number().int().min(1).max(20),
-  i: widgetId,
-  w: z.number().int().min(1).max(12),
-  x: z.number().int().min(0).max(11),
-  y: z.number().int().min(0).max(1_000),
-});
+const layoutItem = z
+  .object({
+    h: z.number().int().min(1).max(20),
+    i: widgetId,
+    w: z.number().int().min(1).max(12),
+    x: z.number().int().min(0).max(11),
+    y: z.number().int().min(0).max(1_000),
+  })
+  .refine((item) => item.x + item.w <= 12, {
+    message: 'Dashboard widget exceeds the 12-column grid',
+    path: ['w'],
+  });
 
 const layout = z.array(layoutItem).max(100);
 

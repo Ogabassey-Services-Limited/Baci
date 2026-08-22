@@ -31,5 +31,10 @@ describe('dashboardPreferencesSchema', () => {
         })),
       }).success
     ).toBe(false);
+    expect(
+      dashboardPreferencesSchema.safeParse({
+        layout_config: [{ h: 1, i: 'ads-reporting', w: 12, x: 1, y: 0 }],
+      }).success
+    ).toBe(false);
   });
 });
