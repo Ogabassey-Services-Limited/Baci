@@ -42,6 +42,7 @@ import { POST } from './route';
 
 type ProductRow = {
   categories?: { slug?: string | null } | null;
+  category?: string;
   id: string;
   name: string;
   price?: number | string | null;
@@ -68,14 +69,25 @@ function mockProductRows(rows: ProductRow[]) {
       .map((row) => ({ product_id: row.id, total_count: rows.length })),
     error: null,
   });
+  let categoryFilter: string | undefined;
   query = {
     eq: vi.fn(() => query),
     in: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
-    or: vi.fn(() => query),
+    or: vi.fn((expression: string) => {
+      categoryFilter = expression.match(/^category\.eq\.([^,]+)/)?.[1];
+      return query;
+    }),
     order: vi.fn(() => query),
     range: vi.fn(async (from: number, to: number) => ({
-      data: rows.slice(from, to + 1),
+      data: rows
+        .filter(
+          (row) =>
+            !categoryFilter ||
+            row.category === categoryFilter ||
+            row.categories?.slug === categoryFilter
+        )
+        .slice(from, to + 1),
       error: null,
     })),
   };
@@ -187,9 +199,27 @@ describe('POST /api/agentic/catalog/search', () => {
 
   it('backfills filter-only results after refusing invalid candidates', async () => {
     mockProductRows([
-      { id: 'bad-price-1', name: 'Bad 1', price: -1, status: 'active' },
-      { id: 'bad-price-2', name: 'Bad 2', price: Number.NaN, status: 'active' },
-      { id: 'valid-product', name: 'Valid', price: 100, status: 'active' },
+      {
+        id: 'bad-price-1',
+        name: 'Bad 1',
+        price: -1,
+        status: 'active',
+        category: 'phones',
+      },
+      {
+        id: 'bad-price-2',
+        name: 'Bad 2',
+        price: Number.NaN,
+        status: 'active',
+        category: 'phones',
+      },
+      {
+        id: 'valid-product',
+        name: 'Valid',
+        price: 100,
+        status: 'active',
+        category: 'phones',
+      },
     ]);
 
     const response = await POST(
@@ -212,8 +242,20 @@ describe('POST /api/agentic/catalog/search', () => {
 
   it('bounds filter-only results when a valid batch exceeds the page size', async () => {
     mockProductRows([
-      { id: 'product-1', name: 'First', price: 100, status: 'active' },
-      { id: 'product-2', name: 'Second', price: 200, status: 'active' },
+      {
+        id: 'product-1',
+        name: 'First',
+        price: 100,
+        status: 'active',
+        category: 'laptops',
+      },
+      {
+        id: 'product-2',
+        name: 'Second',
+        price: 200,
+        status: 'active',
+        category: 'phones',
+      },
     ]);
 
     const response = await POST(
@@ -229,7 +271,7 @@ describe('POST /api/agentic/catalog/search', () => {
 
     expect(body.products).toHaveLength(1);
     expect(body.products[0]).toEqual(
-      expect.objectContaining({ id: 'product-1' })
+      expect.objectContaining({ id: 'product-2' })
     );
   });
 

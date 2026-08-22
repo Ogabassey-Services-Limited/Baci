@@ -35,6 +35,9 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 let query: {
   eq: ReturnType<typeof vi.fn>;
+  gte: ReturnType<typeof vi.fn>;
+  lte: ReturnType<typeof vi.fn>;
+  or: ReturnType<typeof vi.fn>;
   limit: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
@@ -53,8 +56,11 @@ function mockJunctionOnlyProduct() {
   ];
   query = {
     eq: vi.fn(() => query),
+    gte: vi.fn(() => query),
     limit: vi.fn(async () => ({ data: rows, error: null })),
+    lte: vi.fn(() => query),
     order: vi.fn(() => query),
+    or: vi.fn(() => query),
     range: vi.fn(async (from: number, to: number) => ({
       data: rows.slice(from, to + 1),
       error: null,

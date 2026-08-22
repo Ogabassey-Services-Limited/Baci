@@ -19,6 +19,10 @@ import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { searchStorefrontProducts } from '@/lib/storefront-search';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ucpCatalogSearchRequestSchema } from '@/schemas/ucp-catalog-request';
+import {
+  applyUcpCatalogSearchFilters,
+  type CatalogFilterQuery,
+} from './route-filters';
 
 const CATALOG_CURRENCY = 'NGN';
 const MAX_CATALOG_SEARCH_CANDIDATES = 100;
@@ -48,9 +52,6 @@ export async function POST(request: NextRequest) {
   }
 
   const limit = parsed.data.pagination?.limit ?? 20;
-  // Fetch a fixed candidate batch because the adapter intentionally refuses
-  // rows with unusable catalog identity or pricing. The response is still
-  // bounded to the caller's requested page size below.
   const candidateLimit = MAX_CATALOG_SEARCH_CANDIDATES;
   let rankedProducts: UcpCatalogProduct[] | null = null;
   const rankedProductIds: string[] = [];
@@ -123,16 +124,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const query = context.supabase
-    .from('products')
-    .select(PRODUCT_SELECT)
-    .eq('merchant_id', context.merchant.id)
-    .eq('status', 'active')
-    .order('category_id', {
-      ascending: true,
-      referencedTable: 'product_categories',
-    });
-
+  const query = applyUcpCatalogSearchFilters(
+    context.supabase
+      .from('products')
+      .select(PRODUCT_SELECT)
+      .eq('merchant_id', context.merchant.id)
+      .eq('status', 'active') as unknown as CatalogFilterQuery,
+    parsed.data.filters
+  ).order('category_id', {
+    ascending: true,
+    referencedTable: 'product_categories',
+  });
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
   const orderedQuery = query
     .order('created_at', { ascending: false })
