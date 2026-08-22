@@ -24,6 +24,32 @@ function readNumberField(value: unknown, field: string): number | undefined {
   return typeof fieldValue === 'number' ? fieldValue : undefined;
 }
 
+function createAbortDeadlinePromise(signal: AbortSignal) {
+  let cleanup: () => void = () => undefined;
+  const promise = new Promise<never>((_, reject) => {
+    const onAbort = () => {
+      cleanup();
+      reject(
+        signal.reason ??
+          new DOMException(
+            'The operation was aborted due to timeout',
+            'TimeoutError'
+          )
+      );
+    };
+
+    cleanup = () => signal.removeEventListener('abort', onAbort);
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+
+  return { cleanup, promise };
+}
+
 /** Runs one bounded PDP semantic RPC and traces only slow/failed boundaries. */
 export async function runStorefrontPdpSemanticRpc<T>(
   query: AbortableQuery<T>,
@@ -34,6 +60,7 @@ export async function runStorefrontPdpSemanticRpc<T>(
     typeof query.abortSignal === 'function'
       ? query.abortSignal(timeoutSignal)
       : query;
+  const deadline = createAbortDeadlinePromise(timeoutSignal);
   const startedAt = performance.now();
   const trace = (fields: Omit<BoundaryTrace, 'elapsedMs'>) => {
     logger.warn({
@@ -48,7 +75,10 @@ export async function runStorefrontPdpSemanticRpc<T>(
 
   let response: T;
   try {
-    response = await boundedQuery;
+    // Some fetch implementations resolve an aborted PostgREST request well
+    // after the signal fires. Race the response as well as aborting the
+    // transport so the optional PDP work cannot extend the route deadline.
+    response = await Promise.race([boundedQuery, deadline.promise]);
   } catch (error) {
     trace({
       errorCode: readStringField(error, 'code'),
@@ -56,6 +86,8 @@ export async function runStorefrontPdpSemanticRpc<T>(
       outcome: 'throw',
     });
     throw error;
+  } finally {
+    deadline.cleanup();
   }
 
   const elapsedMs = performance.now() - startedAt;

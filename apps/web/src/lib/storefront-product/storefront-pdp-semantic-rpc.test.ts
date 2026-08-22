@@ -17,6 +17,13 @@ function createAbortableQuery<T>(
   return Object.assign(promise, { abortSignal });
 }
 
+function createPendingAbortableQuery<T>(
+  abortSignal: AbortableQueryMock<T>['abortSignal']
+): AbortableQueryMock<T> {
+  const promise = new Promise<T>(() => undefined);
+  return Object.assign(promise, { abortSignal });
+}
+
 describe('runStorefrontPdpSemanticRpc', () => {
   beforeEach(() => {
     loggerMocks.warn.mockClear();
@@ -90,6 +97,35 @@ describe('runStorefrontPdpSemanticRpc', () => {
         outcome: 'slow_response',
         responseStatus: 200,
         elapsedMs: 4_001,
+      })
+    );
+  });
+
+  it('returns at the deadline when an aborted RPC promise never settles', async () => {
+    const timeoutController = new AbortController();
+    const timeoutError = new DOMException(
+      'The operation timed out',
+      'TimeoutError'
+    );
+    vi.spyOn(AbortSignal, 'timeout').mockReturnValue(timeoutController.signal);
+    const abortSignal = vi.fn<(signal: AbortSignal) => PromiseLike<never>>(
+      () => new Promise<never>(() => undefined)
+    );
+    const query = createPendingAbortableQuery<never>(abortSignal);
+    const result = runStorefrontPdpSemanticRpc(query, {
+      deadlineMs: 5_000,
+      traceThresholdMs: 4_000,
+    });
+
+    timeoutController.abort(timeoutError);
+
+    await expect(result).rejects.toBe(timeoutError);
+    expect(abortSignal).toHaveBeenCalledWith(timeoutController.signal);
+    expect(loggerMocks.warn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: 'throw',
+        errorName: 'TimeoutError',
+        timeoutSignalAborted: true,
       })
     );
   });
