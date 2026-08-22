@@ -23,6 +23,7 @@ interface SocialAdsAccount {
 
 interface SocialAdsAccountControlsProps {
   displayName: string;
+  merchantId?: string;
   needsAccountSelection: boolean;
   onSynced?: () => void;
   provider: SocialAdsProvider;
@@ -77,6 +78,7 @@ function parseAccounts(value: unknown): SocialAdsAccount[] {
 
 export function SocialAdsAccountControls({
   displayName,
+  merchantId,
   needsAccountSelection,
   onSynced,
   provider,
@@ -96,6 +98,7 @@ export function SocialAdsAccountControls({
     try {
       const response = await fetch(`${path}/accounts`, {
         credentials: 'include',
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       });
       if (!response.ok) {
         throw new Error(
@@ -127,6 +130,7 @@ export function SocialAdsAccountControls({
   const sync = async () => {
     const response = await fetchWithCsrf(`${path}/sync`, {
       body: JSON.stringify(defaultSyncWindow()),
+      headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       method: 'POST',
     });
     if (!response.ok) {
@@ -160,6 +164,7 @@ export function SocialAdsAccountControls({
     try {
       const response = await fetchWithCsrf(`${path}/accounts`, {
         body: JSON.stringify({ accountId: selectedId }),
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'PATCH',
       });
       if (!response.ok) {

@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { getGoogleAdsOAuthConfig } from '@/lib/google-ads/config';
 import {
   GOOGLE_ADS_STATE_COOKIE,
@@ -87,10 +84,16 @@ export async function GET(request: NextRequest) {
     return callbackRedirect('error', 'invalid_state');
   }
 
-  const access = await getUserAccess(auth.supabase);
-  if (!access || access.merchantId !== statePayload.merchantId) {
+  const merchant = await resolveAdsMerchantAccess({
+    merchantId: statePayload.merchantId,
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response || !merchant.access) {
     return callbackRedirect('error', 'merchant_mismatch');
   }
+  const access = merchant.access;
   if (!hasPermission(access, 'integrations', 'manage')) {
     return callbackRedirect('error', 'forbidden');
   }

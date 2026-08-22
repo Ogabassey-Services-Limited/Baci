@@ -5,6 +5,9 @@ const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const rpc = vi.fn();
+const createState = vi.fn<(payload: unknown, secret: string) => string>(
+  () => 'signed-state'
+);
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -25,7 +28,8 @@ vi.mock('@/lib/ads/meta/oauth', () => ({
   buildMetaAdsAuthorizationUrl: () => 'https://facebook.com/oauth',
 }));
 vi.mock('@/lib/ads/state', () => ({
-  createAdsOAuthState: () => 'signed-state',
+  createAdsOAuthState: (payload: unknown, secret: string) =>
+    createState(payload, secret),
 }));
 
 import { GET } from './route';
@@ -41,6 +45,7 @@ describe('Meta Ads connect route', () => {
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(true);
     rpc.mockResolvedValue({ data: true, error: null });
+    createState.mockReturnValue('signed-state');
   });
 
   it('rejects unauthenticated requests before OAuth state generation', async () => {
@@ -83,5 +88,45 @@ describe('Meta Ads connect route', () => {
     );
 
     expect(response.status).toBe(503);
+  });
+
+  it('binds OAuth state and nonce reservation to the explicitly selected merchant', async () => {
+    const ownerQuery = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          business_name: 'Selected merchant',
+          id: '550e8400-e29b-41d4-a716-446655440000',
+          slug: 'selected',
+        },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn().mockReturnValue(ownerQuery), rpc },
+      user: { id: 'user' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/connect?merchantId=550e8400-e29b-41d4-a716-446655440000'
+      )
+    );
+
+    expect(response.status).toBe(307);
+    expect(createState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: '550e8400-e29b-41d4-a716-446655440000',
+      }),
+      'state-secret'
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      'reserve_merchant_ads_oauth_state_nonce',
+      expect.objectContaining({
+        p_merchant_id: '550e8400-e29b-41d4-a716-446655440000',
+      })
+    );
   });
 });

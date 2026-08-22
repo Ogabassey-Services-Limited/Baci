@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SnapchatAdsConfigError } from '@/lib/ads/snapchat/config';
 import { createAdsOAuthState } from '@/lib/ads/state';
 
@@ -8,10 +8,14 @@ const access = vi.fn();
 const permission = vi.fn();
 const config = vi.fn();
 const exchange = vi.fn();
+const resolveMerchant = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
   hasPermission: (...args: unknown[]) => permission(...args),
+}));
+vi.mock('@/lib/ads/merchant-context', () => ({
+  resolveAdsMerchantAccess: (...args: unknown[]) => resolveMerchant(...args),
 }));
 vi.mock('@/lib/ads/snapchat/config', () => ({
   getSnapchatAdsConfig: () => config(),
@@ -46,6 +50,13 @@ function signedState() {
 import { GET } from './route';
 
 describe('Snapchat Ads callback route', () => {
+  beforeEach(() => {
+    resolveMerchant.mockResolvedValue({
+      access: { merchantId: 'merchant' },
+      response: null,
+    });
+  });
+
   it('rejects unauthenticated callbacks before exchanging a replayed code', async () => {
     auth.mockResolvedValue({
       error: 'Unauthorized',

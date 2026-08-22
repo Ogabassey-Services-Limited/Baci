@@ -1,27 +1,30 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
-import { SnapchatAdsConfigError } from '@/lib/ads/snapchat/config';
-import { SnapchatAdsProviderError } from '@/lib/ads/snapchat/provider';
-import {
-  SnapchatAdsSyncError,
-  syncSnapchatAdsSpendForMerchant,
-} from '@/lib/ads/snapchat/sync';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
+import { GoogleAdsConfigError } from '@/lib/google-ads/config';
+import { GoogleAdsProviderError } from '@/lib/google-ads/provider';
+import {
+  GoogleAdsSyncError,
+  syncGoogleAdsSpendForMerchant,
+} from '@/lib/google-ads/sync';
+import { googleAdsSyncRequestSchema } from '@/schemas/google-ads';
+
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
-  if (auth.error || !auth.user || !auth.supabase)
+  if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json(
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
+  }
   const csrf = await checkCsrfProtection(request);
-  if (!csrf.valid)
+  if (!csrf.valid) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
+  }
   const merchant = await resolveAdsMerchantAccess({
     request,
     supabase: auth.supabase,
@@ -29,52 +32,51 @@ export async function POST(request: NextRequest) {
   });
   if (merchant.response) return merchant.response;
   const access = merchant.access;
-  if (!access)
+  if (!access) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  if (!hasPermission(access, 'integrations', 'manage'))
+  }
+  if (!hasPermission(access, 'integrations', 'manage')) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  }
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
   }
-  const parsed = snapchatAdsSyncRequestSchema.safeParse(body);
-  if (!parsed.success)
+  const parsed = googleAdsSyncRequestSchema.safeParse(body);
+  if (!parsed.success) {
     return NextResponse.json(
       { error: 'Invalid input', details: parsed.error.flatten() },
       { status: 400 }
     );
+  }
+
   try {
-    return NextResponse.json({
-      ...(await syncSnapchatAdsSpendForMerchant({
-        ...parsed.data,
-        merchantId: access.merchantId,
-        supabase: auth.supabase,
-      })),
-      synced: true,
+    const result = await syncGoogleAdsSpendForMerchant({
+      endDate: parsed.data.endDate,
+      merchantId: access.merchantId,
+      startDate: parsed.data.startDate,
+      supabase: auth.supabase,
     });
+    return NextResponse.json({ ...result, synced: true });
   } catch (error) {
-    if (error instanceof SnapchatAdsConfigError)
+    if (error instanceof GoogleAdsConfigError) {
       return NextResponse.json(
-        { error: 'Snapchat Ads integration unavailable' },
+        { error: 'Google Ads integration unavailable' },
         { status: 503 }
       );
-    if (error instanceof SnapchatAdsSyncError)
-      return NextResponse.json(
-        { error: error.code },
-        {
-          status:
-            error.code === 'SNAPCHAT_ADS_ACCOUNT_NOT_SELECTED' ? 409 : 502,
-        }
-      );
+    }
+    if (error instanceof GoogleAdsSyncError) {
+      const status =
+        error.code === 'GOOGLE_ADS_CUSTOMER_NOT_SELECTED' ? 409 : 502;
+      return NextResponse.json({ error: error.code }, { status });
+    }
+    if (error instanceof GoogleAdsProviderError) {
+      return NextResponse.json({ error: error.code }, { status: 502 });
+    }
     return NextResponse.json(
-      {
-        error:
-          error instanceof SnapchatAdsProviderError
-            ? error.code
-            : 'Snapchat Ads sync failed',
-      },
+      { error: 'Google Ads sync failed' },
       { status: 502 }
     );
   }

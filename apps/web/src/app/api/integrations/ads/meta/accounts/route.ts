@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { resolveMetaAdsAccessToken } from '@/lib/ads/meta/access-token';
 import {
   getMetaAdsConfig,
@@ -14,11 +15,7 @@ import {
   MetaAdsReauthPersistenceError,
   markMetaAdsReauthRequired,
 } from '@/lib/ads/meta/sync';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { metaAdsAccountSelectionSchema } from '@/schemas/meta-ads';
 
@@ -43,7 +40,13 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access)
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
@@ -145,7 +148,13 @@ export async function PATCH(request: NextRequest) {
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access)
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))

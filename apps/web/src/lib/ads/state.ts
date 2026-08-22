@@ -16,7 +16,7 @@ export interface AdsOAuthStatePayload {
 }
 
 export interface AdsOAuthStateExpectation {
-  merchantId: string;
+  merchantId: string | null;
   provider: AdsProvider;
   redirectUri: string;
   userId: string;
@@ -96,7 +96,8 @@ export function verifyAdsOAuthState(
       ageSeconds < -30 ||
       ageSeconds > ADS_OAUTH_STATE_TTL_SECONDS ||
       payload.provider !== expected.provider ||
-      payload.merchantId !== expected.merchantId ||
+      (expected.merchantId !== null &&
+        payload.merchantId !== expected.merchantId) ||
       payload.userId !== expected.userId ||
       payload.redirectUri !== expectedRedirectUri
     ) {

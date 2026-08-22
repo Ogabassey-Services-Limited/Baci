@@ -35,6 +35,7 @@ describe('SocialAdsAccountControls', () => {
     render(
       <SocialAdsAccountControls
         displayName="Meta Ads"
+        merchantId="550e8400-e29b-41d4-a716-446655440000"
         needsAccountSelection
         onSynced={onSynced}
         provider="meta_ads"
@@ -42,6 +43,15 @@ describe('SocialAdsAccountControls', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Select account' }));
     expect(await screen.findByText('Baci Meta')).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/integrations/ads/meta/accounts',
+      expect.objectContaining({
+        credentials: 'include',
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
+      })
+    );
     fireEvent.click(
       screen.getByRole('button', { name: 'Save account and sync' })
     );
@@ -50,12 +60,22 @@ describe('SocialAdsAccountControls', () => {
     expect(fetchWithCsrf).toHaveBeenNthCalledWith(
       1,
       '/api/integrations/ads/meta/accounts',
-      expect.objectContaining({ method: 'PATCH' })
+      expect.objectContaining({
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
+        method: 'PATCH',
+      })
     );
     expect(fetchWithCsrf).toHaveBeenNthCalledWith(
       2,
       '/api/integrations/ads/meta/sync',
-      expect.objectContaining({ method: 'POST' })
+      expect.objectContaining({
+        headers: {
+          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+        },
+        method: 'POST',
+      })
     );
   });
 
@@ -72,6 +92,7 @@ describe('SocialAdsAccountControls', () => {
     render(
       <SocialAdsAccountControls
         displayName="TikTok Ads"
+        merchantId="550e8400-e29b-41d4-a716-446655440000"
         needsAccountSelection={false}
         provider="tiktok_ads"
       />

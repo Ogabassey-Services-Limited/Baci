@@ -5,9 +5,22 @@ import {
   SocialAdsReportingCard,
 } from './social-ads-reporting-card';
 
+vi.mock('@/hooks/use-merchant-client', () => ({
+  useMerchant: () => ({
+    merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
+  }),
+}));
 vi.mock('./social-ads-account-controls', () => ({
-  SocialAdsAccountControls: ({ displayName }: { displayName: string }) => (
-    <button type="button">Sync {displayName}</button>
+  SocialAdsAccountControls: ({
+    displayName,
+    merchantId,
+  }: {
+    displayName: string;
+    merchantId?: string;
+  }) => (
+    <button type="button">
+      Sync {displayName} {merchantId}
+    </button>
   ),
 }));
 
@@ -111,12 +124,20 @@ describe('SocialAdsReportingCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /Connect TikTok Ads/i })
-    ).toHaveAttribute('href', '/api/integrations/ads/tiktok/connect');
+    ).toHaveAttribute(
+      'href',
+      '/api/integrations/ads/tiktok/connect?merchantId=550e8400-e29b-41d4-a716-446655440000'
+    );
     expect(
       screen.getByRole('link', { name: /Reconnect Snapchat Ads/i })
-    ).toHaveAttribute('href', '/api/integrations/ads/snapchat/connect');
+    ).toHaveAttribute(
+      'href',
+      '/api/integrations/ads/snapchat/connect?merchantId=550e8400-e29b-41d4-a716-446655440000'
+    );
     expect(
-      screen.getByRole('button', { name: 'Sync Meta Ads' })
+      screen.getByRole('button', {
+        name: 'Sync Meta Ads 550e8400-e29b-41d4-a716-446655440000',
+      })
     ).toBeInTheDocument();
   });
 });

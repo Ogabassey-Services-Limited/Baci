@@ -10,6 +10,7 @@ import { SocialAdsAccountControls } from '@/components/analytics/social-ads-acco
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { cn } from '@/lib/utils';
 
 export type SocialAdsProvider = 'meta_ads' | 'tiktok_ads' | 'snapchat_ads';
@@ -105,13 +106,19 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 function ProviderPanel({
+  merchantId,
   onSynced,
   provider,
 }: {
+  merchantId?: string;
   onSynced?: () => void;
   provider: SocialAdsProviderReporting;
 }) {
-  const connectPath = `/api/integrations/ads/${PATH_SEGMENT[provider.provider]}/connect`;
+  const connectPath = new URL(
+    `/api/integrations/ads/${PATH_SEGMENT[provider.provider]}/connect`,
+    'https://usebaci.com'
+  );
+  if (merchantId) connectPath.searchParams.set('merchantId', merchantId);
   const syncedAt = formatSyncTime(provider.lastSyncedAt);
 
   return (
@@ -155,7 +162,7 @@ function ProviderPanel({
             </Alert>
           )}
           <Button asChild size="sm">
-            <a href={connectPath}>
+            <a href={`${connectPath.pathname}${connectPath.search}`}>
               {provider.connectionStatus === 'error' ? 'Reconnect' : 'Connect'}{' '}
               {provider.displayName}
               <ExternalLink className="size-4" />
@@ -218,6 +225,7 @@ function ProviderPanel({
           )}
           <SocialAdsAccountControls
             displayName={provider.displayName}
+            merchantId={merchantId}
             needsAccountSelection={provider.needsAccountSelection}
             onSynced={onSynced}
             provider={provider.provider}
@@ -238,6 +246,7 @@ export function SocialAdsReportingCard({
   onSynced,
   reporting,
 }: SocialAdsReportingCardProps) {
+  const { merchant } = useMerchant();
   return (
     <BentoCard
       className={cn('h-full', className)}
@@ -276,6 +285,7 @@ export function SocialAdsReportingCard({
             {reporting.providers.map((provider) => (
               <ProviderPanel
                 key={provider.provider}
+                merchantId={merchant?.id}
                 onSynced={onSynced}
                 provider={provider}
               />

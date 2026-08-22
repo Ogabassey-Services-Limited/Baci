@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { generateAdsRandomValue } from '@/lib/ads/crypto';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { createAdsOAuthState } from '@/lib/ads/state';
 import {
   getTikTokAdsConfig,
@@ -12,11 +13,7 @@ import {
   TIKTOK_ADS_STATE_COOKIE,
 } from '@/lib/ads/tiktok/constants';
 import { buildTikTokAdsAuthorizationUrl } from '@/lib/ads/tiktok/oauth';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -25,7 +22,14 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    source: 'query',
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access)
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))

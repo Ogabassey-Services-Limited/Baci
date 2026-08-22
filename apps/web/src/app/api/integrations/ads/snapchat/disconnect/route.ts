@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
 async function disconnect(request: NextRequest) {
@@ -19,7 +16,13 @@ async function disconnect(request: NextRequest) {
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access)
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))

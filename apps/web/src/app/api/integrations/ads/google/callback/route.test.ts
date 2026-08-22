@@ -11,11 +11,16 @@ const mockExchange = vi.fn();
 const mockEncrypt = vi.fn();
 const mockRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockResolveMerchant = vi.fn();
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
   getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
+}));
+vi.mock('@/lib/ads/merchant-context', () => ({
+  resolveAdsMerchantAccess: (...args: unknown[]) =>
+    mockResolveMerchant(...args),
 }));
 vi.mock('@/lib/google-ads/config', () => ({
   GOOGLE_ADS_CONFIG_MISSING: 'Google Ads integration is not configured',
@@ -44,6 +49,10 @@ describe('GET /api/integrations/ads/google/callback', () => {
       user: { id: 'user-1' },
     });
     mockGetUserAccess.mockResolvedValue({ merchantId: 'merchant-1' });
+    mockResolveMerchant.mockResolvedValue({
+      access: { merchantId: 'merchant-1' },
+      response: null,
+    });
     mockHasPermission.mockReturnValue(true);
     mockGetConfig.mockReturnValue({
       clientId: 'client',

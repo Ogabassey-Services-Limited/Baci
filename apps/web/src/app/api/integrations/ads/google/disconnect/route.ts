@@ -1,22 +1,25 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
-import { META_ADS_PROVIDER } from '@/lib/ads/meta/constants';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
 async function disconnect(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
-  if (auth.error || !auth.user || !auth.supabase)
+  if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json(
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
+  }
+
   const csrf = await checkCsrfProtection(request);
-  if (!csrf.valid)
+  if (!csrf.valid) {
     return (
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
+  }
+
   const merchant = await resolveAdsMerchantAccess({
     request,
     supabase: auth.supabase,
@@ -24,25 +27,30 @@ async function disconnect(request: NextRequest) {
   });
   if (merchant.response) return merchant.response;
   const access = merchant.access;
-  if (!access)
+  if (!access) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  if (!hasPermission(access, 'integrations', 'manage'))
+  }
+  if (!hasPermission(access, 'integrations', 'manage')) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const { data, error } = await auth.supabase.rpc(
-    'delete_merchant_ads_connection',
-    { p_merchant_id: access.merchantId, p_provider: META_ADS_PROVIDER }
-  );
-  if (error || data !== true)
+  }
+
+  const { error } = await auth.supabase.rpc('delete_google_ads_connection', {
+    p_merchant_id: access.merchantId,
+  });
+  if (error) {
     return NextResponse.json(
-      { error: 'Failed to disconnect Meta Ads' },
+      { error: 'Failed to disconnect Google Ads' },
       { status: 500 }
     );
+  }
+
   return NextResponse.json({ connected: false });
 }
 
 export function DELETE(request: NextRequest) {
   return disconnect(request);
 }
+
 export function POST(request: NextRequest) {
   return disconnect(request);
 }

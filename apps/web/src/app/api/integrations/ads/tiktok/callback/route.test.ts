@@ -5,10 +5,14 @@ const authenticate = vi.fn();
 const compare = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const resolveMerchant = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
   hasPermission: (...args: unknown[]) => permission(...args),
+}));
+vi.mock('@/lib/ads/merchant-context', () => ({
+  resolveAdsMerchantAccess: (...args: unknown[]) => resolveMerchant(...args),
 }));
 const verifyState = vi.fn();
 vi.mock('@/lib/ads/state', () => ({
@@ -44,6 +48,10 @@ import { GET } from './route';
 describe('TikTok Ads callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resolveMerchant.mockResolvedValue({
+      access: { merchantId: 'merchant' },
+      response: null,
+    });
   });
 
   it('rejects state replay/mismatch and never reflects an attacker callback host', async () => {

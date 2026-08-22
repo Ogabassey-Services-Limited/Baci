@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { encryptAdsToken, timingSafeStringEqual } from '@/lib/ads/crypto';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import {
   getSnapchatAdsConfig,
   SnapchatAdsConfigError,
@@ -12,11 +13,7 @@ import {
 import { exchangeSnapchatAdsAuthorizationCode } from '@/lib/ads/snapchat/oauth';
 import { SnapchatAdsProviderError } from '@/lib/ads/snapchat/provider';
 import { verifyAdsOAuthState } from '@/lib/ads/state';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { snapchatAdsOAuthCallbackQuerySchema } from '@/schemas/snapchat-ads';
 
 function redirect(result: 'connected' | 'error', reason?: string) {
@@ -52,17 +49,24 @@ export async function GET(request: NextRequest) {
   const cookie = request.cookies.get(SNAPCHAT_ADS_STATE_COOKIE)?.value;
   if (!state || !cookie || !timingSafeStringEqual(state, cookie))
     return redirect('error', 'invalid_state');
-  const access = await getUserAccess(auth.supabase);
-  if (!access) return redirect('error', 'merchant_mismatch');
-  if (!hasPermission(access, 'integrations', 'manage'))
-    return redirect('error', 'forbidden');
   const verifiedState = verifyAdsOAuthState(state, config.oauthStateSecret, {
-    merchantId: access.merchantId,
+    merchantId: null,
     provider: SNAPCHAT_ADS_PROVIDER,
     redirectUri: config.redirectUri,
     userId: auth.user.id,
   });
   if (!verifiedState) return redirect('error', 'invalid_state');
+  const merchant = await resolveAdsMerchantAccess({
+    merchantId: verifiedState.merchantId,
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response || !merchant.access)
+    return redirect('error', 'merchant_mismatch');
+  const access = merchant.access;
+  if (!hasPermission(access, 'integrations', 'manage'))
+    return redirect('error', 'forbidden');
   const consumed = await auth.supabase.rpc(
     'consume_snapchat_ads_oauth_state_nonce',
     {
