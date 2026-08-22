@@ -25,6 +25,7 @@ import {
   finalizeJumiaOAuthHandoffTicket,
   releaseJumiaOAuthHandoffTicket,
 } from './jumia-oauth-handoff-ticket';
+import { persistJumiaOAuthExchangeIntegrations } from './persist-jumia-oauth-exchange-integrations';
 
 const bodySchema = z.object({
   code: z.string().min(1).max(2048),
@@ -213,15 +214,13 @@ export async function POST(request: NextRequest) {
           activeSelfAuthorizedShopIds
         );
       if (conflictingShopIds.length > 0) {
-        await releaseJumiaOAuthHandoffTicket(auth.supabase, {
-          merchantId,
-          ticketId,
-        });
+        // Authorization code is already spent; do not release the ticket claim.
         return NextResponse.json(
           {
             error:
               'This Jumia shop is already connected with self-authorization. Disconnect it before using OAuth.',
             shopIds: conflictingShopIds,
+            code: 'jumia_oauth_self_authorization_conflict',
           },
           { status: 409 }
         );
@@ -237,21 +236,23 @@ export async function POST(request: NextRequest) {
       isFallbackShop,
     });
 
-    // Upsert integrations (user-scoped, RLS-enforced)
-    const { error: upsertError } = await auth.supabase
-      .from('marketplace_integrations')
-      .upsert(integrationRows, {
-        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
-      });
+    // Upsert integrations (user-scoped, RLS-enforced). After Jumia has consumed
+    // the authorization code, never release the ticket claim — a released
+    // ticket would let mobile retry with a spent code. Retry persistence while
+    // the exchanged tokens remain in memory.
+    const persisted = await persistJumiaOAuthExchangeIntegrations({
+      supabase: auth.supabase,
+      integrationRows,
+    });
 
-    if (upsertError) {
-      console.error('[Jumia Exchange] Upsert failed:', upsertError);
-      await releaseJumiaOAuthHandoffTicket(auth.supabase, {
-        merchantId,
-        ticketId,
-      });
+    if (!persisted.ok) {
+      console.error('[Jumia Exchange] Upsert failed:', persisted.error);
       return NextResponse.json(
-        { error: 'Failed to save integrations' },
+        {
+          error:
+            'Failed to save integrations after exchanging the authorization code. Retrying the same code will fail; reconnect Jumia to start a fresh OAuth flow.',
+          code: 'jumia_oauth_persist_failed',
+        },
         { status: 500 }
       );
     }

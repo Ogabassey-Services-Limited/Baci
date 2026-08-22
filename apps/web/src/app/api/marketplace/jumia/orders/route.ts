@@ -275,6 +275,7 @@ export async function POST(request: NextRequest) {
       ...getJumiaOrderQueryFilters({
         shopId: jumiaClient.shopId,
         countryCode: jumiaClient.countryCode,
+        marketplaceKey: jumiaClient.marketplaceKey,
       }),
     });
 

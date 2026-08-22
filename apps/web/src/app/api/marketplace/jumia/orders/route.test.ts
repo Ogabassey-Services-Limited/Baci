@@ -184,7 +184,7 @@ describe('Jumia orders POST', () => {
     mocks.forIntegration.mockResolvedValueOnce({
       shopId: 'oauth',
       countryCode: 'NG',
-      marketplaceKey: 'default',
+      marketplaceKey: 'oauth',
     });
 
     const response = await POST(makePostRequest());
@@ -194,11 +194,37 @@ describe('Jumia orders POST', () => {
       expect.objectContaining({
         shopId: 'oauth',
         countryCode: 'NG',
-        marketplaceKey: 'default',
+        marketplaceKey: 'oauth',
       }),
       expect.objectContaining({
         createdAfter: expect.any(String),
       })
     );
+    expect(mocks.getAllOrders.mock.calls[0]?.[1]).not.toHaveProperty('country');
+    expect(mocks.getAllOrders.mock.calls[0]?.[1]).not.toHaveProperty('shopId');
+  });
+
+  it('syncs OAuth shop orders by shop id only so collapsed country does not drop peers', async () => {
+    mocks.forIntegration.mockResolvedValueOnce({
+      shopId: 'shop-multi',
+      countryCode: 'NG',
+      marketplaceKey: 'oauth',
+    });
+
+    const response = await POST(makePostRequest());
+
+    expect(response.status).toBe(200);
+    expect(mocks.getAllOrders).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shopId: 'shop-multi',
+        countryCode: 'NG',
+        marketplaceKey: 'oauth',
+      }),
+      expect.objectContaining({
+        shopId: 'shop-multi',
+        createdAfter: expect.any(String),
+      })
+    );
+    expect(mocks.getAllOrders.mock.calls[0]?.[1]).not.toHaveProperty('country');
   });
 });

@@ -75,6 +75,7 @@ async function syncIntegration(
     ...getJumiaOrderQueryFilters({
       shopId: integration.shop_id ?? 'oauth',
       countryCode: integration.country_code,
+      marketplaceKey: integration.marketplace_key,
     }),
   });
 
@@ -289,7 +290,9 @@ export async function syncJumiaOrdersForActiveIntegrations(
 
   const { data, error } = await supabase
     .from('marketplace_integrations')
-    .select('id, merchant_id, shop_id, country_code, last_sync_at, sync_config')
+    .select(
+      'id, merchant_id, shop_id, country_code, marketplace_key, last_sync_at, sync_config'
+    )
     .eq('platform', JUMIA_EXTERNAL_SOURCE)
     .eq('is_active', true);
 

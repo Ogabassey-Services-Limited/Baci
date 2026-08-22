@@ -278,7 +278,37 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     );
   });
 
-  it('releases the ticket claim when integration upsert fails', async () => {
+  it('retries integration upsert and does not release the ticket after a spent code exchange', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    setupTokenExchange();
+    setupShopDiscovery();
+    mockMarketplaceUpsert
+      .mockResolvedValueOnce({
+        error: { message: 'upsert failed' },
+      })
+      .mockResolvedValueOnce({ error: null });
+
+    const res = await POST(
+      makeRequest({ code: 'valid-code', ticketId: TICKET_ID })
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockMarketplaceUpsert).toHaveBeenCalledTimes(2);
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'release_jumia_oauth_handoff_ticket',
+      expect.anything()
+    );
+    expect(mockRpc).toHaveBeenCalledWith(
+      'finalize_jumia_oauth_handoff_ticket',
+      expect.objectContaining({
+        p_merchant_id: MERCHANT_ID,
+        p_ticket_id: TICKET_ID,
+      })
+    );
+  });
+
+  it('keeps the ticket claimed when upsert keeps failing after code exchange', async () => {
     setupAuth();
     setupTicketConsume(true);
     setupTokenExchange();
@@ -292,12 +322,13 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     );
 
     expect(res.status).toBe(500);
-    expect(mockRpc).toHaveBeenCalledWith(
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'jumia_oauth_persist_failed',
+    });
+    expect(mockMarketplaceUpsert).toHaveBeenCalledTimes(3);
+    expect(mockRpc).not.toHaveBeenCalledWith(
       'release_jumia_oauth_handoff_ticket',
-      expect.objectContaining({
-        p_merchant_id: MERCHANT_ID,
-        p_ticket_id: TICKET_ID,
-      })
+      expect.anything()
     );
   });
 
@@ -353,14 +384,12 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(res.status).toBe(409);
     await expect(res.json()).resolves.toMatchObject({
       shopIds: ['shop-1'],
+      code: 'jumia_oauth_self_authorization_conflict',
     });
     expect(mockMarketplaceUpsert).not.toHaveBeenCalled();
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockRpc).not.toHaveBeenCalledWith(
       'release_jumia_oauth_handoff_ticket',
-      expect.objectContaining({
-        p_merchant_id: MERCHANT_ID,
-        p_ticket_id: TICKET_ID,
-      })
+      expect.anything()
     );
   });
 
