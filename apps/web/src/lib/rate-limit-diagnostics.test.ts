@@ -1,20 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  reportRateLimitDiagnostic,
-  resetRateLimitDiagnosticHook,
-  setRateLimitDiagnosticHook,
-} from './rate-limit-diagnostics';
+import { rateLimitDiagnostics } from './rate-limit-diagnostics';
 
 afterEach(() => {
-  resetRateLimitDiagnosticHook();
+  rateLimitDiagnostics.reset();
 });
 
 describe('rate-limit diagnostics', () => {
   it('reports fixed-cardinality backend outcomes to the installed sink', () => {
     const diagnostics: unknown[] = [];
-    setRateLimitDiagnosticHook((diagnostic) => diagnostics.push(diagnostic));
+    rateLimitDiagnostics.setHook((diagnostic) => diagnostics.push(diagnostic));
 
-    reportRateLimitDiagnostic({
+    rateLimitDiagnostics.report({
       backend: 'memory',
       reason: 'redis_unavailable',
     });
@@ -25,12 +21,12 @@ describe('rate-limit diagnostics', () => {
   });
 
   it('swallows synchronous sink failures', () => {
-    setRateLimitDiagnosticHook(() => {
+    rateLimitDiagnostics.setHook(() => {
       throw new Error('diagnostic sink unavailable');
     });
 
     expect(() =>
-      reportRateLimitDiagnostic({
+      rateLimitDiagnostics.report({
         backend: 'redis',
         reason: 'redis_success',
       })
@@ -38,12 +34,12 @@ describe('rate-limit diagnostics', () => {
   });
 
   it('swallows rejected asynchronous sink failures', async () => {
-    setRateLimitDiagnosticHook(async () => {
+    rateLimitDiagnostics.setHook(async () => {
       throw new Error('diagnostic sink unavailable');
     });
 
     await expect(
-      reportRateLimitDiagnostic({
+      rateLimitDiagnostics.report({
         backend: 'redis',
         reason: 'redis_error',
       })

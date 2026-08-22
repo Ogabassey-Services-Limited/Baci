@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
   }
 
   const limit = parsed.data.pagination?.limit ?? 20;
-  // Fetch extra candidates because the adapter intentionally refuses rows
-  // with unusable catalog identity or pricing. The response is still bounded
-  // to the caller's requested page size below.
-  const candidateLimit = Math.min(MAX_CATALOG_SEARCH_CANDIDATES, limit * 2);
+  // Fetch a fixed candidate batch because the adapter intentionally refuses
+  // rows with unusable catalog identity or pricing. The response is still
+  // bounded to the caller's requested page size below.
+  const candidateLimit = MAX_CATALOG_SEARCH_CANDIDATES;
   let rankedProducts: UcpCatalogProduct[] | null = null;
   const rankedProductIds: string[] = [];
   if (parsed.data.query) {
@@ -134,7 +134,9 @@ export async function POST(request: NextRequest) {
     });
 
   const baseUrl = buildRequestScopedStoreUrl(context.merchant, request.headers);
-  const orderedQuery = query.order('created_at', { ascending: false });
+  const orderedQuery = query
+    .order('created_at', { ascending: false })
+    .order('id', { ascending: true });
   const products: UcpCatalogProduct[] = [];
   let candidateOffset = 0;
   while (

@@ -205,7 +205,7 @@ describe('POST /api/agentic/catalog/search ranked backfill', () => {
   it('fills the requested page after refusing an invalid ranked candidate', async () => {
     mockRankedProductBatches([
       {
-        rankedIds: ['bad-price-1', 'bad-price-2'],
+        rankedIds: ['bad-price-1', 'bad-price-2', 'valid-product'],
         rows: [
           {
             id: 'bad-price-1',
@@ -221,12 +221,6 @@ describe('POST /api/agentic/catalog/search ranked backfill', () => {
             slug: 'bad-price-2',
             status: 'active',
           },
-        ],
-        totalCount: 3,
-      },
-      {
-        rankedIds: ['valid-product'],
-        rows: [
           {
             id: 'valid-product',
             name: 'Valid product',
@@ -247,17 +241,17 @@ describe('POST /api/agentic/catalog/search ranked backfill', () => {
     );
     const body = await response.json();
 
-    expect(mockRpc).toHaveBeenCalledTimes(2);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
     expect(mockRpc).toHaveBeenNthCalledWith(
-      2,
+      1,
       'search_products_v2',
-      expect.objectContaining({ result_limit: 2, result_offset: 2 })
+      expect.objectContaining({ result_limit: 100, result_offset: 0 })
     );
     expect(query.in).toHaveBeenNthCalledWith(1, 'id', [
       'bad-price-1',
       'bad-price-2',
+      'valid-product',
     ]);
-    expect(query.in).toHaveBeenNthCalledWith(2, 'id', ['valid-product']);
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'valid-product',
     ]);

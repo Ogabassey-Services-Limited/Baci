@@ -203,8 +203,8 @@ describe('POST /api/agentic/catalog/search', () => {
     );
     const body = await response.json();
 
-    expect(query.range).toHaveBeenNthCalledWith(1, 0, 1);
-    expect(query.range).toHaveBeenNthCalledWith(2, 2, 3);
+    expect(query.order).toHaveBeenCalledWith('id', { ascending: true });
+    expect(query.range).toHaveBeenNthCalledWith(1, 0, 99);
     expect(body.products.map((product: { id: string }) => product.id)).toEqual([
       'valid-product',
     ]);

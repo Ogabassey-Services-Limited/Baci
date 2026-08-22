@@ -6,7 +6,7 @@ export type RateLimitDiagnostic = {
 
 type RateLimitDiagnosticHook = (
   diagnostic: RateLimitDiagnostic
-) => void | Promise<void>;
+) => unknown | Promise<unknown>;
 type RateLimitDiagnosticAsyncHook = (
   diagnostic: RateLimitDiagnostic
 ) => Promise<void>;
@@ -42,33 +42,39 @@ function getRateLimitDiagnosticState(): RateLimitDiagnosticState {
  * identifiers, route names, or provider details, and failures are ignored so
  * observability can never affect rate-limit decisions.
  */
-export function setRateLimitDiagnosticHook(
+function setRateLimitDiagnosticHook(
   hook: RateLimitDiagnosticAsyncHook | undefined
 ): void;
-export function setRateLimitDiagnosticHook(
+function setRateLimitDiagnosticHook(
   hook: RateLimitDiagnosticSyncHook | undefined
 ): void;
-export function setRateLimitDiagnosticHook(
+function setRateLimitDiagnosticHook(
   hook: RateLimitDiagnosticHook | undefined
 ): void {
   getRateLimitDiagnosticState().hook = hook;
 }
 
-export function reportRateLimitDiagnostic(
+function reportRateLimitDiagnostic(
   diagnostic: RateLimitDiagnostic
 ): Promise<void> {
   try {
-    return Promise.resolve(
-      getRateLimitDiagnosticState().hook?.(diagnostic)
-    ).catch(() => {
-      // Diagnostics are best-effort and must never change request behavior.
-    });
+    return Promise.resolve(getRateLimitDiagnosticState().hook?.(diagnostic))
+      .then(() => undefined)
+      .catch(() => {
+        // Diagnostics are best-effort and must never change request behavior.
+      });
   } catch {
     // Diagnostics are best-effort and must never change request behavior.
     return Promise.resolve();
   }
 }
 
-export function resetRateLimitDiagnosticHook(): void {
+function resetRateLimitDiagnosticHook(): void {
   getRateLimitDiagnosticState().hook = undefined;
 }
+
+export const rateLimitDiagnostics = {
+  report: reportRateLimitDiagnostic,
+  reset: resetRateLimitDiagnosticHook,
+  setHook: setRateLimitDiagnosticHook,
+};
