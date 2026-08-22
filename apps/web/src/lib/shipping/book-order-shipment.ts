@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import {
+  findReusableOrderShipment,
+  type ReusableOrderShipmentResult,
+} from '@/lib/shipping/find-reusable-order-shipment';
 import { assertInternationalQuoteMatchesOrder } from '@/lib/shipping/international-quote-order-guard';
 import {
   type InternationalShipmentOrderItem,
@@ -8,35 +12,19 @@ import {
 import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
   buildReceiver,
-  domesticSendersDiffer,
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
-  selectPreferredQuote,
   toShipmentItems,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
-import type {
-  BookingRequest,
-  ShipmentBookingResult,
-  ShippingAddress,
-  ShippingProviderCode,
-} from '@/lib/shipping/types';
+import {
+  type OrderShipmentQuoteRecord,
+  refreshOrderShipmentQuote,
+} from '@/lib/shipping/refresh-order-shipment-quote';
+import type { BookingRequest } from '@/lib/shipping/types';
 
-type QuoteRecord = {
-  id: string;
-  merchant_id: string | null;
-  provider: string;
-  service_tier: string | null;
-  carrier_name: string | null;
-  price: number | string;
-  currency: string;
-  estimated_days: number | null;
-  provider_rate_id: string | null;
-  expires_at: string;
-  quote_request: unknown;
-  provider_metadata: unknown;
-};
+type QuoteRecord = OrderShipmentQuoteRecord;
 
 type OrderRecord = {
   id: string;
@@ -65,213 +53,7 @@ type MerchantRecord = {
   state_code: string | null;
 };
 
-type ExistingShipmentRecord = {
-  id: string;
-  provider: ShippingProviderCode;
-  provider_shipment_id: string | null;
-  tracking_number: string | null;
-  carrier_name: string | null;
-  estimated_delivery_days: number | null;
-  label_url: string | null;
-  pickup_scheduled_at: string | null;
-  status: ShipmentBookingResult['status'];
-};
-
-const REUSABLE_SHIPMENT_STATUSES: ShipmentBookingResult['status'][] = [
-  'pending',
-  'booked',
-  'pickup_scheduled',
-  'picked_up',
-  'in_transit',
-  'out_for_delivery',
-  'delivered',
-];
-
-export interface BookOrderShipmentResult {
-  shipmentId: string;
-  provider: ShippingProviderCode;
-  providerShipmentId: string;
-  trackingNumber: string;
-  carrierName: string;
-  quoteId: string;
-  estimatedDays: number | null;
-  labelUrl?: string;
-  pickupScheduledAt?: Date;
-  shipmentStatus: ShipmentBookingResult['status'];
-}
-
-async function resolveQuote(
-  supabase: SupabaseClient,
-  quote: QuoteRecord,
-  provider: ShippingProviderCode,
-  senderOverride?: ShippingAddress
-): Promise<QuoteRecord> {
-  const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
-  const domesticSenderMismatch = Boolean(
-    senderOverride &&
-      quoteRequest?.shipmentType === 'domestic' &&
-      quoteRequest.sender &&
-      domesticSendersDiffer(quoteRequest.sender, senderOverride)
-  );
-  const needsRefresh =
-    new Date(quote.expires_at) < new Date() ||
-    (provider === 'TOPSHIP' && !quote.provider_metadata) ||
-    domesticSenderMismatch;
-
-  if (!needsRefresh) {
-    return quote;
-  }
-
-  if (!quoteRequest) {
-    throw new OrderShipmentBookingError(
-      'The saved shipping quote has expired and cannot be refreshed.',
-      400,
-      'QUOTE_REFRESH_UNAVAILABLE'
-    );
-  }
-
-  const refreshRequest = {
-    ...quoteRequest,
-    sessionId: crypto.randomUUID(),
-    ...(senderOverride && quoteRequest.shipmentType === 'domestic'
-      ? { sender: senderOverride }
-      : {}),
-  };
-
-  const freshQuotes = await shippingService.getProviderQuotes(
-    provider,
-    refreshRequest
-  );
-  const replacement = selectPreferredQuote(freshQuotes, {
-    serviceTier: quote.service_tier,
-    carrierName: quote.carrier_name,
-    providerRateId: quote.provider_rate_id,
-  });
-
-  if (!replacement) {
-    throw new OrderShipmentBookingError(
-      'No active shipping quote is available for this provider right now.',
-      400,
-      'QUOTE_REFRESH_FAILED'
-    );
-  }
-
-  // Persist the refresh payload so domestic quotes no longer carry a stale
-  // postal-code sender state into later booking/refresh attempts.
-  const persistedQuoteRequest = refreshRequest;
-
-  const nextQuote: QuoteRecord = {
-    id: replacement.id,
-    merchant_id: quote.merchant_id,
-    provider,
-    service_tier: replacement.serviceTier,
-    carrier_name: replacement.carrierName,
-    price: replacement.price,
-    currency: replacement.currency,
-    estimated_days: replacement.estimatedDays,
-    provider_rate_id: replacement.providerRateId || null,
-    expires_at: replacement.expiresAt.toISOString(),
-    quote_request: persistedQuoteRequest,
-    provider_metadata: replacement.rawResponse,
-  };
-
-  const { error: upsertError } = await supabase.from('shipping_quotes').upsert(
-    {
-      id: nextQuote.id,
-      merchant_id: quote.merchant_id,
-      session_id: persistedQuoteRequest.sessionId,
-      provider,
-      service_tier: nextQuote.service_tier,
-      carrier_name: nextQuote.carrier_name,
-      price: nextQuote.price,
-      currency: nextQuote.currency,
-      estimated_days: nextQuote.estimated_days,
-      provider_rate_id: nextQuote.provider_rate_id,
-      expires_at: nextQuote.expires_at,
-      quote_request: persistedQuoteRequest,
-      provider_metadata: nextQuote.provider_metadata,
-    },
-    { onConflict: 'id' }
-  );
-
-  if (upsertError) {
-    console.error('Failed to persist refreshed shipping quote', {
-      error: upsertError,
-      code: upsertError.code,
-      message: upsertError.message,
-      quoteId: nextQuote.id,
-      merchantId: quote.merchant_id,
-      provider,
-    });
-    throw new OrderShipmentBookingError(
-      'Failed to persist the refreshed shipping quote.',
-      500,
-      'QUOTE_REFRESH_PERSIST_FAILED'
-    );
-  }
-
-  return nextQuote;
-}
-
-async function findReusableShipment(
-  supabase: SupabaseClient,
-  merchantId: string,
-  orderId: string
-): Promise<BookOrderShipmentResult | null> {
-  const { data: existingShipment, error: existingShipmentError } =
-    await supabase
-      .from('shipments')
-      .select(
-        'id, provider, provider_shipment_id, tracking_number, carrier_name, estimated_delivery_days, label_url, pickup_scheduled_at, status'
-      )
-      .eq('order_id', orderId)
-      .eq('merchant_id', merchantId)
-      .in('status', REUSABLE_SHIPMENT_STATUSES)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-  const typedExistingShipment =
-    existingShipment as ExistingShipmentRecord | null;
-
-  if (existingShipmentError) {
-    throw new OrderShipmentBookingError(
-      'Failed to load the existing shipment for this order.',
-      500,
-      'EXISTING_SHIPMENT_LOOKUP_FAILED'
-    );
-  }
-
-  if (!typedExistingShipment) {
-    return null;
-  }
-
-  if (
-    !typedExistingShipment.provider_shipment_id ||
-    !typedExistingShipment.tracking_number ||
-    !typedExistingShipment.carrier_name
-  ) {
-    throw new OrderShipmentBookingError(
-      'A shipment is already saved for this order but is missing booking details. Please review it before retrying.',
-      500,
-      'INCOMPLETE_EXISTING_SHIPMENT'
-    );
-  }
-
-  return {
-    shipmentId: typedExistingShipment.id,
-    provider: typedExistingShipment.provider,
-    providerShipmentId: typedExistingShipment.provider_shipment_id,
-    trackingNumber: typedExistingShipment.tracking_number,
-    carrierName: typedExistingShipment.carrier_name,
-    quoteId: '',
-    estimatedDays: typedExistingShipment.estimated_delivery_days,
-    labelUrl: typedExistingShipment.label_url || undefined,
-    pickupScheduledAt: typedExistingShipment.pickup_scheduled_at
-      ? new Date(typedExistingShipment.pickup_scheduled_at)
-      : undefined,
-    shipmentStatus: typedExistingShipment.status,
-  };
-}
+export type BookOrderShipmentResult = ReusableOrderShipmentResult;
 
 export async function bookOrderShipment(
   supabase: SupabaseClient,
@@ -296,7 +78,7 @@ export async function bookOrderShipment(
     );
   }
 
-  const existingShipment = await findReusableShipment(
+  const existingShipment = await findReusableOrderShipment(
     supabase,
     merchantId,
     orderId
@@ -376,7 +158,7 @@ export async function bookOrderShipment(
     stateCode: typedMerchant.state_code,
   });
 
-  const resolvedQuote = await resolveQuote(
+  const resolvedQuote = await refreshOrderShipmentQuote(
     supabase,
     typedStoredQuote,
     typedOrder.shipping_provider,

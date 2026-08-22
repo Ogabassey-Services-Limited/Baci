@@ -157,10 +157,15 @@ function resolveMerchantState({
     return resolveStateFromLabel(structuredState) ?? structuredState;
   }
 
+  // Prefer a recognized state from business_address before state_code — the
+  // public guest path cannot select registered_address, and state_code can be
+  // stale (e.g. FC) while business_address still ends in Lagos.
+  const recognizedLocationState = resolveStateFromLabel(locationState);
+  if (recognizedLocationState) return recognizedLocationState;
+  if (hasLetters(locationState)) return locationState;
+
   const stateFromCode = resolveStateFromCode(stateCode);
   if (stateFromCode) return stateFromCode;
-
-  if (hasLetters(locationState)) return locationState;
 
   const city = registeredAddress?.city || locationCity;
   return inferStateFromNigerianCity(city) ?? '';

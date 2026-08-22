@@ -80,6 +80,24 @@ describe('buildMerchantSenderInfo', () => {
   });
 });
 
+describe('bugfix: prefer business_address state over stale state_code', () => {
+  it('returns Lagos when business_address ends in Lagos but state_code is FC', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '2 Olaide Tomori Street, Ikeja, Lagos',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: 'FC',
+    });
+
+    expect(sender).toMatchObject({
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+    expect(sender.state).not.toBe('Abuja');
+  });
+});
+
 describe('bugfix: legacy free-text-only merchant address', () => {
   it('does not default Abuja merchants to Lagos when business_address ends in a postal code', () => {
     const sender = buildMerchantSenderInfo({
