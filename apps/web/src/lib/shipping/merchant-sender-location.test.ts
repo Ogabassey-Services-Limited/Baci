@@ -96,4 +96,20 @@ describe('bugfix: legacy free-text-only merchant address', () => {
     });
     expect(sender.state).not.toBe('Lagos');
   });
+
+  it('preserves the city from a street, city, state, postal_code business address', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '2 Olaide Tomori Street, Ikeja, Lagos, 100001',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: 'LA',
+    });
+
+    expect(sender).toMatchObject({
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+    expect(sender.city).not.toBe('Lagos');
+  });
 });

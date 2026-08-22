@@ -47,6 +47,16 @@ const staleSender = {
   countryCode: 'NG',
 };
 
+const mismatchedCallerSender = {
+  name: 'Ogabassey',
+  phone: '08000000000',
+  address: '2 Olaide Tomori Street, Ikeja, Lagos, 100001',
+  city: 'Lagos',
+  state: 'Lagos',
+  country: 'Nigeria',
+  countryCode: 'NG',
+};
+
 const correctedSender = {
   name: 'Ogabassey',
   phone: '08000000000',
@@ -60,8 +70,12 @@ const correctedSender = {
 
 function createSupabase({
   upsertError = null,
+  quoteExpiresAt = new Date(Date.now() - 60_000).toISOString(),
+  storedSender = staleSender,
 }: {
   upsertError?: { message: string } | null;
+  quoteExpiresAt?: string;
+  storedSender?: typeof staleSender;
 } = {}) {
   const order = {
     id: 'order-1',
@@ -88,11 +102,11 @@ function createSupabase({
     currency: 'NGN',
     estimated_days: 3,
     provider_rate_id: 'GIGL_4_0',
-    expires_at: new Date(Date.now() - 60_000).toISOString(),
+    expires_at: quoteExpiresAt,
     quote_request: {
       sessionId: 'session-1',
       shipmentType: 'domestic',
-      sender: staleSender,
+      sender: storedSender,
       receiver: {
         ...order.shipping_address,
         name: order.customer_name,
@@ -229,5 +243,59 @@ describe('bugfix: expired domestic quote refresh sender', () => {
 
     expect(shippingService.getProviderQuotes).toHaveBeenCalled();
     expect(shippingService.bookShipment).not.toHaveBeenCalled();
+  });
+});
+
+describe('bugfix: unexpired domestic quote sender mismatch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
+      {
+        id: 'quote-refreshed',
+        provider: 'GIGL',
+        serviceTier: 'GoStandard',
+        carrierName: 'GIG Logistics',
+        displayName: 'GIG Logistics - GoStandard',
+        price: 2500,
+        currency: 'NGN',
+        estimatedDays: 3,
+        pickupIncluded: true,
+        insuranceIncluded: false,
+        providerRateId: 'GIGL_4_0',
+        expiresAt: new Date(Date.now() + 86_400_000),
+        rawResponse: {},
+      },
+    ]);
+    vi.mocked(shippingService.bookShipment).mockResolvedValue({
+      provider: 'GIGL',
+      providerShipmentId: 'waybill-1',
+      trackingNumber: 'waybill-1',
+      carrierName: 'GIG Logistics',
+      status: 'booked',
+      rawResponse: {},
+    });
+  });
+
+  it('refreshes an unexpired quote when the stored sender differs from the registered merchant origin', async () => {
+    await bookOrderShipment(
+      createSupabase({
+        quoteExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
+        storedSender: mismatchedCallerSender,
+      }),
+      'merchant-1',
+      'order-1'
+    );
+
+    expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        shipmentType: 'domestic',
+        sender: correctedSender,
+      })
+    );
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({ sender: correctedSender })
+    );
   });
 });

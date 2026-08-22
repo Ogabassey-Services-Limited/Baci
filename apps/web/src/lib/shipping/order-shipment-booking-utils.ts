@@ -254,6 +254,19 @@ function isPostalCodeSegment(value: string): boolean {
   return /^\d{5,6}$/.test(value.trim());
 }
 
+export function domesticSendersDiffer(
+  stored: ShippingAddress,
+  resolved: ShippingAddress
+): boolean {
+  const normalize = (value: string | undefined) =>
+    value?.trim().toLowerCase() ?? '';
+
+  return (
+    normalize(stored.city) !== normalize(resolved.city) ||
+    normalize(stored.state) !== normalize(resolved.state)
+  );
+}
+
 export function deriveMerchantLocation(
   addressValue: string | null | undefined
 ): {
@@ -295,6 +308,15 @@ export function deriveMerchantLocation(
   }
 
   if (isPostalCodeSegment(last)) {
+    if (KNOWN_STATE_NAMES.has(normalizeLocationToken(secondLast))) {
+      const cityBeforeState = parts.at(-3) || secondLast;
+      return {
+        address,
+        city: cityBeforeState,
+        state: secondLast,
+      };
+    }
+
     return {
       address,
       city: secondLast,

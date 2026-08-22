@@ -8,6 +8,7 @@ import {
 import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
   buildReceiver,
+  domesticSendersDiffer,
   isShippingProviderCode,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
@@ -105,15 +106,22 @@ async function resolveQuote(
   provider: ShippingProviderCode,
   senderOverride?: ShippingAddress
 ): Promise<QuoteRecord> {
+  const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
+  const domesticSenderMismatch = Boolean(
+    senderOverride &&
+      quoteRequest?.shipmentType === 'domestic' &&
+      quoteRequest.sender &&
+      domesticSendersDiffer(quoteRequest.sender, senderOverride)
+  );
   const needsRefresh =
     new Date(quote.expires_at) < new Date() ||
-    (provider === 'TOPSHIP' && !quote.provider_metadata);
+    (provider === 'TOPSHIP' && !quote.provider_metadata) ||
+    domesticSenderMismatch;
 
   if (!needsRefresh) {
     return quote;
   }
 
-  const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
   if (!quoteRequest) {
     throw new OrderShipmentBookingError(
       'The saved shipping quote has expired and cannot be refreshed.',

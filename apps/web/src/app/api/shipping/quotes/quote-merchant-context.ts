@@ -6,8 +6,8 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import type { ShippingAddress } from '@/lib/shipping/types';
-import { createScopedClient } from '@/lib/supabase/scoped';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
+import { resolveQuoteMerchantLookupClient } from './resolve-quote-merchant-lookup-client';
 
 type QuoteInput = {
   merchantId?: string;
@@ -182,31 +182,6 @@ async function resolveStorefrontMerchantId(
   return domainRow?.merchant_id;
 }
 
-async function resolveMerchantLookupClient(
-  request: HeaderReader,
-  supabase: SupabaseClient
-): Promise<SupabaseClient> {
-  const authHeader = request.headers.get('authorization');
-  const token = authHeader?.startsWith('Bearer ')
-    ? authHeader.slice(7)
-    : undefined;
-
-  // Only install a Bearer JWT after it validates. An expired/invalid token on a
-  // trusted storefront request must fall through to the cookie/anonymous client
-  // so published-store RLS can still load sender fields for checkout quotes.
-  if (token) {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-    if (!error && user) {
-      return createScopedClient(token);
-    }
-  }
-
-  return await createServerSupabaseClient();
-}
-
 async function resolveMerchantDetails(
   supabase: SupabaseClient,
   merchantId: string
@@ -280,7 +255,7 @@ export async function resolveQuoteMerchantContext({
   let merchantPayoutCurrency: string | null | undefined;
 
   if (trustedSenderMerchantId) {
-    const merchantLookupClient = await resolveMerchantLookupClient(
+    const merchantLookupClient = await resolveQuoteMerchantLookupClient(
       request,
       supabase
     );
