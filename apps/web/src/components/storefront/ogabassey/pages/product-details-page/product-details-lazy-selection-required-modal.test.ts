@@ -33,51 +33,40 @@ vi.mock('./selection-required-modal', () => ({
   },
 }));
 
-vi.mock('../../components/BannerCarousel', () => ({
-  BannerCarousel: function BannerCarousel() {
-    return null;
-  },
-}));
-
-describe('product details lazy modules', () => {
+describe('product-details-lazy-selection-required-modal', () => {
   beforeEach(() => {
     dynamicMock.mockClear();
     vi.resetModules();
   });
 
-  it('loads SelectionRequiredModal as a client-only dynamic export', async () => {
-    const { SelectionRequiredModal } = await import(
-      './product-details-lazy-selection-required-modal'
-    );
+  it('exports SelectionRequiredModal as a client-only dynamic with null loading', async () => {
+    const { SelectionRequiredModal } = await import('./product-details-lazy-selection-required-modal');
 
-    expect(dynamicMock).toHaveBeenCalled();
+    expect(dynamicMock).toHaveBeenCalledTimes(1);
     const lazyComponent = SelectionRequiredModal as typeof SelectionRequiredModal & {
-      loader: () => Promise<{ default?: unknown } | Record<string, unknown>>;
-      options?: { ssr?: boolean };
+      loader: () => Promise<unknown>;
+      options?: { loading?: () => null; ssr?: boolean };
     };
 
     expect(lazyComponent.options?.ssr).toBe(false);
+    expect(lazyComponent.options?.loading?.()).toBeNull();
 
     const resolved = await lazyComponent.loader();
     expect(typeof resolved).toBe('function');
     expect((resolved as { name?: string }).name).toBe('SelectionRequiredModal');
   });
 
-  it('loads BannerCarousel as a client-only dynamic export', async () => {
-    const { BannerCarousel } = await import(
-      './product-details-lazy-banner-carousel'
-    );
+  it('rejects when the SelectionRequiredModal named export is missing', async () => {
+    vi.doMock('./selection-required-modal', () => ({}));
+    vi.resetModules();
 
-    expect(dynamicMock).toHaveBeenCalled();
-    const lazyComponent = BannerCarousel as typeof BannerCarousel & {
-      loader: () => Promise<{ default?: unknown } | Record<string, unknown>>;
-      options?: { ssr?: boolean };
+    const { SelectionRequiredModal } = await import('./product-details-lazy-selection-required-modal');
+    const lazyComponent = SelectionRequiredModal as typeof SelectionRequiredModal & {
+      loader: () => Promise<unknown>;
     };
 
-    expect(lazyComponent.options?.ssr).toBe(false);
-
-    const resolved = await lazyComponent.loader();
-    expect(typeof resolved).toBe('function');
-    expect((resolved as { name?: string }).name).toBe('BannerCarousel');
+    await expect(lazyComponent.loader()).rejects.toThrow(
+      /No "SelectionRequiredModal" export is defined/
+    );
   });
 });
