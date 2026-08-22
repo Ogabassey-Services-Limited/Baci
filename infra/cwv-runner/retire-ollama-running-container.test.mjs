@@ -257,7 +257,7 @@ test('rejects duplicate canonical DOCKER_SOCK entries', async () => {
 test('rejects newline-bearing running-container environment strings', async () => {
   const newlineEnv = metadataDocker.replace(
     '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]',
-    '["DOCKER_SOCK=/var/run/docker.sock\\nFOO=bad"]'
+    '["DOCKER_PG_LLVM_DEPS=llvm21-dev\\nclang21"]'
   );
   await assert.rejects(
     runFixture(
@@ -265,6 +265,17 @@ test('rejects newline-bearing running-container environment strings', async () =
     ),
     (error) => error.code === 2
   );
+});
+
+test('accepts PostgreSQL LLVM package lists with tab separators', async () => {
+  const postgresEnv = metadataDocker.replace(
+    '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]',
+    '["DOCKER_PG_LLVM_DEPS=llvm21-dev\\t\\tclang21"]'
+  );
+  const output = await runFixture(
+    `${postgresEnv} *'image save ${imageId}'*) printf '%s\\n' 'clean image filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
+  );
+  assert.equal(output, '');
 });
 
 // The stub flips on read six: one initial read, two validator reads, and two
