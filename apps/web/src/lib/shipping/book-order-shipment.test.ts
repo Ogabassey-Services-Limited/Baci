@@ -385,7 +385,7 @@ describe('bookOrderShipment', () => {
     expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 
-  it('throws MERCHANT_NOT_FOUND when merchant does not exist', async () => {
+  it('throws MERCHANT_LOOKUP_FAILED when the merchant query fails', async () => {
     const supabase = createMockSupabase({
       order: { data: validOrder, error: null },
       quote: { data: validQuote, error: null },
@@ -394,7 +394,10 @@ describe('bookOrderShipment', () => {
 
     await expect(
       bookOrderShipment(supabase, 'merchant-1', 'order-1')
-    ).rejects.toThrow('Merchant details not found');
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_LOOKUP_FAILED',
+      status: 500,
+    });
   });
 
   it('throws SHIPMENT_SAVE_FAILED when insert fails', async () => {

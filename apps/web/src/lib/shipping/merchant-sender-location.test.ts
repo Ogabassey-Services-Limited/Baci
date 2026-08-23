@@ -127,6 +127,21 @@ describe('bugfix: prefer business_address state over stale state_code', () => {
 });
 
 describe('bugfix: legacy free-text-only merchant address', () => {
+  it('uses the state code when a locality is mistaken for a state', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '29 Yedseram Crescent, Maitama',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: 'FC',
+    });
+
+    expect(sender).toMatchObject({
+      city: 'Maitama',
+      state: 'Abuja',
+    });
+  });
+
   it('does not default Abuja merchants to Lagos when business_address ends in a postal code', () => {
     const sender = buildMerchantSenderInfo({
       businessAddress: '29 Yedseram Crescent, Maitama, 904101',

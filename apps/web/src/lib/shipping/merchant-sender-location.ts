@@ -162,8 +162,6 @@ function resolveMerchantState({
   // stale (e.g. FC) while business_address still ends in Lagos.
   const recognizedLocationState = resolveStateFromLabel(locationState);
   if (recognizedLocationState) return recognizedLocationState;
-  if (hasLetters(locationState)) return locationState;
-
   const stateFromCode = resolveStateFromCode(stateCode);
   if (stateFromCode) return stateFromCode;
 

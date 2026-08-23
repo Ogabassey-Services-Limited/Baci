@@ -20,4 +20,20 @@ describe('shouldReleaseBookingLock', () => {
     ).toBe(false);
     expect(shouldReleaseBookingLock(new Error('Provider failed'))).toBe(false);
   });
+
+  it('releases locks for pre-provider quote and origin failures', () => {
+    for (const code of [
+      'QUOTE_REFRESH_PERSIST_FAILED',
+      'QUOTE_PRICE_CHANGED',
+      'MERCHANT_LOOKUP_FAILED',
+      'MERCHANT_ORIGIN_MISSING',
+      'INTERNATIONAL_QUOTE_SENDER_MISSING',
+    ]) {
+      expect(
+        shouldReleaseBookingLock(
+          new OrderShipmentBookingError('Booking cannot continue', 400, code)
+        )
+      ).toBe(true);
+    }
+  });
 });

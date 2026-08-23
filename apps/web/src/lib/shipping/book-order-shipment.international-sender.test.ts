@@ -45,7 +45,7 @@ const savedQuoteRequest = {
   ],
 };
 
-function createSupabase() {
+function createSupabase(provider: 'GIGL' | 'TOPSHIP' = 'GIGL') {
   const order = {
     id: 'order-1',
     customer_name: 'Jane Doe',
@@ -53,7 +53,7 @@ function createSupabase() {
     customer_phone: '08012345678',
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
-    shipping_provider: 'GIGL',
+    shipping_provider: provider,
     shipping_address: {
       address: '123 Queen Street West',
       city: 'Toronto',
@@ -78,13 +78,14 @@ function createSupabase() {
   const quote = {
     id: 'quote-1',
     merchant_id: 'merchant-1',
-    provider: 'GIGL',
+    provider,
     service_tier: 'International',
     carrier_name: 'GIG Logistics',
     price: 2500,
     currency: 'NGN',
     estimated_days: 7,
-    provider_rate_id: 'GIGL_INTL_1_2_3_1',
+    provider_rate_id:
+      provider === 'GIGL' ? 'GIGL_INTL_1_2_3_1' : 'Premium_Express',
     expires_at: new Date(Date.now() + 86_400_000).toISOString(),
     quote_request: savedQuoteRequest,
     provider_metadata: {},
@@ -162,6 +163,30 @@ describe('bugfix: international fulfillment preserves saved sender', () => {
 
     expect(shippingService.bookShipment).toHaveBeenCalledWith(
       'GIGL',
+      expect.objectContaining({
+        sender: expect.objectContaining({
+          address: '789 Quoted Warehouse',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        }),
+      })
+    );
+  });
+
+  it('preserves the saved sender for Topship international quotes', async () => {
+    vi.mocked(shippingService.bookShipment).mockResolvedValue({
+      provider: 'TOPSHIP',
+      providerShipmentId: 'prov-ship-2',
+      trackingNumber: 'TRK654321',
+      carrierName: 'Topship Express',
+      status: 'booked',
+      rawResponse: {},
+    });
+
+    await bookOrderShipment(createSupabase('TOPSHIP'), 'merchant-1', 'order-1');
+
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'TOPSHIP',
       expect.objectContaining({
         sender: expect.objectContaining({
           address: '789 Quoted Warehouse',

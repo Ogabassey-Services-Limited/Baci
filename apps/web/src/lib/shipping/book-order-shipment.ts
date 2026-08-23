@@ -132,6 +132,9 @@ export async function bookOrderShipment(
   const storedQuoteRequest = parseStoredQuoteRequest(
     typedStoredQuote.quote_request
   );
+  const isInternationalQuote =
+    isGiglInternationalQuote ||
+    storedQuoteRequest?.shipmentType === 'international';
 
   if (isGiglInternationalQuote && !storedQuoteRequest) {
     throw new OrderShipmentBookingError(
@@ -142,20 +145,19 @@ export async function bookOrderShipment(
   }
 
   let merchantSender: ShippingAddress | undefined;
-  if (!isGiglInternationalQuote) {
+  if (!isInternationalQuote) {
     const merchantSenderResult = await resolveBookingMerchantSender(
       supabase,
       merchantId
     );
     if (!merchantSenderResult.ok) {
+      const isOriginMissing = merchantSenderResult.status === 400;
       throw new OrderShipmentBookingError(
-        merchantSenderResult.status === 400
+        isOriginMissing
           ? 'Merchant shipping origin is not configured.'
-          : 'Merchant details not found.',
-        merchantSenderResult.status === 400 ? 400 : 404,
-        merchantSenderResult.status === 400
-          ? 'MERCHANT_ORIGIN_MISSING'
-          : 'MERCHANT_NOT_FOUND'
+          : 'Failed to resolve merchant shipping origin. Please try again.',
+        merchantSenderResult.status,
+        isOriginMissing ? 'MERCHANT_ORIGIN_MISSING' : 'MERCHANT_LOOKUP_FAILED'
       );
     }
     merchantSender = merchantSenderResult.sender;
@@ -189,7 +191,7 @@ export async function bookOrderShipment(
         }
       : orderReceiver;
   const sender =
-    isGiglInternationalQuote && effectiveQuoteRequest?.sender
+    isInternationalQuote && effectiveQuoteRequest?.sender
       ? effectiveQuoteRequest.sender
       : merchantSender;
   if (!sender) {

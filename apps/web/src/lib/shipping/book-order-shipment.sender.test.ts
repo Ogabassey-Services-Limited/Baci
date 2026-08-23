@@ -45,7 +45,23 @@ const quoteSender = {
   countryCode: 'NG',
 };
 
-function createSupabase() {
+function createSupabase(
+  merchantResult: { data: unknown; error: unknown } = {
+    data: {
+      business_name: 'Merchant',
+      business_address: '2 Olaide Tomori Street, Ikeja, 100001',
+      phone: '08000000002',
+      registered_address: {
+        city: 'Ikeja',
+        postal_code: '100001',
+        state: null,
+        street: '2 Olaide Tomori Street',
+      },
+      state_code: 'LA',
+    },
+    error: null,
+  }
+) {
   const order = {
     id: 'order-1',
     customer_name: 'Customer',
@@ -105,21 +121,7 @@ function createSupabase() {
   };
   const merchantSelect = {
     eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({
-      data: {
-        business_name: 'Merchant',
-        business_address: '2 Olaide Tomori Street, Ikeja, 100001',
-        phone: '08000000002',
-        registered_address: {
-          city: 'Ikeja',
-          postal_code: '100001',
-          state: null,
-          street: '2 Olaide Tomori Street',
-        },
-        state_code: 'LA',
-      },
-      error: null,
-    }),
+    single: vi.fn().mockResolvedValue(merchantResult),
   };
   const update = { error: null, eq: vi.fn().mockReturnThis() };
   const insertSelect = {
@@ -179,5 +181,21 @@ describe('bookOrderShipment sender selection', () => {
         }),
       })
     );
+  });
+
+  it('surfaces merchant lookup failures as retryable server errors', async () => {
+    const booking = bookOrderShipment(
+      createSupabase({
+        data: null,
+        error: { message: 'database unavailable' },
+      }),
+      'merchant-1',
+      'order-1'
+    );
+
+    await expect(booking).rejects.toMatchObject({
+      code: 'MERCHANT_LOOKUP_FAILED',
+      status: 500,
+    });
   });
 });

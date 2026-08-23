@@ -45,12 +45,15 @@ export function resolveBookingQuoteRequestPayload(
     quote.provider,
     quote.provider_rate_id
   );
+  const storedQuoteRequest = parseStoredQuoteRequest(quote.quote_request);
+  const isInternationalQuote =
+    isGiglInternationalQuote ||
+    storedQuoteRequest?.shipmentType === 'international';
 
-  if (!isGiglInternationalQuote) {
+  if (!isInternationalQuote) {
     return { items, receiver };
   }
 
-  const storedQuoteRequest = parseStoredQuoteRequest(quote.quote_request);
   if (!storedQuoteRequest) {
     return null;
   }
