@@ -203,6 +203,11 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260823100000_jumia_orphan_authorization_sweep.sql',
+    sha256: 'b083e3e5682da5828f34d9593304d2371a1b38abb8020701e22e6ec1e1350f67',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260821171051_google_ads_connections_and_spend.sql',
     sha256: '1994ba5d58f278013d01a6b5f8ba0871f980a0f7223c0321875d4d5013df3c05',
   },

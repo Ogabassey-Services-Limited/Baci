@@ -132,6 +132,15 @@ describe('supabase-history-replay sources', () => {
     );
   });
 
+  it('registers the Jumia authorization repair migrations in the replay input', () => {
+    expect(rows(PENDING_SOURCES)).toEqual(
+      expect.arrayContaining([
+        '76df6e5a16ecd22c612f2b42a4164ffd592bdc1bc3255eca6c419812e286c48a 20260822100000_mark_reactivated_jumia_self_authorization_as_inserted.sql',
+        'b083e3e5682da5828f34d9593304d2371a1b38abb8020701e22e6ec1e1350f67 20260823100000_jumia_orphan_authorization_sweep.sql',
+      ])
+    );
+  });
+
   it('keeps the quiz-live pending-source cohort unique and lexically ordered', () => {
     const repositoryPaths = EXPECTED_QUIZ_LIVE_PENDING_SOURCES.map(
       ({ repositoryPath }) => repositoryPath
