@@ -30,11 +30,11 @@ const snapchatRefreshMigrationHash =
 const providerNeutralNonceMigrationName =
   '20260821180006_provider_neutral_ads_oauth_state_nonces.sql' as const;
 const providerNeutralNonceMigrationHash =
-  '5a9a72a1a7cba1a0c097f022a717929e5b2beea9e17b19f34c0a980e08353efb' as const;
+  '7def866f396dced9ceb5c914e67b640c3765e25d9c59032bae78f10fa31d4dc3' as const;
 const providerNeutralNonceHardeningMigrationName =
   '20260821180007_harden_provider_neutral_ads_oauth_state_nonce_rpcs.sql' as const;
 const providerNeutralNonceHardeningMigrationHash =
-  'cf598ab0dee239574844efa89ab648e17a1f634cac66d5a3a506c9cc39395866' as const;
+  '55d645a37189cf63da021741d225888f6eb867c92f07bb0d05ffc3ee28b96f45' as const;
 const adsReviewFindingsMigrationName =
   '20260823190000_harden_ads_review_findings.sql' as const;
 const adsReviewFindingsMigrationHash =

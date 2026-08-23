@@ -21,6 +21,7 @@ describe('provider-neutral Ads OAuth nonce migration', () => {
     expect(sql).toContain('auth.uid() is distinct from p_user_id');
     expect(sql).toContain("'integrations', 'manage'");
     expect(sql).toContain('redirect_uri = p_redirect_uri');
+    expect(sql).toContain('p_redirect_uri <> (case p_provider');
     expect(sql).toContain('expires_at > pg_catalog.now()');
     expect(sql).toContain("set search_path = ''");
     expect(sql).toContain('revoke all on function');

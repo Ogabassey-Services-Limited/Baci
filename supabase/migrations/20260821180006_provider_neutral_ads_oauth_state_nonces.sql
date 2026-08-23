@@ -32,12 +32,12 @@ BEGIN
     OR p_nonce !~ '^[A-Za-z0-9_-]{16,128}$'
     OR p_expires_at <= pg_catalog.now()
     OR p_expires_at > pg_catalog.now() + pg_catalog.interval '15 minutes'
-    OR p_redirect_uri <> CASE p_provider
+    OR p_redirect_uri <> (CASE p_provider
       WHEN 'google_ads' THEN 'https://usebaci.com/api/integrations/ads/google/callback'
       WHEN 'meta_ads' THEN 'https://usebaci.com/api/integrations/ads/meta/callback'
       WHEN 'tiktok_ads' THEN 'https://usebaci.com/api/integrations/ads/tiktok/callback'
       ELSE NULL
-    END THEN
+    END) THEN
     RETURN false;
   END IF;
 
@@ -74,12 +74,12 @@ BEGIN
     )
     OR p_provider NOT IN ('google_ads', 'meta_ads', 'tiktok_ads')
     OR p_nonce !~ '^[A-Za-z0-9_-]{16,128}$'
-    OR p_redirect_uri <> CASE p_provider
+    OR p_redirect_uri <> (CASE p_provider
       WHEN 'google_ads' THEN 'https://usebaci.com/api/integrations/ads/google/callback'
       WHEN 'meta_ads' THEN 'https://usebaci.com/api/integrations/ads/meta/callback'
       WHEN 'tiktok_ads' THEN 'https://usebaci.com/api/integrations/ads/tiktok/callback'
       ELSE NULL
-    END THEN
+    END) THEN
     RETURN false;
   END IF;
 
