@@ -1,4 +1,11 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 
 type NotificationResponse = import('expo-notifications').NotificationResponse;
 
@@ -54,6 +61,10 @@ describe('processPushNotificationResponse', () => {
     mockWarn.mockReset();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('deduplicates by delivery identifier while retaining payload attribution', () => {
     const navigate = jest.fn();
     const response = createResponse('utility-delivery-1', {
@@ -96,11 +107,8 @@ describe('processPushNotificationResponse', () => {
   });
 
   it('retries user-facing handling after a navigation error', () => {
-    const navigate = jest
-      .fn<(screen: string, params?: Record<string, string>) => void>()
-      .mockImplementationOnce(() => {
-        throw new Error('navigator is not ready');
-      });
+    jest.useFakeTimers();
+    const navigate = jest.fn();
     mockHandleNotificationResponse.mockImplementation(
       (
         _response: NotificationResponse,
@@ -112,6 +120,9 @@ describe('processPushNotificationResponse', () => {
         navigateFromResponse('wallet');
       }
     );
+    navigate.mockImplementationOnce(() => {
+      throw new Error('navigator is not ready');
+    });
     const response = createResponse('utility-navigation-failure', {
       notification_type: 'promotion',
     });
@@ -119,7 +130,10 @@ describe('processPushNotificationResponse', () => {
     expect(() =>
       processPushNotificationResponse(response, navigate)
     ).not.toThrow();
-    processPushNotificationResponse(response, navigate);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+    expect(mockClearBadge).not.toHaveBeenCalled();
+
+    jest.runOnlyPendingTimers();
 
     expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);

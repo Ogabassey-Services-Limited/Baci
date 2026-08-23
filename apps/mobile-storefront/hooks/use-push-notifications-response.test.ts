@@ -92,6 +92,9 @@ const createResponse = (
     notification: { date, request: { identifier, content: { data } } },
   }) as NotificationResponse;
 
+const waitForResponseListener = () =>
+  waitFor(() => expect(mockNotificationResponseCallback).not.toBeNull());
+
 describe('usePushNotifications response handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -106,6 +109,7 @@ describe('usePushNotifications response handling', () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -117,9 +121,7 @@ describe('usePushNotifications response handling', () => {
       ) => navigate('utility-history', { type: 'power' })
     );
     renderHook(() => usePushNotifications());
-    await waitFor(() =>
-      expect(mockNotificationResponseCallback).not.toBeNull()
-    );
+    await waitForResponseListener();
 
     act(() => {
       mockNotificationResponseCallback?.(
@@ -143,9 +145,7 @@ describe('usePushNotifications response handling', () => {
 
   it('counts a notification tap once when Expo emits duplicate responses', async () => {
     renderHook(() => usePushNotifications());
-    await waitFor(() =>
-      expect(mockNotificationResponseCallback).not.toBeNull()
-    );
+    await waitForResponseListener();
     const response = createResponse(
       'response-duplicate',
       { notification_type: 'promotion' },
@@ -162,9 +162,7 @@ describe('usePushNotifications response handling', () => {
 
   it('counts distinct deliveries separately when they share a payload notification id', async () => {
     renderHook(() => usePushNotifications());
-    await waitFor(() =>
-      expect(mockNotificationResponseCallback).not.toBeNull()
-    );
+    await waitForResponseListener();
     const firstDelivery = createResponse(
       'response-delivery-1',
       { notification_id: 'campaign-shared', notification_type: 'promotion' },
@@ -190,9 +188,7 @@ describe('usePushNotifications response handling', () => {
       throw new Error('analytics unavailable');
     });
     renderHook(() => usePushNotifications());
-    await waitFor(() =>
-      expect(mockNotificationResponseCallback).not.toBeNull()
-    );
+    await waitForResponseListener();
     const response = createResponse(
       'response-analytics-failure',
       { notification_type: 'promotion' },
@@ -222,6 +218,36 @@ describe('usePushNotifications response handling', () => {
         'response-cold-start'
       );
     });
+  });
+
+  it('retries cold-start navigation after the root navigator becomes ready', async () => {
+    jest.useFakeTimers();
+    mockGetLastNotificationResponse.mockResolvedValue(
+      createResponse(
+        'response-cold-start-navigation-retry',
+        { notification_type: 'promotion' },
+        6500
+      )
+    );
+    mockHandleNotificationResponse.mockImplementationOnce(() => {
+      throw new Error('navigator is not ready');
+    });
+
+    renderHook(() => usePushNotifications());
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.advanceTimersByTime(250);
+    });
+
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
   });
 
   it('does not re-track a cold-start response after the hook remounts', async () => {
@@ -254,9 +280,7 @@ describe('usePushNotifications response handling', () => {
       ) => navigate('wallet', { action: 'savings' })
     );
     renderHook(() => usePushNotifications());
-    await waitFor(() =>
-      expect(mockNotificationResponseCallback).not.toBeNull()
-    );
+    await waitForResponseListener();
 
     act(() => {
       mockNotificationResponseCallback?.(
