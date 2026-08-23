@@ -81,9 +81,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const isRegistered = Boolean(user?.id && registeredUserId === user.id);
 
   const navigate = useEffectEvent(
-    (screen: string, params?: Record<string, string>) => {
-      return navigateFromPushScreen(screen, params);
-    }
+    (
+      screen: string,
+      params?: Record<string, string>,
+      isCurrent?: () => boolean
+    ) => navigateFromPushScreen(screen, params, isCurrent)
   );
 
   const register = async (

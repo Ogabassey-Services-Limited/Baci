@@ -187,7 +187,7 @@ describe('processPushNotificationResponse', () => {
 
     expect(mockHandleNotificationResponse).toHaveBeenCalledWith(
       response,
-      navigate
+      expect.any(Function)
     );
     expect(mockClearBadge).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledTimes(1);
@@ -219,6 +219,35 @@ describe('processPushNotificationResponse', () => {
     expect(onHandled).toHaveBeenCalledTimes(1);
     expect(onHandled).toHaveBeenCalledWith(secondResponse);
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a handled duplicate without cancelling a newer pending tap', () => {
+    jest.useFakeTimers();
+    const navigate = jest.fn<Navigate>();
+    const firstResponse = createResponse(
+      'utility-handled-a',
+      { notification_type: 'promotion' },
+      6000
+    );
+    const secondResponse = createResponse(
+      'utility-pending-b',
+      { notification_type: 'promotion' },
+      7000
+    );
+    mockHandleNotificationResponse
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => {
+        throw new Error('navigator is not ready');
+      })
+      .mockImplementationOnce(() => undefined);
+
+    processPushNotificationResponse(firstResponse, navigate);
+    processPushNotificationResponse(secondResponse, navigate);
+    processPushNotificationResponse(firstResponse, navigate);
+    jest.runOnlyPendingTimers();
+
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(3);
+    expect(mockClearBadge).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry when finalization itself throws', () => {

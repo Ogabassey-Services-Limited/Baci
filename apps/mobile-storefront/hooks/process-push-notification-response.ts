@@ -8,7 +8,8 @@ import {
 type NotificationResponse = import('expo-notifications').NotificationResponse;
 type Navigate = (
   screen: string,
-  params?: Record<string, string>
+  params?: Record<string, string>,
+  isCurrent?: () => boolean
 ) => void | Promise<void>;
 type OnHandled = (response: NotificationResponse) => unknown;
 type ProcessOptions = { isRetry?: boolean };
@@ -191,14 +192,13 @@ export function processPushNotificationResponse(
   if (!options?.isRetry && pendingNotificationResponses.has(responseKey)) {
     return;
   }
-  if (!options?.isRetry) latestResponseKey = responseKey;
-
   if (
     openedNotificationIds.has(responseKey) ||
     processingNotificationIds.has(responseKey)
   ) {
     return;
   }
+  if (!options?.isRetry) latestResponseKey = responseKey;
   processingNotificationIds.add(responseKey);
   let awaitsAsyncHandling = false;
 
@@ -229,7 +229,9 @@ export function processPushNotificationResponse(
 
     let handlingResult: void | Promise<void>;
     try {
-      handlingResult = handleNotificationResponse(response, navigate);
+      handlingResult = handleNotificationResponse(response, (screen, params) =>
+        navigate(screen, params, () => latestResponseKey === responseKey)
+      );
     } catch (error) {
       log.warn('Failed to handle notification response:', error);
       queuePendingNotificationResponse(

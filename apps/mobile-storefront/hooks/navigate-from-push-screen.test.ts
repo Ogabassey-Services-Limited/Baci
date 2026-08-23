@@ -191,6 +191,29 @@ describe('navigateFromPushScreen', () => {
     expect(push).toHaveBeenNthCalledWith(2, '/checkout');
   });
 
+  it('does not finish an older wallet navigation after a newer tap', async () => {
+    let resolveIntent: ((value: '/checkout') => void) | undefined;
+    let isCurrent = true;
+    consumeIntent.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveIntent = resolve;
+        })
+    );
+    const navigation = navigateFromPushScreen(
+      'wallet',
+      { credited: 'true' },
+      () => isCurrent
+    );
+    await flushIntentRead();
+
+    isCurrent = false;
+    resolveIntent?.('/checkout');
+    await navigation;
+
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it('stays on the wallet when no funding intent is stored', async () => {
     navigateFromPushScreen('wallet', { credited: 'true' });
     await flushIntentRead();
