@@ -11,6 +11,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
+import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
 import type { BookingRequest, ShippingAddress } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
@@ -19,7 +20,6 @@ import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
-import { resolveBookingMerchantSender } from './resolve-booking-merchant-sender';
 import { resolveBookingQuoteForSender } from './resolve-booking-quote-for-sender';
 
 export async function POST(request: NextRequest) {

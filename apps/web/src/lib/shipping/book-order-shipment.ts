@@ -9,7 +9,6 @@ import {
   type InternationalShipmentOrderItem,
   toInternationalShipmentItemsFromOrder,
 } from '@/lib/shipping/international-shipment-items';
-import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import {
   buildReceiver,
   isShippingProviderCode,
@@ -19,18 +18,19 @@ import {
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import {
+  assertQuotePriceMatchesOrderFee,
   type OrderShipmentQuoteRecord,
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';
-import type { BookingRequest } from '@/lib/shipping/types';
-
-type QuoteRecord = OrderShipmentQuoteRecord;
+import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
+import type { BookingRequest, ShippingAddress } from '@/lib/shipping/types';
 
 type OrderRecord = {
   id: string;
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  shipping_fee: number | string | null;
   selected_quote_id: string | null;
   shipping_provider: string | null;
   shipping_address: {
@@ -45,14 +45,6 @@ type OrderRecord = {
   order_items: InternationalShipmentOrderItem[] | null;
 };
 
-type MerchantRecord = {
-  business_name: string | null;
-  business_address: string | null;
-  phone: string | null;
-  registered_address: unknown;
-  state_code: string | null;
-};
-
 export type BookOrderShipmentResult = ReusableOrderShipmentResult;
 
 export async function bookOrderShipment(
@@ -63,7 +55,7 @@ export async function bookOrderShipment(
   const { data: order, error: orderError } = await supabase
     .from('orders')
     .select(
-      'id, customer_name, customer_email, customer_phone, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+      'id, customer_name, customer_email, customer_phone, shipping_fee, selected_quote_id, shipping_provider, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
     )
     .eq('id', orderId)
     .eq('merchant_id', merchantId)
@@ -123,7 +115,7 @@ export async function bookOrderShipment(
     .eq('id', typedOrder.selected_quote_id)
     .eq('merchant_id', merchantId)
     .single();
-  const typedStoredQuote = storedQuote as QuoteRecord | null;
+  const typedStoredQuote = storedQuote as OrderShipmentQuoteRecord | null;
 
   if (quoteError || !typedStoredQuote) {
     throw new OrderShipmentBookingError(
@@ -133,51 +125,12 @@ export async function bookOrderShipment(
     );
   }
 
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select(
-      'business_name, business_address, phone, registered_address, state_code'
-    )
-    .eq('id', merchantId)
-    .single();
-  const typedMerchant = merchant as MerchantRecord | null;
-
-  if (merchantError || !typedMerchant) {
-    throw new OrderShipmentBookingError(
-      'Merchant details not found.',
-      404,
-      'MERCHANT_NOT_FOUND'
-    );
-  }
-
-  const merchantSender = buildMerchantSenderInfo({
-    businessAddress: typedMerchant.business_address,
-    businessName: typedMerchant.business_name,
-    phone: typedMerchant.phone,
-    registeredAddress: typedMerchant.registered_address,
-    stateCode: typedMerchant.state_code,
-  });
-  if (!merchantSender) {
-    throw new OrderShipmentBookingError(
-      'Merchant shipping origin is not configured.',
-      400,
-      'MERCHANT_ORIGIN_MISSING'
-    );
-  }
-
-  const resolvedQuote = await refreshOrderShipmentQuote(
-    supabase,
-    typedStoredQuote,
-    typedOrder.shipping_provider,
-    merchantSender
-  );
-
-  const storedQuoteRequest = parseStoredQuoteRequest(
-    resolvedQuote.quote_request
-  );
   const isGiglInternationalQuote = isGiglInternationalProviderRate(
     typedOrder.shipping_provider,
-    resolvedQuote.provider_rate_id
+    typedStoredQuote.provider_rate_id
+  );
+  const storedQuoteRequest = parseStoredQuoteRequest(
+    typedStoredQuote.quote_request
   );
 
   if (isGiglInternationalQuote && !storedQuoteRequest) {
@@ -188,29 +141,69 @@ export async function bookOrderShipment(
     );
   }
 
+  let merchantSender: ShippingAddress | undefined;
+  if (!isGiglInternationalQuote) {
+    const merchantSenderResult = await resolveBookingMerchantSender(
+      supabase,
+      merchantId
+    );
+    if (!merchantSenderResult.ok) {
+      throw new OrderShipmentBookingError(
+        merchantSenderResult.status === 400
+          ? 'Merchant shipping origin is not configured.'
+          : 'Merchant details not found.',
+        merchantSenderResult.status === 400 ? 400 : 404,
+        merchantSenderResult.status === 400
+          ? 'MERCHANT_ORIGIN_MISSING'
+          : 'MERCHANT_NOT_FOUND'
+      );
+    }
+    merchantSender = merchantSenderResult.sender;
+  }
+
+  const resolvedQuote = await refreshOrderShipmentQuote(
+    supabase,
+    typedStoredQuote,
+    typedOrder.shipping_provider,
+    merchantSender
+  );
+  assertQuotePriceMatchesOrderFee(resolvedQuote, typedOrder.shipping_fee);
+
+  const resolvedQuoteRequest = parseStoredQuoteRequest(
+    resolvedQuote.quote_request
+  );
+  const effectiveQuoteRequest = resolvedQuoteRequest ?? storedQuoteRequest;
+
   const orderReceiver = buildReceiver(typedOrder);
-  if (isGiglInternationalQuote && storedQuoteRequest) {
-    assertInternationalQuoteMatchesOrder(storedQuoteRequest, typedOrder);
+  if (isGiglInternationalQuote && effectiveQuoteRequest) {
+    assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
   }
 
   const receiver =
-    isGiglInternationalQuote && storedQuoteRequest
+    isGiglInternationalQuote && effectiveQuoteRequest
       ? {
-          ...storedQuoteRequest.receiver,
+          ...effectiveQuoteRequest.receiver,
           name: orderReceiver.name,
           email: orderReceiver.email,
           phone: orderReceiver.phone,
         }
       : orderReceiver;
   const sender =
-    isGiglInternationalQuote && storedQuoteRequest?.sender
-      ? storedQuoteRequest.sender
+    isGiglInternationalQuote && effectiveQuoteRequest?.sender
+      ? effectiveQuoteRequest.sender
       : merchantSender;
+  if (!sender) {
+    throw new OrderShipmentBookingError(
+      'The saved international shipping quote is missing its sender. Please get a new quote before shipping.',
+      400,
+      'INTERNATIONAL_QUOTE_SENDER_MISSING'
+    );
+  }
   const items =
-    isGiglInternationalQuote && storedQuoteRequest
+    isGiglInternationalQuote && effectiveQuoteRequest
       ? toInternationalShipmentItemsFromOrder(
           orderItems,
-          storedQuoteRequest.items
+          effectiveQuoteRequest.items
         )
       : toShipmentItems(orderItems);
 

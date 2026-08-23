@@ -113,6 +113,7 @@ function createSupabase({
     customer_name: 'Customer',
     customer_email: 'customer@example.com',
     customer_phone: '08000000001',
+    shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: 'GIGL',
     shipping_address: {

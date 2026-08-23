@@ -3,10 +3,20 @@ import type { ShippingAddress } from '@/lib/shipping/types';
 
 const mockRefreshOrderShipmentQuote = vi.fn();
 
-vi.mock('@/lib/shipping/refresh-order-shipment-quote', () => ({
-  refreshOrderShipmentQuote: (...args: unknown[]) =>
-    mockRefreshOrderShipmentQuote(...args),
-}));
+vi.mock(
+  '@/lib/shipping/refresh-order-shipment-quote',
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import('@/lib/shipping/refresh-order-shipment-quote')
+      >();
+    return {
+      ...actual,
+      refreshOrderShipmentQuote: (...args: unknown[]) =>
+        mockRefreshOrderShipmentQuote(...args),
+    };
+  }
+);
 
 const { resolveBookingQuoteForSender } = await import(
   './resolve-booking-quote-for-sender'
