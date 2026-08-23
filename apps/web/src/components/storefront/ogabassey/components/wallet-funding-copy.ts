@@ -16,6 +16,8 @@ export const WALLET_FUNDING_COPY = {
   fundCtaSubtitle: 'Transfer to your wallet account number — 1% fee, max ₦300',
   invalidPhone:
     'Please enter a valid Nigerian phone number (e.g., 08012345678)',
+  invalidName: 'Please enter both your first and last name',
+  nameSaveFailed: 'Could not save your name. Please try again.',
   orderPaymentInProgress:
     'Your account number is handling an order payment right now. Complete that payment first, then try again — reservations clear within about 90 minutes.',
   refreshCta: "I've sent it — refresh balance",

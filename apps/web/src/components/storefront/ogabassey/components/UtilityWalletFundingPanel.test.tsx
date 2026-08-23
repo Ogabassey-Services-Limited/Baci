@@ -19,14 +19,25 @@ vi.mock('./WalletFundingPanel', () => ({
     const onUpdateCustomerPhone = props.onUpdateCustomerPhone as
       | ((phone: string) => Promise<unknown>)
       | undefined;
+    const onUpdateCustomerName = props.onUpdateCustomerName as
+      | ((firstName: string, lastName: string) => Promise<unknown>)
+      | undefined;
 
     return (
-      <button
-        type="button"
-        onClick={() => void onUpdateCustomerPhone?.('08012345678')}
-      >
-        Update phone
-      </button>
+      <>
+        <button
+          type="button"
+          onClick={() => void onUpdateCustomerPhone?.('08012345678')}
+        >
+          Update phone
+        </button>
+        <button
+          type="button"
+          onClick={() => void onUpdateCustomerName?.('Jane', 'Doe')}
+        >
+          Update name
+        </button>
+      </>
     );
   },
 }));
@@ -62,5 +73,20 @@ describe('UtilityWalletFundingPanel', () => {
     render(<UtilityWalletFundingPanel {...baseProps} />);
 
     expect(capturedProps.current?.onUpdateCustomerPhone).toBeUndefined();
+    expect(capturedProps.current?.onUpdateCustomerName).toBeUndefined();
+  });
+
+  it('forwards the authenticated customer name update callback', async () => {
+    const user = userEvent.setup();
+    const updateCustomer = vi.fn().mockResolvedValue({ success: true });
+    mockUseOptionalCustomerAuth.mockReturnValue({ updateCustomer });
+
+    render(<UtilityWalletFundingPanel {...baseProps} />);
+    await user.click(screen.getByRole('button', { name: 'Update name' }));
+
+    expect(updateCustomer).toHaveBeenCalledWith({
+      first_name: 'Jane',
+      last_name: 'Doe',
+    });
   });
 });
