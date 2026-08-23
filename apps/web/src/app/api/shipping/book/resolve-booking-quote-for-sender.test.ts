@@ -54,6 +54,7 @@ describe('resolveBookingQuoteForSender', () => {
       {
         merchantSender,
         usesStoredInternationalSender: true,
+        expectedShippingFee: 2500,
       }
     );
 
@@ -72,6 +73,7 @@ describe('resolveBookingQuoteForSender', () => {
         {
           merchantSender,
           usesStoredInternationalSender: false,
+          expectedShippingFee: 2500,
         }
       );
 
@@ -82,6 +84,39 @@ describe('resolveBookingQuoteForSender', () => {
         merchantSender
       );
       expect(result.id).toBe('quote-refreshed');
+    });
+
+    it('rejects a refreshed quote when its price differs from the order fee', async () => {
+      const supabase = { from: vi.fn() };
+      mockRefreshOrderShipmentQuote.mockResolvedValue({
+        ...quote,
+        id: 'quote-refreshed',
+        price: 3000,
+      });
+
+      await expect(
+        resolveBookingQuoteForSender(supabase as never, quote, 'GIGL', {
+          merchantSender,
+          usesStoredInternationalSender: false,
+          expectedShippingFee: 2500,
+        })
+      ).rejects.toMatchObject({
+        code: 'QUOTE_PRICE_CHANGED',
+        status: 400,
+      });
+    });
+
+    it('requires a registered sender for domestic refreshes', async () => {
+      await expect(
+        resolveBookingQuoteForSender({} as never, quote, 'GIGL', {
+          usesStoredInternationalSender: false,
+          expectedShippingFee: 2500,
+        })
+      ).rejects.toMatchObject({
+        code: 'MERCHANT_SENDER_REQUIRED',
+        status: 400,
+      });
+      expect(mockRefreshOrderShipmentQuote).not.toHaveBeenCalled();
     });
   });
 });

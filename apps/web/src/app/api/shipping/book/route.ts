@@ -11,7 +11,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import type { BookingRequest } from '@/lib/shipping/types';
+import type { BookingRequest, ShippingAddress } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
 import { persistBookedShipment } from './persist-booked-shipment';
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, selected_quote_id, shipping_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+        'id, merchant_id, selected_quote_id, shipping_status, shipping_fee, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
       )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
@@ -121,21 +121,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Domestic bookings ignore request-controlled data.sender and always use
-    // the registered merchant origin. International quotes keep the saved
-    // quotePayload.sender from the stored international request.
-    const merchantSenderResult = await resolveBookingMerchantSender(
-      supabase,
-      merchantId,
-      merchantContext.businessName
-    );
-    if (!merchantSenderResult.ok) {
-      return NextResponse.json(
-        { error: merchantSenderResult.error },
-        { status: merchantSenderResult.status }
-      );
-    }
-
     const quotePayload = resolveBookingQuoteRequestPayload(
       quote,
       {
@@ -171,6 +156,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Domestic bookings ignore request-controlled data.sender and always use
+    // the registered merchant origin. International quotes keep the saved
+    // quotePayload.sender from the stored international request and therefore
+    // do not need the merchant's current registered address.
+    const usesStoredInternationalSender = Boolean(quotePayload.sender);
+    let merchantSender: ShippingAddress | undefined;
+    if (!usesStoredInternationalSender) {
+      const merchantSenderResult = await resolveBookingMerchantSender(
+        supabase,
+        merchantId,
+        merchantContext.businessName
+      );
+      if (!merchantSenderResult.ok) {
+        return NextResponse.json(
+          { error: merchantSenderResult.error },
+          { status: merchantSenderResult.status }
+        );
+      }
+      merchantSender = merchantSenderResult.sender;
+    }
+
     // Domestic bookings replace the quote-time sender with the registered
     // merchant origin; refresh first when that origin differs so we do not
     // book with rate IDs / metadata priced for another station.
@@ -179,13 +185,22 @@ export async function POST(request: NextRequest) {
       quote,
       quote.provider,
       {
-        merchantSender: merchantSenderResult.sender,
-        usesStoredInternationalSender: Boolean(quotePayload.sender),
+        merchantSender,
+        usesStoredInternationalSender,
+        expectedShippingFee: order.shipping_fee,
       }
     );
 
-    const resolvedSenderInfo =
-      quotePayload.sender ?? merchantSenderResult.sender;
+    const resolvedSenderInfo = quotePayload.sender ?? merchantSender;
+    if (!resolvedSenderInfo) {
+      return NextResponse.json(
+        {
+          error:
+            'Registered merchant sender is required for domestic shipment booking.',
+        },
+        { status: 400 }
+      );
+    }
 
     const bookingRequest: BookingRequest = {
       orderId: data.orderId,

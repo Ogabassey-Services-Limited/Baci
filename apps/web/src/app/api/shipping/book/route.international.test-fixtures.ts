@@ -35,9 +35,11 @@ export function buildInternationalBookingRequest(): NextRequest {
 export function buildInternationalSupabaseMock({
   matchingDestination = false,
   selectedQuoteId = '22222222-2222-4222-8222-222222222222',
+  merchantSenderAvailable = true,
 }: {
   matchingDestination?: boolean;
   selectedQuoteId?: string | null;
+  merchantSenderAvailable?: boolean;
 } = {}) {
   const quoteReceiver = matchingDestination
     ? {
@@ -153,17 +155,19 @@ export function buildInternationalSupabaseMock({
           select: vi.fn(() => ({
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
-              data: {
-                business_name: 'Registered Merchant Store',
-                business_address: '9 Registered Road, Ikeja, Lagos',
-                phone: '+2348012345678',
-                registered_address: {
-                  city: 'Ikeja',
-                  state: 'Lagos',
-                  street: '9 Registered Road',
-                },
-                state_code: 'LA',
-              },
+              data: merchantSenderAvailable
+                ? {
+                    business_name: 'Registered Merchant Store',
+                    business_address: '9 Registered Road, Ikeja, Lagos',
+                    phone: '+2348012345678',
+                    registered_address: {
+                      city: 'Ikeja',
+                      state: 'Lagos',
+                      street: '9 Registered Road',
+                    },
+                    state_code: 'LA',
+                  }
+                : null,
               error: null,
             }),
           })),

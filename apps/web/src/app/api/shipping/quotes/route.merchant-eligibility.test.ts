@@ -119,114 +119,46 @@ describe('POST /api/shipping/quotes', () => {
     });
     mockCreateServerClient.mockResolvedValue(buildSupabaseMock(null));
   });
-  it('ranks a cheaper merchant rate ahead of a pricier carrier in the merged list', async () => {
-    const zoneId = '44444444-4444-4444-8444-444444444444';
-    const rateId = '55555555-5555-4555-8555-555555555555';
-    const supabase = buildSupabaseMock({ id: 'user-1' }, null, {
+  it('returns empty quotes with a Nigerian-merchants-only warning for a non-NG merchant', async () => {
+    const merchantDetails = {
       business_name: 'Merchant Store',
-      business_address: '1 Merchant Road, Lagos',
-      country: 'NG',
-      payout_currency: 'NGN',
-      phone: '08012345678',
-    });
-    // Merchant configured one cheap Lagos rate; the carrier quote is pricier.
-    supabase.rpc = vi.fn().mockResolvedValue({
-      data: {
-        zones: [
-          { id: zoneId, name: 'Lagos', is_rest_of_world: false, active: true },
-        ],
-        locations: [
-          { zone_id: zoneId, country_code: 'NG', subdivision_code: 'NG-LA' },
-        ],
-        rates: [
-          {
-            id: rateId,
-            zone_id: zoneId,
-            name: 'Lagos Standard',
-            kind: 'ship',
-            currency: 'NGN',
-            base_amount: 1000,
-            condition_type: 'always',
-            min_subtotal: null,
-            max_subtotal: null,
-            free_over_amount: null,
-            delivery_min_days: 1,
-            delivery_max_days: 3,
-            pickup_address: null,
-            sort_order: 0,
-            active: true,
-          },
-        ],
-      },
-      error: null,
-    });
-    mockCreateAdminClient.mockReturnValue(supabase);
-    mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      business_address: '1 Merchant Road, Bengaluru',
+      country: 'IN',
+      phone: '+919876543210',
+    };
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
-    mockGetQuotes.mockResolvedValue({
-      quotes: {
-        featured: [],
-        all: [
-          {
-            id: 'gigl-quote-1',
-            provider: 'GIGL',
-            serviceTier: 'Standard',
-            carrierName: 'GIG Logistics',
-            displayName: 'GIG Logistics',
-            estimatedDays: 3,
-            price: 5000,
-            currency: 'NGN',
-            pickupIncluded: true,
-            insuranceIncluded: true,
-            expiresAt: new Date(Date.now() + 60_000),
-          },
-        ],
-      },
-      sessionId: 'session-1',
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
-    });
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
     const { POST } = await import('./route');
 
-    const response = await POST(
-      buildQuoteRequest({
-        shipmentType: 'domestic',
-        supports_merchant_rates: true,
-        receiver: {
-          name: 'Ada Buyer',
-          phone: '08011112222',
-          address: '5 Balogun Street',
-          city: 'Ikeja',
-          state: 'Lagos',
-          country: 'Nigeria',
-          countryCode: 'NG',
-        },
-      })
-    );
+    const response = await POST(buildQuoteRequest());
     const json = await response.json();
 
     expect(response.status).toBe(200);
-    const all = json.quotes.all as Array<{ id: string; price: number }>;
-    expect(all[0]).toMatchObject({ id: `mrate_${rateId}`, price: 1000 });
-    const merchantIndex = all.findIndex((q) => q.id === `mrate_${rateId}`);
-    const carrierIndex = all.findIndex((q) => q.id === 'gigl-quote-1');
-    expect(merchantIndex).toBeGreaterThanOrEqual(0);
-    expect(carrierIndex).toBeGreaterThanOrEqual(0);
-    expect(merchantIndex).toBeLessThan(carrierIndex);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(
+      json.warnings.some((warning: string) =>
+        /Nigerian merchants/i.test(warning)
+      )
+    ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 
-  it('still fetches quotes when the payout currency is NGN and the country is NG', async () => {
+  it('still fetches quotes when the merchant country is Nigeria', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: 'NG',
+      phone: '08012345678',
+    };
     mockCreateAdminClient.mockReturnValue(
-      buildSupabaseMock({ id: 'user-1' }, null, {
-        business_name: 'Merchant Store',
-        business_address: '1 Merchant Road, Lagos',
-        country: 'NG',
-        payout_currency: 'NGN',
-        phone: '08012345678',
-      })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     mockCreateServerClient.mockResolvedValue(
-      buildSupabaseMock({ id: 'user-1' })
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
     );
     const { POST } = await import('./route');
 
@@ -234,5 +166,79 @@ describe('POST /api/shipping/quotes', () => {
 
     expect(response.status).toBe(200);
     expect(mockGetQuotes).toHaveBeenCalled();
+  });
+
+  it('still fetches quotes when the merchant country is null', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: null,
+      phone: '08012345678',
+    };
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+
+    expect(response.status).toBe(200);
+    expect(mockGetQuotes).toHaveBeenCalled();
+  });
+
+  it('returns empty quotes when the merchant payout currency is not NGN even for an NG merchant', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Lagos',
+      country: 'NG',
+      payout_currency: 'GHS',
+      phone: '08012345678',
+    };
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(
+      json.warnings.some((warning: string) =>
+        /Nigerian merchants/i.test(warning)
+      )
+    ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('returns empty quotes for a non-NGN payout merchant with no country set', async () => {
+    const merchantDetails = {
+      business_name: 'Merchant Store',
+      business_address: '1 Merchant Road, Accra',
+      country: null,
+      payout_currency: 'GHS',
+      phone: '+233201234567',
+    };
+    mockCreateAdminClient.mockReturnValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    mockCreateServerClient.mockResolvedValue(
+      buildSupabaseMock({ id: 'user-1' }, null, merchantDetails)
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildQuoteRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.quotes).toEqual({ featured: [], all: [] });
+    expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 });

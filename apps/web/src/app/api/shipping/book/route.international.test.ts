@@ -137,4 +137,34 @@ describe('POST /api/shipping/book GIGL international guards', () => {
     expect(response.status).toBe(201);
     expect(mockBookShipment).toHaveBeenCalledOnce();
   });
+
+  it('does not require a current merchant origin for a stored international quote', async () => {
+    mockCreateClient.mockReturnValue(
+      buildInternationalSupabaseMock({
+        matchingDestination: true,
+        merchantSenderAvailable: false,
+      })
+    );
+    mockBookShipment.mockResolvedValue({
+      provider: 'GIGL',
+      providerShipmentId: 'provider-1',
+      trackingNumber: 'GIGL-TRACK-1',
+      carrierName: 'GIG Logistics',
+      status: 'processing',
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(buildInternationalBookingRequest());
+
+    expect(response.status).toBe(201);
+    expect(mockBookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        sender: expect.objectContaining({
+          address: '7 Quoted Origin',
+          countryCode: 'NG',
+        }),
+      })
+    );
+  });
 });
