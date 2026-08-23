@@ -265,4 +265,4 @@ GRANT EXECUTE ON FUNCTION private.classify_storefront_cluster_guide_candidates_v
   uuid,
   jsonb,
   pg_catalog.tsquery
-) TO postgres;
+) TO postgres, service_role;

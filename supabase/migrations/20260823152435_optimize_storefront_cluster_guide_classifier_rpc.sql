@@ -98,7 +98,7 @@ BEGIN
       OR EXISTS (
         SELECT 1
         FROM pg_catalog.jsonb_array_elements(p_cluster_rules) AS rule(value)
-        GROUP BY rule.value ->> 'rule_order'
+        GROUP BY (rule.value ->> 'rule_order')::integer
         HAVING pg_catalog.count(*) > 1
       )
       OR EXISTS (
