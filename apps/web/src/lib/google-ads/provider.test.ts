@@ -10,13 +10,21 @@ const reportingConfig = { developerToken: 'developer-token' };
 
 describe('Google Ads provider client', () => {
   it('uses the current default API version and parses accessible accounts', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          resourceNames: ['customers/1234567890', 'customers/not-an-id'],
-        }),
-        { status: 200 }
-      )
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(
+      async (input) =>
+        new Response(
+          JSON.stringify(
+            String(input).includes('/customers:listAccessibleCustomers')
+              ? {
+                  resourceNames: [
+                    'customers/1234567890',
+                    'customers/not-an-id',
+                  ],
+                }
+              : []
+          ),
+          { status: 200 }
+        )
     );
 
     await expect(
@@ -36,6 +44,78 @@ describe('Google Ads provider client', () => {
         }),
       })
     );
+  });
+
+  it('discovers customers nested below accessible manager accounts', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith('/customers:listAccessibleCustomers')) {
+          return new Response(
+            JSON.stringify({ resourceNames: ['customers/1111111111'] }),
+            { status: 200 }
+          );
+        }
+        if (url.includes('/customers/1111111111/googleAds:searchStream')) {
+          return new Response(
+            JSON.stringify([
+              {
+                results: [
+                  {
+                    customerClient: {
+                      clientCustomer: 'customers/2222222222',
+                      manager: true,
+                    },
+                  },
+                  {
+                    customerClient: {
+                      clientCustomer: 'customers/3333333333',
+                      manager: false,
+                    },
+                  },
+                ],
+              },
+            ]),
+            { status: 200 }
+          );
+        }
+        return new Response(
+          JSON.stringify([
+            {
+              results: [
+                {
+                  customerClient: {
+                    clientCustomer: 'customers/4444444444',
+                    manager: false,
+                  },
+                },
+              ],
+            },
+          ]),
+          { status: 200 }
+        );
+      });
+
+    await expect(
+      listGoogleAdsAccessibleCustomerIds(
+        'access-token',
+        reportingConfig,
+        fetchImpl
+      )
+    ).resolves.toEqual([
+      '1111111111',
+      '2222222222',
+      '3333333333',
+      '4444444444',
+    ]);
+    const hierarchyCall = fetchImpl.mock.calls.find(([input]) =>
+      String(input).includes('/customers/1111111111/googleAds:searchStream')
+    );
+    expect(hierarchyCall?.[1]).toMatchObject({
+      body: expect.stringContaining('FROM customer_client'),
+      method: 'POST',
+    });
   });
 
   it('refreshes an access token without exposing the refresh token in the result', async () => {

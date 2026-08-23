@@ -12,6 +12,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { adsAnalyticsQuerySchema } from '@/schemas/ads-analytics-query';
+import { fetchPaidOrdersForAnalytics } from './fetch-paid-orders';
 
 /**
  * Ad Conversion Analytics API
@@ -132,13 +133,13 @@ export async function GET(request: Request) {
     }
 
     // Fetch paid orders with ad tracking data
-    const { data: orders, error: ordersError } = await supabase
-      .from('orders')
-      .select('id, total, ad_tracking, created_at, payment_status')
-      .eq('merchant_id', merchantId)
-      .eq('payment_status', 'paid')
-      .gte('created_at', orderStart)
-      .lte('created_at', orderEnd);
+    const { data: orders, error: ordersError } =
+      await fetchPaidOrdersForAnalytics(
+        supabase,
+        merchantId,
+        orderStart,
+        orderEnd
+      );
 
     if (ordersError) {
       console.error('Error fetching orders:', ordersError);

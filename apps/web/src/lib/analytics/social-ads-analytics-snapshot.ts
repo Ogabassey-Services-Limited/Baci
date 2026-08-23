@@ -14,6 +14,7 @@ interface SocialAdsConnectionRow {
   provider_account_label: string | null;
   provider_customer_id: string | null;
   status: string;
+  token_expires_at?: string | null;
 }
 
 interface SocialAdsSpendRow {
@@ -107,6 +108,15 @@ function latestTimestamp(values: Array<string | null>): string | null {
   return latest;
 }
 
+function hasExpiredToken(
+  tokenExpiresAt: string | null | undefined,
+  now: Date
+): boolean {
+  if (!tokenExpiresAt) return false;
+  const expiresAt = Date.parse(tokenExpiresAt);
+  return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
+}
+
 function spendByCurrency(rows: SocialAdsSpendRow[]) {
   const totals = new Map<string, string>();
   for (const row of rows) {
@@ -148,6 +158,7 @@ export function buildSocialAdsAnalyticsSnapshot({
     );
     return (
       connection?.status === 'active' &&
+      !hasExpiredToken(connection.token_expires_at, now) &&
       Boolean(connection.provider_customer_id) &&
       row.provider_customer_id === connection.provider_customer_id
     );
@@ -155,11 +166,12 @@ export function buildSocialAdsAnalyticsSnapshot({
   const providers = SOCIAL_ADS_REPORTING_PROVIDERS.map((provider) => {
     const connection = connections.find((row) => row.provider === provider);
     const rows = selectedSpendRows.filter((row) => row.provider === provider);
+    const tokenExpired = hasExpiredToken(connection?.token_expires_at, now);
     const lastSyncedAt = latestTimestamp([
       connection?.last_synced_at ?? null,
       ...rows.map((row) => row.fetched_at),
     ]);
-    const isConnected = connection?.status === 'active';
+    const isConnected = connection?.status === 'active' && !tokenExpired;
     const needsAccountSelection =
       isConnected && !connection?.provider_customer_id;
     const freshness = !isConnected
@@ -175,9 +187,11 @@ export function buildSocialAdsAnalyticsSnapshot({
       ? 'error'
       : connection?.status === 'error'
         ? 'error'
-        : isConnected
-          ? 'connected'
-          : 'disconnected';
+        : tokenExpired
+          ? 'error'
+          : isConnected
+            ? 'connected'
+            : 'disconnected';
 
     return {
       accountName: connection?.provider_account_label ?? null,
@@ -205,9 +219,10 @@ export function buildSocialAdsAnalyticsSnapshot({
               conversions: sumField(rows, 'conversions'),
               endDate,
               impressions: sumField(rows, 'impressions'),
-              reach: rows.some((row) => row.reach !== null)
-                ? sumField(rows, 'reach')
-                : null,
+              reach:
+                startDate === endDate && rows.some((row) => row.reach !== null)
+                  ? sumField(rows, 'reach')
+                  : null,
               spendByCurrency: spendByCurrency(rows),
               startDate,
             },

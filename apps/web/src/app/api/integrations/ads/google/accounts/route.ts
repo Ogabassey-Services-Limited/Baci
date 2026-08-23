@@ -215,14 +215,14 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   }
-  const { error: updateError } = await auth.supabase.rpc(
+  const { data: updated, error: updateError } = await auth.supabase.rpc(
     'set_google_ads_customer',
     {
       p_merchant_id: access.merchantId,
       p_provider_customer_id: parsed.data.customerId,
     }
   );
-  if (updateError) {
+  if (updateError || updated !== true) {
     return NextResponse.json(
       { error: 'Failed to select Google Ads account' },
       { status: 500 }

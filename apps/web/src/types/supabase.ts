@@ -20515,6 +20515,15 @@ export type Database = {
         Args: { p_merchant_id: string };
         Returns: boolean;
       };
+      mark_google_ads_connection_reauth_if_current: {
+        Args: {
+          p_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_reason: string;
+          p_refresh_token_ciphertext: string;
+        };
+        Returns: boolean;
+      };
       delete_google_ads_connection: {
         Args: { p_merchant_id: string };
         Returns: boolean;

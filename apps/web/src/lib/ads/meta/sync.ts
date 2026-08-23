@@ -71,6 +71,7 @@ export async function markMetaAdsReauthRequired(input: {
   connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext?: string | null;
   };
   failureCode: string;
   merchantId: string;
@@ -78,39 +79,21 @@ export async function markMetaAdsReauthRequired(input: {
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new MetaAdsReauthPersistenceError();
-  const { data, error } = await input.supabase.rpc(
-    'upsert_merchant_ads_connection',
+  const { error } = await input.supabase.rpc(
+    'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
-      p_account_timezone: null,
-      p_attribution_metadata: {
-        provider: 'meta_ads',
-        reauthRequired: true,
-      },
       p_merchant_id: input.merchantId,
-      p_metadata: {
-        failureCode: input.failureCode,
-        reauthRequired: true,
-      },
       p_provider: META_ADS_PROVIDER,
-      p_provider_account_label: null,
-      p_provider_customer_id: input.connection.provider_customer_id,
-      p_refresh_token_ciphertext: null,
-      p_scopes: ['ads_read'],
-      p_status: 'error',
-      p_token_expires_at: null,
-    }
-  );
-  if (!error && data) return;
-  const marker = await input.supabase.rpc(
-    'mark_merchant_ads_connection_reauth',
-    {
-      p_merchant_id: input.merchantId,
+      p_refresh_token_ciphertext:
+        input.connection.refresh_token_ciphertext ?? null,
       p_reason: input.failureCode,
     }
   );
-  if (marker.error || marker.data !== true)
-    throw new MetaAdsReauthPersistenceError();
+  // A false result means a concurrent reauthorization already replaced the
+  // credentials, so there is no current connection left for this request to
+  // mark. A database error, however, means the durable marker was not written.
+  if (error) throw new MetaAdsReauthPersistenceError();
 }
 
 function shouldRequireReauth(error: unknown): boolean {
@@ -214,6 +197,7 @@ async function syncSelectedMetaAdsAccount(input: {
   connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext?: string | null;
   };
   endDate: string;
   fetchImpl: typeof fetch;

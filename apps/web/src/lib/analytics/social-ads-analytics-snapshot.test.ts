@@ -93,7 +93,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
         clicks: '5',
         conversions: '2',
         impressions: '150',
-        reach: '100',
+        reach: null,
         spendByCurrency: [
           { currencyCode: 'NGN', spendAmountDecimal: '9007199254740994' },
         ],
@@ -101,6 +101,83 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
       provider: 'meta_ads',
     });
     expect(snapshot.attributionNotice).toContain('separate from Baci');
+  });
+
+  it('keeps one-day reach while avoiding a misleading multi-day sum', () => {
+    const snapshot = buildSocialAdsAnalyticsSnapshot({
+      connections: [
+        {
+          account_timezone: 'UTC',
+          last_synced_at: '2026-08-22T09:00:00.000Z',
+          provider: 'meta_ads',
+          provider_account_label: 'Baci Meta',
+          provider_customer_id: 'act_1',
+          status: 'active',
+        },
+      ],
+      endDate: '2026-08-22',
+      spendRows: [
+        {
+          account_timezone: 'UTC',
+          clicks: '1',
+          conversions: '1',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-22T09:00:00.000Z',
+          impressions: '10',
+          provider: 'meta_ads',
+          provider_customer_id: 'act_1',
+          reach: '8',
+          spend_amount_decimal: '1',
+          spend_date: '2026-08-22',
+        },
+      ],
+      startDate: '2026-08-22',
+    });
+
+    expect(snapshot.providers[0]?.metrics?.reach).toBe('8');
+  });
+
+  it('treats an expired active token as a reauthorization-required connection', () => {
+    const snapshot = buildSocialAdsAnalyticsSnapshot({
+      connections: [
+        {
+          account_timezone: 'UTC',
+          last_synced_at: '2026-08-22T09:00:00.000Z',
+          provider: 'meta_ads',
+          provider_account_label: 'Baci Meta',
+          provider_customer_id: 'act_1',
+          status: 'active',
+          token_expires_at: '2026-08-22T09:00:00.000Z',
+        },
+      ],
+      endDate: '2026-08-22',
+      now: new Date('2026-08-22T10:00:00.000Z'),
+      spendRows: [
+        {
+          account_timezone: 'UTC',
+          clicks: '10',
+          conversions: '1',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-22T09:30:00.000Z',
+          impressions: '100',
+          provider: 'meta_ads',
+          provider_customer_id: 'act_1',
+          reach: '80',
+          spend_amount_decimal: '100',
+          spend_date: '2026-08-22',
+        },
+      ],
+      startDate: '2026-08-22',
+    });
+
+    expect(snapshot.providers[0]).toMatchObject({
+      connectionStatus: 'error',
+      error: 'This connection needs to be reauthorized.',
+      freshness: 'not_applicable',
+      metrics: null,
+      needsAccountSelection: false,
+      provider: 'meta_ads',
+    });
   });
 
   it('binds metrics only to each active selected account after switches and reconnects', () => {

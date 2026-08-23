@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseMetaAdsAccount } from './provider-parser';
+import {
+  parseMetaAdsAccount,
+  parseMetaAdsDailyInsights,
+} from './provider-parser';
 
 describe('Meta Ads provider parser', () => {
   it('rejects malformed accounts before they reach reporting code', () => {
@@ -21,5 +24,58 @@ describe('Meta Ads provider parser', () => {
       timezoneName: 'Africa/Lagos',
       timezoneOffsetHours: null,
     });
+  });
+
+  it('rejects a page when any insight row is malformed instead of dropping it', () => {
+    expect(() =>
+      parseMetaAdsDailyInsights(
+        {
+          data: [
+            {
+              account_id: '123',
+              clicks: '2',
+              date_start: '2026-08-20',
+              date_stop: '2026-08-20',
+              impressions: '10',
+              spend: '3.10',
+            },
+            {
+              account_id: '123',
+              clicks: 'not-a-number',
+              date_start: '2026-08-21',
+              date_stop: '2026-08-21',
+              impressions: '11',
+              spend: '4.20',
+            },
+          ],
+        },
+        'act_123'
+      )
+    ).toThrowError(
+      expect.objectContaining({ code: 'META_ADS_INSIGHTS_ROW_INVALID' })
+    );
+  });
+
+  it('rejects malformed action entries instead of persisting a partial row', () => {
+    expect(() =>
+      parseMetaAdsDailyInsights(
+        {
+          data: [
+            {
+              account_id: '123',
+              actions: [{ action_type: 'purchase', value: 'invalid' }],
+              clicks: '2',
+              date_start: '2026-08-20',
+              date_stop: '2026-08-20',
+              impressions: '10',
+              spend: '3.10',
+            },
+          ],
+        },
+        'act_123'
+      )
+    ).toThrowError(
+      expect.objectContaining({ code: 'META_ADS_INSIGHTS_ROW_INVALID' })
+    );
   });
 });

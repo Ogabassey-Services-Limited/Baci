@@ -127,7 +127,7 @@ describe('GET /api/analytics/ads', () => {
         error: null,
       },
     ];
-    const terminals = ['lte', 'maybeSingle', 'order', 'in', 'order'] as const;
+    const terminals = ['range', 'maybeSingle', 'order', 'in', 'order'] as const;
     let queryIndex = 0;
     mockFrom.mockImplementation(() =>
       chainResult(results.shift(), terminals[queryIndex++])
@@ -186,7 +186,7 @@ describe('GET /api/analytics/ads', () => {
       tiktok_pixel_id: null,
     });
 
-    const ordersQuery = chainResult({ data: [], error: null }, 'lte');
+    const ordersQuery = chainResult({ data: [], error: null }, 'range');
     const results = [
       ordersQuery,
       chainResult({ data: null, error: null }, 'maybeSingle'),
@@ -233,7 +233,7 @@ describe('GET /api/analytics/ads', () => {
       tiktok_pixel_id: null,
     });
     mockFrom.mockImplementation(() =>
-      chainResult({ data: [], error: null }, 'order')
+      chainResult({ data: [], error: null }, 'range')
     );
 
     const response = await GET(
@@ -253,11 +253,11 @@ describe('GET /api/analytics/ads', () => {
 
 function chainResult(
   result: { data: unknown; error: unknown } | undefined,
-  terminal: 'in' | 'lte' | 'maybeSingle' | 'order' | undefined
+  terminal: 'in' | 'maybeSingle' | 'order' | 'range' | undefined
 ): Record<string, ReturnType<typeof vi.fn>> {
   const resolved = result ?? { data: null, error: null };
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const method of ['eq', 'gte', 'in', 'lte', 'order', 'select']) {
+  for (const method of ['eq', 'gte', 'in', 'lte', 'order', 'range', 'select']) {
     chain[method] = vi.fn(() =>
       method === terminal ? Promise.resolve(resolved) : chain
     );

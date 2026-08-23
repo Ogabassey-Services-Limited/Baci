@@ -22,6 +22,51 @@ export class GoogleAdsSyncError extends Error {
   }
 }
 
+function googleAdsReauthReason(error: unknown): string | null {
+  const record =
+    error !== null && typeof error === 'object'
+      ? (error as { code?: unknown; status?: unknown })
+      : null;
+  const code =
+    record && typeof record.code === 'string'
+      ? record.code
+      : error instanceof Error
+        ? error.message
+        : null;
+  const status = record?.status;
+  if (
+    code === 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED' &&
+    (status === undefined || status === null || status === 400)
+  ) {
+    return code;
+  }
+  return null;
+}
+
+async function markGoogleAdsReauthRequired(input: {
+  connection: {
+    access_token_ciphertext: string | null;
+    refresh_token_ciphertext: string | null;
+  };
+  merchantId: string;
+  supabase: SupabaseClient;
+  reason: string;
+}): Promise<void> {
+  if (!input.connection.refresh_token_ciphertext) return;
+  const { error } = await input.supabase.rpc(
+    'mark_google_ads_connection_reauth_if_current',
+    {
+      p_access_token_ciphertext: input.connection.access_token_ciphertext,
+      p_merchant_id: input.merchantId,
+      p_reason: input.reason,
+      p_refresh_token_ciphertext: input.connection.refresh_token_ciphertext,
+    }
+  );
+  if (error) {
+    throw new GoogleAdsSyncError('REAUTH_STATUS_UPDATE_FAILED');
+  }
+}
+
 export async function syncGoogleAdsSpendForMerchant(
   input: {
     endDate: string;
@@ -59,6 +104,15 @@ export async function syncGoogleAdsSpendForMerchant(
       fetchImpl
     );
   } catch (error) {
+    const reauthReason = googleAdsReauthReason(error);
+    if (reauthReason) {
+      await markGoogleAdsReauthRequired({
+        connection,
+        merchantId: input.merchantId,
+        reason: reauthReason,
+        supabase: input.supabase,
+      });
+    }
     throw new GoogleAdsSyncError(
       error instanceof Error
         ? error.message.replace(/^GOOGLE_ADS_/, '')

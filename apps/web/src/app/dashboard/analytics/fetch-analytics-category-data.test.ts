@@ -150,7 +150,10 @@ describe('fetchAnalyticsCategoryData', () => {
       to,
     });
 
-    expect(result.inventoryForecasts).toHaveLength(2);
+    expect(result.inventoryForecasts).toMatchObject([
+      { days_of_stock: 0, product_id: 'second' },
+      { days_of_stock: 2, product_id: 'first' },
+    ]);
     expect(result.lowStockCount).toBe(3);
     expect(result.outOfStockCount).toBe(1);
     expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(

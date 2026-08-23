@@ -132,9 +132,13 @@ async function fetchInventoryData(
     },
     { critical: 0, outOfStock: 0, warning: 0 }
   );
-  const forecasts = forecastPayloads.flatMap((payload) =>
-    asArray(payload.forecasts).map(mapInventoryForecast)
-  );
+  const forecasts = forecastPayloads
+    .flatMap((payload) => asArray(payload.forecasts).map(mapInventoryForecast))
+    .sort(
+      (left, right) =>
+        left.days_of_stock - right.days_of_stock ||
+        left.product_id.localeCompare(right.product_id)
+    );
 
   return {
     inventoryAlerts: asArray(alertsPayload.alerts).map(mapInventoryAlert),

@@ -163,4 +163,32 @@ describe('Google Ads account discovery and selection', () => {
       p_provider_customer_id: '1234567890',
     });
   });
+
+  it('rejects a selection when the guarded RPC reports no updated connection', async () => {
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'get_google_ads_connection_secret') {
+        return Promise.resolve({ data: [connection], error: null });
+      }
+      if (name === 'set_google_ads_customer') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts',
+        {
+          body: JSON.stringify({ customerId: '123-456-7890' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to select Google Ads account',
+    });
+  });
 });

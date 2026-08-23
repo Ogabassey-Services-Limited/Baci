@@ -38,7 +38,11 @@ function approvedAuthorizationUrl(): string {
   } catch {
     throw new TikTokAdsConfigError('Invalid TIKTOK_ADS_AUTHORIZATION_URL');
   }
-  if (url.protocol !== 'https:' || !url.hostname.endsWith('tiktok.com')) {
+  const hostname = url.hostname.toLowerCase();
+  if (
+    url.protocol !== 'https:' ||
+    (hostname !== 'tiktok.com' && !hostname.endsWith('.tiktok.com'))
+  ) {
     throw new TikTokAdsConfigError(
       'TikTok authorization URL must be HTTPS on tiktok.com'
     );

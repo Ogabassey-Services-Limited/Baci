@@ -111,4 +111,31 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockFetchSpend).not.toHaveBeenCalled();
   });
+
+  it('marks the connection for reauthorization when Google rejects its refresh token', async () => {
+    const refreshFailure = Object.assign(
+      new Error('GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED'),
+      { code: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED', status: 400 }
+    );
+    mockResolveToken.mockRejectedValueOnce(refreshFailure);
+
+    await expect(
+      syncGoogleAdsSpendForMerchant({
+        endDate: '2026-08-21',
+        merchantId: 'merchant-1',
+        startDate: '2026-08-20',
+        supabase,
+      })
+    ).rejects.toMatchObject({ code: 'ACCESS_TOKEN_REFRESH_FAILED' });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'encrypted-access',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+        p_refresh_token_ciphertext: 'encrypted-refresh',
+      }
+    );
+    expect(mockFetchSpend).not.toHaveBeenCalled();
+  });
 });

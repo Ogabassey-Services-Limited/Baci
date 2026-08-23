@@ -55,6 +55,7 @@ describe('Meta Ads sync', () => {
             {
               access_token_ciphertext: 'cipher',
               provider_customer_id: 'act_12',
+              refresh_token_ciphertext: 'refresh-cipher',
               status: 'active',
               token_expires_at: '2026-10-20T00:00:00Z',
             },
@@ -139,15 +140,17 @@ describe('Meta Ads sync', () => {
       })
     ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_connection',
+      'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({
-        p_metadata: expect.objectContaining({ reauthRequired: true }),
-        p_status: 'error',
+        p_access_token_ciphertext: 'cipher',
+        p_provider: 'meta_ads',
+        p_refresh_token_ciphertext: 'refresh-cipher',
+        p_reason: 'META_ADS_REAUTH_REQUIRED',
       })
     );
   });
 
-  it('falls back to the dedicated durable marker when generic reauth upsert is denied', async () => {
+  it('treats a stale CAS marker as a superseded connection', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');
     });
@@ -158,14 +161,15 @@ describe('Meta Ads sync', () => {
             {
               access_token_ciphertext: 'cipher',
               provider_customer_id: 'act_12',
+              refresh_token_ciphertext: 'refresh-cipher',
               status: 'active',
               token_expires_at: '2026-10-20T00:00:00Z',
             },
           ],
           error: null,
         });
-      if (name === 'upsert_merchant_ads_connection')
-        return Promise.resolve({ data: null, error: { message: 'denied' } });
+      if (name === 'mark_merchant_ads_connection_reauth_if_current')
+        return Promise.resolve({ data: false, error: null });
       return Promise.resolve({ data: true, error: null });
     });
     await expect(
@@ -177,12 +181,12 @@ describe('Meta Ads sync', () => {
       })
     ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
     expect(rpc).toHaveBeenCalledWith(
-      'mark_merchant_ads_connection_reauth',
+      'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({ p_reason: 'META_ADS_REAUTH_REQUIRED' })
     );
   });
 
-  it('marks revoked ads_read permission with the same durable fallback', async () => {
+  it('marks revoked ads_read permission with the same CAS marker', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw Object.assign(new Error('permission revoked'), {
         code: 'META_ADS_ADS_READ_NOT_GRANTED',
@@ -195,14 +199,13 @@ describe('Meta Ads sync', () => {
             {
               access_token_ciphertext: 'cipher',
               provider_customer_id: 'act_12',
+              refresh_token_ciphertext: 'refresh-cipher',
               status: 'active',
               token_expires_at: '2026-10-20T00:00:00Z',
             },
           ],
           error: null,
         });
-      if (name === 'upsert_merchant_ads_connection')
-        return Promise.resolve({ data: null, error: { message: 'denied' } });
       return Promise.resolve({ data: true, error: null });
     });
     await expect(
@@ -214,12 +217,12 @@ describe('Meta Ads sync', () => {
       })
     ).rejects.toMatchObject({ code: 'META_ADS_ADS_READ_NOT_GRANTED' });
     expect(rpc).toHaveBeenCalledWith(
-      'mark_merchant_ads_connection_reauth',
+      'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({ p_reason: 'META_ADS_ADS_READ_NOT_GRANTED' })
     );
   });
 
-  it('surfaces a stable error only when both reauth persistence paths fail', async () => {
+  it('surfaces a stable error when CAS reauth persistence fails', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');
     });
@@ -230,16 +233,14 @@ describe('Meta Ads sync', () => {
             {
               access_token_ciphertext: 'cipher',
               provider_customer_id: 'act_12',
+              refresh_token_ciphertext: 'refresh-cipher',
               status: 'active',
               token_expires_at: '2026-10-20T00:00:00Z',
             },
           ],
           error: null,
         });
-      if (
-        name === 'upsert_merchant_ads_connection' ||
-        name === 'mark_merchant_ads_connection_reauth'
-      )
+      if (name === 'mark_merchant_ads_connection_reauth_if_current')
         return Promise.resolve({ data: null, error: { message: 'denied' } });
       return Promise.resolve({ data: true, error: null });
     });
