@@ -193,7 +193,7 @@ describe('processPushNotificationResponse', () => {
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry older navigation after a newer response succeeds', () => {
+  it('ignores an older pending response duplicated after a newer tap succeeds', () => {
     jest.useFakeTimers();
     const navigate = jest.fn<Navigate>();
     const onHandled = jest.fn();
@@ -213,6 +213,7 @@ describe('processPushNotificationResponse', () => {
 
     processPushNotificationResponse(firstResponse, navigate, onHandled);
     processPushNotificationResponse(secondResponse, navigate, onHandled);
+    processPushNotificationResponse(firstResponse, navigate, onHandled);
     jest.runOnlyPendingTimers();
 
     expect(onHandled).toHaveBeenCalledTimes(1);

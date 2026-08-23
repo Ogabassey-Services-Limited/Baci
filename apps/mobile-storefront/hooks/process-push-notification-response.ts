@@ -188,6 +188,9 @@ export function processPushNotificationResponse(
   const data = content.data as Record<string, unknown> | undefined;
   const responseKey = getResponseOccurrenceKey(response);
 
+  if (!options?.isRetry && pendingNotificationResponses.has(responseKey)) {
+    return;
+  }
   if (!options?.isRetry) latestResponseKey = responseKey;
 
   if (
