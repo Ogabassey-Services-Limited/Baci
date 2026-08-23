@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { domesticSendersDiffer } from '@/lib/shipping/merchant-location';
 import {
-  domesticSendersDiffer,
   OrderShipmentBookingError,
   parseStoredQuoteRequest,
   selectPreferredQuote,

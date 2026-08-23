@@ -1,10 +1,10 @@
 import type { RegisteredAddress } from '@baci/shared';
 import { NIGERIAN_CITIES_FALLBACK } from '@/app/api/shipping/locations/fallback-locations';
+import { deriveMerchantLocation } from './merchant-location';
 import {
   getSubdivisions,
   resolveSubdivisionCode,
 } from './merchant-rates/subdivisions';
-import { deriveMerchantLocation } from './order-shipment-booking-utils';
 import type { ShippingAddress } from './types';
 
 type MerchantSenderDetails = {
