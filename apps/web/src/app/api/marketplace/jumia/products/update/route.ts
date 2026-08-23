@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 import {
+  getJumiaProductUpdateReadinessErrors,
   pushPriceUpdates,
   pushStatusUpdates,
 } from './jumia-product-update-feeds';
@@ -202,6 +203,22 @@ export async function POST(request: NextRequest) {
       Object.hasOwn(overrides, 'jumia_sale_price') ||
       Object.hasOwn(overrides, 'jumia_sale_start') ||
       Object.hasOwn(overrides, 'jumia_sale_end');
+
+    // Check every mapped variant before writing local overrides. The feed
+    // helpers repeat this guard before submission, but doing it here prevents
+    // an unready product from persisting changes that cannot reach Jumia yet.
+    const readinessErrors = getJumiaProductUpdateReadinessErrors(
+      mappings,
+      Object.hasOwn(overrides, 'is_active'),
+      needsPriceUpdate
+    );
+    if (readinessErrors.length > 0) {
+      return NextResponse.json({
+        success: false,
+        feedIds: [],
+        errors: readinessErrors,
+      });
+    }
 
     let marketplaceCurrency: string | undefined;
     if (needsPriceUpdate) {

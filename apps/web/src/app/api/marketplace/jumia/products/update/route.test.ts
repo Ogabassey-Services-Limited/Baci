@@ -230,4 +230,45 @@ describe('POST /api/marketplace/jumia/products/update', () => {
     expect(mockMappingUpdate).not.toHaveBeenCalled();
     expect(mockPushPriceUpdates).not.toHaveBeenCalled();
   });
+
+  it('does not persist overrides when a mapped variant is not ready on Jumia', async () => {
+    mockMappingsOrder.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'map-pending',
+          product_id: PRODUCT_ID,
+          variant_id: 'variant-1',
+          jumia_product_id: null,
+          jumia_sku: 'SKU-1',
+          jumia_price: 1000,
+          jumia_sale_price: null,
+          jumia_sale_start: null,
+          jumia_sale_end: null,
+        },
+      ],
+      error: null,
+    });
+
+    const response = await POST(
+      makeRequest({
+        integrationId: INTEGRATION_ID,
+        overrides: { is_active: false, jumia_price: 900 },
+        productId: PRODUCT_ID,
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: false,
+      feedIds: [],
+      errors: [
+        'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
+        'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
+      ],
+    });
+    expect(mockMappingUpdate).not.toHaveBeenCalled();
+    expect(mockPushStatusUpdates).not.toHaveBeenCalled();
+    expect(mockPushPriceUpdates).not.toHaveBeenCalled();
+  });
 });

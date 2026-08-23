@@ -80,7 +80,14 @@ async function markMappingsAsFeedError(
       .eq('merchant_id', merchantId);
     if (!updateError) {
       marked++;
+      continue;
     }
+    logger.error({
+      message: 'Failed to mark rejected Jumia feed mapping',
+      error: updateError,
+      mapping_id: mapping.id,
+    });
+    throw new Error('Failed to mark rejected Jumia feed mapping');
   }
   return marked;
 }

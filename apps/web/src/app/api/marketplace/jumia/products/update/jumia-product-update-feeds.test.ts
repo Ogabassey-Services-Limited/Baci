@@ -9,10 +9,26 @@ vi.mock('@/lib/jumia/feeds', () => ({
 }));
 
 import {
+  getJumiaProductUpdateReadinessErrors,
   pushPriceUpdates,
   pushStatusUpdates,
   resolveSalePrice,
 } from './jumia-product-update-feeds';
+
+describe('getJumiaProductUpdateReadinessErrors', () => {
+  it('reports every requested feed when all variants are still pending', () => {
+    expect(
+      getJumiaProductUpdateReadinessErrors(
+        [{ jumia_product_id: null }],
+        true,
+        true
+      )
+    ).toEqual([
+      'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
+      'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
+    ]);
+  });
+});
 
 const mapping = {
   jumia_sale_price: 1000,

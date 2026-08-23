@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /*  Mocks                                                              */
 /* ------------------------------------------------------------------ */
 
-const {
+let {
   mockRpc,
   mockAuthenticateApiRequest,
   mockExchangeJumiaCode,
@@ -14,6 +14,7 @@ const {
   mockGetShops,
   mockMarketplaceUpsert,
   mockExistingIntegrations,
+  mockExistingIntegrationsError,
 } = vi.hoisted(() => {
   return {
     mockRpc: vi.fn(),
@@ -28,6 +29,7 @@ const {
       is_active: boolean;
       connection_method: string;
     }>,
+    mockExistingIntegrationsError: null as { message: string } | null,
   };
 });
 
@@ -89,7 +91,7 @@ function createMarketplaceIntegrationsBuilder() {
       eq: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({
           data: mockExistingIntegrations,
-          error: null,
+          error: mockExistingIntegrationsError,
         }),
       }),
     }),
@@ -170,6 +172,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     mockFeaturePlanTier.mockReturnValue('pro');
     mockMarketplaceUpsert.mockResolvedValue({ error: null });
     mockExistingIntegrations.length = 0;
+    mockExistingIntegrationsError = null;
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -391,6 +394,29 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
       'release_jumia_oauth_handoff_ticket',
       expect.anything()
     );
+  });
+
+  it('returns a retryable error and skips persistence when existing integration lookup fails', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    setupTokenExchange();
+    setupShopDiscovery();
+    mockExistingIntegrationsError = { message: 'database unavailable' };
+
+    const res = await POST(
+      makeRequest({ code: 'existing-lookup-failure', ticketId: TICKET_ID })
+    );
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'jumia_oauth_existing_integrations_lookup_failed',
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'claim_jumia_oauth_handoff_ticket',
+      expect.anything()
+    );
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
+    expect(mockMarketplaceUpsert).not.toHaveBeenCalled();
   });
 
   it('returns incomplete when only fallback shop is created', async () => {

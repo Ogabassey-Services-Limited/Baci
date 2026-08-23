@@ -131,6 +131,38 @@ describe('Jumia feed status route', () => {
     expect(mocks.feed).not.toHaveBeenCalled();
   });
 
+  it('surfaces rejected-feed marking failures instead of reporting success', async () => {
+    const update = vi.fn();
+    const failedUpdate = (...args: unknown[]) => {
+      update(...args);
+      const resolved = Promise.resolve({ error: { message: 'write failed' } });
+      const builder = Object.assign(resolved, { eq: vi.fn() });
+      builder.eq.mockReturnValue(builder);
+      return builder;
+    };
+    mocks.from.mockReturnValue({
+      ...mappingSelect([
+        { id: 'mapping-1', last_feed_id: 'feed-1', jumia_seller_sku: 'SKU-1' },
+      ]),
+      update: failedUpdate,
+    });
+    mocks.feed.mockResolvedValue({
+      feedSid: 'feed-1',
+      status: 'FAILED',
+      feedType: 'ProductCreate',
+      feedSource: 'API',
+      total: 1,
+      completed: 0,
+      failed: 1,
+      createdBy: { sid: 'sid', name: 'API', email: 'api@example.com' },
+      feedItems: [],
+    });
+
+    const response = await POST(request());
+    expect(response.status).toBe(502);
+    expect(update).toHaveBeenCalled();
+  });
+
   it('reconciles accepted feed items into synced mappings', async () => {
     const update = vi.fn();
     mocks.from.mockReturnValue({

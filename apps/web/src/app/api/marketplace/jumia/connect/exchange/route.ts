@@ -92,6 +92,31 @@ export async function POST(request: NextRequest) {
       return merchantFeatureUpgradeResponse('marketplace_sync');
     }
 
+    // Resolve the current connection state before claiming the handoff ticket
+    // or exchanging the one-time authorization code. A lookup failure must
+    // leave the ticket and provider authorization recoverable for a retry.
+    const { data: existingIntegrations, error: existingIntegrationsError } =
+      await auth.supabase
+        .from('marketplace_integrations')
+        .select('shop_id, is_active, connection_method')
+        .eq('merchant_id', merchantId)
+        .eq('platform', 'jumia');
+
+    if (existingIntegrationsError) {
+      console.error(
+        '[Jumia Exchange] Failed to load existing integrations:',
+        existingIntegrationsError
+      );
+      return NextResponse.json(
+        {
+          error:
+            'Failed to verify existing Jumia integrations. Please retry the connection.',
+          code: 'jumia_oauth_existing_integrations_lookup_failed',
+        },
+        { status: 503 }
+      );
+    }
+
     // Atomically claim the ticket — the RPC verifies auth.uid ownership,
     // merchant permission, status, and expiry inside one transaction.
     // Finalize only after OAuth persistence succeeds so retries remain possible.
@@ -190,13 +215,6 @@ export async function POST(request: NextRequest) {
         ],
       });
     }
-
-    // Check existing integrations
-    const { data: existingIntegrations } = await auth.supabase
-      .from('marketplace_integrations')
-      .select('shop_id, is_active, connection_method')
-      .eq('merchant_id', merchantId)
-      .eq('platform', 'jumia');
 
     const existingActiveShopIds = new Set(
       (existingIntegrations ?? [])

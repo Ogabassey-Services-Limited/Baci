@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260821100100_jumia_oauth_handoff_ticket_claim_finalize.sql'
+      '20260823100000_jumia_orphan_authorization_sweep.sql'
     );
   });
 });

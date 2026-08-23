@@ -62,6 +62,25 @@ export function resolveSalePrice(
   return undefined;
 }
 
+export function getJumiaProductUpdateReadinessErrors(
+  mappings: Array<{ jumia_product_id: string | null }>,
+  includesStatus: boolean,
+  includesPrice: boolean
+): string[] {
+  const readyCount = mappings.filter((mapping) => mapping.jumia_product_id).length;
+  const pendingCount = mappings.length - readyCount;
+  if (pendingCount === 0) return [];
+
+  const suffix =
+    readyCount > 0
+      ? 'rejected: not all variants are ready on Jumia yet'
+      : 'skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)';
+  return [
+    ...(includesStatus ? [`Status update ${suffix}`] : []),
+    ...(includesPrice ? [`Price update ${suffix}`] : []),
+  ];
+}
+
 export async function pushStatusUpdates(
   client: JumiaClient,
   mappings: IntegrationScopedMapping[],
