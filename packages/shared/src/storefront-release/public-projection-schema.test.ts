@@ -58,6 +58,56 @@ describe('StorefrontPublicProjectionSchema', () => {
       );
   });
 
+  it('measures the raw DTO before component-version normalization', () => {
+    const oversizedProjection = {
+      ...validProjection,
+      componentContractVersion: `${' '.repeat(4_194_304)}v1`,
+    };
+
+    const result =
+      StorefrontPublicProjectionSchema.safeParse(oversizedProjection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection exceeds the 4 MiB RPC DTO limit',
+          }),
+        ])
+      );
+  });
+
+  it('returns a validation failure for deeply nested JSON without throwing', () => {
+    let deeplyNestedPayload: unknown = null;
+    for (let depth = 0; depth < 5_000; depth += 1)
+      deeplyNestedPayload = [deeplyNestedPayload];
+    const deeplyNestedProjection = {
+      ...validProjection,
+      payload: deeplyNestedPayload,
+    };
+
+    expect(() =>
+      StorefrontPublicProjectionSchema.safeParse(deeplyNestedProjection)
+    ).not.toThrow();
+    expect(
+      StorefrontPublicProjectionSchema.safeParse(deeplyNestedProjection).success
+    ).toBe(false);
+  });
+
+  it('returns a validation failure for cyclic payloads without throwing', () => {
+    const cyclicPayload: { self?: unknown } = {};
+    cyclicPayload.self = cyclicPayload;
+    const cyclicProjection = { ...validProjection, payload: cyclicPayload };
+
+    expect(() =>
+      StorefrontPublicProjectionSchema.safeParse(cyclicProjection)
+    ).not.toThrow();
+    expect(
+      StorefrontPublicProjectionSchema.safeParse(cyclicProjection).success
+    ).toBe(false);
+  });
+
   it('rejects publication generations that cannot round-trip safely', () => {
     expect(
       StorefrontPublicProjectionSchema.safeParse({
