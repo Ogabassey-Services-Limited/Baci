@@ -422,7 +422,7 @@ pnpm --filter @baci/web typecheck:tools-workers
 
 ```bash
 test -n "$BACI_STOREFRONT_PILOT_HOSTNAME"
-pnpm --filter @baci/web exec tsx tools/cost/create-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse HEAD)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --posthog-relay-path /baci-relay --output "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
+pnpm --filter @baci/web exec tsx tools/cost/create-storefront-edge-inventory-cli.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse HEAD)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --posthog-relay-path /baci-relay --output "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
 pnpm --filter @baci/web exec tsx tools/cost/validate-storefront-edge-inventory.ts --repo-root "$(git rev-parse --show-toplevel)" --source-sha "$(git rev-parse HEAD)" --pilot-hostname "$BACI_STOREFRONT_PILOT_HOSTNAME" --posthog-relay-path /baci-relay --input "$(git rev-parse --show-toplevel)/docs/superpowers/evidence/storefront-edge/task-1a-inventory.json"
 pnpm --filter @baci/shared test -- storefront-release
 pnpm --filter @baci/web test -- storefront-edge-inventory builder-component-capabilities storefront-edge-route-parity
