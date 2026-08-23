@@ -13,6 +13,7 @@ import {
   makeStorefrontPdpPreflightRow,
   rpcImplResolving,
 } from './storefront-product-canonical-redirect.test-utils';
+import { resolveStorefrontProductSlugResolution } from './storefront-product-slug-membership';
 
 vi.mock('./abort-signal-timeout', { spy: true });
 
@@ -161,6 +162,57 @@ describe('getStorefrontProductCanonicalRedirectResult preflight handling', () =>
     await expect(resultPromise).resolves.toEqual({
       kind: 'checked-no-redirect',
     });
+    expect(vi.mocked(createAbortSignalTimeout)).toHaveBeenCalledWith(4_000);
+  });
+
+  it('does not restart the membership RPC after a canonical timeout', async () => {
+    removeNativeAbortSignalTimeout();
+    vi.useFakeTimers();
+    vi.mocked(createAbortSignalTimeout).mockClear();
+
+    const rpcImpl = vi.fn(
+      (_fn: string, _args: Record<string, string>, signal: AbortSignal) =>
+        new Promise<StorefrontPreflightRpcResult>((_resolve, reject) => {
+          const rejectOnAbort = () => {
+            reject(
+              new DOMException('The operation was aborted.', 'AbortError')
+            );
+          };
+
+          if (signal.aborted) {
+            rejectOnAbort();
+            return;
+          }
+
+          signal.addEventListener('abort', rejectOnAbort, { once: true });
+        })
+    );
+
+    const canonicalPromise = getStorefrontProductCanonicalRedirectResult({
+      ...BASE_OPTIONS,
+      identifier: 'sequential-timeout.example',
+      rpcImpl,
+    });
+
+    await vi.advanceTimersByTimeAsync(4_000);
+    await expect(canonicalPromise).resolves.toEqual({ kind: 'unknown' });
+
+    const membershipPromise = resolveStorefrontProductSlugResolution({
+      origin: BASE_OPTIONS.origin,
+      identifier: 'sequential-timeout.example',
+      productSlug: BASE_OPTIONS.productSlug,
+      secret: BASE_OPTIONS.secret,
+      rpcImpl,
+    });
+
+    // Without the timeout sentinel, this advances the membership retry's
+    // separate 2s deadline and exposes the old serialized 4s + 2s behavior.
+    await vi.advanceTimersByTimeAsync(2_000);
+    await expect(membershipPromise).resolves.toEqual({
+      kind: 'present-or-unknown',
+    });
+    expect(rpcImpl).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(createAbortSignalTimeout)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(createAbortSignalTimeout)).toHaveBeenCalledWith(4_000);
   });
 

@@ -80,7 +80,7 @@ describe('callStorefrontPreflightRpc', () => {
     expect(rpcImpl).toHaveBeenCalledTimes(2);
   });
 
-  it('does not memoize a failed call, so a retry can succeed', async () => {
+  it('does not memoize a non-timeout failed call, so a retry can succeed', async () => {
     const rpcImpl = vi
       .fn()
       .mockResolvedValueOnce({
