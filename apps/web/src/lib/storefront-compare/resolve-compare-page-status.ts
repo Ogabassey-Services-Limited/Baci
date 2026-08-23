@@ -102,9 +102,12 @@ export async function resolveComparePageStatus(input: {
         buildStoreUrl(merchant)
       );
 
+    // The manifest is derived from the same local cache entry as the
+    // inventory. A negative can therefore lag a newly maintained pair on
+    // another instance; only a positive is safe to hard-status here.
     return maintainedRouteManifest.includes(parsed.canonicalSlug)
       ? { kind: 'renderable', merchantId: merchant.id }
-      : { kind: 'missing' };
+      : { kind: 'unknown' };
   }
 
   // A product key missing from a non-empty local snapshot is ambiguous: the

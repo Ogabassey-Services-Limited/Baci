@@ -43,7 +43,7 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
-import { resolveStorefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
+import { createStorefrontComparePageHardStatusResolver } from '@/lib/storefront-compare-page-hard-status';
 import { getStorefrontDocumentHomePath } from '@/lib/storefront-document-home-path';
 import type { StorefrontDocumentHomePathRules } from '@/lib/storefront-document-home-path-rules';
 import { isStorefrontDocumentNavigation } from '@/lib/storefront-document-navigation';
@@ -2351,76 +2351,15 @@ async function resolveStorefrontBlogPostHardStatus(
   );
 }
 
-/**
- * Crawl-budget hard status for category compare-pair URLs. Compare pages run
- * below the storefront PPR shell, so a page-level notFound() can only produce
- * a streamed 200 soft-404 (and can abort the Suspense boundary with React
- * #419). Ask the authenticated status read model before the shell streams.
- *
- * This gate is intentionally narrower than generic URL validation: only clean
- * GET/HEAD document navigations to the exact `/{category}/compare/{pair}`
- * shape are eligible. Missing secret, draft mode, query variants, malformed
- * keys, transport errors, and degraded data all fall through unchanged.
- */
-async function resolveStorefrontComparePageHardStatus(
-  request: NextRequest,
-  pathname: string,
-  hostname: string | undefined,
-  userAgent: string,
-  identifier: string,
-  publicPathPrefix = ''
-): Promise<NextResponse | null> {
-  if (!isEligibleForHardStatusPreflight(request, pathname)) {
-    return null;
-  }
-  // Preserve attribution/filter/query variants for the route itself; only a
-  // clean canonical document gets a crawler-facing hard status.
-  if (request.nextUrl.search.length > 0) {
-    return null;
-  }
-
-  const routeType = getRouteType(pathname);
-  const contentSegments = getStorefrontContentSegments(
-    pathname,
-    hostname,
-    routeType
-  );
-  if (contentSegments.length !== 3) {
-    return null;
-  }
-
-  const categorySlug = safeDecodeSegment(contentSegments[0]);
-  const subroute = safeDecodeSegment(contentSegments[1]).toLowerCase();
-  const comparisonSlug = safeDecodeSegment(contentSegments[2]);
-  if (
-    !categorySlug ||
-    NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS.has(categorySlug.toLowerCase()) ||
-    subroute !== 'compare' ||
-    !comparisonSlug
-  ) {
-    return null;
-  }
-
-  const resolution = await resolveStorefrontComparePageStatus({
-    origin: request.nextUrl.origin,
-    identifier,
-    categorySlug,
-    comparisonSlug,
-    secret: getInternalApiSecret(),
+const resolveStorefrontComparePageHardStatus =
+  createStorefrontComparePageHardStatusResolver({
+    isEligibleForHardStatusPreflight,
+    getRouteType,
+    getStorefrontContentSegments,
+    nonCacheableStorefrontFirstSegments:
+      NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS,
+    buildHardStatusStorefrontResponse,
   });
-  if (resolution.kind !== 'missing') {
-    return null;
-  }
-
-  return buildHardStatusStorefrontResponse(
-    404,
-    request,
-    pathname,
-    userAgent,
-    hostname,
-    publicPathPrefix || '/'
-  );
-}
 
 // Mirror the route's parseBlogListingPage cap so the preflight never issues a
 // larger Supabase offset than the route itself would.

@@ -86,7 +86,7 @@ describe('resolveComparePageStatus', () => {
     ).resolves.toEqual({ kind: 'renderable', merchantId: 'merchant-1' });
   });
 
-  it('returns missing for an unapproved product comparison', async () => {
+  it('fails open for a stale maintained-manifest miss', async () => {
     mockGetCachedMaintainedCompareRouteManifest.mockResolvedValue([]);
 
     await expect(
@@ -95,7 +95,7 @@ describe('resolveComparePageStatus', () => {
         categorySlug: 'laptops',
         comparisonSlug: productComparison,
       })
-    ).resolves.toEqual({ kind: 'missing' });
+    ).resolves.toEqual({ kind: 'unknown' });
   });
 
   it('returns missing for a malformed comparison slug', async () => {
