@@ -268,13 +268,21 @@ export async function resolveQuoteMerchantContext({
       merchantCountry = details.country;
       merchantPayoutCurrency = details.payout_currency;
       if (data.shipmentType === 'international' || !senderInfo) {
-        senderInfo = buildMerchantSenderInfo({
+        const merchantSender = buildMerchantSenderInfo({
           businessAddress: details.business_address,
           businessName: details.business_name,
           phone: details.phone,
           registeredAddress: null,
           stateCode: details.state_code,
         });
+        if (!merchantSender) {
+          return {
+            error: 'Merchant shipping origin is not configured',
+            ok: false,
+            status: 400,
+          };
+        }
+        senderInfo = merchantSender;
       }
     }
   }

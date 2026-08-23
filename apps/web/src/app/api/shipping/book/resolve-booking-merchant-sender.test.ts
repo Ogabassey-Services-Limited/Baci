@@ -69,4 +69,32 @@ describe('resolveBookingMerchantSender', () => {
       status: 500,
     });
   });
+
+  it('returns an error when the merchant has no usable shipping origin', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: {
+        business_name: 'Registered Store',
+        business_address: null,
+        phone: '08012345678',
+        registered_address: null,
+        state_code: 'FC',
+      },
+      error: null,
+    });
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ single })),
+        })),
+      })),
+    };
+
+    await expect(
+      resolveBookingMerchantSender(supabase as never, 'merchant-1')
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Merchant shipping origin is not configured',
+      status: 400,
+    });
+  });
 });

@@ -157,6 +157,13 @@ export async function bookOrderShipment(
     registeredAddress: typedMerchant.registered_address,
     stateCode: typedMerchant.state_code,
   });
+  if (!merchantSender) {
+    throw new OrderShipmentBookingError(
+      'Merchant shipping origin is not configured.',
+      400,
+      'MERCHANT_ORIGIN_MISSING'
+    );
+  }
 
   const resolvedQuote = await refreshOrderShipmentQuote(
     supabase,

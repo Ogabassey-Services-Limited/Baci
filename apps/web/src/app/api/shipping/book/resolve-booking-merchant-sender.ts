@@ -41,14 +41,20 @@ export async function resolveBookingMerchantSender(
   }
 
   const merchant = data as MerchantSenderRow;
-  return {
-    ok: true,
-    sender: buildMerchantSenderInfo({
-      businessAddress: merchant.business_address,
-      businessName: merchant.business_name ?? fallbackBusinessName ?? null,
-      phone: merchant.phone,
-      registeredAddress: merchant.registered_address,
-      stateCode: merchant.state_code,
-    }),
-  };
+  const sender = buildMerchantSenderInfo({
+    businessAddress: merchant.business_address,
+    businessName: merchant.business_name ?? fallbackBusinessName ?? null,
+    phone: merchant.phone,
+    registeredAddress: merchant.registered_address,
+    stateCode: merchant.state_code,
+  });
+  if (!sender) {
+    return {
+      error: 'Merchant shipping origin is not configured',
+      ok: false,
+      status: 400,
+    };
+  }
+
+  return { ok: true, sender };
 }

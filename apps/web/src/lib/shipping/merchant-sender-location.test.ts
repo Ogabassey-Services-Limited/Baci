@@ -39,7 +39,7 @@ describe('buildMerchantSenderInfo', () => {
       stateCode: 'FC',
     });
 
-    expect(sender.state).toBe('Abuja');
+    expect(sender?.state).toBe('Abuja');
   });
 
   it('canonicalizes structured Abuja (FCT) state labels for GIGL station matching', () => {
@@ -57,8 +57,8 @@ describe('buildMerchantSenderInfo', () => {
       stateCode: 'FC',
     });
 
-    expect(sender.state).toBe('Abuja');
-    expect(sender.state).not.toBe('Abuja (FCT)');
+    expect(sender?.state).toBe('Abuja');
+    expect(sender?.state).not.toBe('Abuja (FCT)');
   });
 
   it('preserves numeric registered postal codes', () => {
@@ -76,7 +76,35 @@ describe('buildMerchantSenderInfo', () => {
       stateCode: 'LA',
     });
 
-    expect(sender.postalCode).toBe('100001');
+    expect(sender?.postalCode).toBe('100001');
+  });
+});
+
+describe('bugfix: reject empty registered origin', () => {
+  it('returns null when business_address and registered_address are both empty', () => {
+    // Arrange: no usable origin; state_code alone must not fabricate Lagos
+    const sender = buildMerchantSenderInfo({
+      businessAddress: null,
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: null,
+      stateCode: 'FC',
+    });
+
+    // Act / Assert: fail closed instead of Lagos fallback
+    expect(sender).toBeNull();
+  });
+
+  it('returns null when registered_address has no usable fields', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '   ',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: { city: null, state: null, street: null },
+      stateCode: 'LA',
+    });
+
+    expect(sender).toBeNull();
   });
 });
 
@@ -94,7 +122,7 @@ describe('bugfix: prefer business_address state over stale state_code', () => {
       city: 'Ikeja',
       state: 'Lagos',
     });
-    expect(sender.state).not.toBe('Abuja');
+    expect(sender?.state).not.toBe('Abuja');
   });
 });
 
@@ -112,7 +140,7 @@ describe('bugfix: legacy free-text-only merchant address', () => {
       city: 'Maitama',
       state: 'Abuja',
     });
-    expect(sender.state).not.toBe('Lagos');
+    expect(sender?.state).not.toBe('Lagos');
   });
 
   it('preserves the city from a street, city, state, postal_code business address', () => {
@@ -128,7 +156,7 @@ describe('bugfix: legacy free-text-only merchant address', () => {
       city: 'Ikeja',
       state: 'Lagos',
     });
-    expect(sender.city).not.toBe('Lagos');
+    expect(sender?.city).not.toBe('Lagos');
   });
 });
 
@@ -189,7 +217,7 @@ describe('bugfix: state-level registered city with empty state', () => {
       city: 'Ikeja',
       state: 'Lagos',
     });
-    expect(bookingSender.city).toBe(quoteSender.city);
+    expect(bookingSender?.city).toBe(quoteSender?.city);
   });
 
   it('aligns Abuja quote and booking senders on the parsed locality city', () => {
@@ -218,6 +246,6 @@ describe('bugfix: state-level registered city with empty state', () => {
       city: 'Maitama',
       state: 'Abuja',
     });
-    expect(bookingSender.city).toBe(quoteSender.city);
+    expect(bookingSender?.city).toBe(quoteSender?.city);
   });
 });

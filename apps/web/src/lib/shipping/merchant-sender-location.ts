@@ -173,11 +173,16 @@ function resolveMerchantState({
 
 export function buildMerchantSenderInfo(
   details: MerchantSenderDetails
-): ShippingAddress {
+): ShippingAddress | null {
   const registeredAddress = parseRegisteredAddress(details.registeredAddress);
   const addressValue =
     details.businessAddress?.trim() ||
     (registeredAddress ? formatRegisteredAddress(registeredAddress) : '');
+  // Fail closed: do not fabricate a Lagos origin when the merchant has no
+  // usable business_address / registered_address (state_code alone is not enough).
+  if (!addressValue) {
+    return null;
+  }
   const location = deriveMerchantLocation(addressValue);
   const state = resolveMerchantState({
     registeredAddress,
