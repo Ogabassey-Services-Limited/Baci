@@ -6,6 +6,7 @@ const mockCreateServerClient = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockGetQuotes = vi.fn();
+const FIXED_QUOTE_EXPIRY = '2099-01-01T00:00:00.000Z';
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mockCreateAdminClient,
@@ -115,7 +116,7 @@ describe('POST /api/shipping/quotes', () => {
     mockGetQuotes.mockResolvedValue({
       quotes: { featured: [], all: [] },
       sessionId: 'session-1',
-      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      expiresAt: FIXED_QUOTE_EXPIRY,
     });
     mockCreateServerClient.mockResolvedValue(buildSupabaseMock(null));
   });

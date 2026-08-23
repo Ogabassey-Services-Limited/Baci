@@ -121,6 +121,10 @@ function buildSupabaseMock() {
   };
 
   return {
+    rpc: vi.fn().mockResolvedValue({
+      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+      error: null,
+    }),
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
@@ -133,6 +137,12 @@ function buildSupabaseMock() {
           select: vi.fn(() => ordersSelectChain),
           update: vi.fn(() => ({
             eq: vi.fn().mockReturnThis(),
+            select: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'order-1' },
+                error: null,
+              }),
+            })),
           })),
         };
       }

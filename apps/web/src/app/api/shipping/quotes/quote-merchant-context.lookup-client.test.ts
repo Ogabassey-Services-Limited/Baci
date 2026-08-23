@@ -57,7 +57,7 @@ describe('resolveQuoteMerchantContext lookup client', () => {
     mockCreateScopedClient.mockReturnValue(merchantLookupClient);
   });
 
-  it('loads trusted sender details through the request-scoped merchant lookup client', async () => {
+  it('loads trusted sender details through the cookie-backed server lookup client', async () => {
     const adminSupabase = createSupabase();
     const scopedMerchantFrom = vi.fn((table: string) => {
       const filters: Record<string, string> = {};
@@ -116,6 +116,7 @@ describe('resolveQuoteMerchantContext lookup client', () => {
       }),
     });
     expect(scopedMerchantFrom).toHaveBeenCalledWith('merchants');
+    expect(mockCreateScopedClient).not.toHaveBeenCalled();
     expect(
       vi
         .mocked(adminSupabase.from)
@@ -131,6 +132,7 @@ describe('resolveQuoteMerchantContext lookup client', () => {
         error: { message: 'JWT expired', name: 'AuthApiError', status: 401 },
       } as never);
 
+      const selectedColumns: string[] = [];
       const anonymousMerchantFrom = vi.fn((table: string) => {
         const filters: Record<string, string> = {};
         const query = {
@@ -157,7 +159,7 @@ describe('resolveQuoteMerchantContext lookup client', () => {
         };
         return {
           select: vi.fn((columns: string) => {
-            expect(columns).not.toContain('registered_address');
+            selectedColumns.push(columns);
             return query;
           }),
         };
@@ -197,6 +199,10 @@ describe('resolveQuoteMerchantContext lookup client', () => {
       expect(mockCreateScopedClient).not.toHaveBeenCalled();
       expect(mockCreateServerClient).toHaveBeenCalled();
       expect(anonymousMerchantFrom).toHaveBeenCalledWith('merchants');
+      expect(selectedColumns.length).toBeGreaterThan(0);
+      for (const columns of selectedColumns) {
+        expect(columns).not.toContain('registered_address');
+      }
     });
   });
 });

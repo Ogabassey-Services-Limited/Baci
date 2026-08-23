@@ -106,6 +106,10 @@ function buildSupabaseMock() {
   };
 
   return {
+    rpc: vi.fn().mockResolvedValue({
+      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+      error: null,
+    }),
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },

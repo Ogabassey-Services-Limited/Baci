@@ -171,4 +171,72 @@ describe('bugfix: ignore request-controlled domestic sender', () => {
       })
     );
   });
+
+  it('refreshes an expired domestic quote before booking', async () => {
+    const { shippingService } = await import('@/lib/shipping');
+    vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
+      {
+        id: '33333333-3333-4333-8333-333333333333',
+        provider: 'GIGL',
+        serviceTier: 'GoStandard',
+        carrierName: 'GIG Logistics',
+        displayName: 'GIG Logistics - GoStandard',
+        price: 4500,
+        currency: 'NGN',
+        estimatedDays: 2,
+        pickupIncluded: true,
+        insuranceIncluded: false,
+        providerRateId: 'GIGL_LAGOS_OLD',
+        expiresAt: new Date('2099-01-01T00:00:00.000Z'),
+        rawResponse: { refreshed: true },
+      },
+    ]);
+
+    mockCreateClient.mockReturnValue(
+      buildDomesticSenderSupabaseMock({
+        service_tier: 'GoStandard',
+        carrier_name: 'GIG Logistics',
+        provider_rate_id: 'GIGL_LAGOS_OLD',
+        expires_at: '2020-01-01T00:00:00.000Z',
+        quote_request: {
+          shipmentType: 'domestic',
+          sessionId: 'session-old',
+          sender: {
+            name: 'Registered Merchant Store',
+            phone: '+2348012345678',
+            address: '9 Registered Road, Ikeja, Lagos',
+            city: 'Ikeja',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          receiver: {
+            name: 'Jane Customer',
+            phone: '+2348022222222',
+            address: '2 Customer Road',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            countryCode: 'NG',
+          },
+          items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
+        },
+      })
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(buildDomesticSenderBookingRequest());
+
+    expect(response.status).toBe(201);
+    expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({ sessionId: expect.any(String) })
+    );
+    expect(mockBookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        quoteId: '33333333-3333-4333-8333-333333333333',
+      })
+    );
+  });
 });

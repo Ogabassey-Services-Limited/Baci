@@ -48,7 +48,14 @@ const baseParams = {
 };
 
 function createUpdateChain(resolved: { error: unknown }) {
-  const secondEq = vi.fn().mockResolvedValue(resolved);
+  const secondEq = vi.fn().mockReturnValue({
+    select: vi.fn().mockReturnValue({
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: resolved.error ? null : { id: 'order-1' },
+        error: resolved.error,
+      }),
+    }),
+  });
   const eq = vi.fn().mockReturnValue({ eq: secondEq });
   return Object.assign(eq, { secondEq });
 }
@@ -138,6 +145,52 @@ describe('persistBookedShipment', () => {
   it('returns a 500 payload when the order update fails after insert', async () => {
     const orderUpdateEq = createUpdateChain({
       error: { message: 'order update failed' },
+    });
+
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'shipments') {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'shipment-1' },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'orders') {
+          return {
+            update: vi.fn().mockReturnValue({ eq: orderUpdateEq }),
+          };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    };
+
+    const result = await persistBookedShipment({
+      ...baseParams,
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      trackingNumber: 'waybill-1',
+      error: expect.stringContaining(
+        'failed to update order. Contact support with tracking number: waybill-1'
+      ),
+    });
+  });
+
+  it('returns a 500 payload when the order update matches no row', async () => {
+    const orderUpdateEq = createUpdateChain({ error: null });
+    orderUpdateEq.secondEq.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+      }),
     });
 
     const supabase = {
