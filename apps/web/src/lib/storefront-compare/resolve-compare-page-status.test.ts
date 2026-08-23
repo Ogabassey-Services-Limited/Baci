@@ -98,6 +98,22 @@ describe('resolveComparePageStatus', () => {
     ).resolves.toEqual({ kind: 'missing' });
   });
 
+  it('fails open when a stale nonempty inventory omits a requested product', async () => {
+    mockGetCachedCompareCategoryInventory.mockResolvedValueOnce({
+      ...inventory,
+      products: [inventory.products[0]],
+    });
+
+    await expect(
+      resolveComparePageStatus({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'laptops',
+        comparisonSlug: productComparison,
+      })
+    ).resolves.toEqual({ kind: 'unknown' });
+    expect(mockGetCachedMaintainedCompareRouteManifest).not.toHaveBeenCalled();
+  });
+
   it('confirms the loader-compatible brand comparison path', async () => {
     mockGetCachedCompareCategoryInventory.mockResolvedValue({
       ...inventory,

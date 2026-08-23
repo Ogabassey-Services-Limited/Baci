@@ -107,9 +107,11 @@ export async function resolveComparePageStatus(input: {
       : { kind: 'missing' };
   }
 
-  // Brand-vs-brand compare pages are approved by the same candidate builder as
-  // the full loader; unlike product pairs, they do not use the maintained
-  // product-route manifest.
+  // A product key missing from a non-empty local snapshot is ambiguous: the
+  // local cache may lag a newly published product on another instance. Do not
+  // turn that stale absence into a hard 404. Brand-vs-brand pages are the one
+  // legitimate path where neither parsed key is a product slug, so preserve a
+  // positive brand verdict while treating every other absence as unknown.
   const brandCandidate = buildBrandCompareCandidate({
     categorySlug: input.categorySlug,
     products: inventory.products,
@@ -117,5 +119,5 @@ export async function resolveComparePageStatus(input: {
 
   return brandCandidate?.canonicalSlug === parsed.canonicalSlug
     ? { kind: 'renderable', merchantId: merchant.id }
-    : { kind: 'missing' };
+    : { kind: 'unknown' };
 }
