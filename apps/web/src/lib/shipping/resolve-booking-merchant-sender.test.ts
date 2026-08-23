@@ -65,6 +65,28 @@ describe('resolveBookingMerchantSender', () => {
       resolveBookingMerchantSender(supabase as never, 'merchant-1')
     ).resolves.toEqual({
       ok: false,
+      error: 'Merchant details not found',
+      status: 404,
+    });
+  });
+
+  it('keeps transient merchant query failures retryable', async () => {
+    const single = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'PGRST500', message: 'database unavailable' },
+    });
+    const supabase = {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ single })),
+        })),
+      })),
+    };
+
+    await expect(
+      resolveBookingMerchantSender(supabase as never, 'merchant-1')
+    ).resolves.toEqual({
+      ok: false,
       error: 'Failed to resolve merchant sender',
       status: 500,
     });

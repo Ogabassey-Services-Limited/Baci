@@ -190,7 +190,5 @@ export function buildReceiver(order: OrderRecord): ShippingAddress {
   };
 }
 
-export {
-  deriveMerchantLocation,
-  domesticSendersDiffer,
-} from './merchant-location';
+export { deriveMerchantLocation } from './merchant-location';
+export { domesticSendersDiffer } from './merchant-sender-comparison';

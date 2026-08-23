@@ -152,12 +152,19 @@ export async function bookOrderShipment(
     );
     if (!merchantSenderResult.ok) {
       const isOriginMissing = merchantSenderResult.status === 400;
+      const isMerchantMissing = merchantSenderResult.status === 404;
       throw new OrderShipmentBookingError(
         isOriginMissing
           ? 'Merchant shipping origin is not configured.'
-          : 'Failed to resolve merchant shipping origin. Please try again.',
+          : isMerchantMissing
+            ? 'Merchant details not found.'
+            : 'Failed to resolve merchant shipping origin. Please try again.',
         merchantSenderResult.status,
-        isOriginMissing ? 'MERCHANT_ORIGIN_MISSING' : 'MERCHANT_LOOKUP_FAILED'
+        isOriginMissing
+          ? 'MERCHANT_ORIGIN_MISSING'
+          : isMerchantMissing
+            ? 'MERCHANT_NOT_FOUND'
+            : 'MERCHANT_LOOKUP_FAILED'
       );
     }
     merchantSender = merchantSenderResult.sender;

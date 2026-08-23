@@ -7,21 +7,14 @@ import {
 import { buildMerchantSenderInfo } from '@/lib/shipping/merchant-sender-location';
 import type { ShippingAddress } from '@/lib/shipping/types';
 import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
+import { resolveBodyOnlyMerchantSender } from './resolve-body-only-merchant-sender';
+import { resolveMerchantDetails } from './resolve-quote-merchant-details';
 import { resolveQuoteMerchantLookupClient } from './resolve-quote-merchant-lookup-client';
 
 type QuoteInput = {
   merchantId?: string;
   sender?: ShippingAddress;
   shipmentType: 'domestic' | 'international';
-};
-
-type MerchantDetails = {
-  business_address: string | null;
-  business_name: string | null;
-  phone: string | null;
-  country: string | null;
-  payout_currency: string | null;
-  state_code: string | null;
 };
 
 export type QuoteMerchantContextResult =
@@ -182,33 +175,6 @@ async function resolveStorefrontMerchantId(
   return domainRow?.merchant_id;
 }
 
-async function resolveMerchantDetails(
-  supabase: SupabaseClient,
-  merchantId: string
-): Promise<MerchantDetails | null | QuoteMerchantContextResult> {
-  // Do not select registered_address here: anon only has it via the temporary
-  // Option-B bridge (removal scheduled 2026-08-24). Durable sender fields are
-  // business_address + state_code (permanent / restored anon grants).
-  const { data, error } = await supabase
-    .from('merchants')
-    .select(
-      'business_name, business_address, phone, country, payout_currency, state_code'
-    )
-    .eq('id', merchantId)
-    .maybeSingle();
-
-  if (error) {
-    console.error('Error fetching merchant for sender info:', error);
-    return {
-      error: 'Failed to resolve merchant sender',
-      ok: false,
-      status: 500,
-    };
-  }
-
-  return (data as MerchantDetails | null) ?? null;
-}
-
 export async function resolveQuoteMerchantContext({
   data,
   request,
@@ -248,6 +214,10 @@ export async function resolveQuoteMerchantContext({
     storefrontMerchantId ?? permittedAuthenticatedMerchantId ?? data.merchantId;
   const trustedSenderMerchantId =
     storefrontMerchantId ?? permittedAuthenticatedMerchantId;
+  const bodyOnlyMerchantId =
+    !trustedSenderMerchantId && merchantId && !data.sender
+      ? merchantId
+      : undefined;
 
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
@@ -285,6 +255,33 @@ export async function resolveQuoteMerchantContext({
         senderInfo = merchantSender;
       }
     }
+  }
+
+  if (bodyOnlyMerchantId) {
+    const publicSenderResult = await resolveBodyOnlyMerchantSender(
+      request,
+      supabase,
+      bodyOnlyMerchantId
+    );
+    if (!publicSenderResult.ok) {
+      console.error('Error resolving public storefront shipping sender:', {
+        merchantId: bodyOnlyMerchantId,
+        error: publicSenderResult.error,
+      });
+      return {
+        error: 'Failed to resolve merchant sender',
+        ok: false,
+        status: 500,
+      };
+    }
+    if (!publicSenderResult.sender) {
+      return {
+        error: 'Merchant shipping origin is not configured',
+        ok: false,
+        status: 400,
+      };
+    }
+    senderInfo = publicSenderResult.sender;
   }
 
   return {

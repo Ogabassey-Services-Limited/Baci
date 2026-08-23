@@ -14,6 +14,17 @@ export type ResolveBookingMerchantSenderResult =
   | { ok: true; sender: ShippingAddress }
   | { error: string; ok: false; status: number };
 
+function isMissingMerchantRow(error: unknown, data: unknown): boolean {
+  if (data || !error || typeof error !== 'object') return !data && !error;
+
+  const errorRecord = error as { code?: unknown; message?: unknown };
+  return (
+    errorRecord.code === 'PGRST116' ||
+    (typeof errorRecord.message === 'string' &&
+      errorRecord.message.toLowerCase().includes('not found'))
+  );
+}
+
 /**
  * Loads the registered merchant origin for domestic booking. Callers must not
  * trust request-controlled sender payloads for domestic quotes.
@@ -34,9 +45,11 @@ export async function resolveBookingMerchantSender(
   if (error || !data) {
     console.error('Error fetching merchant for booking sender:', error);
     return {
-      error: 'Failed to resolve merchant sender',
+      error: isMissingMerchantRow(error, data)
+        ? 'Merchant details not found'
+        : 'Failed to resolve merchant sender',
       ok: false,
-      status: 500,
+      status: isMissingMerchantRow(error, data) ? 404 : 500,
     };
   }
 

@@ -1,5 +1,3 @@
-import type { ShippingAddress } from '@/lib/shipping/types';
-
 const STREET_HINT_PATTERN =
   /\b(street|st\.?|road|rd\.?|avenue|ave\.?|close|crescent|estate|phase|plot|no\.?|house|suite|unit)\b|\d/i;
 
@@ -56,32 +54,6 @@ function normalizeLocationToken(value: string): string {
 
 function isPostalCodeSegment(value: string): boolean {
   return /^\d{5,6}$/.test(value.trim());
-}
-
-function normalizeSenderLabel(value: string | undefined): string {
-  return value?.trim().toLowerCase() ?? '';
-}
-
-function coordinatesDiffer(
-  left: number | undefined,
-  right: number | undefined
-): boolean {
-  if (left == null && right == null) return false;
-  if (left == null || right == null) return true;
-  return Math.abs(left - right) > 1e-6;
-}
-
-export function domesticSendersDiffer(
-  stored: ShippingAddress,
-  resolved: ShippingAddress
-): boolean {
-  return (
-    normalizeSenderLabel(stored.city) !== normalizeSenderLabel(resolved.city) ||
-    normalizeSenderLabel(stored.state) !==
-      normalizeSenderLabel(resolved.state) ||
-    coordinatesDiffer(stored.latitude, resolved.latitude) ||
-    coordinatesDiffer(stored.longitude, resolved.longitude)
-  );
 }
 
 export function deriveMerchantLocation(

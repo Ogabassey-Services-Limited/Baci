@@ -45,7 +45,10 @@ const savedQuoteRequest = {
   ],
 };
 
-function createSupabase(provider: 'GIGL' | 'TOPSHIP' = 'GIGL') {
+function createSupabase(
+  provider: 'GIGL' | 'TOPSHIP' = 'GIGL',
+  legacyInternationalQuote = false
+) {
   const order = {
     id: 'order-1',
     customer_name: 'Jane Doe',
@@ -87,7 +90,9 @@ function createSupabase(provider: 'GIGL' | 'TOPSHIP' = 'GIGL') {
     provider_rate_id:
       provider === 'GIGL' ? 'GIGL_INTL_1_2_3_1' : 'Premium_Express',
     expires_at: new Date(Date.now() + 86_400_000).toISOString(),
-    quote_request: savedQuoteRequest,
+    quote_request: legacyInternationalQuote
+      ? { ...savedQuoteRequest, shipmentType: undefined }
+      : savedQuoteRequest,
     provider_metadata: {},
   };
   const orders = {
@@ -187,6 +192,25 @@ describe('bugfix: international fulfillment preserves saved sender', () => {
 
     expect(shippingService.bookShipment).toHaveBeenCalledWith(
       'TOPSHIP',
+      expect.objectContaining({
+        sender: expect.objectContaining({
+          address: '789 Quoted Warehouse',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        }),
+      })
+    );
+  });
+
+  it('honors the GIGL international rate marker when a legacy quote omits shipmentType', async () => {
+    await bookOrderShipment(
+      createSupabase('GIGL', true),
+      'merchant-1',
+      'order-1'
+    );
+
+    expect(shippingService.bookShipment).toHaveBeenCalledWith(
+      'GIGL',
       expect.objectContaining({
         sender: expect.objectContaining({
           address: '789 Quoted Warehouse',

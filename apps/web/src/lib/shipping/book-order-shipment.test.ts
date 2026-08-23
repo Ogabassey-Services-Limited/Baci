@@ -24,6 +24,13 @@ vi.mock(
         city: 'Lagos',
         state: 'Lagos',
       }),
+      buildSender: vi.fn().mockReturnValue({
+        name: 'Test Store',
+        phone: '08098765432',
+        address: '456 Market Rd',
+        city: 'Lagos',
+        state: 'Lagos',
+      }),
       toShipmentItems: vi
         .fn()
         .mockReturnValue([{ name: 'Widget', quantity: 2, weight: 1 }]),
@@ -385,7 +392,7 @@ describe('bookOrderShipment', () => {
     expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 
-  it('throws MERCHANT_LOOKUP_FAILED when the merchant query fails', async () => {
+  it('throws MERCHANT_NOT_FOUND when merchant does not exist', async () => {
     const supabase = createMockSupabase({
       order: { data: validOrder, error: null },
       quote: { data: validQuote, error: null },
@@ -394,10 +401,7 @@ describe('bookOrderShipment', () => {
 
     await expect(
       bookOrderShipment(supabase, 'merchant-1', 'order-1')
-    ).rejects.toMatchObject({
-      code: 'MERCHANT_LOOKUP_FAILED',
-      status: 500,
-    });
+    ).rejects.toThrow('Merchant details not found');
   });
 
   it('throws SHIPMENT_SAVE_FAILED when insert fails', async () => {
