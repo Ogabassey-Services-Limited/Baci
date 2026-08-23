@@ -136,7 +136,7 @@ case "$*" in
   *' inspect -f {{.Name}} generic-api') printf '/generic-api\\n' ;;
   *' inspect -f {{json .State.Running}} generic-api') printf 'false\\n' ;;
   *' cp generic-api:/usr/bin/ollama-loopback '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
-  *' inspect -f {{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.WorkingDir}} {{json .Config.Labels}} {{json (index .Config "Healthcheck")}} {{json .Mounts}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} {{json .HostConfig.Links}} {{json .HostConfig.NetworkMode}} generic-api') printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] "" {} null [{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
+  *' inspect -f {{.Id}} {{.Name}} {{.Path}} {{json .Args}} {{json .Config.Env}} {{json .Config.WorkingDir}} {{json .Config.Labels}} {{json (index .Config "Healthcheck")}} {{json .HostConfig.PortBindings}} {{json .NetworkSettings.Ports}} {{json .NetworkSettings.Networks}} {{json .HostConfig.Links}} {{json .HostConfig.NetworkMode}} generic-api') printf 'generic-api /generic-api /usr/bin/ollama-loopback [] [] "" {} null {} {} {} [] "bridge"\\n' ;;
   *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${source}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `

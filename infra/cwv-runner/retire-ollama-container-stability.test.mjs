@@ -68,6 +68,49 @@ printf '%s\\n' "$*" >>'${log}'
   }
 });
 
+test('accepts a stable mount set returned in alternating orders', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-container-mount-order-'));
+  const bin = join(directory, 'bin');
+  const mountState = join(directory, 'mount-state');
+  try {
+    await mkdir(bin);
+    await writeFile(
+      join(bin, 'docker'),
+      `#!/bin/sh
+mounts_a='[{"Type":"bind","Name":"","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock","Driver":"","Mode":"rw","RW":true,"Propagation":"rprivate"},{"Type":"tmpfs","Name":"","Source":"","Destination":"/tmp/a","Driver":"","Mode":"","RW":true,"Propagation":""}]'
+mounts_b='[{"Type":"tmpfs","Name":"","Source":"","Destination":"/tmp/a","Driver":"","Mode":"","RW":true,"Propagation":""},{"Type":"bind","Name":"","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock","Driver":"","Mode":"rw","RW":true,"Propagation":"rprivate"}]'
+case "$*" in
+  *'ps -a '*) printf 'generic-api\n' ;;
+  *'{{.Id}}'*) case "$*" in *'{{json .Mounts}}'*) count=$(cat '${mountState}' 2>/dev/null || printf 0); count=$((count + 1)); printf '%s' "$count" >'${mountState}'; if [ $((count % 2)) -eq 1 ]; then mounts=$mounts_a; else mounts=$mounts_b; fi; printf 'generic-api /generic-api /bin/true [] ["DOCKER_SOCK=/var/run/docker.sock"] "" {} null %s {} {} {} [] "bridge"\n' "$mounts";; *) printf 'generic-api /generic-api /bin/true [] ["DOCKER_SOCK=/var/run/docker.sock"] "" {} null {} {} {} [] "bridge"\n';; esac ;;
+  *'{{.Name}}'*) printf '/generic-api\n' ;;
+  *'{{json .State.Running}}'*) printf 'false\n' ;;
+  *'{{json .Config.Env}}'*) printf '["DOCKER_SOCK=/var/run/docker.sock"]\n' ;;
+  *'{{json .Config.WorkingDir}}'*) printf '""\n' ;;
+  *'{{json .Mounts}}'*) count=$(cat '${mountState}' 2>/dev/null || printf 0); count=$((count + 1)); printf '%s' "$count" >'${mountState}'; if [ $((count % 2)) -eq 1 ]; then printf '%s\n' "$mounts_a"; else printf '%s\n' "$mounts_b"; fi ;;
+  *' cp generic-api:/bin/true '*) for destination do :; done; printf '#!/bin/sh\nexit 0\n' >"$destination" ;;
+esac
+`
+    );
+    await Promise.all([
+      chmod(join(bin, 'docker'), 0o755),
+      chmod(directory, 0o777),
+    ]);
+    const { stdout } = await execFileAsync(
+      'sh',
+      [
+        '-c',
+        'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:17:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        'retire-ollama-container-mount-order-test',
+        script.pathname,
+      ],
+      { ...unprivileged, env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: bin } }
+    );
+    assert.equal(stdout, '');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('fails closed after bounded container inventory churn', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-container-churn-'));
   const bin = join(directory, 'bin');

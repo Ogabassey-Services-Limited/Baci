@@ -102,11 +102,11 @@ test('accepts Docker root as a running-container working directory', async () =>
 
 test('serializes an absent Docker healthcheck as null', async () => {
   const output = await runFixture(
-    `docker() { case "$*" in *'index .Config "Healthcheck"'*) printf '%s\\n' 'generic-api /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"';; *) return 2;; esac; }; load_consumer_scanners; container_configuration generic-api`
+    `docker() { case "$*" in *'index .Config "Healthcheck"'*) printf '%s\\n' 'generic-api /generic-api /bin/true [] [] "" {} null {} {} {} [] "bridge"';; *'{{json .Mounts}}'*) printf '%s\\n' '[]';; *) return 2;; esac; }; load_consumer_scanners; container_configuration generic-api`
   );
   assert.equal(
     output,
-    'generic-api /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"\n'
+    'generic-api /generic-api /bin/true [] [] "" {} null {} {} {} [] [] "bridge"\n'
   );
 });
 

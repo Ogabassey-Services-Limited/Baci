@@ -203,7 +203,7 @@ case "$*" in
   *' ps -a '*) printf 'ollama-loopback\\n' ;;
   *'inspect -f {{.Name}} ollama-loopback') printf '/ollama-loopback\\n' ;;
   *'{{.Id}}'*) printf 'ollama-loopback /ollama-loopback [] [] [{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}] {} {} {} [] "bridge"\\n' ;;
-  *'{{json .Mounts}}'*) exit 99 ;;
+  *'{{json .Mounts}}'*) printf '[{"Type":"bind","Source":"${canonicalConfig}","Destination":"/app/runtime.env"}]\\n' ;;
 esac
 `
     );

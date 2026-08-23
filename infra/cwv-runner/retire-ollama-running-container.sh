@@ -7,9 +7,23 @@ running_container_pair() {
   running_pair_format=$2
   running_pair_first=$3
   running_pair_second=$4
-  docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f "$running_pair_format" "$running_pair_id" >"$running_pair_first" || return 2
-  docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f "$running_pair_format" "$running_pair_id" >"$running_pair_second" || return 2
+  if [ "$running_pair_format" = '{{json .Mounts}}' ]; then
+    container_mounts_snapshot "$running_pair_id" "$running_pair_first" || return 2
+    container_mounts_snapshot "$running_pair_id" "$running_pair_second" || return 2
+  else
+    docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f "$running_pair_format" "$running_pair_id" >"$running_pair_first" || return 2
+    docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f "$running_pair_format" "$running_pair_id" >"$running_pair_second" || return 2
+  fi
   cmp -s "$running_pair_first" "$running_pair_second" || return 2
+}
+
+container_mounts_snapshot() {
+  mount_container_id=$1
+  mount_output=$2
+  mount_raw=$(temp_path)
+  docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Mounts}}' "$mount_container_id" >"$mount_raw" || { rm -f "$mount_raw"; return 2; }
+  /usr/bin/jq -cS 'if type == "array" and all(.[]; type == "object") then sort_by([.Destination, .Type, .Name, .Source, .Driver, .Mode, .RW, .Propagation]) else error("invalid mounts") end' "$mount_raw" >"$mount_output" || { rm -f "$mount_raw" "$mount_output"; return 2; }
+  rm -f "$mount_raw"
 }
 
 running_container_validate_json() {
