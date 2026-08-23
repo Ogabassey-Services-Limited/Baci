@@ -16,6 +16,10 @@ import { BentoCard } from '@/components/ui/bento-card';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
+import {
+  formatGoogleAdsMetric,
+  formatGoogleAdsReportingWindow,
+} from './google-ads-reporting-format';
 
 export { GOOGLE_ADS_CONNECT_PATH } from './google-ads-connect-path';
 
@@ -64,47 +68,6 @@ interface GoogleAdsReportingCardProps {
   syncWindow?: AdsSyncWindow;
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('en-US', {
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatCurrency(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', {
-      currency,
-      currencyDisplay: 'symbol',
-      maximumFractionDigits: 2,
-      style: 'currency',
-    }).format(value);
-  } catch {
-    return `${currency} ${value.toFixed(2)}`;
-  }
-}
-
-function formatMetric(
-  value: number,
-  kind: 'currency' | 'number' | 'percent',
-  currency: string
-): string {
-  if (kind === 'currency') {
-    return formatCurrency(value, currency);
-  }
-
-  if (kind === 'percent') {
-    return `${value.toFixed(2)}%`;
-  }
-
-  return formatNumber(value);
-}
-
-function formatWindow(metrics: GoogleAdsReportingMetrics): string | null {
-  if (!metrics.startDate || !metrics.endDate) return null;
-
-  return `${metrics.startDate} – ${metrics.endDate}`;
-}
-
 export function GoogleAdsReportingCard({
   className,
   loading = false,
@@ -118,7 +81,7 @@ export function GoogleAdsReportingCard({
     (reporting?.metrics ? 'connected' : 'disconnected');
   const currency = reporting?.currency ?? 'USD';
   const metrics = reporting?.metrics;
-  const periodLabel = metrics ? formatWindow(metrics) : null;
+  const periodLabel = metrics ? formatGoogleAdsReportingWindow(metrics) : null;
 
   return (
     <BentoCard
@@ -207,7 +170,7 @@ export function GoogleAdsReportingCard({
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {metrics.spend !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(
+                formattedValue={formatGoogleAdsMetric(
                   metrics.spend,
                   'currency',
                   currency
@@ -218,7 +181,7 @@ export function GoogleAdsReportingCard({
             )}
             {metrics.impressions !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(
+                formattedValue={formatGoogleAdsMetric(
                   metrics.impressions,
                   'number',
                   currency
@@ -229,7 +192,7 @@ export function GoogleAdsReportingCard({
             )}
             {metrics.clicks !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(
+                formattedValue={formatGoogleAdsMetric(
                   metrics.clicks,
                   'number',
                   currency
@@ -240,21 +203,29 @@ export function GoogleAdsReportingCard({
             )}
             {metrics.ctr !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(metrics.ctr, 'percent', currency)}
+                formattedValue={formatGoogleAdsMetric(
+                  metrics.ctr,
+                  'percent',
+                  currency
+                )}
                 icon={<PercentIcon />}
                 label="CTR"
               />
             )}
             {metrics.cpc !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(metrics.cpc, 'currency', currency)}
+                formattedValue={formatGoogleAdsMetric(
+                  metrics.cpc,
+                  'currency',
+                  currency
+                )}
                 icon={<MousePointerClick className="size-3.5" />}
                 label="CPC"
               />
             )}
             {metrics.conversions !== undefined && (
               <GoogleAdsMetric
-                formattedValue={formatMetric(
+                formattedValue={formatGoogleAdsMetric(
                   metrics.conversions,
                   'number',
                   currency

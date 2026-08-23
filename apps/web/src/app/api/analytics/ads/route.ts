@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
-import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
 import { fetchAnalyticsPlatformConfig } from '@/lib/analytics/analytics-platform-config';
 import { fetchAdReportingSnapshots } from '@/lib/analytics/fetch-ad-reporting-snapshots';
 import { hasPermission } from '@/lib/api-auth';
@@ -12,6 +11,7 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 import { adsAnalyticsQuerySchema } from '@/schemas/ads-analytics-query';
+import { calculatePlatformStats } from './calculate-platform-stats';
 import { fetchPaidOrdersForAnalytics } from './fetch-paid-orders';
 
 /**
@@ -25,14 +25,6 @@ import { fetchPaidOrdersForAnalytics } from './fetch-paid-orders';
  * - Click attribution (orders with fbclid, ttclid, gclid, sccid)
  * - Platform configuration status
  */
-
-interface PlatformStats {
-  name: string;
-  configured: boolean;
-  conversions: number;
-  revenue: number;
-  clickAttributed: number; // Orders with click ID from this platform
-}
 
 function getUtcCalendarDate(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -159,126 +151,14 @@ export async function GET(request: Request) {
       supabase,
     });
 
-    // Calculate platform stats
-    const platformStats: Record<string, PlatformStats> = {
-      facebook: {
-        name: 'Facebook',
-        configured: !!(
-          merchant.facebook_pixel_id && merchant.facebook_capi_token
-        ),
-        conversions: 0,
-        revenue: 0,
-        clickAttributed: 0,
-      },
-      tiktok: {
-        name: 'TikTok',
-        configured: !!(
-          merchant.tiktok_pixel_id && merchant.tiktok_access_token
-        ),
-        conversions: 0,
-        revenue: 0,
-        clickAttributed: 0,
-      },
-      ga4: {
-        name: 'Google Analytics 4',
-        configured: !!(merchant.google_analytics_id && merchant.ga4_api_secret),
-        conversions: 0,
-        revenue: 0,
-        clickAttributed: 0,
-      },
-      snapchat: {
-        name: 'Snapchat',
-        configured: !!(
-          merchant.snapchat_pixel_id && merchant.snapchat_capi_token
-        ),
-        conversions: 0,
-        revenue: 0,
-        clickAttributed: 0,
-      },
-    };
-
-    let totalConversions = 0;
-    let totalAttributedRevenue = 0;
-    let ordersWithTracking = 0;
-    let ordersWithClickIds = 0;
-    let ordersWithLDU = 0;
-
-    // Analyze each order
-    for (const order of orders || []) {
-      const tracking = order.ad_tracking as AdTrackingData | null;
-      const revenue = Number(order.total) || 0;
-
-      if (tracking) {
-        ordersWithTracking++;
-
-        // Check for LDU flag
-        if (tracking.limitedDataUse) {
-          ordersWithLDU++;
-        }
-
-        // Check for click IDs (attribution)
-        const hasClickId = !!(
-          tracking.fbclid ||
-          tracking.ttclid ||
-          tracking.gclid ||
-          tracking.sccid
-        );
-        if (hasClickId) {
-          ordersWithClickIds++;
-        }
-
-        // Facebook attribution
-        if (tracking.fbclid || tracking.fbp) {
-          platformStats.facebook.clickAttributed++;
-          if (platformStats.facebook.configured) {
-            platformStats.facebook.conversions++;
-            platformStats.facebook.revenue += revenue;
-          }
-        }
-
-        // TikTok attribution
-        if (tracking.ttclid || tracking.ttp) {
-          platformStats.tiktok.clickAttributed++;
-          if (platformStats.tiktok.configured) {
-            platformStats.tiktok.conversions++;
-            platformStats.tiktok.revenue += revenue;
-          }
-        }
-
-        // Google attribution
-        if (tracking.gclid || tracking.gaClientId) {
-          platformStats.ga4.clickAttributed++;
-          if (platformStats.ga4.configured) {
-            platformStats.ga4.conversions++;
-            platformStats.ga4.revenue += revenue;
-          }
-        }
-
-        // Snapchat attribution
-        if (tracking.sccid) {
-          platformStats.snapchat.clickAttributed++;
-          if (platformStats.snapchat.configured) {
-            platformStats.snapchat.conversions++;
-            platformStats.snapchat.revenue += revenue;
-          }
-        }
-
-        // Count as conversion only if the order has tracking for a configured platform
-        const hasConfiguredPlatformTracking =
-          (platformStats.facebook.configured &&
-            (tracking.fbclid || tracking.fbp)) ||
-          (platformStats.tiktok.configured &&
-            (tracking.ttclid || tracking.ttp)) ||
-          (platformStats.ga4.configured &&
-            (tracking.gclid || tracking.gaClientId)) ||
-          (platformStats.snapchat.configured && tracking.sccid);
-
-        if (hasConfiguredPlatformTracking) {
-          totalConversions++;
-          totalAttributedRevenue += revenue;
-        }
-      }
-    }
+    const {
+      configuredPlatforms,
+      details,
+      platformStats,
+      totalAttributedRevenue,
+      totalConversions,
+    } = calculatePlatformStats(orders ?? [], merchant);
+    const { ordersWithClickIds, ordersWithLDU, ordersWithTracking } = details;
 
     // Calculate percentages
     const totalOrders = orders?.length || 0;
@@ -288,11 +168,6 @@ export async function GET(request: Request) {
       totalOrders > 0 ? (ordersWithClickIds / totalOrders) * 100 : 0;
     const lduRate =
       ordersWithTracking > 0 ? (ordersWithLDU / ordersWithTracking) * 100 : 0;
-
-    // Count configured platforms
-    const configuredPlatforms = Object.values(platformStats).filter(
-      (p) => p.configured
-    ).length;
 
     const responseData = {
       // Overall status
@@ -313,11 +188,7 @@ export async function GET(request: Request) {
       platforms: Object.values(platformStats),
 
       // Detailed stats
-      details: {
-        ordersWithTracking,
-        ordersWithClickIds,
-        ordersWithLDU,
-      },
+      details,
       socialAds,
       ...(googleAds ? { googleAds } : {}),
     };

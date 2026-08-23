@@ -1,11 +1,27 @@
 import 'server-only';
 
 import { SNAPCHAT_ADS_API_ROOT } from './constants';
+import {
+  decimal,
+  integer,
+  isIsoDate,
+  isoTimestamp,
+  isTimezone,
+  microToDecimal,
+  nested,
+  nextSnapchatAdsDate,
+  objectArray,
+  record,
+  type SnapchatRecord,
+  snapchatAdsLocalDate,
+  snapchatAdsLocalMidnight,
+} from './provider-utils';
 import { requestSnapchatAdsJson, SnapchatAdsProviderError } from './request';
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const INTEGER = /^\d+$/;
-
+export {
+  snapchatAdsLocalDate,
+  snapchatAdsLocalMidnight,
+} from './provider-utils';
 export { SnapchatAdsProviderError } from './request';
 export interface SnapchatAdsAccount {
   accountId: string;
@@ -29,104 +45,8 @@ export interface SnapchatAdsDailyReport {
   finalizedDataEndTime: string | null;
   timezoneName: string;
 }
-type RecordValue = Record<string, unknown>;
-function record(value: unknown): RecordValue | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as RecordValue)
-    : null;
-}
-function objectArray(value: unknown): RecordValue[] {
-  if (!Array.isArray(value)) return [];
-  return value.reduce<RecordValue[]>((items, item) => {
-    const itemRecord = record(item);
-    if (itemRecord) items.push(itemRecord);
-    return items;
-  }, []);
-}
-function nested(value: RecordValue, name: string): RecordValue {
-  return record(value[name]) ?? value;
-}
-function integer(value: unknown): string | null {
-  const stringValue = typeof value === 'string' ? value : null;
-  return stringValue && INTEGER.test(stringValue) ? stringValue : null;
-}
-function decimal(value: unknown): string | null {
-  const stringValue = typeof value === 'string' ? value : null;
-  return stringValue && /^\d+(?:\.\d+)?$/.test(stringValue)
-    ? stringValue
-    : null;
-}
-function isTimezone(value: string): boolean {
-  try {
-    Intl.DateTimeFormat('en-US', { timeZone: value }).format();
-    return true;
-  } catch {
-    return false;
-  }
-}
-export function snapchatAdsLocalDate(epoch: number, timezone: string) {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: timezone,
-    year: 'numeric',
-  }).formatToParts(new Date(epoch));
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== 'literal')
-      .map((part) => [part.type, part.value])
-  );
-  return `${values.year}-${values.month}-${values.day}`;
-}
-function timezoneOffset(epoch: number, timezone: string): number {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    hour: '2-digit',
-    hour12: false,
-    minute: '2-digit',
-    month: '2-digit',
-    second: '2-digit',
-    timeZone: timezone,
-    year: 'numeric',
-  }).formatToParts(new Date(epoch));
-  const values = Object.fromEntries(
-    parts
-      .filter((part) => part.type !== 'literal')
-      .map((part) => [part.type, part.value])
-  );
-  return (
-    Date.UTC(
-      Number(values.year),
-      Number(values.month) - 1,
-      Number(values.day),
-      Number(values.hour) % 24,
-      Number(values.minute),
-      Number(values.second)
-    ) - epoch
-  );
-}
-export function snapchatAdsLocalMidnight(
-  date: string,
-  timezone: string
-): string {
-  if (!ISO_DATE.test(date) || !isTimezone(timezone))
-    throw new SnapchatAdsProviderError('SNAPCHAT_ADS_TIMEZONE_INVALID');
-  const guess = Date.parse(`${date}T00:00:00.000Z`);
-  let epoch = guess - timezoneOffset(guess, timezone);
-  epoch = guess - timezoneOffset(epoch, timezone);
-  return new Date(epoch).toISOString();
-}
-function microToDecimal(micros: string): string {
-  const amount = BigInt(micros);
-  const whole = amount / 1_000_000n;
-  const fraction = (amount % 1_000_000n)
-    .toString()
-    .padStart(6, '0')
-    .replace(/0+$/, '');
-  return fraction ? `${whole}.${fraction}` : whole.toString();
-}
 function accountFrom(
-  value: RecordValue,
+  value: SnapchatRecord,
   organizationId: string
 ): SnapchatAdsAccount | null {
   const account = nested(value, 'ad_account');
@@ -194,7 +114,7 @@ export async function listSnapchatAdsAccounts(
     ).values(),
   ];
 }
-function statsList(payload: unknown): RecordValue[] {
+function statsList(payload: unknown): SnapchatRecord[] {
   const root = record(payload);
   if (!root) return [];
   return objectArray(
@@ -202,11 +122,6 @@ function statsList(payload: unknown): RecordValue[] {
       root.timeseries ??
       record(root.data)?.timeseries_stats
   );
-}
-function isoTimestamp(value: unknown): string | null {
-  return typeof value === 'string' && Number.isFinite(Date.parse(value))
-    ? value
-    : null;
 }
 function parseReports(
   payload: unknown,
@@ -275,8 +190,8 @@ export async function fetchSnapchatAdsDailyReport(
 ): Promise<SnapchatAdsDailyReport[]> {
   if (
     !input.accountId ||
-    !ISO_DATE.test(input.startDate) ||
-    !ISO_DATE.test(input.endDate) ||
+    !isIsoDate(input.startDate) ||
+    !isIsoDate(input.endDate) ||
     input.startDate > input.endDate ||
     !isTimezone(input.timezoneName)
   )
@@ -286,7 +201,10 @@ export async function fetchSnapchatAdsDailyReport(
   );
   url.searchParams.set(
     'end_time',
-    snapchatAdsLocalMidnight(nextDate(input.endDate), input.timezoneName)
+    snapchatAdsLocalMidnight(
+      nextSnapchatAdsDate(input.endDate),
+      input.timezoneName
+    )
   );
   url.searchParams.set(
     'fields',
@@ -312,9 +230,4 @@ export async function fetchSnapchatAdsDailyReport(
   if (typeof reportRunId === 'string' && reportRunId)
     throw new SnapchatAdsProviderError('SNAPCHAT_ADS_ASYNC_REPORT_UNSUPPORTED');
   return parseReports(payload, input);
-}
-function nextDate(date: string): string {
-  const value = new Date(`${date}T00:00:00.000Z`);
-  value.setUTCDate(value.getUTCDate() + 1);
-  return value.toISOString().slice(0, 10);
 }

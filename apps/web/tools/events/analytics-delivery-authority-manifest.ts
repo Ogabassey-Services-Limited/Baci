@@ -23,7 +23,7 @@ export const analyticsDeliveryAuthorityManifest = {
   },
   callerScopedRouteHashes: {
     'apps/web/src/app/api/analytics/ads/route.ts':
-      '701c27e657fa7925a2a383374c6627b92f4e3f5757f99053470bd18779d4325d',
+      'be2ef1b3e55c6c02c8fccebdcb7df6422608d83e021861991e840aafb8f30bb1',
     'apps/web/src/app/api/analytics/facebook-capi/route.ts':
       'f41e1de587645b8fdb2af8af180eb581b2bfeecae688670d7b5c7a80088b7c32',
     'apps/web/src/app/api/analytics/ga4/route.ts':
