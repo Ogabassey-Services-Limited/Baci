@@ -19,6 +19,7 @@ import {
   savePushTokenToServer,
 } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
+import { clearLastNotificationResponse } from './clear-last-notification-response';
 import { navigateFromPushScreen } from './navigate-from-push-screen';
 import { processPushNotificationResponse } from './process-push-notification-response';
 
@@ -211,7 +212,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         Notifications.addNotificationResponseReceivedListener(
           (response: import('expo-notifications').NotificationResponse) => {
             log.info('Notification tapped:', response);
-            processPushNotificationResponse(response, navigate);
+            processPushNotificationResponse(response, navigate, () =>
+              clearLastNotificationResponse(Notifications)
+            );
           }
         );
 
@@ -221,7 +224,9 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         ) => {
           if (response && !cancelledRef.current) {
             log.info('App launched from notification:', response);
-            processPushNotificationResponse(response, navigate);
+            processPushNotificationResponse(response, navigate, () =>
+              clearLastNotificationResponse(Notifications)
+            );
           }
         }
       );

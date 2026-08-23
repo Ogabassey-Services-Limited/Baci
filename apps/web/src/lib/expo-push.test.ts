@@ -804,14 +804,26 @@ describe('notifyCustomer', () => {
     await notifyCustomer('user-456', 'Order Update', 'Your order moved', {
       type: 'order_update',
       order_id: 'ord-1',
+      notification_id: 'notification-ord-1',
     });
 
+    expect(mockSendPushNotificationsAsync).toHaveBeenCalledWith([
+      expect.objectContaining({
+        data: expect.objectContaining({
+          notification_id: 'notification-ord-1',
+        }),
+      }),
+    ]);
     expect(attemptInsertChain.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: 'user-456',
         title: 'Order Update',
         body: 'Your order moved',
-        payload: { type: 'order_update', order_id: 'ord-1' },
+        payload: {
+          type: 'order_update',
+          order_id: 'ord-1',
+          notification_id: 'notification-ord-1',
+        },
         status: 'sent',
       })
     );

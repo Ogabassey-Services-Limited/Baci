@@ -109,6 +109,7 @@ describe('processPushNotificationResponse', () => {
   it('retries user-facing handling after a navigation error', () => {
     jest.useFakeTimers();
     const navigate = jest.fn();
+    const onHandled = jest.fn();
     mockHandleNotificationResponse.mockImplementation(
       (
         _response: NotificationResponse,
@@ -128,16 +129,18 @@ describe('processPushNotificationResponse', () => {
     });
 
     expect(() =>
-      processPushNotificationResponse(response, navigate)
+      processPushNotificationResponse(response, navigate, onHandled)
     ).not.toThrow();
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
     expect(mockClearBadge).not.toHaveBeenCalled();
+    expect(onHandled).not.toHaveBeenCalled();
 
     jest.runOnlyPendingTimers();
 
     expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
     expect(mockClearBadge).toHaveBeenCalledTimes(1);
+    expect(onHandled).toHaveBeenCalledTimes(1);
   });
 
   it('continues response handling when analytics tracking throws', () => {
@@ -157,6 +160,50 @@ describe('processPushNotificationResponse', () => {
       response,
       navigate
     );
+    expect(mockClearBadge).toHaveBeenCalledTimes(1);
+    expect(mockWarn).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retry an older finalization after a newer response succeeds', () => {
+    jest.useFakeTimers();
+    const navigate = jest.fn();
+    const onHandled = jest.fn();
+    mockHandleNotificationResponse.mockImplementationOnce(() => {
+      throw new Error('navigator is not ready');
+    });
+    const firstResponse = createResponse(
+      'utility-response-a',
+      { notification_type: 'promotion' },
+      4000
+    );
+    const secondResponse = createResponse(
+      'utility-response-b',
+      { notification_type: 'promotion' },
+      5000
+    );
+
+    processPushNotificationResponse(firstResponse, navigate, onHandled);
+    processPushNotificationResponse(secondResponse, navigate, onHandled);
+    jest.runOnlyPendingTimers();
+
+    expect(onHandled).toHaveBeenCalledTimes(1);
+    expect(onHandled).toHaveBeenCalledWith(secondResponse);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(3);
+  });
+
+  it('does not retry when finalization itself throws', () => {
+    const navigate = jest.fn();
+    const onHandled = jest.fn(() => {
+      throw new Error('native response clear failed');
+    });
+    const response = createResponse('utility-finalization-failure', {
+      notification_type: 'promotion',
+    });
+
+    expect(() =>
+      processPushNotificationResponse(response, navigate, onHandled)
+    ).not.toThrow();
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
     expect(mockClearBadge).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });

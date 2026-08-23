@@ -9,7 +9,6 @@ import {
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 
 type NotificationResponse = import('expo-notifications').NotificationResponse;
-
 const mockRouterPush = jest.fn();
 const mockNotificationListenerRemove = jest.fn<() => void>();
 const mockResponseListenerRemove = jest.fn<() => void>();
@@ -21,6 +20,7 @@ const mockTrackNotificationInteraction =
   >();
 const mockGetLastNotificationResponse =
   jest.fn<() => Promise<NotificationResponse | null>>();
+const mockClearLastNotificationResponse = jest.fn<() => void>();
 const mockHandleNotificationResponse =
   jest.fn<
     typeof import('@/services/push-notifications')['handleNotificationResponse']
@@ -28,7 +28,6 @@ const mockHandleNotificationResponse =
 let mockNotificationResponseCallback:
   | ((response: NotificationResponse) => void)
   | null = null;
-
 jest.mock('expo-router', () => ({ router: { push: mockRouterPush } }));
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn() }),
@@ -44,6 +43,7 @@ jest.mock('expo-notifications', () => ({
     }
   ),
   getLastNotificationResponseAsync: mockGetLastNotificationResponse,
+  clearLastNotificationResponse: mockClearLastNotificationResponse,
 }));
 jest.mock('@/lib/push-token-storage', () => ({
   getStoredPushToken: mockGetStoredPushToken,
@@ -67,7 +67,6 @@ jest.mock('@/services/push-notifications', () => ({
   savePushTokenToServer: jest.fn(),
 }));
 jest.mock('@/stores/auth-store', () => ({ useAuthStore: jest.fn() }));
-
 const mockedUseAuthStore = (
   jest.requireMock('@/stores/auth-store') as {
     useAuthStore: jest.MockedFunction<
@@ -82,7 +81,6 @@ const mockedUseAuthStore = (
 ).useAuthStore;
 const { usePushNotifications } =
   require('./use-push-notifications') as typeof import('./use-push-notifications');
-
 const createResponse = (
   identifier: string,
   data: Record<string, unknown>,
@@ -94,7 +92,6 @@ const createResponse = (
 
 const waitForResponseListener = () =>
   waitFor(() => expect(mockNotificationResponseCallback).not.toBeNull());
-
 describe('usePushNotifications response handling', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -218,6 +215,7 @@ describe('usePushNotifications response handling', () => {
         'response-cold-start'
       );
     });
+    expect(mockClearLastNotificationResponse).toHaveBeenCalledTimes(1);
   });
 
   it('retries cold-start navigation after the root navigator becomes ready', async () => {
@@ -241,6 +239,7 @@ describe('usePushNotifications response handling', () => {
       await Promise.resolve();
     });
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+    expect(mockClearLastNotificationResponse).not.toHaveBeenCalled();
 
     act(() => {
       jest.advanceTimersByTime(250);
@@ -248,6 +247,7 @@ describe('usePushNotifications response handling', () => {
 
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
     expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(mockClearLastNotificationResponse).toHaveBeenCalledTimes(1);
   });
 
   it('does not re-track a cold-start response after the hook remounts', async () => {

@@ -11,6 +11,7 @@ import Expo, {
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
+import { preparePushNotificationPayload } from '@/lib/prepare-push-notification-payload';
 import { filterPushTokensByShipmentUpdateCapability } from '@/lib/push-token-capability';
 import {
   getPushTokenDeactivationReason,
@@ -242,6 +243,7 @@ export async function notifyCustomer(
   options?: { merchantId?: string } & DeliveryStartOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
+  const payload = preparePushNotificationPayload(data);
 
   // Merchant-specific notifications (e.g. wallet credits) must scope to the
   // tokens registered for that merchant's storefront — a user with tokens
@@ -270,10 +272,10 @@ export async function notifyCustomer(
       userId,
       appType: 'storefront',
       channel: channelId,
-      notificationType: readNotificationType(data),
+      notificationType: readNotificationType(payload),
       title,
       body,
-      payload: data,
+      payload,
       tokenCount: 0,
       result,
     });
@@ -287,10 +289,10 @@ export async function notifyCustomer(
       userId,
       appType: 'storefront',
       channel: channelId,
-      notificationType: readNotificationType(data),
+      notificationType: readNotificationType(payload),
       title,
       body,
-      payload: data,
+      payload,
       tokenCount: 0,
       result,
     });
@@ -301,7 +303,7 @@ export async function notifyCustomer(
     to: t.token,
     title,
     body,
-    data,
+    data: payload,
     sound: 'default' as const,
     channelId,
     priority: (channelId === 'orders' ? 'high' : 'default') as
@@ -321,7 +323,7 @@ export async function notifyCustomer(
       userId,
       appType: 'storefront',
       channel: channelId,
-      notificationType: readNotificationType(data),
+      notificationType: readNotificationType(payload),
     });
   } catch (error) {
     result = {
@@ -338,10 +340,10 @@ export async function notifyCustomer(
     userId,
     appType: 'storefront',
     channel: channelId,
-    notificationType: readNotificationType(data),
+    notificationType: readNotificationType(payload),
     title,
     body,
-    payload: data,
+    payload,
     tokenCount: tokens.length,
     result,
   });

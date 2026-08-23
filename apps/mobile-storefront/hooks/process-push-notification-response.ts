@@ -7,11 +7,14 @@ import {
 
 type NotificationResponse = import('expo-notifications').NotificationResponse;
 type Navigate = (screen: string, params?: Record<string, string>) => void;
+type OnHandled = (response: NotificationResponse) => void;
+type ProcessOptions = { isRetry?: boolean };
 
 const log = createLogger('PushNotificationResponse');
 const openedNotificationIds = new Set<string>();
 const processingNotificationIds = new Set<string>();
 const trackedNotificationIds = new Set<string>();
+let latestResponseKey: string | null = null;
 const pendingNotificationResponses = new Map<
   string,
   PendingNotificationResponse
@@ -23,6 +26,7 @@ const MAX_PENDING_RESPONSE_RETRIES = 120;
 type PendingNotificationResponse = {
   response: NotificationResponse;
   navigate: Navigate;
+  onHandled?: OnHandled;
   attempts: number;
   retryTimer?: ReturnType<typeof setTimeout>;
 };
@@ -50,14 +54,20 @@ function schedulePendingNotificationResponse(responseKey: string): void {
     if (!current) return;
 
     current.retryTimer = undefined;
-    processPushNotificationResponse(current.response, current.navigate);
+    processPushNotificationResponse(
+      current.response,
+      current.navigate,
+      current.onHandled,
+      { isRetry: true }
+    );
   }, PENDING_RESPONSE_RETRY_DELAY_MS);
 }
 
 function queuePendingNotificationResponse(
   responseKey: string,
   response: NotificationResponse,
-  navigate: Navigate
+  navigate: Navigate,
+  onHandled?: OnHandled
 ): void {
   const pending = pendingNotificationResponses.get(responseKey) ?? {
     response,
@@ -66,6 +76,7 @@ function queuePendingNotificationResponse(
   };
   pending.response = response;
   pending.navigate = navigate;
+  pending.onHandled = onHandled;
   pending.attempts += 1;
 
   if (pending.attempts > MAX_PENDING_RESPONSE_RETRIES) {
@@ -83,11 +94,15 @@ function queuePendingNotificationResponse(
 
 export function processPushNotificationResponse(
   response: NotificationResponse,
-  navigate: Navigate
+  navigate: Navigate,
+  onHandled?: OnHandled,
+  options?: ProcessOptions
 ): void {
   const content = response.notification.request.content;
   const data = content.data as Record<string, unknown> | undefined;
   const responseKey = getResponseOccurrenceKey(response);
+
+  if (!options?.isRetry) latestResponseKey = responseKey;
 
   if (
     openedNotificationIds.has(responseKey) ||
@@ -126,7 +141,12 @@ export function processPushNotificationResponse(
       handleNotificationResponse(response, navigate);
     } catch (error) {
       log.warn('Failed to handle notification response:', error);
-      queuePendingNotificationResponse(responseKey, response, navigate);
+      queuePendingNotificationResponse(
+        responseKey,
+        response,
+        navigate,
+        onHandled
+      );
       return;
     }
 
@@ -138,6 +158,13 @@ export function processPushNotificationResponse(
 
     openedNotificationIds.add(responseKey);
     clearPendingNotificationResponse(responseKey);
+    if (onHandled && latestResponseKey === responseKey) {
+      try {
+        onHandled(response);
+      } catch (error) {
+        log.warn('Failed to finalize notification response:', error);
+      }
+    }
   } finally {
     processingNotificationIds.delete(responseKey);
   }
