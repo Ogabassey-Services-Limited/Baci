@@ -126,9 +126,12 @@ export async function POST(req: NextRequest) {
     // 2. Fetch all products from Jumia (auto-paginating)
     let jumiaProducts: Awaited<ReturnType<typeof getAllProducts>>;
     try {
+      const productQuery = {
+        status: 'active' as const,
+        ...(jumia.shopId === 'oauth' ? {} : { shopId: jumia.shopId }),
+      };
       jumiaProducts = await getAllProducts(jumia, {
-        status: 'active',
-        shopId: jumia.shopId,
+        ...productQuery,
       });
     } catch (fetchErr) {
       const message =

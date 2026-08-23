@@ -346,4 +346,17 @@ describe('Products Import POST', () => {
     expect(mockMappingsEq).toHaveBeenCalledWith('jumia_shop_id', 'shop-ng');
     expect(mockMappingsEq).toHaveBeenCalledWith('marketplace_key', 'NG');
   });
+
+  it('does not send the internal oauth fallback as a Jumia shop filter', async () => {
+    mockForIntegration.mockResolvedValue({ shopId: 'oauth' });
+    mockGetAllProducts.mockResolvedValue([]);
+
+    const res = await POST(makePostRequest({ integrationId: INT_ID }));
+
+    expect(res.status).toBe(200);
+    expect(mockGetAllProducts).toHaveBeenCalledWith(
+      expect.objectContaining({ shopId: 'oauth' }),
+      { status: 'active' }
+    );
+  });
 });

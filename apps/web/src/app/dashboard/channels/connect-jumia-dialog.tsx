@@ -11,10 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import {
-  ConnectJumiaManualForm,
-  getJumiaShopSelectionId,
-} from './connect-jumia-manual-form';
+import { ConnectJumiaManualForm } from './connect-jumia-manual-form';
 import {
   connectJumiaShops,
   discoverJumiaShops,
@@ -90,13 +87,10 @@ export function ConnectJumiaDialog({
 
     setDiscoveredShops(shops);
     setActiveDiscoveryId(result.discoveryId);
-    setSelectedShopIds(
-      new Set(
-        shops
-          .filter((shop) => !shop.alreadyConnected)
-          .map((shop) => getJumiaShopSelectionId(shop))
-      )
-    );
+    // Require an explicit merchant choice for every destination returned by
+    // discovery. Already-connected shops remain visibly checked and disabled
+    // in the form, but new shops must never be connected implicitly.
+    setSelectedShopIds(new Set());
 
     if (shops.length === 0) {
       toast({

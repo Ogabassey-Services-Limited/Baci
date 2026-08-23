@@ -103,6 +103,10 @@ describe('ConnectJumiaDialog', () => {
       );
     });
 
+    expect(
+      screen.getByRole('button', { name: /connect 0 shops/i })
+    ).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /my shop/i }));
     await user.click(screen.getByRole('button', { name: /connect 1 shop/i }));
 
     await waitFor(() => {
@@ -176,6 +180,7 @@ describe('ConnectJumiaDialog', () => {
     await user.type(screen.getByLabelText(/client id/i), 'client-id');
     await user.type(screen.getByLabelText(/refresh token/i), 'valid-token');
     await user.click(screen.getByRole('button', { name: /discover shops/i }));
+    await user.click(screen.getByRole('checkbox', { name: /my shop/i }));
     await user.click(screen.getByRole('button', { name: /connect 1 shop/i }));
 
     await waitFor(() => {
@@ -253,6 +258,7 @@ describe('ConnectJumiaDialog', () => {
     expect(connectedCheckbox).toBeChecked();
     expect(connectedCheckbox).toBeDisabled();
 
+    await user.click(screen.getByRole('checkbox', { name: /new shop/i }));
     await user.click(screen.getByRole('button', { name: /connect 1 shop/i }));
 
     await waitFor(() => {
