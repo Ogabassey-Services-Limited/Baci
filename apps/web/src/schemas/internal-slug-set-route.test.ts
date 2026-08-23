@@ -200,6 +200,21 @@ describe('internalComparePageStatusQuerySchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts the maximum-length comparison slug and rejects blank input', () => {
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: 'laptops',
+        comparison: 'a'.repeat(1024),
+      }).success
+    ).toBe(true);
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: 'laptops',
+        comparison: '   ',
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('internalComparePageStatusBodySchema', () => {

@@ -98,6 +98,34 @@ describe('resolveComparePageStatus', () => {
     ).resolves.toEqual({ kind: 'missing' });
   });
 
+  it('returns missing for a malformed comparison slug', async () => {
+    await expect(
+      resolveComparePageStatus({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'laptops',
+        comparisonSlug: 'not-a-comparison',
+      })
+    ).resolves.toEqual({ kind: 'missing' });
+    expect(mockGetCachedCompareCategoryInventory).not.toHaveBeenCalled();
+  });
+
+  it('returns missing for collection inventory', async () => {
+    mockGetCachedCompareCategoryInventory.mockResolvedValueOnce({
+      ...inventory,
+      isCollection: true,
+      products: [],
+    });
+
+    await expect(
+      resolveComparePageStatus({
+        merchantSlug: 'ogabassey',
+        categorySlug: 'laptops',
+        comparisonSlug: productComparison,
+      })
+    ).resolves.toEqual({ kind: 'missing' });
+    expect(mockGetCachedMaintainedCompareRouteManifest).not.toHaveBeenCalled();
+  });
+
   it('fails open when a stale nonempty inventory omits a requested product', async () => {
     mockGetCachedCompareCategoryInventory.mockResolvedValueOnce({
       ...inventory,
