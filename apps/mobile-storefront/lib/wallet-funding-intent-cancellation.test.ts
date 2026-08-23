@@ -9,6 +9,7 @@ jest.mock('@/lib/storage', () => ({
   asyncStorage: {
     getItem: jest.fn(),
     removeItem: jest.fn(),
+    setItem: jest.fn(),
   },
 }));
 
@@ -17,6 +18,9 @@ const getItem = asyncStorage.getItem as jest.MockedFunction<
 >;
 const removeItem = asyncStorage.removeItem as jest.MockedFunction<
   typeof asyncStorage.removeItem
+>;
+const setItem = asyncStorage.setItem as jest.MockedFunction<
+  typeof asyncStorage.setItem
 >;
 
 describe('consumeWalletFundingIntent cancellation', () => {
@@ -38,5 +42,37 @@ describe('consumeWalletFundingIntent cancellation', () => {
 
     expect(getItem).toHaveBeenCalledWith(WALLET_FUNDING_INTENT_STORAGE_KEY);
     expect(removeItem).not.toHaveBeenCalled();
+  });
+
+  it('restores the snapshot when removal becomes stale while awaiting storage', async () => {
+    let finishRemoval: (() => void) | undefined;
+    let isCurrent = true;
+    const snapshot = JSON.stringify({
+      customerId: 'customer-1',
+      returnTo: '/checkout',
+      savedAt: Date.now(),
+    });
+    getItem.mockResolvedValue(snapshot);
+    removeItem.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishRemoval = resolve;
+        })
+    );
+
+    const consumption = consumeWalletFundingIntent(
+      'customer-1',
+      () => isCurrent
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    isCurrent = false;
+    finishRemoval?.();
+
+    await expect(consumption).resolves.toBeUndefined();
+    expect(setItem).toHaveBeenCalledWith(
+      WALLET_FUNDING_INTENT_STORAGE_KEY,
+      snapshot
+    );
   });
 });

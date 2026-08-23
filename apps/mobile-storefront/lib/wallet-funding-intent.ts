@@ -157,6 +157,10 @@ export async function consumeWalletFundingIntent(
       );
       if (!shouldConsume()) return null;
       await asyncStorage.removeItem(WALLET_FUNDING_INTENT_STORAGE_KEY);
+      if (!shouldConsume() && current !== null) {
+        await asyncStorage.setItem(WALLET_FUNDING_INTENT_STORAGE_KEY, current);
+        return null;
+      }
       return current;
     } catch {
       return null;
