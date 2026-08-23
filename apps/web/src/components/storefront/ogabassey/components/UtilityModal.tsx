@@ -53,8 +53,7 @@ export const UtilityModal = ({
     merchantSlug: merchant?.slug,
     userId: user?.id,
   });
-  // Survives the funding detour (reload / backgrounded-tab eviction while the
-  // customer is in their bank app). No-op while the check-loop flag is off.
+  // Pending intent survives a bank-transfer funding detour.
   const { clearIntent, intent, saveIntent } = useUtilityPendingIntent(
     customer?.id
   );
@@ -242,6 +241,8 @@ export const UtilityModal = ({
                   account={fundingAccount}
                   autoCreate
                   customerId={customer?.id}
+                  customerFirstName={customer?.first_name ?? null}
+                  customerLastName={customer?.last_name ?? null}
                   customerPhone={customer?.phone ?? null}
                   merchantSlug={merchant?.slug}
                   onAccountCreated={setFundingAccount}

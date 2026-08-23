@@ -50,8 +50,7 @@ export function OgabasseyV2Wallet({
   const [refreshToken, setRefreshToken] = useState(0);
 
   // Signing out (or switching customer/storefront) must drop the previous
-  // wallet immediately — the auto-show rule below renders a reusable DVA
-  // account number, which can't linger for a different session.
+  // wallet immediately so a reusable DVA cannot linger for another session.
   const identity =
     isAuthenticated && merchant?.slug
       ? `${user?.id ?? ''}:${merchant.slug}`
@@ -73,8 +72,7 @@ export function OgabasseyV2Wallet({
       return;
     }
 
-    // Abort on identity change so a sign-out/switch mid-flight can't land a
-    // previous customer's response (and re-show their DVA) after the reset.
+    // Abort on identity change so an old wallet response cannot land after reset.
     const abortController = new AbortController();
     // Promise chain instead of try/finally so React Compiler can optimize.
     fetch(`/api/storefront/customer/wallet?merchant=${merchant.slug}`, {

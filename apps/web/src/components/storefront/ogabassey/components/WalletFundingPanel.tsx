@@ -18,35 +18,26 @@ import { useWalletFundingCreditPoll } from './use-wallet-funding-credit-poll';
 import { WalletFundingCheckStatus } from './WalletFundingCheckStatus';
 import { WalletFundingConsent } from './WalletFundingConsent';
 import { WALLET_FUNDING_COPY } from './wallet-funding-copy';
+import { WalletFundingNamePrompt } from './WalletFundingNamePrompt';
 import { WalletFundingPhonePrompt } from './WalletFundingPhonePrompt';
 
 interface WalletFundingPanelProps {
   account: StorefrontWalletFundingAccount | null;
-  /**
-   * Create the account without the extra consent click. Only pass true when
-   * the panel is opened by an explicit "Pay with Bank Transfer" action —
-   * that action IS the customer's consent.
-   */
+  /** The explicit bank-transfer action itself is the customer's consent. */
   autoCreate?: boolean;
-  /** Signed-in customer id, stamped on funnel events to join client/server legs. */
   customerId?: string;
-  /** Existing profile phone; `undefined` means the caller did not provide profile state. */
+  customerFirstName?: string | null;
+  customerLastName?: string | null;
   customerPhone?: string | null;
   merchantSlug: string | undefined;
   onAccountCreated: (account: StorefrontWalletFundingAccount) => void;
-  /** Persists a phone collected at the point of DVA creation. */
-  onUpdateCustomerPhone?: (
-    phone: string
-  ) => Promise<{ success: boolean; error?: string }>;
-  /** Called once the check loop detects a NEW `wallet_topup` credit. */
+  onUpdateCustomerPhone?: (phone: string) => Promise<{ success: boolean; error?: string }>;
+  onUpdateCustomerName?: (firstName: string, lastName: string) => Promise<{ success: boolean; error?: string }>;
   onCredited?: () => void;
   onRefreshBalance?: () => void;
-  /** Utility surface only — resumes the paused purchase (prefill, no submit). */
   onReturnToPurchase?: () => void;
   requiresConsent: boolean;
-  /** Which surface rendered the panel — drives the `surface` funnel property. */
   surface: WalletFundingSurface;
-  /** Wallet snapshot the parent already fetched — the check loop's baseline. */
   walletTransactions?: readonly StorefrontWalletTransaction[];
 }
 
@@ -54,9 +45,12 @@ export function WalletFundingPanel({
   account,
   autoCreate = false,
   customerId,
+  customerFirstName,
+  customerLastName,
   customerPhone,
   merchantSlug,
   onAccountCreated,
+  onUpdateCustomerName,
   onUpdateCustomerPhone,
   onCredited,
   onRefreshBalance,
@@ -71,23 +65,16 @@ export function WalletFundingPanel({
   const [phonePromptOverride, setPhonePromptOverride] = useState(false);
   const [phoneRetryPending, setPhoneRetryPending] = useState(false);
   const [savedPhone, setSavedPhone] = useState<string | null>(null);
+  const [namePromptOverride, setNamePromptOverride] = useState(false);
+  const [nameRetryPending, setNameRetryPending] = useState(false);
   const [surfaceReported, setSurfaceReported] = useState(false);
-  // Id of the detected top-up. The return-to-purchase CTA stays gated until the
-  // REFRESHED wallet snapshot actually contains this credit — returning before
-  // then lands the customer on a checkout that still reads insufficient balance.
-  const [creditedTransactionId, setCreditedTransactionId] = useState<
-    string | null
-  >(null);
+  const [creditedTransactionId, setCreditedTransactionId] = useState<string | null>(null);
 
-  // Dark-launched: flag off keeps the manual refresh button and never polls.
-  // Only armed once the customer can see an account number to transfer to.
   const checkLoopEnabled = isWalletFundingCheckLoopEnabled() && Boolean(account);
   const creditPoll = useWalletFundingCreditPoll({
     customerId,
     enabled: checkLoopEnabled,
-    knownTransactionIds: (walletTransactions ?? []).map(
-      (transaction) => transaction.id
-    ),
+    knownTransactionIds: (walletTransactions ?? []).map((transaction) => transaction.id),
     merchantSlug,
     onCredited: (credit) => {
       setCreditedTransactionId(credit.id);
@@ -97,22 +84,17 @@ export function WalletFundingPanel({
     surface,
   });
 
-  // Fail-closed gate for the return CTA: only ready once the parent's refreshed
-  // wallet snapshot reflects the detected credit (its txn id is now present).
-  const returnReady =
-    creditedTransactionId !== null &&
-    (walletTransactions ?? []).some(
-      (transaction) => transaction.id === creditedTransactionId
-    );
+  // Keep the return CTA gated until the refreshed wallet snapshot contains the
+  // detected credit, otherwise checkout can still read an insufficient balance.
+  const returnReady = creditedTransactionId !== null &&
+    (walletTransactions ?? []).some((transaction) => transaction.id === creditedTransactionId);
 
   const effectiveCustomerPhone = savedPhone ?? customerPhone;
-  const needsPhone =
-    phonePromptOverride ||
+  const needsPhone = phonePromptOverride ||
     (customerPhone !== undefined && !effectiveCustomerPhone?.trim());
+  const needsName = namePromptOverride;
 
-  // Fire the funnel-entry event once, but only after the merchant context has
-  // resolved — a pre-merchant mount would lose the attribution. State-guarded
-  // (not a dependency array) to match the auto-create effect below.
+  // Do not emit a funnel event until the merchant context has resolved.
   useEffect(() => {
     if (surfaceReported || !merchantSlug) {
       return;
@@ -128,7 +110,7 @@ export function WalletFundingPanel({
   });
 
   const handleCreate = async () => {
-    if (!merchantSlug || creating || needsPhone) return;
+    if (!merchantSlug || creating || needsPhone || needsName) return;
     captureClientEvent(WALLET_FUNDING_TELEMETRY.events.createAttempted, {
       surface,
       auto_create: autoCreate,
@@ -153,11 +135,12 @@ export function WalletFundingPanel({
         merchant_slug: merchantSlug,
         customer_id: customerId,
       });
-      if (
-        result.reason === WALLET_FUNDING_TELEMETRY.reasons.customerPhoneRequired
-      ) {
+      if (result.reason === WALLET_FUNDING_TELEMETRY.reasons.customerPhoneRequired) {
         setPhonePromptOverride(true);
         setPhoneRetryPending(true);
+      } else if (result.reason === WALLET_FUNDING_TELEMETRY.reasons.customerNameRequired) {
+        setNamePromptOverride(true);
+        setNameRetryPending(true);
       }
       setError(result.message);
     }
@@ -182,20 +165,34 @@ export function WalletFundingPanel({
     return result;
   };
 
+  const handleNameSubmit = async (firstName: string, lastName: string) => {
+    if (!onUpdateCustomerName) {
+      return { success: false, error: WALLET_FUNDING_COPY.unavailable };
+    }
+
+    const result = await onUpdateCustomerName(firstName, lastName);
+    if (result.success) {
+      setNamePromptOverride(false);
+      setNameRetryPending(true);
+      setAutoCreateAttempted(false);
+      setError(null);
+    }
+    return result;
+  };
+
   useEffect(() => {
+    if (nameRetryPending && !needsName && merchantSlug) {
+      setNameRetryPending(false);
+      void handleCreate();
+      return;
+    }
     if (phoneRetryPending && !needsPhone && merchantSlug) {
       setPhoneRetryPending(false);
       void handleCreate();
       return;
     }
-    if (
-      !autoCreate ||
-      autoCreateAttempted ||
-      account ||
-      !requiresConsent ||
-      !merchantSlug ||
-      needsPhone
-    ) {
+    if (!autoCreate || autoCreateAttempted || account || !requiresConsent ||
+        !merchantSlug || needsPhone || needsName) {
       return;
     }
     setAutoCreateAttempted(true);
@@ -208,7 +205,7 @@ export function WalletFundingPanel({
       await navigator.clipboard.writeText(account.accountNumber);
       toast({ title: WALLET_FUNDING_COPY.copied });
     } catch {
-      // Clipboard access denied — the number is still visible to copy manually.
+      // Clipboard access denied; the number remains visible for manual copying.
     }
   };
 
@@ -268,15 +265,24 @@ export function WalletFundingPanel({
             </button>
           ) : null}
         </>
+      ) : requiresConsent && needsName && onUpdateCustomerName ? (
+        <WalletFundingNamePrompt
+          initialFirstName={customerFirstName}
+          initialLastName={customerLastName}
+          onSubmit={handleNameSubmit}
+        />
       ) : requiresConsent && needsPhone && onUpdateCustomerPhone ? (
         <WalletFundingPhonePrompt onSubmit={handlePhoneSubmit} />
       ) : requiresConsent ? (
         <WalletFundingConsent
           creating={creating}
           merchantSlug={merchantSlug}
-          needsPhone={needsPhone}
+          needsPhone={needsPhone || needsName}
           onCreate={handleCreate}
-          showUnavailable={needsPhone && !onUpdateCustomerPhone}
+          showUnavailable={
+            (needsPhone && !onUpdateCustomerPhone) ||
+            (needsName && !onUpdateCustomerName)
+          }
         />
       ) : (
         <p className="text-xs text-gray-600">

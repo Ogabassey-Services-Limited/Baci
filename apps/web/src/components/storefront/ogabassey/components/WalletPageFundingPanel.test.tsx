@@ -7,6 +7,10 @@ import { WalletPageFundingPanel } from './WalletPageFundingPanel';
 
 const capturedProps = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
 
+vi.mock('@/contexts/customer-auth-context', () => ({
+  useOptionalCustomerAuth: () => null,
+}));
+
 vi.mock('./WalletFundingPanel', () => ({
   WalletFundingPanel: (props: Record<string, unknown>) => {
     capturedProps.current = props;

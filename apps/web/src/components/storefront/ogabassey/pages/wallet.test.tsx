@@ -14,6 +14,7 @@ const usdtFundingPanelProps = vi.hoisted(
 
 vi.mock('@/contexts/customer-auth-context', () => ({
   useCustomerAuth: mockUseCustomerAuth,
+  useOptionalCustomerAuth: mockUseCustomerAuth,
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
