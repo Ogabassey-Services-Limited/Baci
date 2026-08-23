@@ -243,7 +243,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260823152433_optimize_storefront_cluster_guide_classifier_core.sql',
-    sha256: '801d3aaff83fcaaefa9a3681b262016b8cfeeca4e67a03a6c3684a3a8ceb751a',
+    sha256: '1c929e4db4b870ddaf1d6b25de7dab7244f7e8537ee6ce06ea230f21a38c443c',
   },
   {
     repositoryPath:

@@ -261,6 +261,8 @@ REVOKE ALL ON FUNCTION private.classify_storefront_cluster_guide_candidates_v1(
   pg_catalog.tsquery
 ) FROM PUBLIC;
 
+GRANT USAGE ON SCHEMA private TO postgres, service_role;
+
 GRANT EXECUTE ON FUNCTION private.classify_storefront_cluster_guide_candidates_v1(
   uuid,
   jsonb,

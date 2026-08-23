@@ -330,9 +330,9 @@ BEGIN
     ),
     (
       v_enabled_merchant_id,
-      'Inferredtoken battery guide',
+      'Inferredtoken guide',
       'inferred-token-guide',
-      'A neutral-category article about battery life.',
+      'A neutral-category article containing the inferred token.',
       'Inferred token guide',
       'Accessories',
       ARRAY[]::text[],
@@ -435,6 +435,7 @@ DECLARE
         'samsung',
         'galaxy',
         'battery',
+        'inferredtoken',
         'camera',
         '5g',
         'sim'
@@ -482,12 +483,12 @@ DECLARE
 BEGIN
   -- The feature row remains private to anon; the definer RPC may use it only as
   -- a boolean gate.
-  IF EXISTS (
-    SELECT 1
-    FROM public.merchant_feature_settings
-    WHERE merchant_id = v_enabled_merchant_id
+  IF pg_catalog.has_table_privilege(
+    'anon',
+    'public.merchant_feature_settings',
+    'SELECT'
   ) THEN
-    RAISE EXCEPTION 'anon unexpectedly read the private feature-settings row';
+    RAISE EXCEPTION 'anon unexpectedly has direct feature-settings SELECT';
   END IF;
 
   SELECT count(*)::integer
