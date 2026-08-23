@@ -12,6 +12,7 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
+import { resolveStorefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -86,6 +87,15 @@ vi.mock('@/lib/storefront-compare-hub-status', () => ({
     .mockResolvedValue({ kind: 'renderable-or-unknown' }),
 }));
 
+// Mock the compare-pair preflight. Defaults to renderable-or-unknown so the
+// protected status gate is a no-op for existing proxy tests; individual tests
+// opt into a confirmed missing verdict.
+vi.mock('@/lib/storefront-compare-page-status', () => ({
+  resolveStorefrontComparePageStatus: vi
+    .fn()
+    .mockResolvedValue({ kind: 'renderable-or-unknown' }),
+}));
+
 vi.mock('@/lib/storefront-blog-listing-status', () => ({
   resolveStorefrontBlogListingStatus: vi
     .fn()
@@ -154,6 +164,9 @@ describe('Middleware Proxy', () => {
       kind: 'present-or-unknown',
     });
     vi.mocked(resolveStorefrontCompareHubStatus).mockResolvedValue({
+      kind: 'renderable-or-unknown',
+    });
+    vi.mocked(resolveStorefrontComparePageStatus).mockResolvedValue({
       kind: 'renderable-or-unknown',
     });
     // Default: not a retired alias, so a per-test override cannot leak a spurious
@@ -870,6 +883,7 @@ describe('Middleware Proxy', () => {
       getStorefrontProductCanonicalRedirectResult
     );
     const compareHubStatusMock = vi.mocked(resolveStorefrontCompareHubStatus);
+    const comparePageStatusMock = vi.mocked(resolveStorefrontComparePageStatus);
 
     it('hard-rejects repeated percent-encoding before storefront lookups on every merchant URL shape', async () => {
       const unsafeProductPath = `/smartphones/phone${'%2525252525'.repeat(30)}`;
@@ -1546,6 +1560,86 @@ describe('Middleware Proxy', () => {
           categorySlug: 'smartphones',
         })
       );
+    });
+
+    it('hard-404s a confirmed-missing compare pair on all storefront URL shapes', async () => {
+      comparePageStatusMock.mockResolvedValue({ kind: 'missing' });
+      const requests = [
+        {
+          url: 'https://ogabassey.com/laptops/compare/left-laptop-vs-right-laptop',
+          host: 'ogabassey.com',
+          identifier: 'ogabassey',
+        },
+        {
+          url: `https://ogabassey.${ROOT_DOMAIN}/laptops/compare/left-laptop-vs-right-laptop`,
+          host: `ogabassey.${ROOT_DOMAIN}`,
+          identifier: 'ogabassey',
+        },
+        {
+          url: `https://${ROOT_DOMAIN}/ogabassey/laptops/compare/left-laptop-vs-right-laptop`,
+          host: ROOT_DOMAIN,
+          identifier: 'ogabassey',
+        },
+      ];
+
+      for (const requestInput of requests) {
+        const req = new NextRequest(requestInput.url);
+        req.headers.set('host', requestInput.host);
+
+        const res = await proxy(req);
+
+        expect(res.status).toBe(404);
+        expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+      }
+
+      expect(comparePageStatusMock).toHaveBeenCalledTimes(3);
+      expect(comparePageStatusMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          identifier: 'ogabassey',
+          categorySlug: 'laptops',
+          comparisonSlug: 'left-laptop-vs-right-laptop',
+          secret: 'test-internal-secret',
+        })
+      );
+    });
+
+    it('keeps query variants and internal navigations fail-open', async () => {
+      comparePageStatusMock.mockResolvedValue({ kind: 'missing' });
+      const queryRequest = new NextRequest(
+        'https://ogabassey.com/laptops/compare/left-laptop-vs-right-laptop?utm_source=email'
+      );
+      queryRequest.headers.set('host', 'ogabassey.com');
+
+      const queryResponse = await proxy(queryRequest);
+
+      expect(queryResponse.status).not.toBe(404);
+      expect(comparePageStatusMock).not.toHaveBeenCalled();
+
+      const rscRequest = new NextRequest(
+        'https://ogabassey.com/laptops/compare/left-laptop-vs-right-laptop',
+        { headers: { rsc: '1' } }
+      );
+      rscRequest.headers.set('host', 'ogabassey.com');
+
+      const rscResponse = await proxy(rscRequest);
+
+      expect(rscResponse.status).not.toBe(404);
+      expect(comparePageStatusMock).not.toHaveBeenCalled();
+    });
+
+    it('does not hard-404 when the compare status resolver fails open', async () => {
+      comparePageStatusMock.mockResolvedValue({
+        kind: 'renderable-or-unknown',
+      });
+      const req = new NextRequest(
+        'https://ogabassey.com/laptops/compare/left-laptop-vs-right-laptop'
+      );
+      req.headers.set('host', 'ogabassey.com');
+
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(404);
+      expect(comparePageStatusMock).toHaveBeenCalled();
     });
 
     it('still hard-404s a confirmed-missing categoryless /products/compare (fallback PDP, not a hub)', async () => {

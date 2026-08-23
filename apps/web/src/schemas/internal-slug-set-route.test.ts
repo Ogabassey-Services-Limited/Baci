@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   internalBlogListingStatusQuerySchema,
   internalBlogPostStatusQuerySchema,
+  internalComparePageStatusBodySchema,
+  internalComparePageStatusQuerySchema,
   internalProductCanonicalRedirectQuerySchema,
   internalSlugSetParamsSchema,
   internalSlugSetQuerySchema,
@@ -172,6 +174,44 @@ describe('internalBlogListingStatusQuerySchema', () => {
         kind: 'listing-page',
         page: '10001',
       }).success
+    ).toBe(false);
+  });
+});
+
+describe('internalComparePageStatusQuerySchema', () => {
+  it('accepts a bounded composite comparison slug', () => {
+    const result = internalComparePageStatusQuerySchema.safeParse({
+      category: ' laptops ',
+      comparison: ' left-laptop-vs-right-laptop ',
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({
+      category: 'laptops',
+      comparison: 'left-laptop-vs-right-laptop',
+    });
+  });
+
+  it('rejects an over-long comparison slug', () => {
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: 'laptops',
+        comparison: 'a'.repeat(1025),
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('internalComparePageStatusBodySchema', () => {
+  it('requires the explicit fail-open bit', () => {
+    expect(
+      internalComparePageStatusBodySchema.safeParse({
+        present: false,
+        hasError: true,
+      }).success
+    ).toBe(true);
+    expect(
+      internalComparePageStatusBodySchema.safeParse({ present: false }).success
     ).toBe(false);
   });
 });

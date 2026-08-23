@@ -3,6 +3,15 @@ import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoadComparePage = vi.fn();
+const mockStorefrontRouteNotFoundContent = vi.fn(
+  (props: { backHref: string; message: string; title: string }) => (
+    <main data-testid="compare-soft-not-found">
+      <h1>{props.title}</h1>
+      <p>{props.message}</p>
+      <a href={props.backHref}>Back</a>
+    </main>
+  )
+);
 const mockCompareRelatedLinks = vi.fn(
   (props: {
     links: Array<{ description: string; href: string; label: string }>;
@@ -21,6 +30,14 @@ const mockCompareRelatedLinks = vi.fn(
 
 vi.mock('@/lib/storefront-compare/load-compare-page', () => ({
   loadComparePage: (...args: unknown[]) => mockLoadComparePage(...args),
+}));
+
+vi.mock('@/app/(storefront)/[slug]/storefront-route-not-found-content', () => ({
+  StorefrontRouteNotFoundContent: (props: {
+    backHref: string;
+    message: string;
+    title: string;
+  }) => mockStorefrontRouteNotFoundContent(props),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -146,6 +163,7 @@ const comparePageModel = {
 describe('ComparePageContent', () => {
   beforeEach(() => {
     mockLoadComparePage.mockReset();
+    mockStorefrontRouteNotFoundContent.mockClear();
     mockCompareRelatedLinks.mockClear();
     mockLoadComparePage.mockResolvedValue(comparePageModel);
   });
@@ -204,6 +222,54 @@ describe('ComparePageContent', () => {
       })
     );
     expect(container.querySelectorAll('tbody')).toHaveLength(1);
+  });
+
+  it('renders a marker-free soft 404 for an unknown comparison instead of throwing', async () => {
+    mockLoadComparePage.mockResolvedValueOnce(null);
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    const content = await ComparePageContent({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        category: 'laptops',
+        comparisonSlug: 'dell-xps-15-9510-vs-macbook-air-13-inch-2020-intel',
+      }),
+    });
+
+    render(content as ReactElement);
+
+    expect(
+      screen.getByRole('heading', { name: 'Comparison not found' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('This comparison is unavailable or has moved.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
+      'href',
+      '/ogabassey'
+    );
+    expect(mockStorefrontRouteNotFoundContent).toHaveBeenCalledWith({
+      backHref: '/ogabassey',
+      message: 'This comparison is unavailable or has moved.',
+      title: 'Comparison not found',
+    });
+  });
+
+  it('propagates loader errors instead of converting genuine failures to a soft 404', async () => {
+    const loaderError = new Error('compare data unavailable');
+    mockLoadComparePage.mockRejectedValueOnce(loaderError);
+    const { ComparePageContent } = await import('./compare-page-content');
+
+    await expect(
+      ComparePageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          category: 'laptops',
+          comparisonSlug: 'dell-xps-15-9510-vs-macbook-air-13-inch-2020-intel',
+        }),
+      })
+    ).rejects.toThrow(loaderError);
+    expect(mockStorefrontRouteNotFoundContent).not.toHaveBeenCalled();
   });
 
   it('renders each comparison row group in its own table body', async () => {
