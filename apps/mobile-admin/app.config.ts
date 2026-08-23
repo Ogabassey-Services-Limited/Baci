@@ -20,7 +20,12 @@ const { resolveAndroidGoogleServicesFile } =
 const { buildEasUpdateConfig, createExpoDevClientPlugin } =
   require('./config/eas-update-config.js') as typeof import('./config/eas-update-config');
 
-const { resolveAndroidVersionCode, resolveAppVersion, resolveIosBuildNumber } =
+const {
+  DEFAULT_APP_VERSION,
+  resolveAndroidVersionCode,
+  resolveAppVersion,
+  resolveIosBuildNumber,
+} =
   require('./config/resolve-app-versions.js') as typeof import('./config/resolve-app-versions');
 
 const _androidVersionCode = resolveAndroidVersionCode(
@@ -68,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: 'Baci - The Ecommerce Builder',
   slug: 'baci',
   owner: 'ogabassey-services-limited',
-  version: _appVersion ?? '2.0.1',
+  version: _appVersion ?? DEFAULT_APP_VERSION,
   runtimeVersion: easUpdateConfig.runtimeVersion,
   updates: easUpdateConfig.updates,
   orientation: 'default',

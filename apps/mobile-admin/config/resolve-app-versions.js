@@ -1,3 +1,5 @@
+const DEFAULT_APP_VERSION = '2.0.1';
+
 function resolveAndroidVersionCode(rawAndroidVersionCode) {
   if (rawAndroidVersionCode === undefined) {
     return undefined;
@@ -68,6 +70,7 @@ function resolveAppVersion(environment = process.env) {
 }
 
 module.exports = {
+  DEFAULT_APP_VERSION,
   resolveAndroidVersionCode,
   resolveAppVersion,
   resolveIosBuildNumber,

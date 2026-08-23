@@ -1,3 +1,5 @@
+export const DEFAULT_APP_VERSION: string;
+
 export function resolveAndroidVersionCode(
   rawAndroidVersionCode: string | undefined
 ): number | undefined;

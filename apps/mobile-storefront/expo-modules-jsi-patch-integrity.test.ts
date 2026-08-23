@@ -47,4 +47,23 @@ describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', ()
     // local — both were ambiguous under C++ interop).
     expect(source).not.toMatch(/\babs\s*\(/);
   });
+
+  it('keeps the storefront React Native 0.86.0 platform patch registered', () => {
+    const workspaceConfig = readFileSync(
+      join(__dirname, '../../pnpm-workspace.yaml'),
+      'utf8'
+    );
+    const reactNativePatchPath = join(
+      __dirname,
+      '../../patches/react-native@0.86.0.patch'
+    );
+
+    expect(workspaceConfig).toContain(
+      'react-native@0.86.0: patches/react-native@0.86.0.patch'
+    );
+    expect(existsSync(reactNativePatchPath)).toBe(true);
+    expect(readFileSync(reactNativePatchPath, 'utf8')).toContain(
+      'StatusBarModule.kt'
+    );
+  });
 });

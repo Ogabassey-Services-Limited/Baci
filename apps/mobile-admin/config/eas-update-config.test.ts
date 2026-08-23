@@ -6,11 +6,11 @@ import {
 } from './eas-update-config';
 
 describe('buildEasUpdateConfig', () => {
-  it('binds app-version runtime policy to the EAS project update URL', () => {
-    const config = buildEasUpdateConfig({});
+  it('emits the resolved app version as the bare-workflow runtime version', () => {
+    const config = buildEasUpdateConfig({ APP_VERSION: '2.0.42' });
 
     expect(config.easProjectId).toBe(EAS_PROJECT_ID);
-    expect(config.runtimeVersion).toEqual({ policy: 'appVersion' });
+    expect(config.runtimeVersion).toBe('2.0.42');
     expect(config.updates).toMatchObject({
       checkAutomatically: 'ON_LOAD',
       enableBsdiffPatchSupport: true,
@@ -22,6 +22,10 @@ describe('buildEasUpdateConfig', () => {
         'expo-channel-name': 'production',
       },
     });
+  });
+
+  it('uses the shared app-version fallback when no release version is configured', () => {
+    expect(buildEasUpdateConfig({}).runtimeVersion).toBe('2.0.1');
   });
 
   it('embeds an explicit preview channel override', () => {

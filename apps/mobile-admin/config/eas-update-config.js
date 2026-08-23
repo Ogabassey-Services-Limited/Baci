@@ -1,4 +1,8 @@
 const { resolveUpdateChannel } = require('./resolve-update-channel.js');
+const {
+  DEFAULT_APP_VERSION,
+  resolveAppVersion,
+} = require('./resolve-app-versions.js');
 
 const EAS_PROJECT_ID = '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9';
 const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
@@ -10,13 +14,12 @@ const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
 function buildEasUpdateConfig(environment = process.env) {
   const isDevelopmentBuild =
     environment.EAS_BUILD_PROFILE?.trim() === 'development';
+  const runtimeVersion = resolveAppVersion(environment) ?? DEFAULT_APP_VERSION;
 
   if (isDevelopmentBuild) {
     return {
       easProjectId: EAS_PROJECT_ID,
-      runtimeVersion: {
-        policy: 'appVersion',
-      },
+      runtimeVersion,
       updates: {
         enabled: false,
       },
@@ -27,9 +30,7 @@ function buildEasUpdateConfig(environment = process.env) {
 
   return {
     easProjectId: EAS_PROJECT_ID,
-    runtimeVersion: {
-      policy: 'appVersion',
-    },
+    runtimeVersion,
     updates: {
       // Release builds check in the background at launch and keep using the
       // embedded/cached bundle immediately. A downloaded update is applied on
