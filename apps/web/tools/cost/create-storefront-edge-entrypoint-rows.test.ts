@@ -7,6 +7,7 @@ const routeRoot = 'apps/web/src/app/(storefront)/[slug]';
 function entrypointSource(relativeSourcePath: string) {
   const isRouteHandler =
     relativeSourcePath.endsWith('route.ts') ||
+    relativeSourcePath.endsWith('route.tsx') ||
     relativeSourcePath.endsWith('route.js') ||
     relativeSourcePath.endsWith('route.jsx');
   return {
@@ -215,5 +216,48 @@ describe('createStorefrontEdgeEntrypointRows', () => {
         }),
       ])
     );
+  });
+
+  it('classifies route.tsx handlers through their route.ts classification', () => {
+    // Arrange
+    const routeSources = [
+      ...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys()
+        .filter((path) => path !== '(blog)/blog/[...catchAll]/route.ts')
+        .map(entrypointSource),
+      entrypointSource('(blog)/blog/[...catchAll]/route.tsx'),
+    ];
+
+    // Act
+    const rows = createStorefrontEdgeEntrypointRows(routeRoot, routeSources);
+
+    // Assert
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 'storefront:(blog)/blog/[...catchAll]/route.tsx',
+          routePattern: '/blog/{*catchAll}',
+        }),
+        expect.objectContaining({
+          id: 'storefront:(blog)/blog/[...catchAll]/route.tsx:options',
+          methods: ['OPTIONS'],
+          reason: 'automatic_options_response',
+        }),
+      ])
+    );
+  });
+
+  it('fails closed for an unclassified static metadata route', () => {
+    // Arrange
+    const routeSources = [
+      ...STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS.keys().map(
+        entrypointSource
+      ),
+      entrypointSource('icon.png'),
+    ];
+
+    // Act and assert
+    expect(() =>
+      createStorefrontEdgeEntrypointRows(routeRoot, routeSources)
+    ).toThrow('storefront entrypoint has no reviewed classification: icon.png');
   });
 });

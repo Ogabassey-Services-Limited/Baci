@@ -3,6 +3,7 @@ import { STOREFRONT_EDGE_ENTRYPOINT_CLASSIFICATIONS } from './storefront-edge-en
 import type { StorefrontEdgeInventory } from './storefront-edge-inventory-types';
 import { STOREFRONT_EDGE_REDIRECT_ENTRYPOINTS } from './storefront-edge-redirect-entrypoints';
 import { normalizeStorefrontEdgeRouteSegment } from './storefront-edge-route-segment';
+import { isStorefrontStaticMetadataFile } from './storefront-edge-static-metadata-file';
 
 type InventoryRow = StorefrontEdgeInventory['rows'][number];
 type SourceFile = Readonly<{ bytes: Buffer; sourcePath: string }>;
@@ -44,6 +45,7 @@ function entrypointFileName(relativeSourcePath: string) {
 function isRouteHandlerFileName(fileName: string) {
   return (
     fileName === 'route.ts' ||
+    fileName === 'route.tsx' ||
     fileName === 'route.js' ||
     fileName === 'route.jsx'
   );
@@ -57,7 +59,8 @@ function isEntrypoint(relativeSourcePath: string) {
     fileName === 'page.js' ||
     fileName === 'page.jsx' ||
     isRouteHandlerFileName(fileName) ||
-    METADATA_ROUTE_SUFFIXES.has(fileName)
+    METADATA_ROUTE_SUFFIXES.has(fileName) ||
+    isStorefrontStaticMetadataFile(fileName)
   );
 }
 
@@ -72,6 +75,8 @@ function normalizeClassificationPath(relativeSourcePath: string) {
     return `${relativeSourcePath.slice(0, -'route.js'.length)}route.ts`;
   if (relativeSourcePath.endsWith('route.jsx'))
     return `${relativeSourcePath.slice(0, -'route.jsx'.length)}route.ts`;
+  if (relativeSourcePath.endsWith('route.tsx'))
+    return `${relativeSourcePath.slice(0, -'route.tsx'.length)}route.ts`;
   return relativeSourcePath;
 }
 
@@ -84,6 +89,7 @@ function normalizeRoutePattern(relativeSourcePath: string) {
     .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')))
     .map(normalizeStorefrontEdgeRouteSegment);
   if (metadataSuffix) segments.push(metadataSuffix);
+  else if (isStorefrontStaticMetadataFile(fileName)) segments.push(fileName);
   return segments.length === 0 ? '/' : `/${segments.join('/')}`;
 }
 
@@ -97,7 +103,8 @@ function routeMethods(
     fileName === 'page.ts' ||
     fileName === 'page.js' ||
     fileName === 'page.jsx' ||
-    METADATA_ROUTE_SUFFIXES.has(fileName)
+    METADATA_ROUTE_SUFFIXES.has(fileName) ||
+    isStorefrontStaticMetadataFile(fileName)
   )
     return ['GET', 'HEAD'];
   const methods = extractStorefrontRouteMethods(source);
@@ -198,7 +205,10 @@ export function createStorefrontEdgeEntrypointRows(
     };
     if (
       (isRouteHandlerFileName(entrypointFileName(relativeSourcePath)) ||
-        METADATA_ROUTE_SUFFIXES.has(entrypointFileName(relativeSourcePath))) &&
+        METADATA_ROUTE_SUFFIXES.has(entrypointFileName(relativeSourcePath)) ||
+        isStorefrontStaticMetadataFile(
+          entrypointFileName(relativeSourcePath)
+        )) &&
       methods.length > 0 &&
       !methods.includes('OPTIONS')
     ) {

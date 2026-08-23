@@ -88,6 +88,52 @@ describe('readStorefrontEdgeSourceAuthority', () => {
     );
   });
 
+  it('includes static metadata files in the approved route tree', async () => {
+    // Arrange
+    const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-metadata-'));
+    temporaryRoots.push(repoRoot);
+    await createStorefrontEdgeInventoryFixture(repoRoot);
+    const metadataPath =
+      'apps/web/src/app/(storefront)/[slug]/opengraph-image.jpg';
+    await writeFile(join(repoRoot, metadataPath), 'approved image bytes');
+    await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      ...fixtureGitConfig,
+      'add',
+      metadataPath,
+    ]);
+    await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      ...fixtureGitConfig,
+      'commit',
+      '--quiet',
+      '-m',
+      'add static metadata fixture',
+    ]);
+    const { stdout } = await execFileAsync('git', [
+      '-C',
+      repoRoot,
+      'rev-parse',
+      'HEAD',
+    ]);
+
+    // Act
+    const snapshot = await readStorefrontEdgeSourceAuthority({
+      apiRoot,
+      originMainSha: stdout.trim(),
+      repoRoot,
+      routeRoots,
+      routingInputPaths: STOREFRONT_EDGE_INVENTORY_POLICY.routingInputPaths,
+    });
+
+    // Assert
+    expect(snapshot.routeSources.map(({ sourcePath }) => sourcePath)).toContain(
+      metadataPath
+    );
+  });
+
   it('rejects changed routing-input bytes', async () => {
     // Arrange
     const repoRoot = await mkdtemp(join(tmpdir(), 'edge-authority-drift-'));

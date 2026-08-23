@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { join, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
+import { isStorefrontStaticMetadataFile } from './storefront-edge-static-metadata-file';
 
 type SourceFile = Readonly<{
   bytes: Buffer;
@@ -20,8 +21,10 @@ type SourceAuthorityOptions = Readonly<{
 const execFileAsync = promisify(execFile);
 
 function isIncludedRouteSource(sourcePath: string) {
+  const fileName = sourcePath.split('/').at(-1) ?? '';
   return (
-    /\.(?:css|ts|tsx|js|jsx)$/.test(sourcePath) &&
+    (/\.(?:css|ts|tsx|js|jsx)$/.test(sourcePath) ||
+      isStorefrontStaticMetadataFile(fileName)) &&
     !/\.(?:spec|test)\.(?:ts|tsx|js|jsx)$/.test(sourcePath)
   );
 }

@@ -39,6 +39,17 @@ describe('storefront edge inventory routing input paths', () => {
         'packages/shared/src/storefront/post-purchase-actions.ts',
         'apps/web/src/components/builder/config.tsx',
         'apps/web/src/components/storefront/storefront-form.tsx',
+        'apps/web/src/config/early-hints-link-header.ts',
+        'apps/web/src/config/agent-discovery-link-header.ts',
+        'apps/web/src/config/cdn.ts',
+        'apps/web/src/components/storefront/webmcp-storefront-tools.tsx',
+        'apps/web/src/components/storefront/webmcp-storefront-tools-registration.ts',
+        'apps/web/src/components/storefront/webmcp-storefront-tools-builder.ts',
+        'apps/web/src/components/storefront/webmcp-storefront-tools-fetch.ts',
+        'apps/web/src/components/storefront/webmcp-storefront-tools-parsers.ts',
+        'apps/web/src/components/storefront/webmcp-storefront-tools-types.ts',
+        'apps/web/src/schemas/webmcp-storefront-tools-contract.ts',
+        'apps/web/src/schemas/webmcp-storefront-tools.ts',
       ])
     );
   });
