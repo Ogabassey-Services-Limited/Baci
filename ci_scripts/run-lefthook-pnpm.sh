@@ -19,7 +19,7 @@ export PUPPETEER_CHROME_SKIP_DOWNLOAD="${PUPPETEER_CHROME_SKIP_DOWNLOAD:-true}"
 export PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD="${PUPPETEER_CHROME_HEADLESS_SHELL_SKIP_DOWNLOAD:-true}"
 export PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD="${PUPPETEER_SKIP_CHROME_HEADLESS_SHELL_DOWNLOAD:-true}"
 
-if sh "$root/ci_scripts/is-sparse-checkout.sh"; then
+if sh "$root/ci_scripts/is-dep-less-worktree.sh"; then
   # Turbo and nested `pnpm run` subprocesses resolve the real pnpm binary
   # directly, bypassing hook-bin. PNPM_CONFIG_* is the supported way to
   # propagate sparse-worktree settings into those child invocations.

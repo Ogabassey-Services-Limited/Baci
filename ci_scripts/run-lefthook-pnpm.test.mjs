@@ -7,6 +7,19 @@ import test from 'node:test';
 
 const runner = new URL('./run-lefthook-pnpm.sh', import.meta.url);
 const wrapper = new URL('./hook-bin/pnpm', import.meta.url);
+const depLessWorktreeScript = new URL(
+  './is-dep-less-worktree.sh',
+  import.meta.url
+).pathname;
+
+function isDepLessWorktree(repoRoot) {
+  return (
+    spawnSync('sh', [depLessWorktreeScript], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).status === 0
+  );
+}
 
 test('routes sparse install commands through allowUnusedPatches', () => {
   const temp = mkdtempSync(join(tmpdir(), 'baci-hook-pnpm-'));
@@ -21,6 +34,7 @@ exit 0
     { mode: 0o755 }
   );
 
+  const repoRoot = new URL('..', import.meta.url).pathname;
   const result = spawnSync(
     '/bin/bash',
     [
@@ -29,7 +43,7 @@ exit 0
 exec '${wrapper.pathname}' install --frozen-lockfile`,
     ],
     {
-      cwd: new URL('..', import.meta.url).pathname,
+      cwd: repoRoot,
       env: {
         ...process.env,
         PATH: '/usr/bin:/bin',
@@ -40,16 +54,7 @@ exec '${wrapper.pathname}' install --frozen-lockfile`,
 
   assert.equal(result.status, 0, result.stderr);
   const output = readFileSync(log, 'utf8').trim();
-  if (
-    spawnSync(
-      'sh',
-      [new URL('./is-sparse-checkout.sh', import.meta.url).pathname],
-      {
-        cwd: new URL('..', import.meta.url).pathname,
-        encoding: 'utf8',
-      }
-    ).status === 0
-  ) {
+  if (isDepLessWorktree(repoRoot)) {
     assert.match(
       output,
       /^--config\.allowUnusedPatches=true install --frozen-lockfile$/
@@ -92,16 +97,7 @@ exec '${wrapper.pathname}' knip`,
 
   assert.equal(result.status, 0, result.stderr);
   const output = readFileSync(log, 'utf8').trim();
-  if (
-    spawnSync(
-      'sh',
-      [new URL('./is-sparse-checkout.sh', import.meta.url).pathname],
-      {
-        cwd: repoRoot,
-        encoding: 'utf8',
-      }
-    ).status === 0
-  ) {
+  if (isDepLessWorktree(repoRoot)) {
     assert.match(output, /^--config\.verifyDepsBeforeRun=false knip$/);
   } else {
     assert.match(output, /^knip$/);
@@ -188,4 +184,13 @@ test('preserves caller-provided Puppeteer download settings', () => {
     chromeHeadlessShellSkipDownload: 'false',
     skipChromeHeadlessShellDownload: 'false',
   });
+});
+
+test('run-lefthook-pnpm prepends the hook pnpm wrapper to PATH', () => {
+  const source = readFileSync(runner, 'utf8');
+  assert.match(source, /ci_scripts\/hook-bin:\$PATH/);
+  assert.match(source, /BACI_REAL_PNPM/);
+  assert.match(source, /is-dep-less-worktree\.sh/);
+  assert.match(source, /PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false/);
+  assert.match(source, /PNPM_CONFIG_ALLOW_UNUSED_PATCHES=true/);
 });
