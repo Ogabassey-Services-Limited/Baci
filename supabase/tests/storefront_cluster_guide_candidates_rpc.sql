@@ -64,7 +64,7 @@ BEGIN
   JOIN pg_catalog.pg_namespace AS namespace
     ON namespace.oid = proc.pronamespace
   WHERE namespace.nspname = 'private'
-    AND proc.proname = 'classify_storefront_cluster_guide_candidates_v1'
+    AND proc.proname = 'classify_storefront_cluster_guide_candidates_v2'
     AND proc.pronargs = 5
     AND proc.proargtypes[0] = 'uuid'::pg_catalog.regtype
     AND proc.proargtypes[1] = 'jsonb'::pg_catalog.regtype

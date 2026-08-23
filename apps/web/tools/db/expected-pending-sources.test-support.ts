@@ -260,6 +260,16 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260823160001_optimize_storefront_cluster_guide_classifier_category_rpc.sql',
     sha256: '44e034e5ef145b61514cebac1af63aa513885e3bd9d13179070e0c0b6fd108bc',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823163000_optimize_storefront_cluster_guide_classifier_ordered_core.sql',
+    sha256: 'f1a0067241fb3d1f2d380648b192c74aa0fbfb282b2bf324f43b3845ffecaa65',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823163001_optimize_storefront_cluster_guide_classifier_ordered_rpc.sql',
+    sha256: '378ee56b915823bb6e6f9bb2ed5c415d24f7de5d8ae9677e5539f9a9dd1cabac',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
