@@ -1,3 +1,4 @@
+export * from '../storefront-release';
 export { calculateStorefrontDeliveryDailyEvidenceSha256 } from './delivery-evidence';
 export {
   calculateHostnameInventorySha256,
