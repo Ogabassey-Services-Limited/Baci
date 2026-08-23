@@ -75,7 +75,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
         return Promise.resolve({
           data: [
             {
-              provider_customer_id: null,
+              provider_customer_id: '9876543210',
               refresh_token_ciphertext: 'existing-refresh-ciphertext',
             },
           ],
@@ -155,6 +155,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
       'upsert_google_ads_connection',
       expect.objectContaining({
         p_access_token_ciphertext: 'encrypted-secret',
+        p_provider_customer_id: null,
         p_refresh_token_ciphertext: 'encrypted-secret',
       })
     );

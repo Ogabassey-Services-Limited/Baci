@@ -10,6 +10,10 @@ const secretRpcMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260821174945_google_ads_secret_rpcs.sql'
 );
+const reauthClearAccountMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260823210000_google_ads_reauth_clear_account.sql'
+);
 
 describe('Google Ads migration contract', () => {
   it('creates tenant-scoped tables with encrypted token columns and RLS', () => {
@@ -63,6 +67,25 @@ describe('Google Ads migration contract', () => {
     expect(sql).toContain('upsert_google_ads_spend_daily');
     expect(sql).toContain(
       'revoke all on function public.upsert_google_ads_spend_daily'
+    );
+  });
+
+  it('clears stale account selection when a Google grant needs reauthorization', () => {
+    const sql = readFileSync(
+      reauthClearAccountMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'create or replace function public.mark_google_ads_connection_reauth_if_current'
+    );
+    expect(sql).toContain('provider_customer_id = null');
+    expect(sql).toContain('last_synced_at = null');
+    expect(sql).toContain(
+      'access_token_ciphertext is not distinct from p_access_token_ciphertext'
+    );
+    expect(sql).toContain(
+      'refresh_token_ciphertext is not distinct from p_refresh_token_ciphertext'
     );
   });
 });

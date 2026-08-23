@@ -160,7 +160,10 @@ export async function GET(request: NextRequest) {
         config.tokenEncryptionKey
       ),
       p_merchant_id: access.merchantId,
-      p_provider_customer_id: existingConnection?.provider_customer_id ?? null,
+      // Reauthorization may have switched Google identities or manager
+      // accounts. Require the merchant to confirm the reporting customer
+      // instead of silently carrying forward a stale selection.
+      p_provider_customer_id: null,
       p_refresh_token_ciphertext: refreshTokenCiphertext,
       p_scopes: tokens.scope?.split(/\s+/).filter(Boolean) ?? [],
       p_status: 'active',
