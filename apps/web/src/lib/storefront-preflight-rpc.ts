@@ -82,6 +82,8 @@ const MEMO_TTL_MS = 3_000;
 const MEMO_MAX_ENTRIES = 512;
 
 const memo = new Map<string, { expires: number; row: unknown }>();
+// Suppress only timeout retries; real product-read failures remain retryable.
+const TIMEOUT_MEMO = Symbol('storefront-preflight-timeout');
 const breaker = createStorefrontPreflightCircuitBreaker();
 
 let client: SupabaseClient | null = null;
@@ -163,6 +165,7 @@ export async function callStorefrontPreflightRpc(
 
   const key = memoKey(fn, args);
   const memoized = readMemo(key);
+  if (memoized === TIMEOUT_MEMO) return null;
   if (memoized !== undefined) {
     return memoized;
   }
@@ -197,10 +200,12 @@ export async function callStorefrontPreflightRpc(
   try {
     result = await rpcImpl(fn, args, timeout.signal);
   } catch (error) {
+    const reason = isAbortLikeError(error) ? 'timeout' : 'fetch-error';
+    if (reason === 'timeout') writeMemo(key, TIMEOUT_MEMO);
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason: isAbortLikeError(error) ? 'timeout' : 'fetch-error',
+      reason,
       detail: thrownErrorDetail(error),
     });
     captureBreakerOpenTransition(failOpenContext);
@@ -210,10 +215,12 @@ export async function callStorefrontPreflightRpc(
   }
 
   if (result.error) {
+    const reason = classifyRpcErrorReason(result.error);
+    if (reason === 'timeout') writeMemo(key, TIMEOUT_MEMO);
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
-      reason: classifyRpcErrorReason(result.error),
+      reason,
       detail: boundedErrorDetail(
         result.error.code ?? '',
         result.error.message ?? ''
