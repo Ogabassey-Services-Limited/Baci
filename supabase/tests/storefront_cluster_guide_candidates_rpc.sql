@@ -16,6 +16,7 @@ DECLARE
   v_enabled_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000001';
   v_disabled_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000002';
   v_missing_settings_merchant_id uuid := '7f9d0e11-0000-4000-8000-000000000003';
+  v_classifier_oid oid;
 BEGIN
   IF NOT EXISTS (
     SELECT 1
@@ -56,17 +57,27 @@ BEGIN
     RAISE EXCEPTION 'PUBLIC unexpectedly has EXECUTE on guide-candidate RPC';
   END IF;
 
+  SELECT proc.oid
+  INTO v_classifier_oid
+  FROM pg_catalog.pg_proc AS proc
+  JOIN pg_catalog.pg_namespace AS namespace
+    ON namespace.oid = proc.pronamespace
+  WHERE namespace.nspname = 'private'
+    AND proc.proname = 'classify_storefront_cluster_guide_candidates_v1'
+    AND proc.pronargs = 3
+    AND proc.proargtypes[0] = 'uuid'::pg_catalog.regtype
+    AND proc.proargtypes[1] = 'jsonb'::pg_catalog.regtype
+    AND proc.proargtypes[2] = 'pg_catalog.tsquery'::pg_catalog.regtype;
+
+  IF v_classifier_oid IS NULL THEN
+    RAISE EXCEPTION 'private guide classifier is missing';
+  END IF;
+
   IF pg_catalog.has_function_privilege(
-    'anon',
-    'private.classify_storefront_cluster_guide_candidates_v1(uuid,jsonb,pg_catalog.tsquery)',
-    'EXECUTE'
-  )
-    OR pg_catalog.has_function_privilege(
-      'authenticated',
-      'private.classify_storefront_cluster_guide_candidates_v1(uuid,jsonb,pg_catalog.tsquery)',
-      'EXECUTE'
-    )
-  THEN
+    'anon', v_classifier_oid, 'EXECUTE'
+  ) OR pg_catalog.has_function_privilege(
+    'authenticated', v_classifier_oid, 'EXECUTE'
+  ) THEN
     RAISE EXCEPTION
       'private guide classifier unexpectedly has application-role EXECUTE';
   END IF;
