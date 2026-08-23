@@ -33,6 +33,7 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
     bookShipment: mockBookShipment,
+    getProviderQuotes: vi.fn(),
   },
 }));
 
@@ -149,6 +150,7 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
             return quotesSelectChain;
           }),
           update: vi.fn(() => shippingQuoteUpdateChain),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
 
@@ -288,6 +290,84 @@ describe('POST /api/shipping/book', () => {
           sender: expect.objectContaining({
             name: 'Merchant Store',
             address: '1 Merchant Road',
+          }),
+        })
+      );
+    });
+
+    it('refreshes before booking when the stored domestic quote sender differs', async () => {
+      const { shippingService } = await import('@/lib/shipping');
+      vi.mocked(shippingService.getProviderQuotes).mockResolvedValue([
+        {
+          id: '33333333-3333-4333-8333-333333333333',
+          provider: 'GIGL',
+          serviceTier: 'GoStandard',
+          carrierName: 'GIG Logistics',
+          displayName: 'GIG Logistics - GoStandard',
+          price: 3200,
+          currency: 'NGN',
+          estimatedDays: 2,
+          pickupIncluded: true,
+          insuranceIncluded: false,
+          providerRateId: 'GIGL_IKEJA_1',
+          expiresAt: new Date(Date.now() + 86_400_000),
+          rawResponse: { refreshed: true },
+        },
+      ]);
+
+      mockCreateClient.mockReturnValue(
+        buildSupabaseMock({
+          service_tier: 'GoStandard',
+          carrier_name: 'GIG Logistics',
+          provider_rate_id: 'GIGL_LAGOS_OLD',
+          quote_request: {
+            shipmentType: 'domestic',
+            sessionId: 'session-old',
+            sender: {
+              name: 'Caller Sender',
+              phone: '+2348011111111',
+              address: '1 Merchant Road, Lagos, Lagos',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            receiver: {
+              name: 'Jane Customer',
+              phone: '+2348022222222',
+              address: '2 Customer Road',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'Nigeria',
+              countryCode: 'NG',
+            },
+            items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
+          },
+        })
+      );
+
+      const { POST } = await import('./route');
+      const response = await POST(buildBookingRequest());
+
+      expect(response.status).toBe(201);
+      expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
+        'GIGL',
+        expect.objectContaining({
+          sender: expect.objectContaining({
+            city: 'Ikeja',
+            state: 'Lagos',
+          }),
+        })
+      );
+      expect(mockBookShipment).toHaveBeenCalledWith(
+        'GIGL',
+        expect.objectContaining({
+          quoteId: '33333333-3333-4333-8333-333333333333',
+          providerRateId: 'GIGL_IKEJA_1',
+          quoteMetadata: { refreshed: true },
+          sender: expect.objectContaining({
+            city: 'Ikeja',
+            state: 'Lagos',
           }),
         })
       );

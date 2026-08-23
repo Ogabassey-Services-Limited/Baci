@@ -14,12 +14,13 @@ import {
 import type { BookingRequest } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import { persistBookedShipment } from './persist-booked-shipment';
 import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
 import { resolveBookingMerchantSender } from './resolve-booking-merchant-sender';
-import { buildShipmentInsertPayload } from './shipment-insert-payload';
+import { resolveBookingQuoteForSender } from './resolve-booking-quote-for-sender';
 
 export async function POST(request: NextRequest) {
   try {
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, merchant_id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
+        'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
       .eq('merchant_id', merchantId)
@@ -162,19 +163,6 @@ export async function POST(request: NextRequest) {
         { status: quoteValidation.status }
       );
     }
-    const resolvedSenderInfo =
-      quotePayload.sender ?? merchantSenderResult.sender;
-
-    const bookingRequest: BookingRequest = {
-      orderId: data.orderId,
-      quoteId: data.quoteId,
-      providerRateId: quote.provider_rate_id,
-      quoteMetadata: quote.provider_metadata,
-      sender: resolvedSenderInfo,
-      receiver: quotePayload.receiver,
-      items: quotePayload.items,
-      instructions: data.instructions,
-    };
 
     if (!isShippingProviderCode(quote.provider)) {
       return NextResponse.json(
@@ -182,82 +170,56 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Domestic bookings replace the quote-time sender with the registered
+    // merchant origin; refresh first when that origin differs so we do not
+    // book with rate IDs / metadata priced for another station.
+    const bookingQuote = await resolveBookingQuoteForSender(
+      supabase,
+      quote,
+      quote.provider,
+      {
+        merchantSender: merchantSenderResult.sender,
+        usesStoredInternationalSender: Boolean(quotePayload.sender),
+      }
+    );
+
+    const resolvedSenderInfo =
+      quotePayload.sender ?? merchantSenderResult.sender;
+
+    const bookingRequest: BookingRequest = {
+      orderId: data.orderId,
+      quoteId: bookingQuote.id,
+      providerRateId: bookingQuote.provider_rate_id || undefined,
+      quoteMetadata: bookingQuote.provider_metadata,
+      sender: resolvedSenderInfo,
+      receiver: quotePayload.receiver,
+      items: quotePayload.items,
+      instructions: data.instructions,
+    };
+
     const result = await shippingService.bookShipment(
       quote.provider,
       bookingRequest
     );
 
-    const { data: shipment, error: shipmentError } = await supabase
-      .from('shipments')
-      .insert(
-        buildShipmentInsertPayload({
-          orderId: data.orderId,
-          merchantId,
-          senderInfo: resolvedSenderInfo,
-          receiver: quotePayload.receiver,
-          items: quotePayload.items,
-          quote,
-          result,
-        })
-      )
-      .select('id')
-      .single();
-
-    if (shipmentError) {
-      console.error('Error creating shipment record:', shipmentError);
+    const persisted = await persistBookedShipment({
+      supabase,
+      orderId: data.orderId,
+      merchantId,
+      senderInfo: resolvedSenderInfo,
+      receiver: quotePayload.receiver,
+      items: quotePayload.items,
+      bookingQuote,
+      result,
+    });
+    if (!persisted.ok) {
       return NextResponse.json(
         {
-          error:
-            'Shipment booked with provider but failed to save record. Contact support with tracking number: ' +
-            result.trackingNumber,
-          trackingNumber: result.trackingNumber,
+          error: persisted.error,
+          trackingNumber: persisted.trackingNumber,
         },
-        { status: 500 }
-      );
-    }
-
-    const { error: orderUpdateError } = await supabase
-      .from('orders')
-      .update({
-        shipment_id: shipment?.id,
-        shipping_status: 'processing',
-        shipping_provider: result.provider,
-        tracking_number: result.trackingNumber,
-        selected_quote_id: data.quoteId,
-        fulfillment_type: 'provider',
-      })
-      .eq('id', data.orderId)
-      .eq('merchant_id', merchantId);
-
-    if (orderUpdateError) {
-      console.error(
-        'Error updating order with shipment info:',
-        orderUpdateError
-      );
-      return NextResponse.json(
-        {
-          error:
-            'Shipment booked with provider but failed to update order. Contact support with tracking number: ' +
-            result.trackingNumber,
-          trackingNumber: result.trackingNumber,
-        },
-        { status: 500 }
-      );
-    }
-    const { error: quoteUpdateError } = await supabase
-      .from('shipping_quotes')
-      .update({ used: true })
-      .eq('id', data.quoteId)
-      .eq('merchant_id', merchantId);
-
-    if (quoteUpdateError) {
-      console.error(
-        'Error marking quote as used after successful shipment booking:',
-        {
-          error: quoteUpdateError,
-          quoteId: data.quoteId,
-          trackingNumber: result.trackingNumber,
-        }
+        { status: persisted.status }
       );
     }
 
@@ -265,7 +227,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         shipment: {
-          id: shipment?.id,
+          id: persisted.shipmentId,
           trackingNumber: result.trackingNumber,
           providerShipmentId: result.providerShipmentId,
           carrier: result.carrierName,
