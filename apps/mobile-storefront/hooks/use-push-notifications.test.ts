@@ -479,6 +479,89 @@ describe('usePushNotifications', () => {
     expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
   });
 
+  it('counts distinct deliveries separately when they share a payload notification id', async () => {
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockNotificationResponseCallback).not.toBeNull();
+    });
+
+    const firstDelivery = {
+      notification: {
+        request: {
+          identifier: 'delivery-1',
+          content: {
+            data: {
+              notification_id: 'campaign-shared',
+              notification_type: 'promotion',
+            },
+          },
+        },
+      },
+    };
+    const secondDelivery = {
+      notification: {
+        request: {
+          identifier: 'delivery-2',
+          content: {
+            data: {
+              notification_id: 'campaign-shared',
+              notification_type: 'promotion',
+            },
+          },
+        },
+      },
+    };
+
+    act(() => {
+      mockNotificationResponseCallback?.(firstDelivery);
+      mockNotificationResponseCallback?.(secondDelivery);
+    });
+
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(2);
+    expect(mockTrackNotificationInteraction).toHaveBeenNthCalledWith(
+      1,
+      'opened',
+      'promotion',
+      'campaign-shared'
+    );
+    expect(mockTrackNotificationInteraction).toHaveBeenNthCalledWith(
+      2,
+      'opened',
+      'promotion',
+      'campaign-shared'
+    );
+    expect(handleNotificationResponse).toHaveBeenCalledTimes(2);
+  });
+
+  it('still handles a notification response when analytics tracking throws', async () => {
+    mockTrackNotificationInteraction.mockImplementation(() => {
+      throw new Error('analytics unavailable');
+    });
+
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockNotificationResponseCallback).not.toBeNull();
+    });
+
+    const response = {
+      notification: {
+        request: {
+          identifier: 'notification-analytics-failure',
+          content: { data: { notification_type: 'promotion' } },
+        },
+      },
+    };
+
+    expect(() => {
+      act(() => {
+        mockNotificationResponseCallback?.(response);
+      });
+    }).not.toThrow();
+    expect(handleNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
   it('tracks a notification opened from a cold start', async () => {
     mockGetLastNotificationResponse.mockResolvedValue({
       notification: {

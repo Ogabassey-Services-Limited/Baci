@@ -11,17 +11,16 @@ import {
   setPushOptOut,
   storeLocalPushToken,
 } from '@/lib/push-token-storage';
-import { trackError, trackNotificationInteraction } from '@/services/analytics';
+import { trackError } from '@/services/analytics';
 import { ensureAndroidNotificationChannels } from '@/services/push-notification-channels';
 import {
-  clearBadge,
-  handleNotificationResponse,
   registerForPushNotifications,
   removePushTokenFromServer,
   savePushTokenToServer,
 } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
 import { navigateFromPushScreen } from './navigate-from-push-screen';
+import { processPushNotificationResponse } from './process-push-notification-response';
 
 const log = createLogger('PushNotifications');
 
@@ -33,7 +32,6 @@ type EventSubscription = {
 
 let Notifications: typeof import('expo-notifications') | null = null;
 let _notificationsReady: Promise<void>;
-const openedNotificationIds = new Set<string>();
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -190,30 +188,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   useEffect(() => {
     const cancelledRef = { current: false };
 
-    const processNotificationResponse = (
-      response: import('expo-notifications').NotificationResponse
-    ) => {
-      const content = response.notification.request.content;
-      const data = content.data as Record<string, unknown> | undefined;
-      const notificationId =
-        typeof data?.notification_id === 'string'
-          ? data.notification_id
-          : response.notification.request.identifier;
-      if (openedNotificationIds.has(notificationId)) return;
-      openedNotificationIds.add(notificationId);
-      trackNotificationInteraction(
-        'opened',
-        typeof data?.notification_type === 'string'
-          ? data.notification_type
-          : typeof data?.type === 'string'
-            ? data.type
-            : 'unknown',
-        notificationId
-      );
-      handleNotificationResponse(response, navigate);
-      clearBadge();
-    };
-
     _notificationsReady.then(() => {
       if (cancelledRef.current || !Notifications) return;
 
@@ -237,7 +211,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         Notifications.addNotificationResponseReceivedListener(
           (response: import('expo-notifications').NotificationResponse) => {
             log.info('Notification tapped:', response);
-            processNotificationResponse(response);
+            processPushNotificationResponse(response, navigate);
           }
         );
 
@@ -247,7 +221,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         ) => {
           if (response && !cancelledRef.current) {
             log.info('App launched from notification:', response);
-            processNotificationResponse(response);
+            processPushNotificationResponse(response, navigate);
           }
         }
       );
