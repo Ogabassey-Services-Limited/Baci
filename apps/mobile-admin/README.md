@@ -238,16 +238,19 @@ Release builds are isolated by channel:
 - The `development` profile intentionally has no update channel; Metro is the
   intended JavaScript source for local development.
 
-Runtime compatibility uses Expo's `fingerprint` policy, so native dependency,
-SDK, or config changes produce a new runtime and require a new binary before
-an OTA can target it. Release updates use `ON_LOAD` with a zero-millisecond
-fallback timeout: the embedded or already-cached bundle starts immediately,
-while a compatible download is applied on the next restart. Hermes bytecode
-diff support is enabled to reduce subsequent update downloads.
+Runtime compatibility uses Expo's `appVersion` policy. The release workflows
+inject the store version into `APP_VERSION`/`IOS_APP_VERSION`, so every store
+release gets a deterministic runtime without depending on release-only native
+files or secrets. When publishing an update, provide the same app version that
+is embedded in the target binary; never publish from a checkout that falls back
+to `2.0.1`. Release updates use `ON_LOAD` with a zero-millisecond fallback
+timeout: the embedded or already-cached bundle starts immediately, while a
+compatible download is applied on the next restart. Hermes bytecode diff support
+is enabled to reduce subsequent update downloads.
 
 Publishing is an owner-approved release action. Before publishing to
 `production`, validate the same update on a preview build, confirm the target
-runtime fingerprint, and record a rollback plan. Never publish from a Metro
+app version and channel, and record a rollback plan. Never publish from a Metro
 session or commit credentials to this repository.
 
 ## Key Differences from Storefront

@@ -4,7 +4,7 @@ const EAS_PROJECT_ID = '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9';
 const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
 
 /**
- * Fingerprint runtime + EAS Update settings for local release prebuilds.
+ * App-version runtime + EAS Update settings for local release prebuilds.
  * Channel is derived from env so store binaries receive production OTAs.
  */
 function buildEasUpdateConfig(environment = process.env) {
@@ -15,7 +15,7 @@ function buildEasUpdateConfig(environment = process.env) {
     return {
       easProjectId: EAS_PROJECT_ID,
       runtimeVersion: {
-        policy: 'fingerprint',
+        policy: 'appVersion',
       },
       updates: {
         enabled: false,
@@ -28,7 +28,7 @@ function buildEasUpdateConfig(environment = process.env) {
   return {
     easProjectId: EAS_PROJECT_ID,
     runtimeVersion: {
-      policy: 'fingerprint',
+      policy: 'appVersion',
     },
     updates: {
       // Release builds check in the background at launch and keep using the

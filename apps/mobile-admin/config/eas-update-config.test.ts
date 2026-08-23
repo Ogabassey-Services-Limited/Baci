@@ -6,11 +6,11 @@ import {
 } from './eas-update-config';
 
 describe('buildEasUpdateConfig', () => {
-  it('binds fingerprint runtime policy to the EAS project update URL', () => {
+  it('binds app-version runtime policy to the EAS project update URL', () => {
     const config = buildEasUpdateConfig({});
 
     expect(config.easProjectId).toBe(EAS_PROJECT_ID);
-    expect(config.runtimeVersion).toEqual({ policy: 'fingerprint' });
+    expect(config.runtimeVersion).toEqual({ policy: 'appVersion' });
     expect(config.updates).toMatchObject({
       checkAutomatically: 'ON_LOAD',
       enableBsdiffPatchSupport: true,

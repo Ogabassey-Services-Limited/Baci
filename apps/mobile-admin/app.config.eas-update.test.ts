@@ -16,11 +16,11 @@ afterEach(() => {
 });
 
 describe('mobile-admin EAS Update foundation', () => {
-  it('uses the fingerprint runtime policy and project-bound EAS Update URL', async () => {
+  it('uses the app-version runtime policy and project-bound EAS Update URL', async () => {
     const { default: buildConfig } = await import('./app.config');
     const config = buildConfig(TEST_CONFIG_CONTEXT);
 
-    expect(config.runtimeVersion).toEqual({ policy: 'fingerprint' });
+    expect(config.runtimeVersion).toEqual({ policy: 'appVersion' });
     expect(config.extra?.eas).toEqual({
       projectId: '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9',
     });
