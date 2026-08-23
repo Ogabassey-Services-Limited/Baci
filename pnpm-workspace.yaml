@@ -110,11 +110,6 @@ overrides:
   react-native-phone-number-input: "2.1.0"
   react-native-safe-area-context: "5.8.0"
   react-native-webview: "13.16.1"
-  # Worklets bundle-mode support (SDK 57): official Software Mansion patches —
-  # metro (index .worklets/* modules for SHA-1) + metro-runtime (Fast Refresh
-  # to worklet runtimes). Refresh both patches when bumping metro.
-  metro: "0.84.4"
-  metro-runtime: "0.84.4"
   # --- Security / dedupe overrides ---
   # Pin to 6.1.6 to mitigate GHSA-737v-mqg7-c878 / CVE-2026-35209: replace the vulnerable transitive deep-merge helper.
   defu: "6.1.6"
@@ -207,7 +202,6 @@ overrides:
   lodash: "4.18.1"
   lodash-es: "4.18.1"
   diff: "^8.0.3"
-  react-native-screens: "4.25.2"
   # SDK 57 alignment — keep in lockstep with react-native-worklets above.
   react-native-reanimated: "4.5.1"
   react-native-svg: "15.15.5"
@@ -313,6 +307,8 @@ patchedDependencies:
   "@react-native-community/datetimepicker@9.1.0": "patches/@react-native-community/datetimepicker@9.1.0.patch"
   "@react-native-google-signin/google-signin@16.1.2": "patches/@react-native-google-signin/google-signin@16.1.2.patch"
   "lottie-react-native@7.3.8": "patches/lottie-react-native@7.3.8.patch"
+  "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
+  "metro@0.84.4": "patches/metro@0.84.4.patch"
   "novel@1.0.2": "patches/novel@1.0.2.patch"
   "react-native-mmkv@4.3.1": "patches/react-native-mmkv@4.3.1.patch"
   "react-native-nitro-modules@0.35.9": "patches/react-native-nitro-modules@0.35.9.patch"
@@ -320,9 +316,8 @@ patchedDependencies:
   "react-native-purchases@10.4.2": "patches/react-native-purchases@10.4.2.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
-  "metro@0.84.4": "patches/metro@0.84.4.patch"
-  "metro-runtime@0.84.4": "patches/metro-runtime@0.84.4.patch"
   react-native@0.86.0: patches/react-native@0.86.0.patch
+  react-native@0.86.2: patches/react-native@0.86.2.patch
   # Xcode 26.2 (CI macos-26 image) cannot resolve `abs` in 57.0.3's Date
   # guard at all — C++ interop pulls the C stdlib overloads into scope next
   # to Swift's ("ambiguous use of 'abs'"), which has broken every iOS
