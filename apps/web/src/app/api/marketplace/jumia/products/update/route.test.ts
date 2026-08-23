@@ -64,11 +64,16 @@ vi.mock('@/lib/jumia/feeds', () => ({
   updatePrice: vi.fn(),
   updateStatus: vi.fn(),
 }));
-vi.mock('./jumia-product-update-feeds', () => ({
-  pushStatusUpdates: (...args: unknown[]) => mockPushStatusUpdates(...args),
-  pushPriceUpdates: (...args: unknown[]) => mockPushPriceUpdates(...args),
-  resolveSalePrice: vi.fn(),
-}));
+vi.mock('./jumia-product-update-feeds', async () => {
+  const actual = await vi.importActual<
+    typeof import('./jumia-product-update-feeds')
+  >('./jumia-product-update-feeds');
+  return {
+    ...actual,
+    pushStatusUpdates: (...args: unknown[]) => mockPushStatusUpdates(...args),
+    pushPriceUpdates: (...args: unknown[]) => mockPushPriceUpdates(...args),
+  };
+});
 vi.mock(
   '@/app/api/marketplace/jumia/products/export/export-product-source',
   () => ({

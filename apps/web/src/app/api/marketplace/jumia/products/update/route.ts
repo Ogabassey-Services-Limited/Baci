@@ -180,7 +180,6 @@ export async function POST(request: NextRequest) {
         shopId: client.shopId,
         marketplaceKey: client.marketplaceKey,
       });
-
     if (mappingError) {
       logger.error({
         message: 'Failed to load Jumia mappings',
@@ -191,7 +190,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
     if (mappings.length === 0) {
       return NextResponse.json(
         { error: 'Jumia mapping not found' },
