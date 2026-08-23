@@ -248,7 +248,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260823152435_optimize_storefront_cluster_guide_classifier_rpc.sql',
-    sha256: 'd6f7a4f71ed337194c04a7609868b195fb4910c0af10ca85158674bb2f766106',
+    sha256: '2daec9468eefe3e246f9a103393c13f4641c3a38654ce8d28ab57660ddb0dc2c',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
