@@ -180,6 +180,14 @@ BEGIN
 END;
 $function$;
 
+ALTER FUNCTION public.get_storefront_cluster_guide_candidates_v1(
+  uuid,
+  text,
+  jsonb,
+  text,
+  integer
+) OWNER TO postgres;
+
 COMMENT ON FUNCTION public.get_storefront_cluster_guide_candidates_v1(
   uuid,
   text,

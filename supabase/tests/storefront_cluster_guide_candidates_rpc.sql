@@ -26,6 +26,7 @@ BEGIN
     )::pg_catalog.regprocedure
       AND proc.prosecdef
       AND proc.provolatile = 's'
+      AND proc.proowner = 'postgres'::pg_catalog.regrole
       AND EXISTS (
         SELECT 1
         FROM pg_catalog.pg_options_to_table(
