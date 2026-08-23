@@ -213,12 +213,20 @@ BEGIN
     RAISE EXCEPTION 'Jumia orphan authorization sweep function is missing';
   END IF;
 
-  IF NOT has_function_privilege(
+  IF has_function_privilege(
     'anon',
     to_regprocedure('public.purge_orphaned_jumia_authorizations()'),
     'EXECUTE'
   ) THEN
-    RAISE EXCEPTION 'cron callers cannot execute Jumia orphan authorization sweep';
+    RAISE EXCEPTION 'anonymous callers can execute Jumia orphan authorization sweep';
+  END IF;
+
+  IF NOT has_function_privilege(
+    'service_role',
+    to_regprocedure('public.purge_orphaned_jumia_authorizations()'),
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'worker callers cannot execute Jumia orphan authorization sweep';
   END IF;
 
   SELECT pg_get_functiondef(

@@ -4,7 +4,7 @@ import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { purgeExpiredJumiaSelfAuthorizationDiscoveries } from '@/lib/jumia/purge-expired-jumia-self-authorization-discoveries';
 import { purgeOrphanedJumiaAuthorizations } from '@/lib/jumia/purge-orphaned-jumia-authorizations';
 import { logger } from '@/lib/logger';
-import { createAnonClient } from '@/lib/supabase/anon';
+import { createServiceClient } from '@/lib/supabase/service';
 
 export async function GET(request: NextRequest) {
   const cronSecret = getCronSecret();
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabase = createAnonClient();
+    const supabase = createServiceClient();
     const deleted =
       await purgeExpiredJumiaSelfAuthorizationDiscoveries(supabase);
     const orphaned = await purgeOrphanedJumiaAuthorizations(supabase);

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockCreateAnonClient, mockPurge, mockSweep } = vi.hoisted(() => ({
-  mockCreateAnonClient: vi.fn<() => object>(() => ({})),
+const { mockCreateServiceClient, mockPurge, mockSweep } = vi.hoisted(() => ({
+  mockCreateServiceClient: vi.fn<() => object>(() => ({})),
   mockPurge: vi.fn(),
   mockSweep: vi.fn(),
 }));
@@ -15,8 +15,8 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
 
-vi.mock('@/lib/supabase/anon', () => ({
-  createAnonClient: mockCreateAnonClient,
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: mockCreateServiceClient,
 }));
 
 vi.mock(
@@ -38,7 +38,7 @@ describe('purge Jumia self-authorization discoveries cron route', () => {
     vi.clearAllMocks();
     mockPurge.mockResolvedValue(3);
     mockSweep.mockResolvedValue(1);
-    mockCreateAnonClient.mockReturnValue({});
+    mockCreateServiceClient.mockReturnValue({});
   });
 
   it('returns 401 without the cron secret', async () => {
@@ -49,7 +49,7 @@ describe('purge Jumia self-authorization discoveries cron route', () => {
     );
     expect(response.status).toBe(401);
     expect(mockPurge).not.toHaveBeenCalled();
-    expect(mockCreateAnonClient).not.toHaveBeenCalled();
+    expect(mockCreateServiceClient).not.toHaveBeenCalled();
   });
 
   it('purges expired discoveries when authorized', async () => {
@@ -66,10 +66,10 @@ describe('purge Jumia self-authorization discoveries cron route', () => {
     await expect(response.json()).resolves.toEqual({ deleted: 3, orphaned: 1 });
     expect(mockPurge).toHaveBeenCalledTimes(1);
     expect(mockPurge).toHaveBeenCalledWith(
-      mockCreateAnonClient.mock.results[0]?.value
+      mockCreateServiceClient.mock.results[0]?.value
     );
     expect(mockSweep).toHaveBeenCalledWith(
-      mockCreateAnonClient.mock.results[0]?.value
+      mockCreateServiceClient.mock.results[0]?.value
     );
   });
 
