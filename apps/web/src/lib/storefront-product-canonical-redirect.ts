@@ -16,10 +16,10 @@ import {
 } from './storefront-preflight-rpc';
 
 // Production query stats show rare `get_storefront_pdp_preflight` tails just
-// below the anon role's 3s statement-timeout ceiling. Keep the broader
-// preflight transport budget at 2s, but give this canonical verdict enough
-// bounded headroom to avoid turning a valid product read into a fail-open.
-const PRODUCT_CANONICAL_DEFAULT_TIMEOUT_MS = 3_000;
+// below the anon role's 3s statement-timeout ceiling. PostgreSQL starts that
+// clock when the command reaches the server, so reserve 1s for the request and
+// PostgREST response while keeping the broader preflight budget at 2s.
+const PRODUCT_CANONICAL_DEFAULT_TIMEOUT_MS = 4_000;
 
 interface ProductCanonicalRedirectOptions {
   /**
