@@ -69,7 +69,9 @@ printf '%s\\n' "$*" >>'${log}'
 });
 
 test('accepts a stable mount set returned in alternating orders', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'baci-container-mount-order-'));
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-container-mount-order-')
+  );
   const bin = join(directory, 'bin');
   const mountState = join(directory, 'mount-state');
   try {

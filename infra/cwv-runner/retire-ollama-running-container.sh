@@ -2,6 +2,34 @@
 # Running-container validation never uses docker cp. Stopped-container file
 # closure remains in retire-ollama-consumer-closure.sh.
 
+container_scan_diagnostic_phase() {
+  case "$1" in
+    bind-directory|bind-mounts|configuration|container-name|container-snapshot|filesystem-export|final-configuration|final-name|final-state|healthcheck|image-archive|network-mode|running-container|state|stopped-arguments|stopped-environment|stopped-options|volume-snapshot) return 0 ;;
+    *) return 2 ;;
+  esac
+}
+
+container_scan_note_failure() {
+  diagnostic_id=$1; diagnostic_phase=$2; diagnostic_status=$3; diagnostic_file=${CONTAINER_SCAN_DIAGNOSTIC_FILE:-}
+  case "$diagnostic_file" in "$TEMP_ROOT"/file.*) :;; *) return 0;; esac
+  [ -f "$diagnostic_file" ] && [ ! -L "$diagnostic_file" ] && [ ! -s "$diagnostic_file" ] || return 0
+  case "$diagnostic_id" in ''|*[!0-9a-f]*) return 0;; esac
+  [ "${#diagnostic_id}" -eq 64 ] && container_scan_diagnostic_phase "$diagnostic_phase" || return 0
+  case "$diagnostic_status" in ''|0|*[!0-9]*) return 0;; esac
+  printf '%s\n' "$diagnostic_phase" >"$diagnostic_file" 2>/dev/null || :
+  return 0
+}
+
+container_scan_publish_failure() {
+  diagnostic_publish_id=$1; diagnostic_publish_status=$2; diagnostic_publish_file=${CONTAINER_SCAN_DIAGNOSTIC_FILE:-}; diagnostic_publish_phase=''
+  case "$diagnostic_publish_file" in "$TEMP_ROOT"/file.*) [ -f "$diagnostic_publish_file" ] && [ ! -L "$diagnostic_publish_file" ] && diagnostic_publish_phase=$(cat "$diagnostic_publish_file" 2>/dev/null) || :;; esac
+  container_scan_diagnostic_phase "$diagnostic_publish_phase" || diagnostic_publish_phase=container-snapshot
+  case "$diagnostic_publish_id" in ''|*[!0-9a-f]*) return 0;; esac
+  [ "${#diagnostic_publish_id}" -eq 64 ] || return 0
+  case "$diagnostic_publish_status" in ''|0|*[!0-9]*) return 0;; esac
+  printf 'container-scan-failure id=%s phase=%s status=%s\n' "$diagnostic_publish_id" "$diagnostic_publish_phase" "$diagnostic_publish_status" >&2
+}
+
 running_container_pair() {
   running_pair_id=$1
   running_pair_format=$2
@@ -124,10 +152,10 @@ running_container_validate() {
     running_image_hash=$(temp_path); running_image_hash_fifo=$(temp_path); running_image_hash_status=$(temp_path)
     running_image_started_at=$(running_container_now) || { running_cleanup; return 2; }
     running_image_deadline=$((running_image_started_at + RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS))
-    running_container_archive_save_bounded image "$running_image_id" "$running_image_save_first" "$running_image_save_fifo" "$running_image_save_status" "$running_image_deadline" || { running_cleanup; return 2; }
+    running_container_archive_save_bounded image "$running_image_id" "$running_image_save_first" "$running_image_save_fifo" "$running_image_save_status" "$running_image_deadline" || { container_scan_note_failure "$running_id" image-archive 2; running_cleanup; return 2; }
     running_image_sha=$(sha "$running_image_save_first") || { running_cleanup; return 2; }
-    running_image_second_sha=$(running_container_archive_hash_stream image "$running_image_id" "$running_image_hash" "$running_image_hash_fifo" "$running_image_hash_status" "$running_image_deadline") || { running_cleanup; return 2; }
-    [ "$running_image_sha" = "$running_image_second_sha" ] || { running_cleanup; return 2; }
+    running_image_second_sha=$(running_container_archive_hash_stream image "$running_image_id" "$running_image_hash" "$running_image_hash_fifo" "$running_image_hash_status" "$running_image_deadline") || { container_scan_note_failure "$running_id" image-archive 2; running_cleanup; return 2; }
+    [ "$running_image_sha" = "$running_image_second_sha" ] || { container_scan_note_failure "$running_id" image-archive 2; running_cleanup; return 2; }
     if consumer_matches "$running_image_save_first"; then running_image_match=1; else running_match_status=$?; [ "$running_match_status" -eq 1 ] || { running_cleanup; return 2; }; running_image_match=0; fi
     running_image_cache_pending=$(temp_path)
     if ! printf '%s %s\n' "$running_image_sha" "$running_image_match" >"$running_image_cache_pending" || ! mv "$running_image_cache_pending" "$running_image_cache"; then
@@ -138,10 +166,10 @@ running_container_validate() {
   running_filesystem_hash=$(temp_path); running_filesystem_hash_fifo=$(temp_path); running_filesystem_hash_status=$(temp_path)
   running_filesystem_started_at=$(running_container_now) || { running_cleanup; return 2; }
   running_filesystem_deadline=$((running_filesystem_started_at + RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS))
-  running_container_archive_save_bounded container "$running_id" "$running_filesystem_save_first" "$running_filesystem_save_fifo" "$running_filesystem_save_status" "$running_filesystem_deadline" || { running_cleanup; return 2; }
+  running_container_archive_save_bounded container "$running_id" "$running_filesystem_save_first" "$running_filesystem_save_fifo" "$running_filesystem_save_status" "$running_filesystem_deadline" || { container_scan_note_failure "$running_id" filesystem-export 2; running_cleanup; return 2; }
   running_filesystem_sha=$(sha "$running_filesystem_save_first") || { running_cleanup; return 2; }
-  running_filesystem_second_sha=$(running_container_archive_hash_stream container "$running_id" "$running_filesystem_hash" "$running_filesystem_hash_fifo" "$running_filesystem_hash_status" "$running_filesystem_deadline") || { running_cleanup; return 2; }
-  [ "$running_filesystem_sha" = "$running_filesystem_second_sha" ] || { running_cleanup; return 2; }
+  running_filesystem_second_sha=$(running_container_archive_hash_stream container "$running_id" "$running_filesystem_hash" "$running_filesystem_hash_fifo" "$running_filesystem_hash_status" "$running_filesystem_deadline") || { container_scan_note_failure "$running_id" filesystem-export 2; running_cleanup; return 2; }
+  [ "$running_filesystem_sha" = "$running_filesystem_second_sha" ] || { container_scan_note_failure "$running_id" filesystem-export 2; running_cleanup; return 2; }
   if consumer_matches "$running_filesystem_save_first"; then running_filesystem_match=1; else running_match_status=$?; [ "$running_match_status" -eq 1 ] || { running_cleanup; return 2; }; running_filesystem_match=0; fi
   running_name_recheck=$(temp_path); running_name_recheck_again=$(temp_path)
   running_state_recheck=$(temp_path); running_state_recheck_again=$(temp_path)
@@ -174,20 +202,20 @@ container_scan_bindings() {
   scan_id=$1
   scan_name=$2
   scan_line=$3
-  scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || return 2
+  scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" state "$scan_status"; return 2; }
   case "$scan_state" in
-    true) scan_bound=$(container_bind_mount_consumers "$scan_id" && running_container_validate "$scan_id" "$scan_name" "$scan_line") || return 2 ;;
-    false) scan_bound=$(container_bind_mount_consumers "$scan_id" && container_argument_consumers "$scan_id" "$scan_line" && container_option_argument_consumers "$scan_id" "$scan_line" && container_environment_consumers "$scan_id" "$scan_line" && container_healthcheck_consumers "$scan_id" "$scan_line") || return 2 ;;
-    *) return 2 ;;
+    true) scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }; running_container_validate "$scan_id" "$scan_name" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" running-container "$scan_status"; return "$scan_status"; }) || return 2 ;;
+    false) scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }; container_argument_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-arguments "$scan_status"; return "$scan_status"; }; container_option_argument_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-options "$scan_status"; return "$scan_status"; }; container_environment_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-environment "$scan_status"; return "$scan_status"; }; container_healthcheck_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" healthcheck "$scan_status"; return "$scan_status"; }) || return 2 ;;
+    *) container_scan_note_failure "$scan_id" state 2; return 2 ;;
   esac
-  scan_configuration_after=$(container_configuration "$scan_id") || return 2
-  scan_configuration_again=$(container_configuration "$scan_id") || return 2
-  [ "$scan_configuration_after" = "$scan_configuration_again" ] && [ "$scan_configuration_after" = "$scan_line" ] || return 2
-  final_scan_name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$scan_id") || return 2
-  [ "$final_scan_name" = "$scan_name" ] || return 2
-  final_scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || return 2
-  final_scan_state_again=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || return 2
-  [ "$final_scan_state" = "$scan_state" ] && [ "$final_scan_state_again" = "$scan_state" ] || return 2
+  scan_configuration_after=$(container_configuration "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-configuration "$scan_status"; return 2; }
+  scan_configuration_again=$(container_configuration "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-configuration "$scan_status"; return 2; }
+  [ "$scan_configuration_after" = "$scan_configuration_again" ] && [ "$scan_configuration_after" = "$scan_line" ] || { container_scan_note_failure "$scan_id" final-configuration 2; return 2; }
+  final_scan_name=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{.Name}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-name "$scan_status"; return 2; }
+  [ "$final_scan_name" = "$scan_name" ] || { container_scan_note_failure "$scan_id" final-name 2; return 2; }
+  final_scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-state "$scan_status"; return 2; }
+  final_scan_state_again=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-state "$scan_status"; return 2; }
+  [ "$final_scan_state" = "$scan_state" ] && [ "$final_scan_state_again" = "$scan_state" ] || { container_scan_note_failure "$scan_id" final-state 2; return 2; }
   if [ "$scan_state" = true ]; then
     [ -z "$scan_bound" ] || printf '%s\n' "$scan_bound"
     if printf '%s' "$scan_line" | /usr/bin/grep -Eqi 'ollama|11434'; then
