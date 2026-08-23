@@ -207,4 +207,30 @@ describe('processPushNotificationResponse', () => {
     expect(mockClearBadge).toHaveBeenCalledTimes(1);
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
+
+  it('retries only native finalization when clearing the cold-start response fails', () => {
+    jest.useFakeTimers();
+    const navigate = jest.fn();
+    const onHandled = jest
+      .fn()
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    const response = createResponse('utility-native-clear-failure', {
+      notification_type: 'promotion',
+    });
+
+    processPushNotificationResponse(response, navigate, onHandled);
+
+    expect(onHandled).toHaveBeenCalledTimes(1);
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+    expect(mockClearBadge).toHaveBeenCalledTimes(1);
+
+    jest.runOnlyPendingTimers();
+
+    expect(onHandled).toHaveBeenCalledTimes(2);
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+    expect(mockClearBadge).toHaveBeenCalledTimes(1);
+  });
 });

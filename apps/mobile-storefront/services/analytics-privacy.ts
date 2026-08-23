@@ -48,6 +48,8 @@ const IDENTIFIER_CONTEXT_TOKENS = new Set([
   'cart',
   'carts',
   'checkout',
+  'notification',
+  'notifications',
   'order',
   'orders',
   'payment',
@@ -77,6 +79,7 @@ const SKU_IDENTIFIER_TOKEN = 'sku';
 const BUSINESS_IDENTIFIER_VALUE_PATTERN =
   /^(?=.{3,128}$)(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9][A-Za-z0-9_.:-]*$/;
 const NUMERIC_SKU_IDENTIFIER_VALUE_PATTERN = /^(?:\d{8}|\d{12,14})$/;
+const NUMERIC_NOTIFICATION_IDENTIFIER_VALUE_PATTERN = /^\d{3,128}$/;
 const UUID_VALUE_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -164,12 +167,21 @@ function isSkuIdentifierPropertyKey(key: string): boolean {
   return getPropertyKeyTokens(key).includes(SKU_IDENTIFIER_TOKEN);
 }
 
+function isNotificationIdentifierPropertyKey(key: string): boolean {
+  const tokens = getPropertyKeyTokens(key);
+  return (
+    tokens.includes('notification') &&
+    tokens.some((token) => IDENTIFIER_QUALIFIER_TOKENS.has(token))
+  );
+}
 function isBusinessIdentifierValue(key: string, value: string): boolean {
   const trimmed = value.trim();
 
   return (
     UUID_VALUE_PATTERN.test(trimmed) ||
     BUSINESS_IDENTIFIER_VALUE_PATTERN.test(trimmed) ||
+    (isNotificationIdentifierPropertyKey(key) &&
+      NUMERIC_NOTIFICATION_IDENTIFIER_VALUE_PATTERN.test(trimmed)) ||
     (isSkuIdentifierPropertyKey(key) &&
       NUMERIC_SKU_IDENTIFIER_VALUE_PATTERN.test(trimmed))
   );

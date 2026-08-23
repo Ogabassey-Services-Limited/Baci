@@ -17,11 +17,12 @@ describe('clearLastNotificationResponse', () => {
   it('clears the native response when the module is available', () => {
     const clear = jest.fn();
 
-    clearLastNotificationResponse({
+    const result = clearLastNotificationResponse({
       clearLastNotificationResponse: clear,
     });
 
     expect(clear).toHaveBeenCalledTimes(1);
+    expect(result).toBe(true);
   });
 
   it('keeps response processing safe when native clearing fails', () => {
@@ -29,11 +30,11 @@ describe('clearLastNotificationResponse', () => {
       throw new Error('notifications unavailable');
     });
 
-    expect(() =>
-      clearLastNotificationResponse({
-        clearLastNotificationResponse: clear,
-      })
-    ).not.toThrow();
+    const result = clearLastNotificationResponse({
+      clearLastNotificationResponse: clear,
+    });
+
+    expect(result).toBe(false);
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
 });

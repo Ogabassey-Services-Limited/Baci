@@ -7,7 +7,7 @@ import {
 
 type NotificationResponse = import('expo-notifications').NotificationResponse;
 type Navigate = (screen: string, params?: Record<string, string>) => void;
-type OnHandled = (response: NotificationResponse) => void;
+type OnHandled = (response: NotificationResponse) => unknown;
 type ProcessOptions = { isRetry?: boolean };
 
 const log = createLogger('PushNotificationResponse');
@@ -19,6 +19,10 @@ const pendingNotificationResponses = new Map<
   string,
   PendingNotificationResponse
 >();
+const pendingNotificationFinalizations = new Map<
+  string,
+  PendingNotificationFinalization
+>();
 
 const PENDING_RESPONSE_RETRY_DELAY_MS = 250;
 const MAX_PENDING_RESPONSE_RETRIES = 120;
@@ -27,6 +31,13 @@ type PendingNotificationResponse = {
   response: NotificationResponse;
   navigate: Navigate;
   onHandled?: OnHandled;
+  attempts: number;
+  retryTimer?: ReturnType<typeof setTimeout>;
+};
+
+type PendingNotificationFinalization = {
+  response: NotificationResponse;
+  onHandled: OnHandled;
   attempts: number;
   retryTimer?: ReturnType<typeof setTimeout>;
 };
@@ -90,6 +101,57 @@ function queuePendingNotificationResponse(
 
   pendingNotificationResponses.set(responseKey, pending);
   schedulePendingNotificationResponse(responseKey);
+}
+
+function clearPendingNotificationFinalization(responseKey: string): void {
+  const pending = pendingNotificationFinalizations.get(responseKey);
+  if (pending?.retryTimer !== undefined) clearTimeout(pending.retryTimer);
+  pendingNotificationFinalizations.delete(responseKey);
+}
+
+function attemptNotificationFinalization(
+  responseKey: string,
+  response: NotificationResponse,
+  onHandled: OnHandled
+): void {
+  if (latestResponseKey !== responseKey) {
+    clearPendingNotificationFinalization(responseKey);
+    return;
+  }
+
+  try {
+    if (onHandled(response) !== false) {
+      clearPendingNotificationFinalization(responseKey);
+      return;
+    }
+  } catch (error) {
+    clearPendingNotificationFinalization(responseKey);
+    log.warn('Failed to finalize notification response:', error);
+    return;
+  }
+
+  const pending = pendingNotificationFinalizations.get(responseKey) ?? {
+    response,
+    onHandled,
+    attempts: 0,
+  };
+  pending.attempts += 1;
+  if (pending.attempts > MAX_PENDING_RESPONSE_RETRIES) {
+    pendingNotificationFinalizations.delete(responseKey);
+    log.warn('Giving up on notification response finalization:', responseKey);
+    return;
+  }
+  pendingNotificationFinalizations.set(responseKey, pending);
+  pending.retryTimer = setTimeout(() => {
+    const current = pendingNotificationFinalizations.get(responseKey);
+    if (!current) return;
+    current.retryTimer = undefined;
+    attemptNotificationFinalization(
+      responseKey,
+      current.response,
+      current.onHandled
+    );
+  }, PENDING_RESPONSE_RETRY_DELAY_MS);
 }
 
 export function processPushNotificationResponse(
@@ -158,13 +220,8 @@ export function processPushNotificationResponse(
 
     openedNotificationIds.add(responseKey);
     clearPendingNotificationResponse(responseKey);
-    if (onHandled && latestResponseKey === responseKey) {
-      try {
-        onHandled(response);
-      } catch (error) {
-        log.warn('Failed to finalize notification response:', error);
-      }
-    }
+    if (onHandled)
+      attemptNotificationFinalization(responseKey, response, onHandled);
   } finally {
     processingNotificationIds.delete(responseKey);
   }
