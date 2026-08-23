@@ -192,6 +192,27 @@ describe('internalComparePageStatusQuerySchema', () => {
     });
   });
 
+  it('enforces the category boundaries', () => {
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: '   ',
+        comparison: 'left-vs-right',
+      }).success
+    ).toBe(false);
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: 'a'.repeat(255),
+        comparison: 'left-vs-right',
+      }).success
+    ).toBe(true);
+    expect(
+      internalComparePageStatusQuerySchema.safeParse({
+        category: 'a'.repeat(256),
+        comparison: 'left-vs-right',
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects an over-long comparison slug', () => {
     expect(
       internalComparePageStatusQuerySchema.safeParse({
@@ -228,5 +249,20 @@ describe('internalComparePageStatusBodySchema', () => {
     expect(
       internalComparePageStatusBodySchema.safeParse({ present: false }).success
     ).toBe(false);
+  });
+
+  it('requires present to be a boolean', () => {
+    expect(
+      internalComparePageStatusBodySchema.safeParse({
+        present: 'false',
+        hasError: false,
+      }).success
+    ).toBe(false);
+    expect(
+      internalComparePageStatusBodySchema.safeParse({
+        present: false,
+        hasError: true,
+      }).data
+    ).toEqual({ present: false, hasError: true });
   });
 });

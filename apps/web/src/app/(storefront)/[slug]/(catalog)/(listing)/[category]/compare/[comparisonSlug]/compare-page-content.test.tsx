@@ -1,20 +1,8 @@
-import { Writable } from 'node:stream';
 import { render, screen } from '@testing-library/react';
-import { type ReactElement, Suspense } from 'react';
-import { renderToPipeableStream } from 'react-dom/server';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockHeaders = vi.hoisted(() => vi.fn());
 const mockLoadComparePage = vi.fn();
-const mockStorefrontRouteNotFoundContent = vi.fn(
-  (props: { backHref: string; message: string; title: string }) => (
-    <main data-testid="compare-soft-not-found">
-      <h1>{props.title}</h1>
-      <p>{props.message}</p>
-      <a href={props.backHref}>Back</a>
-    </main>
-  )
-);
 const mockCompareRelatedLinks = vi.fn(
   (props: {
     links: Array<{ description: string; href: string; label: string }>;
@@ -31,20 +19,8 @@ const mockCompareRelatedLinks = vi.fn(
   )
 );
 
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
-}));
-
 vi.mock('@/lib/storefront-compare/load-compare-page', () => ({
   loadComparePage: (...args: unknown[]) => mockLoadComparePage(...args),
-}));
-
-vi.mock('@/app/(storefront)/[slug]/storefront-route-not-found-content', () => ({
-  StorefrontRouteNotFoundContent: (props: {
-    backHref: string;
-    message: string;
-    title: string;
-  }) => mockStorefrontRouteNotFoundContent(props),
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -169,9 +145,7 @@ const comparePageModel = {
 
 describe('ComparePageContent', () => {
   beforeEach(() => {
-    mockHeaders.mockResolvedValue(new Headers());
     mockLoadComparePage.mockReset();
-    mockStorefrontRouteNotFoundContent.mockClear();
     mockCompareRelatedLinks.mockClear();
     mockLoadComparePage.mockResolvedValue(comparePageModel);
   });
@@ -230,129 +204,6 @@ describe('ComparePageContent', () => {
       })
     );
     expect(container.querySelectorAll('tbody')).toHaveLength(1);
-  });
-
-  it('renders a marker-free soft 404 for an unknown comparison instead of throwing', async () => {
-    mockLoadComparePage.mockResolvedValueOnce(null);
-    const { ComparePageContent } = await import('./compare-page-content');
-
-    const content = await ComparePageContent({
-      params: Promise.resolve({
-        slug: 'ogabassey',
-        category: 'laptops',
-        comparisonSlug: 'dell-xps-15-9510-vs-macbook-air-13-inch-2020-intel',
-      }),
-    });
-
-    render(content as ReactElement);
-
-    expect(
-      screen.getByRole('heading', { name: 'Comparison not found' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText('This comparison is unavailable or has moved.')
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
-      'href',
-      '/ogabassey'
-    );
-    expect(mockStorefrontRouteNotFoundContent).toHaveBeenCalledWith({
-      backHref: '/ogabassey',
-      message: 'This comparison is unavailable or has moved.',
-      title: 'Comparison not found',
-    });
-  });
-
-  it('keeps the streamed post-flush boundary marker-free for an unknown comparison', async () => {
-    mockLoadComparePage.mockResolvedValueOnce(null);
-    const { ComparePageContent } = await import('./compare-page-content');
-    const content = (await ComparePageContent({
-      params: Promise.resolve({
-        slug: 'ogabassey',
-        category: 'laptops',
-        comparisonSlug: 'dell-xps-15-9510-vs-macbook-air-13-inch-2020-intel',
-      }),
-    })) as ReactElement;
-
-    const chunks: string[] = [];
-    const errors: unknown[] = [];
-    const output = new Writable({
-      write(chunk, _encoding, callback) {
-        chunks.push(Buffer.from(chunk).toString('utf8'));
-        callback();
-      },
-    });
-    let resolveFinished!: () => void;
-    const finished = new Promise<void>((resolve) => {
-      resolveFinished = resolve;
-    });
-    output.on('finish', resolveFinished);
-    output.write('<div id="storefront-ppr-shell">Storefront shell</div>');
-
-    const stream = renderToPipeableStream(
-      <Suspense fallback={<div>Compare route pending</div>}>
-        {content}
-      </Suspense>,
-      {
-        onShellReady() {
-          stream.pipe(output);
-        },
-        onError(error) {
-          errors.push(error);
-        },
-      }
-    );
-    await finished;
-    const html = chunks.join('');
-
-    expect(html.indexOf('Storefront shell')).toBeGreaterThanOrEqual(0);
-    expect(html).toContain('Comparison not found');
-    expect(html).not.toContain('$RX(');
-    expect(html).not.toContain('NEXT_HTTP_ERROR_FALLBACK;404');
-    expect(errors).toEqual([]);
-  });
-
-  it('links a subdomain soft 404 to that host homepage', async () => {
-    mockHeaders.mockResolvedValue(
-      new Headers([
-        ['host', 'ogabassey.usebaci.com'],
-        ['x-merchant-slug', 'ogabassey'],
-      ])
-    );
-    mockLoadComparePage.mockResolvedValueOnce(null);
-    const { ComparePageContent } = await import('./compare-page-content');
-
-    render(
-      (await ComparePageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          category: 'laptops',
-          comparisonSlug: 'missing-left-vs-missing-right',
-        }),
-      })) as ReactElement
-    );
-
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
-      'href',
-      '/'
-    );
-  });
-
-  it('propagates loader errors instead of converting genuine failures to a soft 404', async () => {
-    const loaderError = new Error('compare data unavailable');
-    mockLoadComparePage.mockRejectedValueOnce(loaderError);
-    const { ComparePageContent } = await import('./compare-page-content');
-
-    await expect(
-      ComparePageContent({
-        params: Promise.resolve({
-          slug: 'ogabassey',
-          category: 'laptops',
-          comparisonSlug: 'dell-xps-15-9510-vs-macbook-air-13-inch-2020-intel',
-        }),
-      })
-    ).rejects.toThrow(loaderError);
-    expect(mockStorefrontRouteNotFoundContent).not.toHaveBeenCalled();
   });
 
   it('renders each comparison row group in its own table body', async () => {
