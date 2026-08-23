@@ -17,68 +17,17 @@ const { resolveAndroidGoogleServicesFile } =
     }) => string;
   };
 
-const { resolveUpdateChannel } =
-  require('./config/resolve-update-channel.js') as typeof import('./config/resolve-update-channel');
+const { buildEasUpdateConfig, createExpoDevClientPlugin } =
+  require('./config/eas-update-config.js') as typeof import('./config/eas-update-config');
 
-const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
-const parsedAndroidVersionCode =
-  rawAndroidVersionCode === undefined
-    ? undefined
-    : Number(rawAndroidVersionCode);
+const { resolveAndroidVersionCode, resolveAppVersion, resolveIosBuildNumber } =
+  require('./config/resolve-app-versions.js') as typeof import('./config/resolve-app-versions');
 
-let _androidVersionCode: number | undefined;
-
-if (rawAndroidVersionCode !== undefined) {
-  if (!Number.isInteger(parsedAndroidVersionCode)) {
-    console.warn(
-      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it is not an integer.`
-    );
-  } else if ((parsedAndroidVersionCode as number) <= 0) {
-    console.warn(
-      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it must be greater than 0.`
-    );
-  } else if ((parsedAndroidVersionCode as number) > 2_100_000_000) {
-    console.warn(
-      `[app.config] Ignoring ANDROID_VERSION_CODE="${rawAndroidVersionCode}" because it exceeds 2100000000.`
-    );
-  } else {
-    _androidVersionCode = parsedAndroidVersionCode;
-  }
-}
-
-const rawIosBuildNumber = process.env.IOS_BUILD_NUMBER;
-let _iosBuildNumber: string | undefined;
-
-if (rawIosBuildNumber !== undefined) {
-  const parsed = Number(rawIosBuildNumber);
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    console.warn(
-      `[app.config] Ignoring IOS_BUILD_NUMBER="${rawIosBuildNumber}" because it must be a positive integer.`
-    );
-  } else {
-    _iosBuildNumber = String(parsed);
-  }
-}
-
-// Human-facing app version (Android versionName + iOS CFBundleShortVersionString).
-// Release workflows inject an auto-incrementing value: APP_VERSION (Android) or
-// the legacy IOS_APP_VERSION (iOS). Without it, builds fall back to the pinned
-// baseline below — which is why every Android release previously shipped "2.0.1".
-// Use `|| ` (not `??`) so an empty/whitespace APP_VERSION — e.g. a workflow that
-// exports it without a value — is treated as unset and still falls through to
-// IOS_APP_VERSION rather than silently dropping to the pinned baseline.
-const rawAppVersion =
-  process.env.APP_VERSION?.trim() || process.env.IOS_APP_VERSION?.trim();
-let _appVersion: string | undefined;
-
-if (rawAppVersion) {
-  if (!/^\d+\.\d+\.\d+$/.test(rawAppVersion)) {
-    throw new Error(
-      `[app.config] Invalid app version "${rawAppVersion}" (from APP_VERSION/IOS_APP_VERSION). Must be semantic version major.minor.patch (e.g., 2.0.31).`
-    );
-  }
-  _appVersion = rawAppVersion;
-}
+const _androidVersionCode = resolveAndroidVersionCode(
+  process.env.ANDROID_VERSION_CODE
+);
+const _iosBuildNumber = resolveIosBuildNumber(process.env.IOS_BUILD_NUMBER);
+const _appVersion = resolveAppVersion(process.env);
 
 const tiktokIosAppStoreId =
   process.env.ADMIN_TIKTOK_APP_STORE_ID?.trim() ||
@@ -108,9 +57,7 @@ const tiktokBusinessPlugin: TikTokBusinessPlugin | null =
 const posthogApiKey = process.env.EXPO_PUBLIC_POSTHOG_API_KEY?.trim();
 const posthogHost =
   process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() || 'https://eu.i.posthog.com';
-const EAS_PROJECT_ID = '4b258ae6-fc8a-4b3d-bcbe-dfb3402203c9';
-const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
-const updateChannel = resolveUpdateChannel(process.env);
+const easUpdateConfig = buildEasUpdateConfig(process.env);
 
 /**
  * Expo App Configuration
@@ -122,23 +69,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'baci',
   owner: 'ogabassey-services-limited',
   version: _appVersion ?? '2.0.1',
-  runtimeVersion: {
-    policy: 'fingerprint',
-  },
-  updates: {
-    // Release builds check in the background at launch and keep using the
-    // embedded/cached bundle immediately. A downloaded update is applied on
-    // the next restart, preserving a working startup path during outages.
-    checkAutomatically: 'ON_LOAD',
-    enableBsdiffPatchSupport: true,
-    enabled: true,
-    fallbackToCacheTimeout: 0,
-    requestHeaders: {
-      'expo-channel-name': updateChannel,
-    },
-    url: EAS_UPDATE_URL,
-    useEmbeddedUpdate: true,
-  },
+  runtimeVersion: easUpdateConfig.runtimeVersion,
+  updates: easUpdateConfig.updates,
   orientation: 'default',
   icon: './assets/images/icon.png',
   userInterfaceStyle: 'automatic',
@@ -210,15 +142,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     'expo-router',
-    // Keep the physical-device development client on its last working
-    // project. Do not set defaultLaunchURL: LAN addresses are ephemeral and
-    // a baked-in URL would be unsafe for preview/release builds.
-    [
-      'expo-dev-client',
-      {
-        launchMode: 'most-recent',
-      },
-    ],
+    createExpoDevClientPlugin(),
     [
       'expo-splash-screen',
       {
@@ -344,7 +268,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       isConfigured: isTikTokBusinessConfigured,
     },
     eas: {
-      projectId: EAS_PROJECT_ID,
+      projectId: easUpdateConfig.easProjectId,
     },
     router: {},
   },
