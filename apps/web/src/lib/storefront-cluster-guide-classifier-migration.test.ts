@@ -6,32 +6,44 @@ import { describe, expect, it } from 'vitest';
 const MIGRATION_SOURCE = readFileSync(
   join(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260823134008_optimize_storefront_cluster_guide_classifier.sql'
+    '../../../../supabase/migrations/20260823152435_optimize_storefront_cluster_guide_classifier_rpc.sql'
+  ),
+  'utf8'
+);
+const CLASSIFIER_SOURCE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260823152433_optimize_storefront_cluster_guide_classifier_core.sql'
   ),
   'utf8'
 );
 
 describe('storefront cluster guide classifier migration', () => {
-  it('fixes the slow per-post rule scan without dropping substring fallback coverage', () => {
-    // Regression: the old classifier ran two LEFT JOIN LATERAL rule scans for
-    // every matching post. The live 26-rule / 522-post workload made that
-    // classifier the dominant part of optional PDP semantic enrichment.
-    expect(MIGRATION_SOURCE).toContain(
+  it('keeps the classifier stages in bounded migration units', () => {
+    // The behavior regression runs through the public RPC in
+    // supabase/tests/storefront_cluster_guide_candidates_rpc.sql. This test
+    // protects the migration decomposition and optimized plan shape.
+    expect(CLASSIFIER_SOURCE.split(/\r?\n/).length).toBeLessThan(300);
+    expect(MIGRATION_SOURCE.split(/\r?\n/).length).toBeLessThan(300);
+    expect(CLASSIFIER_SOURCE).toContain(
       'explicit_exact_matches AS MATERIALIZED'
     );
-    expect(MIGRATION_SOURCE).toContain(
+    expect(CLASSIFIER_SOURCE).toContain(
       'explicit_exact_winners AS MATERIALIZED'
     );
-    expect(MIGRATION_SOURCE).toContain(
+    expect(CLASSIFIER_SOURCE).toContain(
       'explicit_fallback_matches AS MATERIALIZED'
     );
-    expect(MIGRATION_SOURCE).toContain(
+    expect(CLASSIFIER_SOURCE).toContain(
       'ON candidate.explicit_category = category_name.category_name'
     );
-    expect(MIGRATION_SOURCE).toMatch(
+    expect(CLASSIFIER_SOURCE).toMatch(
       /explicit_fallback_matches[\s\S]*pg_catalog\.strpos\(/
     );
-    expect(MIGRATION_SOURCE).not.toMatch(/LEFT JOIN LATERAL/);
+    expect(CLASSIFIER_SOURCE).not.toMatch(/LEFT JOIN LATERAL/);
+    expect(MIGRATION_SOURCE).toContain(
+      'FROM private.classify_storefront_cluster_guide_candidates_v1('
+    );
   });
 
   it('keeps the bounded public projection and definer isolation intact', () => {
@@ -43,5 +55,8 @@ describe('storefront cluster guide classifier migration', () => {
     expect(MIGRATION_SOURCE).toContain('LIMIT v_effective_limit');
     expect(MIGRATION_SOURCE).toContain('settings.blog_enabled IS TRUE');
     expect(MIGRATION_SOURCE).not.toMatch(/SELECT\s+\*/i);
+    expect(CLASSIFIER_SOURCE).toContain('SECURITY DEFINER');
+    expect(CLASSIFIER_SOURCE).toContain("SET search_path TO ''");
+    expect(CLASSIFIER_SOURCE).not.toMatch(/SELECT\s+\*/i);
   });
 });

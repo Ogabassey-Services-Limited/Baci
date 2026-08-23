@@ -56,6 +56,21 @@ BEGIN
     RAISE EXCEPTION 'PUBLIC unexpectedly has EXECUTE on guide-candidate RPC';
   END IF;
 
+  IF pg_catalog.has_function_privilege(
+    'anon',
+    'private.classify_storefront_cluster_guide_candidates_v1(uuid,jsonb,pg_catalog.tsquery)',
+    'EXECUTE'
+  )
+    OR pg_catalog.has_function_privilege(
+      'authenticated',
+      'private.classify_storefront_cluster_guide_candidates_v1(uuid,jsonb,pg_catalog.tsquery)',
+      'EXECUTE'
+    )
+  THEN
+    RAISE EXCEPTION
+      'private guide classifier unexpectedly has application-role EXECUTE';
+  END IF;
+
   IF NOT pg_catalog.has_function_privilege(
     'anon',
     'public.get_storefront_cluster_guide_candidates_v1(uuid,text,jsonb,text,integer)',
@@ -269,6 +284,67 @@ BEGIN
       2
     );
 
+  -- These three rows exercise the classifier branches directly: the category
+  -- suffix requires substring fallback, the neutral category requires token
+  -- inference, and the phone category is used to assert rule-order tie-breaking.
+  INSERT INTO public.blog_posts (
+    merchant_id,
+    title,
+    slug,
+    content,
+    excerpt,
+    category,
+    tags,
+    keywords,
+    author_name,
+    status,
+    published_at,
+    reading_time_minutes
+  )
+  VALUES
+    (
+      v_enabled_merchant_id,
+      'Substring fallbackterm guide',
+      'substring-fallback-guide',
+      'A guide whose category contains the cluster name as a suffix.',
+      'Substring fallback guide',
+      'Smartphones Accessories',
+      ARRAY[]::text[],
+      ARRAY[]::text[],
+      'Baci Test Author',
+      'published',
+      '2026-01-09 00:00:00+00'::timestamp with time zone,
+      4
+    ),
+    (
+      v_enabled_merchant_id,
+      'Inferredtoken battery guide',
+      'inferred-token-guide',
+      'A neutral-category article about battery life.',
+      'Inferred token guide',
+      'Accessories',
+      ARRAY[]::text[],
+      ARRAY[]::text[],
+      'Baci Test Author',
+      'published',
+      '2026-01-10 00:00:00+00'::timestamp with time zone,
+      4
+    ),
+    (
+      v_enabled_merchant_id,
+      'Tiebreakterm phone guide',
+      'tie-breaking-guide',
+      'Two rules match this exact category; the earlier rule must win.',
+      'Tie-breaking guide',
+      'Phone',
+      ARRAY[]::text[],
+      ARRAY[]::text[],
+      'Baci Test Author',
+      'published',
+      '2026-01-11 00:00:00+00'::timestamp with time zone,
+      4
+    );
+
   -- These posts are all newer than the valid guide but intentionally do not
   -- match zephyrbattery. A limit-first implementation would lose the old guide.
   INSERT INTO public.blog_posts (
@@ -375,6 +451,20 @@ DECLARE
       )
     )
   );
+  v_tie_rules jsonb := pg_catalog.jsonb_build_array(
+    pg_catalog.jsonb_build_object(
+      'rule_order', 0,
+      'category_slug', 'smartphones',
+      'category_names', pg_catalog.jsonb_build_array('phone'),
+      'article_tokens', pg_catalog.jsonb_build_array('phone')
+    ),
+    pg_catalog.jsonb_build_object(
+      'rule_order', 1,
+      'category_slug', 'laptops',
+      'category_names', pg_catalog.jsonb_build_array('phone'),
+      'article_tokens', pg_catalog.jsonb_build_array('laptop')
+    )
+  );
   v_count integer;
   v_result record;
 BEGIN
@@ -470,6 +560,61 @@ BEGIN
     OR v_result.slug IS DISTINCT FROM 'metadata-classified-public-guide'
   THEN
     RAISE EXCEPTION 'metadata-only guide classification was lost: %',
+      pg_catalog.row_to_json(v_result);
+  END IF;
+
+  SELECT count(*)::integer
+  INTO v_count
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
+    'fallbackterm'
+  );
+
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'substring fallback returned % rows, expected 1', v_count;
+  END IF;
+
+  SELECT slug
+  INTO v_result
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
+    'fallbackterm'
+  );
+
+  IF v_result.slug IS DISTINCT FROM 'substring-fallback-guide' THEN
+    RAISE EXCEPTION 'substring fallback returned unexpected guide: %',
+      pg_catalog.row_to_json(v_result);
+  END IF;
+
+  SELECT slug
+  INTO v_result
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_cluster_rules,
+    'inferredtoken'
+  );
+
+  IF v_result.slug IS DISTINCT FROM 'inferred-token-guide' THEN
+    RAISE EXCEPTION 'inferred-token classification returned unexpected guide: %',
+      pg_catalog.row_to_json(v_result);
+  END IF;
+
+  SELECT slug
+  INTO v_result
+  FROM public.get_storefront_cluster_guide_candidates_v1(
+    v_enabled_merchant_id,
+    'smartphones',
+    v_tie_rules,
+    'tiebreakterm'
+  );
+
+  IF v_result.slug IS DISTINCT FROM 'tie-breaking-guide' THEN
+    RAISE EXCEPTION 'rule-order tie-breaking returned unexpected guide: %',
       pg_catalog.row_to_json(v_result);
   END IF;
 
