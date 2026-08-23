@@ -34,6 +34,22 @@ test('keeps enforcing the deadline after archive output is complete', async () =
   );
 });
 
+test('allows stable large filesystem exports to exceed five minutes', async () => {
+  const output = await runFixture(
+    `status="$2/status"; printf '0\\n' >"$status"; running_container_now() { printf '301\\n'; }; running_container_wait_group "$RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS" -- "$status"; printf 'accepted\\n'`
+  );
+  assert.equal(output, 'accepted\n');
+});
+
+test('keeps the large filesystem export deadline bounded at ten minutes', async () => {
+  await assert.rejects(
+    runFixture(
+      `status="$2/status"; printf '0\\n' >"$status"; running_container_now() { printf '600\\n'; }; running_container_wait_group "$RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS" -- "$status"`
+    ),
+    (error) => error.code === 124
+  );
+});
+
 test('rejects unknown archive command kinds without executing Docker', async () => {
   await assert.rejects(
     runFixture(

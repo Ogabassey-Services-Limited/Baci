@@ -23,7 +23,7 @@ running_container_validate_json() {
       /usr/bin/jq -e 'type == "array" and length <= 256 and all(.[]; type == "string" and ((startswith("/") | not) or (test("^/[A-Za-z0-9._/-]+$") and (test("(^|/)\\.\\.?(/|$)") | not))))' "$running_json_file" >/dev/null || return 2
       ;;
     env)
-      /usr/bin/jq -e 'type == "array" and length <= 256 and all(.[]; type == "string" and test("^[A-Za-z_][A-Za-z0-9_]*=") and ((test("[\u0000-\u001f]") | not) or test("^DOCKER_PG_LLVM_DEPS=[A-Za-z0-9.+_-]+(\\t+[A-Za-z0-9.+_-]+)*$")))' "$running_json_file" >/dev/null || return 2
+      /usr/bin/jq -e 'type == "array" and length <= 256 and all(.[]; type == "string" and test("^[A-Za-z_][A-Za-z0-9_]*=") and ((test("[\u0000-\u001f]") | not) or test("^DOCKER_PG_LLVM_DEPS=[A-Za-z0-9.+_-]+([ \\t]+[A-Za-z0-9.+_-]+)*$")))' "$running_json_file" >/dev/null || return 2
       ;;
     health)
       /usr/bin/jq -e 'if . == null then true elif type != "object" or (.Test|type) != "array" or any(.Test[]; type != "string") then false elif .Test == ["NONE"] then true elif .Test[0] == "CMD-SHELL" and (.Test|length) == 2 and (.Test[1]|length) > 0 then true elif .Test[0] == "CMD" and (.Test|length) >= 2 then true else false end' "$running_json_file" >/dev/null || return 2

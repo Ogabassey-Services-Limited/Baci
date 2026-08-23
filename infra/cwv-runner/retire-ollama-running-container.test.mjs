@@ -267,10 +267,10 @@ test('rejects newline-bearing running-container environment strings', async () =
   );
 });
 
-test('accepts PostgreSQL LLVM package lists with tab separators', async () => {
+test('accepts PostgreSQL LLVM package lists with space and tab separators', async () => {
   const postgresEnv = metadataDocker.replace(
     '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]',
-    '["DOCKER_PG_LLVM_DEPS=llvm21-dev\\t\\tclang21"]'
+    '["DOCKER_PG_LLVM_DEPS=llvm19-dev \\t\\tclang19"]'
   );
   const output = await runFixture(
     `${postgresEnv} *'image save ${imageId}'*) printf '%s\\n' 'clean image filesystem';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`

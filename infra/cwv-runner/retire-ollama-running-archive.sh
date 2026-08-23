@@ -4,7 +4,7 @@ RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=4294967296
 # shellcheck disable=SC2034 # Consumed by the running-container helper after sourcing.
 RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=120
 # shellcheck disable=SC2034 # Consumed by the running-container helper after sourcing.
-RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=300
+RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=600
 
 running_container_now() { /bin/date +%s; }
 
