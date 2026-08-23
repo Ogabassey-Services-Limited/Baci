@@ -1,7 +1,7 @@
 # Task 6 — integration and OAuth nonce re-review
 
-**Reviewed production commit:** `7d094e59b6` (`1896953959..7d094e59b6`).  
-**Nonce commits reviewed separately:** `424590629c` and `1896953959`.  
+**Reviewed production commit:** `7d094e59b6` (`1896953959..7d094e59b6`).
+**Nonce commits reviewed separately:** `424590629c` and `1896953959`.
 **Reports read:** `task-6-report.md`, `task-6-oauth-nonce-report.md`, and the
 retained Meta, TikTok, and Snapchat implementation reports.
 
