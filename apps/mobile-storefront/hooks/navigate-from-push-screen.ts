@@ -27,7 +27,10 @@ async function resumeStoredWalletFundingIntent(isCurrent: () => boolean) {
     router.push('/wallet');
     return;
   }
-  const storedReturnTo = await consumeWalletFundingIntent(customerId);
+  const storedReturnTo = await consumeWalletFundingIntent(
+    customerId,
+    isCurrent
+  );
   if (!isCurrent()) return;
   // Consume first: mounting a bare wallet route clears stale intent state.
   // Only navigate after the single-use record is safely read and removed.

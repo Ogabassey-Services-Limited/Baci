@@ -49,7 +49,7 @@ describe('analytics privacy helpers', () => {
       sanitizeAnalyticsCaptureEvent({
         event: 'Checkout Failed',
         properties: {
-          notificationId: '1234567890',
+          notificationId: '4111111111111111',
           notification_id: '123e4567-e89b-42d3-a456-426614174000',
           requestUrl:
             'https://ogabassey.com/customers/buyer@example.com?token=secret',
@@ -64,7 +64,7 @@ describe('analytics privacy helpers', () => {
     ).toEqual({
       event: 'Checkout Failed',
       properties: {
-        notificationId: '1234567890',
+        notificationId: '[Filtered]',
         notification_id: '123e4567-e89b-42d3-a456-426614174000',
         requestUrl: 'https://ogabassey.com/customers/[Filtered]',
       },
