@@ -53,14 +53,32 @@ describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', ()
       join(__dirname, '../../pnpm-workspace.yaml'),
       'utf8'
     );
+    const lockfile = readFileSync(
+      join(__dirname, '../../pnpm-lock.yaml'),
+      'utf8'
+    );
     const reactNativePatchPath = join(
       __dirname,
       '../../patches/react-native@0.86.0.patch'
+    );
+    const reactNativePatchHash = lockfile.match(
+      /^ {2}react-native@0\.86\.0: ([a-f0-9]{64})$/m
+    )?.[1];
+    const storefrontImporterStart = lockfile.indexOf(
+      '  apps/mobile-storefront:'
+    );
+    const storefrontImporterEnd = lockfile.indexOf(
+      '\n  apps/web:',
+      storefrontImporterStart
     );
 
     expect(workspaceConfig).toContain(
       'react-native@0.86.0: patches/react-native@0.86.0.patch'
     );
+    expect(reactNativePatchHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(
+      lockfile.slice(storefrontImporterStart, storefrontImporterEnd)
+    ).toContain(`version: 0.86.0(patch_hash=${reactNativePatchHash})`);
     expect(existsSync(reactNativePatchPath)).toBe(true);
     expect(readFileSync(reactNativePatchPath, 'utf8')).toContain(
       'StatusBarModule.kt'
