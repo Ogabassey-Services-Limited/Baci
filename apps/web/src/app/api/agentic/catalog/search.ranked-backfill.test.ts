@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 
 const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
+const mockReadAgenticQueryRequest = vi.hoisted(() => vi.fn());
 const mockResolveAgenticMerchantContext = vi.hoisted(() =>
   vi.fn(async () => ({
     agent_user_agent_allowlist: [],
@@ -18,6 +19,9 @@ const mockResolveAgenticMerchantContext = vi.hoisted(() =>
 );
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
+}));
+vi.mock('@/lib/agentic/mutation-request', () => ({
+  readAgenticQueryRequest: mockReadAgenticQueryRequest,
 }));
 vi.mock('@/lib/agentic/agent-request-controls', () => ({
   verifyAgenticRequestAccess: vi.fn(() => ({ ok: true })),
@@ -90,6 +94,19 @@ describe('POST /api/agentic/catalog/search ranked backfill', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyAgenticApiKey.mockReturnValue(true);
+    mockReadAgenticQueryRequest.mockImplementation(
+      async ({ request }: { request: NextRequest }) => ({
+        agentId: null,
+        apiVersion: '2026-04-30',
+        body: await request.json(),
+        idempotencyKey: '',
+        method: request.method,
+        ok: true,
+        pathname: request.nextUrl.pathname,
+        rawBody: '',
+        requestId: 'catalog-request-1',
+      })
+    );
   });
   it('uses search_products_v2 for catalog search ranking', async () => {
     mockRankedProductBatches([
