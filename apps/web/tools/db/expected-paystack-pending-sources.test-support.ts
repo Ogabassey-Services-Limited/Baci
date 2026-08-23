@@ -21,6 +21,11 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260811130001_reapply_paystack_email_mismatch.sql',
+    sha256: 'c92072e6b472fad64a64d22d9539f00422a6404a745e8a5febbeccebe478018a',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260811135000_harden_paystack_chat_order_relationship.sql',
     sha256: '210c24070e7295dcdec19e10d33dd456a1dbc24891812cc74b4bfddeff808456',
   },
@@ -61,17 +66,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260813144355_reapply_allow_reviewed_paystack_email_mismatch.sql',
-    sha256: 'a812eecb51e63a390599169e922739244587c6eeb6a5bab6bd0e2ee3b8934ce2',
+      'supabase/migrations/20260813090000_reapply_paystack_email_mismatch.sql',
+    sha256: 'c92072e6b472fad64a64d22d9539f00422a6404a745e8a5febbeccebe478018a',
   },
-  {
-    repositoryPath:
-      'supabase/migrations/20260813192730_repair_harden_paystack_chat_order_relationship.sql',
-    sha256: '27ef63c9838aa43f72f176453014371e9ff747a51ed8ee3dad21ecd8d4635794',
-  },
-  {
-    repositoryPath:
-      'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql',
-    sha256: '646271ab9d7519e8260d547ffc74b850c4fc19ba76a9f4ca20014aa16e27a97e',
-  },
-];
+] as const;

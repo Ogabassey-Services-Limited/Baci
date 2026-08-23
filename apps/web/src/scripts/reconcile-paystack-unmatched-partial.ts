@@ -20,7 +20,13 @@ export async function runReconcilePaystackUnmatchedPartialCli(
   }
 
   const { args } = parsed;
-  const verified = await verifyTransaction(args.paystackReference);
+  let verified: Awaited<ReturnType<typeof verifyTransaction>>;
+  try {
+    verified = await verifyTransaction(args.paystackReference);
+  } catch (error: unknown) {
+    console.error('Paystack verification failed', error);
+    return 1;
+  }
   if (!verified.success || verified.data.status !== 'success') {
     console.error('Paystack verification did not return a successful payment');
     return 1;
@@ -51,8 +57,16 @@ export async function runReconcilePaystackUnmatchedPartialCli(
     return 1;
   }
 
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.rpc(
+  let supabase: ReturnType<typeof createServiceClient>;
+  try {
+    supabase = createServiceClient();
+  } catch (error: unknown) {
+    console.error('Payment service unavailable', error);
+    return 1;
+  }
+  let data: Awaited<ReturnType<typeof supabase.rpc>>['data'];
+  let error: Awaited<ReturnType<typeof supabase.rpc>>['error'];
+  try { ({ data, error } = await supabase.rpc(
     'reconcile_paystack_unmatched_partial_payment',
     {
       p_actor: args.allowEmailMismatch ? EMAIL_MISMATCH_OVERRIDE_ACTOR : ACTOR,
@@ -71,7 +85,10 @@ export async function runReconcilePaystackUnmatchedPartialCli(
       p_platform_fee: fees.platformFee / 100,
       p_review_id: args.reviewId,
     }
-  );
+  )); } catch (error: unknown) {
+    console.error('Manual Paystack partial reconciliation failed', error);
+    return 1;
+  }
   if (error || !data) {
     console.error(error?.message ?? 'Manual Paystack partial reconciliation failed');
     return 1;
