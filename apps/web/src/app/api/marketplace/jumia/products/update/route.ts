@@ -10,7 +10,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 import {
-  getJumiaProductUpdateReadinessErrors,
+  getJumiaProductUpdateReadiness,
   hasJumiaPriceOverrides,
   pushPriceUpdates,
   pushStatusUpdates,
@@ -198,21 +198,15 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
     const needsPriceUpdate = hasJumiaPriceOverrides(overrides);
-    const readinessErrors = getJumiaProductUpdateReadinessErrors(
+    const readiness = getJumiaProductUpdateReadiness(
       mappings,
       Object.hasOwn(overrides, 'is_active'),
       needsPriceUpdate
     );
-    if (readinessErrors.length > 0) {
-      return NextResponse.json({
-        success: false,
-        feedIds: [],
-        errors: readinessErrors,
-      });
+    if (readiness) {
+      return NextResponse.json({ success: false, feedIds: [], ...readiness });
     }
-
     let marketplaceCurrency: string | undefined;
     if (needsPriceUpdate) {
       const currencyResult = await loadJumiaMarketplaceCurrency(
@@ -228,7 +222,6 @@ export async function POST(request: NextRequest) {
       }
       marketplaceCurrency = currencyResult.currency;
     }
-
     const mappingUpdate: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
@@ -247,7 +240,6 @@ export async function POST(request: NextRequest) {
     if (Object.hasOwn(overrides, 'jumia_sale_end')) {
       mappingUpdate.jumia_sale_end = overrides.jumia_sale_end;
     }
-
     const mappingIds = mappings.map((mapping) => mapping.id);
     const { error: updateError } = await supabase
       .from('jumia_product_mappings')

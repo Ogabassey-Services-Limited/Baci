@@ -83,6 +83,19 @@ export function getJumiaProductUpdateReadinessErrors(
   ];
 }
 
+export function getJumiaProductUpdateReadiness(
+  mappings: Array<{ jumia_product_id: string | null }>,
+  includesStatus: boolean,
+  includesPrice: boolean
+): { errors: string[] } | null {
+  const errors = getJumiaProductUpdateReadinessErrors(
+    mappings,
+    includesStatus,
+    includesPrice
+  );
+  return errors.length > 0 ? { errors } : null;
+}
+
 export function hasJumiaPriceOverrides(
   overrides: Record<string, unknown>
 ): boolean {
