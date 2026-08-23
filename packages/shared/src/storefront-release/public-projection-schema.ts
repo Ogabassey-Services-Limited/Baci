@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { StorefrontPublicProjectionPayloadSchema } from './public-projection-payload-schema';
 
 const MAX_NON_STREAMED_RPC_DTO_BYTES = 4_194_304;
 const MAX_JSON_NESTING_DEPTH = 64;
@@ -9,6 +10,7 @@ type JsonPreflightFrame =
 
 function findJsonTransportIssue(value: unknown): string | null {
   const ancestors = new WeakSet<object>();
+  const seen = new WeakSet<object>();
   const frames: JsonPreflightFrame[] = [{ depth: 0, kind: 'enter', value }];
 
   try {
@@ -37,6 +39,8 @@ function findJsonTransportIssue(value: unknown): string | null {
       if (frame.depth > MAX_JSON_NESTING_DEPTH)
         return 'projection exceeds the maximum JSON nesting depth';
       if (ancestors.has(current)) return 'projection contains a JSON cycle';
+      if (seen.has(current))
+        return 'projection contains a shared JSON reference';
 
       const isArray = Array.isArray(current);
       const prototype = Object.getPrototypeOf(current);
@@ -46,6 +50,7 @@ function findJsonTransportIssue(value: unknown): string | null {
       )
         return 'projection contains a non-plain JSON object';
 
+      seen.add(current);
       ancestors.add(current);
       frames.push({ kind: 'exit', value: current });
       for (const key of Reflect.ownKeys(current)) {
@@ -76,20 +81,38 @@ function findJsonTransportIssue(value: unknown): string | null {
 
 const RawStorefrontPublicProjectionSchema = z
   .unknown()
-  .superRefine((projection, context) => {
+  .transform((projection, context) => {
     const transportIssue = findJsonTransportIssue(projection);
     if (transportIssue) {
       context.addIssue({ code: 'custom', message: transportIssue });
-      return;
+      return z.NEVER;
     }
 
-    const serialized = JSON.stringify(projection);
-    const serializedBytes = new TextEncoder().encode(serialized).byteLength;
-    if (serializedBytes > MAX_NON_STREAMED_RPC_DTO_BYTES)
+    try {
+      const serialized = JSON.stringify(projection);
+      if (serialized === undefined) {
+        context.addIssue({
+          code: 'custom',
+          message: 'projection cannot be serialized as JSON',
+        });
+        return z.NEVER;
+      }
+      const serializedBytes = new TextEncoder().encode(serialized).byteLength;
+      if (serializedBytes > MAX_NON_STREAMED_RPC_DTO_BYTES) {
+        context.addIssue({
+          code: 'custom',
+          message: 'projection exceeds the 4 MiB RPC DTO limit',
+        });
+        return z.NEVER;
+      }
+      return JSON.parse(serialized) as unknown;
+    } catch {
       context.addIssue({
         code: 'custom',
-        message: 'projection exceeds the 4 MiB RPC DTO limit',
+        message: 'projection cannot be serialized as JSON',
       });
+      return z.NEVER;
+    }
   });
 
 /** Bounded transport envelope for one coherent storefront publication snapshot. */
@@ -109,7 +132,7 @@ export const StorefrontPublicProjectionSchema =
         .min(1)
         .max(64)
         .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-      payload: z.json(),
+      payload: StorefrontPublicProjectionPayloadSchema,
     })
   );
 
