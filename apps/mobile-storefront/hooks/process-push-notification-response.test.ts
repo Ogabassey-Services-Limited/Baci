@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+type NotificationResponse = import('expo-notifications').NotificationResponse;
+
 const mockClearBadge = jest.fn();
-const mockHandleNotificationResponse = jest.fn();
+const mockHandleNotificationResponse =
+  jest.fn<
+    typeof import('@/services/push-notifications')['handleNotificationResponse']
+  >();
 const mockTrackNotificationInteraction = jest.fn();
 const mockWarn = jest.fn();
 
@@ -21,16 +26,18 @@ jest.mock('@/services/push-notifications', () => ({
 const { processPushNotificationResponse } =
   require('./process-push-notification-response') as typeof import('./process-push-notification-response');
 
-type NotificationResponse = Parameters<
+type ProcessedNotificationResponse = Parameters<
   typeof processPushNotificationResponse
 >[0];
 
 const createResponse = (
   identifier: string,
-  data: Record<string, unknown>
-): NotificationResponse =>
+  data: Record<string, unknown>,
+  date = 1000
+): ProcessedNotificationResponse =>
   ({
     notification: {
+      date,
       request: {
         identifier,
         content: { data },
@@ -41,6 +48,10 @@ const createResponse = (
 describe('processPushNotificationResponse', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockClearBadge.mockReset();
+    mockHandleNotificationResponse.mockReset();
+    mockTrackNotificationInteraction.mockReset();
+    mockWarn.mockReset();
   });
 
   it('deduplicates by delivery identifier while retaining payload attribution', () => {
@@ -60,6 +71,58 @@ describe('processPushNotificationResponse', () => {
       'utility-campaign-1'
     );
     expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(1);
+    expect(mockClearBadge).toHaveBeenCalledTimes(1);
+  });
+
+  it('processes separate occurrences that reuse a recurring request identifier', () => {
+    const navigate = jest.fn();
+    const firstOccurrence = createResponse(
+      'utility-recurring',
+      { notification_type: 'savings_reminder' },
+      2000
+    );
+    const secondOccurrence = createResponse(
+      'utility-recurring',
+      { notification_type: 'savings_reminder' },
+      3000
+    );
+
+    processPushNotificationResponse(firstOccurrence, navigate);
+    processPushNotificationResponse(secondOccurrence, navigate);
+
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(2);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
+    expect(mockClearBadge).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries user-facing handling after a navigation error', () => {
+    const navigate = jest
+      .fn<(screen: string, params?: Record<string, string>) => void>()
+      .mockImplementationOnce(() => {
+        throw new Error('navigator is not ready');
+      });
+    mockHandleNotificationResponse.mockImplementation(
+      (
+        _response: NotificationResponse,
+        navigateFromResponse: (
+          screen: string,
+          params?: Record<string, string>
+        ) => void
+      ) => {
+        navigateFromResponse('wallet');
+      }
+    );
+    const response = createResponse('utility-navigation-failure', {
+      notification_type: 'promotion',
+    });
+
+    expect(() =>
+      processPushNotificationResponse(response, navigate)
+    ).not.toThrow();
+    processPushNotificationResponse(response, navigate);
+
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
     expect(mockClearBadge).toHaveBeenCalledTimes(1);
   });
 

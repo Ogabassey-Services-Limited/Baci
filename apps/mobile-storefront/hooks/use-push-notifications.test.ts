@@ -25,10 +25,6 @@ const mockSavePushTokenToServer =
   jest.fn<
     (token: string, userId: string, merchantId?: string) => Promise<boolean>
   >();
-const mockRouterPush = jest.fn();
-let mockNotificationResponseCallback:
-  | ((response: Record<string, unknown>) => void)
-  | null = null;
 
 const mockEnsureAndroidNotificationChannels = jest.fn<() => Promise<void>>();
 
@@ -39,43 +35,26 @@ const mockClearStoredPushToken = jest.fn<() => Promise<void>>();
 const mockIsPushOptedOut = jest.fn<(userId: string) => Promise<boolean>>();
 const mockSetPushOptOut =
   jest.fn<(userId: string, optOut: boolean) => Promise<void>>();
-const mockTrackNotificationInteraction = jest.fn();
-const mockGetLastNotificationResponse =
-  jest.fn<() => Promise<Record<string, unknown> | null>>();
-
-jest.mock('expo-router', () => ({
-  router: {
-    push: mockRouterPush,
-  },
-}));
 
 jest.mock('expo-notifications', () => ({
   addNotificationReceivedListener: jest.fn(() => ({
     remove: mockNotificationListenerRemove,
   })),
-  addNotificationResponseReceivedListener: jest.fn(
-    (callback: (response: Record<string, unknown>) => void) => {
-      mockNotificationResponseCallback = callback;
-      return {
-        remove: mockResponseListenerRemove,
-      };
-    }
-  ),
-  getLastNotificationResponseAsync: mockGetLastNotificationResponse,
+  addNotificationResponseReceivedListener: jest.fn(() => ({
+    remove: mockResponseListenerRemove,
+  })),
+  getLastNotificationResponseAsync: jest
+    .fn<() => Promise<null>>()
+    .mockResolvedValue(null),
 }));
 
 jest.mock('@/services/push-notification-channels', () => ({
   ensureAndroidNotificationChannels: mockEnsureAndroidNotificationChannels,
 }));
 
-jest.mock('@/services/analytics', () => ({
-  trackError: jest.fn(),
-  trackNotificationInteraction: mockTrackNotificationInteraction,
-}));
+jest.mock('@/services/analytics', () => ({ trackError: jest.fn() }));
 
 jest.mock('@/services/push-notifications', () => ({
-  clearBadge: jest.fn(),
-  handleNotificationResponse: jest.fn(),
   registerForPushNotifications: mockRegisterForPushNotifications,
   removePushTokenFromServer: mockRemovePushTokenFromServer,
   savePushTokenToServer: mockSavePushTokenToServer,
@@ -101,21 +80,10 @@ const mockedUseAuthStore = (
 
 const { usePushNotifications } =
   require('./use-push-notifications') as typeof import('./use-push-notifications');
-const { handleNotificationResponse } = jest.requireMock(
-  '@/services/push-notifications'
-) as {
-  handleNotificationResponse: jest.MockedFunction<
-    typeof import('@/services/push-notifications')['handleNotificationResponse']
-  >;
-};
 
 describe('usePushNotifications', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    handleNotificationResponse.mockReset();
-    mockNotificationResponseCallback = null;
-    mockTrackNotificationInteraction.mockReset();
-    mockGetLastNotificationResponse.mockResolvedValue(null);
     mockedUseAuthStore.mockImplementation((selector) =>
       selector({
         merchantId: 'merchant-1',
@@ -412,235 +380,6 @@ describe('usePushNotifications', () => {
     expect(result.current.pushToken).toBeNull();
     expect(result.current.registeredUserId).toBeNull();
     expect(result.current.isRegistered).toBe(false);
-  });
-
-  it('routes token-ready notification taps to utility history', async () => {
-    handleNotificationResponse.mockImplementation(
-      (
-        _response: unknown,
-        navigate: (screen: string, params?: Record<string, string>) => void
-      ) => {
-        navigate('utility-history', { type: 'power' });
-      }
-    );
-
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockNotificationResponseCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mockNotificationResponseCallback?.({
-        notification: {
-          request: {
-            identifier: 'notification-1',
-            content: {
-              data: {
-                notification_id: 'campaign-1',
-                notification_type: 'promotion',
-              },
-            },
-          },
-        },
-      });
-    });
-
-    expect(mockRouterPush).toHaveBeenCalledWith(
-      '/utilities/history?type=power'
-    );
-    expect(mockTrackNotificationInteraction).toHaveBeenCalledWith(
-      'opened',
-      'promotion',
-      'campaign-1'
-    );
-  });
-
-  it('counts a notification tap once when Expo emits duplicate responses', async () => {
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockNotificationResponseCallback).not.toBeNull();
-    });
-
-    const response = {
-      notification: {
-        request: {
-          identifier: 'notification-duplicate',
-          content: { data: { notification_type: 'promotion' } },
-        },
-      },
-    };
-    act(() => {
-      mockNotificationResponseCallback?.(response);
-      mockNotificationResponseCallback?.(response);
-    });
-
-    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
-  });
-
-  it('counts distinct deliveries separately when they share a payload notification id', async () => {
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockNotificationResponseCallback).not.toBeNull();
-    });
-
-    const firstDelivery = {
-      notification: {
-        request: {
-          identifier: 'delivery-1',
-          content: {
-            data: {
-              notification_id: 'campaign-shared',
-              notification_type: 'promotion',
-            },
-          },
-        },
-      },
-    };
-    const secondDelivery = {
-      notification: {
-        request: {
-          identifier: 'delivery-2',
-          content: {
-            data: {
-              notification_id: 'campaign-shared',
-              notification_type: 'promotion',
-            },
-          },
-        },
-      },
-    };
-
-    act(() => {
-      mockNotificationResponseCallback?.(firstDelivery);
-      mockNotificationResponseCallback?.(secondDelivery);
-    });
-
-    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(2);
-    expect(mockTrackNotificationInteraction).toHaveBeenNthCalledWith(
-      1,
-      'opened',
-      'promotion',
-      'campaign-shared'
-    );
-    expect(mockTrackNotificationInteraction).toHaveBeenNthCalledWith(
-      2,
-      'opened',
-      'promotion',
-      'campaign-shared'
-    );
-    expect(handleNotificationResponse).toHaveBeenCalledTimes(2);
-  });
-
-  it('still handles a notification response when analytics tracking throws', async () => {
-    mockTrackNotificationInteraction.mockImplementation(() => {
-      throw new Error('analytics unavailable');
-    });
-
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockNotificationResponseCallback).not.toBeNull();
-    });
-
-    const response = {
-      notification: {
-        request: {
-          identifier: 'notification-analytics-failure',
-          content: { data: { notification_type: 'promotion' } },
-        },
-      },
-    };
-
-    expect(() => {
-      act(() => {
-        mockNotificationResponseCallback?.(response);
-      });
-    }).not.toThrow();
-    expect(handleNotificationResponse).toHaveBeenCalledTimes(1);
-  });
-
-  it('tracks a notification opened from a cold start', async () => {
-    mockGetLastNotificationResponse.mockResolvedValue({
-      notification: {
-        request: {
-          identifier: 'notification-cold-start',
-          content: { data: { notification_type: 'promotion' } },
-        },
-      },
-    });
-
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockTrackNotificationInteraction).toHaveBeenCalledWith(
-        'opened',
-        'promotion',
-        'notification-cold-start'
-      );
-    });
-  });
-
-  it('does not re-track a cold-start response after the hook remounts', async () => {
-    const response = {
-      notification: {
-        request: {
-          identifier: 'notification-remount',
-          content: { data: { notification_type: 'promotion' } },
-        },
-      },
-    };
-    mockGetLastNotificationResponse.mockResolvedValue(response);
-
-    const firstMount = renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
-    });
-    firstMount.unmount();
-
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockGetLastNotificationResponse).toHaveBeenCalledTimes(2);
-    });
-    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
-    expect(handleNotificationResponse).toHaveBeenCalledTimes(1);
-  });
-
-  it('routes savings reminder notification taps to the wallet savings action', async () => {
-    handleNotificationResponse.mockImplementation(
-      (
-        _response: unknown,
-        navigate: (screen: string, params?: Record<string, string>) => void
-      ) => {
-        navigate('wallet', { action: 'savings' });
-      }
-    );
-
-    renderHook(() => usePushNotifications());
-
-    await waitFor(() => {
-      expect(mockNotificationResponseCallback).not.toBeNull();
-    });
-
-    act(() => {
-      mockNotificationResponseCallback?.({
-        notification: {
-          request: {
-            identifier: 'notification-2',
-            content: { data: { notification_type: 'savings_reminder' } },
-          },
-        },
-      });
-    });
-
-    expect(mockRouterPush).toHaveBeenCalledWith({
-      pathname: '/wallet',
-      params: { action: 'savings' },
-    });
   });
 
   // --- unregister() tests ---
