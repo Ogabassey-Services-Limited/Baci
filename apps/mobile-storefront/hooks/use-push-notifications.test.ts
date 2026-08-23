@@ -500,6 +500,33 @@ describe('usePushNotifications', () => {
     });
   });
 
+  it('does not re-track a cold-start response after the hook remounts', async () => {
+    const response = {
+      notification: {
+        request: {
+          identifier: 'notification-remount',
+          content: { data: { notification_type: 'promotion' } },
+        },
+      },
+    };
+    mockGetLastNotificationResponse.mockResolvedValue(response);
+
+    const firstMount = renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    });
+    firstMount.unmount();
+
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockGetLastNotificationResponse).toHaveBeenCalledTimes(2);
+    });
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(handleNotificationResponse).toHaveBeenCalledTimes(1);
+  });
+
   it('routes savings reminder notification taps to the wallet savings action', async () => {
     handleNotificationResponse.mockImplementation(
       (

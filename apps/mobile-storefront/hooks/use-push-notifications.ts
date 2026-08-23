@@ -33,6 +33,7 @@ type EventSubscription = {
 
 let Notifications: typeof import('expo-notifications') | null = null;
 let _notificationsReady: Promise<void>;
+const openedNotificationIds = new Set<string>();
 
 const loadNativeModules = async () => {
   if (Platform.OS === 'web') return;
@@ -188,7 +189,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   useEffect(() => {
     const cancelledRef = { current: false };
-    const openedNotificationIds = new Set<string>();
 
     const processNotificationResponse = (
       response: import('expo-notifications').NotificationResponse
