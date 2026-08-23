@@ -126,9 +126,24 @@ describe('getStorefrontProductCanonicalRedirectResult preflight handling', () =>
       throw new Error('slow RPC resolver was not initialized');
     };
     const rpcImpl = vi.fn(
-      () =>
-        new Promise<StorefrontPreflightRpcResult>((resolve) => {
-          resolveRpc = resolve;
+      (_fn: string, _args: Record<string, string>, signal: AbortSignal) =>
+        new Promise<StorefrontPreflightRpcResult>((resolve, reject) => {
+          const rejectOnAbort = () => {
+            reject(
+              new DOMException('The operation was aborted.', 'AbortError')
+            );
+          };
+
+          if (signal.aborted) {
+            rejectOnAbort();
+            return;
+          }
+
+          signal.addEventListener('abort', rejectOnAbort, { once: true });
+          resolveRpc = (result) => {
+            signal.removeEventListener('abort', rejectOnAbort);
+            resolve(result);
+          };
         })
     );
 
