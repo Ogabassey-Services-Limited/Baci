@@ -63,6 +63,10 @@ function schedulePendingNotificationResponse(responseKey: string): void {
   pending.retryTimer = setTimeout(() => {
     const current = pendingNotificationResponses.get(responseKey);
     if (!current) return;
+    if (latestResponseKey !== responseKey) {
+      clearPendingNotificationResponse(responseKey);
+      return;
+    }
 
     current.retryTimer = undefined;
     processPushNotificationResponse(

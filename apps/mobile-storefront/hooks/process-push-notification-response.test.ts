@@ -164,7 +164,7 @@ describe('processPushNotificationResponse', () => {
     expect(mockWarn).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry an older finalization after a newer response succeeds', () => {
+  it('does not retry older navigation after a newer response succeeds', () => {
     jest.useFakeTimers();
     const navigate = jest.fn();
     const onHandled = jest.fn();
@@ -188,7 +188,7 @@ describe('processPushNotificationResponse', () => {
 
     expect(onHandled).toHaveBeenCalledTimes(1);
     expect(onHandled).toHaveBeenCalledWith(secondResponse);
-    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(3);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
   });
 
   it('does not retry when finalization itself throws', () => {
