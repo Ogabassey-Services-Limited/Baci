@@ -67,7 +67,9 @@ export function getJumiaProductUpdateReadinessErrors(
   includesStatus: boolean,
   includesPrice: boolean
 ): string[] {
-  const readyCount = mappings.filter((mapping) => mapping.jumia_product_id).length;
+  const readyCount = mappings.filter(
+    (mapping) => mapping.jumia_product_id
+  ).length;
   const pendingCount = mappings.length - readyCount;
   if (pendingCount === 0) return [];
 
@@ -79,6 +81,17 @@ export function getJumiaProductUpdateReadinessErrors(
     ...(includesStatus ? [`Status update ${suffix}`] : []),
     ...(includesPrice ? [`Price update ${suffix}`] : []),
   ];
+}
+
+export function hasJumiaPriceOverrides(
+  overrides: Record<string, unknown>
+): boolean {
+  return [
+    'jumia_price',
+    'jumia_sale_price',
+    'jumia_sale_start',
+    'jumia_sale_end',
+  ].some((key) => Object.hasOwn(overrides, key));
 }
 
 export async function pushStatusUpdates(
