@@ -57,13 +57,22 @@ describe('provider-neutral ads migration replay inventory', () => {
     const migration = readFileSync(
       path.resolve(process.cwd(), `../../supabase/migrations/${migrationName}`)
     );
-    const historySources = readFileSync(
-      path.resolve(
-        process.cwd(),
-        'tools/db/supabase-history-replay-sources.ts'
+    const historySources = [
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-sources.ts'
+        ),
+        'utf8'
       ),
-      'utf8'
-    );
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-ads-pending-sources.ts'
+        ),
+        'utf8'
+      ),
+    ].join('\n');
     const pendingSources = readFileSync(
       path.resolve(
         process.cwd(),
@@ -255,13 +264,22 @@ describe('provider-neutral ads migration replay inventory', () => {
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {
-    const historySources = readFileSync(
-      path.resolve(
-        process.cwd(),
-        'tools/db/supabase-history-replay-sources.ts'
+    const historySources = [
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-sources.ts'
+        ),
+        'utf8'
       ),
-      'utf8'
-    );
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-ads-pending-sources.ts'
+        ),
+        'utf8'
+      ),
+    ].join('\n');
     const pendingSources = readFileSync(
       path.resolve(
         process.cwd(),
