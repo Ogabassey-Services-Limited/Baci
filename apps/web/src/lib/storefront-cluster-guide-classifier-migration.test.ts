@@ -6,14 +6,14 @@ import { describe, expect, it } from 'vitest';
 const MIGRATION_SOURCE = readFileSync(
   join(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260823152435_optimize_storefront_cluster_guide_classifier_rpc.sql'
+    '../../../../supabase/migrations/20260823160001_optimize_storefront_cluster_guide_classifier_category_rpc.sql'
   ),
   'utf8'
 );
 const CLASSIFIER_SOURCE = readFileSync(
   join(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260823152433_optimize_storefront_cluster_guide_classifier_core.sql'
+    '../../../../supabase/migrations/20260823160000_optimize_storefront_cluster_guide_classifier_category_core.sql'
   ),
   'utf8'
 );
@@ -21,8 +21,8 @@ const CLASSIFIER_SOURCE = readFileSync(
 describe('storefront cluster guide classifier migration', () => {
   it('keeps the classifier stages in bounded migration units', () => {
     // The behavior regression runs through the public RPC in
-    // supabase/tests/storefront_cluster_guide_candidates_rpc.sql. This test
-    // protects the migration decomposition and optimized plan shape.
+    // supabase/tests/storefront_cluster_guide_classifier_behavior.sql. This
+    // test protects the migration decomposition and optimized plan shape.
     expect(CLASSIFIER_SOURCE.split(/\r?\n/).length).toBeLessThan(300);
     expect(MIGRATION_SOURCE.split(/\r?\n/).length).toBeLessThan(300);
     expect(CLASSIFIER_SOURCE).toContain(
@@ -41,8 +41,17 @@ describe('storefront cluster guide classifier migration', () => {
       /explicit_fallback_matches[\s\S]*pg_catalog\.strpos\(/
     );
     expect(CLASSIFIER_SOURCE).not.toMatch(/LEFT JOIN LATERAL/);
+    expect(CLASSIFIER_SOURCE).toContain(
+      'WHERE classified.inferred_category_slug = p_requested_category_slug'
+    );
+    expect(CLASSIFIER_SOURCE).toContain(
+      'LIMIT least(greatest(coalesce(p_effective_limit, 64), 1), 64)'
+    );
     expect(MIGRATION_SOURCE).toContain(
       'FROM private.classify_storefront_cluster_guide_candidates_v1('
+    );
+    expect(MIGRATION_SOURCE).toContain(
+      'v_requested_category_slug,\n    v_effective_limit'
     );
   });
 
@@ -52,7 +61,9 @@ describe('storefront cluster guide classifier migration', () => {
     );
     expect(MIGRATION_SOURCE).toContain('SECURITY DEFINER');
     expect(MIGRATION_SOURCE).toContain("SET search_path TO ''");
-    expect(MIGRATION_SOURCE).toContain('LIMIT v_effective_limit');
+    expect(MIGRATION_SOURCE).not.toContain(
+      'WHERE classified.inferred_category_slug'
+    );
     expect(MIGRATION_SOURCE).toContain('settings.blog_enabled IS TRUE');
     expect(MIGRATION_SOURCE).not.toMatch(/SELECT\s+\*/i);
     expect(CLASSIFIER_SOURCE).toContain('SECURITY DEFINER');

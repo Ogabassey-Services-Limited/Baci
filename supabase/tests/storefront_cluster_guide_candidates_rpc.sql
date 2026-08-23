@@ -65,10 +65,12 @@ BEGIN
     ON namespace.oid = proc.pronamespace
   WHERE namespace.nspname = 'private'
     AND proc.proname = 'classify_storefront_cluster_guide_candidates_v1'
-    AND proc.pronargs = 3
+    AND proc.pronargs = 5
     AND proc.proargtypes[0] = 'uuid'::pg_catalog.regtype
     AND proc.proargtypes[1] = 'jsonb'::pg_catalog.regtype
-    AND proc.proargtypes[2] = 'pg_catalog.tsquery'::pg_catalog.regtype;
+    AND proc.proargtypes[2] = 'pg_catalog.tsquery'::pg_catalog.regtype
+    AND proc.proargtypes[3] = 'text'::pg_catalog.regtype
+    AND proc.proargtypes[4] = 'integer'::pg_catalog.regtype;
 
   IF v_classifier_oid IS NULL THEN
     RAISE EXCEPTION 'private guide classifier is missing';
@@ -296,117 +298,6 @@ BEGIN
       2
     );
 
-  -- These three rows exercise the classifier branches directly: the category
-  -- suffix requires substring fallback, the neutral category requires token
-  -- inference, and the phone category is used to assert rule-order tie-breaking.
-  INSERT INTO public.blog_posts (
-    merchant_id,
-    title,
-    slug,
-    content,
-    excerpt,
-    category,
-    tags,
-    keywords,
-    author_name,
-    status,
-    published_at,
-    reading_time_minutes
-  )
-  VALUES
-    (
-      v_enabled_merchant_id,
-      'Substring fallbackterm guide',
-      'substring-fallback-guide',
-      'A guide whose category contains the cluster name as a suffix.',
-      'Substring fallback guide',
-      'Smartphones Accessories',
-      ARRAY[]::text[],
-      ARRAY[]::text[],
-      'Baci Test Author',
-      'published',
-      '2026-01-09 00:00:00+00'::timestamp with time zone,
-      4
-    ),
-    (
-      v_enabled_merchant_id,
-      'Inferredtoken guide',
-      'inferred-token-guide',
-      'A neutral-category article containing the inferred token.',
-      'Inferred token guide',
-      'Accessories',
-      ARRAY[]::text[],
-      ARRAY[]::text[],
-      'Baci Test Author',
-      'published',
-      '2026-01-10 00:00:00+00'::timestamp with time zone,
-      4
-    ),
-    (
-      v_enabled_merchant_id,
-      'Tiebreakterm phone guide',
-      'tie-breaking-guide',
-      'Two rules match this exact category; the earlier rule must win.',
-      'Tie-breaking guide',
-      'Phone',
-      ARRAY[]::text[],
-      ARRAY[]::text[],
-      'Baci Test Author',
-      'published',
-      '2026-01-11 00:00:00+00'::timestamp with time zone,
-      4
-    );
-
-  -- These posts are all newer than the valid guide but intentionally do not
-  -- match zephyrbattery. A limit-first implementation would lose the old guide.
-  INSERT INTO public.blog_posts (
-    merchant_id,
-    title,
-    slug,
-    content,
-    category,
-    author_name,
-    status,
-    published_at
-  )
-  SELECT
-    v_enabled_merchant_id,
-    pg_catalog.format('Newer laptop battery article %s', series_number),
-    pg_catalog.format('newer-unrelated-article-%s', series_number),
-    pg_catalog.format(
-      'Laptop battery battery battery buying notes number %s.',
-      series_number
-    ),
-    'Laptops',
-    'Baci Test Author',
-    'published',
-    '2026-02-01 00:00:00+00'::timestamp with time zone
-      + series_number * interval '1 minute'
-  FROM pg_catalog.generate_series(1, 70) AS series_number;
-
-  -- More than 64 matching posts prove that caller limits cannot bypass the
-  -- hard result cap.
-  INSERT INTO public.blog_posts (
-    merchant_id,
-    title,
-    slug,
-    content,
-    category,
-    author_name,
-    status,
-    published_at
-  )
-  SELECT
-    v_enabled_merchant_id,
-    pg_catalog.format('Capterm guide %s', series_number),
-    pg_catalog.format('capterm-guide-%s', series_number),
-    pg_catalog.format('A public capterm guide number %s.', series_number),
-    'Smartphones',
-    'Baci Test Author',
-    'published',
-    '2026-03-01 00:00:00+00'::timestamp with time zone
-      + series_number * interval '1 minute'
-  FROM pg_catalog.generate_series(1, 70) AS series_number;
 END;
 $setup$;
 
@@ -462,20 +353,6 @@ DECLARE
         'amd',
         'ryzen'
       )
-    )
-  );
-  v_tie_rules jsonb := pg_catalog.jsonb_build_array(
-    pg_catalog.jsonb_build_object(
-      'rule_order', 0,
-      'category_slug', 'smartphones',
-      'category_names', pg_catalog.jsonb_build_array('phone'),
-      'article_tokens', pg_catalog.jsonb_build_array('phone')
-    ),
-    pg_catalog.jsonb_build_object(
-      'rule_order', 1,
-      'category_slug', 'laptops',
-      'category_names', pg_catalog.jsonb_build_array('phone'),
-      'article_tokens', pg_catalog.jsonb_build_array('laptop')
     )
   );
   v_count integer;
@@ -574,123 +451,6 @@ BEGIN
   THEN
     RAISE EXCEPTION 'metadata-only guide classification was lost: %',
       pg_catalog.row_to_json(v_result);
-  END IF;
-
-  SELECT count(*)::integer
-  INTO v_count
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'fallbackterm'
-  );
-
-  IF v_count <> 1 THEN
-    RAISE EXCEPTION 'substring fallback returned % rows, expected 1', v_count;
-  END IF;
-
-  SELECT slug
-  INTO v_result
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'fallbackterm'
-  );
-
-  IF v_result.slug IS DISTINCT FROM 'substring-fallback-guide' THEN
-    RAISE EXCEPTION 'substring fallback returned unexpected guide: %',
-      pg_catalog.row_to_json(v_result);
-  END IF;
-
-  SELECT slug
-  INTO v_result
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'inferredtoken'
-  );
-
-  IF v_result.slug IS DISTINCT FROM 'inferred-token-guide' THEN
-    RAISE EXCEPTION 'inferred-token classification returned unexpected guide: %',
-      pg_catalog.row_to_json(v_result);
-  END IF;
-
-  SELECT slug
-  INTO v_result
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_tie_rules,
-    'tiebreakterm'
-  );
-
-  IF v_result.slug IS DISTINCT FROM 'tie-breaking-guide' THEN
-    RAISE EXCEPTION 'rule-order tie-breaking returned unexpected guide: %',
-      pg_catalog.row_to_json(v_result);
-  END IF;
-
-  -- Relevance is applied before LIMIT: seventy newer but irrelevant posts must
-  -- not displace this older matching guide.
-  SELECT *
-  INTO v_result
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'zephyrbattery',
-    1
-  );
-
-  IF v_result.slug IS DISTINCT FROM 'valid-old-zephyrbattery-guide' THEN
-    RAISE EXCEPTION 'relevance-before-limit returned unexpected guide: %',
-      pg_catalog.row_to_json(v_result);
-  END IF;
-
-  -- Cluster classification happens before LIMIT. Seventy newer, higher-ranked
-  -- laptop battery posts must not displace the older smartphone battery guide.
-  SELECT *
-  INTO v_result
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'battery',
-    1
-  );
-
-  IF v_result.slug IS DISTINCT FROM 'valid-old-zephyrbattery-guide' THEN
-    RAISE EXCEPTION 'pre-cap cluster filtering returned unexpected guide: %',
-      pg_catalog.row_to_json(v_result);
-  END IF;
-
-  SELECT count(*)::integer
-  INTO v_count
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'capterm',
-    999
-  );
-
-  IF v_count <> 64 THEN
-    RAISE EXCEPTION 'upper result cap returned %, expected 64', v_count;
-  END IF;
-
-  SELECT count(*)::integer
-  INTO v_count
-  FROM public.get_storefront_cluster_guide_candidates_v1(
-    v_enabled_merchant_id,
-    'smartphones',
-    v_cluster_rules,
-    'capterm',
-    0
-  );
-
-  IF v_count <> 1 THEN
-    RAISE EXCEPTION 'lower result cap returned %, expected 1', v_count;
   END IF;
 
   SELECT count(*)::integer
