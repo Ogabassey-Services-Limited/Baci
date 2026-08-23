@@ -215,10 +215,13 @@ export async function resolveQuoteMerchantContext({
   const trustedSenderMerchantId =
     storefrontMerchantId ?? permittedAuthenticatedMerchantId;
   const bodyOnlyMerchantId =
-    !trustedSenderMerchantId && merchantId && !data.sender
+    !trustedSenderMerchantId &&
+    merchantId &&
+    !data.sender &&
+    normalizeHeader(request.headers.get('x-baci-client')) ===
+      'mobile-storefront'
       ? merchantId
       : undefined;
-
   let senderInfo =
     data.shipmentType === 'international' ? undefined : data.sender;
   let merchantCountry: string | null | undefined;
@@ -276,7 +279,10 @@ export async function resolveQuoteMerchantContext({
     }
     if (!publicSenderResult.sender) {
       return {
-        error: 'Merchant shipping origin is not configured',
+        error:
+          data.shipmentType === 'international'
+            ? 'Sender is required for international quotes'
+            : 'Merchant shipping origin is not configured',
         ok: false,
         status: 400,
       };

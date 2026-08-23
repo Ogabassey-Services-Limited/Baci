@@ -50,7 +50,10 @@ describe('body-only mobile storefront quote context', () => {
         merchantId: 'merchant-abuja',
         shipmentType: 'domestic',
       },
-      request: createRequest({ host: 'usebaci.com' }),
+      request: createRequest({
+        host: 'usebaci.com',
+        'x-baci-client': 'mobile-storefront',
+      }),
       supabase: {
         auth: {
           getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
@@ -86,7 +89,10 @@ describe('body-only mobile storefront quote context', () => {
     await expect(
       resolveQuoteMerchantContext({
         data: { merchantId: 'merchant-missing', shipmentType: 'domestic' },
-        request: createRequest({ host: 'usebaci.com' }),
+        request: createRequest({
+          host: 'usebaci.com',
+          'x-baci-client': 'mobile-storefront',
+        }),
         supabase: {
           auth: {
             getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
