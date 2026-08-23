@@ -207,6 +207,20 @@ BEGIN
     RAISE EXCEPTION 'anonymous callers can purge orphaned Jumia grants';
   END IF;
 
+  IF to_regprocedure(
+    'public.purge_orphaned_jumia_authorizations()'
+  ) IS NULL THEN
+    RAISE EXCEPTION 'Jumia orphan authorization sweep function is missing';
+  END IF;
+
+  IF NOT has_function_privilege(
+    'anon',
+    to_regprocedure('public.purge_orphaned_jumia_authorizations()'),
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'cron callers cannot execute Jumia orphan authorization sweep';
+  END IF;
+
   SELECT pg_get_functiondef(
     to_regprocedure(
       'public.load_jumia_authorization_credentials(uuid,uuid)'

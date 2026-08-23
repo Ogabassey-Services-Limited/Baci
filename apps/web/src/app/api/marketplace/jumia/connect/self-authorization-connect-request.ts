@@ -59,17 +59,38 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
           { status: 503 }
         );
       }
-      const validated = await validateJumiaSelfAuthorization({
-        clientId: body.clientId,
-        refreshToken: body.refreshToken,
-      });
       const clientKeyHash = crypto
         .createHash('sha256')
         .update(body.clientId)
         .digest('hex');
-      const discoveryId = await createJumiaSelfAuthorizationDiscovery(
-        supabase,
+      let discoveryId: string | undefined;
+      const validated = await validateJumiaSelfAuthorization(
         {
+          clientId: body.clientId,
+          refreshToken: body.refreshToken,
+        },
+        {
+          onCredentialsRotated: async ({ credentials }) => {
+            discoveryId = await createJumiaSelfAuthorizationDiscovery(
+              supabase,
+              {
+                merchantId,
+                clientKeyHash,
+                credentialCiphertext: jumiaAuthorizationCrypto.encrypt(
+                  credentials,
+                  encryptionKey,
+                  jumiaAuthorizationCrypto.buildAuthorizationContext(
+                    merchantId,
+                    clientKeyHash
+                  )
+                ),
+              }
+            );
+          },
+        }
+      );
+      if (!discoveryId) {
+        discoveryId = await createJumiaSelfAuthorizationDiscovery(supabase, {
           merchantId,
           clientKeyHash,
           credentialCiphertext: jumiaAuthorizationCrypto.encrypt(
@@ -80,8 +101,8 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
               clientKeyHash
             )
           ),
-        }
-      );
+        });
+      }
       return jumiaSelfAuthorizationHandler.discover({
         credentials: {
           clientId: body.clientId,

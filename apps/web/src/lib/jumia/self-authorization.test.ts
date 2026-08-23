@@ -105,6 +105,47 @@ describe('validateJumiaSelfAuthorization', () => {
     ).rejects.toThrow('Jumia returned an invalid token response');
   });
 
+  it('persists rotated credentials before shop discovery fails', async () => {
+    fetchMock
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: 'access-secret',
+          refresh_token: 'rotated-secret',
+          expires_in: 3600,
+          refresh_expires_in: 86400,
+          token_type: 'Bearer',
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response('temporary provider failure', { status: 503 })
+      );
+    const onCredentialsRotated = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      validateJumiaSelfAuthorization(
+        { clientId: 'client-secret', refreshToken: 'refresh-secret' },
+        {
+          fetch: fetchMock,
+          baseUrl: 'https://vendor.example',
+          onCredentialsRotated,
+        }
+      )
+    ).rejects.toThrow('Jumia shop discovery failed');
+
+    expect(onCredentialsRotated).toHaveBeenCalledTimes(1);
+    expect(onCredentialsRotated).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credentials: {
+          clientId: 'client-secret',
+          refreshToken: 'rotated-secret',
+          accessToken: 'access-secret',
+        },
+        accessTokenExpiresAt: expect.any(String),
+        refreshTokenExpiresAt: expect.any(String),
+      })
+    );
+  });
+
   it('adds selection keys when one shop has multiple active marketplaces', async () => {
     fetchMock
       .mockResolvedValueOnce(

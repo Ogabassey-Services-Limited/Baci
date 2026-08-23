@@ -10,6 +10,8 @@ const querySchema = z.object({
   integrationId: z.uuid(),
 });
 
+const MAPPED_PRODUCTS_PAGE_SIZE = 500;
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -63,24 +65,43 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data, error } = await auth.supabase
-    .from('jumia_product_mappings')
-    .select('product_id')
-    .eq('merchant_id', merchantId)
-    .eq('jumia_shop_id', integration.shop_id)
-    .eq('marketplace_key', integration.marketplace_key ?? 'default')
-    .neq('sync_status', 'error');
+  const mappedProducts: Array<{ product_id: string | null }> = [];
+  let cursor: string | undefined;
+  for (;;) {
+    let query = auth.supabase
+      .from('jumia_product_mappings')
+      .select('id, product_id')
+      .eq('merchant_id', merchantId)
+      .eq('jumia_shop_id', integration.shop_id)
+      .eq('marketplace_key', integration.marketplace_key ?? 'default')
+      .neq('sync_status', 'error');
+    if (cursor) query = query.gt('id', cursor);
+    const { data, error } = await query
+      .order('id', { ascending: true })
+      .limit(MAPPED_PRODUCTS_PAGE_SIZE);
 
-  if (error) {
-    return NextResponse.json(
-      { error: 'Failed to load mapped products' },
-      { status: 500 }
-    );
+    if (error) {
+      return NextResponse.json(
+        { error: 'Failed to load mapped products' },
+        { status: 500 }
+      );
+    }
+
+    const page = (data ?? []) as Array<{
+      id: string;
+      product_id: string | null;
+    }>;
+    mappedProducts.push(...page);
+    if (page.length < MAPPED_PRODUCTS_PAGE_SIZE) {
+      break;
+    }
+    cursor = page.at(-1)?.id;
+    if (!cursor) break;
   }
 
   return NextResponse.json({
     productIds: Array.from(
-      new Set((data ?? []).map((row) => row.product_id).filter(Boolean))
+      new Set(mappedProducts.map((row) => row.product_id).filter(Boolean))
     ),
   });
 }

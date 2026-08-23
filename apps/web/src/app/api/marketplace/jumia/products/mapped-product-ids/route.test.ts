@@ -22,7 +22,24 @@ vi.mock('@/lib/merchant-feature-gates', () => ({
 
 import { GET } from './route';
 
-function createSupabaseMock() {
+function createSupabaseMock(
+  mappedPages: Array<Array<{ product_id: string | null }>> = [
+    [{ product_id: 'product-1' }],
+  ]
+) {
+  let mappedPageIndex = 0;
+  const limit = vi.fn().mockImplementation(() =>
+    Promise.resolve({
+      data: (mappedPages[mappedPageIndex++] ?? []).map((row, index) => ({
+        id: `${mappedPageIndex}-${index}`,
+        ...row,
+      })),
+      error: null,
+    })
+  );
+  const order = vi.fn().mockReturnValue({ limit });
+  const gt = vi.fn().mockReturnValue({ order });
+
   return {
     from: (table: string) => {
       if (table === 'marketplace_integrations') {
@@ -53,9 +70,9 @@ function createSupabaseMock() {
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
-                  neq: vi.fn().mockResolvedValue({
-                    data: [{ product_id: 'product-1' }],
-                    error: null,
+                  neq: vi.fn().mockReturnValue({
+                    gt,
+                    order,
                   }),
                 }),
               }),
@@ -90,6 +107,30 @@ describe('Jumia mapped product ids GET', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       productIds: ['product-1'],
+    });
+  });
+
+  it('loads mapped product ids across response pages', async () => {
+    const firstPage = Array.from({ length: 500 }, (_, index) => ({
+      product_id: `product-${index}`,
+    }));
+    mocks.authenticateApiRequest.mockResolvedValue({
+      user: { id: 'user-1' },
+      supabase: createSupabaseMock([
+        firstPage,
+        [{ product_id: 'product-500' }],
+      ]),
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/marketplace/jumia/products/mapped-product-ids?integrationId=00000000-0000-4000-8000-000000000099'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      productIds: [...firstPage.map((row) => row.product_id), 'product-500'],
     });
   });
 });

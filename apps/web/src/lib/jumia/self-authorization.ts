@@ -26,6 +26,11 @@ export type ValidatedSelfAuthorization = {
 type ValidationDependencies = {
   fetch?: typeof fetch;
   baseUrl?: string;
+  onCredentialsRotated?: (value: {
+    credentials: JumiaSelfAuthorizationCredentials & { accessToken: string };
+    accessTokenExpiresAt: string;
+    refreshTokenExpiresAt: string;
+  }) => Promise<void>;
 };
 
 async function requestWithTimeout<T>(
@@ -131,6 +136,27 @@ export async function validateJumiaSelfAuthorization(
     }
   );
 
+  const credentials = {
+    clientId: submitted.clientId,
+    refreshToken: tokens.refresh_token,
+    accessToken: tokens.access_token,
+  };
+  const accessTokenExpiresAt = new Date(
+    Date.now() + tokens.expires_in * 1000
+  ).toISOString();
+  const refreshTokenExpiresAt = new Date(
+    Date.now() + tokens.refresh_expires_in * 1000
+  ).toISOString();
+
+  // Self-authorization refreshes rotate the refresh token. Persist the
+  // replacement before discovering shops so a transient provider failure
+  // cannot strand the merchant with an already-invalid submitted token.
+  await dependencies.onCredentialsRotated?.({
+    credentials,
+    accessTokenExpiresAt,
+    refreshTokenExpiresAt,
+  });
+
   const shopsResponseData = await requestWithTimeout(
     fetchImplementation,
     `${baseUrl}/shops`,
@@ -182,17 +208,9 @@ export async function validateJumiaSelfAuthorization(
   }
 
   return {
-    credentials: {
-      clientId: submitted.clientId,
-      refreshToken: tokens.refresh_token,
-      accessToken: tokens.access_token,
-    },
-    accessTokenExpiresAt: new Date(
-      Date.now() + tokens.expires_in * 1000
-    ).toISOString(),
-    refreshTokenExpiresAt: new Date(
-      Date.now() + tokens.refresh_expires_in * 1000
-    ).toISOString(),
+    credentials,
+    accessTokenExpiresAt,
+    refreshTokenExpiresAt,
     shops,
   };
 }
