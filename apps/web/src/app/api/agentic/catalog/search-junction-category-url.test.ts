@@ -3,8 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { POST } from './search/route';
 
+const mockReadAgenticQueryRequest = vi.hoisted(() => vi.fn());
+
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/agentic/mutation-request', () => ({
+  readAgenticQueryRequest: mockReadAgenticQueryRequest,
 }));
 
 vi.mock('@/lib/agentic/agent-request-controls', () => ({
@@ -74,6 +80,19 @@ function mockJunctionOnlyProduct() {
 describe('POST /api/agentic/catalog/search junction categories', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockReadAgenticQueryRequest.mockImplementation(
+      async ({ request }: { request: NextRequest }) => ({
+        agentId: null,
+        apiVersion: '2026-04-30',
+        body: await request.json(),
+        idempotencyKey: '',
+        method: request.method,
+        ok: true,
+        pathname: request.nextUrl.pathname,
+        rawBody: '',
+        requestId: 'catalog-request-1',
+      })
+    );
     mockJunctionOnlyProduct();
   });
 
