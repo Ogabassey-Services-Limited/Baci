@@ -8,6 +8,21 @@ const EAS_UPDATE_URL = `https://u.expo.dev/${EAS_PROJECT_ID}`;
  * Channel is derived from env so store binaries receive production OTAs.
  */
 function buildEasUpdateConfig(environment = process.env) {
+  const isDevelopmentBuild =
+    environment.EAS_BUILD_PROFILE?.trim() === 'development';
+
+  if (isDevelopmentBuild) {
+    return {
+      easProjectId: EAS_PROJECT_ID,
+      runtimeVersion: {
+        policy: 'fingerprint',
+      },
+      updates: {
+        enabled: false,
+      },
+    };
+  }
+
   const updateChannel = resolveUpdateChannel(environment);
 
   return {

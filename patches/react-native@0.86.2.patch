@@ -7,7 +7,7 @@ index 99e05410f8c1b86f90d3907cb163d04db9cf0f59..d6d4f7c9542127a1d0d2e68e18a57490
    // It's up to the consumer to decide if hermes or other engines should be included or not.
    // Therefore hermes-engine is a compileOnly dependencies.
 -  compileOnly(project(":packages:react-native:ReactAndroid:hermes-engine"))
-+  compileOnly("com.facebook.hermes:hermes-android:250829098.0.14")
++  compileOnly("com.facebook.hermes:hermes-android:250829098.0.16")
 
    testImplementation(libs.junit)
    testImplementation(libs.assertj)

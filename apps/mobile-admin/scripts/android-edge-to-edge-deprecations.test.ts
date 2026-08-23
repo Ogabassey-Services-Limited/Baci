@@ -38,7 +38,7 @@ describe('mobile admin Android edge-to-edge dependency guard', () => {
     const reactNativeBuild = readFileSync(reactNativeAndroidBuildPath, 'utf8');
 
     expect(reactNativeBuild).toContain(
-      'compileOnly("com.facebook.hermes:hermes-android:250829098.0.14")'
+      'compileOnly("com.facebook.hermes:hermes-android:250829098.0.16")'
     );
     expect(reactNativeBuild).not.toContain(
       'compileOnly(project(":packages:react-native:ReactAndroid:hermes-engine"))'

@@ -33,6 +33,14 @@ describe('buildEasUpdateConfig', () => {
       'expo-channel-name': 'preview',
     });
   });
+
+  it('disables OTA checks for development clients', () => {
+    const config = buildEasUpdateConfig({
+      EAS_BUILD_PROFILE: 'development',
+    });
+
+    expect(config.updates).toEqual({ enabled: false });
+  });
 });
 
 describe('createExpoDevClientPlugin', () => {

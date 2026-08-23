@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from '@jest/globals';
 
-// Patch-integrity guard for patches/expo-modules-jsi@57.0.3.patch.
+// Patch-integrity guard for the Expo Modules JSI Date guard.
 //
 // Xcode 26.2 (the CI macos-26 image) cannot resolve `abs` in this module's
 // Date guard: C++ interop pulls the C stdlib `abs` overloads into scope next
@@ -26,14 +26,14 @@ const dateGuardPath = join(
 );
 
 describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', () => {
-  it('keeps the patch pinned to expo-modules-jsi@57.0.3', () => {
-    // 57.0.4 ships this file byte-for-byte identical, so there is no upstream
-    // fix to bump to. If the transitive pin ever moves off 57.0.3, re-key the
-    // patch to the new version and update this assertion.
+  it('keeps the resolved Expo 57 package patched or on the upstream fix', () => {
+    // Storefront's Expo 57.0.7 graph is patched at 57.0.3. Expo 57.0.5
+    // contains the same Double.magnitude fix upstream and is hoisted by the
+    // mobile-admin graph, so both resolutions are safe in the workspace.
     const pkg = JSON.parse(readFileSync(jsiPackageJsonPath, 'utf8')) as {
       version?: string;
     };
-    expect(pkg.version).toBe('57.0.3');
+    expect(['57.0.3', '57.0.5']).toContain(pkg.version);
   });
 
   it('applies the Double.magnitude guard and never the ambiguous abs() call', () => {

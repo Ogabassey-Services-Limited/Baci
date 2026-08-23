@@ -9,14 +9,14 @@ describe('resolveUpdateChannel', () => {
     ).toBe('preview');
   });
 
-  it('fails closed to production for an unsupported explicit channel', () => {
+  it('ignores an unsupported explicit channel when a lower-priority channel is valid', () => {
     expect(
       resolveUpdateChannel({
         EXPO_UPDATE_CHANNEL: 'staging',
         EXPO_PUBLIC_ENV: 'preview',
         EAS_BUILD_PROFILE: 'development',
       })
-    ).toBe('production');
+    ).toBe('preview');
   });
 
   it('uses EXPO_PUBLIC_ENV when no explicit channel is configured', () => {

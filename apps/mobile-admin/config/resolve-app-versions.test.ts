@@ -9,10 +9,11 @@ describe('resolveAndroidVersionCode', () => {
     expect(resolveAndroidVersionCode('640')).toBe(640);
   });
 
-  it('ignores non-integer and non-positive values', () => {
+  it('ignores non-integer, non-positive, and out-of-range values', () => {
     expect(resolveAndroidVersionCode('2.5')).toBeUndefined();
     expect(resolveAndroidVersionCode('0')).toBeUndefined();
     expect(resolveAndroidVersionCode('-1')).toBeUndefined();
+    expect(resolveAndroidVersionCode('2100000001')).toBeUndefined();
   });
 });
 
