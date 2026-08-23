@@ -6,7 +6,10 @@ import {
 } from '@/services/push-notifications';
 
 type NotificationResponse = import('expo-notifications').NotificationResponse;
-type Navigate = (screen: string, params?: Record<string, string>) => void;
+type Navigate = (
+  screen: string,
+  params?: Record<string, string>
+) => void | Promise<void>;
 type OnHandled = (response: NotificationResponse) => unknown;
 type ProcessOptions = { isRetry?: boolean };
 
@@ -158,6 +161,23 @@ function attemptNotificationFinalization(
   }, PENDING_RESPONSE_RETRY_DELAY_MS);
 }
 
+function completeNotificationResponse(
+  responseKey: string,
+  response: NotificationResponse,
+  onHandled?: OnHandled
+): void {
+  try {
+    clearBadge();
+  } catch (error) {
+    log.warn('Failed to clear notification badge:', error);
+  }
+
+  openedNotificationIds.add(responseKey);
+  clearPendingNotificationResponse(responseKey);
+  if (onHandled)
+    attemptNotificationFinalization(responseKey, response, onHandled);
+}
+
 export function processPushNotificationResponse(
   response: NotificationResponse,
   navigate: Navigate,
@@ -177,6 +197,7 @@ export function processPushNotificationResponse(
     return;
   }
   processingNotificationIds.add(responseKey);
+  let awaitsAsyncHandling = false;
 
   try {
     const notificationId =
@@ -203,8 +224,9 @@ export function processPushNotificationResponse(
       log.warn('Failed to track notification interaction:', error);
     }
 
+    let handlingResult: void | Promise<void>;
     try {
-      handleNotificationResponse(response, navigate);
+      handlingResult = handleNotificationResponse(response, navigate);
     } catch (error) {
       log.warn('Failed to handle notification response:', error);
       queuePendingNotificationResponse(
@@ -216,17 +238,29 @@ export function processPushNotificationResponse(
       return;
     }
 
-    try {
-      clearBadge();
-    } catch (error) {
-      log.warn('Failed to clear notification badge:', error);
+    if (handlingResult) {
+      awaitsAsyncHandling = true;
+      void handlingResult
+        .then(() => {
+          completeNotificationResponse(responseKey, response, onHandled);
+        })
+        .catch((error: unknown) => {
+          log.warn('Failed to handle notification response:', error);
+          queuePendingNotificationResponse(
+            responseKey,
+            response,
+            navigate,
+            onHandled
+          );
+        })
+        .finally(() => {
+          processingNotificationIds.delete(responseKey);
+        });
+      return;
     }
 
-    openedNotificationIds.add(responseKey);
-    clearPendingNotificationResponse(responseKey);
-    if (onHandled)
-      attemptNotificationFinalization(responseKey, response, onHandled);
+    completeNotificationResponse(responseKey, response, onHandled);
   } finally {
-    processingNotificationIds.delete(responseKey);
+    if (!awaitsAsyncHandling) processingNotificationIds.delete(responseKey);
   }
 }

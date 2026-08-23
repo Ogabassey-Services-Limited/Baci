@@ -36,6 +36,7 @@ const { processPushNotificationResponse } =
 type ProcessedNotificationResponse = Parameters<
   typeof processPushNotificationResponse
 >[0];
+type Navigate = Parameters<typeof processPushNotificationResponse>[1];
 
 const createResponse = (
   identifier: string,
@@ -66,7 +67,7 @@ describe('processPushNotificationResponse', () => {
   });
 
   it('deduplicates by delivery identifier while retaining payload attribution', () => {
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const response = createResponse('utility-delivery-1', {
       notification_id: 'utility-campaign-1',
       notification_type: 'promotion',
@@ -86,7 +87,7 @@ describe('processPushNotificationResponse', () => {
   });
 
   it('processes separate occurrences that reuse a recurring request identifier', () => {
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const firstOccurrence = createResponse(
       'utility-recurring',
       { notification_type: 'savings_reminder' },
@@ -108,7 +109,7 @@ describe('processPushNotificationResponse', () => {
 
   it('retries user-facing handling after a navigation error', () => {
     jest.useFakeTimers();
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const onHandled = jest.fn();
     mockHandleNotificationResponse.mockImplementation(
       (
@@ -143,11 +144,39 @@ describe('processPushNotificationResponse', () => {
     expect(onHandled).toHaveBeenCalledTimes(1);
   });
 
+  it('waits for async wallet navigation before finalizing and retries rejection', async () => {
+    jest.useFakeTimers();
+    const navigate = jest.fn<Navigate>();
+    const onHandled = jest.fn();
+    mockHandleNotificationResponse
+      .mockImplementationOnce(() =>
+        Promise.reject(new Error('navigator is not ready'))
+      )
+      .mockImplementationOnce(() => Promise.resolve());
+    const response = createResponse('utility-wallet-async-failure', {
+      notification_type: 'wallet_credited',
+    });
+
+    processPushNotificationResponse(response, navigate, onHandled);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(mockClearBadge).not.toHaveBeenCalled();
+    expect(onHandled).not.toHaveBeenCalled();
+
+    await jest.runOnlyPendingTimersAsync();
+
+    expect(mockTrackNotificationInteraction).toHaveBeenCalledTimes(1);
+    expect(mockHandleNotificationResponse).toHaveBeenCalledTimes(2);
+    expect(mockClearBadge).toHaveBeenCalledTimes(1);
+    expect(onHandled).toHaveBeenCalledTimes(1);
+  });
+
   it('continues response handling when analytics tracking throws', () => {
     mockTrackNotificationInteraction.mockImplementation(() => {
       throw new Error('analytics unavailable');
     });
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const response = createResponse('utility-analytics-failure', {
       notification_type: 'promotion',
     });
@@ -166,7 +195,7 @@ describe('processPushNotificationResponse', () => {
 
   it('does not retry older navigation after a newer response succeeds', () => {
     jest.useFakeTimers();
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const onHandled = jest.fn();
     mockHandleNotificationResponse.mockImplementationOnce(() => {
       throw new Error('navigator is not ready');
@@ -192,7 +221,7 @@ describe('processPushNotificationResponse', () => {
   });
 
   it('does not retry when finalization itself throws', () => {
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const onHandled = jest.fn(() => {
       throw new Error('native response clear failed');
     });
@@ -210,7 +239,7 @@ describe('processPushNotificationResponse', () => {
 
   it('retries only native finalization when clearing the cold-start response fails', () => {
     jest.useFakeTimers();
-    const navigate = jest.fn();
+    const navigate = jest.fn<Navigate>();
     const onHandled = jest
       .fn()
       .mockReturnValueOnce(false)

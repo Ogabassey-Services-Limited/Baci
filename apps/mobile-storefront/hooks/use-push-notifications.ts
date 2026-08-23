@@ -82,7 +82,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   const navigate = useEffectEvent(
     (screen: string, params?: Record<string, string>) => {
-      navigateFromPushScreen(screen, params);
+      return navigateFromPushScreen(screen, params);
     }
   );
 

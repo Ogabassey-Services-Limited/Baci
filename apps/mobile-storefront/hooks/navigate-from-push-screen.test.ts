@@ -179,13 +179,13 @@ describe('navigateFromPushScreen', () => {
         })
     );
 
-    navigateFromPushScreen('wallet', { credited: 'true' });
+    const navigation = navigateFromPushScreen('wallet', { credited: 'true' });
     await flushIntentRead();
 
     expect(push).not.toHaveBeenCalled();
 
     resolveIntent?.('/checkout');
-    await flushIntentRead();
+    await navigation;
 
     expect(push).toHaveBeenNthCalledWith(1, '/wallet');
     expect(push).toHaveBeenNthCalledWith(2, '/checkout');

@@ -40,7 +40,7 @@ async function resumeStoredWalletFundingIntent() {
 export function navigateFromPushScreen(
   screen: string,
   params?: Record<string, string>
-) {
+): void | Promise<void> {
   switch (screen) {
     case 'order-details':
       // Missing id would push to `/orders/undefined`; fall back to the list.
@@ -109,7 +109,7 @@ export function navigateFromPushScreen(
       }
       // No usable destination in the payload (bank-transfer/DVA credits never
       // carry one) — resume the locally recorded funding intent, if any.
-      resumeStoredWalletFundingIntent().catch((error) => {
+      return resumeStoredWalletFundingIntent().catch((error) => {
         logger.warn(
           'PushNavigation',
           'Failed to resume wallet funding intent:',
@@ -117,7 +117,6 @@ export function navigateFromPushScreen(
         );
         router.push('/wallet');
       });
-      break;
     }
     case 'utility-history':
       router.push(`/utilities/history?type=${params?.type ?? 'power'}` as Href);
