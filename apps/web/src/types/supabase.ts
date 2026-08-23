@@ -20535,6 +20535,16 @@ export type Database = {
         Args: { p_merchant_id: string; p_reason: string };
         Returns: boolean;
       };
+      mark_merchant_ads_connection_reauth_if_current: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_merchant_id: string;
+          p_provider: string;
+          p_reason: string;
+          p_refresh_token_ciphertext: string | null;
+        };
+        Returns: boolean;
+      };
       set_merchant_ads_account: {
         Args: {
           p_account_timezone: string | null;

@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mockUseSearchParams = vi.hoisted(() =>
   vi.fn(() => new URLSearchParams())
 );
+const mockGridProps = vi.hoisted(() => ({
+  categoryError: null as string | null,
+}));
 
 vi.mock('next/navigation', () => ({
   useSearchParams: mockUseSearchParams,
@@ -38,7 +41,10 @@ vi.mock('@/components/analytics/analytics-filters', () => ({
   AnalyticsFilters: () => null,
 }));
 vi.mock('@/components/analytics/draggable-analytics-grid', () => ({
-  DraggableAnalyticsGrid: () => null,
+  DraggableAnalyticsGrid: (props: { categoryError?: string | null }) => {
+    mockGridProps.categoryError = props.categoryError ?? null;
+    return null;
+  },
 }));
 vi.mock('@/components/ui/bag-loader', () => ({
   BagLoader: () => <div>Loading...</div>,
@@ -50,6 +56,7 @@ describe('AnalyticsClientPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
+    mockGridProps.categoryError = null;
   });
 
   it('renders without crashing', () => {
@@ -137,5 +144,28 @@ describe('AnalyticsClientPage', () => {
         headers: { 'x-baci-merchant-id': 'm-1' },
       })
     );
+  });
+
+  it('surfaces specialized analytics failures instead of rendering empty metrics', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=inventory')
+    );
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/analytics?')) {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
+      return new Response(JSON.stringify({ error: 'unavailable' }), {
+        status: 503,
+      });
+    });
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      expect(mockGridProps.categoryError).toBe(
+        'Unable to load inventory analytics. Please try again.'
+      );
+    });
   });
 });

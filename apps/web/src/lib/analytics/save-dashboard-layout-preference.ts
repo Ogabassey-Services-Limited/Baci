@@ -1,8 +1,5 @@
-import type { Layout, ResponsiveLayouts } from 'react-grid-layout/legacy';
-
+import type { DashboardLayoutConfig } from '@/components/analytics/analytics-grid-layout-hydration';
 import { fetchWithCsrf } from '@/lib/api-client';
-
-type DashboardLayoutConfig = Layout | ResponsiveLayouts;
 
 export async function saveDashboardLayoutPreference(
   layout: DashboardLayoutConfig,

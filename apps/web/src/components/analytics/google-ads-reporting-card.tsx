@@ -14,6 +14,7 @@ import { GoogleAdsMetric } from '@/components/analytics/google-ads-metric';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 
 export { GOOGLE_ADS_CONNECT_PATH } from './google-ads-connect-path';
@@ -60,6 +61,7 @@ interface GoogleAdsReportingCardProps {
   loading?: boolean;
   onSynced?: () => void;
   reporting?: GoogleAdsReportingData | null;
+  syncWindow?: AdsSyncWindow;
 }
 
 function formatNumber(value: number): string {
@@ -108,6 +110,7 @@ export function GoogleAdsReportingCard({
   loading = false,
   onSynced,
   reporting,
+  syncWindow,
 }: GoogleAdsReportingCardProps) {
   const { merchant } = useMerchant();
   const status =
@@ -145,6 +148,7 @@ export function GoogleAdsReportingCard({
             <GoogleAdsAccountPicker
               merchantId={merchant?.id}
               onSynced={onSynced}
+              syncWindow={syncWindow}
             />
           ) : (
             <GoogleAdsConnectButton
@@ -170,6 +174,7 @@ export function GoogleAdsReportingCard({
           <GoogleAdsAccountPicker
             merchantId={merchant?.id}
             onSynced={onSynced}
+            syncWindow={syncWindow}
           />
         </div>
       ) : !metrics ? (
@@ -286,14 +291,7 @@ export function GoogleAdsReportingCard({
             <GoogleAdsAccountPicker
               merchantId={merchant?.id}
               onSynced={onSynced}
-              syncWindow={
-                metrics.startDate && metrics.endDate
-                  ? {
-                      endDate: metrics.endDate,
-                      startDate: metrics.startDate,
-                    }
-                  : undefined
-              }
+              syncWindow={syncWindow}
             />
           </div>
         </div>

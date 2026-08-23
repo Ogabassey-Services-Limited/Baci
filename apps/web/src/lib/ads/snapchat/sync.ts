@@ -9,7 +9,6 @@ import {
 import { getSnapchatAdsConfig } from './config';
 import {
   SNAPCHAT_ADS_PROVIDER,
-  SNAPCHAT_ADS_REQUIRED_SCOPES,
   SNAPCHAT_ADS_TRAILING_SYNC_DAYS,
 } from './constants';
 import {
@@ -64,28 +63,19 @@ export async function markSnapchatAdsReauthRequired(input: {
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_REAUTH_PERSIST_FAILED');
-  const { data, error } = await input.supabase.rpc(
-    'upsert_merchant_ads_connection',
+  const { error } = await input.supabase.rpc(
+    'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
-      p_account_timezone: null,
-      p_attribution_metadata: {
-        provider: SNAPCHAT_ADS_PROVIDER,
-        reauthRequired: true,
-      },
       p_merchant_id: input.merchantId,
-      p_metadata: { failureCode: input.failureCode, reauthRequired: true },
       p_provider: SNAPCHAT_ADS_PROVIDER,
-      p_provider_account_label: null,
-      p_provider_customer_id: input.connection.provider_customer_id,
       p_refresh_token_ciphertext: input.connection.refresh_token_ciphertext,
-      p_scopes: [...SNAPCHAT_ADS_REQUIRED_SCOPES],
-      p_status: 'error',
-      p_token_expires_at: null,
+      p_reason: input.failureCode,
     }
   );
-  if (error || !data)
+  if (error)
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_REAUTH_PERSIST_FAILED');
+  // A false result means a concurrent refresh already replaced the token.
 }
 export async function syncSnapchatAdsSpendForMerchant(
   input: {

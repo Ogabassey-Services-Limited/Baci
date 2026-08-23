@@ -120,9 +120,10 @@ describe('Snapchat Ads sync', () => {
       })
     ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ACCESS_REVOKED' });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_connection',
+      'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({
-        p_status: 'error',
+        p_reason: 'SNAPCHAT_ADS_ACCESS_REVOKED',
+        p_access_token_ciphertext: 'access',
         p_refresh_token_ciphertext: 'refresh',
       })
     );

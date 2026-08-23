@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { hydrateDashboardLayoutConfig } from './analytics-grid-layout-hydration';
+import {
+  hydrateDashboardLayoutConfig,
+  mergeDashboardLayoutConfig,
+} from './analytics-grid-layout-hydration';
 import {
   ANALYTICS_WIDGET_IDS_BY_CATEGORY,
   getAnalyticsLayoutWidgetIds,
@@ -68,5 +71,29 @@ describe('hydrateDashboardLayoutConfig', () => {
       hydrateDashboardLayoutConfig({ lg: 'invalid' }, 'overview')
     ).toBeNull();
     expect(hydrateDashboardLayoutConfig(null, 'overview')).toBeNull();
+  });
+
+  it('hydrates a category map and updates only the active category', () => {
+    const finance = hydrateDashboardLayoutConfig(
+      {
+        lg: [{ i: 'summary-revenue', x: 6, y: 2, w: 4, h: 1 }],
+      },
+      'finance'
+    );
+    if (!finance) throw new Error('Expected finance layout to hydrate');
+    const ads = hydrateDashboardLayoutConfig(
+      { lg: [{ i: 'ads-reporting', x: 3, y: 5, w: 6, h: 3 }] },
+      'ads'
+    );
+    if (!ads) throw new Error('Expected ads layout to hydrate');
+
+    const next = mergeDashboardLayoutConfig(
+      { ads, finance },
+      'finance',
+      finance
+    );
+
+    expect(next).toMatchObject({ ads, finance });
+    expect(hydrateDashboardLayoutConfig(next, 'ads')).toEqual(ads);
   });
 });

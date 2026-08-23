@@ -80,14 +80,14 @@ describe('TikTok Ads sync', () => {
         endDate: '2026-08-31',
         supabase: { rpc } as never,
       })
-    ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 2 });
+    ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 1 });
     expect(reports).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith(
       'upsert_merchant_ads_spend_daily',
       expect.objectContaining({
-        p_rows: [
+        p_rows: expect.arrayContaining([
           expect.objectContaining({ spend_amount_decimal: '1.000000001' }),
-        ],
+        ]),
       })
     );
   });
@@ -105,8 +105,42 @@ describe('TikTok Ads sync', () => {
       })
     ).rejects.toMatchObject({ code: 'TIKTOK_ADS_ACCESS_REVOKED' });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_connection',
-      expect.objectContaining({ p_status: 'error' })
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_reason: 'TIKTOK_ADS_ACCESS_REVOKED',
+        p_refresh_token_ciphertext: null,
+      })
+    );
+  });
+
+  it('does not write an earlier chunk when a later provider request fails', async () => {
+    reports
+      .mockResolvedValueOnce([
+        {
+          accountId: 'opaque-001',
+          clicks: '2',
+          conversions: '1',
+          currencyCode: 'NGN',
+          impressions: '10',
+          reach: null,
+          spendAmountDecimal: '1.00',
+          spendDate: '2026-08-20',
+          timezoneName: 'Africa/Lagos',
+        },
+      ])
+      .mockRejectedValueOnce(new Error('second chunk failed'));
+
+    await expect(
+      syncTikTokAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-01',
+        endDate: '2026-08-31',
+        supabase: { rpc } as never,
+      })
+    ).rejects.toThrow('second chunk failed');
+    expect(rpc).not.toHaveBeenCalledWith(
+      'upsert_merchant_ads_spend_daily',
+      expect.anything()
     );
   });
 });

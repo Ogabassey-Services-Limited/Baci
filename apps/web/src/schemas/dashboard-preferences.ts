@@ -95,7 +95,24 @@ const responsiveLayout = z
     message: 'Responsive layout must include at least one breakpoint',
   });
 
-const layoutConfig = z.union([layout, responsiveLayout]);
+const singleLayoutConfig = z.union([layout, responsiveLayout]);
+const categoryLayoutConfig = z
+  .object({
+    ads: singleLayoutConfig.optional(),
+    customers: singleLayoutConfig.optional(),
+    finance: singleLayoutConfig.optional(),
+    inventory: singleLayoutConfig.optional(),
+    marketing: singleLayoutConfig.optional(),
+    overview: singleLayoutConfig.optional(),
+    products: singleLayoutConfig.optional(),
+    segments: singleLayoutConfig.optional(),
+  })
+  .strict()
+  .refine((value) => Object.values(value).some((item) => item !== undefined), {
+    message: 'Category layout must include at least one category',
+  });
+
+const layoutConfig = z.union([singleLayoutConfig, categoryLayoutConfig]);
 
 /** Validates the bounded, known-widget dashboard layout persistence payload. */
 export const dashboardPreferencesSchema = z

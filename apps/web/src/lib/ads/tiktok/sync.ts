@@ -8,7 +8,6 @@ import {
   TIKTOK_ADS_LATENCY_LABEL,
   TIKTOK_ADS_MAX_SYNC_DAYS,
   TIKTOK_ADS_PROVIDER,
-  TIKTOK_ADS_REQUIRED_SCOPES,
 } from './constants';
 import {
   fetchTikTokAdsDailyReport,
@@ -70,27 +69,18 @@ export async function markTikTokAdsReauthRequired(input: {
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new TikTokAdsReauthPersistenceError();
-  const { data, error } = await input.supabase.rpc(
-    'upsert_merchant_ads_connection',
+  const { error } = await input.supabase.rpc(
+    'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
-      p_account_timezone: null,
-      p_attribution_metadata: {
-        provider: TIKTOK_ADS_PROVIDER,
-        reauthRequired: true,
-      },
       p_merchant_id: input.merchantId,
-      p_metadata: { failureCode: input.failureCode, reauthRequired: true },
       p_provider: TIKTOK_ADS_PROVIDER,
-      p_provider_account_label: null,
-      p_provider_customer_id: input.connection.provider_customer_id,
       p_refresh_token_ciphertext: null,
-      p_scopes: [...TIKTOK_ADS_REQUIRED_SCOPES],
-      p_status: 'error',
-      p_token_expires_at: null,
+      p_reason: input.failureCode,
     }
   );
-  if (error || !data) throw new TikTokAdsReauthPersistenceError();
+  if (error) throw new TikTokAdsReauthPersistenceError();
+  // A false result means another request already replaced these credentials.
 }
 function errorCode(error: unknown): string {
   if (
@@ -162,7 +152,7 @@ export async function syncTikTokAdsSpendForMerchant(
       );
       if (!account)
         throw new TikTokAdsSyncError('TIKTOK_ADS_ACCOUNT_NOT_ACCESSIBLE');
-      let rowsWritten = 0;
+      const pendingRows: Record<string, unknown>[] = [];
       for (const range of tiktokAdsDateChunks(input.startDate, input.endDate)) {
         const reports = await fetchTikTokAdsDailyReport(
           {
@@ -205,18 +195,20 @@ export async function syncTikTokAdsSpendForMerchant(
           spend_date: report.spendDate,
           spend_micros: '0',
         }));
-        if (rows.length) {
-          const written = await input.supabase.rpc(
-            'upsert_merchant_ads_spend_daily',
-            {
-              p_merchant_id: input.merchantId,
-              p_provider: TIKTOK_ADS_PROVIDER,
-              p_rows: rows,
-            }
-          );
-          if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
-          rowsWritten += written.data ?? rows.length;
-        }
+        pendingRows.push(...rows);
+      }
+      let rowsWritten = 0;
+      if (pendingRows.length) {
+        const written = await input.supabase.rpc(
+          'upsert_merchant_ads_spend_daily',
+          {
+            p_merchant_id: input.merchantId,
+            p_provider: TIKTOK_ADS_PROVIDER,
+            p_rows: pendingRows,
+          }
+        );
+        if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
+        rowsWritten = written.data ?? pendingRows.length;
       }
       const marked = await input.supabase.rpc(
         'mark_merchant_ads_connection_synced',

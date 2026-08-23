@@ -37,4 +37,19 @@ describe('dashboardPreferencesSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts layouts keyed by analytics category', () => {
+    expect(
+      dashboardPreferencesSchema.safeParse({
+        layout_config: {
+          ads: {
+            lg: [{ h: 3, i: 'ads-reporting', w: 12, x: 0, y: 4 }],
+          },
+          inventory: {
+            lg: [{ h: 2, i: 'inventory-summary', w: 6, x: 0, y: 0 }],
+          },
+        },
+      }).success
+    ).toBe(true);
+  });
 });

@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { metaAdsSpendQuerySchema } from '@/schemas/meta-ads';
 
 const SPEND_SELECT =
@@ -23,7 +20,13 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access)
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'analytics', 'view'))

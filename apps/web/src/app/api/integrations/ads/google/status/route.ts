@@ -1,9 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getUserAccess,
-  hasPermission,
-} from '@/lib/api-auth';
+import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 
 const STATUS_SELECT =
   'provider, status, provider_customer_id, token_expires_at, last_synced_at, created_at, updated_at' as const;
@@ -17,7 +14,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const access = await getUserAccess(auth.supabase);
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
   if (!access) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }

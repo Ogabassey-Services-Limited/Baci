@@ -10,7 +10,10 @@ import {
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { buildDefaultAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
+import {
+  type AdsSyncWindow,
+  buildDefaultAdsSyncWindow,
+} from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
 import type { SocialAdsProvider } from './social-ads-reporting-card';
 
@@ -28,6 +31,7 @@ interface SocialAdsAccountControlsProps {
   needsAccountSelection: boolean;
   onSynced?: () => void;
   provider: SocialAdsProvider;
+  syncWindow?: AdsSyncWindow;
 }
 
 const PROVIDER_PATH_SEGMENT: Record<SocialAdsProvider, string> = {
@@ -73,6 +77,7 @@ export function SocialAdsAccountControls({
   needsAccountSelection,
   onSynced,
   provider,
+  syncWindow,
 }: SocialAdsAccountControlsProps) {
   const path = `/api/integrations/ads/${PROVIDER_PATH_SEGMENT[provider]}`;
   const [accounts, setAccounts] = useState<SocialAdsAccount[]>([]);
@@ -120,7 +125,7 @@ export function SocialAdsAccountControls({
 
   const sync = async () => {
     const response = await fetchWithCsrf(`${path}/sync`, {
-      body: JSON.stringify(buildDefaultAdsSyncWindow()),
+      body: JSON.stringify(syncWindow ?? buildDefaultAdsSyncWindow()),
       headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
       method: 'POST',
     });

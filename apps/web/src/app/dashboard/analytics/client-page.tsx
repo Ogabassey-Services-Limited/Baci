@@ -15,6 +15,7 @@ import {
 import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
+import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
 
 // Module-scope helper keeps the try/finally out of the component body
@@ -103,6 +104,9 @@ export default function AnalyticsClientPage() {
   const [categoryAnalytics, setCategoryAnalytics] = useState<
     Partial<AnalyticsData>
   >({});
+  const [categoryAnalyticsError, setCategoryAnalyticsError] = useState<
+    string | null
+  >(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
 
@@ -134,6 +138,7 @@ export default function AnalyticsClientPage() {
   useEffect(() => {
     const controller = new AbortController();
     setCategoryAnalytics({});
+    setCategoryAnalyticsError(null);
 
     if (!merchant || !date.from || !date.to) {
       return () => controller.abort();
@@ -157,6 +162,9 @@ export default function AnalyticsClientPage() {
         console.error('Error fetching category analytics:', error);
         if (!controller.signal.aborted) {
           setCategoryAnalytics({});
+          setCategoryAnalyticsError(
+            `Unable to load ${activeCategory} analytics. Please try again.`
+          );
         }
       });
 
@@ -250,7 +258,13 @@ export default function AnalyticsClientPage() {
         loading={loadingAnalytics}
         activeCategory={activeCategory}
         merchant={merchant}
+        categoryError={categoryAnalyticsError}
         onAdsReportingSynced={handleAdsReportingSynced}
+        syncWindow={
+          date.from && date.to
+            ? buildAdsSyncWindow(date.from, date.to)
+            : undefined
+        }
       />
     </div>
   );

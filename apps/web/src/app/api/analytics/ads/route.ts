@@ -322,9 +322,7 @@ export async function GET(request: Request) {
     };
 
     // Cache for 5 minutes
-    if (!shouldBypassCache) {
-      cache.set(cacheKey, responseData, 300);
-    }
+    cache.set(cacheKey, responseData, 300);
 
     return NextResponse.json(responseData);
   } catch (error) {

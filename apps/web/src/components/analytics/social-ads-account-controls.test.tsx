@@ -141,4 +141,29 @@ describe('SocialAdsAccountControls', () => {
       })
     );
   });
+
+  it('uses the selected analytics window when syncing provider spend', async () => {
+    fetchWithCsrf.mockResolvedValue(new Response('{}'));
+
+    render(
+      <SocialAdsAccountControls
+        displayName="Meta Ads"
+        needsAccountSelection={false}
+        provider="meta_ads"
+        syncWindow={{ endDate: '2026-08-21', startDate: '2026-08-01' }}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Sync now' }));
+
+    await waitFor(() => expect(fetchWithCsrf).toHaveBeenCalled());
+    expect(fetchWithCsrf).toHaveBeenCalledWith(
+      '/api/integrations/ads/meta/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          startDate: '2026-08-01',
+        }),
+      })
+    );
+  });
 });

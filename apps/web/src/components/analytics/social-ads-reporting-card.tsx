@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import { useMerchant } from '@/hooks/use-merchant-client';
+import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 
 export type SocialAdsProvider = 'meta_ads' | 'tiktok_ads' | 'snapchat_ads';
@@ -57,6 +58,7 @@ interface SocialAdsReportingCardProps {
   className?: string;
   onSynced?: () => void;
   reporting?: SocialAdsReportingData | null;
+  syncWindow?: AdsSyncWindow;
 }
 
 const PATH_SEGMENT: Record<SocialAdsProvider, string> = {
@@ -109,10 +111,12 @@ function ProviderPanel({
   merchantId,
   onSynced,
   provider,
+  syncWindow,
 }: {
   merchantId?: string;
   onSynced?: () => void;
   provider: SocialAdsProviderReporting;
+  syncWindow?: AdsSyncWindow;
 }) {
   const connectPath = new URL(
     `/api/integrations/ads/${PATH_SEGMENT[provider.provider]}/connect`,
@@ -229,6 +233,7 @@ function ProviderPanel({
             needsAccountSelection={provider.needsAccountSelection}
             onSynced={onSynced}
             provider={provider.provider}
+            syncWindow={syncWindow}
           />
         </>
       )}
@@ -245,6 +250,7 @@ export function SocialAdsReportingCard({
   className,
   onSynced,
   reporting,
+  syncWindow,
 }: SocialAdsReportingCardProps) {
   const { merchant } = useMerchant();
   return (
@@ -288,6 +294,7 @@ export function SocialAdsReportingCard({
                 merchantId={merchant?.id}
                 onSynced={onSynced}
                 provider={provider}
+                syncWindow={syncWindow}
               />
             ))}
           </div>

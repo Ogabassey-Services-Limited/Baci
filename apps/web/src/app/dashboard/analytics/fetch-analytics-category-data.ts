@@ -103,18 +103,14 @@ async function fetchInventoryData(
   merchantId: string,
   signal: AbortSignal
 ): Promise<Partial<AnalyticsData>> {
-  const [alertsResult, forecastResult, resolvedAlertsResult] =
-    await Promise.allSettled([
+  const [alertsPayload, forecastPayloads, resolvedAlertsPayload] =
+    await Promise.all([
       fetchAnalyticsJson(
         '/api/inventory/alerts?status=active',
         merchantId,
         signal
       ),
-      fetchAnalyticsJson(
-        '/api/inventory/forecast?limit=100',
-        merchantId,
-        signal
-      ),
+      fetchInventoryForecastPages(merchantId, signal),
       fetchAnalyticsJson(
         '/api/inventory/alerts?status=resolved',
         merchantId,
@@ -122,26 +118,22 @@ async function fetchInventoryData(
       ),
     ]);
 
-  if (
-    alertsResult.status === 'rejected' &&
-    forecastResult.status === 'rejected'
-  ) {
-    throw alertsResult.reason instanceof Error
-      ? alertsResult.reason
-      : new Error('Inventory analytics unavailable');
-  }
-
-  const alertsPayload =
-    alertsResult.status === 'fulfilled' ? alertsResult.value : {};
-  const forecastPayload =
-    forecastResult.status === 'fulfilled' ? forecastResult.value : {};
-  const resolvedAlertsPayload =
-    resolvedAlertsResult.status === 'fulfilled'
-      ? resolvedAlertsResult.value
-      : {};
-  const forecastSummary = asRecord(forecastPayload.summary);
-  const forecasts = asArray(forecastPayload.forecasts).map(
-    mapInventoryForecast
+  const forecastSummary = forecastPayloads.reduce<{
+    critical: number;
+    outOfStock: number;
+    warning: number;
+  }>(
+    (summary, payload) => {
+      const pageSummary = asRecord(payload.summary);
+      summary.critical += asNumber(pageSummary?.critical);
+      summary.warning += asNumber(pageSummary?.warning);
+      summary.outOfStock += asNumber(pageSummary?.outOfStock);
+      return summary;
+    },
+    { critical: 0, outOfStock: 0, warning: 0 }
+  );
+  const forecasts = forecastPayloads.flatMap((payload) =>
+    asArray(payload.forecasts).map(mapInventoryForecast)
   );
 
   return {
@@ -152,6 +144,33 @@ async function fetchInventoryData(
     outOfStockCount: asNumber(forecastSummary?.outOfStock),
     resolvedInventoryAlertCount: asArray(resolvedAlertsPayload.alerts).length,
   };
+}
+
+async function fetchInventoryForecastPages(
+  merchantId: string,
+  signal: AbortSignal
+): Promise<JsonRecord[]> {
+  const firstPage = await fetchAnalyticsJson(
+    '/api/inventory/forecast?limit=100&page=1',
+    merchantId,
+    signal
+  );
+  const pagination = asRecord(firstPage.pagination);
+  const totalPages = Math.max(1, Math.floor(asNumber(pagination?.totalPages)));
+  if (totalPages === 1) return [firstPage];
+  if (totalPages > 1000) {
+    throw new Error('Inventory forecast pagination is invalid');
+  }
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      fetchAnalyticsJson(
+        `/api/inventory/forecast?limit=100&page=${index + 2}`,
+        merchantId,
+        signal
+      )
+    )
+  );
+  return [firstPage, ...remainingPages];
 }
 
 function normalizeSegmentName(value: unknown): string {

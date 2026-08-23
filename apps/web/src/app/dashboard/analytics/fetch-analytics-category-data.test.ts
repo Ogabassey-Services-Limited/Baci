@@ -105,6 +105,59 @@ describe('fetchAnalyticsCategoryData', () => {
     }
   });
 
+  it('fetches every inventory forecast page before calculating status totals', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/inventory/alerts'))
+        return response({ alerts: [] });
+      if (url.includes('page=1')) {
+        return response({
+          forecasts: [
+            {
+              avgDailySales: 1,
+              currentStock: 2,
+              daysOfStock: 2,
+              productId: 'first',
+              productName: 'First',
+              salesTrend: 'stable',
+            },
+          ],
+          pagination: { page: 1, totalPages: 2 },
+          summary: { critical: 1, outOfStock: 0, warning: 0 },
+        });
+      }
+      return response({
+        forecasts: [
+          {
+            avgDailySales: 0,
+            currentStock: 0,
+            daysOfStock: 0,
+            productId: 'second',
+            productName: 'Second',
+            salesTrend: 'declining',
+          },
+        ],
+        pagination: { page: 2, totalPages: 2 },
+        summary: { critical: 0, outOfStock: 1, warning: 2 },
+      });
+    });
+
+    const result = await fetchAnalyticsCategoryData({
+      category: 'inventory',
+      from,
+      merchantId,
+      signal: new AbortController().signal,
+      to,
+    });
+
+    expect(result.inventoryForecasts).toHaveLength(2);
+    expect(result.lowStockCount).toBe(3);
+    expect(result.outOfStockCount).toBe(1);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(
+      expect.arrayContaining(['/api/inventory/forecast?limit=100&page=2'])
+    );
+  });
+
   it('maps the customer segment summary into dashboard segment metrics', async () => {
     fetchMock.mockResolvedValue(
       response({

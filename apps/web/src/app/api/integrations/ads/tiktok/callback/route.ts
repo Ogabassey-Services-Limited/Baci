@@ -109,7 +109,6 @@ export async function GET(request: NextRequest) {
         p_merchant_id: access.merchantId,
         p_metadata: {
           authorizedAdvertiserIds: grant.advertiserIds,
-          tokenLifecycle: 'long_lived_no_refresh',
         },
         p_provider: TIKTOK_ADS_PROVIDER,
         p_provider_account_label: null,

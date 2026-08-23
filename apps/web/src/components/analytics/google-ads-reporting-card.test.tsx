@@ -134,6 +134,7 @@ describe('GoogleAdsReportingCard', () => {
           connectionStatus: 'connected',
           needsAccountSelection: true,
         }}
+        syncWindow={{ endDate: '2026-08-21', startDate: '2026-08-01' }}
       />
     );
 
@@ -150,6 +151,16 @@ describe('GoogleAdsReportingCard', () => {
         headers: {
           'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
         },
+      })
+    );
+    expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
+      2,
+      '/api/integrations/ads/google/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          startDate: '2026-08-01',
+        }),
       })
     );
   });

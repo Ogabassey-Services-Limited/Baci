@@ -1,4 +1,8 @@
-import type { Layout, LayoutItem } from 'react-grid-layout/legacy';
+import type {
+  Layout,
+  LayoutItem,
+  ResponsiveLayouts,
+} from 'react-grid-layout/legacy';
 
 import type { AnalyticsCategory } from './analytics-category-nav';
 import {
@@ -7,6 +11,11 @@ import {
   type Layouts,
   resolveCategoryLayouts,
 } from './analytics-grid-layouts';
+
+export type DashboardLayoutConfig =
+  | Layout
+  | ResponsiveLayouts
+  | Partial<Record<AnalyticsCategory, Layout | ResponsiveLayouts>>;
 
 const LAYOUT_BREAKPOINTS: readonly LayoutBreakpoint[] = [
   'lg',
@@ -80,6 +89,10 @@ export function hydrateDashboardLayoutConfig(
 
   if (!isRecord(layoutConfig)) return null;
 
+  if (category in layoutConfig) {
+    return hydrateDashboardLayoutConfig(layoutConfig[category], category);
+  }
+
   let foundSavedLayout = false;
   const hydratedLayouts = { ...defaults };
 
@@ -96,4 +109,30 @@ export function hydrateDashboardLayoutConfig(
   }
 
   return foundSavedLayout ? hydratedLayouts : null;
+}
+
+/** Updates one category while retaining saved layouts for every other category. */
+export function mergeDashboardLayoutConfig(
+  layoutConfig: unknown,
+  category: AnalyticsCategory,
+  layouts: Layouts
+): DashboardLayoutConfig {
+  const categoryKeys = Object.keys(
+    ANALYTICS_WIDGET_IDS_BY_CATEGORY
+  ) as AnalyticsCategory[];
+  const existing = isRecord(layoutConfig)
+    ? layoutConfig
+    : ({} as Record<string, unknown>);
+  const isCategorized = categoryKeys.some((key) => key in existing);
+  const next: Partial<Record<AnalyticsCategory, Layout | Layouts>> = {};
+
+  if (isCategorized) {
+    for (const key of categoryKeys) {
+      const hydrated = hydrateDashboardLayoutConfig(existing[key], key);
+      if (hydrated) next[key] = hydrated;
+    }
+  }
+
+  next[category] = layouts;
+  return next;
 }

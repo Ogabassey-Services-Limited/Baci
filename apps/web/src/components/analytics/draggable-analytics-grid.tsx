@@ -34,7 +34,10 @@ import {
   type AnalyticsDetailWidgetId,
   AnalyticsDetailWidgets,
 } from '@/components/analytics/analytics-detail-widgets';
-import { hydrateDashboardLayoutConfig } from '@/components/analytics/analytics-grid-layout-hydration';
+import {
+  hydrateDashboardLayoutConfig,
+  mergeDashboardLayoutConfig,
+} from '@/components/analytics/analytics-grid-layout-hydration';
 import {
   ANALYTICS_WIDGET_IDS_BY_CATEGORY,
   type Layouts,
@@ -53,9 +56,11 @@ import {
   SocialAdsReportingCard,
   type SocialAdsReportingData,
 } from '@/components/analytics/social-ads-reporting-card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { MerchantData } from '@/hooks/merchant/types';
+import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import {
   fetchDashboardLayoutPreference,
   saveDashboardLayoutPreference,
@@ -256,7 +261,9 @@ interface DraggableAnalyticsGridProps {
   loading: boolean;
   activeCategory: AnalyticsCategory;
   merchant: MerchantData | null;
+  categoryError?: string | null;
   onAdsReportingSynced?: () => void;
+  syncWindow?: AdsSyncWindow;
 }
 
 export function DraggableAnalyticsGrid({
@@ -264,7 +271,9 @@ export function DraggableAnalyticsGrid({
   loading,
   activeCategory,
   merchant,
+  categoryError,
   onAdsReportingSynced,
+  syncWindow,
 }: DraggableAnalyticsGridProps) {
   const [isEditMode, setIsEditMode] = useState(false);
 
@@ -276,6 +285,8 @@ export function DraggableAnalyticsGrid({
   const [layouts, setLayouts] = useState<Layouts>(() =>
     resolveCategoryLayouts(activeCategory)
   );
+  const [persistedLayoutConfig, setPersistedLayoutConfig] =
+    useState<unknown>(null);
   const [prevCategory, setPrevCategory] = useState(activeCategory);
   const [prevMerchantId, setPrevMerchantId] = useState(merchant?.id);
 
@@ -294,11 +305,13 @@ export function DraggableAnalyticsGrid({
     if (!merchant?.id) return;
 
     const controller = new AbortController();
+    setPersistedLayoutConfig(null);
 
     void fetchDashboardLayoutPreference(merchant.id, controller.signal)
       .then((layoutConfig) => {
         if (controller.signal.aborted) return;
 
+        setPersistedLayoutConfig(layoutConfig);
         const hydratedLayouts = hydrateDashboardLayoutConfig(
           layoutConfig,
           activeCategory
@@ -329,11 +342,17 @@ export function DraggableAnalyticsGrid({
       ...resolveCategoryLayouts(activeCategory),
       ...allLayouts,
     };
+    const nextLayoutConfig = mergeDashboardLayoutConfig(
+      persistedLayoutConfig,
+      activeCategory,
+      completeLayouts
+    );
     setLayouts(completeLayouts);
+    setPersistedLayoutConfig(nextLayoutConfig);
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
     // Fire-and-forget pattern for saving layout preferences
-    void saveDashboardLayoutPreference(completeLayouts, merchant?.id).catch(
+    void saveDashboardLayoutPreference(nextLayoutConfig, merchant?.id).catch(
       (error) => {
         console.error('Failed to save layout:', error);
       }
@@ -347,6 +366,13 @@ export function DraggableAnalyticsGrid({
   const championsSegment = data?.segmentSummary?.segments?.find(
     (s) => s.segment === 'Champions'
   );
+
+  const categoryErrorBanner = categoryError ? (
+    <Alert className="mb-4" variant="destructive">
+      <AlertTriangle className="size-4" />
+      <AlertDescription>{categoryError}</AlertDescription>
+    </Alert>
+  ) : null;
 
   if (loading) {
     return (
@@ -490,6 +516,7 @@ export function DraggableAnalyticsGrid({
     // VIEW MODE: Use native CSS Grid for perfect responsiveness
     return (
       <div className="w-full max-w-full overflow-hidden space-y-4">
+        {categoryErrorBanner}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
           <div className="flex-1 min-w-0 w-full">
             <AIInsightsPanel
@@ -1174,6 +1201,7 @@ export function DraggableAnalyticsGrid({
                 <GoogleAdsReportingCard
                   onSynced={onAdsReportingSynced}
                   reporting={data?.adAnalytics?.googleAds}
+                  syncWindow={syncWindow}
                 />
               </div>
             )}
@@ -1182,6 +1210,7 @@ export function DraggableAnalyticsGrid({
                 <SocialAdsReportingCard
                   onSynced={onAdsReportingSynced}
                   reporting={data?.adAnalytics?.socialAds}
+                  syncWindow={syncWindow}
                 />
               </div>
             )}
@@ -1194,6 +1223,7 @@ export function DraggableAnalyticsGrid({
   // EDIT MODE: Use ReactGridLayout for drag-and-drop customization
   return (
     <div className="w-full">
+      {categoryErrorBanner}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
         <div className="flex-1 min-w-0 w-full">
           <AIInsightsPanel
@@ -1983,6 +2013,7 @@ export function DraggableAnalyticsGrid({
               <GoogleAdsReportingCard
                 onSynced={onAdsReportingSynced}
                 reporting={data?.adAnalytics?.googleAds}
+                syncWindow={syncWindow}
               />
             </div>
           )}
@@ -1991,6 +2022,7 @@ export function DraggableAnalyticsGrid({
               <SocialAdsReportingCard
                 onSynced={onAdsReportingSynced}
                 reporting={data?.adAnalytics?.socialAds}
+                syncWindow={syncWindow}
               />
             </div>
           )}
