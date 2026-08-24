@@ -48,24 +48,58 @@ describe('usePermissionBooster native module loading', () => {
     expect(mockNotificationsModuleLoad).not.toHaveBeenCalled();
   });
 
-  it('loads expo-notifications on demand and retries after an import failure', async () => {
+  it('falls back to denied when expo-notifications cannot load and retries later', async () => {
     mockRejectNextNotificationsModuleLoad = true;
     const { usePermissionBooster } = await import('./use-permission-booster');
     const { result } = renderHook(() => usePermissionBooster());
-    let permissionResult: 'granted' | 'denied' | 'soft-ask-needed' | undefined;
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    let firstPermissionResult:
+      | 'granted'
+      | 'denied'
+      | 'soft-ask-needed'
+      | undefined;
+    let secondPermissionResult:
+      | 'granted'
+      | 'denied'
+      | 'soft-ask-needed'
+      | undefined;
 
     expect(mockNotificationsModuleLoad).not.toHaveBeenCalled();
 
-    await expect(
-      result.current.requestPermission('notifications')
-    ).rejects.toThrow('notification module unavailable');
+    const promiseCatch = Promise.prototype.catch;
+    Object.defineProperty(Promise.prototype, 'catch', {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      await act(async () => {
+        firstPermissionResult =
+          await result.current.requestPermission('notifications');
+      });
+    } finally {
+      Object.defineProperty(Promise.prototype, 'catch', {
+        configurable: true,
+        value: promiseCatch,
+        writable: true,
+      });
+    }
+
+    expect(firstPermissionResult).toBe('denied');
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Notification permission API failed:',
+      'expo-notifications',
+      expect.any(Error)
+    );
+    warnSpy.mockRestore();
 
     await act(async () => {
-      permissionResult =
+      secondPermissionResult =
         await result.current.requestPermission('notifications');
     });
 
-    expect(permissionResult).toBe('granted');
+    expect(secondPermissionResult).toBe('granted');
     expect(mockNotificationsModuleLoad).toHaveBeenCalledTimes(2);
     expect(mockGetPermissionsAsync).toHaveBeenCalledTimes(1);
   });
