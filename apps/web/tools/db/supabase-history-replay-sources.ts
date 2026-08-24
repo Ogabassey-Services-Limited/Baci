@@ -1,5 +1,4 @@
-// Raw frozen replay-source and production-mapping data for the Supabase
-// history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
+// Raw frozen replay-source and production-mapping data for the Supabase history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
 // so that module stays under the 300-line modularity gate as PENDING_SOURCES grows. Pure data — the parsers and the assembled manifest object live in the
 // manifest module. Each `<sha256> <filename>.sql` row is byte-frozen: the
 // manifest verifier re-hashes the on-disk migration, so never edit a migration

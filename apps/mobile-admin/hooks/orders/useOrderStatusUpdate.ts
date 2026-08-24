@@ -115,6 +115,7 @@ export function useUpdateOrderStatus() {
       return updateOrderStatus(orderId, status);
     },
     mutationKey: ['updateOrderStatus'],
+    retry: false,
     onError: (_err, _vars, context) => {
       context?.previousOrders?.forEach(([queryKey, data]) => {
         queryClient.setQueryData(queryKey, data);

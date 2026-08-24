@@ -113,11 +113,11 @@ describe('GiglProvider quote requests', () => {
       carrierName: 'GIG Logistics',
       price: 8941,
       currency: 'NGN',
-      providerRateId: 'GIGL_30_0_1_0_0',
+      providerRateId: 'GIGL_30_0_1_0_0_4',
     });
     expect(quotes[1]).toMatchObject({
       serviceTier: 'GoFaster',
-      providerRateId: 'GIGL_30_0_1_0_1',
+      providerRateId: 'GIGL_30_0_1_0_1_4',
     });
     expect(quotes.some((quote) => quote.isStationPickup)).toBe(false);
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
@@ -188,7 +188,7 @@ describe('GiglProvider quote requests', () => {
       serviceTier: 'Station Pickup - GoStandard',
       displayName:
         'GIG Logistics - Pickup at PHC RUMUOLUMENI IWOFE - GoStandard',
-      providerRateId: 'GIGL_30_1_1_575_0',
+      providerRateId: 'GIGL_30_1_1_575_0_4',
       isStationPickup: true,
       stationId: 30,
       stationName: 'PHC RUMUOLUMENI IWOFE',
@@ -307,7 +307,7 @@ describe('GiglProvider quote requests', () => {
     expect(quotes).toHaveLength(1);
     expect(quotes[0]).toMatchObject({
       isStationPickup: false,
-      providerRateId: 'GIGL_30_0_1_0_0',
+      providerRateId: 'GIGL_30_0_1_0_0_4',
     });
   });
 
@@ -334,7 +334,7 @@ describe('GiglProvider quote requests', () => {
     expect(quotes[0]).toMatchObject({
       id: 'base-station-quote',
       isStationPickup: true,
-      providerRateId: 'GIGL_30_1_1_0_0',
+      providerRateId: 'GIGL_30_1_1_0_0_4',
     });
   });
 
@@ -373,8 +373,8 @@ describe('GiglProvider quote requests', () => {
     });
 
     expect(quotes.map((quote) => quote.providerRateId)).toEqual([
-      'GIGL_30_0_2_0_0',
-      'GIGL_30_0_2_0_1',
+      'GIGL_30_0_2_0_0_4',
+      'GIGL_30_0_2_0_1_4',
     ]);
     const pricePayload = JSON.parse(
       String(fetchMock.mock.calls[2]?.[1]?.body ?? '{}')

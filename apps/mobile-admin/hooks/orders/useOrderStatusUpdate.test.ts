@@ -164,7 +164,10 @@ describe('useUpdateOrderStatus', () => {
         orderId: string;
         status: string;
       }) => Promise<unknown>;
+      retry?: boolean;
     };
+
+    expect(mutation.retry).toBe(false);
 
     await expect(
       mutation.mutationFn({ orderId: 'order-1', status: 'shipped' })

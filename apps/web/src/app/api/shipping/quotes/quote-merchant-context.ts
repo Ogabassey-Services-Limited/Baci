@@ -22,11 +22,7 @@ export type QuoteMerchantContextResult =
       ok: true;
       merchantId?: string;
       senderInfo?: ShippingAddress;
-      /**
-       * Merchant's ISO country, when a merchant was resolved. The registered
-       * carriers are Nigerian, so the route returns an empty quote set for
-       * non-NG merchants instead of quoting Nigeria-origin rates.
-       */
+      /** Resolved merchant ISO country used to gate Nigeria-only carriers. */
       merchantCountry?: string | null;
       /**
        * Merchant's payout currency, when a merchant was resolved. The route
