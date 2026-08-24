@@ -87,4 +87,35 @@ describe('safeJsonLdStringify', () => {
     expect(parsed.line).toBe('one\u2028two\u2029three');
     expect(parsed.price).toBe(5000);
   });
+
+  it('replaces a truncated surrogate without changing valid emoji', () => {
+    const truncatedEmoji = `broken ${String.fromCharCode(0xd83e)}...`;
+    const schema = {
+      description: truncatedEmoji,
+      name: '🧩 Upgradeable laptop',
+    };
+
+    const result = safeJsonLdStringify(schema);
+    const parsed = JSON.parse(result) as typeof schema;
+
+    expect(parsed.description).toBe('broken �...');
+    expect(parsed.name).toBe('🧩 Upgradeable laptop');
+    expect(result).not.toContain('\\ud83e');
+  });
+
+  it('replaces a lone low surrogate', () => {
+    const schema = {
+      description: `broken ${String.fromCharCode(0xdd1e)}...`,
+    };
+
+    const result = safeJsonLdStringify(schema);
+    const parsed = JSON.parse(result) as typeof schema;
+
+    expect(parsed.description).toBe('broken �...');
+    expect(result).not.toContain('\\udd1e');
+  });
+
+  it('returns an empty string for an undefined schema', () => {
+    expect(safeJsonLdStringify(undefined)).toBe('');
+  });
 });

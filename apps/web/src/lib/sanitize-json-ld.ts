@@ -14,6 +14,43 @@ const JSON_LD_SCRIPT_ESCAPE_MAP: Record<string, string> = {
 };
 
 /**
+ * Replace UTF-16 code units that are not part of a valid surrogate pair.
+ *
+ * JSON.stringify escapes lone surrogates as `\\udxxx`. Google treats those
+ * escapes as truncated Unicode characters and rejects the complete JSON-LD
+ * block. Keep valid astral characters intact, while making malformed legacy
+ * values safe to serialize.
+ */
+export function replaceLoneSurrogates(value: string): string {
+  let result = '';
+
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const nextCodeUnit = value.charCodeAt(index + 1);
+      if (nextCodeUnit >= 0xdc00 && nextCodeUnit <= 0xdfff) {
+        result += value[index] + value[index + 1];
+        index += 1;
+        continue;
+      }
+
+      result += '\ufffd';
+      continue;
+    }
+
+    if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      result += '\ufffd';
+      continue;
+    }
+
+    result += value[index];
+  }
+
+  return result;
+}
+
+/**
  * Validate and normalize a URL for use in JSON-LD schemas.
  * Script-context escaping is handled by safeJsonLdStringify().
  */
@@ -34,7 +71,7 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
   }
 
   if (typeof obj === 'string') {
-    return escapeHtml(obj) as T;
+    return escapeHtml(replaceLoneSurrogates(obj)) as T;
   }
 
   if (Array.isArray(obj)) {
@@ -60,11 +97,18 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
 /**
  * Safely stringify a JSON-LD schema object for use in script tags.
  *
- * Escape the serialized JSON for the HTML script context without changing the
- * data values that JSON parsers, including structured-data crawlers, receive.
+ * Escape the serialized JSON for the HTML script context while preserving
+ * valid data values and repairing malformed lone surrogates for parsers,
+ * including structured-data crawlers.
  */
 export function safeJsonLdStringify(schema: unknown): string {
-  return JSON.stringify(schema).replace(
+  const serialized = JSON.stringify(schema, (_key, value) =>
+    typeof value === 'string' ? replaceLoneSurrogates(value) : value
+  );
+
+  if (serialized === undefined) return '';
+
+  return serialized.replace(
     JSON_LD_SCRIPT_ESCAPE_REGEX,
     (match) => JSON_LD_SCRIPT_ESCAPE_MAP[match] ?? match
   );

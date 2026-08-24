@@ -1000,6 +1000,21 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(brand.name).toBe('B&O');
     expect(seller.name).toBe('Baci & Co');
   });
+
+  it('keeps product descriptions parseable when a surrogate is truncated', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        description: `broken ${String.fromCharCode(0xd83e)}...`,
+      })
+    );
+
+    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
+      string,
+      unknown
+    >;
+
+    expect(parsed.description).toBe('broken �...');
+  });
 });
 
 describe('getIndexableRobotsMetadata', () => {
@@ -1322,6 +1337,15 @@ describe('generateMetaDescription', () => {
     ).toBe(
       'Compare smartphones, laptops, and accessories with trusted quality and fast delivery across Nigeria.'
     );
+  });
+
+  it('does not split an emoji when truncating a long description', () => {
+    const description = `${'a'.repeat(156)}🧩 trailing text`;
+
+    const result = generateMetaDescription(description, 160);
+
+    expect(result).toBe(`${'a'.repeat(156)}...`);
+    expect(result).not.toContain(String.fromCharCode(0xd83e));
   });
 });
 

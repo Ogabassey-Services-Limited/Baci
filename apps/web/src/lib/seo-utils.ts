@@ -1504,6 +1504,15 @@ function normalizePlainText(value: string): string {
   return stripHtmlTags(value).replace(/\s+/g, ' ').trim();
 }
 
+function truncateAtCodePointBoundary(value: string, maxLength: number): string {
+  const truncated = value.substring(0, maxLength);
+  const lastCodeUnit = truncated.charCodeAt(truncated.length - 1);
+
+  return lastCodeUnit >= 0xd800 && lastCodeUnit <= 0xdbff
+    ? truncated.substring(0, truncated.length - 1)
+    : truncated;
+}
+
 // Unambiguous meta-title separators. A bare hyphen (`-`) is intentionally
 // excluded because product names regularly contain internal hyphens
 // (e.g. `MacBook-Pro`, `iPhone-256GB`) and treating them as separators
@@ -1692,8 +1701,10 @@ export function generateMetaDescription(
   }
 
   return (
-    candidateDescription.substring(0, validMaxLength - ELLIPSIS_LENGTH) +
-    ELLIPSIS
+    truncateAtCodePointBoundary(
+      candidateDescription,
+      validMaxLength - ELLIPSIS_LENGTH
+    ) + ELLIPSIS
   );
 }
 
