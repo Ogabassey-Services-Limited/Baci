@@ -4,6 +4,7 @@ export interface ExpenseAccess {
   canView: boolean;
   canCreate: boolean;
   canEdit: boolean;
+  canManageIntegrations: boolean;
 }
 
 const PermissionBooleanSchema = z.preprocess((value) => {
@@ -27,6 +28,7 @@ const SUPPORTED_PERMISSION_RESOURCES = [
   '*',
   'expenses',
   'full_access',
+  'integrations',
 ] as const;
 
 type SupportedPermissionResource =
@@ -87,14 +89,15 @@ export type ExpenseAccessRow = z.infer<typeof ExpenseAccessRowSchema>;
 
 function resolveGrant(
   permissions: ExpenseAccessRow['permissions'],
+  resource: SupportedPermissionResource,
   action: string
 ): boolean {
   const grants = [
     permissions['*']?.['*'],
     permissions['*']?.[action],
-    permissions.expenses?.['*'],
-    permissions.expenses?.[action],
-    permissions.expenses?.all,
+    permissions[resource]?.['*'],
+    permissions[resource]?.[action],
+    permissions[resource]?.all,
     permissions.full_access?.all,
   ];
 
@@ -102,11 +105,14 @@ function resolveGrant(
 }
 
 export function resolveExpenseAccess(access: ExpenseAccessRow): ExpenseAccess {
-  const canView = resolveGrant(access.permissions, 'view');
+  const canView = resolveGrant(access.permissions, 'expenses', 'view');
 
   return {
     canView,
-    canCreate: resolveGrant(access.permissions, 'create'),
-    canEdit: canView && resolveGrant(access.permissions, 'edit'),
+    canCreate: resolveGrant(access.permissions, 'expenses', 'create'),
+    canEdit: canView && resolveGrant(access.permissions, 'expenses', 'edit'),
+    canManageIntegrations:
+      access.is_owner ||
+      resolveGrant(access.permissions, 'integrations', 'manage'),
   };
 }

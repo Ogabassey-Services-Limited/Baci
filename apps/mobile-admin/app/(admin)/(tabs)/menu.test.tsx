@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   expenseAccess: {
     canCreate: false,
     canEdit: false,
+    canManageIntegrations: true,
     canView: true,
     error: null as Error | null,
     isLoading: false,
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   merchant: {
     country: 'NG' as string | null,
     id: 'merchant-1',
+    user_id: 'user-1',
     plan_expires_at: null as string | null,
     plan_tier: 'free' as string | null,
     premium_features: [] as string[],
@@ -106,6 +108,7 @@ vi.mock('@/context/OnboardingContext', () => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     signOut: mocks.signOut,
+    user: { id: 'user-1' },
   }),
 }));
 
@@ -169,6 +172,7 @@ describe('MenuScreen', () => {
     mocks.expenseAccess = {
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: true,
       canView: true,
       error: null,
       isLoading: false,
@@ -178,6 +182,7 @@ describe('MenuScreen', () => {
     mocks.merchant = {
       country: 'NG',
       id: 'merchant-1',
+      user_id: 'user-1',
       plan_expires_at: null,
       plan_tier: 'free',
       premium_features: [],
@@ -194,18 +199,6 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Account')).toBeTruthy();
   });
 
-  it('navigates to payout settings from the main menu', () => {
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Payout Settings. Change the bank account used for payouts',
-      })
-    );
-
-    expect(mocks.router.push).toHaveBeenCalledWith('/payout-settings');
-  });
-
   it('navigates to security from the main menu', () => {
     render(<MenuScreen />);
 
@@ -216,33 +209,6 @@ describe('MenuScreen', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/security');
-  });
-
-  it('shows identity verification for Nigerian merchants', () => {
-    render(<MenuScreen />);
-
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
-      })
-    );
-
-    expect(mocks.router.push).toHaveBeenCalledWith('/kyc');
-  });
-
-  it('hides identity verification for non-Nigerian merchants', () => {
-    mocks.merchant = {
-      ...mocks.merchant,
-      country: 'IN',
-    };
-
-    render(<MenuScreen />);
-
-    expect(
-      screen.queryByRole('button', {
-        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
-      })
-    ).toBeNull();
   });
 
   it('renders Expenses when the caller can view expenses', () => {
@@ -266,6 +232,7 @@ describe('MenuScreen', () => {
     mocks.expenseAccess = {
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: true,
       ...access,
     };
 

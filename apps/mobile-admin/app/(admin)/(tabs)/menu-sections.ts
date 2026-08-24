@@ -20,9 +20,11 @@ export interface MenuSection {
 
 interface CreateMenuSectionsOptions {
   canCreateExpenses: boolean;
+  canManageIntegrations: boolean;
   canViewExpenses: boolean;
   destructiveColor: string;
-  isNigerianMerchant: boolean;
+  isMerchantOwner: boolean;
+  isPaystackSettlementCountry: boolean;
   onFeaturePress: (
     feature: MobileFeatureGate,
     label: string,
@@ -35,9 +37,11 @@ interface CreateMenuSectionsOptions {
 
 export function createMenuSections({
   canCreateExpenses,
+  canManageIntegrations,
   canViewExpenses,
   destructiveColor,
-  isNigerianMerchant,
+  isMerchantOwner,
+  isPaystackSettlementCountry,
   onFeaturePress,
   onLogout,
   onNavigate,
@@ -49,6 +53,31 @@ export function createMenuSections({
     canCreateExpenses,
     () => onNavigate('/expenses/new')
   );
+  const payoutSettingsItem =
+    isPaystackSettlementCountry && canManageIntegrations
+      ? {
+          id: 'payout-settings',
+          icon: 'cash-outline' as IoniconsIconName,
+          label: 'Payout Settings',
+          description: 'Change the bank account used for payouts',
+          onPress: () => onNavigate('/payout-settings'),
+        }
+      : null;
+  const emailDomainItem = isMerchantOwner
+    ? {
+        id: 'email-domain',
+        icon: 'mail-outline' as IoniconsIconName,
+        label: 'Email Domain',
+        description: 'Send store emails from your own domain',
+        badge: proBadge('custom_email_domain'),
+        onPress: () =>
+          onFeaturePress(
+            'custom_email_domain',
+            'Email Domain',
+            '/email-domain-settings'
+          ),
+      }
+    : null;
 
   return [
     {
@@ -95,13 +124,7 @@ export function createMenuSections({
           description: 'Configure payment options',
           onPress: () => onNavigate('/payment-methods'),
         },
-        {
-          id: 'payout-settings',
-          icon: 'cash-outline',
-          label: 'Payout Settings',
-          description: 'Change the bank account used for payouts',
-          onPress: () => onNavigate('/payout-settings'),
-        },
+        ...(payoutSettingsItem ? [payoutSettingsItem] : []),
         {
           id: 'staff-accounts',
           icon: 'wallet-outline',
@@ -163,13 +186,7 @@ export function createMenuSections({
               '/analytics-config'
             ),
         },
-        {
-          id: 'email-domain',
-          icon: 'mail-outline',
-          label: 'Email Domain',
-          description: 'Send store emails from your own domain',
-          onPress: () => onNavigate('/email-domain-settings'),
-        },
+        ...(emailDomainItem ? [emailDomainItem] : []),
         ...(expenseMenuItem ? [expenseMenuItem] : []),
         {
           id: 'discounts',
@@ -234,7 +251,7 @@ export function createMenuSections({
           description: 'Your account details',
           onPress: () => onNavigate('/(admin)/profile'),
         },
-        ...(isNigerianMerchant
+        ...(isPaystackSettlementCountry
           ? [
               {
                 id: 'kyc',

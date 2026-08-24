@@ -22,25 +22,36 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { baciFeatureGates, type MobileFeatureGate } from '@/lib/feature-gates';
+import { isBaciPaystackSettlementCountry } from '@/lib/is-baci-paystack-settlement-country';
 import { createMenuSections, type MenuItem } from './menu-sections';
 
 export default function MenuScreen() {
   const { colors, shadows, isDark } = useTheme();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { resetOnboarding } = useOnboarding();
   const { isPro, customerInfo } = useRevenueCat();
   const { merchant, isLoading: isMerchantLoading } = useMerchant();
-  const { canCreate: canCreateExpenses, canView: canViewExpenses } =
-    useExpenseAccess();
+  const {
+    canCreate: canCreateExpenses,
+    canManageIntegrations,
+    canView: canViewExpenses,
+  } = useExpenseAccess();
   const { unregisterPush } = usePushNotifications();
   const router = useRouter();
   const hasProSubscription =
     isPro || baciFeatureGates.hasFullProAccess(merchant);
   const isSubscriptionStatusLoading = !isPro && isMerchantLoading;
-  const isNigerianMerchant = merchant?.country?.trim().toUpperCase() === 'NG';
+  const isPaystackSettlementCountry = isBaciPaystackSettlementCountry(
+    merchant?.country
+  );
+  const isMerchantOwner = Boolean(
+    user?.id && merchant?.user_id && user.id === merchant.user_id
+  );
 
   const canAccessFeature = (feature: MobileFeatureGate) =>
-    isPro || baciFeatureGates.hasFeature(merchant, feature);
+    feature === 'custom_email_domain'
+      ? baciFeatureGates.hasFeature(merchant, feature)
+      : isPro || baciFeatureGates.hasFeature(merchant, feature);
 
   const proBadge = (feature: MobileFeatureGate) =>
     canAccessFeature(feature) ? undefined : 'PRO';
@@ -79,9 +90,11 @@ export default function MenuScreen() {
 
   const menuSections = createMenuSections({
     canCreateExpenses,
+    canManageIntegrations,
     canViewExpenses,
     destructiveColor: colors.error,
-    isNigerianMerchant,
+    isMerchantOwner,
+    isPaystackSettlementCountry,
     onFeaturePress: openFeature,
     onLogout: handleLogout,
     onNavigate: (pathname) => router.push(pathname),

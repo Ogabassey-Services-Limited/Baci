@@ -47,7 +47,12 @@ describe('ExpenseAccessRowSchema', () => {
           },
         })
       )
-    ).toEqual({ canCreate: true, canEdit: true, canView: true });
+    ).toEqual({
+      canCreate: true,
+      canEdit: true,
+      canManageIntegrations: false,
+      canView: true,
+    });
   });
 
   it('normalizes supported string boolean overrides from the access RPC', () => {
@@ -100,18 +105,27 @@ describe('ExpenseAccessRowSchema', () => {
 
 describe('resolveExpenseAccess', () => {
   it.each([
-    ['*.*', { '*': { '*': true } }],
-    ['*.action', { '*': { create: true, edit: true, view: true } }],
-    ['expenses.*', { expenses: { '*': true } }],
-    ['expenses.action', { expenses: { create: true, edit: true, view: true } }],
-    ['expenses.all', { expenses: { all: true } }],
-    ['full_access.all', { full_access: { all: true } }],
-  ])('grants each database-supported wildcard form: %s', (_name, permissions) => {
+    ['*.*', { '*': { '*': true } }, true],
+    ['*.action', { '*': { create: true, edit: true, view: true } }, false],
+    ['expenses.*', { expenses: { '*': true } }, false],
+    [
+      'expenses.action',
+      { expenses: { create: true, edit: true, view: true } },
+      false,
+    ],
+    ['expenses.all', { expenses: { all: true } }, false],
+    ['full_access.all', { full_access: { all: true } }, true],
+  ])('grants each database-supported wildcard form: %s', (_name, permissions, canManageIntegrations) => {
     expect(
       resolveExpenseAccess(
         ExpenseAccessRowSchema.parse({ ...staffAccessRow, permissions })
       )
-    ).toEqual({ canCreate: true, canEdit: true, canView: true });
+    ).toEqual({
+      canCreate: true,
+      canEdit: true,
+      canManageIntegrations,
+      canView: true,
+    });
   });
 
   it('keeps the first non-null false grant ahead of later true grants', () => {
@@ -126,7 +140,12 @@ describe('resolveExpenseAccess', () => {
           },
         })
       )
-    ).toEqual({ canCreate: false, canEdit: false, canView: false });
+    ).toEqual({
+      canCreate: false,
+      canEdit: false,
+      canManageIntegrations: false,
+      canView: false,
+    });
   });
 
   it.each([
@@ -137,7 +156,12 @@ describe('resolveExpenseAccess', () => {
         expenses: { edit: true, view: true },
         full_access: { all: true },
       },
-      { canCreate: true, canEdit: false, canView: false },
+      {
+        canCreate: true,
+        canEdit: false,
+        canManageIntegrations: true,
+        canView: false,
+      },
     ],
     [
       'expenses.*',
@@ -145,7 +169,12 @@ describe('resolveExpenseAccess', () => {
         expenses: { '*': false, create: true, edit: true, view: true },
         full_access: { all: true },
       },
-      { canCreate: false, canEdit: false, canView: false },
+      {
+        canCreate: false,
+        canEdit: false,
+        canManageIntegrations: true,
+        canView: false,
+      },
     ],
     [
       'expenses.action',
@@ -153,7 +182,12 @@ describe('resolveExpenseAccess', () => {
         expenses: { all: true, create: false, edit: false, view: false },
         full_access: { all: true },
       },
-      { canCreate: false, canEdit: false, canView: false },
+      {
+        canCreate: false,
+        canEdit: false,
+        canManageIntegrations: true,
+        canView: false,
+      },
     ],
     [
       'expenses.all',
@@ -161,7 +195,12 @@ describe('resolveExpenseAccess', () => {
         expenses: { all: false },
         full_access: { all: true },
       },
-      { canCreate: false, canEdit: false, canView: false },
+      {
+        canCreate: false,
+        canEdit: false,
+        canManageIntegrations: true,
+        canView: false,
+      },
     ],
   ])('keeps an explicit false at %s ahead of later true grants', (_location, permissions, expectedAccess) => {
     expect(
@@ -179,6 +218,34 @@ describe('resolveExpenseAccess', () => {
           permissions: { expenses: { edit: true, view: false } },
         })
       )
-    ).toEqual({ canCreate: false, canEdit: false, canView: false });
+    ).toEqual({
+      canCreate: false,
+      canEdit: false,
+      canManageIntegrations: false,
+      canView: false,
+    });
+  });
+
+  it('allows owners and staff with integrations.manage to edit payout settings', () => {
+    expect(
+      resolveExpenseAccess(
+        ExpenseAccessRowSchema.parse({
+          ...staffAccessRow,
+          is_owner: true,
+          is_staff: false,
+          permissions: {},
+          role: 'owner',
+        })
+      ).canManageIntegrations
+    ).toBe(true);
+
+    expect(
+      resolveExpenseAccess(
+        ExpenseAccessRowSchema.parse({
+          ...staffAccessRow,
+          permissions: { integrations: { manage: true } },
+        })
+      ).canManageIntegrations
+    ).toBe(true);
   });
 });

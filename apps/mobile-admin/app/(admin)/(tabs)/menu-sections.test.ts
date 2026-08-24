@@ -6,9 +6,11 @@ function createOptions(
 ) {
   return {
     canCreateExpenses: false,
+    canManageIntegrations: true,
     canViewExpenses: true,
     destructiveColor: '#dc2626',
-    isNigerianMerchant: true,
+    isMerchantOwner: true,
+    isPaystackSettlementCountry: true,
     onFeaturePress: vi.fn(),
     onLogout: vi.fn(),
     onNavigate: vi.fn(),
@@ -77,7 +79,7 @@ describe('createMenuSections', () => {
 
   it('only exposes identity verification to Nigerian merchants', () => {
     const account = createMenuSections(
-      createOptions({ isNigerianMerchant: false })
+      createOptions({ isPaystackSettlementCountry: false })
     ).find((section) => section.title === 'Account');
 
     expect(account?.items.map((item) => item.id)).not.toContain('kyc');
@@ -92,5 +94,46 @@ describe('createMenuSections', () => {
     payoutSettings?.onPress();
 
     expect(options.onNavigate).toHaveBeenCalledWith('/payout-settings');
+  });
+
+  it('hides payout settings outside settlement countries and without integration access', () => {
+    const hiddenByCountry = createMenuSections(
+      createOptions({ isPaystackSettlementCountry: false })
+    ).find((section) => section.title === 'Store');
+    const hiddenForStaff = createMenuSections(
+      createOptions({ canManageIntegrations: false })
+    ).find((section) => section.title === 'Store');
+
+    expect(hiddenByCountry?.items.map((item) => item.id)).not.toContain(
+      'payout-settings'
+    );
+    expect(hiddenForStaff?.items.map((item) => item.id)).not.toContain(
+      'payout-settings'
+    );
+  });
+
+  it('gates email domain settings to owners and the custom-email entitlement', () => {
+    const options = createOptions({ proBadge: vi.fn(() => 'PRO') });
+    const business = createMenuSections(options).find(
+      (section) => section.title === 'Business'
+    );
+    const emailDomain = business?.items.find(
+      (item) => item.id === 'email-domain'
+    );
+
+    expect(emailDomain?.badge).toBe('PRO');
+    emailDomain?.onPress();
+    expect(options.onFeaturePress).toHaveBeenCalledWith(
+      'custom_email_domain',
+      'Email Domain',
+      '/email-domain-settings'
+    );
+
+    const staffBusiness = createMenuSections(
+      createOptions({ isMerchantOwner: false })
+    ).find((section) => section.title === 'Business');
+    expect(staffBusiness?.items.map((item) => item.id)).not.toContain(
+      'email-domain'
+    );
   });
 });
