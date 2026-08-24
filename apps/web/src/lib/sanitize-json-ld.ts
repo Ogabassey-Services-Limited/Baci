@@ -21,7 +21,7 @@ const JSON_LD_SCRIPT_ESCAPE_MAP: Record<string, string> = {
  * block. Keep valid astral characters intact, while making malformed legacy
  * values safe to serialize.
  */
-export function replaceLoneSurrogates(value: string): string {
+function replaceLoneSurrogates(value: string): string {
   let result = '';
 
   for (let index = 0; index < value.length; index += 1) {
