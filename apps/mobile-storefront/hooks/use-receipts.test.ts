@@ -197,7 +197,7 @@ describe('receiptDetailQueryOptions', () => {
           account_name: 'Automatic confirmation',
           account_number: '2222222222',
           bank_name: 'Paystack',
-          created_at: '2026-07-08T11:00:00.000Z',
+          created_at: new Date().toISOString(),
           provider: 'paystack',
         },
       ],
@@ -215,5 +215,35 @@ describe('receiptDetailQueryOptions', () => {
         provider: 'paystack',
       })
     );
+  });
+
+  it('selects a legacy account when the Paystack alias has expired', async () => {
+    mockPaymentAccountOrder.mockResolvedValueOnce({
+      data: [
+        {
+          account_name: 'Legacy account',
+          account_number: '1111111111',
+          bank_name: 'Korapay',
+          created_at: '2026-07-08T12:00:00.000Z',
+          provider: 'korapay',
+        },
+        {
+          account_name: 'Expired automatic confirmation',
+          account_number: '2222222222',
+          assigned_at: '2026-07-08T11:00:00.000Z',
+          bank_name: 'Paystack',
+          expires_at: '2026-07-08T12:30:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+
+    const detail = await receiptDetailQueryOptions('order-1', {
+      merchantId: 'merchant-1',
+      userId: 'user-1',
+    }).queryFn();
+
+    expect(detail.virtual_account?.account_number).toBe('1111111111');
   });
 });

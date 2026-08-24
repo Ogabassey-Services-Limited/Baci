@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -11,7 +12,6 @@ import {
 import { logger } from '@/lib/logger';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderReminderSchema } from '@/schemas/order-reminder';
-import { selectReminderPaymentAccount } from './select-reminder-payment-account';
 
 /**
  * POST /api/orders/[id]/reminder
@@ -128,7 +128,7 @@ export async function POST(
       )
       .eq('order_id', orderId)
       .order('created_at', { ascending: false });
-    const virtualAccount = selectReminderPaymentAccount(paymentAccounts);
+    const virtualAccount = selectPreferredOrderPaymentAccount(paymentAccounts);
 
     // 6. Generate payment link
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';

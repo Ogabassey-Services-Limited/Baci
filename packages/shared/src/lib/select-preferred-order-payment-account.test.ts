@@ -15,10 +15,13 @@ const account = (
 
 describe('selectPreferredOrderPaymentAccount', () => {
   it('prefers Paystack when legacy provider rows coexist', () => {
-    const selected = selectPreferredOrderPaymentAccount([
-      account('korapay', '1111111111', '2026-08-24T12:00:00.000Z'),
-      account('paystack', '2222222222', '2026-08-24T11:00:00.000Z'),
-    ]);
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        account('korapay', '1111111111', '2026-08-24T12:00:00.000Z'),
+        account('paystack', '2222222222', '2026-08-24T11:00:00.000Z'),
+      ],
+      new Date('2026-08-24T11:30:00.000Z')
+    );
 
     expect(selected?.account_number).toBe('2222222222');
   });
@@ -34,5 +37,29 @@ describe('selectPreferredOrderPaymentAccount', () => {
 
   it('returns null for an empty account list', () => {
     expect(selectPreferredOrderPaymentAccount([])).toBeNull();
+  });
+
+  it('uses a legacy account instead of an expired Paystack alias', () => {
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        {
+          account_name: 'Expired Paystack',
+          account_number: '1111111111',
+          assigned_at: '2026-08-24T08:00:00.000Z',
+          bank_name: 'Paystack Bank',
+          expires_at: '2026-08-24T09:30:00.000Z',
+          provider: 'paystack',
+        },
+        {
+          account_name: 'Legacy',
+          account_number: '2222222222',
+          bank_name: 'Legacy Bank',
+          provider: 'korapay',
+        },
+      ],
+      new Date('2026-08-24T10:00:00.000Z')
+    );
+
+    expect(selected?.account_number).toBe('2222222222');
   });
 });

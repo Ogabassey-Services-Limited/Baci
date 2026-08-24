@@ -53,7 +53,7 @@ describe('paystack DVA order candidate', () => {
     ).toBeNull();
   });
 
-  it('normalizes a partially-paid merchant invoice to its current balance', () => {
+  it('prefers the refreshed payable balance over a stale amount_paid value', () => {
     expect(
       normalizePaystackDvaOrderCandidate({
         ...row,
@@ -66,7 +66,7 @@ describe('paystack DVA order candidate', () => {
       })
     ).toMatchObject({
       merchant_created: true,
-      outstanding_amount_kobo: 53_500_000,
+      outstanding_amount_kobo: 35_000_000,
     });
   });
 

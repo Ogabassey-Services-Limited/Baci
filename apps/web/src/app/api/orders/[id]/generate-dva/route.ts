@@ -5,6 +5,7 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import { hasActivePaystackOrderDvaAlias } from '@/lib/payments/paystack-dva-order-alias';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -176,18 +177,11 @@ export async function POST(
 
     let phone = order.customer_phone || '';
     if (!phone) {
-      const { data: merchant, error: merchantError } = await supabase
+      const { data: merchant } = await supabase
         .from('merchants')
         .select('phone')
         .eq('id', merchantId)
         .maybeSingle();
-
-      if (merchantError) {
-        logger.error({
-          message: 'Database error fetching merchant phone',
-          error: merchantError,
-        });
-      }
       phone = merchant?.phone || '08000000000';
     }
 
@@ -200,14 +194,26 @@ export async function POST(
     });
 
     if (!dvaResult.success) {
-      logger.error({
-        message: 'DVA creation failed',
-        orderId,
-        error: dvaResult.error,
-      });
       return NextResponse.json(
         { error: `DVA creation failed: ${dvaResult.error}` },
         { status: 502 }
+      );
+    }
+
+    if (
+      await hasActivePaystackOrderDvaAlias({
+        accountNumber: dvaResult.data.account_number,
+        asOf: new Date(),
+        supabase,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          code: 'PAYSTACK_DVA_IN_USE',
+          error:
+            'This automatic confirmation account is in use by another order',
+        },
+        { status: 409 }
       );
     }
 
@@ -268,12 +274,6 @@ export async function POST(
         { status: 500 }
       );
     }
-
-    logger.info({
-      message: 'Paystack DVA created for order',
-      orderId,
-      bankName: dvaResult.data.bank_name,
-    });
 
     return NextResponse.json({
       success: true,

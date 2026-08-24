@@ -9,6 +9,7 @@ const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
   mockGeneratePaymentAccount,
+  mockHasActivePaystackOrderDvaAlias,
   mockFrom,
   mockRpc,
   mockSupabaseClient,
@@ -19,6 +20,7 @@ const {
     mockAuthenticateApiRequest: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockGeneratePaymentAccount: vi.fn(),
+    mockHasActivePaystackOrderDvaAlias: vi.fn(),
     mockFrom,
     mockRpc,
     mockSupabaseClient: {
@@ -36,6 +38,10 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
+}));
+
+vi.mock('@/lib/payments/paystack-dva-order-alias', () => ({
+  hasActivePaystackOrderDvaAlias: mockHasActivePaystackOrderDvaAlias,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -81,6 +87,7 @@ function mockQuery(
     insert: vi.fn().mockResolvedValue({ error: writeError }),
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
     upsert: vi.fn().mockResolvedValue({ error: writeError }),
+    update: vi.fn().mockReturnThis(),
   };
 }
 
@@ -156,6 +163,7 @@ function useOrderQueries({
 describe('POST /api/orders/[id]/generate-dva', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasActivePaystackOrderDvaAlias.mockResolvedValue(false);
     mockRpc.mockResolvedValue({ error: null });
   });
 
@@ -270,7 +278,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
 
   it('returns existing DVA when one already exists', async () => {
     authenticateMerchant();
-    useOrderQueries({
+    const paymentAccountQuery = useOrderQueries({
       paymentAccount: {
         account_number: '1234567890',
         bank_name: 'Wema Bank',
@@ -284,6 +292,9 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.success).toBe(true);
     expect(body.existing).toBe(true);
     expect(body.virtualAccount.account_number).toBe('1234567890');
+    expect(paymentAccountQuery.update).toHaveBeenCalledWith({
+      payable_amount: 5000,
+    });
   });
 
   it('returns a legacy provider account instead of creating a second row', async () => {
@@ -424,6 +435,21 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(body.error).toContain('DVA creation failed');
+  });
+
+  it('does not persist a second active alias for the same Paystack account', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockHasActivePaystackOrderDvaAlias.mockResolvedValue(true);
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'PAYSTACK_DVA_IN_USE',
+    });
+    expect(paymentAccountQuery.insert).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the automatic confirmation account cannot be persisted', async () => {

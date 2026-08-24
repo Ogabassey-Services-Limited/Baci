@@ -118,8 +118,12 @@ export interface StorefrontAccountDocumentTransactionRow {
 
 export interface StorefrontAccountDocumentPaymentAccountRow {
   account_number: string;
+  assigned_at?: string | null;
   bank_name: string | null;
   account_name: string | null;
+  created_at?: string | null;
+  expires_at?: string | null;
+  provider?: string | null;
 }
 
 export interface StorefrontAccountDocumentTaxSubtotalRow {

@@ -81,6 +81,20 @@ export async function loadDvaProvisioningContext({
   const amountPaid = Math.max(ledgerAmountPaid, Number(order.amount_paid) || 0);
   const payableAmount = Math.max(Number(order.total) - amountPaid, 0);
 
+  const { error: refreshError } = await supabase
+    .from('order_payment_accounts')
+    .update({ payable_amount: payableAmount })
+    .eq('order_id', orderId)
+    .eq('provider', 'paystack');
+  if (refreshError) {
+    return {
+      code: 'PAYMENT_ACCOUNT_REFRESH_FAILED',
+      error: 'Unable to refresh the automatic confirmation balance',
+      ok: false,
+      status: 500,
+    };
+  }
+
   return payableAmount > 0
     ? { ok: true, payableAmount }
     : {

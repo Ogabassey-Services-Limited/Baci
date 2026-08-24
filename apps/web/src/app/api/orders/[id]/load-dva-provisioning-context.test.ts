@@ -2,12 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { loadDvaProvisioningContext } from './load-dva-provisioning-context';
 
 function query(data: unknown, error: unknown = null) {
-  return {
-    eq: vi.fn().mockReturnThis(),
-    in: vi.fn().mockResolvedValue({ data, error }),
-    maybeSingle: vi.fn().mockResolvedValue({ data, error }),
-    select: vi.fn().mockReturnThis(),
-  };
+  const result = { data, error };
+  const builder = Object.assign(Promise.resolve(result), {
+    eq: vi.fn(() => builder),
+    in: vi.fn().mockResolvedValue(result),
+    maybeSingle: vi.fn().mockResolvedValue(result),
+    select: vi.fn(() => builder),
+    update: vi.fn(() => builder),
+  });
+  return builder;
 }
 
 function client({
@@ -19,10 +22,14 @@ function client({
 } = {}) {
   const settingsQuery = query(settings);
   const transactionsQuery = query(transactions);
+  const paymentAccountQuery = query(null);
   return {
-    from: vi.fn((table: string) =>
-      table === 'merchant_feature_settings' ? settingsQuery : transactionsQuery
-    ),
+    accountQuery: paymentAccountQuery,
+    from: vi.fn((table: string) => {
+      if (table === 'merchant_feature_settings') return settingsQuery;
+      if (table === 'transactions') return transactionsQuery;
+      return paymentAccountQuery;
+    }),
   };
 }
 
@@ -45,19 +52,23 @@ describe('loadDvaProvisioningContext', () => {
   });
 
   it('uses completed transactions and wallet funding to reconcile the balance', async () => {
+    const supabase = client({
+      transactions: [
+        { amount: 2_000, gateway: 'paystack' },
+        { amount: 1_000, gateway: 'wallet' },
+      ],
+    });
     const result = await loadDvaProvisioningContext({
       merchantId: 'merchant-1',
       order: { ...order, amount_paid: 1_000, wallet_amount_used: 3_000 },
       orderId: 'order-1',
-      supabase: client({
-        transactions: [
-          { amount: 2_000, gateway: 'paystack' },
-          { amount: 1_000, gateway: 'wallet' },
-        ],
-      }) as never,
+      supabase: supabase as never,
     });
 
     expect(result).toEqual({ ok: true, payableAmount: 5_000 });
+    expect(supabase.accountQuery.update).toHaveBeenCalledWith({
+      payable_amount: 5_000,
+    });
   });
 
   it('rejects provisioning when reconciled payments cover the order', async () => {

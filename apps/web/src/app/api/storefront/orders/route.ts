@@ -150,7 +150,9 @@ export async function GET(request: NextRequest) {
           bank_name,
           account_name,
           provider,
-          created_at
+          created_at,
+          assigned_at,
+          expires_at
         )
       `)
       .eq('customer_id', customer.id)

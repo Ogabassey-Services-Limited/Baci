@@ -274,7 +274,9 @@ export async function GET(
               bank_name,
               account_name,
               provider,
-              created_at
+              created_at,
+              assigned_at,
+              expires_at
             )
           `
         )
