@@ -54,7 +54,10 @@ function makeQueryChain() {
   // biome-ignore lint/suspicious/noThenProperty: Supabase query builders are thenable and the screen awaits this mock.
   chain.then = (
     resolve: (value: { data: unknown[]; error: null }) => unknown
-  ) => Promise.resolve({ data: [], error: null }).then(resolve);
+  ) =>
+    Promise.resolve({ data: mocks.queryState.data ?? [], error: null }).then(
+      resolve
+    );
   return chain;
 }
 
@@ -76,6 +79,11 @@ vi.mock('@tanstack/react-query', () => ({
 
 vi.mock('@/hooks/useExpenseAccess', () => ({
   useExpenseAccess: () => mocks.access,
+}));
+vi.mock('@/components/expenses/ExpenseListItem', () => ({
+  ExpenseListItem: ({ canEdit }: { canEdit: boolean }) => (
+    <span>{canEdit ? 'editable expense row' : 'view-only expense row'}</span>
+  ),
 }));
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
@@ -149,10 +157,24 @@ vi.mock('@shopify/flash-list', async () => {
     FlashList: ({
       data = [],
       ListEmptyComponent,
+      renderItem,
     }: {
       data?: Array<{ key: string }>;
       ListEmptyComponent?: ReactNode;
-    }) => (data.length === 0 ? ListEmptyComponent : <section />),
+      renderItem: (input: {
+        index: number;
+        item: { key: string };
+      }) => ReactNode;
+    }) =>
+      data.length === 0 ? (
+        ListEmptyComponent
+      ) : (
+        <section>
+          {data.map((item, index) => (
+            <div key={item.key}>{renderItem({ item, index })}</div>
+          ))}
+        </section>
+      ),
   };
 });
 vi.mock('expo-router', () => ({
@@ -281,6 +303,39 @@ describe('ExpensesScreen', () => {
       screen.queryByText('Add your first expense')
     ).not.toBeInTheDocument();
     expect(mocks.stackOptions?.headerRight).toBeUndefined();
+  });
+
+  it('forwards route access canEdit to visible expense rows', () => {
+    mocks.queryState.data = [
+      {
+        amount: 12_500,
+        branch_id: null,
+        category: 'Travel',
+        created_by_user_id: null,
+        date: '2026-07-31',
+        description: 'Taxi',
+        group_id: null,
+        id: 'expense-1',
+        merchant_id: 'cae013e3-719e-4baa-9ab9-45d080ce23ea',
+        payment_method: null,
+        receipt_storage_path: null,
+        receipt_url: null,
+        reference: null,
+        updated_at: '2026-07-31T12:00:00.000Z',
+        updated_by_user_id: null,
+        vendor_name: null,
+      },
+    ];
+
+    const { rerender } = render(<ExpensesScreen />);
+
+    expect(screen.getByText('editable expense row')).toBeInTheDocument();
+
+    mocks.access = { ...activeAccess, canEdit: false };
+    rerender(<ExpensesScreen />);
+
+    expect(screen.getByText('view-only expense row')).toBeInTheDocument();
+    expect(screen.queryByText('editable expense row')).not.toBeInTheDocument();
   });
 
   it('distinguishes no matching results from a merchant with no recorded expenses', () => {

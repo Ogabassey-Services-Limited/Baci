@@ -96,8 +96,47 @@ describe('ExpenseListItem', () => {
 
   it('opens the expense detail screen when pressed', () => {
     render(
-      <ExpenseListItem item={expense()} merchant={{ payout_currency: 'NGN' }} />
+      <ExpenseListItem
+        canEdit
+        item={expense()}
+        merchant={{ payout_currency: 'NGN' }}
+      />
     );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open expense Inventory: Office internet',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1');
+  });
+
+  it('exposes an Edit shortcut that routes directly to the expense edit screen', () => {
+    render(<ExpenseListItem canEdit item={expense()} />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1/edit');
+    expect(
+      screen.getByRole('button', {
+        name: 'Open expense Inventory: Office internet',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the Edit shortcut for view-only users while keeping detail navigation', () => {
+    render(<ExpenseListItem canEdit={false} item={expense()} />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Edit expense Inventory: Office internet',
+      })
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole('button', {

@@ -136,6 +136,11 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
   },
+  expenseMain: {
+    alignItems: 'center',
+    flex: 1,
+    flexDirection: 'row',
+  },
   categoryIcon: {
     width: 40,
     height: 40,
@@ -164,6 +169,21 @@ export const styles = StyleSheet.create({
   amountText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
+  },
+  editButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    justifyContent: 'center',
+    marginLeft: SPACING.sm,
+    minHeight: SPACING.touchTarget,
+    paddingHorizontal: SPACING.sm,
+  },
+  editButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   fab: {
     position: 'absolute',

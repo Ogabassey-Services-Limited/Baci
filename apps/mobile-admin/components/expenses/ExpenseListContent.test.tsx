@@ -94,7 +94,9 @@ vi.mock('@/lib/supabase', () => ({
   supabase: { from: () => makeQueryChain() },
 }));
 vi.mock('@/components/expenses/ExpenseListItem', () => ({
-  ExpenseListItem: () => <Text>expense row</Text>,
+  ExpenseListItem: ({ canEdit }: { canEdit: boolean }) => (
+    <Text>{canEdit ? 'editable expense row' : 'view-only expense row'}</Text>
+  ),
 }));
 vi.mock('@/components/expenses/ExpenseFilterBar', () => ({
   ExpenseFilterBar: ({ onOpen }: { onOpen: () => void }) => (
@@ -229,7 +231,7 @@ describe('ExpenseListContent', () => {
   });
 
   it('queries ungrouped expenses server-side and shows a matching visible total with a singular month count', () => {
-    render(<ExpenseListContent canCreate />);
+    render(<ExpenseListContent canCreate canEdit />);
     fireEvent.click(
       screen.getByRole('button', { name: 'Open expense filters' })
     );
@@ -246,9 +248,16 @@ describe('ExpenseListContent', () => {
     expect(screen.getAllByText(/12,500/)).toHaveLength(2);
   });
 
+  it('forwards edit access to each visible expense row', () => {
+    render(<ExpenseListContent canCreate canEdit />);
+
+    expect(screen.getByText('editable expense row')).toBeInTheDocument();
+    expect(screen.queryByText('view-only expense row')).not.toBeInTheDocument();
+  });
+
   it('describes an empty current-month result as a period with no expenses', () => {
     mocks.queryState.data = [];
-    render(<ExpenseListContent canCreate />);
+    render(<ExpenseListContent canCreate canEdit={false} />);
 
     expect(
       screen.getByText('No expenses recorded in this period')
@@ -267,7 +276,7 @@ describe('ExpenseListContent', () => {
     });
     vi.useFakeTimers({ now: new Date('2026-07-31T23:30:00.000Z') });
 
-    render(<ExpenseListContent canCreate />);
+    render(<ExpenseListContent canCreate canEdit={false} />);
 
     expect(mocks.queryCalls).toContainEqual({
       args: ['date', '2026-08-01'],
