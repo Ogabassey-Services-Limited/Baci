@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   hasFullProAccess: vi.fn(),
   isPro: true,
   merchant: {
+    country: 'NG' as string | null,
     id: 'merchant-1',
     plan_expires_at: null as string | null,
     plan_tier: 'free' as string | null,
@@ -175,6 +176,7 @@ describe('MenuScreen', () => {
     mocks.isPro = true;
     mocks.merchantLoading = false;
     mocks.merchant = {
+      country: 'NG',
       id: 'merchant-1',
       plan_expires_at: null,
       plan_tier: 'free',
@@ -190,6 +192,57 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Business')).toBeTruthy();
     expect(screen.getByText('Support')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
+  });
+
+  it('navigates to payout settings from the main menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Payout Settings. Change the bank account used for payouts',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/payout-settings');
+  });
+
+  it('navigates to security from the main menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Security. Password and two-factor authentication',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/security');
+  });
+
+  it('shows identity verification for Nigerian merchants', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/kyc');
+  });
+
+  it('hides identity verification for non-Nigerian merchants', () => {
+    mocks.merchant = {
+      ...mocks.merchant,
+      country: 'IN',
+    };
+
+    render(<MenuScreen />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
+      })
+    ).toBeNull();
   });
 
   it('renders Expenses when the caller can view expenses', () => {

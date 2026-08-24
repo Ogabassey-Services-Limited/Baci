@@ -22,6 +22,7 @@ interface CreateMenuSectionsOptions {
   canCreateExpenses: boolean;
   canViewExpenses: boolean;
   destructiveColor: string;
+  isNigerianMerchant: boolean;
   onFeaturePress: (
     feature: MobileFeatureGate,
     label: string,
@@ -36,6 +37,7 @@ export function createMenuSections({
   canCreateExpenses,
   canViewExpenses,
   destructiveColor,
+  isNigerianMerchant,
   onFeaturePress,
   onLogout,
   onNavigate,
@@ -92,6 +94,13 @@ export function createMenuSections({
           label: 'Payment Methods',
           description: 'Configure payment options',
           onPress: () => onNavigate('/payment-methods'),
+        },
+        {
+          id: 'payout-settings',
+          icon: 'cash-outline',
+          label: 'Payout Settings',
+          description: 'Change the bank account used for payouts',
+          onPress: () => onNavigate('/payout-settings'),
         },
         {
           id: 'staff-accounts',
@@ -153,6 +162,13 @@ export function createMenuSections({
               'Growth & Marketing',
               '/analytics-config'
             ),
+        },
+        {
+          id: 'email-domain',
+          icon: 'mail-outline',
+          label: 'Email Domain',
+          description: 'Send store emails from your own domain',
+          onPress: () => onNavigate('/email-domain-settings'),
         },
         ...(expenseMenuItem ? [expenseMenuItem] : []),
         {
@@ -217,6 +233,24 @@ export function createMenuSections({
           label: 'Profile',
           description: 'Your account details',
           onPress: () => onNavigate('/(admin)/profile'),
+        },
+        ...(isNigerianMerchant
+          ? [
+              {
+                id: 'kyc',
+                icon: 'shield-checkmark-outline' as IoniconsIconName,
+                label: 'Identity Verification',
+                description: 'Manage NIN, BVN, and CAC verification',
+                onPress: () => onNavigate('/kyc'),
+              },
+            ]
+          : []),
+        {
+          id: 'security',
+          icon: 'lock-closed-outline',
+          label: 'Security',
+          description: 'Password and two-factor authentication',
+          onPress: () => onNavigate('/(admin)/security'),
         },
         {
           id: 'notifications',

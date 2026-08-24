@@ -37,6 +37,7 @@ export default function MenuScreen() {
   const hasProSubscription =
     isPro || baciFeatureGates.hasFullProAccess(merchant);
   const isSubscriptionStatusLoading = !isPro && isMerchantLoading;
+  const isNigerianMerchant = merchant?.country?.trim().toUpperCase() === 'NG';
 
   const canAccessFeature = (feature: MobileFeatureGate) =>
     isPro || baciFeatureGates.hasFeature(merchant, feature);
@@ -80,6 +81,7 @@ export default function MenuScreen() {
     canCreateExpenses,
     canViewExpenses,
     destructiveColor: colors.error,
+    isNigerianMerchant,
     onFeaturePress: openFeature,
     onLogout: handleLogout,
     onNavigate: (pathname) => router.push(pathname),
