@@ -30,6 +30,8 @@ interface PermissionState {
 export const PERMISSION_SOFT_ASK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 let notificationsModulePromise: Promise<NotificationsPermissionModule | null> | null =
   null;
+type NotificationsModuleLoader =
+  () => PromiseLike<NotificationsPermissionModule>;
 
 function hasNotificationStatusApi(
   notifications: MaybeNotificationsPermissionModule
@@ -96,12 +98,13 @@ export async function requestNotificationPermissionStatus(
   }
 }
 
-async function loadNotificationsModule(): Promise<NotificationsPermissionModule | null> {
+export async function loadNotificationsModule(
+  loadModule: NotificationsModuleLoader = () => import('expo-notifications')
+): Promise<NotificationsPermissionModule | null> {
   try {
-    // Await the import rather than chaining `.catch` directly. Metro can
-    // return a synchronous module namespace for a native bundle, which has no
-    // Promise methods.
-    return await import('expo-notifications');
+    // Expo SDK 57's native asyncRequire returns a thenable without .catch or
+    // .finally. Await assimilates it without relying on those Promise methods.
+    return await loadModule();
   } catch (error) {
     notificationsModulePromise = null;
     warnNotificationsPermissionApiFailed('expo-notifications', error);
