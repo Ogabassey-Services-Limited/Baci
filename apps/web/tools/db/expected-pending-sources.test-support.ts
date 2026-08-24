@@ -237,6 +237,21 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_NEGOTIATION_PENDING_SOURCES,
   ...EXPECTED_PENDING_TAIL_SOURCES.late,
   ...EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260823110000_harden_jumia_orphan_authorization_sweep.sql',
+    sha256: '3afab9495b805517ee42d7492a9666a608ffba11172321a3a810a0cb1c597780',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260824230000_allow_jumia_view_credential_refresh.sql',
+    sha256: '629f967ffa25a8f79c38387262007e184e6ccb99d9bf0ef40cf5e43940ca00fa',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260824230100_lock_each_jumia_orphan_shop.sql',
+    sha256: '1cb9abb1ef1bd5b9026c44958c78ee8534be0fbc065076112d6f979ead65921e',
+  },
 ]
   .sort((left, right) =>
     left.repositoryPath.localeCompare(right.repositoryPath)
