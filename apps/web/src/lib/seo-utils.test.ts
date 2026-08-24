@@ -1008,12 +1008,9 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       })
     );
 
-    const parsed = JSON.parse(safeJsonLdStringify(schema)) as Record<
-      string,
-      unknown
-    >;
-
-    expect(parsed.description).toBe('broken �...');
+    expect(JSON.parse(safeJsonLdStringify(schema))).toMatchObject({
+      description: 'broken �...',
+    });
   });
 });
 

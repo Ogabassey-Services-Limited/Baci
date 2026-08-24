@@ -63,6 +63,22 @@ describe('sanitizeSchemaMarkup', () => {
     expect(result.offer.price).toBe('\\u003cscript\\u003e');
     expect(result.offer.currency).toBe('NGN');
   });
+
+  it('repairs a lone high surrogate in property names', () => {
+    const key = `high-${String.fromCharCode(0xd83e)}`;
+
+    expect(sanitizeSchemaMarkup({ [key]: 'value' })).toEqual({
+      'high-�': 'value',
+    });
+  });
+
+  it('repairs a lone low surrogate in property names', () => {
+    const key = `low-${String.fromCharCode(0xdd1e)}`;
+
+    expect(sanitizeSchemaMarkup({ [key]: 'value' })).toEqual({
+      'low-�': 'value',
+    });
+  });
 });
 
 describe('safeJsonLdStringify', () => {
@@ -96,10 +112,11 @@ describe('safeJsonLdStringify', () => {
     };
 
     const result = safeJsonLdStringify(schema);
-    const parsed = JSON.parse(result) as typeof schema;
 
-    expect(parsed.description).toBe('broken �...');
-    expect(parsed.name).toBe('🧩 Upgradeable laptop');
+    expect(JSON.parse(result)).toMatchObject({
+      description: 'broken �...',
+      name: '🧩 Upgradeable laptop',
+    });
     expect(result).not.toContain('\\ud83e');
   });
 
@@ -109,9 +126,26 @@ describe('safeJsonLdStringify', () => {
     };
 
     const result = safeJsonLdStringify(schema);
-    const parsed = JSON.parse(result) as typeof schema;
 
-    expect(parsed.description).toBe('broken �...');
+    expect(JSON.parse(result)).toMatchObject({
+      description: 'broken �...',
+    });
+    expect(result).not.toContain('\\udd1e');
+  });
+
+  it('repairs a lone high surrogate in property names', () => {
+    const key = `high-${String.fromCharCode(0xd83e)}`;
+    const result = safeJsonLdStringify({ [key]: 'value' });
+
+    expect(JSON.parse(result)).toEqual({ 'high-�': 'value' });
+    expect(result).not.toContain('\\ud83e');
+  });
+
+  it('repairs a lone low surrogate in property names', () => {
+    const key = `low-${String.fromCharCode(0xdd1e)}`;
+    const result = safeJsonLdStringify({ [key]: 'value' });
+
+    expect(JSON.parse(result)).toEqual({ 'low-�': 'value' });
     expect(result).not.toContain('\\udd1e');
   });
 

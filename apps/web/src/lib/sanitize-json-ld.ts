@@ -82,7 +82,7 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
     const result: Record<string, unknown> = {};
     for (const key in obj) {
       if (Object.hasOwn(obj, key)) {
-        result[key] = sanitizeSchemaMarkup(
+        result[replaceLoneSurrogates(key)] = sanitizeSchemaMarkup(
           (obj as Record<string, unknown>)[key]
         );
       }
@@ -102,9 +102,21 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
  * including structured-data crawlers.
  */
 export function safeJsonLdStringify(schema: unknown): string {
-  const serialized = JSON.stringify(schema, (_key, value) =>
-    typeof value === 'string' ? replaceLoneSurrogates(value) : value
-  );
+  const serialized = JSON.stringify(schema, (_key, value) => {
+    if (typeof value === 'string') {
+      return replaceLoneSurrogates(value);
+    }
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const repaired: Record<string, unknown> = {};
+      for (const [key, propertyValue] of Object.entries(value)) {
+        repaired[replaceLoneSurrogates(key)] = propertyValue;
+      }
+      return repaired;
+    }
+
+    return value;
+  });
 
   if (serialized === undefined) return '';
 
