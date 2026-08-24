@@ -108,7 +108,7 @@ disable_unit() { printf '%s\\n' disable_unit >>"$ACTIONS"; }
 remove_container() { printf '%s\\n' remove_container >>"$ACTIONS"; }
 delete_models() { printf '%s\\n' delete_models >>"$ACTIONS"; }
 apply`,
-        'retire-ollama-atq-action-boundary-test',
+        `${script.pathname}.source`,
         script.pathname,
         receiptDirectory,
         receipt,
@@ -204,7 +204,7 @@ disable_unit() { printf '%s\\n' disable_unit >>"$ACTIONS"; }
 remove_container() { printf '%s\\n' remove_container >>"$ACTIONS"; }
 delete_models() { [ "$(cat "$MOUNT_STATE")" = ro ] || printf '%s\\n' submitted >>"$ACTIONS"; printf '%s\\n' delete_models >>"$ACTIONS"; }
 apply`,
-        'retire-ollama-atq-quiescence-test',
+        `${script.pathname}.source`,
         script.pathname,
         receiptDirectory,
         receipt,

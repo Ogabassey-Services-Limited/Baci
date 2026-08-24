@@ -235,6 +235,32 @@ async function scanBindDirectoryLimit(mode) {
   }
 }
 
+async function scanBindDirectorySymlinkBudget(mode) {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-symlink-budget-'))
+  );
+  const source = join(directory, 'application-config');
+  const target = join(source, 'target.conf');
+  const firstLink = join(source, 'first.conf');
+  const secondLink = join(source, 'second.conf');
+  try {
+    await mkdir(source);
+    await writeFile(target, 'endpoint=http://127.0.0.1:8080\n');
+    await symlink('target.conf', firstLink);
+    await symlink('target.conf', secondLink);
+    return await execFileAsync('sh', [
+      '-c',
+      `RETIRE_OLLAMA_TEST_FSTYPE=apfs; bind_source=$2/application-config; expected_mode=$3; fingerprint_marker=$2/fingerprint; df() { printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\\nfixture 99999999 1 99999998 1%% /\\n'; }; sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { for last do :; done; case "$*" in *'-c %F'*) [ "$last" = "$bind_source" ] && printf 'directory\\n' || printf 'regular file\\n' ;; *'-c %d'*) printf '1\\n' ;; *'-c %s'*) case "$last:$expected_mode" in */target.conf:over-budget) printf '67108865\\n' ;; */target.conf:dedupe) printf '41943040\\n' ;; *) wc -c <"$last" | tr -d ' ' ;; esac ;; *) printf '1:2:81a4:10:0:0:600\\n' ;; esac; }; findmnt() { printf '/ fixture apfs ro\\n'; }; find() { printf '%s\\0' "$bind_source" "$bind_source/first.conf" "$bind_source/second.conf" "$bind_source/target.conf"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; consumer_file_fingerprint() { printf '%s\\n' "$1" >>"$fingerprint_marker"; printf '%s|hash|identity\\n' "$1"; }; output=$(temp_path); if container_bind_directory_snapshot "$bind_source" "$output"; then status=0; else status=$?; fi; case "$expected_mode" in over-budget) [ "$status" -eq 2 ] && [ ! -e "$fingerprint_marker" ] || exit 3;; dedupe) [ "$status" -eq 0 ] && [ "$(/bin/cat "$fingerprint_marker" 2>/dev/null)" = "$bind_source/target.conf" ] || exit 3;; *) exit 3;; esac; [ -e "$fingerprint_marker" ] && wc -l <"$fingerprint_marker" | tr -d ' ' || printf '0\\n'`,
+      'retire-ollama-container-bind-symlink-budget-test',
+      script.pathname,
+      directory,
+      mode,
+    ]);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
 test('fails during first bind enumeration before retaining over 4096 files', async () => {
   await assert.rejects(
     scanBindDirectoryLimit('first-count'),
@@ -247,4 +273,15 @@ test('fails during second bind enumeration when contents grow past 64 MiB', asyn
     assert.equal(error.code, 2);
     return true;
   });
+});
+
+test('charges internal symlink targets before fingerprinting and deduplicates aliases', async () => {
+  assert.equal(
+    (await scanBindDirectorySymlinkBudget('over-budget')).stdout.trim(),
+    '0'
+  );
+  assert.equal(
+    (await scanBindDirectorySymlinkBudget('dedupe')).stdout.trim(),
+    '1'
+  );
 });
