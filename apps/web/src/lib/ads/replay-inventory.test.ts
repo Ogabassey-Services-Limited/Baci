@@ -51,6 +51,14 @@ const googleAdsSyncConsistencyMigrationName =
   '20260823220000_google_ads_sync_consistency.sql' as const;
 const googleAdsSyncConsistencyMigrationHash =
   '70cf6954955961e3fcd923aac9c2512e54062ef5936d51c066faa3db23caeca3' as const;
+const socialAdsSpendWindowMigrationName =
+  '20260824090000_replace_social_ads_spend_window.sql' as const;
+const socialAdsSpendWindowMigrationHash =
+  '2e34f6488ad7bcd213fe9c08adf0353b789d7c6e0f017928276d64cd42cb5a5e' as const;
+const analyticsSpendRlsMigrationName =
+  '20260824100000_require_analytics_permission_for_ad_spend.sql' as const;
+const analyticsSpendRlsMigrationHash =
+  '822bf6c91081f0b36cd0568d85cd5f500bb91182d36d5fb9b35ba72e3491cde7' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -282,6 +290,40 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(googleAdsSyncConsistencyMigrationName);
     expect(pendingSources).toContain(googleAdsSyncConsistencyMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${socialAdsSpendWindowMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(socialAdsSpendWindowMigrationHash);
+    expect(historySources).toContain(
+      `${socialAdsSpendWindowMigrationHash} ${socialAdsSpendWindowMigrationName}`
+    );
+    expect(pendingSources).toContain(socialAdsSpendWindowMigrationName);
+    expect(pendingSources).toContain(socialAdsSpendWindowMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${analyticsSpendRlsMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(analyticsSpendRlsMigrationHash);
+    expect(historySources).toContain(
+      `${analyticsSpendRlsMigrationHash} ${analyticsSpendRlsMigrationName}`
+    );
+    expect(pendingSources).toContain(analyticsSpendRlsMigrationName);
+    expect(pendingSources).toContain(analyticsSpendRlsMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {

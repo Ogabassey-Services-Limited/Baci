@@ -20621,6 +20621,16 @@ export type Database = {
         };
         Returns: string;
       };
+      replace_merchant_ads_spend_daily_window: {
+        Args: {
+          p_end_date: string;
+          p_merchant_id: string;
+          p_provider: string;
+          p_rows: Json;
+          p_start_date: string;
+        };
+        Returns: number;
+      };
       upsert_merchant_ads_spend_daily: {
         Args: { p_merchant_id: string; p_provider: string; p_rows: Json };
         Returns: number;

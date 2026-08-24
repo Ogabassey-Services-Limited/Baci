@@ -121,4 +121,14 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260823220000_google_ads_sync_consistency.sql',
     sha256: '70cf6954955961e3fcd923aac9c2512e54062ef5936d51c066faa3db23caeca3',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260824090000_replace_social_ads_spend_window.sql',
+    sha256: '2e34f6488ad7bcd213fe9c08adf0353b789d7c6e0f017928276d64cd42cb5a5e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260824100000_require_analytics_permission_for_ad_spend.sql',
+    sha256: '822bf6c91081f0b36cd0568d85cd5f500bb91182d36d5fb9b35ba72e3491cde7',
+  },
 ];

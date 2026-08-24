@@ -12,5 +12,8 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '20260823220000_google_ads_sync_consistency.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260824090000_replace_social_ads_spend_window.sql'
+    );
   });
 });
