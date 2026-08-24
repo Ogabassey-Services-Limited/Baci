@@ -1,24 +1,16 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 
-interface DvaOrderBalance {
-  amount_paid: number | string | null;
-  total: number | string;
-  wallet_amount_used: number | string | null;
-}
-
 type DvaProvisioningContext =
   | { ok: true; payableAmount: number }
   | { code: string; error: string; ok: false; status: number };
 
 export async function loadDvaProvisioningContext({
   merchantId,
-  order,
   orderId,
   supabase,
 }: {
   merchantId: string;
-  order: DvaOrderBalance;
   orderId: string;
   supabase: SupabaseClient<Database>;
 }): Promise<DvaProvisioningContext> {
@@ -45,48 +37,9 @@ export async function loadDvaProvisioningContext({
     };
   }
 
-  const { data: transactions, error: transactionsError } = await supabase
-    .from('transactions')
-    .select('amount, gateway')
-    .eq('order_id', orderId)
-    .eq('merchant_id', merchantId)
-    .eq('transaction_type', 'payment')
-    .in('status', ['success', 'completed']);
-
-  if (transactionsError) {
-    return {
-      code: 'PAYMENT_BALANCE_LOOKUP_FAILED',
-      error: 'Unable to verify the remaining order balance',
-      ok: false,
-      status: 500,
-    };
-  }
-
-  const totals = (transactions ?? []).reduce(
-    (result, transaction) => {
-      const amount = Number(transaction.amount) || 0;
-      const gateway = transaction.gateway?.trim().toLowerCase();
-      result.transactionTotal += amount;
-      if (gateway === 'wallet' || gateway === 'store_credit') {
-        result.walletTransactionTotal += amount;
-      }
-      return result;
-    },
-    { transactionTotal: 0, walletTransactionTotal: 0 }
-  );
-  const walletAmountUsed = Number(order.wallet_amount_used) || 0;
-  const ledgerAmountPaid =
-    totals.transactionTotal +
-    Math.max(0, walletAmountUsed - totals.walletTransactionTotal);
-  const amountPaid = Math.max(ledgerAmountPaid, Number(order.amount_paid) || 0);
-  const payableAmount = Math.max(Number(order.total) - amountPaid, 0);
-
-  const { error: refreshError } = await supabase.rpc(
+  const { data: payableAmount, error: refreshError } = await supabase.rpc(
     'refresh_paystack_order_payable_amount',
-    {
-      p_order_id: orderId,
-      p_payable_amount: payableAmount,
-    }
+    { p_order_id: orderId }
   );
   if (refreshError) {
     return {
@@ -97,7 +50,7 @@ export async function loadDvaProvisioningContext({
     };
   }
 
-  return payableAmount > 0
+  return payableAmount !== null && payableAmount > 0
     ? { ok: true, payableAmount }
     : {
         code: 'NO_PAYABLE_AMOUNT',

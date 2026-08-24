@@ -93,7 +93,6 @@ export async function POST(
     }
     const provisioningContext = await loadDvaProvisioningContext({
       merchantId,
-      order,
       orderId,
       supabase,
     });
@@ -209,16 +208,25 @@ export async function POST(
         p_bank_name: dvaResult.data.bank_name,
         p_expires_at: assignment.expiresAt,
         p_order_id: orderId,
-        p_payable_amount: provisioningContext.payableAmount,
       }
     );
 
-    if (reservation === 'conflict') {
+    if (reservation === 'conflict' || reservation === 'wallet_conflict') {
       return NextResponse.json(
         {
           code: 'PAYSTACK_DVA_IN_USE',
           error:
             'This automatic confirmation account is in use by another order',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (reservation === 'ineligible') {
+      return NextResponse.json(
+        {
+          code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
+          error: 'Order is no longer eligible for automatic confirmation',
         },
         { status: 409 }
       );

@@ -14,36 +14,27 @@ function query(data: unknown, error: unknown = null) {
 }
 
 function client({
+  payableAmount = 5_000,
   settings = { paystack_enabled: true },
-  transactions = [],
 }: {
+  payableAmount?: number;
   settings?: unknown;
-  transactions?: unknown[];
 } = {}) {
   const settingsQuery = query(settings);
-  const transactionsQuery = query(transactions);
   const paymentAccountQuery = query(null);
   return {
-    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+    rpc: vi.fn().mockResolvedValue({ data: payableAmount, error: null }),
     from: vi.fn((table: string) => {
       if (table === 'merchant_feature_settings') return settingsQuery;
-      if (table === 'transactions') return transactionsQuery;
       return paymentAccountQuery;
     }),
   };
 }
 
-const order = {
-  amount_paid: 0,
-  total: 10_000,
-  wallet_amount_used: 0,
-};
-
 describe('loadDvaProvisioningContext', () => {
   it('rejects automatic confirmation when Paystack is disabled', async () => {
     const result = await loadDvaProvisioningContext({
       merchantId: 'merchant-1',
-      order,
       orderId: 'order-1',
       supabase: client({ settings: { paystack_enabled: false } }) as never,
     });
@@ -51,16 +42,10 @@ describe('loadDvaProvisioningContext', () => {
     expect(result).toMatchObject({ code: 'GATEWAY_DISABLED', ok: false });
   });
 
-  it('uses completed transactions and wallet funding to reconcile the balance', async () => {
-    const supabase = client({
-      transactions: [
-        { amount: 2_000, gateway: 'paystack' },
-        { amount: 1_000, gateway: 'wallet' },
-      ],
-    });
+  it('uses the authoritative locked balance returned by the database', async () => {
+    const supabase = client({ payableAmount: 5_000 });
     const result = await loadDvaProvisioningContext({
       merchantId: 'merchant-1',
-      order: { ...order, amount_paid: 1_000, wallet_amount_used: 3_000 },
       orderId: 'order-1',
       supabase: supabase as never,
     });
@@ -68,18 +53,15 @@ describe('loadDvaProvisioningContext', () => {
     expect(result).toEqual({ ok: true, payableAmount: 5_000 });
     expect(supabase.rpc).toHaveBeenCalledWith(
       'refresh_paystack_order_payable_amount',
-      { p_order_id: 'order-1', p_payable_amount: 5_000 }
+      { p_order_id: 'order-1' }
     );
   });
 
   it('rejects provisioning when reconciled payments cover the order', async () => {
     const result = await loadDvaProvisioningContext({
       merchantId: 'merchant-1',
-      order,
       orderId: 'order-1',
-      supabase: client({
-        transactions: [{ amount: 10_000, gateway: 'paystack' }],
-      }) as never,
+      supabase: client({ payableAmount: 0 }) as never,
     });
 
     expect(result).toMatchObject({ code: 'NO_PAYABLE_AMOUNT', ok: false });

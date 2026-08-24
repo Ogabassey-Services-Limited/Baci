@@ -160,7 +160,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     mockRpc.mockImplementation((name: string) =>
       Promise.resolve({
         data:
-          name === 'reserve_paystack_order_payment_account' ? 'inserted' : true,
+          name === 'reserve_paystack_order_payment_account' ? 'inserted' : 5000,
         error: null,
       })
     );
@@ -293,7 +293,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.virtualAccount.account_number).toBe('1234567890');
     expect(mockRpc).toHaveBeenCalledWith(
       'refresh_paystack_order_payable_amount',
-      { p_order_id: ORDER_ID, p_payable_amount: 5000 }
+      { p_order_id: ORDER_ID }
     );
   });
 
@@ -386,12 +386,11 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       expect.objectContaining({
         p_account_number: '9876543210',
         p_order_id: ORDER_ID,
-        p_payable_amount: 5000,
       })
     );
   });
 
-  it('persists the payable amount from reconciled transactions and wallet use', async () => {
+  it('does not pass a caller-controlled payable amount to reservation', async () => {
     authenticateMerchant();
     useOrderQueries({
       order: {
@@ -412,7 +411,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(response.status).toBe(200);
     expect(mockRpc).toHaveBeenCalledWith(
       'reserve_paystack_order_payment_account',
-      expect.objectContaining({ p_payable_amount: 5000 })
+      expect.not.objectContaining({ p_payable_amount: expect.anything() })
     );
   });
 
@@ -421,6 +420,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     useOrderQueries({
       transactions: [{ amount: '5000', gateway: 'paystack' }],
     });
+    mockRpc.mockResolvedValueOnce({ data: 0, error: null });
 
     const response = await POST(createRequest(), createParams());
 
@@ -445,14 +445,19 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.error).toContain('DVA creation failed');
   });
 
-  it('does not persist a second active alias for the same Paystack account', async () => {
+  it.each([
+    'conflict',
+    'wallet_conflict',
+  ])('does not persist a Paystack account with reservation status %s', async (reservationStatus) => {
     authenticateMerchant();
     useOrderQueries();
     mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
     mockRpc.mockImplementation((name: string) =>
       Promise.resolve({
         data:
-          name === 'reserve_paystack_order_payment_account' ? 'conflict' : true,
+          name === 'reserve_paystack_order_payment_account'
+            ? reservationStatus
+            : 5000,
         error: null,
       })
     );
@@ -469,6 +474,28 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     );
   });
 
+  it('rejects a reservation when the order became ineligible at insert time', async () => {
+    authenticateMerchant();
+    useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data:
+          name === 'reserve_paystack_order_payment_account'
+            ? 'ineligible'
+            : 5000,
+        error: null,
+      })
+    );
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
+    });
+  });
+
   it('returns 500 when the automatic confirmation account cannot be persisted', async () => {
     authenticateMerchant();
     useOrderQueries();
@@ -477,7 +504,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       Promise.resolve(
         name === 'reserve_paystack_order_payment_account'
           ? { data: null, error: { message: 'insert failed' } }
-          : { data: true, error: null }
+          : { data: 5000, error: null }
       )
     );
 
@@ -498,7 +525,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     mockRpc.mockImplementation((name: string) =>
       Promise.resolve({
         data:
-          name === 'reserve_paystack_order_payment_account' ? 'existing' : true,
+          name === 'reserve_paystack_order_payment_account' ? 'existing' : 5000,
         error: null,
       })
     );

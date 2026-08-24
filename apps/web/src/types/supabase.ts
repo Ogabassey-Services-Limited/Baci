@@ -15856,8 +15856,8 @@ export type Database = {
         Returns: boolean;
       };
       refresh_paystack_order_payable_amount: {
-        Args: { p_order_id: string; p_payable_amount: number };
-        Returns: boolean;
+        Args: { p_order_id: string };
+        Returns: number;
       };
       reserve_paystack_order_payment_account: {
         Args: {
@@ -15867,7 +15867,6 @@ export type Database = {
           p_bank_name: string;
           p_expires_at: string;
           p_order_id: string;
-          p_payable_amount: number;
         };
         Returns: string;
       };

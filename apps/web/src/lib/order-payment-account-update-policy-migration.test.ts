@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const authoritativeMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825004500_authoritative_paystack_order_account_reservation.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -29,5 +36,22 @@ describe('order payment account mutation RPC migration', () => {
     expect(migration).toContain(
       'GRANT EXECUTE ON FUNCTION public.reserve_paystack_order_payment_account'
     );
+  });
+
+  it('derives the payable amount under the order lock without caller input', () => {
+    expect(authoritativeMigration).toContain("'baci_order_payment:'");
+    expect(authoritativeMigration).toContain('FOR UPDATE');
+    expect(authoritativeMigration).not.toContain('p_payable_amount');
+    expect(authoritativeMigration).toContain(
+      "auth.uid(), v_merchant_id, 'orders', 'edit'"
+    );
+  });
+
+  it('revalidates terminal order state and rejects active wallet accounts', () => {
+    expect(authoritativeMigration).toContain("RETURN 'ineligible'");
+    expect(authoritativeMigration).toContain(
+      'public.customer_wallet_payment_accounts'
+    );
+    expect(authoritativeMigration).toContain("RETURN 'wallet_conflict'");
   });
 });
