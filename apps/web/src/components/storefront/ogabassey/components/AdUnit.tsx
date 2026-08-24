@@ -238,11 +238,11 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
     return () => {
       slotLifecycleRef.current += 1;
+      slotRestoreNeededRef.current = true;
       // Cleanup only on unmount or placement changes. Carousel visibility changes
       // should keep an already loaded GPT slot mounted.
       const slotToDestroy = slotRef.current;
       if (slotToDestroy) {
-        slotRestoreNeededRef.current = true;
         const googletag = ensureGoogleTag();
 
         googletag.cmd.push(() => {
