@@ -14,6 +14,10 @@ const reauthClearAccountMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260823210000_google_ads_reauth_clear_account.sql'
 );
+const spendRlsMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260824100000_require_analytics_permission_for_ad_spend.sql'
+);
 
 describe('Google Ads migration contract', () => {
   it('creates tenant-scoped tables with encrypted token columns and RLS', () => {
@@ -87,5 +91,24 @@ describe('Google Ads migration contract', () => {
     expect(sql).toContain(
       'refresh_token_ciphertext is not distinct from p_refresh_token_ciphertext'
     );
+  });
+
+  it('requires analytics permission for direct spend reads without changing connection metadata access', () => {
+    const sql = readFileSync(spendRlsMigrationPath, 'utf8').toLowerCase();
+    const spendPolicySql = sql.slice(
+      sql.indexOf('create policy merchant_ad_spend_daily_select')
+    );
+
+    expect(sql).toContain(
+      'drop policy if exists merchant_ad_spend_daily_select'
+    );
+    expect(spendPolicySql).toContain(
+      "public.check_staff_permission(\n      (select auth.uid()), merchant_id, 'analytics', 'view'"
+    );
+    expect(spendPolicySql).not.toContain("'integrations', 'view'");
+    expect(sql).not.toContain(
+      'drop policy if exists merchant_ad_connections_select'
+    );
+    expect(sql).not.toContain('create policy merchant_ad_connections_select');
   });
 });
