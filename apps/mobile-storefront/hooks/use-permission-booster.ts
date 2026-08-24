@@ -106,15 +106,26 @@ export async function loadNotificationsModule(
     // .finally. Await assimilates it without relying on those Promise methods.
     return await loadModule();
   } catch (error) {
-    notificationsModulePromise = null;
     warnNotificationsPermissionApiFailed('expo-notifications', error);
     return null;
   }
 }
 
-function loadNotifications() {
+export function loadNotifications(
+  loadModule: NotificationsModuleLoader = () => import('expo-notifications')
+) {
   if (!notificationsModulePromise) {
-    notificationsModulePromise = loadNotificationsModule();
+    notificationsModulePromise = loadNotificationsModule(loadModule).then(
+      (notifications) => {
+        // A synchronous native loader failure is caught before
+        // loadNotificationsModule() returns its promise. Reset here, after
+        // the cache has been assigned, so the next request can retry.
+        if (notifications === null) {
+          notificationsModulePromise = null;
+        }
+        return notifications;
+      }
+    );
   }
   return notificationsModulePromise;
 }

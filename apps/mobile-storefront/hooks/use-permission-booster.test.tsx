@@ -91,6 +91,41 @@ describe('usePermissionBooster native module loading', () => {
     );
   });
 
+  it('retries after a native notification loader throws synchronously', async () => {
+    await jest.isolateModulesAsync(async () => {
+      const { loadNotifications } = await import('./use-permission-booster');
+      const notifications = {
+        getPermissionsAsync: mockGetPermissionsAsync,
+        requestPermissionsAsync: mockRequestPermissionsAsync,
+      };
+      const synchronousFailure = jest.fn<
+        () => PromiseLike<typeof notifications>
+      >(() => {
+        throw new TypeError('native asyncRequire failed');
+      });
+      const successfulLoad = jest
+        .fn<() => PromiseLike<typeof notifications>>()
+        .mockReturnValue(Promise.resolve(notifications));
+      const warnSpy = jest
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      await expect(loadNotifications(synchronousFailure)).resolves.toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Notification permission API failed:',
+        'expo-notifications',
+        expect.any(TypeError)
+      );
+
+      await expect(loadNotifications(successfulLoad)).resolves.toEqual(
+        notifications
+      );
+      expect(synchronousFailure).toHaveBeenCalledTimes(1);
+      expect(successfulLoad).toHaveBeenCalledTimes(1);
+      warnSpy.mockRestore();
+    });
+  });
+
   it('falls back to denied when expo-notifications cannot load and retries later', async () => {
     mockRejectNextNotificationsModuleLoad = true;
     const { usePermissionBooster } = await import('./use-permission-booster');
