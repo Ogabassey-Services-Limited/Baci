@@ -190,6 +190,9 @@ reconcile_interrupted_at_quiescence() {
     case "$(at_submission_mount_state)" in
       absent) assert_at_submission_identity "$at_expected" ;;
       rw|ro)
+        if printf '%s\n' "$at_expected" | jq -e '.scheduler == "absent"' >/dev/null; then
+          die 'at scheduler absence drift'
+        fi
         assert_at_submission_identity "$at_expected"
         at_unmount_submission_spool
         [ "$(at_submission_mount_state)" = absent ] ||

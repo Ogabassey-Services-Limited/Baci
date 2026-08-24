@@ -4,7 +4,7 @@
 
 container_scan_diagnostic_phase() {
   case "$1" in
-    bind-directory|bind-mounts|configuration|container-name|container-snapshot|filesystem-export|final-configuration|final-name|final-state|healthcheck|image-archive|network-mode|running-container|state|stopped-arguments|stopped-environment|stopped-options|volume-snapshot) return 0 ;;
+    bind-directory|bind-mounts|configuration|container-name|container-snapshot|docker-socket|filesystem-export|final-configuration|final-name|final-state|healthcheck|image-archive|image-projection|inventory-refresh|network-mode|running-container|state|stopped-arguments|stopped-environment|stopped-options|tmpfs-mount|volume-snapshot) return 0 ;;
     *) return 2 ;;
   esac
 }
@@ -21,13 +21,13 @@ container_scan_note_failure() {
 }
 
 container_scan_publish_failure() {
-  diagnostic_publish_id=$1; diagnostic_publish_status=$2; diagnostic_publish_file=${CONTAINER_SCAN_DIAGNOSTIC_FILE:-}; diagnostic_publish_phase=''
-  case "$diagnostic_publish_file" in "$TEMP_ROOT"/file.*) [ -f "$diagnostic_publish_file" ] && [ ! -L "$diagnostic_publish_file" ] && diagnostic_publish_phase=$(cat "$diagnostic_publish_file" 2>/dev/null) || :;; esac
+  diagnostic_publish_id=$1; diagnostic_publish_status=$2; diagnostic_publish_phase=${3:-}; diagnostic_publish_file=${CONTAINER_SCAN_DIAGNOSTIC_FILE:-}
+  if [ -z "$diagnostic_publish_phase" ]; then case "$diagnostic_publish_file" in "$TEMP_ROOT"/file.*) [ -f "$diagnostic_publish_file" ] && [ ! -L "$diagnostic_publish_file" ] && diagnostic_publish_phase=$(cat "$diagnostic_publish_file" 2>/dev/null) || :;; esac; fi
   container_scan_diagnostic_phase "$diagnostic_publish_phase" || diagnostic_publish_phase=container-snapshot
   case "$diagnostic_publish_id" in ''|*[!0-9a-f]*) return 0;; esac
   [ "${#diagnostic_publish_id}" -eq 64 ] || return 0
   case "$diagnostic_publish_status" in ''|0|*[!0-9]*) return 0;; esac
-  printf 'container-scan-failure id=%s phase=%s status=%s\n' "$diagnostic_publish_id" "$diagnostic_publish_phase" "$diagnostic_publish_status" >&2
+  CONTAINER_SCAN_PUBLISHED_FAILURE=yes; printf 'container-scan-failure id=%s phase=%s status=%s\n' "$diagnostic_publish_id" "$diagnostic_publish_phase" "$diagnostic_publish_status" >&2
 }
 
 running_container_pair() {
@@ -52,6 +52,27 @@ container_mounts_snapshot() {
   docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .Mounts}}' "$mount_container_id" >"$mount_raw" || { rm -f "$mount_raw"; return 2; }
   /usr/bin/jq -cS 'if type == "array" and all(.[]; type == "object") then sort_by([.Destination, .Type, .Name, .Source, .Driver, .Mode, .RW, .Propagation]) else error("invalid mounts") end' "$mount_raw" >"$mount_output" || { rm -f "$mount_raw" "$mount_output"; return 2; }
   rm -f "$mount_raw"
+}
+
+PROJECTOR_AUTH_HELPER="${SCRIPT_DIR:-$(dirname -- "$0")}/retire-ollama-projector-auth.sh"
+[ -f "$PROJECTOR_AUTH_HELPER" ] && [ ! -L "$PROJECTOR_AUTH_HELPER" ] || return 2
+type source_loader_source >/dev/null 2>&1 || return 2
+source_loader_source "$PROJECTOR_AUTH_HELPER" || return 2
+PROJECTOR_AUTH_HELPER_SHA=$SOURCE_LOADER_DIGEST
+[ -z "${RECOVERY_PROJECTOR_AUTH_SHA:-}" ] || [ "$PROJECTOR_AUTH_HELPER_SHA" = "$RECOVERY_PROJECTOR_AUTH_SHA" ] || return 2
+
+running_container_project_image() { running_image_seconds=$1; running_image_projector=$2; running_image_archive=$3; running_image_scratch=${4:-}; running_image_expected_sha=$5; running_image_projection=$(running_container_projector_execute "$running_image_seconds" "$running_image_projector" "$running_image_archive" "$running_image_scratch" "$running_image_expected_sha") || return 2; case "$running_image_projection" in 0) return 1;; 1) return 0;; *) return 2;; esac; }
+running_container_image_matches_merged() {
+  running_image_archive=$1
+  running_image_deadline=${2-}
+  case "$running_image_deadline" in ''|*[!0-9]*) return 2;; esac
+  running_image_now=$(running_container_now) || return 2
+  case "$running_image_now" in ''|*[!0-9]*) return 2;; esac
+  [ "$running_image_now" -lt "$running_image_deadline" ] || return 2
+  running_image_remaining=$((running_image_deadline - running_image_now))
+  running_image_projector="$SCRIPT_DIR/retire-ollama-image-filesystem.pl"
+  running_projector_expected_sha=$(running_container_projector_authorize "$running_image_projector") || return 2
+  running_container_project_image "$running_image_remaining" "$running_image_projector" "$running_image_archive" "${TEMP_ROOT:-}" "$running_projector_expected_sha"
 }
 
 running_container_validate_json() {
@@ -83,9 +104,28 @@ running_container_socket_env_matches() {
   [ "$running_socket_env" = /run/docker.sock ] || [ "$running_socket_env" = /var/run/docker.sock ] || return 2
   running_socket_mounts=$(temp_path)
   running_socket_mounts_again=$(temp_path)
-  running_container_pair "$running_socket_id" '{{json .Mounts}}' "$running_socket_mounts" "$running_socket_mounts_again" || { rm -f "$running_socket_mounts" "$running_socket_mounts_again"; return 2; }
-  /usr/bin/jq -e --arg destination "$running_socket_env" 'any(.[]; type == "object" and .Type == "bind" and (.Source == "/run/docker.sock" or .Source == "/var/run/docker.sock") and .Destination == $destination)' "$running_socket_mounts" >/dev/null || { rm -f "$running_socket_mounts" "$running_socket_mounts_again"; return 2; }
-  rm -f "$running_socket_mounts" "$running_socket_mounts_again"
+  running_socket_records=$(temp_path)
+  type container_docker_socket_source_is_canonical >/dev/null 2>&1 || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_socket_source_path=''; running_socket_source_resolved_before=''; running_socket_source_identity_before=''; running_socket_canonical_identity_before=''
+  running_socket_canonical_identity_before=$(container_docker_socket_identity "$CANONICAL_DOCKER_SOCKET") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_container_pair "$running_socket_id" '{{json .Mounts}}' "$running_socket_mounts" "$running_socket_mounts_again" || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  /usr/bin/jq -r --arg destination "$running_socket_env" '.[] | select(type == "object" and .Type == "bind" and (.Source == "/run/docker.sock" or .Source == "/var/run/docker.sock") and .Destination == $destination) | [.Source, .Destination] | @tsv' "$running_socket_mounts" >"$running_socket_records" || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_socket_found=0; while IFS="$(printf '\t')" read -r running_socket_source running_socket_destination || [ -n "$running_socket_source$running_socket_destination" ]; do
+    [ -n "$running_socket_source" ] && container_docker_socket_source_is_canonical "$running_socket_source" && container_docker_socket_destination_is_canonical "$running_socket_destination" || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+    [ "$running_socket_found" -eq 0 ] || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+    running_socket_source_path=$running_socket_source
+    running_socket_source_resolved_before=$(readlink -f -- "$running_socket_source_path") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+    running_socket_source_identity_before=$(container_docker_socket_identity "$running_socket_source_path") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+    [ "$running_socket_source_identity_before" = "$running_socket_canonical_identity_before" ] || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+    running_socket_found=$((running_socket_found + 1))
+  done <"$running_socket_records"
+  [ "$running_socket_found" -eq 1 ] || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  container_docker_socket_source_is_canonical "$running_socket_source_path" || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_socket_source_resolved_after=$(readlink -f -- "$running_socket_source_path") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_socket_source_identity_after=$(container_docker_socket_identity "$running_socket_source_path") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  running_socket_canonical_identity_after=$(container_docker_socket_identity "$CANONICAL_DOCKER_SOCKET") || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  [ "$running_socket_source_resolved_before" = "$running_socket_source_resolved_after" ] && [ "$running_socket_source_resolved_after" = "$CANONICAL_DOCKER_SOCKET" ] && [ "$running_socket_source_identity_before" = "$running_socket_source_identity_after" ] && [ "$running_socket_canonical_identity_before" = "$running_socket_canonical_identity_after" ] && [ "$running_socket_source_identity_after" = "$running_socket_canonical_identity_after" ] || { rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"; return 2; }
+  rm -f "$running_socket_mounts" "$running_socket_mounts_again" "$running_socket_records"
 }
 
 running_container_validate() {
@@ -156,7 +196,11 @@ running_container_validate() {
     running_image_sha=$(sha "$running_image_save_first") || { running_cleanup; return 2; }
     running_image_second_sha=$(running_container_archive_hash_stream image "$running_image_id" "$running_image_hash" "$running_image_hash_fifo" "$running_image_hash_status" "$running_image_deadline") || { container_scan_note_failure "$running_id" image-archive 2; running_cleanup; return 2; }
     [ "$running_image_sha" = "$running_image_second_sha" ] || { container_scan_note_failure "$running_id" image-archive 2; running_cleanup; return 2; }
-    if consumer_matches "$running_image_save_first"; then running_image_match=1; else running_match_status=$?; [ "$running_match_status" -eq 1 ] || { running_cleanup; return 2; }; running_image_match=0; fi
+    running_image_projection_started_at=$(running_container_now) || { running_cleanup; return 2; }
+    case "$running_image_projection_started_at" in ''|*[!0-9]*) running_cleanup; return 2;; esac
+    running_image_projection_deadline=$((running_image_projection_started_at + RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS))
+    case "$running_image_projection_deadline" in ''|*[!0-9]*) running_cleanup; return 2;; esac
+    if running_container_image_matches_merged "$running_image_save_first" "$running_image_projection_deadline"; then running_image_match=1; else running_match_status=$?; [ "$running_match_status" -eq 1 ] || { container_scan_note_failure "$running_id" image-projection 2; running_cleanup; return 2; }; running_image_match=0; fi
     running_image_cache_pending=$(temp_path)
     if ! printf '%s %s\n' "$running_image_sha" "$running_image_match" >"$running_image_cache_pending" || ! mv "$running_image_cache_pending" "$running_image_cache"; then
       rm -f "$running_image_cache_pending"; running_cleanup; return 2

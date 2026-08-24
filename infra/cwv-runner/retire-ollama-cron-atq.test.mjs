@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import {
   chmod,
+  chown,
   mkdir,
   mkdtemp,
   readFile,
@@ -16,8 +17,20 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
-const unprivileged = process.getuid?.() === 0 ? { uid: 65534, gid: 65534 } : {};
-
+const childIdentity =
+  process.getuid?.() === 0 ? { uid: 65534, gid: 65534 } : {};
+async function prepareReceiptDirectory(path) {
+  await mkdir(path, { mode: 0o700 });
+  if (childIdentity.uid !== undefined && childIdentity.gid !== undefined) {
+    await chown(path, childIdentity.uid, childIdentity.gid);
+  }
+}
+async function prepareWritableFile(path, contents) {
+  await writeFile(path, contents, { mode: 0o600 });
+  if (childIdentity.uid !== undefined && childIdentity.gid !== undefined) {
+    await chown(path, childIdentity.uid, childIdentity.gid);
+  }
+}
 async function fixture() {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'baci-cron-atq-')));
   await chmod(root, 0o777);
@@ -31,12 +44,10 @@ async function fixture() {
   ]);
   return { root, spool, system, systemDir };
 }
-
 async function executable(path, body) {
   await writeFile(path, `#!/bin/sh\n${body}\n`);
   await chmod(path, 0o755);
 }
-
 function collect(source, atq, state) {
   return execFileAsync(
     'sh',
@@ -56,7 +67,7 @@ cron_inventory_collect_external "$4"`,
       join(source.root, 'manifest'),
     ],
     {
-      ...unprivileged,
+      ...childIdentity,
       env: {
         ...process.env,
         RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -75,7 +86,6 @@ cron_inventory_collect_external "$4"`,
     }
   );
 }
-
 test('accepts an empty at queue at both scheduled-work inventory boundaries', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
@@ -86,7 +96,6 @@ test('accepts an empty at queue at both scheduled-work inventory boundaries', as
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
 test('fails closed when a queued at job can launch an Ollama consumer or recreate its service', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
@@ -99,7 +108,6 @@ test('fails closed when a queued at job can launch an Ollama consumer or recreat
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
 test('fails closed when an at job appears during scheduled-work inventory', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
@@ -116,7 +124,6 @@ test('fails closed when an at job appears during scheduled-work inventory', asyn
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
 test('accepts a fully absent at scheduler without weakening partial-state checks', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
@@ -132,7 +139,6 @@ test('accepts a fully absent at scheduler without weakening partial-state checks
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
 test('treats a fully absent at scheduler as no-op apply quiescence', async () => {
   const { stdout } = await execFileAsync('sh', [
     '-c',
@@ -152,12 +158,11 @@ printf '%s\\n' absent-scheduler-quiesced`,
   ]);
   assert.equal(stdout, 'absent-scheduler-quiesced\n');
 });
-
 test('production apply loads the cron inventory before checking an absent at scheduler', async () => {
   const source = await fixture();
   const receiptDirectory = join(source.root, 'receipts');
   await Promise.all([
-    mkdir(receiptDirectory),
+    prepareReceiptDirectory(receiptDirectory),
     writeFile(
       join(source.root, 'receipt.json'),
       '{"scan":{"dependencies":[]}}\n'
@@ -193,7 +198,7 @@ apply
         join(source.root, 'inventory.json'),
       ],
       {
-        ...unprivileged,
+        ...childIdentity,
         env: {
           ...process.env,
           RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
@@ -207,7 +212,73 @@ apply
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
+test('rejects a mounted state while recovering an absent at scheduler before unmounting', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-atq-absent-recovery-'))
+  );
+  await chmod(directory, 0o711);
+  const receiptDirectory = join(directory, 'receipts');
+  const atJobs = join(directory, 'atjobs');
+  const mountState = join(directory, 'mount-state');
+  const unmounted = join(directory, 'unmounted');
+  await Promise.all([prepareReceiptDirectory(receiptDirectory), mkdir(atJobs)]);
+  await Promise.all([
+    writeFile(
+      join(receiptDirectory, 'pre-destructive.json'),
+      '{"atSubmissionRollback":{"scheduler":"absent"}}\n',
+      { mode: 0o644 }
+    ),
+    writeFile(
+      join(receiptDirectory, 'pre-destructive.actions'),
+      'quiesce_at_submissions\n',
+      {
+        mode: 0o644,
+      }
+    ),
+    prepareWritableFile(mountState, 'rw\n'),
+  ]);
+  try {
+    await assert.rejects(
+      execFileAsync(
+        'sh',
+        [
+          '-c',
+          `. "$1"; RECEIPT_DIR=$2; AT_JOB_DIR=$3; MOUNT_STATE=$4; UNMOUNTED=$5
+fsync_dir() { :; }; safe_file() { :; }; load_at_quiescence_helper
+cron_inventory_at_scheduler_absent() { :; }
+at_submission_mount_state() { cat "$MOUNT_STATE"; }
+at_unmount_submission_spool() { : >"$UNMOUNTED"; printf 'absent\n' >"$MOUNT_STATE"; }
+reconcile_interrupted_at_quiescence`,
+          'retire-ollama-absent-at-recovery-mounted-test',
+          script.pathname,
+          receiptDirectory,
+          atJobs,
+          mountState,
+          unmounted,
+        ],
+        {
+          ...childIdentity,
+          env: {
+            ...process.env,
+            RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+            RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: new URL(
+              './retire-ollama-at-quiescence.sh',
+              import.meta.url
+            ).pathname,
+          },
+        }
+      ),
+      (error) => /at scheduler absence drift/.test(error.stderr)
+    );
+    await assert.rejects(
+      readFile(unmounted),
+      (error) => error?.code === 'ENOENT'
+    );
+    assert.equal(await readFile(mountState, 'utf8'), 'rw\n');
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 test('fails closed when atq returns an error', async () => {
   const source = await fixture();
   const atq = join(source.root, 'atq');
@@ -220,7 +291,6 @@ test('fails closed when atq returns an error', async () => {
     await rm(source.root, { recursive: true, force: true });
   }
 });
-
 test('keeps the cron inventory implementation within the modularity limit', async () => {
   const source = await readFile(
     new URL('./retire-ollama-cron-inventory.sh', import.meta.url),

@@ -16,6 +16,23 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const sourceSha = 'b'.repeat(40);
+const sealedHelpers = [
+  'retire-ollama.sh',
+  'retire-ollama-source-loader.sh',
+  'retire-ollama-recovery.sh',
+  'retire-ollama-recovery-receipts.sh',
+  'retire-ollama-consumers.sh',
+  'retire-ollama-container-mounts.sh',
+  'retire-ollama-running-container.sh',
+  'retire-ollama-running-archive.sh',
+  'retire-ollama-consumer-closure.sh',
+  'retire-ollama-process-files.sh',
+  'retire-ollama-cron-inventory.sh',
+  'retire-ollama-at-quiescence.sh',
+  'retire-ollama-temp-root.sh',
+  'retire-ollama-image-filesystem.pl',
+  'retire-ollama-projector-auth.sh',
+];
 
 function shellAt(pathname, command, args = [], env = {}) {
   return execFileAsync(
@@ -27,7 +44,13 @@ function shellAt(pathname, command, args = [], env = {}) {
       pathname,
       ...args,
     ],
-    { env: { ...process.env, ...env } }
+    {
+      env: {
+        ...process.env,
+        RETIRE_OLLAMA_TEST_FSTYPE: 'apfs',
+        ...env,
+      },
+    }
   );
 }
 
@@ -70,18 +93,7 @@ test('rejects a receipt after a sealed running archive helper is modified', asyn
   try {
     await mkdir(sealed, { recursive: true });
     await mkdir(receiptRoot, { mode: 0o700 });
-    for (const name of [
-      'retire-ollama.sh',
-      'retire-ollama-recovery.sh',
-      'retire-ollama-recovery-receipts.sh',
-      'retire-ollama-consumers.sh',
-      'retire-ollama-running-container.sh',
-      'retire-ollama-running-archive.sh',
-      'retire-ollama-consumer-closure.sh',
-      'retire-ollama-process-files.sh',
-      'retire-ollama-cron-inventory.sh',
-      'retire-ollama-at-quiescence.sh',
-    ])
+    for (const name of sealedHelpers)
       await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
     await writeFile(
       snapshot,
@@ -101,11 +113,29 @@ test('rejects a receipt after a sealed running archive helper is modified', asyn
     const receipt = JSON.parse(
       await readFile(join(receiptRoot, sourceSha, 'recovery-scan.json'), 'utf8')
     );
+    assert.equal(receipt.schemaVersion, 3);
     assert.match(
       receipt.sourceBinding.runningContainerSha256,
       /^[0-9a-f]{64}$/
     );
+    assert.match(receipt.sourceBinding.consumerMountsSha256, /^[0-9a-f]{64}$/);
     assert.match(receipt.sourceBinding.runningArchiveSha256, /^[0-9a-f]{64}$/);
+    const mismatchedSource = join(root, 'mismatched-source.json');
+    const forged = {
+      ...receipt,
+      sourceBinding: { ...receipt.sourceBinding, sourceSha: 'c'.repeat(40) },
+    };
+    await writeFile(mismatchedSource, JSON.stringify(forged), { mode: 0o600 });
+    await chmod(mismatchedSource, 0o600);
+    await assert.rejects(
+      shellAt(
+        join(sealed, 'retire-ollama.sh'),
+        'RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_validate_json "$2"',
+        [mismatchedSource, sourceSha],
+        env
+      ),
+      (error) => error.code === 1
+    );
     await writeFile(
       join(sealed, 'retire-ollama-running-archive.sh'),
       '# helper drift\n',
@@ -120,6 +150,130 @@ test('rejects a receipt after a sealed running archive helper is modified', asyn
       ),
       (error) => error.code === 1
     );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+    await rm(bin, { recursive: true, force: true });
+  }
+});
+
+test('rejects recovery startup when a newly bound helper is missing', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-recovery-helper-missing-'));
+  const sealed = join(root, 'source', sourceSha);
+  try {
+    await mkdir(sealed, { recursive: true });
+    for (const name of sealedHelpers)
+      await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
+    await rm(join(sealed, 'retire-ollama-image-filesystem.pl'));
+    await assert.rejects(
+      shellAt(join(sealed, 'retire-ollama.sh'), ':', [], {
+        RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+      }),
+      (error) =>
+        error.code === 78 &&
+        /recovery consumer scanner helper missing/.test(error.stderr)
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('rejects a receipt after each newly bound helper is substituted', async () => {
+  const root = await mkdtemp(
+    join(tmpdir(), 'baci-recovery-helper-substitution-')
+  );
+  const sealed = join(root, 'source', sourceSha);
+  const receiptRoot = join(root, 'receipts');
+  const snapshot = join(root, 'snapshot.json');
+  const bin = await receiptBin();
+  const helpers = [
+    'retire-ollama-container-mounts.sh',
+    'retire-ollama-image-filesystem.pl',
+    'retire-ollama-projector-auth.sh',
+    'retire-ollama-temp-root.sh',
+  ];
+  try {
+    await mkdir(sealed, { recursive: true });
+    await mkdir(receiptRoot, { mode: 0o700 });
+    for (const name of sealedHelpers)
+      await copyFile(new URL(`./${name}`, import.meta.url), join(sealed, name));
+    await writeFile(
+      snapshot,
+      '{"surfaces":[],"dependencies":[],"consumerCounts":[],"consumerEvidence":[]}\n'
+    );
+    const env = {
+      RETIRE_OLLAMA_TEST_BIN: bin,
+      RETIRE_OLLAMA_RECOVERY_TEST_ROOT: receiptRoot,
+    };
+    await shellAt(
+      join(sealed, 'retire-ollama.sh'),
+      'fsync_file() { :; }; fsync_dir() { :; }; RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_write_receipt "$2"',
+      [snapshot, sourceSha],
+      env
+    );
+    const receipt = join(receiptRoot, sourceSha, 'recovery-scan.json');
+    const legacyReceipt = join(root, 'legacy-v2.json');
+    await writeFile(
+      legacyReceipt,
+      (await readFile(receipt, 'utf8')).replace(
+        '"schemaVersion":3',
+        '"schemaVersion":2'
+      ),
+      { mode: 0o600 }
+    );
+    await chmod(legacyReceipt, 0o600);
+    await assert.rejects(
+      shellAt(
+        join(sealed, 'retire-ollama.sh'),
+        'RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_validate_json "$2"',
+        [legacyReceipt, sourceSha],
+        env
+      ),
+      (error) => error.code === 1
+    );
+    const multiDocument = join(root, 'multi-document.json');
+    await writeFile(multiDocument, `null\n${await readFile(receipt, 'utf8')}`, {
+      mode: 0o600,
+    });
+    await chmod(multiDocument, 0o600);
+    await assert.rejects(
+      shellAt(
+        join(sealed, 'retire-ollama.sh'),
+        'RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_validate_json "$2"',
+        [multiDocument, sourceSha],
+        env
+      ),
+      (error) => error.code === 1
+    );
+    const extraKey = join(root, 'extra-key.json');
+    const extraValue = JSON.parse(await readFile(receipt, 'utf8'));
+    extraValue.unexpected = true;
+    await writeFile(extraKey, JSON.stringify(extraValue), { mode: 0o600 });
+    await chmod(extraKey, 0o600);
+    await assert.rejects(
+      shellAt(
+        join(sealed, 'retire-ollama.sh'),
+        'RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_validate_json "$2"',
+        [extraKey, sourceSha],
+        env
+      ),
+      (error) => error.code === 1
+    );
+    for (const helper of helpers) {
+      await writeFile(join(sealed, helper), '\n# substituted helper\n', {
+        flag: 'a',
+      });
+      await assert.rejects(
+        shellAt(
+          join(sealed, 'retire-ollama.sh'),
+          'RECOVERY_SOURCE_SHA="$3"; init_temp_root; trap cleanup_temp EXIT; recovery_validate_json "$2"',
+          [receipt, sourceSha],
+          env
+        ),
+        (error) => error.code === 1
+      );
+      const original = await readFile(new URL(`./${helper}`, import.meta.url));
+      await writeFile(join(sealed, helper), original);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(bin, { recursive: true, force: true });

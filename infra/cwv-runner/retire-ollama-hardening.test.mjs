@@ -120,10 +120,17 @@ test('publishes every receipt with a durable pending-file rename protocol', asyn
     source,
     /publish_pending "\$receipt_pending" "\$RECEIPT"[\s\S]*publish_pending "\$sha_pending" "\$RECEIPT_SHA"/
   );
-  assert.match(
-    source,
-    /fsync_file "\$pending"; fsync_dir "\$RECEIPT_DIR"; mv -f "\$pending" "\$target"[\s\S]*fsync_dir "\$RECEIPT_DIR"/
-  );
+  const publication = source.match(/publish_pending\(\) \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(publication, 'publish_pending body must be present');
+  const targetGuard = publication.indexOf("[ ! -e \"$target\" ] && [ ! -L \"$target\" ] || die 'receipt publication race'");
+  const stateGuard = publication.indexOf('case "$target_state" in absent)');
+  const noOverwrite = publication.indexOf("/usr/bin/perl -e 'exit(link($ARGV[0],$ARGV[1]) ? 0 : 1)'");
+  const rename = publication.indexOf('mv -T "$pending" "$target"');
+  const postGuard = publication.indexOf("[ -f \"$target\" ] && [ ! -L \"$target\" ] || die 'receipt publication target unsafe'");
+  assert.ok(targetGuard >= 0 && stateGuard >= 0 && noOverwrite > stateGuard, 'absent target must use no-overwrite publication');
+  assert.ok(rename > noOverwrite, 'existing target replacement must remain explicit');
+  assert.ok(postGuard > rename, 'renamed target must be checked after publication');
+  assert.doesNotMatch(publication, /mv -f "\$pending"/);
 });
 
 // biome-ignore format: a narrow shell harness keeps this behavioral contract below the modularity ceiling.

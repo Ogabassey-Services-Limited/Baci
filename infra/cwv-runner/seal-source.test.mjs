@@ -21,7 +21,6 @@ test('is syntactically valid and refuses incomplete arguments before a mutation 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /usage/);
 });
-
 test('uses a fixed privileged Bash that ignores environment-selected startup code', () => {
   assert.match(source, /^#!\/bin\/bash -p\n/);
   const root = mkdtempSync(join(tmpdir(), 'baci-cwv-bash-env-'));
@@ -43,7 +42,6 @@ test('uses a fixed privileged Bash that ignores environment-selected startup cod
     rmSync(root, { force: true, recursive: true });
   }
 });
-
 test('uses only closed flags, fixed tools, root copy checks, and atomic destinations', () => {
   for (const flag of [
     '--destination',
@@ -73,7 +71,6 @@ test('uses only closed flags, fixed tools, root copy checks, and atomic destinat
   assert.match(source, /sealed destination already exists/);
   assert.match(source, /--no-same-owner --no-same-permissions --no-recursion/);
 });
-
 test('seals only a complete regular-file archive projection and rejects unsafe members', () => {
   for (const refusal of [
     'unsafe archive member name',
@@ -89,7 +86,6 @@ test('seals only a complete regular-file archive projection and rejects unsafe m
   assert.match(source, /mergeSha/);
   assert.match(source, /trap cleanup EXIT/);
 });
-
 test('resolves extracted members at their full manifest paths', () => {
   const root = mkdtempSync(join(tmpdir(), 'baci-cwv-prefixed-archive-'));
   const archive = join(root, 'source.tar');
@@ -112,14 +108,27 @@ test('resolves extracted members at their full manifest paths', () => {
     assert.match(source, /local file="\$tree\/\$path"/);
     assert.match(source, /sub\(root, ""\)/);
     assert.match(source, /projection="\$tree\/infra\/cwv-runner"/);
-    assert.match(source, /"\$MV" -T -- "\$projection" "\$target"/);
+    assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/);
     assert.doesNotMatch(source, /"\$MV" -T -- "\$tree" "\$target"/);
     assert.doesNotMatch(source, /\$\{path#infra\/cwv-runner\/\}/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
 });
-
+test('extracts reordered source archive object keys without textual key-order coupling', () => {
+  const root = mkdtempSync(join(tmpdir(), 'baci-cwv-reordered-manifest-'));
+  const manifest = join(root, 'manifest.json');
+  try {
+    writeFileSync(manifest, JSON.stringify({ sourceArchive: { entries: [{ path: 'infra/cwv-runner/example file.txt', mode: '100644', blobSha256: 'a'.repeat(64) }] } }));
+    const filter = '.[0].sourceArchive.entries[] | [.path, .mode, .blobSha256] | @tsv';
+    const result = spawnSync('/usr/bin/jq', ['-r', '-s', filter, manifest], { encoding: 'utf8' });
+    assert.ifError(result.error); assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `infra/cwv-runner/example file.txt\t100644\t${'a'.repeat(64)}\n`);
+    assert.match(source, /sourceArchive\.entries\[\] \| \[\.path, \.mode, \.blobSha256\] \| @tsv/);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
 test('self-copies and raw-hash-verifies the first root helper before inner execution', () => {
   for (const token of [
     'BACI_CWV_SEAL_SOURCE_RAW_SHA',
@@ -134,7 +143,6 @@ test('self-copies and raw-hash-verifies the first root helper before inner execu
       new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
     );
 });
-
 test('runs the verified unique internal self-copy outside the noexec runtime mount', () => {
   assert.doesNotMatch(source, /readonly SELF_ROOT=\/run\//);
   assert.match(source, /readonly SELF_ROOT=\/var\/lib\/baci-cwv\/seal-source/);
@@ -144,7 +152,6 @@ test('runs the verified unique internal self-copy outside the noexec runtime mou
   assert.match(source, /cleanup_self_copy/);
   assert.match(source, /\[\[ -d "\$SELF_PARENT" && ! -L "\$SELF_PARENT" \]\]/);
 });
-
 test(
   'removes its unique self-copy when raw verification or lock acquisition fails',
   { skip: !rootMountFixtureAvailable, timeout: 30_000 },
@@ -187,16 +194,14 @@ test(
     }
   }
 );
-
 test('uses a new unique copy and serializes publication under the sealed root lock', () => {
   assert.match(source, /work\.XXXXXXXX/);
   assert.match(source, /readonly FLOCK=\/usr\/bin\/flock/);
   assert.match(source, /exec 9<"\$SELF_ROOT"/);
   assert.match(source, /"\$FLOCK" -n 9 \|\| fail 'source seal already running'/);
-  assert.match(source, /"\$MV" -T -- "\$projection" "\$target"/);
+  assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/);
   assert.match(source, /unsafe self-copy parent/);
 });
-
 test(
   'uses the real helper after a noexec runtime control fails and leaves no work child',
   { skip: !rootMountFixtureAvailable, timeout: 30_000 },
@@ -238,7 +243,6 @@ test(
     }
   }
 );
-
 test('cleans up and exits with the received signal status', () => {
   assert.doesNotMatch(source, /readonly KILL|wait "\$child"/);
   assert.match(source, /exit "\$code"/);
@@ -246,23 +250,22 @@ test('cleans up and exits with the received signal status', () => {
   assert.match(source, /trap 'signal INT 130' INT/);
   assert.match(source, /trap 'signal TERM 143' TERM/);
 });
-
 test('rolls back owned publication before commit and preserves it after final fsync', () => {
-  assert.match(source, /target_owned=false receipt_owned=false committed=false/);
+  assert.match(source, /tmp='' tmp_identity='' target='' receipt='' target_owned=false receipt_owned=false target_identity='' receipt_identity=''.*committed=false/);
   assert.match(source, /if \[\[ "\$committed" != true \]\]; then/);
-  assert.match(source, /"\$RM" -rf -- "\$receipt"/);
-  assert.match(source, /"\$RM" -rf -- "\$target"/);
-  assert.match(source, /target_owned=true\n"\$MV" -T -- "\$projection" "\$target"/);
-  assert.match(source, /receipt_owned=true; "\$MKDIR" -m 0700 -- "\$receipt"/);
+  assert.match(source, /cleanup_owned_path "\$receipt" "\$receipt_identity"/);
+  assert.match(source, /cleanup_owned_path "\$target" "\$target_identity"/);
+  assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/);
+  assert.match(source, /target_identity=\$\("\$STAT" -c '%d:%i' -- "\$target"\)/);
+  assert.match(source, /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\)/);
+  assert.match(source, /receipt_owned=true/);
   assert.match(source, /"\$SYNC" -f "\$receipt"; "\$SYNC" -f "\$final_root"\ncommitted=true/);
 });
-
 test('binds the sealed tree rehash into the immutable receipt', () => {
   assert.match(source, /sealedTreeSha256/);
   assert.match(source, /sealed tree digest mismatch/);
   assert.match(source, /tree\.sha256/);
 });
-
 test('keeps manifest-derived file modes intact through final sealing and receipt publication', () => {
   assert.match(
     source,
@@ -276,15 +279,22 @@ test('keeps manifest-derived file modes intact through final sealing and receipt
     source,
     /\$CHOWN" -R root:root -- "\$tree"; secure_tree_directories "\$tree"\ntree_digest=\$\(sha "\$actual"\)/
   );
-  assert.match(
-    source,
-    /"sealedTreeSha256":"%s".*"\$tree_digest".*\n"\$CHOWN" -R root:root -- "\$target" "\$receipt"; secure_tree_directories "\$target"; "\$CHMOD" 0700 -- "\$receipt"; "\$CHMOD" 0600 -- "\$receipt"\/\*/s
-  );
+  assert.match(source, /sealedTreeSha256/);
+  assert.match(source, /"\$CHOWN" -R root:root -- "\$target" "\$receipt"/);
+  assert.match(source, /secure_tree_directories "\$target"; "\$CHMOD" 0700 -- "\$receipt"/);
   assert.doesNotMatch(source, /\$CHMOD" -R 0700 -- "\$tree"|\$CHMOD" -R 0700 -- "\$target"/);
 });
-
 test('keeps the preflight schema disjoint from final merge sealing', () => {
   assert.match(source, /preflight-v1/);
-  assert.match(source, /final SHA mismatch/);
-  assert.match(source, /scan SHA mismatch/);
+  assert.match(source, /manifest is not canonical schema-v1 JSON/);
+  assert.match(source, /\$m\.mergeSha==\$source_sha/);
+  assert.match(source, /\$m\.reviewedHeadSha==\$source_sha/);
+  assert.match(source, /\$destination=="final"[\s\S]*\$m\.mergeSha==\$source_sha/);
+  assert.match(source, /\$destination=="scan"[\s\S]*\$m\.reviewedHeadSha==\$source_sha/);
+});
+test('rejects duplicate paths in both manifest arrays without weakening sorted order', () => {
+  for (const pattern of [/\[ \$m\.entries\[\]\.path \] == \(\[ \$m\.entries\[\]\.path \] \| sort\)/, /\[ \$m\.sourceArchive\.entries\[\]\.path \] == \(\[ \$m\.sourceArchive\.entries\[\]\.path \] \| sort\)/, /manifest contains duplicate paths/, /\$m\.entries\[\]\?\.path\] \| unique \| length/, /\$m\.sourceArchive\.entries\[\]\?\.path\] \| unique \| length/]) assert.match(source, pattern);
+});
+test('records ownership only after destination identity is captured', () => {
+  for (const pattern of [/target_identity=\$\("\$STAT" -c '%d:%i' -- "\$target"\) \|\| fail 'sealed target identity unavailable'\ntarget_owned=true/, /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\) \|\| fail 'sealed receipt identity unavailable'\nreceipt_owned=true/]) assert.match(source, pattern);
 });

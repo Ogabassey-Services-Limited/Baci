@@ -1,33 +1,50 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
+import { installDockerStub } from './running-container-fixture.mjs';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
 const imageId = `sha256:${'b'.repeat(64)}`;
-
 async function runFixture(command) {
   const directory = await mkdtemp(join(tmpdir(), 'baci-running-container-'));
   try {
+    const bin = join(directory, 'bin');
+    await mkdir(bin);
+    const socketFixturePrelude = `test() { if [ "$1" = -S ]; then case "$2" in /run/docker.sock|/var/run/docker.sock) return 0 ;; *) return 1 ;; esac; fi; /usr/bin/test "$@"; }; stat() { case "$*" in *"%u:%a"*"/run/docker.sock"|*"%u:%a"*"/var/run/docker.sock") printf '0:660\\n' ;; *"/run/docker.sock"|*"/var/run/docker.sock") printf '1:2:14000:0:999:660\\n' ;; *) /usr/bin/stat "$@" ;; esac; }; readlink() { if [ "$1" = -f ]; then path=$2; [ "$path" = -- ] && path=$3; case "$path" in /run/docker.sock|/var/run/docker.sock) printf '/run/docker.sock\\n' ;; *) /usr/bin/readlink "$@" ;; esac; else /usr/bin/readlink "$@"; fi; };`;
+    const shellCommand = `. "$1"; SCRIPT_DIR=$(dirname "$1"); export RETIRE_OLLAMA_TMPDIR="$2"; RETIRE_OLLAMA_TEST_BIN="$3"; RETIRE_OLLAMA_TEST_FSTYPE=apfs; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${socketFixturePrelude} ${injectProjectionStub(command)}`;
+    await installDockerStub(bin, shellCommand);
     const { stdout } = await execFileAsync('sh', [
       '-c',
-      `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${command}`,
-      'running-container-test',
+      shellCommand,
+      script.pathname.replace(/\.sh$/, '-test.sh'),
       script.pathname,
       directory,
+      bin,
     ]);
     return stdout;
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 }
+function injectProjectionStub(command) {
+  const token = 'load_consumer_scanners;';
+  assert.equal(
+    command.split(token).length - 1,
+    1,
+    'fixture must load consumer scanners exactly once before stub injection'
+  );
+  return command.replace(
+    token,
+    `${token} running_container_image_matches_merged() { consumer_matches "$1"; };`
+  );
+}
 
 const metadataDocker = `docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json (index .Config "Healthcheck")}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'container export generic-api'*) printf '%s\\n' 'clean live filesystem';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;;`;
-
 test('emits digest-bound evidence when the immutable running image contains Ollama markers', async () => {
   const output = await runFixture(
     `${metadataDocker} *'image save ${imageId}'*) printf '%s\\n' 'filesystem endpoint=http://127.0.0.1:11434';; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`
@@ -38,7 +55,6 @@ test('emits digest-bound evidence when the immutable running image contains Olla
   );
   assert.doesNotMatch(output, /filesystem|11434/);
 });
-
 test('emits digest-bound evidence for Ollama markers in the live writable layer', async () => {
   const liveFilesystem = metadataDocker.replace(
     "printf '%s\\n' 'clean live filesystem'",
@@ -53,11 +69,10 @@ test('emits digest-bound evidence for Ollama markers in the live writable layer'
   );
   assert.doesNotMatch(output, /runtime\.conf|11434/);
 });
-
 test('fails closed when live writable-layer exports drift', async () => {
   const driftingFilesystem = metadataDocker.replace(
     "*'container export generic-api'*) printf '%s\\n' 'clean live filesystem';;",
-    '*\'container export generic-api\'*) count=$(cat "$2/export-count" 2>/dev/null || printf 0); count=$((count + 1)); printf \'%s\' "$count" >"$2/export-count"; printf \'filesystem-%s\' "$count";;'
+    '*\'container export generic-api\'*) count=$(cat "$RETIRE_OLLAMA_TMPDIR/export-count" 2>/dev/null || printf 0); count=$((count + 1)); printf \'%s\' "$count" >"$RETIRE_OLLAMA_TMPDIR/export-count"; printf \'filesystem-%s\' "$count";;'
   );
   await assert.rejects(
     runFixture(
@@ -66,7 +81,6 @@ test('fails closed when live writable-layer exports drift', async () => {
     (error) => error.code === 2
   );
 });
-
 test('accepts a safe absolute running-container argument', async () => {
   const absoluteArgument = metadataDocker.replace(
     '["--model","llama3.2:latest"]',
@@ -77,7 +91,6 @@ test('accepts a safe absolute running-container argument', async () => {
   );
   assert.equal(output, '');
 });
-
 test('accepts a safe bare running-container entrypoint used by Docker images', async () => {
   const bareEntrypoint = metadataDocker.replace(
     '"/docker-entrypoint"',
@@ -88,7 +101,6 @@ test('accepts a safe bare running-container entrypoint used by Docker images', a
   );
   assert.equal(output, '');
 });
-
 test('accepts Docker root as a running-container working directory', async () => {
   const rootWorkingDirectory = metadataDocker.replace(
     "printf '%s\\n' '\"\"'",
@@ -99,7 +111,6 @@ test('accepts Docker root as a running-container working directory', async () =>
   );
   assert.equal(output, '');
 });
-
 test('serializes an absent Docker healthcheck as null', async () => {
   const output = await runFixture(
     `docker() { case "$*" in *'index .Config "Healthcheck"'*) printf '%s\\n' 'generic-api /generic-api /bin/true [] [] "" {} null {} {} {} [] "bridge"';; *'{{json .Mounts}}'*) printf '%s\\n' '[]';; *) return 2;; esac; }; load_consumer_scanners; container_configuration generic-api`
@@ -109,7 +120,6 @@ test('serializes an absent Docker healthcheck as null', async () => {
     'generic-api /generic-api /bin/true [] [] "" {} null {} {} {} [] [] "bridge"\n'
   );
 });
-
 test('accepts a running container with no healthcheck property', async () => {
   const absentHealthcheck = metadataDocker.replace(
     '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}',
@@ -120,7 +130,6 @@ test('accepts a running container with no healthcheck property', async () => {
   );
   assert.equal(output, '');
 });
-
 test('exports one immutable image twice for two containers sharing its ID', async () => {
   const sharedImageDocker = metadataDocker.replace(
     'docker() { case "$*" in',
@@ -131,19 +140,21 @@ test('exports one immutable image twice for two containers sharing its ID', asyn
   );
   assert.equal(output.match(/^running-container-image:/gm)?.length, 2);
 });
-
 test('fails closed when immutable running-image saves drift', async () => {
   const directory = await mkdtemp(
     join(tmpdir(), 'baci-running-container-drift-')
   );
   try {
+    const bin = join(directory, 'bin');
+    await mkdir(bin);
     await assert.rejects(
       execFileAsync('sh', [
         '-c',
-        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${metadataDocker} *'image save ${imageId}'*) if [ ! -e '${directory}/seen' ]; then : >'${directory}/seen'; printf first; else printf second; fi;; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'`,
+        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; RETIRE_OLLAMA_TEST_BIN="$3"; RETIRE_OLLAMA_TEST_FSTYPE=apfs; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${metadataDocker} *'image save ${imageId}'*) if [ ! -e '${directory}/seen' ]; then : >'${directory}/seen'; printf first; else printf second; fi;; *) return 2;; esac; ${injectProjectionStub("load_consumer_scanners; running_container_validate generic-api /generic-api 'stable-config'")}`,
         'running-container-drift-test',
         script.pathname,
         directory,
+        bin,
       ]),
       (error) => error.code === 2
     );
@@ -151,7 +162,6 @@ test('fails closed when immutable running-image saves drift', async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
-
 test('fails closed when immutable running-image save fails', async () => {
   await assert.rejects(
     runFixture(
@@ -160,7 +170,6 @@ test('fails closed when immutable running-image save fails', async () => {
     (error) => error.code === 2
   );
 });
-
 test('fails closed when the retained running-image archive exceeds the byte limit', async () => {
   await assert.rejects(
     runFixture(
@@ -169,7 +178,6 @@ test('fails closed when the retained running-image archive exceeds the byte limi
     (error) => error.code === 2
   );
 });
-
 test('uses a separate bounded allowance for large live container filesystems', async () => {
   const largeFilesystem = metadataDocker.replace(
     "printf '%s\\n' 'clean live filesystem'",
@@ -180,7 +188,6 @@ test('uses a separate bounded allowance for large live container filesystems', a
   );
   assert.equal(output, '');
 });
-
 test('still rejects a live container filesystem above its own byte limit', async () => {
   const largeFilesystem = metadataDocker.replace(
     "printf '%s\\n' 'clean live filesystem'",
@@ -193,14 +200,12 @@ test('still rejects a live container filesystem above its own byte limit', async
     (error) => error.code === 2
   );
 });
-
 test('uses a separate deadline for large live container filesystem exports', async () => {
   const output = await runFixture(
     `${metadataDocker} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; clock="$2/filesystem-clock"; running_container_now() { if [ -n "\${running_filesystem_save_fifo:-}" ]; then if [ -e "$clock" ]; then printf '2\\n'; else : >"$clock"; printf '0\\n'; fi; else printf '0\\n'; fi; }; RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS=1; RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=3; running_container_validate generic-api /generic-api 'stable-config'`
   );
   assert.equal(output, '');
 });
-
 test('fails closed when a running-image export hangs past the watchdog', async () => {
   await assert.rejects(
     runFixture(
@@ -213,7 +218,7 @@ test('fails closed when a running-image export hangs past the watchdog', async (
 test('keeps enforcing the deadline after archive output is complete', async () => {
   await assert.rejects(
     runFixture(
-      'load_consumer_scanners; status="$2/status"; clock="$2/clock"; printf \'0\\n\' >"$status"; sleep 3 & sleeper=$!; running_container_now() { if [ -e "$clock" ]; then printf \'3\\n\'; else : >"$clock"; printf \'1\\n\'; fi; }; running_container_wait_group 2 "$sleeper" -- "$status"'
+      'docker() { return 2; }; load_consumer_scanners; status="$2/status"; clock="$2/clock"; printf \'0\\n\' >"$status"; sleep 3 & sleeper=$!; running_container_now() { if [ -e "$clock" ]; then printf \'3\\n\'; else : >"$clock"; printf \'1\\n\'; fi; }; running_container_wait_group 2 "$sleeper" -- "$status"'
     ),
     (error) => error.code === 124
   );

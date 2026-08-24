@@ -74,6 +74,8 @@ scan_container_rows all
       {
         env: {
           ...process.env,
+          RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+          RETIRE_OLLAMA_TEST_FSTYPE: 'apfs',
           RETIRE_TEST_BIND_SOURCE: canonicalBindSource,
           RETIRE_TEST_CONTAINER_ID: containerId,
           RETIRE_TEST_FIND_MODE: mode,
