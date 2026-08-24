@@ -44,7 +44,7 @@ container_bind_mount_consumers() {
   mount_bind_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$mount_id") && mount_bind_state_again=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$mount_id") && [ "$mount_bind_state" = "$mount_bind_state_again" ] && { [ "$mount_bind_state" = true ] || [ "$mount_bind_state" = false ]; } || { rm -f "$mount_mounts" "$mount_mounts_again"; return 2; }
   mount_paths=$(temp_path)
   mount_socket_evidence=$(temp_path)
-  : >"$mount_socket_evidence" || { rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2; }
+  /usr/bin/printf '%s' '' >"$mount_socket_evidence" || { rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2; }
   /usr/bin/jq -r '
     def abs: type == "string" and startswith("/") and (test("[\\t\\r\\n]") | not) and (test("(^|/)\\.\\.?(/|$)") | not);
     if type != "array" or any(.[]; type != "object" or (.Type | type) != "string") then error("invalid mounts")

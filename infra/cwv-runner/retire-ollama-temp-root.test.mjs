@@ -179,20 +179,21 @@ test('cleanup never deletes a replacement at the recorded temporary-root path', 
   }
 });
 
-test('cleanup preserves its owned root when the quarantine destination appears during rename', async () => {
+test('cleanup bypasses a hostile sibling preclaim of the predictable quarantine name', async () => {
   const fixtureValue = await fixture('fixture 1 1 6000000 1% /tmp', 'ext4');
+  await chmod(fixtureValue.directory, 0o1777);
   try {
     const { stdout } = await execFileAsync(
       'sh',
       [
         '-c',
-        'PATH="$RETIRE_OLLAMA_TEST_BIN:/usr/bin:/bin"; export PATH; . "$1"; _init_temp_root; old=$TEMP_ROOT; : >"$old/original-marker"; before=$(temp_root_stat_identity "$old"); quarantine="$old.cleanup.$$"; temp_root_rename() { /bin/mkdir "$2"; : >"$2/attacker-marker"; /usr/bin/perl -e \'exit(rename($ARGV[0],$ARGV[1]) ? 0 : 1)\' "$1" "$2"; }; _cleanup_temp; [ "$(temp_root_stat_identity "$old")" = "$before" ] && [ -f "$old/original-marker" ] && [ -f "$quarantine/attacker-marker" ] || exit 1; printf preserved',
+        'PATH="$RETIRE_OLLAMA_TEST_BIN:/usr/bin:/bin"; export PATH; . "$1"; _init_temp_root; old=$TEMP_ROOT; : >"$old/original-marker"; hostile_quarantine="$old.cleanup.$$"; /bin/mkdir "$hostile_quarantine"; : >"$hostile_quarantine/attacker-marker"; _cleanup_temp; [ ! -e "$old" ] && [ -f "$hostile_quarantine/attacker-marker" ] || exit 1; printf cleaned',
         'temp-root-cleanup-quarantine-race-test',
         new URL('./retire-ollama-temp-root.sh', import.meta.url).pathname,
       ],
       { env: fixtureValue.env }
     );
-    assert.equal(stdout, 'preserved');
+    assert.equal(stdout, 'cleaned');
   } finally {
     await rm(fixtureValue.directory, { recursive: true, force: true });
   }

@@ -199,7 +199,7 @@ test('uses a new unique copy and serializes publication under the sealed root lo
   assert.match(source, /readonly FLOCK=\/usr\/bin\/flock/);
   assert.match(source, /exec 9<"\$SELF_ROOT"/);
   assert.match(source, /"\$FLOCK" -n 9 \|\| fail 'source seal already running'/);
-  assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/);
+  assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/); assert.match(source, /cleanup_owned_dir\(\)[\s\S]*atomic_noreplace_dir/); assert.match(source, /cleanup_owned_dir\(\) \{ local path=\$1 identity=\$2 quarantine; quarantine="\$\{path\}\.cleanup\.\$\$";/);
   assert.match(source, /unsafe self-copy parent/);
 });
 test(

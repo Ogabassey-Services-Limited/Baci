@@ -87,7 +87,10 @@ test('publishes without replacement and cleans only matching owned identities', 
     /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\)/
   );
   assert.match(source, /owned_path_matches "\$path" "\$identity"/);
-  assert.match(source, /"\$MV" -T -n -- "\$path" "\$quarantine"/);
+  assert.match(
+    source,
+    /cleanup_owned_dir\(\) \{ local path=\$1 identity=\$2 quarantine; quarantine="\$\{path\}\.cleanup\.\$\$";/
+  );
   assert.match(source, /cleanup_owned_path "\$target" "\$target_identity"/);
   assert.match(source, /cleanup_owned_path "\$receipt" "\$receipt_identity"/);
   assert.doesNotMatch(source, /"\$RM" -rf -- "\$path"/);

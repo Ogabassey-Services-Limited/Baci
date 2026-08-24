@@ -52,6 +52,7 @@ rm -f "$marker"
 
 test('cleans parsed mount paths when evidence temp initialization fails', async () => {
   const script = `
+set -e
 . "$1"
 test_root=$(mktemp -d)
 calls_file="$test_root/calls"
@@ -72,8 +73,8 @@ temp_path() {
 container_mounts_snapshot() { printf '[]\\n' >"$2"; }
 docker() { case "$*" in *State.Running*) printf 'false\\n';; *) return 2;; esac; }
 CANONICAL_DOCKER_SOCKET=/run/docker.sock
-container_bind_mount_consumers container-id
-mount_status=$?
+mount_status=0
+container_bind_mount_consumers container-id || mount_status=$?
 [ "$mount_status" -eq 2 ] || exit 1
 [ ! -e "$test_root/path.1" ] || exit 2
 [ ! -e "$test_root/path.2" ] || exit 3

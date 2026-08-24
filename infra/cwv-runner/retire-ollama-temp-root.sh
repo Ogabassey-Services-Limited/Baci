@@ -138,9 +138,17 @@ temp_root_rename() { /usr/bin/perl -e 'exit(rename($ARGV[0],$ARGV[1]) ? 0 : 1)' 
 temp_root_remove_owned() {
   target=$1; expected=$2; [ -n "$expected" ] || return 0
   [ ! -L "$target" ] && [ "$(temp_root_stat_identity "$target" 2>/dev/null)" = "$expected" ] || return 0
-  quarantine="${target}.cleanup.$$"; [ ! -e "$quarantine" ] && [ ! -L "$quarantine" ] || return 0
-  temp_root_rename "$target" "$quarantine" || return 0
-  [ ! -L "$quarantine" ] && [ "$(temp_root_stat_identity "$quarantine" 2>/dev/null)" = "$expected" ] && /bin/rm -rf -- "$quarantine" || :
+  target_parent=${target%/*}; [ "$target_parent" = "$target" ] && target_parent=.
+  quarantine_root=$(temp_root_mktemp -d "$target_parent/.retire-ollama-cleanup.XXXXXX") || return 0
+  temp_root_chmod 0700 "$quarantine_root" || { /bin/rm -rf -- "$quarantine_root"; return 0; }
+  quarantine="$quarantine_root/root"
+  [ ! -e "$quarantine" ] && [ ! -L "$quarantine" ] || { /bin/rmdir -- "$quarantine_root" 2>/dev/null || :; return 0; }
+  temp_root_rename "$target" "$quarantine" || { /bin/rmdir -- "$quarantine_root" 2>/dev/null || :; return 0; }
+  if [ ! -L "$quarantine" ] && [ "$(temp_root_stat_identity "$quarantine" 2>/dev/null)" = "$expected" ]; then
+    /bin/rm -rf -- "$quarantine_root"
+  else
+    :
+  fi
 }
 _cleanup_temp() { [ -n "${TEMP_ROOT:-}" ] && temp_root_remove_owned "$TEMP_ROOT" "${TEMP_ROOT_IDENTITY:-}"; TEMP_ROOT=''; TEMP_ROOT_IDENTITY=''; }
 _init_temp_root() {

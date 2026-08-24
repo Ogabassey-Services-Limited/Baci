@@ -9,7 +9,6 @@ readonly CP=/bin/cp
 readonly CHMOD=/bin/chmod
 readonly CHOWN=/bin/chown
 readonly MKDIR=/bin/mkdir
-readonly MV=/bin/mv
 readonly RM=/bin/rm
 readonly TAR=/usr/bin/tar
 readonly FIND=/usr/bin/find
@@ -102,7 +101,7 @@ cleanup_self_copy() { cleanup_owned_dir "$SELF_PARENT" "$self_parent_identity"; 
 
 tmp='' tmp_identity='' target='' receipt='' target_owned=false receipt_owned=false target_identity='' receipt_identity='' outer_self_copy_identity='' self_parent_identity='' committed=false
 owned_path_matches() { local path=$1 identity=$2; [[ -n "$identity" && ! -L "$path" && -d "$path" ]] || return 1; [[ "$($STAT -c '%d:%i' -- "$path" 2>/dev/null)" == "$identity" ]]; }
-cleanup_owned_dir() { local path=$1 identity=$2 quarantine="${path}.cleanup.$$"; owned_path_matches "$path" "$identity" || return 0; "$MV" -T -n -- "$path" "$quarantine" || return 0; if owned_path_matches "$quarantine" "$identity"; then "$RM" -rf -- "$quarantine"; else "$MV" -T -n -- "$quarantine" "$path" || :; fi; }
+cleanup_owned_dir() { local path=$1 identity=$2 quarantine; quarantine="${path}.cleanup.$$"; owned_path_matches "$path" "$identity" || return 0; atomic_noreplace_dir "$path" "$quarantine" || return 0; if owned_path_matches "$quarantine" "$identity"; then "$RM" -rf -- "$quarantine"; else atomic_noreplace_dir "$quarantine" "$path" || :; fi; }
 cleanup_owned_path() { local path=$1 identity=$2; cleanup_owned_dir "$path" "$identity"; }
 cleanup() {
   if [[ "$committed" != true ]]; then
