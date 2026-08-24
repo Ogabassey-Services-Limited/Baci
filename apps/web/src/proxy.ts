@@ -43,6 +43,7 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
+import { createStorefrontComparePageHardStatusResolver } from '@/lib/storefront-compare-page-hard-status';
 import { getStorefrontDocumentHomePath } from '@/lib/storefront-document-home-path';
 import type { StorefrontDocumentHomePathRules } from '@/lib/storefront-document-home-path-rules';
 import { isStorefrontDocumentNavigation } from '@/lib/storefront-document-navigation';
@@ -2350,6 +2351,16 @@ async function resolveStorefrontBlogPostHardStatus(
   );
 }
 
+const resolveStorefrontComparePageHardStatus =
+  createStorefrontComparePageHardStatusResolver({
+    isEligibleForHardStatusPreflight,
+    getRouteType,
+    getStorefrontContentSegments,
+    nonCacheableStorefrontFirstSegments:
+      NON_CACHEABLE_STOREFRONT_FIRST_SEGMENTS,
+    buildHardStatusStorefrontResponse,
+  });
+
 // Mirror the route's parseBlogListingPage cap so the preflight never issues a
 // larger Supabase offset than the route itself would.
 const MAX_BLOG_LISTING_PAGE = 10_000;
@@ -3864,6 +3875,18 @@ export async function proxy(request: NextRequest) {
         return blogListingHardStatus;
       }
 
+      const comparePageHardStatus =
+        await resolveStorefrontComparePageHardStatus(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          domainMerchantSlug ?? domain
+        );
+      if (comparePageHardStatus) {
+        return comparePageHardStatus;
+      }
+
       const pdpCanonicalRedirect = await resolveStorefrontPdpCanonicalRedirect(
         request,
         pathname,
@@ -4153,6 +4176,18 @@ export async function proxy(request: NextRequest) {
       return subdomainBlogListingHardStatus;
     }
 
+    const subdomainComparePageHardStatus =
+      await resolveStorefrontComparePageHardStatus(
+        request,
+        pathname,
+        hostname,
+        userAgent,
+        subdomain as string
+      );
+    if (subdomainComparePageHardStatus) {
+      return subdomainComparePageHardStatus;
+    }
+
     const subdomainPdpCanonicalRedirect =
       await resolveStorefrontPdpCanonicalRedirect(
         request,
@@ -4437,6 +4472,19 @@ export async function proxy(request: NextRequest) {
         );
       if (rootBlogListingHardStatus) {
         return rootBlogListingHardStatus;
+      }
+
+      const rootComparePageHardStatus =
+        await resolveStorefrontComparePageHardStatus(
+          request,
+          pathname,
+          hostname,
+          userAgent,
+          slug,
+          `/${slug}`
+        );
+      if (rootComparePageHardStatus) {
+        return rootComparePageHardStatus;
       }
 
       const rootPdpCanonicalRedirect =
