@@ -41,6 +41,16 @@ function makeOrder(
   };
 }
 
+function authenticate() {
+  mocks.getSession.mockResolvedValue({
+    data: { session: { access_token: 'token' } },
+  });
+}
+
+function okJson(payload: unknown) {
+  return { json: async () => payload, ok: true };
+}
+
 describe('resolveOrderReceiptVirtualAccount', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,13 +84,8 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   });
 
   it('falls back to the merchant bank account when no virtual account exists', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
-    mocks.fetch.mockResolvedValue({
-      json: async () => ({ account_name: 'Baci Ltd' }),
-      ok: true,
-    });
+    authenticate();
+    mocks.fetch.mockResolvedValue(okJson({ account_name: 'Baci Ltd' }));
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: {
@@ -98,14 +103,19 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     });
   });
 
-  it('does not create a processor payment when generating a receipt for a manual unpaid order', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
-    mocks.fetch.mockResolvedValue({
-      json: async () => ({ account_name: 'Manual Bank Account' }),
-      ok: true,
-    });
+  it('provisions automatic confirmation for an unpaid manual invoice', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue(
+      okJson({
+        existing: false,
+        success: true,
+        virtualAccount: {
+          account_name: 'Baci / Ada',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+        },
+      })
+    );
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: {
@@ -117,14 +127,21 @@ describe('resolveOrderReceiptVirtualAccount', () => {
       order: makeOrder({ source: 'physical' }),
     });
 
-    expect(account).toMatchObject({
-      account_name: 'Manual Bank Account',
-      account_number: '0123456789',
+    expect(account).toEqual({
+      account_name: 'Baci / Ada',
+      account_number: '9876543210',
+      bank_name: 'Paystack-Titan',
     });
-    expect(mocks.fetch).not.toHaveBeenCalledWith(
+    expect(mocks.fetch).toHaveBeenCalledWith(
       'https://example.com/api/orders/order-1/generate-dva',
-      expect.anything()
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token',
+        }),
+        method: 'POST',
+      })
     );
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 
   it('returns null when there is no session or fallback account available', async () => {
@@ -147,9 +164,7 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   });
 
   it('returns null when generation fails and no merchant fallback exists', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
+    authenticate();
     mocks.fetch.mockResolvedValue({ ok: false });
 
     expect(
@@ -169,11 +184,9 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   });
 
   it('ignores a virtual account without an account number and uses an existing terminal', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
-    mocks.fetch.mockResolvedValue({
-      json: async () => ({
+    authenticate();
+    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce(
+      okJson({
         terminals: [
           {
             active: true,
@@ -182,9 +195,8 @@ describe('resolveOrderReceiptVirtualAccount', () => {
             bank_name: 'Generated Bank',
           },
         ],
-      }),
-      ok: true,
-    });
+      })
+    );
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: null,
@@ -202,17 +214,15 @@ describe('resolveOrderReceiptVirtualAccount', () => {
       account_number: '1234567890',
       bank_name: 'Generated Bank',
     });
-    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    expect(mocks.fetch).toHaveBeenCalledTimes(2);
   });
 
   it('ignores a staff terminal without an account number and falls back to the merchant account', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
-    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce({
-      json: async () => ({ account_name: 'Baci Ltd' }),
-      ok: true,
-    });
+    authenticate();
+    mocks.fetch
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce(okJson({ account_name: 'Baci Ltd' }));
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: {
@@ -237,11 +247,9 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   });
 
   it('skips active terminals without account numbers when selecting a receipt fallback', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
-    mocks.fetch.mockResolvedValueOnce({
-      json: async () => ({
+    authenticate();
+    mocks.fetch.mockResolvedValueOnce({ ok: false }).mockResolvedValueOnce(
+      okJson({
         terminals: [
           { active: true, account_name: 'Placeholder' },
           {
@@ -251,9 +259,8 @@ describe('resolveOrderReceiptVirtualAccount', () => {
             bank: 'Test Bank',
           },
         ],
-      }),
-      ok: true,
-    });
+      })
+    );
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: null,
@@ -268,18 +275,11 @@ describe('resolveOrderReceiptVirtualAccount', () => {
   });
 
   it('ignores malformed API payloads and falls back to the merchant account', async () => {
-    mocks.getSession.mockResolvedValue({
-      data: { session: { access_token: 'token' } },
-    });
+    authenticate();
     mocks.fetch
-      .mockResolvedValueOnce({
-        json: async () => ({ terminals: {} }),
-        ok: true,
-      })
-      .mockResolvedValueOnce({
-        json: async () => ({ account_name: 'Baci Ltd' }),
-        ok: true,
-      });
+      .mockResolvedValueOnce(okJson({ virtualAccount: [] }))
+      .mockResolvedValueOnce(okJson({ terminals: {} }))
+      .mockResolvedValueOnce(okJson({ account_name: 'Baci Ltd' }));
 
     const account = await resolveOrderReceiptVirtualAccount({
       merchant: {

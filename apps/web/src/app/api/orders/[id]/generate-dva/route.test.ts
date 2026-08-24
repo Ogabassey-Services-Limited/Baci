@@ -5,23 +5,6 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
-// Mock environment variables
-vi.mock('@/env', () => ({
-  getSupabaseUrl: vi.fn(() => 'https://test.supabase.co'),
-  getSupabaseAnonKey: vi.fn(() => 'test-anon-key'),
-  getSupabaseServiceRoleKey: vi.fn(() => 'test-service-role-key'),
-}));
-
-// Mock next/headers
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(() => ({
-    get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
-  })),
-}));
-
-// Hoist mock references for vi.mock factories
 const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
@@ -46,34 +29,21 @@ const {
   };
 });
 
-// Mock API auth
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mockAuthenticateApiRequest,
   getMerchantIdForApiUser: mockGetMerchantIdForApiUser,
 }));
 
-// Mock Paystack (generatePaymentAccount + calculatePlatformFee)
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
-  calculatePlatformFee: vi.fn((amountKobo: number) => ({
-    platformFee: Math.min((amountKobo * 2) / 100, 205000),
-    merchantAmount: amountKobo - Math.min((amountKobo * 2) / 100, 205000),
-    total: amountKobo,
-  })),
 }));
 
-// Mock logger
 vi.mock('@/lib/logger', () => ({
   logger: {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
   },
-}));
-
-// Mock Supabase
-vi.mock('@/lib/supabase/server', () => ({
-  createClient: vi.fn(() => mockSupabaseClient),
 }));
 
 import { POST } from './route';
@@ -91,19 +61,79 @@ function createRequest(): NextRequest {
   );
 }
 
-function createParams() {
-  return { params: Promise.resolve({ id: ORDER_ID }) };
+function createParams(id = ORDER_ID) {
+  return { params: Promise.resolve({ id }) };
 }
 
-// Helper to chain Supabase query methods
-function mockQuery(data: unknown, error: unknown = null) {
+function mockQuery(
+  data: unknown,
+  error: unknown = null,
+  writeError: unknown = null
+) {
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data, error }),
-    insert: vi.fn().mockResolvedValue({ error: null }),
+    insert: vi.fn().mockResolvedValue({ error: writeError }),
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
+    upsert: vi.fn().mockResolvedValue({ error: writeError }),
   };
+}
+
+const unpaidOrder = {
+  id: ORDER_ID,
+  order_number: 'ORD-001',
+  total: '5000',
+  amount_paid: '0',
+  customer_name: 'John Doe',
+  customer_email: 'john@test.com',
+  customer_phone: '+2348012345678',
+  payment_status: 'unpaid',
+  merchant_id: MERCHANT_ID,
+};
+
+const generatedDva = {
+  success: true,
+  data: {
+    account_number: '9876543210',
+    account_name: 'Ogabassey/John Doe',
+    bank_name: 'Wema Bank',
+    customer_code: 'CUS_test123',
+  },
+};
+
+function authenticateMerchant(merchantId: string | null = MERCHANT_ID) {
+  mockAuthenticateApiRequest.mockResolvedValue({
+    user: { id: 'user-1' },
+    error: null,
+    supabase: mockSupabaseClient,
+  });
+  mockGetMerchantIdForApiUser.mockResolvedValue(merchantId);
+}
+
+function useOrderQueries({
+  order = unpaidOrder,
+  orderError = null,
+  paymentAccount = null,
+  paymentAccountError = null,
+  writeError = null,
+}: {
+  order?: unknown;
+  orderError?: unknown;
+  paymentAccount?: unknown;
+  paymentAccountError?: unknown;
+  writeError?: unknown;
+} = {}) {
+  const orderQuery = mockQuery(order, orderError);
+  const paymentAccountQuery = mockQuery(
+    paymentAccount,
+    paymentAccountError,
+    writeError
+  );
+  mockFrom.mockImplementation((table: string) =>
+    table === 'orders' ? orderQuery : paymentAccountQuery
+  );
+  return paymentAccountQuery;
 }
 
 describe('POST /api/orders/[id]/generate-dva', () => {
@@ -124,12 +154,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
   });
 
   it('returns 404 when merchant not found', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(null);
+    authenticateMerchant(null);
 
     const response = await POST(createRequest(), createParams());
     expect(response.status).toBe(404);
@@ -137,43 +162,35 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.error).toBe('Merchant not found');
   });
 
-  it('returns 404 when order not found', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
+  it('returns 400 for an invalid order ID', async () => {
+    authenticateMerchant();
 
-    const orderQuery = mockQuery(null, {
-      code: 'PGRST116',
-      message: 'Not found',
+    const response = await POST(createRequest(), createParams('not-an-id'));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      code: 'INVALID_ORDER_ID',
+      error: 'Invalid order ID',
     });
-    mockFrom.mockReturnValue(orderQuery);
+    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when order not found', async () => {
+    authenticateMerchant();
+    useOrderQueries({
+      order: null,
+      orderError: { code: 'PGRST116', message: 'Not found' },
+    });
 
     const response = await POST(createRequest(), createParams());
     expect(response.status).toBe(404);
   });
 
   it('returns 400 when order is already paid', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
+    authenticateMerchant();
+    useOrderQueries({
+      order: { ...unpaidOrder, payment_status: 'paid' },
     });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
-
-    const orderQuery = mockQuery({
-      id: ORDER_ID,
-      order_number: 'ORD-001',
-      total: '5000',
-      customer_name: 'John Doe',
-      customer_email: 'john@test.com',
-      customer_phone: '+2348012345678',
-      payment_status: 'paid',
-      merchant_id: MERCHANT_ID,
-    });
-    mockFrom.mockReturnValue(orderQuery);
 
     const response = await POST(createRequest(), createParams());
     expect(response.status).toBe(400);
@@ -182,38 +199,13 @@ describe('POST /api/orders/[id]/generate-dva', () => {
   });
 
   it('returns existing DVA when one already exists', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
-
-    let callCount = 0;
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return mockQuery({
-          id: ORDER_ID,
-          order_number: 'ORD-001',
-          total: '5000',
-          customer_name: 'John Doe',
-          customer_email: 'john@test.com',
-          customer_phone: '+2348012345678',
-          payment_status: 'unpaid',
-          merchant_id: MERCHANT_ID,
-        });
-      }
-      if (table === 'order_payment_accounts') {
-        callCount++;
-        if (callCount === 1) {
-          return mockQuery({
-            account_number: '1234567890',
-            bank_name: 'Wema Bank',
-            account_name: 'Ogabassey/John Doe',
-          });
-        }
-      }
-      return mockQuery(null);
+    authenticateMerchant();
+    useOrderQueries({
+      paymentAccount: {
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+        account_name: 'Ogabassey/John Doe',
+      },
     });
 
     const response = await POST(createRequest(), createParams());
@@ -225,30 +217,9 @@ describe('POST /api/orders/[id]/generate-dva', () => {
   });
 
   it('returns 500 when checking for an existing DVA fails', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return mockQuery({
-          id: ORDER_ID,
-          order_number: 'ORD-001',
-          total: '5000',
-          customer_name: 'John Doe',
-          customer_email: 'john@test.com',
-          customer_phone: '+2348012345678',
-          payment_status: 'unpaid',
-          merchant_id: MERCHANT_ID,
-        });
-      }
-      if (table === 'order_payment_accounts') {
-        return mockQuery(null, { message: 'connection reset' });
-      }
-      return mockQuery(null);
+    authenticateMerchant();
+    useOrderQueries({
+      paymentAccountError: { message: 'connection reset' },
     });
 
     const response = await POST(createRequest(), createParams());
@@ -259,42 +230,10 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
-  it('creates new Paystack DVA and returns details', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return mockQuery({
-          id: ORDER_ID,
-          order_number: 'ORD-001',
-          total: '5000',
-          customer_name: 'John Doe',
-          customer_email: 'john@test.com',
-          customer_phone: '+2348012345678',
-          payment_status: 'unpaid',
-          merchant_id: MERCHANT_ID,
-        });
-      }
-      if (table === 'order_payment_accounts') {
-        return mockQuery(null, null);
-      }
-      return mockQuery(null);
-    });
-
-    mockGeneratePaymentAccount.mockResolvedValue({
-      success: true,
-      data: {
-        account_number: '9876543210',
-        account_name: 'Ogabassey/John Doe',
-        bank_name: 'Wema Bank',
-        customer_code: 'CUS_test123',
-      },
-    });
+  it('provisions automatic invoice confirmation without creating a pending payment', async () => {
+    authenticateMerchant();
+    useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
 
     const response = await POST(createRequest(), createParams());
     expect(response.status).toBe(200);
@@ -304,7 +243,6 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.virtualAccount.account_number).toBe('9876543210');
     expect(body.virtualAccount.bank_name).toBe('Wema Bank');
 
-    // Verify generatePaymentAccount was called with correct data
     expect(mockGeneratePaymentAccount).toHaveBeenCalledWith({
       email: 'john@test.com',
       firstName: 'John',
@@ -313,43 +251,12 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       orderId: ORDER_ID,
     });
 
-    // Verify transaction record was created
-    expect(mockRpc).toHaveBeenCalledWith(
-      'create_payment_transaction',
-      expect.objectContaining({
-        p_merchant_id: MERCHANT_ID,
-        p_order_id: ORDER_ID,
-        p_gateway: 'paystack',
-      })
-    );
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 
   it('returns 502 when Paystack DVA creation fails', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      user: { id: 'user-1' },
-      error: null,
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
-
-    mockFrom.mockImplementation((table: string) => {
-      if (table === 'orders') {
-        return mockQuery({
-          id: ORDER_ID,
-          order_number: 'ORD-001',
-          total: '5000',
-          customer_name: 'John Doe',
-          customer_email: 'john@test.com',
-          customer_phone: '+2348012345678',
-          payment_status: 'unpaid',
-          merchant_id: MERCHANT_ID,
-        });
-      }
-      if (table === 'order_payment_accounts') {
-        return mockQuery(null, null);
-      }
-      return mockQuery(null);
-    });
+    authenticateMerchant();
+    useOrderQueries();
 
     mockGeneratePaymentAccount.mockResolvedValue({
       success: false,
@@ -361,5 +268,22 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(response.status).toBe(502);
     const body = await response.json();
     expect(body.error).toContain('DVA creation failed');
+  });
+
+  it('returns 500 when the automatic confirmation account cannot be persisted', async () => {
+    authenticateMerchant();
+    useOrderQueries({
+      writeError: { message: 'insert failed' },
+    });
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+      error: 'Failed to save automatic confirmation account',
+    });
   });
 });

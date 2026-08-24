@@ -1,4 +1,3 @@
-import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -6,18 +5,14 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
-import { calculatePlatformFee, generatePaymentAccount } from '@/lib/paystack';
-
-const nanoidUppercase = customAlphabet(
-  'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
-  12
-);
+import { generatePaymentAccount } from '@/lib/paystack';
+import { orderIdParamsSchema } from '@/schemas/orders';
 
 /**
  * POST /api/orders/[id]/generate-dva
  * Creates a Paystack DVA (Dedicated Virtual Account) for invoice payment collection.
  * Idempotent: returns existing DVA if one already exists for this order.
- * Also creates a pending transaction so the Paystack webhook can match the payment.
+ * The verified Paystack webhook creates the transaction only after money arrives.
  * Supports both cookie-based auth (web) and Bearer token auth (mobile).
  *
  * Uses generatePaymentAccount which checks for existing DVAs before creating new ones.
@@ -27,16 +22,23 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) return response as NextResponse;
-
-    const { id: orderId } = await params;
-
     // 1. Auth check (supports mobile Bearer token + web cookies)
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const { valid, response } = await checkCsrfProtection(request);
+    if (!valid) return response as NextResponse;
+
+    const parsedParams = orderIdParamsSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        { error: 'Invalid order ID', code: 'INVALID_ORDER_ID' },
+        { status: 400 }
+      );
+    }
+    const orderId = parsedParams.data.id;
 
     // 2. Get merchant ID (supports both owners and staff members)
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -53,7 +55,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, customer_name, customer_email, customer_phone, payment_status, merchant_id'
+        'id, order_number, total, amount_paid, customer_name, customer_email, customer_phone, payment_status, merchant_id'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
@@ -76,6 +78,7 @@ export async function POST(
       .from('order_payment_accounts')
       .select('account_number, bank_name, account_name')
       .eq('order_id', orderId)
+      .eq('provider', 'paystack')
       .maybeSingle();
 
     if (existingVbaError) {
@@ -151,15 +154,24 @@ export async function POST(
     }
 
     // 8. Store in order_payment_accounts
+    const payableAmount = Math.max(
+      Number(order.total) - Number(order.amount_paid || 0),
+      0
+    );
     const { error: insertError } = await supabase
       .from('order_payment_accounts')
-      .insert({
-        order_id: orderId,
-        account_number: dvaResult.data.account_number,
-        bank_name: dvaResult.data.bank_name,
-        account_name: dvaResult.data.account_name,
-        provider: 'paystack',
-      });
+      .upsert(
+        {
+          order_id: orderId,
+          account_number: dvaResult.data.account_number,
+          bank_name: dvaResult.data.bank_name,
+          account_name: dvaResult.data.account_name,
+          provider: 'paystack',
+          payable_amount: payableAmount,
+          assigned_at: new Date().toISOString(),
+        },
+        { onConflict: 'order_id,provider' }
+      );
 
     if (insertError) {
       logger.error({
@@ -167,44 +179,19 @@ export async function POST(
         orderId,
         error: insertError,
       });
-    }
-
-    // 9. Create a pending transaction record so the Paystack webhook can match
-    const reference = `BAC-${nanoidUppercase()}`;
-    const amountInKobo = Math.round(Number(order.total) * 100);
-    const fees = calculatePlatformFee(amountInKobo);
-
-    const { error: txnError } = await supabase.rpc(
-      'create_payment_transaction',
-      {
-        p_merchant_id: merchantId,
-        p_order_id: orderId,
-        p_amount: Number(order.total),
-        p_currency: 'NGN',
-        p_gateway: 'paystack',
-        p_reference: reference,
-        p_platform_fee: fees.platformFee / 100,
-        p_merchant_amount: fees.merchantAmount / 100,
-        p_customer_email: order.customer_email || '',
-        p_customer_name: order.customer_name || '',
-        p_session_id: null,
-      }
-    );
-
-    if (txnError) {
-      logger.warn({
-        message: 'Failed to create transaction record for DVA',
-        orderId,
-        error: txnError,
-      });
+      return NextResponse.json(
+        {
+          error: 'Failed to save automatic confirmation account',
+          code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+        },
+        { status: 500 }
+      );
     }
 
     logger.info({
       message: 'Paystack DVA created for order',
       orderId,
-      accountNumber: dvaResult.data.account_number,
       bankName: dvaResult.data.bank_name,
-      reference,
     });
 
     return NextResponse.json({
