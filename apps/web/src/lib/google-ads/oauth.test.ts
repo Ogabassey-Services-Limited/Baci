@@ -80,8 +80,39 @@ describe('Google Ads OAuth helpers', () => {
 });
 
 describe('parseGoogleAdsSpendRows', () => {
-  it('parses searchStream batches and ignores malformed rows', () => {
+  it('parses valid searchStream batches', () => {
     expect(
+      parseGoogleAdsSpendRows([
+        {
+          results: [
+            {
+              customer: { currencyCode: 'NGN', id: '1234567890' },
+              metrics: {
+                clicks: '4',
+                conversions: '1.5',
+                costMicros: '1250000',
+                impressions: '100',
+              },
+              segments: { date: '2026-08-20' },
+            },
+          ],
+        },
+      ])
+    ).toEqual([
+      {
+        clicks: 4,
+        conversions: 1.5,
+        customerId: '1234567890',
+        currencyCode: 'NGN',
+        date: '2026-08-20',
+        impressions: 100,
+        spendMicros: 1250000,
+      },
+    ]);
+  });
+
+  it('rejects a nonempty response when any row is malformed', () => {
+    expect(() =>
       parseGoogleAdsSpendRows([
         {
           results: [
@@ -99,16 +130,10 @@ describe('parseGoogleAdsSpendRows', () => {
           ],
         },
       ])
-    ).toEqual([
-      {
-        clicks: 4,
-        conversions: 1.5,
-        customerId: '1234567890',
-        currencyCode: 'NGN',
-        date: '2026-08-20',
-        impressions: 100,
-        spendMicros: 1250000,
-      },
-    ]);
+    ).toThrowError('GOOGLE_ADS_SPEND_RESPONSE_INVALID');
+  });
+
+  it('accepts an empty searchStream response', () => {
+    expect(parseGoogleAdsSpendRows([])).toEqual([]);
   });
 });

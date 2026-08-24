@@ -186,9 +186,23 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-function readNonNegativeNumber(value: unknown): number {
-  const parsed = typeof value === 'number' ? value : Number(value ?? 0);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+function readNonNegativeNumber(value: unknown): number | null {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function isValidGoogleAdsDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = Date.parse(`${value}T00:00:00.000Z`);
+  return (
+    Number.isFinite(parsed) && new Date(parsed).toISOString().startsWith(value)
+  );
+}
+
+function spendResponseError(): never {
+  throw new GoogleAdsOAuthError('GOOGLE_ADS_SPEND_RESPONSE_INVALID');
 }
 
 export interface GoogleAdsSpendRow {
@@ -207,36 +221,52 @@ export function parseGoogleAdsSpendRows(payload: unknown): GoogleAdsSpendRow[] {
   const rows: GoogleAdsSpendRow[] = [];
   for (const batch of batches) {
     const batchRecord = asRecord(batch);
+    if (!batchRecord) spendResponseError();
     const resultList = batchRecord?.results;
-    if (!Array.isArray(resultList)) continue;
+    if (!Array.isArray(resultList)) spendResponseError();
     for (const item of resultList) {
       const record = asRecord(item);
+      if (!record) spendResponseError();
       const customer = asRecord(record?.customer);
       const segments = asRecord(record?.segments);
       const metrics = asRecord(record?.metrics);
-      const customerId = typeof customer?.id === 'string' ? customer.id : '';
+      const customerId =
+        typeof customer?.id === 'string' && /^\d{10}$/.test(customer.id)
+          ? customer.id
+          : '';
       const currencyCode =
-        typeof customer?.currencyCode === 'string'
+        typeof customer?.currencyCode === 'string' &&
+        /^[A-Z]{3}$/.test(customer.currencyCode)
           ? customer.currencyCode
-          : typeof customer?.currency_code === 'string'
+          : typeof customer?.currency_code === 'string' &&
+              /^[A-Z]{3}$/.test(customer.currency_code)
             ? customer.currency_code
             : '';
       const date = typeof segments?.date === 'string' ? segments.date : '';
+      const clicks = readNonNegativeNumber(metrics?.clicks);
+      const conversions = readNonNegativeNumber(metrics?.conversions);
+      const impressions = readNonNegativeNumber(metrics?.impressions);
+      const spendMicros = readNonNegativeNumber(metrics?.costMicros);
       if (
         !customerId ||
         !currencyCode ||
-        !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
-        !metrics
-      )
-        continue;
+        !isValidGoogleAdsDate(date) ||
+        !metrics ||
+        clicks === null ||
+        conversions === null ||
+        impressions === null ||
+        spendMicros === null
+      ) {
+        spendResponseError();
+      }
       rows.push({
-        clicks: readNonNegativeNumber(metrics.clicks),
-        conversions: readNonNegativeNumber(metrics.conversions),
+        clicks,
+        conversions,
         customerId,
         currencyCode,
         date,
-        impressions: readNonNegativeNumber(metrics.impressions),
-        spendMicros: readNonNegativeNumber(metrics.costMicros),
+        impressions,
+        spendMicros,
       });
     }
   }

@@ -121,11 +121,18 @@ export async function syncGoogleAdsSpendForMerchant(
   }
   if (resolvedToken.encryptedAccessToken) {
     const { data: tokenUpdated, error: tokenUpdateError } =
-      await input.supabase.rpc('update_google_ads_connection_token', {
-        p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
-        p_merchant_id: input.merchantId,
-        p_token_expires_at: resolvedToken.expiresAt,
-      });
+      await input.supabase.rpc(
+        'update_google_ads_connection_token_if_current',
+        {
+          p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
+          p_expected_access_token_ciphertext:
+            connection.access_token_ciphertext,
+          p_expected_refresh_token_ciphertext:
+            connection.refresh_token_ciphertext,
+          p_merchant_id: input.merchantId,
+          p_token_expires_at: resolvedToken.expiresAt,
+        }
+      );
     if (tokenUpdateError || tokenUpdated !== true) {
       throw new GoogleAdsSyncError('TOKEN_UPDATE_FAILED');
     }
@@ -151,12 +158,18 @@ export async function syncGoogleAdsSpendForMerchant(
     spend_date: row.date,
     spend_micros: Math.trunc(row.spendMicros),
   }));
-  if (records.length > 0) {
-    const { error: upsertError } = await input.supabase.rpc(
-      'upsert_google_ads_spend_daily',
-      { p_merchant_id: input.merchantId, p_rows: records }
-    );
-    if (upsertError) throw new GoogleAdsSyncError('SPEND_WRITE_FAILED');
+  const { error: replaceError } = await input.supabase.rpc(
+    'replace_google_ads_spend_daily',
+    {
+      p_end_date: input.endDate,
+      p_merchant_id: input.merchantId,
+      p_provider_customer_id: connection.provider_customer_id,
+      p_rows: records,
+      p_start_date: input.startDate,
+    }
+  );
+  if (replaceError) {
+    throw new GoogleAdsSyncError('SPEND_WRITE_FAILED');
   }
 
   const { data: synced, error: syncedError } = await input.supabase.rpc(

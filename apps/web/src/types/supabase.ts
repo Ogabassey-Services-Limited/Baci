@@ -20495,6 +20495,16 @@ export type Database = {
         };
         Returns: boolean;
       };
+      update_google_ads_connection_token_if_current: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_expected_access_token_ciphertext: string | null;
+          p_expected_refresh_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
       upsert_google_ads_connection: {
         Args: {
           p_access_token_ciphertext: string;
@@ -20509,6 +20519,16 @@ export type Database = {
       };
       upsert_google_ads_spend_daily: {
         Args: { p_merchant_id: string; p_rows: Json };
+        Returns: number;
+      };
+      replace_google_ads_spend_daily: {
+        Args: {
+          p_end_date: string;
+          p_merchant_id: string;
+          p_provider_customer_id: string;
+          p_rows: Json;
+          p_start_date: string;
+        };
         Returns: number;
       };
       mark_google_ads_connection_synced: {

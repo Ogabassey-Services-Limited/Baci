@@ -116,4 +116,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260823210000_google_ads_reauth_clear_account.sql',
     sha256: 'dc328a575fba02e3fd64e470bcc328e27152d183e8c572f27c79d338e40e652d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823220000_google_ads_sync_consistency.sql',
+    sha256: '70cf6954955961e3fcd923aac9c2512e54062ef5936d51c066faa3db23caeca3',
+  },
 ];

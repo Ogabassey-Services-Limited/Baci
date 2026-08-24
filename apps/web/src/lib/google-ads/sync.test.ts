@@ -81,9 +81,10 @@ describe('syncGoogleAdsSpendForMerchant', () => {
 
     expect(result).toEqual({ customerId: '1234567890', rowsWritten: 1 });
     expect(mockRpc).toHaveBeenCalledWith(
-      'upsert_google_ads_spend_daily',
+      'replace_google_ads_spend_daily',
       expect.objectContaining({
         p_merchant_id: 'merchant-1',
+        p_provider_customer_id: '1234567890',
         p_rows: [
           expect.objectContaining({
             clicks: 4,
@@ -137,5 +138,77 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       }
     );
     expect(mockFetchSpend).not.toHaveBeenCalled();
+  });
+
+  it('compare-and-set protects a refreshed access token from a newer OAuth grant', async () => {
+    mockResolveToken.mockResolvedValueOnce({
+      accessToken: 'refreshed-access-token',
+      encryptedAccessToken: 'new-encrypted-access',
+      expiresAt: '2026-08-22T01:00:00.000Z',
+    });
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'get_google_ads_connection_secret') {
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: 'encrypted-access',
+              id: 'connection-1',
+              provider_customer_id: '1234567890',
+              refresh_token_ciphertext: 'encrypted-refresh',
+              status: 'active',
+              token_expires_at: '2026-08-22T00:00:00.000Z',
+            },
+          ],
+          error: null,
+        });
+      }
+      if (name === 'update_google_ads_connection_token_if_current') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    await expect(
+      syncGoogleAdsSpendForMerchant({
+        endDate: '2026-08-21',
+        merchantId: 'merchant-1',
+        startDate: '2026-08-20',
+        supabase,
+      })
+    ).rejects.toMatchObject({ code: 'TOKEN_UPDATE_FAILED' });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'update_google_ads_connection_token_if_current',
+      {
+        p_access_token_ciphertext: 'new-encrypted-access',
+        p_expected_access_token_ciphertext: 'encrypted-access',
+        p_expected_refresh_token_ciphertext: 'encrypted-refresh',
+        p_merchant_id: 'merchant-1',
+        p_token_expires_at: '2026-08-22T01:00:00.000Z',
+      }
+    );
+    expect(mockFetchSpend).not.toHaveBeenCalled();
+  });
+
+  it('replaces the requested window when Google returns no daily rows', async () => {
+    mockFetchSpend.mockResolvedValueOnce([]);
+
+    const result = await syncGoogleAdsSpendForMerchant({
+      endDate: '2026-08-21',
+      merchantId: 'merchant-1',
+      startDate: '2026-08-20',
+      supabase,
+    });
+
+    expect(result).toEqual({ customerId: '1234567890', rowsWritten: 0 });
+    expect(mockRpc).toHaveBeenCalledWith('replace_google_ads_spend_daily', {
+      p_end_date: '2026-08-21',
+      p_merchant_id: 'merchant-1',
+      p_provider_customer_id: '1234567890',
+      p_rows: [],
+      p_start_date: '2026-08-20',
+    });
+    expect(mockRpc).toHaveBeenCalledWith('mark_google_ads_connection_synced', {
+      p_merchant_id: 'merchant-1',
+    });
   });
 });

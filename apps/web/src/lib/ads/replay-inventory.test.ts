@@ -47,6 +47,10 @@ const googleAdsReauthClearAccountMigrationName =
   '20260823210000_google_ads_reauth_clear_account.sql' as const;
 const googleAdsReauthClearAccountMigrationHash =
   'dc328a575fba02e3fd64e470bcc328e27152d183e8c572f27c79d338e40e652d' as const;
+const googleAdsSyncConsistencyMigrationName =
+  '20260823220000_google_ads_sync_consistency.sql' as const;
+const googleAdsSyncConsistencyMigrationHash =
+  '70cf6954955961e3fcd923aac9c2512e54062ef5936d51c066faa3db23caeca3' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -261,6 +265,23 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(googleAdsReauthClearAccountMigrationName);
     expect(pendingSources).toContain(googleAdsReauthClearAccountMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${googleAdsSyncConsistencyMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(googleAdsSyncConsistencyMigrationHash);
+    expect(historySources).toContain(
+      `${googleAdsSyncConsistencyMigrationHash} ${googleAdsSyncConsistencyMigrationName}`
+    );
+    expect(pendingSources).toContain(googleAdsSyncConsistencyMigrationName);
+    expect(pendingSources).toContain(googleAdsSyncConsistencyMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {
