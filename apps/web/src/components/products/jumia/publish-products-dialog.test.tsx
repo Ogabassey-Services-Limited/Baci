@@ -105,4 +105,39 @@ describe('PublishProductsDialog', () => {
       await screen.findByText('Failed to load active products')
     ).toBeInTheDocument();
   });
+
+  it('disables products already published to this Jumia integration', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) => {
+        if (url.includes('mapped-product-ids')) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ productIds: ['p1'] }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            products: [{ id: 'p1', name: 'Published phone', price: 100 }],
+          }),
+        });
+      })
+    );
+
+    render(
+      <PublishProductsDialog
+        integrationId="int-1"
+        merchantId="merchant-1"
+        open
+        onOpenChange={vi.fn()}
+      />
+    );
+
+    expect(await screen.findByText('Published phone')).toBeInTheDocument();
+    expect(
+      screen.getByText('Already published to this Jumia integration.')
+    ).toBeInTheDocument();
+    expect(screen.getByRole('checkbox')).toBeDisabled();
+  });
 });

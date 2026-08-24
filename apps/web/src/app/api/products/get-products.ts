@@ -116,6 +116,9 @@ export async function getProducts(request: NextRequest) {
               sku: variant.sku as string | undefined,
               primary_image: variant.primary_image as string | undefined,
               images: variant.images as string[] | undefined,
+              is_inventory_anchor: variant.is_inventory_anchor as
+                | boolean
+                | undefined,
             })) || [],
           category: product.category || 'General',
           color: product.color,

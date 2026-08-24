@@ -89,6 +89,8 @@ export function usePublishProductsDialog({
   );
 
   const toggleProduct = (productId: string) => {
+    const product = products.find((candidate) => candidate.id === productId);
+    if (!product || getPublishBlockReason(product)) return;
     setSelectedIds((current) => {
       const next = new Set(current);
       if (next.has(productId)) next.delete(productId);
@@ -226,6 +228,7 @@ export function usePublishProductsDialog({
     submitting,
     loadError,
     filteredProducts,
+    getPublishBlockReason,
     toggleProduct,
     submit,
   };

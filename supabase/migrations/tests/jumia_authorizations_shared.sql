@@ -141,8 +141,8 @@ BEGIN
     )
   ) INTO v_definition;
 
-  IF v_definition ~ '''view''' THEN
-    RAISE EXCEPTION 'Jumia refresh lease claim allows view-authorized staff';
+  IF v_definition !~ '''view''' THEN
+    RAISE EXCEPTION 'Jumia refresh lease claim does not allow view-authorized staff';
   END IF;
 
   SELECT pg_get_functiondef(
@@ -151,8 +151,8 @@ BEGIN
     )
   ) INTO v_definition;
 
-  IF v_definition ~ '''view''' THEN
-    RAISE EXCEPTION 'Jumia credential rotation allows view-authorized staff';
+  IF v_definition !~ '''view''' THEN
+    RAISE EXCEPTION 'Jumia credential rotation does not allow view-authorized staff';
   END IF;
 
   IF to_regprocedure(
@@ -227,6 +227,17 @@ BEGIN
     'EXECUTE'
   ) THEN
     RAISE EXCEPTION 'worker callers cannot execute Jumia orphan authorization sweep';
+  END IF;
+
+  SELECT pg_get_functiondef(
+    to_regprocedure('public.purge_orphaned_jumia_authorizations()')
+  ) INTO v_definition;
+
+  IF v_definition !~ 'merchant_id = v_candidate\.merchant_id'
+    OR v_definition !~ 'shop_id = btrim\(v_candidate\.shop_id\)'
+    OR v_definition ~ 'AND platform = ''jumia''\s+AND is_active = false;'
+  THEN
+    RAISE EXCEPTION 'Jumia orphan sweep does not detach one locked shop at a time';
   END IF;
 
   SELECT pg_get_functiondef(

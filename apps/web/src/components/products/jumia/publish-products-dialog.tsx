@@ -45,6 +45,7 @@ export function PublishProductsDialog({
     submitting,
     loadError,
     filteredProducts,
+    getPublishBlockReason,
     toggleProduct,
     submit,
   } = usePublishProductsDialog({
@@ -90,26 +91,35 @@ export function PublishProductsDialog({
                   No active products found.
                 </p>
               ) : (
-                filteredProducts.map((product) => (
-                  <label
-                    key={product.id}
-                    htmlFor={`jumia-product-${product.id}`}
-                    className="flex cursor-pointer items-center gap-3 rounded px-2 py-2 hover:bg-muted"
-                  >
-                    <Checkbox
-                      id={`jumia-product-${product.id}`}
-                      checked={selectedIds.has(product.id)}
-                      onCheckedChange={() => toggleProduct(product.id)}
-                    />
-                    <Package className="size-4 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate text-sm">
-                      {product.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {product.sku || 'No SKU'}
-                    </span>
-                  </label>
-                ))
+                filteredProducts.map((product) => {
+                  const blockReason = getPublishBlockReason(product);
+                  return (
+                    <label
+                      key={product.id}
+                      htmlFor={`jumia-product-${product.id}`}
+                      className="flex items-center gap-3 rounded px-2 py-2 hover:bg-muted"
+                    >
+                      <Checkbox
+                        id={`jumia-product-${product.id}`}
+                        checked={selectedIds.has(product.id)}
+                        disabled={blockReason !== null}
+                        onCheckedChange={() => toggleProduct(product.id)}
+                      />
+                      <Package className="size-4 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 text-sm">
+                        <span className="block truncate">{product.name}</span>
+                        {blockReason ? (
+                          <span className="block text-xs text-destructive">
+                            {blockReason}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {product.sku || 'No SKU'}
+                      </span>
+                    </label>
+                  );
+                })
               )}
             </div>
             <p className="text-xs text-muted-foreground">

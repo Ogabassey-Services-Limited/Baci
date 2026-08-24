@@ -1,6 +1,5 @@
 import type { PublishProduct } from '@/schemas/jumia/publish-products';
 import {
-  MAX_PRODUCT_PAGES,
   publishProductSchema,
   publishProductsPageSchema,
 } from '@/schemas/jumia/publish-products';
@@ -40,7 +39,7 @@ export async function loadPublishProducts(
   let page = 1;
   const limit = 100;
 
-  while (page <= MAX_PRODUCT_PAGES) {
+  for (;;) {
     const params = new URLSearchParams({
       status: 'active',
       limit: String(limit),

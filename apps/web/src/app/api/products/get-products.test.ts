@@ -27,7 +27,10 @@ describe('getProducts', () => {
           manage_stock: true,
           images: [{ url: 'https://cdn.example/phone.jpg' }],
           variants: [
-            { attributes: { color: 'Black', storage: '128GB', size: 'M' } },
+            {
+              attributes: { color: 'Black', storage: '128GB', size: 'M' },
+              is_inventory_anchor: true,
+            },
             { attributes: { color: 'Black', storage: '256GB', size: 'L' } },
           ],
           category: 'Electronics',
@@ -80,6 +83,7 @@ describe('getProducts', () => {
       available_sizes: ['M', 'L'],
     });
     expect(body.pagination).toMatchObject({ page: 1, limit: 20, total: 1 });
+    expect(body.products[0].variants[0].is_inventory_anchor).toBe(true);
   });
 
   it('returns the authorization response without querying products', async () => {
