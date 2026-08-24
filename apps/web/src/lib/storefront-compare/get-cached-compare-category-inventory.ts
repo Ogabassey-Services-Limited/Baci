@@ -1,12 +1,10 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import {
-  getCachedCategoryPageShellData,
-  getPublicSupabaseClient,
-} from '@/lib/cached-data';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
+import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import { generateSlug } from '@/lib/seo-utils';
 import type { ComparableProductKeySpecs } from '@/lib/storefront-specs/spec-taxonomy';
 import { extractComparableKeySpecs } from './comparable-key-specs';
+import { getCachedCompareCategoryShell } from './get-cached-compare-category-shell';
 
 export interface CompareCategoryInventoryProduct {
   slug: string;
@@ -153,7 +151,7 @@ export async function getCachedCompareCategoryInventory(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
-  const shell = await getCachedCategoryPageShellData(
+  const shell = await getCachedCompareCategoryShell(
     merchantId,
     categorySlug,
     storeSlug

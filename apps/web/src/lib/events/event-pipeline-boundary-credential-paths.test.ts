@@ -1,0 +1,102 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { eventPipelineJumiaCredentialPaths } from './event-pipeline-jumia-credential-paths';
+
+const modulePath = resolve(
+  process.cwd(),
+  'src/lib/events/event-pipeline-boundary-manifest.ts'
+);
+
+describe('event pipeline credential-path authority', () => {
+  it('pins every reviewed credential path, including compare preflight', async () => {
+    expect(existsSync(modulePath), 'boundary manifest is missing').toBe(true);
+    if (!existsSync(modulePath)) return;
+
+    const { eventPipelineBoundaryManifest: manifest } = await import(
+      /* @vite-ignore */ pathToFileURL(modulePath).href
+    );
+
+    expect(manifest.authority.credentialPaths).toEqual([
+      [
+        'apps/web/src/app/(platform)/onboarding/actions.ts',
+        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/storefront-product-purge-hostnames.ts',
+        'apps/web/src/lib/cloudflare-purge.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
+        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
+        'apps/web/src/lib/insurance/notify-activate-protection.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/internal/compare-page-status/[identifier]/route.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/proxy.ts',
+        'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+        'apps/web/src/env.ts',
+      ],
+      ...eventPipelineJumiaCredentialPaths,
+    ]);
+  });
+});

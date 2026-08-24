@@ -2,13 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildCanonicalProductCompareSlug } from './compare-slugs';
 import { resolveComparePageStatus } from './resolve-compare-page-status';
 
-const mockGetMerchantByIdentifier = vi.fn();
+const mockGetCachedCompareMerchantByIdentifier = vi.fn();
 const mockGetCachedCompareCategoryInventory = vi.fn();
 const mockGetCachedMaintainedCompareRouteManifest = vi.fn();
 
-vi.mock('@/lib/cached-data', () => ({
-  getMerchantByIdentifier: (...args: unknown[]) =>
-    mockGetMerchantByIdentifier(...args),
+vi.mock('./get-cached-compare-merchant', () => ({
+  getCachedCompareMerchantByIdentifier: (...args: unknown[]) =>
+    mockGetCachedCompareMerchantByIdentifier(...args),
 }));
 
 vi.mock('./get-cached-compare-category-inventory', () => ({
@@ -62,10 +62,10 @@ const productComparison = buildCanonicalProductCompareSlug(
 describe('resolveComparePageStatus', () => {
   beforeEach(() => {
     vi.stubEnv('NODE_ENV', 'production');
-    mockGetMerchantByIdentifier.mockReset();
+    mockGetCachedCompareMerchantByIdentifier.mockReset();
     mockGetCachedCompareCategoryInventory.mockReset();
     mockGetCachedMaintainedCompareRouteManifest.mockReset();
-    mockGetMerchantByIdentifier.mockResolvedValue(merchant);
+    mockGetCachedCompareMerchantByIdentifier.mockResolvedValue(merchant);
     mockGetCachedCompareCategoryInventory.mockResolvedValue(inventory);
     mockGetCachedMaintainedCompareRouteManifest.mockResolvedValue([
       productComparison,
@@ -198,7 +198,7 @@ describe('resolveComparePageStatus', () => {
   });
 
   it('fails open for unknown or unpublished storefronts', async () => {
-    mockGetMerchantByIdentifier.mockResolvedValueOnce(null);
+    mockGetCachedCompareMerchantByIdentifier.mockResolvedValueOnce(null);
     await expect(
       resolveComparePageStatus({
         merchantSlug: 'unknown-store',
@@ -207,7 +207,7 @@ describe('resolveComparePageStatus', () => {
       })
     ).resolves.toEqual({ kind: 'unknown' });
 
-    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+    mockGetCachedCompareMerchantByIdentifier.mockResolvedValueOnce({
       ...merchant,
       is_published: false,
     });
