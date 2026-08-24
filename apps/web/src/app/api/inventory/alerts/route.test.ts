@@ -23,7 +23,11 @@ vi.mock('@/lib/supabase/server', () => ({
 
 import { GET, PATCH } from './route';
 
-function queryResult(result: { data: unknown; error: unknown }) {
+function queryResult(result: {
+  count?: number | null;
+  data: unknown;
+  error: unknown;
+}) {
   const query = {
     eq: vi.fn(() => query),
     // biome-ignore lint/suspicious/noThenProperty: Supabase query mocks are intentionally thenable.
@@ -77,9 +81,43 @@ describe('inventory alerts dashboard API', () => {
       { requestedMerchantId }
     );
     expect(alerts.select).toHaveBeenCalledWith(
-      expect.stringContaining('alert_type')
+      expect.stringContaining('alert_type'),
+      { count: 'exact' }
     );
     expect(alerts.select).not.toHaveBeenCalledWith('*');
+  });
+
+  it('returns the exact count when the alert rows are capped', async () => {
+    const alerts = queryResult({
+      count: 1_501,
+      data: [{ id: 'latest-alert' }],
+      error: null,
+    });
+    const counts = queryResult({ data: [], error: null });
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(alerts)
+      .mockReturnValueOnce(counts);
+    mocks.createClient.mockReturnValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'user-1' } },
+        }),
+      },
+      from,
+    });
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/api/inventory/alerts?status=resolved'
+      ) as never
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      alerts: [{ id: 'latest-alert' }],
+      stats: { total: 1_501 },
+    });
   });
 
   it('rejects invalid filters before reading inventory rows', async () => {

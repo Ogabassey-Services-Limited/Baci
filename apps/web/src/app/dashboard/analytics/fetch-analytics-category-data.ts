@@ -139,6 +139,7 @@ async function fetchInventoryData(
         left.days_of_stock - right.days_of_stock ||
         left.product_id.localeCompare(right.product_id)
     );
+  const resolvedAlertsStats = asRecord(resolvedAlertsPayload.stats);
 
   return {
     inventoryAlerts: asArray(alertsPayload.alerts).map(mapInventoryAlert),
@@ -146,7 +147,10 @@ async function fetchInventoryData(
     lowStockCount:
       asNumber(forecastSummary?.critical) + asNumber(forecastSummary?.warning),
     outOfStockCount: asNumber(forecastSummary?.outOfStock),
-    resolvedInventoryAlertCount: asArray(resolvedAlertsPayload.alerts).length,
+    resolvedInventoryAlertCount:
+      resolvedAlertsStats && 'total' in resolvedAlertsStats
+        ? asNumber(resolvedAlertsStats.total)
+        : asArray(resolvedAlertsPayload.alerts).length,
   };
 }
 

@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('inventory_alerts')
-      .select(`
+      .select(
+        `
         id,
         alert_type,
         current_stock,
@@ -80,7 +81,9 @@ export async function GET(request: NextRequest) {
           stock,
           low_stock_threshold
         )
-      `)
+      `,
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchantId)
       .eq('status', status)
       .order('created_at', { ascending: false });
@@ -89,7 +92,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('alert_type', alertType);
     }
 
-    const { data: alerts, error } = await query;
+    const { data: alerts, error, count } = await query;
 
     if (error) {
       console.error('Error fetching alerts:', error);
@@ -114,7 +117,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       alerts,
       stats: {
-        total: alerts?.length || 0,
+        // `alerts` can be capped by PostgREST's response row limit. Keep the
+        // metric exact so consumers do not mistake a truncated page for the
+        // merchant's total alert count.
+        total: count ?? alerts?.length ?? 0,
         byType: alertsByType,
       },
     });

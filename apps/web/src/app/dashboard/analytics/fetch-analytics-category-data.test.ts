@@ -46,7 +46,10 @@ describe('fetchAnalyticsCategoryData', () => {
       }
 
       if (url.includes('/api/inventory/alerts?status=resolved')) {
-        return response({ alerts: [{ id: 'resolved-alert' }] });
+        return response({
+          alerts: [{ id: 'resolved-alert' }],
+          stats: { total: 1 },
+        });
       }
 
       return response({
@@ -103,6 +106,33 @@ describe('fetchAnalyticsCategoryData', () => {
         })
       );
     }
+  });
+
+  it('uses the exact server count for resolved alerts beyond the response cap', async () => {
+    fetchMock
+      .mockResolvedValueOnce(response({ alerts: [], stats: { total: 0 } }))
+      .mockResolvedValueOnce(
+        response({
+          forecasts: [],
+          summary: { critical: 0, outOfStock: 0, warning: 0 },
+        })
+      )
+      .mockResolvedValueOnce(
+        response({
+          alerts: [{ id: 'latest-resolved-alert' }],
+          stats: { total: 1_501 },
+        })
+      );
+
+    const result = await fetchAnalyticsCategoryData({
+      category: 'inventory',
+      from,
+      merchantId,
+      signal: new AbortController().signal,
+      to,
+    });
+
+    expect(result.resolvedInventoryAlertCount).toBe(1_501);
   });
 
   it('fetches every inventory forecast page before calculating status totals', async () => {
