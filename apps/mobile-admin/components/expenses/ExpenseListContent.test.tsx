@@ -249,10 +249,16 @@ describe('ExpenseListContent', () => {
   });
 
   it('forwards edit access to each visible expense row', () => {
-    render(<ExpenseListContent canCreate canEdit />);
+    const { unmount } = render(<ExpenseListContent canCreate canEdit />);
 
     expect(screen.getByText('editable expense row')).toBeInTheDocument();
     expect(screen.queryByText('view-only expense row')).not.toBeInTheDocument();
+
+    unmount();
+    render(<ExpenseListContent canCreate canEdit={false} />);
+
+    expect(screen.getByText('view-only expense row')).toBeInTheDocument();
+    expect(screen.queryByText('editable expense row')).not.toBeInTheDocument();
   });
 
   it('describes an empty current-month result as a period with no expenses', () => {
