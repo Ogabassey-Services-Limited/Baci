@@ -109,7 +109,7 @@ describe('bugfix: ignore request-controlled domestic sender', () => {
         pickupIncluded: true,
         insuranceIncluded: false,
         providerRateId: 'GIGL_IKEJA_1',
-        expiresAt: new Date(Date.now() + 86_400_000),
+        expiresAt: new Date('2099-01-02T00:00:00.000Z'),
         rawResponse: { refreshed: true },
       },
     ]);

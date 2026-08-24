@@ -1,3 +1,4 @@
+import { MutationObserver, QueryClient } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClientMock = vi.hoisted(() => ({
@@ -151,27 +152,25 @@ describe('useUpdateOrderStatus', () => {
     networkMock.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
     });
-    networkMock.fetch.mockResolvedValue({
-      ok: false,
-      status: 409,
-      statusText: 'Conflict',
-      text: async () =>
-        JSON.stringify({ error: 'Cannot ship cancelled order' }),
-    });
+    networkMock.fetch.mockRejectedValue(
+      new Error('Cannot ship cancelled order')
+    );
 
-    const mutation = useUpdateOrderStatus() as unknown as {
-      mutationFn: (vars: {
-        orderId: string;
-        status: string;
-      }) => Promise<unknown>;
-      retry?: boolean;
-    };
-
-    expect(mutation.retry).toBe(false);
+    const mutationOptions =
+      useUpdateOrderStatus() as unknown as ConstructorParameters<
+        typeof MutationObserver
+      >[1];
+    const mutation = new MutationObserver(
+      new QueryClient({
+        defaultOptions: { mutations: { retry: 3, retryDelay: 0 } },
+      }),
+      mutationOptions
+    );
 
     await expect(
-      mutation.mutationFn({ orderId: 'order-1', status: 'shipped' })
+      mutation.mutate({ orderId: 'order-1', status: 'shipped' })
     ).rejects.toThrow('Cannot ship cancelled order');
+    expect(networkMock.fetch).toHaveBeenCalledOnce();
   });
 
   it('maps aborted status updates to the timeout message', async () => {

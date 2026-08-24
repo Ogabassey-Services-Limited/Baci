@@ -40,8 +40,9 @@ function mutationQuery(result: { error: unknown }) {
   });
 }
 
-function buildSupabaseMock() {
+function buildSupabaseMock(options: { respectRetainedLock?: boolean } = {}) {
   let claimCount = 0;
+  let lockHeld = false;
   let orderUpdateCount = 0;
   let shipmentInsertCount = 0;
 
@@ -83,11 +84,17 @@ function buildSupabaseMock() {
   const supabase = {
     rpc: vi.fn().mockImplementation(() => {
       claimCount += 1;
+      const blockedByRetainedLock = Boolean(
+        options.respectRetainedLock && claimCount > 1 && lockHeld
+      );
+      if (!blockedByRetainedLock) lockHeld = true;
       return Promise.resolve({
         data: [
-          claimCount === 1
-            ? { claimed: true, shipment_id: null, tracking_number: null }
-            : { claimed: true, shipment_id: null, tracking_number: null },
+          {
+            claimed: !blockedByRetainedLock,
+            shipment_id: null,
+            tracking_number: null,
+          },
         ],
         error: null,
       });
@@ -105,7 +112,14 @@ function buildSupabaseMock() {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({ data: order, error: null }),
           })),
-          update: vi.fn(() => {
+          update: vi.fn((values: Record<string, unknown>) => {
+            if (
+              'shipment_booking_lock_token' in values &&
+              !('shipment_id' in values)
+            ) {
+              lockHeld = false;
+              return mutationQuery({ error: null });
+            }
             orderUpdateCount += 1;
             return mutationQuery({
               error:
@@ -145,7 +159,7 @@ function buildSupabaseMock() {
             order: vi.fn().mockReturnThis(),
             limit: vi.fn().mockReturnThis(),
             maybeSingle: vi.fn().mockResolvedValue({
-              data: claimCount > 1 ? savedShipment : null,
+              data: shipmentInsertCount > 0 ? savedShipment : null,
               error: null,
             }),
           })),
@@ -229,5 +243,22 @@ describe('POST /api/shipping/book idempotency', () => {
     expect(retryResponse.status).toBe(201);
     expect(mockBookShipment).toHaveBeenCalledOnce();
     expect(getShipmentInsertCount()).toBe(1);
+  });
+
+  it('does not call the provider again after an unknown provider failure', async () => {
+    const { supabase } = buildSupabaseMock({ respectRetainedLock: true });
+    mockCreateClient.mockReturnValue(supabase);
+    mockBookShipment.mockRejectedValue(new Error('provider timeout'));
+    const { POST } = await import('./route');
+
+    const firstResponse = await POST(buildRequest());
+    const retryResponse = await POST(buildRequest());
+
+    expect(firstResponse.status).toBe(500);
+    expect(retryResponse.status).toBe(409);
+    await expect(retryResponse.json()).resolves.toMatchObject({
+      code: 'SHIPMENT_BOOKING_IN_PROGRESS',
+    });
+    expect(mockBookShipment).toHaveBeenCalledOnce();
   });
 });

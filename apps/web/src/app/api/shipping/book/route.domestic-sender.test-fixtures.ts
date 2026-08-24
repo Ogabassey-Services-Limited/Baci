@@ -48,7 +48,7 @@ export function buildDomesticSenderSupabaseMock(
         provider_rate_id: 'gigl:service-centre:5',
         provider_metadata: { stationId: 5 },
         quote_request: null,
-        expires_at: new Date(Date.now() + 60_000).toISOString(),
+        expires_at: '2099-01-01T00:00:00.000Z',
         price: 4500,
         currency: 'NGN',
         estimated_days: 2,

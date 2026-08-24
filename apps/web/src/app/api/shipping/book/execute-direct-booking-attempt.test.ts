@@ -111,4 +111,30 @@ describe('executeDirectBookingAttempt', () => {
       expect.objectContaining({ sender: storedSender })
     );
   });
+
+  it('does not call the provider when merchant sender resolution fails', async () => {
+    mockGetMerchantSender.mockResolvedValue({
+      ok: false,
+      error: 'Merchant shipping origin is not configured.',
+      status: 400,
+    });
+
+    await expect(
+      executeDirectBookingAttempt({
+        supabase: {} as never,
+        merchantId: 'merchant-1',
+        merchantBusinessName: 'Merchant Store',
+        orderId: 'order-1',
+        quote,
+        quotePayload: payload,
+        usesStoredInternationalSender: false,
+        expectedShippingFee: 2500,
+      })
+    ).rejects.toMatchObject({
+      code: 'MERCHANT_SENDER_REQUIRED',
+      message: 'Merchant shipping origin is not configured.',
+    });
+
+    expect(mockBookShipment).not.toHaveBeenCalled();
+  });
 });

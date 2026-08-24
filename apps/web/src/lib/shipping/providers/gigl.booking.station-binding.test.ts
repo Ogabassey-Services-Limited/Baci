@@ -76,4 +76,39 @@ describe('GIGL booking station binding', () => {
       expect.any(AbortSignal)
     );
   });
+
+  it('does not fall back to address text when the quoted sender station is missing', async () => {
+    const [, receiverStation] = stationsResponse.data.data;
+    const apiClient = {
+      baseUrl: 'https://dev-thirdpartynode.theagilitysystems.com',
+      currentToken: null,
+      getApiToken: vi.fn().mockResolvedValue({
+        token: 'token',
+        userChannelCode: 'channel',
+        userChannelType: 2,
+        customerType: 2,
+      }),
+    };
+    const stationsService = {
+      findStationById: vi.fn().mockResolvedValue(null),
+      findStationForCity: vi.fn().mockResolvedValue(receiverStation),
+    };
+
+    await expect(
+      bookGiglShipment(
+        apiClient as never,
+        stationsService as never,
+        { safeFetch: vi.fn(), log: vi.fn() },
+        {
+          ...bookingRequest,
+          providerRateId: `GIGL_${receiverStation.StationId}_${PickupOptions.HomeDelivery}_1_0_0_999`,
+        }
+      )
+    ).rejects.toMatchObject({
+      code: 'GIGL_STATION_RESOLUTION_FAILED',
+      message: 'Quoted GIGL sender station was not found',
+    });
+
+    expect(stationsService.findStationForCity).not.toHaveBeenCalled();
+  });
 });

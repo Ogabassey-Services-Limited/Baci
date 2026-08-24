@@ -12,10 +12,7 @@ import {
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import type {
-  ShipmentBookingResult,
-  ShippingAddress,
-} from '@/lib/shipping/types';
+import type { ShipmentBookingResult } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
 import { executeDirectBookingAttempt } from './execute-direct-booking-attempt';
@@ -212,7 +209,7 @@ export async function POST(request: NextRequest) {
 
     let bookingQuote = quote;
     let result: ShipmentBookingResult;
-    let resolvedSenderInfo: ShippingAddress | undefined;
+    let resolvedSenderInfo: typeof quotePayload.sender;
     if (bookingAttempt.status === 'recovered') {
       result = bookingAttempt.result;
     } else {
@@ -233,6 +230,9 @@ export async function POST(request: NextRequest) {
         usesStoredInternationalSender,
         expectedShippingFee: order.shipping_fee,
         instructions: data.instructions,
+        onProviderAttempt() {
+          retainBookingLock = true;
+        },
       });
       bookingQuote = booking.bookingQuote;
       result = booking.result;

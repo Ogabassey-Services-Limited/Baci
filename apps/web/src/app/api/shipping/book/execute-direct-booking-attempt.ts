@@ -30,6 +30,7 @@ export async function executeDirectBookingAttempt(params: {
   usesStoredInternationalSender: boolean;
   expectedShippingFee?: number | string | null;
   instructions?: string;
+  onProviderAttempt?: () => void;
 }): Promise<{
   bookingQuote: OrderShipmentQuoteRecord;
   result: ShipmentBookingResult;
@@ -45,6 +46,7 @@ export async function executeDirectBookingAttempt(params: {
     usesStoredInternationalSender,
     expectedShippingFee,
     instructions,
+    onProviderAttempt,
   } = params;
 
   if (!isShippingProviderCode(quote.provider)) {
@@ -103,6 +105,7 @@ export async function executeDirectBookingAttempt(params: {
     instructions,
   };
 
+  onProviderAttempt?.();
   const result = await shippingService.bookShipment(
     quote.provider,
     bookingRequest
