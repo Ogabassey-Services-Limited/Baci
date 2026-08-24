@@ -41,9 +41,9 @@ export default function MenuScreen() {
   const hasProSubscription =
     isPro || baciFeatureGates.hasFullProAccess(merchant);
   const isSubscriptionStatusLoading = !isPro && isMerchantLoading;
-  const isPaystackSettlementCountry = isBaciPaystackSettlementCountry(
-    merchant?.country
-  );
+  const isPaystackSettlementCountry = merchant
+    ? isBaciPaystackSettlementCountry(merchant.country)
+    : false;
   const isMerchantOwner = Boolean(
     user?.id && merchant?.user_id && user.id === merchant.user_id
   );

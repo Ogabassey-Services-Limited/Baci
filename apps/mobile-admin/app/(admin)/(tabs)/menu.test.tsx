@@ -23,7 +23,14 @@ const mocks = vi.hoisted(() => ({
     plan_expires_at: null as string | null,
     plan_tier: 'free' as string | null,
     premium_features: [] as string[],
-  },
+  } as {
+    country: string | null;
+    id: string;
+    user_id: string;
+    plan_expires_at: string | null;
+    plan_tier: string | null;
+    premium_features: string[];
+  } | null,
   merchantLoading: false,
   resetOnboarding: vi.fn(),
   router: {
@@ -197,6 +204,18 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Business')).toBeTruthy();
     expect(screen.getByText('Support')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
+  });
+
+  it('hides identity verification while merchant context is unresolved', () => {
+    mocks.merchant = null;
+
+    render(<MenuScreen />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
+      })
+    ).toBeNull();
   });
 
   it('navigates to security from the main menu', () => {
