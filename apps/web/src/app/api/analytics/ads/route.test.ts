@@ -127,7 +127,7 @@ describe('GET /api/analytics/ads', () => {
         error: null,
       },
     ];
-    const terminals = ['range', 'maybeSingle', 'order', 'in', 'order'] as const;
+    const terminals = ['range', 'maybeSingle', 'order', 'in', 'range'] as const;
     let queryIndex = 0;
     mockFrom.mockImplementation(() =>
       chainResult(results.shift(), terminals[queryIndex++])
@@ -192,7 +192,7 @@ describe('GET /api/analytics/ads', () => {
       chainResult({ data: null, error: null }, 'maybeSingle'),
       chainResult({ data: [], error: null }, 'order'),
       chainResult({ data: [], error: null }, 'in'),
-      chainResult({ data: [], error: null }, 'order'),
+      chainResult({ data: [], error: null }, 'range'),
     ];
     mockFrom.mockImplementation(() => results.shift());
 

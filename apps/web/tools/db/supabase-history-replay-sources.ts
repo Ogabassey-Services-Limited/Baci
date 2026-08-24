@@ -1,13 +1,9 @@
-// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live in the manifest module.
-// Each `<sha256> <filename>.sql` row is byte-frozen: the manifest verifier re-hashes the on-disk migration, so never edit a migration after registering it without recomputing its hash here.
-import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
-import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
-import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
-import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
-import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
-import { PRODUCTION_MAPPINGS } from './supabase-history-replay-production-mappings';
-import { SEARCH_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-search-pending-sources';
-import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
+// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live there.
+// manifest module. Each `<sha256> <filename>.sql` row is byte-frozen: the
+// manifest verifier re-hashes the on-disk migration, so never edit a migration
+// after registering it without recomputing its hash here.
+
+import { buildPendingSources } from './supabase-history-replay-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
 3a3018fcd2e0daea0dec918d953e1dadf314ea1f88698e336a72a97da8ddcd1c 20260712150050_eventing_internal_schema.sql
@@ -255,30 +251,24 @@ c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_
 da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_public_shipping_sender_projection.sql
 2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b 20260825154500_persist_shipment_shipping_quote.sql
 `;
-
-const PENDING_SOURCES = [
-  PENDING_SOURCES_HEAD,
-  STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES,
-  ADS_PENDING_REPLAY_SOURCE_ROWS,
-  ADMIN_PLATFORM_PENDING_SOURCES,
-  EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
-  FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
-  NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
-  SEARCH_PENDING_REPLAY_SOURCE_ROWS,
-]
-  .flatMap((sourceBlock) => sourceBlock.trim().split('\n'))
-  .sort((left, right) => {
-    const leftFilename = left.split(' ')[1] ?? '';
-    const rightFilename = right.split(' ')[1] ?? '';
-    if (leftFilename < rightFilename) {
-      return -1;
-    }
-    if (leftFilename > rightFilename) {
-      return 1;
-    }
-    return 0;
-  })
-  .join('\n');
+const PENDING_SOURCES = buildPendingSources(PENDING_SOURCES_HEAD);
+const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
+20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
+20260625173604\t20260714010000_scope_feature_settings_read_policies.sql\t31091717a01f66c683c87e77a2f62245732df023b6dd61055855cf7ff78cff9f\tsuperseded-final-state
+20260626131520\t20260702024830_fix_search_products_condition_filter.sql\td94d9d87b238c217a8640c9e5b2ef57263ff2112015fac7e2f40de2a91270ed3\tcanonical
+20260629154903\t20260714225501_reconcile_order_fulfillment_timestamps.sql\t1f6b9c1e12afbbab4e32a697230cebbe196fb9d43daf340caba1eb309370a361\tappend-only-repair
+20260630123511\t20260702063638_restore_mobile_admin_product_rpc_contract.sql\ta04858072ce04f37af2269bb14bd4a936df612b6243fdb0099e8b417ba9c3ba4\tsuperseded-final-state
+20260701080400\t20260702140100_order_item_unit_costs_supplier_analytics.sql\tb2c0bd55fdb092549ccbc42ed4011def80cc2f5417451bba14df6476cdf4a8a9\tcanonical
+20260701123945\t20260702140200_supplier_purchase_analytics_branch_scope.sql\t722b166fda187ee2cf4d8200d1b99a4af88fd41055ab85ba5ece171bdd3a721c\tcanonical
+20260706202930\t20260706200000_add_storefront_preflight_rpcs.sql\t091506e1cfb83822453a2134eb01f9e72fe78dbcb988eafe01412e78fd72d021\tcanonical
+20260706210329\t20260706162109_allow_page_config_history_insert.sql\t3104462281e7e92658b25c36cbb21c95437da84babb6e18f95c45242adfa5594\tcanonical
+20260707064146\t20260706230000_add_blog_listing_preflight_rpc.sql\te6f1050fa096534a442b1b19aad68039c577bb620bb897e5ece172a1e5c73a04\tcanonical
+20260708072653\t20260708013000_create_domain_purchase_transaction_rpc.sql\t40b5b16c32136c3fa8300725a48469d43af8264f60c4b1faa4fdc6a99e3f00e6\tcanonical
+20260708072825\t20260708013500_fix_domain_purchase_rpc_merchant_derivation.sql\t53eca111142dda0f4f5030deeec5842b9eabc588f894d631a1830eb8f7dad999\tcanonical
+20260708075932\t20260708090000_lock_domain_purchase_rpc_service_role.sql\t7d522c998d5b32c230fe804cc21ffa0daa23832d37661a490164cbc840ba6855\tcanonical
+20260708102643\t20260707211507_optimize_storefront_cached_merchant_and_variant_wrappers.sql\t2916e23dae09a40aa2e771798e3919ddea346f2ce8638837dd9a9de098b68e61\tcanonical
+20260708220832\t20260708220947_drop_authenticated_domain_purchase_rpc.sql\t005b89e87c87bcad7f5b206ad61cff05041458edd19f60409c73889ed7921bc9\tcanonical
+20260713200830\t20260713211500_split_platform_blog_anon_read_policy.sql\td51de0171bb6837e4ed9fa161b1785de2d77915446d89cb2a857a0f403fa337f\tcanonical`;
 // One primary export (repo one-export-per-file rule): manifest module/tests destructure the collection.
 export const REPLAY_SOURCE_DATA = {
   PIPELINE_SOURCES,
