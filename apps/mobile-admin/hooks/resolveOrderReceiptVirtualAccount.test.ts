@@ -145,6 +145,37 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('does not advertise a cached Paystack account when the server rejects provisioning', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue({ ok: false, status: 400 });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: {
+        bank_account_name: 'Manual Account',
+        bank_account_number: '0123456789',
+        bank_code: '044',
+        business_name: 'Merchant',
+      },
+      order: makeOrder({
+        virtual_account: {
+          account_name: 'Disabled Paystack',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+        },
+      }),
+    });
+
+    expect(account).toMatchObject({
+      account_name: 'Manual Account',
+      account_number: '0123456789',
+    });
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://example.com/api/orders/order-1/generate-dva',
+      expect.anything()
+    );
+  });
+
   it('does not provision Paystack for non-NGN orders', async () => {
     authenticate();
     mocks.fetch.mockResolvedValue({ ok: false });

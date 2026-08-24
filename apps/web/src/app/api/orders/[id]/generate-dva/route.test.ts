@@ -73,6 +73,7 @@ function mockQuery(
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockResolvedValue({ data, error }),
     neq: vi.fn().mockReturnThis(),
     order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
@@ -88,6 +89,7 @@ const unpaidOrder = {
   order_number: 'ORD-001',
   total: '5000',
   amount_paid: '0',
+  wallet_amount_used: '0',
   customer_name: 'John Doe',
   customer_email: 'john@test.com',
   customer_phone: '+2348012345678',
@@ -118,27 +120,36 @@ function authenticateMerchant(merchantId: string | null = MERCHANT_ID) {
 }
 
 function useOrderQueries({
+  featureSettings = { paystack_enabled: true },
   order = unpaidOrder,
   orderError = null,
   paymentAccount = null,
   paymentAccountError = null,
+  transactions = [],
   writeError = null,
 }: {
+  featureSettings?: unknown;
   order?: unknown;
   orderError?: unknown;
   paymentAccount?: unknown;
   paymentAccountError?: unknown;
+  transactions?: unknown[];
   writeError?: unknown;
 } = {}) {
   const orderQuery = mockQuery(order, orderError);
+  const featureSettingsQuery = mockQuery(featureSettings);
+  const transactionsQuery = mockQuery(transactions);
   const paymentAccountQuery = mockQuery(
     paymentAccount,
     paymentAccountError,
     writeError
   );
-  mockFrom.mockImplementation((table: string) =>
-    table === 'orders' ? orderQuery : paymentAccountQuery
-  );
+  mockFrom.mockImplementation((table: string) => {
+    if (table === 'orders') return orderQuery;
+    if (table === 'merchant_feature_settings') return featureSettingsQuery;
+    if (table === 'transactions') return transactionsQuery;
+    return paymentAccountQuery;
+  });
   return paymentAccountQuery;
 }
 
@@ -225,6 +236,17 @@ describe('POST /api/orders/[id]/generate-dva', () => {
 
     expect(response.status).toBe(400);
     expect(body.code).toBe('CUSTOMER_EMAIL_REQUIRED');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
+  it('rejects automatic confirmation when Paystack is disabled', async () => {
+    authenticateMerchant();
+    useOrderQueries({ featureSettings: { paystack_enabled: false } });
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'GATEWAY_DISABLED' });
     expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
@@ -349,6 +371,43 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     });
 
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('persists the payable amount from reconciled transactions and wallet use', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries({
+      order: {
+        ...unpaidOrder,
+        amount_paid: '500',
+        total: '10000',
+        wallet_amount_used: '3000',
+      },
+      transactions: [
+        { amount: '2000', gateway: 'paystack' },
+        { amount: '1000', gateway: 'wallet' },
+      ],
+    });
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(200);
+    expect(paymentAccountQuery.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ payable_amount: 5000 })
+    );
+  });
+
+  it('does not provision when reconciled payments cover the order', async () => {
+    authenticateMerchant();
+    useOrderQueries({
+      transactions: [{ amount: '5000', gateway: 'paystack' }],
+    });
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: 'NO_PAYABLE_AMOUNT' });
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
   it('returns 502 when Paystack DVA creation fails', async () => {

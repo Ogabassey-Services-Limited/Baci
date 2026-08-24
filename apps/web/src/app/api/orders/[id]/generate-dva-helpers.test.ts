@@ -51,4 +51,19 @@ describe('generateDvaHelpers', () => {
     expect(generateDvaHelpers.isUniqueViolation({ code: '23505' })).toBe(true);
     expect(generateDvaHelpers.isUniqueViolation({ code: '42501' })).toBe(false);
   });
+
+  it('builds customer names and the protected assignment window', () => {
+    expect(generateDvaHelpers.toCustomerName('Ada Lovelace')).toEqual({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
+    expect(
+      generateDvaHelpers.createAssignmentWindow(
+        new Date('2026-08-24T10:00:00.000Z')
+      )
+    ).toEqual({
+      assignedAt: '2026-08-24T10:00:00.000Z',
+      expiresAt: '2026-08-24T11:30:00.000Z',
+    });
+  });
 });

@@ -191,9 +191,10 @@ export async function resolveOrderReceiptVirtualAccount({
 
   const shouldProvisionPaystackDva = canProvisionPaystackDva(order);
 
+  // Re-check Paystack accounts through the server so merchant gateway
+  // disablement and the authoritative assignment window are enforced.
   let virtualAccount =
-    (shouldProvisionPaystackDva ||
-    order.virtual_account?.provider !== 'paystack'
+    (order.virtual_account?.provider !== 'paystack'
       ? resolveAccountCandidate(order.virtual_account)
       : null) ?? resolveAccountCandidate(order.staff_terminal);
 

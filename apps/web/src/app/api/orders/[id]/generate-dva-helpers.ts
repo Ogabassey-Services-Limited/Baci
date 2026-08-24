@@ -6,14 +6,17 @@ const PAYSTACK_DVA_PAYMENT_STATUSES = [
 ] as const;
 const POSTGRES_UNIQUE_VIOLATION = '23505';
 
-type PaymentAccount = {
-  account_name: string;
-  account_number: string;
+type PaymentAccountTiming = {
   assigned_at?: string | null;
-  bank_name: string;
   created_at?: string | null;
   expires_at?: string | null;
-  provider: string;
+  provider?: string | null;
+};
+
+type PaymentAccount = PaymentAccountTiming & {
+  account_name: string;
+  account_number: string;
+  bank_name: string;
 };
 
 function toVirtualAccount(account: PaymentAccount) {
@@ -25,7 +28,7 @@ function toVirtualAccount(account: PaymentAccount) {
 }
 
 function isActivePaymentAccount(
-  account: PaymentAccount,
+  account: PaymentAccountTiming,
   now = new Date()
 ): boolean {
   if (account.provider !== 'paystack') {
@@ -76,10 +79,27 @@ function isUniqueViolation(error: unknown) {
   );
 }
 
+function toCustomerName(customerName: string | null) {
+  const nameParts = (customerName || 'Customer').trim().split(' ');
+  return {
+    firstName: nameParts[0] || 'Customer',
+    lastName: nameParts.slice(1).join(' ') || 'User',
+  };
+}
+
+function createAssignmentWindow(now = new Date()) {
+  return {
+    assignedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + PAYSTACK_DVA_WINDOW_MS).toISOString(),
+  };
+}
+
 export const generateDvaHelpers = {
+  createAssignmentWindow,
   isActivePaymentAccount,
   isEligibleOrderForPaystackDva,
   isUniqueViolation,
   PAYSTACK_DVA_WINDOW_MS,
+  toCustomerName,
   toVirtualAccount,
 };

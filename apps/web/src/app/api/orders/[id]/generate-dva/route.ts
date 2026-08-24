@@ -9,6 +9,7 @@ import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
 import { generateDvaHelpers } from '../generate-dva-helpers';
+import { loadDvaProvisioningContext } from '../load-dva-provisioning-context';
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -42,7 +43,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, amount_paid, customer_name, customer_email, customer_phone, payment_status, shipping_status, cancelled_at, currency, merchant_id'
+        'id, order_number, total, amount_paid, wallet_amount_used, customer_name, customer_email, customer_phone, payment_status, shipping_status, cancelled_at, currency, merchant_id'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
@@ -88,6 +89,18 @@ export async function POST(
           error: 'A customer email is required for automatic confirmation',
         },
         { status: 400 }
+      );
+    }
+    const provisioningContext = await loadDvaProvisioningContext({
+      merchantId,
+      order,
+      orderId,
+      supabase,
+    });
+    if (!provisioningContext.ok) {
+      return NextResponse.json(
+        { code: provisioningContext.code, error: provisioningContext.error },
+        { status: provisioningContext.status }
       );
     }
     const { data: existingVba, error: existingVbaError } = await supabase
@@ -157,9 +170,9 @@ export async function POST(
       );
     }
 
-    const nameParts = (order.customer_name || 'Customer').trim().split(' ');
-    const firstName = nameParts[0] || 'Customer';
-    const lastName = nameParts.slice(1).join(' ') || 'User';
+    const { firstName, lastName } = generateDvaHelpers.toCustomerName(
+      order.customer_name
+    );
 
     let phone = order.customer_phone || '';
     if (!phone) {
@@ -177,13 +190,6 @@ export async function POST(
       }
       phone = merchant?.phone || '08000000000';
     }
-
-    logger.info({
-      message: 'Creating Paystack DVA for order',
-      orderId,
-      firstName,
-      lastName,
-    });
 
     const dvaResult = await generatePaymentAccount({
       email: customerEmail,
@@ -205,11 +211,7 @@ export async function POST(
       );
     }
 
-    const payableAmount = Math.max(
-      Number(order.total) - Number(order.amount_paid || 0),
-      0
-    );
-    const assignedAt = new Date();
+    const assignment = generateDvaHelpers.createAssignmentWindow();
     const { error: insertError } = await supabase
       .from('order_payment_accounts')
       .insert({
@@ -218,11 +220,9 @@ export async function POST(
         bank_name: dvaResult.data.bank_name,
         account_name: dvaResult.data.account_name,
         provider: 'paystack',
-        payable_amount: payableAmount,
-        assigned_at: assignedAt.toISOString(),
-        expires_at: new Date(
-          assignedAt.getTime() + generateDvaHelpers.PAYSTACK_DVA_WINDOW_MS
-        ).toISOString(),
+        payable_amount: provisioningContext.payableAmount,
+        assigned_at: assignment.assignedAt,
+        expires_at: assignment.expiresAt,
       });
 
     if (insertError) {
