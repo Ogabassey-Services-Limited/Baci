@@ -60,7 +60,7 @@ describe('TikTok Ads sync', () => {
           error: null,
         });
       return Promise.resolve({
-        data: name === 'upsert_merchant_ads_spend_daily' ? 1 : true,
+        data: name === 'replace_merchant_ads_spend_daily_window' ? 1 : true,
         error: null,
       });
     });
@@ -83,11 +83,45 @@ describe('TikTok Ads sync', () => {
     ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 1 });
     expect(reports).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_spend_daily',
+      'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
         p_rows: expect.arrayContaining([
           expect.objectContaining({ spend_amount_decimal: '1.000000001' }),
         ]),
+      })
+    );
+  });
+
+  it('replaces the TikTok window even when the provider returns no activity', async () => {
+    reports.mockResolvedValueOnce([]);
+    rpc.mockResolvedValueOnce({
+      data: [
+        {
+          access_token_ciphertext: 'cipher',
+          provider_customer_id: 'opaque-001',
+          status: 'active',
+        },
+      ],
+      error: null,
+    });
+    rpc.mockResolvedValueOnce({ data: 0, error: null });
+
+    await expect(
+      syncTikTokAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 0 });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'replace_merchant_ads_spend_daily_window',
+      expect.objectContaining({
+        p_end_date: '2026-08-20',
+        p_provider: 'tiktok_ads',
+        p_rows: [],
+        p_start_date: '2026-08-20',
       })
     );
   });
@@ -139,7 +173,7 @@ describe('TikTok Ads sync', () => {
       })
     ).rejects.toThrow('second chunk failed');
     expect(rpc).not.toHaveBeenCalledWith(
-      'upsert_merchant_ads_spend_daily',
+      'replace_merchant_ads_spend_daily_window',
       expect.anything()
     );
   });

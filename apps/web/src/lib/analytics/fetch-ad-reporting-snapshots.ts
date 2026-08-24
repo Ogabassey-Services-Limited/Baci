@@ -6,11 +6,82 @@ import {
   SOCIAL_ADS_REPORTING_PROVIDERS,
 } from './social-ads-analytics-snapshot';
 
+export const SOCIAL_ADS_SPEND_PAGE_SIZE = 500;
+const MAX_SOCIAL_ADS_SPEND_PAGES = 1000;
+
+type SocialAdsSpendRow = Pick<
+  Database['public']['Tables']['merchant_ad_spend_daily']['Row'],
+  | 'account_timezone'
+  | 'clicks'
+  | 'conversions'
+  | 'currency_code'
+  | 'fetched_at'
+  | 'impressions'
+  | 'provider'
+  | 'provider_customer_id'
+  | 'reach'
+  | 'spend_amount_decimal'
+  | 'spend_date'
+>;
+
 interface FetchAdReportingSnapshotsOptions {
   endDate: string;
   merchantId: string;
   startDate: string;
   supabase: SupabaseClient<Database>;
+}
+
+interface FetchSocialAdsSpendOptions {
+  endDate: string;
+  merchantId: string;
+  startDate: string;
+  supabase: SupabaseClient<Database>;
+}
+
+async function fetchSocialAdsSpendRows({
+  endDate,
+  merchantId,
+  startDate,
+  supabase,
+}: FetchSocialAdsSpendOptions): Promise<{
+  data: SocialAdsSpendRow[];
+  error: unknown;
+}> {
+  const rows: SocialAdsSpendRow[] = [];
+
+  for (let page = 0; page < MAX_SOCIAL_ADS_SPEND_PAGES; page += 1) {
+    const { data, error } = await supabase
+      .from('merchant_ad_spend_daily')
+      .select(
+        'provider, provider_customer_id, spend_date, currency_code, spend_amount_decimal, impressions, clicks, conversions, reach, account_timezone, fetched_at'
+      )
+      .eq('merchant_id', merchantId)
+      .in('provider', [...SOCIAL_ADS_REPORTING_PROVIDERS])
+      .gte('spend_date', startDate)
+      .lte('spend_date', endDate)
+      .order('spend_date', { ascending: true })
+      .order('provider_customer_id', { ascending: true })
+      .order('currency_code', { ascending: true })
+      .range(
+        page * SOCIAL_ADS_SPEND_PAGE_SIZE,
+        page * SOCIAL_ADS_SPEND_PAGE_SIZE + SOCIAL_ADS_SPEND_PAGE_SIZE - 1
+      );
+
+    if (error) {
+      return { data: [], error };
+    }
+
+    const pageRows = (data ?? []) as SocialAdsSpendRow[];
+    rows.push(...pageRows);
+    if (pageRows.length < SOCIAL_ADS_SPEND_PAGE_SIZE) {
+      return { data: rows, error: null };
+    }
+  }
+
+  return {
+    data: [],
+    error: new Error('SOCIAL_ADS_SPEND_PAGINATION_LIMIT'),
+  };
 }
 
 export async function fetchAdReportingSnapshots({
@@ -48,16 +119,7 @@ export async function fetchAdReportingSnapshots({
       )
       .eq('merchant_id', merchantId)
       .in('provider', [...SOCIAL_ADS_REPORTING_PROVIDERS]),
-    supabase
-      .from('merchant_ad_spend_daily')
-      .select(
-        'provider, provider_customer_id, spend_date, currency_code, spend_amount_decimal, impressions, clicks, conversions, reach, account_timezone, fetched_at'
-      )
-      .eq('merchant_id', merchantId)
-      .in('provider', [...SOCIAL_ADS_REPORTING_PROVIDERS])
-      .gte('spend_date', startDate)
-      .lte('spend_date', endDate)
-      .order('spend_date', { ascending: true }),
+    fetchSocialAdsSpendRows({ endDate, merchantId, startDate, supabase }),
   ]);
 
   return {

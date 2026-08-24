@@ -182,19 +182,18 @@ export async function syncSnapchatAdsSpendForMerchant(
         spend_date: report.spendDate,
         spend_micros: report.spendMicros,
       }));
-      let rowsWritten = 0;
-      if (rows.length) {
-        const written = await input.supabase.rpc(
-          'upsert_merchant_ads_spend_daily',
-          {
-            p_merchant_id: input.merchantId,
-            p_provider: SNAPCHAT_ADS_PROVIDER,
-            p_rows: rows,
-          }
-        );
-        if (written.error) throw new SnapchatAdsSyncError('SPEND_WRITE_FAILED');
-        rowsWritten = written.data ?? rows.length;
-      }
+      const written = await input.supabase.rpc(
+        'replace_merchant_ads_spend_daily_window',
+        {
+          p_end_date: input.endDate,
+          p_merchant_id: input.merchantId,
+          p_provider: SNAPCHAT_ADS_PROVIDER,
+          p_rows: rows,
+          p_start_date: startDate,
+        }
+      );
+      if (written.error) throw new SnapchatAdsSyncError('SPEND_WRITE_FAILED');
+      const rowsWritten = written.data ?? 0;
       const marked = await input.supabase.rpc(
         'mark_merchant_ads_connection_synced',
         { p_merchant_id: input.merchantId, p_provider: SNAPCHAT_ADS_PROVIDER }

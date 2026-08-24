@@ -66,7 +66,7 @@ describe('Snapchat Ads sync', () => {
           error: null,
         });
       return Promise.resolve({
-        data: name === 'upsert_merchant_ads_spend_daily' ? 1 : true,
+        data: name === 'replace_merchant_ads_spend_daily_window' ? 1 : true,
         error: null,
       });
     });
@@ -81,7 +81,7 @@ describe('Snapchat Ads sync', () => {
       })
     ).resolves.toEqual({ accountId: 'ad-1', rowsWritten: 1 });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_spend_daily',
+      'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
         p_rows: [
           expect.objectContaining({
@@ -92,6 +92,42 @@ describe('Snapchat Ads sync', () => {
             spend_micros: '1250000',
           }),
         ],
+      })
+    );
+  });
+
+  it('replaces the Snapchat window even when the provider returns no activity', async () => {
+    reports.mockResolvedValueOnce([]);
+    rpc.mockResolvedValueOnce({
+      data: [
+        {
+          access_token_ciphertext: 'access',
+          provider_customer_id: 'ad-1',
+          refresh_token_ciphertext: 'refresh',
+          status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
+        },
+      ],
+      error: null,
+    });
+    rpc.mockResolvedValueOnce({ data: 0, error: null });
+
+    await expect(
+      syncSnapchatAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toEqual({ accountId: 'ad-1', rowsWritten: 0 });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'replace_merchant_ads_spend_daily_window',
+      expect.objectContaining({
+        p_end_date: '2026-08-20',
+        p_provider: 'snapchat_ads',
+        p_rows: [],
+        p_start_date: '2026-08-20',
       })
     );
   });

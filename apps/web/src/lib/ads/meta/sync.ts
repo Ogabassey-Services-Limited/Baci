@@ -261,26 +261,22 @@ async function syncSelectedMetaAdsAccount(input: {
       spend_amount_decimal: insight.spendAmountDecimal,
       spend_date: insight.dateStart,
     }));
-    let rowsWritten = 0;
-    if (records.length > 0) {
-      const { data, error } = await input.supabase.rpc(
-        'upsert_merchant_ads_spend_daily',
-        {
-          p_merchant_id: input.merchantId,
-          p_provider: META_ADS_PROVIDER,
-          p_rows: records,
-        }
-      );
-      if (error) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
-      rowsWritten = data ?? records.length;
-    }
+    const { data: rowsWritten, error: spendWriteError } =
+      await input.supabase.rpc('replace_merchant_ads_spend_daily_window', {
+        p_end_date: input.endDate,
+        p_merchant_id: input.merchantId,
+        p_provider: META_ADS_PROVIDER,
+        p_rows: records,
+        p_start_date: input.startDate,
+      });
+    if (spendWriteError) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
     const { data: synced, error: syncedError } = await input.supabase.rpc(
       'mark_merchant_ads_connection_synced',
       { p_merchant_id: input.merchantId, p_provider: META_ADS_PROVIDER }
     );
     if (syncedError || synced !== true)
       throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
-    return { accountId: account.accountId, rowsWritten };
+    return { accountId: account.accountId, rowsWritten: rowsWritten ?? 0 };
   } catch (error) {
     if (shouldRequireReauth(error)) {
       try {

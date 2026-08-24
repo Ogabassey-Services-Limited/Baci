@@ -62,7 +62,7 @@ describe('Meta Ads sync', () => {
           ],
           error: null,
         });
-      if (name === 'upsert_merchant_ads_spend_daily')
+      if (name === 'replace_merchant_ads_spend_daily_window')
         return Promise.resolve({ data: 1, error: null });
       return Promise.resolve({ data: true, error: null });
     });
@@ -78,7 +78,7 @@ describe('Meta Ads sync', () => {
       })
     ).resolves.toEqual({ accountId: 'act_12', rowsWritten: 1 });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_spend_daily',
+      'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
         p_rows: [
           expect.objectContaining({
@@ -89,6 +89,42 @@ describe('Meta Ads sync', () => {
             }),
           }),
         ],
+      })
+    );
+  });
+
+  it('replaces the Meta window even when the provider returns no activity', async () => {
+    mockInsights.mockResolvedValueOnce([]);
+    rpc.mockResolvedValueOnce({
+      data: [
+        {
+          access_token_ciphertext: 'cipher',
+          provider_customer_id: 'act_12',
+          refresh_token_ciphertext: 'refresh-cipher',
+          status: 'active',
+          token_expires_at: '2026-10-20T00:00:00Z',
+        },
+      ],
+      error: null,
+    });
+    rpc.mockResolvedValueOnce({ data: 0, error: null });
+
+    await expect(
+      syncMetaAdsSpendForMerchant({
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toEqual({ accountId: 'act_12', rowsWritten: 0 });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'replace_merchant_ads_spend_daily_window',
+      expect.objectContaining({
+        p_end_date: '2026-08-20',
+        p_provider: 'meta_ads',
+        p_rows: [],
+        p_start_date: '2026-08-20',
       })
     );
   });
@@ -118,7 +154,7 @@ describe('Meta Ads sync', () => {
       supabase: { rpc } as never,
     });
     expect(rpc).toHaveBeenCalledWith(
-      'upsert_merchant_ads_spend_daily',
+      'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
         p_rows: [
           expect.objectContaining({ conversions: '9007199254740993.75' }),

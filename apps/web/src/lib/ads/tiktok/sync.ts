@@ -197,19 +197,18 @@ export async function syncTikTokAdsSpendForMerchant(
         }));
         pendingRows.push(...rows);
       }
-      let rowsWritten = 0;
-      if (pendingRows.length) {
-        const written = await input.supabase.rpc(
-          'upsert_merchant_ads_spend_daily',
-          {
-            p_merchant_id: input.merchantId,
-            p_provider: TIKTOK_ADS_PROVIDER,
-            p_rows: pendingRows,
-          }
-        );
-        if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
-        rowsWritten = written.data ?? pendingRows.length;
-      }
+      const written = await input.supabase.rpc(
+        'replace_merchant_ads_spend_daily_window',
+        {
+          p_end_date: input.endDate,
+          p_merchant_id: input.merchantId,
+          p_provider: TIKTOK_ADS_PROVIDER,
+          p_rows: pendingRows,
+          p_start_date: input.startDate,
+        }
+      );
+      if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
+      const rowsWritten = written.data ?? 0;
       const marked = await input.supabase.rpc(
         'mark_merchant_ads_connection_synced',
         { p_merchant_id: input.merchantId, p_provider: TIKTOK_ADS_PROVIDER }

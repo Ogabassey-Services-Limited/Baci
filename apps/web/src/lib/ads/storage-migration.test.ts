@@ -10,6 +10,10 @@ const hardeningMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260821180001_harden_provider_neutral_ads_rpcs.sql'
 );
+const spendWindowMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260824090000_replace_social_ads_spend_window.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -52,5 +56,18 @@ describe('provider-neutral ads storage migration', () => {
     expect(sql).not.toContain('set search_path = public, pg_temp');
     expect(sql).toContain('pg_catalog.jsonb_typeof');
     expect(sql).toContain('pg_catalog.btrim');
+  });
+
+  it('atomically replaces a social provider window before applying fresh rows', () => {
+    const sql = readFileSync(spendWindowMigrationPath, 'utf8').toLowerCase();
+
+    expect(sql).toContain(
+      'create or replace function public.replace_merchant_ads_spend_daily_window'
+    );
+    expect(sql).toContain('delete from public.merchant_ad_spend_daily');
+    expect(sql).toContain('spend_date between p_start_date and p_end_date');
+    expect(sql).toContain('public.upsert_merchant_ads_spend_daily');
+    expect(sql).toContain('grant execute on function');
+    expect(sql).toContain("'meta_ads', 'tiktok_ads', 'snapchat_ads'");
   });
 });
