@@ -30,6 +30,7 @@ import {
   isExternalPlaceholderImageUrl,
   PLACEHOLDER_IMAGE,
 } from './image-utils';
+import { generateMetaDescription } from './meta-description';
 import { normalizeOgabasseyCdnImageUrl } from './ogabassey-cdn-image-url';
 import { getProductSchemaSpecKeyForPropertyId } from './product-schema-spec-vocabulary';
 import { shouldIncludeProductSchemaSpec } from './product-schema-specs';
@@ -44,7 +45,6 @@ import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
 import { resolveStorefrontProductCategoryName } from './storefront-product-category-name';
-import { stripVolatileProductPriceSentences } from './storefront-product-description';
 import { getValidatedProductUrl as getSerializedValidatedProductUrl } from './storefront-product-url-serialization';
 import { isUnsupportedSpecValue } from './storefront-specs/is-unsupported-spec-value';
 import type {
@@ -55,7 +55,7 @@ import type {
 
 export { generateStorefrontSlug as generateSlug } from './generate-storefront-slug';
 // Re-export escapeHtml for use in other modules
-export { escapeHtml, getEffectiveProductStock };
+export { escapeHtml, generateMetaDescription, getEffectiveProductStock };
 
 function getSchemaItemCondition(condition?: string | null) {
   if (!condition || condition.trim() === '') {
@@ -1314,7 +1314,6 @@ export function generateLocalBusinessSchema(
 const ELLIPSIS = '...';
 const ELLIPSIS_LENGTH = ELLIPSIS.length;
 const DEFAULT_MAX_LENGTH = 160;
-const DEFAULT_MIN_LENGTH = 0;
 const DEFAULT_TITLE_MAX_LENGTH = 70;
 
 /**
@@ -1637,64 +1636,6 @@ export function generateMetaTitle(
   }
 
   return `${normalizedTitle.slice(0, maxLength - ELLIPSIS_LENGTH)}${ELLIPSIS}`;
-}
-
-/**
- * Generates a meta description from product description if not provided
- */
-export function generateMetaDescription(
-  description: string,
-  maxLength: number = DEFAULT_MAX_LENGTH,
-  options?: {
-    minLength?: number;
-    fallback?: string;
-  }
-): string {
-  const validMaxLength = validateMaxLength(maxLength);
-  const minLength = Math.max(DEFAULT_MIN_LENGTH, options?.minLength ?? 0);
-
-  const fallbackPlainText = options?.fallback
-    ? stripVolatileProductPriceSentences(normalizePlainText(options.fallback))
-    : '';
-
-  // Strip HTML tags using iterative sanitization to prevent incomplete removal
-  // of nested patterns like <scr<script>ipt>
-  const plainText = stripVolatileProductPriceSentences(
-    normalizePlainText(description)
-  );
-
-  const baseDescription = plainText || fallbackPlainText;
-  if (!baseDescription) {
-    return '';
-  }
-
-  let candidateDescription = baseDescription;
-
-  if (
-    minLength > 0 &&
-    candidateDescription.length < minLength &&
-    fallbackPlainText
-  ) {
-    if (candidateDescription !== fallbackPlainText) {
-      const normalizedBase = /[.!?]$/.test(candidateDescription)
-        ? candidateDescription
-        : `${candidateDescription}.`;
-      const mergedDescription = `${normalizedBase} ${fallbackPlainText}`.trim();
-      candidateDescription =
-        mergedDescription.length > candidateDescription.length
-          ? mergedDescription
-          : candidateDescription;
-    }
-  }
-
-  if (candidateDescription.length <= validMaxLength) {
-    return candidateDescription;
-  }
-
-  return (
-    candidateDescription.substring(0, validMaxLength - ELLIPSIS_LENGTH) +
-    ELLIPSIS
-  );
 }
 
 /**
