@@ -140,6 +140,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     flexDirection: 'row',
+    minHeight: SPACING.touchTarget,
   },
   categoryIcon: {
     width: 40,

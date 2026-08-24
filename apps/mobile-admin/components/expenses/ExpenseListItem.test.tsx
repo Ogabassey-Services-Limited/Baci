@@ -147,6 +147,14 @@ describe('ExpenseListItem', () => {
     expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1');
   });
 
+  it('uses a category-only Edit label when the expense has no description', () => {
+    render(<ExpenseListItem canEdit item={expense({ description: null })} />);
+
+    expect(
+      screen.getByRole('button', { name: 'Edit expense Inventory' })
+    ).toBeInTheDocument();
+  });
+
   it('uses accessible labels with and without descriptions', () => {
     const { rerender } = render(<ExpenseListItem item={expense()} />);
 

@@ -56,6 +56,7 @@ describe('expenses-list styles', () => {
       alignItems: 'center',
       flex: 1,
       flexDirection: 'row',
+      minHeight: SPACING.touchTarget,
     });
     expect(styles.editButton).toMatchObject({
       alignItems: 'center',
