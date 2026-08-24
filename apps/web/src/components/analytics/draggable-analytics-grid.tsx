@@ -4,21 +4,17 @@ import type { MerchantAnalyticsResponse } from '@baci/shared';
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
   Check,
   Crown,
   DollarSign,
-  MousePointerClick,
   Package,
   Percent,
   RefreshCcw,
   Settings2,
-  Shield,
   ShoppingBag,
   Target,
   TrendingUp,
   Users,
-  Zap,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -27,7 +23,7 @@ import {
   type ResponsiveLayouts,
   WidthProvider,
 } from 'react-grid-layout/legacy';
-
+import { renderAdsAnalyticsWidgets } from '@/components/analytics/ads-analytics-widgets';
 import { AIInsightsPanel } from '@/components/analytics/ai-insights-panel';
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import {
@@ -48,14 +44,8 @@ import {
   SalesByChannelChart,
 } from '@/components/analytics/chart-components';
 import { formatMetricChange } from '@/components/analytics/format-metric-change';
-import {
-  GoogleAdsReportingCard,
-  type GoogleAdsReportingData,
-} from '@/components/analytics/google-ads-reporting-card';
-import {
-  SocialAdsReportingCard,
-  type SocialAdsReportingData,
-} from '@/components/analytics/social-ads-reporting-card';
+import type { GoogleAdsReportingData } from '@/components/analytics/google-ads-reporting-card';
+import type { SocialAdsReportingData } from '@/components/analytics/social-ads-reporting-card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
@@ -956,278 +946,14 @@ export function DraggableAnalyticsGrid({
           </div>
         )}
 
-        {/* Ad Analytics Widgets */}
-        {activeCategory === 'ads' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
-            {/* Ads Overview */}
-            {isWidgetVisible('ads-overview') && (
-              <div className="min-h-[300px]">
-                <BentoCard
-                  title="Conversion Overview"
-                  icon={Zap}
-                  className="h-full"
-                >
-                  {data?.adAnalytics ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-primary/10">
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Total Conversions Tracked
-                          </p>
-                          <p className="text-3xl font-bold">
-                            {data.adAnalytics.summary.totalConversions}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-muted-foreground">
-                            Attributed Revenue
-                          </p>
-                          <p className="text-xl font-bold text-green-500">
-                            {formatCurrency(
-                              data.adAnalytics.summary.totalAttributedRevenue
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 rounded-lg bg-muted/30 text-center">
-                          <div className="text-2xl font-bold">
-                            {data.adAnalytics.configuredPlatforms}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Platforms Active
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-muted/30 text-center">
-                          <div className="text-2xl font-bold">
-                            {data.adAnalytics.summary.totalOrders}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Total Orders
-                          </div>
-                        </div>
-                      </div>
-                      <div
-                        className={cn(
-                          'flex items-center gap-2 p-2 rounded-lg text-sm',
-                          data.adAnalytics.offlineConversionsEnabled
-                            ? 'bg-green-500/10 text-green-600'
-                            : 'bg-amber-500/10 text-amber-600'
-                        )}
-                      >
-                        {data.adAnalytics.offlineConversionsEnabled ? (
-                          <>
-                            <Check className="size-4" />
-                            <span>Offline conversions enabled</span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle className="size-4" />
-                            <span>Offline conversions disabled</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading…</p>
-                    </div>
-                  )}
-                </BentoCard>
-              </div>
-            )}
-
-            {/* Platform Breakdown */}
-            {isWidgetVisible('ads-platforms') && (
-              <div className="min-h-[300px]">
-                <BentoCard
-                  title="Platform Performance"
-                  icon={BarChart3}
-                  className="h-full"
-                >
-                  {data?.adAnalytics ? (
-                    <div className="space-y-3">
-                      {data.adAnalytics.platforms.map((platform) => (
-                        <div
-                          key={platform.name}
-                          className={cn(
-                            'p-3 rounded-lg',
-                            platform.configured
-                              ? 'bg-muted/30'
-                              : 'bg-muted/10 opacity-60'
-                          )}
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">
-                                {platform.name}
-                              </span>
-                              {platform.configured ? (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/10 text-green-600">
-                                  Active
-                                </span>
-                              ) : (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                  Not configured
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-sm font-bold">
-                              {platform.conversions} conversions
-                            </span>
-                          </div>
-                          {platform.configured && (
-                            <div className="flex justify-between text-sm text-muted-foreground">
-                              <span>
-                                Revenue: {formatCurrency(platform.revenue)}
-                              </span>
-                              <span>
-                                {platform.clickAttributed} click-attributed
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading…</p>
-                    </div>
-                  )}
-                </BentoCard>
-              </div>
-            )}
-
-            {/* Click Attribution */}
-            {isWidgetVisible('ads-attribution') && (
-              <div className="min-h-[250px]">
-                <BentoCard
-                  title="Click Attribution"
-                  icon={MousePointerClick}
-                  className="h-full"
-                >
-                  {data?.adAnalytics ? (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Orders tracked with ad click IDs for better attribution
-                      </p>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <div className="p-3 rounded-lg bg-blue-500/10 text-center">
-                          <div className="text-xl font-bold text-blue-600">
-                            {data.adAnalytics.summary.trackingRate}%
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Tracking Rate
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-purple-500/10 text-center">
-                          <div className="text-xl font-bold text-purple-600">
-                            {data.adAnalytics.summary.clickAttributionRate}%
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Click Attribution
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-green-500/10 text-center">
-                          <div className="text-xl font-bold text-green-600">
-                            {data.adAnalytics.details.ordersWithClickIds}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            With Click IDs
-                          </div>
-                        </div>
-                        <div className="p-3 rounded-lg bg-emerald-500/10 text-center">
-                          <div className="text-xl font-bold text-emerald-600">
-                            {data.adAnalytics.details.ordersWithTracking}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            With Tracking
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-4">
-                        Click IDs (fbclid, ttclid, gclid, sccid) help platforms
-                        attribute conversions to the original ad click for
-                        better attribution. Ad spend and ROAS appear after a
-                        reporting account is connected.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading…</p>
-                    </div>
-                  )}
-                </BentoCard>
-              </div>
-            )}
-
-            {/* Privacy Compliance */}
-            {isWidgetVisible('ads-privacy') && (
-              <div className="min-h-[250px]">
-                <BentoCard
-                  title="Privacy Compliance"
-                  icon={Shield}
-                  className="h-full"
-                >
-                  {data?.adAnalytics ? (
-                    <div className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        CCPA/GDPR compliance through Limited Data Use (LDU)
-                      </p>
-                      <div className="p-4 rounded-lg bg-muted/30">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">Orders with LDU flag</span>
-                          <span className="text-lg font-bold">
-                            {data.adAnalytics.details.ordersWithLDU}
-                          </span>
-                        </div>
-                        <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-amber-500 transition-all"
-                            style={{
-                              width: `${Math.min(data.adAnalytics.summary.lduRate, 100)}%`,
-                            }}
-                          />
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {data.adAnalytics.summary.lduRate}% of tracked orders
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        LDU is automatically applied for users in California
-                        (CCPA), EU countries (GDPR), and other privacy-focused
-                        regions.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-full">
-                      <p className="text-muted-foreground">Loading…</p>
-                    </div>
-                  )}
-                </BentoCard>
-              </div>
-            )}
-
-            {isWidgetVisible('ads-reporting') && (
-              <div className="min-h-[300px] lg:col-span-2">
-                <GoogleAdsReportingCard
-                  onSynced={onAdsReportingSynced}
-                  reporting={data?.adAnalytics?.googleAds}
-                  syncWindow={syncWindow}
-                />
-              </div>
-            )}
-            {isWidgetVisible('social-ads-reporting') && (
-              <div className="min-h-[300px] lg:col-span-2">
-                <SocialAdsReportingCard
-                  onSynced={onAdsReportingSynced}
-                  reporting={data?.adAnalytics?.socialAds}
-                  syncWindow={syncWindow}
-                />
-              </div>
-            )}
-          </div>
-        )}
+        {activeCategory === 'ads' &&
+          renderAdsAnalyticsWidgets({
+            adAnalytics: data?.adAnalytics,
+            formatCurrency,
+            isWidgetVisible,
+            onAdsReportingSynced,
+            syncWindow,
+          })}
       </div>
     );
   }
@@ -2020,24 +1746,15 @@ export function DraggableAnalyticsGrid({
             </div>
           )}
 
-          {isWidgetVisible('ads-reporting') && (
-            <div key="ads-reporting">
-              <GoogleAdsReportingCard
-                onSynced={onAdsReportingSynced}
-                reporting={data?.adAnalytics?.googleAds}
-                syncWindow={syncWindow}
-              />
-            </div>
-          )}
-          {isWidgetVisible('social-ads-reporting') && (
-            <div key="social-ads-reporting">
-              <SocialAdsReportingCard
-                onSynced={onAdsReportingSynced}
-                reporting={data?.adAnalytics?.socialAds}
-                syncWindow={syncWindow}
-              />
-            </div>
-          )}
+          {activeCategory === 'ads' &&
+            renderAdsAnalyticsWidgets({
+              adAnalytics: data?.adAnalytics,
+              editMode: true,
+              formatCurrency,
+              isWidgetVisible,
+              onAdsReportingSynced,
+              syncWindow,
+            })}
         </ResponsiveGridLayout>
       </div>
     </div>
