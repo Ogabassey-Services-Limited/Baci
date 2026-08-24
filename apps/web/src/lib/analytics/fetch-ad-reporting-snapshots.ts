@@ -60,6 +60,7 @@ async function fetchSocialAdsSpendRows({
       .gte('spend_date', startDate)
       .lte('spend_date', endDate)
       .order('spend_date', { ascending: true })
+      .order('provider', { ascending: true })
       .order('provider_customer_id', { ascending: true })
       .order('currency_code', { ascending: true })
       .range(
