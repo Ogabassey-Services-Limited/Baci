@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   expenseAccess: {
     canCreate: false,
     canEdit: false,
+    canManageIntegrations: true,
     canView: true,
     error: null as Error | null,
     isLoading: false,
@@ -16,11 +17,20 @@ const mocks = vi.hoisted(() => ({
   hasFullProAccess: vi.fn(),
   isPro: true,
   merchant: {
+    country: 'NG' as string | null,
     id: 'merchant-1',
+    user_id: 'user-1',
     plan_expires_at: null as string | null,
     plan_tier: 'free' as string | null,
     premium_features: [] as string[],
-  },
+  } as {
+    country: string | null;
+    id: string;
+    user_id: string;
+    plan_expires_at: string | null;
+    plan_tier: string | null;
+    premium_features: string[];
+  } | null,
   merchantLoading: false,
   resetOnboarding: vi.fn(),
   router: {
@@ -105,6 +115,7 @@ vi.mock('@/context/OnboardingContext', () => ({
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
     signOut: mocks.signOut,
+    user: { id: 'user-1' },
   }),
 }));
 
@@ -168,6 +179,7 @@ describe('MenuScreen', () => {
     mocks.expenseAccess = {
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: true,
       canView: true,
       error: null,
       isLoading: false,
@@ -175,7 +187,9 @@ describe('MenuScreen', () => {
     mocks.isPro = true;
     mocks.merchantLoading = false;
     mocks.merchant = {
+      country: 'NG',
       id: 'merchant-1',
+      user_id: 'user-1',
       plan_expires_at: null,
       plan_tier: 'free',
       premium_features: [],
@@ -190,6 +204,30 @@ describe('MenuScreen', () => {
     expect(screen.getByText('Business')).toBeTruthy();
     expect(screen.getByText('Support')).toBeTruthy();
     expect(screen.getByText('Account')).toBeTruthy();
+  });
+
+  it('hides identity verification while merchant context is unresolved', () => {
+    mocks.merchant = null;
+
+    render(<MenuScreen />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Identity Verification. Manage NIN, BVN, and CAC verification',
+      })
+    ).toBeNull();
+  });
+
+  it('navigates to security from the main menu', () => {
+    render(<MenuScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Security. Password and two-factor authentication',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/(admin)/security');
   });
 
   it('renders Expenses when the caller can view expenses', () => {
@@ -213,6 +251,7 @@ describe('MenuScreen', () => {
     mocks.expenseAccess = {
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: true,
       ...access,
     };
 

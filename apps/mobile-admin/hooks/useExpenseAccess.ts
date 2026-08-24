@@ -12,6 +12,7 @@ const deniedExpenseAccess: ExpenseAccess = {
   canView: false,
   canCreate: false,
   canEdit: false,
+  canManageIntegrations: false,
 };
 
 async function fetchExpenseAccess(merchantId: string): Promise<ExpenseAccess> {

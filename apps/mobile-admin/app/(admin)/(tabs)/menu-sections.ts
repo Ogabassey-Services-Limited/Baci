@@ -20,8 +20,11 @@ export interface MenuSection {
 
 interface CreateMenuSectionsOptions {
   canCreateExpenses: boolean;
+  canManageIntegrations: boolean;
   canViewExpenses: boolean;
   destructiveColor: string;
+  isMerchantOwner: boolean;
+  isPaystackSettlementCountry: boolean;
   onFeaturePress: (
     feature: MobileFeatureGate,
     label: string,
@@ -34,8 +37,11 @@ interface CreateMenuSectionsOptions {
 
 export function createMenuSections({
   canCreateExpenses,
+  canManageIntegrations,
   canViewExpenses,
   destructiveColor,
+  isMerchantOwner,
+  isPaystackSettlementCountry,
   onFeaturePress,
   onLogout,
   onNavigate,
@@ -47,6 +53,31 @@ export function createMenuSections({
     canCreateExpenses,
     () => onNavigate('/expenses/new')
   );
+  const payoutSettingsItem =
+    isPaystackSettlementCountry && canManageIntegrations
+      ? {
+          id: 'payout-settings',
+          icon: 'cash-outline' as IoniconsIconName,
+          label: 'Payout Settings',
+          description: 'Change the bank account used for payouts',
+          onPress: () => onNavigate('/payout-settings'),
+        }
+      : null;
+  const emailDomainItem = isMerchantOwner
+    ? {
+        id: 'email-domain',
+        icon: 'mail-outline' as IoniconsIconName,
+        label: 'Email Domain',
+        description: 'Send store emails from your own domain',
+        badge: proBadge('custom_email_domain'),
+        onPress: () =>
+          onFeaturePress(
+            'custom_email_domain',
+            'Email Domain',
+            '/email-domain-settings'
+          ),
+      }
+    : null;
 
   return [
     {
@@ -93,6 +124,7 @@ export function createMenuSections({
           description: 'Configure payment options',
           onPress: () => onNavigate('/payment-methods'),
         },
+        ...(payoutSettingsItem ? [payoutSettingsItem] : []),
         {
           id: 'staff-accounts',
           icon: 'wallet-outline',
@@ -154,6 +186,7 @@ export function createMenuSections({
               '/analytics-config'
             ),
         },
+        ...(emailDomainItem ? [emailDomainItem] : []),
         ...(expenseMenuItem ? [expenseMenuItem] : []),
         {
           id: 'discounts',
@@ -217,6 +250,24 @@ export function createMenuSections({
           label: 'Profile',
           description: 'Your account details',
           onPress: () => onNavigate('/(admin)/profile'),
+        },
+        ...(isPaystackSettlementCountry
+          ? [
+              {
+                id: 'kyc',
+                icon: 'shield-checkmark-outline' as IoniconsIconName,
+                label: 'Identity Verification',
+                description: 'Manage NIN, BVN, and CAC verification',
+                onPress: () => onNavigate('/kyc'),
+              },
+            ]
+          : []),
+        {
+          id: 'security',
+          icon: 'lock-closed-outline',
+          label: 'Security',
+          description: 'Password and two-factor authentication',
+          onPress: () => onNavigate('/(admin)/security'),
         },
         {
           id: 'notifications',

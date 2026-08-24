@@ -93,10 +93,16 @@ describe('useExpenseAccess', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('get_user_access');
     expect(
       queryClient.getQueryData(['user-access', 'user-1', merchantId])
-    ).toEqual({ canCreate: true, canEdit: true, canView: true });
+    ).toEqual({
+      canCreate: true,
+      canEdit: true,
+      canManageIntegrations: true,
+      canView: true,
+    });
     expect(result.current).toMatchObject({
       canCreate: true,
       canEdit: true,
+      canManageIntegrations: true,
       canView: true,
       error: null,
     });
@@ -112,6 +118,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: false,
       canView: false,
       isLoading: true,
     });
@@ -128,6 +135,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: false,
       canView: false,
       isLoading: true,
     });
@@ -162,6 +170,7 @@ describe('useExpenseAccess', () => {
       expect(result.current).toMatchObject({
         canCreate: true,
         canEdit: true,
+        canManageIntegrations: true,
         canView: true,
         error: null,
         isLoading: false,
@@ -176,6 +185,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: true,
       canEdit: true,
+      canManageIntegrations: true,
       canView: true,
       isLoading: false,
       isRefreshing: false,
@@ -200,6 +210,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: false,
       canView: false,
     });
   });
@@ -220,6 +231,7 @@ describe('useExpenseAccess', () => {
       expect(result.current).toMatchObject({
         canCreate: false,
         canEdit: false,
+        canManageIntegrations: false,
         canView: false,
       });
       unmount();
@@ -241,6 +253,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: false,
       canView: false,
       error: null,
     });
@@ -261,6 +274,7 @@ describe('useExpenseAccess', () => {
     expect(result.current).toMatchObject({
       canCreate: false,
       canEdit: false,
+      canManageIntegrations: false,
       canView: false,
       error: null,
     });
