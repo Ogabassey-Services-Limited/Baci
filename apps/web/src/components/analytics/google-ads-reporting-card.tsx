@@ -148,9 +148,15 @@ export function GoogleAdsReportingCard({
               {reporting?.accountName
                 ? `${reporting.accountName} is connected.`
                 : 'Google Ads is connected.'}{' '}
-              Metrics will appear after the first reporting sync.
+              Metrics will appear after the first reporting sync. Select
+              another accessible account or retry the sync if needed.
             </p>
           </div>
+          <GoogleAdsAccountPicker
+            merchantId={merchant?.id}
+            onSynced={onSynced}
+            syncWindow={syncWindow}
+          />
           <GoogleAdsConnectButton
             label="Reconnect Google Ads"
             merchantId={merchant?.id}

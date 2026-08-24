@@ -113,6 +113,28 @@ describe('GoogleAdsReportingCard', () => {
     expect(screen.queryByText('Spend')).not.toBeInTheDocument();
   });
 
+  it('keeps account selection and sync controls available before the first sync', () => {
+    render(
+      <GoogleAdsReportingCard
+        reporting={{
+          accountName: 'Baci reporting account',
+          connectionStatus: 'connected',
+          dataStatus: 'ready',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByText(/metrics will appear after the first reporting sync/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /reconnect google ads/i })
+    ).toBeInTheDocument();
+  });
+
   it('forwards the sync callback after an account selection completes', async () => {
     fetchMock.mockResolvedValue(
       new Response(
