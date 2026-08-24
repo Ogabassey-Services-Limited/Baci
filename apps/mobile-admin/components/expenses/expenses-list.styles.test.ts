@@ -50,4 +50,20 @@ describe('expenses-list styles', () => {
       gap: SPACING.xs,
     });
   });
+
+  it('keeps the row edit shortcut separate and touch friendly', () => {
+    expect(styles.expenseMain).toMatchObject({
+      alignItems: 'center',
+      flex: 1,
+      flexDirection: 'row',
+      minHeight: SPACING.touchTarget,
+    });
+    expect(styles.editButton).toMatchObject({
+      alignItems: 'center',
+      borderRadius: RADIUS.full,
+      borderWidth: 1,
+      flexDirection: 'row',
+      minHeight: SPACING.touchTarget,
+    });
+  });
 });

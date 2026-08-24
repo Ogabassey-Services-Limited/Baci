@@ -33,7 +33,8 @@ import { ExpenseDisplaySchema } from '@/schemas/expense';
 const EXPENSE_LIST_COLUMNS =
   'id, amount, category, description, date, merchant_id, receipt_url, branch_id, group_id, vendor_name, payment_method, reference, receipt_storage_path, created_by_user_id, updated_by_user_id, updated_at';
 
-export function ExpenseListContent({ canCreate }: { canCreate: boolean }) {
+type Props = { canCreate: boolean; canEdit: boolean };
+export function ExpenseListContent({ canCreate, canEdit }: Props) {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const { merchant } = useMerchant();
@@ -85,7 +86,6 @@ export function ExpenseListContent({ canCreate }: { canCreate: boolean }) {
       } else if (normalizedFilters.groupId !== 'all') {
         query = query.eq('group_id', normalizedFilters.groupId);
       }
-
       const { data, error } = await query
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
@@ -104,7 +104,6 @@ export function ExpenseListContent({ canCreate }: { canCreate: boolean }) {
   const { data: groupedExpenses, stickyHeaderIndices } = groupExpensesByMonth(
     expenseQuery.data ?? []
   );
-
   return (
     <>
       <Stack.Screen
@@ -206,7 +205,11 @@ export function ExpenseListContent({ canCreate }: { canCreate: boolean }) {
                   </View>
                 </View>
               ) : (
-                <ExpenseListItem item={item.data} merchant={merchant} />
+                <ExpenseListItem
+                  canEdit={canEdit}
+                  item={item.data}
+                  merchant={merchant}
+                />
               )
             }
             keyExtractor={(item) => item.key}

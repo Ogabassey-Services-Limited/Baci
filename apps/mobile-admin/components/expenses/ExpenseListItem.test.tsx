@@ -96,7 +96,11 @@ describe('ExpenseListItem', () => {
 
   it('opens the expense detail screen when pressed', () => {
     render(
-      <ExpenseListItem item={expense()} merchant={{ payout_currency: 'NGN' }} />
+      <ExpenseListItem
+        canEdit
+        item={expense()}
+        merchant={{ payout_currency: 'NGN' }}
+      />
     );
 
     fireEvent.click(
@@ -106,6 +110,71 @@ describe('ExpenseListItem', () => {
     );
 
     expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1');
+  });
+
+  it('exposes an Edit shortcut that routes directly to the expense edit screen', () => {
+    render(<ExpenseListItem canEdit item={expense()} />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1/edit');
+    expect(
+      screen.getByRole('button', {
+        name: 'Open expense Inventory: Office internet',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('hides the Edit shortcut for view-only users while keeping detail navigation', () => {
+    render(<ExpenseListItem canEdit={false} item={expense()} />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
+      })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Open expense Inventory: Office internet',
+      })
+    );
+
+    expect(mocks.router.push).toHaveBeenCalledWith('/expenses/expense-1');
+  });
+
+  it('uses a category-only Edit label when the expense has no description', () => {
+    render(<ExpenseListItem canEdit item={expense({ description: null })} />);
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory (May 5, 2026, record expense-1)',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('gives duplicate-looking editable rows distinct, user-comprehensible Edit labels', () => {
+    render(
+      <>
+        <ExpenseListItem canEdit item={expense({ id: 'expense-1' })} />
+        <ExpenseListItem canEdit item={expense({ id: 'expense-2' })} />
+      </>
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-2)',
+      })
+    ).toBeInTheDocument();
   });
 
   it('uses accessible labels with and without descriptions', () => {

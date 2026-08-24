@@ -5,7 +5,7 @@ import { useExpenseAccess } from '@/hooks/useExpenseAccess';
 import { useTheme } from '@/hooks/useTheme';
 
 export default function ExpensesScreen() {
-  const { canCreate, canView, error, isLoading } = useExpenseAccess();
+  const { canCreate, canEdit, canView, error, isLoading } = useExpenseAccess();
   const { colors } = useTheme();
 
   if (isLoading) {
@@ -26,5 +26,5 @@ export default function ExpensesScreen() {
     return <ExpenseStatusShell colors={colors} status="denied" />;
   }
 
-  return <ExpenseListContent canCreate={canCreate} />;
+  return <ExpenseListContent canCreate={canCreate} canEdit={canEdit} />;
 }
