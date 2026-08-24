@@ -15855,6 +15855,22 @@ export type Database = {
         Args: { p_code_set_id: string; p_user_id: string };
         Returns: boolean;
       };
+      refresh_paystack_order_payable_amount: {
+        Args: { p_order_id: string; p_payable_amount: number };
+        Returns: boolean;
+      };
+      reserve_paystack_order_payment_account: {
+        Args: {
+          p_account_name: string;
+          p_account_number: string;
+          p_assigned_at: string;
+          p_bank_name: string;
+          p_expires_at: string;
+          p_order_id: string;
+          p_payable_amount: number;
+        };
+        Returns: string;
+      };
       advance_petrock_eligibility_evidence: {
         Args: {
           p_check_kind: string;

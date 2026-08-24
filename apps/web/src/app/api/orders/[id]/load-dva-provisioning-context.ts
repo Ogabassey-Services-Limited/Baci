@@ -81,11 +81,13 @@ export async function loadDvaProvisioningContext({
   const amountPaid = Math.max(ledgerAmountPaid, Number(order.amount_paid) || 0);
   const payableAmount = Math.max(Number(order.total) - amountPaid, 0);
 
-  const { error: refreshError } = await supabase
-    .from('order_payment_accounts')
-    .update({ payable_amount: payableAmount })
-    .eq('order_id', orderId)
-    .eq('provider', 'paystack');
+  const { error: refreshError } = await supabase.rpc(
+    'refresh_paystack_order_payable_amount',
+    {
+      p_order_id: orderId,
+      p_payable_amount: payableAmount,
+    }
+  );
   if (refreshError) {
     return {
       code: 'PAYMENT_ACCOUNT_REFRESH_FAILED',

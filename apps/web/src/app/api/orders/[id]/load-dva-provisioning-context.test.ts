@@ -24,7 +24,7 @@ function client({
   const transactionsQuery = query(transactions);
   const paymentAccountQuery = query(null);
   return {
-    accountQuery: paymentAccountQuery,
+    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     from: vi.fn((table: string) => {
       if (table === 'merchant_feature_settings') return settingsQuery;
       if (table === 'transactions') return transactionsQuery;
@@ -66,9 +66,10 @@ describe('loadDvaProvisioningContext', () => {
     });
 
     expect(result).toEqual({ ok: true, payableAmount: 5_000 });
-    expect(supabase.accountQuery.update).toHaveBeenCalledWith({
-      payable_amount: 5_000,
-    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'refresh_paystack_order_payable_amount',
+      { p_order_id: 'order-1', p_payable_amount: 5_000 }
+    );
   });
 
   it('rejects provisioning when reconciled payments cover the order', async () => {

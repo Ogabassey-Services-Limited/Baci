@@ -5,7 +5,6 @@ import {
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
-import { hasActivePaystackOrderDvaAlias } from '@/lib/payments/paystack-dva-order-alias';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -200,13 +199,21 @@ export async function POST(
       );
     }
 
-    if (
-      await hasActivePaystackOrderDvaAlias({
-        accountNumber: dvaResult.data.account_number,
-        asOf: new Date(),
-        supabase,
-      })
-    ) {
+    const assignment = generateDvaHelpers.createAssignmentWindow();
+    const { data: reservation, error: insertError } = await supabase.rpc(
+      'reserve_paystack_order_payment_account',
+      {
+        p_account_name: dvaResult.data.account_name,
+        p_account_number: dvaResult.data.account_number,
+        p_assigned_at: assignment.assignedAt,
+        p_bank_name: dvaResult.data.bank_name,
+        p_expires_at: assignment.expiresAt,
+        p_order_id: orderId,
+        p_payable_amount: provisioningContext.payableAmount,
+      }
+    );
+
+    if (reservation === 'conflict') {
       return NextResponse.json(
         {
           code: 'PAYSTACK_DVA_IN_USE',
@@ -216,20 +223,6 @@ export async function POST(
         { status: 409 }
       );
     }
-
-    const assignment = generateDvaHelpers.createAssignmentWindow();
-    const { error: insertError } = await supabase
-      .from('order_payment_accounts')
-      .insert({
-        order_id: orderId,
-        account_number: dvaResult.data.account_number,
-        bank_name: dvaResult.data.bank_name,
-        account_name: dvaResult.data.account_name,
-        provider: 'paystack',
-        payable_amount: provisioningContext.payableAmount,
-        assigned_at: assignment.assignedAt,
-        expires_at: assignment.expiresAt,
-      });
 
     if (insertError) {
       if (generateDvaHelpers.isUniqueViolation(insertError)) {
@@ -282,7 +275,7 @@ export async function POST(
         bank_name: dvaResult.data.bank_name,
         account_name: dvaResult.data.account_name,
       },
-      existing: false,
+      existing: reservation === 'existing',
     });
   } catch (error) {
     const errorMessage =

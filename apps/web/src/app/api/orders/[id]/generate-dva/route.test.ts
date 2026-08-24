@@ -9,7 +9,6 @@ const {
   mockAuthenticateApiRequest,
   mockGetMerchantIdForApiUser,
   mockGeneratePaymentAccount,
-  mockHasActivePaystackOrderDvaAlias,
   mockFrom,
   mockRpc,
   mockSupabaseClient,
@@ -20,7 +19,6 @@ const {
     mockAuthenticateApiRequest: vi.fn(),
     mockGetMerchantIdForApiUser: vi.fn(),
     mockGeneratePaymentAccount: vi.fn(),
-    mockHasActivePaystackOrderDvaAlias: vi.fn(),
     mockFrom,
     mockRpc,
     mockSupabaseClient: {
@@ -38,10 +36,6 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
-}));
-
-vi.mock('@/lib/payments/paystack-dva-order-alias', () => ({
-  hasActivePaystackOrderDvaAlias: mockHasActivePaystackOrderDvaAlias,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -163,8 +157,13 @@ function useOrderQueries({
 describe('POST /api/orders/[id]/generate-dva', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHasActivePaystackOrderDvaAlias.mockResolvedValue(false);
-    mockRpc.mockResolvedValue({ error: null });
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data:
+          name === 'reserve_paystack_order_payment_account' ? 'inserted' : true,
+        error: null,
+      })
+    );
   });
 
   it('returns 401 when not authenticated', async () => {
@@ -278,7 +277,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
 
   it('returns existing DVA when one already exists', async () => {
     authenticateMerchant();
-    const paymentAccountQuery = useOrderQueries({
+    useOrderQueries({
       paymentAccount: {
         account_number: '1234567890',
         bank_name: 'Wema Bank',
@@ -292,9 +291,10 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.success).toBe(true);
     expect(body.existing).toBe(true);
     expect(body.virtualAccount.account_number).toBe('1234567890');
-    expect(paymentAccountQuery.update).toHaveBeenCalledWith({
-      payable_amount: 5000,
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'refresh_paystack_order_payable_amount',
+      { p_order_id: ORDER_ID, p_payable_amount: 5000 }
+    );
   });
 
   it('returns a legacy provider account instead of creating a second row', async () => {
@@ -381,12 +381,19 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       orderId: ORDER_ID,
     });
 
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith(
+      'reserve_paystack_order_payment_account',
+      expect.objectContaining({
+        p_account_number: '9876543210',
+        p_order_id: ORDER_ID,
+        p_payable_amount: 5000,
+      })
+    );
   });
 
   it('persists the payable amount from reconciled transactions and wallet use', async () => {
     authenticateMerchant();
-    const paymentAccountQuery = useOrderQueries({
+    useOrderQueries({
       order: {
         ...unpaidOrder,
         amount_paid: '500',
@@ -403,8 +410,9 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     const response = await POST(createRequest(), createParams());
 
     expect(response.status).toBe(200);
-    expect(paymentAccountQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ payable_amount: 5000 })
+    expect(mockRpc).toHaveBeenCalledWith(
+      'reserve_paystack_order_payment_account',
+      expect.objectContaining({ p_payable_amount: 5000 })
     );
   });
 
@@ -439,9 +447,15 @@ describe('POST /api/orders/[id]/generate-dva', () => {
 
   it('does not persist a second active alias for the same Paystack account', async () => {
     authenticateMerchant();
-    const paymentAccountQuery = useOrderQueries();
+    useOrderQueries();
     mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
-    mockHasActivePaystackOrderDvaAlias.mockResolvedValue(true);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data:
+          name === 'reserve_paystack_order_payment_account' ? 'conflict' : true,
+        error: null,
+      })
+    );
 
     const response = await POST(createRequest(), createParams());
 
@@ -449,15 +463,23 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(await response.json()).toMatchObject({
       code: 'PAYSTACK_DVA_IN_USE',
     });
-    expect(paymentAccountQuery.insert).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith(
+      'reserve_paystack_order_payment_account',
+      expect.any(Object)
+    );
   });
 
   it('returns 500 when the automatic confirmation account cannot be persisted', async () => {
     authenticateMerchant();
-    useOrderQueries({
-      writeError: { message: 'insert failed' },
-    });
+    useOrderQueries();
     mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(
+        name === 'reserve_paystack_order_payment_account'
+          ? { data: null, error: { message: 'insert failed' } }
+          : { data: true, error: null }
+      )
+    );
 
     const response = await POST(createRequest(), createParams());
     const body = await response.json();
@@ -469,24 +491,17 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     });
   });
 
-  it('re-reads the winner when a concurrent insert wins the unique constraint', async () => {
+  it('returns the atomic reservation winner for concurrent same-order requests', async () => {
     authenticateMerchant();
-    const paymentAccountQuery = useOrderQueries({
-      writeError: { code: '23505', message: 'duplicate key value' },
-    });
-    const racedAccount = {
-      account_number: '9876543210',
-      bank_name: 'Wema Bank',
-      account_name: 'Ogabassey/John Doe',
-      provider: 'paystack',
-      assigned_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    };
-    paymentAccountQuery.maybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: racedAccount, error: null });
+    useOrderQueries();
     mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data:
+          name === 'reserve_paystack_order_payment_account' ? 'existing' : true,
+        error: null,
+      })
+    );
 
     const response = await POST(createRequest(), createParams());
     const body = await response.json();
