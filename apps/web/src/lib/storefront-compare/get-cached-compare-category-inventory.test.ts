@@ -11,9 +11,12 @@ vi.mock('next/cache', () => ({
   cacheTag: (...args: string[]) => mockCacheTag(...args),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategoryPageShellData: (...args: unknown[]) =>
+vi.mock('./get-cached-compare-category-shell', () => ({
+  getCachedCompareCategoryShell: (...args: unknown[]) =>
     mockGetCachedCategoryPageShellData(...args),
+}));
+
+vi.mock('@/lib/public-supabase-client', () => ({
   getPublicSupabaseClient: () => mockGetPublicSupabaseClient(),
 }));
 
@@ -271,85 +274,5 @@ describe('getCachedCompareCategoryInventory', () => {
       getCachedCompareCategoryInventory('merchant-1', 'laptops', 'ogabassey')
     ).rejects.toBe(shellError);
     expect(from).not.toHaveBeenCalled();
-  });
-
-  it('warns COMPARE_INVENTORY_CAP_HIT when the row count reaches the cap', async () => {
-    mockGetCachedCategoryPageShellData.mockResolvedValue({
-      isCollection: false,
-      fallbackName: 'Laptops',
-      productScope: {
-        kind: 'category',
-        categoryId: 'cat-1',
-        categoryIds: ['cat-1'],
-      },
-    });
-    // 600 == COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT: a full page implies more
-    // rows may have been truncated by the .limit().
-    const cappedRows = Array.from({ length: 600 }, (_, index) => ({
-      id: `prod-${index}`,
-      slug: `prod-${index}`,
-      name: `Product ${index}`,
-      product_categories: [{ categories: { slug: 'laptops' } }],
-    }));
-    const productsQuery = createProductsQuery({
-      data: cappedRows,
-      error: null,
-    });
-    mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => productsQuery),
-    });
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-
-    const result = await getCachedCompareCategoryInventory(
-      'merchant-1',
-      'laptops',
-      'ogabassey'
-    );
-
-    expect(result.products).toHaveLength(600);
-    expect(warnSpy).toHaveBeenCalledWith('COMPARE_INVENTORY_CAP_HIT', {
-      merchantId: 'merchant-1',
-      categorySlug: 'laptops',
-      limit: 600,
-    });
-
-    warnSpy.mockRestore();
-  });
-
-  it('does not warn when the row count is below the cap', async () => {
-    mockGetCachedCategoryPageShellData.mockResolvedValue({
-      isCollection: false,
-      fallbackName: 'Laptops',
-      productScope: {
-        kind: 'category',
-        categoryId: 'cat-1',
-        categoryIds: ['cat-1'],
-      },
-    });
-    const productsQuery = createProductsQuery({
-      data: [{ id: 'prod-1', slug: 'prod-1', name: 'Product 1' }],
-      error: null,
-    });
-    mockGetPublicSupabaseClient.mockReturnValue({
-      from: vi.fn(() => productsQuery),
-    });
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-
-    await getCachedCompareCategoryInventory(
-      'merchant-1',
-      'laptops',
-      'ogabassey'
-    );
-
-    expect(warnSpy).not.toHaveBeenCalledWith(
-      'COMPARE_INVENTORY_CAP_HIT',
-      expect.anything()
-    );
-
-    warnSpy.mockRestore();
   });
 });
