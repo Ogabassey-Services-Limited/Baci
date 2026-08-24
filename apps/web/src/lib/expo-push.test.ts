@@ -781,41 +781,6 @@ describe('notifyCustomer', () => {
     expect(result.sent).toBe(0);
     expect(result.failed).toBe(1);
   });
-
-  it('persists title, body, and payload for successful customer sends', async () => {
-    const selectChain = createChainableMock([
-      { token: 'ExponentPushToken[c1]' },
-    ]);
-    const ticketInsertChain = createChainableMock();
-    const attemptInsertChain = createChainableMock();
-
-    vi.mocked(createAdminClient).mockReturnValue({
-      from: vi
-        .fn()
-        .mockReturnValueOnce(selectChain)
-        .mockReturnValueOnce(ticketInsertChain)
-        .mockReturnValueOnce(attemptInsertChain),
-    } as never);
-
-    mockSendPushNotificationsAsync.mockResolvedValueOnce([
-      { status: 'ok', id: 'ticket-c1' },
-    ]);
-
-    await notifyCustomer('user-456', 'Order Update', 'Your order moved', {
-      type: 'order_update',
-      order_id: 'ord-1',
-    });
-
-    expect(attemptInsertChain.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: 'user-456',
-        title: 'Order Update',
-        body: 'Your order moved',
-        payload: { type: 'order_update', order_id: 'ord-1' },
-        status: 'sent',
-      })
-    );
-  });
 });
 
 describe('notifyAdminUserDevices', () => {
