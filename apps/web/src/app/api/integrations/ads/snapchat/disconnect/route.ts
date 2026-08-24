@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -31,12 +32,14 @@ async function disconnect(request: NextRequest) {
     'delete_snapchat_ads_connection_and_spend',
     { p_merchant_id: access.merchantId }
   );
-  return result.error || result.data !== true
-    ? NextResponse.json(
-        { error: 'Failed to disconnect Snapchat Ads' },
-        { status: 500 }
-      )
-    : NextResponse.json({ connected: false });
+  if (result.error || result.data !== true) {
+    return NextResponse.json(
+      { error: 'Failed to disconnect Snapchat Ads' },
+      { status: 500 }
+    );
+  }
+  invalidateAdsAnalyticsCache(access.merchantId);
+  return NextResponse.json({ connected: false });
 }
 export function DELETE(request: NextRequest) {
   return disconnect(request);

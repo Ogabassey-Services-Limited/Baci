@@ -9,6 +9,7 @@ const permission = vi.fn();
 const config = vi.fn();
 const exchange = vi.fn();
 const resolveMerchant = vi.fn();
+const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -16,6 +17,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/ads/merchant-context', () => ({
   resolveAdsMerchantAccess: (...args: unknown[]) => resolveMerchant(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
 vi.mock('@/lib/ads/snapchat/config', () => ({
   getSnapchatAdsConfig: () => config(),
@@ -159,6 +163,7 @@ describe('Snapchat Ads callback route', () => {
     expect(JSON.stringify(rpc.mock.calls)).not.toContain(
       'SNAP_CALLBACK_ACCESS_SENTINEL'
     );
+    expect(invalidate).toHaveBeenCalledWith('merchant');
     expect(log).not.toHaveBeenCalled();
     log.mockRestore();
   });

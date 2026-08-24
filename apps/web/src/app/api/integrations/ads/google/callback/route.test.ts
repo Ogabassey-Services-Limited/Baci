@@ -12,6 +12,7 @@ const mockEncrypt = vi.fn();
 const mockRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
 const mockResolveMerchant = vi.fn();
+const mockInvalidate = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -21,6 +22,9 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/ads/merchant-context', () => ({
   resolveAdsMerchantAccess: (...args: unknown[]) =>
     mockResolveMerchant(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => mockInvalidate(...args),
 }));
 vi.mock('@/lib/google-ads/config', () => ({
   GOOGLE_ADS_CONFIG_MISSING: 'Google Ads integration is not configured',
@@ -159,6 +163,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
         p_refresh_token_ciphertext: 'encrypted-secret',
       })
     );
+    expect(mockInvalidate).toHaveBeenCalledWith('merchant-1');
     expect(JSON.stringify(await response.text())).not.toContain('access-token');
   });
 

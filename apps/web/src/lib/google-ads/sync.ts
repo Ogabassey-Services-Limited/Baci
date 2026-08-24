@@ -173,8 +173,12 @@ export async function syncGoogleAdsSpendForMerchant(
   }
 
   const { data: synced, error: syncedError } = await input.supabase.rpc(
-    'mark_google_ads_connection_synced',
-    { p_merchant_id: input.merchantId }
+    'mark_merchant_ads_connection_synced_if_current',
+    {
+      p_merchant_id: input.merchantId,
+      p_provider: 'google_ads',
+      p_provider_customer_id: connection.provider_customer_id,
+    }
   );
   if (syncedError || synced !== true) {
     throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');

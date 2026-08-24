@@ -95,9 +95,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         ],
       })
     );
-    expect(mockRpc).toHaveBeenCalledWith('mark_google_ads_connection_synced', {
-      p_merchant_id: 'merchant-1',
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: 'merchant-1',
+        p_provider: 'google_ads',
+        p_provider_customer_id: '1234567890',
+      }
+    );
   });
 
   it('rejects a sync date range beyond the bounded window before any provider read', async () => {
@@ -207,8 +212,13 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       p_rows: [],
       p_start_date: '2026-08-20',
     });
-    expect(mockRpc).toHaveBeenCalledWith('mark_google_ads_connection_synced', {
-      p_merchant_id: 'merchant-1',
-    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: 'merchant-1',
+        p_provider: 'google_ads',
+        p_provider_customer_id: '1234567890',
+      }
+    );
   });
 });

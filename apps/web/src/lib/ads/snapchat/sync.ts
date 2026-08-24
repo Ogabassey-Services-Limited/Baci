@@ -195,8 +195,12 @@ export async function syncSnapchatAdsSpendForMerchant(
       if (written.error) throw new SnapchatAdsSyncError('SPEND_WRITE_FAILED');
       const rowsWritten = written.data ?? 0;
       const marked = await input.supabase.rpc(
-        'mark_merchant_ads_connection_synced',
-        { p_merchant_id: input.merchantId, p_provider: SNAPCHAT_ADS_PROVIDER }
+        'mark_merchant_ads_connection_synced_if_current',
+        {
+          p_merchant_id: input.merchantId,
+          p_provider: SNAPCHAT_ADS_PROVIDER,
+          p_provider_customer_id: account.accountId,
+        }
       );
       if (marked.error || marked.data !== true)
         throw new SnapchatAdsSyncError('SYNC_STATUS_UPDATE_FAILED');

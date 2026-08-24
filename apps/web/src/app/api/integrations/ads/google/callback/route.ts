@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { getGoogleAdsOAuthConfig } from '@/lib/google-ads/config';
@@ -174,5 +175,6 @@ export async function GET(request: NextRequest) {
     return callbackRedirect('error', 'connection_write_failed');
   }
 
+  invalidateAdsAnalyticsCache(access.merchantId);
   return callbackRedirect('connected');
 }

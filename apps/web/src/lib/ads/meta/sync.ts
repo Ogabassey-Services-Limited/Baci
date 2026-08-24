@@ -271,8 +271,12 @@ async function syncSelectedMetaAdsAccount(input: {
       });
     if (spendWriteError) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
     const { data: synced, error: syncedError } = await input.supabase.rpc(
-      'mark_merchant_ads_connection_synced',
-      { p_merchant_id: input.merchantId, p_provider: META_ADS_PROVIDER }
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: input.merchantId,
+        p_provider: META_ADS_PROVIDER,
+        p_provider_customer_id: account.accountId,
+      }
     );
     if (syncedError || synced !== true)
       throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');

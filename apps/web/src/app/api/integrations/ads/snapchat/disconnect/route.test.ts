@@ -5,6 +5,7 @@ const auth = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const csrf = vi.fn();
+const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -12,6 +13,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
 
 import { DELETE } from './route';
@@ -57,6 +61,7 @@ describe('Snapchat Ads disconnect route', () => {
       'delete_snapchat_ads_connection_and_spend',
       { p_merchant_id: 'merchant' }
     );
+    expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 
   it('rejects invalid CSRF before permission or RPC work', async () => {

@@ -210,8 +210,12 @@ export async function syncTikTokAdsSpendForMerchant(
       if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
       const rowsWritten = written.data ?? 0;
       const marked = await input.supabase.rpc(
-        'mark_merchant_ads_connection_synced',
-        { p_merchant_id: input.merchantId, p_provider: TIKTOK_ADS_PROVIDER }
+        'mark_merchant_ads_connection_synced_if_current',
+        {
+          p_merchant_id: input.merchantId,
+          p_provider: TIKTOK_ADS_PROVIDER,
+          p_provider_customer_id: account.accountId,
+        }
       );
       if (marked.error || marked.data !== true)
         throw new TikTokAdsSyncError('SYNC_STATUS_UPDATE_FAILED');

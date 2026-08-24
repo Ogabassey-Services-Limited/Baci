@@ -90,6 +90,14 @@ describe('TikTok Ads sync', () => {
         ]),
       })
     );
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: 'merchant',
+        p_provider: 'tiktok_ads',
+        p_provider_customer_id: 'opaque-001',
+      }
+    );
   });
 
   it('replaces the TikTok window even when the provider returns no activity', async () => {

@@ -94,6 +94,14 @@ describe('Snapchat Ads sync', () => {
         ],
       })
     );
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: 'merchant',
+        p_provider: 'snapchat_ads',
+        p_provider_customer_id: 'ad-1',
+      }
+    );
   });
 
   it('replaces the Snapchat window even when the provider returns no activity', async () => {

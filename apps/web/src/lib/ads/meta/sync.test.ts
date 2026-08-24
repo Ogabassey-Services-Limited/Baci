@@ -91,6 +91,14 @@ describe('Meta Ads sync', () => {
         ],
       })
     );
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_synced_if_current',
+      {
+        p_merchant_id: 'merchant',
+        p_provider: 'meta_ads',
+        p_provider_customer_id: 'act_12',
+      }
+    );
   });
 
   it('replaces the Meta window even when the provider returns no activity', async () => {

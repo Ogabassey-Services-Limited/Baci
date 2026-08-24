@@ -8,6 +8,10 @@ const permission = vi.fn();
 const verifyState = vi.fn();
 const rpc = vi.fn();
 const resolveMerchant = vi.fn();
+const exchangeCode = vi.hoisted(() => vi.fn());
+const exchangeLongLived = vi.hoisted(() => vi.fn());
+const validateGrant = vi.hoisted(() => vi.fn());
+const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -32,6 +36,20 @@ vi.mock('@/lib/ads/meta/config', () => ({
 }));
 vi.mock('@/lib/ads/state', () => ({
   verifyAdsOAuthState: (...args: unknown[]) => verifyState(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
+}));
+vi.mock('@/lib/ads/meta/oauth', () => ({
+  MetaAdsOAuthError: class MetaAdsOAuthError extends Error {},
+  exchangeMetaAdsAuthorizationCode: (...args: unknown[]) =>
+    exchangeCode(...args),
+  exchangeMetaAdsLongLivedToken: (...args: unknown[]) =>
+    exchangeLongLived(...args),
+}));
+vi.mock('@/lib/ads/meta/provider', () => ({
+  MetaAdsProviderError: class MetaAdsProviderError extends Error {},
+  validateMetaAdsGrant: (...args: unknown[]) => validateGrant(...args),
 }));
 
 import { GET } from './route';
@@ -130,5 +148,41 @@ describe('Meta Ads callback route', () => {
         p_merchant_id: '550e8400-e29b-41d4-a716-446655440000',
       })
     );
+  });
+
+  it('invalidates the merchant analytics snapshots after a successful connection', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({
+      merchantId: 'merchant',
+      nonce: 'n'.repeat(24),
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === 'consume_merchant_ads_oauth_state_nonce') {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+    exchangeCode.mockResolvedValue({ access_token: 'short-lived' });
+    exchangeLongLived.mockResolvedValue({
+      access_token: 'long-lived',
+      expires_in: 3600,
+    });
+    validateGrant.mockResolvedValue({ providerUserId: 'meta-user' });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/callback?state=state&code=code',
+        { headers: { cookie: 'baci_meta_ads_oauth_state=state' } }
+      )
+    );
+
+    expect(response.headers.get('location')).toContain('meta_ads=connected');
+    expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 });

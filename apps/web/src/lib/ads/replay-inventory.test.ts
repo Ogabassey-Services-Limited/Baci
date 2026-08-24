@@ -59,6 +59,10 @@ const analyticsSpendRlsMigrationName =
   '20260824100000_require_analytics_permission_for_ad_spend.sql' as const;
 const analyticsSpendRlsMigrationHash =
   '822bf6c91081f0b36cd0568d85cd5f500bb91182d36d5fb9b35ba72e3491cde7' as const;
+const accountAwareSyncMarkerMigrationName =
+  '20260824110000_account_aware_ads_sync_marker.sql' as const;
+const accountAwareSyncMarkerMigrationHash =
+  '7b693e30176a0c500614d933161ba7e6dd03ec0468e250a3a99ac7d618c7b7b3' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -324,6 +328,23 @@ describe('provider-neutral ads migration replay inventory', () => {
     );
     expect(pendingSources).toContain(analyticsSpendRlsMigrationName);
     expect(pendingSources).toContain(analyticsSpendRlsMigrationHash);
+    expect(
+      createHash('sha256')
+        .update(
+          readFileSync(
+            path.resolve(
+              process.cwd(),
+              `../../supabase/migrations/${accountAwareSyncMarkerMigrationName}`
+            )
+          )
+        )
+        .digest('hex')
+    ).toBe(accountAwareSyncMarkerMigrationHash);
+    expect(historySources).toContain(
+      `${accountAwareSyncMarkerMigrationHash} ${accountAwareSyncMarkerMigrationName}`
+    );
+    expect(pendingSources).toContain(accountAwareSyncMarkerMigrationName);
+    expect(pendingSources).toContain(accountAwareSyncMarkerMigrationHash);
   });
 
   it('ships and orders the Google baseline before provider-neutral storage', () => {

@@ -7,6 +7,7 @@ const mockHasPermission = vi.fn();
 const mockCsrf = vi.fn();
 const mockRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockInvalidate = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -15,6 +16,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCsrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => mockInvalidate(...args),
 }));
 
 import { DELETE, POST } from './route';
@@ -82,5 +86,6 @@ describe('Google Ads disconnect route', () => {
     expect(mockRpc).toHaveBeenCalledWith('delete_google_ads_connection', {
       p_merchant_id: 'merchant-1',
     });
+    expect(mockInvalidate).toHaveBeenCalledWith('merchant-1');
   });
 });

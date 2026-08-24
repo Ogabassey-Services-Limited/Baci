@@ -6,6 +6,7 @@ const compare = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const resolveMerchant = vi.fn();
+const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -13,6 +14,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/ads/merchant-context', () => ({
   resolveAdsMerchantAccess: (...args: unknown[]) => resolveMerchant(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
 const verifyState = vi.fn();
 vi.mock('@/lib/ads/state', () => ({
@@ -139,6 +143,7 @@ describe('TikTok Ads callback route', () => {
         p_scopes: ['44', '100'],
       })
     );
+    expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 
   it('rejects a consumed state before exchanging a replayed authorization code', async () => {

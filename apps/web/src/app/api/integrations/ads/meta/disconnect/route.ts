@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { META_ADS_PROVIDER } from '@/lib/ads/meta/constants';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
@@ -37,6 +38,7 @@ async function disconnect(request: NextRequest) {
       { error: 'Failed to disconnect Meta Ads' },
       { status: 500 }
     );
+  invalidateAdsAnalyticsCache(access.merchantId);
   return NextResponse.json({ connected: false });
 }
 

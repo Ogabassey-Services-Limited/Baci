@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { TIKTOK_ADS_PROVIDER } from '@/lib/ads/tiktok/constants';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
@@ -32,12 +33,14 @@ async function disconnect(request: NextRequest) {
     'delete_merchant_ads_connection',
     { p_merchant_id: access.merchantId, p_provider: TIKTOK_ADS_PROVIDER }
   );
-  return error || data !== true
-    ? NextResponse.json(
-        { error: 'Failed to disconnect TikTok Ads' },
-        { status: 500 }
-      )
-    : NextResponse.json({ connected: false });
+  if (error || data !== true) {
+    return NextResponse.json(
+      { error: 'Failed to disconnect TikTok Ads' },
+      { status: 500 }
+    );
+  }
+  invalidateAdsAnalyticsCache(access.merchantId);
+  return NextResponse.json({ connected: false });
 }
 export function DELETE(request: NextRequest) {
   return disconnect(request);

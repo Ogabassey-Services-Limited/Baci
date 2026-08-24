@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -44,6 +45,7 @@ async function disconnect(request: NextRequest) {
     );
   }
 
+  invalidateAdsAnalyticsCache(access.merchantId);
   return NextResponse.json({ connected: false });
 }
 

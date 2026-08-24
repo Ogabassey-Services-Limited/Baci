@@ -5,6 +5,7 @@ const authenticate = vi.fn();
 const csrf = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -12,6 +13,9 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
 
 import { DELETE } from './route';
@@ -76,5 +80,6 @@ describe('TikTok Ads disconnect route', () => {
       p_merchant_id: 'merchant',
       p_provider: 'tiktok_ads',
     });
+    expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 });

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { encryptAdsToken, timingSafeStringEqual } from '@/lib/ads/crypto';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { verifyAdsOAuthState } from '@/lib/ads/state';
@@ -120,6 +121,7 @@ export async function GET(request: NextRequest) {
       }
     );
     if (error) return redirect('error', 'connection_write_failed');
+    invalidateAdsAnalyticsCache(access.merchantId);
   } catch (error) {
     return redirect(
       'error',
