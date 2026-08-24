@@ -242,7 +242,7 @@ export async function resolveQuoteMerchantContext({
           businessName: details.business_name,
           phone: details.phone,
           registeredAddress: null,
-          stateCode: details.state_code,
+          stateCode: details.state_code ?? null,
         });
         if (!merchantSender) {
           return {

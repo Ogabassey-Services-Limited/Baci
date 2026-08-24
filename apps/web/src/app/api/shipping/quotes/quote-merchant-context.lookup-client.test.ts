@@ -150,7 +150,6 @@ describe('resolveQuoteMerchantContext lookup client', () => {
                       phone: '08012345678',
                       country: 'NG',
                       payout_currency: 'NGN',
-                      state_code: 'FC',
                     }
                   : null,
               error: null,
@@ -202,6 +201,7 @@ describe('resolveQuoteMerchantContext lookup client', () => {
       expect(selectedColumns.length).toBeGreaterThan(0);
       for (const columns of selectedColumns) {
         expect(columns).not.toContain('registered_address');
+        expect(columns).not.toContain('state_code');
       }
     });
   });

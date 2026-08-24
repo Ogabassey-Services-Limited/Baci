@@ -6,7 +6,7 @@ export type MerchantDetails = {
   phone: string | null;
   country: string | null;
   payout_currency: string | null;
-  state_code: string | null;
+  state_code?: string | null;
 };
 
 export type MerchantDetailsResult =
@@ -21,9 +21,7 @@ export async function resolveMerchantDetails(
 ): Promise<MerchantDetailsResult> {
   const { data, error } = await supabase
     .from('merchants')
-    .select(
-      'business_name, business_address, phone, country, payout_currency, state_code'
-    )
+    .select('business_name, business_address, phone, country, payout_currency')
     .eq('id', merchantId)
     .maybeSingle();
 

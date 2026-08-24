@@ -2,37 +2,41 @@ import { describe, expect, it, vi } from 'vitest';
 import { resolveMerchantDetails } from './resolve-quote-merchant-details';
 
 function createSupabase(result: unknown) {
+  const select = vi.fn();
   const query = {
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue(result),
   };
+  select.mockReturnValue(query);
   return {
-    from: vi.fn(() => ({ select: vi.fn(() => query) })),
+    from: vi.fn(() => ({ select })),
+    select,
   };
 }
 
 describe('resolveMerchantDetails', () => {
   it('returns the sender fields and merchant currency context', async () => {
+    const supabase = createSupabase({
+      data: {
+        business_address: '1 Merchant Road, Ikeja, Lagos',
+        business_name: 'Merchant Store',
+        phone: '08012345678',
+        country: 'NG',
+        payout_currency: 'NGN',
+      },
+      error: null,
+    });
     const result = await resolveMerchantDetails(
-      createSupabase({
-        data: {
-          business_address: '1 Merchant Road, Ikeja, Lagos',
-          business_name: 'Merchant Store',
-          phone: '08012345678',
-          country: 'NG',
-          payout_currency: 'NGN',
-          state_code: 'LA',
-        },
-        error: null,
-      }) as never,
+      supabase as never,
       'merchant-1'
     );
 
     expect(result).toEqual(
-      expect.objectContaining({
-        business_name: 'Merchant Store',
-        state_code: 'LA',
-      })
+      expect.objectContaining({ business_name: 'Merchant Store' })
+    );
+    expect(result).not.toHaveProperty('state_code');
+    expect(supabase.select).toHaveBeenCalledWith(
+      'business_name, business_address, phone, country, payout_currency'
     );
   });
 
