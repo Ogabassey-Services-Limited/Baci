@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { ADS_SYNC_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
 
-export const MAX_TIKTOK_ADS_SYNC_DAYS = 366;
+export const MAX_TIKTOK_ADS_SYNC_DAYS = ADS_SYNC_MAX_DAYS.tiktok_ads;
 export const tiktokAdsOAuthCallbackQuerySchema = z.object({
   code: z.string().trim().min(1).optional(),
   error: z.string().trim().min(1).optional(),

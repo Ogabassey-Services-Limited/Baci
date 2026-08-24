@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   type AdsSyncWindow,
+  buildAdsSyncWindowChunks,
   buildDefaultAdsSyncWindow,
 } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
@@ -124,15 +125,18 @@ export function SocialAdsAccountControls({
   };
 
   const sync = async () => {
-    const response = await fetchWithCsrf(`${path}/sync`, {
-      body: JSON.stringify(syncWindow ?? buildDefaultAdsSyncWindow()),
-      headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
-      method: 'POST',
-    });
-    if (!response.ok) {
-      throw new Error(
-        await responseError(response, `Unable to sync ${displayName}.`)
-      );
+    const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
+    for (const window of buildAdsSyncWindowChunks(requestedWindow, provider)) {
+      const response = await fetchWithCsrf(`${path}/sync`, {
+        body: JSON.stringify(window),
+        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
+        method: 'POST',
+      });
+      if (!response.ok) {
+        throw new Error(
+          await responseError(response, `Unable to sync ${displayName}.`)
+        );
+      }
     }
   };
 

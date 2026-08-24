@@ -4,7 +4,11 @@ import { AlertCircle, Check, ListRestart, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { buildDefaultAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
+import {
+  type AdsSyncWindow,
+  buildAdsSyncWindowChunks,
+  buildDefaultAdsSyncWindow,
+} from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
@@ -20,10 +24,7 @@ interface GoogleAdsAccountPickerProps {
   className?: string;
   merchantId?: string;
   onSynced?: () => void;
-  syncWindow?: {
-    endDate: string;
-    startDate: string;
-  };
+  syncWindow?: AdsSyncWindow;
 }
 
 function maskCustomerId(customerId: string): string {
@@ -133,18 +134,26 @@ export function GoogleAdsAccountPicker({
         );
       }
 
-      const response = await fetchWithCsrf(SYNC_PATH, {
-        body: JSON.stringify(syncWindow ?? buildDefaultAdsSyncWindow()),
-        headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
-        method: 'POST',
-      });
-      if (!response.ok) {
-        throw new Error(
-          await readError(
-            response,
-            'Google Ads account selected, but sync failed.'
-          )
-        );
+      const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
+      for (const window of buildAdsSyncWindowChunks(
+        requestedWindow,
+        'google_ads'
+      )) {
+        const response = await fetchWithCsrf(SYNC_PATH, {
+          body: JSON.stringify(window),
+          headers: merchantId
+            ? { 'x-baci-merchant-id': merchantId }
+            : undefined,
+          method: 'POST',
+        });
+        if (!response.ok) {
+          throw new Error(
+            await readError(
+              response,
+              'Google Ads account selected, but sync failed.'
+            )
+          );
+        }
       }
 
       onSynced?.();

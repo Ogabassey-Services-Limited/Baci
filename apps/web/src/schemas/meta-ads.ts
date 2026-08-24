@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { ADS_SYNC_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
 
-export const MAX_META_ADS_SYNC_DAYS = 31;
+export const MAX_META_ADS_SYNC_DAYS = ADS_SYNC_MAX_DAYS.meta_ads;
 
 export const metaAdsOAuthCallbackQuerySchema = z.object({
   code: z.string().trim().min(1).optional(),

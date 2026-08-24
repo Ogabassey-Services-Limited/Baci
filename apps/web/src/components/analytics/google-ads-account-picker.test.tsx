@@ -171,4 +171,50 @@ describe('GoogleAdsAccountPicker', () => {
       })
     );
   });
+
+  it('chunks a long Google analytics window into 90-day sync requests', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        accounts: [{ customerId: '1234567890', selected: false }],
+      })
+    );
+    mockFetchWithCsrf
+      .mockResolvedValueOnce(jsonResponse({ selected: true }))
+      .mockResolvedValueOnce(jsonResponse({ synced: true }))
+      .mockResolvedValueOnce(jsonResponse({ synced: true }));
+
+    render(
+      <GoogleAdsAccountPicker
+        onSynced={vi.fn()}
+        syncWindow={{ endDate: '2026-05-01', startDate: '2026-01-01' }}
+      />
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /select google ads account/i })
+    );
+    await screen.findByRole('radio', { name: /••••7890/i });
+    fireEvent.click(screen.getByRole('button', { name: /save account/i }));
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(3));
+    expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
+      2,
+      '/api/integrations/ads/google/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-03-31',
+          startDate: '2026-01-01',
+        }),
+      })
+    );
+    expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
+      3,
+      '/api/integrations/ads/google/sync',
+      expect.objectContaining({
+        body: JSON.stringify({
+          endDate: '2026-05-01',
+          startDate: '2026-04-01',
+        }),
+      })
+    );
+  });
 });

@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { ADS_SYNC_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
 
-export const MAX_SNAPCHAT_ADS_SYNC_DAYS = 366;
+export const MAX_SNAPCHAT_ADS_SYNC_DAYS = ADS_SYNC_MAX_DAYS.snapchat_ads;
 const accountId = z.string().trim().min(1).max(255).regex(/^\S+$/);
 
 export const snapchatAdsOAuthCallbackQuerySchema = z.object({
