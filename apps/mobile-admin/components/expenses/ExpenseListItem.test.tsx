@@ -117,7 +117,7 @@ describe('ExpenseListItem', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Edit expense Inventory: Office internet',
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
       })
     );
 
@@ -134,7 +134,7 @@ describe('ExpenseListItem', () => {
 
     expect(
       screen.queryByRole('button', {
-        name: 'Edit expense Inventory: Office internet',
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
       })
     ).not.toBeInTheDocument();
 
@@ -151,7 +151,29 @@ describe('ExpenseListItem', () => {
     render(<ExpenseListItem canEdit item={expense({ description: null })} />);
 
     expect(
-      screen.getByRole('button', { name: 'Edit expense Inventory' })
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory (May 5, 2026, record expense-1)',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('gives duplicate-looking editable rows distinct, user-comprehensible Edit labels', () => {
+    render(
+      <>
+        <ExpenseListItem canEdit item={expense({ id: 'expense-1' })} />
+        <ExpenseListItem canEdit item={expense({ id: 'expense-2' })} />
+      </>
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-1)',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {
+        name: 'Edit expense Inventory: Office internet (May 5, 2026, record expense-2)',
+      })
     ).toBeInTheDocument();
   });
 

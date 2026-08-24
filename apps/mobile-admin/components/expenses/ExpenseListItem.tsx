@@ -33,6 +33,10 @@ export function ExpenseListItem({
   const formattedDate = isValid(parsedDate)
     ? format(parsedDate, 'MMM d, yyyy')
     : 'Invalid date';
+  const editLabel = item.description
+    ? `Edit expense ${item.category}: ${item.description}`
+    : `Edit expense ${item.category}`;
+  const editAccessibilityLabel = `${editLabel} (${formattedDate}, record ${item.id})`;
 
   return (
     <View
@@ -95,11 +99,7 @@ export function ExpenseListItem({
       {canEdit ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={
-            item.description
-              ? `Edit expense ${item.category}: ${item.description}`
-              : `Edit expense ${item.category}`
-          }
+          accessibilityLabel={editAccessibilityLabel}
           onPress={() => router.push(`/expenses/${item.id}/edit`)}
           style={[styles.editButton, { borderColor: colors.border }]}
         >
