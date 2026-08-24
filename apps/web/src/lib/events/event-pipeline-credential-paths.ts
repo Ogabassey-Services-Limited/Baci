@@ -63,4 +63,17 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/lib/supabase/admin.ts',
     'apps/web/src/env.ts',
   ],
+  [
+    'apps/web/src/app/api/internal/compare-page-status/[identifier]/route.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/proxy.ts',
+    'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+    'apps/web/src/env.ts',
+  ],
 ] as const;

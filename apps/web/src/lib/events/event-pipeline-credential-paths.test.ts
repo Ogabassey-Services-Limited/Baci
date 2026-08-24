@@ -10,4 +10,24 @@ describe('event-pipeline credential paths', () => {
       )
     ).toBe(true);
   });
+
+  it('records the audited compare preflight secret edges', () => {
+    expect(eventPipelineCredentialPaths).toEqual(
+      expect.arrayContaining([
+        [
+          'apps/web/src/app/api/internal/compare-page-status/[identifier]/route.ts',
+          'apps/web/src/env.ts',
+        ],
+        [
+          'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+          'apps/web/src/env.ts',
+        ],
+        [
+          'apps/web/src/proxy.ts',
+          'apps/web/src/lib/storefront-compare-page-hard-status.ts',
+          'apps/web/src/env.ts',
+        ],
+      ])
+    );
+  });
 });

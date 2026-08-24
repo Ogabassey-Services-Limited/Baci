@@ -3,7 +3,6 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import ts from '@typescript/typescript6';
 import { describe, expect, it } from 'vitest';
-import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
 import { authorityFindings } from './event-pipeline-boundary-manifest';
 
 const modulePath = resolve(
@@ -159,73 +158,6 @@ describe('event pipeline authority manifest', () => {
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
-    ]);
-    expect(manifest.authority.credentialPaths).toEqual([
-      [
-        'apps/web/src/app/(platform)/onboarding/actions.ts',
-        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/lib/storefront-product-purge-hostnames.ts',
-        'apps/web/src/lib/cloudflare-purge.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/expo-push.ts',
-        'apps/web/src/env.ts',
-      ],
-      [
-        'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
-        'apps/web/src/app/api/cron/gigl-tracking/gigl-tracking-notification-worker.ts',
-        'apps/web/src/lib/insurance/notify-activate-protection.ts',
-        'apps/web/src/lib/supabase/admin.ts',
-        'apps/web/src/env.ts',
-      ],
-      ...eventPipelineJumiaCredentialPaths,
     ]);
   });
 

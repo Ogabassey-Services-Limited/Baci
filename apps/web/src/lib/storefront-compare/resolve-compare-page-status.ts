@@ -1,4 +1,3 @@
-import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { buildBrandCompareCandidate } from './compare-eligibility';
@@ -7,6 +6,7 @@ import {
   COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT,
   getCachedCompareCategoryInventory,
 } from './get-cached-compare-category-inventory';
+import { getCachedCompareMerchantByIdentifier } from './get-cached-compare-merchant';
 import { getCachedMaintainedCompareRouteManifest } from './get-cached-maintained-compare-route-manifest';
 
 /**
@@ -36,7 +36,9 @@ export async function resolveComparePageStatus(input: {
   categorySlug: string;
   comparisonSlug: string;
 }): Promise<ComparePageStatusResolution> {
-  const merchant = await getMerchantByIdentifier(input.merchantSlug);
+  const merchant = await getCachedCompareMerchantByIdentifier(
+    input.merchantSlug
+  );
 
   // Unknown or unpublished storefronts still have a layout-owned 200 shell in
   // production. The proxy must not pre-empt that shell with a hard 404.
@@ -99,7 +101,10 @@ export async function resolveComparePageStatus(input: {
         merchant.id,
         input.categorySlug,
         input.merchantSlug,
-        buildStoreUrl(merchant)
+        buildStoreUrl({
+          slug: merchant.slug,
+          custom_domain: merchant.custom_domain ?? undefined,
+        })
       );
 
     // The manifest is derived from the same local cache entry as the
