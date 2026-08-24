@@ -82,17 +82,29 @@ export async function GET(request: NextRequest) {
   }
   if (resolvedToken.encryptedAccessToken) {
     const { data: updated, error: updateError } = await auth.supabase.rpc(
-      'update_google_ads_connection_token',
+      'update_google_ads_connection_token_if_current',
       {
         p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
+        p_expected_access_token_ciphertext: connection.access_token_ciphertext,
+        p_expected_refresh_token_ciphertext:
+          connection.refresh_token_ciphertext,
         p_merchant_id: access.merchantId,
         p_token_expires_at: resolvedToken.expiresAt,
       }
     );
-    if (updateError || updated !== true) {
+    if (updateError) {
       return NextResponse.json(
         { error: 'Failed to update Google Ads token' },
         { status: 500 }
+      );
+    }
+    if (updated !== true) {
+      return NextResponse.json(
+        {
+          error: 'Google Ads authorization changed; retry account discovery',
+          retry: true,
+        },
+        { status: 409 }
       );
     }
   }

@@ -111,6 +111,46 @@ describe('Google Ads account discovery and selection', () => {
     expect(JSON.stringify(json)).not.toContain('encrypted-access');
   });
 
+  it('does not overwrite a newer OAuth connection when refresh CAS loses the race', async () => {
+    mockResolveToken.mockResolvedValueOnce({
+      accessToken: 'refreshed-access-token',
+      encryptedAccessToken: 'new-encrypted-access',
+      expiresAt: '2026-08-22T01:00:00.000Z',
+    });
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'get_google_ads_connection_secret') {
+        return Promise.resolve({ data: [connection], error: null });
+      }
+      if (name === 'update_google_ads_connection_token_if_current') {
+        return Promise.resolve({ data: false, error: null });
+      }
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts'
+      )
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Google Ads authorization changed; retry account discovery',
+      retry: true,
+    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'update_google_ads_connection_token_if_current',
+      {
+        p_access_token_ciphertext: 'new-encrypted-access',
+        p_expected_access_token_ciphertext: 'encrypted-access',
+        p_expected_refresh_token_ciphertext: 'encrypted-refresh',
+        p_merchant_id: 'merchant-1',
+        p_token_expires_at: '2026-08-22T01:00:00.000Z',
+      }
+    );
+    expect(mockListAccounts).not.toHaveBeenCalled();
+  });
+
   it('rejects a syntactically valid customer that Google did not grant', async () => {
     const response = await PATCH(
       new NextRequest(
