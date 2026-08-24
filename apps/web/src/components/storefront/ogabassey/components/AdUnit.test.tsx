@@ -238,4 +238,54 @@ describe('AdUnit', () => {
     expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
   });
 
+  it('skips the pending boot when the slot becomes inactive before bootDelayMs completes', async () => {
+    vi.useFakeTimers();
+
+    const { container, rerender } = render(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive
+      />
+    );
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-header') ?? document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(8999);
+      await Promise.resolve();
+    });
+
+    rerender(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive={false}
+      />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      // Flush the bootDelayMs completion and AdUnit effects after isActive flips
+      // false so ensureGoogleAdManagerBoot stays off the inactive startup path.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
+  });
+
 });

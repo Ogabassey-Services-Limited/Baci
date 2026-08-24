@@ -52,6 +52,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   const isActiveRef = useRef(isActive);
   const listenerCleanupsRef = useRef<Array<() => void>>([]);
   const slotLifecycleRef = useRef(0);
+  const slotRestoreNeededRef = useRef(false);
   const [isAdLoaded, setIsAdLoaded] = useState(false);
   const [shouldLoadSlot, setShouldLoadSlot] = useState(
     loadStrategy === 'immediate'
@@ -59,6 +60,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   const [hasBootDelayElapsed, setHasBootDelayElapsed] = useState(
     bootDelayMs <= 0
   );
+  const [slotRestoreNonce, setSlotRestoreNonce] = useState(0);
 
   // Reset slot/boot state during render when the placement or strategy props
   // change (render-phase prev-compare instead of a setState-in-effect).
@@ -221,10 +223,17 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       isDisposed = true;
       cancelActivationGate();
     };
-  }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot]);
+  }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot, slotRestoreNonce]);
 
   useIsomorphicLayoutEffect(() => {
     if (!config) return;
+
+    if (slotRestoreNeededRef.current) {
+      slotRestoreNeededRef.current = false;
+      setIsAdLoaded(false);
+      setSlotRestoreNonce((nonce) => nonce + 1);
+    }
+
     const slotId = config.id;
 
     return () => {
@@ -233,6 +242,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       // should keep an already loaded GPT slot mounted.
       const slotToDestroy = slotRef.current;
       if (slotToDestroy) {
+        slotRestoreNeededRef.current = true;
         const googletag = ensureGoogleTag();
 
         googletag.cmd.push(() => {

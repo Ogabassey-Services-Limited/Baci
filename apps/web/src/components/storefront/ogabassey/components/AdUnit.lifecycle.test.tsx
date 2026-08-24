@@ -1,4 +1,5 @@
 import { act, render, waitFor } from '@testing-library/react';
+import { Suspense } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { ensureGoogleAdManagerBoot, ensureGoogleTag } = vi.hoisted(() => ({
@@ -246,53 +247,49 @@ describe('AdUnit lifecycle', () => {
     );
   });
 
-  it('skips the pending boot when the slot becomes inactive before bootDelayMs completes', async () => {
-    vi.useFakeTimers();
+  it('recreates the GPT slot after a temporary Suspense hide', async () => {
+    const suspended = new Promise<never>(() => {});
+    function SuspensibleAd({ shouldSuspend }: { shouldSuspend: boolean }) {
+      if (shouldSuspend) {
+        throw suspended;
+      }
+      return (
+        <AdUnit
+          placementKey="HEADER_LEADERBOARD"
+          isActive
+          loadStrategy="immediate"
+        />
+      );
+    }
 
-    const { container, rerender } = render(
-      <AdUnit
-        placementKey="HEADER_LEADERBOARD"
-        bootDelayMs={9000}
-        isActive
-      />
+    const { rerender } = render(
+      <Suspense fallback={null}>
+        <SuspensibleAd shouldSuspend={false} />
+      </Suspense>
     );
 
-    await act(async () => {
-      intersectionCallback?.(
-        [
-          {
-            isIntersecting: true,
-            intersectionRatio: 1,
-            target:
-              container.querySelector('#div-gpt-ad-header') ?? document.body,
-          } as IntersectionObserverEntry,
-        ],
-        {} as IntersectionObserver
-      );
-      await Promise.resolve();
-    });
-
-    await act(async () => {
-      vi.advanceTimersByTime(8999);
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(window.googletag.display).toHaveBeenCalledOnce();
     });
 
     rerender(
-      <AdUnit
-        placementKey="HEADER_LEADERBOARD"
-        bootDelayMs={9000}
-        isActive={false}
-      />
+      <Suspense fallback={null}>
+        <SuspensibleAd shouldSuspend />
+      </Suspense>
     );
 
-    await act(async () => {
-      vi.advanceTimersByTime(1);
-      // Flush the bootDelayMs completion and AdUnit effects after isActive flips
-      // false so ensureGoogleAdManagerBoot stays off the inactive startup path.
-      await Promise.resolve();
-      await Promise.resolve();
+    await waitFor(() => {
+      expect(window.googletag.destroySlots).toHaveBeenCalledOnce();
     });
 
-    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
+    rerender(
+      <Suspense fallback={null}>
+        <SuspensibleAd shouldSuspend={false} />
+      </Suspense>
+    );
+
+    await waitFor(() => {
+      expect(window.googletag.display).toHaveBeenCalledTimes(2);
+    });
   });
 });
