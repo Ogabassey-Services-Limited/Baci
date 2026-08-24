@@ -8,6 +8,7 @@
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
+import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
 3a3018fcd2e0daea0dec918d953e1dadf314ea1f88698e336a72a97da8ddcd1c 20260712150050_eventing_internal_schema.sql
@@ -255,6 +256,7 @@ c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_
 `;
 const PENDING_SOURCES = [
   PENDING_SOURCES_HEAD,
+  STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES,
   ADMIN_PLATFORM_PENDING_SOURCES,
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
   NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,

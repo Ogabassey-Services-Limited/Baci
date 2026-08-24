@@ -240,6 +240,36 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260821120000_validate_negotiation_customer_email.sql',
     sha256: 'f2a7c095b4d5a1c1630d69e62c4bb92840a6e55b82eeb0fe43eb03ba2d7e231f',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823152433_optimize_storefront_cluster_guide_classifier_core.sql',
+    sha256: '1c929e4db4b870ddaf1d6b25de7dab7244f7e8537ee6ce06ea230f21a38c443c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823152435_optimize_storefront_cluster_guide_classifier_rpc.sql',
+    sha256: '0be88e1b1a90c45901440bd7a8e20add0cc4002e2874f1b3aadff97acaaa012a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823160000_optimize_storefront_cluster_guide_classifier_category_core.sql',
+    sha256: '06ed13533bba52afde510e59e23f94e562ff7a83ff652745539a754ce0c43439',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823160001_optimize_storefront_cluster_guide_classifier_category_rpc.sql',
+    sha256: '44e034e5ef145b61514cebac1af63aa513885e3bd9d13179070e0c0b6fd108bc',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823163000_optimize_storefront_cluster_guide_classifier_ordered_core.sql',
+    sha256: 'f1a0067241fb3d1f2d380648b192c74aa0fbfb282b2bf324f43b3845ffecaa65',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260823163001_optimize_storefront_cluster_guide_classifier_ordered_rpc.sql',
+    sha256: '378ee56b915823bb6e6f9bb2ed5c415d24f7de5d8ae9677e5539f9a9dd1cabac',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
