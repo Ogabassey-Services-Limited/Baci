@@ -35,6 +35,31 @@ describe('buildDefaultAdsSyncWindow', () => {
     ]);
   });
 
+  it.each([
+    'tiktok_ads',
+    'snapchat_ads',
+  ] as const)('allows the %s 366-day maximum before chunking', (provider) => {
+    const oneYear = buildAdsSyncWindowChunks(
+      { endDate: '2027-01-01', startDate: '2026-01-01' },
+      provider
+    );
+    const overOneYear = buildAdsSyncWindowChunks(
+      { endDate: '2027-01-02', startDate: '2026-01-01' },
+      provider
+    );
+
+    expect(oneYear).toHaveLength(1);
+    expect(overOneYear).toHaveLength(2);
+    expect(overOneYear[0]).toEqual({
+      endDate: '2027-01-01',
+      startDate: '2026-01-01',
+    });
+    expect(overOneYear[1]).toEqual({
+      endDate: '2027-01-02',
+      startDate: '2027-01-02',
+    });
+  });
+
   it('leaves a provider-safe range as one request', () => {
     expect(
       buildAdsSyncWindowChunks(
