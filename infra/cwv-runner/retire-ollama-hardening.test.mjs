@@ -118,7 +118,7 @@ test('publishes every receipt with a durable pending-file rename protocol', asyn
     assert.ok(source.includes(target));
   assert.match(
     source,
-    /publish_pending "\$receipt_pending" "\$RECEIPT"[\s\S]*publish_pending "\$sha_pending" "\$RECEIPT_SHA"/
+    /publish_pending "\$sha_pending" "\$RECEIPT_SHA"[\s\S]*publish_pending "\$receipt_pending" "\$RECEIPT"/
   );
   const publication = source.match(/publish_pending\(\) \{([\s\S]*?)\n\}/)?.[1];
   assert.ok(publication, 'publish_pending body must be present');

@@ -32,7 +32,6 @@ const projectorAuth = new URL(
   import.meta.url
 );
 const digest = (value) => createHash('sha256').update(value).digest('hex');
-
 async function projectorAuthorityFixture(directory) {
   const sourceRoot = join(directory, 'source');
   const receiptRoot = join(directory, 'receipts');
@@ -139,7 +138,6 @@ async function projectorAuthorityFixture(directory) {
   }
   return { sourceDirectory, sourceRoot, receiptRoot, stat };
 }
-
 function imageArchive() {
   const layer = gzipSync(
     createSourceArchive([
@@ -191,7 +189,6 @@ async function runFixture(command, withImage = false) {
     await rm(dir, { recursive: true, force: true });
   }
 }
-
 test('ignores a stable canonical Docker socket bind instead of treating it as config', async () => {
   const output = await runFixture(
     `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; container_bind_mount_consumers generic-api`
@@ -201,21 +198,31 @@ test('ignores a stable canonical Docker socket bind instead of treating it as co
     /^container-docker-socket:[0-9a-f]{64}:[0-9a-f]{64}\|[0-9a-f]{64}\|[0-9a-f]{64}$/
   );
 });
-
+test('keeps canonical Docker socket audit rows out of consumer counts', async () => {
+  const output = await runFixture(
+    `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *) return 2;; esac; }; load_consumer_scanners; records='[]'; deps='[]'; consumer_counts='[]'; consumer_evidence='[]'; socket=$(temp_path); container_bind_mount_consumers generic-api >"$socket"; printf '%s\\n' 'container-bind-mount:generic-api:/etc/ollama' >>"$socket"; record_consumers container-definitions "$socket" all; printf '%s\\n%s\\n' "$(cat "$socket")" "$consumer_counts"`
+  );
+  const rows = output.trim().split('\n');
+  assert.match(
+    rows[0],
+    /^container-docker-socket:[0-9a-f]{64}:[0-9a-f]{64}\|[0-9a-f]{64}\|[0-9a-f]{64}$/
+  );
+  assert.deepEqual(JSON.parse(rows.at(-1)), [
+    { surface: 'container-definitions', matchCount: 1 },
+  ]);
+});
 test('does not docker-cp runtime PATH or DOCKER_SOCK values from a running container', async () => {
   const output = await runFixture(
     `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","DOCKER_SOCK=/var/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"'`
   );
   assert.equal(output, '');
 });
-
 test('does not copy lexical Ollama metadata from a running container', async () => {
   const output = await runFixture(
     `docker() { case "$*" in *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/bin:/bin","OLLAMA_HOST=http://127.0.0.1:11434"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/bin:/bin","OLLAMA_HOST=http://127.0.0.1:11434"] "" {} null [] {} {} {} [] "bridge"'`
   );
   assert.equal(output, '');
 });
-
 test('allows only canonical Docker socket environment values', async () => {
   for (const socket of ['/var/run/docker.sock', '/run/docker.sock']) {
     const output = await runFixture(
@@ -236,7 +243,6 @@ test('allows only canonical Docker socket environment values', async () => {
     (error) => error.code === 2
   );
 });
-
 test('does not let a duplicate PATH value hide a running config path', async () => {
   await assert.rejects(
     runFixture(
@@ -245,14 +251,12 @@ test('does not let a duplicate PATH value hide a running config path', async () 
     (error) => error.code === 2
   );
 });
-
 test('excludes PATH before file-path validation', async () => {
   const output = await runFixture(
     `docker() { case "$*" in *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["PATH=/usr/$UNEXPANDED/bin"]';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *' cp '*) return 91;; *) return 2;; esac; }; load_consumer_scanners; container_environment_consumers generic-api 'generic-api /generic-api /usr/bin/application [] ["PATH=/usr/$UNEXPANDED/bin"] "" {} null [] {} {} {} [] "bridge"'`
   );
   assert.equal(output, '');
 });
-
 test('propagates an unsafe environment result through the container snapshot', async () => {
   await assert.rejects(
     runFixture(
@@ -261,7 +265,6 @@ test('propagates an unsafe environment result through the container snapshot', a
     (error) => error.code === 2
   );
 });
-
 test('accepts a running generic container with scalar metadata and immutable image evidence', async () => {
   const output = await runFixture(
     `image_archive="$2/image.tar"; docker() { case "$*" in *'inspect -f {{.Name}} generic-api'*) printf '%s\\n' '/generic-api';; *'inspect -f {{json .State.Running}} generic-api'*) printf '%s\\n' 'true';; *'inspect -f {{.Image}} generic-api'*) printf '%s\\n' '${imageId}';; *'inspect -f {{json .Path}} generic-api'*) printf '%s\\n' '"/docker-entrypoint"';; *'inspect -f {{json .Config.WorkingDir}} generic-api'*) printf '%s\\n' '""';; *'inspect -f {{json .Args}} generic-api'*) printf '%s\\n' '["--model","llama3.2:latest","--token","abc.def/ghi"]';; *'inspect -f {{json .Config.Env}} generic-api'*) printf '%s\\n' '["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","TOKEN=abc.def/ghi","DOCKER_SOCK=/var/run/docker.sock"]';; *'inspect -f {{json (index .Config "Healthcheck")}} generic-api'*) printf '%s\\n' '{"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]}';; *'inspect -f {{json .Mounts}} generic-api'*) printf '%s\\n' '[{"Type":"bind","Source":"/var/run/docker.sock","Destination":"/var/run/docker.sock"}]';; *'image save ${imageId}'*) cat "$image_archive";; *'container export generic-api'*) printf '%s\\n' 'clean live filesystem';; *' cp '*) printf 'unexpected docker cp\\n' >&2; return 91;; *) return 2;; esac; }; load_consumer_scanners; running_container_validate generic-api /generic-api 'generic-api /generic-api /docker-entrypoint ["--model","llama3.2:latest","--token","abc.def/ghi"] ["NODE_VERSION=22.14.0","MODEL=llama3.2:latest","TOKEN=abc.def/ghi","DOCKER_SOCK=/var/run/docker.sock"] "" {} {"Test":["CMD-SHELL","curl -fsS http://127.0.0.1:8080/health"]} [] {} {} {} [] "bridge"'`,

@@ -32,14 +32,21 @@ source_loader_digest_file() {
 }
 
 source_loader_source() {
-  local source_loader_input=$1 source_loader_dir source_loader_snapshot source_loader_digest source_loader_status source_loader_parent_depth source_loader_fd source_loader_snapshot_identity source_loader_fd_identity
+  local source_loader_input=$1 source_loader_dir source_loader_snapshot_dir source_loader_snapshot source_loader_digest source_loader_status source_loader_parent_depth source_loader_fd source_loader_snapshot_identity source_loader_fd_identity
   SOURCE_LOADER_DIGEST=
   [ -f "$source_loader_input" ] && [ ! -L "$source_loader_input" ] || return 2
   source_loader_parent_depth=${SOURCE_LOADER_DEPTH:-0}; case "$source_loader_parent_depth" in ''|*[!0-9]*) return 2;; esac
   source_loader_fd=$((9 - source_loader_parent_depth)); case "$source_loader_fd" in 3|4|5|6|7|8|9) :;; *) return 2;; esac
   SOURCE_LOADER_DEPTH=$((source_loader_parent_depth + 1))
   source_loader_dir=${source_loader_input%/*}; [ "$source_loader_dir" = "$source_loader_input" ] && source_loader_dir=.
-  source_loader_snapshot=$(/usr/bin/mktemp "$source_loader_dir/.retire-ollama-source.XXXXXX") || { SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
+  if [ -n "${TEMP_ROOT:-}" ]; then
+    type temp_root_verify_root >/dev/null 2>&1 || { SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
+    temp_root_verify_root || { SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
+    source_loader_snapshot_dir=$TEMP_ROOT
+  else
+    source_loader_snapshot_dir=$source_loader_dir
+  fi
+  source_loader_snapshot=$(/usr/bin/mktemp "$source_loader_snapshot_dir/.retire-ollama-source.XXXXXX") || { SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
   source_loader_snapshot_file "$source_loader_input" "$source_loader_snapshot" || { /bin/rm -f -- "$source_loader_snapshot"; SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
   source_loader_digest=$(source_loader_digest_file "$source_loader_snapshot") || { /bin/rm -f -- "$source_loader_snapshot"; SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
   source_loader_snapshot_identity=$(/usr/bin/perl -e '@s=stat($ARGV[0]); @s || exit 2; print join(":", @s[0,1,2,3,4,5]), "\n"' "$source_loader_snapshot") || { /bin/rm -f -- "$source_loader_snapshot"; SOURCE_LOADER_DEPTH=$source_loader_parent_depth; return 2; }
