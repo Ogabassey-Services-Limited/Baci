@@ -87,7 +87,7 @@ function buildSupabaseMock() {
         data: [
           claimCount === 1
             ? { claimed: true, shipment_id: null, tracking_number: null }
-            : { claimed: false, shipment_id: null, tracking_number: null },
+            : { claimed: true, shipment_id: null, tracking_number: null },
         ],
         error: null,
       });

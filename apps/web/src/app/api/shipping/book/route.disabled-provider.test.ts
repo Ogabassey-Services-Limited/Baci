@@ -104,6 +104,13 @@ function buildSupabaseMock() {
       error: null,
     }),
   };
+  const shipmentLookupChain = {
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
 
   return {
     rpc: vi.fn().mockResolvedValue({
@@ -122,6 +129,9 @@ function buildSupabaseMock() {
       }
       if (table === 'shipping_quotes') {
         return { select: vi.fn(() => quotesSelectChain) };
+      }
+      if (table === 'shipments') {
+        return { select: vi.fn(() => shipmentLookupChain) };
       }
       if (table === 'merchants') {
         return {

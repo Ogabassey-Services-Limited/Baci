@@ -21,7 +21,12 @@ function readNullableString(value: unknown): string | null {
 }
 
 export type PublicMerchantSenderResult =
-  | { ok: true; sender: ShippingAddress | null }
+  | {
+      ok: true;
+      sender: ShippingAddress | null;
+      /** Canonical merchant country projected by the anonymous-safe RPC. */
+      country?: string | null;
+    }
   | { error: unknown; ok: false };
 
 /**
@@ -49,5 +54,9 @@ export async function resolvePublicMerchantSender(
     stateCode: readNullableString(projection.state_code),
   });
 
-  return { ok: true, sender };
+  return {
+    ok: true,
+    sender,
+    country: readNullableString(projection.country),
+  };
 }

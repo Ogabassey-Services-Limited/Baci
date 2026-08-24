@@ -36,11 +36,12 @@ const quoteItems = [
 ];
 
 function buildQuoteRequest(
-  overrides: Record<string, unknown> = {}
+  overrides: Record<string, unknown> = {},
+  headers: Record<string, string> = {}
 ): NextRequest {
   return new Request('https://usebaci.com/api/shipping/quotes', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...headers },
     body: JSON.stringify({
       shipmentType: 'international',
       receiver: {
@@ -145,6 +146,37 @@ describe('POST /api/shipping/quotes', () => {
         /Nigerian merchants/i.test(warning)
       )
     ).toBe(true);
+    expect(mockGetQuotes).not.toHaveBeenCalled();
+  });
+
+  it('suppresses carriers for a published non-NG body-only mobile merchant', async () => {
+    mockCreateAdminClient.mockReturnValue(buildSupabaseMock(null));
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          business_name: 'Bengaluru Store',
+          business_address: '1 Market Road, Bengaluru',
+          phone: '+919876543210',
+          country: 'IN',
+          state_code: null,
+        },
+        error: null,
+      }),
+      from: vi.fn(),
+    });
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      buildQuoteRequest(
+        { merchantId: '11111111-1111-4111-8111-111111111111' },
+        { 'x-baci-client': 'mobile-storefront' }
+      )
+    );
+
+    expect(response.status).toBe(200);
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 

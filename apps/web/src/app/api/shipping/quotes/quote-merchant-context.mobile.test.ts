@@ -70,7 +70,7 @@ describe('body-only mobile storefront quote context', () => {
         state: 'Abuja',
         countryCode: 'NG',
       }),
-      merchantCountry: undefined,
+      merchantCountry: 'NG',
       merchantPayoutCurrency: undefined,
     });
     expect(rpc).toHaveBeenCalledWith('get_storefront_shipping_sender', {
@@ -104,6 +104,49 @@ describe('body-only mobile storefront quote context', () => {
       error: 'Merchant shipping origin is not configured',
       ok: false,
       status: 400,
+    });
+  });
+
+  it('propagates a published non-Nigerian country for carrier suppression', async () => {
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          business_name: 'Bengaluru Store',
+          business_address: '1 Market Road, Bengaluru',
+          phone: '+919876543210',
+          country: 'IN',
+          state_code: null,
+        },
+        error: null,
+      }),
+    });
+
+    await expect(
+      resolveQuoteMerchantContext({
+        data: {
+          merchantId: 'merchant-in',
+          shipmentType: 'domestic',
+        },
+        request: createRequest({
+          host: 'usebaci.com',
+          'x-baci-client': 'mobile-storefront',
+        }),
+        supabase: {
+          auth: {
+            getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+          },
+          from: vi.fn(),
+        } as never,
+      })
+    ).resolves.toEqual({
+      ok: true,
+      merchantId: 'merchant-in',
+      senderInfo: expect.objectContaining({ countryCode: 'NG' }),
+      merchantCountry: 'IN',
+      merchantPayoutCurrency: undefined,
     });
   });
 });

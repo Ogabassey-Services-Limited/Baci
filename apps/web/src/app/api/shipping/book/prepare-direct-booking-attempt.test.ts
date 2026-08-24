@@ -31,14 +31,31 @@ describe('prepareDirectBookingAttempt', () => {
     vi.clearAllMocks();
   });
 
-  it('returns the lock claim without querying shipments when claimed', async () => {
+  it('checks for a reusable shipment after reclaiming a claimed lock', async () => {
     mockClaim.mockResolvedValue({ status: 'claimed', lockToken: 'lock-1' });
+    mockFindReusable.mockResolvedValue(null);
 
     await expect(
       prepareDirectBookingAttempt({} as never, 'merchant-1', 'order-1')
     ).resolves.toEqual({ status: 'claimed', lockToken: 'lock-1' });
 
-    expect(mockFindReusable).not.toHaveBeenCalled();
+    expect(mockFindReusable).toHaveBeenCalledWith(
+      expect.anything(),
+      'merchant-1',
+      'order-1'
+    );
+  });
+
+  it('recovers a shipment after an expired lock is reclaimed', async () => {
+    mockClaim.mockResolvedValue({ status: 'claimed', lockToken: 'lock-2' });
+    mockFindReusable.mockResolvedValue(existingShipment);
+
+    await expect(
+      prepareDirectBookingAttempt({} as never, 'merchant-1', 'order-1')
+    ).resolves.toMatchObject({
+      status: 'recovered',
+      existingShipment,
+    });
   });
 
   it('recovers a complete shipment instead of allowing a second provider booking', async () => {

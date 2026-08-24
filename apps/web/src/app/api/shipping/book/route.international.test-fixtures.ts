@@ -90,6 +90,13 @@ export function buildInternationalSupabaseMock({
       .fn()
       .mockResolvedValue({ data: { id: 'order-1' }, error: null }),
   };
+  const shipmentLookupChain = {
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
   const quotesSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockImplementation(() => {
@@ -155,7 +162,10 @@ export function buildInternationalSupabaseMock({
         };
       }
       if (table === 'shipments') {
-        return { insert: vi.fn(() => mutationChain) };
+        return {
+          insert: vi.fn(() => mutationChain),
+          select: vi.fn(() => shipmentLookupChain),
+        };
       }
       if (table === 'merchants') {
         return {

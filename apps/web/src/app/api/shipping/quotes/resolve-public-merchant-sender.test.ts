@@ -36,6 +36,7 @@ describe('resolvePublicMerchantSender', () => {
         state: 'Abuja',
         countryCode: 'NG',
       }),
+      country: 'NG',
     });
   });
 
@@ -45,7 +46,7 @@ describe('resolvePublicMerchantSender', () => {
       'merchant-1'
     );
 
-    expect(result).toEqual({ ok: true, sender: null });
+    expect(result).toEqual({ ok: true, sender: null, country: null });
   });
 
   it('surfaces projection failures without fabricating an origin', async () => {

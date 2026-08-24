@@ -65,6 +65,13 @@ export function buildDomesticSenderSupabaseMock(
   const shipmentInsertChain = {
     select: vi.fn().mockReturnValue(shipmentInsertSelectChain),
   };
+  const shipmentLookupChain = {
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
   const shippingQuoteUpdateChain = {
     error: null,
     eq: vi.fn(),
@@ -134,6 +141,7 @@ export function buildDomesticSenderSupabaseMock(
             domesticSenderShipmentInsertPayloads.push(payload);
             return shipmentInsertChain;
           }),
+          select: vi.fn(() => shipmentLookupChain),
         };
       }
 

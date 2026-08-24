@@ -288,6 +288,7 @@ export async function resolveQuoteMerchantContext({
       };
     }
     senderInfo = publicSenderResult.sender;
+    merchantCountry = publicSenderResult.country;
   }
 
   return {
