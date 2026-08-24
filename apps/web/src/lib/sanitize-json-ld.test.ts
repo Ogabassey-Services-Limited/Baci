@@ -79,6 +79,16 @@ describe('sanitizeSchemaMarkup', () => {
       'low-�': 'value',
     });
   });
+
+  it('preserves an own __proto__ property in both sanitization paths', () => {
+    const schema = JSON.parse('{"__proto__":"value"}');
+    const sanitized = sanitizeSchemaMarkup(schema);
+    const serialized = JSON.parse(safeJsonLdStringify(schema));
+
+    expect(Object.hasOwn(sanitized, '__proto__')).toBe(true);
+    expect(Object.entries(sanitized)).toContainEqual(['__proto__', 'value']);
+    expect(Object.entries(serialized)).toContainEqual(['__proto__', 'value']);
+  });
 });
 
 describe('safeJsonLdStringify', () => {

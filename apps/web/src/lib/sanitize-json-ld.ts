@@ -79,7 +79,7 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
   }
 
   if (typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
+    const result: Record<string, unknown> = Object.create(null);
     for (const key in obj) {
       if (Object.hasOwn(obj, key)) {
         result[replaceLoneSurrogates(key)] = sanitizeSchemaMarkup(
@@ -108,7 +108,7 @@ export function safeJsonLdStringify(schema: unknown): string {
     }
 
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const repaired: Record<string, unknown> = {};
+      const repaired: Record<string, unknown> = Object.create(null);
       for (const [key, propertyValue] of Object.entries(value)) {
         repaired[replaceLoneSurrogates(key)] = propertyValue;
       }
