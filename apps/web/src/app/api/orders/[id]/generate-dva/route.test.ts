@@ -73,6 +73,9 @@ function mockQuery(
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    neq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({ data, error }),
     insert: vi.fn().mockResolvedValue({ error: writeError }),
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
@@ -89,6 +92,9 @@ const unpaidOrder = {
   customer_email: 'john@test.com',
   customer_phone: '+2348012345678',
   payment_status: 'unpaid',
+  shipping_status: 'pending',
+  cancelled_at: null,
+  currency: 'NGN',
   merchant_id: MERCHANT_ID,
 };
 
@@ -198,6 +204,48 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.error).toBe('Order is already paid');
   });
 
+  it('rejects non-NGN orders before provisioning a Paystack account', async () => {
+    authenticateMerchant();
+    useOrderQueries({ order: { ...unpaidOrder, currency: 'USD' } });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('UNSUPPORTED_CURRENCY');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
+  it('rejects orders without a customer email because the webhook cannot match them', async () => {
+    authenticateMerchant();
+    useOrderQueries({ order: { ...unpaidOrder, customer_email: null } });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('CUSTOMER_EMAIL_REQUIRED');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['refunded', { payment_status: 'refunded' }],
+    ['failed', { payment_status: 'failed' }],
+    ['bnpl', { payment_status: 'bnpl_pending' }],
+    ['cancelled shipping', { shipping_status: 'cancelled' }],
+    ['cancelled timestamp', { cancelled_at: '2026-08-24T12:00:00.000Z' }],
+  ])('rejects %s orders', async (_label, overrides) => {
+    authenticateMerchant();
+    useOrderQueries({ order: { ...unpaidOrder, ...overrides } });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('ORDER_NOT_ELIGIBLE_FOR_DVA');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
   it('returns existing DVA when one already exists', async () => {
     authenticateMerchant();
     useOrderQueries({
@@ -214,6 +262,55 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.success).toBe(true);
     expect(body.existing).toBe(true);
     expect(body.virtualAccount.account_number).toBe('1234567890');
+  });
+
+  it('returns a legacy provider account instead of creating a second row', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries();
+    paymentAccountQuery.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          account_number: '1234567890',
+          bank_name: 'Kora Bank',
+          account_name: 'Ogabassey/John Doe',
+          provider: 'korapay',
+        },
+        error: null,
+      });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.existing).toBe(true);
+    expect(body.virtualAccount.account_number).toBe('1234567890');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
+  it('stops returning an expired Paystack account after its assignment window', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries();
+    paymentAccountQuery.maybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          account_number: '1234567890',
+          bank_name: 'Wema Bank',
+          account_name: 'Ogabassey/John Doe',
+          provider: 'paystack',
+          assigned_at: '2026-08-24T08:00:00.000Z',
+          expires_at: '2026-08-24T09:30:00.000Z',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(body.code).toBe('PAYMENT_ACCOUNT_EXPIRED');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
   it('returns 500 when checking for an existing DVA fails', async () => {
@@ -285,5 +382,32 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
       error: 'Failed to save automatic confirmation account',
     });
+  });
+
+  it('re-reads the winner when a concurrent insert wins the unique constraint', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries({
+      writeError: { code: '23505', message: 'duplicate key value' },
+    });
+    const racedAccount = {
+      account_number: '9876543210',
+      bank_name: 'Wema Bank',
+      account_name: 'Ogabassey/John Doe',
+      provider: 'paystack',
+      assigned_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    };
+    paymentAccountQuery.maybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: racedAccount, error: null });
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.existing).toBe(true);
+    expect(body.virtualAccount.account_number).toBe('9876543210');
   });
 });

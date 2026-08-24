@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
 import { buildStorefrontAccountDocumentBundle } from '@/lib/storefront-account-document-bundle';
@@ -150,9 +151,9 @@ export async function getStorefrontAccountDocumentData({
       .order('created_at', { ascending: true }),
     supabase
       .from('order_payment_accounts')
-      .select('account_number, bank_name, account_name')
+      .select('account_number, bank_name, account_name, provider, created_at')
       .eq('order_id', orderId)
-      .limit(1),
+      .order('created_at', { ascending: false }),
     supabase
       .from('order_tax_subtotals')
       .select(
@@ -206,8 +207,9 @@ export async function getStorefrontAccountDocumentData({
     itemRows: (itemsResult.data || []) as StorefrontAccountDocumentItemRow[],
     transactions: (transactionsResult.data ||
       []) as StorefrontAccountDocumentTransactionRow[],
-    paymentAccount: (paymentAccountsResult.data?.[0] ||
-      null) as StorefrontAccountDocumentPaymentAccountRow | null,
+    paymentAccount: selectPreferredOrderPaymentAccount(
+      paymentAccountsResult.data as StorefrontAccountDocumentPaymentAccountRow[]
+    ),
     taxRows: (taxResult.data ||
       []) as StorefrontAccountDocumentTaxSubtotalRow[],
     paymentStatus,

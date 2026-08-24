@@ -1,6 +1,7 @@
 import {
   MOBILE_ADMIN_ORDER_ITEMS_COLUMNS,
   type OrderFulfillmentDetails,
+  selectPreferredOrderPaymentAccount,
 } from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
@@ -111,9 +112,11 @@ export async function fetchOrderById(
       .in('status', ['success', 'completed']),
     supabase
       .from('order_payment_accounts')
-      .select('account_number, bank_name, account_name')
+      .select(
+        'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+      )
       .eq('order_id', orderId)
-      .maybeSingle(),
+      .order('created_at', { ascending: false }),
   ]);
 
   if (itemsError) {
@@ -273,7 +276,7 @@ export async function fetchOrderById(
     }),
     recorded_by_name: recordedByName,
     staff_terminal: staffTerminal,
-    virtual_account: virtualAccount || null,
+    virtual_account: selectPreferredOrderPaymentAccount(virtualAccount) || null,
   };
 }
 

@@ -139,9 +139,89 @@ describe('resolveOrderReceiptVirtualAccount', () => {
           Authorization: 'Bearer token',
         }),
         method: 'POST',
+        signal: expect.any(AbortSignal),
       })
     );
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not provision Paystack for non-NGN orders', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue({ ok: false });
+
+    await resolveOrderReceiptVirtualAccount({
+      merchant: null,
+      order: makeOrder({ currency: 'USD' }),
+    });
+
+    expect(mocks.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/generate-dva'),
+      expect.anything()
+    );
+  });
+
+  it('does not provision Paystack for terminal or cancelled order states', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue({ ok: false });
+
+    for (const order of [
+      makeOrder({ payment_status: 'refunded' }),
+      makeOrder({ payment_status: 'bnpl_pending' }),
+      makeOrder({ shipping_status: 'cancelled' }),
+      makeOrder({ cancelled_at: '2026-08-24T12:00:00.000Z' }),
+    ]) {
+      await resolveOrderReceiptVirtualAccount({ merchant: null, order });
+    }
+
+    expect(mocks.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/generate-dva'),
+      expect.anything()
+    );
+  });
+
+  it('does not advertise an existing Paystack account without a customer email', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue({ ok: false });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: null,
+      order: makeOrder({
+        customer_email: '',
+        virtual_account: {
+          account_name: 'Baci / Ada',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+        },
+      }),
+    });
+
+    expect(account).toBeNull();
+    expect(mocks.fetch).not.toHaveBeenCalledWith(
+      expect.stringContaining('/generate-dva'),
+      expect.anything()
+    );
+  });
+
+  it('does not advertise a Paystack account after its assignment window', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue({ ok: false });
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: null,
+      order: makeOrder({
+        virtual_account: {
+          account_name: 'Baci / Ada',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+          assigned_at: '2020-01-01T08:00:00.000Z',
+          expires_at: '2020-01-01T09:30:00.000Z',
+        },
+      }),
+    });
+
+    expect(account).toBeNull();
   });
 
   it('returns null when there is no session or fallback account available', async () => {

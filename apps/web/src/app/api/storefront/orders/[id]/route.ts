@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import { formatCanonicalProductConditionLabel } from '@baci/shared/lib';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
@@ -272,7 +273,8 @@ export async function GET(
               account_number,
               bank_name,
               account_name,
-              provider
+              provider,
+              created_at
             )
           `
         )
@@ -346,7 +348,10 @@ export async function GET(
             shipping_cost: order.shipping_fee,
             short_id: order.order_number,
             items: mapOrderItemsWithRoutes(items || []),
-            virtual_account: order.order_payment_accounts?.[0] || null,
+            virtual_account:
+              selectPreferredOrderPaymentAccount(
+                order.order_payment_accounts
+              ) || null,
           })
         );
       }

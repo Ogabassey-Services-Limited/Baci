@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
@@ -148,7 +149,8 @@ export async function GET(request: NextRequest) {
           account_number,
           bank_name,
           account_name,
-          provider
+          provider,
+          created_at
         )
       `)
       .eq('customer_id', customer.id)
@@ -186,7 +188,9 @@ export async function GET(request: NextRequest) {
         shipping_provider: order.shipping_provider,
         payment_method: order.payment_method,
         fulfillment_details: order.fulfillment_details,
-        virtual_account: order.order_payment_accounts?.[0] || null,
+        virtual_account:
+          selectPreferredOrderPaymentAccount(order.order_payment_accounts) ||
+          null,
         balance: Math.max(
           0,
           Number(order.total || 0) - Number(order.amount_paid || 0)

@@ -2,6 +2,15 @@ import { getBankNameFromCode } from '@baci/shared';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
+import { createAuthenticatedFetch } from './orders/authenticated-fetch';
+
+const GENERATE_DVA_TIMEOUT_MS = 20_000;
+const PAYSTACK_DVA_PAYMENT_STATUSES = [
+  'unpaid',
+  'pending',
+  'partially_paid',
+] as const;
+const PAYSTACK_DVA_WINDOW_MS = 90 * 60 * 1000;
 
 interface ReceiptMerchantDetails {
   bank_account_name?: string | null;
@@ -40,8 +49,12 @@ function resolveAccountCandidate(
     | {
         account_name?: string | null;
         account_number?: string | null;
+        assigned_at?: string | null;
         bank?: string | null;
         bank_name?: string | null;
+        created_at?: string | null;
+        expires_at?: string | null;
+        provider?: string | null;
       }
     | null
     | undefined
@@ -55,11 +68,46 @@ function resolveAccountCandidate(
     return null;
   }
 
+  if (account.provider === 'paystack') {
+    const nowMs = Date.now();
+    const expiresAt = account.expires_at
+      ? Date.parse(account.expires_at)
+      : Number.NaN;
+    if (Number.isFinite(expiresAt) && nowMs >= expiresAt) {
+      return null;
+    }
+
+    const assignedAt = account.assigned_at
+      ? Date.parse(account.assigned_at)
+      : account.created_at
+        ? Date.parse(account.created_at)
+        : Number.NaN;
+    if (
+      Number.isFinite(assignedAt) &&
+      (nowMs < assignedAt || nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS)
+    ) {
+      return null;
+    }
+  }
+
   return {
     account_name: account.account_name?.trim() || '',
     account_number: accountNumber,
     bank_name: account.bank_name?.trim() || account.bank?.trim() || '',
   };
+}
+
+function canProvisionPaystackDva(order: OrderDetailsRecord) {
+  const currency = (order.currency || 'NGN').trim().toUpperCase();
+  return (
+    currency === 'NGN' &&
+    PAYSTACK_DVA_PAYMENT_STATUSES.includes(
+      order.payment_status as (typeof PAYSTACK_DVA_PAYMENT_STATUSES)[number]
+    ) &&
+    order.shipping_status !== 'cancelled' &&
+    !order.cancelled_at &&
+    Boolean(order.customer_email?.trim())
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -141,22 +189,26 @@ export async function resolveOrderReceiptVirtualAccount({
     return resolveAccountCandidate(order.virtual_account);
   }
 
-  let virtualAccount =
-    resolveAccountCandidate(order.virtual_account) ??
-    resolveAccountCandidate(order.staff_terminal);
+  const shouldProvisionPaystackDva = canProvisionPaystackDva(order);
 
-  if (!virtualAccount) {
+  let virtualAccount =
+    (shouldProvisionPaystackDva ||
+    order.virtual_account?.provider !== 'paystack'
+      ? resolveAccountCandidate(order.virtual_account)
+      : null) ?? resolveAccountCandidate(order.staff_terminal);
+
+  if (!virtualAccount && shouldProvisionPaystackDva) {
     try {
       if (session?.access_token) {
-        const response = await fetch(
+        const response = await createAuthenticatedFetch(
           `${BASE_URL}/api/orders/${order.id}/generate-dva`,
           {
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
             },
             method: 'POST',
-          }
+          },
+          GENERATE_DVA_TIMEOUT_MS
         );
 
         if (response.ok) {

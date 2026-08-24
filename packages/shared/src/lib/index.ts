@@ -30,6 +30,7 @@ export * from './receipt-claim-url';
 export * from './resumable-wallet-return-to';
 export * from './sanitize-html-text';
 export * from './sanitize-wallet-return-to';
+export * from './select-preferred-order-payment-account';
 export * from './string-values';
 export * from './supabase-error-log';
 export * from './vtu-loyalty-points';

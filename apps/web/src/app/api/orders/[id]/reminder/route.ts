@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
@@ -120,11 +121,12 @@ export async function POST(
       .eq('order_id', orderId);
 
     // 5. Get virtual account if exists
-    const { data: virtualAccount } = await supabase
+    const { data: paymentAccounts } = await supabase
       .from('order_payment_accounts')
-      .select('account_number, bank_name, account_name')
+      .select('account_number, bank_name, account_name, provider, created_at')
       .eq('order_id', orderId)
-      .maybeSingle();
+      .order('created_at', { ascending: false });
+    const virtualAccount = selectPreferredOrderPaymentAccount(paymentAccounts);
 
     // 6. Generate payment link
     const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';

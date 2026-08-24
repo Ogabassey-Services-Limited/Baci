@@ -230,11 +230,22 @@ describe('fetchOrderById', () => {
       error: null,
     });
     supabaseMock.setTableResult('order_payment_accounts', {
-      data: {
-        account_name: 'Baci Store',
-        account_number: '1234567890',
-        bank_name: 'Paystack-Titan',
-      },
+      data: [
+        {
+          account_name: 'Legacy Store',
+          account_number: '0987654321',
+          bank_name: 'Kora Bank',
+          provider: 'korapay',
+          created_at: '2026-08-24T12:00:00.000Z',
+        },
+        {
+          account_name: 'Baci Store',
+          account_number: '1234567890',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+          created_at: '2026-08-24T11:00:00.000Z',
+        },
+      ],
       error: null,
     });
 
@@ -242,11 +253,11 @@ describe('fetchOrderById', () => {
       expect.objectContaining({
         amount_paid: 35,
         balance: 65,
-        virtual_account: {
+        virtual_account: expect.objectContaining({
           account_name: 'Baci Store',
           account_number: '1234567890',
           bank_name: 'Paystack-Titan',
-        },
+        }),
         items: [
           expect.objectContaining({
             id: 'item-1',
@@ -277,6 +288,37 @@ describe('fetchOrderById', () => {
         { method: 'eq', args: ['transaction_type', 'payment'] },
         { method: 'in', args: ['status', ['success', 'completed']] },
       ])
+    );
+  });
+
+  it('selects Paystack deterministically when legacy account rows coexist', async () => {
+    supabaseMock.setTableResult('order_payment_accounts', {
+      data: [
+        {
+          account_name: 'Legacy Store',
+          account_number: '0987654321',
+          bank_name: 'Kora Bank',
+          provider: 'korapay',
+          created_at: '2026-08-24T12:00:00.000Z',
+        },
+        {
+          account_name: 'Baci Store',
+          account_number: '1234567890',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+          created_at: '2026-08-24T11:00:00.000Z',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        virtual_account: expect.objectContaining({
+          account_number: '1234567890',
+          provider: 'paystack',
+        }),
+      })
     );
   });
 
