@@ -167,4 +167,24 @@ describe('POST /api/shipping/book GIGL international guards', () => {
       })
     );
   });
+
+  it('rejects an international quote whose stored sender is missing', async () => {
+    mockCreateClient.mockReturnValue(
+      buildInternationalSupabaseMock({
+        matchingDestination: true,
+        storedSenderAvailable: false,
+      })
+    );
+    const { POST } = await import('./route');
+
+    const response = await POST(buildInternationalBookingRequest());
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        'The saved international shipping quote is missing its sender. Please get a new quote before shipping.',
+      code: 'INTERNATIONAL_QUOTE_SENDER_MISSING',
+    });
+    expect(mockBookShipment).not.toHaveBeenCalled();
+  });
 });

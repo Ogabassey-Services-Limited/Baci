@@ -36,10 +36,12 @@ export function buildInternationalSupabaseMock({
   matchingDestination = false,
   selectedQuoteId = '22222222-2222-4222-8222-222222222222',
   merchantSenderAvailable = true,
+  storedSenderAvailable = true,
 }: {
   matchingDestination?: boolean;
   selectedQuoteId?: string | null;
   merchantSenderAvailable?: boolean;
+  storedSenderAvailable?: boolean;
 } = {}) {
   const quoteReceiver = matchingDestination
     ? {
@@ -115,15 +117,19 @@ export function buildInternationalSupabaseMock({
             merchantId: 'merchant-1',
             sessionId: 'session-1',
             shipmentType: 'international',
-            sender: {
-              name: 'Quoted Merchant Store',
-              phone: '+2348099999999',
-              address: '7 Quoted Origin',
-              city: 'Ikeja',
-              state: 'Lagos',
-              country: 'Nigeria',
-              countryCode: 'NG',
-            },
+            ...(storedSenderAvailable
+              ? {
+                  sender: {
+                    name: 'Quoted Merchant Store',
+                    phone: '+2348099999999',
+                    address: '7 Quoted Origin',
+                    city: 'Ikeja',
+                    state: 'Lagos',
+                    country: 'Nigeria',
+                    countryCode: 'NG',
+                  },
+                }
+              : {}),
             receiver: quoteReceiver,
             items: [{ name: 'Phone', quantity: 1, weight: 1, value: 500000 }],
           },

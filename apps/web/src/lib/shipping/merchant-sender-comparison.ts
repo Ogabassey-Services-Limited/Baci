@@ -10,6 +10,15 @@ function coordinatesDiffer(
   return Math.abs(left - right) > 1e-6;
 }
 
+function canonicalCountry(address: ShippingAddress): string {
+  const countryCode = address.countryCode.trim().toUpperCase();
+  if (countryCode === 'NGA') return 'NG';
+  if (countryCode) return countryCode;
+
+  const country = address.country.trim().toLowerCase();
+  return country === 'nigeria' ? 'NG' : country;
+}
+
 /**
  * Compares the origin fields that affect domestic carrier routing. GIGL and
  * checkout accept equivalent Abuja/FCT labels, so canonicalize those labels
@@ -20,6 +29,7 @@ export function domesticSendersDiffer(
   resolved: ShippingAddress
 ): boolean {
   return (
+    canonicalCountry(stored) !== canonicalCountry(resolved) ||
     normalizeGiglLocation(stored.city) !==
       normalizeGiglLocation(resolved.city) ||
     normalizeGiglLocation(stored.state) !==

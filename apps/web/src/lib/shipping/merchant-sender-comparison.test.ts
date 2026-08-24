@@ -43,6 +43,22 @@ describe('domesticSendersDiffer', () => {
     ).toBe(true);
   });
 
+  it('returns true when city and state match but country codes differ', () => {
+    expect(
+      domesticSendersDiffer(baseSender, {
+        ...baseSender,
+        country: 'Canada',
+        countryCode: 'CA',
+      })
+    ).toBe(true);
+  });
+
+  it('treats equivalent Nigerian country codes as the same origin', () => {
+    expect(
+      domesticSendersDiffer({ ...baseSender, countryCode: 'NGA' }, baseSender)
+    ).toBe(false);
+  });
+
   it('returns true when city and state match but coordinates differ', () => {
     expect(
       domesticSendersDiffer(
