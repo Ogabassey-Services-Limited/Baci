@@ -5,7 +5,7 @@ type SupabaseMockResult = Promise<{ data: unknown; error: unknown }>;
 const mockSelectCalls: Record<string, string[]> = {};
 const mockOrderEq = jest.fn();
 const mockOrderSingle = jest.fn<() => SupabaseMockResult>();
-const mockPaymentAccountLimit = jest.fn<() => SupabaseMockResult>();
+const mockPaymentAccountOrder = jest.fn<() => SupabaseMockResult>();
 const mockTransactionsOrder = jest.fn<() => SupabaseMockResult>();
 
 jest.mock('@/lib/api', () => ({
@@ -34,7 +34,7 @@ jest.mock('@/lib/supabase', () => ({
 
         if (table === 'order_payment_accounts') {
           return {
-            eq: () => ({ limit: mockPaymentAccountLimit }),
+            eq: () => ({ order: mockPaymentAccountOrder }),
           };
         }
 
@@ -92,7 +92,7 @@ describe('receiptDetailQueryOptions', () => {
       eq: mockOrderEq,
       single: mockOrderSingle,
     }));
-    mockPaymentAccountLimit.mockResolvedValue({ data: [], error: null });
+    mockPaymentAccountOrder.mockResolvedValue({ data: [], error: null });
     mockTransactionsOrder.mockResolvedValue({ data: [], error: null });
   });
 
@@ -179,6 +179,40 @@ describe('receiptDetailQueryOptions', () => {
         condition: null,
         product_name: '13" MacBook Air M2 (2022)',
         variant_name: null,
+      })
+    );
+  });
+
+  it('selects the Paystack account when legacy provider rows coexist', async () => {
+    mockPaymentAccountOrder.mockResolvedValueOnce({
+      data: [
+        {
+          account_name: 'Legacy account',
+          account_number: '1111111111',
+          bank_name: 'Korapay',
+          created_at: '2026-07-08T12:00:00.000Z',
+          provider: 'korapay',
+        },
+        {
+          account_name: 'Automatic confirmation',
+          account_number: '2222222222',
+          bank_name: 'Paystack',
+          created_at: '2026-07-08T11:00:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+
+    const detail = await receiptDetailQueryOptions('order-1', {
+      merchantId: 'merchant-1',
+      userId: 'user-1',
+    }).queryFn();
+
+    expect(detail.virtual_account).toEqual(
+      expect.objectContaining({
+        account_number: '2222222222',
+        provider: 'paystack',
       })
     );
   });

@@ -1,3 +1,4 @@
+import { selectPreferredOrderPaymentAccount } from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
@@ -164,9 +165,9 @@ async function fetchReceiptDetail(
     async () =>
       await supabase
         .from('order_payment_accounts')
-        .select('account_number, bank_name, account_name')
+        .select('account_number, bank_name, account_name, provider, created_at')
         .eq('order_id', orderId)
-        .limit(1),
+        .order('created_at', { ascending: false }),
     { maxRetries: 2 }
   );
   if (vaError) log.warn('Failed to fetch virtual account:', vaError.message);
@@ -189,7 +190,7 @@ async function fetchReceiptDetail(
       ...item,
       product_name: item.name,
     })),
-    virtual_account: virtualAccounts?.[0] ?? null,
+    virtual_account: selectPreferredOrderPaymentAccount(virtualAccounts),
     transactions: transactions ?? [],
   };
 
