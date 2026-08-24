@@ -20,7 +20,7 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   type Layout,
   Responsive,
@@ -60,6 +60,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { MerchantData } from '@/hooks/merchant/types';
+import { createDashboardLayoutSaveQueue } from '@/lib/analytics/dashboard-layout-save-queue';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import {
   fetchDashboardLayoutPreference,
@@ -285,8 +286,12 @@ export function DraggableAnalyticsGrid({
   const [layouts, setLayouts] = useState<Layouts>(() =>
     resolveCategoryLayouts(activeCategory)
   );
-  const [persistedLayoutConfig, setPersistedLayoutConfig] =
+  const [_persistedLayoutConfig, setPersistedLayoutConfig] =
     useState<unknown>(null);
+  const persistedLayoutConfigRef = useRef<unknown>(null);
+  const layoutSaveQueueRef = useRef(
+    createDashboardLayoutSaveQueue(saveDashboardLayoutPreference)
+  );
   const [prevCategory, setPrevCategory] = useState(activeCategory);
   const [prevMerchantId, setPrevMerchantId] = useState(merchant?.id);
 
@@ -305,6 +310,8 @@ export function DraggableAnalyticsGrid({
     if (!merchant?.id) return;
 
     const controller = new AbortController();
+    layoutSaveQueueRef.current.reset();
+    persistedLayoutConfigRef.current = null;
     setPersistedLayoutConfig(null);
 
     void fetchDashboardLayoutPreference(merchant.id, controller.signal)
@@ -312,6 +319,7 @@ export function DraggableAnalyticsGrid({
         if (controller.signal.aborted) return;
 
         setPersistedLayoutConfig(layoutConfig);
+        persistedLayoutConfigRef.current = layoutConfig;
         const hydratedLayouts = hydrateDashboardLayoutConfig(
           layoutConfig,
           activeCategory
@@ -330,7 +338,10 @@ export function DraggableAnalyticsGrid({
         console.error('Failed to hydrate dashboard layout:', error);
       });
 
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      layoutSaveQueueRef.current.reset();
+    };
   }, [activeCategory, merchant?.id]);
 
   // Save layout change
@@ -343,20 +354,21 @@ export function DraggableAnalyticsGrid({
       ...allLayouts,
     };
     const nextLayoutConfig = mergeDashboardLayoutConfig(
-      persistedLayoutConfig,
+      persistedLayoutConfigRef.current,
       activeCategory,
       completeLayouts
     );
     setLayouts(completeLayouts);
+    persistedLayoutConfigRef.current = nextLayoutConfig;
     setPersistedLayoutConfig(nextLayoutConfig);
     if (!isEditMode) return; // Only save if in edit mode (optional, but good for performance)
 
-    // Fire-and-forget pattern for saving layout preferences
-    void saveDashboardLayoutPreference(nextLayoutConfig, merchant?.id).catch(
-      (error) => {
+    void layoutSaveQueueRef.current
+      .enqueue(nextLayoutConfig, merchant?.id)
+      .catch((error) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
         console.error('Failed to save layout:', error);
-      }
-    );
+      });
   };
 
   const atRiskSegment = data?.segmentSummary?.segments?.find(

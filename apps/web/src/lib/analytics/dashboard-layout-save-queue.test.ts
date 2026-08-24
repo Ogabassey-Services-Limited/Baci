@@ -1,0 +1,59 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  createDashboardLayoutSaveQueue,
+  type DashboardLayoutSave,
+} from './dashboard-layout-save-queue';
+
+const layout = { lg: [{ h: 1, i: 'sales', w: 2, x: 0, y: 0 }] };
+
+describe('createDashboardLayoutSaveQueue', () => {
+  it('waits for an earlier write before sending the latest layout', async () => {
+    let releaseFirst: (() => void) | undefined;
+    const firstFinished = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const save = vi.fn<DashboardLayoutSave>(async () => {
+      if (save.mock.calls.length === 1) await firstFinished;
+    });
+    const queue = createDashboardLayoutSaveQueue(save);
+
+    const first = queue.enqueue(layout);
+    const secondLayout = {
+      ...layout,
+      lg: [{ ...layout.lg[0], x: 4 }],
+    };
+    const second = queue.enqueue(secondLayout);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(save).toHaveBeenCalledTimes(1);
+
+    releaseFirst?.();
+    await Promise.all([first, second]);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]?.[0]).toEqual(secondLayout);
+  });
+
+  it('does not write queued layouts from a previous merchant or category', async () => {
+    let releaseFirst: (() => void) | undefined;
+    const firstFinished = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const save = vi.fn<DashboardLayoutSave>(async () => {
+      if (save.mock.calls.length === 1) await firstFinished;
+    });
+    const queue = createDashboardLayoutSaveQueue(save);
+
+    const oldFirst = queue.enqueue(layout, 'merchant-old');
+    const oldSecond = queue.enqueue(layout, 'merchant-old');
+    await Promise.resolve();
+    await Promise.resolve();
+    queue.reset();
+    const next = queue.enqueue(layout, 'merchant-new');
+
+    releaseFirst?.();
+    await Promise.all([oldFirst, oldSecond, next]);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[0]?.[1]).toBe('merchant-old');
+    expect(save.mock.calls[1]?.[1]).toBe('merchant-new');
+  });
+});
