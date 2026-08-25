@@ -5,7 +5,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function hasUnstableHtmlImage(content: string): boolean {
+function hasUnstableHtmlContent(content: string): boolean {
   const mediaAttributePattern =
     /<(?:img|source)\b[^>]*\b(src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
   for (const match of content.matchAll(mediaAttributePattern)) {
@@ -18,6 +18,16 @@ function hasUnstableHtmlImage(content: string): boolean {
     if (sources.some((source) => !source || !isStablePublicMediaUrl(source)))
       return true;
   }
+  const linkPattern =
+    /<a\b[^>]*\bhref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+  for (const match of content.matchAll(linkPattern)) {
+    const href = match[1] ?? match[2] ?? match[3];
+    if (
+      href !== undefined &&
+      (href.includes('?') || !builderDesignCapabilityAdapter.isSafeUrl(href))
+    )
+      return true;
+  }
   return false;
 }
 
@@ -27,7 +37,7 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
   try {
     document = JSON.parse(content);
   } catch {
-    return hasUnstableHtmlImage(content);
+    return hasUnstableHtmlContent(content);
   }
   const pending = [document];
   while (pending.length > 0) {

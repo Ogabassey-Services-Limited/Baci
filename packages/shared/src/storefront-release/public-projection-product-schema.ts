@@ -1,4 +1,7 @@
 import { z } from 'zod';
+import { normalizeCanonicalProductCondition } from '../lib/product-condition';
+import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
+import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 
 const ProductConditionSchema = z.enum([
   'new',
@@ -51,6 +54,7 @@ const ProductVariantSchema = z.strictObject({
   compareAtPriceMinor: OptionalCompareAtPriceSchema,
   mediaIds: z.array(z.uuid()).max(32).optional(),
   available: z.boolean(),
+  displayQuantityLimit: z.number().int().nonnegative().max(100).nullable(),
   attributes: VariantAttributesSchema.optional(),
   condition: ProductConditionSchema.nullable().optional(),
 });
@@ -79,7 +83,15 @@ export const StorefrontPublicProductSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     name: z.string().trim().min(1).max(240),
     brand: z.string().trim().min(1).max(160).nullable().optional(),
-    description: z.string().max(100_000).nullable().optional(),
+    description: z
+      .string()
+      .max(100_000)
+      .refine(
+        (value) => !hasUnstableBlogContentMedia(value),
+        'Product description links and media must be release-safe'
+      )
+      .nullable()
+      .optional(),
     currency: z
       .string()
       .length(3)
@@ -124,20 +136,33 @@ export const StorefrontPublicProductSchema = z
       });
     const offerConditions = new Set<string>();
     for (const [offerIndex, offer] of offers.entries()) {
-      if (offerConditions.has(offer.condition))
+      const condition = normalizeCanonicalProductCondition(offer.condition);
+      if (offerConditions.has(condition))
         context.addIssue({
           code: 'custom',
           message: 'Condition offer conditions must be unique',
           path: ['conditionOffers', offerIndex, 'condition'],
         });
-      offerConditions.add(offer.condition);
+      offerConditions.add(condition);
     }
     const variantSelections = new Set<string>();
     for (const [variantIndex, variant] of (product.variants ?? []).entries()) {
       const attributes = Object.entries(variant.attributes ?? {})
-        .map(([key, value]) => [key.toLowerCase(), value] as const)
+        .map(
+          ([key, value]) =>
+            [normalizeProductSelectionParamKey(key), value] as const
+        )
         .sort(([left], [right]) => left.localeCompare(right));
-      const selection = JSON.stringify([variant.condition ?? null, attributes]);
+      if (new Set(attributes.map(([key]) => key)).size !== attributes.length)
+        context.addIssue({
+          code: 'custom',
+          message: 'Variant attribute axes must be canonically unique',
+          path: ['variants', variantIndex, 'attributes'],
+        });
+      const selection = JSON.stringify([
+        normalizeCanonicalProductCondition(variant.condition) || null,
+        attributes,
+      ]);
       if (variantSelections.has(selection))
         context.addIssue({
           code: 'custom',

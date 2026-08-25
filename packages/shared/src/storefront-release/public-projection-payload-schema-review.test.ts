@@ -22,6 +22,7 @@ const product = {
   variants: [
     {
       available: true,
+      displayQuantityLimit: null,
       id: '123e4567-e89b-42d3-a456-426614174101',
       name: 'Black',
       priceMinor: 100_000,
@@ -197,6 +198,18 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
         featureFlags: [
           { enabled: true, key: 'reviews' },
           { enabled: false, key: 'reviews' },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects duplicate SEO paths', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [
+          { indexable: true, path: '/about', title: 'About' },
+          { indexable: false, path: '/about', title: 'Hidden About' },
         ],
       }).success
     ).toBe(false);

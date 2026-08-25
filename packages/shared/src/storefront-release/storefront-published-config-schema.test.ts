@@ -116,6 +116,24 @@ describe('StorefrontPublishedConfigSchema', () => {
     );
   });
 
+  it('returns a validation failure for many zone collections without throwing', () => {
+    const zones = Object.fromEntries(
+      Array.from({ length: 150_000 }, (_, index) => [`zone-${index}`, []])
+    );
+    const config = {
+      content: [],
+      root: { props: { title: 'Home' } },
+      zones,
+    };
+
+    expect(() =>
+      StorefrontPublishedConfigSchema.safeParse(config)
+    ).not.toThrow();
+    expect(StorefrontPublishedConfigSchema.safeParse(config).success).toBe(
+      false
+    );
+  });
+
   it('rejects mismatched duplicate root titles', () => {
     expect(
       StorefrontPublishedConfigSchema.safeParse({

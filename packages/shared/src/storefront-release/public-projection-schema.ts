@@ -170,10 +170,12 @@ export const StorefrontPublicProjectionSchema =
         schemaVersion: z.literal(1),
         merchantId: z.uuid(),
         publicationGeneration: z
-          .number()
-          .int()
-          .nonnegative()
-          .max(Number.MAX_SAFE_INTEGER),
+          .string()
+          .regex(/^[1-9][0-9]*$/)
+          .refine(
+            (value) => BigInt(value) <= 9_223_372_036_854_775_807n,
+            'Expected a positive PostgreSQL bigint decimal'
+          ),
         componentContractVersion: z.literal('builder-components-v1'),
         payload: StorefrontPublicProjectionPayloadSchema,
       })

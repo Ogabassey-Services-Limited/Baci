@@ -40,7 +40,8 @@ function hasPublishedRoot(value: unknown): boolean {
 function containsRefusedComponent(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const collections = [value.content];
-  if (isRecord(value.zones)) collections.push(...Object.values(value.zones));
+  if (isRecord(value.zones))
+    for (const zone of Object.values(value.zones)) collections.push(zone);
   return collections.some(
     (collection) =>
       Array.isArray(collection) &&

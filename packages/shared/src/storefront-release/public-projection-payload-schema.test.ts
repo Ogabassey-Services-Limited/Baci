@@ -24,6 +24,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       merchant: {
         ...validPayload.merchant,
         address: '1 Market Road, Lagos',
+        businessType: 'electronics',
         businessHours: { monday: '09:00-17:00' },
         email: 'hello@pilot.example',
         phone: '+2348000000000',
@@ -128,6 +129,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
               attributes: { color: 'Black', storage: '256 GB' },
               available: true,
               condition: 'refurbished',
+              displayQuantityLimit: 1,
               id: '123e4567-e89b-42d3-a456-426614174021',
               name: 'Black / 256 GB',
               priceMinor: 100_000,

@@ -32,6 +32,7 @@ describe('StorefrontPublicProductSchema', () => {
         {
           available: true,
           compareAtPriceMinor: 120_000,
+          displayQuantityLimit: 2,
           id: '123e4567-e89b-42d3-a456-426614174003',
           name: 'Black',
           priceMinor: 95_000,
@@ -90,6 +91,7 @@ describe('StorefrontPublicProductSchema', () => {
       attributes: { Color: 'Black' },
       available: true,
       condition: 'new',
+      displayQuantityLimit: 1,
       id: '123e4567-e89b-42d3-a456-426614174006',
       name: 'Black',
       priceMinor: 100_000,
@@ -133,6 +135,81 @@ describe('StorefrontPublicProductSchema', () => {
           { ...offer, id: '123e4567-e89b-42d3-a456-426614174009' },
         ],
         hasConditionOffers: true,
+      }).success
+    ).toBe(false);
+  });
+
+  it('normalizes condition and selection-axis aliases before uniqueness checks', () => {
+    const offer = {
+      available: true,
+      displayQuantityLimit: 1,
+      priceMinor: 90_000,
+      status: 'active',
+    } as const;
+    const variant = {
+      available: true,
+      condition: 'new',
+      displayQuantityLimit: 1,
+      name: '256 GB',
+      priceMinor: 100_000,
+    } as const;
+
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        conditionOffers: [
+          {
+            ...offer,
+            condition: 'open_box',
+            id: '123e4567-e89b-42d3-a456-426614174010',
+          },
+          {
+            ...offer,
+            condition: 'refurbished',
+            id: '123e4567-e89b-42d3-a456-426614174011',
+          },
+        ],
+        hasConditionOffers: true,
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        variants: [
+          {
+            ...variant,
+            attributes: { 'Storage Size': '256' },
+            id: '123e4567-e89b-42d3-a456-426614174012',
+          },
+          {
+            ...variant,
+            attributes: { storage_size: '256' },
+            id: '123e4567-e89b-42d3-a456-426614174013',
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('requires bounded variant display stock and release-safe descriptions', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        description: '<img src="https://cdn.example/image.png?token=secret">',
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        variants: [
+          {
+            available: true,
+            displayQuantityLimit: 101,
+            id: '123e4567-e89b-42d3-a456-426614174014',
+            name: 'Black',
+            priceMinor: 100_000,
+          },
+        ],
       }).success
     ).toBe(false);
   });

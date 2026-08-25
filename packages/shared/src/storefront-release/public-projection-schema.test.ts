@@ -4,7 +4,7 @@ import { StorefrontPublicProjectionSchema } from './public-projection-schema';
 const validProjection = {
   schemaVersion: 1,
   merchantId: '123e4567-e89b-42d3-a456-426614174000',
-  publicationGeneration: 7,
+  publicationGeneration: '7',
   componentContractVersion: 'builder-components-v1',
   payload: {
     merchant: {
@@ -196,13 +196,26 @@ describe('StorefrontPublicProjectionSchema', () => {
       );
   });
 
-  it('rejects publication generations that cannot round-trip safely', () => {
+  it('preserves the full positive PostgreSQL bigint generation range', () => {
     expect(
       StorefrontPublicProjectionSchema.safeParse({
         ...validProjection,
-        publicationGeneration: Number.MAX_SAFE_INTEGER + 1,
+        publicationGeneration: '9223372036854775807',
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        publicationGeneration: '9223372036854775808',
       }).success
     ).toBe(false);
+    for (const invalid of ['0', '01', '-1'])
+      expect(
+        StorefrontPublicProjectionSchema.safeParse({
+          ...validProjection,
+          publicationGeneration: invalid,
+        }).success
+      ).toBe(false);
   });
 
   it('rejects unsupported component contract versions', () => {

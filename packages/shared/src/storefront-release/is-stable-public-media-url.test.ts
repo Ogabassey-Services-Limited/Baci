@@ -4,9 +4,7 @@ import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 describe('isStablePublicMediaUrl', () => {
   it('accepts content-addressed release media', () => {
     expect(
-      isStablePublicMediaUrl(
-        `/release-assets/${'a'.repeat(64)}.webp`
-      )
+      isStablePublicMediaUrl(`/release-assets/${'a'.repeat(64)}.webp`)
     ).toBe(true);
   });
 

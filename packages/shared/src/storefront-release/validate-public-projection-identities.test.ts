@@ -23,6 +23,7 @@ describe('validatePublicProjectionIdentities', () => {
         categories: [{ id: 'category-1', slug: 'phones' }],
         contentPages: [{ id: 'page-1', slug: 'about' }],
         featureFlags: [{ key: 'reviews' }],
+        seoEntries: [{ path: '/about' }],
         products: [
           {
             conditionOffers: [{ id: 'offer-1' }],
@@ -50,6 +51,7 @@ describe('validatePublicProjectionIdentities', () => {
         { id: 'page-1', slug: 'about' },
       ],
       featureFlags: [{ key: 'reviews' }, { key: 'reviews' }],
+      seoEntries: [{ path: '/about' }, { path: '/about' }],
       products: [
         {
           conditionOffers: [{ id: 'offer-1' }, { id: 'offer-1' }],
@@ -73,6 +75,7 @@ describe('validatePublicProjectionIdentities', () => {
         'Feature flag keys must be unique',
         'Product IDs must be unique',
         'Product slugs must be unique',
+        'SEO entry paths must be unique',
         'Variant IDs must be unique',
       ])
     );

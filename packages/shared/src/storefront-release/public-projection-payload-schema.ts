@@ -54,6 +54,7 @@ const MerchantSchema = z.strictObject({
   slug: SlugSchema,
   hostname: z.hostname().optional(),
   publishedStatus: z.literal('published'),
+  businessType: z.string().trim().min(1).max(100).nullable().optional(),
   email: z.email().max(320).optional(),
   phone: z.string().trim().min(1).max(40).optional(),
   address: z.string().trim().min(1).max(500).optional(),

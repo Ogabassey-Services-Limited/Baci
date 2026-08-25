@@ -63,4 +63,12 @@ describe('hasUnstableBlogContentMedia', () => {
       )
     ).toBe(true);
   });
+
+  it('rejects query-bearing links in persisted HTML', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '<p><a href="https://example.test/export?token=secret">Download</a></p>'
+      )
+    ).toBe(true);
+  });
 });

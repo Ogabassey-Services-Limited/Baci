@@ -5,6 +5,7 @@ interface ProjectionIdentityPayload {
   categories?: readonly { id: string; slug: string }[];
   contentPages?: readonly { id: string; slug: string }[];
   featureFlags?: readonly { key: string }[];
+  seoEntries?: readonly { path: string }[];
   products: readonly {
     conditionOffers?: readonly { id: string }[];
     id: string;
@@ -119,5 +120,16 @@ export function validatePublicProjectionIdentities(
         'key',
       ]);
     featureFlagKeys.add(flag.key);
+  }
+
+  const seoPaths = new Set<string>();
+  for (const [seoIndex, entry] of (payload.seoEntries ?? []).entries()) {
+    if (seoPaths.has(entry.path))
+      addDuplicateIssue(context, 'SEO entry paths must be unique', [
+        'seoEntries',
+        seoIndex,
+        'path',
+      ]);
+    seoPaths.add(entry.path);
   }
 }
