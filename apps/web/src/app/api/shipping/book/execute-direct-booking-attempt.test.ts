@@ -92,14 +92,7 @@ describe('executeDirectBookingAttempt', () => {
     );
   });
 
-  it('books an expired domestic quote with the refreshed receiver and items', async () => {
-    const refreshedReceiver = {
-      ...payload.receiver,
-      address: '9 Stored Quote Road',
-    };
-    const refreshedItems = [
-      { name: 'Stored Phone', quantity: 2, weight: 2, value: 200 },
-    ];
+  it('books an expired domestic quote with its refreshed request', async () => {
     mockResolveQuote.mockResolvedValue({
       ...quote,
       id: 'quote-refreshed',
@@ -107,8 +100,8 @@ describe('executeDirectBookingAttempt', () => {
         shipmentType: 'domestic',
         sessionId: 'session-refreshed',
         sender,
-        receiver: refreshedReceiver,
-        items: refreshedItems,
+        receiver: payload.receiver,
+        items: payload.items,
       },
     });
 
@@ -127,10 +120,55 @@ describe('executeDirectBookingAttempt', () => {
       'GIGL',
       expect.objectContaining({
         quoteId: 'quote-refreshed',
-        receiver: refreshedReceiver,
-        items: refreshedItems,
+        receiver: payload.receiver,
+        items: payload.items,
       })
     );
+  });
+
+  it.each([
+    {
+      drift: 'receiver',
+      receiver: { ...payload.receiver, address: '9 Stale Quote Road' },
+      items: payload.items,
+    },
+    {
+      drift: 'items',
+      receiver: payload.receiver,
+      items: [{ ...payload.items[0], weight: 0.25 }],
+    },
+  ])('rejects domestic $drift drift before provider booking', async ({
+    receiver,
+    items,
+  }) => {
+    mockResolveQuote.mockResolvedValue({
+      ...quote,
+      id: 'quote-refreshed',
+      quote_request: {
+        shipmentType: 'domestic',
+        sessionId: 'session-refreshed',
+        sender,
+        receiver,
+        items,
+      },
+    });
+
+    await expect(
+      executeDirectBookingAttempt({
+        supabase: {} as never,
+        merchantId: 'merchant-1',
+        merchantBusinessName: 'Merchant Store',
+        orderId: 'order-1',
+        quote,
+        quotePayload: payload,
+        usesStoredInternationalSender: false,
+        expectedShippingFee: 2500,
+      })
+    ).rejects.toMatchObject({
+      code: 'DOMESTIC_QUOTE_ORDER_MISMATCH',
+    });
+
+    expect(mockBookShipment).not.toHaveBeenCalled();
   });
 
   it('uses the stored international sender without querying the current origin', async () => {

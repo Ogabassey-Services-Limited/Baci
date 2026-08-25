@@ -21,6 +21,79 @@ type DirectBookingPayload = {
   sender?: ShippingAddress;
 };
 
+function normalizeText(value: string | undefined): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function addressesMatch(
+  left: ShippingAddress,
+  right: ShippingAddress
+): boolean {
+  const textFields: (keyof ShippingAddress)[] = [
+    'name',
+    'phone',
+    'email',
+    'address',
+    'city',
+    'state',
+    'country',
+    'countryCode',
+    'postalCode',
+    'stationName',
+  ];
+  return (
+    textFields.every(
+      (field) =>
+        normalizeText(left[field] as string | undefined) ===
+        normalizeText(right[field] as string | undefined)
+    ) &&
+    left.latitude === right.latitude &&
+    left.longitude === right.longitude &&
+    left.stationId === right.stationId
+  );
+}
+
+function itemsMatch(left: ShipmentItem[], right: ShipmentItem[]): boolean {
+  if (left.length !== right.length) return false;
+  const unmatched = [...right];
+  return left.every((item) => {
+    const index = unmatched.findIndex(
+      (candidate) =>
+        normalizeText(candidate.name) === normalizeText(item.name) &&
+        candidate.quantity === item.quantity &&
+        candidate.weight === item.weight &&
+        candidate.value === item.value &&
+        normalizeText(candidate.category) === normalizeText(item.category) &&
+        normalizeText(candidate.hsCode) === normalizeText(item.hsCode) &&
+        candidate.length === item.length &&
+        candidate.width === item.width &&
+        candidate.height === item.height &&
+        normalizeText(candidate.description) === normalizeText(item.description)
+    );
+    if (index === -1) return false;
+    unmatched.splice(index, 1);
+    return true;
+  });
+}
+
+function assertDomesticQuoteMatchesPayload(
+  receiver: ShippingAddress,
+  items: ShipmentItem[],
+  payload: DirectBookingPayload
+): void {
+  if (
+    addressesMatch(receiver, payload.receiver) &&
+    itemsMatch(items, payload.items)
+  ) {
+    return;
+  }
+  throw new OrderShipmentBookingError(
+    'The saved shipping quote no longer matches this order. Please get a new quote before shipping.',
+    400,
+    'DOMESTIC_QUOTE_ORDER_MISMATCH'
+  );
+}
+
 export async function executeDirectBookingAttempt(params: {
   supabase: SupabaseClient;
   merchantId: string;
@@ -108,6 +181,9 @@ export async function executeDirectBookingAttempt(params: {
     refreshedRequest?.shipmentType === 'domestic'
       ? refreshedRequest.items
       : quotePayload.items;
+  if (refreshedRequest?.shipmentType === 'domestic') {
+    assertDomesticQuoteMatchesPayload(receiver, items, quotePayload);
+  }
 
   const bookingRequest: BookingRequest = {
     orderId,
