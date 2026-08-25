@@ -213,7 +213,6 @@ export async function resolveQuoteMerchantContext({
   const bodyOnlyMerchantId =
     !trustedSenderMerchantId &&
     merchantId &&
-    !data.sender &&
     normalizeHeader(request.headers.get('x-baci-client')) ===
       'mobile-storefront'
       ? merchantId

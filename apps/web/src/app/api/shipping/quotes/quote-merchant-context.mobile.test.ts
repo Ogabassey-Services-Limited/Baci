@@ -78,6 +78,65 @@ describe('body-only mobile storefront quote context', () => {
     });
   });
 
+  it('ignores a caller-supplied sender for a body-only merchant quote', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        business_name: 'Abuja Store',
+        business_address: '29 Yedseram Crescent, Maitama, 904101',
+        phone: '08012345678',
+        country: 'NG',
+        state_code: 'FC',
+      },
+      error: null,
+    });
+    mockCreateServerClient.mockResolvedValue({
+      auth: {
+        getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+      },
+      rpc,
+    });
+
+    const result = await resolveQuoteMerchantContext({
+      data: {
+        merchantId: 'merchant-abuja',
+        shipmentType: 'domestic',
+        sender: {
+          name: 'Untrusted sender',
+          phone: '08000000000',
+          address: '1 Cheap Route',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      },
+      request: createRequest({
+        host: 'usebaci.com',
+        'x-baci-client': 'mobile-storefront',
+      }),
+      supabase: {
+        auth: {
+          getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
+        },
+        from: vi.fn(),
+      } as never,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: true,
+        senderInfo: expect.objectContaining({
+          address: '29 Yedseram Crescent, Maitama, 904101',
+          city: 'Maitama',
+          state: 'Abuja',
+        }),
+      })
+    );
+    expect(rpc).toHaveBeenCalledWith('get_storefront_shipping_sender', {
+      p_merchant_id: 'merchant-abuja',
+    });
+  });
+
   it('fails closed when the body-only merchant has no published origin', async () => {
     mockCreateServerClient.mockResolvedValue({
       auth: {
