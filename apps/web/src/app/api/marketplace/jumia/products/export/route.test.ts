@@ -405,11 +405,11 @@ describe('Products Export POST', () => {
     );
   });
 
-  it('returns 500 when createProduct fails', async () => {
+  it('returns 502 when createProduct fails with an ambiguous transport error', async () => {
     mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
     mockCreateProduct.mockRejectedValue(new Error('Feed creation failed'));
     const res = await POST(makePostRequest(VALID_BODY));
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(502);
     const json = await res.json();
     expect(json.error).toBeDefined();
   });
