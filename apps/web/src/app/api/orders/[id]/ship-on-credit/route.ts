@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
@@ -12,11 +11,7 @@ import {
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
-
-const shipOnCreditBodySchema = z.object({
-  credit_notes: z.string().trim().max(2000).optional(),
-  notes: z.string().trim().max(2000).optional(),
-});
+import { shipOnCreditBodySchema } from './ship-on-credit-schema';
 
 /**
  * POST /api/orders/[id]/ship-on-credit
@@ -230,7 +225,9 @@ export async function POST(
           const { data: existingAccount, error: existingAccountError } =
             await supabase
               .from('order_payment_accounts')
-              .select('account_number, bank_name, account_name')
+              .select(
+                'account_number, bank_name, account_name, assigned_at, created_at, expires_at, provider'
+              )
               .eq('order_id', orderId)
               .eq('provider', 'paystack')
               .maybeSingle();
@@ -249,7 +246,11 @@ export async function POST(
             });
           }
 
-          if (!existingAccountError && existingAccount) {
+          if (
+            !existingAccountError &&
+            existingAccount &&
+            creditOrderDvaHelpers.isReusableAccount(existingAccount)
+          ) {
             logger.info({
               message:
                 'Order payment account already exists, treating as idempotent success',

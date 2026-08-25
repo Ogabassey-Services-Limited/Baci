@@ -131,6 +131,10 @@ function createPaymentAccountTable(options: {
     account_number: string;
     bank_name: string;
     account_name: string;
+    assigned_at?: string | null;
+    created_at?: string | null;
+    expires_at?: string | null;
+    provider?: string | null;
   } | null;
   existingAccountError?: unknown;
 }) {
@@ -369,6 +373,66 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
         message:
           'Order payment account already exists, treating as idempotent success',
         orderId: ORDER_ID,
+      })
+    );
+  });
+
+  it('does not return an expired Paystack alias after a duplicate insert conflict', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectSingleQuery({
+          id: MERCHANT_ID,
+          business_name: 'Ogabassey',
+        });
+      }
+
+      if (table === 'orders') {
+        return {
+          ...createSelectSingleQuery({
+            id: ORDER_ID,
+            order_number: 'ORD-001',
+            total: '5000',
+            customer_name: 'John Doe',
+            customer_email: 'new-email@example.com',
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+          }),
+          ...createUpdateQuery(),
+        };
+      }
+
+      if (table === 'order_payment_accounts') {
+        return createPaymentAccountTable({
+          insertError: { code: '23505', message: 'duplicate key value' },
+          existingAccount: {
+            account_number: '0123456789',
+            bank_name: 'Wema Bank',
+            account_name: 'Ogabassey / Old Customer',
+            assigned_at: '2020-01-01T00:00:00.000Z',
+            expires_at: '2020-01-01T00:30:00.000Z',
+            provider: 'paystack',
+          },
+        });
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      createRequest({ credit_notes: 'Ship now' }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      virtualAccount: null,
+    });
+    expect(mockLogger.info).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        message:
+          'Order payment account already exists, treating as idempotent success',
       })
     );
   });

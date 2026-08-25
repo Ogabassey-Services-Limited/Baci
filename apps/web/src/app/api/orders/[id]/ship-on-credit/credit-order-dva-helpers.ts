@@ -1,10 +1,17 @@
-interface CreditOrderDvaAccount {
+import {
+  type OrderPaymentAccountLike,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
+
+interface CreditOrderDvaAccount extends OrderPaymentAccountLike {
   account_name: string;
-  account_number: string;
   bank_name: string;
 }
 
 export const creditOrderDvaHelpers = {
+  isReusableAccount(account: CreditOrderDvaAccount) {
+    return selectPreferredOrderPaymentAccount([account]) !== null;
+  },
   toCustomerName(customerName: string | null) {
     const parts = (customerName || 'Customer').trim().split(' ');
     return {
