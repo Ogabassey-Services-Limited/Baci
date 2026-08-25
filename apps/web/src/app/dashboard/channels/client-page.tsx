@@ -233,12 +233,22 @@ export default function ChannelsClientPage() {
             {integrations.length === 0 ? (
               <Button onClick={() => setShowConnectModal(true)}>Connect</Button>
             ) : (
-              <Badge
-                variant="outline"
-                className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-700"
-              >
-                Connected
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="text-green-600 border-green-300 dark:text-green-400 dark:border-green-700"
+                >
+                  Connected
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowConnectModal(true)}
+                >
+                  <Plus className="size-4" />
+                  Add shop
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>

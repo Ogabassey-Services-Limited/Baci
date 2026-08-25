@@ -286,7 +286,8 @@ import {
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
-import { DELETE, GET, POST } from './route';
+import { POST } from './post';
+import { DELETE, GET } from './route';
 
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 const originalJumiaClientId = process.env.JUMIA_CLIENT_ID;

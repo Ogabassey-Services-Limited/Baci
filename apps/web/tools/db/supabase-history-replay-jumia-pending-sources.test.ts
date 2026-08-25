@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260825001000_purge_displaced_jumia_authorizations.sql'
+      '20260825001100_allow_active_jumia_view_credential_refresh.sql'
     );
   });
 });

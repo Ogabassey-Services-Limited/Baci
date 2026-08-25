@@ -64,7 +64,8 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
 
-import { GET, POST } from './route';
+import { POST } from './post';
+import { GET } from './route';
 
 function makeRequest(
   query = 'connectionType=oauth&diagnostic=token-shape&variant=F',

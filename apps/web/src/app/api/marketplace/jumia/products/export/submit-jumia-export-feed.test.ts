@@ -93,4 +93,42 @@ describe('submitJumiaExportFeed', () => {
     expect(finalizeJumiaExportReservation).not.toHaveBeenCalled();
     expect(markAmbiguousJumiaExport).toHaveBeenCalled();
   });
+
+  it('marks raw transport failures as ambiguous before returning', async () => {
+    const { createProduct } = await import('@/lib/jumia/feeds');
+    const { releaseJumiaExportReservation, finalizeJumiaExportReservation } =
+      await import('./export-product-reservation');
+    const { markAmbiguousJumiaExport } = await import(
+      './mark-ambiguous-jumia-export'
+    );
+    vi.mocked(createProduct).mockRejectedValue(
+      new TypeError('fetch failed: connection reset')
+    );
+    vi.mocked(markAmbiguousJumiaExport).mockResolvedValue(true);
+
+    const result = await submitJumiaExportFeed({
+      jumia: {} as never,
+      supabase: {} as never,
+      merchantId: 'merchant-1',
+      productId: 'product-1',
+      shopId: 'shop-1',
+      marketplaceKey: 'Jumia Nigeria',
+      exportName: 'Phone',
+      brand: { code: 1, name: 'Generic' },
+      category: { code: 2 },
+      exportVariations: [{ sellerSku: 'SKU-1', price: 100, currency: 'NGN' }],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 502,
+      body: {
+        error:
+          'Jumia product submission outcome is unknown. Retry is blocked while Baci reconciles the reserved SKU to avoid a duplicate listing.',
+      },
+    });
+    expect(markAmbiguousJumiaExport).toHaveBeenCalled();
+    expect(releaseJumiaExportReservation).not.toHaveBeenCalled();
+    expect(finalizeJumiaExportReservation).not.toHaveBeenCalled();
+  });
 });

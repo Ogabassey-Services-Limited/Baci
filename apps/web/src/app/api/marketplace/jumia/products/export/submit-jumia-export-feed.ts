@@ -113,7 +113,32 @@ export async function submitJumiaExportFeed(args: {
         },
       };
     }
-    throw feedError;
+    const marked = await markAmbiguousJumiaExport(supabase, {
+      merchantId,
+      productId,
+      shopId,
+      marketplaceKey,
+      exportVariations,
+    });
+    if (!marked) {
+      logger.error({
+        message: 'Failed to record ambiguous Jumia transport failure',
+        merchant_id: merchantId,
+        product_id: productId,
+      });
+    }
+    logger.error({
+      message: 'Jumia createProduct transport failed',
+      error: feedError,
+    });
+    return {
+      ok: false,
+      status: 502,
+      body: {
+        error:
+          'Jumia product submission outcome is unknown. Retry is blocked while Baci reconciles the reserved SKU to avoid a duplicate listing.',
+      },
+    };
   }
 
   const finalized = await finalizeJumiaExportReservation(supabase, {

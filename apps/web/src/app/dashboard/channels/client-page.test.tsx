@@ -219,14 +219,17 @@ describe('ChannelsClientPage', () => {
       },
     ];
 
-    it('renders Connected badge instead of Connect button', () => {
+    it('keeps the connect dialog reachable after the first shop is connected', async () => {
       setupHook({ integrations: mockIntegrations });
+      const user = userEvent.setup();
       render(<ChannelsClientPage />);
 
       expect(screen.getByText('Connected')).toBeInTheDocument();
       expect(
         screen.queryByRole('button', { name: /^connect$/i })
       ).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /add shop/i }));
+      expect(screen.getByTestId('connect-dialog')).toBeInTheDocument();
     });
 
     it('renders shop names and country codes', () => {
