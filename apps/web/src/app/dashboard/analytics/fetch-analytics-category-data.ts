@@ -1,7 +1,6 @@
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
-import { fetchInventoryForecastPages } from './fetch-inventory-forecast-pages';
 import { mapGoogleAdsReporting } from './google-ads-analytics-mapper';
 import { mapSocialAdsReporting } from './social-ads-analytics-mapper';
 
@@ -98,19 +97,17 @@ async function fetchInventoryData(
   merchantId: string,
   signal: AbortSignal
 ): Promise<Partial<AnalyticsData>> {
-  const [alertsPayload, forecastPayloads, resolvedAlertsPayload] =
+  const [alertsPayload, forecastPayload, resolvedAlertsPayload] =
     await Promise.all([
       fetchAnalyticsJson(
         '/api/inventory/alerts?status=active',
         merchantId,
         signal
       ),
-      fetchInventoryForecastPages((page) =>
-        fetchAnalyticsJson(
-          `/api/inventory/forecast?limit=100&page=${page}`,
-          merchantId,
-          signal
-        )
+      fetchAnalyticsJson(
+        '/api/inventory/forecast?limit=100',
+        merchantId,
+        signal
       ),
       fetchAnalyticsJson(
         '/api/inventory/alerts?status=resolved',
@@ -119,22 +116,9 @@ async function fetchInventoryData(
       ),
     ]);
 
-  const forecastSummary = forecastPayloads.reduce<{
-    critical: number;
-    outOfStock: number;
-    warning: number;
-  }>(
-    (summary, payload) => {
-      const pageSummary = asRecord(payload.summary);
-      summary.critical += asNumber(pageSummary?.critical);
-      summary.warning += asNumber(pageSummary?.warning);
-      summary.outOfStock += asNumber(pageSummary?.outOfStock);
-      return summary;
-    },
-    { critical: 0, outOfStock: 0, warning: 0 }
-  );
-  const forecasts = forecastPayloads
-    .flatMap((payload) => asArray(payload.forecasts).map(mapInventoryForecast))
+  const forecastSummary = asRecord(forecastPayload.summary);
+  const forecasts = asArray(forecastPayload.forecasts)
+    .map(mapInventoryForecast)
     .sort(
       (left, right) =>
         left.days_of_stock - right.days_of_stock ||

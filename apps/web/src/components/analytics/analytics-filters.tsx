@@ -10,6 +10,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ADS_ANALYTICS_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
 import { cn } from '@/lib/utils';
 
 interface AnalyticsFiltersProps {
@@ -34,7 +35,11 @@ export function AnalyticsFilters({
       animate={{ opacity: 1, y: 0 }}
       className={cn('flex items-center justify-between gap-4', className)}
     >
-      <DateRangePicker date={date} setDate={onDateChange} />
+      <DateRangePicker
+        date={date}
+        maxRangeDays={ADS_ANALYTICS_MAX_DAYS}
+        setDate={onDateChange}
+      />
 
       <div className="flex items-center gap-2">
         <DropdownMenu>

@@ -30,6 +30,26 @@ describe('Snapchat Ads spend route', () => {
     ).toBe(401);
   });
 
+  it('validates an authenticated query before tenant or connection reads', async () => {
+    const from = vi.fn();
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { from },
+      user: { id: 'user' },
+    });
+    access.mockClear();
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/spend?startDate=invalid'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
+  });
+
   it('returns normalized safe spend metrics for an authenticated viewer', async () => {
     const connection = {
       eq: vi.fn().mockReturnThis(),
@@ -134,7 +154,6 @@ describe('Snapchat Ads spend route', () => {
     };
     const from = vi
       .fn()
-      .mockReturnValueOnce(validConnection)
       .mockReturnValueOnce(validConnection)
       .mockReturnValueOnce(failedSpend)
       .mockReturnValueOnce(failedConnection);

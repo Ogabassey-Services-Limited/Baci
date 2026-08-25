@@ -39,6 +39,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const parsedQuery = googleAdsSpendQuerySchema.safeParse({
+    customerId: request.nextUrl.searchParams.get('customerId') ?? undefined,
+    endDate: request.nextUrl.searchParams.get('endDate') ?? undefined,
+    startDate: request.nextUrl.searchParams.get('startDate') ?? undefined,
+  });
+  if (!parsedQuery.success) {
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsedQuery.error.flatten() },
+      { status: 400 }
+    );
+  }
+
   const merchant = await resolveAdsMerchantAccess({
     request,
     supabase: auth.supabase,
@@ -54,19 +66,6 @@ export async function GET(request: NextRequest) {
   }
 
   const defaults = defaultDateRange();
-  const parsedQuery = googleAdsSpendQuerySchema.safeParse({
-    customerId: request.nextUrl.searchParams.get('customerId') ?? undefined,
-    endDate: request.nextUrl.searchParams.get('endDate') ?? defaults.endDate,
-    startDate:
-      request.nextUrl.searchParams.get('startDate') ?? defaults.startDate,
-  });
-  if (!parsedQuery.success) {
-    return NextResponse.json(
-      { error: 'Invalid input', details: parsedQuery.error.flatten() },
-      { status: 400 }
-    );
-  }
-
   let customerId = parsedQuery.data.customerId;
   if (!customerId) {
     const { data: connection, error: connectionError } = await auth.supabase

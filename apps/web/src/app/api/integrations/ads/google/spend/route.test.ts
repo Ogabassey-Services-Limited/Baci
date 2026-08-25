@@ -81,6 +81,8 @@ describe('GET /api/integrations/ads/google/spend', () => {
       )
     );
     expect(response.status).toBe(400);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
+    expect(mockQuery.from).not.toHaveBeenCalled();
     expect(mockQuery.order).not.toHaveBeenCalled();
   });
 

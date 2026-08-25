@@ -20,6 +20,16 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
+  const parsed = snapchatAdsSpendQuerySchema.safeParse({
+    accountId: request.nextUrl.searchParams.get('accountId') ?? undefined,
+    endDate: request.nextUrl.searchParams.get('endDate') ?? undefined,
+    startDate: request.nextUrl.searchParams.get('startDate') ?? undefined,
+  });
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: 'Invalid input', details: parsed.error.flatten() },
+      { status: 400 }
+    );
   const merchant = await resolveAdsMerchantAccess({
     request,
     supabase: auth.supabase,
@@ -43,17 +53,6 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   const defaults = dates(connection.data?.account_timezone ?? 'UTC');
-  const parsed = snapchatAdsSpendQuerySchema.safeParse({
-    accountId: request.nextUrl.searchParams.get('accountId') ?? undefined,
-    endDate: request.nextUrl.searchParams.get('endDate') ?? defaults.endDate,
-    startDate:
-      request.nextUrl.searchParams.get('startDate') ?? defaults.startDate,
-  });
-  if (!parsed.success)
-    return NextResponse.json(
-      { error: 'Invalid input', details: parsed.error.flatten() },
-      { status: 400 }
-    );
   let query = auth.supabase
     .from('merchant_ad_spend_daily')
     .select(SELECT)

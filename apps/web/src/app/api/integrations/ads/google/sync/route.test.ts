@@ -6,6 +6,7 @@ const mockGetUserAccess = vi.fn();
 const mockHasPermission = vi.fn();
 const mockCsrf = vi.fn();
 const mockSync = vi.fn();
+const mockInvalidateAdsAnalyticsCache = vi.fn();
 const { mockSpendSupabase, mockCreateAdsSpendServiceClient } = vi.hoisted(
   () => ({
     mockCreateAdsSpendServiceClient: vi.fn(),
@@ -20,6 +21,10 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCsrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    mockInvalidateAdsAnalyticsCache(...args),
 }));
 vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
@@ -120,6 +125,29 @@ describe('POST /api/integrations/ads/google/sync', () => {
       startDate: '2026-08-20',
       supabase: {},
     });
+    expect(mockInvalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
+      'merchant-1'
+    );
+  });
+
+  it('invalidates only after a successful final chunk', async () => {
+    const request = (finalChunk: boolean) =>
+      new NextRequest('https://usebaci.com/api/integrations/ads/google/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          finalChunk,
+          startDate: '2026-08-20',
+        }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      });
+
+    expect((await POST(request(false))).status).toBe(200);
+    expect(mockInvalidateAdsAnalyticsCache).not.toHaveBeenCalled();
+
+    mockSync.mockRejectedValueOnce(new Error('write failed'));
+    expect((await POST(request(true))).status).toBe(502);
+    expect(mockInvalidateAdsAnalyticsCache).not.toHaveBeenCalled();
   });
 
   it('returns 400 for a range over the sync limit', async () => {

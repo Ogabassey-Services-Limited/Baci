@@ -69,6 +69,7 @@ function AnalyticsGridLoading({
 
 export function DraggableAnalyticsGrid({
   activeCategory,
+  canManageAdsIntegrations,
   canCustomizeLayout,
   categoryError,
   data,
@@ -103,6 +104,7 @@ export function DraggableAnalyticsGrid({
     ANALYTICS_WIDGET_IDS_BY_CATEGORY[activeCategory]?.includes(key) ?? false;
   const sharedProps = {
     activeCategory,
+    canManageAdsIntegrations,
     canCustomizeLayout,
     categoryError,
     data,

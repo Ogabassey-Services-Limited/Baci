@@ -166,4 +166,14 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260825184500_make_social_ads_upsert_internal.sql',
     sha256: 'a5bb531d9d44d71af6bbe821e41efef929c2cb56c3146797c5b588b30ddc2877',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825190000_bulk_inventory_forecast_dashboard.sql',
+    sha256: 'd38466b8daa79ac75dd96d0ee5e52039c62074cfaabf1ee326cbf3fb7f9f9a03',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825191000_revoke_legacy_google_ads_spend_upsert.sql',
+    sha256: '313610b5bae49c42960a4ac516230f02227eaec78a601c31e8edc41f5fc04c75',
+  },
 ];

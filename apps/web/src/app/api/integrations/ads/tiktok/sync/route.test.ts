@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const invalidateAdsAnalyticsCache = vi.fn();
 const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
   createAdsSpendServiceClient: vi.fn(),
   mockSpendSupabase: { rpc: vi.fn() },
@@ -16,6 +17,10 @@ vi.mock('@/lib/api-auth', () => ({
 const csrf = vi.fn();
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAdsAnalyticsCache(...args),
 }));
 vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
@@ -112,5 +117,61 @@ describe('TikTok Ads sync route', () => {
     expect(sync).toHaveBeenCalledWith(
       expect.objectContaining({ spendSupabase: mockSpendSupabase })
     );
+    expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
+      'merchant'
+    );
+  });
+
+  it('does not invalidate after a successful non-final chunk', async () => {
+    vi.clearAllMocks();
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: true });
+    sync.mockResolvedValue({ accountId: 'opaque-001', rowsWritten: 2 });
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-31',
+          finalChunk: false,
+          startDate: '2026-08-01',
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
+  });
+
+  it('does not invalidate after a failed final chunk', async () => {
+    vi.clearAllMocks();
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: true });
+    sync.mockRejectedValueOnce(new Error('write failed'));
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-31',
+          finalChunk: true,
+          startDate: '2026-08-01',
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(502);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
   });
 });

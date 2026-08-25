@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { TikTokAdsConfigError } from '@/lib/ads/tiktok/config';
@@ -47,15 +48,16 @@ export async function POST(request: NextRequest) {
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   try {
-    return NextResponse.json({
-      ...(await syncTikTokAdsSpendForMerchant({
-        ...parsed.data,
-        merchantId: access.merchantId,
-        spendSupabase: createAdsSpendServiceClient(),
-        supabase: auth.supabase,
-      })),
-      synced: true,
+    const result = await syncTikTokAdsSpendForMerchant({
+      ...parsed.data,
+      merchantId: access.merchantId,
+      spendSupabase: createAdsSpendServiceClient(),
+      supabase: auth.supabase,
     });
+    if (parsed.data.finalChunk) {
+      invalidateAdsAnalyticsCache(access.merchantId);
+    }
+    return NextResponse.json({ ...result, synced: true });
   } catch (error) {
     if (error instanceof TikTokAdsConfigError)
       return NextResponse.json(

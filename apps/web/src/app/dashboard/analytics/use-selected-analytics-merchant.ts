@@ -6,6 +6,7 @@ import type { MerchantData, StaffAccess } from '@/hooks/merchant/types';
 import { permissionGrantsAccess } from '@/lib/permission-grant';
 
 interface SelectedContext {
+  error: string | null;
   merchantId: string;
   merchant: MerchantData | null;
   staffAccess: StaffAccess | null;
@@ -35,6 +36,9 @@ export function useSelectedAnalyticsMerchant({
       .then((result) => {
         if (!controller.signal.aborted) {
           setSelected({
+            error: result.merchant
+              ? null
+              : 'Unable to load the selected merchant. Please try again.',
             merchant: result.merchant,
             merchantId: requestedMerchantId,
             staffAccess: result.staffAccess,
@@ -45,6 +49,7 @@ export function useSelectedAnalyticsMerchant({
         if (error instanceof Error && error.name === 'AbortError') return;
         if (!controller.signal.aborted) {
           setSelected({
+            error: 'Unable to load the selected merchant. Please try again.',
             merchant: null,
             merchantId: requestedMerchantId,
             staffAccess: null,
@@ -72,6 +77,7 @@ export function useSelectedAnalyticsMerchant({
   };
 
   return {
+    error: needsSelectedContext ? (resolvedSelected?.error ?? null) : null,
     hasPermission,
     loading: needsSelectedContext && resolvedSelected === null,
     merchant,

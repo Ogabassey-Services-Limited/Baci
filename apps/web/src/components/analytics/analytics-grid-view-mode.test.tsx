@@ -25,6 +25,7 @@ vi.mock('./ads-analytics-widgets', () => ({
 
 const baseProps = {
   activeCategory: 'overview' as const,
+  canManageAdsIntegrations: false,
   categoryError: null,
   data: {},
   formatCurrency: String,

@@ -1,12 +1,23 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+const receivedProps = vi.hoisted(() => ({
+  google: null as Record<string, unknown> | null,
+  social: null as Record<string, unknown> | null,
+}));
+
 vi.mock('./google-ads-reporting-card', () => ({
-  GoogleAdsReportingCard: () => <div>Google Ads reporting</div>,
+  GoogleAdsReportingCard: (props: Record<string, unknown>) => {
+    receivedProps.google = props;
+    return <div>Google Ads reporting</div>;
+  },
 }));
 
 vi.mock('./social-ads-reporting-card', () => ({
-  SocialAdsReportingCard: () => <div>Social Ads reporting</div>,
+  SocialAdsReportingCard: (props: Record<string, unknown>) => {
+    receivedProps.social = props;
+    return <div>Social Ads reporting</div>;
+  },
 }));
 
 import { renderAdsAnalyticsWidgets } from './ads-analytics-widgets';
@@ -46,6 +57,7 @@ describe('AdsAnalyticsWidgets', () => {
       <div>
         {renderAdsAnalyticsWidgets({
           adAnalytics,
+          canManageIntegrations: false,
           editMode: true,
           formatCurrency: (value) => `NGN ${value}`,
           isWidgetVisible: () => true,
@@ -70,6 +82,7 @@ describe('AdsAnalyticsWidgets', () => {
       <div>
         {renderAdsAnalyticsWidgets({
           adAnalytics,
+          canManageIntegrations: false,
           formatCurrency: (value) => `NGN ${value}`,
           isWidgetVisible: (widgetId) => widgetId === 'ads-overview',
         })}
@@ -80,5 +93,28 @@ describe('AdsAnalyticsWidgets', () => {
     expect(screen.queryByText('Platform Performance')).not.toBeInTheDocument();
     expect(screen.queryByText('Click Attribution')).not.toBeInTheDocument();
     expect(screen.queryByText('Privacy Compliance')).not.toBeInTheDocument();
+  });
+
+  it('forwards the selected merchant and its authoritative integration permission', () => {
+    render(
+      <div>
+        {renderAdsAnalyticsWidgets({
+          adAnalytics,
+          canManageIntegrations: false,
+          formatCurrency: (value) => `GHS ${value}`,
+          isWidgetVisible: () => true,
+          merchantId: '123e4567-e89b-42d3-a456-426614174000',
+        })}
+      </div>
+    );
+
+    expect(receivedProps.google).toMatchObject({
+      canManageIntegrations: false,
+      merchantId: '123e4567-e89b-42d3-a456-426614174000',
+    });
+    expect(receivedProps.social).toMatchObject({
+      canManageIntegrations: false,
+      merchantId: '123e4567-e89b-42d3-a456-426614174000',
+    });
   });
 });

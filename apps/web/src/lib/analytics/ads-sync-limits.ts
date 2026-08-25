@@ -12,4 +12,7 @@ export const ADS_SYNC_MAX_DAYS = {
   tiktok_ads: 366,
 } as const;
 
+/** Maximum inclusive calendar-day range exposed by the Ads dashboard. */
+export const ADS_ANALYTICS_MAX_DAYS = 366;
+
 export type AdsSyncProvider = keyof typeof ADS_SYNC_MAX_DAYS;

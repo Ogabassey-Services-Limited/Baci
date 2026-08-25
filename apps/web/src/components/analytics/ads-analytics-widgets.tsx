@@ -7,7 +7,6 @@ import {
   Zap,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 import { GoogleAdsReportingCard } from '@/components/analytics/google-ads-reporting-card';
 import { SocialAdsReportingCard } from '@/components/analytics/social-ads-reporting-card';
@@ -15,35 +14,33 @@ import { BentoCard } from '@/components/ui/bento-card';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 
-type AdsWidgetId = string;
-
 interface AdsAnalyticsWidgetsProps {
   adAnalytics: AnalyticsData['adAnalytics'];
+  canManageIntegrations: boolean;
   editMode?: boolean;
   formatCurrency: (value: number) => string;
   isWidgetVisible: (widgetId: string) => boolean;
+  merchantId?: string;
   onAdsReportingSynced?: () => void;
   syncWindow?: AdsSyncWindow;
 }
-
-function LoadingState() {
-  return (
-    <div className="flex items-center justify-center h-full">
-      <p className="text-muted-foreground">Loading…</p>
-    </div>
-  );
-}
-
+const LoadingState = () => (
+  <div className="flex items-center justify-center h-full">
+    <p className="text-muted-foreground">Loading…</p>
+  </div>
+);
 export function renderAdsAnalyticsWidgets({
   adAnalytics,
-  editMode = false,
+  canManageIntegrations,
+  editMode,
   formatCurrency,
   isWidgetVisible,
+  merchantId,
   onAdsReportingSynced,
   syncWindow,
 }: AdsAnalyticsWidgetsProps): ReactNode[] {
   const renderWidget = (
-    widgetId: AdsWidgetId,
+    widgetId: string,
     content: ReactNode,
     className: string
   ) =>
@@ -52,7 +49,6 @@ export function renderAdsAnalyticsWidgets({
         {content}
       </div>
     ) : null;
-
   const widgets = [
     renderWidget(
       'ads-overview',
@@ -270,6 +266,8 @@ export function renderAdsAnalyticsWidgets({
     renderWidget(
       'ads-reporting',
       <GoogleAdsReportingCard
+        canManageIntegrations={canManageIntegrations}
+        merchantId={merchantId}
         onSynced={onAdsReportingSynced}
         reporting={adAnalytics?.googleAds}
         syncWindow={syncWindow}
@@ -279,6 +277,8 @@ export function renderAdsAnalyticsWidgets({
     renderWidget(
       'social-ads-reporting',
       <SocialAdsReportingCard
+        canManageIntegrations={canManageIntegrations}
+        merchantId={merchantId}
         onSynced={onAdsReportingSynced}
         reporting={adAnalytics?.socialAds}
         syncWindow={syncWindow}
@@ -286,7 +286,6 @@ export function renderAdsAnalyticsWidgets({
       cn('min-h-[300px]', !editMode && 'lg:col-span-2')
     ),
   ];
-
   return editMode
     ? widgets
     : [

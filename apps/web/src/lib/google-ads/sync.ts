@@ -56,7 +56,7 @@ export async function syncGoogleAdsSpendForMerchant(
       p_merchant_id: input.merchantId,
     });
   if (connectionError) throw new GoogleAdsSyncError('CONNECTION_READ_FAILED');
-  const connection = connections?.[0] ?? null;
+  let connection = connections?.[0] ?? null;
   if (!connection?.provider_customer_id) {
     throw new GoogleAdsSyncError('GOOGLE_ADS_CUSTOMER_NOT_SELECTED');
   }
@@ -104,6 +104,11 @@ export async function syncGoogleAdsSpendForMerchant(
     if (tokenUpdateError || tokenUpdated !== true) {
       throw new GoogleAdsSyncError('TOKEN_UPDATE_FAILED');
     }
+    connection = {
+      ...connection,
+      access_token_ciphertext: resolvedToken.encryptedAccessToken,
+      token_expires_at: resolvedToken.expiresAt,
+    };
   }
 
   let rows: Awaited<ReturnType<typeof fetchGoogleAdsDailySpend>>;

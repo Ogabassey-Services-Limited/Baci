@@ -135,27 +135,11 @@ describe('fetchAnalyticsCategoryData', () => {
     expect(result.resolvedInventoryAlertCount).toBe(1_501);
   });
 
-  it('fetches every inventory forecast page before calculating status totals', async () => {
+  it('uses one bounded forecast response for a large inventory catalog', async () => {
     fetchMock.mockImplementation(async (input) => {
       const url = String(input);
       if (url.includes('/api/inventory/alerts'))
         return response({ alerts: [] });
-      if (url.includes('page=1')) {
-        return response({
-          forecasts: [
-            {
-              avgDailySales: 1,
-              currentStock: 2,
-              daysOfStock: 2,
-              productId: 'first',
-              productName: 'First',
-              salesTrend: 'stable',
-            },
-          ],
-          pagination: { page: 1, totalPages: 2 },
-          summary: { critical: 1, outOfStock: 0, warning: 0 },
-        });
-      }
       return response({
         forecasts: [
           {
@@ -166,9 +150,22 @@ describe('fetchAnalyticsCategoryData', () => {
             productName: 'Second',
             salesTrend: 'declining',
           },
+          {
+            avgDailySales: 1,
+            currentStock: 2,
+            daysOfStock: 2,
+            productId: 'first',
+            productName: 'First',
+            salesTrend: 'stable',
+          },
         ],
-        pagination: { page: 2, totalPages: 2 },
-        summary: { critical: 0, outOfStock: 1, warning: 2 },
+        pagination: { page: 1, total: 10_000, totalPages: 100 },
+        summary: {
+          critical: 1_500,
+          outOfStock: 750,
+          totalProducts: 10_000,
+          warning: 2_000,
+        },
       });
     });
 
@@ -184,56 +181,14 @@ describe('fetchAnalyticsCategoryData', () => {
       { days_of_stock: 0, product_id: 'second' },
       { days_of_stock: 2, product_id: 'first' },
     ]);
-    expect(result.lowStockCount).toBe(3);
-    expect(result.outOfStockCount).toBe(1);
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(
-      expect.arrayContaining(['/api/inventory/forecast?limit=100&page=2'])
+    expect(result.lowStockCount).toBe(3_500);
+    expect(result.outOfStockCount).toBe(750);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toContain(
+      '/api/inventory/forecast?limit=100'
     );
-  });
-
-  it('bounds concurrent inventory forecast page requests', async () => {
-    let activeForecastPages = 0;
-    let maxActiveForecastPages = 0;
-    fetchMock.mockImplementation(async (input) => {
-      const url = String(input);
-      if (url.includes('/api/inventory/alerts')) {
-        return response({ alerts: [] });
-      }
-      const page = Number(
-        new URL(url, 'https://usebaci.com').searchParams.get('page')
-      );
-      if (page === 1) {
-        return response({
-          forecasts: [],
-          pagination: { page: 1, totalPages: 7 },
-          summary: { critical: 0, outOfStock: 0, warning: 0 },
-        });
-      }
-      activeForecastPages += 1;
-      maxActiveForecastPages = Math.max(
-        maxActiveForecastPages,
-        activeForecastPages
-      );
-      await Promise.resolve();
-      activeForecastPages -= 1;
-      return response({
-        forecasts: [],
-        pagination: { page, totalPages: 7 },
-        summary: { critical: 0, outOfStock: 0, warning: 0 },
-      });
-    });
-
-    await fetchAnalyticsCategoryData({
-      category: 'inventory',
-      from,
-      merchantId,
-      signal: new AbortController().signal,
-      to,
-    });
-
-    expect(maxActiveForecastPages).toBe(4);
-    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(
-      expect.arrayContaining(['/api/inventory/forecast?limit=100&page=7'])
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).not.toEqual(
+      expect.arrayContaining([expect.stringContaining('page=')])
     );
   });
 

@@ -15,6 +15,7 @@ describe('Meta Ads provider', () => {
           JSON.stringify({
             data: [
               {
+                account_status: 1,
                 id: 'act_1',
                 currency: 'NGN',
                 name: 'First',
@@ -33,6 +34,7 @@ describe('Meta Ads provider', () => {
           JSON.stringify({
             data: [
               {
+                account_status: 1,
                 id: 'act_2',
                 currency: 'USD',
                 name: 'Second',

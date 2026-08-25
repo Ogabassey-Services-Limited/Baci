@@ -6,6 +6,7 @@ const csrf = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const sync = vi.fn();
+const invalidateAdsAnalyticsCache = vi.fn();
 const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
   createAdsSpendServiceClient: vi.fn(),
   mockSpendSupabase: { rpc: vi.fn() },
@@ -17,6 +18,10 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAdsAnalyticsCache(...args),
 }));
 vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
@@ -66,6 +71,37 @@ describe('Meta Ads sync route', () => {
       startDate: '2026-08-20',
       supabase: {},
     });
+    expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
+      'merchant'
+    );
+  });
+
+  it('invalidates only after a successful final chunk', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user' },
+    });
+    csrf.mockResolvedValue({ valid: true });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    sync.mockResolvedValue({ accountId: 'act_12', rowsWritten: 1 });
+    const request = (finalChunk: boolean) =>
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-20',
+          finalChunk,
+          startDate: '2026-08-20',
+        }),
+        method: 'POST',
+      });
+
+    expect((await POST(request(false))).status).toBe(200);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
+
+    sync.mockRejectedValueOnce(new Error('write failed'));
+    expect((await POST(request(true))).status).toBe(502);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
   });
 
   it('requires auth before parsing a browser sync request', async () => {

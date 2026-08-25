@@ -6,6 +6,7 @@ const access = vi.fn();
 const permission = vi.fn();
 const csrf = vi.fn();
 const sync = vi.fn();
+const invalidateAdsAnalyticsCache = vi.fn();
 const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
   createAdsSpendServiceClient: vi.fn(),
   mockSpendSupabase: { rpc: vi.fn() },
@@ -17,6 +18,10 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAdsAnalyticsCache(...args),
 }));
 vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
@@ -103,6 +108,9 @@ describe('Snapchat Ads sync route', () => {
     expect(sync).toHaveBeenCalledWith(
       expect.objectContaining({ spendSupabase: mockSpendSupabase })
     );
+    expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
+      'merchant'
+    );
     access.mockClear();
     const invalid = await POST(
       new NextRequest(
@@ -112,6 +120,33 @@ describe('Snapchat Ads sync route', () => {
     );
     expect(invalid.status).toBe(400);
     expect(access).not.toHaveBeenCalled();
+  });
+
+  it('invalidates only after a successful final chunk', async () => {
+    auth.mockResolvedValue({ error: null, supabase: {}, user: { id: 'user' } });
+    csrf.mockResolvedValue({ valid: true });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    sync.mockResolvedValue({ accountId: 'ad', rowsWritten: 1 });
+    const request = (finalChunk: boolean) =>
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/sync',
+        {
+          body: JSON.stringify({
+            endDate: '2026-08-02',
+            finalChunk,
+            startDate: '2026-08-01',
+          }),
+          method: 'POST',
+        }
+      );
+
+    expect((await POST(request(false))).status).toBe(200);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
+
+    sync.mockRejectedValueOnce(new Error('write failed'));
+    expect((await POST(request(true))).status).toBe(502);
+    expect(invalidateAdsAnalyticsCache).not.toHaveBeenCalled();
   });
 
   it('drives CSRF, permission, and malformed JSON denials before sync work', async () => {

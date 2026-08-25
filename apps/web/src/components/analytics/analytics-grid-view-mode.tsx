@@ -19,6 +19,7 @@ interface AnalyticsGridViewModeProps
   extends Pick<
     AnalyticsGridProps,
     | 'activeCategory'
+    | 'canManageAdsIntegrations'
     | 'canCustomizeLayout'
     | 'categoryError'
     | 'data'
@@ -35,6 +36,7 @@ interface AnalyticsGridViewModeProps
 
 export function AnalyticsGridViewMode({
   activeCategory,
+  canManageAdsIntegrations,
   canCustomizeLayout,
   categoryError,
   data,
@@ -118,8 +120,10 @@ export function AnalyticsGridViewMode({
       {activeCategory === 'ads' &&
         renderAdsAnalyticsWidgets({
           adAnalytics: data.adAnalytics,
+          canManageIntegrations: canManageAdsIntegrations,
           formatCurrency,
           isWidgetVisible,
+          merchantId: merchant?.id,
           onAdsReportingSynced,
           syncWindow,
         })}

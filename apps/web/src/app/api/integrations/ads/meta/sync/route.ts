@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { MetaAdsConfigError } from '@/lib/ads/meta/config';
 import { MetaAdsProviderError } from '@/lib/ads/meta/provider';
@@ -54,6 +55,9 @@ export async function POST(request: NextRequest) {
       spendSupabase: createAdsSpendServiceClient(),
       supabase: auth.supabase,
     });
+    if (parsed.data.finalChunk) {
+      invalidateAdsAnalyticsCache(access.merchantId);
+    }
     return NextResponse.json({ ...result, synced: true });
   } catch (error) {
     if (error instanceof MetaAdsConfigError)

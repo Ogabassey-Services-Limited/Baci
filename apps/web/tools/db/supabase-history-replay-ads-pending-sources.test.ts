@@ -24,5 +24,8 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '20260825180000_restrict_ads_spend_replacement_to_service_role.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260825191000_revoke_legacy_google_ads_spend_upsert.sql'
+    );
   });
 });

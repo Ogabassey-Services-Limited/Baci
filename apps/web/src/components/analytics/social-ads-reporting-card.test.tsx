@@ -5,14 +5,6 @@ import {
   SocialAdsReportingCard,
 } from './social-ads-reporting-card';
 
-const mockHasPermission = vi.hoisted(() => vi.fn(() => true));
-
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({
-    hasPermission: mockHasPermission,
-    merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
-  }),
-}));
 vi.mock('./social-ads-account-controls', () => ({
   SocialAdsAccountControls: ({
     displayName,
@@ -50,10 +42,14 @@ function provider(
 }
 
 describe('SocialAdsReportingCard', () => {
+  const merchantId = '123e4567-e89b-42d3-a456-426614174000';
+  const reportingProps = { canManageIntegrations: true, merchantId };
+
   it('hides provider management controls from analytics-only staff', () => {
-    mockHasPermission.mockReturnValue(false);
     render(
       <SocialAdsReportingCard
+        canManageIntegrations={false}
+        merchantId={merchantId}
         reporting={{
           attributionNotice: 'Separate attribution.',
           mixedCurrencies: false,
@@ -72,12 +68,11 @@ describe('SocialAdsReportingCard', () => {
     expect(
       screen.queryByRole('link', { name: /connect tiktok ads/i })
     ).not.toBeInTheDocument();
-    expect(mockHasPermission).toHaveBeenCalledWith('integrations', 'manage');
-    mockHasPermission.mockReturnValue(true);
   });
   it('renders provider metrics without combining currencies or claiming ROAS', () => {
     render(
       <SocialAdsReportingCard
+        {...reportingProps}
         reporting={{
           attributionNotice:
             'Provider conversions are separate from Baci paid orders.',
@@ -118,6 +113,7 @@ describe('SocialAdsReportingCard', () => {
   it('renders stale, disconnected, error, and account-selection states', () => {
     render(
       <SocialAdsReportingCard
+        {...reportingProps}
         reporting={{
           attributionNotice: 'Separate attribution.',
           mixedCurrencies: false,
@@ -154,17 +150,17 @@ describe('SocialAdsReportingCard', () => {
       screen.getByRole('link', { name: /Connect TikTok Ads/i })
     ).toHaveAttribute(
       'href',
-      '/api/integrations/ads/tiktok/connect?merchantId=550e8400-e29b-41d4-a716-446655440000'
+      `/api/integrations/ads/tiktok/connect?merchantId=${merchantId}`
     );
     expect(
       screen.getByRole('link', { name: /Reconnect Snapchat Ads/i })
     ).toHaveAttribute(
       'href',
-      '/api/integrations/ads/snapchat/connect?merchantId=550e8400-e29b-41d4-a716-446655440000'
+      `/api/integrations/ads/snapchat/connect?merchantId=${merchantId}`
     );
     expect(
       screen.getByRole('button', {
-        name: 'Sync Meta Ads 550e8400-e29b-41d4-a716-446655440000',
+        name: `Sync Meta Ads ${merchantId}`,
       })
     ).toBeInTheDocument();
   });

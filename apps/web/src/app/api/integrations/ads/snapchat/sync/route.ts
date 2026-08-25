@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { SnapchatAdsConfigError } from '@/lib/ads/snapchat/config';
@@ -47,15 +48,16 @@ export async function POST(request: NextRequest) {
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   try {
-    return NextResponse.json({
-      ...(await syncSnapchatAdsSpendForMerchant({
-        ...parsed.data,
-        merchantId: access.merchantId,
-        spendSupabase: createAdsSpendServiceClient(),
-        supabase: auth.supabase,
-      })),
-      synced: true,
+    const result = await syncSnapchatAdsSpendForMerchant({
+      ...parsed.data,
+      merchantId: access.merchantId,
+      spendSupabase: createAdsSpendServiceClient(),
+      supabase: auth.supabase,
     });
+    if (parsed.data.finalChunk) {
+      invalidateAdsAnalyticsCache(access.merchantId);
+    }
+    return NextResponse.json({ ...result, synced: true });
   } catch (error) {
     if (error instanceof SnapchatAdsConfigError)
       return NextResponse.json(

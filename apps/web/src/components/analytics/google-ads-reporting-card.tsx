@@ -13,7 +13,6 @@ import { GoogleAdsConnectButton } from '@/components/analytics/google-ads-connec
 import { GoogleAdsMetric } from '@/components/analytics/google-ads-metric';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
-import { useMerchant } from '@/hooks/use-merchant-client';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 import {
@@ -61,22 +60,24 @@ export interface GoogleAdsReportingData {
 }
 
 interface GoogleAdsReportingCardProps {
+  canManageIntegrations: boolean;
   className?: string;
   loading?: boolean;
+  merchantId?: string;
   onSynced?: () => void;
   reporting?: GoogleAdsReportingData | null;
   syncWindow?: AdsSyncWindow;
 }
 
 export function GoogleAdsReportingCard({
+  canManageIntegrations,
   className,
   loading = false,
+  merchantId,
   onSynced,
   reporting,
   syncWindow,
 }: GoogleAdsReportingCardProps) {
-  const { hasPermission, merchant } = useMerchant();
-  const canManageIntegrations = hasPermission('integrations', 'manage');
   const status =
     reporting?.connectionStatus ??
     (reporting?.metrics ? 'connected' : 'disconnected');
@@ -110,14 +111,14 @@ export function GoogleAdsReportingCard({
           </Alert>
           {canManageIntegrations && reporting?.dataStatus === 'error' ? (
             <GoogleAdsAccountPicker
-              merchantId={merchant?.id}
+              merchantId={merchantId}
               onSynced={onSynced}
               syncWindow={syncWindow}
             />
           ) : canManageIntegrations ? (
             <GoogleAdsConnectButton
               label="Reconnect Google Ads"
-              merchantId={merchant?.id}
+              merchantId={merchantId}
             />
           ) : null}
         </div>
@@ -128,7 +129,7 @@ export function GoogleAdsReportingCard({
             impressions, clicks, and conversion metrics into this dashboard.
           </p>
           {canManageIntegrations && (
-            <GoogleAdsConnectButton merchantId={merchant?.id} />
+            <GoogleAdsConnectButton merchantId={merchantId} />
           )}
         </div>
       ) : reporting?.needsAccountSelection ? (
@@ -139,7 +140,7 @@ export function GoogleAdsReportingCard({
           </p>
           {canManageIntegrations && (
             <GoogleAdsAccountPicker
-              merchantId={merchant?.id}
+              merchantId={merchantId}
               onSynced={onSynced}
               syncWindow={syncWindow}
             />
@@ -160,13 +161,13 @@ export function GoogleAdsReportingCard({
           {canManageIntegrations && (
             <>
               <GoogleAdsAccountPicker
-                merchantId={merchant?.id}
+                merchantId={merchantId}
                 onSynced={onSynced}
                 syncWindow={syncWindow}
               />
               <GoogleAdsConnectButton
                 label="Reconnect Google Ads"
-                merchantId={merchant?.id}
+                merchantId={merchantId}
               />
             </>
           )}
@@ -276,7 +277,7 @@ export function GoogleAdsReportingCard({
                 from Baci order attribution and revenue.
               </p>
               <GoogleAdsAccountPicker
-                merchantId={merchant?.id}
+                merchantId={merchantId}
                 onSynced={onSynced}
                 syncWindow={syncWindow}
               />

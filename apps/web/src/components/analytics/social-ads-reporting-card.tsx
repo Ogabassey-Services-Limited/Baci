@@ -3,7 +3,6 @@
 import { AlertCircle, BarChart3 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
-import { useMerchant } from '@/hooks/use-merchant-client';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 import {
@@ -52,20 +51,22 @@ export interface SocialAdsReportingData {
 }
 
 interface SocialAdsReportingCardProps {
+  canManageIntegrations: boolean;
   className?: string;
+  merchantId?: string;
   onSynced?: () => void;
   reporting?: SocialAdsReportingData | null;
   syncWindow?: AdsSyncWindow;
 }
 
 export function SocialAdsReportingCard({
+  canManageIntegrations,
   className,
+  merchantId,
   onSynced,
   reporting,
   syncWindow,
 }: SocialAdsReportingCardProps) {
-  const { hasPermission, merchant } = useMerchant();
-  const canManageIntegrations = hasPermission('integrations', 'manage');
   return (
     <BentoCard
       className={cn('h-full', className)}
@@ -105,7 +106,7 @@ export function SocialAdsReportingCard({
               <SocialAdsProviderPanel
                 canManageIntegrations={canManageIntegrations}
                 key={provider.provider}
-                merchantId={merchant?.id}
+                merchantId={merchantId}
                 onSynced={onSynced}
                 provider={provider}
                 syncWindow={syncWindow}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ADS_SYNC_MAX_DAYS } from './ads-sync-limits';
+import { ADS_ANALYTICS_MAX_DAYS, ADS_SYNC_MAX_DAYS } from './ads-sync-limits';
 
 describe('ADS_SYNC_MAX_DAYS', () => {
   it('keeps provider limits aligned with their API windows', () => {
@@ -18,5 +18,9 @@ describe('ADS_SYNC_MAX_DAYS', () => {
       'snapchat_ads',
       'tiktok_ads',
     ]);
+  });
+
+  it('bounds dashboard reporting to one inclusive leap-year window', () => {
+    expect(ADS_ANALYTICS_MAX_DAYS).toBe(366);
   });
 });

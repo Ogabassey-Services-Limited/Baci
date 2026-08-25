@@ -31,4 +31,19 @@ describe('adsAnalyticsQuerySchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts 366 inclusive days and rejects a multi-year reporting range', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2024-12-31',
+        startDate: '2024-01-01',
+      }).success
+    ).toBe(true);
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2025-01-01',
+        startDate: '2024-01-01',
+      }).success
+    ).toBe(false);
+  });
 });

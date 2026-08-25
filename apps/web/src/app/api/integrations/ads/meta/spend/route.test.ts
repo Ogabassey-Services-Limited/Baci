@@ -13,6 +13,24 @@ vi.mock('@/lib/api-auth', () => ({
 import { GET } from './route';
 
 describe('Meta Ads spend route', () => {
+  it('validates an authenticated query before resolving merchant access', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn() },
+      user: { id: 'user' },
+    });
+    access.mockClear();
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/spend?startDate=invalid'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+  });
+
   it('denies spend reads without analytics permission', async () => {
     authenticate.mockResolvedValue({
       error: null,

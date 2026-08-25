@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
@@ -61,6 +62,9 @@ export async function POST(request: NextRequest) {
       startDate: parsed.data.startDate,
       supabase: auth.supabase,
     });
+    if (parsed.data.finalChunk) {
+      invalidateAdsAnalyticsCache(access.merchantId);
+    }
     return NextResponse.json({ ...result, synced: true });
   } catch (error) {
     if (error instanceof GoogleAdsConfigError) {

@@ -30,6 +30,24 @@ describe('TikTok Ads spend route', () => {
     ).toBe(401);
   });
 
+  it('validates an authenticated query before resolving merchant access', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn() },
+      user: { id: 'user' },
+    });
+    access.mockClear();
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/spend?endDate=invalid'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+  });
+
   it('requires analytics view permission before querying provider-labelled spend', async () => {
     authenticate.mockResolvedValue({
       error: null,

@@ -143,6 +143,7 @@ export interface AnalyticsGridProps {
   loading: boolean;
   activeCategory: AnalyticsCategory;
   merchant: MerchantData | null;
+  canManageAdsIntegrations: boolean;
   canCustomizeLayout: boolean;
   categoryError?: string | null;
   onAdsReportingSynced?: () => void;

@@ -40,6 +40,7 @@ describe('AnalyticsGridEditMode', () => {
     render(
       <AnalyticsGridEditMode
         activeCategory="overview"
+        canManageAdsIntegrations={false}
         data={{}}
         formatCurrency={String}
         formatPercent={String}

@@ -1,5 +1,4 @@
 'use client';
-
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
@@ -24,7 +23,6 @@ import { useSelectedAnalyticsMerchant } from './use-selected-analytics-merchant'
 function loadAnalyticsExport() {
   return import('@/lib/analytics-export');
 }
-
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
   const { hasPermission, merchant, loading: merchantLoading } = useMerchant();
@@ -91,7 +89,6 @@ export default function AnalyticsClientPage() {
   )
     ? activeCategory
     : 'overview';
-
   useEffect(() => {
     if (!callbackProvider) return;
     toast({
@@ -102,16 +99,12 @@ export default function AnalyticsClientPage() {
       variant: 'destructive',
     });
   }, [callbackProvider?.[0], callbackReason, toast]);
-
   const analyticsData: AnalyticsData | null = baseAnalytics
     ? { ...baseAnalytics, ...categoryAnalytics }
     : null;
-
   useEffect(() => {
     if (!selectedMerchantId || !date.from || !date.to) return;
-
     const controller = new AbortController();
-
     fetchBaseAnalytics({
       from: date.from,
       merchantId: selectedMerchantId,
@@ -120,11 +113,9 @@ export default function AnalyticsClientPage() {
       setBaseAnalytics,
       setLoadingAnalytics,
     });
-
     return () => controller.abort();
   }, [date.from, date.to, selectedMerchantId]);
 
-  // Fetch specialized data when category changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: effectiveCategory captures the selected-context permission decision without depending on a render-local evaluator
   useEffect(() => {
     const controller = new AbortController();
@@ -134,7 +125,6 @@ export default function AnalyticsClientPage() {
       effectiveCategory
     );
     setLoadingCategoryAnalytics(isSpecialized);
-
     if (
       !selectedMerchantId ||
       !date.from ||
@@ -247,6 +237,17 @@ export default function AnalyticsClientPage() {
     );
   }
 
+  if (selectedContext.error) {
+    return (
+      <div
+        className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-destructive"
+        role="alert"
+      >
+        {selectedContext.error}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6 relative overflow-hidden max-w-full min-w-0">
       <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
@@ -277,6 +278,10 @@ export default function AnalyticsClientPage() {
       </div>
 
       <DraggableAnalyticsGrid
+        canManageAdsIntegrations={selectedContext.hasPermission(
+          'integrations',
+          'manage'
+        )}
         canCustomizeLayout={selectedContext.hasPermission('settings', 'edit')}
         data={analyticsData || {}}
         loading={loadingAnalytics || loadingCategoryAnalytics}

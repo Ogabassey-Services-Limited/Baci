@@ -1,3 +1,4 @@
+import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
@@ -46,11 +47,30 @@ describe('GET /api/analytics/ads', () => {
 
   it('authenticates before parsing an invalid analytics date query', async () => {
     const response = await GET(
-      new Request('https://usebaci.com/api/analytics/ads?startDate=not-a-date')
+      new Request(
+        'https://usebaci.com/api/analytics/ads?startDate=not-a-date'
+      ) as unknown as NextRequest
     );
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('rejects a multi-year reporting range before tenant database work', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+
+    const response = await GET(
+      new Request(
+        'https://usebaci.com/api/analytics/ads?startDate=2024-01-01&endDate=2025-01-01'
+      ) as unknown as NextRequest
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mockFrom).not.toHaveBeenCalled();
   });
 
   it('returns social reporting separately from legacy click attribution without secrets', async () => {
@@ -94,7 +114,6 @@ describe('GET /api/analytics/ads', () => {
         },
         error: null,
       },
-      { data: [], error: null },
       {
         data: [
           {
@@ -126,8 +145,9 @@ describe('GET /api/analytics/ads', () => {
         ],
         error: null,
       },
+      { data: [], error: null },
     ];
-    const terminals = ['range', 'maybeSingle', 'order', 'in', 'range'] as const;
+    const terminals = ['limit', 'maybeSingle', 'in', 'range', 'range'] as const;
     let queryIndex = 0;
     mockFrom.mockImplementation(() =>
       chainResult(results.shift(), terminals[queryIndex++])
@@ -136,7 +156,7 @@ describe('GET /api/analytics/ads', () => {
     const response = await GET(
       new Request(
         'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
-      )
+      ) as unknown as NextRequest
     );
     const body = await response.json();
 
@@ -186,11 +206,10 @@ describe('GET /api/analytics/ads', () => {
       tiktok_pixel_id: null,
     });
 
-    const ordersQuery = chainResult({ data: [], error: null }, 'range');
+    const ordersQuery = chainResult({ data: [], error: null }, 'limit');
     const results = [
       ordersQuery,
       chainResult({ data: null, error: null }, 'maybeSingle'),
-      chainResult({ data: [], error: null }, 'order'),
       chainResult({ data: [], error: null }, 'in'),
       chainResult({ data: [], error: null }, 'range'),
     ];
@@ -199,7 +218,7 @@ describe('GET /api/analytics/ads', () => {
     const response = await GET(
       new Request(
         'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
-      )
+      ) as unknown as NextRequest
     );
 
     expect(response.status).toBe(200);
@@ -233,13 +252,13 @@ describe('GET /api/analytics/ads', () => {
       tiktok_pixel_id: null,
     });
     mockFrom.mockImplementation(() =>
-      chainResult({ data: [], error: null }, 'range')
+      chainResult({ data: [], error: null }, 'limit')
     );
 
     const response = await GET(
       new Request(
         'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22&cacheBust=2'
-      )
+      ) as unknown as NextRequest
     );
 
     expect(response.status).toBe(200);
@@ -253,11 +272,21 @@ describe('GET /api/analytics/ads', () => {
 
 function chainResult(
   result: { data: unknown; error: unknown } | undefined,
-  terminal: 'in' | 'maybeSingle' | 'order' | 'range' | undefined
+  terminal: 'in' | 'limit' | 'maybeSingle' | 'order' | 'range' | undefined
 ): Record<string, ReturnType<typeof vi.fn>> {
   const resolved = result ?? { data: null, error: null };
   const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const method of ['eq', 'gte', 'in', 'lte', 'order', 'range', 'select']) {
+  for (const method of [
+    'eq',
+    'gte',
+    'in',
+    'limit',
+    'lte',
+    'or',
+    'order',
+    'range',
+    'select',
+  ]) {
     chain[method] = vi.fn(() =>
       method === terminal ? Promise.resolve(resolved) : chain
     );

@@ -1,16 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFetchWithCsrf, mockHasPermission } = vi.hoisted(() => ({
+const { mockFetchWithCsrf } = vi.hoisted(() => ({
   mockFetchWithCsrf: vi.fn(),
-  mockHasPermission: vi.fn(() => true),
-}));
-
-vi.mock('@/hooks/use-merchant-client', () => ({
-  useMerchant: () => ({
-    hasPermission: mockHasPermission,
-    merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
-  }),
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -23,13 +15,14 @@ import {
 } from './google-ads-reporting-card';
 
 describe('GoogleAdsReportingCard', () => {
+  const merchantId = '123e4567-e89b-42d3-a456-426614174000';
+  const reportingProps = { canManageIntegrations: true, merchantId };
   const fetchMock = vi.fn<typeof fetch>();
 
   beforeEach(() => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
     mockFetchWithCsrf.mockReset();
-    mockHasPermission.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -37,7 +30,7 @@ describe('GoogleAdsReportingCard', () => {
   });
 
   it('offers a connect action when the reporting account is disconnected', () => {
-    render(<GoogleAdsReportingCard />);
+    render(<GoogleAdsReportingCard {...reportingProps} />);
 
     expect(
       screen.getByText(/connect a google ads reporting account/i)
@@ -46,12 +39,12 @@ describe('GoogleAdsReportingCard', () => {
       screen.getByRole('link', { name: /connect google ads/i })
     ).toHaveAttribute(
       'href',
-      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=550e8400-e29b-41d4-a716-446655440000`
+      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=${merchantId}`
     );
   });
 
   it('keeps loading state explicit and does not show metric values', () => {
-    render(<GoogleAdsReportingCard loading />);
+    render(<GoogleAdsReportingCard {...reportingProps} loading />);
 
     expect(screen.getByRole('status')).toHaveTextContent(
       'Loading Google Ads reporting'
@@ -60,19 +53,22 @@ describe('GoogleAdsReportingCard', () => {
   });
 
   it('hides management controls from analytics-only staff', () => {
-    mockHasPermission.mockReturnValue(false);
-
-    render(<GoogleAdsReportingCard />);
+    render(
+      <GoogleAdsReportingCard
+        canManageIntegrations={false}
+        merchantId={merchantId}
+      />
+    );
 
     expect(
       screen.queryByRole('link', { name: /connect google ads/i })
     ).not.toBeInTheDocument();
-    expect(mockHasPermission).toHaveBeenCalledWith('integrations', 'manage');
   });
 
   it('shows a recoverable error without exposing provider details', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           connectionStatus: 'error',
           error: 'Google Ads reporting is temporarily unavailable.',
@@ -87,13 +83,14 @@ describe('GoogleAdsReportingCard', () => {
       screen.getByRole('link', { name: /reconnect google ads/i })
     ).toHaveAttribute(
       'href',
-      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=550e8400-e29b-41d4-a716-446655440000`
+      `${GOOGLE_ADS_CONNECT_PATH}?merchantId=${merchantId}`
     );
   });
 
   it('keeps a connected reporting account controllable after a spend read error', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           connectionStatus: 'error',
           dataStatus: 'error',
@@ -113,6 +110,7 @@ describe('GoogleAdsReportingCard', () => {
   it('does not imply reporting is ready before an account is selected', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           connectionStatus: 'connected',
           needsAccountSelection: true,
@@ -132,6 +130,7 @@ describe('GoogleAdsReportingCard', () => {
   it('keeps account selection and sync controls available before the first sync', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           accountName: 'Baci reporting account',
           connectionStatus: 'connected',
@@ -167,6 +166,7 @@ describe('GoogleAdsReportingCard', () => {
 
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         onSynced={onSynced}
         reporting={{
           connectionStatus: 'connected',
@@ -187,7 +187,7 @@ describe('GoogleAdsReportingCard', () => {
       '/api/integrations/ads/google/accounts',
       expect.objectContaining({
         headers: {
-          'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
+          'x-baci-merchant-id': merchantId,
         },
       })
     );
@@ -207,6 +207,7 @@ describe('GoogleAdsReportingCard', () => {
   it('renders only metrics supplied by the reporting provider', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           accountName: 'Baci reporting account',
           connectionStatus: 'connected',
@@ -239,6 +240,7 @@ describe('GoogleAdsReportingCard', () => {
   it('keeps an existing account controllable and labels stale provider data', () => {
     render(
       <GoogleAdsReportingCard
+        {...reportingProps}
         reporting={{
           connectionStatus: 'connected',
           currency: 'NGN',

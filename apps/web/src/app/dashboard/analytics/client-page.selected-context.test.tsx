@@ -1,9 +1,10 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const selectedMerchantId = '123e4567-e89b-42d3-a456-426614174000';
 const state = vi.hoisted(() => ({
   canCustomizeLayout: true,
+  canManageAdsIntegrations: true,
   gridMerchant: null as Record<string, unknown> | null,
   visibleCategories: [] as string[],
 }));
@@ -49,11 +50,13 @@ vi.mock('@/components/analytics/analytics-filters', () => ({
 vi.mock('@/components/analytics/draggable-analytics-grid', () => ({
   DraggableAnalyticsGrid: (props: {
     canCustomizeLayout: boolean;
+    canManageAdsIntegrations: boolean;
     merchant?: Record<string, unknown> | null;
   }) => {
     state.canCustomizeLayout = props.canCustomizeLayout;
+    state.canManageAdsIntegrations = props.canManageAdsIntegrations;
     state.gridMerchant = props.merchant ?? null;
-    return null;
+    return <section aria-label="Analytics dashboard grid" />;
   },
 }));
 vi.mock('@/components/ui/bag-loader', () => ({
@@ -67,6 +70,7 @@ describe('AnalyticsClientPage selected callback context', () => {
     vi.restoreAllMocks();
     state.gridMerchant = null;
     state.canCustomizeLayout = true;
+    state.canManageAdsIntegrations = true;
     state.visibleCategories = [];
   });
 
@@ -109,11 +113,30 @@ describe('AnalyticsClientPage selected callback context', () => {
     expect(state.visibleCategories).not.toContain('inventory');
     expect(state.visibleCategories).not.toContain('segments');
     expect(state.canCustomizeLayout).toBe(false);
+    expect(state.canManageAdsIntegrations).toBe(false);
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/merchant/me',
       expect.objectContaining({
         headers: { 'x-baci-merchant-id': selectedMerchantId },
       })
     );
+  });
+
+  it('shows an error instead of stale analytics when selected merchant loading fails', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 })
+      );
+
+    render(<AnalyticsClientPage />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Unable to load the selected merchant. Please try again.'
+    );
+    expect(
+      screen.queryByRole('region', { name: 'Analytics dashboard grid' })
+    ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

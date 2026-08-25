@@ -16193,6 +16193,15 @@ export type Database = {
           sales_trend: string;
         }[];
       };
+      get_inventory_forecast_dashboard: {
+        Args: {
+          p_limit?: number;
+          p_low_stock_only?: boolean;
+          p_merchant_id: string;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
       calculate_loyalty_tier: {
         Args: { p_lifetime_points: number; p_merchant_id: string };
         Returns: string;

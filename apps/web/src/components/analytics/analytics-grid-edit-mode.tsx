@@ -47,6 +47,7 @@ interface AnalyticsGridEditModeProps
   extends Pick<
     AnalyticsGridProps,
     | 'activeCategory'
+    | 'canManageAdsIntegrations'
     | 'categoryError'
     | 'data'
     | 'merchant'
@@ -64,6 +65,7 @@ interface AnalyticsGridEditModeProps
 
 export function AnalyticsGridEditMode({
   activeCategory,
+  canManageAdsIntegrations,
   categoryError,
   data,
   formatCurrency,
@@ -108,9 +110,11 @@ export function AnalyticsGridEditMode({
     activeCategory === 'ads'
       ? renderAdsAnalyticsWidgets({
           adAnalytics: data.adAnalytics,
+          canManageIntegrations: canManageAdsIntegrations,
           editMode: true,
           formatCurrency,
           isWidgetVisible,
+          merchantId: merchant?.id,
           onAdsReportingSynced,
           syncWindow,
         })

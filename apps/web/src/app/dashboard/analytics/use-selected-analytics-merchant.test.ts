@@ -42,6 +42,7 @@ describe('useSelectedAnalyticsMerchant', () => {
 
     expect(result.current.loading).toBe(true);
     await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBeNull();
     expect(result.current.merchant).toMatchObject({
       country: 'GH',
       id: 'merchant-b',
@@ -66,5 +67,25 @@ describe('useSelectedAnalyticsMerchant', () => {
     expect(result.current.merchant?.id).toBe('merchant-a');
     expect(result.current.hasPermission('products', 'view')).toBe(false);
     expect(fetchContext).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an explicit error when a non-default merchant cannot be loaded', async () => {
+    fetchContext.mockRejectedValueOnce(new Error('Forbidden'));
+    const defaultHasPermission = vi.fn(() => true);
+    const { result } = renderHook(() =>
+      useSelectedAnalyticsMerchant({
+        defaultHasPermission,
+        defaultMerchant: { id: 'merchant-a', country: 'NG' } as never,
+        requestedMerchantId: 'merchant-b',
+      })
+    );
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.error).toBe(
+      'Unable to load the selected merchant. Please try again.'
+    );
+    expect(result.current.merchant).toBeNull();
+    expect(result.current.hasPermission('integrations', 'manage')).toBe(false);
+    expect(defaultHasPermission).not.toHaveBeenCalled();
   });
 });
