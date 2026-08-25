@@ -101,17 +101,8 @@ async function connect(args: {
     isJumiaShopAlreadyConnected(shop, args.existingShopIds)
   );
 
-  if (shopsToConnect.length === 0) {
-    return noStore(
-      NextResponse.json({
-        connected: [],
-        alreadyConnected: skippedShops.map((shop) => ({
-          id: shop.id,
-          name: shop.name,
-        })),
-      })
-    );
-  }
+  const shopsToPersist =
+    shopsToConnect.length === 0 ? selectedShops : shopsToConnect;
 
   const clientKeyHash = createHash('sha256')
     .update(args.credentials.clientId)
@@ -128,11 +119,11 @@ async function connect(args: {
       ),
       p_token_expires_at: validated.accessTokenExpiresAt,
       p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
-      p_shop_ids: shopsToConnect.map((shop) => shop.id),
-      p_shop_names: shopsToConnect.map((shop) => shop.name),
-      p_country_codes: shopsToConnect.map((shop) => shop.countryCode),
-      p_marketplace_labels: shopsToConnect.map((shop) => shop.marketplace),
-      p_business_client_codes: shopsToConnect.map(
+      p_shop_ids: shopsToPersist.map((shop) => shop.id),
+      p_shop_names: shopsToPersist.map((shop) => shop.name),
+      p_country_codes: shopsToPersist.map((shop) => shop.countryCode),
+      p_marketplace_labels: shopsToPersist.map((shop) => shop.marketplace),
+      p_business_client_codes: shopsToPersist.map(
         (shop) => shop.businessClientCode ?? shop.marketplace
       ),
     }
@@ -154,7 +145,7 @@ async function connect(args: {
   const insertedSelectionKeys = new Set(
     data.flatMap((row, index) => {
       if (!row.inserted) return [];
-      const shop = shopsToConnect[index];
+      const shop = shopsToPersist[index];
       if (!shop) return [];
       return [shop.selectionKey ?? shop.id];
     })

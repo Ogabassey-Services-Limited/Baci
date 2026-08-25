@@ -170,8 +170,19 @@ describe('Jumia Self Authorization handler', () => {
     );
   });
 
-  it('skips shops already connected through OAuth before persistence', async () => {
-    const rpc = vi.fn();
+  it('persists rotated credentials when every selected shop is already connected', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          authorization_id: 'authorization-id',
+          integration_id: 'integration-id',
+          shop_id: 'shop-1',
+          inserted: false,
+        },
+      ],
+      error: null,
+    });
+    const encrypt = vi.fn().mockReturnValue('opaque-ciphertext');
 
     const response = await jumiaSelfAuthorizationHandler.connect({
       credentials,
@@ -181,10 +192,17 @@ describe('Jumia Self Authorization handler', () => {
       rpc,
       selectedShopIds: ['shop-1'],
       validate: vi.fn().mockResolvedValue(validated),
-      encrypt: vi.fn(),
+      encrypt,
     });
 
-    expect(rpc).not.toHaveBeenCalled();
+    expect(encrypt).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization_ordered',
+      expect.objectContaining({
+        p_credential_ciphertext: 'opaque-ciphertext',
+        p_shop_ids: ['shop-1'],
+      })
+    );
     await expect(response.json()).resolves.toEqual({
       connected: [],
       alreadyConnected: [{ id: 'shop-1', name: 'Shop One' }],

@@ -112,18 +112,14 @@ export async function persistJumiaAuthorizationRotation(args: {
 
   if (updateError) {
     logger.error({
-      message:
-        'Failed to persist rotated Jumia credentials; retaining the provider-issued pair in the active client',
+      message: 'Failed to persist rotated Jumia credentials after retrying',
       error: updateError,
       integration_id: state.integrationId,
     });
-    return {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      tokenExpiresAt: args.tokenExpiresAt,
-      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
-      authorizationRotationVersion: state.authorizationRotationVersion,
-    };
+    throw new JumiaApiError(
+      503,
+      'Jumia refreshed its credentials, but Baci could not save them. Reconnect Jumia before retrying.'
+    );
   }
 
   return {

@@ -122,42 +122,42 @@ describe('persistJumiaAuthorizationRotation', () => {
     expect(encrypt).toHaveBeenCalledTimes(1);
   });
 
-  it('retains the rotated pair in the active client after persistence retries are exhausted', async () => {
+  it('rejects refresh success after rotated credential persistence retries are exhausted', async () => {
     rpc.mockResolvedValue({
       data: null,
       error: { message: 'database unavailable', code: '57014' },
     });
 
-    const result = await persistJumiaAuthorizationRotation({
-      state: {
-        integrationId: 'integration-1',
-        merchantId: 'merchant-1',
-        accessToken: 'old-access',
-        refreshToken: 'old-refresh',
-        clientId: 'client-id',
-        authorizationId: 'auth-1',
-        authorizationRotationVersion: 1,
-        tokenExpiresAt: new Date('2026-08-18T10:00:00.000Z'),
+    await expect(
+      persistJumiaAuthorizationRotation({
+        state: {
+          integrationId: 'integration-1',
+          merchantId: 'merchant-1',
+          accessToken: 'old-access',
+          refreshToken: 'old-refresh',
+          clientId: 'client-id',
+          authorizationId: 'auth-1',
+          authorizationRotationVersion: 1,
+          tokenExpiresAt: new Date('2026-08-18T10:00:00.000Z'),
+          supabase: { rpc } as never,
+          apiBase: 'https://api.jumia.test',
+        },
         supabase: { rpc } as never,
-        apiBase: 'https://api.jumia.test',
-      },
-      supabase: { rpc } as never,
-      refreshLeaseToken: 'lease-token',
-      data: {
-        access_token: 'new-access',
-        refresh_token: 'new-refresh',
-        expires_in: 3600,
-        refresh_expires_in: 86400,
-        token_type: 'Bearer',
-      },
-      tokenExpiresAt: new Date('2026-08-18T11:00:00.000Z'),
-      refreshTokenExpiresAt: new Date('2026-08-19T10:00:00.000Z'),
-    });
-
-    expect(result).toMatchObject({
-      accessToken: 'new-access',
-      refreshToken: 'new-refresh',
-      authorizationRotationVersion: 1,
+        refreshLeaseToken: 'lease-token',
+        data: {
+          access_token: 'new-access',
+          refresh_token: 'new-refresh',
+          expires_in: 3600,
+          refresh_expires_in: 86400,
+          token_type: 'Bearer',
+        },
+        tokenExpiresAt: new Date('2026-08-18T11:00:00.000Z'),
+        refreshTokenExpiresAt: new Date('2026-08-19T10:00:00.000Z'),
+      })
+    ).rejects.toMatchObject({
+      status: 503,
+      message:
+        'Jumia API Error (503): Jumia refreshed its credentials, but Baci could not save them. Reconnect Jumia before retrying.',
     });
     expect(rpc).toHaveBeenCalledTimes(3);
   });
