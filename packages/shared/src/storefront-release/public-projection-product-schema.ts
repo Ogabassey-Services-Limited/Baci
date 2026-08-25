@@ -210,7 +210,9 @@ export const StorefrontPublicProductSchema = z
           path: ['variants', variantIndex, 'attributes'],
         });
       const selection = JSON.stringify([
-        normalizeCanonicalProductCondition(variant.condition) || null,
+        normalizeCanonicalProductCondition(
+          variant.condition ?? product.condition
+        ) || null,
         attributes,
       ]);
       if (variantSelections.has(selection))

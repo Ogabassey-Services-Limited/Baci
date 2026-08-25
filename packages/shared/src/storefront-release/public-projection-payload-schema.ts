@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { StorefrontPublicContentPageSchema } from './public-projection-content-page-schema';
 import { StorefrontPublicMerchantSchema } from './public-projection-merchant-schema';
+import { StorefrontPublicPoliciesSchema } from './public-projection-policies-schema';
 import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-slugs';
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
@@ -65,14 +66,7 @@ export const StorefrontPublicProjectionPayloadSchema = z
       .max(2_000)
       .optional(),
     blogPosts: z.array(StorefrontBlogPostSchema).max(10_000).optional(),
-    policies: z
-      .strictObject({
-        privacy: z.string().max(500_000).optional(),
-        terms: z.string().max(500_000).optional(),
-        returns: z.string().max(500_000).optional(),
-        shipping: z.string().max(500_000).optional(),
-      })
-      .optional(),
+    policies: StorefrontPublicPoliciesSchema.optional(),
     seoEntries: z.array(SeoEntrySchema).max(20_000).optional(),
     featureFlags: z
       .array(
@@ -90,6 +84,28 @@ export const StorefrontPublicProjectionPayloadSchema = z
   })
   .superRefine((payload, context) => {
     validatePublicProjectionIdentities(payload, context);
+    const policyPageSlugs = {
+      privacy: new Set<string>(['privacy', 'privacy-policy']),
+      returns: new Set<string>(['returns']),
+      shipping: new Set<string>(['shipping']),
+      terms: new Set<string>([
+        'terms',
+        'terms-and-conditions',
+        'terms-of-service',
+      ]),
+    } as const;
+    for (const [policyKey, slugs] of Object.entries(policyPageSlugs)) {
+      const policyBody =
+        payload.policies?.[policyKey as keyof typeof policyPageSlugs];
+      if (policyBody === undefined) continue;
+      for (const [pageIndex, page] of (payload.contentPages ?? []).entries())
+        if (slugs.has(page.slug) && page.body !== policyBody)
+          context.addIssue({
+            code: 'custom',
+            message: 'Policy and content-page sources must agree',
+            path: ['contentPages', pageIndex, 'body'],
+          });
+    }
     const categoryIds = new Set(
       (payload.categories ?? []).map((category) => category.id)
     );

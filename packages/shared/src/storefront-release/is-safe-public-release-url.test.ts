@@ -28,6 +28,7 @@ describe('isSafePublicReleaseUrl', () => {
     'https://[::ffff:7f00:1]/contact',
     'https://[::ffff:127.0.0.1]/contact',
     'https://[2001:db8::1]/contact',
+    'https://localhost./contact',
     'https://metadata.google.internal/contact',
     'https://example.com/contact?token=secret',
   ])('rejects the private or unstable URL %s', (value) => {

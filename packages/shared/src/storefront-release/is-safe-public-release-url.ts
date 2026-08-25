@@ -98,7 +98,10 @@ function isNonPublicIpv6(hostname: string): boolean {
 }
 
 function isPrivateHostname(hostname: string): boolean {
-  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  const normalized = hostname
+    .toLowerCase()
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/u, '');
   return (
     normalized === 'localhost' ||
     normalized.endsWith('.localhost') ||

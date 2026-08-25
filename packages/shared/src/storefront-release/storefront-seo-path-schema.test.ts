@@ -26,6 +26,7 @@ describe('StorefrontSeoPathSchema', () => {
       '/%252e%252e/admin',
       '/foo%252fbar',
       '/%255cadmin',
+      '/%61bout',
     ])
       expect(StorefrontSeoPathSchema.safeParse(path).success).toBe(false);
   });

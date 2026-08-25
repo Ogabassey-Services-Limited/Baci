@@ -45,11 +45,14 @@ function hasUnstableHtmlContent(content: string): boolean {
 }
 
 function hasUnstableMarkdownContent(content: string): boolean {
-  const imageReferenceLabels = new Set(
-    [...content.matchAll(/!\[[^\]\r\n]*\]\[([^\]\r\n]+)\]/gu)].map((match) =>
-      (match[1] ?? '').trim().toLowerCase()
-    )
-  );
+  const imageReferenceLabels = new Set<string>();
+  for (const pattern of [
+    /!\[[^\]\r\n]*\]\[([^\]\r\n]+)\]/gu,
+    /!\[([^\]\r\n]+)\]\[\]/gu,
+    /!\[([^\]\r\n]+)\](?![\[(])/gu,
+  ])
+    for (const match of content.matchAll(pattern))
+      imageReferenceLabels.add((match[1] ?? '').trim().toLowerCase());
   const inlineDestinationPattern =
     /(!?)\[[^\]\r\n]*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))/gu;
   for (const match of content.matchAll(inlineDestinationPattern)) {

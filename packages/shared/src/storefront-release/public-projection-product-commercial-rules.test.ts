@@ -102,4 +102,31 @@ describe('StorefrontPublicProductSchema commercial rules', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects variants that collide after inheriting the product condition', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        condition: 'new',
+        variants: [
+          {
+            available: true,
+            condition: null,
+            displayQuantityLimit: 1,
+            id: '123e4567-e89b-42d3-a456-426614174019',
+            name: 'Inherited new',
+            priceMinor: 100_000,
+          },
+          {
+            available: true,
+            condition: 'new',
+            displayQuantityLimit: 1,
+            id: '123e4567-e89b-42d3-a456-426614174020',
+            name: 'Explicit new',
+            priceMinor: 100_000,
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

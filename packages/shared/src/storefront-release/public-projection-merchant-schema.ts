@@ -63,6 +63,45 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
   supportPhone: z.string().trim().min(1).max(40).optional(),
   businessHours: BusinessHoursSchema.optional(),
   socialLinks: SocialLinksSchema.optional(),
+  analytics: z
+    .strictObject({
+      googleAnalyticsId: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[\w.-]+$/)
+        .nullable()
+        .optional(),
+      facebookPixelId: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[\w.-]+$/)
+        .nullable()
+        .optional(),
+      tiktokPixelId: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[\w.-]+$/)
+        .nullable()
+        .optional(),
+      snapchatPixelId: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[\w.-]+$/)
+        .nullable()
+        .optional(),
+      twitterPixelId: z
+        .string()
+        .min(1)
+        .max(128)
+        .regex(/^[\w.-]+$/)
+        .nullable()
+        .optional(),
+    })
+    .optional(),
   brandTokens: z
     .strictObject({
       logoMediaId: z.uuid().nullable().optional(),

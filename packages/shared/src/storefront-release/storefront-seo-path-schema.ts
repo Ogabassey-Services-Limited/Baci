@@ -21,6 +21,14 @@ function isNormalizedLocalPathname(value: string): boolean {
       .split('/')
       .slice(1)
       .every((segment) => {
+        if (
+          [...segment.matchAll(/%([0-9a-f]{2})/giu)].some((match) =>
+            /^[a-z0-9._~-]$/iu.test(
+              String.fromCharCode(Number.parseInt(match[1] ?? '', 16))
+            )
+          )
+        )
+          return false;
         let current = segment;
         for (let pass = 0; pass < 4; pass += 1) {
           const decoded = decodeURIComponent(current);

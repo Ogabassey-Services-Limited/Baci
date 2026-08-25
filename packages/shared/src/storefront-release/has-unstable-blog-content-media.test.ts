@@ -93,10 +93,11 @@ describe('hasUnstableBlogContentMedia', () => {
   });
 
   it('requires Markdown image references to use immutable release media', () => {
-    expect(
-      hasUnstableBlogContentMedia(
-        '![Product][hero]\n\n[hero]: https://cdn.example.test/hero.png'
-      )
-    ).toBe(true);
+    for (const content of [
+      '![Product][hero]\n\n[hero]: https://cdn.example.test/hero.png',
+      '![Product][]\n\n[Product]: https://cdn.example.test/hero.png',
+      '![Product]\n\n[Product]: https://cdn.example.test/hero.png',
+    ])
+      expect(hasUnstableBlogContentMedia(content)).toBe(true);
   });
 });

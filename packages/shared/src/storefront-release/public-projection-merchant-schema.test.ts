@@ -40,4 +40,18 @@ describe('StorefrontPublicMerchantSchema', () => {
         false
       );
   });
+
+  it('preserves bounded public browser analytics identifiers', () => {
+    const merchant = {
+      ...validMerchant,
+      analytics: {
+        facebookPixelId: '1234567890',
+        googleAnalyticsId: 'G-ABC123',
+        snapchatPixelId: 'abcd-1234',
+        tiktokPixelId: 'CTABC123',
+        twitterPixelId: 'tw-123',
+      },
+    };
+    expect(StorefrontPublicMerchantSchema.parse(merchant)).toEqual(merchant);
+  });
 });
