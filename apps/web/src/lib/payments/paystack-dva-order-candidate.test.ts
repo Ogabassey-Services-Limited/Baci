@@ -86,6 +86,16 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
+  it('uses the assignment-time email after the order email changes', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        assignment_customer_email: 'old@example.com',
+        orders: { ...row.orders, customer_email: 'new@example.com' },
+      })
+    ).toMatchObject({ customer_email: 'old@example.com' });
+  });
+
   it.each([
     Number.NaN,
     Number.POSITIVE_INFINITY,

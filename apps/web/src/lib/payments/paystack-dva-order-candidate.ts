@@ -52,7 +52,11 @@ export function normalizePaystackDvaOrderCandidate(
     merchant_created: merchantCreated,
     payment_status: order.payment_status,
     customer_email:
-      typeof order.customer_email === 'string' ? order.customer_email : null,
+      typeof row.assignment_customer_email === 'string'
+        ? row.assignment_customer_email
+        : typeof order.customer_email === 'string'
+          ? order.customer_email
+          : null,
     total_kobo: toPaystackKobo(total),
     payable_amount_kobo:
       normalizedPayableAmount != null

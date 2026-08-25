@@ -84,7 +84,7 @@ export async function confirmPaystackDvaByOrderAccount({
   const { data: rows, error: lookupError } = await supabase
     .from('order_payment_accounts')
     .select(
-      'order_id, payable_amount, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, amount_paid, currency, payment_status, shipping_status, recorded_by_user_id)'
+      'order_id, payable_amount, assignment_customer_email, created_at, assigned_at, expires_at, orders!inner(id, merchant_id, customer_email, total, amount_paid, currency, payment_status, shipping_status, recorded_by_user_id)'
     )
     .eq('provider', 'paystack')
     .eq('account_number', accountNumber);

@@ -203,7 +203,7 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
         dva_account_number: ctxBase.accountNumber,
         dva_lookup_path: 'order_payment_accounts',
         order_payment_allocation: 'merchant_invoice_partial',
-        order_payment_outstanding_before: 535_000,
+        order_payment_outstanding_before: 835_000,
       },
     });
     expect(supabase.rpc).toHaveBeenCalledWith(

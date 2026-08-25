@@ -66,4 +66,17 @@ describe('order payment account DVA hardening migrations', () => {
       'account.account_number = trim(NEW.account_number)'
     );
   });
+
+  it('freezes expired amount and customer-email snapshots', () => {
+    const snapshots = migration(
+      '20260825223000_freeze_paystack_alias_snapshots.sql'
+    );
+    expect(snapshots).toContain(
+      'ADD COLUMN IF NOT EXISTS assignment_customer_email'
+    );
+    expect(snapshots).toContain('NEW.payable_amount := OLD.payable_amount');
+    expect(snapshots).toContain(
+      'NEW.assignment_customer_email := OLD.assignment_customer_email'
+    );
+  });
 });
