@@ -93,6 +93,13 @@ const savingsRefreshMigration = readFileSync(
   ),
   'utf8'
 );
+const hardenedCheckoutReservationMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825203000_harden_checkout_dva_reservation.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -272,5 +279,20 @@ describe('order payment account mutation RPC migration', () => {
       "redemptions.metadata ->> 'reversed_at' IS NULL"
     );
     expect(savingsRefreshMigration).toContain(') + v_savings_paid');
+  });
+
+  it('refreshes reused checkout aliases without exposing the internal overload', () => {
+    expect(hardenedCheckoutReservationMigration).toContain(
+      "IF v_reservation_result = 'existing'"
+    );
+    expect(hardenedCheckoutReservationMigration).toContain(
+      'PERFORM public.refresh_paystack_order_payable_amount(p_order_id)'
+    );
+    expect(hardenedCheckoutReservationMigration).toContain(
+      ') FROM PUBLIC, anon, authenticated;'
+    );
+    expect(hardenedCheckoutReservationMigration).toContain(
+      ') TO service_role;'
+    );
   });
 });
