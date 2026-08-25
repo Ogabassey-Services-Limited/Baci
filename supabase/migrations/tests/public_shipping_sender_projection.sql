@@ -3,8 +3,6 @@
 
 BEGIN;
 
-SELECT plan(2);
-
 INSERT INTO public.merchants (
   id,
   email,
@@ -66,8 +64,6 @@ $test$;
 
 RESET ROLE;
 
-SELECT pass('public sender projection enforces merchant publication');
-
 DO $test$
 DECLARE
   v_unexpected_grantees text[];
@@ -112,8 +108,5 @@ BEGIN
   END IF;
 END;
 $test$;
-
-SELECT pass('sender projection execute grants remain role-scoped');
-SELECT * FROM finish();
 
 ROLLBACK;
