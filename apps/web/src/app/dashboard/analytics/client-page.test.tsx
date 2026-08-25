@@ -6,13 +6,19 @@ const mockUseSearchParams = vi.hoisted(() =>
 );
 const mockGridProps = vi.hoisted(() => ({
   categoryError: null as string | null,
+  loading: false,
 }));
+const mockHasPermission = vi.hoisted(() =>
+  vi.fn<(resource: string, action: string) => boolean>(() => true)
+);
+const mockVisibleCategories = vi.hoisted(() => ({ value: [] as string[] }));
 
 vi.mock('next/navigation', () => ({
   useSearchParams: mockUseSearchParams,
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
+    hasPermission: mockHasPermission,
     merchant: { id: 'm-1', slug: 'test' },
     loading: false,
   })),
@@ -25,7 +31,10 @@ vi.mock('@/lib/analytics-export', () => ({
   exportAnalyticsAsPDF: vi.fn(),
 }));
 vi.mock('@/components/analytics/analytics-category-nav', () => ({
-  AnalyticsCategoryNav: () => null,
+  AnalyticsCategoryNav: (props: { visibleCategories?: string[] }) => {
+    mockVisibleCategories.value = props.visibleCategories ?? [];
+    return null;
+  },
   VALID_CATEGORIES: [
     'overview',
     'finance',
@@ -41,8 +50,12 @@ vi.mock('@/components/analytics/analytics-filters', () => ({
   AnalyticsFilters: () => null,
 }));
 vi.mock('@/components/analytics/draggable-analytics-grid', () => ({
-  DraggableAnalyticsGrid: (props: { categoryError?: string | null }) => {
+  DraggableAnalyticsGrid: (props: {
+    categoryError?: string | null;
+    loading: boolean;
+  }) => {
     mockGridProps.categoryError = props.categoryError ?? null;
+    mockGridProps.loading = props.loading;
     return null;
   },
 }));
@@ -57,6 +70,9 @@ describe('AnalyticsClientPage', () => {
     vi.restoreAllMocks();
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockGridProps.categoryError = null;
+    mockGridProps.loading = false;
+    mockHasPermission.mockReturnValue(true);
+    mockVisibleCategories.value = [];
   });
 
   it('renders without crashing', () => {
@@ -184,6 +200,46 @@ describe('AnalyticsClientPage', () => {
       expect(mockGridProps.categoryError).toBe(
         'Unable to load inventory analytics. Please try again.'
       );
+    });
+  });
+
+  it('keeps the grid loading while specialized analytics are pending', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=inventory')
+    );
+    let resolveInventory: ((response: Response) => void) | undefined;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      if (String(input).includes('/api/analytics?')) {
+        return new Response(JSON.stringify({}), { status: 200 });
+      }
+      return new Promise<Response>((resolve) => {
+        resolveInventory = resolve;
+      });
+    });
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => expect(mockGridProps.loading).toBe(true));
+    resolveInventory?.(
+      new Response(JSON.stringify({ alerts: [], forecasts: [] }), {
+        status: 200,
+      })
+    );
+  });
+
+  it('hides inventory and segments without their backing permissions', async () => {
+    mockHasPermission.mockImplementation(
+      (resource) => resource !== 'products' && resource !== 'customers'
+    );
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 })
+    );
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      expect(mockVisibleCategories.value).not.toContain('inventory');
+      expect(mockVisibleCategories.value).not.toContain('segments');
     });
   });
 });

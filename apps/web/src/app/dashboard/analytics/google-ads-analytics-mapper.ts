@@ -144,9 +144,14 @@ export function mapGoogleAdsReporting(
       getGoogleAdsWindowBoundary(rows, 'startDate'),
   };
 
-  const hasMetrics = Object.values(metrics).some(
-    (metric) => metric !== undefined
-  );
+  const hasMetrics = [
+    metrics.clicks,
+    metrics.conversions,
+    metrics.cpc,
+    metrics.ctr,
+    metrics.impressions,
+    metrics.spend,
+  ].some((metric) => metric !== undefined);
   const dataStatus = asGoogleAdsDataStatus(
     googleAds.dataStatus ?? connection?.dataStatus
   );

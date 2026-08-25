@@ -12,6 +12,10 @@ import {
   getGoogleAdsReportingConfig,
 } from '@/lib/google-ads/config';
 import { listGoogleAdsAccessibleCustomerIds } from '@/lib/google-ads/provider';
+import {
+  getGoogleAdsReauthReason,
+  persistGoogleAdsReauthRequired,
+} from '@/lib/google-ads/reauth';
 import { googleAdsAccountSelectionSchema } from '@/schemas/google-ads';
 
 export async function GET(request: NextRequest) {
@@ -74,7 +78,22 @@ export async function GET(request: NextRequest) {
   let resolvedToken: GoogleAdsResolvedAccessToken;
   try {
     resolvedToken = await resolveGoogleAdsAccessToken(connection, oauthConfig);
-  } catch {
+  } catch (error) {
+    const reason = getGoogleAdsReauthReason(error);
+    if (
+      reason &&
+      !(await persistGoogleAdsReauthRequired({
+        connection,
+        merchantId: access.merchantId,
+        reason,
+        supabase: auth.supabase,
+      }))
+    ) {
+      return NextResponse.json(
+        { error: 'Failed to update Google Ads authorization status' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: 'Google Ads authorization expired' },
       { status: 502 }

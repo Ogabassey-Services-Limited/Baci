@@ -146,7 +146,8 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .eq('manage_stock', true)
-      .order('stock', { ascending: true });
+      .order('stock', { ascending: true })
+      .order('id', { ascending: true });
 
     if (lowStockOnly) {
       query = query.or('stock.lte.10,stock_quantity.lte.10');

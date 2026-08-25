@@ -47,6 +47,16 @@ describe('mapGoogleAdsReporting', () => {
     ).toBeUndefined();
   });
 
+  it('does not treat reporting window dates as activity metrics', () => {
+    const result = mapGoogleAdsReporting({
+      endDate: '2026-08-20',
+      startDate: '2026-08-01',
+    });
+
+    expect(result?.metrics).toBeUndefined();
+    expect(result?.connectionStatus).toBeUndefined();
+  });
+
   it('preserves explicit reporting failures instead of rendering them as disconnected', () => {
     expect(
       mapGoogleAdsReporting({

@@ -151,6 +151,30 @@ describe('Google Ads account discovery and selection', () => {
     expect(mockListAccounts).not.toHaveBeenCalled();
   });
 
+  it('marks the connection for reauthorization when discovery cannot refresh its token', async () => {
+    mockResolveToken.mockRejectedValueOnce({
+      code: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+      status: 400,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts'
+      )
+    );
+
+    expect(response.status).toBe(502);
+    expect(mockRpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'encrypted-access',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+        p_refresh_token_ciphertext: 'encrypted-refresh',
+      }
+    );
+  });
+
   it('rejects a syntactically valid customer that Google did not grant', async () => {
     const response = await PATCH(
       new NextRequest(

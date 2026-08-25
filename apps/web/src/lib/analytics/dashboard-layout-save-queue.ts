@@ -8,7 +8,7 @@ export type DashboardLayoutSave = (
 
 export interface DashboardLayoutSaveQueue {
   enqueue(layout: DashboardLayoutConfig, merchantId?: string): Promise<void>;
-  reset(): void;
+  reset(): Promise<void>;
 }
 
 /**
@@ -45,6 +45,7 @@ export function createDashboardLayoutSaveQueue(
       generation += 1;
       controller.abort();
       controller = new AbortController();
+      return tail.catch(() => undefined);
     },
   };
 }

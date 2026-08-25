@@ -56,4 +56,25 @@ describe('createDashboardLayoutSaveQueue', () => {
     expect(save.mock.calls[0]?.[1]).toBe('merchant-old');
     expect(save.mock.calls[1]?.[1]).toBe('merchant-new');
   });
+
+  it('does not finish a category reset before an in-flight save settles', async () => {
+    let releaseSave: (() => void) | undefined;
+    const saveFinished = new Promise<void>((resolve) => {
+      releaseSave = resolve;
+    });
+    const queue = createDashboardLayoutSaveQueue(async () => saveFinished);
+    const write = queue.enqueue(layout, 'merchant-1');
+    await Promise.resolve();
+    let resetFinished = false;
+    const reset = queue.reset().then(() => {
+      resetFinished = true;
+    });
+
+    await Promise.resolve();
+    expect(resetFinished).toBe(false);
+
+    releaseSave?.();
+    await Promise.all([write, reset]);
+    expect(resetFinished).toBe(true);
+  });
 });

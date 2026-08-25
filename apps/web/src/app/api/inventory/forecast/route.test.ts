@@ -66,6 +66,10 @@ describe('inventory forecast dashboard API', () => {
       { requestedMerchantId }
     );
     expect(query.range).toHaveBeenCalledWith(0, 99);
+    expect(query.order).toHaveBeenNthCalledWith(1, 'stock', {
+      ascending: true,
+    });
+    expect(query.order).toHaveBeenNthCalledWith(2, 'id', { ascending: true });
   });
 
   it('rejects an excessive page size before reading products', async () => {

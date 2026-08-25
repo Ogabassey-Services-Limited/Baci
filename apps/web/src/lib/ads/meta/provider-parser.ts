@@ -26,7 +26,7 @@ const accountSchema = z.object({
 
 export function parseMetaAdsAccount(value: unknown): MetaAdsAccount | null {
   const parsed = accountSchema.safeParse(value);
-  if (!parsed.success) return null;
+  if (!parsed.success || Number(parsed.data.account_status) !== 1) return null;
   return {
     accountId: parsed.data.id,
     currencyCode: parsed.data.currency,

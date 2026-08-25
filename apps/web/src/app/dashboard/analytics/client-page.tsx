@@ -7,6 +7,7 @@ import {
   AnalyticsCategoryNav,
   VALID_CATEGORIES,
 } from '@/components/analytics/analytics-category-nav';
+import { isAnalyticsCategoryAllowed } from '@/components/analytics/analytics-category-permissions';
 import { AnalyticsFilters } from '@/components/analytics/analytics-filters';
 import {
   type AnalyticsData,
@@ -81,7 +82,7 @@ function loadAnalyticsExport() {
 
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
-  const { merchant, loading: merchantLoading } = useMerchant();
+  const { hasPermission, merchant, loading: merchantLoading } = useMerchant();
   const [date, setDate] = useState<{
     from: Date | undefined;
     to: Date | undefined;
@@ -96,10 +97,14 @@ export default function AnalyticsClientPage() {
     cacheBustParam && /^\d{1,10}$/.test(cacheBustParam)
       ? Number(cacheBustParam)
       : 0;
-  const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
+  const requestedCategory =
     categoryParam &&
-      VALID_CATEGORIES.includes(categoryParam as AnalyticsCategory)
+    VALID_CATEGORIES.includes(categoryParam as AnalyticsCategory)
       ? (categoryParam as AnalyticsCategory)
+      : 'overview';
+  const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(() =>
+    isAnalyticsCategoryAllowed(requestedCategory, hasPermission)
+      ? requestedCategory
       : 'overview'
   );
   // Split state to avoid race conditions where base fetch overwrites category data
@@ -113,6 +118,8 @@ export default function AnalyticsClientPage() {
     string | null
   >(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+  const [loadingCategoryAnalytics, setLoadingCategoryAnalytics] =
+    useState(false);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
     initialAnalyticsRefreshKey
   );
@@ -146,8 +153,18 @@ export default function AnalyticsClientPage() {
     const controller = new AbortController();
     setCategoryAnalytics({});
     setCategoryAnalyticsError(null);
+    const isSpecialized = ['ads', 'inventory', 'segments'].includes(
+      activeCategory
+    );
+    setLoadingCategoryAnalytics(isSpecialized);
 
-    if (!merchant || !date.from || !date.to) {
+    if (
+      !merchant ||
+      !date.from ||
+      !date.to ||
+      !isAnalyticsCategoryAllowed(activeCategory, hasPermission)
+    ) {
+      setLoadingCategoryAnalytics(false);
       return () => controller.abort();
     }
 
@@ -173,10 +190,19 @@ export default function AnalyticsClientPage() {
             `Unable to load ${activeCategory} analytics. Please try again.`
           );
         }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingCategoryAnalytics(false);
+        }
       });
 
     return () => controller.abort();
   }, [activeCategory, analyticsRefreshKey, date.from, date.to, merchant?.id]);
+
+  const visibleCategories = VALID_CATEGORIES.filter((category) =>
+    isAnalyticsCategoryAllowed(category, hasPermission)
+  );
 
   const handleAdsReportingSynced = () => {
     setAnalyticsRefreshKey((currentKey) => currentKey + 1);
@@ -251,6 +277,7 @@ export default function AnalyticsClientPage() {
         <AnalyticsCategoryNav
           activeCategory={activeCategory}
           onCategoryChange={setActiveCategory}
+          visibleCategories={visibleCategories}
         />
         <AnalyticsFilters
           date={date}
@@ -262,7 +289,7 @@ export default function AnalyticsClientPage() {
       {/* Main Analytics Grid */}
       <DraggableAnalyticsGrid
         data={analyticsData || {}}
-        loading={loadingAnalytics}
+        loading={loadingAnalytics || loadingCategoryAnalytics}
         activeCategory={activeCategory}
         merchant={merchant}
         categoryError={categoryAnalyticsError}

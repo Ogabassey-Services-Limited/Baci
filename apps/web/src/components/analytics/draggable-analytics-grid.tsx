@@ -300,13 +300,17 @@ export function DraggableAnalyticsGrid({
     if (!merchant?.id) return;
 
     const controller = new AbortController();
-    layoutSaveQueueRef.current.reset();
+    const previousWrites = layoutSaveQueueRef.current.reset();
     persistedLayoutConfigRef.current = null;
     setPersistedLayoutConfig(null);
 
-    void fetchDashboardLayoutPreference(merchant.id, controller.signal)
+    void previousWrites
+      .then(() => {
+        if (controller.signal.aborted) return null;
+        return fetchDashboardLayoutPreference(merchant.id, controller.signal);
+      })
       .then((layoutConfig) => {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted || !layoutConfig) return;
 
         setPersistedLayoutConfig(layoutConfig);
         persistedLayoutConfigRef.current = layoutConfig;
@@ -330,7 +334,7 @@ export function DraggableAnalyticsGrid({
 
     return () => {
       controller.abort();
-      layoutSaveQueueRef.current.reset();
+      void layoutSaveQueueRef.current.reset();
     };
   }, [activeCategory, merchant?.id]);
 

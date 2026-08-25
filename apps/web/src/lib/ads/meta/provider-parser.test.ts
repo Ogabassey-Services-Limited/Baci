@@ -12,6 +12,7 @@ describe('Meta Ads provider parser', () => {
   it('normalizes a valid account to the canonical act_ id', () => {
     expect(
       parseMetaAdsAccount({
+        account_status: 1,
         currency: 'NGN',
         id: 'act_123',
         name: 'Baci',
@@ -24,6 +25,18 @@ describe('Meta Ads provider parser', () => {
       timezoneName: 'Africa/Lagos',
       timezoneOffsetHours: null,
     });
+  });
+
+  it('excludes disabled accounts from merchant account selection', () => {
+    expect(
+      parseMetaAdsAccount({
+        account_status: 2,
+        currency: 'NGN',
+        id: 'act_123',
+        name: 'Disabled account',
+        timezone_name: 'Africa/Lagos',
+      })
+    ).toBeNull();
   });
 
   it('rejects a page when any insight row is malformed instead of dropping it', () => {
