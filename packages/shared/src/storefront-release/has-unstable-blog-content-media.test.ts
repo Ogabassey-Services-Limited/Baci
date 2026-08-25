@@ -37,4 +37,30 @@ describe('hasUnstableBlogContentMedia', () => {
       )
     ).toBe(false);
   });
+
+  it('rejects signed responsive image candidates in persisted HTML', () => {
+    const stable = `/release-assets/${'c'.repeat(64)}.webp`;
+    expect(
+      hasUnstableBlogContentMedia(
+        `<picture><source srcset="${stable} 1x, https://cdn.example/image.png?token=secret 2x"><img src="${stable}"></picture>`
+      )
+    ).toBe(true);
+  });
+
+  it('rejects query-bearing TipTap links', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        JSON.stringify({
+          marks: [
+            {
+              attrs: { href: 'https://example.test/export?token=secret' },
+              type: 'link',
+            },
+          ],
+          text: 'Download',
+          type: 'text',
+        })
+      )
+    ).toBe(true);
+  });
 });

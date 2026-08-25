@@ -12,8 +12,16 @@ const MEDIA_PROPERTY_NAMES = new Set([
   'logoUrl',
   'src',
 ]);
-const NAVIGATION_PROPERTY_NAMES = new Set(['href', 'link', 'url']);
 const MAX_RELEASE_CAROUSEL_SLIDES = 5;
+
+function isNavigationPropertyName(key: string): boolean {
+  const normalized = key.toLowerCase();
+  return (
+    normalized === 'href' ||
+    normalized.endsWith('link') ||
+    normalized.endsWith('url')
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -81,7 +89,7 @@ function hasUnstableNavigationProperty(value: unknown): boolean {
     for (const [key, entry] of Object.entries(current.value)) {
       if (
         typeof entry === 'string' &&
-        (NAVIGATION_PROPERTY_NAMES.has(key) ||
+        (isNavigationPropertyName(key) ||
           current.parentKey === 'socialLinks') &&
         (entry.includes('?') ||
           !builderDesignCapabilityAdapter.isSafeUrl(entry))

@@ -1,3 +1,4 @@
+import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -5,11 +6,17 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function hasUnstableHtmlImage(content: string): boolean {
-  const imageSourcePattern =
-    /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
-  for (const match of content.matchAll(imageSourcePattern)) {
-    const source = match[1] ?? match[2] ?? match[3];
-    if (source !== undefined && !isStablePublicMediaUrl(source)) return true;
+  const mediaAttributePattern =
+    /<(?:img|source)\b[^>]*\b(src|srcset)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+  for (const match of content.matchAll(mediaAttributePattern)) {
+    const value = match[2] ?? match[3] ?? match[4];
+    if (value === undefined) continue;
+    const sources =
+      match[1]?.toLowerCase() === 'srcset'
+        ? value.split(',').map((candidate) => candidate.trim().split(/\s+/u)[0])
+        : [value];
+    if (sources.some((source) => !source || !isStablePublicMediaUrl(source)))
+      return true;
   }
   return false;
 }
@@ -35,6 +42,13 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
         (key === 'src' || key === 'image') &&
         typeof value === 'string' &&
         !isStablePublicMediaUrl(value)
+      )
+        return true;
+      if (
+        key === 'href' &&
+        typeof value === 'string' &&
+        (value.includes('?') ||
+          !builderDesignCapabilityAdapter.isSafeUrl(value))
       )
         return true;
       pending.push(value);

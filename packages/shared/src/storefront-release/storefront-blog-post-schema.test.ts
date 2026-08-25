@@ -36,4 +36,13 @@ describe('StorefrontBlogPostSchema', () => {
         .success
     ).toBe(false);
   });
+
+  it.each([
+    'author',
+    'category',
+  ])('rejects the static blog route slug %s', (slug) => {
+    expect(
+      StorefrontBlogPostSchema.safeParse({ ...blogPost, slug }).success
+    ).toBe(false);
+  });
 });

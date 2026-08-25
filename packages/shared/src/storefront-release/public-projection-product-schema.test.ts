@@ -3,6 +3,7 @@ import { StorefrontPublicProductSchema } from './public-projection-product-schem
 
 const product = {
   available: true,
+  brand: 'Baci',
   currency: 'NGN',
   id: '123e4567-e89b-42d3-a456-426614174001',
   name: 'Phone',
@@ -23,7 +24,7 @@ describe('StorefrontPublicProductSchema', () => {
           id: '123e4567-e89b-42d3-a456-426614174002',
           priceMinor: 90_000,
           status: 'active',
-          stockQuantity: 2,
+          displayQuantityLimit: 2,
         },
       ],
       hasConditionOffers: true,
@@ -52,9 +53,86 @@ describe('StorefrontPublicProductSchema', () => {
             id: '123e4567-e89b-42d3-a456-426614174004',
             priceMinor: 90_000,
             status: 'active',
-            stockQuantity: 1,
+            displayQuantityLimit: 1,
           },
         ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects unbounded offer stock while accepting the reviewed display cap', () => {
+    const offer = {
+      available: true,
+      condition: 'used',
+      id: '123e4567-e89b-42d3-a456-426614174005',
+      priceMinor: 90_000,
+      status: 'active',
+    } as const;
+
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        conditionOffers: [{ ...offer, stockQuantity: 500 }],
+        hasConditionOffers: true,
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        conditionOffers: [{ ...offer, displayQuantityLimit: 100 }],
+        hasConditionOffers: true,
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects condition aliases and duplicate variant selection tuples', () => {
+    const variant = {
+      attributes: { Color: 'Black' },
+      available: true,
+      condition: 'new',
+      id: '123e4567-e89b-42d3-a456-426614174006',
+      name: 'Black',
+      priceMinor: 100_000,
+    } as const;
+
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        variants: [{ ...variant, attributes: { Condition: 'used' } }],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        variants: [
+          variant,
+          {
+            ...variant,
+            attributes: { color: 'Black' },
+            id: '123e4567-e89b-42d3-a456-426614174007',
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects duplicate canonical condition offers', () => {
+    const offer = {
+      available: true,
+      condition: 'used',
+      displayQuantityLimit: null,
+      priceMinor: 90_000,
+      status: 'active',
+    } as const;
+
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        conditionOffers: [
+          { ...offer, id: '123e4567-e89b-42d3-a456-426614174008' },
+          { ...offer, id: '123e4567-e89b-42d3-a456-426614174009' },
+        ],
+        hasConditionOffers: true,
       }).success
     ).toBe(false);
   });

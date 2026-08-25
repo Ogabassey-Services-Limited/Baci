@@ -179,4 +179,26 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects duplicate content-page routes and feature-flag keys', () => {
+    const page = {
+      body: 'About us',
+      format: 'plain_text',
+      id: '123e4567-e89b-42d3-a456-426614174160',
+      slug: 'about',
+      status: 'published',
+      title: 'About',
+    } as const;
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        contentPages: [page, { ...page, title: 'Duplicate' }],
+        featureFlags: [
+          { enabled: true, key: 'reviews' },
+          { enabled: false, key: 'reviews' },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

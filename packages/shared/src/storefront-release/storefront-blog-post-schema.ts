@@ -6,7 +6,10 @@ const SlugSchema = z
   .string()
   .min(1)
   .max(160)
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+  .refine((slug) => slug !== 'author' && slug !== 'category', {
+    message: 'Blog slug is reserved by a static blog route',
+  });
 const OptionalMediaUrlSchema = z
   .string()
   .refine(isStablePublicMediaUrl, 'Expected a stable public media URL')

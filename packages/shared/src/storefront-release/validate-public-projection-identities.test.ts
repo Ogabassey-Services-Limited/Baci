@@ -16,11 +16,13 @@ function collectIssues(
 }
 
 describe('validatePublicProjectionIdentities', () => {
-  it('accepts unique product, variant, offer, category, and blog identities', () => {
+  it('accepts unique product, variant, offer, category, blog, page, and flag identities', () => {
     expect(
       collectIssues({
         blogPosts: [{ id: 'blog-1', slug: 'guide' }],
         categories: [{ id: 'category-1', slug: 'phones' }],
+        contentPages: [{ id: 'page-1', slug: 'about' }],
+        featureFlags: [{ key: 'reviews' }],
         products: [
           {
             conditionOffers: [{ id: 'offer-1' }],
@@ -43,6 +45,11 @@ describe('validatePublicProjectionIdentities', () => {
         { id: 'category-1', slug: 'phones' },
         { id: 'category-1', slug: 'phones' },
       ],
+      contentPages: [
+        { id: 'page-1', slug: 'about' },
+        { id: 'page-1', slug: 'about' },
+      ],
+      featureFlags: [{ key: 'reviews' }, { key: 'reviews' }],
       products: [
         {
           conditionOffers: [{ id: 'offer-1' }, { id: 'offer-1' }],
@@ -61,6 +68,9 @@ describe('validatePublicProjectionIdentities', () => {
         'Category IDs must be unique',
         'Category slugs must be unique',
         'Condition offer IDs must be unique',
+        'Content page IDs must be unique',
+        'Content page slugs must be unique',
+        'Feature flag keys must be unique',
         'Product IDs must be unique',
         'Product slugs must be unique',
         'Variant IDs must be unique',

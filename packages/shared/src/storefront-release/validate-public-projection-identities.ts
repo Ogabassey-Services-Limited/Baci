@@ -3,6 +3,8 @@ import type { RefinementCtx } from 'zod';
 interface ProjectionIdentityPayload {
   blogPosts?: readonly { id: string; slug: string }[];
   categories?: readonly { id: string; slug: string }[];
+  contentPages?: readonly { id: string; slug: string }[];
+  featureFlags?: readonly { key: string }[];
   products: readonly {
     conditionOffers?: readonly { id: string }[];
     id: string;
@@ -90,4 +92,32 @@ export function validatePublicProjectionIdentities(
         addDuplicateIssue(context, message, ['blogPosts', postIndex, field]);
       seen.add(value);
     }
+
+  const contentPageIds = new Set<string>();
+  const contentPageSlugs = new Set<string>();
+  for (const [pageIndex, page] of (payload.contentPages ?? []).entries())
+    for (const [value, seen, field, message] of [
+      [page.id, contentPageIds, 'id', 'Content page IDs must be unique'],
+      [
+        page.slug,
+        contentPageSlugs,
+        'slug',
+        'Content page slugs must be unique',
+      ],
+    ] as const) {
+      if (seen.has(value))
+        addDuplicateIssue(context, message, ['contentPages', pageIndex, field]);
+      seen.add(value);
+    }
+
+  const featureFlagKeys = new Set<string>();
+  for (const [flagIndex, flag] of (payload.featureFlags ?? []).entries()) {
+    if (featureFlagKeys.has(flag.key))
+      addDuplicateIssue(context, 'Feature flag keys must be unique', [
+        'featureFlags',
+        flagIndex,
+        'key',
+      ]);
+    featureFlagKeys.add(flag.key);
+  }
 }

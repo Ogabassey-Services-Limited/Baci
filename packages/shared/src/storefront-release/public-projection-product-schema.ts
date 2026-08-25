@@ -26,6 +26,13 @@ const VariantAttributesSchema = z
         code: 'custom',
         message: 'Variant attributes must contain at most 32 entries',
       });
+    if (
+      Object.keys(attributes).some((key) => key.toLowerCase() === 'condition')
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Variant condition must use the typed condition field',
+      });
   });
 
 const OptionalCompareAtPriceSchema = z
@@ -53,7 +60,7 @@ const ProductConditionOfferSchema = z.strictObject({
   condition: ProductConditionSchema,
   priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   compareAtPriceMinor: OptionalCompareAtPriceSchema,
-  stockQuantity: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  displayQuantityLimit: z.number().int().nonnegative().max(100).nullable(),
   available: z.boolean(),
   grade: z.enum(['A', 'B', 'C', 'D']).nullable().optional(),
   notes: z.string().max(2_000).nullable().optional(),
@@ -71,6 +78,7 @@ export const StorefrontPublicProductSchema = z
       .max(160)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     name: z.string().trim().min(1).max(240),
+    brand: z.string().trim().min(1).max(160).nullable().optional(),
     description: z.string().max(100_000).nullable().optional(),
     currency: z
       .string()
@@ -114,4 +122,28 @@ export const StorefrontPublicProductSchema = z
         message: 'Condition offers require hasConditionOffers to be true',
         path: ['hasConditionOffers'],
       });
+    const offerConditions = new Set<string>();
+    for (const [offerIndex, offer] of offers.entries()) {
+      if (offerConditions.has(offer.condition))
+        context.addIssue({
+          code: 'custom',
+          message: 'Condition offer conditions must be unique',
+          path: ['conditionOffers', offerIndex, 'condition'],
+        });
+      offerConditions.add(offer.condition);
+    }
+    const variantSelections = new Set<string>();
+    for (const [variantIndex, variant] of (product.variants ?? []).entries()) {
+      const attributes = Object.entries(variant.attributes ?? {})
+        .map(([key, value]) => [key.toLowerCase(), value] as const)
+        .sort(([left], [right]) => left.localeCompare(right));
+      const selection = JSON.stringify([variant.condition ?? null, attributes]);
+      if (variantSelections.has(selection))
+        context.addIssue({
+          code: 'custom',
+          message: 'Variant selection tuples must be unique',
+          path: ['variants', variantIndex],
+        });
+      variantSelections.add(selection);
+    }
   });
