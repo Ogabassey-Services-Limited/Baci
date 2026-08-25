@@ -1,14 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-
-const querySchema = z.object({
-  integrationId: z.uuid(),
-});
+import { jumiaMappedProductQuerySchema } from '@/schemas/jumia-mapped-product-query';
 
 const MAPPED_PRODUCTS_PAGE_SIZE = 500;
 
@@ -18,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const parsed = querySchema.safeParse({
+  const parsed = jumiaMappedProductQuerySchema.safeParse({
     integrationId: request.nextUrl.searchParams.get('integrationId'),
   });
   if (!parsed.success) {

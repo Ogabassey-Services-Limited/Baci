@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260825000300_claim_jumia_discovery_and_fix_handoff.sql'
+      '20260825000400_order_jumia_multi_shop_locks.sql'
     );
   });
 });

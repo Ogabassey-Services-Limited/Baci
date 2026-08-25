@@ -23,6 +23,7 @@ describe('loadPendingFeedMappings', () => {
       last_feed_id: `feed-${index}`,
       jumia_seller_sku: `SKU-${index}`,
       last_synced_at: null,
+      sync_error: null,
     }));
     const second = page([
       {
@@ -30,6 +31,7 @@ describe('loadPendingFeedMappings', () => {
         last_feed_id: 'feed-500',
         jumia_seller_sku: 'SKU-500',
         last_synced_at: null,
+        sync_error: null,
       },
     ]);
     const firstBuilder = page(first);
@@ -58,6 +60,7 @@ describe('loadPendingFeedMappings', () => {
         last_feed_id: `feed-${index}`,
         jumia_seller_sku: null,
         last_synced_at: null,
+        sync_error: null,
       }))
     );
     const second = page([], { message: 'database unavailable' });

@@ -121,6 +121,36 @@ describe('Jumia feed status route', () => {
     expect(mocks.feed).not.toHaveBeenCalled();
   });
 
+  it('surfaces ambiguous submissions for explicit manual resolution', async () => {
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-ambiguous',
+          last_feed_id: null,
+          jumia_seller_sku: 'SKU-UNKNOWN',
+          last_synced_at: '2026-08-25T02:00:00Z',
+          sync_error: 'ambiguous_submission_requires_manual_resolution',
+        },
+      ],
+      error: null,
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      checked: 0,
+      pending: 1,
+      manualResolutionRequired: [
+        {
+          mappingId: 'mapping-ambiguous',
+          sellerSku: 'SKU-UNKNOWN',
+        },
+      ],
+    });
+    expect(mocks.feed).not.toHaveBeenCalled();
+  });
+
   it('surfaces rejected-feed marking failures instead of reporting success', async () => {
     const update = vi.fn();
     const failedUpdate = (...args: unknown[]) => {

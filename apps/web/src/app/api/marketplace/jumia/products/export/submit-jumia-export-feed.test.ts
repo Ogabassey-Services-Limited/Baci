@@ -10,6 +10,9 @@ vi.mock('./export-product-reservation', () => ({
   markJumiaExportReservationForReconciliation: vi.fn(),
   releaseJumiaExportReservation: vi.fn(),
 }));
+vi.mock('./mark-ambiguous-jumia-export', () => ({
+  markAmbiguousJumiaExport: vi.fn(),
+}));
 vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
@@ -57,9 +60,13 @@ describe('submitJumiaExportFeed', () => {
     const { createProduct } = await import('@/lib/jumia/feeds');
     const { releaseJumiaExportReservation, finalizeJumiaExportReservation } =
       await import('./export-product-reservation');
+    const { markAmbiguousJumiaExport } = await import(
+      './mark-ambiguous-jumia-export'
+    );
     vi.mocked(createProduct).mockRejectedValue(
       new JumiaApiError(502, 'upstream response lost')
     );
+    vi.mocked(markAmbiguousJumiaExport).mockResolvedValue(true);
 
     const result = await submitJumiaExportFeed({
       jumia: {} as never,
@@ -84,5 +91,6 @@ describe('submitJumiaExportFeed', () => {
     });
     expect(releaseJumiaExportReservation).not.toHaveBeenCalled();
     expect(finalizeJumiaExportReservation).not.toHaveBeenCalled();
+    expect(markAmbiguousJumiaExport).toHaveBeenCalled();
   });
 });

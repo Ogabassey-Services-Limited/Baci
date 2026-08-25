@@ -170,6 +170,10 @@ vi.mock('@/lib/jumia/self-authorization', () => ({
 }));
 
 vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
+  claimJumiaSelfAuthorizationDiscovery: vi.fn().mockResolvedValue({
+    claimToken: 'claim-token-1',
+    credentialCiphertext: 'ciphertext',
+  }),
   createJumiaSelfAuthorizationDiscovery: vi
     .fn()
     .mockResolvedValue('00000000-0000-4000-8000-000000000099'),
@@ -177,6 +181,10 @@ vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
   consumeJumiaSelfAuthorizationDiscovery: vi
     .fn()
     .mockResolvedValue('ciphertext'),
+  releaseJumiaSelfAuthorizationDiscovery: vi.fn().mockResolvedValue(undefined),
+  updateClaimedJumiaSelfAuthorizationDiscovery: vi
+    .fn()
+    .mockResolvedValue(undefined),
 }));
 
 const { mockDecrypt } = vi.hoisted(() => ({
@@ -465,7 +473,7 @@ describe('Connect POST', () => {
     const json = await res.json();
     expect(json.connected).toEqual([{ id: 'shop-1', name: 'My Jumia Shop' }]);
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
-      'persist_jumia_self_authorization',
+      'persist_jumia_self_authorization_ordered',
       expect.objectContaining({ p_merchant_id: MERCHANT_CTX.merchantId })
     );
   });

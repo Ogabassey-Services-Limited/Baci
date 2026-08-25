@@ -11,6 +11,7 @@ function buildSupabase(
     existingMapping?: { id: string } | null;
     insertError?: { code: string } | null;
     deleteError?: { message: string } | null;
+    productError?: { message: string } | null;
   } = {}
 ) {
   const maybeSingle = vi.fn().mockResolvedValue({
@@ -42,7 +43,7 @@ function buildSupabase(
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({
             data: { id: 'product-1' },
-            error: null,
+            error: options.productError ?? null,
           }),
         })),
       };
@@ -148,6 +149,25 @@ describe('reserveJumiaExportMappings', () => {
       error:
         'This product export is already in progress or mapped for this integration.',
       code: 'jumia_mapping_exists',
+    });
+  });
+
+  it('returns a server failure when the linked-product lookup fails', async () => {
+    const { from } = buildSupabase({
+      productError: { message: 'database unavailable' },
+    });
+
+    const result = await reserveJumiaExportMappings({
+      ...baseArgs,
+      linkedProductId: null,
+      supabase: { from } as never,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      error: 'Failed to resolve the local product for Jumia export',
+      code: 'jumia_export_product_lookup_failed',
     });
   });
 });

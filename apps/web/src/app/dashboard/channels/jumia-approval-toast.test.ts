@@ -19,4 +19,15 @@ describe('buildJumiaApprovalToastMessage', () => {
       'No pending Jumia product feeds found'
     );
   });
+
+  it('gives a manual resolution path for an ambiguous submission', () => {
+    expect(
+      buildJumiaApprovalToastMessage({
+        pending: 1,
+        manualResolutionRequired: [{ sellerSku: 'SKU-UNKNOWN' }],
+      })
+    ).toContain(
+      'Check Vendor Center before retrying; contact support if the listing is absent.'
+    );
+  });
 });

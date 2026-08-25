@@ -33,6 +33,7 @@ import {
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { jumiaFeedStatusQuerySchema } from '@/schemas/jumia-feed-status';
+import { AMBIGUOUS_JUMIA_EXPORT_ERROR } from '../export/mark-ambiguous-jumia-export';
 import { jumiaFeedReconciliation } from './jumia-feed-reconciliation';
 import { loadPendingFeedMappings } from './load-pending-feed-mappings';
 
@@ -119,6 +120,16 @@ export async function POST(request: NextRequest) {
   }
 
   const pending = mappings as PendingMapping[];
+  const manualResolutionRequired = pending
+    .filter(
+      (mapping) =>
+        !mapping.last_feed_id &&
+        mapping.sync_error === AMBIGUOUS_JUMIA_EXPORT_ERROR
+    )
+    .map((mapping) => ({
+      mappingId: mapping.id,
+      sellerSku: mapping.jumia_seller_sku,
+    }));
   const feedIds = selectPendingFeedIds(pending, MAX_FEEDS_PER_REQUEST);
   const feedResults: Array<{
     feedId: string;
@@ -243,5 +254,6 @@ export async function POST(request: NextRequest) {
     failed,
     pending: pending.length - updated - failed,
     feeds: feedResults,
+    manualResolutionRequired,
   });
 }

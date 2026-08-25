@@ -17,19 +17,19 @@ async function resolveLinkedProductId(
   merchantId: string,
   linkedProductId: string | null,
   primarySku: string
-): Promise<string | null> {
+): Promise<{ productId: string | null; error: unknown | null }> {
   if (linkedProductId) {
-    return linkedProductId;
+    return { productId: linkedProductId, error: null };
   }
 
-  const { data: existingProduct } = await supabase
+  const { data: existingProduct, error } = await supabase
     .from('products')
     .select('id')
     .eq('merchant_id', merchantId)
     .eq('sku', primarySku)
     .maybeSingle();
 
-  return existingProduct?.id ?? null;
+  return { productId: existingProduct?.id ?? null, error };
 }
 
 export async function reserveJumiaExportMappings(
@@ -48,12 +48,21 @@ export async function reserveJumiaExportMappings(
     };
   }
 
-  const productId = await resolveLinkedProductId(
+  const linkedProduct = await resolveLinkedProductId(
     args.supabase,
     args.merchantId,
     args.linkedProductId,
     primarySku
   );
+  if (linkedProduct.error) {
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to resolve the local product for Jumia export',
+      code: 'jumia_export_product_lookup_failed',
+    };
+  }
+  const productId = linkedProduct.productId;
   if (!productId) {
     return {
       ok: false,

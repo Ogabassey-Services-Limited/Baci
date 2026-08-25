@@ -9,6 +9,7 @@ import {
   releaseJumiaExportReservation,
 } from './export-product-reservation';
 import type { ExportVariation } from './export-product-source';
+import { markAmbiguousJumiaExport } from './mark-ambiguous-jumia-export';
 
 export async function submitJumiaExportFeed(args: {
   jumia: JumiaClient;
@@ -77,6 +78,21 @@ export async function submitJumiaExportFeed(args: {
           logger.error({
             message:
               'Failed to release Jumia export reservation after definitive rejection',
+            merchant_id: merchantId,
+            product_id: productId,
+          });
+        }
+      } else {
+        const marked = await markAmbiguousJumiaExport(supabase, {
+          merchantId,
+          productId,
+          shopId,
+          marketplaceKey,
+          exportVariations,
+        });
+        if (!marked) {
+          logger.error({
+            message: 'Failed to record ambiguous Jumia export for recovery',
             merchant_id: merchantId,
             product_id: productId,
           });

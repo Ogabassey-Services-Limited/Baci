@@ -6,6 +6,7 @@ export function buildJumiaApprovalToastMessage(data: {
   updated?: number;
   pending?: number;
   failed?: number;
+  manualResolutionRequired?: Array<{ sellerSku: string }>;
 }): string {
   const updated = data.updated ?? 0;
   const pending = data.pending ?? 0;
@@ -22,6 +23,14 @@ export function buildJumiaApprovalToastMessage(data: {
   }
   if (failed > 0) {
     parts.push(`${pluralizeProducts(failed)} were rejected by Jumia`);
+  }
+  if ((data.manualResolutionRequired?.length ?? 0) > 0) {
+    const sellerSkus = data.manualResolutionRequired
+      ?.map(({ sellerSku }) => sellerSku)
+      .join(', ');
+    parts.push(
+      `Jumia did not confirm submission for SKU ${sellerSkus}. Check Vendor Center before retrying; contact support if the listing is absent.`
+    );
   }
 
   if (parts.length === 0) {

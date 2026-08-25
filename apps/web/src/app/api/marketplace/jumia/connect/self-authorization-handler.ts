@@ -116,24 +116,27 @@ async function connect(args: {
   const clientKeyHash = createHash('sha256')
     .update(args.credentials.clientId)
     .digest('hex');
-  const { data, error } = await args.rpc('persist_jumia_self_authorization', {
-    p_merchant_id: args.merchantId,
-    p_client_key_hash: clientKeyHash,
-    p_credential_ciphertext: args.encrypt(
-      validated.credentials,
-      args.encryptionKey,
-      `${args.merchantId}:${clientKeyHash}`
-    ),
-    p_token_expires_at: validated.accessTokenExpiresAt,
-    p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
-    p_shop_ids: shopsToConnect.map((shop) => shop.id),
-    p_shop_names: shopsToConnect.map((shop) => shop.name),
-    p_country_codes: shopsToConnect.map((shop) => shop.countryCode),
-    p_marketplace_labels: shopsToConnect.map((shop) => shop.marketplace),
-    p_business_client_codes: shopsToConnect.map(
-      (shop) => shop.businessClientCode ?? shop.marketplace
-    ),
-  });
+  const { data, error } = await args.rpc(
+    'persist_jumia_self_authorization_ordered',
+    {
+      p_merchant_id: args.merchantId,
+      p_client_key_hash: clientKeyHash,
+      p_credential_ciphertext: args.encrypt(
+        validated.credentials,
+        args.encryptionKey,
+        `${args.merchantId}:${clientKeyHash}`
+      ),
+      p_token_expires_at: validated.accessTokenExpiresAt,
+      p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
+      p_shop_ids: shopsToConnect.map((shop) => shop.id),
+      p_shop_names: shopsToConnect.map((shop) => shop.name),
+      p_country_codes: shopsToConnect.map((shop) => shop.countryCode),
+      p_marketplace_labels: shopsToConnect.map((shop) => shop.marketplace),
+      p_business_client_codes: shopsToConnect.map(
+        (shop) => shop.businessClientCode ?? shop.marketplace
+      ),
+    }
+  );
 
   if (error || !data) {
     console.error(

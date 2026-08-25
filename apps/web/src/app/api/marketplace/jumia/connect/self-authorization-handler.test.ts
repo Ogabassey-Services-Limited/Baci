@@ -82,20 +82,23 @@ describe('Jumia Self Authorization handler', () => {
         .update(credentials.clientId)
         .digest('hex')}`
     );
-    expect(rpc).toHaveBeenCalledWith('persist_jumia_self_authorization', {
-      p_merchant_id: '00000000-0000-4000-8000-000000000001',
-      p_client_key_hash: createHash('sha256')
-        .update(credentials.clientId)
-        .digest('hex'),
-      p_credential_ciphertext: 'opaque-ciphertext',
-      p_token_expires_at: validated.accessTokenExpiresAt,
-      p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
-      p_shop_ids: ['shop-1'],
-      p_shop_names: ['Shop One'],
-      p_country_codes: ['NG'],
-      p_marketplace_labels: ['Jumia Nigeria'],
-      p_business_client_codes: ['NG-1'],
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization_ordered',
+      {
+        p_merchant_id: '00000000-0000-4000-8000-000000000001',
+        p_client_key_hash: createHash('sha256')
+          .update(credentials.clientId)
+          .digest('hex'),
+        p_credential_ciphertext: 'opaque-ciphertext',
+        p_token_expires_at: validated.accessTokenExpiresAt,
+        p_refresh_token_expires_at: validated.refreshTokenExpiresAt,
+        p_shop_ids: ['shop-1'],
+        p_shop_names: ['Shop One'],
+        p_country_codes: ['NG'],
+        p_marketplace_labels: ['Jumia Nigeria'],
+        p_business_client_codes: ['NG-1'],
+      }
+    );
     await expect(response.json()).resolves.toEqual({
       connected: [{ id: 'shop-1', name: 'Shop One' }],
       alreadyConnected: [],
@@ -159,7 +162,7 @@ describe('Jumia Self Authorization handler', () => {
       alreadyConnected: [{ id: 'shop-1', name: 'Nigeria Shop' }],
     });
     expect(rpc).toHaveBeenCalledWith(
-      'persist_jumia_self_authorization',
+      'persist_jumia_self_authorization_ordered',
       expect.objectContaining({
         p_shop_ids: ['shop-1', 'shop-1'],
         p_business_client_codes: ['GH-1', 'NG-1'],

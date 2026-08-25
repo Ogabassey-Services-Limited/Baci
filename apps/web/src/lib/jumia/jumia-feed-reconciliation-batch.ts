@@ -5,6 +5,7 @@ export type PendingFeedMapping = {
   last_feed_id: string | null;
   jumia_seller_sku: string | null;
   last_synced_at: string | null;
+  sync_error?: string | null;
 };
 
 export function selectPendingFeedIds(
