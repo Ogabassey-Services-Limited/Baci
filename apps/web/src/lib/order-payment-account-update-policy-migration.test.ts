@@ -58,6 +58,13 @@ const reservationEmailMigration = readFileSync(
   ),
   'utf8'
 );
+const authorizedReservationEmailMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825143500_authorize_paystack_order_email_revalidation.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -162,5 +169,18 @@ describe('order payment account mutation RPC migration', () => {
     expect(reservationEmailMigration).toContain(
       'REVOKE EXECUTE ON FUNCTION public.reserve_paystack_order_payment_account'
     );
+  });
+
+  it('authorizes access before revealing whether the customer email matches', () => {
+    const permissionOffset = authorizedReservationEmailMigration.indexOf(
+      'public.check_staff_permission'
+    );
+    const comparisonOffset = authorizedReservationEmailMigration.indexOf(
+      'v_customer_email IS DISTINCT FROM'
+    );
+
+    expect(permissionOffset).toBeGreaterThan(-1);
+    expect(comparisonOffset).toBeGreaterThan(permissionOffset);
+    expect(authorizedReservationEmailMigration).toContain("'orders', 'edit'");
   });
 });

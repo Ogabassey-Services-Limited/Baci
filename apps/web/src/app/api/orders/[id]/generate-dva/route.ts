@@ -8,6 +8,7 @@ import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
 import { generateDvaHelpers } from '../generate-dva-helpers';
 import { loadDvaProvisioningContext } from '../load-dva-provisioning-context';
+import { getDvaReservationFailureResponse } from './generate-dva-reservation-response';
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -216,40 +217,12 @@ export async function POST(
       }
     );
 
-    if (
-      reservation === 'conflict' ||
-      reservation === 'wallet_conflict' ||
-      insertError?.message?.includes('PAYSTACK_DVA_ALIAS_CONFLICT')
-    ) {
-      return NextResponse.json(
-        {
-          code: 'PAYSTACK_DVA_IN_USE',
-          error:
-            'This automatic confirmation account is in use by another payment flow',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (reservation === 'ineligible') {
-      return NextResponse.json(
-        {
-          code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
-          error: 'Order is no longer eligible for automatic confirmation',
-        },
-        { status: 409 }
-      );
-    }
-
-    if (reservation === 'customer_changed') {
-      return NextResponse.json(
-        {
-          code: 'ORDER_CUSTOMER_CHANGED',
-          error:
-            'Customer email changed while creating automatic confirmation. Please try again.',
-        },
-        { status: 409 }
-      );
+    const reservationFailure = getDvaReservationFailureResponse(
+      reservation,
+      insertError
+    );
+    if (reservationFailure) {
+      return reservationFailure;
     }
 
     if (insertError) {
