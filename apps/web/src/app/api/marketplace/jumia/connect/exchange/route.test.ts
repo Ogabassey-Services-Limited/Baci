@@ -239,6 +239,21 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(res.status).toBe(403);
   });
 
+  it('returns a retryable 503 when the ticket claim RPC fails', async () => {
+    setupAuth();
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+
+    const res = await POST(makeRequest({ code: 'abc', ticketId: TICKET_ID }));
+
+    expect(res.status).toBe(503);
+    await expect(res.json()).resolves.toMatchObject({
+      code: 'jumia_oauth_ticket_claim_failed',
+    });
+  });
+
   it('returns 402 before consuming the ticket when marketplace sync is not enabled', async () => {
     setupAuth();
     mockFeaturePlanTier.mockReturnValue('free');

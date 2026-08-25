@@ -13,7 +13,10 @@ export async function claimJumiaOAuthHandoffTicket(
       p_ticket_id: args.ticketId,
     }
   );
-  return !error && data === true;
+  if (error) {
+    throw new Error('Failed to claim Jumia OAuth handoff ticket');
+  }
+  return data === true;
 }
 
 export async function finalizeJumiaOAuthHandoffTicket(

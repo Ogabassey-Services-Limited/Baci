@@ -140,7 +140,10 @@ export function ConnectJumiaDialog({
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
-      resetManualForm();
+      // Jumia may rotate the submitted refresh credential during discovery.
+      // Keep only the opaque resumable discovery state if the merchant closes
+      // the dialog, while clearing the sensitive credential from the form.
+      setRefreshToken('');
       setShowManualForm(false);
     }
     onOpenChange(isOpen);

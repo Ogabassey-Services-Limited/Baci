@@ -454,15 +454,27 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await purgeOrphanedJumiaAuthorization(
-      auth.supabase,
-      merchantContext.merchantId,
-      integrationId
-    );
+    let cleanupPending = false;
+    try {
+      cleanupPending = !(await purgeOrphanedJumiaAuthorization(
+        auth.supabase,
+        merchantContext.merchantId,
+        integrationId
+      ));
+    } catch (cleanupError) {
+      cleanupPending = true;
+      console.error(
+        '[Jumia Disconnect] Disconnected; credential cleanup deferred:',
+        cleanupError
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Jumia account disconnected',
+      message: cleanupPending
+        ? 'Jumia account disconnected; credential cleanup is pending'
+        : 'Jumia account disconnected',
+      cleanupPending,
     });
   } catch (error) {
     if (

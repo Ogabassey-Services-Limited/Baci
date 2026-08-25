@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   getConfiguredAppUrl,
   getJumiaClientId,
@@ -25,28 +24,21 @@ import {
   finalizeJumiaOAuthHandoffTicket,
   releaseJumiaOAuthHandoffTicket,
 } from './jumia-oauth-handoff-ticket';
+import { parseJumiaOAuthExchangeRequest } from './parse-jumia-oauth-exchange-request';
 import { persistJumiaOAuthExchangeIntegrations } from './persist-jumia-oauth-exchange-integrations';
 
-const bodySchema = z.object({
-  code: z.string().min(1).max(2048),
-  ticketId: z.uuid(),
-});
-
-/**
- * POST: Exchange a Jumia authorization code for tokens.
- *
- * Mobile-only endpoint. The mobile app receives the code via deep link
- * from the callback, then calls this authenticated endpoint to complete
- * the OAuth flow with its own Supabase session (RLS-enforced).
- */
+/** Mobile bearer-auth endpoint for exchanging a Jumia authorization code. */
 export async function POST(request: NextRequest) {
   try {
-    // No CSRF check required — this endpoint uses Bearer token auth (mobile app),
-    // not cookie-based auth. CSRF attacks only exploit automatic cookie inclusion.
+    // Bearer authentication does not rely on automatically included cookies.
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const requestBody = await parseJumiaOAuthExchangeRequest(request);
+    if (!requestBody.success) return requestBody.response;
+    const { code, ticketId } = requestBody.data;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
     if (!merchantId) {
@@ -55,23 +47,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    const parsed = bodySchema.safeParse(body);
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: 'Invalid input', details: z.flattenError(parsed.error) },
-        { status: 400 }
-      );
-    }
-
-    const { code, ticketId } = parsed.data;
 
     const featureAccess = await getMerchantFeatureAccess(
       auth.supabase,
@@ -92,9 +67,7 @@ export async function POST(request: NextRequest) {
       return merchantFeatureUpgradeResponse('marketplace_sync');
     }
 
-    // Resolve the current connection state before claiming the handoff ticket
-    // or exchanging the one-time authorization code. A lookup failure must
-    // leave the ticket and provider authorization recoverable for a retry.
+    // Resolve connection state before consuming any one-time provider state.
     const { data: existingIntegrations, error: existingIntegrationsError } =
       await auth.supabase
         .from('marketplace_integrations')
@@ -120,10 +93,22 @@ export async function POST(request: NextRequest) {
     // Atomically claim the ticket — the RPC verifies auth.uid ownership,
     // merchant permission, status, and expiry inside one transaction.
     // Finalize only after OAuth persistence succeeds so retries remain possible.
-    const ticketClaimed = await claimJumiaOAuthHandoffTicket(auth.supabase, {
-      merchantId,
-      ticketId,
-    });
+    let ticketClaimed: boolean;
+    try {
+      ticketClaimed = await claimJumiaOAuthHandoffTicket(auth.supabase, {
+        merchantId,
+        ticketId,
+      });
+    } catch (ticketError) {
+      console.error('[Jumia Exchange] Ticket claim failed:', ticketError);
+      return NextResponse.json(
+        {
+          error: 'Could not verify the OAuth handoff ticket. Please retry.',
+          code: 'jumia_oauth_ticket_claim_failed',
+        },
+        { status: 503 }
+      );
+    }
 
     if (!ticketClaimed) {
       return NextResponse.json(

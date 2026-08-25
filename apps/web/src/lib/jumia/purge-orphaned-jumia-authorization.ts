@@ -5,7 +5,7 @@ export async function purgeOrphanedJumiaAuthorization(
   supabase: SupabaseClient,
   merchantId: string,
   integrationId: string
-): Promise<void> {
+): Promise<boolean> {
   const { error } = await supabase.rpc('purge_orphaned_jumia_authorization', {
     p_merchant_id: merchantId,
     p_integration_id: integrationId,
@@ -15,5 +15,7 @@ export async function purgeOrphanedJumiaAuthorization(
       message: 'Failed to purge orphaned Jumia authorization',
       error,
     });
+    return false;
   }
+  return true;
 }

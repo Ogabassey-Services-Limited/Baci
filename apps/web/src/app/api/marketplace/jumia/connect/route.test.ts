@@ -12,6 +12,7 @@ const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
 const mockFeaturePlanTier = vi.fn(() => 'pro');
+const mockPurgeOrphanedAuthorization = vi.fn().mockResolvedValue(true);
 const mockGetJumiaAuthUrl = vi
   .fn()
   .mockReturnValue('https://jumia.com/auth?state=xyz');
@@ -119,6 +120,11 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
+}));
+
+vi.mock('@/lib/jumia/purge-orphaned-jumia-authorization', () => ({
+  purgeOrphanedJumiaAuthorization: (...args: unknown[]) =>
+    mockPurgeOrphanedAuthorization(...args),
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
@@ -751,6 +757,7 @@ describe('Connect GET', () => {
 describe('Connect DELETE', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPurgeOrphanedAuthorization.mockResolvedValue(true);
     setupAuth();
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'u1' },
@@ -833,6 +840,7 @@ describe('Connect DELETE', () => {
     await expect(res.json()).resolves.toEqual({
       success: true,
       message: 'Jumia account disconnected',
+      cleanupPending: false,
     });
     expect(mockAuthenticateApiRequest).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({ is_active: false });
@@ -903,6 +911,29 @@ describe('Connect DELETE', () => {
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({
       error: 'Failed to disconnect',
+    });
+  });
+
+  it('returns successful disconnect with cleanup pending when purge fails', async () => {
+    mockPurgeOrphanedAuthorization.mockResolvedValueOnce(false);
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: INTEGRATION_ID },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eqMerchant = vi.fn().mockReturnValue({ select });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    mockSupabase.from.mockReturnValueOnce({
+      update: vi.fn().mockReturnValue({ eq: eqId }),
+    });
+
+    const res = await DELETE(makeBearerDeleteRequest(`?id=${INTEGRATION_ID}`));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      success: true,
+      message: 'Jumia account disconnected; credential cleanup is pending',
+      cleanupPending: true,
     });
   });
 

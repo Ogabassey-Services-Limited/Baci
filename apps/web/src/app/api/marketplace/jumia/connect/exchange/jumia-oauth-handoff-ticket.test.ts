@@ -20,6 +20,20 @@ describe('jumia oauth handoff ticket helpers', () => {
     });
   });
 
+  it('throws when the ticket claim RPC fails transiently', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'database unavailable' },
+    });
+
+    await expect(
+      claimJumiaOAuthHandoffTicket({ rpc } as never, {
+        merchantId: 'merchant-1',
+        ticketId: 'ticket-1',
+      })
+    ).rejects.toThrow('Failed to claim Jumia OAuth handoff ticket');
+  });
+
   it('finalizes a claimed ticket after durable OAuth persistence', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     await expect(
