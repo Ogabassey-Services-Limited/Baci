@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { usePublishProductsDialog } from './use-publish-products-dialog';
 
@@ -138,5 +138,64 @@ describe('usePublishProductsDialog', () => {
       { id: 'prod-1', name: 'Phone', price: 10 },
     ]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('blocks selecting heterogeneous products into one Jumia mapping batch', async () => {
+    const fetchMock = createFetchMock({
+      'mapped-product-ids': async () => ({
+        ok: true,
+        json: async () => ({ productIds: [] }),
+      }),
+      '/api/products': async () => ({
+        ok: true,
+        json: async () => ({
+          products: [
+            {
+              id: 'prod-1',
+              name: 'Phone',
+              price: 10,
+              sku: 'PHONE-1',
+              image: 'https://example.com/phone.png',
+              category: 'Phones',
+              brand: 'Acme',
+            },
+            {
+              id: 'prod-2',
+              name: 'Tablet',
+              price: 20,
+              sku: 'TABLET-1',
+              image: 'https://example.com/tablet.png',
+              category: 'Tablets',
+              brand: 'Acme',
+            },
+          ],
+        }),
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => result.current.toggleProduct('prod-1'));
+    expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
+    const secondProduct = result.current.filteredProducts[1];
+    expect(secondProduct).toBeDefined();
+    if (!secondProduct) return;
+    expect(result.current.getPublishBlockReason(secondProduct)).toBe(
+      'Select products with the same category and brand as the first selected product.'
+    );
+
+    act(() => result.current.toggleProduct('prod-2'));
+    expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
   });
 });

@@ -56,6 +56,18 @@ describe('publishProductSchema', () => {
     });
   });
 
+  it('preserves local category and brand metadata for homogeneous batches', () => {
+    expect(
+      publishProductSchema.parse({
+        id: 'product-1',
+        name: 'Sample Product',
+        price: 1999,
+        category: 'Phones',
+        brand: 'Acme',
+      })
+    ).toMatchObject({ category: 'Phones', brand: 'Acme' });
+  });
+
   it('accepts legacy string image entries alongside object image entries', () => {
     expect(
       publishProductSchema.parse({

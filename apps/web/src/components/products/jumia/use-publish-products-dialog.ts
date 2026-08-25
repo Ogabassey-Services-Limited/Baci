@@ -15,6 +15,8 @@ import {
 } from './publish-products-payload';
 
 const PUBLISH_CONCURRENCY = 3;
+const MIXED_PRODUCT_METADATA_REASON =
+  'Select products with the same category and brand as the first selected product.';
 
 type UsePublishProductsDialogArgs = {
   integrationId: string;
@@ -81,7 +83,29 @@ export function usePublishProductsDialog({
     if (mappedProductIds.has(product.id)) {
       return 'Already published to this Jumia integration.';
     }
-    return getJumiaPublishBlockReason(product);
+    const productReason = getJumiaPublishBlockReason(product);
+    if (productReason) return productReason;
+
+    const firstSelectedProduct = products.find((candidate) =>
+      selectedIds.has(candidate.id)
+    );
+    if (
+      firstSelectedProduct &&
+      !selectedIds.has(product.id) &&
+      (firstSelectedProduct.category?.trim().toLocaleLowerCase() ?? '') !==
+        (product.category?.trim().toLocaleLowerCase() ?? '')
+    ) {
+      return MIXED_PRODUCT_METADATA_REASON;
+    }
+    if (
+      firstSelectedProduct &&
+      !selectedIds.has(product.id) &&
+      (firstSelectedProduct.brand?.trim().toLocaleLowerCase() ?? '') !==
+        (product.brand?.trim().toLocaleLowerCase() ?? '')
+    ) {
+      return MIXED_PRODUCT_METADATA_REASON;
+    }
+    return null;
   };
 
   const filteredProducts = products.filter((product) =>
@@ -133,6 +157,23 @@ export function usePublishProductsDialog({
       toast({
         title: 'Product not ready for Jumia',
         description: `${blocked.name}: ${getPublishBlockReason(blocked)}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const firstSelectedProduct = selected[0];
+    const hasMixedProductMetadata = selected.some(
+      (product) =>
+        (product.category?.trim().toLocaleLowerCase() ?? '') !==
+          (firstSelectedProduct?.category?.trim().toLocaleLowerCase() ?? '') ||
+        (product.brand?.trim().toLocaleLowerCase() ?? '') !==
+          (firstSelectedProduct?.brand?.trim().toLocaleLowerCase() ?? '')
+    );
+    if (hasMixedProductMetadata) {
+      toast({
+        title: 'Choose one product group per batch',
+        description: MIXED_PRODUCT_METADATA_REASON,
         variant: 'destructive',
       });
       return;

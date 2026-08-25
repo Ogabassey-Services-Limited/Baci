@@ -5,40 +5,23 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getAllProducts } from '@/lib/jumia/catalog';
-import { JumiaApiError, JumiaClient } from '@/lib/jumia/client';
+import { JumiaClient } from '@/lib/jumia/client';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
+import { flattenJumiaImportProducts } from './flatten-jumia-import-products';
+import { loadJumiaImportContext } from './load-jumia-import-context';
+import { loadJumiaImportMappings } from './load-jumia-import-mappings';
+import {
+  type JumiaImportMappingRow,
+  type JumiaImportProductRow,
+  upsertJumiaImportMappings,
+} from './upsert-jumia-import-mappings';
 
 const ImportSchema = z.object({
   integrationId: z.uuid(),
   merchantId: z.uuid().optional(),
 });
-
-type MappingRow = {
-  merchant_id: string;
-  product_id: string;
-  jumia_sku: string;
-  jumia_seller_sku: string;
-  jumia_shop_id: string;
-  jumia_price: number;
-  jumia_product_id: string | null;
-  is_active: boolean;
-  sync_status: string;
-  last_synced_at: string;
-};
-
-type ProductRow = {
-  merchant_id: string;
-  name: string;
-  description: string;
-  price: number;
-  sku: string;
-  stock_level: number;
-  is_active: boolean;
-  images: string[];
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -91,60 +74,18 @@ export async function POST(req: NextRequest) {
       return featureGateResponse;
     }
 
-    // 1. Initialize Clients
     const supabase = auth.supabase;
-    let jumia: Awaited<ReturnType<typeof JumiaClient.forIntegration>>;
-    try {
-      jumia = await JumiaClient.forIntegration(
-        supabase,
-        merchantId,
-        integrationId
-      );
-    } catch (err) {
-      if (err instanceof JumiaApiError) {
-        if (err.status === 404) {
-          return NextResponse.json(
-            { error: 'Integration not found' },
-            { status: 404 }
-          );
-        }
-        if (err.status === 403 || err.status === 401) {
-          return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-        }
-      }
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      logger.error({
-        message: 'Failed to initialize Jumia client',
-        error: message,
-      });
+    const context = await loadJumiaImportContext({
+      createJumiaClient: () =>
+        JumiaClient.forIntegration(supabase, merchantId, integrationId),
+    });
+    if (!context.ok) {
       return NextResponse.json(
-        { error: 'Failed to initialize Jumia client' },
-        { status: 500 }
+        { error: context.error },
+        { status: context.status }
       );
     }
-
-    // 2. Fetch all products from Jumia (auto-paginating)
-    let jumiaProducts: Awaited<ReturnType<typeof getAllProducts>>;
-    try {
-      const productQuery = {
-        status: 'active' as const,
-        ...(jumia.shopId === 'oauth' ? {} : { shopId: jumia.shopId }),
-      };
-      jumiaProducts = await getAllProducts(jumia, {
-        ...productQuery,
-      });
-    } catch (fetchErr) {
-      const message =
-        fetchErr instanceof Error ? fetchErr.message : 'Unknown error';
-      logger.error({
-        message: 'Failed to fetch products from Jumia',
-        error: message,
-      });
-      return NextResponse.json(
-        { error: 'Failed to fetch products from Jumia' },
-        { status: 502 }
-      );
-    }
+    const { jumia, jumiaProducts } = context;
 
     if (!jumiaProducts.length) {
       return NextResponse.json({
@@ -156,46 +97,12 @@ export async function POST(req: NextRequest) {
     let created = 0;
     let linked = 0;
     let errors = 0;
-    let skippedNoSkuCount = 0;
-    let missingPriceCount = 0;
     const warningMessages: string[] = [];
     // TODO: Implement update-on-reimport to populate this counter
     const updated = 0;
 
-    // Flatten parent products into per-variation entries
-    // Each variation has its own sellerSku and price
-    const flatEntries: Array<{
-      sku: string;
-      name: string;
-      description: string;
-      price: number;
-      images: string[];
-      productId: string;
-    }> = [];
-
-    for (const jp of jumiaProducts) {
-      for (const variation of jp.variations) {
-        if (!variation.sellerSku) {
-          skippedNoSkuCount++;
-          continue;
-        }
-        if (variation.globalPrice?.value == null) {
-          missingPriceCount++;
-          continue;
-        }
-        const price = variation.globalPrice.value;
-        flatEntries.push({
-          sku: variation.sellerSku,
-          name: jp.name,
-          description: jp.description,
-          price,
-          images: (jp.images ?? [])
-            .map((img) => img?.url)
-            .filter((v): v is string => typeof v === 'string' && v.length > 0),
-          productId: jp.id,
-        });
-      }
-    }
+    const { flatEntries, skippedNoSkuCount, missingPriceCount } =
+      flattenJumiaImportProducts(jumiaProducts);
 
     const skus = flatEntries.map((e) => e.sku);
 
@@ -240,38 +147,27 @@ export async function POST(req: NextRequest) {
     );
     const existingProductIds = new Set(existingProducts.map((p) => p.id));
 
-    const { data: existingMappingsData, error: mappingsQueryError } =
-      await supabase
-        .from('jumia_product_mappings')
-        .select('id, jumia_sku')
-        .eq('merchant_id', merchantId)
-        .eq('jumia_shop_id', jumia.shopId)
-        .eq('marketplace_key', jumia.marketplaceKey)
-        .in('jumia_sku', skus);
-
-    if (mappingsQueryError) {
-      logger.error({
-        message: 'Failed to query existing mappings',
-        error: mappingsQueryError,
-      });
+    const mappingsResult = await loadJumiaImportMappings({
+      supabase,
+      merchantId,
+      shopId: jumia.shopId,
+      marketplaceKey: jumia.marketplaceKey,
+      skus,
+    });
+    if (!mappingsResult.ok) {
       return NextResponse.json(
         { error: 'Failed to query existing mappings' },
         { status: 500 }
       );
     }
-
-    const mappedSkus = new Set(
-      (existingMappingsData || [])
-        .filter((m) => m.jumia_sku)
-        .map((m) => m.jumia_sku)
-    );
+    const { mappedSkus } = mappingsResult;
 
     // 3. Process each variation
-    const mappingRows: MappingRow[] = [];
-    const newProductRows: ProductRow[] = [];
+    const mappingRows: JumiaImportMappingRow[] = [];
+    const newProductRows: JumiaImportProductRow[] = [];
     const pendingNewProductMappings = new Map<
       string,
-      Omit<MappingRow, 'product_id'>
+      Omit<JumiaImportMappingRow, 'product_id'>
     >();
 
     for (const entry of flatEntries) {
@@ -285,6 +181,7 @@ export async function POST(req: NextRequest) {
         jumia_seller_sku: sku,
         jumia_shop_id: jumia.shopId,
         marketplace_key: jumia.marketplaceKey,
+        variant_id: null,
         jumia_price: entry.price,
         jumia_product_id: entry.productId,
         is_active: true,
@@ -343,11 +240,10 @@ export async function POST(req: NextRequest) {
 
     // Upsert mappings (idempotent on repeated imports)
     if (mappingRows.length) {
-      const { error: mappingUpsertError } = await supabase
-        .from('jumia_product_mappings')
-        .upsert(mappingRows, {
-          onConflict: 'merchant_id,jumia_sku',
-        });
+      const { error: mappingUpsertError } = await upsertJumiaImportMappings({
+        supabase,
+        rows: mappingRows,
+      });
 
       if (mappingUpsertError) {
         logger.error({

@@ -9,36 +9,13 @@ import { JumiaClient } from '@/lib/jumia/client';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
+import { jumiaExportProductSchema } from '@/schemas/jumia/export-product';
 import { reserveJumiaExportMappings } from './export-product-reservation';
 import {
   loadJumiaMarketplaceCurrency,
   resolveAuthorizedExportProduct,
 } from './export-product-source';
 import { submitJumiaExportFeed } from './submit-jumia-export-feed';
-
-const VariationSchema = z.object({
-  sellerSku: z.string().trim().min(1),
-  price: z.number().positive(),
-  currency: z.string().default('NGN'),
-  stock: z.int().min(0).optional(),
-  attributes: z
-    .array(z.object({ id: z.string(), value: z.string() }))
-    .optional(),
-});
-
-const ExportSchema = z.object({
-  integrationId: z.uuid(),
-  merchantId: z.uuid().optional(),
-  productId: z.uuid(),
-  name: z.string().trim().min(1),
-  brand: z.object({ code: z.number(), name: z.string() }),
-  category: z.object({ code: z.number() }),
-  description: z.string().optional(),
-  images: z
-    .array(z.object({ url: z.url(), primary: z.boolean().optional() }))
-    .optional(),
-  variations: z.array(VariationSchema).min(1),
-});
 
 export async function POST(req: NextRequest) {
   try {
@@ -62,7 +39,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsed = ExportSchema.safeParse(body);
+    const parsed = jumiaExportProductSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid input', details: z.flattenError(parsed.error) },

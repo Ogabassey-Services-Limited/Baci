@@ -51,6 +51,14 @@ export {
   JumiaApiErrorSchema,
 } from '@/schemas/jumia/errors';
 export {
+  type JumiaExportProduct,
+  jumiaExportProductSchema,
+} from '@/schemas/jumia/export-product';
+export {
+  type JumiaExportProductVariation,
+  jumiaExportProductVariationSchema,
+} from '@/schemas/jumia/export-product-variation';
+export {
   type JumiaFeedCreateResponse,
   JumiaFeedCreateResponseSchema,
   type JumiaFeedDetailsResponse,

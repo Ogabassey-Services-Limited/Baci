@@ -6,6 +6,8 @@ export const publishProductSchema = z.object({
   id: z.string().trim().min(1),
   name: z.string().trim().min(1),
   description: z.string().optional(),
+  category: z.string().optional(),
+  brand: z.string().optional(),
   sku: z.string().nullable().optional(),
   price: z.number(),
   stock: z.number().optional(),
