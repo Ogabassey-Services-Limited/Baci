@@ -16,6 +16,13 @@ const authoritativeMigration = readFileSync(
   ),
   'utf8'
 );
+const crossFlowMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825010000_serialize_paystack_dva_cross_flow_aliases.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -53,5 +60,17 @@ describe('order payment account mutation RPC migration', () => {
       'public.customer_wallet_payment_accounts'
     );
     expect(authoritativeMigration).toContain("RETURN 'wallet_conflict'");
+  });
+
+  it('serializes order, wallet, and agentic aliases on one account lock', () => {
+    expect(crossFlowMigration.match(/paystack_order_account:/g)).toHaveLength(
+      3
+    );
+    expect(crossFlowMigration).toContain(
+      'public.customer_wallet_payment_accounts'
+    );
+    expect(crossFlowMigration).toContain('public.checkout_sessions');
+    expect(crossFlowMigration).toContain('public.order_payment_accounts');
+    expect(crossFlowMigration).toContain('BEFORE INSERT OR UPDATE OF');
   });
 });

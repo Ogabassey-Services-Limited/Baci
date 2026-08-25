@@ -211,12 +211,16 @@ export async function POST(
       }
     );
 
-    if (reservation === 'conflict' || reservation === 'wallet_conflict') {
+    if (
+      reservation === 'conflict' ||
+      reservation === 'wallet_conflict' ||
+      insertError?.message?.includes('PAYSTACK_DVA_ALIAS_CONFLICT')
+    ) {
       return NextResponse.json(
         {
           code: 'PAYSTACK_DVA_IN_USE',
           error:
-            'This automatic confirmation account is in use by another order',
+            'This automatic confirmation account is in use by another payment flow',
         },
         { status: 409 }
       );
@@ -262,11 +266,6 @@ export async function POST(
         }
       }
 
-      logger.error({
-        message: 'Failed to store DVA in database',
-        orderId,
-        error: insertError,
-      });
       return NextResponse.json(
         {
           error: 'Failed to save automatic confirmation account',

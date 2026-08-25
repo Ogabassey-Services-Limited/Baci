@@ -9,6 +9,7 @@ export interface OrderPaymentAccountLike {
 }
 
 const PAYSTACK_DVA_WINDOW_MS = 90 * 60 * 1000;
+const PAYSTACK_DVA_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 function isActivePaystackAccount(
   account: OrderPaymentAccountLike,
@@ -28,7 +29,8 @@ function isActivePaystackAccount(
       : Number.NaN;
   return (
     !Number.isFinite(assignedAt) ||
-    (nowMs >= assignedAt && nowMs <= assignedAt + PAYSTACK_DVA_WINDOW_MS)
+    (nowMs >= assignedAt - PAYSTACK_DVA_CLOCK_SKEW_MS &&
+      nowMs <= assignedAt + PAYSTACK_DVA_WINDOW_MS)
   );
 }
 

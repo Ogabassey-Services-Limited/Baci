@@ -518,6 +518,29 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     });
   });
 
+  it('returns 409 when the cross-flow alias trigger rejects the account', async () => {
+    authenticateMerchant();
+    useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(
+        name === 'reserve_paystack_order_payment_account'
+          ? {
+              data: null,
+              error: { message: 'PAYSTACK_DVA_ALIAS_CONFLICT' },
+            }
+          : { data: 5000, error: null }
+      )
+    );
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'PAYSTACK_DVA_IN_USE',
+    });
+  });
+
   it('returns the atomic reservation winner for concurrent same-order requests', async () => {
     authenticateMerchant();
     useOrderQueries();
