@@ -108,9 +108,9 @@ export async function GET(request: NextRequest) {
       appId: config.appId,
       appSecret: config.appSecret,
     });
-    const expiresAt = longLived.expires_in
-      ? new Date(Date.now() + longLived.expires_in * 1000).toISOString()
-      : null;
+    const expiresAt = new Date(
+      Date.now() + longLived.expires_in * 1000
+    ).toISOString();
     const { error } = await auth.supabase.rpc(
       'upsert_merchant_ads_connection',
       {

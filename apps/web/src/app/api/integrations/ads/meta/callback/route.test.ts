@@ -10,6 +10,17 @@ const rpc = vi.fn();
 const resolveMerchant = vi.fn();
 const exchangeCode = vi.hoisted(() => vi.fn());
 const exchangeLongLived = vi.hoisted(() => vi.fn());
+const MetaAdsOAuthErrorMock = vi.hoisted(
+  () =>
+    class MetaAdsOAuthError extends Error {
+      readonly code: string;
+
+      constructor(code: string) {
+        super(code);
+        this.code = code;
+      }
+    }
+);
 const validateGrant = vi.hoisted(() => vi.fn());
 const invalidate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
@@ -41,7 +52,7 @@ vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
 vi.mock('@/lib/ads/meta/oauth', () => ({
-  MetaAdsOAuthError: class MetaAdsOAuthError extends Error {},
+  MetaAdsOAuthError: MetaAdsOAuthErrorMock,
   exchangeMetaAdsAuthorizationCode: (...args: unknown[]) =>
     exchangeCode(...args),
   exchangeMetaAdsLongLivedToken: (...args: unknown[]) =>
@@ -186,5 +197,42 @@ describe('Meta Ads callback route', () => {
     expect(location.searchParams.get('meta_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(invalidate).toHaveBeenCalledWith('merchant');
+  });
+
+  it('does not persist a connection when the long-lived token has no expiry', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({
+      merchantId: 'merchant',
+      nonce: 'n'.repeat(24),
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+    exchangeCode.mockResolvedValue({ access_token: 'short-lived' });
+    exchangeLongLived.mockRejectedValue(
+      new MetaAdsOAuthErrorMock('META_ADS_TOKEN_RESPONSE_INVALID')
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/callback?state=state&code=code',
+        { headers: { cookie: 'baci_meta_ads_oauth_state=state' } }
+      )
+    );
+
+    const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('meta_ads')).toBe('error');
+    expect(location.searchParams.get('reason')).toBe(
+      'meta_ads_token_response_invalid'
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.anything()
+    );
+    expect(invalidate).not.toHaveBeenCalled();
   });
 });

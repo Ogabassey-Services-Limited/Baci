@@ -19,9 +19,8 @@ import { useToast } from '@/hooks/use-toast';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
 import { fetchBaseAnalytics } from './fetch-base-analytics';
+import { useSelectedAnalyticsMerchant } from './use-selected-analytics-merchant';
 
-// Module-scope wrapper keeps the dynamic import() expression out of the
-// component body (React Compiler cannot lower import expressions yet).
 function loadAnalyticsExport() {
   return import('@/lib/analytics-export');
 }
@@ -56,12 +55,8 @@ export default function AnalyticsClientPage() {
     VALID_CATEGORIES.includes(categoryParam as AnalyticsCategory)
       ? (categoryParam as AnalyticsCategory)
       : 'overview';
-  const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(() =>
-    isAnalyticsCategoryAllowed(requestedCategory, hasPermission)
-      ? requestedCategory
-      : 'overview'
-  );
-  // Split state to avoid race conditions where base fetch overwrites category data
+  const [activeCategory, setActiveCategory] =
+    useState<AnalyticsCategory>(requestedCategory);
   const [baseAnalytics, setBaseAnalytics] = useState<AnalyticsData | null>(
     null
   );
@@ -77,13 +72,25 @@ export default function AnalyticsClientPage() {
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
     initialAnalyticsRefreshKey
   );
-  const selectedMerchantId =
+  const requestedMerchantId =
     merchantIdParam &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       merchantIdParam
     )
       ? merchantIdParam
-      : merchant?.id;
+      : null;
+  const selectedContext = useSelectedAnalyticsMerchant({
+    defaultHasPermission: hasPermission,
+    defaultMerchant: merchant,
+    requestedMerchantId,
+  });
+  const selectedMerchantId = selectedContext.merchant?.id;
+  const effectiveCategory = isAnalyticsCategoryAllowed(
+    activeCategory,
+    selectedContext.hasPermission
+  )
+    ? activeCategory
+    : 'overview';
 
   useEffect(() => {
     if (!callbackProvider) return;
@@ -96,7 +103,6 @@ export default function AnalyticsClientPage() {
     });
   }, [callbackProvider?.[0], callbackReason, toast]);
 
-  // Derived state
   const analyticsData: AnalyticsData | null = baseAnalytics
     ? { ...baseAnalytics, ...categoryAnalytics }
     : null;
@@ -119,13 +125,13 @@ export default function AnalyticsClientPage() {
   }, [date.from, date.to, selectedMerchantId]);
 
   // Fetch specialized data when category changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
+  // biome-ignore lint/correctness/useExhaustiveDependencies: effectiveCategory captures the selected-context permission decision without depending on a render-local evaluator
   useEffect(() => {
     const controller = new AbortController();
     setCategoryAnalytics({});
     setCategoryAnalyticsError(null);
     const isSpecialized = ['ads', 'inventory', 'segments'].includes(
-      activeCategory
+      effectiveCategory
     );
     setLoadingCategoryAnalytics(isSpecialized);
 
@@ -133,14 +139,17 @@ export default function AnalyticsClientPage() {
       !selectedMerchantId ||
       !date.from ||
       !date.to ||
-      !isAnalyticsCategoryAllowed(activeCategory, hasPermission)
+      !isAnalyticsCategoryAllowed(
+        effectiveCategory,
+        selectedContext.hasPermission
+      )
     ) {
       setLoadingCategoryAnalytics(false);
       return () => controller.abort();
     }
 
     fetchAnalyticsCategoryData({
-      category: activeCategory,
+      category: effectiveCategory,
       from: date.from,
       merchantId: selectedMerchantId,
       refreshKey: analyticsRefreshKey > 0 ? analyticsRefreshKey : undefined,
@@ -158,7 +167,7 @@ export default function AnalyticsClientPage() {
         if (!controller.signal.aborted) {
           setCategoryAnalytics({});
           setCategoryAnalyticsError(
-            `Unable to load ${activeCategory} analytics. Please try again.`
+            `Unable to load ${effectiveCategory} analytics. Please try again.`
           );
         }
       })
@@ -170,7 +179,7 @@ export default function AnalyticsClientPage() {
 
     return () => controller.abort();
   }, [
-    activeCategory,
+    effectiveCategory,
     analyticsRefreshKey,
     date.from,
     date.to,
@@ -178,12 +187,8 @@ export default function AnalyticsClientPage() {
   ]);
 
   const visibleCategories = VALID_CATEGORIES.filter((category) =>
-    isAnalyticsCategoryAllowed(category, hasPermission)
+    isAnalyticsCategoryAllowed(category, selectedContext.hasPermission)
   );
-
-  if (!visibleCategories.includes(activeCategory)) {
-    setActiveCategory('overview');
-  }
 
   const handleAdsReportingSynced = () => {
     setAnalyticsRefreshKey((currentKey) => currentKey + 1);
@@ -202,14 +207,22 @@ export default function AnalyticsClientPage() {
     try {
       if (format === 'csv') {
         const { exportAnalyticsAsCSV } = await loadAnalyticsExport();
-        exportAnalyticsAsCSV(analyticsData, date, merchant?.business_name);
+        exportAnalyticsAsCSV(
+          analyticsData,
+          date,
+          selectedContext.merchant?.business_name
+        );
         toast({
           title: 'CSV Exported',
           description: 'Your analytics report has been downloaded as CSV.',
         });
       } else {
         const { exportAnalyticsAsPDF } = await loadAnalyticsExport();
-        exportAnalyticsAsPDF(analyticsData, date, merchant?.business_name);
+        exportAnalyticsAsPDF(
+          analyticsData,
+          date,
+          selectedContext.merchant?.business_name
+        );
         toast({
           title: 'PDF Exported',
           description: 'Your analytics report has been downloaded as PDF.',
@@ -226,7 +239,7 @@ export default function AnalyticsClientPage() {
     }
   };
 
-  if (merchantLoading) {
+  if (merchantLoading || selectedContext.loading) {
     return (
       <div className="flex flex-1 items-center justify-center h-full">
         <BagLoader size={32} />
@@ -236,7 +249,6 @@ export default function AnalyticsClientPage() {
 
   return (
     <div className="flex flex-col gap-6 relative overflow-hidden max-w-full min-w-0">
-      {/* Dynamic Background Elements from Login Page */}
       <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/10 via-background to-background -z-10 pointer-events-none" />
       <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center mask-[linear-gradient(180deg,white,rgba(255,255,255,0))] -z-10 pointer-events-none opacity-50" />
 
@@ -249,14 +261,11 @@ export default function AnalyticsClientPage() {
             Deep dive into your store's performance.
           </p>
         </div>
-
-        {/* AI Assistant Panel - Moved to Grid Controls */}
       </div>
 
-      {/* Analytics Controls */}
       <div className="flex flex-col gap-4 sticky top-0 z-10 py-4 bg-background/60 backdrop-blur-xl -mx-6 px-6 border-b border-white/10">
         <AnalyticsCategoryNav
-          activeCategory={activeCategory}
+          activeCategory={effectiveCategory}
           onCategoryChange={setActiveCategory}
           visibleCategories={visibleCategories}
         />
@@ -267,16 +276,12 @@ export default function AnalyticsClientPage() {
         />
       </div>
 
-      {/* Main Analytics Grid */}
       <DraggableAnalyticsGrid
+        canCustomizeLayout={selectedContext.hasPermission('settings', 'edit')}
         data={analyticsData || {}}
         loading={loadingAnalytics || loadingCategoryAnalytics}
-        activeCategory={activeCategory}
-        merchant={
-          merchant && selectedMerchantId
-            ? { ...merchant, id: selectedMerchantId }
-            : merchant
-        }
+        activeCategory={effectiveCategory}
+        merchant={selectedContext.merchant}
         categoryError={categoryAnalyticsError}
         onAdsReportingSynced={handleAdsReportingSynced}
         syncWindow={

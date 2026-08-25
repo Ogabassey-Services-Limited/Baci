@@ -86,4 +86,51 @@ describe('AIInsightsPanel', () => {
       new Response(JSON.stringify({ insights: [] }), { status: 200 })
     );
   });
+
+  it('keeps the current merchant loading when the previous request aborts', async () => {
+    let firstRequestAborted = false;
+    let requestCount = 0;
+    let resolveSecondRequest: ((response: Response) => void) | undefined;
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((_input, init) => {
+        requestCount += 1;
+        if (requestCount === 1) {
+          return new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              firstRequestAborted = true;
+              const error = new Error('aborted');
+              error.name = 'AbortError';
+              reject(error);
+            });
+          });
+        }
+
+        return new Promise<Response>((resolve) => {
+          resolveSecondRequest = resolve;
+        });
+      });
+
+    const { container, rerender } = render(
+      <AIInsightsPanel activeCategory="overview" merchantId="merchant-1" />
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+
+    rerender(
+      <AIInsightsPanel activeCategory="overview" merchantId="merchant-2" />
+    );
+
+    await waitFor(() => {
+      expect(firstRequestAborted).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument();
+
+    resolveSecondRequest?.(
+      new Response(JSON.stringify({ insights: [] }), { status: 200 })
+    );
+    await waitFor(() => {
+      expect(container.querySelector('.animate-spin')).not.toBeInTheDocument();
+    });
+  });
 });

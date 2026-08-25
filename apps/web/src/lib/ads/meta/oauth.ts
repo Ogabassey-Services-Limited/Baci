@@ -82,14 +82,18 @@ export async function exchangeMetaAdsAuthorizationCode(
 export async function exchangeMetaAdsLongLivedToken(
   input: Pick<MetaAdsConfig, 'appId' | 'appSecret'> & { accessToken: string },
   fetchImpl: typeof fetch = fetch
-): Promise<z.infer<typeof tokenResponseSchema>> {
+): Promise<z.infer<typeof tokenResponseSchema> & { expires_in: number }> {
   const url = new URL(`${META_ADS_GRAPH_ROOT}/oauth/access_token`);
   url.searchParams.set('grant_type', 'fb_exchange_token');
   url.searchParams.set('client_id', input.appId);
   url.searchParams.set('client_secret', input.appSecret);
   url.searchParams.set('fb_exchange_token', input.accessToken);
-  return readTokenResponse(
+  const token = await readTokenResponse(
     await fetchImpl(url),
     'META_ADS_LONG_LIVED_TOKEN_EXCHANGE_FAILED'
   );
+  if (!token.expires_in) {
+    throw new MetaAdsOAuthError('META_ADS_TOKEN_RESPONSE_INVALID');
+  }
+  return { ...token, expires_in: token.expires_in };
 }

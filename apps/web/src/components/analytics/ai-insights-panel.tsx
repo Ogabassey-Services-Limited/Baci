@@ -107,6 +107,7 @@ export function AIInsightsPanel({
 
   useEffect(() => {
     const controller = new AbortController();
+    let isCurrentRequest = true;
     setInsights(placeholderInsights);
     setLoading(true);
     setError(false);
@@ -115,13 +116,26 @@ export function AIInsightsPanel({
     fetchInsights({
       merchantId,
       signal: controller.signal,
-      setInsights,
-      setError,
-      setLoading,
-      startTransition,
+      setInsights: (value) => {
+        if (isCurrentRequest) setInsights(value);
+      },
+      setError: (value) => {
+        if (isCurrentRequest) setError(value);
+      },
+      setLoading: (value) => {
+        if (isCurrentRequest) setLoading(value);
+      },
+      startTransition: (callback) => {
+        startTransition(() => {
+          if (isCurrentRequest) callback();
+        });
+      },
     });
 
-    return () => controller.abort();
+    return () => {
+      isCurrentRequest = false;
+      controller.abort();
+    };
   }, [merchantId]);
 
   // Filter insights based on active category

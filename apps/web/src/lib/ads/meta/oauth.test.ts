@@ -3,6 +3,7 @@ import {
   buildMetaAdsAuthorizationUrl,
   exchangeMetaAdsAuthorizationCode,
   exchangeMetaAdsLongLivedToken,
+  type MetaAdsOAuthError,
 } from './oauth';
 
 const config = {
@@ -47,6 +48,25 @@ describe('Meta Ads OAuth', () => {
     ).resolves.toMatchObject({ access_token: 'access' });
     expect(String(fetchImpl.mock.calls[1]?.[0])).toContain(
       'grant_type=fb_exchange_token'
+    );
+  });
+
+  it('rejects a long-lived token response without an expiry', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ access_token: 'long-lived' }), {
+        status: 200,
+      })
+    );
+
+    await expect(
+      exchangeMetaAdsLongLivedToken(
+        { ...config, accessToken: 'short-lived' },
+        fetchImpl
+      )
+    ).rejects.toEqual(
+      expect.objectContaining<Partial<MetaAdsOAuthError>>({
+        code: 'META_ADS_TOKEN_RESPONSE_INVALID',
+      })
     );
   });
 });
