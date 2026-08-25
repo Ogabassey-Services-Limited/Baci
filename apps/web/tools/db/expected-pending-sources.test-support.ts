@@ -304,6 +304,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260825001000_purge_displaced_jumia_authorizations.sql',
+    sha256: 'bfd04e28d8c15b5fa354fe95060d7a222dfb4867c27e564499f3b07213ce1c3c',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
     sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },

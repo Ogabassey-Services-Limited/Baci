@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
+import { flattenError } from 'zod';
 import { loadJumiaMarketplaceCurrency } from '@/app/api/marketplace/jumia/products/export/export-product-source';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
@@ -9,80 +9,13 @@ import { loadIntegrationScopedMappings } from '@/lib/jumia/product-mapping-scope
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
+import { jumiaProductUpdateSchema } from '@/schemas/jumia-product-update';
 import {
   getJumiaProductUpdateReadiness,
   hasJumiaPriceOverrides,
   pushPriceUpdates,
   pushStatusUpdates,
 } from './jumia-product-update-feeds';
-
-/** Strict ISO 8601 date or datetime: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SS with optional offset/Z */
-const isoDateRegex =
-  /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(T([01]\d|2[0-3]):[0-5]\d:[0-5]\d(\.\d+)?(Z|[+-]([01]\d|2[0-3]):[0-5]\d)?)?$/;
-
-function isValidCalendarDate(v: string): boolean {
-  const datePart = v.split('T')[0];
-  const [yearStr, monthStr, dayStr] = datePart.split('-');
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  const day = Number(dayStr);
-  if (!year || !month || !day) return false;
-  const d = new Date(Date.UTC(year, month - 1, day));
-  return (
-    d.getUTCFullYear() === year &&
-    d.getUTCMonth() + 1 === month &&
-    d.getUTCDate() === day
-  );
-}
-
-const UpdateSchema = z.object({
-  productId: z.uuid(),
-  integrationId: z.uuid(),
-  overrides: z
-    .object({
-      jumia_price: z.number().positive().optional(),
-      jumia_sale_price: z.number().positive().nullable().optional(),
-      jumia_sale_start: z
-        .string()
-        .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
-        .refine(isValidCalendarDate, {
-          error: 'Calendar-invalid date (e.g. Feb 31)',
-        })
-        .nullable()
-        .optional(),
-      jumia_sale_end: z
-        .string()
-        .regex(isoDateRegex, 'Must be YYYY-MM-DD or ISO 8601 datetime')
-        .refine(isValidCalendarDate, {
-          error: 'Calendar-invalid date (e.g. Feb 31)',
-        })
-        .nullable()
-        .optional(),
-      is_active: z.boolean().optional(),
-    })
-    .refine(
-      (o) => {
-        const hasStart = Object.hasOwn(o, 'jumia_sale_start');
-        const hasEnd = Object.hasOwn(o, 'jumia_sale_end');
-        return hasStart === hasEnd;
-      },
-      {
-        error:
-          'Both jumia_sale_start and jumia_sale_end must be provided together',
-      }
-    )
-    .refine(
-      (o) => {
-        if (o.jumia_sale_start && o.jumia_sale_end) {
-          return new Date(o.jumia_sale_start) < new Date(o.jumia_sale_end);
-        }
-        return true;
-      },
-      {
-        error: 'jumia_sale_start must be before jumia_sale_end',
-      }
-    ),
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -112,10 +45,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
     }
 
-    const parsed = UpdateSchema.safeParse(body);
+    const parsed = jumiaProductUpdateSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Invalid input', details: z.flattenError(parsed.error) },
+        { error: 'Invalid input', details: flattenError(parsed.error) },
         { status: 400 }
       );
     }

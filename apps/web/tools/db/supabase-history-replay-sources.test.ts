@@ -150,6 +150,7 @@ describe('supabase-history-replay sources', () => {
         '0158b4a2394428b1c259f39ef391e662f37e0e99c09a9c357eceb2c44ab82d33 20260825000700_persist_jumia_oauth_integrations_atomically.sql',
         '55494b40db1fdcc8eb8f352976a03ac9b3577d4eb94673840fd7dab4b6d73e73 20260825000800_require_legacy_jumia_self_authorization_reconnect.sql',
         '9b0d19fa7a5e6b478b6785997f03c89d263ed6f01d311776a58ad5a62f4c6ee9 20260825000900_persist_existing_jumia_authorization_rotation.sql',
+        'bfd04e28d8c15b5fa354fe95060d7a222dfb4867c27e564499f3b07213ce1c3c 20260825001000_purge_displaced_jumia_authorizations.sql',
       ])
     );
   });
