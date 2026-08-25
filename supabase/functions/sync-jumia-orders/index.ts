@@ -7,6 +7,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { formatJumiaOrderTimestamp } from '../_shared/jumia-order-timestamp.ts';
 
 // Environment
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -225,14 +226,6 @@ async function fetchAllJumiaOrders(
   } while (nextToken);
 
   return allOrders;
-}
-
-function formatJumiaOrderTimestamp(value: Date | number): string {
-  const date = typeof value === 'number' ? new Date(value) : value;
-  if (!Number.isFinite(date.getTime())) {
-    throw new Error('Cannot format an invalid Jumia order timestamp');
-  }
-  return date.toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
 // Helper: Send push notification via Expo
@@ -569,7 +562,7 @@ Deno.serve(async (req) => {
         // cron pauses or outages longer than 10 minutes don't miss orders.
         // Fall back to 24 hours ago on first sync (when last_sync_at is null).
         const updatedAfter = integration.last_sync_at
-          ? integration.last_sync_at
+          ? formatJumiaOrderTimestamp(integration.last_sync_at)
           : formatJumiaOrderTimestamp(Date.now() - 24 * 60 * 60 * 1000);
 
         const orders = await fetchAllJumiaOrders(

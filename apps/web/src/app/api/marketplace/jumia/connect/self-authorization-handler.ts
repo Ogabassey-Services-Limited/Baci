@@ -8,7 +8,12 @@ import type {
 import type { JumiaSelfAuthorizationCredentials } from '@/schemas/jumia/self-authorization';
 
 type Validate = (
-  credentials: JumiaSelfAuthorizationCredentials
+  credentials: JumiaSelfAuthorizationCredentials,
+  options?: {
+    onCredentialsRotated?: (args: {
+      credentials: ValidatedSelfAuthorization['credentials'];
+    }) => Promise<void>;
+  }
 ) => Promise<ValidatedSelfAuthorization>;
 
 type Rpc = (
@@ -58,13 +63,20 @@ async function connect(args: {
   rpc: Rpc;
   selectedShopIds: string[];
   validate: Validate;
+  onCredentialsRotated?: (args: {
+    credentials: ValidatedSelfAuthorization['credentials'];
+  }) => Promise<void>;
   encrypt: (
     credentials: ValidatedSelfAuthorization['credentials'],
     encryptionKey: string,
     context: string
   ) => string;
 }): Promise<NextResponse> {
-  const validated = await args.validate(args.credentials);
+  const validated = args.onCredentialsRotated
+    ? await args.validate(args.credentials, {
+        onCredentialsRotated: args.onCredentialsRotated,
+      })
+    : await args.validate(args.credentials);
   const shopsById = new Map(
     validated.shops.map((shop) => [shop.selectionKey ?? shop.id, shop])
   );

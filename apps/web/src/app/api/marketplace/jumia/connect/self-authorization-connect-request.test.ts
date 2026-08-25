@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
+  claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
-  loadJumiaSelfAuthorizationDiscovery,
+  releaseJumiaSelfAuthorizationDiscovery,
+  updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
 import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
@@ -19,8 +21,10 @@ vi.mock('@/lib/jumia/self-authorization', () => ({
 
 vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
   createJumiaSelfAuthorizationDiscovery: vi.fn(),
+  claimJumiaSelfAuthorizationDiscovery: vi.fn(),
   consumeJumiaSelfAuthorizationDiscovery: vi.fn(),
-  loadJumiaSelfAuthorizationDiscovery: vi.fn(),
+  releaseJumiaSelfAuthorizationDiscovery: vi.fn(),
+  updateClaimedJumiaSelfAuthorizationDiscovery: vi.fn(),
 }));
 
 vi.mock('@/lib/jumia/authorization-crypto', () => ({
@@ -145,9 +149,10 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   });
 
   it('consumes discovery credentials only after a successful connect', async () => {
-    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
-      'ciphertext'
-    );
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValue({
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'ciphertext',
+    });
     vi.mocked(consumeJumiaSelfAuthorizationDiscovery).mockResolvedValue(
       'ciphertext'
     );
@@ -168,14 +173,15 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     });
 
     expect(response.ok).toBe(true);
-    expect(loadJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
+    expect(claimJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
     expect(consumeJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
   });
 
   it('returns the successful connect response when discovery cleanup fails transiently', async () => {
-    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
-      'ciphertext'
-    );
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValue({
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'ciphertext',
+    });
     vi.mocked(consumeJumiaSelfAuthorizationDiscovery).mockRejectedValue(
       new Error('discovery cleanup unavailable')
     );
@@ -203,9 +209,10 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   });
 
   it('keeps discovery credentials when connect fails after token rotation', async () => {
-    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
-      'ciphertext'
-    );
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValue({
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'ciphertext',
+    });
     vi.mocked(jumiaSelfAuthorizationHandler.connect).mockResolvedValue(
       NextResponse.json({ error: 'Shop discovery failed' }, { status: 502 })
     );
@@ -224,5 +231,50 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
 
     expect(response.status).toBe(502);
     expect(consumeJumiaSelfAuthorizationDiscovery).not.toHaveBeenCalled();
+    expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
+  });
+
+  it('claims discovery before rotation and preserves rotated credentials under the claim', async () => {
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValue({
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'ciphertext',
+    });
+    vi.mocked(jumiaSelfAuthorizationHandler.connect).mockImplementationOnce(
+      async (args) => {
+        await args.onCredentialsRotated?.({
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'refresh-2',
+            accessToken: 'access-2',
+          },
+        });
+        return NextResponse.json(
+          { error: 'Shop discovery failed' },
+          { status: 502 }
+        );
+      }
+    );
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        clientId: 'client-1',
+        selectedShopIds: ['shop-1'],
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: buildSupabase(),
+    });
+
+    expect(response.status).toBe(502);
+    expect(updateClaimedJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        claimToken: '00000000-0000-4000-8000-000000000088',
+        credentialCiphertext: 'ciphertext',
+      })
+    );
+    expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
   });
 });

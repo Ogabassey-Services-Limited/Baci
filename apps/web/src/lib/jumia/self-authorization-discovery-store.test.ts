@@ -7,9 +7,12 @@ const mockSupabase = {
 } as unknown as import('@supabase/supabase-js').SupabaseClient;
 
 import {
+  claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
   loadJumiaSelfAuthorizationDiscovery,
+  releaseJumiaSelfAuthorizationDiscovery,
+  updateClaimedJumiaSelfAuthorizationDiscovery,
 } from './self-authorization-discovery-store';
 
 describe('jumia self-authorization discovery store', () => {
@@ -76,6 +79,7 @@ describe('jumia self-authorization discovery store', () => {
         discoveryId: '00000000-0000-4000-8000-000000000099',
         merchantId: 'merchant-1',
         clientKeyHash: 'a'.repeat(64),
+        claimToken: '00000000-0000-4000-8000-000000000088',
       })
     ).resolves.toBe('ciphertext');
 
@@ -85,7 +89,62 @@ describe('jumia self-authorization discovery store', () => {
         p_discovery_id: '00000000-0000-4000-8000-000000000099',
         p_merchant_id: 'merchant-1',
         p_client_key_hash: 'a'.repeat(64),
+        p_claim_token: '00000000-0000-4000-8000-000000000088',
       }
+    );
+  });
+
+  it('claims a discovery before returning its credential ciphertext', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        claim_token: '00000000-0000-4000-8000-000000000088',
+        credential_ciphertext: 'ciphertext',
+      },
+      error: null,
+    });
+
+    await expect(
+      claimJumiaSelfAuthorizationDiscovery(mockSupabase, {
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        merchantId: 'merchant-1',
+        clientKeyHash: 'a'.repeat(64),
+      })
+    ).resolves.toEqual({
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'ciphertext',
+    });
+  });
+
+  it('updates rotated credentials and releases recoverable claims', async () => {
+    mockRpc
+      .mockResolvedValueOnce({ data: true, error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
+
+    await updateClaimedJumiaSelfAuthorizationDiscovery(mockSupabase, {
+      discoveryId: '00000000-0000-4000-8000-000000000099',
+      merchantId: 'merchant-1',
+      claimToken: '00000000-0000-4000-8000-000000000088',
+      credentialCiphertext: 'rotated-ciphertext',
+    });
+    await releaseJumiaSelfAuthorizationDiscovery(mockSupabase, {
+      discoveryId: '00000000-0000-4000-8000-000000000099',
+      merchantId: 'merchant-1',
+      claimToken: '00000000-0000-4000-8000-000000000088',
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'update_claimed_jumia_self_authorization_discovery',
+      expect.objectContaining({
+        p_credential_ciphertext: 'rotated-ciphertext',
+      })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'release_jumia_self_authorization_discovery',
+      expect.objectContaining({
+        p_claim_token: '00000000-0000-4000-8000-000000000088',
+      })
     );
   });
 });

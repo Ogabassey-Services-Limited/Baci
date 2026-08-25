@@ -7,9 +7,11 @@ import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
 import { buildExistingJumiaShopIds } from '@/lib/jumia/jumia-shop-connection-identity';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
+  claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
-  loadJumiaSelfAuthorizationDiscovery,
+  releaseJumiaSelfAuthorizationDiscovery,
+  updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
 import { logger } from '@/lib/logger';
 import type {
@@ -22,6 +24,24 @@ type DiscoveryBody = z.infer<typeof jumiaSelfAuthorizationDiscoverySchema>;
 type SelectionBody = z.infer<typeof jumiaSelfAuthorizationSelectionSchema> & {
   connectionType: 'self_authorization';
 };
+
+async function releaseDiscoveryClaim(args: {
+  claimToken: string;
+  discoveryId: string;
+  merchantId: string;
+  supabase: SupabaseClient;
+}): Promise<void> {
+  try {
+    await releaseJumiaSelfAuthorizationDiscovery(args.supabase, args);
+  } catch (error) {
+    logger.warn({
+      message: 'Failed to release Jumia discovery claim',
+      error,
+      discovery_id: args.discoveryId,
+      merchant_id: args.merchantId,
+    });
+  }
+}
 
 async function loadExistingJumiaShopIds(
   supabase: SupabaseClient,
@@ -133,7 +153,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       .createHash('sha256')
       .update(body.clientId)
       .digest('hex');
-    const credentialCiphertext = await loadJumiaSelfAuthorizationDiscovery(
+    const discoveryClaim = await claimJumiaSelfAuthorizationDiscovery(
       supabase,
       {
         discoveryId: body.discoveryId,
@@ -141,39 +161,64 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         clientKeyHash,
       }
     );
-    if (!credentialCiphertext) {
+    if (!discoveryClaim) {
       return NextResponse.json(
-        { error: 'Jumia shop discovery expired or is no longer valid' },
-        { status: 400 }
+        { error: 'Jumia shop discovery is busy, expired, or no longer valid' },
+        { status: 409 }
       );
     }
     const storedCredentials = jumiaAuthorizationCrypto.decrypt(
-      credentialCiphertext,
+      discoveryClaim.credentialCiphertext,
       encryptionKey,
       jumiaAuthorizationCrypto.buildAuthorizationContext(
         merchantId,
         clientKeyHash
       )
     );
-    const response = await jumiaSelfAuthorizationHandler.connect({
-      credentials: {
-        clientId: storedCredentials.clientId,
-        refreshToken: storedCredentials.refreshToken,
-      },
-      encryptionKey,
-      merchantId,
-      existingShopIds,
-      rpc: async (name, rpcArgs) => supabase.rpc(name, rpcArgs),
-      selectedShopIds: body.selectedShopIds,
-      validate: validateJumiaSelfAuthorization,
-      encrypt: jumiaAuthorizationCrypto.encrypt,
-    });
-    if (response.ok) {
+    try {
+      const response = await jumiaSelfAuthorizationHandler.connect({
+        credentials: {
+          clientId: storedCredentials.clientId,
+          refreshToken: storedCredentials.refreshToken,
+        },
+        encryptionKey,
+        merchantId,
+        existingShopIds,
+        rpc: async (name, rpcArgs) => supabase.rpc(name, rpcArgs),
+        selectedShopIds: body.selectedShopIds,
+        validate: validateJumiaSelfAuthorization,
+        encrypt: jumiaAuthorizationCrypto.encrypt,
+        onCredentialsRotated: async ({ credentials }) => {
+          await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
+            discoveryId: body.discoveryId,
+            merchantId,
+            claimToken: discoveryClaim.claimToken,
+            credentialCiphertext: jumiaAuthorizationCrypto.encrypt(
+              credentials,
+              encryptionKey,
+              jumiaAuthorizationCrypto.buildAuthorizationContext(
+                merchantId,
+                clientKeyHash
+              )
+            ),
+          });
+        },
+      });
+      if (!response.ok) {
+        await releaseDiscoveryClaim({
+          discoveryId: body.discoveryId,
+          merchantId,
+          claimToken: discoveryClaim.claimToken,
+          supabase,
+        });
+        return response;
+      }
       try {
         await consumeJumiaSelfAuthorizationDiscovery(supabase, {
           discoveryId: body.discoveryId,
           merchantId,
           clientKeyHash,
+          claimToken: discoveryClaim.claimToken,
         });
       } catch (cleanupError) {
         logger.warn({
@@ -184,8 +229,16 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
           merchant_id: merchantId,
         });
       }
+      return response;
+    } catch (error) {
+      await releaseDiscoveryClaim({
+        discoveryId: body.discoveryId,
+        merchantId,
+        claimToken: discoveryClaim.claimToken,
+        supabase,
+      });
+      throw error;
     }
-    return response;
   } catch (error) {
     if (error instanceof JumiaApiError) {
       return NextResponse.json(

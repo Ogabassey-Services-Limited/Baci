@@ -39,7 +39,7 @@ describe('fulfillment v7 contracts', () => {
       }).success
     ).toBe(true);
   });
-  it('uses print orderItemIds and rejects URL labels', () => {
+  it('uses print orderItemIds and accepts base64 or HTTP(S) URL labels', () => {
     expect(
       JumiaPrintLabelsResponseSchema.safeParse({
         success: {
@@ -69,7 +69,7 @@ describe('fulfillment v7 contracts', () => {
           total: 1,
         },
       }).success
-    ).toBe(false);
+    ).toBe(true);
   });
   it('uses trackingCode on pack', () => {
     expect(

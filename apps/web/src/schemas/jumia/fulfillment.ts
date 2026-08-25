@@ -114,9 +114,12 @@ export const JumiaPrintLabelsResponseSchema = z
             countryCode: z.string().regex(/^[A-Z]{2}$/),
             label: z
               .string()
-              .regex(
-                /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/,
-                'Label must be base64-encoded content'
+              .refine(
+                (label) =>
+                  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+                    label
+                  ) || /^https?:\/\/[^\s]+$/.test(label),
+                'Label must be an HTTP(S) URL or base64-encoded content'
               ),
           })
         ),

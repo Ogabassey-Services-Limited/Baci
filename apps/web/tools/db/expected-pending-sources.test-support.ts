@@ -269,6 +269,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260825000300_claim_jumia_discovery_and_fix_handoff.sql',
+    sha256: '7d27621520df2f173b3382fca053d7f7d9ed57999317b6c2ff2e05bef5413c2a',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
     sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },

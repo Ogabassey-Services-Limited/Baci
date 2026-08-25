@@ -54,12 +54,87 @@ export async function loadJumiaSelfAuthorizationDiscovery(
   return data ?? null;
 }
 
+export async function claimJumiaSelfAuthorizationDiscovery(
+  supabase: SupabaseClient,
+  args: {
+    discoveryId: string;
+    merchantId: string;
+    clientKeyHash: string;
+  }
+): Promise<{ claimToken: string; credentialCiphertext: string } | null> {
+  const { data, error } = await supabase.rpc(
+    'claim_jumia_self_authorization_discovery',
+    {
+      p_discovery_id: args.discoveryId,
+      p_merchant_id: args.merchantId,
+      p_client_key_hash: args.clientKeyHash,
+    }
+  );
+
+  if (error) {
+    throw new Error('Failed to claim Jumia self-authorization discovery');
+  }
+  if (!(data && typeof data === 'object')) return null;
+
+  const claimToken = Reflect.get(data, 'claim_token');
+  const credentialCiphertext = Reflect.get(data, 'credential_ciphertext');
+  return typeof claimToken === 'string' &&
+    typeof credentialCiphertext === 'string'
+    ? { claimToken, credentialCiphertext }
+    : null;
+}
+
+export async function updateClaimedJumiaSelfAuthorizationDiscovery(
+  supabase: SupabaseClient,
+  args: {
+    discoveryId: string;
+    merchantId: string;
+    claimToken: string;
+    credentialCiphertext: string;
+  }
+): Promise<void> {
+  const { data, error } = await supabase.rpc(
+    'update_claimed_jumia_self_authorization_discovery',
+    {
+      p_discovery_id: args.discoveryId,
+      p_merchant_id: args.merchantId,
+      p_claim_token: args.claimToken,
+      p_credential_ciphertext: args.credentialCiphertext,
+    }
+  );
+  if (error || data !== true) {
+    throw new Error('Failed to preserve rotated Jumia discovery credentials');
+  }
+}
+
+export async function releaseJumiaSelfAuthorizationDiscovery(
+  supabase: SupabaseClient,
+  args: {
+    discoveryId: string;
+    merchantId: string;
+    claimToken: string;
+  }
+): Promise<void> {
+  const { data, error } = await supabase.rpc(
+    'release_jumia_self_authorization_discovery',
+    {
+      p_discovery_id: args.discoveryId,
+      p_merchant_id: args.merchantId,
+      p_claim_token: args.claimToken,
+    }
+  );
+  if (error || data !== true) {
+    throw new Error('Failed to release Jumia self-authorization discovery');
+  }
+}
+
 export async function consumeJumiaSelfAuthorizationDiscovery(
   supabase: SupabaseClient,
   args: {
     discoveryId: string;
     merchantId: string;
     clientKeyHash: string;
+    claimToken: string;
   }
 ): Promise<string | null> {
   const { data, error } = await supabase.rpc(
@@ -68,6 +143,7 @@ export async function consumeJumiaSelfAuthorizationDiscovery(
       p_discovery_id: args.discoveryId,
       p_merchant_id: args.merchantId,
       p_client_key_hash: args.clientKeyHash,
+      p_claim_token: args.claimToken,
     }
   );
 
