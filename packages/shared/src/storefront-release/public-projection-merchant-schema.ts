@@ -40,6 +40,10 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
     .refine(
       (hostname) => hostname === hostname.toLowerCase(),
       'Expected a canonical lowercase hostname'
+    )
+    .refine(
+      (hostname) => isSafePublicReleaseUrl(`https://${hostname}`),
+      'Expected a public publication hostname'
     ),
   currency: z
     .string()

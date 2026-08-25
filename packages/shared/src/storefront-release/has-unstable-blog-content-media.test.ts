@@ -88,6 +88,7 @@ describe('hasUnstableBlogContentMedia', () => {
     '[Download](https://example.test/export?token=secret)',
     '![Image](https://cdn.test/image.png?token=secret)',
     '[Download][export]\n\n[export]: https://example.test/export?token=secret',
+    '<https://example.test/export?token=secret>',
   ])('rejects query-bearing Markdown destinations in %s', (content) => {
     expect(hasUnstableBlogContentMedia(content)).toBe(true);
   });

@@ -45,11 +45,16 @@ function hasUnstableHtmlContent(content: string): boolean {
 }
 
 function hasUnstableMarkdownContent(content: string): boolean {
+  const autolinkPattern = /<((?:https?:\/\/|mailto:)[^<>\r\n]+)>/giu;
+  for (const match of content.matchAll(autolinkPattern)) {
+    const destination = decodeHtmlAttributeEntities(match[1] ?? '');
+    if (!destination || !isSafePublicReleaseUrl(destination)) return true;
+  }
   const imageReferenceLabels = new Set<string>();
   for (const pattern of [
     /!\[[^\]\r\n]*\]\[([^\]\r\n]+)\]/gu,
     /!\[([^\]\r\n]+)\]\[\]/gu,
-    /!\[([^\]\r\n]+)\](?![\[(])/gu,
+    /!\[([^\]\r\n]+)\](?![[(])/gu,
   ])
     for (const match of content.matchAll(pattern))
       imageReferenceLabels.add((match[1] ?? '').trim().toLowerCase());

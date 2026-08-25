@@ -7,6 +7,7 @@ describe('StorefrontSeoPathSchema', () => {
       '/products/phone'
     );
     expect(StorefrontSeoPathSchema.parse('/')).toBe('/');
+    expect(StorefrontSeoPathSchema.parse('/caf%C3%A9')).toBe('/caf%C3%A9');
   });
 
   it('rejects external, query, fragment, backslash, and traversal paths', () => {
@@ -27,6 +28,8 @@ describe('StorefrontSeoPathSchema', () => {
       '/foo%252fbar',
       '/%255cadmin',
       '/%61bout',
+      '/café',
+      '/caf%c3%a9',
     ])
       expect(StorefrontSeoPathSchema.safeParse(path).success).toBe(false);
   });

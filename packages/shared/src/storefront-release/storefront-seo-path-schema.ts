@@ -21,6 +21,12 @@ function isNormalizedLocalPathname(value: string): boolean {
       .split('/')
       .slice(1)
       .every((segment) => {
+        const decodedSegment = decodeURIComponent(segment);
+        if (
+          decodedSegment !== decodedSegment.normalize('NFC') ||
+          encodeURIComponent(decodedSegment) !== segment
+        )
+          return false;
         if (
           [...segment.matchAll(/%([0-9a-f]{2})/giu)].some((match) =>
             /^[a-z0-9._~-]$/iu.test(

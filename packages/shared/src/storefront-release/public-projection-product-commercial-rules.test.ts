@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 import { StorefrontPublicProjectionPayloadSchema } from './public-projection-payload-schema';
+import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 
 const product = {
   available: true,
@@ -48,12 +48,12 @@ describe('StorefrontPublicProductSchema commercial rules', () => {
   it('normalizes legacy conditions and preserves unique available conditions', () => {
     const parsed = StorefrontPublicProductSchema.parse({
       ...product,
-      availableConditions: ['new', 'refurbished'],
+      availableConditions: ['refurbished'],
       condition: 'refurbished',
     });
 
     expect(parsed.condition).toBe('open_box');
-    expect(parsed.availableConditions).toEqual(['new', 'open_box']);
+    expect(parsed.availableConditions).toEqual(['open_box']);
     expect(
       StorefrontPublicProductSchema.safeParse({
         ...product,

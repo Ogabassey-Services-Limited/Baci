@@ -41,6 +41,21 @@ describe('StorefrontPublicMerchantSchema', () => {
       );
   });
 
+  it('rejects publication hostnames that resolve to local or private names', () => {
+    for (const hostname of [
+      'localhost',
+      '10.0.0.1',
+      'foo.internal',
+      '2130706433',
+    ])
+      expect(
+        StorefrontPublicMerchantSchema.safeParse({
+          ...validMerchant,
+          hostname,
+        }).success
+      ).toBe(false);
+  });
+
   it('preserves bounded public browser analytics identifiers', () => {
     const merchant = {
       ...validMerchant,

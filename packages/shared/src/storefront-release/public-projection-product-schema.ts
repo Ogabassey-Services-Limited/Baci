@@ -3,6 +3,7 @@ import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
+import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 
 const ProductConditionSchema = z
   .enum(['new', 'used', 'open_box', 'refurbished'])
@@ -20,7 +21,8 @@ const AvailableConditionsSchema = z
         code: 'custom',
         message: 'Available product conditions must be canonically unique',
       });
-  });
+  })
+  .transform((conditions) => [...conditions].sort());
 
 const VariantAttributesSchema = z
   .record(
@@ -48,7 +50,17 @@ const VariantAttributesSchema = z
         code: 'custom',
         message: 'Variant condition must use the typed condition field',
       });
-  });
+  })
+  .transform((attributes) =>
+    Object.fromEntries(
+      Object.entries(attributes)
+        .map(
+          ([key, value]) =>
+            [normalizeProductSelectionParamKey(key), value] as const
+        )
+        .sort(([left], [right]) => left.localeCompare(right))
+    )
+  );
 
 const OptionalCompareAtPriceSchema = z
   .number()
@@ -95,6 +107,8 @@ export const StorefrontPublicProductSchema = z
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     name: z.string().trim().min(1).max(240),
     brand: z.string().trim().min(1).max(160).nullable().optional(),
+    sku: z.string().trim().min(1).max(128).nullable().optional(),
+    mpn: z.string().trim().min(1).max(128).nullable().optional(),
     description: z
       .string()
       .max(100_000)
@@ -115,6 +129,7 @@ export const StorefrontPublicProductSchema = z
     status: z.literal('active'),
     condition: ProductConditionSchema.nullable().optional(),
     availableConditions: AvailableConditionsSchema.optional(),
+    ...StorefrontPublicProductSpecificationFieldsSchema.shape,
     rating: z.number().min(0).max(5).nullable().optional(),
     reviewCount: z
       .number()
@@ -164,6 +179,39 @@ export const StorefrontPublicProductSchema = z
         message: 'Condition offers and SKU variants are mutually exclusive',
         path: ['conditionOffers'],
       });
+    if (product.availableConditions) {
+      const representedConditions = new Set<string>();
+      if (offers.length > 0) {
+        for (const offer of offers)
+          representedConditions.add(
+            normalizeCanonicalProductCondition(offer.condition)
+          );
+      } else if ((product.variants?.length ?? 0) > 0) {
+        for (const variant of product.variants ?? []) {
+          const condition = normalizeCanonicalProductCondition(
+            variant.condition ?? product.condition
+          );
+          if (condition) representedConditions.add(condition);
+        }
+      } else {
+        const condition = normalizeCanonicalProductCondition(product.condition);
+        if (condition) representedConditions.add(condition);
+      }
+      const summaryConditions = new Set(product.availableConditions);
+      if (
+        representedConditions.size !== summaryConditions.size ||
+        [...representedConditions].some(
+          (condition) =>
+            !summaryConditions.has(condition as CanonicalProductCondition)
+        )
+      )
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Available conditions must match the product selection model',
+          path: ['availableConditions'],
+        });
+    }
     const offerConditions = new Set<string>();
     for (const [offerIndex, offer] of offers.entries()) {
       if (
