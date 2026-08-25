@@ -74,4 +74,64 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql',
     sha256: '646271ab9d7519e8260d547ffc74b850c4fc19ba76a9f4ca20014aa16e27a97e',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825000000_allow_scoped_order_payment_account_updates.sql',
+    sha256: 'c4ecc842f0cead588489605a3cb0cbb0fa5771d8bae962ed1d35934659573991',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825003000_scope_order_payment_account_mutations.sql',
+    sha256: '9d7d1a95dd7044bd6b7cc39318d32334504fbb25c64182f2673d8e1217a18fe7',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825004500_authoritative_paystack_order_account_reservation.sql',
+    sha256: '30956c99214721f1176c532088085d13824e8e5ae17322a1859305547afb82c4',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825010000_serialize_paystack_dva_cross_flow_aliases.sql',
+    sha256: '90dc85f94f554151cfb3bf9eae6363fa1bf424ab636a71554f11f01c9e655ad8',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825013000_complete_paystack_dva_order_alias_lifecycle.sql',
+    sha256: '2569b047b86a767b45b64ae24dfa4d90cc2dac4f5d7f652375c783e037f0989f',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825014500_expire_paystack_dva_alias_on_email_change.sql',
+    sha256: '008b1ac3901a10a9e38690c05674943a53f42c99c0d47d60567edb19bec5bbb3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825020000_reprovision_expired_paystack_order_aliases.sql',
+    sha256: '0559aefa6e9af37502f5f2b3041add8580026fe7ee14dde6ed7cad5191ffa53e',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825141127_allow_order_view_dva_balance_refresh.sql',
+    sha256: '6b415c957248566c0c6ac3a3d67b922b0b4642dc6e0cadff39dae6039ce2ce5b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825142000_revalidate_paystack_order_email_at_reservation.sql',
+    sha256: 'a9f9dcca1457f97446b23c5f3708309d65151885e66be0615d0ef980984c0e8d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825143500_authorize_paystack_order_email_revalidation.sql',
+    sha256: 'f71239850a075501047a15eb856660f993db4336b731707e76ce67c4b1e49933',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825150000_refresh_dva_balance_after_admin_order_edit.sql',
+    sha256: '51541e188b76a5fafae1a5715f9d13f37eabd7d488bc02ace427ebdceb0cd995',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825151500_lock_admin_order_edit_before_dva_refresh.sql',
+    sha256: '280a4ecefaf3934b2467252399cfc562e3699d7400b2b09486689a3bdc68d98a',
+  },
 ];

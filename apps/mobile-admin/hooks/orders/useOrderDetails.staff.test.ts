@@ -33,7 +33,7 @@ const supabaseMock = vi.hoisted(() => {
     } = {};
     const passthrough = () => () => chain;
 
-    for (const method of ['select', 'eq', 'in', 'limit', 'neq']) {
+    for (const method of ['select', 'eq', 'in', 'limit', 'neq', 'order']) {
       chain[method] = passthrough();
     }
 

@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260814153213_repair_harden_paystack_manual_reconciliation_review_contracts.sql'
+      'supabase/migrations/20260825151500_lock_admin_order_edit_before_dva_refresh.sql'
     );
   });
 
