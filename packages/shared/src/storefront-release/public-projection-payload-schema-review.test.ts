@@ -18,6 +18,7 @@ const product = {
   name: 'Phone',
   priceMinor: 100_000,
   slug: 'phone',
+  status: 'active',
   variants: [
     {
       available: true,
@@ -29,23 +30,23 @@ const product = {
 } as const;
 
 describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
-  it.each(['checkout', 'products'])(
-    'rejects the reserved category slug %s',
-    (slug) => {
-      expect(
-        StorefrontPublicProjectionPayloadSchema.safeParse({
-          ...validPayload,
-          categories: [
-            {
-              id: '123e4567-e89b-42d3-a456-426614174110',
-              name: 'Reserved',
-              slug,
-            },
-          ],
-        }).success
-      ).toBe(false);
-    }
-  );
+  it.each([
+    'checkout',
+    'products',
+  ])('rejects the reserved category slug %s', (slug) => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: '123e4567-e89b-42d3-a456-426614174110',
+            name: 'Reserved',
+            slug,
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 
   it('requires content pages to have explicit published status', () => {
     const contentPage = {
@@ -92,6 +93,46 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
       StorefrontPublicProjectionPayloadSchema.safeParse({
         ...validPayload,
         products: [product, duplicateProduct],
+      }).success
+    ).toBe(false);
+  });
+
+  it.each([
+    ['ID', { id: '123e4567-e89b-42d3-a456-426614174130', slug: 'phones' }],
+    ['slug', { id: '123e4567-e89b-42d3-a456-426614174131', slug: 'phones' }],
+  ])('rejects a duplicate category %s', (_label, duplicateCategory) => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: '123e4567-e89b-42d3-a456-426614174130',
+            name: 'Phones',
+            slug: 'phones',
+          },
+          { ...duplicateCategory, name: 'Other phones' },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('requires active products and preserves compare-at pricing', () => {
+    const releasedProduct = {
+      ...product,
+      compareAtPriceMinor: 125_000,
+    } as const;
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.parse({
+        ...validPayload,
+        products: [releasedProduct],
+      }).products[0]
+    ).toEqual(releasedProduct);
+    const { status: _status, ...unverifiedProduct } = releasedProduct;
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        products: [unverifiedProduct],
       }).success
     ).toBe(false);
   });

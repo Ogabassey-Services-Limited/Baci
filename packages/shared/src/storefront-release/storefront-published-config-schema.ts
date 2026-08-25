@@ -48,7 +48,7 @@ function hasUnstableMediaProperty(value: unknown): boolean {
   while (pending.length > 0) {
     const current = pending.pop();
     if (Array.isArray(current)) {
-      pending.push(...current);
+      for (const entry of current) pending.push(entry);
       continue;
     }
     if (!isRecord(current)) continue;

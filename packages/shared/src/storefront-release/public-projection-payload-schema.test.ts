@@ -102,6 +102,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
           name: 'Phone',
           priceMinor: 100_000,
           slug: 'phone',
+          status: 'active',
           variants: [
             {
               attributes: { color: 'Black', storage: '256 GB' },
@@ -206,6 +207,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       name: 'Phone',
       priceMinor: 100_000,
       slug: 'phone',
+      status: 'active',
     } as const;
 
     expect(
@@ -243,10 +245,12 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
           id: '123e4567-e89b-42d3-a456-426614174060',
           name: 'Phone',
           priceMinor: 100_000,
+          compareAtPriceMinor: 125_000,
           rating: 4.5,
           ratingCount: 12,
           reviewCount: 10,
           slug: 'phone',
+          status: 'active',
         },
       ],
     } as const;

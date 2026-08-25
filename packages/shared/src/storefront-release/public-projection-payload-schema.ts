@@ -4,6 +4,7 @@ import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
 import { StorefrontPublishedConfigSchema } from './storefront-published-config-schema';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
+import { validatePublicProjectionIdentities } from './validate-public-projection-identities';
 
 const PublicMediaUrlSchema = z
   .string()
@@ -86,7 +87,15 @@ const ProductSchema = z.strictObject({
     .length(3)
     .regex(/^[A-Z]{3}$/),
   priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  compareAtPriceMinor: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(Number.MAX_SAFE_INTEGER)
+    .nullable()
+    .optional(),
   available: z.boolean(),
+  status: z.literal('active'),
   condition: z
     .enum(['new', 'used', 'open_box', 'refurbished'])
     .nullable()
@@ -181,32 +190,7 @@ export const StorefrontPublicProjectionPayloadSchema = z
       .optional(),
   })
   .superRefine((payload, context) => {
-    const productIds = new Set<string>();
-    const productSlugs = new Set<string>();
-    const variantIds = new Set<string>();
-    for (const [productIndex, product] of payload.products.entries()) {
-      for (const [value, seen, field, message] of [
-        [product.id, productIds, 'id', 'Product IDs must be unique'],
-        [product.slug, productSlugs, 'slug', 'Product slugs must be unique'],
-      ] as const) {
-        if (seen.has(value))
-          context.addIssue({
-            code: 'custom',
-            message,
-            path: ['products', productIndex, field],
-          });
-        seen.add(value);
-      }
-      for (const [variantIndex, variant] of (product.variants ?? []).entries()) {
-        if (variantIds.has(variant.id))
-          context.addIssue({
-            code: 'custom',
-            message: 'Variant IDs must be unique across the projection',
-            path: ['products', productIndex, 'variants', variantIndex, 'id'],
-          });
-        variantIds.add(variant.id);
-      }
-    }
+    validatePublicProjectionIdentities(payload, context);
     const categoryIds = new Set(
       (payload.categories ?? []).map((category) => category.id)
     );

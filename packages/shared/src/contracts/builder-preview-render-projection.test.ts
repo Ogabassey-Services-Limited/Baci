@@ -13,6 +13,11 @@ describe('preview render projection', () => {
       previewRenderProjection.isAssetSource('/avatars/customer.webp')
     ).toBe(true);
     expect(
+      previewRenderProjection.isAssetSource(
+        `/release-assets/${'a'.repeat(64)}.webp`
+      )
+    ).toBe(true);
+    expect(
       previewRenderProjection.isAssetSource('/api/storefront/auth/session')
     ).toBe(false);
     expect(

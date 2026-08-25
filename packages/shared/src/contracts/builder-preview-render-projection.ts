@@ -3,7 +3,7 @@ import { builderDesignCapabilityAdapter } from './builder-design-capability-adap
 
 const PREVIEW_CAROUSEL_IMAGE = '/placeholder.png';
 const assetPathPattern =
-  /^\/(?:[A-Za-z0-9._~!$&*+,=@%-]{1,160}|(?:_next\/static|assets|avatars|images|media|uploads)\/[A-Za-z0-9._~!$&*+,=@%/-]{1,440})\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
+  /^\/(?:[A-Za-z0-9._~!$&*+,=@%-]{1,160}|(?:_next\/static|assets|avatars|images|media|uploads)\/[A-Za-z0-9._~!$&*+,=@%/-]{1,440}|release-assets\/[a-f0-9]{64})\.(?:avif|gif|jpe?g|png|svg|webp)$/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
