@@ -44,6 +44,13 @@ const reprovisionMigration = readFileSync(
   ),
   'utf8'
 );
+const viewRefreshMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825141127_allow_order_view_dva_balance_refresh.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -126,6 +133,18 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(reprovisionMigration).toContain(
       'DELETE FROM public.order_payment_accounts'
+    );
+  });
+
+  it('allows order viewers to refresh derived DVA balances without widening reservation access', () => {
+    expect(viewRefreshMigration).toContain(
+      "auth.uid(), v_merchant_id, 'orders', 'view'"
+    );
+    expect(viewRefreshMigration).toContain(
+      "auth.uid(), v_merchant_id, 'orders', 'edit'"
+    );
+    expect(viewRefreshMigration).not.toContain(
+      'reserve_paystack_order_payment_account'
     );
   });
 });

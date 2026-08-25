@@ -7,7 +7,7 @@ vi.mock('@/lib/csrf', () => ({
 
 const {
   mockAuthenticateApiRequest,
-  mockGetMerchantIdForApiUser,
+  mockGetUserAccess,
   mockGeneratePaymentAccount,
   mockFrom,
   mockRpc,
@@ -17,7 +17,7 @@ const {
   const mockRpc = vi.fn().mockResolvedValue({ error: null });
   return {
     mockAuthenticateApiRequest: vi.fn(),
-    mockGetMerchantIdForApiUser: vi.fn(),
+    mockGetUserAccess: vi.fn(),
     mockGeneratePaymentAccount: vi.fn(),
     mockFrom,
     mockRpc,
@@ -31,7 +31,7 @@ const {
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: mockAuthenticateApiRequest,
-  getMerchantIdForApiUser: mockGetMerchantIdForApiUser,
+  getUserAccess: mockGetUserAccess,
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -117,7 +117,17 @@ function authenticateMerchant(merchantId: string | null = MERCHANT_ID) {
     error: null,
     supabase: mockSupabaseClient,
   });
-  mockGetMerchantIdForApiUser.mockResolvedValue(merchantId);
+  mockGetUserAccess.mockResolvedValue(
+    merchantId
+      ? {
+          isOwner: true,
+          isStaff: false,
+          merchantId,
+          permissions: {},
+          role: 'owner',
+        }
+      : null
+  );
 }
 
 function useOrderQueries({
@@ -196,7 +206,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       code: 'INVALID_ORDER_ID',
       error: 'Invalid order ID',
     });
-    expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
   });
 
   it('returns 404 when order not found', async () => {
@@ -295,6 +305,51 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       'refresh_paystack_order_payable_amount',
       { p_order_id: ORDER_ID }
     );
+  });
+
+  it('returns an existing DVA to staff with view-only order access', async () => {
+    authenticateMerchant();
+    mockGetUserAccess.mockResolvedValue({
+      isOwner: false,
+      isStaff: true,
+      merchantId: MERCHANT_ID,
+      permissions: { orders: { view: true } },
+      role: 'staff',
+    });
+    useOrderQueries({
+      paymentAccount: {
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+        account_name: 'Ogabassey/John Doe',
+      },
+    });
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ existing: true });
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
+  it('does not provision a new DVA for staff with view-only order access', async () => {
+    authenticateMerchant();
+    mockGetUserAccess.mockResolvedValue({
+      isOwner: false,
+      isStaff: true,
+      merchantId: MERCHANT_ID,
+      permissions: { orders: { view: true } },
+      role: 'staff',
+    });
+    useOrderQueries();
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'FORBIDDEN',
+      error: 'Forbidden',
+    });
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
   it('returns a legacy provider account instead of creating a second row', async () => {

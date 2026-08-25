@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import {
-  authenticateApiRequest,
-  getMerchantIdForApiUser,
-} from '@/lib/api-auth';
+import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import { hasPermission } from '@/lib/api-permissions';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
@@ -30,8 +28,8 @@ export async function POST(
       );
     }
     const orderId = parsedParams.data.id;
-
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
+    const access = await getUserAccess(auth.supabase);
+    const merchantId = access?.merchantId;
     if (!merchantId) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -39,7 +37,6 @@ export async function POST(
       );
     }
     const supabase = auth.supabase;
-
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
@@ -48,7 +45,6 @@ export async function POST(
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
       .single();
-
     if (orderError || !order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
@@ -154,6 +150,12 @@ export async function POST(
         ),
         existing: true,
       });
+    }
+    if (!hasPermission(access, 'orders', 'edit')) {
+      return NextResponse.json(
+        { code: 'FORBIDDEN', error: 'Forbidden' },
+        { status: 403 }
+      );
     }
     if (existingVba) {
       const { data: released, error: releaseError } = await supabase.rpc(
