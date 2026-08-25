@@ -242,6 +242,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260823010000_public_shipping_sender_projection.sql',
+    sha256: 'da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260823152433_optimize_storefront_cluster_guide_classifier_core.sql',
     sha256: '1c929e4db4b870ddaf1d6b25de7dab7244f7e8537ee6ce06ea230f21a38c443c',
   },
@@ -269,6 +274,11 @@ export const EXPECTED_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260823163001_optimize_storefront_cluster_guide_classifier_ordered_rpc.sql',
     sha256: '378ee56b915823bb6e6f9bb2ed5c415d24f7de5d8ae9677e5539f9a9dd1cabac',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
+    sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)

@@ -30,4 +30,21 @@ describe('event-pipeline credential paths', () => {
       ])
     );
   });
+
+  it('records only the signed catalog routes that reach the agentic secret', () => {
+    const mutationRequest = 'apps/web/src/lib/agentic/mutation-request.ts';
+    const requestIntegrity = 'apps/web/src/lib/agentic/request-integrity.ts';
+    const environment = 'apps/web/src/env.ts';
+
+    expect(eventPipelineCredentialPaths).toEqual(
+      expect.arrayContaining(
+        ['lookup', 'product', 'search'].map((route) => [
+          `apps/web/src/app/api/agentic/catalog/${route}/route.ts`,
+          mutationRequest,
+          requestIntegrity,
+          environment,
+        ])
+      )
+    );
+  });
 });

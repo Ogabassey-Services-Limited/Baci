@@ -6,6 +6,7 @@ import type {
   ShippingQuote,
 } from '@/lib/shipping/types';
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
+import { matchesGiglProviderRate } from './matches-gigl-provider-rate';
 
 type OrderShippingAddress = {
   address?: string | null;
@@ -23,64 +24,12 @@ type OrderItemRecord = {
   price: number | string | null;
 };
 
-type MerchantRecord = {
-  business_name: string | null;
-  business_address: string | null;
-  phone: string | null;
-};
-
 type OrderRecord = {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
   shipping_address: OrderShippingAddress | null;
 };
-
-const STREET_HINT_PATTERN =
-  /\b(street|st\.?|road|rd\.?|avenue|ave\.?|close|crescent|estate|phase|plot|no\.?|house|suite|unit)\b|\d/i;
-
-const KNOWN_STATE_NAMES = new Set([
-  'abia',
-  'adamawa',
-  'akwa ibom',
-  'anambra',
-  'bauchi',
-  'bayelsa',
-  'benue',
-  'borno',
-  'cross river',
-  'delta',
-  'ebonyi',
-  'edo',
-  'ekiti',
-  'enugu',
-  'gombe',
-  'imo',
-  'jigawa',
-  'kaduna',
-  'kano',
-  'katsina',
-  'kebbi',
-  'kogi',
-  'kwara',
-  'lagos',
-  'nasarawa',
-  'nassarawa',
-  'niger',
-  'ogun',
-  'ondo',
-  'osun',
-  'oyo',
-  'plateau',
-  'rivers',
-  'sokoto',
-  'taraba',
-  'yobe',
-  'zamfara',
-  'abuja',
-  'fct',
-  'federal capital territory',
-]);
 
 export class OrderShipmentBookingError extends Error {
   constructor(
@@ -204,6 +153,11 @@ export function selectPreferredQuote(
     ) ||
     quotes.find(
       (quote) =>
+        normalizedProviderRateId &&
+        matchesGiglProviderRate(normalizedProviderRateId, quote.providerRateId)
+    ) ||
+    quotes.find(
+      (quote) =>
         quote.serviceTier.toLowerCase() === normalizedServiceTier &&
         quote.carrierName.toLowerCase() === normalizedCarrierName
     ) ||
@@ -242,87 +196,5 @@ export function buildReceiver(order: OrderRecord): ShippingAddress {
   };
 }
 
-function looksLikeStreetSegment(value: string): boolean {
-  return STREET_HINT_PATTERN.test(value);
-}
-
-function normalizeLocationToken(value: string): string {
-  return value.trim().toLowerCase();
-}
-
-export function deriveMerchantLocation(
-  addressValue: string | null | undefined
-): {
-  address: string;
-  city: string;
-  state: string;
-} {
-  const address = addressValue?.trim() || 'Lagos';
-  const parts = address
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return {
-      address: 'Lagos',
-      city: 'Lagos',
-      state: 'Lagos',
-    };
-  }
-
-  if (parts.length === 1) {
-    return {
-      address,
-      city: parts[0],
-      state: parts[0],
-    };
-  }
-
-  const last = parts.at(-1) || 'Lagos';
-  const secondLast = parts.at(-2) || last;
-
-  if (KNOWN_STATE_NAMES.has(normalizeLocationToken(last))) {
-    return {
-      address,
-      city: secondLast,
-      state: last,
-    };
-  }
-
-  if (parts.length >= 3) {
-    return {
-      address,
-      city: secondLast,
-      state: last,
-    };
-  }
-
-  if (looksLikeStreetSegment(parts[0])) {
-    return {
-      address,
-      city: last,
-      state: last,
-    };
-  }
-
-  return {
-    address,
-    city: parts[0],
-    state: last,
-  };
-}
-
-export function buildSender(merchant: MerchantRecord): ShippingAddress {
-  const location = deriveMerchantLocation(merchant.business_address);
-
-  return {
-    name: merchant.business_name || 'Merchant',
-    phone: merchant.phone || '',
-    address: location.address,
-    city: location.city,
-    state: location.state,
-    country: 'Nigeria',
-    countryCode: 'NG',
-  };
-}
+export { deriveMerchantLocation } from './merchant-location';
+export { domesticSendersDiffer } from './merchant-sender-comparison';

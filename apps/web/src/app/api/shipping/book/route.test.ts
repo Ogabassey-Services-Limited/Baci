@@ -33,10 +33,11 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/shipping', () => ({
   shippingService: {
     bookShipment: mockBookShipment,
+    getProviderQuotes: vi.fn(),
   },
 }));
 
-function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
+function buildSupabaseMock() {
   const ordersSelectChain = {
     eq: vi.fn().mockReturnThis(),
     single: vi.fn().mockResolvedValue({
@@ -83,7 +84,6 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
         price: 4500,
         currency: 'NGN',
         estimated_days: 2,
-        ...quoteOverrides,
       },
       error: null,
     }),
@@ -96,17 +96,42 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
   const shipmentInsertChain = {
     select: vi.fn().mockReturnValue(shipmentInsertSelectChain),
   };
-  const updateChain = {
+  const shipmentLookupChain = {
     eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
   };
-  updateChain.eq.mockReturnValue(updateChain);
   const shippingQuoteUpdateChain = {
     error: null,
     eq: vi.fn(),
   };
   shippingQuoteUpdateChain.eq.mockReturnValue(shippingQuoteUpdateChain);
+  const merchantSelectChain = {
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: {
+        business_name: 'Registered Merchant Store',
+        business_address: '9 Registered Road, Ikeja, Lagos',
+        phone: '+2348012345678',
+        registered_address: {
+          city: 'Ikeja',
+          postal_code: '100001',
+          state: 'Lagos',
+          street: '9 Registered Road',
+        },
+        state_code: 'LA',
+      },
+      error: null,
+    }),
+  };
 
   return {
+    rpc: vi.fn().mockResolvedValue({
+      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+      error: null,
+    }),
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
@@ -119,6 +144,12 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
           select: vi.fn(() => ordersSelectChain),
           update: vi.fn(() => ({
             eq: vi.fn().mockReturnThis(),
+            select: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { id: 'order-1' },
+                error: null,
+              }),
+            })),
           })),
         };
       }
@@ -131,6 +162,7 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
             return quotesSelectChain;
           }),
           update: vi.fn(() => shippingQuoteUpdateChain),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
 
@@ -140,6 +172,13 @@ function buildSupabaseMock(quoteOverrides: Record<string, unknown> = {}) {
             shipmentInsertPayloads.push(payload);
             return shipmentInsertChain;
           }),
+          select: vi.fn(() => shipmentLookupChain),
+        };
+      }
+
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => merchantSelectChain),
         };
       }
 

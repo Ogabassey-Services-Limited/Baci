@@ -161,7 +161,10 @@ export const fetchShippingQuotes = async ({
     const merchantId = getQuoteMerchantId();
     const response = await fetch(`${apiUrl}/api/shipping/quotes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Baci-Client': 'mobile-storefront',
+      },
       body: JSON.stringify({
         ...(merchantId ? { merchantId } : {}),
         deliveryPreference,

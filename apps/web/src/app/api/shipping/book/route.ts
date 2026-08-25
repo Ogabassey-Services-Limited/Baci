@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { hasPermission } from '@/lib/api-auth';
@@ -6,22 +7,49 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { shippingService } from '@/lib/shipping';
+import { clearOrderShipmentBookingLock } from '@/lib/shipping/order-shipment-booking-lock';
 import {
-  deriveMerchantLocation,
   isShippingProviderCode,
   OrderShipmentBookingError,
 } from '@/lib/shipping/order-shipment-booking-utils';
-import type { BookingRequest } from '@/lib/shipping/types';
+import type { ShipmentBookingResult } from '@/lib/shipping/types';
 import { createClient } from '@/lib/supabase/server';
 import { BookingRequestSchema } from '@/schemas/shipping';
+import { executeDirectBookingAttempt } from './execute-direct-booking-attempt';
+import { persistBookedShipment } from './persist-booked-shipment';
+import { prepareDirectBookingAttempt } from './prepare-direct-booking-attempt';
 import {
   resolveBookingQuoteRequestPayload,
   validateBookingQuoteRequestPayload,
 } from './quote-request-payload';
-import { buildShipmentInsertPayload } from './shipment-insert-payload';
+
+function bookingSuccessResponse(
+  shipmentId: string,
+  result: ShipmentBookingResult
+) {
+  return NextResponse.json(
+    {
+      success: true,
+      shipment: {
+        id: shipmentId,
+        trackingNumber: result.trackingNumber,
+        providerShipmentId: result.providerShipmentId,
+        carrier: result.carrierName,
+        status: result.status,
+        pickupScheduledAt: result.pickupScheduledAt,
+        labelUrl: result.labelUrl,
+      },
+    },
+    { status: 201 }
+  );
+}
 
 export async function POST(request: NextRequest) {
+  let bookingLockToken: string | null = null;
+  let retainBookingLock = false;
+  let bookingSupabase: SupabaseClient | null = null;
+  let bookingMerchantId = '';
+  let bookingOrderId = '';
   try {
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
@@ -33,6 +61,7 @@ export async function POST(request: NextRequest) {
     }
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+    bookingSupabase = supabase;
 
     const {
       data: { user },
@@ -54,6 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantId = merchantContext.merchantId;
+    bookingMerchantId = merchantId;
     const body = await request.json();
 
     const parseResult = BookingRequestSchema.safeParse(body);
@@ -68,10 +98,11 @@ export async function POST(request: NextRequest) {
     }
 
     const data = parseResult.data;
+    bookingOrderId = data.orderId;
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, merchant_id, selected_quote_id, shipping_status, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
+        'id, merchant_id, selected_quote_id, shipping_status, shipping_fee, shipping_address, order_items(name, quantity, price, product_id, product:products!order_items_product_id_fkey(weight_value, weight_unit, dimensions, commodity_code))'
       )
       .eq('id', data.orderId)
       .eq('merchant_id', merchantId)
@@ -100,7 +131,7 @@ export async function POST(request: NextRequest) {
     const { data: quote, error: quoteError } = await supabase
       .from('shipping_quotes')
       .select(
-        'id, merchant_id, provider, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
+        'id, merchant_id, provider, service_tier, carrier_name, provider_rate_id, provider_metadata, quote_request, expires_at, price, currency, estimated_days'
       )
       .eq('id', data.quoteId)
       .eq('merchant_id', merchantId)
@@ -111,38 +142,6 @@ export async function POST(request: NextRequest) {
         { error: 'Quote not found or expired' },
         { status: 404 }
       );
-    }
-
-    if (new Date(quote.expires_at) < new Date()) {
-      return NextResponse.json(
-        { error: 'Quote has expired. Please get a new quote.' },
-        { status: 400 }
-      );
-    }
-
-    let senderInfo = data.sender;
-    if (!senderInfo) {
-      const { data: merchantDetails } = await supabase
-        .from('merchants')
-        .select('business_name, business_address, phone')
-        .eq('id', merchantId)
-        .single();
-
-      const location = deriveMerchantLocation(
-        merchantDetails?.business_address
-      );
-      senderInfo = {
-        name:
-          merchantDetails?.business_name ||
-          merchantContext.businessName ||
-          'Merchant',
-        phone: merchantDetails?.phone || '',
-        address: location.address,
-        city: location.city,
-        state: location.state,
-        country: 'Nigeria',
-        countryCode: 'NG',
-      };
     }
 
     const quotePayload = resolveBookingQuoteRequestPayload(
@@ -172,119 +171,107 @@ export async function POST(request: NextRequest) {
         { status: quoteValidation.status }
       );
     }
-    const resolvedSenderInfo = quotePayload.sender ?? senderInfo;
-
-    const bookingRequest: BookingRequest = {
-      orderId: data.orderId,
-      quoteId: data.quoteId,
-      providerRateId: quote.provider_rate_id,
-      quoteMetadata: quote.provider_metadata,
-      sender: resolvedSenderInfo,
-      receiver: quotePayload.receiver,
-      items: quotePayload.items,
-      instructions: data.instructions,
-    };
-
     if (!isShippingProviderCode(quote.provider)) {
       return NextResponse.json(
         { error: 'Invalid shipping provider in quote' },
         { status: 400 }
       );
     }
-    const result = await shippingService.bookShipment(
-      quote.provider,
-      bookingRequest
+
+    const usesStoredInternationalSender = Boolean(quotePayload.sender);
+    const bookingAttempt = await prepareDirectBookingAttempt(
+      supabase,
+      merchantId,
+      data.orderId
     );
-
-    const { data: shipment, error: shipmentError } = await supabase
-      .from('shipments')
-      .insert(
-        buildShipmentInsertPayload({
-          orderId: data.orderId,
-          merchantId,
-          senderInfo: resolvedSenderInfo,
-          receiver: quotePayload.receiver,
-          items: quotePayload.items,
-          quote,
-          result,
-        })
-      )
-      .select('id')
-      .single();
-
-    if (shipmentError) {
-      console.error('Error creating shipment record:', shipmentError);
+    if (bookingAttempt.status === 'in_progress') {
       return NextResponse.json(
         {
-          error:
-            'Shipment booked with provider but failed to save record. Contact support with tracking number: ' +
-            result.trackingNumber,
-          trackingNumber: result.trackingNumber,
+          error: 'Shipment booking is already in progress for this order.',
+          code: 'SHIPMENT_BOOKING_IN_PROGRESS',
         },
-        { status: 500 }
+        { status: 409 }
       );
     }
-
-    const { error: orderUpdateError } = await supabase
-      .from('orders')
-      .update({
-        shipment_id: shipment?.id,
-        shipping_status: 'processing',
-        shipping_provider: result.provider,
-        tracking_number: result.trackingNumber,
-        selected_quote_id: data.quoteId,
-        fulfillment_type: 'provider',
-      })
-      .eq('id', data.orderId)
-      .eq('merchant_id', merchantId);
-
-    if (orderUpdateError) {
-      console.error(
-        'Error updating order with shipment info:',
-        orderUpdateError
-      );
+    if (bookingAttempt.status === 'already_booked') {
       return NextResponse.json(
         {
-          error:
-            'Shipment booked with provider but failed to update order. Contact support with tracking number: ' +
-            result.trackingNumber,
-          trackingNumber: result.trackingNumber,
+          error: 'A shipment is already booked for this order.',
+          code: 'SHIPMENT_ALREADY_BOOKED',
         },
-        { status: 500 }
+        { status: 409 }
       );
     }
-    const { error: quoteUpdateError } = await supabase
-      .from('shipping_quotes')
-      .update({ used: true })
-      .eq('id', data.quoteId)
-      .eq('merchant_id', merchantId);
+    if (bookingAttempt.status === 'claimed') {
+      bookingLockToken = bookingAttempt.lockToken;
+    }
 
-    if (quoteUpdateError) {
-      console.error(
-        'Error marking quote as used after successful shipment booking:',
+    let bookingQuote = quote;
+    let result: ShipmentBookingResult;
+    let resolvedSenderInfo: typeof quotePayload.sender;
+    let resolvedReceiver = quotePayload.receiver;
+    let resolvedItems = quotePayload.items;
+    if (bookingAttempt.status === 'recovered') {
+      result = bookingAttempt.result;
+    } else {
+      const quoteExpired = new Date(quote.expires_at) < new Date();
+      if (quoteExpired && usesStoredInternationalSender) {
+        return NextResponse.json(
+          { error: 'Quote has expired. Please get a new quote.' },
+          { status: 400 }
+        );
+      }
+      const booking = await executeDirectBookingAttempt({
+        supabase,
+        merchantId,
+        merchantBusinessName: merchantContext.businessName,
+        orderId: data.orderId,
+        quote,
+        quotePayload,
+        usesStoredInternationalSender,
+        expectedShippingFee: order.shipping_fee,
+        instructions: data.instructions,
+        onProviderAttempt() {
+          retainBookingLock = true;
+        },
+      });
+      bookingQuote = booking.bookingQuote;
+      result = booking.result;
+      resolvedSenderInfo = booking.senderInfo;
+      resolvedReceiver = booking.receiver;
+      resolvedItems = booking.items;
+    }
+
+    const persisted = await persistBookedShipment({
+      supabase,
+      orderId: data.orderId,
+      merchantId,
+      senderInfo: resolvedSenderInfo,
+      receiver:
+        bookingAttempt.status === 'recovered' ? undefined : resolvedReceiver,
+      items: bookingAttempt.status === 'recovered' ? undefined : resolvedItems,
+      bookingQuote,
+      result,
+      existingShipment:
+        bookingAttempt.status === 'recovered'
+          ? bookingAttempt.existingShipment
+          : undefined,
+      bookingLockToken,
+      clearBookingLock: bookingAttempt.status === 'recovered',
+    });
+    if (!persisted.ok) {
+      retainBookingLock = true;
+      return NextResponse.json(
         {
-          error: quoteUpdateError,
-          quoteId: data.quoteId,
-          trackingNumber: result.trackingNumber,
-        }
+          error: persisted.error,
+          trackingNumber: persisted.trackingNumber,
+        },
+        { status: persisted.status }
       );
     }
 
-    return NextResponse.json(
-      {
-        success: true,
-        shipment: {
-          id: shipment?.id,
-          trackingNumber: result.trackingNumber,
-          providerShipmentId: result.providerShipmentId,
-          carrier: result.carrierName,
-          status: result.status,
-          pickupScheduledAt: result.pickupScheduledAt,
-          labelUrl: result.labelUrl,
-        },
-      },
-      { status: 201 }
-    );
+    bookingLockToken = null;
+    return bookingSuccessResponse(persisted.shipmentId, result);
   } catch (error) {
     if (error instanceof OrderShipmentBookingError)
       return NextResponse.json(
@@ -296,5 +283,18 @@ export async function POST(request: NextRequest) {
       { error: 'Failed to book shipment' },
       { status: 500 }
     );
+  } finally {
+    if (bookingLockToken && bookingSupabase && !retainBookingLock) {
+      try {
+        await clearOrderShipmentBookingLock(
+          bookingSupabase,
+          bookingMerchantId,
+          bookingOrderId,
+          bookingLockToken
+        );
+      } catch {
+        // The lock is left to expire if cleanup cannot be completed here.
+      }
+    }
   }
 }

@@ -104,8 +104,19 @@ function buildSupabaseMock() {
       error: null,
     }),
   };
+  const shipmentLookupChain = {
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
 
   return {
+    rpc: vi.fn().mockResolvedValue({
+      data: [{ claimed: true, shipment_id: null, tracking_number: null }],
+      error: null,
+    }),
     auth: {
       getUser: vi.fn().mockResolvedValue({
         data: { user: { id: 'user-1' } },
@@ -118,6 +129,26 @@ function buildSupabaseMock() {
       }
       if (table === 'shipping_quotes') {
         return { select: vi.fn(() => quotesSelectChain) };
+      }
+      if (table === 'shipments') {
+        return { select: vi.fn(() => shipmentLookupChain) };
+      }
+      if (table === 'merchants') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                business_name: 'Merchant Store',
+                business_address: '1 Merchant Road, Ikeja, Lagos',
+                phone: '+2348011111111',
+                registered_address: null,
+                state_code: 'LA',
+              },
+              error: null,
+            }),
+          })),
+        };
       }
       throw new Error(`Unexpected table: ${table}`);
     }),

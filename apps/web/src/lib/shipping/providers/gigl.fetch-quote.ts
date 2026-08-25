@@ -114,6 +114,7 @@ export async function fetchGiglQuote(
       pickupIncluded: true,
       insuranceIncluded: true,
       providerRateId: buildGiglProviderRateId({
+        senderStationId: senderStation.StationId,
         receiverStationId: receiverStation.StationId,
         pickupOption,
         vehicleType: getVehicleTypeForWeight(totalWeight),

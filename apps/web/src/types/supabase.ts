@@ -14069,6 +14069,7 @@ export type Database = {
           provider: string;
           provider_response: Json | null;
           provider_shipment_id: string | null;
+          shipping_quote_id: string | null;
           receiver_address: Json;
           refund_amount: number | null;
           sender_address: Json;
@@ -14103,6 +14104,7 @@ export type Database = {
           provider: string;
           provider_response?: Json | null;
           provider_shipment_id?: string | null;
+          shipping_quote_id?: string | null;
           receiver_address: Json;
           refund_amount?: number | null;
           sender_address: Json;
@@ -14137,6 +14139,7 @@ export type Database = {
           provider?: string;
           provider_response?: Json | null;
           provider_shipment_id?: string | null;
+          shipping_quote_id?: string | null;
           receiver_address?: Json;
           refund_amount?: number | null;
           sender_address?: Json;
@@ -14177,6 +14180,13 @@ export type Database = {
             columns: ['order_id'];
             isOneToOne: false;
             referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'shipments_shipping_quote_id_fkey';
+            columns: ['shipping_quote_id'];
+            isOneToOne: false;
+            referencedRelation: 'shipping_quotes';
             referencedColumns: ['id'];
           },
         ];

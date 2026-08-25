@@ -1,6 +1,4 @@
-// Raw frozen replay-source and production-mapping data for the Supabase
-// history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
-// so that module stays under the 300-line modularity gate as PENDING_SOURCES grows. Pure data — the parsers and the assembled manifest object live in the
+// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live there.
 // manifest module. Each `<sha256> <filename>.sql` row is byte-frozen: the
 // manifest verifier re-hashes the on-disk migration, so never edit a migration
 // after registering it without recomputing its hash here.
@@ -253,6 +251,8 @@ c3e73bdc49a901993f4422b89a6e88405681c36fcb068138f7a0ad46cc7c50e2 20260806000100_
 7656e866131c288d176a79eddb5206cb860417cc63385a2949eb1bc208752b5a 20260806000200_serialize_merchant_invoice_exact_claims.sql
 2e7b6ea5f55a5c6df81f20abc015ddf4d77699be6d74f2720713dd728e3d7933 20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql
 c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql
+da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_public_shipping_sender_projection.sql
+2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b 20260825154500_persist_shipment_shipping_quote.sql
 `;
 const PENDING_SOURCES = [
   PENDING_SOURCES_HEAD,
