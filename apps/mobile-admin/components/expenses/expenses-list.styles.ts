@@ -230,6 +230,21 @@ export const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     justifyContent: 'center',
   },
+  groupSectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  groupSectionHeaderLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: SPACING.sm,
+  },
   sectionHeaderLabel: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
@@ -238,6 +253,7 @@ export const styles = StyleSheet.create({
   },
   sectionHeaderSummary: {
     flexDirection: 'row',
+    flexShrink: 0,
     gap: SPACING.xs,
   },
   sectionHeaderTotal: {

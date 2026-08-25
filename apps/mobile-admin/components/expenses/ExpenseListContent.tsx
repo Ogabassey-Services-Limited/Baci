@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ExpenseFilterBar } from '@/components/expenses/ExpenseFilterBar';
 import { ExpenseFiltersSheet } from '@/components/expenses/ExpenseFiltersSheet';
 import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
+import { ExpenseListSectionHeader } from '@/components/expenses/ExpenseListSectionHeader';
 import { ExpenseListSummary } from '@/components/expenses/ExpenseListSummary';
 import {
   DEFAULT_EXPENSE_FILTERS,
@@ -16,10 +17,8 @@ import {
   normalizeExpenseFilters,
 } from '@/components/expenses/expense-filters';
 import { styles } from '@/components/expenses/expenses-list.styles';
-import {
-  type GroupedExpenseListItem,
-  groupExpensesByMonth,
-} from '@/components/expenses/expenses-list.utils';
+import type { GroupedExpenseListItem } from '@/components/expenses/expenses-list.utils';
+import { groupExpensesByMonthAndGroup } from '@/components/expenses/expenses-list-grouping.utils';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useBranches } from '@/hooks/useBranches';
 import { useBranchScope } from '@/hooks/useBranchScope';
@@ -27,7 +26,6 @@ import { useExpenseGroups } from '@/hooks/useExpenseGroups';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/utils';
 import { ExpenseDisplaySchema } from '@/schemas/expense';
 
 const EXPENSE_LIST_COLUMNS =
@@ -101,9 +99,8 @@ export function ExpenseListContent({ canCreate, canEdit }: Props) {
     0
   );
   const summaryLabel = hasActiveFilters ? 'Filtered total' : 'Total this Month';
-  const { data: groupedExpenses, stickyHeaderIndices } = groupExpensesByMonth(
-    expenseQuery.data ?? []
-  );
+  const { data: groupedExpenses, stickyHeaderIndices } =
+    groupExpensesByMonthAndGroup(expenseQuery.data ?? [], allGroups);
   return (
     <>
       <Stack.Screen
@@ -166,44 +163,21 @@ export function ExpenseListContent({ canCreate, canEdit }: Props) {
             data={groupedExpenses}
             renderItem={({ item }) =>
               item.type === 'header' ? (
-                <View
-                  style={[
-                    styles.sectionHeader,
-                    { backgroundColor: colors.background },
-                  ]}
-                >
-                  <Text
-                    accessibilityRole="header"
-                    style={[
-                      styles.sectionHeaderLabel,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {item.title}
-                  </Text>
-                  <View style={styles.sectionHeaderSummary}>
-                    <Text
-                      style={[
-                        styles.sectionHeaderTotal,
-                        { color: colors.text },
-                      ]}
-                    >
-                      {formatCurrency(
-                        item.total,
-                        undefined,
-                        merchant?.payout_currency ?? 'NGN'
-                      )}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.sectionHeaderCount,
-                        { color: colors.textMuted },
-                      ]}
-                    >
-                      {item.count} {item.count === 1 ? 'expense' : 'expenses'}
-                    </Text>
-                  </View>
-                </View>
+                <ExpenseListSectionHeader
+                  count={item.count}
+                  currency={merchant?.payout_currency ?? 'NGN'}
+                  label={item.title}
+                  total={item.total}
+                  variant="month"
+                />
+              ) : item.type === 'group-header' ? (
+                <ExpenseListSectionHeader
+                  count={item.count}
+                  currency={merchant?.payout_currency ?? 'NGN'}
+                  label={item.title}
+                  total={item.total}
+                  variant="group"
+                />
               ) : (
                 <ExpenseListItem
                   canEdit={canEdit}

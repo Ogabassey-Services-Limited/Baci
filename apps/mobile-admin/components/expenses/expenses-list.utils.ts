@@ -10,6 +10,15 @@ export type GroupedExpenseListItem =
       count: number;
     }
   | {
+      type: 'group-header';
+      key: string;
+      monthKey: string;
+      groupKey: string;
+      title: string;
+      total: number;
+      count: number;
+    }
+  | {
       type: 'item';
       key: string;
       data: Expense;
