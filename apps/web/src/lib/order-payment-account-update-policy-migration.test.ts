@@ -79,6 +79,13 @@ const adminEditLockMigration = readFileSync(
   ),
   'utf8'
 );
+const checkoutReservationMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825182000_authorize_checkout_dva_reservation.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -223,5 +230,23 @@ describe('order payment account mutation RPC migration', () => {
     expect(lockOffset).toBeGreaterThan(-1);
     expect(editOffset).toBeGreaterThan(lockOffset);
     expect(adminEditLockMigration).toContain("'baci_order_payment:'");
+  });
+
+  it('lets only the trusted checkout service use the atomic reservation path', () => {
+    expect(checkoutReservationMigration).toContain(
+      "auth.role() <> 'service_role'"
+    );
+    expect(checkoutReservationMigration).toContain(
+      'TO authenticated, service_role'
+    );
+    expect(checkoutReservationMigration).toContain('FOR UPDATE');
+    expect(checkoutReservationMigration).toContain("RETURN 'ineligible'");
+    expect(
+      checkoutReservationMigration.indexOf("RETURN 'existing'")
+    ).toBeLessThan(
+      checkoutReservationMigration.indexOf(
+        'INSERT INTO public.order_payment_accounts'
+      )
+    );
   });
 });

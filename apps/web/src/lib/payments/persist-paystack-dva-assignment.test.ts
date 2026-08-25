@@ -11,21 +11,22 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: mockLoggerError },
 }));
 
-function createSupabase(error: unknown = null) {
-  const upsert = vi.fn().mockResolvedValue({ error });
-  const from = vi.fn().mockReturnValue({ upsert });
+function createSupabase(
+  reservationStatus: string | null = 'inserted',
+  error: unknown = null
+) {
+  const rpc = vi.fn().mockResolvedValue({ data: reservationStatus, error });
   return {
-    client: { from } as unknown as SupabaseClient<Database>,
-    from,
-    upsert,
+    client: { rpc } as unknown as SupabaseClient<Database>,
+    rpc,
   };
 }
 
 const assignment = {
   accountName: 'Baci/Ada',
   accountNumber: '0123456789',
-  amount: 5000,
   bankName: 'Wema Bank',
+  customerEmail: 'ada@example.com',
   orderId: '550e8400-e29b-41d4-a716-446655440000',
 };
 
@@ -35,33 +36,36 @@ describe('persistPaystackDvaAssignment', () => {
     vi.clearAllMocks();
   });
 
-  it('persists the Paystack account with a 90-minute assignment window', async () => {
+  it('reserves the account atomically with a 90-minute assignment window', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
-    const { client, from, upsert } = createSupabase();
+    const { client, rpc } = createSupabase();
 
     const result = await persistPaystackDvaAssignment(client, assignment);
 
     expect(result).toBeNull();
-    expect(from).toHaveBeenCalledWith('order_payment_accounts');
-    expect(upsert).toHaveBeenCalledWith(
-      {
-        account_name: 'Baci/Ada',
-        account_number: '0123456789',
-        assigned_at: '2026-08-25T12:00:00.000Z',
-        bank_name: 'Wema Bank',
-        expires_at: '2026-08-25T13:30:00.000Z',
-        order_id: assignment.orderId,
-        payable_amount: 5000,
-        provider: 'paystack',
-      },
-      { onConflict: 'order_id,provider' }
-    );
+    expect(rpc).toHaveBeenCalledWith('reserve_paystack_order_payment_account', {
+      p_account_name: 'Baci/Ada',
+      p_account_number: '0123456789',
+      p_assigned_at: '2026-08-25T12:00:00.000Z',
+      p_bank_name: 'Wema Bank',
+      p_expires_at: '2026-08-25T13:30:00.000Z',
+      p_expected_customer_email: 'ada@example.com',
+      p_order_id: assignment.orderId,
+    });
   });
 
-  it('returns a retryable error response when persistence fails', async () => {
+  it('accepts an existing active assignment without replacing its lower bound', async () => {
+    const { client } = createSupabase('existing');
+
+    await expect(
+      persistPaystackDvaAssignment(client, assignment)
+    ).resolves.toBeNull();
+  });
+
+  it('returns a retryable error response when reservation fails', async () => {
     const databaseError = { message: 'write failed' };
-    const { client } = createSupabase(databaseError);
+    const { client } = createSupabase(null, databaseError);
 
     const result = await persistPaystackDvaAssignment(client, assignment);
 
@@ -75,6 +79,18 @@ describe('persistPaystackDvaAssignment', () => {
       error: databaseError,
       message: 'Failed to persist Paystack DVA assignment',
       orderId: assignment.orderId,
+      reservationStatus: null,
+    });
+  });
+
+  it('fails closed when the locked order became ineligible', async () => {
+    const { client } = createSupabase('ineligible');
+
+    const result = await persistPaystackDvaAssignment(client, assignment);
+
+    expect(result?.status).toBe(503);
+    expect(await result?.json()).toMatchObject({
+      code: 'DVA_PERSISTENCE_FAILED',
     });
   });
 });

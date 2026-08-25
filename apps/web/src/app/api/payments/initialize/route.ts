@@ -1429,8 +1429,8 @@ export async function POST(request: NextRequest) {
               {
                 accountName: dvaResult.account_name,
                 accountNumber: dvaResult.account_number,
-                amount: paymentData.amount,
                 bankName: dvaResult.bank_name,
+                customerEmail: paymentData.customer_email,
                 orderId: paymentData.order_id,
               }
             );

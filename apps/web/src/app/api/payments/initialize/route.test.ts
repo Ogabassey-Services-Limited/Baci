@@ -119,6 +119,7 @@ const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 let rpcResult: { data: unknown; error: unknown };
 let rpcTransactionResult: { data: unknown; error: unknown };
+let rpcDvaReservationResult: { data: unknown; error: unknown };
 const rpcCalls: Array<{ args?: unknown; name: string }> = [];
 
 function createMockSupabase() {
@@ -129,6 +130,8 @@ function createMockSupabase() {
         return Promise.resolve(rpcResult);
       if (name === 'create_payment_transaction')
         return Promise.resolve(rpcTransactionResult);
+      if (name === 'reserve_paystack_order_payment_account')
+        return Promise.resolve(rpcDvaReservationResult);
       return Promise.resolve({ data: null, error: null });
     }),
   };
@@ -138,15 +141,6 @@ let merchantResult: { data: unknown; error: unknown };
 let featureSettingsResult: { data: unknown; error: unknown };
 let orderPaymentResult: { data: unknown; error: unknown };
 let savingsRedemptionsResult: { data: unknown; error: unknown };
-let dvaUpsertResult: { data: unknown; error: unknown };
-
-// B1 (Δ-10): the route persists the DVA assignment via upsert.
-// Capture every upsert payload + onConflict so tests can assert the
-// contract; reset via setupDefaults() before each test.
-const dvaUpsertCalls: Array<{
-  payload: Record<string, unknown>;
-  options: Record<string, unknown> | undefined;
-}> = [];
 
 function createMockAdminClient() {
   return {
@@ -187,19 +181,6 @@ function createMockAdminClient() {
               eq: () => Promise.resolve(savingsRedemptionsResult),
             }),
           }),
-        };
-      }
-      // B1 (Δ-10): DVA initialize upserts the assignment so the webhook
-      // can match it later. Capture the call for contract assertions.
-      if (table === 'order_payment_accounts') {
-        return {
-          upsert: (
-            payload: Record<string, unknown>,
-            options?: Record<string, unknown>
-          ) => {
-            dvaUpsertCalls.push({ payload, options });
-            return Promise.resolve(dvaUpsertResult);
-          },
         };
       }
       return {
@@ -270,6 +251,7 @@ function setupDefaults() {
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
+  rpcDvaReservationResult = { data: 'inserted', error: null };
   merchantResult = {
     data: {
       id: MERCHANT_ID,
@@ -282,8 +264,6 @@ function setupDefaults() {
   featureSettingsResult = { data: null, error: null };
   orderPaymentResult = { data: { wallet_amount_used: 0 }, error: null };
   savingsRedemptionsResult = { data: [], error: null };
-  dvaUpsertResult = { data: null, error: null };
-  dvaUpsertCalls.length = 0;
   rpcCalls.length = 0;
 }
 
@@ -955,7 +935,7 @@ describe('POST /api/payments/initialize', () => {
       expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
     });
 
-    it('persists the DVA assignment with the expected upsert payload (B1 Δ-10)', async () => {
+    it('reserves the DVA assignment atomically with the expected payload', async () => {
       enableDvaForTest();
 
       const res = await POST(
@@ -963,34 +943,27 @@ describe('POST /api/payments/initialize', () => {
       );
 
       expect(res.status).toBe(200);
-      expect(dvaUpsertCalls).toHaveLength(1);
-      // Payload contract — these columns are read by
-      // confirmPaystackDvaByOrderAccount + paystackDvaMultiKeyMatch.
-      // created_at is DB-defaulted to now(), not in the upsert body.
-      const { payload, options } = dvaUpsertCalls[0];
-      expect(payload).toMatchObject({
-        order_id: ORDER_ID,
-        account_number: '1234567890',
-        bank_name: 'Wema Bank',
-        account_name: 'Test Store / John Doe',
-        provider: 'paystack',
-        payable_amount: 5000,
+      const reservationCall = rpcCalls.find(
+        ({ name }) => name === 'reserve_paystack_order_payment_account'
+      );
+      expect(reservationCall?.args).toMatchObject({
+        p_order_id: ORDER_ID,
+        p_account_number: '1234567890',
+        p_bank_name: 'Wema Bank',
+        p_account_name: 'Test Store / John Doe',
+        p_expected_customer_email: 'customer@example.com',
       });
-      // assigned_at is refreshed on retries, and expires_at must be the
-      // current assignment timestamp + 90min.
-      expect(typeof payload.assigned_at).toBe('string');
-      expect(typeof payload.expires_at).toBe('string');
-      const assignedAtMs = Date.parse(payload.assigned_at as string);
-      const expiresAtMs = Date.parse(payload.expires_at as string);
+      const reservationArgs = reservationCall?.args as Record<string, unknown>;
+      expect(typeof reservationArgs.p_assigned_at).toBe('string');
+      expect(typeof reservationArgs.p_expires_at).toBe('string');
+      const assignedAtMs = Date.parse(reservationArgs.p_assigned_at as string);
+      const expiresAtMs = Date.parse(reservationArgs.p_expires_at as string);
       expect(Number.isFinite(assignedAtMs)).toBe(true);
       expect(Number.isFinite(expiresAtMs)).toBe(true);
       expect(expiresAtMs - assignedAtMs).toBe(90 * 60 * 1000);
-      // Conflict resolution must use the unique constraint
-      // unique_order_account = (order_id, provider).
-      expect(options).toEqual({ onConflict: 'order_id,provider' });
     });
 
-    it('persists the residual DVA payable amount after wallet and savings credits', async () => {
+    it('does not pass a caller-derived payable amount to the atomic reservation', async () => {
       enableDvaForTest();
       orderPaymentResult = {
         data: { wallet_amount_used: 1500 },
@@ -1006,19 +979,19 @@ describe('POST /api/payments/initialize', () => {
       );
 
       expect(res.status).toBe(200);
-      expect(dvaUpsertCalls).toHaveLength(1);
-      expect(dvaUpsertCalls[0].payload).toMatchObject({
-        order_id: ORDER_ID,
-        payable_amount: 3000,
-      });
+      const reservationCall = rpcCalls.find(
+        ({ name }) => name === 'reserve_paystack_order_payment_account'
+      );
+      expect(reservationCall).toBeDefined();
+      expect(reservationCall?.args).not.toHaveProperty('p_payable_amount');
     });
 
     it('does not advertise a DVA when its order alias cannot be persisted', async () => {
       enableDvaForTest();
 
-      dvaUpsertResult = {
+      rpcDvaReservationResult = {
         data: null,
-        error: { message: 'simulated upsert failure' },
+        error: { message: 'simulated reservation failure' },
       };
 
       const res = await POST(
@@ -1037,6 +1010,20 @@ describe('POST /api/payments/initialize', () => {
           orderId: ORDER_ID,
         })
       );
+    });
+
+    it('does not advertise a DVA when the order becomes ineligible during reservation', async () => {
+      enableDvaForTest();
+      rpcDvaReservationResult = { data: 'ineligible', error: null };
+
+      const res = await POST(
+        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(503);
+      expect(json).toMatchObject({ code: 'DVA_PERSISTENCE_FAILED' });
+      expect(json.dva).toBeUndefined();
     });
   });
 
