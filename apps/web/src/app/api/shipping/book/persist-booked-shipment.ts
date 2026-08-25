@@ -54,6 +54,7 @@ export async function persistBookedShipment(params: {
           receiver,
           items,
           quote: {
+            id: bookingQuote.id,
             price: Number(bookingQuote.price),
             currency: bookingQuote.currency,
             estimated_days: bookingQuote.estimated_days,

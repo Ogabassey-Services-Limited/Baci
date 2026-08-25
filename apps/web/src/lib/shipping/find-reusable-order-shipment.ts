@@ -22,6 +22,7 @@ type ExistingShipmentRecord = {
   id: string;
   provider: ShippingProviderCode;
   provider_shipment_id: string | null;
+  shipping_quote_id: string | null;
   tracking_number: string | null;
   carrier_name: string | null;
   estimated_delivery_days: number | null;
@@ -49,7 +50,7 @@ export async function findReusableOrderShipment(
     await supabase
       .from('shipments')
       .select(
-        'id, provider, provider_shipment_id, tracking_number, carrier_name, estimated_delivery_days, label_url, pickup_scheduled_at, status'
+        'id, provider, provider_shipment_id, shipping_quote_id, tracking_number, carrier_name, estimated_delivery_days, label_url, pickup_scheduled_at, status'
       )
       .eq('order_id', orderId)
       .eq('merchant_id', merchantId)
@@ -90,7 +91,7 @@ export async function findReusableOrderShipment(
     providerShipmentId: typedExistingShipment.provider_shipment_id,
     trackingNumber: typedExistingShipment.tracking_number,
     carrierName: typedExistingShipment.carrier_name,
-    quoteId: '',
+    quoteId: typedExistingShipment.shipping_quote_id || '',
     estimatedDays: typedExistingShipment.estimated_delivery_days,
     labelUrl: typedExistingShipment.label_url || undefined,
     pickupScheduledAt: typedExistingShipment.pickup_scheduled_at

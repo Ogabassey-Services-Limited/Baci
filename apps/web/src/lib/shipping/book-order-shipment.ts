@@ -78,7 +78,7 @@ export async function bookOrderShipment(
   if (existingShipment) {
     return {
       ...existingShipment,
-      quoteId: typedOrder.selected_quote_id || existingShipment.quoteId,
+      quoteId: existingShipment.quoteId || typedOrder.selected_quote_id || '',
     };
   }
 
@@ -237,6 +237,7 @@ export async function bookOrderShipment(
       merchant_id: merchantId,
       provider: result.provider,
       provider_shipment_id: result.providerShipmentId,
+      shipping_quote_id: resolvedQuote.id,
       tracking_number: result.trackingNumber,
       carrier_name: result.carrierName,
       status: result.status,
