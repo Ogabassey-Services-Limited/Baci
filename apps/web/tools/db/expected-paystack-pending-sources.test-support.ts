@@ -149,4 +149,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260825203000_harden_checkout_dva_reservation.sql',
     sha256: 'e9a17d2ff5c20bb4657bfb1b58930e887b5e739cc7e14d600a00c522b5cfddc7',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825204500_allow_service_role_dva_balance_refresh.sql',
+    sha256: '50780e1f91b06ec42d4cbb0c38fae466fbd2ff759c4ecde3ae19429354362154',
+  },
 ];

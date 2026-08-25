@@ -100,6 +100,13 @@ const hardenedCheckoutReservationMigration = readFileSync(
   ),
   'utf8'
 );
+const serviceRoleRefreshMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825204500_allow_service_role_dva_balance_refresh.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -293,6 +300,18 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(hardenedCheckoutReservationMigration).toContain(
       ') TO service_role;'
+    );
+  });
+
+  it('allows the authorized service-role checkout path to refresh a reused alias', () => {
+    expect(serviceRoleRefreshMigration).toContain(
+      "auth.uid() IS NULL AND auth.role() <> 'service_role'"
+    );
+    expect(serviceRoleRefreshMigration).toContain(
+      "auth.role() <> 'service_role'"
+    );
+    expect(serviceRoleRefreshMigration).toContain(
+      'TO authenticated, service_role;'
     );
   });
 });
