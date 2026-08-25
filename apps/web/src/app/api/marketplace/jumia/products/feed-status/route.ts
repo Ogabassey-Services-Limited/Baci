@@ -6,7 +6,6 @@
  * item is accepted and Jumia assigns a product ID.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -33,64 +32,10 @@ import {
 } from '@/lib/jumia/jumia-feed-status-normalization';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
-
-const QuerySchema = z.object({ integrationId: z.uuid() });
+import { jumiaFeedStatusQuerySchema } from '@/schemas/jumia-feed-status';
+import { jumiaFeedReconciliation } from './jumia-feed-reconciliation';
 
 type PendingMapping = PendingFeedMapping;
-
-function findMappingForFeedItem(
-  mappingsForFeed: PendingMapping[],
-  sellerSku: string,
-  feedItemCount: number
-): PendingMapping | undefined {
-  const exactMatch = mappingsForFeed.find(
-    (mapping) => mapping.jumia_seller_sku === sellerSku
-  );
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  if (
-    feedItemCount === 1 &&
-    mappingsForFeed.length === 1 &&
-    !mappingsForFeed[0]?.jumia_seller_sku
-  ) {
-    return mappingsForFeed[0];
-  }
-
-  return undefined;
-}
-
-async function markMappingsAsFeedError(
-  supabase: SupabaseClient,
-  merchantId: string,
-  mappings: PendingMapping[],
-  message: string
-): Promise<number> {
-  let marked = 0;
-  for (const mapping of mappings) {
-    const { error: updateError } = await supabase
-      .from('jumia_product_mappings')
-      .update({
-        sync_status: 'error',
-        sync_error: message,
-        last_synced_at: new Date().toISOString(),
-      })
-      .eq('id', mapping.id)
-      .eq('merchant_id', merchantId);
-    if (!updateError) {
-      marked++;
-      continue;
-    }
-    logger.error({
-      message: 'Failed to mark rejected Jumia feed mapping',
-      error: updateError,
-      mapping_id: mapping.id,
-    });
-    throw new Error('Failed to mark rejected Jumia feed mapping');
-  }
-  return marked;
-}
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -106,7 +51,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const parsedQuery = QuerySchema.safeParse({
+  const parsedQuery = jumiaFeedStatusQuerySchema.safeParse({
     integrationId: new URL(request.url).searchParams.get('integrationId'),
   });
   if (!parsedQuery.success) {
@@ -204,7 +149,7 @@ export async function POST(request: NextRequest) {
         feed.feedItems.length === 0 &&
         (feed.failed > 0 || isFailedFeedStatus(feed.status))
       ) {
-        const marked = await markMappingsAsFeedError(
+        const marked = await jumiaFeedReconciliation.markMappingsAsFeedError(
           auth.supabase,
           merchantId,
           mappingsForFeed,
@@ -215,7 +160,7 @@ export async function POST(request: NextRequest) {
       }
 
       for (const item of feed.feedItems) {
-        const mapping = findMappingForFeedItem(
+        const mapping = jumiaFeedReconciliation.findMappingForFeedItem(
           mappingsForFeed.filter(
             (candidate) => !processedMappingIds.has(candidate.id)
           ),

@@ -60,22 +60,28 @@ export async function submitJumiaExportFeed(args: {
       },
     ]);
   } catch (feedError) {
-    const released = await releaseJumiaExportReservation(supabase, {
-      merchantId,
-      productId,
-      shopId,
-      marketplaceKey,
-      exportVariations,
-    });
-    if (!released) {
-      logger.error({
-        message:
-          'Failed to release Jumia export reservation after createProduct failure',
-        merchant_id: merchantId,
-        product_id: productId,
-      });
-    }
     if (feedError instanceof JumiaApiError) {
+      const definitiveRejection =
+        feedError.status >= 400 &&
+        feedError.status < 500 &&
+        feedError.status !== 408;
+      if (definitiveRejection) {
+        const released = await releaseJumiaExportReservation(supabase, {
+          merchantId,
+          productId,
+          shopId,
+          marketplaceKey,
+          exportVariations,
+        });
+        if (!released) {
+          logger.error({
+            message:
+              'Failed to release Jumia export reservation after definitive rejection',
+            merchant_id: merchantId,
+            product_id: productId,
+          });
+        }
+      }
       logger.error({
         message: 'Jumia createProduct feed failed',
         error: feedError,
@@ -84,7 +90,11 @@ export async function submitJumiaExportFeed(args: {
       return {
         ok: false,
         status: feedError.status,
-        body: { error: `Jumia product export failed: ${feedError.message}` },
+        body: {
+          error: definitiveRejection
+            ? `Jumia product export failed: ${feedError.message}`
+            : 'Jumia product submission outcome is unknown. Retry is blocked while Baci reconciles the reserved SKU to avoid a duplicate listing.',
+        },
       };
     }
     throw feedError;
