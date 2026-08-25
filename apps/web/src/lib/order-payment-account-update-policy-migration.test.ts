@@ -241,6 +241,13 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(checkoutReservationMigration).toContain('FOR UPDATE');
     expect(checkoutReservationMigration).toContain("RETURN 'ineligible'");
+    expect(checkoutReservationMigration).toContain(
+      'FROM public.customer_savings_redemptions AS redemptions'
+    );
+    expect(checkoutReservationMigration).toContain(
+      "redemptions.metadata ->> 'reversed_at' IS NULL"
+    );
+    expect(checkoutReservationMigration).toContain(') + v_savings_paid');
     expect(
       checkoutReservationMigration.indexOf("RETURN 'existing'")
     ).toBeLessThan(

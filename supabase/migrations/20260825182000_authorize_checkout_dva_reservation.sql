@@ -27,6 +27,7 @@ DECLARE
   v_cancelled_at timestamptz;
   v_transaction_paid numeric;
   v_wallet_transaction_paid numeric;
+  v_savings_paid numeric;
   v_payable_amount numeric;
 BEGIN
   IF (auth.uid() IS NULL AND auth.role() <> 'service_role') OR p_order_id IS NULL
@@ -72,13 +73,20 @@ BEGIN
     AND transactions.transaction_type = 'payment'
     AND transactions.status IN ('success', 'completed');
 
+  SELECT COALESCE(sum(COALESCE(redemptions.amount, 0)), 0)::numeric
+  INTO v_savings_paid
+  FROM public.customer_savings_redemptions AS redemptions
+  WHERE redemptions.order_id = p_order_id
+    AND redemptions.merchant_id = v_merchant_id
+    AND redemptions.metadata ->> 'reversed_at' IS NULL;
+
   v_payable_amount := greatest(
     v_total - greatest(
       v_amount_paid,
       v_transaction_paid + greatest(
         0,
         v_wallet_amount_used - v_wallet_transaction_paid
-      )
+      ) + v_savings_paid
     ),
     0
   );
