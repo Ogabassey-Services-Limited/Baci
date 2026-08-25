@@ -6,6 +6,7 @@ import type {
   ShippingQuote,
 } from '@/lib/shipping/types';
 import { SHIPPING_PROVIDER_CODES } from '@/lib/shipping/types';
+import { matchesGiglProviderRate } from './matches-gigl-provider-rate';
 
 type OrderShippingAddress = {
   address?: string | null;
@@ -149,6 +150,11 @@ export function selectPreferredQuote(
       (quote) =>
         normalizedProviderRateId &&
         quote.providerRateId === normalizedProviderRateId
+    ) ||
+    quotes.find(
+      (quote) =>
+        normalizedProviderRateId &&
+        matchesGiglProviderRate(normalizedProviderRateId, quote.providerRateId)
     ) ||
     quotes.find(
       (quote) =>

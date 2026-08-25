@@ -47,7 +47,8 @@ const savedQuoteRequest = {
 
 function createSupabase(
   provider: 'GIGL' | 'TOPSHIP' = 'GIGL',
-  legacyInternationalQuote = false
+  legacyInternationalQuote = false,
+  orderAddress = savedQuoteRequest.receiver
 ) {
   const order = {
     id: 'order-1',
@@ -57,13 +58,7 @@ function createSupabase(
     shipping_fee: 2500,
     selected_quote_id: 'quote-1',
     shipping_provider: provider,
-    shipping_address: {
-      address: '123 Queen Street West',
-      city: 'Toronto',
-      state: 'Ontario',
-      country: 'Canada',
-      countryCode: 'CA',
-    },
+    shipping_address: orderAddress,
     order_items: [
       {
         name: 'Phone',
@@ -174,6 +169,20 @@ describe('bugfix: international fulfillment preserves saved sender', () => {
           country: 'Nigeria',
           countryCode: 'NG',
         }),
+        receiver: expect.objectContaining({
+          address: '123 Queen Street West',
+          country: 'Canada',
+          countryCode: 'CA',
+        }),
+        items: [
+          expect.objectContaining({
+            height: 6,
+            hsCode: '851712',
+            length: 10,
+            weight: 1.2,
+            width: 8,
+          }),
+        ],
       })
     );
   });
@@ -198,8 +207,39 @@ describe('bugfix: international fulfillment preserves saved sender', () => {
           country: 'Nigeria',
           countryCode: 'NG',
         }),
+        receiver: expect.objectContaining({
+          address: '123 Queen Street West',
+          country: 'Canada',
+          countryCode: 'CA',
+        }),
+        items: [
+          expect.objectContaining({
+            height: 6,
+            hsCode: '851712',
+            length: 10,
+            weight: 1.2,
+            width: 8,
+          }),
+        ],
       })
     );
+  });
+
+  it('rejects a Topship international quote saved for another destination', async () => {
+    await expect(
+      bookOrderShipment(
+        createSupabase('TOPSHIP', false, {
+          ...savedQuoteRequest.receiver,
+          address: '99 Different Street',
+        }),
+        'merchant-1',
+        'order-1'
+      )
+    ).rejects.toMatchObject({
+      code: 'INTERNATIONAL_QUOTE_ORDER_MISMATCH',
+    });
+
+    expect(shippingService.bookShipment).not.toHaveBeenCalled();
   });
 
   it('honors the GIGL international rate marker when a legacy quote omits shipmentType', async () => {

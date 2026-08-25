@@ -184,12 +184,12 @@ export async function bookOrderShipment(
   const effectiveQuoteRequest = resolvedQuoteRequest ?? storedQuoteRequest;
 
   const orderReceiver = buildReceiver(typedOrder);
-  if (isGiglInternationalQuote && effectiveQuoteRequest) {
+  if (isInternationalQuote && effectiveQuoteRequest) {
     assertInternationalQuoteMatchesOrder(effectiveQuoteRequest, typedOrder);
   }
 
   const receiver =
-    isGiglInternationalQuote && effectiveQuoteRequest
+    isInternationalQuote && effectiveQuoteRequest
       ? {
           ...effectiveQuoteRequest.receiver,
           name: orderReceiver.name,
@@ -209,7 +209,7 @@ export async function bookOrderShipment(
     );
   }
   const items =
-    isGiglInternationalQuote && effectiveQuoteRequest
+    isInternationalQuote && effectiveQuoteRequest
       ? toInternationalShipmentItemsFromOrder(
           orderItems,
           effectiveQuoteRequest.items

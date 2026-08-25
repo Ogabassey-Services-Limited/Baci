@@ -125,6 +125,55 @@ describe('refreshOrderShipmentQuote', () => {
     expect(supabase.from).toHaveBeenCalledWith('shipping_quotes');
   });
 
+  it('preserves the selected pickup centre when refreshing a legacy GIGL rate ID', async () => {
+    const quote = {
+      ...createQuote({ sender: storedSender }),
+      provider_rate_id: 'GIGL_30_1_1_575_0',
+    };
+    vi.mocked(shippingService.getProviderQuotes).mockResolvedValueOnce([
+      {
+        id: 'wrong-centre',
+        provider: 'GIGL',
+        serviceTier: 'GoStandard',
+        carrierName: 'GIG Logistics',
+        displayName: 'Pickup at another centre',
+        price: 2400,
+        currency: 'NGN',
+        estimatedDays: 3,
+        pickupIncluded: true,
+        insuranceIncluded: false,
+        providerRateId: 'GIGL_30_1_1_576_0_4',
+        expiresAt: new Date('2099-01-02T00:00:00.000Z'),
+        rawResponse: {},
+      },
+      {
+        id: 'selected-centre',
+        provider: 'GIGL',
+        serviceTier: 'GoStandard',
+        carrierName: 'GIG Logistics',
+        displayName: 'Pickup at selected centre',
+        price: 2500,
+        currency: 'NGN',
+        estimatedDays: 3,
+        pickupIncluded: true,
+        insuranceIncluded: false,
+        providerRateId: 'GIGL_30_1_1_575_0_4',
+        expiresAt: new Date('2099-01-02T00:00:00.000Z'),
+        rawResponse: {},
+      },
+    ]);
+
+    const result = await refreshOrderShipmentQuote(
+      createSupabase() as never,
+      quote,
+      'GIGL',
+      correctedSender
+    );
+
+    expect(result.id).toBe('selected-centre');
+    expect(result.provider_rate_id).toBe('GIGL_30_1_1_575_0_4');
+  });
+
   it('refreshes an unexpired domestic quote when its saved sender is missing', async () => {
     const storedQuote = createQuote({ sender: correctedSender });
     const { sender: _sender, ...quoteRequestWithoutSender } =
