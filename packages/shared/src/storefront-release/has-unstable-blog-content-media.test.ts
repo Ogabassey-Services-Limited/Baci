@@ -71,4 +71,16 @@ describe('hasUnstableBlogContentMedia', () => {
       )
     ).toBe(true);
   });
+
+  it.each([
+    '&#x3f;',
+    '&#63;',
+    '&quest;',
+  ])('rejects HTML links whose query marker is encoded as %s', (queryMarker) => {
+    expect(
+      hasUnstableBlogContentMedia(
+        `<a href="https://example.test/export${queryMarker}token=secret">Download</a>`
+      )
+    ).toBe(true);
+  });
 });

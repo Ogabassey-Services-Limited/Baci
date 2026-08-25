@@ -3,6 +3,7 @@ import { StorefrontPublicProjectionPayloadSchema } from './public-projection-pay
 
 const validPayload = {
   merchant: {
+    id: '123e4567-e89b-42d3-a456-426614174000',
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',
@@ -119,6 +120,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
         {
           available: true,
           currency: 'NGN',
+          displayQuantityLimit: null,
           id: '123e4567-e89b-42d3-a456-426614174020',
           name: 'Phone',
           priceMinor: 100_000,
@@ -225,6 +227,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       available: true,
       categoryIds: [missingCategoryId],
       currency: 'NGN',
+      displayQuantityLimit: null,
       id: '123e4567-e89b-42d3-a456-426614174052',
       name: 'Phone',
       priceMinor: 100_000,
@@ -272,6 +275,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
           available: true,
           condition: 'used',
           currency: 'NGN',
+          displayQuantityLimit: 4,
           id: '123e4567-e89b-42d3-a456-426614174060',
           name: 'Phone',
           priceMinor: 100_000,

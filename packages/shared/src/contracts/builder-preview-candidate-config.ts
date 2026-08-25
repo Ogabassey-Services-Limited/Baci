@@ -80,7 +80,7 @@ function hasValidPuckCollections(value: unknown): boolean {
     if (!isRecord(value.zones)) return false;
     for (const collection of Object.values(value.zones)) {
       if (!Array.isArray(collection)) return false;
-      components.push(...collection);
+      for (const component of collection) components.push(component);
     }
   }
   const ids = new Map<string, string>();

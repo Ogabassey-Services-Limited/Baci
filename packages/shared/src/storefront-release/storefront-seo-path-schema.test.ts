@@ -18,6 +18,11 @@ describe('StorefrontSeoPathSchema', () => {
       '/products/../admin',
       '/products/%2e%2e/admin',
       '/products/%2fadmin',
+      '/products/phone case',
+      '/products/phone\ncase',
+      '/products/%20case',
+      '/products/%0acase',
+      '/products/%00case',
     ])
       expect(StorefrontSeoPathSchema.safeParse(path).success).toBe(false);
   });

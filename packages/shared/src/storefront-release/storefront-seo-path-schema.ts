@@ -1,13 +1,19 @@
 import { z } from 'zod';
 
 function isNormalizedLocalPathname(value: string): boolean {
+  const hasUnsafePathCharacter = (candidate: string) =>
+    Array.from(candidate).some((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return codePoint <= 32 || codePoint === 127;
+    });
   if (
     !value.startsWith('/') ||
     value.startsWith('//') ||
     value.includes('?') ||
     value.includes('#') ||
     value.includes('\\') ||
-    (value.length > 1 && (value.endsWith('/') || value.includes('//')))
+    (value.length > 1 && (value.endsWith('/') || value.includes('//'))) ||
+    hasUnsafePathCharacter(value)
   )
     return false;
   try {
@@ -20,7 +26,8 @@ function isNormalizedLocalPathname(value: string): boolean {
           decoded !== '.' &&
           decoded !== '..' &&
           !decoded.includes('/') &&
-          !decoded.includes('\\')
+          !decoded.includes('\\') &&
+          !hasUnsafePathCharacter(decoded)
         );
       });
   } catch {

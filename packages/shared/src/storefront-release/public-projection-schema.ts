@@ -180,6 +180,12 @@ export const StorefrontPublicProjectionSchema =
         payload: StorefrontPublicProjectionPayloadSchema,
       })
       .superRefine((projection, context) => {
+        if (projection.payload.merchant.id !== projection.merchantId)
+          context.addIssue({
+            code: 'custom',
+            message: 'Payload merchant identity must match the envelope',
+            path: ['payload', 'merchant', 'id'],
+          });
         const serializedBytes = new TextEncoder().encode(
           JSON.stringify(projection)
         ).byteLength;

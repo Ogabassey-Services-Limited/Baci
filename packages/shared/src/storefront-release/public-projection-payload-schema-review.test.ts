@@ -3,6 +3,7 @@ import { StorefrontPublicProjectionPayloadSchema } from './public-projection-pay
 
 const validPayload = {
   merchant: {
+    id: '123e4567-e89b-42d3-a456-426614174000',
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',
@@ -14,6 +15,7 @@ const validPayload = {
 const product = {
   available: true,
   currency: 'NGN',
+  displayQuantityLimit: null,
   id: '123e4567-e89b-42d3-a456-426614174100',
   name: 'Phone',
   priceMinor: 100_000,
@@ -31,6 +33,18 @@ const product = {
 } as const;
 
 describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
+  it('rejects private-network merchant contact URLs', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        merchant: {
+          ...validPayload.merchant,
+          socialLinks: { instagram: 'https://127.0.0.1/internal' },
+        },
+      }).success
+    ).toBe(false);
+  });
+
   it.each([
     'checkout',
     'products',
@@ -71,6 +85,24 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
         contentPages: [{ ...contentPage, status: 'published' }],
       }).success
     ).toBe(true);
+  });
+
+  it('rejects content-page slugs that are not published static routes', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        contentPages: [
+          {
+            body: 'Catalog impersonation',
+            format: 'plain_text',
+            id: '123e4567-e89b-42d3-a456-426614174121',
+            slug: 'products',
+            status: 'published',
+            title: 'Products',
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it.each([
@@ -159,6 +191,33 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
         categories: [{ ...category, status: 'active' }],
       }).success
     ).toBe(true);
+  });
+
+  it('rejects cyclic category parent relationships', () => {
+    const firstId = '123e4567-e89b-42d3-a456-426614174141';
+    const secondId = '123e4567-e89b-42d3-a456-426614174142';
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: firstId,
+            name: 'First',
+            parentId: secondId,
+            slug: 'first',
+            status: 'active',
+          },
+          {
+            id: secondId,
+            name: 'Second',
+            parentId: firstId,
+            slug: 'second',
+            status: 'active',
+          },
+        ],
+      }).success
+    ).toBe(false);
   });
 
   it('rejects duplicate blog post IDs and route slugs', () => {

@@ -99,6 +99,7 @@ export const StorefrontPublicProductSchema = z
     priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     compareAtPriceMinor: OptionalCompareAtPriceSchema,
     available: z.boolean(),
+    displayQuantityLimit: z.number().int().nonnegative().max(100).nullable(),
     status: z.literal('active'),
     condition: ProductConditionSchema.nullable().optional(),
     rating: z.number().min(0).max(5).nullable().optional(),
@@ -133,6 +134,12 @@ export const StorefrontPublicProductSchema = z
         code: 'custom',
         message: 'Condition offers require hasConditionOffers to be true',
         path: ['hasConditionOffers'],
+      });
+    if (offers.length > 0 && (product.variants?.length ?? 0) > 0)
+      context.addIssue({
+        code: 'custom',
+        message: 'Condition offers and SKU variants are mutually exclusive',
+        path: ['conditionOffers'],
       });
     const offerConditions = new Set<string>();
     for (const [offerIndex, offer] of offers.entries()) {

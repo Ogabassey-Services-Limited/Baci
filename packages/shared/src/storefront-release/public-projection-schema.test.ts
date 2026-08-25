@@ -8,6 +8,7 @@ const validProjection = {
   componentContractVersion: 'builder-components-v1',
   payload: {
     merchant: {
+      id: '123e4567-e89b-42d3-a456-426614174000',
       name: 'Pilot Store',
       publishedStatus: 'published',
       slug: 'pilot-store',
@@ -29,6 +30,21 @@ describe('StorefrontPublicProjectionSchema', () => {
       StorefrontPublicProjectionSchema.safeParse({
         ...validProjection,
         serviceRoleKey: 'must-never-cross-the-release-boundary',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects a payload merchant identity that differs from the envelope', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        payload: {
+          ...validProjection.payload,
+          merchant: {
+            ...validProjection.payload.merchant,
+            id: '123e4567-e89b-42d3-a456-426614174999',
+          },
+        },
       }).success
     ).toBe(false);
   });

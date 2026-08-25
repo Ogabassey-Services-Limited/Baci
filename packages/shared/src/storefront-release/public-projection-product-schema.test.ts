@@ -5,6 +5,7 @@ const product = {
   available: true,
   brand: 'Baci',
   currency: 'NGN',
+  displayQuantityLimit: null,
   id: '123e4567-e89b-42d3-a456-426614174001',
   name: 'Phone',
   priceMinor: 100_000,
@@ -13,7 +14,7 @@ const product = {
 } as const;
 
 describe('StorefrontPublicProductSchema', () => {
-  it('preserves variant comparison prices and active condition offers', () => {
+  it('preserves active condition offers', () => {
     const value = {
       ...product,
       conditionOffers: [
@@ -28,6 +29,14 @@ describe('StorefrontPublicProductSchema', () => {
         },
       ],
       hasConditionOffers: true,
+    } as const;
+
+    expect(StorefrontPublicProductSchema.parse(value)).toEqual(value);
+  });
+
+  it('preserves variant comparison prices', () => {
+    const value = {
+      ...product,
       variants: [
         {
           available: true,
@@ -206,6 +215,49 @@ describe('StorefrontPublicProductSchema', () => {
             available: true,
             displayQuantityLimit: 101,
             id: '123e4567-e89b-42d3-a456-426614174014',
+            name: 'Black',
+            priceMinor: 100_000,
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('preserves a bounded simple-product display cap', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        displayQuantityLimit: 100,
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        displayQuantityLimit: 101,
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects products that mix condition offers with SKU variants', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        conditionOffers: [
+          {
+            available: true,
+            condition: 'used',
+            displayQuantityLimit: 1,
+            id: '123e4567-e89b-42d3-a456-426614174015',
+            priceMinor: 90_000,
+            status: 'active',
+          },
+        ],
+        hasConditionOffers: true,
+        variants: [
+          {
+            available: true,
+            displayQuantityLimit: 1,
+            id: '123e4567-e89b-42d3-a456-426614174016',
             name: 'Black',
             priceMinor: 100_000,
           },

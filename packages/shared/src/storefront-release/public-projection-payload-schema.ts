@@ -1,12 +1,28 @@
 import { z } from 'zod';
-import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
+import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-slugs';
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
 import { StorefrontPublishedConfigSchema } from './storefront-published-config-schema';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
+import { validatePublicProjectionCategoryHierarchy } from './validate-public-projection-category-hierarchy';
 import { validatePublicProjectionIdentities } from './validate-public-projection-identities';
+
+const PUBLISHED_CONTENT_PAGE_SLUGS = new Set([
+  'about',
+  'contact',
+  'faq',
+  'privacy',
+  'privacy-policy',
+  'returns',
+  'rewards',
+  'shipping',
+  'terms',
+  'terms-and-conditions',
+  'terms-of-service',
+  'warranty',
+]);
 
 const PublicMediaUrlSchema = z
   .string()
@@ -25,11 +41,7 @@ const ThemeColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const PublicContactUrlSchema = z
   .string()
   .max(2_048)
-  .refine(
-    builderDesignCapabilityAdapter.isSafeUrl,
-    'Expected a safe public contact URL'
-  )
-  .refine((value) => !value.includes('?'), 'Expected a query-free contact URL');
+  .refine(isSafePublicReleaseUrl, 'Expected a query-free public contact URL');
 const BusinessHoursSchema = z.strictObject({
   monday: z.string().trim().min(1).max(100).optional(),
   tuesday: z.string().trim().min(1).max(100).optional(),
@@ -50,6 +62,7 @@ const SocialLinksSchema = z.strictObject({
   youtube: PublicContactUrlSchema.optional(),
 });
 const MerchantSchema = z.strictObject({
+  id: z.uuid(),
   name: z.string().trim().min(1).max(160),
   slug: SlugSchema,
   hostname: z.hostname().optional(),
@@ -102,7 +115,9 @@ const MediaSchema = z.strictObject({
 
 const ContentPageSchema = z.strictObject({
   id: z.uuid(),
-  slug: SlugSchema,
+  slug: SlugSchema.refine((slug) => PUBLISHED_CONTENT_PAGE_SLUGS.has(slug), {
+    message: 'Content page slug is not a published content route',
+  }),
   title: z.string().trim().min(1).max(240),
   body: z.string().max(500_000),
   format: z.enum(['plain_text', 'sanitized_markdown']),
@@ -176,6 +191,11 @@ export const StorefrontPublicProjectionPayloadSchema = z
           message: 'Category reference does not resolve to payload.categories',
           path: ['categories', categoryIndex, 'parentId'],
         });
+
+    validatePublicProjectionCategoryHierarchy(
+      payload.categories ?? [],
+      context
+    );
 
     const mediaIds = new Set<string>();
     for (const [index, media] of (payload.media ?? []).entries()) {
