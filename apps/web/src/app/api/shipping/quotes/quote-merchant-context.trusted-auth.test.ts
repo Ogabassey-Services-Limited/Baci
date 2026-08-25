@@ -92,6 +92,42 @@ describe('resolveQuoteMerchantContext trusted auth', () => {
     });
   });
 
+  it('replaces a caller-supplied domestic sender with the trusted storefront origin', async () => {
+    const supabase = createSupabase();
+
+    const result = await resolveQuoteMerchantContext({
+      data: {
+        shipmentType: 'domestic',
+        sender: {
+          name: 'Caller Origin',
+          phone: '08000000000',
+          address: '1 Cheaper Road',
+          city: 'Abuja',
+          state: 'FCT',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+      },
+      request: createRequest({
+        host: 'ogabassey.usebaci.com',
+        'x-merchant-slug': 'ogabassey',
+      }),
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      merchantId: 'merchant-1',
+      merchantCountry: 'NG',
+      merchantPayoutCurrency: 'NGN',
+      senderInfo: expect.objectContaining({
+        name: 'Merchant Store',
+        phone: '08012345678',
+        city: 'Ikeja',
+      }),
+    });
+  });
+
   it('uses trusted storefront context when an authenticated user lacks fulfillment permission', async () => {
     const supabase = createSupabase();
     const merchantLookupClient = createMerchantLookupClientMock();
