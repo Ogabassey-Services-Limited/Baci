@@ -36,7 +36,7 @@ describe('loadJumiaAuthorizationGrant', () => {
     );
   });
 
-  it('returns 404 when the worker RPC fails', async () => {
+  it('returns a retryable service error when the worker RPC fails', async () => {
     const supabase = {
       rpc: vi.fn().mockResolvedValue({
         data: null,
@@ -46,9 +46,20 @@ describe('loadJumiaAuthorizationGrant', () => {
 
     await expect(
       loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
-    ).rejects.toThrow(
-      /Jumia API Error \(404\): Jumia authorization grant not found/
-    );
+    ).rejects.toMatchObject({ status: 503 });
+  });
+
+  it('preserves permission failures from the worker RPC', async () => {
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: null,
+        error: { code: '42501', message: 'Not authorized' },
+      }),
+    };
+
+    await expect(
+      loadJumiaAuthorizationGrant(supabase as never, 'auth-1', 'merchant-1')
+    ).rejects.toMatchObject({ status: 403 });
   });
 
   it('rejects a grant row without refresh-token expiry metadata', async () => {

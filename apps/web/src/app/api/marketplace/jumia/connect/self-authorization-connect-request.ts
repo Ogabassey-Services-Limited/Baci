@@ -10,6 +10,7 @@ import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
+  loadJumiaSelfAuthorizationDiscovery,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
@@ -68,7 +69,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   const { body, encryptionKey, merchantId, supabase } = args;
 
   try {
-    if ('operation' in body && body.operation === 'discover') {
+    if ('operation' in body) {
       let existingShopIds: Set<string>;
       try {
         existingShopIds = await loadExistingJumiaShopIds(supabase, merchantId);
@@ -84,12 +85,40 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         .update(body.clientId)
         .digest('hex');
       let discoveryId: string | undefined;
-      const validated = await validateJumiaSelfAuthorization(
-        {
-          clientId: body.clientId,
-          refreshToken: body.refreshToken,
-        },
-        {
+      let submittedCredentials = body.refreshToken
+        ? { clientId: body.clientId, refreshToken: body.refreshToken }
+        : undefined;
+      if (body.discoveryId) {
+        const credentialCiphertext = await loadJumiaSelfAuthorizationDiscovery(
+          supabase,
+          {
+            discoveryId: body.discoveryId,
+            merchantId,
+            clientKeyHash,
+          }
+        );
+        if (!credentialCiphertext) {
+          return NextResponse.json(
+            { error: 'Jumia shop discovery expired or is no longer valid' },
+            { status: 409 }
+          );
+        }
+        submittedCredentials = jumiaAuthorizationCrypto.decrypt(
+          credentialCiphertext,
+          encryptionKey,
+          jumiaAuthorizationCrypto.buildAuthorizationContext(
+            merchantId,
+            clientKeyHash
+          )
+        );
+        discoveryId = body.discoveryId;
+      }
+      if (!submittedCredentials) {
+        return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
+      }
+      let validated: Awaited<ReturnType<typeof validateJumiaSelfAuthorization>>;
+      try {
+        validated = await validateJumiaSelfAuthorization(submittedCredentials, {
           onCredentialsRotated: async ({ credentials }) => {
             discoveryId = await createJumiaSelfAuthorizationDiscovery(
               supabase,
@@ -107,8 +136,23 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
               }
             );
           },
+        });
+      } catch (error) {
+        if (discoveryId) {
+          return NextResponse.json(
+            {
+              error:
+                error instanceof Error
+                  ? error.message
+                  : 'Jumia shop discovery failed',
+              discoveryId,
+              retryable: true,
+            },
+            { status: 502 }
+          );
         }
-      );
+        throw error;
+      }
       if (!discoveryId) {
         discoveryId = await createJumiaSelfAuthorizationDiscovery(supabase, {
           merchantId,
@@ -125,8 +169,8 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       }
       return jumiaSelfAuthorizationHandler.discover({
         credentials: {
-          clientId: body.clientId,
-          refreshToken: body.refreshToken,
+          clientId: submittedCredentials.clientId,
+          refreshToken: submittedCredentials.refreshToken,
         },
         discoveryId,
         existingShopIds,

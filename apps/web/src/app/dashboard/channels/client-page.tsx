@@ -40,6 +40,7 @@ import {
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { ConnectJumiaDialog } from './connect-jumia-dialog';
+import { JumiaMarketplaceIdentity } from './jumia-marketplace-identity';
 import { useJumiaChannelActions } from './use-jumia-channel-actions';
 import {
   disconnectIntegration,
@@ -258,7 +259,9 @@ export default function ChannelsClientPage() {
                     {integration.shop_name || 'Unnamed Shop'}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {integration.country_code || 'NG'} &middot; Last sync:{' '}
+                    {integration.country_code || 'NG'}
+                    <JumiaMarketplaceIdentity integration={integration} />{' '}
+                    &middot; Last sync:{' '}
                     {formatLastSync(integration.last_sync_at)}
                   </p>
                   {integration.sync_error && (

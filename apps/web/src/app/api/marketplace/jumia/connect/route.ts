@@ -35,6 +35,7 @@ import {
   jumiaSelfAuthorizationSelectionSchema,
 } from '@/schemas/jumia/self-authorization';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
+import { getJumiaConnections } from './get-jumia-connections';
 import { handleJumiaMobileTicket } from './mobile-ticket';
 import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
 import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
@@ -338,33 +339,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Default: Check connection status
-    const { data: integrations, error: integrationsError } = await auth.supabase
-      .from('marketplace_integrations')
-      .select(
-        'id, shop_id, shop_name, country_code, is_active, last_sync_at, sync_error, connection_method, token_expires_at'
-      )
-      .eq('merchant_id', merchantId)
-      .eq('platform', 'jumia')
-      .eq('is_active', true);
-
-    if (integrationsError) {
-      console.error(
-        '[Jumia Connect] Failed to fetch connection status:',
-        integrationsError
-      );
-      return NextResponse.json(
-        {
-          error:
-            integrationsError.message || 'Failed to fetch connection status',
-        },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      connected: integrations && integrations.length > 0,
-      integrations: integrations || [],
-    });
+    return getJumiaConnections(auth.supabase, merchantId);
   } catch (error) {
     if (
       error instanceof Error &&

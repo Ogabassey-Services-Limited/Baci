@@ -5,6 +5,7 @@ import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
+  loadJumiaSelfAuthorizationDiscovery,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
@@ -21,6 +22,7 @@ vi.mock('@/lib/jumia/self-authorization', () => ({
 
 vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
   createJumiaSelfAuthorizationDiscovery: vi.fn(),
+  loadJumiaSelfAuthorizationDiscovery: vi.fn(),
   claimJumiaSelfAuthorizationDiscovery: vi.fn(),
   consumeJumiaSelfAuthorizationDiscovery: vi.fn(),
   releaseJumiaSelfAuthorizationDiscovery: vi.fn(),
@@ -146,6 +148,79 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       })
     );
     expect(mockCreateAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('returns the recovery discovery ID when shop discovery fails after token rotation', async () => {
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementation(
+      async (_credentials, options) => {
+        await options?.onCredentialsRotated?.({
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+        });
+        throw new Error('Jumia shop discovery failed');
+      }
+    );
+    vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
+      '00000000-0000-4000-8000-000000000099'
+    );
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        operation: 'discover',
+        clientId: 'client-1',
+        refreshToken: 'refresh-1',
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: buildSupabase(),
+    });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Jumia shop discovery failed',
+      discoveryId: '00000000-0000-4000-8000-000000000099',
+      retryable: true,
+    });
+  });
+
+  it('resumes discovery with the credentials behind a recovery ID', async () => {
+    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
+      'ciphertext'
+    );
+    vi.mocked(validateJumiaSelfAuthorization).mockResolvedValue({
+      credentials: {
+        clientId: 'client-1',
+        refreshToken: 'rotated-refresh',
+        accessToken: 'access-1',
+      },
+      accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+      refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+      shops: [],
+    });
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        operation: 'discover',
+        clientId: 'client-1',
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: buildSupabase(),
+    });
+
+    expect(response.ok).toBe(true);
+    expect(validateJumiaSelfAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({ refreshToken: 'refresh-1' }),
+      expect.any(Object)
+    );
   });
 
   it('consumes discovery credentials only after a successful connect', async () => {

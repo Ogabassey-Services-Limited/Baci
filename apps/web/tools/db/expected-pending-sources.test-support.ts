@@ -284,6 +284,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260825000600_harden_jumia_shop_locks_and_orphan_sweep.sql',
+    sha256: '7d8dda99f5415f36db99afc7692edbae2a438eb39223e5cb840ede0eb1bbf50f',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
     sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },

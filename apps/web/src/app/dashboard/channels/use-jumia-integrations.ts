@@ -14,6 +14,7 @@ export interface JumiaIntegration {
   shop_id: string;
   shop_name: string;
   country_code: string;
+  marketplace_key?: string;
   is_active: boolean;
   last_sync_at: string | null;
   sync_error: string | null;
@@ -78,11 +79,13 @@ export function useJumiaIntegrations() {
 
 export async function discoverJumiaShops(
   clientId: string,
-  refreshToken: string
+  refreshToken: string,
+  discoveryId?: string
 ): Promise<{
   ok: boolean;
   shops?: JumiaDiscoveredShop[];
   discoveryId?: string;
+  retryable?: boolean;
   error?: string;
 }> {
   try {
@@ -92,7 +95,8 @@ export async function discoverJumiaShops(
         connectionType: 'self_authorization',
         operation: 'discover',
         clientId: clientId.trim(),
-        refreshToken: refreshToken.trim(),
+        refreshToken: refreshToken.trim() || undefined,
+        discoveryId,
       }),
     });
 
@@ -105,7 +109,24 @@ export async function discoverJumiaShops(
         typeof data.error === 'string'
           ? data.error
           : 'Shop discovery failed';
-      return { ok: false, error: errorBody };
+      const discoveryId =
+        typeof data === 'object' &&
+        data !== null &&
+        'discoveryId' in data &&
+        typeof data.discoveryId === 'string'
+          ? data.discoveryId
+          : undefined;
+      return {
+        ok: false,
+        error: errorBody,
+        ...(discoveryId ? { discoveryId } : {}),
+        ...(typeof data === 'object' &&
+        data !== null &&
+        'retryable' in data &&
+        data.retryable === true
+          ? { retryable: true }
+          : {}),
+      };
     }
 
     const parsed =

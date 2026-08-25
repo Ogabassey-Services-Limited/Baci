@@ -32,12 +32,18 @@ export const jumiaSelfAuthorizationSelectionSchema = z.object({
     ),
 });
 
-export const jumiaSelfAuthorizationDiscoverySchema = z.object({
-  connectionType: z.literal('self_authorization'),
-  operation: z.literal('discover'),
-  clientId: jumiaSelfAuthorizationCredentialsSchema.shape.clientId,
-  refreshToken: jumiaSelfAuthorizationCredentialsSchema.shape.refreshToken,
-});
+export const jumiaSelfAuthorizationDiscoverySchema = z
+  .object({
+    connectionType: z.literal('self_authorization'),
+    operation: z.literal('discover'),
+    clientId: jumiaSelfAuthorizationCredentialsSchema.shape.clientId,
+    refreshToken:
+      jumiaSelfAuthorizationCredentialsSchema.shape.refreshToken.optional(),
+    discoveryId: z.uuid().optional(),
+  })
+  .refine((value) => value.refreshToken || value.discoveryId, {
+    message: 'A refresh token or discovery ID is required',
+  });
 
 export type JumiaSelfAuthorizationCredentials = z.infer<
   typeof jumiaSelfAuthorizationCredentialsSchema

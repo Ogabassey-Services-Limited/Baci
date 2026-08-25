@@ -141,6 +141,26 @@ describe('useJumiaIntegrations', () => {
 });
 
 describe('discoverJumiaShops', () => {
+  it('preserves a retryable recovery handle from a failed discovery', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      json: () =>
+        Promise.resolve({
+          error: 'Jumia shop discovery failed',
+          discoveryId: DISCOVERY_ID,
+          retryable: true,
+        }),
+    } as Response);
+
+    await expect(
+      discoverJumiaShops('client-id', 'refresh-token')
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Jumia shop discovery failed',
+      discoveryId: DISCOVERY_ID,
+      retryable: true,
+    });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubGlobal('fetch', vi.fn());

@@ -25,6 +25,7 @@ describe('persistJumiaOAuthExchangeIntegrations', () => {
       .mockResolvedValueOnce({ error: null });
     const supabase = {
       from: vi.fn(() => ({ upsert })),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
 
     const result = await persistJumiaOAuthExchangeIntegrations({
@@ -42,6 +43,7 @@ describe('persistJumiaOAuthExchangeIntegrations', () => {
       .mockResolvedValue({ error: { message: 'upsert failed' } });
     const supabase = {
       from: vi.fn(() => ({ upsert })),
+      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     };
 
     const result = await persistJumiaOAuthExchangeIntegrations({

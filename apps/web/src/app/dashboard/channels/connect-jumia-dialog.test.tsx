@@ -99,7 +99,8 @@ describe('ConnectJumiaDialog', () => {
     await waitFor(() => {
       expect(mockDiscoverJumiaShops).toHaveBeenCalledWith(
         'client-id',
-        'valid-token'
+        'valid-token',
+        undefined
       );
     });
 

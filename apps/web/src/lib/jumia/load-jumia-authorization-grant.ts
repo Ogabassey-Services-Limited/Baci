@@ -23,7 +23,15 @@ export async function loadJumiaAuthorizationGrant(
   );
 
   if (error) {
-    throw new JumiaApiError(404, 'Jumia authorization grant not found', error);
+    const code = typeof error.code === 'string' ? error.code : '';
+    const status = code === '42501' ? 403 : 503;
+    throw new JumiaApiError(
+      status,
+      status === 403
+        ? 'Jumia authorization grant access denied'
+        : 'Jumia authorization grant is temporarily unavailable',
+      error
+    );
   }
 
   const row = Array.isArray(data) ? data[0] : data;

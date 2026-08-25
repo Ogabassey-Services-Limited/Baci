@@ -203,6 +203,7 @@ describe('ChannelsClientPage', () => {
         shop_id: 'shop-1',
         shop_name: 'Test Shop',
         country_code: 'NG',
+        marketplace_key: 'jumia-ng-main',
         is_active: true,
         last_sync_at: '2026-01-15T10:30:00Z',
         sync_error: null,
@@ -233,6 +234,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       expect(screen.getByText('Test Shop')).toBeInTheDocument();
+      expect(screen.getByText(/jumia-ng-main/)).toBeInTheDocument();
       expect(screen.getByText('Second Shop')).toBeInTheDocument();
     });
 

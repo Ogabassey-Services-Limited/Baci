@@ -58,14 +58,25 @@ export function ConnectJumiaDialog({
   };
 
   const handleDiscover = async () => {
-    if (!clientId.trim() || !refreshToken.trim()) return;
+    if (!clientId.trim() || !(refreshToken.trim() || activeDiscoveryId)) return;
 
     setDiscovering(true);
-    const result = await discoverJumiaShops(clientId, refreshToken);
+    const result = await discoverJumiaShops(
+      clientId,
+      refreshToken,
+      activeDiscoveryId || undefined
+    );
     setDiscovering(false);
 
     if (!result.ok) {
-      clearDiscoveryState();
+      if (result.discoveryId && result.retryable) {
+        setActiveDiscoveryId(result.discoveryId);
+        setDiscoveredShops([]);
+        setSelectedShopIds(new Set());
+        setRefreshToken('');
+      } else {
+        clearDiscoveryState();
+      }
       toast({
         title: 'Discovery failed',
         description: result.error,

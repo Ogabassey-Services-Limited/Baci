@@ -4,6 +4,7 @@ import {
   getActiveSelfAuthorizedJumiaShopIds,
   getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
 } from '@/lib/jumia/jumia-oauth-self-authorization-conflict';
+import { lockJumiaOAuthShops } from '@/lib/jumia/lock-jumia-oauth-shops';
 import { logger } from '@/lib/logger';
 import type { JumiaTokenResponse } from '@/schemas/jumia';
 
@@ -139,6 +140,16 @@ export async function persistJumiaOAuthConnection(args: {
       businessClients: shop.businessClients ?? [],
     },
   }));
+
+  if (
+    !(await lockJumiaOAuthShops(
+      supabase,
+      merchantId,
+      integrationRows.map((row) => row.shop_id)
+    ))
+  ) {
+    return { status: 'database_error' };
+  }
 
   const { error: insertError } = await supabase
     .from('marketplace_integrations')

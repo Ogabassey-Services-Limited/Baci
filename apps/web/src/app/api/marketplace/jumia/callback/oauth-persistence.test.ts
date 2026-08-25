@@ -57,6 +57,7 @@ function makeSupabase(args?: {
   };
   return {
     from: vi.fn(() => table),
+    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
     table,
   };
 }

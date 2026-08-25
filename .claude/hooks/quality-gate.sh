@@ -9,15 +9,8 @@
 
 INPUT=$(cat)
 
-# CRITICAL: never let a gate run silently trigger a dependency install.
-# pnpm 11's verifyDepsBeforeRun fires on `pnpm turbo ...` and can launch a FULL
-# `pnpm install` (~4G). Because this is a Stop hook it runs every turn, and on
-# 2026-07-25 that (together with the per-edit format hook) filled the volume to
-# 100%, emptied node_modules/.bin and left an install hung for 14h — which then
-# broke unrelated commands, including `git commit` via lefthook.
-# The gate should VERIFY the tree, never mutate it; the dep-missing branch below
-# already tells the user to run `pnpm install` deliberately.
-export PNPM_CONFIG_VERIFY_DEPS_BEFORE_RUN=false
+# shellcheck source=quality-gate-environment.sh
+source "$(dirname "$0")/quality-gate-environment.sh"
 
 # CRITICAL: Prevent infinite loops — if Claude is already fixing from a prior block, let it stop.
 # Use `printf '%s\n'` rather than `echo` to feed jq — some echo implementations
