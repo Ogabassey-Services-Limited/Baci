@@ -70,16 +70,16 @@ export async function refreshOrderShipmentQuote(
   senderOverride?: ShippingAddress
 ): Promise<OrderShipmentQuoteRecord> {
   const quoteRequest = parseStoredQuoteRequest(quote.quote_request);
-  const domesticSenderMismatch = Boolean(
+  const domesticSenderNeedsRefresh = Boolean(
     senderOverride &&
       quoteRequest?.shipmentType === 'domestic' &&
-      quoteRequest.sender &&
-      domesticSendersDiffer(quoteRequest.sender, senderOverride)
+      (!quoteRequest.sender ||
+        domesticSendersDiffer(quoteRequest.sender, senderOverride))
   );
   const needsRefresh =
     new Date(quote.expires_at) < new Date() ||
     (provider === 'TOPSHIP' && !quote.provider_metadata) ||
-    domesticSenderMismatch;
+    domesticSenderNeedsRefresh;
 
   if (!needsRefresh) {
     return quote;

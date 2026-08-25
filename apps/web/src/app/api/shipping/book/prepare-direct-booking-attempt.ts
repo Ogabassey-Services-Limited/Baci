@@ -24,6 +24,10 @@ export async function prepareDirectBookingAttempt(
   orderId: string
 ): Promise<DirectBookingAttempt> {
   const claim = await claimOrderShipmentBooking(supabase, merchantId, orderId);
+  if (claim.status !== 'claimed') {
+    return claim;
+  }
+
   const existingShipment = await findReusableOrderShipment(
     supabase,
     merchantId,

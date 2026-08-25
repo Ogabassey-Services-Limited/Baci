@@ -125,6 +125,28 @@ describe('refreshOrderShipmentQuote', () => {
     expect(supabase.from).toHaveBeenCalledWith('shipping_quotes');
   });
 
+  it('refreshes an unexpired domestic quote when its saved sender is missing', async () => {
+    const storedQuote = createQuote({ sender: correctedSender });
+    const { sender: _sender, ...quoteRequestWithoutSender } =
+      storedQuote.quote_request;
+    const quote = {
+      ...storedQuote,
+      quote_request: quoteRequestWithoutSender,
+    };
+
+    await refreshOrderShipmentQuote(
+      createSupabase() as never,
+      quote,
+      'GIGL',
+      correctedSender
+    );
+
+    expect(shippingService.getProviderQuotes).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({ sender: correctedSender })
+    );
+  });
+
   describe('bugfix: upsert failure must not continue booking', () => {
     it('throws QUOTE_REFRESH_PERSIST_FAILED when the refreshed quote cannot be saved', async () => {
       const quote = createQuote({

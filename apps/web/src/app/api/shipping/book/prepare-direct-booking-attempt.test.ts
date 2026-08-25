@@ -58,21 +58,15 @@ describe('prepareDirectBookingAttempt', () => {
     });
   });
 
-  it('recovers a complete shipment instead of allowing a second provider booking', async () => {
+  it("does not recover or clear another request's active booking claim", async () => {
     mockClaim.mockResolvedValue({ status: 'in_progress' });
     mockFindReusable.mockResolvedValue(existingShipment);
 
     await expect(
       prepareDirectBookingAttempt({} as never, 'merchant-1', 'order-1')
-    ).resolves.toMatchObject({
-      status: 'recovered',
-      existingShipment,
-      result: expect.objectContaining({
-        provider: 'GIGL',
-        providerShipmentId: 'waybill-1',
-        trackingNumber: 'waybill-1',
-      }),
-    });
+    ).resolves.toEqual({ status: 'in_progress' });
+
+    expect(mockFindReusable).not.toHaveBeenCalled();
   });
 
   it('keeps an in-progress response when no shipment was persisted', async () => {
@@ -82,5 +76,7 @@ describe('prepareDirectBookingAttempt', () => {
     await expect(
       prepareDirectBookingAttempt({} as never, 'merchant-1', 'order-1')
     ).resolves.toEqual({ status: 'in_progress' });
+
+    expect(mockFindReusable).not.toHaveBeenCalled();
   });
 });
