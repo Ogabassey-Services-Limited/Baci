@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260825213000_allow_paystack_alias_history_rows.sql'
+      'supabase/migrations/20260825220000_restore_cross_order_paystack_alias_guard.sql'
     );
   });
 

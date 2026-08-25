@@ -45,6 +45,18 @@ describe('POST /api/orders/[id]/generate-dva provisioning', () => {
       { p_order_id: ORDER_ID }
     );
     expect(mockGeneratePaymentAccount).toHaveBeenCalled();
+    expect(paymentAccountQuery.order).toHaveBeenNthCalledWith(
+      1,
+      'assigned_at',
+      {
+        ascending: false,
+        nullsFirst: false,
+      }
+    );
+    expect(paymentAccountQuery.order).toHaveBeenNthCalledWith(2, 'created_at', {
+      ascending: false,
+    });
+    expect(paymentAccountQuery.limit).toHaveBeenCalledWith(1);
   });
 
   it('returns 500 when checking for an existing DVA fails', async () => {

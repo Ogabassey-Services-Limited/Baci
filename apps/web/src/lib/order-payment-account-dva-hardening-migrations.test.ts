@@ -56,4 +56,14 @@ describe('order payment account DVA hardening migrations', () => {
     );
     expect(historyRows).toContain('account.order_id = NEW.order_id');
   });
+
+  it('restores cross-order receiver exclusion for raw writers', () => {
+    const crossOrder = migration(
+      '20260825220000_restore_cross_order_paystack_alias_guard.sql'
+    );
+    expect(crossOrder).toContain('account.order_id <> NEW.order_id');
+    expect(crossOrder).toContain(
+      'account.account_number = trim(NEW.account_number)'
+    );
+  });
 });

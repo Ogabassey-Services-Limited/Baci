@@ -70,7 +70,7 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
-  it('uses a lower current order balance after a manual partial payment', () => {
+  it('preserves the assignment-time balance for a delayed historical transfer', () => {
     expect(
       normalizePaystackDvaOrderCandidate({
         ...row,
@@ -82,7 +82,7 @@ describe('paystack DVA order candidate', () => {
         },
       })
     ).toMatchObject({
-      outstanding_amount_kobo: 23_500_000,
+      outstanding_amount_kobo: 35_000_000,
     });
   });
 

@@ -106,6 +106,9 @@ export async function POST(
       )
       .eq('order_id', orderId)
       .eq('provider', 'paystack')
+      .order('assigned_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existingVbaError) {
