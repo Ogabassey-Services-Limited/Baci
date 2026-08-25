@@ -65,6 +65,13 @@ const authorizedReservationEmailMigration = readFileSync(
   ),
   'utf8'
 );
+const adminEditBalanceMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825150000_refresh_dva_balance_after_admin_order_edit.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -182,5 +189,19 @@ describe('order payment account mutation RPC migration', () => {
     expect(permissionOffset).toBeGreaterThan(-1);
     expect(comparisonOffset).toBeGreaterThan(permissionOffset);
     expect(authorizedReservationEmailMigration).toContain("'orders', 'edit'");
+  });
+
+  it('refreshes the authoritative DVA balance after successful admin edits', () => {
+    expect(adminEditBalanceMigration).toContain(
+      'RENAME TO update_admin_order_without_dva_balance_refresh'
+    );
+    expect(adminEditBalanceMigration).toContain(
+      'public.refresh_paystack_order_payable_amount(p_order_id)'
+    );
+    expect(adminEditBalanceMigration.indexOf('v_result :=')).toBeLessThan(
+      adminEditBalanceMigration.indexOf(
+        'public.refresh_paystack_order_payable_amount(p_order_id)'
+      )
+    );
   });
 });

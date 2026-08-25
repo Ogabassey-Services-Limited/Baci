@@ -240,5 +240,12 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     expect(state.insertCalls[0]?.metadata).not.toHaveProperty(
       'order_payment_allocation'
     );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_payment_transaction',
+      expect.objectContaining({
+        p_merchant_amount: 532_950,
+        p_platform_fee: 2050,
+      })
+    );
   });
 });
