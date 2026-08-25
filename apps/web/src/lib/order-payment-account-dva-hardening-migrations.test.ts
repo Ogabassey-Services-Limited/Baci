@@ -43,4 +43,17 @@ describe('order payment account DVA hardening migrations', () => {
       'lower(trim(NEW.customer_email)) IS DISTINCT FROM lower(trim(OLD.customer_email))'
     );
   });
+
+  it('allows history rows while locking raw inserts in reservation order', () => {
+    const historyRows = migration(
+      '20260825213000_allow_paystack_alias_history_rows.sql'
+    );
+    expect(historyRows).toContain(
+      'DROP CONSTRAINT IF EXISTS unique_order_account'
+    );
+    expect(historyRows.indexOf("'baci_order_payment:'")).toBeLessThan(
+      historyRows.indexOf("'paystack_order_account:'")
+    );
+    expect(historyRows).toContain('account.order_id = NEW.order_id');
+  });
 });
