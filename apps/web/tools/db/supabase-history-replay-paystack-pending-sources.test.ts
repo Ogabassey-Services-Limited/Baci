@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260825204500_allow_service_role_dva_balance_refresh.sql'
+      'supabase/migrations/20260825210000_preserve_paystack_alias_history.sql'
     );
   });
 

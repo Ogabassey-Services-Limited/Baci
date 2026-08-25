@@ -154,4 +154,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260825204500_allow_service_role_dva_balance_refresh.sql',
     sha256: '50780e1f91b06ec42d4cbb0c38fae466fbd2ff759c4ecde3ae19429354362154',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825210000_preserve_paystack_alias_history.sql',
+    sha256: '4228342fc368f84716366e5faba77b05f976604fca49cdf009722661a15492a8',
+  },
 ];

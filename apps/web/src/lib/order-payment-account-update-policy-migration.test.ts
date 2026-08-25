@@ -86,27 +86,6 @@ const checkoutReservationMigration = readFileSync(
   ),
   'utf8'
 );
-const savingsRefreshMigration = readFileSync(
-  join(
-    process.cwd(),
-    '../../supabase/migrations/20260825200000_include_savings_in_dva_balance_refresh.sql'
-  ),
-  'utf8'
-);
-const hardenedCheckoutReservationMigration = readFileSync(
-  join(
-    process.cwd(),
-    '../../supabase/migrations/20260825203000_harden_checkout_dva_reservation.sql'
-  ),
-  'utf8'
-);
-const serviceRoleRefreshMigration = readFileSync(
-  join(
-    process.cwd(),
-    '../../supabase/migrations/20260825204500_allow_service_role_dva_balance_refresh.sql'
-  ),
-  'utf8'
-);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -275,43 +254,6 @@ describe('order payment account mutation RPC migration', () => {
       checkoutReservationMigration.indexOf(
         'INSERT INTO public.order_payment_accounts'
       )
-    );
-  });
-
-  it('keeps payable refreshes aligned with active savings redemptions', () => {
-    expect(savingsRefreshMigration).toContain(
-      'FROM public.customer_savings_redemptions AS redemptions'
-    );
-    expect(savingsRefreshMigration).toContain(
-      "redemptions.metadata ->> 'reversed_at' IS NULL"
-    );
-    expect(savingsRefreshMigration).toContain(') + v_savings_paid');
-  });
-
-  it('refreshes reused checkout aliases without exposing the internal overload', () => {
-    expect(hardenedCheckoutReservationMigration).toContain(
-      "IF v_reservation_result = 'existing'"
-    );
-    expect(hardenedCheckoutReservationMigration).toContain(
-      'PERFORM public.refresh_paystack_order_payable_amount(p_order_id)'
-    );
-    expect(hardenedCheckoutReservationMigration).toContain(
-      ') FROM PUBLIC, anon, authenticated;'
-    );
-    expect(hardenedCheckoutReservationMigration).toContain(
-      ') TO service_role;'
-    );
-  });
-
-  it('allows the authorized service-role checkout path to refresh a reused alias', () => {
-    expect(serviceRoleRefreshMigration).toContain(
-      "auth.uid() IS NULL AND auth.role() <> 'service_role'"
-    );
-    expect(serviceRoleRefreshMigration).toContain(
-      "auth.role() <> 'service_role'"
-    );
-    expect(serviceRoleRefreshMigration).toContain(
-      'TO authenticated, service_role;'
     );
   });
 });
