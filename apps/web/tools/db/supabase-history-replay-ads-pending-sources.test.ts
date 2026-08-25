@@ -21,5 +21,8 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '20260825130000_index_snapchat_ads_oauth_state_nonce_fks.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260825180000_restrict_ads_spend_replacement_to_service_role.sql'
+    );
   });
 });

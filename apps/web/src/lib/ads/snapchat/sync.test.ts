@@ -77,6 +77,7 @@ describe('Snapchat Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).resolves.toEqual({ accountId: 'ad-1', rowsWritten: 1 });
@@ -125,6 +126,7 @@ describe('Snapchat Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).resolves.toEqual({ accountId: 'ad-1', rowsWritten: 0 });
@@ -161,6 +163,7 @@ describe('Snapchat Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ACCESS_REVOKED' });

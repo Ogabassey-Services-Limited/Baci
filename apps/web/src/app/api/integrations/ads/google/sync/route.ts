@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { GoogleAdsConfigError } from '@/lib/google-ads/config';
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
       endDate: parsed.data.endDate,
       finalChunk: parsed.data.finalChunk,
       merchantId: access.merchantId,
+      spendSupabase: createAdsSpendServiceClient(),
       startDate: parsed.data.startDate,
       supabase: auth.supabase,
     });

@@ -41,6 +41,11 @@ const inFlightSyncs = new Map<
   Promise<{ accountId: string; rowsWritten: number }>
 >();
 
+type MetaAdsConnection = {
+  access_token_ciphertext: string | null;
+  provider_customer_id: string | null;
+  refresh_token_ciphertext?: string | null;
+};
 function addExactDecimalStrings(values: string[]): string {
   const maxScale = values.reduce(
     (maximum, value) => Math.max(maximum, value.split('.')[1]?.length ?? 0),
@@ -68,11 +73,7 @@ function actionCount(actions: MetaAdsDailyInsight['actions']): string {
 }
 
 export async function markMetaAdsReauthRequired(input: {
-  connection: {
-    access_token_ciphertext: string | null;
-    provider_customer_id: string | null;
-    refresh_token_ciphertext?: string | null;
-  };
+  connection: MetaAdsConnection;
   failureCode: string;
   merchantId: string;
   supabase: SupabaseClient;
@@ -130,6 +131,7 @@ export async function syncMetaAdsSpendForMerchant(
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
+    spendSupabase: SupabaseClient;
     startDate: string;
     supabase: SupabaseClient;
   },
@@ -181,6 +183,7 @@ export async function syncMetaAdsSpendForMerchant(
     fetchImpl,
     finalChunk: input.finalChunk,
     merchantId: input.merchantId,
+    spendSupabase: input.spendSupabase,
     startDate: input.startDate,
     supabase: input.supabase,
   });
@@ -194,15 +197,12 @@ export async function syncMetaAdsSpendForMerchant(
 
 async function syncSelectedMetaAdsAccount(input: {
   accessToken: string;
-  connection: {
-    access_token_ciphertext: string | null;
-    provider_customer_id: string | null;
-    refresh_token_ciphertext?: string | null;
-  };
+  connection: MetaAdsConnection;
   endDate: string;
   fetchImpl: typeof fetch;
   finalChunk?: boolean;
   merchantId: string;
+  spendSupabase: SupabaseClient;
   startDate: string;
   supabase: SupabaseClient;
 }): Promise<{ accountId: string; rowsWritten: number }> {
@@ -261,7 +261,7 @@ async function syncSelectedMetaAdsAccount(input: {
       spend_date: insight.dateStart,
     }));
     const { data: rowsWritten, error: spendWriteError } =
-      await input.supabase.rpc('replace_merchant_ads_spend_daily_window', {
+      await input.spendSupabase.rpc('replace_merchant_ads_spend_daily_window', {
         p_end_date: input.endDate,
         p_merchant_id: input.merchantId,
         p_provider: META_ADS_PROVIDER,

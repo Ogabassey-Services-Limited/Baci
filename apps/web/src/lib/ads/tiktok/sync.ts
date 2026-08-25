@@ -109,6 +109,7 @@ export async function syncTikTokAdsSpendForMerchant(
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
+    spendSupabase: SupabaseClient;
     startDate: string;
     supabase: SupabaseClient;
   },
@@ -199,7 +200,7 @@ export async function syncTikTokAdsSpendForMerchant(
         }));
         pendingRows.push(...rows);
       }
-      const written = await input.supabase.rpc(
+      const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {
           p_end_date: input.endDate,

@@ -1,3 +1,4 @@
+import { eventPipelineAdsServicePaths } from '@/lib/events/event-pipeline-ads-service-paths';
 import { eventPipelineAdminImporters } from '@/lib/events/event-pipeline-authority-paths';
 import { eventPipelineCredentialPaths } from '@/lib/events/event-pipeline-credential-paths';
 import {
@@ -166,6 +167,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/orders/route.ts',
       'apps/web/src/lib/platform-admin-auth.ts',
     ],
+    servicePaths: eventPipelineAdsServicePaths,
     serviceImporters: [
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
@@ -173,6 +175,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/lib/ads/server-spend-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ],

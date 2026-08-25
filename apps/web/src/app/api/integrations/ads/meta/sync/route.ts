@@ -6,6 +6,7 @@ import {
   MetaAdsSyncError,
   syncMetaAdsSpendForMerchant,
 } from '@/lib/ads/meta/sync';
+import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { metaAdsSyncRequestSchema } from '@/schemas/meta-ads';
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
     const result = await syncMetaAdsSpendForMerchant({
       ...parsed.data,
       merchantId: access.merchantId,
+      spendSupabase: createAdsSpendServiceClient(),
       supabase: auth.supabase,
     });
     return NextResponse.json({ ...result, synced: true });

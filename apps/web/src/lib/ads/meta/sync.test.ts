@@ -17,10 +17,12 @@ vi.mock('./provider', () => ({
   MetaAdsProviderError: class MetaAdsProviderError extends Error {},
 }));
 
-import { syncMetaAdsSpendForMerchant } from './sync';
+import { createMetaAdsSyncTestCall } from './sync.test-support';
 
 describe('Meta Ads sync', () => {
   const rpc = vi.fn();
+  const sync = createMetaAdsSyncTestCall(rpc);
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockConfig.mockReturnValue({});
@@ -69,14 +71,10 @@ describe('Meta Ads sync', () => {
   });
 
   it('requires a selected discovered account and writes exact Meta decimals plus labelled actions', async () => {
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).resolves.toEqual({ accountId: 'act_12', rowsWritten: 1 });
+    await expect(sync()).resolves.toEqual({
+      accountId: 'act_12',
+      rowsWritten: 1,
+    });
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
@@ -117,14 +115,10 @@ describe('Meta Ads sync', () => {
     });
     rpc.mockResolvedValueOnce({ data: 0, error: null });
 
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).resolves.toEqual({ accountId: 'act_12', rowsWritten: 0 });
+    await expect(sync()).resolves.toEqual({
+      accountId: 'act_12',
+      rowsWritten: 0,
+    });
 
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
@@ -156,12 +150,7 @@ describe('Meta Ads sync', () => {
         spendAmountDecimal: '0',
       },
     ]);
-    await syncMetaAdsSpendForMerchant({
-      merchantId: 'merchant',
-      startDate: '2026-08-20',
-      endDate: '2026-08-20',
-      supabase: { rpc } as never,
-    });
+    await sync();
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
@@ -176,14 +165,9 @@ describe('Meta Ads sync', () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');
     });
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_REAUTH_REQUIRED',
+    });
     expect(rpc).toHaveBeenCalledWith(
       'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({
@@ -217,14 +201,9 @@ describe('Meta Ads sync', () => {
         return Promise.resolve({ data: false, error: null });
       return Promise.resolve({ data: true, error: null });
     });
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_REQUIRED' });
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_REAUTH_REQUIRED',
+    });
     expect(rpc).toHaveBeenCalledWith(
       'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({ p_reason: 'META_ADS_REAUTH_REQUIRED' })
@@ -253,14 +232,9 @@ describe('Meta Ads sync', () => {
         });
       return Promise.resolve({ data: true, error: null });
     });
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).rejects.toMatchObject({ code: 'META_ADS_ADS_READ_NOT_GRANTED' });
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_ADS_READ_NOT_GRANTED',
+    });
     expect(rpc).toHaveBeenCalledWith(
       'mark_merchant_ads_connection_reauth_if_current',
       expect.objectContaining({ p_reason: 'META_ADS_ADS_READ_NOT_GRANTED' })
@@ -289,30 +263,15 @@ describe('Meta Ads sync', () => {
         return Promise.resolve({ data: null, error: { message: 'denied' } });
       return Promise.resolve({ data: true, error: null });
     });
-    await expect(
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      })
-    ).rejects.toMatchObject({ code: 'META_ADS_REAUTH_PERSIST_FAILED' });
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_REAUTH_PERSIST_FAILED',
+    });
   });
 
   it('does not coalesce concurrent syncs for different date ranges', async () => {
     await Promise.all([
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-20',
-        endDate: '2026-08-20',
-        supabase: { rpc } as never,
-      }),
-      syncMetaAdsSpendForMerchant({
-        merchantId: 'merchant',
-        startDate: '2026-08-21',
-        endDate: '2026-08-21',
-        supabase: { rpc } as never,
-      }),
+      sync({ endDate: '2026-08-20', startDate: '2026-08-20' }),
+      sync({ endDate: '2026-08-21', startDate: '2026-08-21' }),
     ]);
     expect(mockInsights).toHaveBeenCalledWith(
       expect.objectContaining({

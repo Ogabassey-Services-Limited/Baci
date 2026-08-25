@@ -1,11 +1,15 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const csrf = vi.fn();
 const sync = vi.fn();
+const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+  createAdsSpendServiceClient: vi.fn(),
+  mockSpendSupabase: { rpc: vi.fn() },
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -13,6 +17,12 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/server-spend-client', () => ({
+  createAdsSpendServiceClient: () => {
+    createAdsSpendServiceClient();
+    return mockSpendSupabase;
+  },
 }));
 vi.mock('@/lib/ads/snapchat/sync', () => ({
   syncSnapchatAdsSpendForMerchant: (...args: unknown[]) => sync(...args),
@@ -43,6 +53,10 @@ import { SnapchatAdsSyncError } from '@/lib/ads/snapchat/sync';
 import { POST } from './route';
 
 describe('Snapchat Ads sync route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('denies unauthenticated sync requests before JSON parsing', async () => {
     auth.mockResolvedValue({
       error: 'Unauthorized',
@@ -59,6 +73,7 @@ describe('Snapchat Ads sync route', () => {
         )
       ).status
     ).toBe(401);
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
   it('validates CSRF and input before synchronizing, then returns safe success data', async () => {
@@ -85,6 +100,9 @@ describe('Snapchat Ads sync route', () => {
       rowsWritten: 1,
       synced: true,
     });
+    expect(sync).toHaveBeenCalledWith(
+      expect.objectContaining({ spendSupabase: mockSpendSupabase })
+    );
     access.mockClear();
     const invalid = await POST(
       new NextRequest(
@@ -115,6 +133,7 @@ describe('Snapchat Ads sync route', () => {
         )
       ).status
     ).toBe(403);
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
     csrf.mockResolvedValue({ valid: true });
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(false);
@@ -134,6 +153,7 @@ describe('Snapchat Ads sync route', () => {
         )
       ).status
     ).toBe(403);
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
     permission.mockReturnValue(true);
     expect(
       (

@@ -151,4 +151,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260825160000_bind_social_ads_spend_replacement_account.sql',
     sha256: '60a4613a121a6e24666a2d99c34a737d68934fd824c2ba20b50ef3a542ed1fc5',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260825180000_restrict_ads_spend_replacement_to_service_role.sql',
+    sha256: 'ada11f24b76ccbef17e39cb84fe009f00f617a7727973a4bf17fb586fcc3a6a8',
+  },
 ];

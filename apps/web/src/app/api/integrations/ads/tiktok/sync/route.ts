@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { TikTokAdsConfigError } from '@/lib/ads/tiktok/config';
 import { TikTokAdsProviderError } from '@/lib/ads/tiktok/provider';
 import {
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       ...(await syncTikTokAdsSpendForMerchant({
         ...parsed.data,
         merchantId: access.merchantId,
+        spendSupabase: createAdsSpendServiceClient(),
         supabase: auth.supabase,
       })),
       synced: true,

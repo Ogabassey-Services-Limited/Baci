@@ -83,6 +83,7 @@ export async function syncSnapchatAdsSpendForMerchant(
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
+    spendSupabase: SupabaseClient;
     startDate: string;
     supabase: SupabaseClient;
   },
@@ -184,7 +185,7 @@ export async function syncSnapchatAdsSpendForMerchant(
         spend_date: report.spendDate,
         spend_micros: report.spendMicros,
       }));
-      const written = await input.supabase.rpc(
+      const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {
           p_end_date: input.endDate,

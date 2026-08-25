@@ -1,21 +1,73 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authenticate = vi.fn();
 const csrf = vi.fn();
 const access = vi.fn();
+const permission = vi.fn();
+const sync = vi.fn();
+const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+  createAdsSpendServiceClient: vi.fn(),
+  mockSpendSupabase: { rpc: vi.fn() },
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
-  hasPermission: vi.fn(),
+  hasPermission: (...args: unknown[]) => permission(...args),
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/server-spend-client', () => ({
+  createAdsSpendServiceClient: () => {
+    createAdsSpendServiceClient();
+    return mockSpendSupabase;
+  },
+}));
+vi.mock('@/lib/ads/meta/sync', () => ({
+  MetaAdsSyncError: class MetaAdsSyncError extends Error {},
+  syncMetaAdsSpendForMerchant: (...args: unknown[]) => sync(...args),
 }));
 
 import { POST } from './route';
 
 describe('Meta Ads sync route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('passes the privileged client only after every request gate succeeds', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { id: 'user' },
+    });
+    csrf.mockResolvedValue({ valid: true });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    sync.mockResolvedValue({ accountId: 'act_12', rowsWritten: 1 });
+
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+        }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(sync).toHaveBeenCalledWith({
+      endDate: '2026-08-20',
+      finalChunk: true,
+      merchantId: 'merchant',
+      spendSupabase: mockSpendSupabase,
+      startDate: '2026-08-20',
+      supabase: {},
+    });
+  });
+
   it('requires auth before parsing a browser sync request', async () => {
     authenticate.mockResolvedValue({
       error: 'Unauthorized',
@@ -32,6 +84,7 @@ describe('Meta Ads sync route', () => {
         )
       ).status
     ).toBe(401);
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
   it('validates an authenticated body before resolving merchant access', async () => {
@@ -52,5 +105,6 @@ describe('Meta Ads sync route', () => {
 
     expect(response.status).toBe(400);
     expect(access).not.toHaveBeenCalled();
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 });

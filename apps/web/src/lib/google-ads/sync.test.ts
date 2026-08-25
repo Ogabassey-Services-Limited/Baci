@@ -86,6 +86,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     const result = await syncGoogleAdsSpendForMerchant({
       endDate: '2026-08-21',
       merchantId: 'merchant-1',
+      spendSupabase: supabase,
       startDate: '2026-08-20',
       supabase,
     });
@@ -121,6 +122,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
         merchantId: 'merchant-1',
+        spendSupabase: supabase,
         startDate: '2026-01-01',
         supabase,
       })
@@ -140,6 +142,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
         merchantId: 'merchant-1',
+        spendSupabase: supabase,
         startDate: '2026-08-20',
         supabase,
       })
@@ -165,6 +168,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
         merchantId: 'merchant-1',
+        spendSupabase: supabase,
         startDate: '2026-08-20',
         supabase,
       })
@@ -219,6 +223,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
         merchantId: 'merchant-1',
+        spendSupabase: supabase,
         startDate: '2026-08-20',
         supabase,
       })
@@ -242,6 +247,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     const result = await syncGoogleAdsSpendForMerchant({
       endDate: '2026-08-21',
       merchantId: 'merchant-1',
+      spendSupabase: supabase,
       startDate: '2026-08-20',
       supabase,
     });

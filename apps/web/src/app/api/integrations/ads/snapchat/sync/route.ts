@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { SnapchatAdsConfigError } from '@/lib/ads/snapchat/config';
 import { SnapchatAdsProviderError } from '@/lib/ads/snapchat/provider';
 import {
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       ...(await syncSnapchatAdsSpendForMerchant({
         ...parsed.data,
         merchantId: access.merchantId,
+        spendSupabase: createAdsSpendServiceClient(),
         supabase: auth.supabase,
       })),
       synced: true,

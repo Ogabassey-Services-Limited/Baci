@@ -78,6 +78,7 @@ describe('TikTok Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-01',
         endDate: '2026-08-31',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 1 });
@@ -119,6 +120,7 @@ describe('TikTok Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 0 });
@@ -144,6 +146,7 @@ describe('TikTok Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).rejects.toMatchObject({ code: 'TIKTOK_ADS_ACCESS_REVOKED' });
@@ -178,6 +181,7 @@ describe('TikTok Ads sync', () => {
         merchantId: 'merchant',
         startDate: '2026-08-01',
         endDate: '2026-08-31',
+        spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).rejects.toThrow('second chunk failed');

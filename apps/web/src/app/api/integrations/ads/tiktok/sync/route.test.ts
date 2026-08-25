@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+  createAdsSpendServiceClient: vi.fn(),
+  mockSpendSupabase: { rpc: vi.fn() },
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -12,6 +16,12 @@ vi.mock('@/lib/api-auth', () => ({
 const csrf = vi.fn();
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/server-spend-client', () => ({
+  createAdsSpendServiceClient: () => {
+    createAdsSpendServiceClient();
+    return mockSpendSupabase;
+  },
 }));
 const sync = vi.fn();
 vi.mock('@/lib/ads/tiktok/sync', () => ({
@@ -44,6 +54,7 @@ describe('TikTok Ads sync route', () => {
         )
       ).status
     ).toBe(401);
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed authenticated sync body after CSRF validation', async () => {
@@ -70,6 +81,7 @@ describe('TikTok Ads sync route', () => {
       ).status
     ).toBe(400);
     expect(access).not.toHaveBeenCalled();
+    expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
   it('runs an authenticated valid CSRF/Zod sync and returns the normalized success', async () => {
@@ -97,5 +109,8 @@ describe('TikTok Ads sync route', () => {
       rowsWritten: 2,
       synced: true,
     });
+    expect(sync).toHaveBeenCalledWith(
+      expect.objectContaining({ spendSupabase: mockSpendSupabase })
+    );
   });
 });

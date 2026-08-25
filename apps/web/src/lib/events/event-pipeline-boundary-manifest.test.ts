@@ -155,8 +155,27 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/lib/ads/server-spend-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
+    ]);
+    expect(manifest.authority.servicePaths).toEqual([
+      [
+        'apps/web/src/app/api/integrations/ads/google/sync/route.ts',
+        'apps/web/src/lib/ads/server-spend-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/meta/sync/route.ts',
+        'apps/web/src/lib/ads/server-spend-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/snapchat/sync/route.ts',
+        'apps/web/src/lib/ads/server-spend-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/tiktok/sync/route.ts',
+        'apps/web/src/lib/ads/server-spend-client.ts',
+      ],
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',

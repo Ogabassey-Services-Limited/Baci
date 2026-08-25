@@ -50,6 +50,14 @@ function allowsCredentialPath(path: readonly string[]): boolean {
   );
 }
 
+function allowsServicePath(path: readonly string[]): boolean {
+  return manifest.authority.servicePaths.some(
+    (candidate) =>
+      candidate.length === path.length &&
+      candidate.every((segment, index) => segment === path[index])
+  );
+}
+
 function pathMessage(
   root: string,
   kind: AuthorityKind,
@@ -164,6 +172,7 @@ function collectAuthorityEdges(
         continue;
       for (const path of paths.get(target) ?? []) {
         if (path.length < 2 || (factory && path.length === 2)) continue;
+        if (kind === 'service' && allowsServicePath(path)) continue;
         if (
           factory &&
           path

@@ -35,6 +35,7 @@ export async function syncGoogleAdsSpendForMerchant(
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
+    spendSupabase: SupabaseClient;
     startDate: string;
     supabase: SupabaseClient;
   },
@@ -141,7 +142,7 @@ export async function syncGoogleAdsSpendForMerchant(
     spend_date: row.date,
     spend_micros: Math.trunc(row.spendMicros),
   }));
-  const { error: replaceError } = await input.supabase.rpc(
+  const { error: replaceError } = await input.spendSupabase.rpc(
     'replace_google_ads_spend_daily',
     {
       p_end_date: input.endDate,
