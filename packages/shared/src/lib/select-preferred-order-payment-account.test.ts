@@ -92,4 +92,20 @@ describe('selectPreferredOrderPaymentAccount', () => {
 
     expect(selected?.account_number).toBe('2222222222');
   });
+
+  it('rejects a just-retired Paystack account without expiry grace', () => {
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        {
+          ...account('paystack', '1111111111', '2026-08-24T12:00:00.000Z'),
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-08-24T12:01:00.000Z',
+        },
+        account('korapay', '2222222222', '2026-08-24T11:00:00.000Z'),
+      ],
+      new Date('2026-08-24T12:02:00.000Z')
+    );
+
+    expect(selected?.account_number).toBe('2222222222');
+  });
 });

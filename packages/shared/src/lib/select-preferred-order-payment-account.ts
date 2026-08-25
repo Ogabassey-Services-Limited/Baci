@@ -17,20 +17,25 @@ function isActivePaystackAccount(
 ) {
   if (account.provider !== 'paystack') return true;
 
-  const expiresAt = account.expires_at
-    ? Date.parse(account.expires_at)
-    : Number.NaN;
-  if (
-    Number.isFinite(expiresAt) &&
-    nowMs > expiresAt + PAYSTACK_DVA_CLOCK_SKEW_MS
-  )
-    return false;
-
   const assignedAt = account.assigned_at
     ? Date.parse(account.assigned_at)
     : account.created_at
       ? Date.parse(account.created_at)
       : Number.NaN;
+  const expiresAt = account.expires_at
+    ? Date.parse(account.expires_at)
+    : Number.NaN;
+  const expirationGraceMs =
+    Number.isFinite(assignedAt) &&
+    expiresAt >= assignedAt + PAYSTACK_DVA_WINDOW_MS
+      ? PAYSTACK_DVA_CLOCK_SKEW_MS
+      : 0;
+  if (
+    Number.isFinite(expiresAt) &&
+    nowMs > expiresAt + expirationGraceMs
+  )
+    return false;
+
   return (
     !Number.isFinite(assignedAt) ||
     (nowMs >= assignedAt - PAYSTACK_DVA_CLOCK_SKEW_MS &&
