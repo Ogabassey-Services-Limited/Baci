@@ -11,6 +11,7 @@ const mockCreateClient = vi.fn();
 
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: vi.fn(() => 'https://usebaci.com'),
+  getJumiaAuthorizationEncryptionKey: vi.fn(() => 'a'.repeat(44)),
   getJumiaClientId: vi.fn(() => 'web-client-id'),
 }));
 
@@ -64,8 +65,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn(async () => ({})) }));
 
-import { POST } from './post';
-import { GET } from './route';
+import { GET, POST } from './route';
 
 function makeRequest(
   query = 'connectionType=oauth&diagnostic=token-shape&variant=F',

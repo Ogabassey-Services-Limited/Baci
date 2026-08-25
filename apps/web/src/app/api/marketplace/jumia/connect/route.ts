@@ -5,7 +5,11 @@
 
 import crypto from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
+import {
+  getConfiguredAppUrl,
+  getJumiaAuthorizationEncryptionKey,
+  getJumiaClientId,
+} from '@/env';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -23,8 +27,13 @@ import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
 import { getJumiaConnections } from './get-jumia-connections';
 import { handleJumiaMobileTicket } from './mobile-ticket';
 import { jumiaOAuthInitiationDiagnostic } from './oauth-diagnostic';
+import { createJumiaConnectPost } from './post';
 
-export { POST } from './post';
+export const POST = createJumiaConnectPost({
+  getAppUrl: getConfiguredAppUrl,
+  getClientId: getJumiaClientId,
+  getEncryptionKey: getJumiaAuthorizationEncryptionKey,
+});
 
 /**
  * GET: Check current Jumia connection status
