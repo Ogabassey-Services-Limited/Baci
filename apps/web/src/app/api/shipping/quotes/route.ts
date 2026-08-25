@@ -174,6 +174,13 @@ export async function POST(request: NextRequest) {
 
     let senderInfo = merchantContext.senderInfo;
 
+    if (!senderInfo && merchantContext.merchantId) {
+      return NextResponse.json(
+        { error: 'Merchant shipping origin is not configured' },
+        { status: 400 }
+      );
+    }
+
     if (!senderInfo && data.shipmentType === 'international') {
       return NextResponse.json(
         { error: 'Sender is required for international quotes' },

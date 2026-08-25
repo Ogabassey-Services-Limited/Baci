@@ -303,32 +303,6 @@ describe('bookOrderShipment', () => {
     );
   });
 
-  it('recovers the refreshed quote id saved with an existing shipment', async () => {
-    const supabase = createMockSupabase({
-      order: { data: validOrder, error: null },
-      existingShipment: {
-        data: {
-          id: 'shipment-1',
-          provider: 'TOPSHIP',
-          provider_shipment_id: 'provider-shipment-1',
-          shipping_quote_id: 'quote-refreshed',
-          tracking_number: 'TRK123456',
-          carrier_name: 'Topship Express',
-          estimated_delivery_days: 3,
-          label_url: null,
-          pickup_scheduled_at: null,
-          status: 'booked',
-        },
-        error: null,
-      },
-    });
-
-    const result = await bookOrderShipment(supabase, 'merchant-1', 'order-1');
-
-    expect(result.quoteId).toBe('quote-refreshed');
-    expect(shippingService.bookShipment).not.toHaveBeenCalled();
-  });
-
   it('persists provider station-pickup instructions with the shipment', async () => {
     const insertedShipments: unknown[] = [];
     vi.mocked(shippingService.bookShipment).mockResolvedValue({

@@ -242,14 +242,7 @@ export async function resolveQuoteMerchantContext({
         registeredAddress: null,
         stateCode: details.state_code ?? null,
       });
-      if (!merchantSender) {
-        return {
-          error: 'Merchant shipping origin is not configured',
-          ok: false,
-          status: 400,
-        };
-      }
-      senderInfo = merchantSender;
+      senderInfo = merchantSender ?? undefined;
     }
   }
 

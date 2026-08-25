@@ -173,9 +173,13 @@ export function buildMerchantSenderInfo(
   details: MerchantSenderDetails
 ): ShippingAddress | null {
   const registeredAddress = parseRegisteredAddress(details.registeredAddress);
+  const businessAddress = details.businessAddress?.trim();
+  const selectedRegisteredAddress = businessAddress ? null : registeredAddress;
   const addressValue =
-    details.businessAddress?.trim() ||
-    (registeredAddress ? formatRegisteredAddress(registeredAddress) : '');
+    businessAddress ||
+    (selectedRegisteredAddress
+      ? formatRegisteredAddress(selectedRegisteredAddress)
+      : '');
   // Fail closed: do not fabricate a Lagos origin when the merchant has no
   // usable business_address / registered_address (state_code alone is not enough).
   if (!addressValue) {
@@ -183,7 +187,7 @@ export function buildMerchantSenderInfo(
   }
   const location = deriveMerchantLocation(addressValue);
   const state = resolveMerchantState({
-    registeredAddress,
+    registeredAddress: selectedRegisteredAddress,
     stateCode: details.stateCode,
     locationCity: location.city,
     locationState: location.state,
@@ -194,12 +198,12 @@ export function buildMerchantSenderInfo(
     phone: details.phone || '',
     address: location.address,
     city: resolveMerchantCity({
-      registeredAddress,
+      registeredAddress: selectedRegisteredAddress,
       locationCity: location.city,
     }),
     state,
     country: 'Nigeria',
     countryCode: 'NG',
-    postalCode: registeredAddress?.postal_code ?? undefined,
+    postalCode: selectedRegisteredAddress?.postal_code ?? undefined,
   };
 }

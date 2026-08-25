@@ -63,7 +63,7 @@ describe('buildMerchantSenderInfo', () => {
 
   it('preserves numeric registered postal codes', () => {
     const sender = buildMerchantSenderInfo({
-      businessAddress: '2 Olaide Tomori Street, Ikeja, Lagos',
+      businessAddress: null,
       businessName: 'Merchant',
       phone: '08000000000',
       registeredAddress: {
@@ -77,6 +77,29 @@ describe('buildMerchantSenderInfo', () => {
     });
 
     expect(sender?.postalCode).toBe('100001');
+  });
+
+  it('does not combine a business street with a divergent registered locality', () => {
+    const sender = buildMerchantSenderInfo({
+      businessAddress: '12 Allen Avenue, Ikeja, Lagos',
+      businessName: 'Merchant',
+      phone: '08000000000',
+      registeredAddress: {
+        city: 'Maitama',
+        country: 'Nigeria',
+        postal_code: '904101',
+        state: 'Abuja',
+        street: '29 Yedseram Crescent',
+      },
+      stateCode: 'LA',
+    });
+
+    expect(sender).toMatchObject({
+      address: '12 Allen Avenue, Ikeja, Lagos',
+      city: 'Ikeja',
+      state: 'Lagos',
+    });
+    expect(sender?.postalCode).toBeUndefined();
   });
 });
 

@@ -124,7 +124,7 @@ describe('POST /api/shipping/quotes', () => {
   it('returns empty quotes with a Nigerian-merchants-only warning for a non-NG merchant', async () => {
     const merchantDetails = {
       business_name: 'Merchant Store',
-      business_address: '1 Merchant Road, Bengaluru',
+      business_address: null,
       country: 'IN',
       phone: '+919876543210',
     };
