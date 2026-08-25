@@ -1,4 +1,13 @@
 export const eventPipelineCredentialPaths = [
+  ...['lookup', 'product', 'search'].map(
+    (operation) =>
+      [
+        `apps/web/src/app/api/agentic/catalog/${operation}/route.ts`,
+        'apps/web/src/lib/agentic/mutation-request.ts',
+        'apps/web/src/lib/agentic/request-integrity.ts',
+        'apps/web/src/env.ts',
+      ] as const
+  ),
   [
     'apps/web/src/app/api/orders/route.ts',
     'apps/web/src/lib/order-notification-dispatch.ts',

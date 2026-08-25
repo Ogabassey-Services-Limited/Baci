@@ -13,7 +13,7 @@ const mockExchangeJumiaCode = vi.fn();
 const mockGetShops = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerWarn = vi.fn();
-const mockUpsert = vi.fn().mockResolvedValue({ error: null });
+const mockUpsert = vi.fn().mockResolvedValue({ data: true, error: null });
 let mockExistingIntegrations: Array<{ shop_id: string; is_active: boolean }> =
   [];
 let mockExistingIntegrationsError: unknown = null;
@@ -55,6 +55,7 @@ const { mockGetConfiguredAppUrl, mockGetJumiaRedirectUri } = vi.hoisted(() => {
 });
 
 const mockSupabase = {
+  rpc: (...args: unknown[]) => mockUpsert(...args),
   from: vi.fn((table: string) => {
     if (table !== 'marketplace_integrations') {
       throw new Error(`Unexpected table: ${table}`);
@@ -191,7 +192,7 @@ describe('Jumia callback route', () => {
       error: null,
       supabase: mockSupabase,
     });
-    mockUpsert.mockResolvedValue({ error: null });
+    mockUpsert.mockResolvedValue({ data: true, error: null });
     mockGetMerchantIdForApiUser.mockResolvedValue(
       '00000000-0000-4000-8000-000000000001'
     );
@@ -255,24 +256,24 @@ describe('Jumia callback route', () => {
     );
     expect(mockUpsert).toHaveBeenCalledTimes(1);
     expect(mockUpsert).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({
-          merchant_id: '00000000-0000-4000-8000-000000000001',
-          platform: 'jumia',
-          shop_id: 'shop-1',
-          shop_name: 'Jumia Shop',
-          access_token: 'access',
-          refresh_token: 'refresh',
-          is_active: true,
-          sync_config: expect.objectContaining({
-            products: true,
-            orders: true,
-            stock: true,
-          }),
-        }),
-      ]),
+      'persist_jumia_oauth_integrations_atomically',
       expect.objectContaining({
-        onConflict: 'merchant_id,platform,shop_id,marketplace_key',
+        p_integrations: expect.arrayContaining([
+          expect.objectContaining({
+            merchant_id: '00000000-0000-4000-8000-000000000001',
+            platform: 'jumia',
+            shop_id: 'shop-1',
+            shop_name: 'Jumia Shop',
+            access_token: 'access',
+            refresh_token: 'refresh',
+            is_active: true,
+            sync_config: expect.objectContaining({
+              products: true,
+              orders: true,
+              stock: true,
+            }),
+          }),
+        ]),
       })
     );
     expect(mockExchangeJumiaCode).toHaveBeenCalledWith(
@@ -548,7 +549,8 @@ describe('Jumia callback route', () => {
   });
 
   it('redirects with database_error when persisting the integration fails', async () => {
-    mockUpsert.mockResolvedValueOnce({
+    mockUpsert.mockResolvedValue({
+      data: null,
       error: { message: 'DB error' },
     });
 
@@ -557,6 +559,6 @@ describe('Jumia callback route', () => {
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('error=database_error');
     expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
-    expect(mockUpsert).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).toHaveBeenCalledTimes(3);
   });
 });

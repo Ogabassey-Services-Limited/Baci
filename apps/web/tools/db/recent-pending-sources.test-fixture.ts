@@ -188,7 +188,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260821100000_drop_legacy_jumia_self_authorization_overloads.sql',
+      'supabase/migrations/20260821100001_drop_legacy_jumia_self_authorization_overloads.sql',
     sha256: 'ff9932381c905e7fba773d31eafcd81dec05b5c97b145cbfe6099f3f1a8aa690',
   },
   {

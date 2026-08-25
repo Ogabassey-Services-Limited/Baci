@@ -21,12 +21,22 @@ const {
   const mockInsert = vi.fn();
   const mockUpdate = vi.fn();
   const mockDelete = vi.fn();
-  const mockMappingIn = vi.fn().mockResolvedValue({ error: null });
+  const mockMappingIn = vi
+    .fn()
+    .mockImplementation((_column: string, values: unknown[]) =>
+      Promise.resolve({
+        data: values.map((_, index) => ({ id: `mapping-${index}` })),
+        error: null,
+      })
+    );
   const createMappingChain = () => {
     const chain = {
       eq: vi.fn(),
       neq: vi.fn(),
-      in: (...a: unknown[]) => mockMappingIn(...a),
+      in: (...a: unknown[]) => {
+        const result = mockMappingIn(...a);
+        return Object.assign(result, { select: () => result });
+      },
       is: vi.fn(),
       limit: vi.fn(),
       maybeSingle: vi.fn().mockResolvedValue({
@@ -205,7 +215,12 @@ describe('Products Export POST', () => {
     mockRequireMerchantFeatureAccess.mockResolvedValue(null);
     mockOwnedProductResolution();
     mockInsert.mockResolvedValue({ error: null });
-    mockMappingIn.mockResolvedValue({ error: null });
+    mockMappingIn.mockImplementation((_column: string, values: unknown[]) =>
+      Promise.resolve({
+        data: values.map((_, index) => ({ id: `mapping-${index}` })),
+        error: null,
+      })
+    );
     mockForIntegration.mockResolvedValue({
       shopId: 'shop1',
       marketplaceKey: 'default',
@@ -404,7 +419,7 @@ describe('Products Export POST', () => {
     mockMappingIn
       .mockResolvedValueOnce({ error: { message: 'update fail' } })
       .mockResolvedValueOnce({ error: { message: 'update fail' } })
-      .mockResolvedValueOnce({ error: null });
+      .mockResolvedValueOnce({ data: [{ id: 'mapping-0' }], error: null });
     const res = await POST(makePostRequest(VALID_BODY));
     expect(res.status).toBe(207);
     const json = await res.json();

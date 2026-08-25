@@ -100,7 +100,10 @@ function createMarketplaceIntegrationsBuilder() {
 }
 
 const mockUserSupabase = {
-  rpc: (...args: unknown[]) => mockRpc(...args),
+  rpc: (name: string, args: unknown) =>
+    name === 'persist_jumia_oauth_integrations_atomically'
+      ? mockMarketplaceUpsert(name, args)
+      : mockRpc(name, args),
   from: vi.fn((table: string) =>
     table === 'merchants'
       ? createMerchantFeatureBuilder()
@@ -170,7 +173,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockFeaturePlanTier.mockReturnValue('pro');
-    mockMarketplaceUpsert.mockResolvedValue({ error: null });
+    mockMarketplaceUpsert.mockResolvedValue({ data: true, error: null });
     mockExistingIntegrations.length = 0;
     mockExistingIntegrationsError = null;
   });
@@ -303,9 +306,10 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     setupShopDiscovery();
     mockMarketplaceUpsert
       .mockResolvedValueOnce({
+        data: null,
         error: { message: 'upsert failed' },
       })
-      .mockResolvedValueOnce({ error: null });
+      .mockResolvedValueOnce({ data: true, error: null });
 
     const res = await POST(
       makeRequest({ code: 'valid-code', ticketId: TICKET_ID })
@@ -332,6 +336,7 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     setupTokenExchange();
     setupShopDiscovery();
     mockMarketplaceUpsert.mockResolvedValue({
+      data: null,
       error: { message: 'upsert failed' },
     });
 
@@ -371,16 +376,18 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     expect(body.shops).toContain('shop-1');
 
     expect(mockMarketplaceUpsert).toHaveBeenCalledWith(
-      [
-        expect.objectContaining({
-          access_token: 'only-access',
-          connection_method: 'oauth',
-          jumia_authorization_id: null,
-          refresh_token: null,
-          shop_id: 'shop-1',
-        }),
-      ],
-      { onConflict: 'merchant_id,platform,shop_id,marketplace_key' }
+      'persist_jumia_oauth_integrations_atomically',
+      expect.objectContaining({
+        p_integrations: [
+          expect.objectContaining({
+            access_token: 'only-access',
+            connection_method: 'oauth',
+            jumia_authorization_id: null,
+            refresh_token: null,
+            shop_id: 'shop-1',
+          }),
+        ],
+      })
     );
   });
 
