@@ -21,6 +21,7 @@ function hasPublishedRoot(value: unknown): boolean {
   if (!isRecord(value) || !isRecord(value.props)) return false;
   const title = value.props.title;
   if (typeof title !== 'string' || title.length > 120) return false;
+  if (Object.keys(value.props).some((key) => key !== 'title')) return false;
   const keys = Object.keys(value);
   if (keys.some((key) => key !== 'props' && key !== 'title')) return false;
   return value.title === undefined || value.title === title;

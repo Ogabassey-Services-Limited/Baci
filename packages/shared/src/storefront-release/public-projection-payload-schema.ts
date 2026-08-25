@@ -88,6 +88,23 @@ const ProductSchema = z.strictObject({
     .regex(/^[A-Z]{3}$/),
   priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   available: z.boolean(),
+  condition: z
+    .enum(['new', 'used', 'open_box', 'refurbished'])
+    .nullable()
+    .optional(),
+  rating: z.number().min(0).max(5).nullable().optional(),
+  reviewCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(Number.MAX_SAFE_INTEGER)
+    .optional(),
+  ratingCount: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(Number.MAX_SAFE_INTEGER)
+    .optional(),
   categoryIds: z.array(z.uuid()).max(64).optional(),
   mediaIds: z.array(z.uuid()).max(64).optional(),
   variants: z.array(ProductVariantSchema).max(250).optional(),
@@ -143,12 +160,6 @@ export const StorefrontPublicProjectionPayloadSchema = z
         terms: z.string().max(500_000).optional(),
         returns: z.string().max(500_000).optional(),
         shipping: z.string().max(500_000).optional(),
-      })
-      .optional(),
-    reviewAggregate: z
-      .strictObject({
-        count: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-        average: z.number().min(0).max(5),
       })
       .optional(),
     seoEntries: z.array(SeoEntrySchema).max(20_000).optional(),

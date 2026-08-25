@@ -26,6 +26,7 @@ export const StorefrontBlogPostSchema = z.strictObject({
   authorImageUrl: OptionalMediaUrlSchema,
   authorBio: z.string().max(2_000).nullable().optional(),
   category: z.string().max(160).nullable().optional(),
+  status: z.literal('published'),
   tags: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
   keywords: z.array(z.string().trim().min(1).max(120)).max(100).optional(),
   publishedAt: z.iso.datetime({ offset: true }),

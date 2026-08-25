@@ -224,4 +224,28 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  it('preserves simple-product condition and product-specific ratings', () => {
+    const payload = {
+      ...validPayload,
+      products: [
+        {
+          available: true,
+          condition: 'used',
+          currency: 'NGN',
+          id: '123e4567-e89b-42d3-a456-426614174060',
+          name: 'Phone',
+          priceMinor: 100_000,
+          rating: 4.5,
+          ratingCount: 12,
+          reviewCount: 10,
+          slug: 'phone',
+        },
+      ],
+    } as const;
+
+    expect(StorefrontPublicProjectionPayloadSchema.parse(payload)).toEqual(
+      payload
+    );
+  });
 });

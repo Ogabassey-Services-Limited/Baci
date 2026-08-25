@@ -12,6 +12,7 @@ const blogPost = {
   seoDescription: 'Compare the best phones.',
   seoTitle: 'Best phones',
   slug: 'best-phones',
+  status: 'published',
   title: 'Best phones',
 } as const;
 
@@ -26,6 +27,13 @@ describe('StorefrontBlogPostSchema', () => {
         ...blogPost,
         featuredImageUrl: 'https://cdn.example.com/cover.png?token=secret',
       }).success
+    ).toBe(false);
+  });
+
+  it('rejects non-published blog rows', () => {
+    expect(
+      StorefrontBlogPostSchema.safeParse({ ...blogPost, status: 'draft' })
+        .success
     ).toBe(false);
   });
 });

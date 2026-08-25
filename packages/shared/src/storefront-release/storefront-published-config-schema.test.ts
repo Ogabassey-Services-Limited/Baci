@@ -36,4 +36,19 @@ describe('StorefrontPublishedConfigSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects private fields preserved under the original root props', () => {
+    expect(
+      StorefrontPublishedConfigSchema.safeParse({
+        content: [],
+        root: {
+          props: {
+            customer: { email: 'shopper@example.com' },
+            serviceRoleKey: 'secret',
+            title: 'Home',
+          },
+        },
+      }).success
+    ).toBe(false);
+  });
 });
