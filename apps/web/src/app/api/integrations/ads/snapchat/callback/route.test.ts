@@ -147,9 +147,9 @@ describe('Snapchat Ads callback route', () => {
         { headers: { cookie: `baci_snapchat_ads_oauth_state=${state}` } }
       )
     );
-    expect(response.headers.get('location')).toContain(
-      'snapchat_ads=connected'
-    );
+    const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('snapchat_ads')).toBe('connected');
+    expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(JSON.stringify(Object.fromEntries(response.headers))).not.toContain(
       'SNAP_CALLBACK_ACCESS_SENTINEL'
     );

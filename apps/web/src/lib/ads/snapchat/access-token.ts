@@ -6,6 +6,8 @@ import type { SnapchatAdsConfig } from './config';
 import { SNAPCHAT_ADS_PROVIDER } from './constants';
 import { refreshSnapchatAdsAccessToken, type SnapchatAdsGrant } from './oauth';
 
+const SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS = 60_000;
+
 export interface SnapchatAdsEncryptedConnection {
   access_token_ciphertext: string | null;
   refresh_token_ciphertext: string | null;
@@ -62,7 +64,11 @@ export async function getSnapchatAdsUsableAccessToken(input: {
   const expiresAt = input.connection.token_expires_at
     ? Date.parse(input.connection.token_expires_at)
     : Number.NaN;
-  if (!Number.isFinite(expiresAt) || expiresAt > Date.now()) return token;
+  if (
+    !Number.isFinite(expiresAt) ||
+    expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
+  )
+    return token;
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
   let grant: SnapchatAdsGrant;

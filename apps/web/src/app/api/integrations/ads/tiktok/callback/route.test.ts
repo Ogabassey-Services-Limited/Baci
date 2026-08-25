@@ -133,7 +133,9 @@ describe('TikTok Ads callback route', () => {
         { headers: { cookie: 'baci_tiktok_ads_oauth_state=state' } }
       )
     );
-    expect(response.headers.get('location')).toContain('tiktok_ads=connected');
+    const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('tiktok_ads')).toBe('connected');
+    expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(encrypt).toHaveBeenCalledWith('token', 'key', 'tiktok_ads');
     expect(rpc).toHaveBeenCalledWith(
       'upsert_merchant_ads_connection',

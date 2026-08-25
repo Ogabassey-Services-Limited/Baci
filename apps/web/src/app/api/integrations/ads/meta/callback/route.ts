@@ -27,6 +27,9 @@ function callbackRedirect(
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('meta_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (result === 'connected') {
+    target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
+  }
   const response = NextResponse.redirect(target);
   response.cookies.delete(META_ADS_STATE_COOKIE);
   response.headers.set('Cache-Control', 'private, no-store');

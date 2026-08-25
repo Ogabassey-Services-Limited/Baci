@@ -26,6 +26,9 @@ function redirect(
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('tiktok_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (result === 'connected') {
+    target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
+  }
   const response = NextResponse.redirect(target);
   response.cookies.delete(TIKTOK_ADS_STATE_COOKIE);
   response.headers.set('Cache-Control', 'private, no-store');

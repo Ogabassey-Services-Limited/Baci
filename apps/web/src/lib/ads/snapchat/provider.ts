@@ -114,27 +114,42 @@ export async function listSnapchatAdsAccounts(
     ).values(),
   ];
 }
-function statsList(payload: unknown): SnapchatRecord[] {
+function statsList(payload: unknown): {
+  recognized: boolean;
+  rows: SnapchatRecord[];
+} {
   const root = record(payload);
-  if (!root) return [];
-  return objectArray(
-    root.timeseries_stats ??
-      root.timeseries ??
-      record(root.data)?.timeseries_stats
-  );
+  if (!root) return { recognized: false, rows: [] };
+  const nestedData = record(root.data);
+  const candidates = [
+    root.timeseries_stats,
+    root.timeseries,
+    nestedData?.timeseries_stats,
+    nestedData?.timeseries,
+  ];
+  for (const candidate of candidates) {
+    if (candidate !== undefined) {
+      return {
+        recognized: Array.isArray(candidate),
+        rows: objectArray(candidate),
+      };
+    }
+  }
+  return { recognized: false, rows: [] };
 }
 function parseReports(
   payload: unknown,
   input: { accountId: string; currencyCode: string; timezoneName: string }
 ): SnapchatAdsDailyReport[] {
-  const rows = statsList(payload);
+  const stats = statsList(payload);
+  if (!stats.recognized)
+    throw new SnapchatAdsProviderError('SNAPCHAT_ADS_REPORT_RESPONSE_INVALID');
+  const rows = stats.rows;
   const root = record(payload);
   const finalizedDataEndTime = isoTimestamp(root?.finalized_data_end_time);
   const conversionDataProcessedEndTime = isoTimestamp(
     root?.conversion_data_processed_end_time
   );
-  if (!rows.length && !record(payload))
-    throw new SnapchatAdsProviderError('SNAPCHAT_ADS_REPORT_RESPONSE_INVALID');
   const parsed = rows.flatMap((row) => {
     const stats = record(row.stats);
     const start = row.start_time;

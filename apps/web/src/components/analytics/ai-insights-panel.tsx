@@ -107,6 +107,10 @@ export function AIInsightsPanel({
 
   useEffect(() => {
     const controller = new AbortController();
+    setInsights(placeholderInsights);
+    setLoading(true);
+    setError(false);
+    setCurrentIndex(0);
 
     fetchInsights({
       merchantId,

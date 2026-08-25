@@ -21,6 +21,9 @@ function redirect(result: 'connected' | 'error', reason?: string) {
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('snapchat_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (result === 'connected') {
+    target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
+  }
   const response = NextResponse.redirect(target);
   response.cookies.delete(SNAPCHAT_ADS_STATE_COOKIE);
   response.headers.set('Cache-Control', 'private, no-store');

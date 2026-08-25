@@ -191,6 +191,52 @@ describe('fetchAnalyticsCategoryData', () => {
     );
   });
 
+  it('bounds concurrent inventory forecast page requests', async () => {
+    let activeForecastPages = 0;
+    let maxActiveForecastPages = 0;
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/inventory/alerts')) {
+        return response({ alerts: [] });
+      }
+      const page = Number(
+        new URL(url, 'https://usebaci.com').searchParams.get('page')
+      );
+      if (page === 1) {
+        return response({
+          forecasts: [],
+          pagination: { page: 1, totalPages: 7 },
+          summary: { critical: 0, outOfStock: 0, warning: 0 },
+        });
+      }
+      activeForecastPages += 1;
+      maxActiveForecastPages = Math.max(
+        maxActiveForecastPages,
+        activeForecastPages
+      );
+      await Promise.resolve();
+      activeForecastPages -= 1;
+      return response({
+        forecasts: [],
+        pagination: { page, totalPages: 7 },
+        summary: { critical: 0, outOfStock: 0, warning: 0 },
+      });
+    });
+
+    await fetchAnalyticsCategoryData({
+      category: 'inventory',
+      from,
+      merchantId,
+      signal: new AbortController().signal,
+      to,
+    });
+
+    expect(maxActiveForecastPages).toBe(4);
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual(
+      expect.arrayContaining(['/api/inventory/forecast?limit=100&page=7'])
+    );
+  });
+
   it('maps the customer segment summary into dashboard segment metrics', async () => {
     fetchMock.mockResolvedValue(
       response({

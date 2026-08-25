@@ -1,6 +1,7 @@
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
 import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
+import { fetchInventoryForecastPages } from './fetch-inventory-forecast-pages';
 import { mapGoogleAdsReporting } from './google-ads-analytics-mapper';
 import { mapSocialAdsReporting } from './social-ads-analytics-mapper';
 
@@ -104,7 +105,13 @@ async function fetchInventoryData(
         merchantId,
         signal
       ),
-      fetchInventoryForecastPages(merchantId, signal),
+      fetchInventoryForecastPages((page) =>
+        fetchAnalyticsJson(
+          `/api/inventory/forecast?limit=100&page=${page}`,
+          merchantId,
+          signal
+        )
+      ),
       fetchAnalyticsJson(
         '/api/inventory/alerts?status=resolved',
         merchantId,
@@ -146,33 +153,6 @@ async function fetchInventoryData(
         ? asNumber(resolvedAlertsStats.total)
         : asArray(resolvedAlertsPayload.alerts).length,
   };
-}
-
-async function fetchInventoryForecastPages(
-  merchantId: string,
-  signal: AbortSignal
-): Promise<JsonRecord[]> {
-  const firstPage = await fetchAnalyticsJson(
-    '/api/inventory/forecast?limit=100&page=1',
-    merchantId,
-    signal
-  );
-  const pagination = asRecord(firstPage.pagination);
-  const totalPages = Math.max(1, Math.floor(asNumber(pagination?.totalPages)));
-  if (totalPages === 1) return [firstPage];
-  if (totalPages > 1000) {
-    throw new Error('Inventory forecast pagination is invalid');
-  }
-  const remainingPages = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, index) =>
-      fetchAnalyticsJson(
-        `/api/inventory/forecast?limit=100&page=${index + 2}`,
-        merchantId,
-        signal
-      )
-    )
-  );
-  return [firstPage, ...remainingPages];
 }
 
 function normalizeSegmentName(value: unknown): string {

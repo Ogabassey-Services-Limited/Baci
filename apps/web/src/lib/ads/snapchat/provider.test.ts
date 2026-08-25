@@ -104,6 +104,48 @@ describe('Snapchat Ads provider', () => {
     expect(url.searchParams.get('start_time')).toBe('2026-03-08T05:00:00.000Z');
     expect(url.searchParams.get('end_time')).toBe('2026-03-09T04:00:00.000Z');
   });
+
+  it('rejects report objects without a recognized timeseries payload', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ data: {} })));
+
+    await expect(
+      fetchSnapchatAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'ad-1',
+          currencyCode: 'USD',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'UTC',
+        },
+        fetchImpl
+      )
+    ).rejects.toMatchObject({
+      code: 'SNAPCHAT_ADS_REPORT_RESPONSE_INVALID',
+    });
+  });
+
+  it('accepts an explicitly empty recognized timeseries payload', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ timeseries: [] })));
+
+    await expect(
+      fetchSnapchatAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'ad-1',
+          currencyCode: 'USD',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'UTC',
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual([]);
+  });
   it('rejects report-run responses because v1 only supports synchronous daily summaries', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

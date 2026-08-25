@@ -182,7 +182,9 @@ describe('Meta Ads callback route', () => {
       )
     );
 
-    expect(response.headers.get('location')).toContain('meta_ads=connected');
+    const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('meta_ads')).toBe('connected');
+    expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 });

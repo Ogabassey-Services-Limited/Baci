@@ -146,6 +146,24 @@ describe('AnalyticsClientPage', () => {
     );
   });
 
+  it('uses the OAuth callback cache-bust token for the first ads request', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=ads&cacheBust=1724572800')
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      const adsRequest = fetchMock.mock.calls.find(([input]) =>
+        String(input).includes('/api/analytics/ads?')
+      );
+      expect(String(adsRequest?.[0])).toContain('cacheBust=1724572800');
+    });
+  });
+
   it('surfaces specialized analytics failures instead of rendering empty metrics', async () => {
     mockUseSearchParams.mockReturnValue(
       new URLSearchParams('category=inventory')

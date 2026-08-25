@@ -34,6 +34,9 @@ function callbackRedirect(
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('google_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (result === 'connected') {
+    target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
+  }
   const response = clearOAuthCookies(NextResponse.redirect(target));
   response.headers.set('Cache-Control', 'private, no-store');
   return response;

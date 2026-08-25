@@ -91,6 +91,11 @@ export default function AnalyticsClientPage() {
   });
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
+  const cacheBustParam = searchParams.get('cacheBust');
+  const initialAnalyticsRefreshKey =
+    cacheBustParam && /^\d{1,10}$/.test(cacheBustParam)
+      ? Number(cacheBustParam)
+      : 0;
   const [activeCategory, setActiveCategory] = useState<AnalyticsCategory>(
     categoryParam &&
       VALID_CATEGORIES.includes(categoryParam as AnalyticsCategory)
@@ -108,7 +113,9 @@ export default function AnalyticsClientPage() {
     string | null
   >(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(true);
-  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(0);
+  const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
+    initialAnalyticsRefreshKey
+  );
 
   // Derived state
   const analyticsData: AnalyticsData | null = baseAnalytics

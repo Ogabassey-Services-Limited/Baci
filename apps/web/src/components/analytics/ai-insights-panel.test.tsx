@@ -1,4 +1,4 @@
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { HTMLAttributes, ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AIInsightsPanel } from './ai-insights-panel';
@@ -36,5 +36,54 @@ describe('AIInsightsPanel', () => {
         })
       );
     });
+  });
+
+  it('clears the previous merchant insights while the next request is loading', async () => {
+    let requestCount = 0;
+    let resolveSecondRequest: ((response: Response) => void) | undefined;
+    const secondRequest = new Promise<Response>((resolve) => {
+      resolveSecondRequest = resolve;
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      requestCount += 1;
+      if (requestCount === 1) {
+        return new Response(
+          JSON.stringify({
+            insights: [
+              {
+                description: 'Merchant one detail',
+                title: 'Merchant one insight',
+                type: 'positive',
+                priority: 'high',
+              },
+            ],
+          }),
+          { status: 200 }
+        );
+      }
+      return secondRequest;
+    });
+
+    const { rerender } = render(
+      <AIInsightsPanel activeCategory="overview" merchantId="merchant-1" />
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Merchant one insight')).toBeInTheDocument();
+    });
+
+    rerender(
+      <AIInsightsPanel activeCategory="overview" merchantId="merchant-2" />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Analyzing your data...')).toBeInTheDocument();
+      expect(
+        screen.queryByText('Merchant one insight')
+      ).not.toBeInTheDocument();
+    });
+
+    resolveSecondRequest?.(
+      new Response(JSON.stringify({ insights: [] }), { status: 200 })
+    );
   });
 });

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { encryptAdsToken } from '@/lib/ads/crypto';
 
 const refresh = vi.fn();
@@ -21,6 +21,10 @@ const config = {
 };
 
 describe('Snapchat Ads access token', () => {
+  beforeEach(() => {
+    refresh.mockReset();
+  });
+
   it('requires a stored encrypted access token', () => {
     expect(() =>
       resolveSnapchatAdsAccessToken(
@@ -70,6 +74,38 @@ describe('Snapchat Ads access token', () => {
         p_refresh_token_ciphertext: expect.not.stringContaining('new-refresh'),
       })
     );
+  });
+
+  it('refreshes an access token inside the expiry safety window', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    refresh.mockResolvedValue({
+      accessToken: 'refreshed-access',
+      expiresIn: 3600,
+      refreshToken: 'refreshed-refresh',
+      scopes: [],
+    });
+
+    await expect(
+      getSnapchatAdsUsableAccessToken({
+        config,
+        connection: {
+          access_token_ciphertext: encryptAdsToken(
+            'access',
+            tokenEncryptionKey,
+            'snapchat_ads'
+          ),
+          refresh_token_ciphertext: encryptAdsToken(
+            'refresh',
+            tokenEncryptionKey,
+            'snapchat_ads'
+          ),
+          token_expires_at: new Date(Date.now() + 30_000).toISOString(),
+        },
+        merchantId: 'merchant',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toBe('refreshed-access');
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed when token persistence loses a concurrent refresh race', async () => {
