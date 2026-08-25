@@ -23,6 +23,13 @@ const crossFlowMigration = readFileSync(
   ),
   'utf8'
 );
+const aliasLifecycleMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825013000_complete_paystack_dva_order_alias_lifecycle.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -72,5 +79,20 @@ describe('order payment account mutation RPC migration', () => {
     expect(crossFlowMigration).toContain('public.checkout_sessions');
     expect(crossFlowMigration).toContain('public.order_payment_accounts');
     expect(crossFlowMigration).toContain('BEFORE INSERT OR UPDATE OF');
+  });
+
+  it('guards other eligible orders and releases terminal aliases', () => {
+    expect(aliasLifecycleMigration).toContain(
+      'JOIN public.orders AS orders ON orders.id = account.order_id'
+    );
+    expect(aliasLifecycleMigration).toContain(
+      "orders.payment_status IN ('pending', 'unpaid', 'partially_paid')"
+    );
+    expect(aliasLifecycleMigration).toContain(
+      'expire_terminal_order_paystack_dva_aliases'
+    );
+    expect(aliasLifecycleMigration).toContain(
+      'AFTER UPDATE OF payment_status, shipping_status, cancelled_at'
+    );
   });
 });
