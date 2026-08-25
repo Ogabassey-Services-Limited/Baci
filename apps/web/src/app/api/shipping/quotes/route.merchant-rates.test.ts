@@ -525,7 +525,31 @@ function buildBodyOnlySupabaseMock(ratesPayload: unknown) {
       // merchants table. Currency is discovered through the definer RPC.
       throw new Error(`Unexpected table: ${table}`);
     }),
-    rpc: vi.fn().mockResolvedValue({ data: ratesPayload, error: null }),
+    rpc: vi.fn((name: string) => {
+      if (name === 'get_storefront_shipping_sender') {
+        const nonNgMerchant =
+          typeof ratesPayload === 'object' &&
+          ratesPayload !== null &&
+          'merchant_country' in ratesPayload &&
+          ratesPayload.merchant_country === 'IN';
+        return Promise.resolve({
+          data: {
+            business_address: nonNgMerchant
+              ? '1 Market Road, Bengaluru'
+              : '1 Allen Avenue, Ikeja, Lagos',
+            business_name: 'Merchant Store',
+            country: nonNgMerchant ? 'IN' : 'NG',
+            phone: nonNgMerchant ? '+919876543210' : '+2348012345678',
+            state_code: nonNgMerchant ? null : 'LA',
+          },
+          error: null,
+        });
+      }
+      if (name === 'get_storefront_shipping_rates') {
+        return Promise.resolve({ data: ratesPayload, error: null });
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
+    }),
     shippingQuotesTable,
   };
 }
@@ -539,9 +563,12 @@ async function postBodyOnlyQuotes(
   mockCreateServerClient.mockResolvedValue(supabase);
   const { POST } = await import('./route');
 
-  const response = await POST(
-    buildDomesticRequest({ merchantId: BODY_MERCHANT_ID, ...overrides })
-  );
+  const request = buildDomesticRequest({
+    merchantId: BODY_MERCHANT_ID,
+    ...overrides,
+  });
+  request.headers.set('x-baci-client', 'mobile-storefront');
+  const response = await POST(request);
   return { json: await response.json(), response, supabase };
 }
 

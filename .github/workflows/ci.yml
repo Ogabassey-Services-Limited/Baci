@@ -239,14 +239,6 @@ jobs:
           # deliberately removed before tests and cannot service lazy fetches.
           filter: ''
           persist-credentials: false
-      - name: Hydrate storefront inventory source authority
-        run: |
-          set -euo pipefail
-          authority_sha="$(
-            jq -er '.originMainSha | select(test("^[0-9a-f]{40}$"))' \
-              docs/superpowers/evidence/storefront-edge/task-1a-inventory.json
-          )"
-          git fetch --no-tags origin "$authority_sha"
       - uses: ./.github/actions/pnpm-install-cached
       - name: Run web vitest shard
         run: pnpm --filter @baci/web exec vitest run --shard=${{ matrix.shard }}/6

@@ -96,6 +96,24 @@ describe('event pipeline credential-path authority', () => {
         'apps/web/src/lib/storefront-compare-page-hard-status.ts',
         'apps/web/src/env.ts',
       ],
+      [
+        'apps/web/src/app/api/agentic/catalog/lookup/route.ts',
+        'apps/web/src/lib/agentic/mutation-request.ts',
+        'apps/web/src/lib/agentic/request-integrity.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/agentic/catalog/product/route.ts',
+        'apps/web/src/lib/agentic/mutation-request.ts',
+        'apps/web/src/lib/agentic/request-integrity.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/agentic/catalog/search/route.ts',
+        'apps/web/src/lib/agentic/mutation-request.ts',
+        'apps/web/src/lib/agentic/request-integrity.ts',
+        'apps/web/src/env.ts',
+      ],
       ...eventPipelineJumiaCredentialPaths,
     ]);
   });

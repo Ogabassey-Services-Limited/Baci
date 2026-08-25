@@ -79,7 +79,9 @@ describe('bugfix: ignore request-controlled domestic sender', () => {
           phone: '+2348012345678',
           city: 'Ikeja',
           state: 'Lagos',
-          postalCode: '100001',
+          // The selected business address has no postal code; do not mix one
+          // in from the separate registered-address source.
+          postalCode: undefined,
         }),
       })
     );
