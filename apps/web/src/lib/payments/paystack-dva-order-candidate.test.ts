@@ -70,6 +70,22 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
+  it('uses a lower current order balance after a manual partial payment', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        orders: {
+          ...row.orders,
+          amount_paid: '600000',
+          payment_status: 'partially_paid',
+          recorded_by_user_id: 'merchant-user-1',
+        },
+      })
+    ).toMatchObject({
+      outstanding_amount_kobo: 23_500_000,
+    });
+  });
+
   it.each([
     Number.NaN,
     Number.POSITIVE_INFINITY,

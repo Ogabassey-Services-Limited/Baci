@@ -30,6 +30,13 @@ const aliasLifecycleMigration = readFileSync(
   ),
   'utf8'
 );
+const emailLifecycleMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825014500_expire_paystack_dva_alias_on_email_change.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -93,6 +100,15 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(aliasLifecycleMigration).toContain(
       'AFTER UPDATE OF payment_status, shipping_status, cancelled_at'
+    );
+  });
+
+  it('expires the alias when its Paystack customer email changes', () => {
+    expect(emailLifecycleMigration).toContain(
+      'NEW.customer_email IS DISTINCT FROM OLD.customer_email'
+    );
+    expect(emailLifecycleMigration).toContain(
+      'AFTER UPDATE OF payment_status, shipping_status, cancelled_at, customer_email'
     );
   });
 });

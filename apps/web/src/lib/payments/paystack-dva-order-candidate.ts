@@ -42,8 +42,11 @@ export function normalizePaystackDvaOrderCandidate(
     typeof row.assigned_at === 'string' ? new Date(row.assigned_at) : null;
   const validAssignedAt =
     assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null;
+  const orderRemainingAmount = Math.max(total - amountPaid, 0);
   const outstandingAmount =
-    normalizedPayableAmount ?? Math.max(total - amountPaid, 0);
+    normalizedPayableAmount == null
+      ? orderRemainingAmount
+      : Math.min(normalizedPayableAmount, orderRemainingAmount);
   const expiresAt =
     typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
   return {
