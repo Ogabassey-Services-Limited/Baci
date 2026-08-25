@@ -1,5 +1,6 @@
 import type { PublishProduct } from '@/schemas/jumia/publish-products';
 import {
+  MAX_PRODUCT_PAGES,
   publishProductSchema,
   publishProductsPageSchema,
 } from '@/schemas/jumia/publish-products';
@@ -64,7 +65,10 @@ export async function loadPublishProducts(
     products.push(...pageProducts);
 
     const totalPages = parsed.data.pagination?.totalPages ?? 1;
-    if (page >= totalPages || pageProducts.length === 0) {
+    if (
+      page >= Math.min(totalPages, MAX_PRODUCT_PAGES) ||
+      pageProducts.length === 0
+    ) {
       break;
     }
     page += 1;

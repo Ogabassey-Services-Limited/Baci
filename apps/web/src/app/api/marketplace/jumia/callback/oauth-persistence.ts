@@ -4,7 +4,7 @@ import {
   getActiveSelfAuthorizedJumiaShopIds,
   getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
 } from '@/lib/jumia/jumia-oauth-self-authorization-conflict';
-import { lockJumiaOAuthShops } from '@/lib/jumia/lock-jumia-oauth-shops';
+import { persistJumiaOAuthIntegrations } from '@/lib/jumia/persist-jumia-oauth-integrations';
 import { logger } from '@/lib/logger';
 import type { JumiaTokenResponse } from '@/schemas/jumia';
 
@@ -141,27 +141,15 @@ export async function persistJumiaOAuthConnection(args: {
     },
   }));
 
-  if (
-    !(await lockJumiaOAuthShops(
-      supabase,
-      merchantId,
-      integrationRows.map((row) => row.shop_id)
-    ))
-  ) {
-    return { status: 'database_error' };
-  }
-
-  const { error: insertError } = await supabase
-    .from('marketplace_integrations')
-    .upsert(integrationRows, {
-      onConflict: 'merchant_id,platform,shop_id,marketplace_key',
-    });
-
-  if (insertError) {
+  const persistence = await persistJumiaOAuthIntegrations(
+    supabase,
+    integrationRows
+  );
+  if (!persistence.ok) {
     logger.error({
       message: 'Jumia Callback Database error while persisting shops',
       shopIds: integrationRows.map((row) => row.shop_id),
-      error: insertError,
+      error: persistence.error,
     });
     return { status: 'database_error' };
   }

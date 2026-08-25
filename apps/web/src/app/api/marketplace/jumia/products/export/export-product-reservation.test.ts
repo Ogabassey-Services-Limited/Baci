@@ -232,11 +232,15 @@ describe('finalizeJumiaExportReservation', () => {
   it('retains the accepted feed ID when finalization is unrecoverable', async () => {
     const builder = {
       eq: vi.fn(),
-      in: vi.fn().mockResolvedValue({ error: null }),
+      in: vi.fn(),
       is: vi.fn(),
+      select: vi
+        .fn()
+        .mockResolvedValue({ data: [{ id: 'mapping-1' }], error: null }),
     };
     builder.eq.mockReturnValue(builder);
     builder.is.mockReturnValue(builder);
+    builder.in.mockReturnValue(builder);
     const update = vi.fn(() => builder);
     const from = vi.fn(() => ({ update }));
 
@@ -264,11 +268,42 @@ describe('finalizeJumiaExportReservation', () => {
   it('reports when the accepted feed cannot be recorded for reconciliation', async () => {
     const builder = {
       eq: vi.fn(),
-      in: vi.fn().mockResolvedValue({ error: { message: 'update failed' } }),
+      in: vi.fn(),
       is: vi.fn(),
+      select: vi.fn().mockResolvedValue({
+        data: null,
+        error: { message: 'update failed' },
+      }),
     };
     builder.eq.mockReturnValue(builder);
     builder.is.mockReturnValue(builder);
+    builder.in.mockReturnValue(builder);
+    const from = vi.fn(() => ({ update: vi.fn(() => builder) }));
+
+    await expect(
+      markJumiaExportReservationForReconciliation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        feedId: 'feed-accepted',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(false);
+  });
+
+  it('reports when no pending reservation row accepted the reconciliation update', async () => {
+    const builder = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      is: vi.fn(),
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    builder.eq.mockReturnValue(builder);
+    builder.is.mockReturnValue(builder);
+    builder.in.mockReturnValue(builder);
     const from = vi.fn(() => ({ update: vi.fn(() => builder) }));
 
     await expect(

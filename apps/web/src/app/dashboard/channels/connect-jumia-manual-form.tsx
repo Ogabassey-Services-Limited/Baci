@@ -16,6 +16,7 @@ type ConnectJumiaManualFormProps = {
   clientId: string;
   refreshToken: string;
   discovering: boolean;
+  canResumeDiscovery: boolean;
   connecting: boolean;
   discoveredShops: JumiaDiscoveredShop[];
   selectedShopIds: Set<string>;
@@ -30,6 +31,7 @@ export function ConnectJumiaManualForm({
   clientId,
   refreshToken,
   discovering,
+  canResumeDiscovery,
   connecting,
   discoveredShops,
   selectedShopIds,
@@ -76,7 +78,11 @@ export function ConnectJumiaManualForm({
       <Button
         className="w-full"
         onClick={onDiscover}
-        disabled={discovering || !clientId.trim() || !refreshToken.trim()}
+        disabled={
+          discovering ||
+          !clientId.trim() ||
+          (!refreshToken.trim() && !canResumeDiscovery)
+        }
       >
         {discovering && <Loader2 className="size-4 mr-2 animate-spin" />}
         {discovering ? 'Discovering shops...' : 'Discover shops'}

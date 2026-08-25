@@ -147,6 +147,7 @@ describe('supabase-history-replay sources', () => {
         '6d1ca4f4cc494923cd60ef008cb8cc1844a7811676c16297f551da2a67cd61b1 20260825000400_order_jumia_multi_shop_locks.sql',
         '2ef84cf47dd191d491b8be7d61238389b9a43bd43956f84fa9b3dc56d97422cd 20260825000500_schedule_jumia_orphan_authorization_sweep.sql',
         '7d8dda99f5415f36db99afc7692edbae2a438eb39223e5cb840ede0eb1bbf50f 20260825000600_harden_jumia_shop_locks_and_orphan_sweep.sql',
+        '0158b4a2394428b1c259f39ef391e662f37e0e99c09a9c357eceb2c44ab82d33 20260825000700_persist_jumia_oauth_integrations_atomically.sql',
       ])
     );
   });

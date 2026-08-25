@@ -203,7 +203,10 @@ export async function POST(request: NextRequest) {
       needsPriceUpdate
     );
     if (readiness) {
-      return NextResponse.json({ success: false, feedIds: [], ...readiness });
+      return NextResponse.json(
+        { success: false, feedIds: [], ...readiness },
+        { status: 409 }
+      );
     }
     let marketplaceCurrency: string | undefined;
     if (needsPriceUpdate) {

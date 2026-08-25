@@ -42,7 +42,7 @@ function makeSupabase(args?: {
     connection_method: string;
   }>;
   selectError?: Error;
-  upsertError?: Error;
+  persistError?: Error;
 }) {
   const table = {
     select: vi.fn(() => ({
@@ -53,11 +53,13 @@ function makeSupabase(args?: {
         }),
       })),
     })),
-    upsert: vi.fn().mockResolvedValue({ error: args?.upsertError ?? null }),
   };
   return {
     from: vi.fn(() => table),
-    rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
+    rpc: vi.fn().mockResolvedValue({
+      data: args?.persistError ? null : true,
+      error: args?.persistError ?? null,
+    }),
     table,
   };
 }
@@ -81,7 +83,10 @@ describe('persistJumiaOAuthConnection', () => {
         tokens,
       })
     ).resolves.toEqual({ status: 'success', shopIds: ['shop-1'] });
-    expect(supabase.table.upsert).toHaveBeenCalledTimes(1);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_jumia_oauth_integrations_atomically',
+      expect.objectContaining({ p_merchant_id: 'merchant-1' })
+    );
   });
 
   it('returns a database error when existing integrations cannot be loaded', async () => {
@@ -95,6 +100,27 @@ describe('persistJumiaOAuthConnection', () => {
         tokens,
       })
     ).resolves.toEqual({ status: 'database_error' });
-    expect(supabase.table.upsert).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns a database error when atomic OAuth persistence fails', async () => {
+    getShops.mockResolvedValueOnce([
+      {
+        id: 'shop-1',
+        name: 'Shop 1',
+        email: 'merchant@example.com',
+        businessClients: [],
+      },
+    ]);
+    const supabase = makeSupabase({ persistError: new Error('RPC failed') });
+
+    await expect(
+      persistJumiaOAuthConnection({
+        merchantId: 'merchant-1',
+        supabase: supabase as never,
+        tokens,
+      })
+    ).resolves.toEqual({ status: 'database_error' });
+    expect(supabase.rpc).toHaveBeenCalledTimes(3);
   });
 });

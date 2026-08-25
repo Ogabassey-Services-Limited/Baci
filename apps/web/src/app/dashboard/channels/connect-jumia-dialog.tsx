@@ -231,6 +231,7 @@ export function ConnectJumiaDialog({
               clientId={clientId}
               refreshToken={refreshToken}
               discovering={discovering}
+              canResumeDiscovery={Boolean(activeDiscoveryId)}
               connecting={connecting}
               discoveredShops={discoveredShops}
               selectedShopIds={selectedShopIds}

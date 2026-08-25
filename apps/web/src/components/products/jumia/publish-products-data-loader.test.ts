@@ -35,7 +35,7 @@ describe('loadMappedProductIds', () => {
 });
 
 describe('loadPublishProducts', () => {
-  it('loads products beyond the former 50-page cap', async () => {
+  it('stops at the maximum product page bound', async () => {
     const fetchMock = vi.fn((url: string) => {
       const page = Number(
         new URL(url, 'http://localhost').searchParams.get('page')
@@ -46,7 +46,7 @@ describe('loadPublishProducts', () => {
           products: [
             { id: `product-${page}`, name: `Product ${page}`, price: page },
           ],
-          pagination: { page, limit: 100, totalPages: 51 },
+          pagination: { page, limit: 100, totalPages: 75 },
         }),
       });
     });
@@ -57,8 +57,8 @@ describe('loadPublishProducts', () => {
       new AbortController().signal
     );
 
-    expect(products).toHaveLength(51);
-    expect(products.at(-1)?.id).toBe('product-51');
-    expect(fetchMock).toHaveBeenCalledTimes(51);
+    expect(products).toHaveLength(50);
+    expect(products.at(-1)?.id).toBe('product-50');
+    expect(fetchMock).toHaveBeenCalledTimes(50);
   });
 });

@@ -206,7 +206,7 @@ export async function markJumiaExportReservationForReconciliation(
   }
 ): Promise<boolean> {
   const skus = args.exportVariations.map((variation) => variation.sellerSku);
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('jumia_product_mappings')
     .update({
       last_feed_id: args.feedId,
@@ -222,9 +222,10 @@ export async function markJumiaExportReservationForReconciliation(
     .eq('marketplace_key', args.marketplaceKey)
     .eq('sync_status', 'pending')
     .is('last_feed_id', null)
-    .in('jumia_sku', skus);
+    .in('jumia_sku', skus)
+    .select('id');
 
-  return !error;
+  return !error && data?.length === new Set(skus).size;
 }
 
 export async function releaseJumiaExportReservation(

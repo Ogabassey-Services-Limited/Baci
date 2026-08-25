@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { getJumiaShopSelectionId } from './connect-jumia-manual-form';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  ConnectJumiaManualForm,
+  getJumiaShopSelectionId,
+} from './connect-jumia-manual-form';
 
 describe('getJumiaShopSelectionId', () => {
   it('prefers the selection key when present', () => {
@@ -13,5 +17,30 @@ describe('getJumiaShopSelectionId', () => {
         alreadyConnected: false,
       })
     ).toBe('shop-1:NG');
+  });
+});
+
+describe('ConnectJumiaManualForm', () => {
+  it('allows retrying discovery from a saved handle without the rotated token', () => {
+    render(
+      <ConnectJumiaManualForm
+        clientId="client-id"
+        refreshToken=""
+        discovering={false}
+        canResumeDiscovery={true}
+        connecting={false}
+        discoveredShops={[]}
+        selectedShopIds={new Set()}
+        onClientIdChange={vi.fn()}
+        onRefreshTokenChange={vi.fn()}
+        onDiscover={vi.fn()}
+        onConnectSelected={vi.fn()}
+        onToggleShop={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Discover shops' })
+    ).toBeEnabled();
   });
 });

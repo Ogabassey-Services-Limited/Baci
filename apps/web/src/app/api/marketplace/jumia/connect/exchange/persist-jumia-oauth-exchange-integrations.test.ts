@@ -18,43 +18,36 @@ const row = {
 };
 
 describe('persistJumiaOAuthExchangeIntegrations', () => {
-  it('retries transient upsert failures before giving up', async () => {
-    const upsert = vi
+  it('retries transient atomic persistence failures before succeeding', async () => {
+    const rpc = vi
       .fn()
-      .mockResolvedValueOnce({ error: { message: 'connection reset' } })
-      .mockResolvedValueOnce({ error: null });
-    const supabase = {
-      from: vi.fn(() => ({ upsert })),
-      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
-    };
+      .mockResolvedValueOnce({ data: null, error: { message: 'reset' } })
+      .mockResolvedValueOnce({ data: true, error: null });
 
     const result = await persistJumiaOAuthExchangeIntegrations({
-      supabase: supabase as never,
+      supabase: { rpc } as never,
       integrationRows: [row],
     });
 
     expect(result).toEqual({ ok: true });
-    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
-  it('returns the last upsert error after exhausting retries', async () => {
-    const upsert = vi
-      .fn()
-      .mockResolvedValue({ error: { message: 'upsert failed' } });
-    const supabase = {
-      from: vi.fn(() => ({ upsert })),
-      rpc: vi.fn().mockResolvedValue({ data: true, error: null }),
-    };
+  it('returns the last persistence error after exhausting retries', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'persistence failed' },
+    });
 
     const result = await persistJumiaOAuthExchangeIntegrations({
-      supabase: supabase as never,
+      supabase: { rpc } as never,
       integrationRows: [row],
     });
 
     expect(result).toEqual({
       ok: false,
-      error: { message: 'upsert failed' },
+      error: { message: 'persistence failed' },
     });
-    expect(upsert).toHaveBeenCalledTimes(3);
+    expect(rpc).toHaveBeenCalledTimes(3);
   });
 });

@@ -263,7 +263,7 @@ describe('POST /api/marketplace/jumia/products/update', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(409);
     expect(body).toEqual({
       success: false,
       feedIds: [],
