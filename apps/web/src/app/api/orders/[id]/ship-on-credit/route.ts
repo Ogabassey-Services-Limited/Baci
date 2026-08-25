@@ -11,6 +11,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
+import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
 
 const shipOnCreditBodySchema = z.object({
   credit_notes: z.string().trim().max(2000).optional(),
@@ -182,9 +183,7 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // The prevent_cancelled_order_reopen trigger clamped this: the order was
-    // cancelled by the customer and cannot be shipped on credit. File a
-    // reconciliation row and reject without creating a DVA.
+    // Reject a customer-cancelled order clamped by the database trigger.
     if (isOrderClampedAsCancelled(updatedOrder)) {
       await handlePaymentForCancelledOrder({
         gatewayReference: null,
@@ -203,15 +202,15 @@ export async function POST(
       );
     }
 
-    // 7. Create Paystack DVA for payment collection (optional but recommended)
-    //    Uses generatePaymentAccount which handles existing customer DVAs idempotently
     let virtualAccount = null;
     try {
-      const nameParts = (order.customer_name || 'Customer').trim().split(' ');
+      const customerName = creditOrderDvaHelpers.toCustomerName(
+        order.customer_name
+      );
       const dvaResult = await generatePaymentAccount({
         email: order.customer_email || `${orderId}@orders.usebaci.com`,
-        firstName: nameParts[0] || 'Customer',
-        lastName: nameParts.slice(1).join(' ') || 'User',
+        firstName: customerName.firstName,
+        lastName: customerName.lastName,
         phone: '',
         orderId,
       });
@@ -228,7 +227,6 @@ export async function POST(
           });
 
         if (insertError) {
-          // Handle duplicate key conflicts as idempotent success
           const { data: existingAccount, error: existingAccountError } =
             await supabase
               .from('order_payment_accounts')
@@ -243,44 +241,37 @@ export async function POST(
               error: existingAccountError,
               orderId,
             });
-            return NextResponse.json(
-              { error: 'Failed to create or fetch payment account' },
-              { status: 500 }
-            );
+            logger.warn({
+              message:
+                'Optional credit-order payment account lookup failed after shipping transition',
+              error: existingAccountError,
+              orderId,
+            });
           }
 
-          if (existingAccount) {
+          if (!existingAccountError && existingAccount) {
             logger.info({
               message:
                 'Order payment account already exists, treating as idempotent success',
               orderId,
             });
-            virtualAccount = {
-              account_number: existingAccount.account_number,
-              bank_name: existingAccount.bank_name,
-              account_name: existingAccount.account_name,
-            };
+            virtualAccount =
+              creditOrderDvaHelpers.toVirtualAccount(existingAccount);
           } else {
-            logger.error({
-              message: 'Failed to insert order payment account',
+            logger.warn({
+              message:
+                'Optional credit-order payment account persistence failed after shipping transition',
               error: insertError,
               orderId,
             });
-            return NextResponse.json(
-              { error: 'Failed to create payment account' },
-              { status: 500 }
-            );
           }
         } else {
-          virtualAccount = {
-            account_number: dvaResult.data.account_number,
-            bank_name: dvaResult.data.bank_name,
-            account_name: dvaResult.data.account_name,
-          };
+          virtualAccount = creditOrderDvaHelpers.toVirtualAccount(
+            dvaResult.data
+          );
         }
       }
     } catch (vaError) {
-      // Non-blocking: Log but don't fail the request
       logger.warn({
         message: 'Could not create DVA for credit order',
         error: vaError,

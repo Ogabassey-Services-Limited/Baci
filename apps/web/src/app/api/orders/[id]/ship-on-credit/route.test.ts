@@ -253,7 +253,7 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
     );
   });
 
-  it('returns 500 when inserting the payment account fails and no existing account is found', async () => {
+  it('keeps ship-on-credit successful when a cross-flow DVA alias conflict has no same-order fallback', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
@@ -279,7 +279,10 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
 
       if (table === 'order_payment_accounts') {
         return createPaymentAccountTable({
-          insertError: { code: '23505', message: 'insert failed' },
+          insertError: {
+            code: 'P0001',
+            message: 'PAYSTACK_DVA_ALIAS_CONFLICT',
+          },
           existingAccount: null,
         });
       }
@@ -293,11 +296,15 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to create payment account' });
-    expect(mockLogger.error).toHaveBeenCalledWith(
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      virtualAccount: null,
+    });
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Failed to insert order payment account',
+        message:
+          'Optional credit-order payment account persistence failed after shipping transition',
         orderId: ORDER_ID,
       })
     );
@@ -420,7 +427,7 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
     expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
-  it('returns 500 when payment account fallback lookup fails', async () => {
+  it('keeps ship-on-credit successful when the optional fallback lookup fails', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
@@ -460,13 +467,15 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
     );
     const body = await response.json();
 
-    expect(response.status).toBe(500);
-    expect(body).toEqual({
-      error: 'Failed to create or fetch payment account',
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      success: true,
+      virtualAccount: null,
     });
-    expect(mockLogger.error).toHaveBeenCalledWith(
+    expect(mockLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Database error fetching existing payment account',
+        message:
+          'Optional credit-order payment account lookup failed after shipping transition',
         orderId: ORDER_ID,
       })
     );
