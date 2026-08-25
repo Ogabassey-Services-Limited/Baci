@@ -15859,6 +15859,10 @@ export type Database = {
         Args: { p_order_id: string };
         Returns: number;
       };
+      release_expired_paystack_order_account: {
+        Args: { p_order_id: string };
+        Returns: boolean;
+      };
       reserve_paystack_order_payment_account: {
         Args: {
           p_account_name: string;

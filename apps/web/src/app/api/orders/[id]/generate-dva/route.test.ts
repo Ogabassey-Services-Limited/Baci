@@ -321,7 +321,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
-  it('stops returning an expired Paystack account after its assignment window', async () => {
+  it('releases and reprovisions an expired Paystack account', async () => {
     authenticateMerchant();
     const paymentAccountQuery = useOrderQueries();
     paymentAccountQuery.maybeSingle
@@ -337,13 +337,18 @@ describe('POST /api/orders/[id]/generate-dva', () => {
         error: null,
       })
       .mockResolvedValueOnce({ data: null, error: null });
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
 
     const response = await POST(createRequest(), createParams());
     const body = await response.json();
 
-    expect(response.status).toBe(410);
-    expect(body.code).toBe('PAYMENT_ACCOUNT_EXPIRED');
-    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(body.virtualAccount.account_number).toBe('9876543210');
+    expect(mockRpc).toHaveBeenCalledWith(
+      'release_expired_paystack_order_account',
+      { p_order_id: ORDER_ID }
+    );
+    expect(mockGeneratePaymentAccount).toHaveBeenCalled();
   });
 
   it('returns 500 when checking for an existing DVA fails', async () => {

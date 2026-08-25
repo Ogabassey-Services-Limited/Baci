@@ -112,10 +112,6 @@ export async function POST(
       .maybeSingle();
 
     if (existingVbaError) {
-      logger.error({
-        message: 'Database error checking existing VBA',
-        error: existingVbaError,
-      });
       return NextResponse.json(
         { error: 'Failed to verify existing payment account' },
         { status: 500 }
@@ -160,13 +156,19 @@ export async function POST(
       });
     }
     if (existingVba) {
-      return NextResponse.json(
-        {
-          code: 'PAYMENT_ACCOUNT_EXPIRED',
-          error: 'Automatic confirmation account has expired',
-        },
-        { status: 410 }
+      const { data: released, error: releaseError } = await supabase.rpc(
+        'release_expired_paystack_order_account',
+        { p_order_id: orderId }
       );
+      if (releaseError || !released) {
+        return NextResponse.json(
+          {
+            code: 'PAYMENT_ACCOUNT_RELEASE_FAILED',
+            error: 'Unable to reprovision the automatic confirmation account',
+          },
+          { status: 500 }
+        );
+      }
     }
 
     const { firstName, lastName } = generateDvaHelpers.toCustomerName(

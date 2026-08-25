@@ -37,6 +37,13 @@ const emailLifecycleMigration = readFileSync(
   ),
   'utf8'
 );
+const reprovisionMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825020000_reprovision_expired_paystack_order_aliases.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -109,6 +116,16 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(emailLifecycleMigration).toContain(
       'AFTER UPDATE OF payment_status, shipping_status, cancelled_at, customer_email'
+    );
+  });
+
+  it('clamps long expiries and releases expired rows for reprovisioning', () => {
+    expect(reprovisionMigration).toContain("interval '90 minutes'");
+    expect(reprovisionMigration).toContain(
+      'release_expired_paystack_order_account'
+    );
+    expect(reprovisionMigration).toContain(
+      'DELETE FROM public.order_payment_accounts'
     );
   });
 });
