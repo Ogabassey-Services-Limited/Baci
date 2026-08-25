@@ -7,7 +7,11 @@ const validProjection = {
   publicationGeneration: 7,
   componentContractVersion: 'builder-components-v1',
   payload: {
-    merchant: { name: 'Pilot Store', slug: 'pilot-store' },
+    merchant: {
+      name: 'Pilot Store',
+      publishedStatus: 'published',
+      slug: 'pilot-store',
+    },
     publishedConfig: { content: [], root: { props: { title: 'Home' } } },
     products: [],
   },
@@ -141,12 +145,17 @@ describe('StorefrontPublicProjectionSchema', () => {
       );
   });
 
-  it('returns a validation failure when serialization invokes a throwing proxy', () => {
+  it('does not invoke input-defined toJSON capabilities while snapshotting', () => {
+    let capabilityInvocations = 0;
     const capabilityBearingPayload = new Proxy(
       { ...validProjection.payload },
       {
         get(target, property, receiver) {
-          if (property === 'toJSON') throw new Error('capability invoked');
+          if (property === 'toJSON')
+            return () => {
+              capabilityInvocations += 1;
+              return target;
+            };
           return Reflect.get(target, property, receiver);
         },
       }
@@ -156,12 +165,35 @@ describe('StorefrontPublicProjectionSchema', () => {
       payload: capabilityBearingPayload,
     };
 
-    expect(() =>
-      StorefrontPublicProjectionSchema.safeParse(proxyProjection)
-    ).not.toThrow();
-    expect(
-      StorefrontPublicProjectionSchema.safeParse(proxyProjection).success
-    ).toBe(false);
+    const result = StorefrontPublicProjectionSchema.safeParse(proxyProjection);
+
+    expect(result.success).toBe(true);
+    expect(capabilityInvocations).toBe(0);
+  });
+
+  it('rejects own __proto__ fields before schema parsing', () => {
+    const projectionWithPrototypeField = Object.defineProperty(
+      { ...validProjection },
+      '__proto__',
+      {
+        enumerable: true,
+        value: { serviceRoleKey: 'must-not-become-the-snapshot-prototype' },
+      }
+    );
+
+    const result = StorefrontPublicProjectionSchema.safeParse(
+      projectionWithPrototypeField
+    );
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'projection contains a reserved JSON property',
+          }),
+        ])
+      );
   });
 
   it('rejects publication generations that cannot round-trip safely', () => {

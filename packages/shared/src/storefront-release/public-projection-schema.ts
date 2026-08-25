@@ -4,43 +4,40 @@ import { StorefrontPublicProjectionPayloadSchema } from './public-projection-pay
 const MAX_NON_STREAMED_RPC_DTO_BYTES = 4_194_304;
 const MAX_JSON_NESTING_DEPTH = 64;
 
-type JsonPreflightFrame =
-  | Readonly<{ depth: number; kind: 'enter'; value: unknown }>
-  | Readonly<{ kind: 'exit'; value: object }>;
+type JsonSnapshotResult =
+  | Readonly<{ ok: true; value: unknown }>
+  | Readonly<{ message: string; ok: false }>;
 
-function findJsonTransportIssue(value: unknown): string | null {
-  const ancestors = new WeakSet<object>();
+function createDetachedJsonSnapshot(value: unknown): JsonSnapshotResult {
   const seen = new WeakSet<object>();
-  const frames: JsonPreflightFrame[] = [{ depth: 0, kind: 'enter', value }];
-
-  try {
-    while (frames.length > 0) {
-      const frame = frames.pop();
-      if (!frame) break;
-      if (frame.kind === 'exit') {
-        ancestors.delete(frame.value);
-        continue;
-      }
-
-      const current = frame.value;
+  const clone = (current: unknown, depth: number): JsonSnapshotResult => {
+    try {
       if (
         current === null ||
         typeof current === 'string' ||
         typeof current === 'boolean'
       )
-        continue;
+        return { ok: true, value: current };
       if (typeof current === 'number') {
         if (!Number.isFinite(current))
-          return 'projection contains a non-JSON number';
-        continue;
+          return {
+            message: 'projection contains a non-JSON number',
+            ok: false,
+          };
+        return { ok: true, value: current };
       }
       if (typeof current !== 'object')
-        return 'projection contains a non-JSON value';
-      if (frame.depth > MAX_JSON_NESTING_DEPTH)
-        return 'projection exceeds the maximum JSON nesting depth';
-      if (ancestors.has(current)) return 'projection contains a JSON cycle';
+        return { message: 'projection contains a non-JSON value', ok: false };
+      if (depth > MAX_JSON_NESTING_DEPTH)
+        return {
+          message: 'projection exceeds the maximum JSON nesting depth',
+          ok: false,
+        };
       if (seen.has(current))
-        return 'projection contains a shared JSON reference';
+        return {
+          message: 'projection contains a shared JSON reference',
+          ok: false,
+        };
 
       const isArray = Array.isArray(current);
       const prototype = Object.getPrototypeOf(current);
@@ -48,48 +45,87 @@ function findJsonTransportIssue(value: unknown): string | null {
         (isArray && prototype !== Array.prototype) ||
         (!isArray && prototype !== Object.prototype && prototype !== null)
       )
-        return 'projection contains a non-plain JSON object';
+        return {
+          message: 'projection contains a non-plain JSON object',
+          ok: false,
+        };
 
       seen.add(current);
-      ancestors.add(current);
-      frames.push({ kind: 'exit', value: current });
+      const snapshot: unknown[] | Record<string, unknown> = isArray ? [] : {};
+      const arrayLengthDescriptor = isArray
+        ? Object.getOwnPropertyDescriptor(current, 'length')
+        : undefined;
+      if (
+        isArray &&
+        (!arrayLengthDescriptor || !('value' in arrayLengthDescriptor))
+      )
+        return {
+          message: 'projection contains a non-data JSON property',
+          ok: false,
+        };
+      const arrayLength = isArray ? Number(arrayLengthDescriptor?.value) : 0;
+      if (isArray) (snapshot as unknown[]).length = arrayLength;
+
       for (const key of Reflect.ownKeys(current)) {
         if (isArray && key === 'length') continue;
         if (typeof key !== 'string')
-          return 'projection contains a symbol property';
+          return {
+            message: 'projection contains a symbol property',
+            ok: false,
+          };
+        if (key === '__proto__')
+          return {
+            message: 'projection contains a reserved JSON property',
+            ok: false,
+          };
         const descriptor = Object.getOwnPropertyDescriptor(current, key);
         if (!descriptor || !('value' in descriptor) || !descriptor.enumerable)
-          return 'projection contains a non-data JSON property';
+          return {
+            message: 'projection contains a non-data JSON property',
+            ok: false,
+          };
         if (
           isArray &&
-          (!/^(?:0|[1-9]\d*)$/.test(key) || Number(key) >= current.length)
+          (!/^(?:0|[1-9]\d*)$/.test(key) || Number(key) >= arrayLength)
         )
-          return 'projection contains a non-index array property';
-        frames.push({
-          depth: frame.depth + 1,
-          kind: 'enter',
-          value: descriptor.value,
-        });
+          return {
+            message: 'projection contains a non-index array property',
+            ok: false,
+          };
+        const child = clone(descriptor.value, depth + 1);
+        if (!child.ok) return child;
+        if (isArray) (snapshot as unknown[])[Number(key)] = child.value;
+        else
+          Object.defineProperty(snapshot, key, {
+            configurable: true,
+            enumerable: true,
+            value: child.value,
+            writable: true,
+          });
       }
+      return { ok: true, value: snapshot };
+    } catch {
+      return {
+        message: 'projection cannot be inspected as plain JSON',
+        ok: false,
+      };
     }
-  } catch {
-    return 'projection cannot be inspected as plain JSON';
-  }
+  };
 
-  return null;
+  return clone(value, 0);
 }
 
 const RawStorefrontPublicProjectionSchema = z
   .unknown()
   .transform((projection, context) => {
-    const transportIssue = findJsonTransportIssue(projection);
-    if (transportIssue) {
-      context.addIssue({ code: 'custom', message: transportIssue });
+    const snapshot = createDetachedJsonSnapshot(projection);
+    if (!snapshot.ok) {
+      context.addIssue({ code: 'custom', message: snapshot.message });
       return z.NEVER;
     }
 
     try {
-      const serialized = JSON.stringify(projection);
+      const serialized = JSON.stringify(snapshot.value);
       if (serialized === undefined) {
         context.addIssue({
           code: 'custom',
@@ -105,7 +141,7 @@ const RawStorefrontPublicProjectionSchema = z
         });
         return z.NEVER;
       }
-      return JSON.parse(serialized) as unknown;
+      return snapshot.value;
     } catch {
       context.addIssue({
         code: 'custom',
@@ -118,22 +154,33 @@ const RawStorefrontPublicProjectionSchema = z
 /** Bounded transport envelope for one coherent storefront publication snapshot. */
 export const StorefrontPublicProjectionSchema =
   RawStorefrontPublicProjectionSchema.pipe(
-    z.strictObject({
-      schemaVersion: z.literal(1),
-      merchantId: z.uuid(),
-      publicationGeneration: z
-        .number()
-        .int()
-        .nonnegative()
-        .max(Number.MAX_SAFE_INTEGER),
-      componentContractVersion: z
-        .string()
-        .trim()
-        .min(1)
-        .max(64)
-        .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-      payload: StorefrontPublicProjectionPayloadSchema,
-    })
+    z
+      .strictObject({
+        schemaVersion: z.literal(1),
+        merchantId: z.uuid(),
+        publicationGeneration: z
+          .number()
+          .int()
+          .nonnegative()
+          .max(Number.MAX_SAFE_INTEGER),
+        componentContractVersion: z
+          .string()
+          .trim()
+          .min(1)
+          .max(64)
+          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+        payload: StorefrontPublicProjectionPayloadSchema,
+      })
+      .superRefine((projection, context) => {
+        const serializedBytes = new TextEncoder().encode(
+          JSON.stringify(projection)
+        ).byteLength;
+        if (serializedBytes > MAX_NON_STREAMED_RPC_DTO_BYTES)
+          context.addIssue({
+            code: 'custom',
+            message: 'projection exceeds the 4 MiB RPC DTO limit',
+          });
+      })
   );
 
 export type StorefrontPublicProjection = z.infer<
