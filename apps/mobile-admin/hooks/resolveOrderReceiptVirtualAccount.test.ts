@@ -145,6 +145,46 @@ describe('resolveOrderReceiptVirtualAccount', () => {
     expect(mocks.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it('revalidates an order Paystack account before using a staff terminal fallback', async () => {
+    authenticate();
+    mocks.fetch.mockResolvedValue(
+      okJson({
+        virtualAccount: {
+          account_name: 'Baci / Ada',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+        },
+      })
+    );
+
+    const account = await resolveOrderReceiptVirtualAccount({
+      merchant: null,
+      order: makeOrder({
+        staff_terminal: {
+          account_name: 'Generic Terminal',
+          account_number: '1111111111',
+          bank_name: 'Terminal Bank',
+        },
+        virtual_account: {
+          account_name: 'Cached Paystack',
+          account_number: '9876543210',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+        },
+      }),
+    });
+
+    expect(account).toEqual({
+      account_name: 'Baci / Ada',
+      account_number: '9876543210',
+      bank_name: 'Paystack-Titan',
+    });
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://example.com/api/orders/order-1/generate-dva',
+      expect.anything()
+    );
+  });
+
   it('does not advertise a cached Paystack account when the server rejects provisioning', async () => {
     authenticate();
     mocks.fetch.mockResolvedValue({ ok: false, status: 400 });

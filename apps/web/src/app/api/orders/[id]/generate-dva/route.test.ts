@@ -445,6 +445,7 @@ describe('POST /api/orders/[id]/generate-dva', () => {
       'reserve_paystack_order_payment_account',
       expect.objectContaining({
         p_account_number: '9876543210',
+        p_expected_customer_email: 'john@test.com',
         p_order_id: ORDER_ID,
       })
     );
@@ -553,6 +554,28 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
       code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
+    });
+  });
+
+  it('rejects a reservation when the customer email changes during provisioning', async () => {
+    authenticateMerchant();
+    useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data:
+          name === 'reserve_paystack_order_payment_account'
+            ? 'customer_changed'
+            : 5000,
+        error: null,
+      })
+    );
+
+    const response = await POST(createRequest(), createParams());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      code: 'ORDER_CUSTOMER_CHANGED',
     });
   });
 

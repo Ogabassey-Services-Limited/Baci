@@ -211,6 +211,7 @@ export async function POST(
         p_assigned_at: assignment.assignedAt,
         p_bank_name: dvaResult.data.bank_name,
         p_expires_at: assignment.expiresAt,
+        p_expected_customer_email: customerEmail,
         p_order_id: orderId,
       }
     );
@@ -235,6 +236,17 @@ export async function POST(
         {
           code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
           error: 'Order is no longer eligible for automatic confirmation',
+        },
+        { status: 409 }
+      );
+    }
+
+    if (reservation === 'customer_changed') {
+      return NextResponse.json(
+        {
+          code: 'ORDER_CUSTOMER_CHANGED',
+          error:
+            'Customer email changed while creating automatic confirmation. Please try again.',
         },
         { status: 409 }
       );

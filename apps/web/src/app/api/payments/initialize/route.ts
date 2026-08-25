@@ -1445,15 +1445,16 @@ export async function POST(request: NextRequest) {
                 { onConflict: 'order_id,provider' }
               );
             if (dvaPersistError) {
-              // Don't fail the request — the customer can still pay; the
-              // webhook will just fall back to the agentic checkout-
-              // session path (if applicable) or 404 like it does today.
-              // B4 cron + reconciliation_review will surface the gap.
-              logger.warn({
+              logger.error({
                 message: 'Failed to persist Paystack DVA assignment',
                 orderId: paymentData.order_id,
                 error: dvaPersistError,
               });
+              return createErrorResponse(
+                'Unable to reserve a bank account for this order. Please try again.',
+                'DVA_PERSISTENCE_FAILED',
+                503
+              );
             }
 
             paymentResult = {

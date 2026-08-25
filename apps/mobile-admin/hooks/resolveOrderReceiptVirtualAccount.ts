@@ -194,9 +194,9 @@ export async function resolveOrderReceiptVirtualAccount({
   // Re-check Paystack accounts through the server so merchant gateway
   // disablement and the authoritative assignment window are enforced.
   let virtualAccount =
-    (order.virtual_account?.provider !== 'paystack'
+    order.virtual_account?.provider !== 'paystack'
       ? resolveAccountCandidate(order.virtual_account)
-      : null) ?? resolveAccountCandidate(order.staff_terminal);
+      : null;
 
   if (!virtualAccount && shouldProvisionPaystackDva) {
     try {
@@ -220,6 +220,10 @@ export async function resolveOrderReceiptVirtualAccount({
     } catch {
       // Ignore invoice account provisioning failures and continue to fallbacks.
     }
+  }
+
+  if (!virtualAccount) {
+    virtualAccount = resolveAccountCandidate(order.staff_terminal);
   }
 
   if (!virtualAccount) {

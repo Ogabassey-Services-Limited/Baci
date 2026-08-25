@@ -99,8 +99,7 @@ vi.mock('@/lib/agentic/paystack', () => ({
     mockCreateDedicatedVirtualAccount(...args),
 }));
 
-// Logger mock — we need to assert logger.warn is invoked when the
-// `order_payment_accounts` upsert fails (B1 warn-and-continue contract).
+// Logger mocks cover both recoverable warnings and fail-closed DVA persistence.
 const mockLoggerWarn = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerInfo = vi.fn();
@@ -1014,12 +1013,9 @@ describe('POST /api/payments/initialize', () => {
       });
     });
 
-    it('warns and still returns 200 when the DVA upsert fails (B1 warn-and-continue)', async () => {
+    it('does not advertise a DVA when its order alias cannot be persisted', async () => {
       enableDvaForTest();
 
-      // Simulate a Postgres-side upsert failure (e.g., transient RLS
-      // hiccup). The route must NOT throw — the customer can still pay
-      // and B4 cron/reconciliation will surface the gap.
       dvaUpsertResult = {
         data: null,
         error: { message: 'simulated upsert failure' },
@@ -1030,20 +1026,17 @@ describe('POST /api/payments/initialize', () => {
       );
       const json = await res.json();
 
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.dva).toBeDefined();
-      // Warn-and-continue: a single warn log mentioning the failure.
-      expect(mockLoggerWarn).toHaveBeenCalled();
-      const warnCalls = mockLoggerWarn.mock.calls.map(
-        (call) => call[0] as Record<string, unknown>
+      expect(res.status).toBe(503);
+      expect(json).toMatchObject({
+        code: 'DVA_PERSISTENCE_FAILED',
+      });
+      expect(json.dva).toBeUndefined();
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Failed to persist Paystack DVA assignment',
+          orderId: ORDER_ID,
+        })
       );
-      const matched = warnCalls.find((entry) =>
-        typeof entry?.message === 'string'
-          ? /DVA|order_payment_accounts/i.test(entry.message as string)
-          : false
-      );
-      expect(matched).toBeDefined();
     });
   });
 

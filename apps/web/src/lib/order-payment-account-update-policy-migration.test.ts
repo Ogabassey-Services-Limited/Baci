@@ -51,6 +51,13 @@ const viewRefreshMigration = readFileSync(
   ),
   'utf8'
 );
+const reservationEmailMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825142000_revalidate_paystack_order_email_at_reservation.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -145,6 +152,15 @@ describe('order payment account mutation RPC migration', () => {
     );
     expect(viewRefreshMigration).not.toContain(
       'reserve_paystack_order_payment_account'
+    );
+  });
+
+  it('locks and revalidates the Paystack customer email before reservation', () => {
+    expect(reservationEmailMigration).toContain('FOR UPDATE');
+    expect(reservationEmailMigration).toContain('p_expected_customer_email');
+    expect(reservationEmailMigration).toContain("RETURN 'customer_changed'");
+    expect(reservationEmailMigration).toContain(
+      'REVOKE EXECUTE ON FUNCTION public.reserve_paystack_order_payment_account'
     );
   });
 });

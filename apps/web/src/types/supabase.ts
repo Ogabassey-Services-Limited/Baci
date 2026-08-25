@@ -15870,6 +15870,7 @@ export type Database = {
           p_assigned_at: string;
           p_bank_name: string;
           p_expires_at: string;
+          p_expected_customer_email: string;
           p_order_id: string;
         };
         Returns: string;
