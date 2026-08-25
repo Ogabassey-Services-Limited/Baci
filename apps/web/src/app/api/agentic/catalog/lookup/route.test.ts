@@ -1,8 +1,10 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { POST } from './route';
 
 const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
+const mockReadAgenticQueryRequest = vi.hoisted(() => vi.fn());
 const mockResolveAgenticMerchantContext = vi.hoisted(() =>
   vi.fn(async () => ({
     agent_user_agent_allowlist: [],
@@ -19,6 +21,10 @@ const mockResolveAgenticMerchantContext = vi.hoisted(() =>
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
+}));
+
+vi.mock('@/lib/agentic/mutation-request', () => ({
+  readAgenticQueryRequest: mockReadAgenticQueryRequest,
 }));
 
 vi.mock('@/lib/agentic/agent-request-controls', () => ({
@@ -70,7 +76,40 @@ describe('POST /api/agentic/catalog/lookup', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyAgenticApiKey.mockReturnValue(true);
+    mockReadAgenticQueryRequest.mockImplementation(
+      async ({ request }: { request: NextRequest }) => ({
+        agentId: null,
+        apiVersion: '2026-04-30',
+        body: await request.json(),
+        idempotencyKey: '',
+        method: request.method,
+        ok: true,
+        pathname: request.nextUrl.pathname,
+        rawBody: '',
+        requestId: 'catalog-request-1',
+      })
+    );
     mockProductRows([]);
+  });
+
+  it('propagates a catalog request-signing rejection before reading products', async () => {
+    mockReadAgenticQueryRequest.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      ),
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/lookup', {
+        body: JSON.stringify({ ids: ['product-1'] }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(401);
+    expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
   });
 
   it('returns lookup products in requested ID order', async () => {
@@ -91,7 +130,6 @@ describe('POST /api/agentic/catalog/lookup', () => {
       },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/lookup', {
         body: JSON.stringify({ ids: ['product-1', 'product-2'] }),
@@ -114,7 +152,6 @@ describe('POST /api/agentic/catalog/lookup', () => {
   });
 
   it('rejects empty lookup IDs', async () => {
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/lookup', {
         body: JSON.stringify({ ids: [] }),
@@ -152,7 +189,6 @@ describe('POST /api/agentic/catalog/lookup', () => {
       from: vi.fn(() => ({ select })),
     } as never);
 
-    const { POST } = await import('./route');
     await POST(
       new NextRequest('http://localhost/api/agentic/catalog/lookup', {
         body: JSON.stringify({ ids: ['product-1'] }),
@@ -179,7 +215,6 @@ describe('POST /api/agentic/catalog/lookup', () => {
       },
     ]);
 
-    const { POST } = await import('./route');
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/lookup', {
         body: JSON.stringify({ ids: ['product-1'] }),

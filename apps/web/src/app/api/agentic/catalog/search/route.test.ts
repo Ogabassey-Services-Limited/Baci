@@ -1,9 +1,10 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 
 const VALID_AGENTIC_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
 const mockVerifyAgenticApiKey = vi.hoisted(() => vi.fn(() => true));
+const mockReadAgenticQueryRequest = vi.hoisted(() => vi.fn());
 const mockResolveAgenticMerchantContext = vi.hoisted(() =>
   vi.fn(async () => ({
     agent_user_agent_allowlist: [],
@@ -20,6 +21,10 @@ const mockResolveAgenticMerchantContext = vi.hoisted(() =>
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
+}));
+
+vi.mock('@/lib/agentic/mutation-request', () => ({
+  readAgenticQueryRequest: mockReadAgenticQueryRequest,
 }));
 
 vi.mock('@/lib/agentic/agent-request-controls', () => ({
@@ -102,11 +107,56 @@ describe('POST /api/agentic/catalog/search', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVerifyAgenticApiKey.mockReturnValue(true);
+    mockReadAgenticQueryRequest.mockImplementation(
+      async ({ request }: { request: NextRequest }) => {
+        try {
+          return {
+            agentId: null,
+            apiVersion: '2026-04-30',
+            body: await request.json(),
+            idempotencyKey: '',
+            method: request.method,
+            ok: true,
+            pathname: request.nextUrl.pathname,
+            rawBody: '',
+            requestId: 'catalog-request-1',
+          };
+        } catch {
+          return {
+            ok: false,
+            response: NextResponse.json(
+              { error: 'Invalid JSON body' },
+              { status: 400 }
+            ),
+          };
+        }
+      }
+    );
     mockProductRows([]);
   });
 
   it('returns 401 when the agent key is missing', async () => {
     mockVerifyAgenticApiKey.mockReturnValueOnce(false);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/catalog/search', {
+        body: JSON.stringify({ query: 'iphone' }),
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(401);
+    expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+  });
+
+  it('propagates a catalog request-signing rejection before reading products', async () => {
+    mockReadAgenticQueryRequest.mockResolvedValueOnce({
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401 }
+      ),
+    });
 
     const response = await POST(
       new NextRequest('http://localhost/api/agentic/catalog/search', {
