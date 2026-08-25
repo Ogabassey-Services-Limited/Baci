@@ -1,7 +1,17 @@
 import 'server-only';
 
+export class SnapchatAdsRateLimitError extends Error {
+  readonly code = 'SNAPCHAT_ADS_RATE_LIMIT_QUEUE_FULL';
+
+  constructor() {
+    super('SNAPCHAT_ADS_RATE_LIMIT_QUEUE_FULL');
+    this.name = 'SnapchatAdsRateLimitError';
+  }
+}
+
 export class SnapchatAdsRateLimiter {
   private nextAllowedAt = 0;
+  private pending = 0;
   private tail: Promise<void> = Promise.resolve();
   constructor(
     private readonly now: () => number = Date.now,
@@ -9,6 +19,8 @@ export class SnapchatAdsRateLimiter {
       new Promise((resolve) => setTimeout(resolve, ms))
   ) {}
   async acquire(): Promise<void> {
+    if (this.pending >= 50) throw new SnapchatAdsRateLimitError();
+    this.pending += 1;
     const prior = this.tail;
     let release: () => void = () => undefined;
     this.tail = new Promise<void>((resolve) => (release = resolve));
@@ -19,6 +31,7 @@ export class SnapchatAdsRateLimiter {
       // 8 QPS stays below Snap's documented 10 QPS per access-token limit.
       this.nextAllowedAt = this.now() + 125;
     } finally {
+      this.pending -= 1;
       release();
     }
   }

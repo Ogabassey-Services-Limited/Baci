@@ -199,6 +199,7 @@ describe('Google Ads account discovery and selection', () => {
     expect(response.status).toBe(200);
     expect(json).toEqual({ customerId: '1234567890', selected: true });
     expect(mockRpc).toHaveBeenCalledWith('set_google_ads_customer', {
+      p_expected_access_token_ciphertext: 'encrypted-access',
       p_merchant_id: 'merchant-1',
       p_provider_customer_id: '1234567890',
     });
@@ -226,9 +227,9 @@ describe('Google Ads account discovery and selection', () => {
       )
     );
 
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
-      error: 'Failed to select Google Ads account',
+      error: 'Google Ads authorization changed; retry account selection',
     });
   });
 });

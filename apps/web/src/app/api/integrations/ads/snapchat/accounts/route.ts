@@ -213,15 +213,24 @@ export async function PATCH(request: NextRequest) {
         organizationId: account.organizationId,
         providerVersion: 'v1',
       },
+      p_expected_access_token_ciphertext: current.access_token_ciphertext,
       p_merchant_id: access.merchantId,
       p_provider: SNAPCHAT_ADS_PROVIDER,
       p_provider_account_label: account.label,
       p_provider_customer_id: account.accountId,
     });
-    return result.error || result.data !== true
+    if (result.error)
+      return NextResponse.json(
+        { error: 'Failed to select Snapchat Ads account' },
+        { status: 500 }
+      );
+    return result.data !== true
       ? NextResponse.json(
-          { error: 'Failed to select Snapchat Ads account' },
-          { status: 500 }
+          {
+            error:
+              'Snapchat Ads authorization changed; retry account selection',
+          },
+          { status: 409 }
         )
       : NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {

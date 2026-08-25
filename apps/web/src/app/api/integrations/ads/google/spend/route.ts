@@ -67,18 +67,44 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let query = auth.supabase
+  let customerId = parsedQuery.data.customerId;
+  if (!customerId) {
+    const { data: connection, error: connectionError } = await auth.supabase
+      .from('merchant_ad_connections')
+      .select('provider_customer_id')
+      .eq('merchant_id', access.merchantId)
+      .eq('provider', 'google_ads')
+      .maybeSingle();
+    if (connectionError) {
+      return NextResponse.json(
+        { error: 'Failed to read Google Ads connection' },
+        { status: 500 }
+      );
+    }
+    customerId = connection?.provider_customer_id ?? undefined;
+  }
+
+  if (!customerId) {
+    return NextResponse.json({
+      currencyCode: null,
+      endDate: parsedQuery.data.endDate ?? defaults.endDate,
+      provider: 'google_ads',
+      rows: [],
+      startDate: parsedQuery.data.startDate ?? defaults.startDate,
+      totalSpend: 0,
+      totalSpendMicros: '0',
+    });
+  }
+
+  const query = auth.supabase
     .from('merchant_ad_spend_daily')
     .select(SPEND_SELECT)
     .eq('merchant_id', access.merchantId)
     .eq('provider', 'google_ads')
+    .eq('provider_customer_id', customerId)
     .gte('spend_date', parsedQuery.data.startDate ?? defaults.startDate)
     .lte('spend_date', parsedQuery.data.endDate ?? defaults.endDate)
     .order('spend_date', { ascending: true });
-  if (parsedQuery.data.customerId) {
-    query = query.eq('provider_customer_id', parsedQuery.data.customerId);
-  }
-
   const { data, error } = await query;
   if (error) {
     return NextResponse.json(

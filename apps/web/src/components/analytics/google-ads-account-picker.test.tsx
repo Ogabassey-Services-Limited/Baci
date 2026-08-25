@@ -112,6 +112,7 @@ describe('GoogleAdsAccountPicker', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-08-01',
+          finalChunk: true,
         }),
         headers: {
           'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
@@ -167,6 +168,7 @@ describe('GoogleAdsAccountPicker', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-07-22',
+          finalChunk: true,
         }),
       })
     );
@@ -203,6 +205,7 @@ describe('GoogleAdsAccountPicker', () => {
         body: JSON.stringify({
           endDate: '2026-03-31',
           startDate: '2026-01-01',
+          finalChunk: false,
         }),
       })
     );
@@ -213,6 +216,7 @@ describe('GoogleAdsAccountPicker', () => {
         body: JSON.stringify({
           endDate: '2026-05-01',
           startDate: '2026-04-01',
+          finalChunk: true,
         }),
       })
     );

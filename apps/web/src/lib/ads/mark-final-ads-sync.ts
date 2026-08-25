@@ -1,0 +1,22 @@
+import 'server-only';
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+
+export async function markFinalAdsSync(input: {
+  finalChunk?: boolean;
+  merchantId: string;
+  provider: string;
+  providerCustomerId: string;
+  supabase: SupabaseClient;
+}): Promise<boolean> {
+  if (input.finalChunk === false) return true;
+  const result = await input.supabase.rpc(
+    'mark_merchant_ads_connection_synced_if_current',
+    {
+      p_merchant_id: input.merchantId,
+      p_provider: input.provider,
+      p_provider_customer_id: input.providerCustomerId,
+    }
+  );
+  return !result.error && result.data === true;
+}

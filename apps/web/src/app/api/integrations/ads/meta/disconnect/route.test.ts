@@ -42,8 +42,8 @@ describe('Meta Ads disconnect route', () => {
     ).toBe(401);
   });
 
-  it('invalidates the merchant analytics snapshots after a successful deletion', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+  it('treats an already-missing connection as successfully disconnected', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },

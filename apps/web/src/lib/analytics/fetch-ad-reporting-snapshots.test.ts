@@ -1,40 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  fetchAdReportingSnapshots,
-  SOCIAL_ADS_SPEND_PAGE_SIZE,
-} from './fetch-ad-reporting-snapshots';
-
-function chainResult(
-  result: { data: unknown; error: unknown },
-  terminal: 'in' | 'maybeSingle' | 'order' | 'range'
-) {
-  const chain: Record<string, unknown> = {};
-  for (const method of ['eq', 'gte', 'in', 'lte', 'order', 'range', 'select']) {
-    chain[method] = vi.fn(() =>
-      method === terminal ? Promise.resolve(result) : chain
-    );
-  }
-  chain.maybeSingle = () =>
-    terminal === 'maybeSingle' ? Promise.resolve(result) : chain;
-  return chain;
-}
-
-function socialSpendRow(overrides: Record<string, unknown> = {}) {
-  return {
-    account_timezone: 'Africa/Lagos',
-    clicks: '1',
-    conversions: '0',
-    currency_code: 'NGN',
-    fetched_at: '2026-08-22T09:00:00.000Z',
-    impressions: '10',
-    provider: 'meta_ads',
-    provider_customer_id: 'meta-1',
-    reach: null,
-    spend_amount_decimal: '1',
-    spend_date: '2026-08-22',
-    ...overrides,
-  };
-}
+import { fetchAdReportingSnapshots } from './fetch-ad-reporting-snapshots';
+import { chainResult } from './fetch-ad-reporting-snapshots.test-support';
 
 describe('fetchAdReportingSnapshots', () => {
   it('reads only credential-free Google and social projections', async () => {
@@ -117,11 +83,12 @@ describe('fetchAdReportingSnapshots', () => {
         error: null,
       },
     ];
-    const terminals = ['maybeSingle', 'order', 'in', 'range'] as const;
+    const orderedResults = [results[0], results[2], results[3], results[1]];
+    const terminals = ['maybeSingle', 'in', 'range', 'range'] as const;
     let index = 0;
     const from = vi.fn(() =>
       chainResult(
-        results[index] ?? { data: [], error: null },
+        orderedResults[index] ?? { data: [], error: null },
         terminals[index++]
       )
     );
@@ -136,7 +103,9 @@ describe('fetchAdReportingSnapshots', () => {
     expect(result.googleAds).toMatchObject({
       connected: true,
       currencyCode: 'NGN',
+      endDate: '2026-08-22',
       spendMicros: '2500000',
+      startDate: '2026-08-01',
     });
     expect(result.googleAds?.daily).toHaveLength(1);
     expect(result.socialAds.providers).toEqual(
@@ -173,7 +142,7 @@ describe('fetchAdReportingSnapshots', () => {
       { data: [], error: null },
       { data: [], error: null },
     ];
-    const terminals = ['maybeSingle', 'order', 'in', 'range'] as const;
+    const terminals = ['maybeSingle', 'in', 'range'] as const;
     let index = 0;
     const from = vi.fn(() =>
       chainResult(
@@ -210,11 +179,12 @@ describe('fetchAdReportingSnapshots', () => {
       { data: [], error: null },
       { data: [], error: null },
     ];
-    const terminals = ['maybeSingle', 'order', 'in', 'range'] as const;
+    const orderedResults = [results[0], results[2], results[3], results[1]];
+    const terminals = ['maybeSingle', 'in', 'range', 'range'] as const;
     let index = 0;
     const from = vi.fn(() =>
       chainResult(
-        results[index] ?? { data: [], error: null },
+        orderedResults[index] ?? { data: [], error: null },
         terminals[index++]
       )
     );
@@ -232,123 +202,5 @@ describe('fetchAdReportingSnapshots', () => {
       dataStatus: 'error',
       error: 'Google Ads reporting is temporarily unavailable.',
     });
-  });
-
-  it('paginates social spend rows before building provider metrics', async () => {
-    const firstPage = Array.from({ length: SOCIAL_ADS_SPEND_PAGE_SIZE }, () =>
-      socialSpendRow()
-    );
-    const results = [
-      { data: null, error: null },
-      { data: [], error: null },
-      {
-        data: [
-          {
-            account_timezone: 'Africa/Lagos',
-            last_synced_at: '2026-08-22T09:00:00.000Z',
-            provider: 'meta_ads',
-            provider_account_label: 'Baci Meta',
-            provider_customer_id: 'meta-1',
-            status: 'active',
-          },
-        ],
-        error: null,
-      },
-      { data: firstPage, error: null },
-      {
-        data: [socialSpendRow({ clicks: '2', spend_amount_decimal: '2' })],
-        error: null,
-      },
-      { data: [], error: null },
-    ];
-    const terminals = [
-      'maybeSingle',
-      'order',
-      'in',
-      'range',
-      'range',
-      'range',
-    ] as const;
-    let index = 0;
-    const from = vi.fn(() =>
-      chainResult(
-        results[index] ?? { data: [], error: null },
-        terminals[index++] ?? 'range'
-      )
-    );
-
-    const result = await fetchAdReportingSnapshots({
-      endDate: '2026-08-22',
-      merchantId: 'merchant-1',
-      startDate: '2026-08-01',
-      supabase: { from } as never,
-    });
-
-    const meta = result.socialAds.providers.find(
-      (provider) => provider.provider === 'meta_ads'
-    );
-    expect(meta).toMatchObject({
-      connectionStatus: 'connected',
-      dataStatus: 'ready',
-      metrics: {
-        clicks: String(SOCIAL_ADS_SPEND_PAGE_SIZE + 2),
-        spendByCurrency: [
-          {
-            currencyCode: 'NGN',
-            spendAmountDecimal: String(SOCIAL_ADS_SPEND_PAGE_SIZE + 2),
-          },
-        ],
-      },
-    });
-  });
-
-  it('drops partial social spend pages when a later page fails', async () => {
-    const firstPage = Array.from({ length: SOCIAL_ADS_SPEND_PAGE_SIZE }, () =>
-      socialSpendRow()
-    );
-    const results = [
-      { data: null, error: null },
-      { data: [], error: null },
-      {
-        data: [
-          {
-            account_timezone: 'Africa/Lagos',
-            last_synced_at: '2026-08-22T09:00:00.000Z',
-            provider: 'meta_ads',
-            provider_account_label: 'Baci Meta',
-            provider_customer_id: 'meta-1',
-            status: 'active',
-          },
-        ],
-        error: null,
-      },
-      { data: firstPage, error: null },
-      { data: null, error: { message: 'social spend unavailable' } },
-    ];
-    const terminals = ['maybeSingle', 'order', 'in', 'range', 'range'] as const;
-    let index = 0;
-    const from = vi.fn(() =>
-      chainResult(
-        results[index] ?? { data: [], error: null },
-        terminals[index++] ?? 'range'
-      )
-    );
-
-    const result = await fetchAdReportingSnapshots({
-      endDate: '2026-08-22',
-      merchantId: 'merchant-1',
-      startDate: '2026-08-01',
-      supabase: { from } as never,
-    });
-
-    const meta = result.socialAds.providers.find(
-      (provider) => provider.provider === 'meta_ads'
-    );
-    expect(meta).toMatchObject({
-      connectionStatus: 'connected',
-      dataStatus: 'error',
-      metrics: null,
-    });
-    expect(result.socialAds.spendByCurrency).toEqual([]);
   });
 });

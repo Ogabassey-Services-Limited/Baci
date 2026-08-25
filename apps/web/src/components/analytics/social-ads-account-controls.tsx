@@ -16,15 +16,11 @@ import {
   buildDefaultAdsSyncWindow,
 } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
+import {
+  parseSocialAdsAccounts,
+  type SocialAdsAccount,
+} from './social-ads-account-parser';
 import type { SocialAdsProvider } from './social-ads-reporting-card';
-
-interface SocialAdsAccount {
-  accountId: string;
-  currencyCode: string | null;
-  label: string;
-  selected: boolean;
-  timezoneName: string | null;
-}
 
 interface SocialAdsAccountControlsProps {
   displayName: string;
@@ -48,28 +44,6 @@ async function responseError(response: Response, fallback: string) {
   } catch {
     return fallback;
   }
-}
-
-function parseAccounts(value: unknown): SocialAdsAccount[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const row = item as Record<string, unknown>;
-    if (typeof row.accountId !== 'string' || typeof row.label !== 'string') {
-      return [];
-    }
-    return [
-      {
-        accountId: row.accountId,
-        currencyCode:
-          typeof row.currencyCode === 'string' ? row.currencyCode : null,
-        label: row.label,
-        selected: row.selected === true,
-        timezoneName:
-          typeof row.timezoneName === 'string' ? row.timezoneName : null,
-      },
-    ];
-  });
 }
 
 export function SocialAdsAccountControls({
@@ -106,7 +80,7 @@ export function SocialAdsAccountControls({
         );
       }
       const payload = (await response.json()) as { accounts?: unknown };
-      const nextAccounts = parseAccounts(payload.accounts);
+      const nextAccounts = parseSocialAdsAccounts(payload.accounts);
       setAccounts(nextAccounts);
       setSelectedId(
         nextAccounts.find((account) => account.selected)?.accountId ??
@@ -126,9 +100,13 @@ export function SocialAdsAccountControls({
 
   const sync = async () => {
     const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
-    for (const window of buildAdsSyncWindowChunks(requestedWindow, provider)) {
+    const windows = buildAdsSyncWindowChunks(requestedWindow, provider);
+    for (const [index, window] of windows.entries()) {
       const response = await fetchWithCsrf(`${path}/sync`, {
-        body: JSON.stringify(window),
+        body: JSON.stringify({
+          ...window,
+          finalChunk: index === windows.length - 1,
+        }),
         headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',
       });

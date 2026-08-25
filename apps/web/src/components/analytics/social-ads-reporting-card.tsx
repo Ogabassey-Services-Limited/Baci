@@ -64,7 +64,8 @@ export function SocialAdsReportingCard({
   reporting,
   syncWindow,
 }: SocialAdsReportingCardProps) {
-  const { merchant } = useMerchant();
+  const { hasPermission, merchant } = useMerchant();
+  const canManageIntegrations = hasPermission('integrations', 'manage');
   return (
     <BentoCard
       className={cn('h-full', className)}
@@ -102,6 +103,7 @@ export function SocialAdsReportingCard({
           <div className="grid gap-3 xl:grid-cols-3">
             {reporting.providers.map((provider) => (
               <SocialAdsProviderPanel
+                canManageIntegrations={canManageIntegrations}
                 key={provider.provider}
                 merchantId={merchant?.id}
                 onSynced={onSynced}

@@ -66,11 +66,13 @@ function Metric({ label, value }: { label: string; value: string }) {
 }
 
 export function SocialAdsProviderPanel({
+  canManageIntegrations,
   merchantId,
   onSynced,
   provider,
   syncWindow,
 }: {
+  canManageIntegrations: boolean;
   merchantId?: string;
   onSynced?: () => void;
   provider: SocialAdsProviderReporting;
@@ -123,13 +125,17 @@ export function SocialAdsProviderPanel({
               <AlertDescription>{provider.error}</AlertDescription>
             </Alert>
           )}
-          <Button asChild size="sm">
-            <a href={`${connectPath.pathname}${connectPath.search}`}>
-              {provider.connectionStatus === 'error' ? 'Reconnect' : 'Connect'}{' '}
-              {provider.displayName}
-              <ExternalLink className="size-4" />
-            </a>
-          </Button>
+          {canManageIntegrations && (
+            <Button asChild size="sm">
+              <a href={`${connectPath.pathname}${connectPath.search}`}>
+                {provider.connectionStatus === 'error'
+                  ? 'Reconnect'
+                  : 'Connect'}{' '}
+                {provider.displayName}
+                <ExternalLink className="size-4" />
+              </a>
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -185,14 +191,16 @@ export function SocialAdsProviderPanel({
               </p>
             </div>
           )}
-          <SocialAdsAccountControls
-            displayName={provider.displayName}
-            merchantId={merchantId}
-            needsAccountSelection={provider.needsAccountSelection}
-            onSynced={onSynced}
-            provider={provider.provider}
-            syncWindow={syncWindow}
-          />
+          {canManageIntegrations && (
+            <SocialAdsAccountControls
+              displayName={provider.displayName}
+              merchantId={merchantId}
+              needsAccountSelection={provider.needsAccountSelection}
+              onSynced={onSynced}
+              provider={provider.provider}
+              syncWindow={syncWindow}
+            />
+          )}
         </>
       )}
 

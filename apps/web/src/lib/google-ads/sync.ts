@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
 import {
   type GoogleAdsResolvedAccessToken,
   resolveGoogleAdsAccessToken,
@@ -70,6 +71,7 @@ async function markGoogleAdsReauthRequired(input: {
 export async function syncGoogleAdsSpendForMerchant(
   input: {
     endDate: string;
+    finalChunk?: boolean;
     merchantId: string;
     startDate: string;
     supabase: SupabaseClient;
@@ -172,17 +174,16 @@ export async function syncGoogleAdsSpendForMerchant(
     throw new GoogleAdsSyncError('SPEND_WRITE_FAILED');
   }
 
-  const { data: synced, error: syncedError } = await input.supabase.rpc(
-    'mark_merchant_ads_connection_synced_if_current',
-    {
-      p_merchant_id: input.merchantId,
-      p_provider: 'google_ads',
-      p_provider_customer_id: connection.provider_customer_id,
-    }
-  );
-  if (syncedError || synced !== true) {
+  if (
+    !(await markFinalAdsSync({
+      finalChunk: input.finalChunk,
+      merchantId: input.merchantId,
+      provider: 'google_ads',
+      providerCustomerId: connection.provider_customer_id,
+      supabase: input.supabase,
+    }))
+  )
     throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
-  }
 
   return {
     customerId: connection.provider_customer_id,

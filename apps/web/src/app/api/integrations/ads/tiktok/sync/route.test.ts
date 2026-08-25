@@ -47,6 +47,7 @@ describe('TikTok Ads sync route', () => {
   });
 
   it('rejects a malformed authenticated sync body after CSRF validation', async () => {
+    access.mockClear();
     authenticate.mockResolvedValue({
       error: null,
       supabase: {},
@@ -68,6 +69,7 @@ describe('TikTok Ads sync route', () => {
         )
       ).status
     ).toBe(400);
+    expect(access).not.toHaveBeenCalled();
   });
 
   it('runs an authenticated valid CSRF/Zod sync and returns the normalized success', async () => {

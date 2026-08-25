@@ -32,7 +32,7 @@ async function disconnect(request: NextRequest) {
     'delete_snapchat_ads_connection_and_spend',
     { p_merchant_id: access.merchantId }
   );
-  if (result.error || result.data !== true) {
+  if (result.error) {
     return NextResponse.json(
       { error: 'Failed to disconnect Snapchat Ads' },
       { status: 500 }

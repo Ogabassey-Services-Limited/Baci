@@ -5,8 +5,11 @@ import {
   SocialAdsReportingCard,
 } from './social-ads-reporting-card';
 
+const mockHasPermission = vi.hoisted(() => vi.fn(() => true));
+
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
+    hasPermission: mockHasPermission,
     merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
   }),
 }));
@@ -47,6 +50,31 @@ function provider(
 }
 
 describe('SocialAdsReportingCard', () => {
+  it('hides provider management controls from analytics-only staff', () => {
+    mockHasPermission.mockReturnValue(false);
+    render(
+      <SocialAdsReportingCard
+        reporting={{
+          attributionNotice: 'Separate attribution.',
+          mixedCurrencies: false,
+          providers: [
+            provider({
+              connectionStatus: 'disconnected',
+              displayName: 'TikTok Ads',
+              provider: 'tiktok_ads',
+            }),
+          ],
+          spendByCurrency: [],
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole('link', { name: /connect tiktok ads/i })
+    ).not.toBeInTheDocument();
+    expect(mockHasPermission).toHaveBeenCalledWith('integrations', 'manage');
+    mockHasPermission.mockReturnValue(true);
+  });
   it('renders provider metrics without combining currencies or claiming ROAS', () => {
     render(
       <SocialAdsReportingCard

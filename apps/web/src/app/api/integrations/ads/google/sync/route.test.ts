@@ -99,6 +99,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     });
     expect(mockSync).toHaveBeenCalledWith({
       endDate: '2026-08-21',
+      finalChunk: true,
       merchantId: 'merchant-1',
       startDate: '2026-08-20',
       supabase: {},
@@ -117,6 +118,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
       })
     );
     expect(response.status).toBe(400);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
     expect(mockSync).not.toHaveBeenCalled();
   });
 });

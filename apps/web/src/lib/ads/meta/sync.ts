@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
 import { metaAdsSyncRequestSchema } from '@/schemas/meta-ads';
 import { resolveMetaAdsAccessToken } from './access-token';
 import { getMetaAdsConfig } from './config';
@@ -19,7 +20,6 @@ import {
 
 export class MetaAdsSyncError extends Error {
   readonly code: string;
-
   constructor(code: string) {
     super(code);
     this.code = code;
@@ -90,9 +90,7 @@ export async function markMetaAdsReauthRequired(input: {
       p_reason: input.failureCode,
     }
   );
-  // A false result means a concurrent reauthorization already replaced the
-  // credentials, so there is no current connection left for this request to
-  // mark. A database error, however, means the durable marker was not written.
+  // False means a concurrent reauthorization already replaced the grant.
   if (error) throw new MetaAdsReauthPersistenceError();
 }
 
@@ -130,6 +128,7 @@ function reauthFailureCode(error: unknown): string {
 export async function syncMetaAdsSpendForMerchant(
   input: {
     endDate: string;
+    finalChunk?: boolean;
     merchantId: string;
     startDate: string;
     supabase: SupabaseClient;
@@ -172,7 +171,7 @@ export async function syncMetaAdsSpendForMerchant(
     }
     throw new MetaAdsSyncError(reauthFailureCode(error));
   }
-  const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
+  const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
   const activeSync = inFlightSyncs.get(syncKey);
   if (activeSync) return activeSync;
   const syncPromise = syncSelectedMetaAdsAccount({
@@ -180,6 +179,7 @@ export async function syncMetaAdsSpendForMerchant(
     connection,
     endDate: input.endDate,
     fetchImpl,
+    finalChunk: input.finalChunk,
     merchantId: input.merchantId,
     startDate: input.startDate,
     supabase: input.supabase,
@@ -201,6 +201,7 @@ async function syncSelectedMetaAdsAccount(input: {
   };
   endDate: string;
   fetchImpl: typeof fetch;
+  finalChunk?: boolean;
   merchantId: string;
   startDate: string;
   supabase: SupabaseClient;
@@ -255,8 +256,7 @@ async function syncSelectedMetaAdsAccount(input: {
       impressions: insight.impressions,
       provider_customer_id: insight.accountId,
       reach: insight.reach,
-      // Legacy Google compatibility column only. Meta's authoritative amount is
-      // the exact decimal field below and is never reconstructed from this value.
+      // Legacy Google compatibility only; decimal spend remains authoritative.
       spend_micros: '0',
       spend_amount_decimal: insight.spendAmountDecimal,
       spend_date: insight.dateStart,
@@ -270,15 +270,15 @@ async function syncSelectedMetaAdsAccount(input: {
         p_start_date: input.startDate,
       });
     if (spendWriteError) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
-    const { data: synced, error: syncedError } = await input.supabase.rpc(
-      'mark_merchant_ads_connection_synced_if_current',
-      {
-        p_merchant_id: input.merchantId,
-        p_provider: META_ADS_PROVIDER,
-        p_provider_customer_id: account.accountId,
-      }
-    );
-    if (syncedError || synced !== true)
+    if (
+      !(await markFinalAdsSync({
+        finalChunk: input.finalChunk,
+        merchantId: input.merchantId,
+        provider: META_ADS_PROVIDER,
+        providerCustomerId: account.accountId,
+        supabase: input.supabase,
+      }))
+    )
       throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
     return { accountId: account.accountId, rowsWritten: rowsWritten ?? 0 };
   } catch (error) {

@@ -1,10 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
+const { mockFetchWithCsrf, mockHasPermission } = vi.hoisted(() => ({
+  mockFetchWithCsrf: vi.fn(),
+  mockHasPermission: vi.fn(() => true),
+}));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
+    hasPermission: mockHasPermission,
     merchant: { id: '550e8400-e29b-41d4-a716-446655440000' },
   }),
 }));
@@ -25,6 +29,7 @@ describe('GoogleAdsReportingCard', () => {
     vi.stubGlobal('fetch', fetchMock);
     fetchMock.mockReset();
     mockFetchWithCsrf.mockReset();
+    mockHasPermission.mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -52,6 +57,17 @@ describe('GoogleAdsReportingCard', () => {
       'Loading Google Ads reporting'
     );
     expect(screen.queryByText('Spend')).not.toBeInTheDocument();
+  });
+
+  it('hides management controls from analytics-only staff', () => {
+    mockHasPermission.mockReturnValue(false);
+
+    render(<GoogleAdsReportingCard />);
+
+    expect(
+      screen.queryByRole('link', { name: /connect google ads/i })
+    ).not.toBeInTheDocument();
+    expect(mockHasPermission).toHaveBeenCalledWith('integrations', 'manage');
   });
 
   it('shows a recoverable error without exposing provider details', () => {
@@ -182,6 +198,7 @@ describe('GoogleAdsReportingCard', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-08-01',
+          finalChunk: true,
         }),
       })
     );

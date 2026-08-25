@@ -58,8 +58,8 @@ describe('TikTok Ads disconnect route', () => {
     ).toBe(403);
   });
 
-  it('deletes an authorized connection after valid CSRF', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+  it('treats an already-missing connection as successfully disconnected', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },

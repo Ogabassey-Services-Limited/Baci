@@ -135,12 +135,13 @@ export function GoogleAdsAccountPicker({
       }
 
       const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
-      for (const window of buildAdsSyncWindowChunks(
-        requestedWindow,
-        'google_ads'
-      )) {
+      const windows = buildAdsSyncWindowChunks(requestedWindow, 'google_ads');
+      for (const [index, window] of windows.entries()) {
         const response = await fetchWithCsrf(SYNC_PATH, {
-          body: JSON.stringify(window),
+          body: JSON.stringify({
+            ...window,
+            finalChunk: index === windows.length - 1,
+          }),
           headers: merchantId
             ? { 'x-baci-merchant-id': merchantId }
             : undefined,

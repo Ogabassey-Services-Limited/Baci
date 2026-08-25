@@ -39,8 +39,8 @@ describe('Snapchat Ads disconnect route', () => {
     ).toBe(401);
   });
 
-  it('uses the atomic Snapchat connection-and-spend deletion RPC after CSRF', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+  it('treats an already-missing connection as successfully disconnected', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc },

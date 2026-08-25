@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
 import { tiktokAdsSyncRequestSchema } from '@/schemas/tiktok-ads';
 import { resolveTikTokAdsAccessToken } from './access-token';
 import { getTikTokAdsConfig } from './config';
@@ -106,6 +107,7 @@ function needsReauth(error: unknown): boolean {
 export async function syncTikTokAdsSpendForMerchant(
   input: {
     endDate: string;
+    finalChunk?: boolean;
     merchantId: string;
     startDate: string;
     supabase: SupabaseClient;
@@ -134,7 +136,7 @@ export async function syncTikTokAdsSpendForMerchant(
   } catch (cause) {
     throw new TikTokAdsSyncError(errorCode(cause));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
+  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
   const active = inFlightSyncs.get(key);
   if (active) return active;
   const work = (async () => {
@@ -209,15 +211,15 @@ export async function syncTikTokAdsSpendForMerchant(
       );
       if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
       const rowsWritten = written.data ?? 0;
-      const marked = await input.supabase.rpc(
-        'mark_merchant_ads_connection_synced_if_current',
-        {
-          p_merchant_id: input.merchantId,
-          p_provider: TIKTOK_ADS_PROVIDER,
-          p_provider_customer_id: account.accountId,
-        }
-      );
-      if (marked.error || marked.data !== true)
+      if (
+        !(await markFinalAdsSync({
+          finalChunk: input.finalChunk,
+          merchantId: input.merchantId,
+          provider: TIKTOK_ADS_PROVIDER,
+          providerCustomerId: account.accountId,
+          supabase: input.supabase,
+        }))
+      )
         throw new TikTokAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       return { accountId: account.accountId, rowsWritten };
     } catch (cause) {

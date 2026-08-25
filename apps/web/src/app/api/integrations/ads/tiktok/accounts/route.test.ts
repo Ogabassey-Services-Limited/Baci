@@ -144,7 +144,10 @@ describe('TikTok Ads accounts route', () => {
     ).toBe(200);
     expect(rpc).toHaveBeenCalledWith(
       'set_merchant_ads_account',
-      expect.objectContaining({ p_provider_customer_id: 'opaque-001' })
+      expect.objectContaining({
+        p_expected_access_token_ciphertext: 'cipher',
+        p_provider_customer_id: 'opaque-001',
+      })
     );
   });
 

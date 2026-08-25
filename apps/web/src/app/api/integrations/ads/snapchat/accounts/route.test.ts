@@ -130,7 +130,10 @@ describe('Snapchat Ads accounts route', () => {
     expect(usableToken).toHaveBeenCalledTimes(2);
     expect(rpc).toHaveBeenCalledWith(
       'set_merchant_ads_account',
-      expect.objectContaining({ p_provider_customer_id: 'ad-1' })
+      expect.objectContaining({
+        p_expected_access_token_ciphertext: 'SNAP_ACCOUNTS_ACCESS_SENTINEL',
+        p_provider_customer_id: 'ad-1',
+      })
     );
   });
 

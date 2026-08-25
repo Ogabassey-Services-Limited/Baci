@@ -42,6 +42,7 @@ export const googleAdsSpendQuerySchema = z
 export const googleAdsSyncRequestSchema = z
   .object({
     endDate: z.string().date(),
+    finalChunk: z.boolean().default(true),
     startDate: z.string().date(),
   })
   .superRefine((value, context) => {

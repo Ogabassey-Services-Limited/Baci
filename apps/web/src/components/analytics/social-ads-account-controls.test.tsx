@@ -137,6 +137,7 @@ describe('SocialAdsAccountControls', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-07-22',
+          finalChunk: true,
         }),
       })
     );
@@ -162,6 +163,7 @@ describe('SocialAdsAccountControls', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-08-01',
+          finalChunk: true,
         }),
       })
     );
@@ -188,6 +190,7 @@ describe('SocialAdsAccountControls', () => {
         body: JSON.stringify({
           endDate: '2026-01-31',
           startDate: '2026-01-01',
+          finalChunk: false,
         }),
       })
     );
@@ -198,6 +201,7 @@ describe('SocialAdsAccountControls', () => {
         body: JSON.stringify({
           endDate: '2026-02-15',
           startDate: '2026-02-01',
+          finalChunk: true,
         }),
       })
     );

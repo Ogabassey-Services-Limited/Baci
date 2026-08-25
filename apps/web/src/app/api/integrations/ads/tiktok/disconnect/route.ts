@@ -29,11 +29,11 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const { data, error } = await auth.supabase.rpc(
-    'delete_merchant_ads_connection',
-    { p_merchant_id: access.merchantId, p_provider: TIKTOK_ADS_PROVIDER }
-  );
-  if (error || data !== true) {
+  const { error } = await auth.supabase.rpc('delete_merchant_ads_connection', {
+    p_merchant_id: access.merchantId,
+    p_provider: TIKTOK_ADS_PROVIDER,
+  });
+  if (error) {
     return NextResponse.json(
       { error: 'Failed to disconnect TikTok Ads' },
       { status: 500 }

@@ -22,17 +22,6 @@ export async function POST(request: NextRequest) {
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
-  const merchant = await resolveAdsMerchantAccess({
-    request,
-    supabase: auth.supabase,
-    userId: auth.user.id,
-  });
-  if (merchant.response) return merchant.response;
-  const access = merchant.access;
-  if (!access)
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  if (!hasPermission(access, 'integrations', 'manage'))
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   let body: unknown;
   try {
     body = await request.json();
@@ -45,6 +34,17 @@ export async function POST(request: NextRequest) {
       { error: 'Invalid input', details: parsed.error.flatten() },
       { status: 400 }
     );
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
+  if (!access)
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  if (!hasPermission(access, 'integrations', 'manage'))
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   try {
     return NextResponse.json({
       ...(await syncSnapchatAdsSpendForMerchant({

@@ -20484,7 +20484,11 @@ export type Database = {
         Returns: boolean;
       };
       set_google_ads_customer: {
-        Args: { p_merchant_id: string; p_provider_customer_id: string };
+        Args: {
+          p_expected_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_provider_customer_id: string;
+        };
         Returns: boolean;
       };
       update_google_ads_connection_token: {
@@ -20586,6 +20590,7 @@ export type Database = {
         Args: {
           p_account_timezone: string | null;
           p_attribution_metadata: Json | null;
+          p_expected_access_token_ciphertext: string | null;
           p_merchant_id: string;
           p_provider: string;
           p_provider_account_label: string | null;

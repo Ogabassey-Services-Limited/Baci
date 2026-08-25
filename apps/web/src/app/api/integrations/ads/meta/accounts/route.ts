@@ -210,16 +210,23 @@ export async function PATCH(request: NextRequest) {
           currencyCode: account.currencyCode,
           providerTimezoneOffsetHours: account.timezoneOffsetHours,
         },
+        p_expected_access_token_ciphertext:
+          result.connection.access_token_ciphertext,
         p_merchant_id: access.merchantId,
         p_provider: META_ADS_PROVIDER,
         p_provider_account_label: account.label,
         p_provider_customer_id: account.accountId,
       }
     );
-    if (error || data !== true)
+    if (error)
       return NextResponse.json(
         { error: 'Failed to select Meta Ads account' },
         { status: 500 }
+      );
+    if (data !== true)
+      return NextResponse.json(
+        { error: 'Meta Ads authorization changed; retry account selection' },
+        { status: 409 }
       );
     return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {

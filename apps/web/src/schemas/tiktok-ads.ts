@@ -35,7 +35,11 @@ export const tiktokAdsSpendQuerySchema = z
   })
   .superRefine(dateOrder);
 export const tiktokAdsSyncRequestSchema = z
-  .object({ endDate: z.string().date(), startDate: z.string().date() })
+  .object({
+    endDate: z.string().date(),
+    finalChunk: z.boolean().default(true),
+    startDate: z.string().date(),
+  })
   .superRefine((value, context) => {
     dateOrder(value, context);
     if (value.startDate > value.endDate) return;

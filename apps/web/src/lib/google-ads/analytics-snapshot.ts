@@ -31,6 +31,7 @@ export interface GoogleAdsAnalyticsSnapshot {
   currencyCode?: string;
   customerId: string | null;
   dataStatus: 'error' | 'ready';
+  endDate?: string;
   daily?: Array<{
     clicks: number;
     conversions: number;
@@ -47,12 +48,15 @@ export interface GoogleAdsAnalyticsSnapshot {
   isStale: boolean;
   spend?: number;
   spendMicros?: string;
+  startDate?: string;
 }
 
 interface BuildGoogleAdsAnalyticsSnapshotOptions {
   connectionReadFailed?: boolean;
+  endDate?: string;
   now?: Date;
   spendReadFailed?: boolean;
+  startDate?: string;
 }
 
 const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
@@ -76,8 +80,10 @@ export function buildGoogleAdsAnalyticsSnapshot(
   rows: GoogleAdsAnalyticsSpendRow[],
   {
     connectionReadFailed = false,
+    endDate,
     now = new Date(),
     spendReadFailed = false,
+    startDate,
   }: BuildGoogleAdsAnalyticsSnapshotOptions = {}
 ): GoogleAdsAnalyticsSnapshot | undefined {
   if (connectionReadFailed) {
@@ -86,10 +92,12 @@ export function buildGoogleAdsAnalyticsSnapshot(
       connectionStatus: 'error',
       customerId: null,
       dataStatus: 'error',
+      endDate,
       error: 'Google Ads reporting is temporarily unavailable.',
       isStale: false,
       lastSyncedAt: null,
       needsAccountSelection: false,
+      startDate,
     };
   }
 
@@ -139,10 +147,12 @@ export function buildGoogleAdsAnalyticsSnapshot(
       connectionStatus,
       customerId: connection.provider_customer_id,
       dataStatus,
+      endDate,
       error,
       isStale,
       lastSyncedAt,
       needsAccountSelection: connected && !connection.provider_customer_id,
+      startDate,
     };
   }
 
@@ -155,11 +165,13 @@ export function buildGoogleAdsAnalyticsSnapshot(
     customerId: connection.provider_customer_id,
     dataStatus,
     daily,
+    endDate,
     error,
     isStale,
     lastSyncedAt,
     needsAccountSelection: connected && !connection.provider_customer_id,
     spend: Number(spendMicros) / 1_000_000,
     spendMicros: spendMicros.toString(),
+    startDate,
   };
 }

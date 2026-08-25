@@ -75,7 +75,8 @@ export function GoogleAdsReportingCard({
   reporting,
   syncWindow,
 }: GoogleAdsReportingCardProps) {
-  const { merchant } = useMerchant();
+  const { hasPermission, merchant } = useMerchant();
+  const canManageIntegrations = hasPermission('integrations', 'manage');
   const status =
     reporting?.connectionStatus ??
     (reporting?.metrics ? 'connected' : 'disconnected');
@@ -107,18 +108,18 @@ export function GoogleAdsReportingCard({
                 'Google Ads reporting could not be loaded. Your store analytics are still available.'}
             </AlertDescription>
           </Alert>
-          {reporting?.dataStatus === 'error' ? (
+          {canManageIntegrations && reporting?.dataStatus === 'error' ? (
             <GoogleAdsAccountPicker
               merchantId={merchant?.id}
               onSynced={onSynced}
               syncWindow={syncWindow}
             />
-          ) : (
+          ) : canManageIntegrations ? (
             <GoogleAdsConnectButton
               label="Reconnect Google Ads"
               merchantId={merchant?.id}
             />
-          )}
+          ) : null}
         </div>
       ) : status !== 'connected' ? (
         <div className="space-y-3">
@@ -126,7 +127,9 @@ export function GoogleAdsReportingCard({
             Connect a Google Ads reporting account to bring ad spend,
             impressions, clicks, and conversion metrics into this dashboard.
           </p>
-          <GoogleAdsConnectButton merchantId={merchant?.id} />
+          {canManageIntegrations && (
+            <GoogleAdsConnectButton merchantId={merchant?.id} />
+          )}
         </div>
       ) : reporting?.needsAccountSelection ? (
         <div className="space-y-3">
@@ -134,11 +137,13 @@ export function GoogleAdsReportingCard({
             Google Ads is connected. Select a reporting account to start
             importing spend and campaign metrics.
           </p>
-          <GoogleAdsAccountPicker
-            merchantId={merchant?.id}
-            onSynced={onSynced}
-            syncWindow={syncWindow}
-          />
+          {canManageIntegrations && (
+            <GoogleAdsAccountPicker
+              merchantId={merchant?.id}
+              onSynced={onSynced}
+              syncWindow={syncWindow}
+            />
+          )}
         </div>
       ) : !metrics ? (
         <div className="space-y-3">
@@ -152,15 +157,19 @@ export function GoogleAdsReportingCard({
               accessible account or retry the sync if needed.
             </p>
           </div>
-          <GoogleAdsAccountPicker
-            merchantId={merchant?.id}
-            onSynced={onSynced}
-            syncWindow={syncWindow}
-          />
-          <GoogleAdsConnectButton
-            label="Reconnect Google Ads"
-            merchantId={merchant?.id}
-          />
+          {canManageIntegrations && (
+            <>
+              <GoogleAdsAccountPicker
+                merchantId={merchant?.id}
+                onSynced={onSynced}
+                syncWindow={syncWindow}
+              />
+              <GoogleAdsConnectButton
+                label="Reconnect Google Ads"
+                merchantId={merchant?.id}
+              />
+            </>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -259,18 +268,20 @@ export function GoogleAdsReportingCard({
               </AlertDescription>
             </Alert>
           )}
-          <div className="space-y-2 border-t pt-3">
-            <p className="text-xs text-muted-foreground">
-              Sync the selected account or choose another accessible Google Ads
-              account. Provider-attributed conversions remain separate from Baci
-              order attribution and revenue.
-            </p>
-            <GoogleAdsAccountPicker
-              merchantId={merchant?.id}
-              onSynced={onSynced}
-              syncWindow={syncWindow}
-            />
-          </div>
+          {canManageIntegrations && (
+            <div className="space-y-2 border-t pt-3">
+              <p className="text-xs text-muted-foreground">
+                Sync the selected account or choose another accessible Google
+                Ads account. Provider-attributed conversions remain separate
+                from Baci order attribution and revenue.
+              </p>
+              <GoogleAdsAccountPicker
+                merchantId={merchant?.id}
+                onSynced={onSynced}
+                syncWindow={syncWindow}
+              />
+            </div>
+          )}
         </div>
       )}
     </BentoCard>

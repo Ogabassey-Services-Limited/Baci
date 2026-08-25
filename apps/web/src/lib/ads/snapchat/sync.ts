@@ -1,6 +1,7 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
 import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
 import {
   getSnapchatAdsUsableAccessToken,
@@ -80,6 +81,7 @@ export async function markSnapchatAdsReauthRequired(input: {
 export async function syncSnapchatAdsSpendForMerchant(
   input: {
     endDate: string;
+    finalChunk?: boolean;
     merchantId: string;
     startDate: string;
     supabase: SupabaseClient;
@@ -118,7 +120,7 @@ export async function syncSnapchatAdsSpendForMerchant(
       });
     throw new SnapchatAdsSyncError(codeOf(error));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}`;
+  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
   const current = activeSyncs.get(key);
   if (current) return current;
   const work = (async () => {
@@ -194,15 +196,15 @@ export async function syncSnapchatAdsSpendForMerchant(
       );
       if (written.error) throw new SnapchatAdsSyncError('SPEND_WRITE_FAILED');
       const rowsWritten = written.data ?? 0;
-      const marked = await input.supabase.rpc(
-        'mark_merchant_ads_connection_synced_if_current',
-        {
-          p_merchant_id: input.merchantId,
-          p_provider: SNAPCHAT_ADS_PROVIDER,
-          p_provider_customer_id: account.accountId,
-        }
-      );
-      if (marked.error || marked.data !== true)
+      if (
+        !(await markFinalAdsSync({
+          finalChunk: input.finalChunk,
+          merchantId: input.merchantId,
+          provider: SNAPCHAT_ADS_PROVIDER,
+          providerCustomerId: account.accountId,
+          supabase: input.supabase,
+        }))
+      )
         throw new SnapchatAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       return { accountId: account.accountId, rowsWritten };
     } catch (error) {

@@ -137,7 +137,10 @@ describe('Meta Ads accounts route', () => {
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith(
       'set_merchant_ads_account',
-      expect.objectContaining({ p_provider_customer_id: 'act_12' })
+      expect.objectContaining({
+        p_expected_access_token_ciphertext: 'cipher',
+        p_provider_customer_id: 'act_12',
+      })
     );
     listAccounts.mockResolvedValueOnce([]);
     const rejected = await PATCH(

@@ -211,16 +211,25 @@ export async function PATCH(request: NextRequest) {
           currencyCode: account.currencyCode,
           providerVersion: 'v1.3',
         },
+        p_expected_access_token_ciphertext:
+          result.connection.access_token_ciphertext,
         p_merchant_id: access.merchantId,
         p_provider: TIKTOK_ADS_PROVIDER,
         p_provider_account_label: account.label,
         p_provider_customer_id: account.accountId,
       }
     );
-    return error || data !== true
+    if (error)
+      return NextResponse.json(
+        { error: 'Failed to select TikTok Ads account' },
+        { status: 500 }
+      );
+    return data !== true
       ? NextResponse.json(
-          { error: 'Failed to select TikTok Ads account' },
-          { status: 500 }
+          {
+            error: 'TikTok Ads authorization changed; retry account selection',
+          },
+          { status: 409 }
         )
       : NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {

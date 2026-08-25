@@ -85,6 +85,7 @@ describe('Snapchat Ads sync route', () => {
       rowsWritten: 1,
       synced: true,
     });
+    access.mockClear();
     const invalid = await POST(
       new NextRequest(
         'https://usebaci.com/api/integrations/ads/snapchat/sync',
@@ -92,6 +93,7 @@ describe('Snapchat Ads sync route', () => {
       )
     );
     expect(invalid.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
   });
 
   it('drives CSRF, permission, and malformed JSON denials before sync work', async () => {
@@ -102,7 +104,13 @@ describe('Snapchat Ads sync route', () => {
         await POST(
           new NextRequest(
             'https://usebaci.com/api/integrations/ads/snapchat/sync',
-            { body: '{}', method: 'POST' }
+            {
+              body: JSON.stringify({
+                endDate: '2026-08-02',
+                startDate: '2026-08-01',
+              }),
+              method: 'POST',
+            }
           )
         )
       ).status
@@ -115,7 +123,13 @@ describe('Snapchat Ads sync route', () => {
         await POST(
           new NextRequest(
             'https://usebaci.com/api/integrations/ads/snapchat/sync',
-            { body: '{}', method: 'POST' }
+            {
+              body: JSON.stringify({
+                endDate: '2026-08-02',
+                startDate: '2026-08-01',
+              }),
+              method: 'POST',
+            }
           )
         )
       ).status
