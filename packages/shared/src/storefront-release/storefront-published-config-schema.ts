@@ -12,6 +12,8 @@ const MEDIA_PROPERTY_NAMES = new Set([
   'logoUrl',
   'src',
 ]);
+const NAVIGATION_PROPERTY_NAMES = new Set(['href', 'link', 'url']);
+const MAX_RELEASE_CAROUSEL_SLIDES = 5;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -65,6 +67,53 @@ function hasUnstableMediaProperty(value: unknown): boolean {
   return false;
 }
 
+function hasUnstableNavigationProperty(value: unknown): boolean {
+  const pending: Array<{ parentKey?: string; value: unknown }> = [{ value }];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    if (Array.isArray(current.value)) {
+      for (const entry of current.value)
+        pending.push({ parentKey: current.parentKey, value: entry });
+      continue;
+    }
+    if (!isRecord(current.value)) continue;
+    for (const [key, entry] of Object.entries(current.value)) {
+      if (
+        typeof entry === 'string' &&
+        (NAVIGATION_PROPERTY_NAMES.has(key) ||
+          current.parentKey === 'socialLinks') &&
+        (entry.includes('?') ||
+          !builderDesignCapabilityAdapter.isSafeUrl(entry))
+      )
+        return true;
+      pending.push({ parentKey: key, value: entry });
+    }
+  }
+  return false;
+}
+
+function hasOversizedCarousel(value: unknown): boolean {
+  const pending = [value];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (Array.isArray(current)) {
+      for (const entry of current) pending.push(entry);
+      continue;
+    }
+    if (!isRecord(current)) continue;
+    if (
+      current.type === 'HeroCarousel' &&
+      isRecord(current.props) &&
+      Array.isArray(current.props.slides) &&
+      current.props.slides.length > MAX_RELEASE_CAROUSEL_SLIDES
+    )
+      return true;
+    for (const entry of Object.values(current)) pending.push(entry);
+  }
+  return false;
+}
+
 /** Published Puck data accepted by the deterministic release renderer. */
 export const StorefrontPublishedConfigSchema = z
   .unknown()
@@ -88,6 +137,16 @@ export const StorefrontPublishedConfigSchema = z
       context.addIssue({
         code: 'custom',
         message: 'Published Puck media must use stable public URLs',
+      });
+    if (hasUnstableNavigationProperty(value))
+      context.addIssue({
+        code: 'custom',
+        message: 'Published Puck links must use query-free public URLs',
+      });
+    if (hasOversizedCarousel(value))
+      context.addIssue({
+        code: 'custom',
+        message: 'Published Puck carousels must contain at most five slides',
       });
   })
   .transform((value) => value as BuilderData);

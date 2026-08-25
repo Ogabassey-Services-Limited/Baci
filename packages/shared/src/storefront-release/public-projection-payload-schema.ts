@@ -1,5 +1,7 @@
 import { z } from 'zod';
+import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-slugs';
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
 import { StorefrontPublishedConfigSchema } from './storefront-published-config-schema';
@@ -20,11 +22,45 @@ const SlugSchema = z
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const ThemeColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const PublicContactUrlSchema = z
+  .string()
+  .max(2_048)
+  .refine(
+    builderDesignCapabilityAdapter.isSafeUrl,
+    'Expected a safe public contact URL'
+  )
+  .refine((value) => !value.includes('?'), 'Expected a query-free contact URL');
+const BusinessHoursSchema = z.strictObject({
+  monday: z.string().trim().min(1).max(100).optional(),
+  tuesday: z.string().trim().min(1).max(100).optional(),
+  wednesday: z.string().trim().min(1).max(100).optional(),
+  thursday: z.string().trim().min(1).max(100).optional(),
+  friday: z.string().trim().min(1).max(100).optional(),
+  saturday: z.string().trim().min(1).max(100).optional(),
+  sunday: z.string().trim().min(1).max(100).optional(),
+});
+const SocialLinksSchema = z.strictObject({
+  facebook: PublicContactUrlSchema.optional(),
+  instagram: PublicContactUrlSchema.optional(),
+  linkedin: PublicContactUrlSchema.optional(),
+  snapchat: PublicContactUrlSchema.optional(),
+  tiktok: PublicContactUrlSchema.optional(),
+  twitter: PublicContactUrlSchema.optional(),
+  whatsapp: PublicContactUrlSchema.optional(),
+  youtube: PublicContactUrlSchema.optional(),
+});
 const MerchantSchema = z.strictObject({
   name: z.string().trim().min(1).max(160),
   slug: SlugSchema,
   hostname: z.hostname().optional(),
   publishedStatus: z.literal('published'),
+  email: z.email().max(320).optional(),
+  phone: z.string().trim().min(1).max(40).optional(),
+  address: z.string().trim().min(1).max(500).optional(),
+  supportEmail: z.email().max(320).optional(),
+  supportPhone: z.string().trim().min(1).max(40).optional(),
+  businessHours: BusinessHoursSchema.optional(),
+  socialLinks: SocialLinksSchema.optional(),
   brandTokens: z
     .strictObject({
       logoMediaId: z.uuid().nullable().optional(),
@@ -42,82 +78,6 @@ const MerchantSchema = z.strictObject({
     .optional(),
 });
 
-const VariantAttributesSchema = z
-  .record(
-    z
-      .string()
-      .min(1)
-      .max(64)
-      .refine((value) => value.trim() === value),
-    z
-      .string()
-      .min(1)
-      .max(160)
-      .refine((value) => value.trim() === value)
-  )
-  .superRefine((attributes, context) => {
-    if (Object.keys(attributes).length > 32)
-      context.addIssue({
-        code: 'custom',
-        message: 'Variant attributes must contain at most 32 entries',
-      });
-  });
-
-const ProductVariantSchema = z.strictObject({
-  id: z.uuid(),
-  name: z.string().trim().min(1).max(160),
-  sku: z.string().trim().min(1).max(128).optional(),
-  priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  mediaIds: z.array(z.uuid()).max(32).optional(),
-  available: z.boolean(),
-  attributes: VariantAttributesSchema.optional(),
-  condition: z
-    .enum(['new', 'used', 'open_box', 'refurbished'])
-    .nullable()
-    .optional(),
-});
-
-const ProductSchema = z.strictObject({
-  id: z.uuid(),
-  slug: SlugSchema,
-  name: z.string().trim().min(1).max(240),
-  description: z.string().max(100_000).nullable().optional(),
-  currency: z
-    .string()
-    .length(3)
-    .regex(/^[A-Z]{3}$/),
-  priceMinor: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
-  compareAtPriceMinor: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(Number.MAX_SAFE_INTEGER)
-    .nullable()
-    .optional(),
-  available: z.boolean(),
-  status: z.literal('active'),
-  condition: z
-    .enum(['new', 'used', 'open_box', 'refurbished'])
-    .nullable()
-    .optional(),
-  rating: z.number().min(0).max(5).nullable().optional(),
-  reviewCount: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(Number.MAX_SAFE_INTEGER)
-    .optional(),
-  ratingCount: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(Number.MAX_SAFE_INTEGER)
-    .optional(),
-  categoryIds: z.array(z.uuid()).max(64).optional(),
-  mediaIds: z.array(z.uuid()).max(64).optional(),
-  variants: z.array(ProductVariantSchema).max(250).optional(),
-});
-
 const CategorySchema = z.strictObject({
   id: z.uuid(),
   slug: SlugSchema.refine(
@@ -126,6 +86,7 @@ const CategorySchema = z.strictObject({
   ),
   name: z.string().trim().min(1).max(160),
   description: z.string().max(20_000).nullable().optional(),
+  status: z.literal('active'),
   parentId: z.uuid().nullable().optional(),
   mediaId: z.uuid().nullable().optional(),
 });
@@ -161,7 +122,7 @@ export const StorefrontPublicProjectionPayloadSchema = z
   .strictObject({
     merchant: MerchantSchema,
     publishedConfig: StorefrontPublishedConfigSchema,
-    products: z.array(ProductSchema).max(10_000),
+    products: z.array(StorefrontPublicProductSchema).max(10_000),
     categories: z.array(CategorySchema).max(2_000).optional(),
     media: z.array(MediaSchema).max(20_000).optional(),
     contentPages: z.array(ContentPageSchema).max(2_000).optional(),
@@ -253,6 +214,21 @@ export const StorefrontPublicProjectionPayloadSchema = z
               productIndex,
               'variants',
               variantIndex,
+              'mediaIds',
+              mediaIndex,
+            ],
+          ]);
+      for (const [offerIndex, offer] of (
+        product.conditionOffers ?? []
+      ).entries())
+        for (const [mediaIndex, mediaId] of (offer.mediaIds ?? []).entries())
+          references.push([
+            mediaId,
+            [
+              'products',
+              productIndex,
+              'conditionOffers',
+              offerIndex,
               'mediaIds',
               mediaIndex,
             ],

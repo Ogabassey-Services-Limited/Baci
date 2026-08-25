@@ -4,13 +4,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasUnstableHtmlImage(content: string): boolean {
+  const imageSourcePattern =
+    /<img\b[^>]*\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi;
+  for (const match of content.matchAll(imageSourcePattern)) {
+    const source = match[1] ?? match[2] ?? match[3];
+    if (source !== undefined && !isStablePublicMediaUrl(source)) return true;
+  }
+  return false;
+}
+
 /** Detects media-bearing TipTap attributes that are unsafe for a release. */
 export function hasUnstableBlogContentMedia(content: string): boolean {
   let document: unknown;
   try {
     document = JSON.parse(content);
   } catch {
-    return false;
+    return hasUnstableHtmlImage(content);
   }
   const pending = [document];
   while (pending.length > 0) {

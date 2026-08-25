@@ -18,6 +18,26 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
     );
   });
 
+  it('preserves bounded public merchant contact and social details', () => {
+    const payload = {
+      ...validPayload,
+      merchant: {
+        ...validPayload.merchant,
+        address: '1 Market Road, Lagos',
+        businessHours: { monday: '09:00-17:00' },
+        email: 'hello@pilot.example',
+        phone: '+2348000000000',
+        socialLinks: { instagram: 'https://instagram.com/pilot' },
+        supportEmail: 'support@pilot.example',
+        supportPhone: '+2348111111111',
+      },
+    } as const;
+
+    expect(StorefrontPublicProjectionPayloadSchema.parse(payload)).toEqual(
+      payload
+    );
+  });
+
   it('rejects customer, draft, and credential-bearing fields', () => {
     for (const privateField of [
       { customer: { email: 'shopper@example.com' } },
@@ -219,6 +239,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
             name: 'Phones',
             parentId: missingCategoryId,
             slug: 'phones',
+            status: 'active',
           },
         ],
         products: [product],
@@ -228,7 +249,14 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
     expect(
       StorefrontPublicProjectionPayloadSchema.safeParse({
         ...validPayload,
-        categories: [{ id: categoryId, name: 'Phones', slug: 'phones' }],
+        categories: [
+          {
+            id: categoryId,
+            name: 'Phones',
+            slug: 'phones',
+            status: 'active',
+          },
+        ],
         products: [{ ...product, categoryIds: [categoryId] }],
       }).success
     ).toBe(true);

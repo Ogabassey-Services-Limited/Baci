@@ -42,6 +42,7 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
             id: '123e4567-e89b-42d3-a456-426614174110',
             name: 'Reserved',
             slug,
+            status: 'active',
           },
         ],
       }).success
@@ -109,8 +110,9 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
             id: '123e4567-e89b-42d3-a456-426614174130',
             name: 'Phones',
             slug: 'phones',
+            status: 'active',
           },
-          { ...duplicateCategory, name: 'Other phones' },
+          { ...duplicateCategory, name: 'Other phones', status: 'active' },
         ],
       }).success
     ).toBe(false);
@@ -133,6 +135,47 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
       StorefrontPublicProjectionPayloadSchema.safeParse({
         ...validPayload,
         products: [unverifiedProduct],
+      }).success
+    ).toBe(false);
+  });
+
+  it('requires categories to be explicitly active', () => {
+    const category = {
+      id: '123e4567-e89b-42d3-a456-426614174140',
+      name: 'Phones',
+      slug: 'phones',
+    } as const;
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [category],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [{ ...category, status: 'active' }],
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects duplicate blog post IDs and route slugs', () => {
+    const post = {
+      authorName: 'Editor',
+      content: 'Published guide',
+      featuredImageUrl: null,
+      id: '123e4567-e89b-42d3-a456-426614174150',
+      publishedAt: '2026-08-25T14:00:00+01:00',
+      slug: 'buying-guide',
+      status: 'published',
+      title: 'Buying guide',
+    } as const;
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        blogPosts: [post, { ...post, title: 'Duplicate' }],
       }).success
     ).toBe(false);
   });

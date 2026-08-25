@@ -1,8 +1,10 @@
 import type { RefinementCtx } from 'zod';
 
 interface ProjectionIdentityPayload {
+  blogPosts?: readonly { id: string; slug: string }[];
   categories?: readonly { id: string; slug: string }[];
   products: readonly {
+    conditionOffers?: readonly { id: string }[];
     id: string;
     slug: string;
     variants?: readonly { id: string }[];
@@ -25,6 +27,7 @@ export function validatePublicProjectionIdentities(
   const productIds = new Set<string>();
   const productSlugs = new Set<string>();
   const variantIds = new Set<string>();
+  const offerIds = new Set<string>();
   for (const [productIndex, product] of payload.products.entries()) {
     for (const [value, seen, field, message] of [
       [product.id, productIds, 'id', 'Product IDs must be unique'],
@@ -45,6 +48,19 @@ export function validatePublicProjectionIdentities(
         ]);
       variantIds.add(variant.id);
     }
+    for (const [offerIndex, offer] of (
+      product.conditionOffers ?? []
+    ).entries()) {
+      if (offerIds.has(offer.id))
+        addDuplicateIssue(context, 'Condition offer IDs must be unique', [
+          'products',
+          productIndex,
+          'conditionOffers',
+          offerIndex,
+          'id',
+        ]);
+      offerIds.add(offer.id);
+    }
   }
 
   const categoryIds = new Set<string>();
@@ -60,6 +76,18 @@ export function validatePublicProjectionIdentities(
           categoryIndex,
           field,
         ]);
+      seen.add(value);
+    }
+
+  const blogPostIds = new Set<string>();
+  const blogPostSlugs = new Set<string>();
+  for (const [postIndex, post] of (payload.blogPosts ?? []).entries())
+    for (const [value, seen, field, message] of [
+      [post.id, blogPostIds, 'id', 'Blog post IDs must be unique'],
+      [post.slug, blogPostSlugs, 'slug', 'Blog post slugs must be unique'],
+    ] as const) {
+      if (seen.has(value))
+        addDuplicateIssue(context, message, ['blogPosts', postIndex, field]);
       seen.add(value);
     }
 }

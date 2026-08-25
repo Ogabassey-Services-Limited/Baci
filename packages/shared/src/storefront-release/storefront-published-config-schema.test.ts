@@ -45,6 +45,45 @@ describe('StorefrontPublishedConfigSchema', () => {
     ).toBe(true);
   });
 
+  it('rejects query-bearing navigational component props', () => {
+    expect(
+      StorefrontPublishedConfigSchema.safeParse({
+        content: [
+          {
+            props: {
+              id: 'header-1',
+              ctaButton: {
+                show: true,
+                text: 'Shop',
+                url: 'https://example.test/go?token=secret',
+              },
+            },
+            type: 'Header',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects carousels that preview validation would truncate', () => {
+    const slides = Array.from({ length: 6 }, (_, index) => ({
+      image: `/release-assets/${String(index).padStart(64, 'a')}.png`,
+    }));
+
+    expect(
+      StorefrontPublishedConfigSchema.safeParse({
+        content: [
+          {
+            props: { id: 'carousel-1', slides },
+            type: 'HeroCarousel',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(false);
+  });
+
   it('returns a validation failure for large malformed arrays without throwing', () => {
     const config = {
       content: new Array(200_000).fill(null),
