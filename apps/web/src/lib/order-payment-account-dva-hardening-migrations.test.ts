@@ -79,4 +79,14 @@ describe('order payment account DVA hardening migrations', () => {
       'NEW.assignment_customer_email := OLD.assignment_customer_email'
     );
   });
+
+  it('versions active balance snapshots and preserves invoice terms', () => {
+    const versions = migration(
+      '20260825230000_version_active_paystack_alias_snapshots.sql'
+    );
+    expect(versions).toContain("'paystack_version'");
+    expect(versions).toContain('NEW.payable_amount := OLD.payable_amount');
+    expect(versions).toContain("SET provider = 'paystack'");
+    expect(versions).not.toContain("interval '90 minutes';\n  NEW.expires_at");
+  });
 });

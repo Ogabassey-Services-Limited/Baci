@@ -63,6 +63,24 @@ describe('persistPaystackDvaAssignment', () => {
     ).resolves.toBeNull();
   });
 
+  it('uses an explicit invoice due date when supplied', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-25T12:00:00.000Z'));
+    const { client, rpc } = createSupabase();
+
+    await persistPaystackDvaAssignment(client, {
+      ...assignment,
+      expiresAt: '2026-09-08T12:00:00.000Z',
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      'reserve_paystack_order_payment_account',
+      expect.objectContaining({
+        p_expires_at: '2026-09-08T12:00:00.000Z',
+      })
+    );
+  });
+
   it('returns a retryable error response when reservation fails', async () => {
     const databaseError = { message: 'write failed' };
     const { client } = createSupabase(null, databaseError);

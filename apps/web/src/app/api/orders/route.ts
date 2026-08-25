@@ -3299,6 +3299,10 @@ export async function POST(request: NextRequest) {
                       bankName: dvaResult.data.bank_name,
                       customerEmail:
                         customer_email || `${order.id}@orders.usebaci.com`,
+                      expiresAt:
+                        getImmediateInvoiceDueDate(
+                          invoiceTimingOrder
+                        ).toISOString(),
                       orderId: order.id,
                     }
                   );

@@ -16,6 +16,7 @@ const {
   mockFrom,
   mockGeneratePaymentAccount,
   mockLogger,
+  mockRpc,
   mockReconciliationInsert,
 } = shipOnCreditMocks;
 
@@ -23,6 +24,10 @@ describe('POST /api/orders/[id]/ship-on-credit account lifecycle', () => {
   beforeEach(resetShipOnCreditMocks);
 
   it('does not return an expired Paystack alias after a duplicate insert conflict', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value' },
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
@@ -137,6 +142,10 @@ describe('POST /api/orders/[id]/ship-on-credit account lifecycle', () => {
   });
 
   it('keeps ship-on-credit successful when the optional fallback lookup fails', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value' },
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({

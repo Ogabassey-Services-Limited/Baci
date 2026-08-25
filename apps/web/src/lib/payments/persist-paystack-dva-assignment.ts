@@ -9,6 +9,7 @@ interface PaystackDvaAssignment {
   bankName: string;
   customerEmail: string;
   orderId: string;
+  expiresAt?: string;
 }
 
 export async function persistPaystackDvaAssignment(
@@ -23,7 +24,9 @@ export async function persistPaystackDvaAssignment(
       p_account_number: assignment.accountNumber,
       p_assigned_at: new Date(assignedAtMs).toISOString(),
       p_bank_name: assignment.bankName,
-      p_expires_at: new Date(assignedAtMs + 90 * 60 * 1000).toISOString(),
+      p_expires_at:
+        assignment.expiresAt ??
+        new Date(assignedAtMs + 90 * 60 * 1000).toISOString(),
       p_expected_customer_email: assignment.customerEmail,
       p_order_id: assignment.orderId,
     }

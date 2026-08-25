@@ -9,6 +9,7 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
+import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { shipOnCreditBodySchema } from '@/schemas/ship-on-credit-schema';
 import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
@@ -211,17 +212,19 @@ export async function POST(
       });
 
       if (dvaResult.success) {
-        const { error: insertError } = await supabase
-          .from('order_payment_accounts')
-          .insert({
-            order_id: orderId,
-            account_number: dvaResult.data.account_number,
-            bank_name: dvaResult.data.bank_name,
-            account_name: dvaResult.data.account_name,
-            provider: 'paystack',
-          });
+        const persistenceFailure = await persistPaystackDvaAssignment(
+          supabase,
+          {
+            accountName: dvaResult.data.account_name,
+            accountNumber: dvaResult.data.account_number,
+            bankName: dvaResult.data.bank_name,
+            customerEmail:
+              order.customer_email || `${orderId}@orders.usebaci.com`,
+            orderId,
+          }
+        );
 
-        if (insertError) {
+        if (persistenceFailure) {
           const { data: existingAccount, error: existingAccountError } =
             await supabase
               .from('order_payment_accounts')
@@ -230,6 +233,9 @@ export async function POST(
               )
               .eq('order_id', orderId)
               .eq('provider', 'paystack')
+              .order('assigned_at', { ascending: false, nullsFirst: false })
+              .order('created_at', { ascending: false })
+              .limit(1)
               .maybeSingle();
 
           if (existingAccountError) {
@@ -262,7 +268,6 @@ export async function POST(
             logger.warn({
               message:
                 'Optional credit-order payment account persistence failed after shipping transition',
-              error: insertError,
               orderId,
             });
           }

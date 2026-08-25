@@ -9,6 +9,7 @@ const {
   mockGeneratePaymentAccount,
   mockFrom,
   mockLogger,
+  mockRpc,
   mockSupabaseClient,
   mockReconciliationInsert,
 } = vi.hoisted(() => {
@@ -25,8 +26,10 @@ const {
     mockGeneratePaymentAccount: vi.fn(),
     mockFrom,
     mockLogger,
+    mockRpc: vi.fn(),
     mockSupabaseClient: {
       from: mockFrom,
+      rpc: vi.fn(),
     },
     // handlePaymentForCancelledOrder files the reconciliation row through a
     // service-role admin client (reconciliation_review is RLS-locked to
@@ -142,8 +145,14 @@ export function createPaymentAccountTable(options: {
   } | null;
   existingAccountError?: unknown;
 }) {
+  mockRpc.mockResolvedValue({
+    data: options.insertError ? null : 'inserted',
+    error: options.insertError ?? null,
+  });
   const selectQuery = {
     eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({
       data: options.existingAccount ?? null,
       error: options.existingAccountError ?? null,
@@ -162,6 +171,7 @@ export const shipOnCreditMocks = {
   mockGeneratePaymentAccount,
   mockGetMerchantIdForApiUser,
   mockLogger,
+  mockRpc,
   mockReconciliationInsert,
   mockSupabaseClient,
 };
@@ -174,6 +184,8 @@ export function resetShipOnCreditMocks() {
     supabase: mockSupabaseClient,
   });
   mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
+  mockSupabaseClient.rpc = mockRpc;
+  mockRpc.mockResolvedValue({ data: 'inserted', error: null });
   mockGeneratePaymentAccount.mockResolvedValue({
     success: true,
     data: {

@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260825223000_freeze_paystack_alias_snapshots.sql'
+      'supabase/migrations/20260825230000_version_active_paystack_alias_snapshots.sql'
     );
   });
 

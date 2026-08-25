@@ -18,6 +18,7 @@ const {
   mockFrom,
   mockGetMerchantIdForApiUser,
   mockLogger,
+  mockRpc,
 } = shipOnCreditMocks;
 
 describe('POST /api/orders/[id]/ship-on-credit validation', () => {
@@ -109,6 +110,10 @@ describe('POST /api/orders/[id]/ship-on-credit validation', () => {
   });
 
   it('keeps ship-on-credit successful when a cross-flow DVA alias conflict has no same-order fallback', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: 'P0001', message: 'PAYSTACK_DVA_ALIAS_CONFLICT' },
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
@@ -166,6 +171,10 @@ describe('POST /api/orders/[id]/ship-on-credit validation', () => {
   });
 
   it('treats duplicate insert conflicts as idempotent success when the existing account is present', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { code: '23505', message: 'duplicate key value' },
+    });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
         return createSelectSingleQuery({
