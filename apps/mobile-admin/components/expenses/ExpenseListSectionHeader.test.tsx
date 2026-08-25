@@ -15,7 +15,22 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 vi.mock('react-native', () => ({
   StyleSheet: { create: (styles: Record<string, unknown>) => styles },
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Text: ({
+    children,
+    ellipsizeMode,
+    numberOfLines,
+  }: {
+    children?: ReactNode;
+    ellipsizeMode?: string;
+    numberOfLines?: number;
+  }) => (
+    <span
+      data-ellipsize-mode={ellipsizeMode}
+      data-number-of-lines={numberOfLines}
+    >
+      {children}
+    </span>
+  ),
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
@@ -36,5 +51,22 @@ describe('ExpenseListSectionHeader', () => {
     expect(screen.getByText('Maintenance')).toBeInTheDocument();
     expect(screen.getByText(/40,000/)).toBeInTheDocument();
     expect(screen.getByText('2 expenses')).toBeInTheDocument();
+  });
+
+  it('keeps long labels to one line while preserving the summary', () => {
+    render(
+      <ExpenseListSectionHeader
+        count={1}
+        currency="NGN"
+        label="Group unavailable · 111111111111"
+        total={10_000}
+        variant="group"
+      />
+    );
+
+    expect(
+      screen.getByText('Group unavailable · 111111111111')
+    ).toHaveAttribute('data-number-of-lines', '1');
+    expect(screen.getByText(/10,000/)).toBeInTheDocument();
   });
 });

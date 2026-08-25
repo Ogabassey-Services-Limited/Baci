@@ -17,10 +17,8 @@ import {
   normalizeExpenseFilters,
 } from '@/components/expenses/expense-filters';
 import { styles } from '@/components/expenses/expenses-list.styles';
-import {
-  type GroupedExpenseListItem,
-  groupExpensesByMonthAndGroup,
-} from '@/components/expenses/expenses-list.utils';
+import type { GroupedExpenseListItem } from '@/components/expenses/expenses-list.utils';
+import { groupExpensesByMonthAndGroup } from '@/components/expenses/expenses-list-grouping.utils';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useBranches } from '@/hooks/useBranches';
 import { useBranchScope } from '@/hooks/useBranchScope';

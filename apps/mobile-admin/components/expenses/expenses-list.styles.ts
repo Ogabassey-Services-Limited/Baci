@@ -241,6 +241,9 @@ export const styles = StyleSheet.create({
   groupSectionHeaderLabel: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    flex: 1,
+    flexShrink: 1,
+    marginRight: SPACING.sm,
   },
   sectionHeaderLabel: {
     fontSize: TYPOGRAPHY.size.xs,
@@ -250,6 +253,7 @@ export const styles = StyleSheet.create({
   },
   sectionHeaderSummary: {
     flexDirection: 'row',
+    flexShrink: 0,
     gap: SPACING.xs,
   },
   sectionHeaderTotal: {

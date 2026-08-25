@@ -30,6 +30,8 @@ export function ExpenseListSectionHeader({
     >
       <Text
         accessibilityRole="header"
+        ellipsizeMode="tail"
+        numberOfLines={1}
         style={[
           isGroup ? styles.groupSectionHeaderLabel : styles.sectionHeaderLabel,
           { color: isGroup ? colors.text : colors.textSecondary },

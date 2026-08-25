@@ -5,7 +5,6 @@ import {
   getExpenseDateSortValue,
   getLocalMonthKey,
   groupExpensesByMonth,
-  groupExpensesByMonthAndGroup,
 } from './expenses-list.utils';
 
 describe('getLocalMonthKey', () => {
@@ -191,93 +190,5 @@ describe('groupExpensesByMonth', () => {
     const keys = data.map((item) => item.key);
     const uniqueKeys = new Set(keys);
     expect(uniqueKeys.size).toBe(keys.length);
-  });
-});
-
-describe('groupExpensesByMonthAndGroup', () => {
-  const makeExpense = (
-    values: Pick<
-      Expense,
-      'amount' | 'category' | 'date' | 'description' | 'id'
-    > & {
-      group_id?: string | null;
-    }
-  ): Expense => ({
-    ...values,
-    branch_id: null,
-    created_by_user_id: null,
-    group_id: values.group_id ?? null,
-    merchant_id: 'cae013e3-719e-4baa-9ab9-45d080ce23ea',
-    payment_method: null,
-    receipt_storage_path: null,
-    receipt_url: null,
-    reference: null,
-    updated_at: '2026-06-28T12:00:00.000Z',
-    updated_by_user_id: null,
-    vendor_name: null,
-  });
-
-  it('shows custom group and fallback category sections with totals', () => {
-    const expenses = [
-      makeExpense({
-        amount: 100,
-        category: 'Maintenance',
-        date: '2026-06-28',
-        description: 'Door',
-        id: 'maintenance-1',
-      }),
-      makeExpense({
-        amount: 200,
-        category: 'Maintenance',
-        date: '2026-06-27',
-        description: 'Chair',
-        id: 'maintenance-2',
-      }),
-      makeExpense({
-        amount: 300,
-        category: 'Office',
-        date: '2026-06-26',
-        description: 'Operations supplies',
-        group_id: 'group-1',
-        id: 'operations-1',
-      }),
-      makeExpense({
-        amount: 400,
-        category: 'Travel',
-        date: '2026-06-25',
-        description: 'Taxi',
-        group_id: 'group-1',
-        id: 'operations-2',
-      }),
-    ];
-
-    const { data, stickyHeaderIndices } = groupExpensesByMonthAndGroup(
-      expenses,
-      [{ id: 'group-1', name: 'Operations' }],
-      new Date(2026, 5, 28)
-    );
-
-    expect(stickyHeaderIndices).toEqual([0]);
-    expect(data.map((item) => item.type)).toEqual([
-      'header',
-      'group-header',
-      'item',
-      'item',
-      'group-header',
-      'item',
-      'item',
-    ]);
-    expect(data[1]).toMatchObject({
-      count: 2,
-      title: 'Maintenance',
-      total: 300,
-      type: 'group-header',
-    });
-    expect(data[4]).toMatchObject({
-      count: 2,
-      title: 'Operations',
-      total: 700,
-      type: 'group-header',
-    });
   });
 });
