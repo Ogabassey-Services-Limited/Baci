@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { type Dispatch, type SetStateAction, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   type AnalyticsCategory,
   AnalyticsCategoryNav,
@@ -18,61 +18,7 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
-
-// Module-scope helper keeps the try/finally out of the component body
-// (React Compiler cannot lower try/finally inside components yet).
-async function fetchBaseAnalytics({
-  from,
-  merchantId,
-  to,
-  signal,
-  setBaseAnalytics,
-  setLoadingAnalytics,
-}: {
-  from: Date;
-  merchantId: string;
-  to: Date;
-  signal: AbortSignal;
-  setBaseAnalytics: Dispatch<SetStateAction<AnalyticsData | null>>;
-  setLoadingAnalytics: Dispatch<SetStateAction<boolean>>;
-}): Promise<void> {
-  setLoadingAnalytics(true);
-  try {
-    const queryParams = new URLSearchParams({
-      startDate: from.toISOString(),
-      endDate: to.toISOString(),
-    });
-    const response = await fetch(`/api/analytics?${queryParams.toString()}`, {
-      headers: { 'x-baci-merchant-id': merchantId },
-      signal,
-    });
-    if (response.ok) {
-      const data = await response.json();
-      if (!signal.aborted) {
-        setBaseAnalytics(data);
-      }
-    } else {
-      console.error(
-        'Failed to fetch analytics:',
-        response.status,
-        response.statusText
-      );
-      if (!signal.aborted) {
-        setBaseAnalytics(null);
-      }
-    }
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') return;
-    console.error('Error fetching analytics:', error);
-    if (!signal.aborted) {
-      setBaseAnalytics(null);
-    }
-  } finally {
-    if (!signal.aborted) {
-      setLoadingAnalytics(false);
-    }
-  }
-}
+import { fetchBaseAnalytics } from './fetch-base-analytics';
 
 // Module-scope wrapper keeps the dynamic import() expression out of the
 // component body (React Compiler cannot lower import expressions yet).
@@ -93,6 +39,14 @@ export default function AnalyticsClientPage() {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
   const cacheBustParam = searchParams.get('cacheBust');
+  const merchantIdParam = searchParams.get('merchantId');
+  const callbackReason = searchParams.get('reason');
+  const callbackProvider = [
+    ['google_ads', 'Google Ads'],
+    ['meta_ads', 'Meta Ads'],
+    ['tiktok_ads', 'TikTok Ads'],
+    ['snapchat_ads', 'Snapchat Ads'],
+  ].find(([parameter]) => searchParams.get(parameter ?? '') === 'error');
   const initialAnalyticsRefreshKey =
     cacheBustParam && /^\d{1,10}$/.test(cacheBustParam)
       ? Number(cacheBustParam)
@@ -123,21 +77,38 @@ export default function AnalyticsClientPage() {
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
     initialAnalyticsRefreshKey
   );
+  const selectedMerchantId =
+    merchantIdParam &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      merchantIdParam
+    )
+      ? merchantIdParam
+      : merchant?.id;
+
+  useEffect(() => {
+    if (!callbackProvider) return;
+    toast({
+      description: callbackReason
+        ? `Reason: ${callbackReason.replaceAll('_', ' ')}`
+        : 'Please try connecting again.',
+      title: `${callbackProvider[1]} connection failed`,
+      variant: 'destructive',
+    });
+  }, [callbackProvider?.[0], callbackReason, toast]);
 
   // Derived state
   const analyticsData: AnalyticsData | null = baseAnalytics
     ? { ...baseAnalytics, ...categoryAnalytics }
     : null;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
   useEffect(() => {
-    if (!merchant || !date.from || !date.to) return;
+    if (!selectedMerchantId || !date.from || !date.to) return;
 
     const controller = new AbortController();
 
     fetchBaseAnalytics({
       from: date.from,
-      merchantId: merchant.id,
+      merchantId: selectedMerchantId,
       to: date.to,
       signal: controller.signal,
       setBaseAnalytics,
@@ -145,7 +116,7 @@ export default function AnalyticsClientPage() {
     });
 
     return () => controller.abort();
-  }, [date.from, date.to, merchant?.id]);
+  }, [date.from, date.to, selectedMerchantId]);
 
   // Fetch specialized data when category changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: using merchant?.id instead of merchant object avoids infinite loop without React Compiler
@@ -159,7 +130,7 @@ export default function AnalyticsClientPage() {
     setLoadingCategoryAnalytics(isSpecialized);
 
     if (
-      !merchant ||
+      !selectedMerchantId ||
       !date.from ||
       !date.to ||
       !isAnalyticsCategoryAllowed(activeCategory, hasPermission)
@@ -171,7 +142,7 @@ export default function AnalyticsClientPage() {
     fetchAnalyticsCategoryData({
       category: activeCategory,
       from: date.from,
-      merchantId: merchant.id,
+      merchantId: selectedMerchantId,
       refreshKey: analyticsRefreshKey > 0 ? analyticsRefreshKey : undefined,
       signal: controller.signal,
       to: date.to,
@@ -198,11 +169,21 @@ export default function AnalyticsClientPage() {
       });
 
     return () => controller.abort();
-  }, [activeCategory, analyticsRefreshKey, date.from, date.to, merchant?.id]);
+  }, [
+    activeCategory,
+    analyticsRefreshKey,
+    date.from,
+    date.to,
+    selectedMerchantId,
+  ]);
 
   const visibleCategories = VALID_CATEGORIES.filter((category) =>
     isAnalyticsCategoryAllowed(category, hasPermission)
   );
+
+  if (!visibleCategories.includes(activeCategory)) {
+    setActiveCategory('overview');
+  }
 
   const handleAdsReportingSynced = () => {
     setAnalyticsRefreshKey((currentKey) => currentKey + 1);
@@ -291,7 +272,11 @@ export default function AnalyticsClientPage() {
         data={analyticsData || {}}
         loading={loadingAnalytics || loadingCategoryAnalytics}
         activeCategory={activeCategory}
-        merchant={merchant}
+        merchant={
+          merchant && selectedMerchantId
+            ? { ...merchant, id: selectedMerchantId }
+            : merchant
+        }
         categoryError={categoryAnalyticsError}
         onAdsReportingSynced={handleAdsReportingSynced}
         syncWindow={

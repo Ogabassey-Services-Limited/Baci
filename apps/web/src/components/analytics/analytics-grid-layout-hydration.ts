@@ -131,6 +131,12 @@ export function mergeDashboardLayoutConfig(
       const hydrated = hydrateDashboardLayoutConfig(existing[key], key);
       if (hydrated) next[key] = hydrated;
     }
+  } else {
+    const legacyOverview = hydrateDashboardLayoutConfig(
+      layoutConfig,
+      'overview'
+    );
+    if (legacyOverview) next.overview = legacyOverview;
   }
 
   next[category] = layouts;

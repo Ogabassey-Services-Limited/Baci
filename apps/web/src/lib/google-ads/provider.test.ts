@@ -118,6 +118,29 @@ describe('Google Ads provider client', () => {
     });
   });
 
+  it('bounds hierarchy probes for logins with many accessible customers', async () => {
+    const directIds = Array.from({ length: 30 }, (_, index) =>
+      String(1_000_000_000 + index)
+    );
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input).endsWith('/customers:listAccessibleCustomers')
+        ? new Response(
+            JSON.stringify({
+              resourceNames: directIds.map((id) => `customers/${id}`),
+            })
+          )
+        : new Response(JSON.stringify([]))
+    );
+
+    await listGoogleAdsAccessibleCustomerIds(
+      'access-token',
+      reportingConfig,
+      fetchImpl
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(21);
+  });
+
   it('refreshes an access token without exposing the refresh token in the result', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(

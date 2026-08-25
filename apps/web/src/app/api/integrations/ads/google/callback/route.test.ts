@@ -151,7 +151,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(response.status).toBe(307);
     const location = response.headers.get('location');
     expect(location).toMatch(
-      /^https:\/\/usebaci\.com\/dashboard\/analytics\?google_ads=connected&cacheBust=\d{1,10}$/
+      /^https:\/\/usebaci\.com\/dashboard\/analytics\?google_ads=connected&merchantId=merchant-1&cacheBust=\d{1,10}$/
     );
     expect(mockExchange).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'code', codeVerifier: 'verifier' })

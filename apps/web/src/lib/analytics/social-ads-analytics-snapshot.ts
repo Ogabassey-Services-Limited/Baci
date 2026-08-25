@@ -94,20 +94,6 @@ function sumField(
   );
 }
 
-function latestTimestamp(values: Array<string | null>): string | null {
-  let latest: string | null = null;
-  let latestTime = Number.NEGATIVE_INFINITY;
-  for (const value of values) {
-    if (!value) continue;
-    const time = Date.parse(value);
-    if (Number.isFinite(time) && time > latestTime) {
-      latest = value;
-      latestTime = time;
-    }
-  }
-  return latest;
-}
-
 function hasExpiredToken(
   tokenExpiresAt: string | null | undefined,
   now: Date
@@ -167,10 +153,7 @@ export function buildSocialAdsAnalyticsSnapshot({
     const connection = connections.find((row) => row.provider === provider);
     const rows = selectedSpendRows.filter((row) => row.provider === provider);
     const tokenExpired = hasExpiredToken(connection?.token_expires_at, now);
-    const lastSyncedAt = latestTimestamp([
-      connection?.last_synced_at ?? null,
-      ...rows.map((row) => row.fetched_at),
-    ]);
+    const lastSyncedAt = connection?.last_synced_at ?? null;
     const isConnected = connection?.status === 'active' && !tokenExpired;
     const needsAccountSelection =
       isConnected && !connection?.provider_customer_id;

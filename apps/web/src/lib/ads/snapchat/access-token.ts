@@ -54,12 +54,12 @@ export class SnapchatAdsTokenRefreshError extends Error {
   }
 }
 
-export async function getSnapchatAdsUsableAccessToken(input: {
+export async function getSnapchatAdsUsableGrant(input: {
   config: SnapchatAdsConfig;
   connection: SnapchatAdsEncryptedConnection;
   merchantId: string;
   supabase: SupabaseClient;
-}): Promise<string> {
+}): Promise<{ accessToken: string; accessTokenCiphertext: string | null }> {
   const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
   const expiresAt = input.connection.token_expires_at
     ? Date.parse(input.connection.token_expires_at)
@@ -68,7 +68,10 @@ export async function getSnapchatAdsUsableAccessToken(input: {
     !Number.isFinite(expiresAt) ||
     expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
   )
-    return token;
+    return {
+      accessToken: token,
+      accessTokenCiphertext: input.connection.access_token_ciphertext,
+    };
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
   let grant: SnapchatAdsGrant;
@@ -93,14 +96,15 @@ export async function getSnapchatAdsUsableAccessToken(input: {
         : 'SNAPCHAT_ADS_REFRESH_FAILED'
     );
   }
+  const accessTokenCiphertext = encryptAdsToken(
+    grant.accessToken,
+    input.config.tokenEncryptionKey,
+    SNAPCHAT_ADS_PROVIDER
+  );
   const updated = await input.supabase.rpc(
     'update_snapchat_ads_connection_tokens',
     {
-      p_access_token_ciphertext: encryptAdsToken(
-        grant.accessToken,
-        input.config.tokenEncryptionKey,
-        SNAPCHAT_ADS_PROVIDER
-      ),
+      p_access_token_ciphertext: accessTokenCiphertext,
       p_current_refresh_token_ciphertext:
         input.connection.refresh_token_ciphertext,
       p_merchant_id: input.merchantId,
@@ -118,5 +122,14 @@ export async function getSnapchatAdsUsableAccessToken(input: {
     throw new SnapchatAdsTokenRefreshError(
       'SNAPCHAT_ADS_TOKEN_REFRESH_WRITE_FAILED'
     );
-  return grant.accessToken;
+  return { accessToken: grant.accessToken, accessTokenCiphertext };
+}
+
+export async function getSnapchatAdsUsableAccessToken(input: {
+  config: SnapchatAdsConfig;
+  connection: SnapchatAdsEncryptedConnection;
+  merchantId: string;
+  supabase: SupabaseClient;
+}): Promise<string> {
+  return (await getSnapchatAdsUsableGrant(input)).accessToken;
 }

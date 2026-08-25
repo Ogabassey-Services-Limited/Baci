@@ -61,20 +61,6 @@ interface BuildGoogleAdsAnalyticsSnapshotOptions {
 
 const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
 
-function latestTimestamp(values: Array<string | null>): string | null {
-  let latest: string | null = null;
-  let latestTime = Number.NEGATIVE_INFINITY;
-  for (const value of values) {
-    if (!value) continue;
-    const time = Date.parse(value);
-    if (Number.isFinite(time) && time > latestTime) {
-      latest = value;
-      latestTime = time;
-    }
-  }
-  return latest;
-}
-
 export function buildGoogleAdsAnalyticsSnapshot(
   connection: GoogleAdsAnalyticsConnection | null,
   rows: GoogleAdsAnalyticsSpendRow[],
@@ -126,10 +112,7 @@ export function buildGoogleAdsAnalyticsSnapshot(
       spendMicros,
     };
   });
-  const lastSyncedAt = latestTimestamp([
-    connection.last_synced_at,
-    ...daily.map((row) => row.fetchedAt),
-  ]);
+  const lastSyncedAt = connection.last_synced_at;
   const isStale =
     connected &&
     lastSyncedAt !== null &&

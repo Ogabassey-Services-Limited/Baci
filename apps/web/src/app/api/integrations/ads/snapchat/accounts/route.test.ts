@@ -15,6 +15,10 @@ vi.mock('@/lib/api-auth', () => ({
 }));
 vi.mock('@/lib/ads/snapchat/access-token', () => ({
   getSnapchatAdsUsableAccessToken: (...args: unknown[]) => usableToken(...args),
+  getSnapchatAdsUsableGrant: async (...args: unknown[]) => ({
+    accessToken: await usableToken(...args),
+    accessTokenCiphertext: 'SNAP_REFRESHED_ACCESS_CIPHERTEXT',
+  }),
   SnapchatAdsTokenRefreshError: class SnapchatAdsTokenRefreshError extends Error {
     code: string;
     constructor(code: string) {
@@ -131,7 +135,7 @@ describe('Snapchat Ads accounts route', () => {
     expect(rpc).toHaveBeenCalledWith(
       'set_merchant_ads_account',
       expect.objectContaining({
-        p_expected_access_token_ciphertext: 'SNAP_ACCOUNTS_ACCESS_SENTINEL',
+        p_expected_access_token_ciphertext: 'SNAP_REFRESHED_ACCESS_CIPHERTEXT',
         p_provider_customer_id: 'ad-1',
       })
     );

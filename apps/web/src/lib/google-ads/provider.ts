@@ -59,6 +59,8 @@ const GOOGLE_ADS_MANAGER_DISCOVERY_QUERY = [
 
 const GOOGLE_ADS_MAX_MANAGER_DEPTH = 5;
 const GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS = 1_000;
+const GOOGLE_ADS_MAX_MANAGER_PROBES = 20;
+const GOOGLE_ADS_MANAGER_DISCOVERY_CONCURRENCY = 4;
 
 type GoogleAdsManagerClient = {
   customerId: string;
@@ -202,29 +204,51 @@ export async function listGoogleAdsAccessibleCustomerIds(
   const discoveredCustomerIds = new Set(directCustomerIds);
   const queue = directCustomerIds.map((id) => ({ depth: 0, id }));
   const visitedManagers = new Set<string>();
+  let probes = 0;
   while (
     queue.length > 0 &&
-    discoveredCustomerIds.size < GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS
+    discoveredCustomerIds.size < GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS &&
+    probes < GOOGLE_ADS_MAX_MANAGER_PROBES
   ) {
-    const next = queue.shift();
-    if (!next || visitedManagers.has(next.id)) continue;
-    visitedManagers.add(next.id);
-    if (next.depth >= GOOGLE_ADS_MAX_MANAGER_DEPTH) continue;
-
-    const clients = await listGoogleAdsManagerClients(
-      next.id,
-      accessToken,
-      reportingConfig,
-      fetchImpl
-    );
-    for (const client of clients) {
-      discoveredCustomerIds.add(client.customerId);
+    const batch = [];
+    while (
+      batch.length < GOOGLE_ADS_MANAGER_DISCOVERY_CONCURRENCY &&
+      queue.length > 0 &&
+      probes + batch.length < GOOGLE_ADS_MAX_MANAGER_PROBES
+    ) {
+      const next = queue.shift();
       if (
-        client.manager &&
-        !visitedManagers.has(client.customerId) &&
-        discoveredCustomerIds.size < GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS
+        next &&
+        !visitedManagers.has(next.id) &&
+        next.depth < GOOGLE_ADS_MAX_MANAGER_DEPTH
       ) {
-        queue.push({ depth: next.depth + 1, id: client.customerId });
+        visitedManagers.add(next.id);
+        batch.push(next);
+      }
+    }
+    if (batch.length === 0) continue;
+    probes += batch.length;
+    const results = await Promise.all(
+      batch.map(async (next) => ({
+        clients: await listGoogleAdsManagerClients(
+          next.id,
+          accessToken,
+          reportingConfig,
+          fetchImpl
+        ),
+        depth: next.depth,
+      }))
+    );
+    for (const result of results) {
+      for (const client of result.clients) {
+        discoveredCustomerIds.add(client.customerId);
+        if (
+          client.manager &&
+          !visitedManagers.has(client.customerId) &&
+          discoveredCustomerIds.size < GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS
+        ) {
+          queue.push({ depth: result.depth + 1, id: client.customerId });
+        }
       }
     }
   }

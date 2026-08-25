@@ -3,6 +3,7 @@ import 'server-only';
 import { tiktokAdsProviderRateLimiter } from './rate-limit';
 
 const MAX_RETRIES = 3;
+const MAX_RETRY_DELAY_MS = 2_000;
 const REVOKED_TOKEN_CODES = new Set([
   '40101',
   '40102',
@@ -42,7 +43,10 @@ function retryDelay(
     : 0;
   const exponential = 250 * 2 ** attempt;
   const jitter = Math.floor(exponential * Math.min(1, Math.max(0, random())));
-  return Math.min(300_000, Math.max(retryAfter, exponential + jitter));
+  return Math.min(
+    MAX_RETRY_DELAY_MS,
+    Math.max(retryAfter, exponential + jitter)
+  );
 }
 
 export async function requestTikTokAdsJson(

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import {
   getSnapchatAdsUsableAccessToken,
+  getSnapchatAdsUsableGrant,
   SnapchatAdsTokenRefreshError,
 } from '@/lib/ads/snapchat/access-token';
 import {
@@ -191,14 +192,15 @@ export async function PATCH(request: NextRequest) {
       );
     current = read.connection;
     const config = getSnapchatAdsConfig();
+    const usableGrant = await getSnapchatAdsUsableGrant({
+      config,
+      connection: current,
+      merchantId: access.merchantId,
+      supabase: auth.supabase,
+    });
     const account = (
       await listSnapchatAdsAccounts({
-        accessToken: await getSnapchatAdsUsableAccessToken({
-          config,
-          connection: current,
-          merchantId: access.merchantId,
-          supabase: auth.supabase,
-        }),
+        accessToken: usableGrant.accessToken,
       })
     ).find((item) => item.accountId === parsed.data.accountId);
     if (!account)
@@ -213,7 +215,7 @@ export async function PATCH(request: NextRequest) {
         organizationId: account.organizationId,
         providerVersion: 'v1',
       },
-      p_expected_access_token_ciphertext: current.access_token_ciphertext,
+      p_expected_access_token_ciphertext: usableGrant.accessTokenCiphertext,
       p_merchant_id: access.merchantId,
       p_provider: SNAPCHAT_ADS_PROVIDER,
       p_provider_account_label: account.label,

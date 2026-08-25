@@ -12,6 +12,7 @@ const mockHasPermission = vi.hoisted(() =>
   vi.fn<(resource: string, action: string) => boolean>(() => true)
 );
 const mockVisibleCategories = vi.hoisted(() => ({ value: [] as string[] }));
+const mockToast = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useSearchParams: mockUseSearchParams,
@@ -24,7 +25,7 @@ vi.mock('@/hooks/use-merchant-client', () => ({
   })),
 }));
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: vi.fn(() => ({ toast: vi.fn() })),
+  useToast: vi.fn(() => ({ toast: mockToast })),
 }));
 vi.mock('@/lib/analytics-export', () => ({
   exportAnalyticsAsCSV: vi.fn(),
@@ -73,6 +74,7 @@ describe('AnalyticsClientPage', () => {
     mockGridProps.loading = false;
     mockHasPermission.mockReturnValue(true);
     mockVisibleCategories.value = [];
+    mockToast.mockReset();
   });
 
   it('renders without crashing', () => {
@@ -240,6 +242,53 @@ describe('AnalyticsClientPage', () => {
     await waitFor(() => {
       expect(mockVisibleCategories.value).not.toContain('inventory');
       expect(mockVisibleCategories.value).not.toContain('segments');
+    });
+  });
+
+  it('resets a specialized category when its permission is removed', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=inventory')
+    );
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ alerts: [], forecasts: [] }), {
+        status: 200,
+      })
+    );
+    const view = render(<AnalyticsClientPage />);
+    mockHasPermission.mockImplementation((resource) => resource !== 'products');
+
+    view.rerender(<AnalyticsClientPage />);
+
+    await waitFor(() =>
+      expect(mockVisibleCategories.value).not.toContain('inventory')
+    );
+  });
+
+  it('surfaces provider callback failures and keeps the selected merchant scope', async () => {
+    const merchantId = '123e4567-e89b-42d3-a456-426614174000';
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams(
+        `category=ads&meta_ads=error&reason=provider_denied&merchantId=${merchantId}`
+      )
+    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Meta Ads connection failed' })
+      );
+      expect(
+        fetchMock.mock.calls.some(
+          ([, init]) =>
+            (init?.headers as Record<string, string> | undefined)?.[
+              'x-baci-merchant-id'
+            ] === merchantId
+        )
+      ).toBe(true);
     });
   });
 });

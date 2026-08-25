@@ -17,10 +17,15 @@ import { verifyAdsOAuthState } from '@/lib/ads/state';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { snapchatAdsOAuthCallbackQuerySchema } from '@/schemas/snapchat-ads';
 
-function redirect(result: 'connected' | 'error', reason?: string) {
+function redirect(
+  result: 'connected' | 'error',
+  reason?: string,
+  merchantId?: string
+) {
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('snapchat_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (merchantId) target.searchParams.set('merchantId', merchantId);
   if (result === 'connected') {
     target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
   }
@@ -138,5 +143,5 @@ export async function GET(request: NextRequest) {
         : 'token_exchange_failed'
     );
   }
-  return redirect('connected');
+  return redirect('connected', undefined, access.merchantId);
 }

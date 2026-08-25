@@ -26,7 +26,8 @@ function clearOAuthCookies(response: NextResponse): NextResponse {
 
 function callbackRedirect(
   result: 'connected' | 'error',
-  reason?: string
+  reason?: string,
+  merchantId?: string
 ): NextResponse {
   // Never reflect the Host header from an OAuth callback. Google redirects to
   // the registered production origin, and all callback outcomes return to the
@@ -34,6 +35,7 @@ function callbackRedirect(
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('google_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (merchantId) target.searchParams.set('merchantId', merchantId);
   if (result === 'connected') {
     target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
   }
@@ -173,5 +175,5 @@ export async function GET(request: NextRequest) {
   }
 
   invalidateAdsAnalyticsCache(access.merchantId);
-  return callbackRedirect('connected');
+  return callbackRedirect('connected', undefined, access.merchantId);
 }

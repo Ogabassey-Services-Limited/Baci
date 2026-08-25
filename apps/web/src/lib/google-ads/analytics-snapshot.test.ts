@@ -167,4 +167,30 @@ describe('buildGoogleAdsAnalyticsSnapshot', () => {
       lastSyncedAt: '2026-08-19T09:00:00.000Z',
     });
   });
+
+  it('does not mark an incomplete chunk fresh from its row timestamp', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-19T09:00:00.000Z',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [
+        {
+          clicks: 1,
+          conversions: 0,
+          currency_code: 'NGN',
+          fetched_at: '2026-08-22T09:00:00.000Z',
+          impressions: 1,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-22',
+          spend_micros: 1,
+        },
+      ],
+      { now: new Date('2026-08-22T10:00:00.000Z') }
+    );
+
+    expect(result?.lastSyncedAt).toBe('2026-08-19T09:00:00.000Z');
+    expect(result?.isStale).toBe(true);
+  });
 });

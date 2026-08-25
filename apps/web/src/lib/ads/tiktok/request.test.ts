@@ -44,4 +44,29 @@ describe('TikTok Ads request boundary', () => {
     );
     expect(sleep).toHaveBeenCalledWith(2000);
   });
+
+  it('caps long Retry-After values to the synchronous request budget', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 40100 }), {
+          headers: { 'retry-after': '300' },
+          status: 429,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: {} }))
+      );
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await requestTikTokAdsJson(
+      new URL('https://business-api.tiktok.com/open_api/v1.3/test/'),
+      {},
+      'FAILED',
+      fetchImpl,
+      { random: () => 0, sleep }
+    );
+
+    expect(sleep).toHaveBeenCalledWith(2000);
+  });
 });

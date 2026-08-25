@@ -6,6 +6,7 @@ import {
 import {
   ANALYTICS_WIDGET_IDS_BY_CATEGORY,
   getAnalyticsLayoutWidgetIds,
+  resolveCategoryLayouts,
 } from './analytics-grid-layouts';
 
 describe('hydrateDashboardLayoutConfig', () => {
@@ -95,5 +96,16 @@ describe('hydrateDashboardLayoutConfig', () => {
 
     expect(next).toMatchObject({ ads, finance });
     expect(hydrateDashboardLayoutConfig(next, 'ads')).toEqual(ads);
+  });
+
+  it('preserves a legacy overview layout when another category is first edited', () => {
+    const next = mergeDashboardLayoutConfig(
+      [{ i: 'analytics-highlights', x: 4, y: 2, w: 8, h: 2 }],
+      'ads',
+      resolveCategoryLayouts('ads')
+    );
+
+    expect(hydrateDashboardLayoutConfig(next, 'overview')).not.toBeNull();
+    expect(hydrateDashboardLayoutConfig(next, 'ads')).not.toBeNull();
   });
 });

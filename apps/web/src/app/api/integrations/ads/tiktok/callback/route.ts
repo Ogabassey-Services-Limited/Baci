@@ -21,11 +21,13 @@ import { tiktokAdsOAuthCallbackQuerySchema } from '@/schemas/tiktok-ads';
 
 function redirect(
   result: 'connected' | 'error',
-  reason?: string
+  reason?: string,
+  merchantId?: string
 ): NextResponse {
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('tiktok_ads', result);
   if (reason) target.searchParams.set('reason', reason);
+  if (merchantId) target.searchParams.set('merchantId', merchantId);
   if (result === 'connected') {
     target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
   }
@@ -133,5 +135,5 @@ export async function GET(request: NextRequest) {
         : 'token_exchange_failed'
     );
   }
-  return redirect('connected');
+  return redirect('connected', undefined, access.merchantId);
 }
