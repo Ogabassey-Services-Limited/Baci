@@ -10,8 +10,8 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { generatePaymentAccount } from '@/lib/paystack';
+import { shipOnCreditBodySchema } from '@/schemas/ship-on-credit-schema';
 import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
-import { shipOnCreditBodySchema } from './ship-on-credit-schema';
 
 /**
  * POST /api/orders/[id]/ship-on-credit
