@@ -19,6 +19,8 @@ describe('parseGenerateDvaResponse', () => {
     {},
     { virtualAccount: [] },
     { virtualAccount: 'bad' },
+    { virtualAccount: { account_number: 123 } },
+    { virtualAccount: { bank_name: false } },
   ])('rejects malformed payload %#', (payload) => {
     expect(parseGenerateDvaResponse(payload)).toBeNull();
   });

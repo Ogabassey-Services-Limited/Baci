@@ -33,8 +33,8 @@ import {
   calculatePlatformFee as calculateKorapayFee,
   initializePayment as initializeKorapayPayment,
 } from '@/lib/korapay';
-import { logger } from '@/lib/logger';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
 import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import {
@@ -1424,38 +1424,17 @@ export async function POST(request: NextRequest) {
             // `assigned_at` is refreshed on retries so the webhook
             // window follows the current account assignment rather
             // than the row's first insert time.
-            const dvaAssignedAtMs = Date.now();
-            const dvaAssignedAt = new Date(dvaAssignedAtMs).toISOString();
-            const dvaExpiresAt = new Date(
-              dvaAssignedAtMs + 90 * 60 * 1000
-            ).toISOString();
-            const { error: dvaPersistError } = await adminSupabase
-              .from('order_payment_accounts')
-              .upsert(
-                {
-                  order_id: paymentData.order_id,
-                  account_number: dvaResult.account_number,
-                  bank_name: dvaResult.bank_name,
-                  account_name: dvaResult.account_name,
-                  provider: 'paystack',
-                  payable_amount: paymentData.amount,
-                  assigned_at: dvaAssignedAt,
-                  expires_at: dvaExpiresAt,
-                },
-                { onConflict: 'order_id,provider' }
-              );
-            if (dvaPersistError) {
-              logger.error({
-                message: 'Failed to persist Paystack DVA assignment',
+            const persistenceFailure = await persistPaystackDvaAssignment(
+              adminSupabase,
+              {
+                accountName: dvaResult.account_name,
+                accountNumber: dvaResult.account_number,
+                amount: paymentData.amount,
+                bankName: dvaResult.bank_name,
                 orderId: paymentData.order_id,
-                error: dvaPersistError,
-              });
-              return createErrorResponse(
-                'Unable to reserve a bank account for this order. Please try again.',
-                'DVA_PERSISTENCE_FAILED',
-                503
-              );
-            }
+              }
+            );
+            if (persistenceFailure) return persistenceFailure;
 
             paymentResult = {
               authorization_url: '',
