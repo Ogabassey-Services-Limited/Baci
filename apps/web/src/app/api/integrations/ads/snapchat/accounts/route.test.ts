@@ -248,4 +248,26 @@ describe('Snapchat Ads accounts route', () => {
       error: 'Snapchat Ads account is not accessible',
     });
   });
+
+  it('rejects malformed selection input before merchant lookup', async () => {
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { rpc: vi.fn() },
+      user: { id: 'user' },
+    });
+    csrf.mockResolvedValue({ valid: true });
+    access.mockClear();
+    accounts.mockClear();
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/accounts',
+        { body: '{', method: 'PATCH' }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+    expect(accounts).not.toHaveBeenCalled();
+  });
 });

@@ -18,8 +18,19 @@ vi.mock('@/lib/google-ads/access-token', () => ({
 }));
 vi.mock('@/lib/google-ads/provider', () => ({
   fetchGoogleAdsDailySpend: (...args: unknown[]) => mockFetchSpend(...args),
+  GoogleAdsProviderError: class GoogleAdsProviderError extends Error {
+    code: string;
+    status?: number;
+
+    constructor(code: string, status?: number) {
+      super(code);
+      this.code = code;
+      this.status = status;
+    }
+  },
 }));
 
+import { GoogleAdsProviderError } from './provider';
 import { syncGoogleAdsSpendForMerchant } from './sync';
 
 describe('syncGoogleAdsSpendForMerchant', () => {
@@ -143,6 +154,37 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       }
     );
     expect(mockFetchSpend).not.toHaveBeenCalled();
+  });
+
+  it('marks the connection for reauthorization when Google rejects an unexpired access token', async () => {
+    mockFetchSpend.mockRejectedValueOnce(
+      new GoogleAdsProviderError('GOOGLE_ADS_SPEND_QUERY_FAILED', 401)
+    );
+
+    await expect(
+      syncGoogleAdsSpendForMerchant({
+        endDate: '2026-08-21',
+        merchantId: 'merchant-1',
+        startDate: '2026-08-20',
+        supabase,
+      })
+    ).rejects.toMatchObject({
+      code: 'GOOGLE_ADS_SPEND_QUERY_FAILED',
+      status: 401,
+    });
+    expect(mockRpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'encrypted-access',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_ACCESS_REVOKED',
+        p_refresh_token_ciphertext: 'encrypted-refresh',
+      }
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'replace_google_ads_spend_daily',
+      expect.anything()
+    );
   });
 
   it('compare-and-set protects a refreshed access token from a newer OAuth grant', async () => {

@@ -131,6 +131,7 @@ describe('Meta Ads sync', () => {
       expect.objectContaining({
         p_end_date: '2026-08-20',
         p_provider: 'meta_ads',
+        p_provider_customer_id: 'act_12',
         p_rows: [],
         p_start_date: '2026-08-20',
       })

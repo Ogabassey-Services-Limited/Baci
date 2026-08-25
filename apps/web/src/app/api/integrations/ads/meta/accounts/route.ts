@@ -148,22 +148,7 @@ export async function PATCH(request: NextRequest) {
       csrf.response ??
       NextResponse.json({ error: 'Invalid CSRF token' }, { status: 403 })
     );
-  const merchant = await resolveAdsMerchantAccess({
-    request,
-    supabase: auth.supabase,
-    userId: auth.user.id,
-  });
-  if (merchant.response) return merchant.response;
-  const access = merchant.access;
-  if (!access)
-    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
-  if (!hasPermission(access, 'integrations', 'manage'))
-    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   let body: unknown;
-  let connection: {
-    access_token_ciphertext: string | null;
-    provider_customer_id: string | null;
-  } | null = null;
   try {
     body = await request.json();
   } catch {
@@ -175,6 +160,21 @@ export async function PATCH(request: NextRequest) {
       { error: 'Invalid input', details: parsed.error.flatten() },
       { status: 400 }
     );
+  const merchant = await resolveAdsMerchantAccess({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+  });
+  if (merchant.response) return merchant.response;
+  const access = merchant.access;
+  if (!access)
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  if (!hasPermission(access, 'integrations', 'manage'))
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  let connection: {
+    access_token_ciphertext: string | null;
+    provider_customer_id: string | null;
+  } | null = null;
   try {
     const result = await connectionForMerchant(
       auth.supabase,

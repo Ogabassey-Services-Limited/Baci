@@ -181,6 +181,7 @@ describe('Google Ads account discovery and selection', () => {
       )
     );
     expect(response.status).toBe(400);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
     expect(mockListAccounts).not.toHaveBeenCalled();
   });
 

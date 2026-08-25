@@ -194,4 +194,26 @@ describe('TikTok Ads accounts route', () => {
       expect.anything()
     );
   });
+
+  it('rejects malformed selection input before merchant lookup', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc: vi.fn() },
+      user: { id: 'user' },
+    });
+    csrf.mockResolvedValue({ valid: true });
+    access.mockClear();
+    listAccounts.mockClear();
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/accounts',
+        { body: '{', method: 'PATCH' }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+    expect(listAccounts).not.toHaveBeenCalled();
+  });
 });

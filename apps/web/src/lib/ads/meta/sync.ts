@@ -256,7 +256,6 @@ async function syncSelectedMetaAdsAccount(input: {
       impressions: insight.impressions,
       provider_customer_id: insight.accountId,
       reach: insight.reach,
-      // Legacy Google compatibility only; decimal spend remains authoritative.
       spend_micros: '0',
       spend_amount_decimal: insight.spendAmountDecimal,
       spend_date: insight.dateStart,
@@ -266,6 +265,7 @@ async function syncSelectedMetaAdsAccount(input: {
         p_end_date: input.endDate,
         p_merchant_id: input.merchantId,
         p_provider: META_ADS_PROVIDER,
+        p_provider_customer_id: account.accountId,
         p_rows: records,
         p_start_date: input.startDate,
       });

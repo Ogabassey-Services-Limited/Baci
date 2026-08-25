@@ -20639,6 +20639,7 @@ export type Database = {
           p_end_date: string;
           p_merchant_id: string;
           p_provider: string;
+          p_provider_customer_id: string;
           p_rows: Json;
           p_start_date: string;
         };

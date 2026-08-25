@@ -128,6 +128,7 @@ describe('TikTok Ads sync', () => {
       expect.objectContaining({
         p_end_date: '2026-08-20',
         p_provider: 'tiktok_ads',
+        p_provider_customer_id: 'opaque-001',
         p_rows: [],
         p_start_date: '2026-08-20',
       })

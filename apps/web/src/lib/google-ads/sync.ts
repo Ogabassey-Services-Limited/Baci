@@ -10,7 +10,10 @@ import {
   getGoogleAdsOAuthConfig,
   getGoogleAdsReportingConfig,
 } from '@/lib/google-ads/config';
-import { fetchGoogleAdsDailySpend } from '@/lib/google-ads/provider';
+import {
+  fetchGoogleAdsDailySpend,
+  GoogleAdsProviderError,
+} from '@/lib/google-ads/provider';
 import { googleAdsSyncRequestSchema } from '@/schemas/google-ads';
 
 export class GoogleAdsSyncError extends Error {
@@ -140,16 +143,29 @@ export async function syncGoogleAdsSpendForMerchant(
     }
   }
 
-  const rows = await fetchGoogleAdsDailySpend(
-    {
-      accessToken: resolvedToken.accessToken,
-      customerId: connection.provider_customer_id,
-      endDate: input.endDate,
-      reportingConfig,
-      startDate: input.startDate,
-    },
-    fetchImpl
-  );
+  let rows: Awaited<ReturnType<typeof fetchGoogleAdsDailySpend>>;
+  try {
+    rows = await fetchGoogleAdsDailySpend(
+      {
+        accessToken: resolvedToken.accessToken,
+        customerId: connection.provider_customer_id,
+        endDate: input.endDate,
+        reportingConfig,
+        startDate: input.startDate,
+      },
+      fetchImpl
+    );
+  } catch (error) {
+    if (error instanceof GoogleAdsProviderError && error.status === 401) {
+      await markGoogleAdsReauthRequired({
+        connection,
+        merchantId: input.merchantId,
+        reason: 'GOOGLE_ADS_ACCESS_REVOKED',
+        supabase: input.supabase,
+      });
+    }
+    throw error;
+  }
   const records = rows.map((row) => ({
     clicks: Math.trunc(row.clicks),
     conversions: row.conversions,

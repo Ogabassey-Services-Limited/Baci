@@ -134,6 +134,7 @@ describe('Snapchat Ads sync', () => {
       expect.objectContaining({
         p_end_date: '2026-08-20',
         p_provider: 'snapchat_ads',
+        p_provider_customer_id: 'ad-1',
         p_rows: [],
         p_start_date: '2026-08-20',
       })

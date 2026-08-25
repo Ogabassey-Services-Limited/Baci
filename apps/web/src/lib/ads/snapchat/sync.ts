@@ -190,6 +190,7 @@ export async function syncSnapchatAdsSpendForMerchant(
           p_end_date: input.endDate,
           p_merchant_id: input.merchantId,
           p_provider: SNAPCHAT_ADS_PROVIDER,
+          p_provider_customer_id: account.accountId,
           p_rows: rows,
           p_start_date: startDate,
         }

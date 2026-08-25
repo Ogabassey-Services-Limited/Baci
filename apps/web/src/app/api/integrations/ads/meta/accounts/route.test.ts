@@ -123,6 +123,23 @@ describe('Meta Ads accounts route', () => {
     ).toBe(401);
   });
 
+  it('rejects malformed selection input before merchant lookup', async () => {
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/accounts',
+        {
+          body: '{',
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
+    expect(listAccounts).not.toHaveBeenCalled();
+  });
+
   it('selects only a freshly discovered canonical act_ account', async () => {
     const response = await PATCH(
       new NextRequest(

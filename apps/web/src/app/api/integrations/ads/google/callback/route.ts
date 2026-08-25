@@ -121,15 +121,6 @@ export async function GET(request: NextRequest) {
     return callbackRedirect('error', 'missing_code');
   }
 
-  const { data: existingConnections, error: existingError } =
-    await auth.supabase.rpc('get_google_ads_connection_secret', {
-      p_merchant_id: access.merchantId,
-    });
-  if (existingError) {
-    return callbackRedirect('error', 'connection_read_failed');
-  }
-  const existingConnection = existingConnections?.[0] ?? null;
-
   let tokens: Awaited<ReturnType<typeof exchangeGoogleAdsAuthorizationCode>>;
   try {
     tokens = await exchangeGoogleAdsAuthorizationCode({
@@ -146,9 +137,12 @@ export async function GET(request: NextRequest) {
     return callbackRedirect('error', 'token_exchange_failed');
   }
 
+  // The authorization request always uses prompt=consent and offline access.
+  // Never combine a new identity's access token with an older grant's refresh
+  // token when Google omits refresh_token from the response.
   const refreshTokenCiphertext = tokens.refresh_token
     ? encryptGoogleAdsSecret(tokens.refresh_token, config.tokenEncryptionKey)
-    : (existingConnection?.refresh_token_ciphertext ?? null);
+    : null;
   if (!refreshTokenCiphertext) {
     return callbackRedirect('error', 'offline_access_required');
   }

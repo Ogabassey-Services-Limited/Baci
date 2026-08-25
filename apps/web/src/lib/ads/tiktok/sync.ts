@@ -205,6 +205,7 @@ export async function syncTikTokAdsSpendForMerchant(
           p_end_date: input.endDate,
           p_merchant_id: input.merchantId,
           p_provider: TIKTOK_ADS_PROVIDER,
+          p_provider_customer_id: account.accountId,
           p_rows: pendingRows,
           p_start_date: input.startDate,
         }

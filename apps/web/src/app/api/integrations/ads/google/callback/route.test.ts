@@ -168,6 +168,34 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(JSON.stringify(await response.text())).not.toContain('access-token');
   });
 
+  it('does not reuse an older refresh token when reauthorization omits one', async () => {
+    mockExchange.mockResolvedValueOnce({
+      access_token: 'new-access-token',
+      expires_in: 3600,
+      scope: 'https://www.googleapis.com/auth/adwords',
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/callback?state=stored&code=code',
+        {
+          headers: {
+            cookie:
+              'baci_google_ads_oauth_state=stored; baci_google_ads_oauth_verifier=verifier',
+          },
+        }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/dashboard/analytics?google_ads=error&reason=offline_access_required'
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'upsert_google_ads_connection',
+      expect.anything()
+    );
+  });
+
   it('rejects a nonce replay before exchanging the authorization code', async () => {
     mockRpc.mockImplementation((name: string) => {
       if (name === 'consume_merchant_ads_oauth_state_nonce') {
