@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { resolveMetaAdsAccessToken } from '@/lib/ads/meta/access-token';
 import {
@@ -228,6 +229,7 @@ export async function PATCH(request: NextRequest) {
         { error: 'Meta Ads authorization changed; retry account selection' },
         { status: 409 }
       );
+    invalidateAdsAnalyticsCache(access.merchantId);
     return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {
     if (

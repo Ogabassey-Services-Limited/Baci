@@ -153,7 +153,11 @@ export function SocialAdsAccountControls({
           )
         );
       }
-      await sync();
+      try {
+        await sync();
+      } finally {
+        onSynced?.();
+      }
       setAccounts((current) =>
         current.map((account) => ({
           ...account,
@@ -161,7 +165,6 @@ export function SocialAdsAccountControls({
         }))
       );
       setIsChoosing(false);
-      onSynced?.();
     } catch (saveError) {
       setError(
         saveError instanceof Error

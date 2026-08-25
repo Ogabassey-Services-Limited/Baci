@@ -134,30 +134,33 @@ export function GoogleAdsAccountPicker({
         );
       }
 
-      const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
-      const windows = buildAdsSyncWindowChunks(requestedWindow, 'google_ads');
-      for (const [index, window] of windows.entries()) {
-        const response = await fetchWithCsrf(SYNC_PATH, {
-          body: JSON.stringify({
-            ...window,
-            finalChunk: index === windows.length - 1,
-          }),
-          headers: merchantId
-            ? { 'x-baci-merchant-id': merchantId }
-            : undefined,
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error(
-            await readError(
-              response,
-              'Google Ads account selected, but sync failed.'
-            )
-          );
+      try {
+        const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
+        const windows = buildAdsSyncWindowChunks(requestedWindow, 'google_ads');
+        for (const [index, window] of windows.entries()) {
+          const response = await fetchWithCsrf(SYNC_PATH, {
+            body: JSON.stringify({
+              ...window,
+              finalChunk: index === windows.length - 1,
+            }),
+            headers: merchantId
+              ? { 'x-baci-merchant-id': merchantId }
+              : undefined,
+            method: 'POST',
+          });
+          if (!response.ok) {
+            throw new Error(
+              await readError(
+                response,
+                'Google Ads account selected, but sync failed.'
+              )
+            );
+          }
         }
+      } finally {
+        onSynced?.();
       }
 
-      onSynced?.();
       setSyncComplete(true);
       setAccounts((currentAccounts) =>
         currentAccounts.map((account) => ({

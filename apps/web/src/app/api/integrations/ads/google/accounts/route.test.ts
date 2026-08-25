@@ -9,6 +9,7 @@ const mockGetOAuthConfig = vi.fn();
 const mockGetReportingConfig = vi.fn();
 const mockResolveToken = vi.fn();
 const mockListAccounts = vi.fn();
+const mockInvalidateAnalytics = vi.fn();
 const mockRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
 
@@ -33,6 +34,10 @@ vi.mock('@/lib/google-ads/access-token', () => ({
 vi.mock('@/lib/google-ads/provider', () => ({
   listGoogleAdsAccessibleCustomerIds: (...args: unknown[]) =>
     mockListAccounts(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    mockInvalidateAnalytics(...args),
 }));
 
 import { GET, PATCH } from './route';
@@ -228,6 +233,7 @@ describe('Google Ads account discovery and selection', () => {
       p_merchant_id: 'merchant-1',
       p_provider_customer_id: '1234567890',
     });
+    expect(mockInvalidateAnalytics).toHaveBeenCalledWith('merchant-1');
   });
 
   it('rejects a selection when the guarded RPC reports no updated connection', async () => {
@@ -253,6 +259,7 @@ describe('Google Ads account discovery and selection', () => {
     );
 
     expect(response.status).toBe(409);
+    expect(mockInvalidateAnalytics).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual({
       error: 'Google Ads authorization changed; retry account selection',
     });

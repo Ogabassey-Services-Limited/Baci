@@ -122,6 +122,32 @@ describe('GoogleAdsAccountPicker', () => {
     );
   });
 
+  it('refreshes analytics after account selection when the follow-up sync fails', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        accounts: [{ customerId: '1234567890', selected: false }],
+      })
+    );
+    mockFetchWithCsrf
+      .mockResolvedValueOnce(jsonResponse({ selected: true }))
+      .mockResolvedValueOnce(
+        jsonResponse({ error: 'Google Ads sync unavailable' }, 502)
+      );
+    const onSynced = vi.fn();
+
+    render(<GoogleAdsAccountPicker onSynced={onSynced} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /select google ads account/i })
+    );
+    await screen.findByRole('radio', { name: /••••7890/i });
+    fireEvent.click(screen.getByRole('button', { name: /save account/i }));
+
+    expect(
+      await screen.findByText('Google Ads sync unavailable')
+    ).toBeInTheDocument();
+    expect(onSynced).toHaveBeenCalledOnce();
+  });
+
   it('shows a recoverable discovery error', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ error: 'Google Ads account discovery failed.' }, 502)

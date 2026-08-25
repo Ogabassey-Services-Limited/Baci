@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import {
   getSnapchatAdsUsableAccessToken,
@@ -226,15 +227,15 @@ export async function PATCH(request: NextRequest) {
         { error: 'Failed to select Snapchat Ads account' },
         { status: 500 }
       );
-    return result.data !== true
-      ? NextResponse.json(
-          {
-            error:
-              'Snapchat Ads authorization changed; retry account selection',
-          },
-          { status: 409 }
-        )
-      : NextResponse.json({ accountId: account.accountId, selected: true });
+    if (result.data !== true)
+      return NextResponse.json(
+        {
+          error: 'Snapchat Ads authorization changed; retry account selection',
+        },
+        { status: 409 }
+      );
+    invalidateAdsAnalyticsCache(access.merchantId);
+    return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {
     return (
       (await revoked(error, current, access.merchantId, auth.supabase)) ??

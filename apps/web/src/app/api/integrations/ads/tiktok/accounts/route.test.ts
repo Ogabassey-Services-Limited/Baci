@@ -4,6 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const invalidateAnalytics = vi.fn();
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAnalytics(...args),
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -149,6 +154,7 @@ describe('TikTok Ads accounts route', () => {
         p_provider_customer_id: 'opaque-001',
       })
     );
+    expect(invalidateAnalytics).toHaveBeenCalledWith('merchant');
   });
 
   it('does not persist a well-formed advertiser ID absent from fresh discovery', async () => {

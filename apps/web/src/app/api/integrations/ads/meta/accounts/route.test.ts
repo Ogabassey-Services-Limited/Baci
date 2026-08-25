@@ -10,6 +10,11 @@ const resolveToken = vi.fn();
 const rpc = vi.fn();
 const getConfig = vi.fn();
 const markReauth = vi.fn();
+const invalidateAnalytics = vi.fn();
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAnalytics(...args),
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -159,6 +164,7 @@ describe('Meta Ads accounts route', () => {
         p_provider_customer_id: 'act_12',
       })
     );
+    expect(invalidateAnalytics).toHaveBeenCalledWith('merchant');
     listAccounts.mockResolvedValueOnce([]);
     const rejected = await PATCH(
       new NextRequest(

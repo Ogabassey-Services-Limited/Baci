@@ -89,6 +89,49 @@ describe('SocialAdsAccountControls', () => {
     );
   });
 
+  it('refreshes analytics after account selection when the provider sync fails', async () => {
+    const onSynced = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accounts: [
+            {
+              accountId: 'act_123',
+              label: 'Baci Meta',
+              selected: false,
+            },
+          ],
+        })
+      )
+    );
+    fetchWithCsrf
+      .mockResolvedValueOnce(new Response('{}'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Meta sync unavailable' }), {
+          status: 502,
+        })
+      );
+
+    render(
+      <SocialAdsAccountControls
+        displayName="Meta Ads"
+        needsAccountSelection
+        onSynced={onSynced}
+        provider="meta_ads"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select account' }));
+    await screen.findByText('Baci Meta');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save account and sync' })
+    );
+
+    expect(
+      await screen.findByText('Meta sync unavailable')
+    ).toBeInTheDocument();
+    expect(onSynced).toHaveBeenCalledOnce();
+  });
+
   it('shows a safe sync error without exposing response internals', async () => {
     fetchWithCsrf.mockResolvedValue(
       new Response(

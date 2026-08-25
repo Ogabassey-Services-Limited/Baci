@@ -8,6 +8,11 @@ const usableToken = vi.fn();
 const accounts = vi.fn();
 const csrf = vi.fn();
 const config = vi.fn();
+const invalidateAnalytics = vi.fn();
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  invalidateAdsAnalyticsCache: (...args: unknown[]) =>
+    invalidateAnalytics(...args),
+}));
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -139,6 +144,7 @@ describe('Snapchat Ads accounts route', () => {
         p_provider_customer_id: 'ad-1',
       })
     );
+    expect(invalidateAnalytics).toHaveBeenCalledWith('merchant');
   });
 
   it('drives permission, CSRF, Zod, and inaccessible-account branches', async () => {
