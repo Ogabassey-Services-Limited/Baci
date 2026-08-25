@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-slugs';
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
 import { StorefrontPublishedConfigSchema } from './storefront-published-config-schema';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
@@ -10,15 +11,13 @@ const PublicMediaUrlSchema = z
   .max(2_048)
   .refine(
     isStablePublicMediaUrl,
-    'Expected a stable public HTTPS URL or root-relative path without query parameters'
+    'Expected a content-addressed public release asset path'
   );
-
 const SlugSchema = z
   .string()
   .min(1)
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-
 const ThemeColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const MerchantSchema = z.strictObject({
   name: z.string().trim().min(1).max(160),
@@ -112,7 +111,10 @@ const ProductSchema = z.strictObject({
 
 const CategorySchema = z.strictObject({
   id: z.uuid(),
-  slug: SlugSchema,
+  slug: SlugSchema.refine(
+    (slug) => !STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS.has(slug),
+    { message: 'Category slug is reserved by a storefront route' }
+  ),
   name: z.string().trim().min(1).max(160),
   description: z.string().max(20_000).nullable().optional(),
   parentId: z.uuid().nullable().optional(),
@@ -133,6 +135,7 @@ const ContentPageSchema = z.strictObject({
   title: z.string().trim().min(1).max(240),
   body: z.string().max(500_000),
   format: z.enum(['plain_text', 'sanitized_markdown']),
+  status: z.literal('published'),
   publishedAt: z.iso.datetime({ offset: true }).optional(),
 });
 
@@ -178,6 +181,32 @@ export const StorefrontPublicProjectionPayloadSchema = z
       .optional(),
   })
   .superRefine((payload, context) => {
+    const productIds = new Set<string>();
+    const productSlugs = new Set<string>();
+    const variantIds = new Set<string>();
+    for (const [productIndex, product] of payload.products.entries()) {
+      for (const [value, seen, field, message] of [
+        [product.id, productIds, 'id', 'Product IDs must be unique'],
+        [product.slug, productSlugs, 'slug', 'Product slugs must be unique'],
+      ] as const) {
+        if (seen.has(value))
+          context.addIssue({
+            code: 'custom',
+            message,
+            path: ['products', productIndex, field],
+          });
+        seen.add(value);
+      }
+      for (const [variantIndex, variant] of (product.variants ?? []).entries()) {
+        if (variantIds.has(variant.id))
+          context.addIssue({
+            code: 'custom',
+            message: 'Variant IDs must be unique across the projection',
+            path: ['products', productIndex, 'variants', variantIndex, 'id'],
+          });
+        variantIds.add(variant.id);
+      }
+    }
     const categoryIds = new Set(
       (payload.categories ?? []).map((category) => category.id)
     );
@@ -266,7 +295,6 @@ export const StorefrontPublicProjectionPayloadSchema = z
           path,
         });
   });
-
 export type StorefrontPublicProjectionPayload = z.infer<
   typeof StorefrontPublicProjectionPayloadSchema
 >;

@@ -6,7 +6,7 @@ const blogPost = {
   category: 'Buying Guides',
   content: 'Published guide content',
   excerpt: 'A short listing summary.',
-  featuredImageUrl: 'https://cdn.example.com/guides/phone.png',
+  featuredImageUrl: `/release-assets/${'a'.repeat(64)}.png`,
   id: '123e4567-e89b-42d3-a456-426614174070',
   publishedAt: '2026-08-25T14:00:00+01:00',
   seoDescription: 'Compare the best phones.',

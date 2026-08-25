@@ -83,6 +83,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
             id: '123e4567-e89b-42d3-a456-426614174010',
             publishedAt: '2026-08-25T14:00:00+01:00',
             slug: 'about',
+            status: 'published',
             title: 'About',
           },
         ],
@@ -160,12 +161,12 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
           {
             alt: 'Logo',
             id: missingMediaId,
-            publicUrl: '/logo.png',
+            publicUrl: `/release-assets/${'a'.repeat(64)}.png`,
           },
           {
             alt: 'Duplicate logo',
             id: missingMediaId,
-            publicUrl: '/logo-copy.png',
+            publicUrl: `/release-assets/${'b'.repeat(64)}.png`,
           },
         ],
       }).success
@@ -176,7 +177,13 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
     const logoMediaId = '123e4567-e89b-42d3-a456-426614174040';
     const payload = {
       ...validPayload,
-      media: [{ alt: 'Logo', id: logoMediaId, publicUrl: '/logo.png' }],
+      media: [
+        {
+          alt: 'Logo',
+          id: logoMediaId,
+          publicUrl: `/release-assets/${'a'.repeat(64)}.png`,
+        },
+      ],
       merchant: {
         ...validPayload.merchant,
         brandTokens: { logoMediaId },
