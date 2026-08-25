@@ -114,6 +114,12 @@ function formatRegisteredAddress(address: RegisteredAddress): string {
     .join(', ');
 }
 
+function readBusinessPostalCode(
+  address: string | undefined
+): string | undefined {
+  return address?.match(/\b\d{6}\b/g)?.at(-1);
+}
+
 const STATE_LEVEL_CITY_ALIASES = new Set(['lagos', 'abuja', 'fct']);
 
 function resolveMerchantCity({
@@ -204,6 +210,8 @@ export function buildMerchantSenderInfo(
     state,
     country: 'Nigeria',
     countryCode: 'NG',
-    postalCode: selectedRegisteredAddress?.postal_code ?? undefined,
+    postalCode:
+      selectedRegisteredAddress?.postal_code ??
+      readBusinessPostalCode(businessAddress),
   };
 }
