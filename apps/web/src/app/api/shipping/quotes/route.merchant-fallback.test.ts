@@ -189,7 +189,7 @@ describe('POST /api/shipping/quotes', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: 'Sender is required for international quotes',
+      error: 'Merchant shipping origin is not configured',
     });
     expect(supabase.from).not.toHaveBeenCalled();
     expect(mockGetQuotes).not.toHaveBeenCalled();
@@ -212,7 +212,7 @@ describe('POST /api/shipping/quotes', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: 'Sender is required for international quotes',
+      error: 'Merchant shipping origin is not configured',
     });
     expect(supabase.from).not.toHaveBeenCalled();
     expect(mockGetQuotes).not.toHaveBeenCalled();
@@ -293,7 +293,7 @@ describe('POST /api/shipping/quotes', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: 'Sender is required for international quotes',
+      error: 'Merchant shipping origin is not configured',
     });
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });

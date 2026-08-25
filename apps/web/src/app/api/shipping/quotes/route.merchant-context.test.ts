@@ -54,6 +54,7 @@ describe('POST /api/shipping/quotes merchant context', () => {
           error: null,
         }),
       },
+      rpc: adminClient.rpc,
     });
     const { POST } = await import('./route');
 
@@ -75,22 +76,14 @@ describe('POST /api/shipping/quotes merchant context', () => {
       }) as unknown as NextRequest
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(400);
     expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
       adminClient,
       'user-without-merchant-context',
       { requestedMerchantId: '11111111-1111-4111-8111-111111111111' }
     );
     expect(adminClient.from).not.toHaveBeenCalledWith('merchants');
-    expect(mockGetQuotes).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: '11111111-1111-4111-8111-111111111111',
-        sender: expect.objectContaining({
-          address: 'Lagos',
-          name: 'Merchant',
-        }),
-      })
-    );
+    expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 
   it('quotes a non-NG merchant on the body-only path without reading the merchants table', async () => {
@@ -105,43 +98,60 @@ describe('POST /api/shipping/quotes merchant context', () => {
 
     const adminClient = {
       from: vi.fn(),
-      rpc: vi.fn().mockResolvedValue({
+      rpc: vi.fn().mockImplementation((name: string) => ({
         data: {
-          zones: [
-            {
-              id: ZONE_ID,
-              name: 'India',
-              is_rest_of_world: false,
-              active: true,
-            },
-          ],
-          locations: [
-            { zone_id: ZONE_ID, country_code: 'IN', subdivision_code: null },
-          ],
-          rates: [
-            {
-              id: RATE_ID,
-              zone_id: ZONE_ID,
-              name: 'Standard',
-              kind: 'ship',
-              currency: 'INR',
-              base_amount: 200,
-              condition_type: 'always',
-              min_subtotal: null,
-              max_subtotal: null,
-              free_over_amount: null,
-              delivery_min_days: 1,
-              delivery_max_days: 3,
-              pickup_address: null,
-              sort_order: 0,
-              active: true,
-            },
-          ],
-          merchant_payout_currency: 'INR',
-          merchant_country: 'IN',
+          ...(name === 'get_storefront_shipping_sender'
+            ? {
+                business_address: '12 MG Road, Mumbai, Maharashtra',
+                business_name: 'India Store',
+                country: 'IN',
+                phone: '+919876543210',
+                state_code: 'MH',
+              }
+            : {}),
+          ...(name !== 'get_storefront_shipping_sender'
+            ? {
+                zones: [
+                  {
+                    id: ZONE_ID,
+                    name: 'India',
+                    is_rest_of_world: false,
+                    active: true,
+                  },
+                ],
+                locations: [
+                  {
+                    zone_id: ZONE_ID,
+                    country_code: 'IN',
+                    subdivision_code: null,
+                  },
+                ],
+                rates: [
+                  {
+                    id: RATE_ID,
+                    zone_id: ZONE_ID,
+                    name: 'Standard',
+                    kind: 'ship',
+                    currency: 'INR',
+                    base_amount: 200,
+                    condition_type: 'always',
+                    min_subtotal: null,
+                    max_subtotal: null,
+                    free_over_amount: null,
+                    delivery_min_days: 1,
+                    delivery_max_days: 3,
+                    pickup_address: null,
+                    sort_order: 0,
+                    active: true,
+                  },
+                ],
+                merchant_payout_currency: 'INR',
+                merchant_country: 'IN',
+              }
+            : {}),
         },
         error: null,
-      }),
+      })),
     };
     mockCreateAdminClient.mockReturnValue(adminClient);
     // Anonymous body-only request: no session user.
@@ -151,13 +161,17 @@ describe('POST /api/shipping/quotes merchant context', () => {
           .fn()
           .mockResolvedValue({ data: { user: null }, error: null }),
       },
+      rpc: adminClient.rpc,
     });
     const { POST } = await import('./route');
 
     const response = await POST(
       new Request('https://usebaci.com/api/shipping/quotes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-baci-client': 'mobile-storefront',
+        },
         body: JSON.stringify({
           shipmentType: 'domestic',
           merchantId: MERCHANT_ID,
@@ -208,43 +222,60 @@ describe('POST /api/shipping/quotes merchant context', () => {
 
     const adminClient = {
       from: vi.fn(),
-      rpc: vi.fn().mockResolvedValue({
+      rpc: vi.fn().mockImplementation((name: string) => ({
         data: {
-          zones: [
-            {
-              id: ZONE_ID,
-              name: 'India',
-              is_rest_of_world: false,
-              active: true,
-            },
-          ],
-          locations: [
-            { zone_id: ZONE_ID, country_code: 'IN', subdivision_code: null },
-          ],
-          rates: [
-            {
-              id: RATE_ID,
-              zone_id: ZONE_ID,
-              name: 'Standard',
-              kind: 'ship',
-              currency: 'INR',
-              base_amount: 200,
-              condition_type: 'always',
-              min_subtotal: null,
-              max_subtotal: null,
-              free_over_amount: null,
-              delivery_min_days: 1,
-              delivery_max_days: 3,
-              pickup_address: null,
-              sort_order: 0,
-              active: true,
-            },
-          ],
-          merchant_payout_currency: 'INR',
-          merchant_country: 'IN',
+          ...(name === 'get_storefront_shipping_sender'
+            ? {
+                business_address: '12 MG Road, Mumbai, Maharashtra',
+                business_name: 'India Store',
+                country: 'IN',
+                phone: '+919876543210',
+                state_code: 'MH',
+              }
+            : {}),
+          ...(name !== 'get_storefront_shipping_sender'
+            ? {
+                zones: [
+                  {
+                    id: ZONE_ID,
+                    name: 'India',
+                    is_rest_of_world: false,
+                    active: true,
+                  },
+                ],
+                locations: [
+                  {
+                    zone_id: ZONE_ID,
+                    country_code: 'IN',
+                    subdivision_code: null,
+                  },
+                ],
+                rates: [
+                  {
+                    id: RATE_ID,
+                    zone_id: ZONE_ID,
+                    name: 'Standard',
+                    kind: 'ship',
+                    currency: 'INR',
+                    base_amount: 200,
+                    condition_type: 'always',
+                    min_subtotal: null,
+                    max_subtotal: null,
+                    free_over_amount: null,
+                    delivery_min_days: 1,
+                    delivery_max_days: 3,
+                    pickup_address: null,
+                    sort_order: 0,
+                    active: true,
+                  },
+                ],
+                merchant_payout_currency: 'INR',
+                merchant_country: 'IN',
+              }
+            : {}),
         },
         error: null,
-      }),
+      })),
     };
     mockCreateAdminClient.mockReturnValue(adminClient);
     mockCreateServerClient.mockResolvedValue({
@@ -253,6 +284,7 @@ describe('POST /api/shipping/quotes merchant context', () => {
           .fn()
           .mockResolvedValue({ data: { user: null }, error: null }),
       },
+      rpc: adminClient.rpc,
     });
     // Carriers return a Lagos NGN quote that must be dropped.
     mockGetQuotes.mockResolvedValue({
@@ -282,7 +314,10 @@ describe('POST /api/shipping/quotes merchant context', () => {
     const response = await POST(
       new Request('https://usebaci.com/api/shipping/quotes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-baci-client': 'mobile-storefront',
+        },
         body: JSON.stringify({
           shipmentType: 'domestic',
           merchantId: MERCHANT_ID,
@@ -321,9 +356,8 @@ describe('POST /api/shipping/quotes merchant context', () => {
         (quote: { provider: string }) => quote.provider === 'GIGL'
       )
     ).toBe(false);
-    // Carriers were fetched (wasted) but nothing is read from or written to the
-    // merchants / shipping_quotes tables on the suppressed path.
-    expect(mockGetQuotes).toHaveBeenCalled();
+    // The projected non-NG origin prevents Nigeria-only carrier calls.
+    expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(adminClient.from).not.toHaveBeenCalled();
   });
 
@@ -336,16 +370,29 @@ describe('POST /api/shipping/quotes merchant context', () => {
 
     const adminClient = {
       from: vi.fn(),
-      rpc: vi.fn().mockResolvedValue({
+      rpc: vi.fn().mockImplementation((name: string) => ({
         data: {
-          zones: [],
-          locations: [],
-          rates: [],
-          merchant_payout_currency: 'INR',
-          merchant_country: 'IN',
+          ...(name === 'get_storefront_shipping_sender'
+            ? {
+                business_address: '12 MG Road, Mumbai, Maharashtra',
+                business_name: 'India Store',
+                country: 'IN',
+                phone: '+919876543210',
+                state_code: 'MH',
+              }
+            : {}),
+          ...(name !== 'get_storefront_shipping_sender'
+            ? {
+                zones: [],
+                locations: [],
+                rates: [],
+                merchant_payout_currency: 'INR',
+                merchant_country: 'IN',
+              }
+            : {}),
         },
         error: null,
-      }),
+      })),
     };
     mockCreateAdminClient.mockReturnValue(adminClient);
     mockCreateServerClient.mockResolvedValue({
@@ -354,6 +401,7 @@ describe('POST /api/shipping/quotes merchant context', () => {
           .fn()
           .mockResolvedValue({ data: { user: null }, error: null }),
       },
+      rpc: adminClient.rpc,
     });
     mockGetQuotes.mockResolvedValue({
       quotes: {
@@ -382,7 +430,10 @@ describe('POST /api/shipping/quotes merchant context', () => {
     const response = await POST(
       new Request('https://usebaci.com/api/shipping/quotes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-baci-client': 'mobile-storefront',
+        },
         body: JSON.stringify({
           shipmentType: 'domestic',
           merchantId: MERCHANT_ID,
@@ -428,10 +479,23 @@ describe('POST /api/shipping/quotes merchant context', () => {
     const adminClient = {
       from: vi.fn(),
       // RPC failure: no data, no resolved currency/country.
-      rpc: vi.fn().mockResolvedValue({
-        data: null,
-        error: { message: 'permission denied', code: '42501' },
-      }),
+      rpc: vi.fn().mockImplementation((name: string) =>
+        name === 'get_storefront_shipping_sender'
+          ? {
+              data: {
+                business_address: '12 MG Road, Mumbai, Maharashtra',
+                business_name: 'India Store',
+                country: 'IN',
+                phone: '+919876543210',
+                state_code: 'MH',
+              },
+              error: null,
+            }
+          : {
+              data: null,
+              error: { message: 'permission denied', code: '42501' },
+            }
+      ),
     };
     mockCreateAdminClient.mockReturnValue(adminClient);
     mockCreateServerClient.mockResolvedValue({
@@ -440,6 +504,7 @@ describe('POST /api/shipping/quotes merchant context', () => {
           .fn()
           .mockResolvedValue({ data: { user: null }, error: null }),
       },
+      rpc: adminClient.rpc,
     });
     // Carriers return a Lagos NGN quote that must NOT survive the fail-closed.
     mockGetQuotes.mockResolvedValue({
@@ -469,7 +534,10 @@ describe('POST /api/shipping/quotes merchant context', () => {
     const response = await POST(
       new Request('https://usebaci.com/api/shipping/quotes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-baci-client': 'mobile-storefront',
+        },
         body: JSON.stringify({
           shipmentType: 'domestic',
           merchantId: MERCHANT_ID,
@@ -503,8 +571,8 @@ describe('POST /api/shipping/quotes merchant context', () => {
         /Nigerian merchants only/i.test(warning)
       )
     ).toBe(true);
-    // Carriers were fetched (wasted) but nothing is written to shipping_quotes.
-    expect(mockGetQuotes).toHaveBeenCalled();
+    // The projected non-NG origin prevents Nigeria-only carrier calls.
+    expect(mockGetQuotes).not.toHaveBeenCalled();
     expect(adminClient.from).not.toHaveBeenCalled();
     expect(errorSpy).toHaveBeenCalled();
   });
