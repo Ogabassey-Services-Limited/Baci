@@ -230,6 +230,18 @@ export const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     justifyContent: 'center',
   },
+  groupSectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
+    paddingBottom: SPACING.xs,
+  },
+  groupSectionHeaderLabel: {
+    fontSize: TYPOGRAPHY.size.md,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
   sectionHeaderLabel: {
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.bold,

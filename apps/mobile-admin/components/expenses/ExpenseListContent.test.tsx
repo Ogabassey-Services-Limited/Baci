@@ -13,7 +13,28 @@ const mocks = vi.hoisted(() => ({
     isLoading: boolean;
   },
 }));
-
+const MERCHANT_ID = 'cae013e3-719e-4baa-9ab9-45d080ce23ea';
+function makeExpense(overrides: Record<string, unknown> = {}) {
+  return {
+    amount: 12_500,
+    branch_id: null,
+    category: 'Travel',
+    created_by_user_id: null,
+    date: '2026-07-31',
+    description: 'Taxi',
+    group_id: null,
+    id: 'expense-1',
+    merchant_id: MERCHANT_ID,
+    payment_method: null,
+    receipt_storage_path: null,
+    receipt_url: null,
+    reference: null,
+    updated_at: '2026-07-31T12:00:00.000Z',
+    updated_by_user_id: null,
+    vendor_name: null,
+    ...overrides,
+  };
+}
 function makeQueryChain() {
   const chain: Record<string, unknown> = {};
   const passthrough =
@@ -40,7 +61,6 @@ function makeQueryChain() {
     );
   return chain;
 }
-
 vi.mock('@tanstack/react-query', () => ({
   useQuery: ({
     enabled = true,
@@ -204,26 +224,7 @@ describe('ExpenseListContent', () => {
   beforeEach(() => {
     mocks.queryCalls.length = 0;
     mocks.queryState = {
-      data: [
-        {
-          amount: 12_500,
-          branch_id: null,
-          category: 'Travel',
-          created_by_user_id: null,
-          date: '2026-07-31',
-          description: 'Taxi',
-          group_id: null,
-          id: 'expense-1',
-          merchant_id: 'cae013e3-719e-4baa-9ab9-45d080ce23ea',
-          payment_method: null,
-          receipt_storage_path: null,
-          receipt_url: null,
-          reference: null,
-          updated_at: '2026-07-31T12:00:00.000Z',
-          updated_by_user_id: null,
-          vendor_name: null,
-        },
-      ],
+      data: [makeExpense()],
       error: null,
       isError: false,
       isLoading: false,
@@ -244,8 +245,9 @@ describe('ExpenseListContent', () => {
       method: 'is',
     });
     expect(screen.getByText('Filtered total')).toBeInTheDocument();
-    expect(screen.getByText('1 expense')).toBeInTheDocument();
-    expect(screen.getAllByText(/12,500/)).toHaveLength(2);
+    expect(screen.getByText('Travel')).toBeInTheDocument();
+    expect(screen.getAllByText('1 expense')).toHaveLength(2);
+    expect(screen.getAllByText(/12,500/)).toHaveLength(3);
   });
 
   it('forwards edit access to each visible expense row', () => {
@@ -293,6 +295,6 @@ describe('ExpenseListContent', () => {
       method: 'lte',
     });
     expect(screen.getByText('Total this Month')).toBeInTheDocument();
-    expect(screen.getAllByText(/12,500/)).toHaveLength(2);
+    expect(screen.getAllByText(/12,500/)).toHaveLength(3);
   });
 });
