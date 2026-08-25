@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import { loadJumiaAuthorizationGrant } from '@/lib/jumia/load-jumia-authorization-grant';
+import { logger } from '@/lib/logger';
 import type { JumiaSelfAuthorizationTokenResponse } from '@/schemas/jumia';
 import {
   type JumiaAuthorizationRefreshState,
@@ -110,11 +111,19 @@ export async function persistJumiaAuthorizationRotation(args: {
   }
 
   if (updateError) {
-    throw new JumiaApiError(
-      500,
-      `Failed to persist refreshed token for integration ${state.integrationId}`,
-      updateError
-    );
+    logger.error({
+      message:
+        'Failed to persist rotated Jumia credentials; retaining the provider-issued pair in the active client',
+      error: updateError,
+      integration_id: state.integrationId,
+    });
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      tokenExpiresAt: args.tokenExpiresAt,
+      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      authorizationRotationVersion: state.authorizationRotationVersion,
+    };
   }
 
   return {

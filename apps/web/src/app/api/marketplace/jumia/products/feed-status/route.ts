@@ -34,6 +34,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { jumiaFeedStatusQuerySchema } from '@/schemas/jumia-feed-status';
 import { jumiaFeedReconciliation } from './jumia-feed-reconciliation';
+import { loadPendingFeedMappings } from './load-pending-feed-mappings';
 
 type PendingMapping = PendingFeedMapping;
 
@@ -99,14 +100,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data: mappings, error: mappingsError } = await auth.supabase
-    .from('jumia_product_mappings')
-    .select('id, last_feed_id, jumia_seller_sku, last_synced_at')
-    .eq('merchant_id', merchantId)
-    .eq('jumia_shop_id', jumia.shopId)
-    .eq('marketplace_key', jumia.marketplaceKey)
-    .eq('sync_status', 'pending')
-    .not('last_feed_id', 'is', null);
+  const { mappings, error: mappingsError } = await loadPendingFeedMappings(
+    auth.supabase,
+    merchantId,
+    jumia.shopId,
+    jumia.marketplaceKey
+  );
 
   if (mappingsError) {
     logger.error({
@@ -119,7 +118,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const pending = (mappings ?? []) as PendingMapping[];
+  const pending = mappings as PendingMapping[];
   const feedIds = selectPendingFeedIds(pending, MAX_FEEDS_PER_REQUEST);
   const feedResults: Array<{
     feedId: string;

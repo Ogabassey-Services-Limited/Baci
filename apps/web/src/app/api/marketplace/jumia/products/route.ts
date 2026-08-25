@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { JumiaClient } from '@/lib/jumia/client';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import {
@@ -8,11 +7,7 @@ import {
   pickPrimaryProductMapping,
 } from '@/lib/jumia/product-mapping-scope';
 import { createClient } from '@/lib/supabase/server';
-
-const QuerySchema = z.object({
-  productId: z.uuid(),
-  integrationId: z.uuid(),
-});
+import { jumiaProductQuerySchema } from '@/schemas/jumia-product-query';
 
 export async function GET(request: Request) {
   const supabase = createClient(await cookies());
@@ -25,7 +20,7 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const parsed = QuerySchema.safeParse({
+  const parsed = jumiaProductQuerySchema.safeParse({
     productId: searchParams.get('productId'),
     integrationId: searchParams.get('integrationId'),
   });

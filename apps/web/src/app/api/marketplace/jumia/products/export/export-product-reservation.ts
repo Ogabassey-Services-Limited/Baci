@@ -166,7 +166,7 @@ export async function finalizeJumiaExportReservation(
 ): Promise<boolean> {
   const persistFeedId = async () => {
     const skus = args.exportVariations.map((variation) => variation.sellerSku);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('jumia_product_mappings')
       .update({
         last_feed_id: args.feedId,
@@ -176,9 +176,10 @@ export async function finalizeJumiaExportReservation(
       .eq('product_id', args.productId)
       .eq('jumia_shop_id', args.shopId)
       .eq('marketplace_key', args.marketplaceKey)
-      .in('jumia_sku', skus);
+      .in('jumia_sku', skus)
+      .select('id');
 
-    return !error;
+    return !error && data?.length === new Set(skus).size;
   };
 
   return (await persistFeedId()) || (await persistFeedId());

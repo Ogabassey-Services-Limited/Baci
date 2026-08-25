@@ -154,15 +154,17 @@ describe('reserveJumiaExportMappings', () => {
 
 describe('finalizeJumiaExportReservation', () => {
   it('retries once when the first feed-id persist fails', async () => {
-    const inMock = vi
+    const selectMock = vi
       .fn()
       .mockResolvedValueOnce({ error: { message: 'write failed' } })
-      .mockResolvedValueOnce({ error: null });
+      .mockResolvedValueOnce({ data: [{ id: 'mapping-1' }], error: null });
     const builder = {
       eq: vi.fn(),
-      in: inMock,
+      in: vi.fn(),
+      select: selectMock,
     };
     builder.eq.mockReturnValue(builder);
+    builder.in.mockReturnValue(builder);
     const from = vi.fn(() => ({
       update: vi.fn(() => builder),
     }));
@@ -179,7 +181,32 @@ describe('finalizeJumiaExportReservation', () => {
         ],
       })
     ).resolves.toBe(true);
-    expect(inMock).toHaveBeenCalledTimes(2);
+    expect(selectMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('fails when finalization updates fewer reservations than expected', async () => {
+    const builder = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      select: vi.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    builder.eq.mockReturnValue(builder);
+    builder.in.mockReturnValue(builder);
+    const from = vi.fn(() => ({ update: vi.fn(() => builder) }));
+
+    await expect(
+      finalizeJumiaExportReservation({ from } as never, {
+        merchantId: 'merchant-1',
+        productId: 'product-1',
+        shopId: 'shop-1',
+        marketplaceKey: 'Jumia Nigeria',
+        feedId: 'feed-1',
+        exportVariations: [
+          { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        ],
+      })
+    ).resolves.toBe(false);
+    expect(builder.select).toHaveBeenCalledTimes(2);
   });
 
   it('retains the accepted feed ID when finalization is unrecoverable', async () => {

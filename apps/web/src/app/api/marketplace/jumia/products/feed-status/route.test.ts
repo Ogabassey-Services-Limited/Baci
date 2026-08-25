@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   gate: vi.fn(),
   client: vi.fn(),
   feed: vi.fn(),
+  pendingMappings: vi.fn(),
   from: vi.fn(),
 }));
 
@@ -31,6 +32,9 @@ vi.mock('@/lib/jumia/client', () => ({
   ),
 }));
 vi.mock('@/lib/jumia/feeds', () => ({ getFeedStatus: mocks.feed }));
+vi.mock('./load-pending-feed-mappings', () => ({
+  loadPendingFeedMappings: mocks.pendingMappings,
+}));
 vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
 
 import { POST } from './route';
@@ -40,22 +44,6 @@ function request() {
     'http://localhost/api/marketplace/jumia/products/feed-status?integrationId=00000000-0000-4000-8000-000000000099',
     { method: 'POST' }
   );
-}
-
-function mappingSelect(data: unknown, error: unknown = null) {
-  return {
-    select: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              not: vi.fn().mockResolvedValue({ data, error }),
-            }),
-          }),
-        }),
-      }),
-    }),
-  };
 }
 
 function mappingUpdate(update: (...args: unknown[]) => void) {
@@ -93,6 +81,7 @@ describe('Jumia feed status route', () => {
       shopId: 'shop-1',
       marketplaceKey: 'default',
     });
+    mocks.pendingMappings.mockResolvedValue({ mappings: [], error: null });
   });
 
   it('rejects malformed integration ids before loading the client', async () => {
@@ -119,9 +108,10 @@ describe('Jumia feed status route', () => {
   });
 
   it('returns 500 when pending mapping lookup fails', async () => {
-    mocks.from.mockReturnValue(
-      mappingSelect(null, { message: 'database unavailable' })
-    );
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [],
+      error: { message: 'database unavailable' },
+    });
 
     const response = await POST(request());
     expect(response.status).toBe(500);
@@ -141,10 +131,18 @@ describe('Jumia feed status route', () => {
       return builder;
     };
     mocks.from.mockReturnValue({
-      ...mappingSelect([
-        { id: 'mapping-1', last_feed_id: 'feed-1', jumia_seller_sku: 'SKU-1' },
-      ]),
       update: failedUpdate,
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-1',
+          last_feed_id: 'feed-1',
+          jumia_seller_sku: 'SKU-1',
+          last_synced_at: null,
+        },
+      ],
+      error: null,
     });
     mocks.feed.mockResolvedValue({
       feedSid: 'feed-1',
@@ -166,14 +164,18 @@ describe('Jumia feed status route', () => {
   it('reconciles accepted feed items into synced mappings', async () => {
     const update = vi.fn();
     mocks.from.mockReturnValue({
-      ...mappingSelect([
+      update: mappingUpdate(update),
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
         {
           id: 'mapping-1',
           last_feed_id: 'feed-1',
           jumia_seller_sku: 'SKU-1',
+          last_synced_at: null,
         },
-      ]),
-      update: mappingUpdate(update),
+      ],
+      error: null,
     });
     mocks.feed.mockResolvedValue({
       feedSid: 'feed-1',
@@ -208,19 +210,24 @@ describe('Jumia feed status route', () => {
   it('does not reuse a null-SKU fallback when multiple feed items exist', async () => {
     const update = vi.fn();
     mocks.from.mockReturnValue({
-      ...mappingSelect([
+      update: mappingUpdate(update),
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
         {
           id: 'mapping-1',
           last_feed_id: 'feed-1',
           jumia_seller_sku: null,
+          last_synced_at: null,
         },
         {
           id: 'mapping-2',
           last_feed_id: 'feed-1',
           jumia_seller_sku: null,
+          last_synced_at: null,
         },
-      ]),
-      update: mappingUpdate(update),
+      ],
+      error: null,
     });
     mocks.feed.mockResolvedValue({
       feedSid: 'feed-1',
@@ -264,13 +271,6 @@ describe('Jumia feed status route', () => {
     const update = vi.fn();
     let cursorUpdateCount = 0;
     mocks.from.mockReturnValue({
-      ...mappingSelect([
-        {
-          id: 'mapping-1',
-          last_feed_id: 'feed-1',
-          jumia_seller_sku: 'SKU-1',
-        },
-      ]),
       update: (...args: unknown[]) => {
         update(...args);
         cursorUpdateCount += 1;
@@ -281,6 +281,17 @@ describe('Jumia feed status route', () => {
         builder.eq.mockReturnValue(builder);
         return builder;
       },
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-1',
+          last_feed_id: 'feed-1',
+          jumia_seller_sku: 'SKU-1',
+          last_synced_at: null,
+        },
+      ],
+      error: null,
     });
     mocks.feed.mockResolvedValue({
       feedSid: 'feed-1',
