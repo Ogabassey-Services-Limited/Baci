@@ -1,0 +1,11 @@
+import { describe, expect, it } from 'vitest';
+import { INVENTORY_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-inventory-pending-sources';
+
+describe('inventory pending replay sources', () => {
+  it('registers both append-only serialized inventory migrations', () => {
+    expect(INVENTORY_PENDING_REPLAY_SOURCE_ROWS.split('\n')).toEqual([
+      'a24c3bdd3f5fc8c87bcb878d12463f4bcfbc64553ebcd41d104ac3c30fcf4f28 20260825111303_serialize_inventory_release_on_order.sql',
+      '754d41bb57151cd31b21937d5bc6b00397de43c6ff1070dd3725c37982866448 20260825123500_fail_closed_missing_stock_rows.sql',
+    ]);
+  });
+});

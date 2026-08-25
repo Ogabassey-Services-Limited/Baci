@@ -1,8 +1,12 @@
-// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live in the manifest module.
-// Each `<sha256> <filename>.sql` row is byte-frozen: the manifest verifier re-hashes the on-disk migration, so never edit a migration after registering it without recomputing its hash here.
+// Raw frozen replay-source and production-mapping data for the Supabase
+// history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
+// so that module stays under the 300-line modularity gate. Each source row is
+// byte-frozen and re-hashed by the manifest verifier; migrations are immutable.
+
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
+import { INVENTORY_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-inventory-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
 import { PRODUCTION_MAPPINGS } from './supabase-history-replay-production-mappings';
 import { SEARCH_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-search-pending-sources';
@@ -261,6 +265,7 @@ const PENDING_SOURCES = [
   ADMIN_PLATFORM_PENDING_SOURCES,
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
   FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
+  INVENTORY_PENDING_REPLAY_SOURCE_ROWS,
   NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
   SEARCH_PENDING_REPLAY_SOURCE_ROWS,
 ]
