@@ -103,6 +103,14 @@ function hasExpiredToken(
   return Number.isFinite(expiresAt) && expiresAt <= now.getTime();
 }
 
+function tokenExpiryRequiresReauthorization(
+  provider: string | undefined,
+  tokenExpiresAt: string | null | undefined,
+  now: Date
+): boolean {
+  return provider !== 'snapchat_ads' && hasExpiredToken(tokenExpiresAt, now);
+}
+
 function spendByCurrency(rows: SocialAdsSpendRow[]) {
   const totals = new Map<string, string>();
   for (const row of rows) {
@@ -144,7 +152,11 @@ export function buildSocialAdsAnalyticsSnapshot({
     );
     return (
       connection?.status === 'active' &&
-      !hasExpiredToken(connection.token_expires_at, now) &&
+      !tokenExpiryRequiresReauthorization(
+        connection.provider,
+        connection.token_expires_at,
+        now
+      ) &&
       Boolean(connection.provider_customer_id) &&
       row.provider_customer_id === connection.provider_customer_id
     );
@@ -152,7 +164,11 @@ export function buildSocialAdsAnalyticsSnapshot({
   const providers = SOCIAL_ADS_REPORTING_PROVIDERS.map((provider) => {
     const connection = connections.find((row) => row.provider === provider);
     const rows = selectedSpendRows.filter((row) => row.provider === provider);
-    const tokenExpired = hasExpiredToken(connection?.token_expires_at, now);
+    const tokenExpired = tokenExpiryRequiresReauthorization(
+      connection?.provider,
+      connection?.token_expires_at,
+      now
+    );
     const lastSyncedAt = connection?.last_synced_at ?? null;
     const isConnected = connection?.status === 'active' && !tokenExpired;
     const needsAccountSelection =

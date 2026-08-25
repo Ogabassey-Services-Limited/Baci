@@ -66,7 +66,9 @@ async function exchange(
     accessToken: parsed.data.access_token,
     expiresIn: parsed.data.expires_in,
     refreshToken: parsed.data.refresh_token,
-    scopes: parsed.data.scope?.split(/\s+/).filter(Boolean) ?? [],
+    scopes: (parsed.data.scope ?? SNAPCHAT_ADS_SCOPE)
+      .split(/\s+/)
+      .filter(Boolean),
   };
 }
 export function exchangeSnapchatAdsAuthorizationCode(

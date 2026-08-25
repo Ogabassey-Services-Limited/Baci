@@ -197,7 +197,7 @@ describe('Snapchat Ads callback route', () => {
       accessToken: 'access',
       expiresIn: 3600,
       refreshToken: 'refresh',
-      scopes: [],
+      scopes: ['unexpected-scope'],
     });
     const scopeFailure = await GET(
       new NextRequest(
