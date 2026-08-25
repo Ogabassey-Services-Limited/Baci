@@ -279,6 +279,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260825000500_schedule_jumia_orphan_authorization_sweep.sql',
+    sha256: '2ef84cf47dd191d491b8be7d61238389b9a43bd43956f84fa9b3dc56d97422cd',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
     sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },

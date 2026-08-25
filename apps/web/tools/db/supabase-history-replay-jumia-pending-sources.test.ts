@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260825000400_order_jumia_multi_shop_locks.sql'
+      '20260825000500_schedule_jumia_orphan_authorization_sweep.sql'
     );
   });
 });
