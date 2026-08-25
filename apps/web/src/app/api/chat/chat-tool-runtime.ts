@@ -25,7 +25,48 @@ import {
   TOOL_DESCRIPTIONS,
 } from '@/ai/chat-tools';
 
-export function createAiSdkAgenticChatTools(sessionId: string) {
+function didAiSdkToolCreateSideEffect(
+  toolName: string,
+  result: string
+): boolean {
+  try {
+    const parsed = JSON.parse(result) as unknown;
+    if (typeof parsed !== 'object' || parsed === null) {
+      return false;
+    }
+
+    const maybeResult = parsed as {
+      accountNumber?: unknown;
+      orderId?: unknown;
+      success?: unknown;
+      status?: unknown;
+    };
+
+    if (toolName === 'cancelOrder') {
+      return (
+        maybeResult.success === true &&
+        maybeResult.status === 'cancelled' &&
+        typeof maybeResult.orderId === 'string' &&
+        maybeResult.orderId.length > 0
+      );
+    }
+
+    return (
+      (typeof maybeResult.orderId === 'string' &&
+        maybeResult.orderId.length > 0) ||
+      (maybeResult.success === true &&
+        typeof maybeResult.accountNumber === 'string' &&
+        maybeResult.accountNumber.length > 0)
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function createAiSdkAgenticChatTools(
+  sessionId: string,
+  options: { onSideEffect?: (toolName: string) => void } = {}
+) {
   // The AI SDK executes a single step's tool calls concurrently (Promise.all).
   // A model that emits the SAME side-effecting call twice in one step (a common
   // uncertainty pattern) would otherwise run each independently — inserting a
@@ -80,8 +121,15 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       execute: (params: CreateVirtualAccountParams) =>
         dedupeSideEffect(
           `createVirtualAccount:${JSON.stringify(params)}`,
-          async () =>
-            JSON.stringify(await handleCreateVirtualAccount(params, sessionId))
+          async () => {
+            const result = JSON.stringify(
+              await handleCreateVirtualAccount(params, sessionId)
+            );
+            if (didAiSdkToolCreateSideEffect('createVirtualAccount', result)) {
+              options.onSideEffect?.('createVirtualAccount');
+            }
+            return result;
+          }
         ),
     },
     checkPaymentStatus: {
@@ -100,9 +148,13 @@ export function createAiSdkAgenticChatTools(sessionId: string) {
       // scope, order reference, customer email, and cancellable order status.
       // Side-effecting: dedupe concurrent duplicate cancels of the same order.
       execute: (params: CancelOrderParams) =>
-        dedupeSideEffect(`cancelOrder:${JSON.stringify(params)}`, async () =>
-          JSON.stringify(await handleCancelOrder(params))
-        ),
+        dedupeSideEffect(`cancelOrder:${JSON.stringify(params)}`, async () => {
+          const result = JSON.stringify(await handleCancelOrder(params));
+          if (didAiSdkToolCreateSideEffect('cancelOrder', result)) {
+            options.onSideEffect?.('cancelOrder');
+          }
+          return result;
+        }),
     },
     getRecommendations: {
       description: TOOL_DESCRIPTIONS.getRecommendations,

@@ -101,6 +101,39 @@ describe('chat tool runtime', () => {
     });
   });
 
+  it('reports a completed commerce side effect to the provider-chain guard', async () => {
+    const onSideEffect = vi.fn();
+    const tools = createAiSdkAgenticChatTools('session-1', { onSideEffect });
+
+    await tools.cancelOrder.execute({
+      orderNumber: '#00001234',
+      customerEmail: 'buyer@example.com',
+    });
+
+    expect(onSideEffect).toHaveBeenCalledWith('cancelOrder');
+  });
+
+  it('reports an inserted chat order even when virtual-account creation is unavailable', async () => {
+    mocks.handleCreateVirtualAccount.mockResolvedValueOnce({
+      success: false,
+      orderId: 'order-1',
+      error: 'Unavailable',
+    });
+    const onSideEffect = vi.fn();
+    const tools = createAiSdkAgenticChatTools('session-1', { onSideEffect });
+
+    await tools.createVirtualAccount.execute({
+      amount: 150000,
+      customerEmail: 'buyer@example.com',
+      customerName: 'Buyer',
+      items: [
+        { productId: 'p1', name: 'iPhone 11', price: 150000, quantity: 1 },
+      ],
+    });
+
+    expect(onSideEffect).toHaveBeenCalledWith('createVirtualAccount');
+  });
+
   describe('bugfix: concurrent duplicate side-effecting tool calls', () => {
     it('runs createVirtualAccount only once when duplicate parallel calls arrive in one AI-SDK step', async () => {
       // The AI SDK runs a step's tool calls concurrently; without dedupe each
