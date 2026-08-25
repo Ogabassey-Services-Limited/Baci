@@ -148,6 +148,31 @@ describe('GoogleAdsAccountPicker', () => {
     expect(onSynced).toHaveBeenCalledOnce();
   });
 
+  it('does not refresh analytics when account selection itself fails', async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        accounts: [{ customerId: '1234567890', selected: false }],
+      })
+    );
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ error: 'Account selection changed' }, 409)
+    );
+    const onSynced = vi.fn();
+
+    render(<GoogleAdsAccountPicker onSynced={onSynced} />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /select google ads account/i })
+    );
+    await screen.findByRole('radio', { name: /••••7890/i });
+    fireEvent.click(screen.getByRole('button', { name: /save account/i }));
+
+    expect(
+      await screen.findByText('Account selection changed')
+    ).toBeInTheDocument();
+    expect(onSynced).not.toHaveBeenCalled();
+    expect(mockFetchWithCsrf).toHaveBeenCalledOnce();
+  });
+
   it('shows a recoverable discovery error', async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({ error: 'Google Ads account discovery failed.' }, 502)

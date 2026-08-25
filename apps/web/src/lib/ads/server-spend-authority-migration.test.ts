@@ -31,12 +31,16 @@ describe('server Ads spend authority migration', () => {
           `REVOKE ALL ON FUNCTION public\\.${functionName}\\([\\s\\S]*?FROM PUBLIC, anon, authenticated;`
         )
       );
+    }
+    for (const functionName of [
+      'replace_merchant_ads_spend_daily_window',
+      'replace_google_ads_spend_daily',
+    ])
       expect(migration).toMatch(
         new RegExp(
           `GRANT EXECUTE ON FUNCTION public\\.${functionName}\\([\\s\\S]*?TO service_role;`
         )
       );
-    }
   });
 
   it('byte-freezes the append-only migration in both replay inventories', () => {

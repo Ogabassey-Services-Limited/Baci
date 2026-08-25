@@ -132,6 +132,42 @@ describe('SocialAdsAccountControls', () => {
     expect(onSynced).toHaveBeenCalledOnce();
   });
 
+  it('does not refresh analytics when social account selection fails', async () => {
+    const onSynced = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          accounts: [{ accountId: 'act_123', label: 'Baci Meta' }],
+        })
+      )
+    );
+    fetchWithCsrf.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Account selection changed' }), {
+        status: 409,
+      })
+    );
+
+    render(
+      <SocialAdsAccountControls
+        displayName="Meta Ads"
+        needsAccountSelection
+        onSynced={onSynced}
+        provider="meta_ads"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select account' }));
+    await screen.findByText('Baci Meta');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save account and sync' })
+    );
+
+    expect(
+      await screen.findByText('Account selection changed')
+    ).toBeInTheDocument();
+    expect(onSynced).not.toHaveBeenCalled();
+    expect(fetchWithCsrf).toHaveBeenCalledOnce();
+  });
+
   it('shows a safe sync error without exposing response internals', async () => {
     fetchWithCsrf.mockResolvedValue(
       new Response(
