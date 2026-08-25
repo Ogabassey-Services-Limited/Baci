@@ -15,9 +15,11 @@ export function validatePublicProjectionCategoryHierarchy(
   );
   for (const [categoryIndex, category] of categories.entries()) {
     const visited = new Set<string>();
+    let hasCycle = false;
     let current: string | null | undefined = category.id;
     while (current) {
       if (visited.has(current)) {
+        hasCycle = true;
         context.addIssue({
           code: 'custom',
           message: 'Category parent relationships must be acyclic',
@@ -28,5 +30,15 @@ export function validatePublicProjectionCategoryHierarchy(
       visited.add(current);
       current = categoryParents.get(current);
     }
+    if (
+      !hasCycle &&
+      category.parentId &&
+      categoryParents.get(category.parentId)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Category hierarchies support at most two levels',
+        path: ['categories', categoryIndex, 'parentId'],
+      });
   }
 }

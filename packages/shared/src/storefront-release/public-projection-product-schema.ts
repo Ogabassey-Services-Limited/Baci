@@ -38,17 +38,23 @@ const VariantAttributesSchema = z
       .refine((value) => value.trim() === value)
   )
   .superRefine((attributes, context) => {
+    const normalizedKeys = Object.keys(attributes).map(
+      normalizeProductSelectionParamKey
+    );
     if (Object.keys(attributes).length > 32)
       context.addIssue({
         code: 'custom',
         message: 'Variant attributes must contain at most 32 entries',
       });
-    if (
-      Object.keys(attributes).some((key) => key.toLowerCase() === 'condition')
-    )
+    if (normalizedKeys.some((key) => key === 'condition'))
       context.addIssue({
         code: 'custom',
         message: 'Variant condition must use the typed condition field',
+      });
+    if (new Set(normalizedKeys).size !== normalizedKeys.length)
+      context.addIssue({
+        code: 'custom',
+        message: 'Variant attribute axes must be canonically unique',
       });
   })
   .transform((attributes) =>

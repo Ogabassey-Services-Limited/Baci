@@ -46,6 +46,7 @@ describe('StorefrontPublicMerchantSchema', () => {
       'localhost',
       '10.0.0.1',
       'foo.internal',
+      'router.home.arpa',
       '2130706433',
     ])
       expect(

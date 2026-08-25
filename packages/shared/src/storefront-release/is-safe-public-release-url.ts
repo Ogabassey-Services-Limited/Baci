@@ -53,7 +53,9 @@ function parseIpv6Words(hostname: string): number[] | null {
       : half
           .split(':')
           .map((word) =>
-            /^[0-9a-f]{1,4}$/u.test(word) ? Number.parseInt(word, 16) : NaN
+            /^[0-9a-f]{1,4}$/u.test(word)
+              ? Number.parseInt(word, 16)
+              : Number.NaN
           );
   const left = parseHalf(halves[0] ?? '');
   const right = parseHalf(halves[1] ?? '');
@@ -108,6 +110,8 @@ function isPrivateHostname(hostname: string): boolean {
     normalized.endsWith('.local') ||
     normalized.endsWith('.internal') ||
     normalized.endsWith('.lan') ||
+    normalized === 'home.arpa' ||
+    normalized.endsWith('.home.arpa') ||
     isNonPublicIpv6(normalized) ||
     isNonPublicIpv4(normalized)
   );

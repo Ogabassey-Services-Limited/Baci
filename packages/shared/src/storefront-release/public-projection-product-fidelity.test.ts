@@ -82,4 +82,22 @@ describe('StorefrontPublicProductSchema fidelity', () => {
       'storage',
     ]);
   });
+
+  it('rejects attribute aliases that collide after key normalization', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        variants: [
+          {
+            attributes: { Color: 'Red', color: 'Blue' },
+            available: true,
+            displayQuantityLimit: 1,
+            id: '123e4567-e89b-42d3-a456-426614174004',
+            name: 'Conflicting colors',
+            priceMinor: 100_000,
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

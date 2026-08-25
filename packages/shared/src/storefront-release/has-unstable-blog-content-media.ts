@@ -44,6 +44,56 @@ function hasUnstableHtmlContent(content: string): boolean {
   return false;
 }
 
+function getInlineMarkdownDestinations(
+  content: string
+): Readonly<{ destination: string; image: boolean }>[] {
+  const destinations: Readonly<{
+    destination: string;
+    image: boolean;
+  }>[] = [];
+  const openingPattern = /(!?)\[[^\]\r\n]*\]\(/gu;
+  for (const match of content.matchAll(openingPattern)) {
+    let cursor = (match.index ?? 0) + match[0].length;
+    while (/\s/u.test(content[cursor] ?? '')) cursor += 1;
+    const start = cursor;
+    let end = cursor;
+    if (content[cursor] === '<') {
+      cursor += 1;
+      const angleStart = cursor;
+      while (cursor < content.length && content[cursor] !== '>') cursor += 1;
+      if (content[cursor] === '>') {
+        destinations.push({
+          destination: content.slice(angleStart, cursor),
+          image: match[1] === '!',
+        });
+      }
+      continue;
+    }
+    let depth = 0;
+    while (cursor < content.length) {
+      const character = content[cursor] ?? '';
+      if (character === '\\') {
+        cursor += 2;
+        end = cursor;
+        continue;
+      }
+      if (character === '(') depth += 1;
+      else if (character === ')') {
+        if (depth === 0) break;
+        depth -= 1;
+      } else if (/\s/u.test(character) && depth === 0) break;
+      cursor += 1;
+      end = cursor;
+    }
+    if (end > start)
+      destinations.push({
+        destination: content.slice(start, end),
+        image: match[1] === '!',
+      });
+  }
+  return destinations;
+}
+
 function hasUnstableMarkdownContent(content: string): boolean {
   const autolinkPattern = /<((?:https?:\/\/|mailto:)[^<>\r\n]+)>/giu;
   for (const match of content.matchAll(autolinkPattern)) {
@@ -58,14 +108,11 @@ function hasUnstableMarkdownContent(content: string): boolean {
   ])
     for (const match of content.matchAll(pattern))
       imageReferenceLabels.add((match[1] ?? '').trim().toLowerCase());
-  const inlineDestinationPattern =
-    /(!?)\[[^\]\r\n]*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))/gu;
-  for (const match of content.matchAll(inlineDestinationPattern)) {
-    const destination = decodeHtmlAttributeEntities(match[2] ?? match[3] ?? '');
-    const safe =
-      match[1] === '!'
-        ? isStablePublicMediaUrl(destination)
-        : isSafePublicReleaseUrl(destination);
+  for (const inline of getInlineMarkdownDestinations(content)) {
+    const destination = decodeHtmlAttributeEntities(inline.destination);
+    const safe = inline.image
+      ? isStablePublicMediaUrl(destination)
+      : isSafePublicReleaseUrl(destination);
     if (!destination || !safe) return true;
   }
   const referenceDestinationPattern =
