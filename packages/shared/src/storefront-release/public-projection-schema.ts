@@ -171,6 +171,7 @@ export const StorefrontPublicProjectionSchema =
         merchantId: z.uuid(),
         publicationGeneration: z
           .string()
+          .max(19)
           .regex(/^[1-9][0-9]*$/)
           .refine(
             (value) => BigInt(value) <= 9_223_372_036_854_775_807n,

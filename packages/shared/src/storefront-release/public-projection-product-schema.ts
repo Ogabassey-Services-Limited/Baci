@@ -1,14 +1,26 @@
 import { z } from 'zod';
+import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 
-const ProductConditionSchema = z.enum([
-  'new',
-  'used',
-  'open_box',
-  'refurbished',
-]);
+const ProductConditionSchema = z
+  .enum(['new', 'used', 'open_box', 'refurbished'])
+  .transform(
+    (condition) =>
+      normalizeCanonicalProductCondition(condition) as CanonicalProductCondition
+  );
+
+const AvailableConditionsSchema = z
+  .array(ProductConditionSchema)
+  .max(3)
+  .superRefine((conditions, context) => {
+    if (new Set(conditions).size !== conditions.length)
+      context.addIssue({
+        code: 'custom',
+        message: 'Available product conditions must be canonically unique',
+      });
+  });
 
 const VariantAttributesSchema = z
   .record(
@@ -102,6 +114,7 @@ export const StorefrontPublicProductSchema = z
     displayQuantityLimit: z.number().int().nonnegative().max(100).nullable(),
     status: z.literal('active'),
     condition: ProductConditionSchema.nullable().optional(),
+    availableConditions: AvailableConditionsSchema.optional(),
     rating: z.number().min(0).max(5).nullable().optional(),
     reviewCount: z
       .number()
@@ -122,6 +135,16 @@ export const StorefrontPublicProductSchema = z
     conditionOffers: z.array(ProductConditionOfferSchema).max(16).optional(),
   })
   .superRefine((product, context) => {
+    if (
+      product.compareAtPriceMinor !== null &&
+      product.compareAtPriceMinor !== undefined &&
+      product.compareAtPriceMinor <= product.priceMinor
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Compare-at price must exceed the selling price',
+        path: ['compareAtPriceMinor'],
+      });
     const offers = product.conditionOffers ?? [];
     if (product.hasConditionOffers === true && offers.length === 0)
       context.addIssue({
@@ -143,6 +166,16 @@ export const StorefrontPublicProductSchema = z
       });
     const offerConditions = new Set<string>();
     for (const [offerIndex, offer] of offers.entries()) {
+      if (
+        offer.compareAtPriceMinor !== null &&
+        offer.compareAtPriceMinor !== undefined &&
+        offer.compareAtPriceMinor <= offer.priceMinor
+      )
+        context.addIssue({
+          code: 'custom',
+          message: 'Compare-at price must exceed the selling price',
+          path: ['conditionOffers', offerIndex, 'compareAtPriceMinor'],
+        });
       const condition = normalizeCanonicalProductCondition(offer.condition);
       if (offerConditions.has(condition))
         context.addIssue({
@@ -154,6 +187,16 @@ export const StorefrontPublicProductSchema = z
     }
     const variantSelections = new Set<string>();
     for (const [variantIndex, variant] of (product.variants ?? []).entries()) {
+      if (
+        variant.compareAtPriceMinor !== null &&
+        variant.compareAtPriceMinor !== undefined &&
+        variant.compareAtPriceMinor <= variant.priceMinor
+      )
+        context.addIssue({
+          code: 'custom',
+          message: 'Compare-at price must exceed the selling price',
+          path: ['variants', variantIndex, 'compareAtPriceMinor'],
+        });
       const attributes = Object.entries(variant.attributes ?? {})
         .map(
           ([key, value]) =>

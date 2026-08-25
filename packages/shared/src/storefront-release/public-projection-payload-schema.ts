@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+import { StorefrontPublicContentPageSchema } from './public-projection-content-page-schema';
+import { StorefrontPublicMerchantSchema } from './public-projection-merchant-schema';
 import { StorefrontPublicProductSchema } from './public-projection-product-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS } from './reserved-category-slugs';
 import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
@@ -8,21 +9,6 @@ import { StorefrontPublishedConfigSchema } from './storefront-published-config-s
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 import { validatePublicProjectionCategoryHierarchy } from './validate-public-projection-category-hierarchy';
 import { validatePublicProjectionIdentities } from './validate-public-projection-identities';
-
-const PUBLISHED_CONTENT_PAGE_SLUGS = new Set([
-  'about',
-  'contact',
-  'faq',
-  'privacy',
-  'privacy-policy',
-  'returns',
-  'rewards',
-  'shipping',
-  'terms',
-  'terms-and-conditions',
-  'terms-of-service',
-  'warranty',
-]);
 
 const PublicMediaUrlSchema = z
   .string()
@@ -37,61 +23,6 @@ const SlugSchema = z
   .min(1)
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-const ThemeColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-const PublicContactUrlSchema = z
-  .string()
-  .max(2_048)
-  .refine(isSafePublicReleaseUrl, 'Expected a query-free public contact URL');
-const BusinessHoursSchema = z.strictObject({
-  monday: z.string().trim().min(1).max(100).optional(),
-  tuesday: z.string().trim().min(1).max(100).optional(),
-  wednesday: z.string().trim().min(1).max(100).optional(),
-  thursday: z.string().trim().min(1).max(100).optional(),
-  friday: z.string().trim().min(1).max(100).optional(),
-  saturday: z.string().trim().min(1).max(100).optional(),
-  sunday: z.string().trim().min(1).max(100).optional(),
-});
-const SocialLinksSchema = z.strictObject({
-  facebook: PublicContactUrlSchema.optional(),
-  instagram: PublicContactUrlSchema.optional(),
-  linkedin: PublicContactUrlSchema.optional(),
-  snapchat: PublicContactUrlSchema.optional(),
-  tiktok: PublicContactUrlSchema.optional(),
-  twitter: PublicContactUrlSchema.optional(),
-  whatsapp: PublicContactUrlSchema.optional(),
-  youtube: PublicContactUrlSchema.optional(),
-});
-const MerchantSchema = z.strictObject({
-  id: z.uuid(),
-  name: z.string().trim().min(1).max(160),
-  slug: SlugSchema,
-  hostname: z.hostname().optional(),
-  publishedStatus: z.literal('published'),
-  businessType: z.string().trim().min(1).max(100).nullable().optional(),
-  email: z.email().max(320).optional(),
-  phone: z.string().trim().min(1).max(40).optional(),
-  address: z.string().trim().min(1).max(500).optional(),
-  supportEmail: z.email().max(320).optional(),
-  supportPhone: z.string().trim().min(1).max(40).optional(),
-  businessHours: BusinessHoursSchema.optional(),
-  socialLinks: SocialLinksSchema.optional(),
-  brandTokens: z
-    .strictObject({
-      logoMediaId: z.uuid().nullable().optional(),
-      faviconMediaId: z.uuid().nullable().optional(),
-    })
-    .optional(),
-  themeTokens: z
-    .strictObject({
-      primaryColor: ThemeColorSchema.optional(),
-      secondaryColor: ThemeColorSchema.optional(),
-      accentColor: ThemeColorSchema.optional(),
-      backgroundColor: ThemeColorSchema.optional(),
-      textColor: ThemeColorSchema.optional(),
-    })
-    .optional(),
-});
-
 const CategorySchema = z.strictObject({
   id: z.uuid(),
   slug: SlugSchema.refine(
@@ -113,18 +44,6 @@ const MediaSchema = z.strictObject({
   height: z.number().int().positive().max(20_000).optional(),
 });
 
-const ContentPageSchema = z.strictObject({
-  id: z.uuid(),
-  slug: SlugSchema.refine((slug) => PUBLISHED_CONTENT_PAGE_SLUGS.has(slug), {
-    message: 'Content page slug is not a published content route',
-  }),
-  title: z.string().trim().min(1).max(240),
-  body: z.string().max(500_000),
-  format: z.enum(['plain_text', 'sanitized_markdown']),
-  status: z.literal('published'),
-  publishedAt: z.iso.datetime({ offset: true }).optional(),
-});
-
 const SeoEntrySchema = z.strictObject({
   path: StorefrontSeoPathSchema,
   title: z.string().trim().min(1).max(240),
@@ -136,12 +55,15 @@ const SeoEntrySchema = z.strictObject({
 /** Strict public-only DTO consumed by the deterministic storefront renderer. */
 export const StorefrontPublicProjectionPayloadSchema = z
   .strictObject({
-    merchant: MerchantSchema,
+    merchant: StorefrontPublicMerchantSchema,
     publishedConfig: StorefrontPublishedConfigSchema,
     products: z.array(StorefrontPublicProductSchema).max(10_000),
     categories: z.array(CategorySchema).max(2_000).optional(),
     media: z.array(MediaSchema).max(20_000).optional(),
-    contentPages: z.array(ContentPageSchema).max(2_000).optional(),
+    contentPages: z
+      .array(StorefrontPublicContentPageSchema)
+      .max(2_000)
+      .optional(),
     blogPosts: z.array(StorefrontBlogPostSchema).max(10_000).optional(),
     policies: z
       .strictObject({

@@ -23,6 +23,11 @@ describe('isSafePublicReleaseUrl', () => {
     'https://[fc00::1]/contact',
     'https://[fd00::1]/contact',
     'https://[fe80::1]/contact',
+    'https://[febf::1]/contact',
+    'https://[::]/contact',
+    'https://[::ffff:7f00:1]/contact',
+    'https://[::ffff:127.0.0.1]/contact',
+    'https://[2001:db8::1]/contact',
     'https://metadata.google.internal/contact',
     'https://example.com/contact?token=secret',
   ])('rejects the private or unstable URL %s', (value) => {

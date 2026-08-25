@@ -84,6 +84,24 @@ describe('StorefrontPublishedConfigSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects private-network CTA links', () => {
+    expect(
+      StorefrontPublishedConfigSchema.safeParse({
+        content: [
+          {
+            props: {
+              ctaLink: 'https://127.0.0.1/admin',
+              id: 'hero-1',
+              title: 'Shop now',
+            },
+            type: 'Hero',
+          },
+        ],
+        root: { props: { title: 'Home' } },
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects carousels that preview validation would truncate', () => {
     const slides = Array.from({ length: 6 }, (_, index) => ({
       image: `/release-assets/${String(index).padStart(64, 'a')}.png`,

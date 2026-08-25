@@ -3,7 +3,11 @@ import { StorefrontPublicProjectionPayloadSchema } from './public-projection-pay
 
 const validPayload = {
   merchant: {
+    country: 'NG',
+    currency: 'NGN',
+    hostname: 'pilot-store.usebaci.com',
     id: '123e4567-e89b-42d3-a456-426614174000',
+    locale: 'en-NG',
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',

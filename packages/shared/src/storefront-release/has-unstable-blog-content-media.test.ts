@@ -83,4 +83,20 @@ describe('hasUnstableBlogContentMedia', () => {
       )
     ).toBe(true);
   });
+
+  it.each([
+    '[Download](https://example.test/export?token=secret)',
+    '![Image](https://cdn.test/image.png?token=secret)',
+    '[Download][export]\n\n[export]: https://example.test/export?token=secret',
+  ])('rejects query-bearing Markdown destinations in %s', (content) => {
+    expect(hasUnstableBlogContentMedia(content)).toBe(true);
+  });
+
+  it('requires Markdown image references to use immutable release media', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '![Product][hero]\n\n[hero]: https://cdn.example.test/hero.png'
+      )
+    ).toBe(true);
+  });
 });

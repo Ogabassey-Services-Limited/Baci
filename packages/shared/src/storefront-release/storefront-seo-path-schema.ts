@@ -21,14 +21,21 @@ function isNormalizedLocalPathname(value: string): boolean {
       .split('/')
       .slice(1)
       .every((segment) => {
-        const decoded = decodeURIComponent(segment);
-        return (
-          decoded !== '.' &&
-          decoded !== '..' &&
-          !decoded.includes('/') &&
-          !decoded.includes('\\') &&
-          !hasUnsafePathCharacter(decoded)
-        );
+        let current = segment;
+        for (let pass = 0; pass < 4; pass += 1) {
+          const decoded = decodeURIComponent(current);
+          if (
+            decoded === '.' ||
+            decoded === '..' ||
+            decoded.includes('/') ||
+            decoded.includes('\\') ||
+            hasUnsafePathCharacter(decoded)
+          )
+            return false;
+          if (decoded === current) return true;
+          current = decoded;
+        }
+        return decodeURIComponent(current) === current;
       });
   } catch {
     return false;

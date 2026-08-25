@@ -8,7 +8,11 @@ const validProjection = {
   componentContractVersion: 'builder-components-v1',
   payload: {
     merchant: {
+      country: 'NG',
+      currency: 'NGN',
+      hostname: 'pilot-store.usebaci.com',
       id: '123e4567-e89b-42d3-a456-426614174000',
+      locale: 'en-NG',
       name: 'Pilot Store',
       publishedStatus: 'published',
       slug: 'pilot-store',
@@ -232,6 +236,15 @@ describe('StorefrontPublicProjectionSchema', () => {
           publicationGeneration: invalid,
         }).success
       ).toBe(false);
+  });
+
+  it('bounds publication generations before bigint conversion', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        publicationGeneration: '9'.repeat(4_000_000),
+      }).success
+    ).toBe(false);
   });
 
   it('rejects unsupported component contract versions', () => {

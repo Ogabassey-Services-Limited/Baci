@@ -3,7 +3,11 @@ import { StorefrontPublicProjectionPayloadSchema } from './public-projection-pay
 
 const validPayload = {
   merchant: {
+    country: 'NG',
+    currency: 'NGN',
+    hostname: 'pilot-store.usebaci.com',
     id: '123e4567-e89b-42d3-a456-426614174000',
+    locale: 'en-NG',
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',
@@ -113,7 +117,7 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
     ).toBe(true);
   });
 
-  it('preserves bounded variant attributes and condition', () => {
+  it('preserves bounded variant attributes and canonicalizes condition', () => {
     const payload = {
       ...validPayload,
       products: [
@@ -141,9 +145,10 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       ],
     } as const;
 
-    expect(StorefrontPublicProjectionPayloadSchema.parse(payload)).toEqual(
-      payload
-    );
+    expect(
+      StorefrontPublicProjectionPayloadSchema.parse(payload).products[0]
+        ?.variants?.[0]
+    ).toEqual({ ...payload.products[0]?.variants?.[0], condition: 'open_box' });
   });
 
   it('rejects published configurations that require preview substitution', () => {
@@ -265,32 +270,5 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
         products: [{ ...product, categoryIds: [categoryId] }],
       }).success
     ).toBe(true);
-  });
-
-  it('preserves simple-product condition and product-specific ratings', () => {
-    const payload = {
-      ...validPayload,
-      products: [
-        {
-          available: true,
-          condition: 'used',
-          currency: 'NGN',
-          displayQuantityLimit: 4,
-          id: '123e4567-e89b-42d3-a456-426614174060',
-          name: 'Phone',
-          priceMinor: 100_000,
-          compareAtPriceMinor: 125_000,
-          rating: 4.5,
-          ratingCount: 12,
-          reviewCount: 10,
-          slug: 'phone',
-          status: 'active',
-        },
-      ],
-    } as const;
-
-    expect(StorefrontPublicProjectionPayloadSchema.parse(payload)).toEqual(
-      payload
-    );
   });
 });

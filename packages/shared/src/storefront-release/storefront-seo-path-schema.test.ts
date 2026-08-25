@@ -23,6 +23,9 @@ describe('StorefrontSeoPathSchema', () => {
       '/products/%20case',
       '/products/%0acase',
       '/products/%00case',
+      '/%252e%252e/admin',
+      '/foo%252fbar',
+      '/%255cadmin',
     ])
       expect(StorefrontSeoPathSchema.safeParse(path).success).toBe(false);
   });

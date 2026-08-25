@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { BuilderData } from '../contracts/builder-ai-edit';
 import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
 import { builderPreviewCandidateConfigSchema } from '../contracts/builder-preview-candidate-config';
+import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
 const MEDIA_PROPERTY_NAMES = new Set([
@@ -92,8 +93,7 @@ function hasUnstableNavigationProperty(value: unknown): boolean {
         typeof entry === 'string' &&
         (isNavigationPropertyName(key) ||
           current.parentKey === 'socialLinks') &&
-        (entry.includes('?') ||
-          !builderDesignCapabilityAdapter.isSafeUrl(entry))
+        !isSafePublicReleaseUrl(entry)
       )
         return true;
       pending.push({ parentKey: key, value: entry });

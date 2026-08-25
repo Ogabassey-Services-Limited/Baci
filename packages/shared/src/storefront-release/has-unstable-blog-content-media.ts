@@ -1,4 +1,4 @@
-import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
+import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -39,11 +39,38 @@ function hasUnstableHtmlContent(content: string): boolean {
     const rawHref = match[1] ?? match[2] ?? match[3];
     const href =
       rawHref === undefined ? undefined : decodeHtmlAttributeEntities(rawHref);
-    if (
-      href !== undefined &&
-      (href.includes('?') || !builderDesignCapabilityAdapter.isSafeUrl(href))
+    if (href !== undefined && !isSafePublicReleaseUrl(href)) return true;
+  }
+  return false;
+}
+
+function hasUnstableMarkdownContent(content: string): boolean {
+  const imageReferenceLabels = new Set(
+    [...content.matchAll(/!\[[^\]\r\n]*\]\[([^\]\r\n]+)\]/gu)].map((match) =>
+      (match[1] ?? '').trim().toLowerCase()
     )
-      return true;
+  );
+  const inlineDestinationPattern =
+    /(!?)\[[^\]\r\n]*\]\(\s*(?:<([^>\r\n]+)>|([^\s)]+))/gu;
+  for (const match of content.matchAll(inlineDestinationPattern)) {
+    const destination = decodeHtmlAttributeEntities(match[2] ?? match[3] ?? '');
+    const safe =
+      match[1] === '!'
+        ? isStablePublicMediaUrl(destination)
+        : isSafePublicReleaseUrl(destination);
+    if (!destination || !safe) return true;
+  }
+  const referenceDestinationPattern =
+    /^\s{0,3}\[[^\]\r\n]+\]:\s*(?:<([^>\r\n]+)>|([^\s]+))/gmu;
+  for (const match of content.matchAll(referenceDestinationPattern)) {
+    const label = (match[0].match(/^\s{0,3}\[([^\]\r\n]+)\]/u)?.[1] ?? '')
+      .trim()
+      .toLowerCase();
+    const destination = decodeHtmlAttributeEntities(match[1] ?? match[2] ?? '');
+    const safe = imageReferenceLabels.has(label)
+      ? isStablePublicMediaUrl(destination)
+      : isSafePublicReleaseUrl(destination);
+    if (!destination || !safe) return true;
   }
   return false;
 }
@@ -54,7 +81,9 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
   try {
     document = JSON.parse(content);
   } catch {
-    return hasUnstableHtmlContent(content);
+    return (
+      hasUnstableHtmlContent(content) || hasUnstableMarkdownContent(content)
+    );
   }
   const pending = [document];
   while (pending.length > 0) {
@@ -74,8 +103,7 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
       if (
         key === 'href' &&
         typeof value === 'string' &&
-        (value.includes('?') ||
-          !builderDesignCapabilityAdapter.isSafeUrl(value))
+        !isSafePublicReleaseUrl(value)
       )
         return true;
       pending.push(value);
