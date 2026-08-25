@@ -3,6 +3,8 @@
 
 BEGIN;
 
+SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
+
 INSERT INTO public.merchants (
   id,
   email,
@@ -39,6 +41,7 @@ VALUES
   );
 
 SET LOCAL ROLE anon;
+SELECT pg_catalog.set_config('request.jwt.claim.role', 'anon', true);
 
 DO $test$
 BEGIN
