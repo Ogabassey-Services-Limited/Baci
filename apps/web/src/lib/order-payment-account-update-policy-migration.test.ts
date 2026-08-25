@@ -72,6 +72,13 @@ const adminEditBalanceMigration = readFileSync(
   ),
   'utf8'
 );
+const adminEditLockMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825151500_lock_admin_order_edit_before_dva_refresh.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -203,5 +210,18 @@ describe('order payment account mutation RPC migration', () => {
         'public.refresh_paystack_order_payable_amount(p_order_id)'
       )
     );
+  });
+
+  it('takes the payment advisory lock before the admin editor locks the order', () => {
+    const lockOffset = adminEditLockMigration.indexOf(
+      'pg_catalog.pg_advisory_xact_lock'
+    );
+    const editOffset = adminEditLockMigration.indexOf(
+      'public.update_admin_order_without_dva_balance_refresh'
+    );
+
+    expect(lockOffset).toBeGreaterThan(-1);
+    expect(editOffset).toBeGreaterThan(lockOffset);
+    expect(adminEditLockMigration).toContain("'baci_order_payment:'");
   });
 });

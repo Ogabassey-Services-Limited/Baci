@@ -3,6 +3,7 @@ import type { OrderDetailsRecord } from '@/components/orders/order-details.types
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
 import { createAuthenticatedFetch } from './orders/authenticated-fetch';
+import { parseGenerateDvaResponse } from './orders/parse-generate-dva-response';
 
 const GENERATE_DVA_TIMEOUT_MS = 20_000;
 const PAYSTACK_DVA_PAYMENT_STATUSES = [
@@ -17,15 +18,6 @@ interface ReceiptMerchantDetails {
   bank_account_number?: string | null;
   bank_code?: string | null;
   business_name?: string | null;
-}
-
-interface GenerateDvaResponse {
-  virtualAccount?: {
-    account_name?: string | null;
-    account_number?: string | null;
-    bank?: string | null;
-    bank_name?: string | null;
-  } | null;
 }
 
 interface VirtualTerminalEntry {
@@ -112,23 +104,6 @@ function canProvisionPaystackDva(order: OrderDetailsRecord) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function parseGenerateDvaResponse(
-  payload: unknown
-): GenerateDvaResponse | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
-
-  if (
-    !('virtualAccount' in payload) ||
-    (payload.virtualAccount !== null && !isRecord(payload.virtualAccount))
-  ) {
-    return null;
-  }
-
-  return payload as GenerateDvaResponse;
 }
 
 function parseVirtualTerminalResponse(
