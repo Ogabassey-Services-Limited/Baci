@@ -105,6 +105,7 @@ function isPrivateHostname(hostname: string): boolean {
     .replace(/^\[|\]$/g, '')
     .replace(/\.+$/u, '');
   return (
+    (!normalized.includes('.') && !normalized.includes(':')) ||
     normalized === 'localhost' ||
     normalized.endsWith('.localhost') ||
     normalized.endsWith('.local') ||

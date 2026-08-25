@@ -22,7 +22,7 @@ export const StorefrontBlogPostSchema = z
     id: z.uuid(),
     slug: SlugSchema,
     title: z.string().trim().min(1).max(240),
-    content: z.string().max(500_000),
+    content: z.string().min(1).max(500_000),
     excerpt: z.string().max(2_000).nullable().optional(),
     featuredImageUrl: OptionalMediaUrlSchema,
     featuredImageAlt: z.string().max(500).nullable().optional(),

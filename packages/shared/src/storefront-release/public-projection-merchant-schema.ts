@@ -104,6 +104,12 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
         .regex(/^[\w.-]+$/)
         .nullable()
         .optional(),
+      googleStoreWidget: z
+        .strictObject({
+          enabled: z.boolean(),
+          merchantCenterId: z.string().min(1).max(32).regex(/^\d+$/).nullable(),
+        })
+        .optional(),
     })
     .optional(),
   brandTokens: z

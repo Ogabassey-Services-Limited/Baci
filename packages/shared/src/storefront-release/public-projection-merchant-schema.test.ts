@@ -47,6 +47,7 @@ describe('StorefrontPublicMerchantSchema', () => {
       '10.0.0.1',
       'foo.internal',
       'router.home.arpa',
+      'intranet',
       '2130706433',
     ])
       expect(
@@ -66,8 +67,26 @@ describe('StorefrontPublicMerchantSchema', () => {
         snapchatPixelId: 'abcd-1234',
         tiktokPixelId: 'CTABC123',
         twitterPixelId: 'tw-123',
+        googleStoreWidget: {
+          enabled: true,
+          merchantCenterId: '112524323',
+        },
       },
     };
     expect(StorefrontPublicMerchantSchema.parse(merchant)).toEqual(merchant);
+  });
+
+  it('rejects malformed Google Store widget configuration', () => {
+    expect(
+      StorefrontPublicMerchantSchema.safeParse({
+        ...validMerchant,
+        analytics: {
+          googleStoreWidget: {
+            enabled: true,
+            merchantCenterId: 'merchant-secret',
+          },
+        },
+      }).success
+    ).toBe(false);
   });
 });

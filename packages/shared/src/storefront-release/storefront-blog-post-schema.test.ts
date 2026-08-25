@@ -37,6 +37,12 @@ describe('StorefrontBlogPostSchema', () => {
     ).toBe(false);
   });
 
+  it('rejects published blog rows with empty content', () => {
+    expect(
+      StorefrontBlogPostSchema.safeParse({ ...blogPost, content: '' }).success
+    ).toBe(false);
+  });
+
   it.each([
     'author',
     'category',

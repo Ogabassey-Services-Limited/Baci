@@ -31,6 +31,7 @@ describe('isSafePublicReleaseUrl', () => {
     'https://localhost./contact',
     'https://metadata.google.internal/contact',
     'https://router.home.arpa/admin',
+    'https://intranet/admin',
     'https://example.com/contact?token=secret',
   ])('rejects the private or unstable URL %s', (value) => {
     expect(isSafePublicReleaseUrl(value)).toBe(false);

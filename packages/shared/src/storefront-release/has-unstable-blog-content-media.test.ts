@@ -102,4 +102,20 @@ describe('hasUnstableBlogContentMedia', () => {
     ])
       expect(hasUnstableBlogContentMedia(content)).toBe(true);
   });
+
+  it('normalizes whitespace in Markdown image reference labels', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '![Product hero]\n\n[Product   hero]: https://cdn.example.test/hero.png'
+      )
+    ).toBe(true);
+  });
+
+  it('scans JSON-encoded primitive strings as legacy Markdown', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        JSON.stringify('[download](https://example.test/export?token=secret)')
+      )
+    ).toBe(true);
+  });
 });

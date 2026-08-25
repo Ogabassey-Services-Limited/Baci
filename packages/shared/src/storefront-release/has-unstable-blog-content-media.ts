@@ -94,6 +94,10 @@ function getInlineMarkdownDestinations(
   return destinations;
 }
 
+function normalizeMarkdownReferenceLabel(label: string): string {
+  return label.trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
 function hasUnstableMarkdownContent(content: string): boolean {
   const autolinkPattern = /<((?:https?:\/\/|mailto:)[^<>\r\n]+)>/giu;
   for (const match of content.matchAll(autolinkPattern)) {
@@ -107,7 +111,7 @@ function hasUnstableMarkdownContent(content: string): boolean {
     /!\[([^\]\r\n]+)\](?![[(])/gu,
   ])
     for (const match of content.matchAll(pattern))
-      imageReferenceLabels.add((match[1] ?? '').trim().toLowerCase());
+      imageReferenceLabels.add(normalizeMarkdownReferenceLabel(match[1] ?? ''));
   for (const inline of getInlineMarkdownDestinations(content)) {
     const destination = decodeHtmlAttributeEntities(inline.destination);
     const safe = inline.image
@@ -118,9 +122,9 @@ function hasUnstableMarkdownContent(content: string): boolean {
   const referenceDestinationPattern =
     /^\s{0,3}\[[^\]\r\n]+\]:\s*(?:<([^>\r\n]+)>|([^\s]+))/gmu;
   for (const match of content.matchAll(referenceDestinationPattern)) {
-    const label = (match[0].match(/^\s{0,3}\[([^\]\r\n]+)\]/u)?.[1] ?? '')
-      .trim()
-      .toLowerCase();
+    const label = normalizeMarkdownReferenceLabel(
+      match[0].match(/^\s{0,3}\[([^\]\r\n]+)\]/u)?.[1] ?? ''
+    );
     const destination = decodeHtmlAttributeEntities(match[1] ?? match[2] ?? '');
     const safe = imageReferenceLabels.has(label)
       ? isStablePublicMediaUrl(destination)
@@ -140,6 +144,11 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
       hasUnstableHtmlContent(content) || hasUnstableMarkdownContent(content)
     );
   }
+  if (
+    (!isRecord(document) || document.type !== 'doc') &&
+    (hasUnstableHtmlContent(content) || hasUnstableMarkdownContent(content))
+  )
+    return true;
   const pending = [document];
   while (pending.length > 0) {
     const current = pending.pop();
