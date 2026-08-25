@@ -64,6 +64,17 @@ function createDetachedJsonSnapshot(value: unknown): JsonSnapshotResult {
           ok: false,
         };
       const arrayLength = isArray ? Number(arrayLengthDescriptor?.value) : 0;
+      if (
+        isArray &&
+        (arrayLength < 0 ||
+          !Number.isSafeInteger(arrayLength) ||
+          (arrayLength > 0 &&
+            arrayLength * 2 + 1 > MAX_NON_STREAMED_RPC_DTO_BYTES))
+      )
+        return {
+          message: 'projection array cannot fit within the 4 MiB RPC DTO limit',
+          ok: false,
+        };
       if (isArray) (snapshot as unknown[]).length = arrayLength;
 
       for (const key of Reflect.ownKeys(current)) {
@@ -163,12 +174,7 @@ export const StorefrontPublicProjectionSchema =
           .int()
           .nonnegative()
           .max(Number.MAX_SAFE_INTEGER),
-        componentContractVersion: z
-          .string()
-          .trim()
-          .min(1)
-          .max(64)
-          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+        componentContractVersion: z.literal('builder-components-v1'),
         payload: StorefrontPublicProjectionPayloadSchema,
       })
       .superRefine((projection, context) => {

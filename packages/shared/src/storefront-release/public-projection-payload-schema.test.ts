@@ -187,4 +187,41 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       payload
     );
   });
+
+  it('requires product and parent category references to resolve', () => {
+    const categoryId = '123e4567-e89b-42d3-a456-426614174050';
+    const missingCategoryId = '123e4567-e89b-42d3-a456-426614174051';
+    const product = {
+      available: true,
+      categoryIds: [missingCategoryId],
+      currency: 'NGN',
+      id: '123e4567-e89b-42d3-a456-426614174052',
+      name: 'Phone',
+      priceMinor: 100_000,
+      slug: 'phone',
+    } as const;
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: categoryId,
+            name: 'Phones',
+            parentId: missingCategoryId,
+            slug: 'phones',
+          },
+        ],
+        products: [product],
+      }).success
+    ).toBe(false);
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [{ id: categoryId, name: 'Phones', slug: 'phones' }],
+        products: [{ ...product, categoryIds: [categoryId] }],
+      }).success
+    ).toBe(true);
+  });
 });

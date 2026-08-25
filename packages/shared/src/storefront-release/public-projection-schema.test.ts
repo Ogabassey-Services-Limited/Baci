@@ -204,4 +204,34 @@ describe('StorefrontPublicProjectionSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects unsupported component contract versions', () => {
+    expect(
+      StorefrontPublicProjectionSchema.safeParse({
+        ...validProjection,
+        componentContractVersion: 'future-components-v99',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects sparse arrays that cannot fit the DTO before copying length', () => {
+    const sparseProducts = new Array(2_097_152);
+    const projection = {
+      ...validProjection,
+      payload: { ...validProjection.payload, products: sparseProducts },
+    };
+
+    const result = StorefrontPublicProjectionSchema.safeParse(projection);
+
+    expect(result.success).toBe(false);
+    if (!result.success)
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message:
+              'projection array cannot fit within the 4 MiB RPC DTO limit',
+          }),
+        ])
+      );
+  });
 });

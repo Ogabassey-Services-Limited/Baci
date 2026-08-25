@@ -1,28 +1,17 @@
 import { z } from 'zod';
-import type { BuilderData } from '../contracts/builder-ai-edit';
-import { builderDesignCapabilityAdapter } from '../contracts/builder-design-capability-adapter';
-import { builderPreviewCandidateConfigSchema } from '../contracts/builder-preview-candidate-config';
+import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+import { StorefrontBlogPostSchema } from './storefront-blog-post-schema';
+import { StorefrontPublishedConfigSchema } from './storefront-published-config-schema';
+import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 
 const PublicMediaUrlSchema = z
   .string()
   .min(1)
   .max(2_048)
-  .refine((value) => {
-    try {
-      const url = value.startsWith('/')
-        ? new URL(value, 'https://storefront.invalid')
-        : new URL(value);
-      return (
-        url.protocol === 'https:' &&
-        url.username === '' &&
-        url.password === '' &&
-        url.search === '' &&
-        url.hash === ''
-      );
-    } catch {
-      return false;
-    }
-  }, 'Expected a stable public HTTPS URL or root-relative path without query parameters');
+  .refine(
+    isStablePublicMediaUrl,
+    'Expected a stable public HTTPS URL or root-relative path without query parameters'
+  );
 
 const SlugSchema = z
   .string()
@@ -31,57 +20,6 @@ const SlugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 const ThemeColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-function isCanonicalPublishedRoot(value: unknown): boolean {
-  return (
-    isRecord(value) &&
-    Object.keys(value).length === 1 &&
-    isRecord(value.props) &&
-    Object.keys(value.props).length === 1 &&
-    typeof value.props.title === 'string' &&
-    value.props.title.length <= 120
-  );
-}
-function containsRefusedComponent(value: unknown): boolean {
-  if (!isRecord(value)) return false;
-  const collections = [value.content];
-  if (isRecord(value.zones)) collections.push(...Object.values(value.zones));
-  return collections.some(
-    (collection) =>
-      Array.isArray(collection) &&
-      collection.some(
-        (component) =>
-          isRecord(component) &&
-          typeof component.type === 'string' &&
-          builderDesignCapabilityAdapter.getCapability(component.type)?.refused
-      )
-  );
-}
-const PublishedConfigSchema = z
-  .unknown()
-  .superRefine((value, context) => {
-    const candidate = builderPreviewCandidateConfigSchema.safeParse(value);
-    if (!candidate.success) {
-      context.addIssue({
-        code: 'custom',
-        message: 'Expected a bounded render-safe published Puck configuration',
-      });
-      return;
-    }
-    if (!isRecord(value) || !isCanonicalPublishedRoot(value.root))
-      context.addIssue({
-        code: 'custom',
-        message: 'Published Puck root must already be canonical',
-      });
-    if (containsRefusedComponent(value))
-      context.addIssue({
-        code: 'custom',
-        message: 'Published Puck configuration contains a refused component',
-      });
-  })
-  .transform((value) => value as BuilderData);
 const MerchantSchema = z.strictObject({
   name: z.string().trim().min(1).max(160),
   slug: SlugSchema,
@@ -182,7 +120,7 @@ const ContentPageSchema = z.strictObject({
 });
 
 const SeoEntrySchema = z.strictObject({
-  path: z.string().startsWith('/').max(2_048),
+  path: StorefrontSeoPathSchema,
   title: z.string().trim().min(1).max(240),
   description: z.string().max(500).optional(),
   imageMediaId: z.uuid().optional(),
@@ -193,12 +131,12 @@ const SeoEntrySchema = z.strictObject({
 export const StorefrontPublicProjectionPayloadSchema = z
   .strictObject({
     merchant: MerchantSchema,
-    publishedConfig: PublishedConfigSchema,
+    publishedConfig: StorefrontPublishedConfigSchema,
     products: z.array(ProductSchema).max(10_000),
     categories: z.array(CategorySchema).max(2_000).optional(),
     media: z.array(MediaSchema).max(20_000).optional(),
     contentPages: z.array(ContentPageSchema).max(2_000).optional(),
-    blogPosts: z.array(ContentPageSchema).max(10_000).optional(),
+    blogPosts: z.array(StorefrontBlogPostSchema).max(10_000).optional(),
     policies: z
       .strictObject({
         privacy: z.string().max(500_000).optional(),
@@ -229,6 +167,30 @@ export const StorefrontPublicProjectionPayloadSchema = z
       .optional(),
   })
   .superRefine((payload, context) => {
+    const categoryIds = new Set(
+      (payload.categories ?? []).map((category) => category.id)
+    );
+    for (const [productIndex, product] of payload.products.entries())
+      for (const [categoryIndex, categoryId] of (
+        product.categoryIds ?? []
+      ).entries())
+        if (!categoryIds.has(categoryId))
+          context.addIssue({
+            code: 'custom',
+            message:
+              'Category reference does not resolve to payload.categories',
+            path: ['products', productIndex, 'categoryIds', categoryIndex],
+          });
+    for (const [categoryIndex, category] of (
+      payload.categories ?? []
+    ).entries())
+      if (category.parentId && !categoryIds.has(category.parentId))
+        context.addIssue({
+          code: 'custom',
+          message: 'Category reference does not resolve to payload.categories',
+          path: ['categories', categoryIndex, 'parentId'],
+        });
+
     const mediaIds = new Set<string>();
     for (const [index, media] of (payload.media ?? []).entries()) {
       if (mediaIds.has(media.id))
