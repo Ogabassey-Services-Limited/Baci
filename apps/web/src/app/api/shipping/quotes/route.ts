@@ -27,6 +27,7 @@ import {
   type MerchantRateQuoteResult,
 } from './merchant-rate-quotes';
 import { resolveQuoteMerchantContext } from './quote-merchant-context';
+import { resolveQuoteSender } from './resolve-quote-sender';
 
 /**
  * Build the merchant-rate-only quote response shared by BOTH non-NG paths: the
@@ -172,39 +173,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let senderInfo = merchantContext.senderInfo;
-
-    if (!senderInfo && merchantContext.merchantId) {
+    const senderResult = resolveQuoteSender({
+      merchantId: merchantContext.merchantId,
+      sender: merchantContext.senderInfo,
+      shipmentType: data.shipmentType,
+    });
+    if (!senderResult.ok) {
       return NextResponse.json(
-        { error: 'Merchant shipping origin is not configured' },
-        { status: 400 }
+        { error: senderResult.error },
+        { status: senderResult.status }
       );
-    }
-
-    if (!senderInfo && data.shipmentType === 'international') {
-      return NextResponse.json(
-        { error: 'Sender is required for international quotes' },
-        { status: 400 }
-      );
-    }
-
-    // Default sender if no merchant found
-    if (!senderInfo) {
-      senderInfo = {
-        name: 'Merchant',
-        phone: '',
-        address: 'Lagos',
-        city: 'Lagos',
-        state: 'Lagos',
-        country: 'Nigeria',
-        countryCode: 'NG',
-      };
     }
 
     // Build quote request
     const quoteRequest: QuoteRequest = {
       merchantId: merchantContext.merchantId,
-      sender: senderInfo,
+      sender: senderResult.sender,
       receiver: {
         ...data.receiver,
         phone: data.receiver.phone || '', // Default to empty string for type safety
