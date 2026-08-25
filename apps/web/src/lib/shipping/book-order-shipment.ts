@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { shippingService } from '@/lib/shipping';
+import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import {
   findReusableOrderShipment,
   type ReusableOrderShipmentResult,
@@ -18,7 +19,6 @@ import {
 } from '@/lib/shipping/order-shipment-booking-utils';
 import { isGiglInternationalProviderRate } from '@/lib/shipping/providers/gigl.international-payload';
 import {
-  assertQuotePriceMatchesOrderFee,
   type OrderShipmentQuoteRecord,
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';

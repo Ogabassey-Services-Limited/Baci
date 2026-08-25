@@ -171,7 +171,6 @@ export async function POST(request: NextRequest) {
         { status: quoteValidation.status }
       );
     }
-
     if (!isShippingProviderCode(quote.provider)) {
       return NextResponse.json(
         { error: 'Invalid shipping provider in quote' },
@@ -210,6 +209,8 @@ export async function POST(request: NextRequest) {
     let bookingQuote = quote;
     let result: ShipmentBookingResult;
     let resolvedSenderInfo: typeof quotePayload.sender;
+    let resolvedReceiver = quotePayload.receiver;
+    let resolvedItems = quotePayload.items;
     if (bookingAttempt.status === 'recovered') {
       result = bookingAttempt.result;
     } else {
@@ -237,6 +238,8 @@ export async function POST(request: NextRequest) {
       bookingQuote = booking.bookingQuote;
       result = booking.result;
       resolvedSenderInfo = booking.senderInfo;
+      resolvedReceiver = booking.receiver;
+      resolvedItems = booking.items;
     }
 
     const persisted = await persistBookedShipment({
@@ -245,11 +248,8 @@ export async function POST(request: NextRequest) {
       merchantId,
       senderInfo: resolvedSenderInfo,
       receiver:
-        bookingAttempt.status === 'recovered'
-          ? undefined
-          : quotePayload.receiver,
-      items:
-        bookingAttempt.status === 'recovered' ? undefined : quotePayload.items,
+        bookingAttempt.status === 'recovered' ? undefined : resolvedReceiver,
+      items: bookingAttempt.status === 'recovered' ? undefined : resolvedItems,
       bookingQuote,
       result,
       existingShipment:

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { assertQuotePriceMatchesOrderFee } from '@/lib/shipping/assert-quote-price-matches-order-fee';
 import { OrderShipmentBookingError } from '@/lib/shipping/order-shipment-booking-utils';
 import {
-  assertQuotePriceMatchesOrderFee,
   type OrderShipmentQuoteRecord,
   refreshOrderShipmentQuote,
 } from '@/lib/shipping/refresh-order-shipment-quote';

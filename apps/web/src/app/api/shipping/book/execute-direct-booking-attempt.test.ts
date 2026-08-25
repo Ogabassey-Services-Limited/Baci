@@ -92,6 +92,47 @@ describe('executeDirectBookingAttempt', () => {
     );
   });
 
+  it('books an expired domestic quote with the refreshed receiver and items', async () => {
+    const refreshedReceiver = {
+      ...payload.receiver,
+      address: '9 Stored Quote Road',
+    };
+    const refreshedItems = [
+      { name: 'Stored Phone', quantity: 2, weight: 2, value: 200 },
+    ];
+    mockResolveQuote.mockResolvedValue({
+      ...quote,
+      id: 'quote-refreshed',
+      quote_request: {
+        shipmentType: 'domestic',
+        sessionId: 'session-refreshed',
+        sender,
+        receiver: refreshedReceiver,
+        items: refreshedItems,
+      },
+    });
+
+    await executeDirectBookingAttempt({
+      supabase: {} as never,
+      merchantId: 'merchant-1',
+      merchantBusinessName: 'Merchant Store',
+      orderId: 'order-1',
+      quote,
+      quotePayload: payload,
+      usesStoredInternationalSender: false,
+      expectedShippingFee: 2500,
+    });
+
+    expect(mockBookShipment).toHaveBeenCalledWith(
+      'GIGL',
+      expect.objectContaining({
+        quoteId: 'quote-refreshed',
+        receiver: refreshedReceiver,
+        items: refreshedItems,
+      })
+    );
+  });
+
   it('uses the stored international sender without querying the current origin', async () => {
     const storedSender = { ...sender, address: '7 Quoted Origin' };
 

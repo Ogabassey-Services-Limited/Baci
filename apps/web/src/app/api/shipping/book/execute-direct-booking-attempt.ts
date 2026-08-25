@@ -3,6 +3,7 @@ import { shippingService } from '@/lib/shipping';
 import {
   isShippingProviderCode,
   OrderShipmentBookingError,
+  parseStoredQuoteRequest,
 } from '@/lib/shipping/order-shipment-booking-utils';
 import type { OrderShipmentQuoteRecord } from '@/lib/shipping/refresh-order-shipment-quote';
 import { resolveBookingMerchantSender } from '@/lib/shipping/resolve-booking-merchant-sender';
@@ -33,6 +34,8 @@ export async function executeDirectBookingAttempt(params: {
   onProviderAttempt?: () => void;
 }): Promise<{
   bookingQuote: OrderShipmentQuoteRecord;
+  items: ShipmentItem[];
+  receiver: ShippingAddress;
   result: ShipmentBookingResult;
   senderInfo: ShippingAddress;
 }> {
@@ -94,14 +97,26 @@ export async function executeDirectBookingAttempt(params: {
     );
   }
 
+  const refreshedRequest = usesStoredInternationalSender
+    ? null
+    : parseStoredQuoteRequest(bookingQuote.quote_request);
+  const receiver =
+    refreshedRequest?.shipmentType === 'domestic'
+      ? refreshedRequest.receiver
+      : quotePayload.receiver;
+  const items =
+    refreshedRequest?.shipmentType === 'domestic'
+      ? refreshedRequest.items
+      : quotePayload.items;
+
   const bookingRequest: BookingRequest = {
     orderId,
     quoteId: bookingQuote.id,
     providerRateId: bookingQuote.provider_rate_id || undefined,
     quoteMetadata: bookingQuote.provider_metadata,
     sender: senderInfo,
-    receiver: quotePayload.receiver,
-    items: quotePayload.items,
+    receiver,
+    items,
     instructions,
   };
 
@@ -111,5 +126,5 @@ export async function executeDirectBookingAttempt(params: {
     bookingRequest
   );
 
-  return { bookingQuote, result, senderInfo };
+  return { bookingQuote, items, receiver, result, senderInfo };
 }
