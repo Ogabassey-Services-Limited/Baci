@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260825182000_authorize_checkout_dva_reservation.sql'
+      'supabase/migrations/20260825200000_include_savings_in_dva_balance_refresh.sql'
     );
   });
 

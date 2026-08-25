@@ -86,6 +86,13 @@ const checkoutReservationMigration = readFileSync(
   ),
   'utf8'
 );
+const savingsRefreshMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260825200000_include_savings_in_dva_balance_refresh.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -255,5 +262,15 @@ describe('order payment account mutation RPC migration', () => {
         'INSERT INTO public.order_payment_accounts'
       )
     );
+  });
+
+  it('keeps payable refreshes aligned with active savings redemptions', () => {
+    expect(savingsRefreshMigration).toContain(
+      'FROM public.customer_savings_redemptions AS redemptions'
+    );
+    expect(savingsRefreshMigration).toContain(
+      "redemptions.metadata ->> 'reversed_at' IS NULL"
+    );
+    expect(savingsRefreshMigration).toContain(') + v_savings_paid');
   });
 });

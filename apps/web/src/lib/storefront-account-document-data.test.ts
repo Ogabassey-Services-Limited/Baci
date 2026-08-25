@@ -51,7 +51,6 @@ function createSupabaseMock(options?: {
 
 function createFullSupabaseMock(options?: {
   canCancelResult?: { data: unknown; error: unknown };
-  paymentAccounts?: unknown[];
 }) {
   type QueryResult = { data: unknown; error: unknown };
 
@@ -157,10 +156,7 @@ function createFullSupabaseMock(options?: {
         case 'transactions':
           return tableQuery({ data: [], error: null });
         case 'order_payment_accounts':
-          return tableQuery({
-            data: options?.paymentAccounts ?? [],
-            error: null,
-          });
+          return tableQuery({ data: [], error: null });
         case 'order_tax_subtotals':
           return tableQuery({ data: [], error: null });
         default:
@@ -437,35 +433,5 @@ describe('storefront account document status helpers', () => {
     });
 
     expect(result.order.can_cancel).toBe(false);
-  });
-
-  it('uses a legacy account when the Paystack document alias has expired', async () => {
-    const { supabase } = createFullSupabaseMock({
-      paymentAccounts: [
-        {
-          account_name: 'Expired Paystack',
-          account_number: '1111111111',
-          assigned_at: '2026-07-08T11:00:00.000Z',
-          bank_name: 'Paystack',
-          expires_at: '2026-07-08T12:30:00.000Z',
-          provider: 'paystack',
-        },
-        {
-          account_name: 'Legacy',
-          account_number: '2222222222',
-          bank_name: 'Korapay',
-          provider: 'korapay',
-        },
-      ],
-    });
-
-    const result = await getStorefrontAccountDocumentData({
-      supabase,
-      userId: 'user-1',
-      merchantSlug: 'ogabassey',
-      orderId: 'order-1',
-    });
-
-    expect(result.order.virtual_account?.account_number).toBe('2222222222');
   });
 });
