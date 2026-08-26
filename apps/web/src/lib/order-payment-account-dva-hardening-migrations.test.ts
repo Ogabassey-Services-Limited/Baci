@@ -89,4 +89,15 @@ describe('order payment account DVA hardening migrations', () => {
     expect(versions).toContain("SET provider = 'paystack'");
     expect(versions).not.toContain("interval '90 minutes';\n  NEW.expires_at");
   });
+
+  it('repairs invoice expiries truncated by the legacy clamp', () => {
+    const repair = migration(
+      '20260826001000_repair_invoice_paystack_alias_expiries.sql'
+    );
+    expect(repair).toContain("COALESCE(orders.payment_method, '')");
+    expect(repair).toContain("interval '14 days'");
+    expect(repair).toContain(
+      'account.expires_at = invoice_expiry.clamped_expiry'
+    );
+  });
 });

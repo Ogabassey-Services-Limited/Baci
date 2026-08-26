@@ -127,6 +127,24 @@ BEGIN
         account.created_at + interval '90 minutes'
       ) > now()
   ) THEN
+    UPDATE public.order_payment_accounts AS account
+    SET expires_at = GREATEST(
+      COALESCE(
+        account.expires_at,
+        account.assigned_at + interval '90 minutes',
+        account.created_at + interval '90 minutes',
+        now()
+      ),
+      p_expires_at
+    )
+    WHERE account.order_id = p_order_id
+      AND account.provider = 'paystack'
+      AND account.account_number = v_normalized_account_number
+      AND COALESCE(
+        account.expires_at,
+        account.assigned_at + interval '90 minutes',
+        account.created_at + interval '90 minutes'
+      ) > now();
     RETURN 'existing';
   END IF;
 

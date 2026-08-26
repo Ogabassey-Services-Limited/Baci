@@ -137,7 +137,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260825182000_authorize_checkout_dva_reservation.sql',
-    sha256: '176b9c30ec996eed9011826bc436ffb85aba35ef2ac0e4298664ea567329c625',
+    sha256: '815d979944b702ed2c2225ea9744f0a66e1f12bdd08614bd840ce3123073a695',
   },
   {
     repositoryPath:
@@ -178,5 +178,10 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260825230000_version_active_paystack_alias_snapshots.sql',
     sha256: 'd593037b386405756d845ea89aaa4d7fdcaad90520687b0b645d2b2c88c064d2',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826001000_repair_invoice_paystack_alias_expiries.sql',
+    sha256: '5cd21d9c0ee308c5d9ae835ce968086a4309db2d584a2b40f59374ec46c2855a',
   },
 ];

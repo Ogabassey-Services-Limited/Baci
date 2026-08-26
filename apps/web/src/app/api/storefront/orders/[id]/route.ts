@@ -344,16 +344,19 @@ export async function GET(
           );
         }
 
+        const {
+          order_payment_accounts: orderPaymentAccounts,
+          ...orderWithoutPaymentAccounts
+        } = order;
+
         return NextResponse.json(
           sanitizePublicOrder({
-            ...order,
+            ...orderWithoutPaymentAccounts,
             shipping_cost: order.shipping_fee,
             short_id: order.order_number,
             items: mapOrderItemsWithRoutes(items || []),
             virtual_account:
-              selectPreferredOrderPaymentAccount(
-                order.order_payment_accounts
-              ) || null,
+              selectPreferredOrderPaymentAccount(orderPaymentAccounts) || null,
           })
         );
       }

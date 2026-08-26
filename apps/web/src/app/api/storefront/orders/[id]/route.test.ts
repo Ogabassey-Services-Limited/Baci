@@ -270,6 +270,65 @@ describe('GET /api/storefront/orders/[id]', () => {
     expect(mockMerchantQuery.eq).toHaveBeenCalledWith('slug', 'test-store');
   });
 
+  it('exposes only the selected payment account, not historical account rows', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/storefront/orders/order-uuid-123'
+    );
+    const params = Promise.resolve({ id: 'order-uuid-123' });
+
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+    });
+
+    const mockOrderQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          ...mockOrderData,
+          order_payment_accounts: [
+            {
+              account_number: '0123456789',
+              account_name: 'Current account',
+              bank_name: 'Paystack-Titan',
+              provider: 'paystack',
+              created_at: '2026-08-24T12:00:00.000Z',
+              assigned_at: '2026-08-24T12:00:00.000Z',
+              expires_at: '2026-09-07T12:00:00.000Z',
+            },
+          ],
+        },
+        error: null,
+      }),
+    };
+
+    const mockItemsQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockResolvedValue({ data: mockItems, error: null }),
+    };
+
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === 'orders') return mockOrderQuery;
+      if (table === 'order_items') return mockItemsQuery;
+      return {};
+    });
+
+    const response = await GET(request, { params });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.virtual_account).toEqual({
+      account_number: '0123456789',
+      account_name: 'Current account',
+      bank_name: 'Paystack-Titan',
+      provider: 'paystack',
+      created_at: '2026-08-24T12:00:00.000Z',
+      assigned_at: '2026-08-24T12:00:00.000Z',
+      expires_at: '2026-09-07T12:00:00.000Z',
+    });
+    expect(data).not.toHaveProperty('order_payment_accounts');
+  });
+
   it('falls through to RPC lookup when session lookup fails and a tracking token is provided', async () => {
     const request = new NextRequest(
       'http://localhost/api/storefront/orders/order-uuid-123?token=track-token-123&merchant_slug=test-store'

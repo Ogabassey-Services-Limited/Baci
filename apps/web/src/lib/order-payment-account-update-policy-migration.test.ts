@@ -247,6 +247,9 @@ describe('order payment account mutation RPC migration', () => {
     expect(checkoutReservationMigration).toContain(
       "redemptions.metadata ->> 'reversed_at' IS NULL"
     );
+    expect(checkoutReservationMigration).toContain(
+      'SET expires_at = GREATEST('
+    );
     expect(checkoutReservationMigration).toContain(') + v_savings_paid');
     expect(
       checkoutReservationMigration.indexOf("RETURN 'existing'")

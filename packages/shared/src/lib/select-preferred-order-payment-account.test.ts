@@ -93,6 +93,21 @@ describe('selectPreferredOrderPaymentAccount', () => {
     expect(selected?.account_number).toBe('2222222222');
   });
 
+  it('keeps an invoice Paystack account visible through its explicit expiry', () => {
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        {
+          ...account('paystack', '3333333333', '2026-08-24T12:00:00.000Z'),
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-09-07T12:00:00.000Z',
+        },
+      ],
+      new Date('2026-08-24T14:00:00.000Z')
+    );
+
+    expect(selected?.account_number).toBe('3333333333');
+  });
+
   it('rejects a just-retired Paystack account without expiry grace', () => {
     const selected = selectPreferredOrderPaymentAccount(
       [

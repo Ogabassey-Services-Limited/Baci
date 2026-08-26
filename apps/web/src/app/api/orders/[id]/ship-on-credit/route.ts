@@ -9,8 +9,6 @@ import {
   handlePaymentForCancelledOrder,
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
-import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
-import { generatePaymentAccount } from '@/lib/paystack';
 import { shipOnCreditBodySchema } from '@/schemas/ship-on-credit-schema';
 import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
 
@@ -199,90 +197,12 @@ export async function POST(
     }
 
     let virtualAccount = null;
-    try {
-      const customerName = creditOrderDvaHelpers.toCustomerName(
-        order.customer_name
-      );
-      const dvaResult = await generatePaymentAccount({
-        email: order.customer_email || `${orderId}@orders.usebaci.com`,
-        firstName: customerName.firstName,
-        lastName: customerName.lastName,
-        phone: '',
-        orderId,
-      });
-
-      if (dvaResult.success) {
-        const persistenceFailure = await persistPaystackDvaAssignment(
-          supabase,
-          {
-            accountName: dvaResult.data.account_name,
-            accountNumber: dvaResult.data.account_number,
-            bankName: dvaResult.data.bank_name,
-            customerEmail:
-              order.customer_email || `${orderId}@orders.usebaci.com`,
-            orderId,
-          }
-        );
-
-        if (persistenceFailure) {
-          const { data: existingAccount, error: existingAccountError } =
-            await supabase
-              .from('order_payment_accounts')
-              .select(
-                'account_number, bank_name, account_name, assigned_at, created_at, expires_at, provider'
-              )
-              .eq('order_id', orderId)
-              .eq('provider', 'paystack')
-              .order('assigned_at', { ascending: false, nullsFirst: false })
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .maybeSingle();
-
-          if (existingAccountError) {
-            logger.error({
-              message: 'Database error fetching existing payment account',
-              error: existingAccountError,
-              orderId,
-            });
-            logger.warn({
-              message:
-                'Optional credit-order payment account lookup failed after shipping transition',
-              error: existingAccountError,
-              orderId,
-            });
-          }
-
-          if (
-            !existingAccountError &&
-            existingAccount &&
-            creditOrderDvaHelpers.isReusableAccount(existingAccount)
-          ) {
-            logger.info({
-              message:
-                'Order payment account already exists, treating as idempotent success',
-              orderId,
-            });
-            virtualAccount =
-              creditOrderDvaHelpers.toVirtualAccount(existingAccount);
-          } else {
-            logger.warn({
-              message:
-                'Optional credit-order payment account persistence failed after shipping transition',
-              orderId,
-            });
-          }
-        } else {
-          virtualAccount = creditOrderDvaHelpers.toVirtualAccount(
-            dvaResult.data
-          );
-        }
-      }
-    } catch (vaError) {
-      logger.warn({
-        message: 'Could not create DVA for credit order',
-        error: vaError,
-      });
-    }
+    virtualAccount = await creditOrderDvaHelpers.provisionCreditOrderDva({
+      customerEmail: order.customer_email,
+      customerName: order.customer_name,
+      orderId,
+      supabase,
+    });
 
     return NextResponse.json({
       success: true,
