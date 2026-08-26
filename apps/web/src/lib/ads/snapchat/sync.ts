@@ -5,7 +5,7 @@ import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
 import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
 import {
-  getSnapchatAdsUsableAccessToken,
+  getSnapchatAdsUsableGrant,
   SnapchatAdsTokenRefreshError,
 } from './access-token';
 import { getSnapchatAdsConfig } from './config';
@@ -102,17 +102,24 @@ export async function syncSnapchatAdsSpendForMerchant(
     }
   );
   if (read.error) throw new SnapchatAdsSyncError('CONNECTION_READ_FAILED');
-  const connection = read.data?.[0];
+  let connection = read.data?.[0];
   if (!connection?.provider_customer_id || connection.status !== 'active')
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_ACCOUNT_NOT_SELECTED');
   let token: string;
   try {
-    token = await getSnapchatAdsUsableAccessToken({
+    const usableGrant = await getSnapchatAdsUsableGrant({
       config,
       connection,
       credentialSupabase: input.credentialSupabase,
       merchantId: input.merchantId,
     });
+    connection = {
+      ...connection,
+      access_token_ciphertext: usableGrant.accessTokenCiphertext,
+      refresh_token_ciphertext: usableGrant.refreshTokenCiphertext,
+      token_expires_at: usableGrant.tokenExpiresAt,
+    };
+    token = usableGrant.accessToken;
   } catch (error) {
     if (
       error instanceof SnapchatAdsTokenRefreshError &&

@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const usableToken = vi.fn();
+const usableGrant = vi.fn();
 const config = vi.fn();
 const accounts = vi.fn();
 const reports = vi.fn();
 
 vi.mock('./access-token', () => ({
-  getSnapchatAdsUsableAccessToken: (...args: unknown[]) => usableToken(...args),
+  getSnapchatAdsUsableGrant: (...args: unknown[]) => usableGrant(...args),
   SnapchatAdsTokenRefreshError: class SnapchatAdsTokenRefreshError extends Error {},
 }));
 vi.mock('./config', () => ({
@@ -28,7 +28,12 @@ describe('Snapchat Ads sync', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     config.mockReturnValue({ tokenEncryptionKey: 'key' });
-    usableToken.mockResolvedValue('token');
+    usableGrant.mockResolvedValue({
+      accessToken: 'token',
+      accessTokenCiphertext: 'access',
+      refreshTokenCiphertext: 'refresh',
+      tokenExpiresAt: '2026-09-01T00:00:00.000Z',
+    });
     accounts.mockResolvedValue([
       {
         accountId: 'ad-1',
@@ -176,6 +181,38 @@ describe('Snapchat Ads sync', () => {
         p_reason: 'SNAPCHAT_ADS_ACCESS_REVOKED',
         p_access_token_ciphertext: 'access',
         p_refresh_token_ciphertext: 'refresh',
+      })
+    );
+  });
+
+  it('uses refreshed ciphertext when a provider rejects the refreshed token', async () => {
+    usableGrant.mockResolvedValueOnce({
+      accessToken: 'refreshed-token',
+      accessTokenCiphertext: 'new-access',
+      refreshTokenCiphertext: 'new-refresh',
+      tokenExpiresAt: '2026-09-01T01:00:00.000Z',
+    });
+    reports.mockRejectedValueOnce(
+      Object.assign(new Error('revoked'), {
+        code: 'SNAPCHAT_ADS_ACCESS_REVOKED',
+      })
+    );
+
+    await expect(
+      syncSnapchatAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'SNAPCHAT_ADS_ACCESS_REVOKED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_access_token_ciphertext: 'new-access',
+        p_refresh_token_ciphertext: 'new-refresh',
       })
     );
   });

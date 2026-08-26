@@ -9,7 +9,9 @@ export const ADS_SYNC_MAX_DAYS = {
   google_ads: 90,
   meta_ads: 31,
   snapchat_ads: 366,
-  tiktok_ads: 366,
+  // TikTok daily reports include stat_time_day, which the API limits to 30
+  // calendar days per request. Longer dashboard ranges are chunked client-side.
+  tiktok_ads: 30,
 } as const;
 
 /** Maximum inclusive calendar-day range exposed by the Ads dashboard. */

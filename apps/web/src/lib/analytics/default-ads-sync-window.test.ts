@@ -35,17 +35,26 @@ describe('buildDefaultAdsSyncWindow', () => {
     ]);
   });
 
-  it.each([
-    'tiktok_ads',
-    'snapchat_ads',
-  ] as const)('allows the %s 366-day maximum before chunking', (provider) => {
+  it('chunks TikTok daily reports at the provider 30-day boundary', () => {
+    expect(
+      buildAdsSyncWindowChunks(
+        { endDate: '2026-02-01', startDate: '2026-01-01' },
+        'tiktok_ads'
+      )
+    ).toEqual([
+      { endDate: '2026-01-30', startDate: '2026-01-01' },
+      { endDate: '2026-02-01', startDate: '2026-01-31' },
+    ]);
+  });
+
+  it('allows the Snapchat 366-day maximum before chunking', () => {
     const oneYear = buildAdsSyncWindowChunks(
       { endDate: '2027-01-01', startDate: '2026-01-01' },
-      provider
+      'snapchat_ads'
     );
     const overOneYear = buildAdsSyncWindowChunks(
       { endDate: '2027-01-02', startDate: '2026-01-01' },
-      provider
+      'snapchat_ads'
     );
 
     expect(oneYear).toHaveLength(1);

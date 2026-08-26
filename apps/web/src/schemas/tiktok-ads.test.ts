@@ -5,7 +5,7 @@ import {
 } from './tiktok-ads';
 
 describe('TikTok Ads schemas', () => {
-  it('accepts opaque advertiser IDs and permits a chunked 31-day backfill', () => {
+  it('accepts opaque advertiser IDs and enforces the 30-day daily-report limit', () => {
     expect(
       tiktokAdsAccountSelectionSchema.safeParse({ accountId: 'opaque-abc_01' })
         .success
@@ -17,8 +17,14 @@ describe('TikTok Ads schemas', () => {
     expect(
       tiktokAdsSyncRequestSchema.safeParse({
         startDate: '2026-08-01',
-        endDate: '2026-08-31',
+        endDate: '2026-08-30',
       }).success
     ).toBe(true);
+    expect(
+      tiktokAdsSyncRequestSchema.safeParse({
+        startDate: '2026-08-01',
+        endDate: '2026-08-31',
+      }).success
+    ).toBe(false);
   });
 });

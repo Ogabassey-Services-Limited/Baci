@@ -8,6 +8,7 @@ vi.mock('./oauth', () => ({
 
 import {
   getSnapchatAdsUsableAccessToken,
+  getSnapchatAdsUsableGrant,
   resolveSnapchatAdsAccessToken,
 } from './access-token';
 
@@ -74,6 +75,42 @@ describe('Snapchat Ads access token', () => {
         p_refresh_token_ciphertext: expect.not.stringContaining('new-refresh'),
       })
     );
+  });
+
+  it('returns refreshed ciphertext and expiry for compare-and-set reauth marking', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    refresh.mockResolvedValue({
+      accessToken: 'new-access',
+      expiresIn: 3600,
+      refreshToken: 'new-refresh',
+      scopes: [],
+    });
+
+    const result = await getSnapchatAdsUsableGrant({
+      config,
+      connection: {
+        access_token_ciphertext: encryptAdsToken(
+          'old-access',
+          tokenEncryptionKey,
+          'snapchat_ads'
+        ),
+        refresh_token_ciphertext: encryptAdsToken(
+          'old-refresh',
+          tokenEncryptionKey,
+          'snapchat_ads'
+        ),
+        token_expires_at: '2020-01-01T00:00:00Z',
+      },
+      merchantId: 'merchant',
+      credentialSupabase: { rpc } as never,
+    });
+
+    expect(result).toMatchObject({
+      accessToken: 'new-access',
+      accessTokenCiphertext: expect.any(String),
+      refreshTokenCiphertext: expect.any(String),
+      tokenExpiresAt: expect.any(String),
+    });
   });
 
   it('refreshes an access token inside the expiry safety window', async () => {

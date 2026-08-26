@@ -55,7 +55,7 @@ describe('Snapchat Ads provider', () => {
     ).toBe('true');
   });
 
-  it('uses account-local DATE across DST and keeps provider micro-currency exact', async () => {
+  it('unwraps documented timeseries_stat rows across DST and keeps micro-currency exact', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -63,13 +63,24 @@ describe('Snapchat Ads provider', () => {
           finalized_data_end_time: '2026-03-09T04:00:00Z',
           timeseries_stats: [
             {
-              end_time: '2026-03-09T04:00:00Z',
-              start_time: '2026-03-08T05:00:00Z',
-              stats: {
-                conversion_purchases: '1.5',
-                impressions: '9007199254740993',
-                spend: '9007199254740993',
-                swipes: '7',
+              sub_request_status: 'success',
+              timeseries_stat: {
+                conversion_data_processed_end_time: '2026-03-10T00:00:00Z',
+                end_time: '2026-03-09T04:00:00Z',
+                finalized_data_end_time: '2026-03-09T04:00:00Z',
+                start_time: '2026-03-08T05:00:00Z',
+                timeseries: [
+                  {
+                    end_time: '2026-03-09T04:00:00Z',
+                    start_time: '2026-03-08T05:00:00Z',
+                    stats: {
+                      conversion_purchases: '1.5',
+                      impressions: '9007199254740993',
+                      spend: '9007199254740993',
+                      swipes: '7',
+                    },
+                  },
+                ],
               },
             },
           ],

@@ -115,11 +115,12 @@ export async function listSnapchatAdsAccounts(
   ];
 }
 function statsList(payload: unknown): {
+  metadata: SnapchatRecord | null;
   recognized: boolean;
   rows: SnapchatRecord[];
 } {
   const root = record(payload);
-  if (!root) return { recognized: false, rows: [] };
+  if (!root) return { metadata: null, recognized: false, rows: [] };
   const nestedData = record(root.data);
   const candidates = [
     root.timeseries_stats,
@@ -129,13 +130,45 @@ function statsList(payload: unknown): {
   ];
   for (const candidate of candidates) {
     if (candidate !== undefined) {
+      if (!Array.isArray(candidate))
+        return { metadata: null, recognized: false, rows: [] };
+      const rows: SnapchatRecord[] = [];
+      let metadata: SnapchatRecord | null = null;
+      let recognized = true;
+      for (const entry of candidate) {
+        const wrapper = record(entry);
+        const timeseriesStat = record(wrapper?.timeseries_stat);
+        if (timeseriesStat) {
+          metadata ??= timeseriesStat;
+          if (!Array.isArray(timeseriesStat.timeseries)) {
+            recognized = false;
+            continue;
+          }
+          const timeseries = objectArray(timeseriesStat.timeseries);
+          if (timeseries.length !== timeseriesStat.timeseries.length)
+            recognized = false;
+          rows.push(...timeseries);
+          continue;
+        }
+        // Keep accepting the legacy flat shape while preferring the
+        // documented timeseries_stats[].timeseries_stat.timeseries wrapper.
+        if (
+          wrapper &&
+          ('stats' in wrapper ||
+            'start_time' in wrapper ||
+            'end_time' in wrapper)
+        )
+          rows.push(wrapper);
+        else recognized = false;
+      }
       return {
-        recognized: Array.isArray(candidate),
-        rows: objectArray(candidate),
+        metadata,
+        recognized,
+        rows,
       };
     }
   }
-  return { recognized: false, rows: [] };
+  return { metadata: null, recognized: false, rows: [] };
 }
 function parseReports(
   payload: unknown,
@@ -146,9 +179,12 @@ function parseReports(
     throw new SnapchatAdsProviderError('SNAPCHAT_ADS_REPORT_RESPONSE_INVALID');
   const rows = stats.rows;
   const root = record(payload);
-  const finalizedDataEndTime = isoTimestamp(root?.finalized_data_end_time);
+  const finalizedDataEndTime = isoTimestamp(
+    stats.metadata?.finalized_data_end_time ?? root?.finalized_data_end_time
+  );
   const conversionDataProcessedEndTime = isoTimestamp(
-    root?.conversion_data_processed_end_time
+    stats.metadata?.conversion_data_processed_end_time ??
+      root?.conversion_data_processed_end_time
   );
   const parsed = rows.flatMap((row) => {
     const stats = record(row.stats);

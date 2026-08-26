@@ -24,6 +24,8 @@ vi.mock('@/lib/ads/snapchat/access-token', () => ({
   getSnapchatAdsUsableGrant: async (...args: unknown[]) => ({
     accessToken: await usableToken(...args),
     accessTokenCiphertext: 'SNAP_REFRESHED_ACCESS_CIPHERTEXT',
+    refreshTokenCiphertext: 'SNAP_REFRESHED_REFRESH_CIPHERTEXT',
+    tokenExpiresAt: '2026-09-01T00:00:00.000Z',
   }),
   SnapchatAdsTokenRefreshError: class SnapchatAdsTokenRefreshError extends Error {
     code: string;

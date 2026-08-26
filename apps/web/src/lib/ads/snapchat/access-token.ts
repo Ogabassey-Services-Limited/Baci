@@ -13,6 +13,12 @@ export interface SnapchatAdsEncryptedConnection {
   refresh_token_ciphertext: string | null;
   token_expires_at: string | null;
 }
+export interface SnapchatAdsUsableGrant {
+  accessToken: string;
+  accessTokenCiphertext: string | null;
+  refreshTokenCiphertext: string | null;
+  tokenExpiresAt: string | null;
+}
 export function resolveSnapchatAdsAccessToken(
   connection: SnapchatAdsEncryptedConnection,
   config: SnapchatAdsConfig
@@ -59,7 +65,7 @@ export async function getSnapchatAdsUsableGrant(input: {
   connection: SnapchatAdsEncryptedConnection;
   credentialSupabase: AdsCredentialServiceClient;
   merchantId: string;
-}): Promise<{ accessToken: string; accessTokenCiphertext: string | null }> {
+}): Promise<SnapchatAdsUsableGrant> {
   const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
   const expiresAt = input.connection.token_expires_at
     ? Date.parse(input.connection.token_expires_at)
@@ -71,6 +77,8 @@ export async function getSnapchatAdsUsableGrant(input: {
     return {
       accessToken: token,
       accessTokenCiphertext: input.connection.access_token_ciphertext,
+      refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
+      tokenExpiresAt: input.connection.token_expires_at,
     };
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
@@ -101,6 +109,14 @@ export async function getSnapchatAdsUsableGrant(input: {
     input.config.tokenEncryptionKey,
     SNAPCHAT_ADS_PROVIDER
   );
+  const refreshTokenCiphertext = encryptAdsToken(
+    grant.refreshToken,
+    input.config.tokenEncryptionKey,
+    SNAPCHAT_ADS_PROVIDER
+  );
+  const tokenExpiresAt = new Date(
+    Date.now() + grant.expiresIn * 1000
+  ).toISOString();
   const updated = await input.credentialSupabase.rpc(
     'update_snapchat_ads_connection_tokens',
     {
@@ -108,21 +124,20 @@ export async function getSnapchatAdsUsableGrant(input: {
       p_current_refresh_token_ciphertext:
         input.connection.refresh_token_ciphertext,
       p_merchant_id: input.merchantId,
-      p_refresh_token_ciphertext: encryptAdsToken(
-        grant.refreshToken,
-        input.config.tokenEncryptionKey,
-        SNAPCHAT_ADS_PROVIDER
-      ),
-      p_token_expires_at: new Date(
-        Date.now() + grant.expiresIn * 1000
-      ).toISOString(),
+      p_refresh_token_ciphertext: refreshTokenCiphertext,
+      p_token_expires_at: tokenExpiresAt,
     }
   );
   if (updated.error || updated.data !== true)
     throw new SnapchatAdsTokenRefreshError(
       'SNAPCHAT_ADS_TOKEN_REFRESH_WRITE_FAILED'
     );
-  return { accessToken: grant.accessToken, accessTokenCiphertext };
+  return {
+    accessToken: grant.accessToken,
+    accessTokenCiphertext,
+    refreshTokenCiphertext,
+    tokenExpiresAt,
+  };
 }
 
 export async function getSnapchatAdsUsableAccessToken(input: {

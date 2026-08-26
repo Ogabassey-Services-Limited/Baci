@@ -7,7 +7,7 @@ describe('ADS_SYNC_MAX_DAYS', () => {
       google_ads: 90,
       meta_ads: 31,
       snapchat_ads: 366,
-      tiktok_ads: 366,
+      tiktok_ads: 30,
     });
   });
 

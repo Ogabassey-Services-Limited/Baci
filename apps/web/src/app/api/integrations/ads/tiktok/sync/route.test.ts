@@ -118,7 +118,7 @@ describe('TikTok Ads sync route', () => {
       new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
         body: JSON.stringify({
           startDate: '2026-08-01',
-          endDate: '2026-08-31',
+          endDate: '2026-08-30',
         }),
         method: 'POST',
       })
@@ -154,7 +154,7 @@ describe('TikTok Ads sync route', () => {
     const response = await POST(
       new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
         body: JSON.stringify({
-          endDate: '2026-08-31',
+          endDate: '2026-08-30',
           finalChunk: false,
           startDate: '2026-08-01',
         }),
@@ -181,7 +181,7 @@ describe('TikTok Ads sync route', () => {
     const response = await POST(
       new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/sync', {
         body: JSON.stringify({
-          endDate: '2026-08-31',
+          endDate: '2026-08-30',
           finalChunk: true,
           startDate: '2026-08-01',
         }),

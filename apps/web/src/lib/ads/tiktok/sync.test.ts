@@ -78,12 +78,12 @@ describe('TikTok Ads sync', () => {
         credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-01',
-        endDate: '2026-08-31',
+        endDate: '2026-08-30',
         spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
     ).resolves.toEqual({ accountId: 'opaque-001', rowsWritten: 1 });
-    expect(reports).toHaveBeenCalledTimes(2);
+    expect(reports).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
@@ -162,33 +162,19 @@ describe('TikTok Ads sync', () => {
     );
   });
 
-  it('does not write an earlier chunk when a later provider request fails', async () => {
-    reports
-      .mockResolvedValueOnce([
-        {
-          accountId: 'opaque-001',
-          clicks: '2',
-          conversions: '1',
-          currencyCode: 'NGN',
-          impressions: '10',
-          reach: null,
-          spendAmountDecimal: '1.00',
-          spendDate: '2026-08-20',
-          timezoneName: 'Africa/Lagos',
-        },
-      ])
-      .mockRejectedValueOnce(new Error('second chunk failed'));
+  it('does not write when the provider request fails', async () => {
+    reports.mockRejectedValueOnce(new Error('provider request failed'));
 
     await expect(
       syncTikTokAdsSpendForMerchant({
         credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-01',
-        endDate: '2026-08-31',
+        endDate: '2026-08-30',
         spendSupabase: { rpc } as never,
         supabase: { rpc } as never,
       })
-    ).rejects.toThrow('second chunk failed');
+    ).rejects.toThrow('provider request failed');
     expect(rpc).not.toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.anything()

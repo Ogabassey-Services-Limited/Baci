@@ -6,7 +6,6 @@ import {
   createAdsCredentialServiceClient,
 } from '@/lib/ads/server-credential-client';
 import {
-  getSnapchatAdsUsableAccessToken,
   getSnapchatAdsUsableGrant,
   SnapchatAdsTokenRefreshError,
 } from '@/lib/ads/snapchat/access-token';
@@ -118,13 +117,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ accounts: [], connected: false });
     current = read.connection;
     const config = getSnapchatAdsConfig();
+    const usableGrant = await getSnapchatAdsUsableGrant({
+      config,
+      connection: current,
+      merchantId: access.merchantId,
+      credentialSupabase,
+    });
+    current = {
+      ...current,
+      access_token_ciphertext: usableGrant.accessTokenCiphertext,
+      refresh_token_ciphertext: usableGrant.refreshTokenCiphertext,
+      token_expires_at: usableGrant.tokenExpiresAt,
+    };
     const accounts = await listSnapchatAdsAccounts({
-      accessToken: await getSnapchatAdsUsableAccessToken({
-        config,
-        connection: current,
-        merchantId: access.merchantId,
-        credentialSupabase,
-      }),
+      accessToken: usableGrant.accessToken,
     });
     return NextResponse.json({
       accounts: accounts.map((account) => ({
@@ -202,6 +208,12 @@ export async function PATCH(request: NextRequest) {
       merchantId: access.merchantId,
       credentialSupabase,
     });
+    current = {
+      ...current,
+      access_token_ciphertext: usableGrant.accessTokenCiphertext,
+      refresh_token_ciphertext: usableGrant.refreshTokenCiphertext,
+      token_expires_at: usableGrant.tokenExpiresAt,
+    };
     const account = (
       await listSnapchatAdsAccounts({
         accessToken: usableGrant.accessToken,
