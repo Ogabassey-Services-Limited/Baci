@@ -47,6 +47,19 @@ describe('generateDvaHelpers', () => {
     ).toBe(false);
   });
 
+  it('honors an explicit invoice expiry beyond the default assignment window', () => {
+    expect(
+      generateDvaHelpers.isActivePaymentAccount(
+        {
+          assigned_at: '2026-08-24T10:00:00.000Z',
+          provider: 'paystack',
+          expires_at: '2026-08-25T00:00:00.000Z',
+        },
+        new Date('2026-08-24T12:00:00.000Z')
+      )
+    ).toBe(true);
+  });
+
   it('recognizes a Postgres unique conflict for concurrent provisioning', () => {
     expect(generateDvaHelpers.isUniqueViolation({ code: '23505' })).toBe(true);
     expect(generateDvaHelpers.isUniqueViolation({ code: '42501' })).toBe(false);

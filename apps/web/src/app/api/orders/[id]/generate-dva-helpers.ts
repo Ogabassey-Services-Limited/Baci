@@ -43,6 +43,12 @@ function isActivePaymentAccount(
     return false;
   }
 
+  // Persisted invoice assignments may intentionally outlive the default
+  // provisioning window. When an expiry is supplied, it is authoritative.
+  if (Number.isFinite(expiresAt)) {
+    return true;
+  }
+
   const assignedAt = account.assigned_at
     ? Date.parse(account.assigned_at)
     : account.created_at
