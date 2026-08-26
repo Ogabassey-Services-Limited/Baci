@@ -108,8 +108,12 @@ export function useAnalyticsGridLayout({
           return;
         }
         console.error('Failed to hydrate dashboard layout:', error);
-        hydrationReadyRef.current = true;
-        if (flushPendingLayout(null)) return;
+        // Do not flush an edit against a null baseline. A failed preference
+        // read may mean the merchant has saved layouts that are temporarily
+        // unavailable (or that the caller lacks read permission); replacing
+        // the whole JSON document from null would silently delete them. Keep
+        // hydration pending so later edits remain local until a successful
+        // retry or remount supplies the baseline.
       });
 
     return () => {

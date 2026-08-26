@@ -6,6 +6,7 @@ const mockUseSearchParams = vi.hoisted(() =>
 );
 const mockGridProps = vi.hoisted(() => ({
   categoryError: null as string | null,
+  data: {} as Record<string, unknown>,
   loading: false,
 }));
 const mockHasPermission = vi.hoisted(() =>
@@ -53,9 +54,11 @@ vi.mock('@/components/analytics/analytics-filters', () => ({
 vi.mock('@/components/analytics/draggable-analytics-grid', () => ({
   DraggableAnalyticsGrid: (props: {
     categoryError?: string | null;
+    data: Record<string, unknown>;
     loading: boolean;
   }) => {
     mockGridProps.categoryError = props.categoryError ?? null;
+    mockGridProps.data = props.data;
     mockGridProps.loading = props.loading;
     return null;
   },
@@ -71,6 +74,7 @@ describe('AnalyticsClientPage', () => {
     vi.restoreAllMocks();
     mockUseSearchParams.mockReturnValue(new URLSearchParams());
     mockGridProps.categoryError = null;
+    mockGridProps.data = {};
     mockGridProps.loading = false;
     mockHasPermission.mockReturnValue(true);
     mockVisibleCategories.value = [];
@@ -202,6 +206,49 @@ describe('AnalyticsClientPage', () => {
       expect(mockGridProps.categoryError).toBe(
         'Unable to load inventory analytics. Please try again.'
       );
+    });
+  });
+
+  it('renders specialized analytics when the base analytics request fails', async () => {
+    mockUseSearchParams.mockReturnValue(
+      new URLSearchParams('category=inventory')
+    );
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/analytics?')) {
+        return new Response(JSON.stringify({ error: 'unavailable' }), {
+          status: 503,
+        });
+      }
+      if (url.includes('/api/inventory/forecast?')) {
+        return new Response(
+          JSON.stringify({
+            forecasts: [
+              {
+                avgDailySales: 1,
+                currentStock: 2,
+                daysOfStock: 2,
+                productId: 'product-1',
+                productName: 'Phone',
+                salesTrend: 'increasing',
+              },
+            ],
+            summary: { critical: 1, outOfStock: 0, warning: 0 },
+          }),
+          { status: 200 }
+        );
+      }
+      return new Response(JSON.stringify({ alerts: [], stats: { total: 0 } }), {
+        status: 200,
+      });
+    });
+
+    render(<AnalyticsClientPage />);
+
+    await waitFor(() => {
+      expect(mockGridProps.data.inventoryForecasts).toEqual([
+        expect.objectContaining({ product_id: 'product-1' }),
+      ]);
     });
   });
 

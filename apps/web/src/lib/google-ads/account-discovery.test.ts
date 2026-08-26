@@ -56,12 +56,36 @@ describe('Google Ads account discovery traversal', () => {
         fetchImpl,
         headers: { Authorization: 'Bearer access-token' },
       })
-    ).resolves.toEqual([
-      '1111111111',
-      '2222222222',
-      '3333333333',
-      '4444444444',
-    ]);
+    ).resolves.toEqual(['3333333333', '4444444444']);
+  });
+
+  it('does not return an accessible manager account as a selectable customer', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify([
+          {
+            results: [
+              {
+                customerClient: {
+                  clientCustomer: 'customers/2222222222',
+                  manager: false,
+                },
+              },
+            ],
+          },
+        ])
+      )
+    );
+
+    await expect(
+      discoverGoogleAdsCustomerIds({
+        apiRoot: 'https://googleads.googleapis.com/v25',
+        createError: (code, status) => new Error(`${code}:${status ?? ''}`),
+        directCustomerIds: ['1111111111'],
+        fetchImpl,
+        headers: { Authorization: 'Bearer access-token' },
+      })
+    ).resolves.toEqual(['2222222222']);
   });
 
   it('returns an explicit manager limit error instead of a partial list', async () => {

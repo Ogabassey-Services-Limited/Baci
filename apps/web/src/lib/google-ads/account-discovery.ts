@@ -29,6 +29,11 @@ type GoogleAdsManagerClient = {
   manager: boolean;
 };
 
+type GoogleAdsManagerDiscoveryResult = {
+  clients: GoogleAdsManagerClient[];
+  isManager: boolean;
+};
+
 type DiscoveryQueueEntry = {
   depth: number;
   id: string;
@@ -53,7 +58,7 @@ function parseGoogleAdsCustomerId(value: unknown): string | null {
 async function listGoogleAdsManagerClients(
   customerId: string,
   input: AccountDiscoveryInput
-): Promise<GoogleAdsManagerClient[]> {
+): Promise<GoogleAdsManagerDiscoveryResult> {
   const response = await input.fetchImpl(
     `${input.apiRoot}/customers/${customerId}/googleAds:searchStream`,
     {
@@ -67,7 +72,9 @@ async function listGoogleAdsManagerClients(
   );
   // A normal, non-manager customer rejects the customer_client query. It is
   // still a valid directly accessible account, so there are no descendants.
-  if (response.status === 400 || response.status === 404) return [];
+  if (response.status === 400 || response.status === 404) {
+    return { clients: [], isManager: false };
+  }
   if (!response.ok) {
     throw input.createError(
       'GOOGLE_ADS_MANAGER_ACCOUNT_DISCOVERY_FAILED',
@@ -107,13 +114,14 @@ async function listGoogleAdsManagerClients(
       });
     }
   }
-  return clients;
+  return { clients, isManager: true };
 }
 
 export async function discoverGoogleAdsCustomerIds(
   input: AccountDiscoveryInput
 ): Promise<string[]> {
-  const discoveredCustomerIds = new Set(input.directCustomerIds);
+  const discoveredCustomerIds = new Set<string>();
+  const knownCustomerIds = new Set(input.directCustomerIds);
   const queue: DiscoveryQueueEntry[] = [
     ...new Set(input.directCustomerIds),
   ].map((id) => ({ depth: 0, id }));
@@ -122,7 +130,7 @@ export async function discoverGoogleAdsCustomerIds(
   let probes = 0;
 
   while (queue.length > 0) {
-    if (discoveredCustomerIds.size >= GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS) {
+    if (knownCustomerIds.size >= GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS) {
       throw input.createError(GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT);
     }
     if (probes >= GOOGLE_ADS_MAX_MANAGER_PROBES) {
@@ -149,14 +157,23 @@ export async function discoverGoogleAdsCustomerIds(
 
     probes += batch.length;
     const results = await Promise.all(
-      batch.map(async (next) => ({
-        clients: await listGoogleAdsManagerClients(next.id, input),
-        depth: next.depth,
-      }))
+      batch.map(async (next) => {
+        const discovery = await listGoogleAdsManagerClients(next.id, input);
+        return { ...discovery, depth: next.depth, id: next.id };
+      })
     );
     for (const result of results) {
+      if (!result.isManager) {
+        discoveredCustomerIds.add(result.id);
+      }
       for (const client of result.clients) {
-        discoveredCustomerIds.add(client.customerId);
+        knownCustomerIds.add(client.customerId);
+        if (knownCustomerIds.size > GOOGLE_ADS_MAX_DISCOVERED_CUSTOMERS) {
+          throw input.createError(GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT);
+        }
+        if (!client.manager) {
+          discoveredCustomerIds.add(client.customerId);
+        }
         if (
           client.manager &&
           !visitedManagers.has(client.customerId) &&

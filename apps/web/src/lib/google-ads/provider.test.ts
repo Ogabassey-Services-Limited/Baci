@@ -13,11 +13,15 @@ const reportingConfig = { developerToken: 'developer-token' };
 
 describe('Google Ads provider client', () => {
   it('uses the current default API version and parses accessible accounts', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(
-      async (input) =>
-        new Response(
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input) => {
+        const isAccessibleCustomersRequest = String(input).includes(
+          '/customers:listAccessibleCustomers'
+        );
+        return new Response(
           JSON.stringify(
-            String(input).includes('/customers:listAccessibleCustomers')
+            isAccessibleCustomersRequest
               ? {
                   resourceNames: [
                     'customers/1234567890',
@@ -26,9 +30,9 @@ describe('Google Ads provider client', () => {
                 }
               : []
           ),
-          { status: 200 }
-        )
-    );
+          { status: isAccessibleCustomersRequest ? 200 : 400 }
+        );
+      });
 
     await expect(
       listGoogleAdsAccessibleCustomerIds(
@@ -106,12 +110,7 @@ describe('Google Ads provider client', () => {
         reportingConfig,
         fetchImpl
       )
-    ).resolves.toEqual([
-      '1111111111',
-      '2222222222',
-      '3333333333',
-      '4444444444',
-    ]);
+    ).resolves.toEqual(['3333333333', '4444444444']);
     const hierarchyCall = fetchImpl.mock.calls.find(([input]) =>
       String(input).includes('/customers/1111111111/googleAds:searchStream')
     );

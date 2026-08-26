@@ -99,9 +99,11 @@ export default function AnalyticsClientPage() {
       variant: 'destructive',
     });
   }, [callbackProvider?.[0], callbackReason, toast]);
-  const analyticsData: AnalyticsData | null = baseAnalytics
-    ? { ...baseAnalytics, ...categoryAnalytics }
-    : null;
+  const hasCategoryAnalytics = Object.keys(categoryAnalytics).length > 0;
+  const analyticsData: AnalyticsData | null =
+    baseAnalytics || hasCategoryAnalytics
+      ? { ...(baseAnalytics ?? {}), ...categoryAnalytics }
+      : null;
   useEffect(() => {
     if (!selectedMerchantId || !date.from || !date.to) return;
     const controller = new AbortController();

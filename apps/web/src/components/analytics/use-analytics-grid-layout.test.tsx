@@ -115,7 +115,7 @@ describe('useAnalyticsGridLayout', () => {
     );
   });
 
-  it('settles a failed preference read and persists an early edit', async () => {
+  it('does not overwrite saved categories when preference hydration fails', async () => {
     let rejectPreference: ((error: unknown) => void) | undefined;
     fetchPreference.mockImplementation(
       () =>
@@ -152,12 +152,12 @@ describe('useAnalyticsGridLayout', () => {
       rejectPreference?.(new Error('preference read failed'));
     });
 
-    await waitFor(() => expect(savePreference).toHaveBeenCalledTimes(1));
-    const savedConfig = savePreference.mock.calls[0]?.[0] as Record<
-      string,
-      { lg?: unknown }
-    >;
-    expect(savedConfig.overview?.lg).toEqual(
+    await waitFor(() => expect(rejectPreference).toBeDefined());
+    expect(savePreference).not.toHaveBeenCalled();
+
+    // The edit remains local, but no write is attempted without a known
+    // baseline for the other saved categories.
+    expect(result.current.layouts.lg).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ i: 'summary-revenue', x: 5, y: 1 }),
       ])
