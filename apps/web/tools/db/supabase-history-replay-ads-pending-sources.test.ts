@@ -33,5 +33,8 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '08c2b4e066a77294c8f3515a904beac9861e9273c2d7d856e5254d749dfb159a 20260826130000_retire_snapchat_disconnect_spend_rpc.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      'c2b4d82902c24edb2f3d17b001c4646c9db787f92fa28ab0912a279b40f71c65 20260826150000_restrict_ads_connection_select_to_view_permission.sql'
+    );
   });
 });
