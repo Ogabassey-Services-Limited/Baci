@@ -9,6 +9,7 @@ describe('TikTok Ads OAuth', () => {
     const url = new URL(
       buildTikTokAdsAuthorizationUrl(
         {
+          appId: 'configured-app-id',
           authorizationUrl: 'https://business-api.tiktok.com/portal/authorize',
           redirectUri:
             'https://usebaci.com/api/integrations/ads/tiktok/callback',
@@ -16,8 +17,31 @@ describe('TikTok Ads OAuth', () => {
         'state'
       )
     );
+    expect(url.searchParams.get('app_id')).toBe('configured-app-id');
     expect(url.searchParams.get('state')).toBe('state');
     expect(url.search).not.toContain('secret');
+  });
+
+  it('preserves preconfigured authorization parameters and app ID', () => {
+    const url = new URL(
+      buildTikTokAdsAuthorizationUrl(
+        {
+          appId: 'configured-app-id',
+          authorizationUrl:
+            'https://business-api.tiktok.com/portal/authorize?app_id=preconfigured-app-id&locale=en-US',
+          redirectUri:
+            'https://usebaci.com/api/integrations/ads/tiktok/callback',
+        },
+        'state'
+      )
+    );
+
+    expect(url.searchParams.get('app_id')).toBe('preconfigured-app-id');
+    expect(url.searchParams.get('locale')).toBe('en-US');
+    expect(url.searchParams.get('redirect_uri')).toBe(
+      'https://usebaci.com/api/integrations/ads/tiktok/callback'
+    );
+    expect(url.searchParams.get('state')).toBe('state');
   });
   it('reads long-lived grants without a refresh-token assumption', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(

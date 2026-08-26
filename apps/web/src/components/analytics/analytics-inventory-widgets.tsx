@@ -13,7 +13,9 @@ export function AnalyticsInventoryWidgets({
   isWidgetVisible,
 }: AnalyticsInventoryWidgetsProps) {
   const lowStockProducts = (data.inventoryForecasts || [])
-    .filter((forecast) => forecast.days_of_stock <= 14)
+    .filter(
+      (forecast) => forecast.current_stock <= 0 || forecast.days_of_stock <= 14
+    )
     .slice(0, 5);
   return (
     <>

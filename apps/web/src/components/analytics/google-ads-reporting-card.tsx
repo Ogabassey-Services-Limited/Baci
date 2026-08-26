@@ -20,6 +20,7 @@ import {
   formatGoogleAdsMetric,
   formatGoogleAdsReportingWindow,
 } from './google-ads-reporting-format';
+import { GoogleAdsReportingUnavailable } from './google-ads-reporting-unavailable';
 
 export { GOOGLE_ADS_CONNECT_PATH } from './google-ads-connect-path';
 
@@ -81,6 +82,13 @@ export function GoogleAdsReportingCard({
   const currency = reporting?.currency ?? 'USD';
   const metrics = reporting?.metrics;
   const periodLabel = metrics ? formatGoogleAdsReportingWindow(metrics) : null;
+  // Older server projections omitted dataStatus. Treat those as usable unless
+  // the explicit read-failure sentinel is present, preserving their existing
+  // reconnect/account-management behavior.
+  const hasReportingReadFailure = reporting?.dataStatus === 'error';
+  const hasConfirmedConnectionError =
+    status === 'error' && !hasReportingReadFailure;
+  const canManageControls = canManageIntegrations && !hasReportingReadFailure;
   return (
     <BentoCard
       className={cn('h-full', className)}
@@ -96,7 +104,12 @@ export function GoogleAdsReportingCard({
           <Loader2 className="size-4 animate-spin" />
           Loading Google Ads reporting…
         </div>
-      ) : status === 'error' ? (
+      ) : hasReportingReadFailure ? (
+        <GoogleAdsReportingUnavailable
+          error={reporting?.error}
+          onRetry={onSynced}
+        />
+      ) : hasConfirmedConnectionError ? (
         <div className="space-y-3">
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
@@ -105,13 +118,7 @@ export function GoogleAdsReportingCard({
                 'Google Ads reporting could not be loaded. Your store analytics are still available.'}
             </AlertDescription>
           </Alert>
-          {canManageIntegrations && reporting?.dataStatus === 'error' ? (
-            <GoogleAdsAccountPicker
-              merchantId={merchantId}
-              onSynced={onSynced}
-              syncWindow={syncWindow}
-            />
-          ) : canManageIntegrations ? (
+          {canManageControls ? (
             <GoogleAdsConnectButton
               label="Reconnect Google Ads"
               merchantId={merchantId}
@@ -134,7 +141,7 @@ export function GoogleAdsReportingCard({
             Google Ads is connected. Select a reporting account to start
             importing spend and campaign metrics.
           </p>
-          {canManageIntegrations && (
+          {canManageControls && (
             <GoogleAdsAccountPicker
               merchantId={merchantId}
               onSynced={onSynced}
@@ -154,7 +161,7 @@ export function GoogleAdsReportingCard({
               accessible account or retry the sync if needed.
             </p>
           </div>
-          {canManageIntegrations && (
+          {canManageControls && (
             <>
               <GoogleAdsAccountPicker
                 merchantId={merchantId}
@@ -263,7 +270,7 @@ export function GoogleAdsReportingCard({
               </AlertDescription>
             </Alert>
           )}
-          {canManageIntegrations && (
+          {canManageControls && (
             <div className="space-y-2 border-t pt-3">
               <p className="text-xs text-muted-foreground">
                 Sync the selected account or choose another accessible Google
@@ -279,7 +286,7 @@ export function GoogleAdsReportingCard({
           )}
         </div>
       )}
-      {canManageIntegrations && ['connected', 'error'].includes(status) && (
+      {canManageControls && ['connected', 'error'].includes(status) && (
         <AdsDisconnectButton
           displayName="Google Ads"
           merchantId={merchantId}

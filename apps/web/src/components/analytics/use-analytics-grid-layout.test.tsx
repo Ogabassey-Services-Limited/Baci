@@ -42,4 +42,76 @@ describe('useAnalyticsGridLayout', () => {
       )
     );
   });
+
+  it('waits for preference hydration before saving an early edit', async () => {
+    let resolvePreference: ((layoutConfig: unknown) => void) | undefined;
+    fetchPreference.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreference = resolve;
+        })
+    );
+
+    const { result } = renderHook(() =>
+      useAnalyticsGridLayout({
+        activeCategory: 'overview',
+        isEditMode: true,
+        merchantId: 'merchant-1',
+      })
+    );
+
+    await waitFor(() => expect(fetchPreference).toHaveBeenCalled());
+    act(() => {
+      result.current.onLayoutChange([], {
+        lg: [
+          {
+            h: 2,
+            i: 'summary-revenue',
+            w: 4,
+            x: 5,
+            y: 1,
+          },
+        ],
+      });
+    });
+    expect(savePreference).not.toHaveBeenCalled();
+
+    resolvePreference?.({
+      finance: {
+        lg: [
+          {
+            h: 1,
+            i: 'summary-profit',
+            w: 4,
+            x: 0,
+            y: 0,
+          },
+        ],
+      },
+      overview: {
+        lg: [
+          {
+            h: 1,
+            i: 'analytics-highlights',
+            w: 8,
+            x: 0,
+            y: 0,
+          },
+        ],
+      },
+    });
+
+    await waitFor(() => expect(savePreference).toHaveBeenCalledTimes(1));
+    const savedConfig = savePreference.mock.calls[0]?.[0] as Record<
+      string,
+      unknown
+    >;
+    expect(savedConfig).toHaveProperty('finance');
+    expect(savedConfig).toHaveProperty('overview');
+    expect(result.current.layouts.lg).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ i: 'summary-revenue', x: 5, y: 1 }),
+      ])
+    );
+  });
 });

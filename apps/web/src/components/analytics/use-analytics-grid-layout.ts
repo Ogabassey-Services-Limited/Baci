@@ -27,6 +27,8 @@ export function useAnalyticsGridLayout({
     resolveCategoryLayouts(activeCategory)
   );
   const persistedLayoutConfigRef = useRef<unknown>(null);
+  const hydrationReadyRef = useRef(!merchantId);
+  const pendingLayoutRef = useRef<Layouts | null>(null);
   const layoutSaveQueueRef = useRef(
     createDashboardLayoutSaveQueue(saveDashboardLayoutPreference)
   );
@@ -41,12 +43,19 @@ export function useAnalyticsGridLayout({
   ) {
     setPreviousSelection({ activeCategory, merchantId });
     setLayouts(resolveCategoryLayouts(activeCategory));
+    hydrationReadyRef.current = !merchantId;
+    pendingLayoutRef.current = null;
+    persistedLayoutConfigRef.current = null;
   }
 
   useEffect(() => {
-    if (!merchantId) return;
+    if (!merchantId) {
+      hydrationReadyRef.current = true;
+      return;
+    }
 
     const controller = new AbortController();
+    hydrationReadyRef.current = false;
     const previousWrites = layoutSaveQueueRef.current.reset();
     persistedLayoutConfigRef.current = null;
 
@@ -56,9 +65,34 @@ export function useAnalyticsGridLayout({
         return fetchDashboardLayoutPreference(merchantId, controller.signal);
       })
       .then((layoutConfig) => {
-        if (controller.signal.aborted || !layoutConfig) return;
+        if (controller.signal.aborted) return;
 
         persistedLayoutConfigRef.current = layoutConfig;
+        hydrationReadyRef.current = true;
+        const pendingLayout = pendingLayoutRef.current;
+        pendingLayoutRef.current = null;
+
+        if (pendingLayout) {
+          const nextLayoutConfig = mergeDashboardLayoutConfig(
+            layoutConfig,
+            activeCategory,
+            pendingLayout
+          );
+          persistedLayoutConfigRef.current = nextLayoutConfig;
+          setLayouts(pendingLayout);
+          void layoutSaveQueueRef.current
+            .enqueue(nextLayoutConfig, merchantId)
+            .catch((error: unknown) => {
+              if (error instanceof Error && error.name === 'AbortError') {
+                return;
+              }
+              console.error('Failed to save layout:', error);
+            });
+          return;
+        }
+
+        if (!layoutConfig) return;
+
         const hydratedLayouts = hydrateDashboardLayoutConfig(
           layoutConfig,
           activeCategory
@@ -95,6 +129,11 @@ export function useAnalyticsGridLayout({
       completeLayouts
     );
     setLayouts(completeLayouts);
+    if (merchantId && !hydrationReadyRef.current) {
+      if (isEditMode) pendingLayoutRef.current = completeLayouts;
+      return;
+    }
+
     persistedLayoutConfigRef.current = nextLayoutConfig;
     if (!isEditMode) return;
 

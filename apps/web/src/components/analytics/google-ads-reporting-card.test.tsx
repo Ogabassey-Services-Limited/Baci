@@ -65,12 +65,13 @@ describe('GoogleAdsReportingCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows a recoverable error without exposing provider details', () => {
+  it('offers reconnect only for a confirmed connection error', () => {
     render(
       <GoogleAdsReportingCard
         {...reportingProps}
         reporting={{
           connectionStatus: 'error',
+          dataStatus: 'ready',
           error: 'Google Ads reporting is temporarily unavailable.',
         }}
       />
@@ -87,10 +88,13 @@ describe('GoogleAdsReportingCard', () => {
     );
   });
 
-  it('keeps a connected reporting account controllable after a spend read error', () => {
+  it('shows retry-only unavailable state when reporting data reads fail', () => {
+    const onSynced = vi.fn();
+
     render(
       <GoogleAdsReportingCard
         {...reportingProps}
+        onSynced={onSynced}
         reporting={{
           connectionStatus: 'error',
           dataStatus: 'error',
@@ -100,14 +104,48 @@ describe('GoogleAdsReportingCard', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: /select google ads account/i })
+      screen.getByRole('button', { name: 'Retry Google Ads reporting' })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: /reconnect google ads/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /disconnect google ads/i })
+      screen.queryByRole('button', { name: /select google ads account/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /disconnect google ads/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry Google Ads reporting' })
+    );
+    expect(onSynced).toHaveBeenCalledOnce();
+  });
+
+  it('hides account controls while connected reporting reads are unavailable', () => {
+    const onSynced = vi.fn();
+
+    render(
+      <GoogleAdsReportingCard
+        {...reportingProps}
+        onSynced={onSynced}
+        reporting={{
+          connectionStatus: 'connected',
+          dataStatus: 'error',
+          error: 'Google Ads reporting is temporarily unavailable.',
+        }}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Retry Google Ads reporting' })
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /select google ads account/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /disconnect google ads/i })
+    ).not.toBeInTheDocument();
   });
 
   it('does not imply reporting is ready before an account is selected', () => {
@@ -116,6 +154,7 @@ describe('GoogleAdsReportingCard', () => {
         {...reportingProps}
         reporting={{
           connectionStatus: 'connected',
+          dataStatus: 'ready',
           needsAccountSelection: true,
         }}
       />
@@ -173,6 +212,7 @@ describe('GoogleAdsReportingCard', () => {
         onSynced={onSynced}
         reporting={{
           connectionStatus: 'connected',
+          dataStatus: 'ready',
           needsAccountSelection: true,
         }}
         syncWindow={{ endDate: '2026-08-21', startDate: '2026-08-01' }}
@@ -215,6 +255,7 @@ describe('GoogleAdsReportingCard', () => {
           accountName: 'Baci reporting account',
           connectionStatus: 'connected',
           currency: 'NGN',
+          dataStatus: 'ready',
           metrics: {
             clicks: 48,
             conversions: 3,
@@ -247,6 +288,7 @@ describe('GoogleAdsReportingCard', () => {
         reporting={{
           connectionStatus: 'connected',
           currency: 'NGN',
+          dataStatus: 'ready',
           isStale: true,
           metrics: {
             endDate: '2026-08-21',

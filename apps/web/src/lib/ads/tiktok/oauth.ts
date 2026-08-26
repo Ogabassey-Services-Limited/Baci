@@ -36,10 +36,13 @@ export interface TikTokAdsGrant {
 }
 
 export function buildTikTokAdsAuthorizationUrl(
-  config: Pick<TikTokAdsConfig, 'authorizationUrl' | 'redirectUri'>,
+  config: Pick<TikTokAdsConfig, 'appId' | 'authorizationUrl' | 'redirectUri'>,
   state: string
 ): string {
   const url = new URL(config.authorizationUrl);
+  if (!url.searchParams.has('app_id')) {
+    url.searchParams.set('app_id', config.appId);
+  }
   url.searchParams.set('redirect_uri', config.redirectUri);
   url.searchParams.set('state', state);
   return url.toString();
