@@ -183,6 +183,8 @@ describe('useTransactionReview', () => {
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: [baseOrder], error: null });
 
     const { result } = renderHook(() => useTransactionReview(), {
@@ -192,11 +194,50 @@ describe('useTransactionReview', () => {
     await waitFor(() => expect(result.current.data).toEqual([baseOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      3,
+      5,
       expect.objectContaining({
         selectStatement: expect.not.stringContaining('discount_amount'),
       })
     );
     expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([baseOrder]);
+  });
+
+  it('keeps discounts in the compatible base projection after newer selectors fail', async () => {
+    const schemaCacheError = {
+      code: 'PGRST200',
+      message:
+        "Could not find the 'transaction_date' column of 'orders' in the schema cache",
+    };
+    const discountedOrder = {
+      discount_amount: 25,
+      id: 'discounted-base-order',
+      order_items: [{ id: 'base-item', price: 100, quantity: 1 }],
+      shipping_status: 'pending',
+      source: 'online_store',
+      total: 75,
+    };
+
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: [discountedOrder], error: null });
+
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
+
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        includeCancelledAt: true,
+        includeTransactionDate: false,
+        selectStatement: expect.stringContaining('discount_amount'),
+      })
+    );
+    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([
+      discountedOrder,
+    ]);
   });
 });

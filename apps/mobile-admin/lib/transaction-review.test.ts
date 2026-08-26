@@ -148,6 +148,41 @@ describe('transaction review helpers', () => {
     expect(order.items[0]?.profit).toBeCloseTo(47.85, 2);
   });
 
+  it('does not discount Jumia item prices that already include voucher reductions', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        customer_email: null,
+        customer_name: 'Jumia Customer',
+        customer_phone: null,
+        discount_amount: 5000,
+        fulfillment_details: null,
+        id: 'order-jumia',
+        order_items: [
+          {
+            cost_price: 200000,
+            fulfillment_data: null,
+            id: 'item-jumia',
+            name: 'Jumia Product',
+            price: 245000,
+            product_id: null,
+            products: null,
+            quantity: 1,
+          },
+        ],
+        order_number: 'JUMIA-12345',
+        payment_method: 'jumia',
+        source: 'jumia',
+        total: 245000,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      profit: 45000,
+      revenue: 245000,
+    });
+  });
+
   it('uses item-level fulfillment identifiers without repeating unrelated order serials', () => {
     const [order] = mapTransactionOrderRows([
       {

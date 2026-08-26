@@ -101,9 +101,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
     const orderItems = order.order_items ?? [];
+    const isNetPricedMarketplaceOrder = order.source?.toLowerCase() === 'jumia';
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
-      order.discount_amount,
+      isNetPricedMarketplaceOrder ? 0 : order.discount_amount,
       parseTransactionDiscountOptions(order.ad_tracking)
     );
     const items = orderItems.flatMap<TransactionReviewItem>(

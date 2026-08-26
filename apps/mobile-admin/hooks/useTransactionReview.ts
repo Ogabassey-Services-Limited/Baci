@@ -33,8 +33,14 @@ const TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT =
 const TRANSACTION_REVIEW_BASE_SELECT =
   'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
+const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT =
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+
 const TRANSACTION_REVIEW_BASE_COMPAT_SELECT =
   'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+
+const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT =
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 // Keep a final selector for deployments whose schema cache predates the
 // persisted order discount column. The mapper treats the omitted value as 0.
@@ -61,7 +67,7 @@ function isMissingDiscountAmountSchemaError(
 }
 
 function warnTransactionReviewQueryError(
-  stage: 'Base' | 'Full' | 'FullNoDiscount' | 'Legacy',
+  stage: 'Base' | 'BaseWithDiscount' | 'Full' | 'FullNoDiscount' | 'Legacy',
   error: {
     code?: string;
     details?: string;
@@ -161,6 +167,38 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         error = legacyResult.error;
 
         warnTransactionReviewQueryError('Legacy', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const baseWithDiscountResult = await fetchTransactionReviewRows({
+          endDateIso,
+          includeCancelledAt: true,
+          includeTransactionDate: false,
+          merchantId: merchant.id,
+          selectStatement: TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT,
+          startDateIso,
+        });
+
+        data = baseWithDiscountResult.data;
+        error = baseWithDiscountResult.error;
+
+        warnTransactionReviewQueryError('BaseWithDiscount', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const baseWithDiscountCompatResult = await fetchTransactionReviewRows({
+          endDateIso,
+          includeCancelledAt: false,
+          includeTransactionDate: false,
+          merchantId: merchant.id,
+          selectStatement: TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT,
+          startDateIso,
+        });
+
+        data = baseWithDiscountCompatResult.data;
+        error = baseWithDiscountCompatResult.error;
+
+        warnTransactionReviewQueryError('BaseWithDiscount', error);
       }
 
       if (isTransactionReviewSchemaCacheError(error)) {

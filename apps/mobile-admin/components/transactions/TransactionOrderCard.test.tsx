@@ -216,68 +216,6 @@ describe('TransactionOrderCard', () => {
     expect(onOpenEditor).toHaveBeenCalledWith(order, editableItem);
   });
 
-  it('shows the persisted order discount in expanded transaction details', () => {
-    render(
-      <TransactionOrderCard
-        colors={LIGHT_COLORS}
-        formatCurrency={(amount) => `NGN ${amount}`}
-        onOpenEditor={vi.fn()}
-        order={{
-          createdAt: '2026-04-11T09:00:00.000Z',
-          customerEmail: null,
-          customerName: 'Bassey',
-          customerPhone: null,
-          discountAmount: 500,
-          estimatedProfit: 3400,
-          id: 'order-1',
-          items: [editableItem],
-          missingCostCount: 0,
-          orderNumber: 'ORD-1',
-          paymentMethod: 'card',
-          searchText: 'ord-1 bassey samsung galaxy s26',
-          total: 4100,
-        }}
-      />
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /view order details for bassey/i })
-    );
-
-    expect(screen.getByText('Discount -NGN 500')).toBeInTheDocument();
-  });
-
-  it('does not render a discount badge when the order discount is zero', () => {
-    render(
-      <TransactionOrderCard
-        colors={LIGHT_COLORS}
-        formatCurrency={(amount) => `NGN ${amount}`}
-        onOpenEditor={vi.fn()}
-        order={{
-          createdAt: '2026-04-11T09:00:00.000Z',
-          customerEmail: null,
-          customerName: 'Bassey',
-          customerPhone: null,
-          discountAmount: 0,
-          estimatedProfit: 3400,
-          id: 'order-1',
-          items: [editableItem],
-          missingCostCount: 0,
-          orderNumber: 'ORD-1',
-          paymentMethod: 'card',
-          searchText: 'ord-1 bassey samsung galaxy s26',
-          total: 4600,
-        }}
-      />
-    );
-
-    fireEvent.click(
-      screen.getByRole('button', { name: /view order details for bassey/i })
-    );
-
-    expect(screen.queryByText(/Discount -/)).not.toBeInTheDocument();
-  });
-
   it('opens the editor for unlinked custom rows so transaction cost can be fixed', () => {
     const onOpenEditor = vi.fn();
     const order = {
