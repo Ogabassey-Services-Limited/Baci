@@ -166,4 +166,37 @@ describe('useTransactionReview', () => {
       { id: 'legacy-order' },
     ]);
   });
+
+  it('omits discounts when only the minimal base schema fallback is available', async () => {
+    const schemaCacheError = {
+      code: 'PGRST200',
+      message:
+        "Could not find the 'order_item_unit_costs' relationship in the schema cache",
+    };
+    const baseOrder = {
+      id: 'base-order',
+      order_items: [{ id: 'base-item', price: 100, quantity: 1 }],
+      shipping_status: 'pending',
+      total: 100,
+    };
+
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: [baseOrder], error: null });
+
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual([baseOrder]));
+
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        selectStatement: expect.not.stringContaining('discount_amount'),
+      })
+    );
+    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([baseOrder]);
+  });
 });

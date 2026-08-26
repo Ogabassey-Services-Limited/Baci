@@ -119,7 +119,7 @@ const mockOrder: {
   tax_amount: '0',
   tax_basis: 'exclusive',
   discount_amount: '1000',
-  total: '11500',
+  total: '10500',
   currency: 'NGN',
   shipping_address: {
     address: '123 Test St',
@@ -345,7 +345,7 @@ describe('resendOrderConfirmation', () => {
         orderNumber: '#ORD-001',
         customerName: 'John Doe',
         merchantName: 'TestShop',
-        total: 11500,
+        total: 10500,
         currency: 'NGN',
       })
     );
@@ -675,8 +675,15 @@ describe('getOrder', () => {
       subtotal: 10000,
       tax_amount: 0,
       tax_basis: 'exclusive',
-      total: 11500,
+      total: 10500,
     });
+    expect(order?.total).toBe(
+      (order?.subtotal ?? 0) +
+        (order?.shipping_fee ?? 0) +
+        (order?.gift_wrapping_fee ?? 0) +
+        (order?.tax_amount ?? 0) -
+        (order?.discount_amount ?? 0)
+    );
   });
 
   it('selects and maps the merchant shipping rate columns for the detail page', async () => {
