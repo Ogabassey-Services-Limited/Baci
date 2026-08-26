@@ -9,6 +9,7 @@ import { POST } from './route';
 // Hoisted mocks for fire-and-forget side effects so tests don't await emails / push.
 const {
   MockQuizProductionNotApprovedError,
+  mockNotifyNewInvoice,
   mockEnforcePrizeProductionGuard,
   mockNotifyNewOrder,
   mockNotifyPaymentReceived,
@@ -30,6 +31,9 @@ const {
       this.name = 'QuizProductionNotApprovedError';
     }
   },
+  mockNotifyNewInvoice: vi.fn(() =>
+    Promise.resolve({ sent: 1, failed: 0, errors: [] })
+  ),
   mockEnforcePrizeProductionGuard: vi.fn(),
   mockNotifyNewOrder: vi.fn(() =>
     Promise.resolve({ sent: 1, failed: 0, errors: [] })
@@ -128,6 +132,7 @@ vi.mock('@/lib/email-templates', () => ({
 }));
 
 vi.mock('@/lib/expo-push', () => ({
+  notifyNewInvoice: mockNotifyNewInvoice,
   notifyNewOrder: mockNotifyNewOrder,
   notifyPaymentReceived: mockNotifyPaymentReceived,
 }));
@@ -5751,6 +5756,18 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     await vi.waitFor(() => expect(mockSendEmail).toHaveBeenCalled(), {
       timeout: 1000,
     });
+    await vi.waitFor(() => expect(mockNotifyNewInvoice).toHaveBeenCalled(), {
+      timeout: 1000,
+    });
+    expect(mockNotifyNewInvoice).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      'order-id',
+      'ORD-123',
+      'Test Customer',
+      1000,
+      'NGN'
+    );
+    expect(mockNotifyNewOrder).not.toHaveBeenCalled();
     expect(orderItemsOrder).toHaveBeenCalledTimes(2);
 
     // Assert sendEmail was called with the branded invoice attachment. The

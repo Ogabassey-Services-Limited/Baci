@@ -38,6 +38,7 @@ function createChainableMock(
   chain.or = vi.fn().mockReturnValue(chain);
   chain.order = vi.fn().mockReturnValue(chain);
   chain.limit = vi.fn().mockReturnValue(chain);
+  chain.maybeSingle = vi.fn().mockReturnValue(chain);
   chain.update = vi.fn().mockReturnValue(chain);
   chain.insert = vi.fn().mockReturnValue(chain);
   // Supabase query builder returns thenables — Object.defineProperty avoids biome noThenProperty
@@ -71,6 +72,7 @@ let notifyMerchant: typeof import('./expo-push').notifyMerchant;
 let notifyCustomer: typeof import('./expo-push').notifyCustomer;
 let notifyAdminUserDevices: typeof import('./expo-push').notifyAdminUserDevices;
 let notifyNewOrder: typeof import('./expo-push').notifyNewOrder;
+let notifyNewInvoice: typeof import('./expo-push').notifyNewInvoice;
 let notifyPaymentReceived: typeof import('./expo-push').notifyPaymentReceived;
 let notifyLowStock: typeof import('./expo-push').notifyLowStock;
 let notifyNewReview: typeof import('./expo-push').notifyNewReview;
@@ -85,6 +87,7 @@ beforeEach(async () => {
   notifyCustomer = mod.notifyCustomer;
   notifyAdminUserDevices = mod.notifyAdminUserDevices;
   notifyNewOrder = mod.notifyNewOrder;
+  notifyNewInvoice = mod.notifyNewInvoice;
   notifyPaymentReceived = mod.notifyPaymentReceived;
   notifyLowStock = mod.notifyLowStock;
   notifyNewReview = mod.notifyNewReview;
@@ -861,6 +864,65 @@ describe('notifyNewOrder', () => {
         order_number: 'ORD001',
       })
     );
+  });
+});
+
+describe('notifyNewInvoice', () => {
+  it('identifies an unpaid customer-created invoice and asks the merchant to follow up', async () => {
+    const mockChain = createChainableMock([{ token: 'ExponentPushToken[m1]' }]);
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(mockChain),
+    } as never);
+
+    mockSendPushNotificationsAsync.mockResolvedValueOnce([
+      { status: 'ok', id: 't1' },
+    ]);
+
+    await notifyNewInvoice(
+      'merchant-1',
+      'order-1',
+      'ORD001',
+      'John Doe',
+      15000
+    );
+
+    const sentMessages = mockChunkPushNotifications.mock
+      .calls[0][0] as ExpoPushMessage[];
+    expect(sentMessages[0].title).toContain('New Invoice');
+    expect(sentMessages[0].body).toContain('Invoice #ORD001');
+    expect(sentMessages[0].body).toContain('created by John Doe');
+    expect(sentMessages[0].body).toContain('Follow up with the customer');
+    expect(sentMessages[0].channelId).toBe('orders');
+    expect(sentMessages[0].data).toEqual(
+      expect.objectContaining({
+        type: 'new_invoice',
+        order_id: 'order-1',
+        order_number: 'ORD001',
+      })
+    );
+  });
+
+  it('does not send a follow-up alert when the merchant has disabled it', async () => {
+    const preferenceChain = createChainableMock({
+      follow_up_notifications_enabled: false,
+    });
+    vi.mocked(createAdminClient).mockReturnValue({
+      from: vi.fn().mockReturnValue(preferenceChain),
+    } as never);
+
+    const result = await notifyNewInvoice(
+      'merchant-1',
+      'order-1',
+      'ORD001',
+      'John Doe',
+      15000
+    );
+
+    expect(result).toEqual({ sent: 0, failed: 0, errors: [] });
+    expect(preferenceChain.select).toHaveBeenCalledWith(
+      'follow_up_notifications_enabled'
+    );
+    expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });
 });
 

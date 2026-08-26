@@ -89,6 +89,8 @@ export default function NotificationPreferencesPage() {
       body: JSON.stringify({
         in_app_enabled: preferences.in_app_enabled,
         banner_enabled: preferences.banner_enabled,
+        follow_up_notifications_enabled:
+          preferences.follow_up_notifications_enabled,
         quiet_hours_start: preferences.quiet_hours_start,
         quiet_hours_end: preferences.quiet_hours_end,
         quiet_hours_time_zone: preferences.quiet_hours_time_zone,
@@ -222,6 +224,22 @@ export default function NotificationPreferencesPage() {
               checked={preferences?.banner_enabled ?? true}
               onCheckedChange={(checked) =>
                 updatePreference({ banner_enabled: checked })
+              }
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="follow_up_alerts">Follow-up Alerts</Label>
+              <p className="text-sm text-muted-foreground">
+                Alert me when a customer creates an invoice that needs follow-up
+              </p>
+            </div>
+            <Switch
+              id="follow_up_alerts"
+              checked={preferences?.follow_up_notifications_enabled ?? true}
+              onCheckedChange={(checked) =>
+                updatePreference({ follow_up_notifications_enabled: checked })
               }
             />
           </div>

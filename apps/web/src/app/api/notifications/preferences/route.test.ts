@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174001';
 const USER_ID = '123e4567-e89b-12d3-a456-426614174002';
@@ -24,6 +24,7 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 describe('PATCH /api/notifications/preferences', () => {
   let authUser: { id: string } | null;
   let preferenceQuery: {
+    eq: ReturnType<typeof vi.fn>;
     select: ReturnType<typeof vi.fn>;
     single: ReturnType<typeof vi.fn>;
     upsert: ReturnType<typeof vi.fn>;
@@ -39,6 +40,7 @@ describe('PATCH /api/notifications/preferences', () => {
     vi.clearAllMocks();
     authUser = { id: USER_ID };
     preferenceQuery = {
+      eq: vi.fn(),
       select: vi.fn(),
       single: vi.fn().mockResolvedValue({
         data: { merchant_id: MERCHANT_ID, in_app_enabled: false },
@@ -46,6 +48,7 @@ describe('PATCH /api/notifications/preferences', () => {
       }),
       upsert: vi.fn(),
     };
+    preferenceQuery.eq.mockReturnValue(preferenceQuery);
     preferenceQuery.select.mockReturnValue(preferenceQuery);
     preferenceQuery.upsert.mockReturnValue(preferenceQuery);
     vi.mocked(checkCsrfProtection).mockResolvedValue({ valid: true });
@@ -77,6 +80,65 @@ describe('PATCH /api/notifications/preferences', () => {
     expect(preferenceQuery.select).toHaveBeenCalledWith(
       expect.stringContaining('quiet_hours_end')
     );
+  });
+
+  it('returns the stored follow-up alert preference', async () => {
+    preferenceQuery.single.mockResolvedValueOnce({
+      data: {
+        merchant_id: MERCHANT_ID,
+        follow_up_notifications_enabled: false,
+      },
+      error: null,
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      follow_up_notifications_enabled: false,
+    });
+    expect(preferenceQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining('follow_up_notifications_enabled')
+    );
+  });
+
+  it('defaults follow-up alerts on when a merchant has no preference row', async () => {
+    preferenceQuery.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      merchant_id: MERCHANT_ID,
+      follow_up_notifications_enabled: true,
+    });
+  });
+
+  it('persists the follow-up alert toggle', async () => {
+    const response = await PATCH(
+      request({ follow_up_notifications_enabled: false })
+    );
+
+    expect(response.status).toBe(200);
+    expect(preferenceQuery.upsert).toHaveBeenCalledWith(
+      {
+        merchant_id: MERCHANT_ID,
+        follow_up_notifications_enabled: false,
+      },
+      { onConflict: 'merchant_id' }
+    );
+  });
+
+  it('rejects a non-boolean follow-up alert toggle', async () => {
+    const response = await PATCH(
+      request({ follow_up_notifications_enabled: 'off' })
+    );
+
+    expect(response.status).toBe(400);
+    expect(preferenceQuery.upsert).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown preference field', async () => {

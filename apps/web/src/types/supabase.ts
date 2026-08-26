@@ -7165,6 +7165,7 @@ export type Database = {
       notification_preferences: {
         Row: {
           banner_enabled: boolean | null;
+          follow_up_notifications_enabled: boolean;
           in_app_enabled: boolean | null;
           merchant_id: string;
           quiet_hours_end: string | null;
@@ -7174,6 +7175,7 @@ export type Database = {
         };
         Insert: {
           banner_enabled?: boolean | null;
+          follow_up_notifications_enabled?: boolean;
           in_app_enabled?: boolean | null;
           merchant_id: string;
           quiet_hours_end?: string | null;
@@ -7183,6 +7185,7 @@ export type Database = {
         };
         Update: {
           banner_enabled?: boolean | null;
+          follow_up_notifications_enabled?: boolean;
           in_app_enabled?: boolean | null;
           merchant_id?: string;
           quiet_hours_end?: string | null;

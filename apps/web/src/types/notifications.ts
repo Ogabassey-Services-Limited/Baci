@@ -80,6 +80,7 @@ export interface NotificationPreferences {
   merchant_id: string;
   in_app_enabled: boolean;
   banner_enabled: boolean;
+  follow_up_notifications_enabled: boolean;
   quiet_hours_start: string | null;
   quiet_hours_end: string | null;
   quiet_hours_time_zone: string;
@@ -133,6 +134,7 @@ export interface UpdateNotificationInput {
 export interface UpdatePreferencesInput {
   in_app_enabled?: boolean;
   banner_enabled?: boolean;
+  follow_up_notifications_enabled?: boolean;
   quiet_hours_start?: string | null;
   quiet_hours_end?: string | null;
   quiet_hours_time_zone?: string;

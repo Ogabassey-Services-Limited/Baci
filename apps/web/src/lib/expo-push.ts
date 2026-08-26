@@ -11,6 +11,7 @@ import Expo, {
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
+import { isFollowUpNotificationsEnabled } from '@/lib/follow-up-notification-preferences';
 import { preparePushNotificationPayload } from '@/lib/prepare-push-notification-payload';
 import { filterPushTokensByShipmentUpdateCapability } from '@/lib/push-token-capability';
 import {
@@ -81,6 +82,10 @@ export type NotificationChannel =
   | 'admin'
   | 'promotions';
 
+type MerchantNotificationOptions = DeliveryStartOptions & {
+  notificationCategory?: 'follow_up';
+};
+
 // ── Core send functions ──────────────────────────────────────────────────────
 
 /**
@@ -137,9 +142,16 @@ export async function notifyMerchant(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'general',
-  options?: DeliveryStartOptions
+  options?: MerchantNotificationOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
+
+  if (
+    options?.notificationCategory === 'follow_up' &&
+    !(await isFollowUpNotificationsEnabled(supabase, merchantId))
+  ) {
+    return { sent: 0, failed: 0, errors: [] };
+  }
 
   const tokenQuery = filterPushTokensByShipmentUpdateCapability(
     supabase
@@ -736,6 +748,39 @@ export function notifyNewOrder(
       currency,
     },
     'orders'
+  );
+}
+
+/**
+ * Notify merchant that a customer created an invoice that needs follow-up.
+ *
+ * Invoice creation is intentionally distinct from a paid/new-order event:
+ * the order is still unpaid and the merchant should contact the customer to
+ * arrange payment before fulfilment starts.
+ */
+export function notifyNewInvoice(
+  merchantId: string,
+  orderId: string,
+  orderNumber: string,
+  customerName: string,
+  amount: number,
+  currency = 'NGN'
+): Promise<NotificationSendResult> {
+  const formattedAmount = formatCurrency(amount, currency);
+
+  return notifyMerchant(
+    merchantId,
+    '🧾 New Invoice',
+    `Invoice #${orderNumber} created by ${customerName} for ${formattedAmount}. Follow up with the customer to collect payment.`,
+    {
+      type: 'new_invoice',
+      order_id: orderId,
+      order_number: orderNumber,
+      amount,
+      currency,
+    },
+    'orders',
+    { notificationCategory: 'follow_up' }
   );
 }
 

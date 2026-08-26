@@ -37,7 +37,11 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { recordPlatformOrderCreatedEvent } from '@/lib/events/record-platform-order-created-event';
-import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import {
+  notifyNewInvoice,
+  notifyNewOrder,
+  notifyPaymentReceived,
+} from '@/lib/expo-push';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
@@ -3584,7 +3588,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Notify merchant of new order — fire-and-forget via after() for the same reason.
+      // Notify merchant of a new order or invoice — fire-and-forget via after().
       after(async () => {
         if (!shouldSendImmediateOrderNotifications) {
           // Card/Paystack payments trigger notifyNewOrder from the webhook/payment-verify handler
@@ -3593,7 +3597,10 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const pushResult = await notifyNewOrder(
+          const isInvoiceCreation = effectivePaymentMethod === 'invoice';
+          const pushResult = await (isInvoiceCreation
+            ? notifyNewInvoice
+            : notifyNewOrder)(
             merchant_id,
             order.id,
             orderNum,
@@ -3603,7 +3610,9 @@ export async function POST(request: NextRequest) {
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
-              message: 'New order push notification was not fully delivered',
+              message: isInvoiceCreation
+                ? 'New invoice push notification was not fully delivered'
+                : 'New order push notification was not fully delivered',
               orderId: order.id,
               merchantId: merchant_id,
               sent: pushResult.sent,
