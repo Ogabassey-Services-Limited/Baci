@@ -107,7 +107,10 @@ export async function loadCheckoutShippingQuotes(
   try {
     const response = await fetch('/api/shipping/quotes', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-baci-client': 'web-storefront',
+      },
       body: JSON.stringify({
         deliveryPreference: receiver.deliveryPreference,
         merchantId: receiver.merchantId || undefined,

@@ -22,12 +22,15 @@ function createRequest(headers: Record<string, string>) {
   };
 }
 
-describe('body-only mobile storefront quote context', () => {
+describe('body-only storefront quote context', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('resolves the configured merchant origin instead of defaulting to Lagos', async () => {
+  it.each([
+    'mobile-storefront',
+    'web-storefront',
+  ] as const)('resolves the configured merchant origin for %s instead of defaulting to Lagos', async (client) => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
         business_name: 'Abuja Store',
@@ -52,7 +55,7 @@ describe('body-only mobile storefront quote context', () => {
       },
       request: createRequest({
         host: 'usebaci.com',
-        'x-baci-client': 'mobile-storefront',
+        'x-baci-client': client,
       }),
       supabase: {
         auth: {

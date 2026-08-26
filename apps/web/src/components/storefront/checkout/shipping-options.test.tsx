@@ -108,22 +108,28 @@ describe('ShippingOptions', () => {
     });
 
     expect(mockApiPost).toHaveBeenCalledTimes(1);
-    expect(mockApiPost).toHaveBeenCalledWith('/api/shipping/quotes', {
-      merchantId: '11111111-1111-4111-8111-111111111111',
-      receiver: {
-        name: 'Ada',
-        phone: '08000000000',
-        address: '1 Marina Road',
-        city: 'Lagos',
-        state: 'Lagos',
-        country: 'Nigeria',
-        countryCode: 'NG',
+    expect(mockApiPost).toHaveBeenCalledWith(
+      '/api/shipping/quotes',
+      {
+        merchantId: '11111111-1111-4111-8111-111111111111',
+        receiver: {
+          name: 'Ada',
+          phone: '08000000000',
+          address: '1 Marina Road',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'Nigeria',
+          countryCode: 'NG',
+        },
+        items: [{ name: 'Pixel 9', quantity: 2, weight: 1, value: 5000 }],
+        shipmentType: 'domestic',
+        // Advisory subtotal (2 x ₦5,000) so free-over merchant rates quote right.
+        cart_subtotal: 10000,
       },
-      items: [{ name: 'Pixel 9', quantity: 2, weight: 1, value: 5000 }],
-      shipmentType: 'domestic',
-      // Advisory subtotal (2 x ₦5,000) so free-over merchant rates quote right.
-      cart_subtotal: 10000,
-    });
+      {
+        headers: { 'x-baci-client': 'web-storefront' },
+      }
+    );
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect).toHaveBeenCalledWith(cheapQuote, 'session-1');
     expect(screen.getByText('GIG Logistics')).toBeInTheDocument();

@@ -12,7 +12,7 @@ type HeaderReader = {
 };
 
 /**
- * Resolves a mobile storefront's body-only merchant origin using the
+ * Resolves a storefront's body-only merchant origin using the
  * anonymous-safe projection, without granting the body merchant ID access to
  * the private merchants table.
  */
