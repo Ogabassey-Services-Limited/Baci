@@ -93,6 +93,7 @@ describe('order payment account DVA hardening migrations', () => {
       "NEW.expires_at > NEW.assigned_at + interval '90 minutes'"
     );
     expect(versions).toContain('NEW.expires_at <= NEW.assigned_at');
+    expect(versions).toContain('NEW.expires_at <= COALESCE(');
   });
 
   it('repairs invoice expiries truncated by the legacy clamp', () => {
@@ -104,7 +105,25 @@ describe('order payment account DVA hardening migrations', () => {
     expect(repair).toContain('account.expires_at = v_current.clamped_expiry');
     expect(repair).toContain("'paystack_order_account:'");
     expect(repair).toContain('FOR UPDATE OF account, orders');
+    expect(repair).toContain('DISTINCT ON');
+    expect(repair).toContain('remaining_balance');
+    expect(repair).toContain('cancelled_at');
+    expect(repair).toContain('payment_status');
     expect(repair).toContain('customer_wallet_payment_accounts');
     expect(repair).toContain('checkout_sessions');
+  });
+
+  it('clears untrusted historical email backfills', () => {
+    const untrusted = migration(
+      '20260826002000_revoke_backfilled_paystack_alias_emails.sql'
+    );
+    expect(untrusted).toContain('SET assignment_customer_email = NULL');
+    expect(untrusted).toContain(
+      "created_at < TIMESTAMPTZ '2026-08-25 22:30:00+00'"
+    );
+    expect(untrusted).toContain(
+      "set_config('request.jwt.claim.role', 'service_role'"
+    );
+    expect(untrusted).toContain("COALESCE(auth.role(), '') = 'service_role'");
   });
 });

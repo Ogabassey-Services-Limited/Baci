@@ -24,6 +24,23 @@ BEGIN
     IF TG_OP = 'UPDATE' AND OLD.provider = 'paystack_version' THEN
       RETURN NEW;
     END IF;
+    -- Existing assignments may be expired when an authenticated lifecycle
+    -- update shortens their expiry (for example, after cancellation or an
+    -- email change). Do not re-apply the assignment freshness window to that
+    -- update, but never allow it to extend beyond the row's current effective
+    -- reservation window.
+    IF TG_OP = 'UPDATE'
+      AND OLD.provider = 'paystack'
+      AND NEW.provider = 'paystack'
+      AND NEW.assigned_at IS NOT DISTINCT FROM OLD.assigned_at
+      AND NEW.expires_at IS NOT NULL
+      AND NEW.expires_at <= COALESCE(
+        OLD.expires_at,
+        OLD.assigned_at + interval '90 minutes',
+        OLD.created_at + interval '90 minutes'
+      ) THEN
+      RETURN NEW;
+    END IF;
     IF NEW.assigned_at IS NULL
       OR NEW.expires_at IS NULL
       OR NEW.assigned_at < now() - interval '5 minutes'

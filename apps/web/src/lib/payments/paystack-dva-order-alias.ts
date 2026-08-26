@@ -67,10 +67,9 @@ export function isActiveOrderDvaAlias(
     expiresAt && !Number.isNaN(expiresAt.getTime())
       ? expiresAt.getTime()
       : Number.POSITIVE_INFINITY;
-  const upperBound = Math.min(
-    expiresAtMs,
-    windowAnchor.getTime() + NINETY_MINUTES_MS
-  );
+  const upperBound = Number.isFinite(expiresAtMs)
+    ? expiresAtMs
+    : windowAnchor.getTime() + NINETY_MINUTES_MS;
   const asOfMs = asOf.getTime();
 
   return asOfMs >= windowAnchor.getTime() && asOfMs <= upperBound;

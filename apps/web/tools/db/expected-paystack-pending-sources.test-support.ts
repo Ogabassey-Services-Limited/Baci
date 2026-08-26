@@ -177,11 +177,16 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260825230000_version_active_paystack_alias_snapshots.sql',
-    sha256: 'f2f8a26a4fc11320362139a690844bad8d605d0083d1c329ed3fc537e35f7645',
+    sha256: '0e77a056798ca19ac9c584a5cb8d85085b0c65e4fb2397bb52ac2ed06e65eb28',
   },
   {
     repositoryPath:
       'supabase/migrations/20260826001000_repair_invoice_paystack_alias_expiries.sql',
-    sha256: '1fcfa79f3dcf7df54b657c27677bc02a15e811d02eabe8a521bd01d1bfa5a0b9',
+    sha256: 'd58b01fe66f6faf60a233802011ddbd77a98e3bb54eafbb17592391e637a112d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826002000_revoke_backfilled_paystack_alias_emails.sql',
+    sha256: '28b164bba6d4ce14d422aaade4be3083eb7360d6407a75bb4e3bbcbe515c0cb2',
   },
 ];

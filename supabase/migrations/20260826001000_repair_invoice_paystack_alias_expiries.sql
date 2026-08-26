@@ -20,7 +20,10 @@ DECLARE
   v_current record;
 BEGIN
   FOR v_candidate IN
-    SELECT
+    SELECT DISTINCT ON (
+      account.order_id,
+      NULLIF(trim(account.account_number), '')
+    )
       account.id,
       account.order_id,
       NULLIF(trim(account.account_number), '') AS account_number
@@ -29,7 +32,12 @@ BEGIN
     WHERE account.provider = 'paystack'
       AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
       AND account.expires_at IS NOT NULL
-    ORDER BY account.id
+    ORDER BY
+      account.order_id,
+      NULLIF(trim(account.account_number), ''),
+      COALESCE(account.assigned_at, account.created_at) DESC NULLS LAST,
+      account.created_at DESC NULLS LAST,
+      account.id DESC
   LOOP
     IF v_candidate.account_number IS NULL THEN
       CONTINUE;
@@ -57,6 +65,9 @@ BEGIN
       account.expires_at AS current_expires_at,
       COALESCE(account.assigned_at, account.created_at)
         + interval '90 minutes' AS clamped_expiry,
+      orders.cancelled_at,
+      orders.shipping_status,
+      orders.payment_status,
       CASE
         WHEN orders.payment_due_date IS NOT NULL
           THEN orders.payment_due_date::timestamptz
@@ -65,13 +76,54 @@ BEGIN
           account.assigned_at,
           account.created_at
         ) + interval '14 days'
-      END AS invoice_expiry
+      END AS invoice_expiry,
+      GREATEST(
+        COALESCE(orders.total, 0) - GREATEST(
+          COALESCE(orders.amount_paid, 0),
+          COALESCE((
+            SELECT sum(COALESCE(transactions.amount, 0))
+            FROM public.transactions AS transactions
+            WHERE transactions.order_id = orders.id
+              AND transactions.merchant_id = orders.merchant_id
+              AND transactions.transaction_type = 'payment'
+              AND transactions.status IN ('success', 'completed')
+          ), 0)
+          + GREATEST(
+            0,
+            COALESCE(orders.wallet_amount_used, 0) - COALESCE((
+              SELECT sum(COALESCE(transactions.amount, 0))
+              FROM public.transactions AS transactions
+              WHERE transactions.order_id = orders.id
+                AND transactions.merchant_id = orders.merchant_id
+                AND transactions.transaction_type = 'payment'
+                AND transactions.status IN ('success', 'completed')
+                AND lower(COALESCE(transactions.gateway, '')) IN (
+                  'wallet', 'store_credit'
+                )
+            ), 0)
+          )
+          + COALESCE((
+            SELECT sum(COALESCE(redemptions.amount, 0))
+            FROM public.customer_savings_redemptions AS redemptions
+            WHERE redemptions.order_id = orders.id
+              AND redemptions.merchant_id = orders.merchant_id
+              AND redemptions.metadata ->> 'reversed_at' IS NULL
+          ), 0)
+        ),
+        0
+      ) AS remaining_balance
     INTO v_current
     FROM public.order_payment_accounts AS account
     JOIN public.orders AS orders ON orders.id = account.order_id
-    WHERE account.id = v_candidate.id
+    WHERE account.order_id = v_candidate.order_id
+      AND NULLIF(trim(account.account_number), '') = v_candidate.account_number
       AND account.provider = 'paystack'
       AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
+    ORDER BY
+      COALESCE(account.assigned_at, account.created_at) DESC NULLS LAST,
+      account.created_at DESC NULLS LAST,
+      account.id DESC
+    LIMIT 1
     FOR UPDATE OF account, orders;
 
     IF NOT FOUND OR v_current.account_number IS NULL THEN
@@ -87,6 +139,18 @@ BEGIN
           'paystack_order_account:' || v_current.account_number, 0
         )
       );
+    END IF;
+
+    -- A terminal order must not regain an invoice receiver. Re-read the
+    -- lifecycle and reconciled payable balance while the order row is locked;
+    -- webhook candidate normalization rejects these states as well.
+    IF v_current.cancelled_at IS NOT NULL
+      OR v_current.shipping_status IN ('cancelled', 'canceled')
+      OR COALESCE(v_current.payment_status, '') NOT IN (
+        'pending', 'unpaid', 'partially_paid'
+      )
+      OR v_current.remaining_balance <= 0 THEN
+      CONTINUE;
     END IF;
 
     IF v_current.invoice_expiry IS NULL
