@@ -1,14 +1,7 @@
 'use client';
 
-import {
-  AlertCircle,
-  Check,
-  ListRestart,
-  Loader2,
-  RefreshCcw,
-} from 'lucide-react';
+import { ListRestart, Loader2, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   type AdsSyncWindow,
@@ -16,6 +9,7 @@ import {
   buildDefaultAdsSyncWindow,
 } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
+import { SocialAdsAccountDiscoveryPanel } from './social-ads-account-discovery-panel';
 import {
   parseSocialAdsAccounts,
   type SocialAdsAccount,
@@ -30,6 +24,8 @@ interface SocialAdsAccountControlsProps {
   provider: SocialAdsProvider;
   syncWindow?: AdsSyncWindow;
 }
+
+type ErrorSource = 'discovery' | 'sync' | 'selection' | null;
 
 const PROVIDER_PATH_SEGMENT: Record<SocialAdsProvider, string> = {
   meta_ads: 'meta',
@@ -61,11 +57,13 @@ export function SocialAdsAccountControls({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorSource, setErrorSource] = useState<ErrorSource>(null);
 
   const loadAccounts = async () => {
     setIsChoosing(true);
     setIsLoading(true);
     setError(null);
+    setErrorSource(null);
     try {
       const response = await fetch(`${path}/accounts`, {
         credentials: 'include',
@@ -88,6 +86,7 @@ export function SocialAdsAccountControls({
           null
       );
     } catch (loadError) {
+      setErrorSource('discovery');
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -121,10 +120,12 @@ export function SocialAdsAccountControls({
   const syncNow = async () => {
     setIsSaving(true);
     setError(null);
+    setErrorSource(null);
     try {
       await sync();
       onSynced?.();
     } catch (syncError) {
+      setErrorSource('sync');
       setError(
         syncError instanceof Error
           ? syncError.message
@@ -139,6 +140,7 @@ export function SocialAdsAccountControls({
     if (!selectedId) return;
     setIsSaving(true);
     setError(null);
+    setErrorSource(null);
     try {
       const response = await fetchWithCsrf(`${path}/accounts`, {
         body: JSON.stringify({ accountId: selectedId }),
@@ -166,6 +168,7 @@ export function SocialAdsAccountControls({
       );
       setIsChoosing(false);
     } catch (saveError) {
+      setErrorSource('selection');
       setError(
         saveError instanceof Error
           ? saveError.message
@@ -174,6 +177,14 @@ export function SocialAdsAccountControls({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const cancelAccountSelection = () => {
+    setAccounts([]);
+    setSelectedId(null);
+    setIsChoosing(false);
+    setError(null);
+    setErrorSource(null);
   };
 
   return (
@@ -207,73 +218,21 @@ export function SocialAdsAccountControls({
         </div>
       )}
 
-      {isChoosing && isLoading && (
-        <div
-          className="flex items-center gap-2 text-sm text-muted-foreground"
-          role="status"
-        >
-          <Loader2 className="size-4 animate-spin" />
-          Loading {displayName} accounts…
-        </div>
-      )}
-
-      {isChoosing && !isLoading && accounts.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">
-          No accessible {displayName} accounts were found.
-        </p>
-      )}
-
-      {isChoosing && !isLoading && accounts.length > 0 && (
-        <div
-          aria-label={`${displayName} accounts`}
-          className="space-y-2"
-          role="radiogroup"
-        >
-          {accounts.map((account) => (
-            <label
-              className="flex cursor-pointer items-center justify-between rounded-lg border p-2 text-sm"
-              key={account.accountId}
-            >
-              <span>
-                {account.label}
-                {(account.currencyCode || account.timezoneName) && (
-                  <span className="block text-xs text-muted-foreground">
-                    {[account.currencyCode, account.timezoneName]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                )}
-              </span>
-              <input
-                checked={selectedId === account.accountId}
-                name={`${provider}-account`}
-                onChange={() => setSelectedId(account.accountId)}
-                type="radio"
-              />
-            </label>
-          ))}
-          <Button
-            disabled={isSaving || !selectedId}
-            onClick={saveAccount}
-            size="sm"
-            type="button"
-          >
-            {isSaving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Check className="size-4" />
-            )}
-            Save account and sync
-          </Button>
-        </div>
-      )}
-
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="size-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      <SocialAdsAccountDiscoveryPanel
+        accounts={accounts}
+        displayName={displayName}
+        error={error}
+        isChoosing={isChoosing}
+        isDiscoveryError={errorSource === 'discovery'}
+        isLoading={isLoading}
+        isSaving={isSaving}
+        onCancel={cancelAccountSelection}
+        onRetry={loadAccounts}
+        onSave={saveAccount}
+        onSelect={setSelectedId}
+        provider={provider}
+        selectedId={selectedId}
+      />
     </div>
   );
 }

@@ -34,6 +34,9 @@ spend rows.
 - `GET /api/integrations/ads/google/accounts` discovers accounts after OAuth
   (requires integration-management access); `PATCH` selects a discovered
   customer ID and validates it against Google's response.
+  Manager hierarchies are traversed within bounded manager-node, depth, and
+  customer limits. If a bound leaves manager work unvisited, discovery fails
+  with a retryable limit error rather than returning a partial account list.
 - `POST` or `DELETE /api/integrations/ads/google/disconnect` removes the
   connection (web requests require the normal CSRF header).
 - `GET /api/integrations/ads/google/spend?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD`

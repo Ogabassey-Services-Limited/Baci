@@ -3,6 +3,24 @@ import 'server-only';
 import { snapchatAdsProviderRateLimiter } from './rate-limit';
 
 const MAX_RETRIES = 3;
+/**
+ * Keep retry waits inside the synchronous route's request window. This is a
+ * budget for the whole retry walk, rather than a cap that resets per attempt.
+ */
+export const MAX_RETRY_WAIT_BUDGET_MS = 10_000;
+
+export interface SnapchatAdsRetryBudget {
+  remainingMs: number;
+}
+
+export function createSnapchatAdsRetryBudget(
+  maxWaitMs = MAX_RETRY_WAIT_BUDGET_MS
+): SnapchatAdsRetryBudget {
+  return {
+    remainingMs: Number.isFinite(maxWaitMs) && maxWaitMs >= 0 ? maxWaitMs : 0,
+  };
+}
+
 export class SnapchatAdsProviderError extends Error {
   constructor(
     readonly code: string,
@@ -15,12 +33,9 @@ export class SnapchatAdsProviderError extends Error {
 function retryDelay(response: Response, attempt: number, random: () => number) {
   const hinted = Number(response.headers.get('retry-after'));
   const exponential = 250 * 2 ** attempt;
-  return Math.min(
-    60_000,
-    Math.max(
-      Number.isFinite(hinted) ? hinted * 1000 : 0,
-      exponential + Math.floor(exponential * Math.max(0, Math.min(1, random())))
-    )
+  return Math.max(
+    Number.isFinite(hinted) ? hinted * 1000 : 0,
+    exponential + Math.floor(exponential * Math.max(0, Math.min(1, random())))
   );
 }
 export async function requestSnapchatAdsJson(
@@ -30,6 +45,7 @@ export async function requestSnapchatAdsJson(
   fetchImpl: typeof fetch = fetch,
   options: {
     random?: () => number;
+    retryBudget?: SnapchatAdsRetryBudget;
     sleep?: (milliseconds: number) => Promise<void>;
   } = {}
 ): Promise<unknown> {
@@ -37,6 +53,7 @@ export async function requestSnapchatAdsJson(
     options.sleep ??
     ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   const random = options.random ?? Math.random;
+  const retryBudget = options.retryBudget ?? createSnapchatAdsRetryBudget();
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     await snapchatAdsProviderRateLimiter.acquire();
     const response = await fetchImpl(url, init);
@@ -58,7 +75,20 @@ export async function requestSnapchatAdsJson(
         response.status === 429 ? 'SNAPCHAT_ADS_THROTTLED' : failureCode,
         response.status
       );
-    await sleep(retryDelay(response, attempt, random));
+    const delayMs = retryDelay(response, attempt, random);
+    const remainingWaitMs =
+      Number.isFinite(retryBudget.remainingMs) && retryBudget.remainingMs > 0
+        ? retryBudget.remainingMs
+        : 0;
+    if (delayMs > remainingWaitMs)
+      throw new SnapchatAdsProviderError(
+        response.status === 429 ? 'SNAPCHAT_ADS_THROTTLED' : failureCode,
+        response.status
+      );
+    const waitStartedAt = Date.now();
+    await sleep(delayMs);
+    const elapsedWaitMs = Math.max(delayMs, Date.now() - waitStartedAt);
+    retryBudget.remainingMs = Math.max(0, remainingWaitMs - elapsedWaitMs);
   }
   throw new SnapchatAdsProviderError(failureCode);
 }

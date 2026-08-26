@@ -16,6 +16,10 @@ vi.mock('@/lib/analytics/analytics-platform-config', () => ({
     offline_conversions_enabled: true,
   }),
 }));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  buildAdsAnalyticsCacheKey: vi.fn().mockReturnValue('ads-cache-key'),
+  getAdsAnalyticsCacheVersion: vi.fn().mockResolvedValue('ads-revision-1'),
+}));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: vi.fn().mockResolvedValue({
     merchantId: 'merchant-1',

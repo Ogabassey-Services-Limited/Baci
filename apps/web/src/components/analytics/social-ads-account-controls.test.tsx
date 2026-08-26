@@ -13,6 +13,20 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: (...args: unknown[]) => fetchWithCsrf(...args),
 }));
 
+const discoveryCases = [
+  { displayName: 'Meta Ads', pathSegment: 'meta', provider: 'meta_ads' },
+  {
+    displayName: 'TikTok Ads',
+    pathSegment: 'tiktok',
+    provider: 'tiktok_ads',
+  },
+  {
+    displayName: 'Snapchat Ads',
+    pathSegment: 'snapchat',
+    provider: 'snapchat_ads',
+  },
+] as const;
+
 describe('SocialAdsAccountControls', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -168,6 +182,105 @@ describe('SocialAdsAccountControls', () => {
     expect(fetchWithCsrf).toHaveBeenCalledOnce();
   });
 
+  it.each(
+    discoveryCases
+  )('retries $displayName account discovery with the same merchant scope', async ({
+    displayName,
+    pathSegment,
+    provider,
+  }) => {
+    const merchantId = '550e8400-e29b-41d4-a716-446655440000';
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: 'Temporary discovery failure' }), {
+          status: 502,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            accounts: [
+              {
+                accountId: `${pathSegment}_account_123`,
+                label: `${displayName} account`,
+                selected: false,
+              },
+            ],
+          })
+        )
+      );
+
+    render(
+      <SocialAdsAccountControls
+        displayName={displayName}
+        merchantId={merchantId}
+        needsAccountSelection
+        provider={provider}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select account' }));
+
+    expect(
+      await screen.findByText('Temporary discovery failure')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Retry account discovery' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry account discovery' })
+    );
+
+    expect(
+      await screen.findByText(`${displayName} account`)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Temporary discovery failure')
+    ).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      `/api/integrations/ads/${pathSegment}/accounts`,
+      expect.objectContaining({
+        credentials: 'include',
+        headers: { 'x-baci-merchant-id': merchantId },
+      })
+    );
+  });
+
+  it('cancels a failed account discovery and resets the chooser', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Meta discovery unavailable' }), {
+        status: 502,
+      })
+    );
+
+    render(
+      <SocialAdsAccountControls
+        displayName="Meta Ads"
+        needsAccountSelection
+        provider="meta_ads"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Select account' }));
+    expect(
+      await screen.findByText('Meta discovery unavailable')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Select account' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Meta discovery unavailable')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Retry account discovery' })
+    ).not.toBeInTheDocument();
+  });
+
   it('shows a safe sync error without exposing response internals', async () => {
     fetchWithCsrf.mockResolvedValue(
       new Response(
@@ -191,6 +304,9 @@ describe('SocialAdsAccountControls', () => {
     expect(
       await screen.findByText('TikTok reporting is unavailable')
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Retry account discovery' })
+    ).not.toBeInTheDocument();
   });
 
   it('syncs the local calendar day near a positive-offset midnight boundary', async () => {

@@ -6,6 +6,8 @@ const mockCookies = vi.fn();
 const mockFrom = vi.fn();
 const mockFetchAnalyticsPlatformConfig = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
+const mockGetAdsAnalyticsCacheVersion = vi.fn();
+const mockBuildAdsAnalyticsCacheKey = vi.fn();
 const mockCacheGet = vi.fn();
 const mockCacheSet = vi.fn();
 
@@ -21,6 +23,12 @@ vi.mock('@/lib/supabase/server', () => ({
 vi.mock('@/lib/analytics/analytics-platform-config', () => ({
   fetchAnalyticsPlatformConfig: (...args: unknown[]) =>
     mockFetchAnalyticsPlatformConfig(...args),
+}));
+vi.mock('@/lib/ads/analytics-cache', () => ({
+  buildAdsAnalyticsCacheKey: (...args: unknown[]) =>
+    mockBuildAdsAnalyticsCacheKey(...args),
+  getAdsAnalyticsCacheVersion: (...args: unknown[]) =>
+    mockGetAdsAnalyticsCacheVersion(...args),
 }));
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
@@ -43,6 +51,8 @@ describe('GET /api/analytics/ads', () => {
     vi.clearAllMocks();
     mockCookies.mockResolvedValue({});
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
+    mockGetAdsAnalyticsCacheVersion.mockResolvedValue('ads-revision-1');
+    mockBuildAdsAnalyticsCacheKey.mockReturnValue('ads-cache-key');
   });
 
   it('authenticates before parsing an invalid analytics date query', async () => {

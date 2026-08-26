@@ -1,0 +1,80 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { SocialAdsAccountDiscoveryPanel } from './social-ads-account-discovery-panel';
+
+const account = {
+  accountId: 'act_123',
+  currencyCode: 'NGN',
+  label: 'Baci Meta',
+  selected: true,
+  timezoneName: 'Africa/Lagos',
+};
+
+describe('SocialAdsAccountDiscoveryPanel', () => {
+  it('offers accessible retry and cancel actions for discovery errors', () => {
+    const onCancel = vi.fn();
+    const onRetry = vi.fn();
+
+    render(
+      <SocialAdsAccountDiscoveryPanel
+        accounts={[]}
+        displayName="Meta Ads"
+        error="Meta account discovery failed"
+        isChoosing
+        isDiscoveryError
+        isLoading={false}
+        isSaving={false}
+        onCancel={onCancel}
+        onRetry={onRetry}
+        onSave={vi.fn()}
+        onSelect={vi.fn()}
+        provider="meta_ads"
+        selectedId={null}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Retry account discovery' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry account discovery' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('keeps action errors visible without exposing discovery actions', () => {
+    render(
+      <SocialAdsAccountDiscoveryPanel
+        accounts={[account]}
+        displayName="Meta Ads"
+        error="Account selection failed"
+        isChoosing
+        isDiscoveryError={false}
+        isLoading={false}
+        isSaving={false}
+        onCancel={vi.fn()}
+        onRetry={vi.fn()}
+        onSave={vi.fn()}
+        onSelect={vi.fn()}
+        provider="meta_ads"
+        selectedId={account.accountId}
+      />
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Account selection failed'
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Retry account discovery' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Cancel' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('radiogroup')).toBeInTheDocument();
+  });
+});

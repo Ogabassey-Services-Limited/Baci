@@ -1,7 +1,24 @@
 import 'server-only';
 
 export const MAX_RETRIES = 3;
+/**
+ * Keep retry waits inside the synchronous route's request window. This is a
+ * budget for the whole retry walk, rather than a cap that resets per attempt.
+ */
+export const MAX_RETRY_WAIT_BUDGET_MS = 10_000;
 const RETRYABLE_META_CODES = new Set([4, 17, 613, 80000, 80003, 80004, 80014]);
+
+export interface MetaAdsRetryBudget {
+  remainingMs: number;
+}
+
+export function createMetaAdsRetryBudget(
+  maxWaitMs = MAX_RETRY_WAIT_BUDGET_MS
+): MetaAdsRetryBudget {
+  return {
+    remainingMs: Number.isFinite(maxWaitMs) && maxWaitMs >= 0 ? maxWaitMs : 0,
+  };
+}
 
 export interface MetaAdsUsageTelemetry {
   adAccountCallCount: number | null;
@@ -78,7 +95,8 @@ export async function fetchMetaJson(
   fetchImpl: typeof fetch,
   sleep: (milliseconds: number) => Promise<void> = (milliseconds) =>
     new Promise((resolve) => setTimeout(resolve, milliseconds)),
-  onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void
+  onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void,
+  retryBudget: MetaAdsRetryBudget = createMetaAdsRetryBudget()
 ): Promise<unknown> {
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     const response = await fetchImpl(url, {
@@ -104,11 +122,24 @@ export async function fetchMetaJson(
       response.status === 429 ||
       response.status >= 500 ||
       RETRYABLE_META_CODES.has(metaCode ?? -1);
+    const throttled =
+      response.status === 429 || RETRYABLE_META_CODES.has(metaCode ?? -1);
+    const terminalCode = throttled ? 'META_ADS_THROTTLED' : failureCode;
     if (!retryable || attempt === MAX_RETRIES - 1) {
-      throw new MetaAdsProviderError(failureCode, response.status);
+      throw new MetaAdsProviderError(terminalCode, response.status);
     }
     const resetHintMs = (telemetry?.insightsThrottleResetSeconds ?? 0) * 1000;
-    await sleep(Math.min(60_000, Math.max(250 * 2 ** attempt, resetHintMs)));
+    const delayMs = Math.max(250 * 2 ** attempt, resetHintMs);
+    const remainingWaitMs =
+      Number.isFinite(retryBudget.remainingMs) && retryBudget.remainingMs > 0
+        ? retryBudget.remainingMs
+        : 0;
+    if (delayMs > remainingWaitMs)
+      throw new MetaAdsProviderError(terminalCode, response.status);
+    const waitStartedAt = Date.now();
+    await sleep(delayMs);
+    const elapsedWaitMs = Math.max(delayMs, Date.now() - waitStartedAt);
+    retryBudget.remainingMs = Math.max(0, remainingWaitMs - elapsedWaitMs);
   }
   throw new MetaAdsProviderError(failureCode);
 }

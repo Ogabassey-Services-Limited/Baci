@@ -15,6 +15,20 @@ const mockCredentialRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
 const mockCredentialSupabase = { rpc: mockCredentialRpc };
 const mockCreateAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
+const MockGoogleAdsProviderError = vi.hoisted(
+  () =>
+    class MockGoogleAdsProviderError extends Error {
+      readonly code: string;
+      readonly status?: number;
+
+      constructor(code: string, status?: number) {
+        super(code);
+        this.name = 'GoogleAdsProviderError';
+        this.code = code;
+        this.status = status;
+      }
+    }
+);
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -35,6 +49,12 @@ vi.mock('@/lib/google-ads/access-token', () => ({
     mockResolveToken(...args),
 }));
 vi.mock('@/lib/google-ads/provider', () => ({
+  GOOGLE_ADS_DISCOVERY_LIMIT_CODES: [
+    'GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT',
+    'GOOGLE_ADS_MANAGER_DEPTH_LIMIT',
+    'GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT',
+  ],
+  GoogleAdsProviderError: MockGoogleAdsProviderError,
   listGoogleAdsAccessibleCustomerIds: (...args: unknown[]) =>
     mockListAccounts(...args),
 }));
@@ -133,6 +153,51 @@ describe('Google Ads account discovery and selection', () => {
     );
     expect(mockRpc).not.toHaveBeenCalledWith(
       'get_google_ads_connection_secret',
+      expect.anything()
+    );
+  });
+
+  it('surfaces a bounded discovery failure as a retryable error instead of a partial list', async () => {
+    mockListAccounts.mockRejectedValueOnce(
+      new MockGoogleAdsProviderError('GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT')
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts'
+      )
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT',
+      retry: true,
+    });
+  });
+
+  it('surfaces a bounded discovery failure during selection as a retryable error', async () => {
+    mockListAccounts.mockRejectedValueOnce(
+      new MockGoogleAdsProviderError('GOOGLE_ADS_MANAGER_DEPTH_LIMIT')
+    );
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts',
+        {
+          body: JSON.stringify({ customerId: '123-456-7890' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'GOOGLE_ADS_MANAGER_DEPTH_LIMIT',
+      retry: true,
+    });
+    expect(mockCredentialRpc).not.toHaveBeenCalledWith(
+      'set_google_ads_customer',
       expect.anything()
     );
   });

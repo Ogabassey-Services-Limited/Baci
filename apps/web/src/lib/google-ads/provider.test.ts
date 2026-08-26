@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   fetchGoogleAdsDailySpend,
+  GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT,
+  GOOGLE_ADS_MANAGER_DEPTH_LIMIT,
+  GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT,
   getGoogleAdsApiRoot,
   listGoogleAdsAccessibleCustomerIds,
   refreshGoogleAdsAccessToken,
@@ -118,7 +121,7 @@ describe('Google Ads provider client', () => {
     });
   });
 
-  it('bounds hierarchy probes for logins with many accessible customers', async () => {
+  it('fails instead of returning a partial set when the manager-node cap leaves work queued', async () => {
     const directIds = Array.from({ length: 30 }, (_, index) =>
       String(1_000_000_000 + index)
     );
@@ -132,13 +135,104 @@ describe('Google Ads provider client', () => {
         : new Response(JSON.stringify([]))
     );
 
-    await listGoogleAdsAccessibleCustomerIds(
-      'access-token',
-      reportingConfig,
-      fetchImpl
-    );
+    await expect(
+      listGoogleAdsAccessibleCustomerIds(
+        'access-token',
+        reportingConfig,
+        fetchImpl
+      )
+    ).rejects.toMatchObject({
+      code: GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT,
+    });
 
     expect(fetchImpl).toHaveBeenCalledTimes(21);
+  });
+
+  it('fails instead of returning a partial set when a manager is beyond the depth cap', async () => {
+    const chain = Array.from({ length: 7 }, (_, index) =>
+      String(1_000_000_000 + index)
+    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith('/customers:listAccessibleCustomers')) {
+          return new Response(
+            JSON.stringify({ resourceNames: [`customers/${chain[0]}`] })
+          );
+        }
+        const customerId = url.match(
+          /customers\/(\d+)\/googleAds:searchStream/
+        )?.[1];
+        const index = customerId ? chain.indexOf(customerId) : -1;
+        const next = index >= 0 ? chain[index + 1] : undefined;
+        return new Response(
+          JSON.stringify(
+            next
+              ? [
+                  {
+                    results: [
+                      {
+                        customerClient: {
+                          clientCustomer: `customers/${next}`,
+                          manager: true,
+                        },
+                      },
+                    ],
+                  },
+                ]
+              : []
+          )
+        );
+      });
+
+    await expect(
+      listGoogleAdsAccessibleCustomerIds(
+        'access-token',
+        reportingConfig,
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: GOOGLE_ADS_MANAGER_DEPTH_LIMIT });
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+  });
+
+  it('fails instead of returning a partial set when the customer cap leaves manager work queued', async () => {
+    const leafClients = Array.from({ length: 999 }, (_, index) => ({
+      customerClient: {
+        clientCustomer: `customers/${String(2_000_000_000 + index)}`,
+        manager: false,
+      },
+    }));
+    const fetchImpl = vi.fn<typeof fetch>().mockImplementation(async (input) =>
+      String(input).endsWith('/customers:listAccessibleCustomers')
+        ? new Response(
+            JSON.stringify({ resourceNames: ['customers/1111111111'] })
+          )
+        : new Response(
+            JSON.stringify([
+              {
+                results: [
+                  ...leafClients,
+                  {
+                    customerClient: {
+                      clientCustomer: 'customers/9999999999',
+                      manager: true,
+                    },
+                  },
+                ],
+              },
+            ])
+          )
+    );
+
+    await expect(
+      listGoogleAdsAccessibleCustomerIds(
+        'access-token',
+        reportingConfig,
+        fetchImpl
+      )
+    ).rejects.toMatchObject({ code: GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it('refreshes an access token without exposing the refresh token in the result', async () => {

@@ -22,6 +22,7 @@ import {
   persistGoogleAdsReauthRequired,
 } from '@/lib/google-ads/reauth';
 import { googleAdsAccountSelectionSchema } from '@/schemas/google-ads';
+import { accountDiscoveryErrorResponse } from './discovery-error-response';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -168,10 +169,7 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    return NextResponse.json(
-      { error: 'Failed to discover Google Ads accounts' },
-      { status: 502 }
-    );
+    return accountDiscoveryErrorResponse(error);
   }
 }
 
@@ -260,11 +258,8 @@ export async function PATCH(request: NextRequest) {
       resolvedToken.accessToken,
       reportingConfig
     );
-  } catch {
-    return NextResponse.json(
-      { error: 'Failed to discover Google Ads accounts' },
-      { status: 502 }
-    );
+  } catch (error) {
+    return accountDiscoveryErrorResponse(error);
   }
   if (!customerIds.includes(parsed.data.customerId)) {
     return NextResponse.json(

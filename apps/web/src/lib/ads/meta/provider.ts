@@ -2,6 +2,7 @@ import 'server-only';
 
 import { META_ADS_GRAPH_ROOT } from './oauth';
 import {
+  createMetaAdsRetryBudget,
   fetchMetaJson,
   finiteNonNegativeNumber,
   MetaAdsProviderError,
@@ -32,6 +33,7 @@ export async function listMetaAdsAccounts(
   sleep?: (milliseconds: number) => Promise<void>,
   onTelemetry?: (telemetry: MetaAdsUsageTelemetry) => void
 ): Promise<MetaAdsAccount[]> {
+  const retryBudget = createMetaAdsRetryBudget();
   let next: URL | null = new URL(`${META_ADS_GRAPH_ROOT}/me/adaccounts`);
   next.searchParams.set(
     'fields',
@@ -46,7 +48,8 @@ export async function listMetaAdsAccounts(
       'META_ADS_ACCOUNT_DISCOVERY_FAILED',
       fetchImpl,
       sleep,
-      onTelemetry
+      onTelemetry,
+      retryBudget
     );
     const record =
       payload && typeof payload === 'object' && !Array.isArray(payload)
@@ -105,6 +108,7 @@ export async function fetchMetaAdsDailyInsights(
   url.searchParams.set('use_unified_attribution_setting', 'true');
   const expectedPath = `/${META_ADS_GRAPH_ROOT.split('/').at(-1)}/${input.accountId}/insights`;
   const insights: MetaAdsDailyInsight[] = [];
+  const retryBudget = createMetaAdsRetryBudget();
   let next: URL | null = url;
   for (let page = 0; next && page < MAX_INSIGHTS_PAGES; page += 1) {
     const payload = await fetchMetaJson(
@@ -113,7 +117,8 @@ export async function fetchMetaAdsDailyInsights(
       'META_ADS_INSIGHTS_FAILED',
       fetchImpl,
       sleep,
-      onTelemetry
+      onTelemetry,
+      retryBudget
     );
     insights.push(...parseMetaAdsDailyInsights(payload, input.accountId));
     const record =
@@ -142,6 +147,7 @@ export async function validateMetaAdsGrant(
   input: { accessToken: string; appId: string; appSecret: string },
   fetchImpl: typeof fetch = fetch
 ): Promise<{ providerUserId: string }> {
+  const retryBudget = createMetaAdsRetryBudget();
   const debugUrl = new URL(`${META_ADS_GRAPH_ROOT}/debug_token`);
   debugUrl.searchParams.set('input_token', input.accessToken);
   debugUrl.searchParams.set(
@@ -152,7 +158,10 @@ export async function validateMetaAdsGrant(
     debugUrl,
     `${input.appId}|${input.appSecret}`,
     'META_ADS_TOKEN_INVALID',
-    fetchImpl
+    fetchImpl,
+    undefined,
+    undefined,
+    retryBudget
   );
   const data =
     debugPayload &&
@@ -190,7 +199,10 @@ export async function validateMetaAdsGrant(
     meUrl,
     input.accessToken,
     'META_ADS_PROVIDER_IDENTITY_CHECK_FAILED',
-    fetchImpl
+    fetchImpl,
+    undefined,
+    undefined,
+    retryBudget
   );
   const meId =
     mePayload && typeof mePayload === 'object' && !Array.isArray(mePayload)
@@ -203,7 +215,10 @@ export async function validateMetaAdsGrant(
     permissionsUrl,
     input.accessToken,
     'META_ADS_PERMISSION_CHECK_FAILED',
-    fetchImpl
+    fetchImpl,
+    undefined,
+    undefined,
+    retryBudget
   );
   const permissions =
     permissionsPayload &&

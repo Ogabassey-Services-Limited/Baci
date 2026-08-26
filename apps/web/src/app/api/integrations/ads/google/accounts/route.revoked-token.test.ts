@@ -38,6 +38,11 @@ vi.mock('@/lib/google-ads/access-token', () => ({
     mockResolveToken(...args),
 }));
 vi.mock('@/lib/google-ads/provider', () => ({
+  GOOGLE_ADS_DISCOVERY_LIMIT_CODES: [
+    'GOOGLE_ADS_MANAGER_DISCOVERY_LIMIT',
+    'GOOGLE_ADS_MANAGER_DEPTH_LIMIT',
+    'GOOGLE_ADS_ACCOUNT_DISCOVERY_LIMIT',
+  ],
   listGoogleAdsAccessibleCustomerIds: (...args: unknown[]) =>
     mockListAccounts(...args),
   GoogleAdsProviderError: class GoogleAdsProviderError extends Error {

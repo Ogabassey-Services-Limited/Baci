@@ -1,10 +1,14 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
+import {
+  buildAdsAnalyticsCacheKey,
+  getAdsAnalyticsCacheVersion,
+} from '@/lib/ads/analytics-cache';
 import { fetchAnalyticsPlatformConfig } from '@/lib/analytics/analytics-platform-config';
 import { fetchAdReportingSnapshots } from '@/lib/analytics/fetch-ad-reporting-snapshots';
 import { hasPermission } from '@/lib/api-auth';
-import { cache, generateCacheKey } from '@/lib/cache';
+import { cache } from '@/lib/cache';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -107,19 +111,30 @@ export async function GET(request: Request) {
       );
     }
 
-    // Generate cache key
-    const cacheKey = generateCacheKey(
-      'ad-analytics',
-      merchantId,
-      startDate,
-      endDate
+    // The in-memory cache is process-local. Include the durable connection
+    // revision so a warm Vercel instance cannot read a snapshot written before
+    // another instance completed an account, sync, callback, or disconnect
+    // mutation. If the marker read is unavailable, skip caching for safety.
+    const cacheVersion = await getAdsAnalyticsCacheVersion(
+      supabase,
+      merchantId
     );
+    const cacheKey =
+      cacheVersion === undefined
+        ? undefined
+        : buildAdsAnalyticsCacheKey({
+            endDate,
+            merchantId,
+            startDate,
+            version: cacheVersion,
+          });
 
     // Try cached data (5 minute TTL)
     const shouldBypassCache = parsedQuery.data.cacheBust !== undefined;
-    const cachedData = shouldBypassCache
-      ? undefined
-      : cache.get<Record<string, unknown>>(cacheKey);
+    const cachedData =
+      shouldBypassCache || !cacheKey
+        ? undefined
+        : cache.get<Record<string, unknown>>(cacheKey);
     if (cachedData) {
       return NextResponse.json(cachedData);
     }
@@ -193,8 +208,10 @@ export async function GET(request: Request) {
       ...(googleAds ? { googleAds } : {}),
     };
 
-    // Cache for 5 minutes
-    cache.set(cacheKey, responseData, 300);
+    // Cache for 5 minutes only when the durable marker was available.
+    if (cacheKey) {
+      cache.set(cacheKey, responseData, 300);
+    }
 
     return NextResponse.json(responseData);
   } catch (error) {

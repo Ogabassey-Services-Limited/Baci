@@ -50,6 +50,52 @@ describe('Meta Ads provider', () => {
     ).resolves.toMatchObject([{ accountId: 'act_1' }, { accountId: 'act_2' }]);
   });
 
+  it('shares the retry-wait budget across account pages', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 613 } }), {
+          headers: { 'retry-after': '6' },
+          status: 429,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                account_status: 1,
+                currency: 'NGN',
+                id: 'act_1',
+                name: 'First',
+                timezone_name: 'Africa/Lagos',
+              },
+            ],
+            paging: {
+              next: 'https://graph.facebook.com/v25.0/me/adaccounts?after=next',
+            },
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: 613 } }), {
+          headers: { 'retry-after': '6' },
+          status: 429,
+        })
+      );
+    const sleep = vi.fn().mockResolvedValue(undefined);
+
+    await expect(
+      listMetaAdsAccounts('access', fetchImpl, sleep)
+    ).rejects.toMatchObject({
+      code: 'META_ADS_THROTTLED',
+      status: 429,
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(1);
+    expect(sleep).toHaveBeenCalledWith(6_000);
+  });
+
   it('preserves exact decimal spend and provider-labelled action values', () => {
     expect(
       parseMetaAdsDailyInsights(
