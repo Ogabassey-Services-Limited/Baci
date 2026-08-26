@@ -18,11 +18,10 @@ import { useToast } from '@/hooks/use-toast';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
 import { fetchBaseAnalytics } from './fetch-base-analytics';
+import { loadAnalyticsExport } from './load-analytics-export';
+import { mergeAnalyticsData } from './merge-analytics-data';
 import { useSelectedAnalyticsMerchant } from './use-selected-analytics-merchant';
 
-function loadAnalyticsExport() {
-  return import('@/lib/analytics-export');
-}
 export default function AnalyticsClientPage() {
   const { toast } = useToast();
   const { hasPermission, merchant, loading: merchantLoading } = useMerchant();
@@ -99,11 +98,10 @@ export default function AnalyticsClientPage() {
       variant: 'destructive',
     });
   }, [callbackProvider?.[0], callbackReason, toast]);
-  const hasCategoryAnalytics = Object.keys(categoryAnalytics).length > 0;
-  const analyticsData: AnalyticsData | null =
-    baseAnalytics || hasCategoryAnalytics
-      ? { ...(baseAnalytics ?? {}), ...categoryAnalytics }
-      : null;
+  const analyticsData: AnalyticsData | null = mergeAnalyticsData(
+    baseAnalytics,
+    categoryAnalytics
+  );
   useEffect(() => {
     if (!selectedMerchantId || !date.from || !date.to) return;
     const controller = new AbortController();
