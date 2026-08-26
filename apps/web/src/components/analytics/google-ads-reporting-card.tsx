@@ -1,25 +1,15 @@
 'use client';
 
-import {
-  AlertCircle,
-  BarChart3,
-  CheckCircle2,
-  Loader2,
-  MousePointerClick,
-  TrendingUp,
-} from 'lucide-react';
+import { AlertCircle, BarChart3, CheckCircle2, Loader2 } from 'lucide-react';
 import { GoogleAdsAccountPicker } from '@/components/analytics/google-ads-account-picker';
 import { GoogleAdsConnectButton } from '@/components/analytics/google-ads-connect-button';
-import { GoogleAdsMetric } from '@/components/analytics/google-ads-metric';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 import { AdsDisconnectButton } from './ads-disconnect-button';
-import {
-  formatGoogleAdsMetric,
-  formatGoogleAdsReportingWindow,
-} from './google-ads-reporting-format';
+import { formatGoogleAdsReportingWindow } from './google-ads-reporting-format';
+import { GoogleAdsReportingMetricsGrid } from './google-ads-reporting-metrics-grid';
 import { GoogleAdsReportingUnavailable } from './google-ads-reporting-unavailable';
 
 export { GOOGLE_ADS_CONNECT_PATH } from './google-ads-connect-path';
@@ -185,74 +175,10 @@ export function GoogleAdsReportingCard({
             </span>
             {periodLabel && <span>Reporting window: {periodLabel}</span>}
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {metrics.spend !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.spend,
-                  'currency',
-                  currency
-                )}
-                icon={<TrendingUp className="size-3.5" />}
-                label="Spend"
-              />
-            )}
-            {metrics.impressions !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.impressions,
-                  'number',
-                  currency
-                )}
-                icon={<BarChart3 className="size-3.5" />}
-                label="Impressions"
-              />
-            )}
-            {metrics.clicks !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.clicks,
-                  'number',
-                  currency
-                )}
-                icon={<MousePointerClick className="size-3.5" />}
-                label="Clicks"
-              />
-            )}
-            {metrics.ctr !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.ctr,
-                  'percent',
-                  currency
-                )}
-                icon={<PercentIcon />}
-                label="CTR"
-              />
-            )}
-            {metrics.cpc !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.cpc,
-                  'currency',
-                  currency
-                )}
-                icon={<MousePointerClick className="size-3.5" />}
-                label="CPC"
-              />
-            )}
-            {metrics.conversions !== undefined && (
-              <GoogleAdsMetric
-                formattedValue={formatGoogleAdsMetric(
-                  metrics.conversions,
-                  'number',
-                  currency
-                )}
-                icon={<CheckCircle2 className="size-3.5" />}
-                label="Google-attributed conversions"
-              />
-            )}
-          </div>
+          <GoogleAdsReportingMetricsGrid
+            currency={currency}
+            metrics={metrics}
+          />
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Source: Google Ads reporting</span>
             {reporting.lastSyncedAt && (
@@ -295,13 +221,5 @@ export function GoogleAdsReportingCard({
         />
       )}
     </BentoCard>
-  );
-}
-
-function PercentIcon() {
-  return (
-    <span aria-hidden="true" className="text-[11px] font-semibold">
-      %
-    </span>
   );
 }
