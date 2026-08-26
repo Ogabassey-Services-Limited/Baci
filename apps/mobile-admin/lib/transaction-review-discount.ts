@@ -33,5 +33,7 @@ export function getDiscountedTransactionUnitPrices(
   }
 
   const discountRatio = Math.min(1, normalizedDiscount / merchandiseSubtotal);
-  return unitPrices.map((unitPrice) => unitPrice * (1 - discountRatio));
+  return unitPrices.map((unitPrice) =>
+    unitPrice < 0 ? unitPrice : unitPrice * (1 - discountRatio)
+  );
 }

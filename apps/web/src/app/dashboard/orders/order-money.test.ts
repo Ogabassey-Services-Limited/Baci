@@ -12,6 +12,7 @@ describe('parseOptionalOrderAmount', () => {
     expect(parseOptionalOrderAmount(undefined)).toBeUndefined();
     expect(parseOptionalOrderAmount('   ')).toBeUndefined();
     expect(parseOptionalOrderAmount('not-a-number')).toBeUndefined();
+    expect(parseOptionalOrderAmount('1000junk')).toBeUndefined();
     expect(parseOptionalOrderAmount(Number.NaN)).toBeUndefined();
     expect(parseOptionalOrderAmount(Number.POSITIVE_INFINITY)).toBeUndefined();
   });

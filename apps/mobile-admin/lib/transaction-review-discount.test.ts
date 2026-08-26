@@ -43,4 +43,16 @@ describe('getDiscountedTransactionUnitPrices', () => {
       getDiscountedTransactionUnitPrices([{ price: 100, quantity: 2 }], 500)
     ).toEqual([0]);
   });
+
+  it('preserves negative adjustment lines while discounting merchandise', () => {
+    expect(
+      getDiscountedTransactionUnitPrices(
+        [
+          { price: -100, quantity: 1 },
+          { price: 100, quantity: 1 },
+        ],
+        50
+      )
+    ).toEqual([-100, 50]);
+  });
 });

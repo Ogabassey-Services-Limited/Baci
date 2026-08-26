@@ -5,6 +5,6 @@ export function parseOptionalOrderAmount(
     return undefined;
   }
 
-  const amount = Number.parseFloat(String(value));
+  const amount = Number(value);
   return Number.isFinite(amount) ? amount : undefined;
 }
