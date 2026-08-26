@@ -26,6 +26,7 @@ export function isTransactionReviewSchemaCacheError(
     errorText.includes('identifier_value') ||
     errorText.includes('transaction_date') ||
     errorText.includes('cost_price') ||
+    errorText.includes('discount_amount') ||
     errorText.includes('product_variants') ||
     errorText.includes('variant_id');
 

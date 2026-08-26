@@ -4,7 +4,6 @@ import {
   CheckCircle,
   ChevronLeft,
   Copy,
-  Download,
   Edit,
   Mail,
   MoreVertical,
@@ -36,7 +35,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch, apiPost, fetchWithCsrf } from '@/lib/api-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
@@ -54,6 +52,7 @@ import ConfirmInsuranceDialog, {
 } from './confirm-insurance-dialog';
 import { summarizeInsuranceConfirmation } from './insurance-confirmation-summary';
 import { ShipmentDetailsCard } from './shipment-details-card';
+import { OrderPaymentSummary } from './OrderPaymentSummary';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
@@ -267,10 +266,6 @@ export default function OrderDetailsClientPage({
   };
 
   // ... formatCurrency ...
-
-  const shippingFee = 0;
-  const taxes = 0;
-  const totalAmount = order.total + shippingFee + taxes;
 
   const getPrimaryAction = () => {
     switch (order.shippingStatus) {
@@ -514,48 +509,7 @@ export default function OrderDetailsClientPage({
           </div>
 
           <div className="grid auto-rows-max items-start gap-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Payment Summary</CardTitle>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <Download className="size-3.5" />
-                  Download Receipt
-                </Button>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Sub Total</span>{' '}
-                  <span>{formatCurrency(order.total, orderCurrency)}</span>
-                </div>
-                {order.paymentMethod && (
-                  <div className="flex justify-between">
-                    <span>Payment Method</span>{' '}
-                    <span className="capitalize">{order.paymentMethod}</span>
-                  </div>
-                )}
-                {order.payment_reference && (
-                  <div className="flex justify-between">
-                    <span>Payment Reference</span>{' '}
-                    <span className="font-mono text-xs">
-                      {order.payment_reference}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Shipping Fee</span>{' '}
-                  <span>{formatCurrency(shippingFee, orderCurrency)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Taxes</span>{' '}
-                  <span>{formatCurrency(taxes, orderCurrency)}</span>
-                </div>
-                <Separator />
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total Amount</span>{' '}
-                  <span>{formatCurrency(totalAmount, orderCurrency)}</span>
-                </div>
-              </CardContent>
-            </Card>
+            <OrderPaymentSummary order={order} />
 
             <Card>
               <CardHeader>

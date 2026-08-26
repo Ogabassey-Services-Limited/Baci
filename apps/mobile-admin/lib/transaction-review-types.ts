@@ -23,6 +23,7 @@ export interface TransactionReviewUnitCostRow {
 export interface TransactionReviewOrderRow {
   cancelled_at?: string | null;
   created_at: string;
+  discount_amount?: number | null;
   transaction_date?: string | null;
   customer_email: string | null;
   customer_name: string | null;
@@ -83,6 +84,7 @@ export interface TransactionReviewOrder {
   customerEmail: string | null;
   customerName: string;
   customerPhone: string | null;
+  discountAmount?: number;
   estimatedProfit: number;
   id: string;
   items: TransactionReviewItem[];

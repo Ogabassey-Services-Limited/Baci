@@ -85,6 +85,8 @@ const mockOrder: {
   source: string;
   subtotal: string;
   shipping_fee: string;
+  tax_amount: string;
+  discount_amount: string;
   total: string;
   currency?: string | null;
   delivery_method?: string | null;
@@ -111,6 +113,8 @@ const mockOrder: {
   source: 'whatsapp',
   subtotal: '10000',
   shipping_fee: '1500',
+  tax_amount: '0',
+  discount_amount: '1000',
   total: '11500',
   currency: 'NGN',
   shipping_address: {
@@ -653,6 +657,20 @@ describe('getOrder', () => {
     const order = await getOrder(MERCHANT_ID, 'ORD-001');
 
     expect(order?.currency).toBe('INR');
+  });
+
+  it('maps persisted payment breakdown fields for discount-aware summaries', async () => {
+    mockGetOrderQueries();
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order).toMatchObject({
+      discount_amount: 1000,
+      shipping_fee: 1500,
+      subtotal: 10000,
+      tax_amount: 0,
+      total: 11500,
+    });
   });
 
   it('selects and maps the merchant shipping rate columns for the detail page', async () => {

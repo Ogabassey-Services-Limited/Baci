@@ -123,4 +123,41 @@ describe('useTransactionReview', () => {
       },
     ]);
   });
+
+  it('immediately loads legacy orders without discount_amount', async () => {
+    const missingDiscountError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_amount' column of 'orders' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: missingDiscountError })
+      .mockResolvedValueOnce({
+        data: [{ id: 'legacy-order' }],
+        error: null,
+      });
+
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current.data).toEqual([{ id: 'legacy-order' }])
+    );
+
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement
+    ).not.toContain('discount_amount');
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        includeCancelledAt: true,
+        includeTransactionDate: true,
+      })
+    );
+    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([
+      { id: 'legacy-order' },
+    ]);
+  });
 });
