@@ -40,9 +40,10 @@ export function buildTikTokAdsAuthorizationUrl(
   state: string
 ): string {
   const url = new URL(config.authorizationUrl);
-  if (!url.searchParams.has('app_id')) {
-    url.searchParams.set('app_id', config.appId);
-  }
+  // The configured app ID is the source of truth. This also replaces a stale
+  // app_id embedded in an older authorization URL instead of binding the
+  // consent request to a different TikTok app than the token exchange.
+  url.searchParams.set('app_id', config.appId);
   url.searchParams.set('redirect_uri', config.redirectUri);
   url.searchParams.set('state', state);
   return url.toString();

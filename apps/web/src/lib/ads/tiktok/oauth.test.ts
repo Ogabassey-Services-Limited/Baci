@@ -22,7 +22,7 @@ describe('TikTok Ads OAuth', () => {
     expect(url.search).not.toContain('secret');
   });
 
-  it('preserves preconfigured authorization parameters and app ID', () => {
+  it('preserves preconfigured parameters while binding the configured app ID', () => {
     const url = new URL(
       buildTikTokAdsAuthorizationUrl(
         {
@@ -36,7 +36,7 @@ describe('TikTok Ads OAuth', () => {
       )
     );
 
-    expect(url.searchParams.get('app_id')).toBe('preconfigured-app-id');
+    expect(url.searchParams.get('app_id')).toBe('configured-app-id');
     expect(url.searchParams.get('locale')).toBe('en-US');
     expect(url.searchParams.get('redirect_uri')).toBe(
       'https://usebaci.com/api/integrations/ads/tiktok/callback'
