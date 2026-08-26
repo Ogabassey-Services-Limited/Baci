@@ -7,8 +7,15 @@ const access = vi.fn();
 const permission = vi.fn();
 const sync = vi.fn();
 const invalidateAdsAnalyticsCache = vi.fn();
-const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+const {
+  createAdsCredentialServiceClient,
+  createAdsSpendServiceClient,
+  mockCredentialSupabase,
+  mockSpendSupabase,
+} = vi.hoisted(() => ({
+  createAdsCredentialServiceClient: vi.fn(),
   createAdsSpendServiceClient: vi.fn(),
+  mockCredentialSupabase: { rpc: vi.fn() },
   mockSpendSupabase: { rpc: vi.fn() },
 }));
 vi.mock('@/lib/api-auth', () => ({
@@ -27,6 +34,12 @@ vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
     createAdsSpendServiceClient();
     return mockSpendSupabase;
+  },
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: () => {
+    createAdsCredentialServiceClient();
+    return mockCredentialSupabase;
   },
 }));
 vi.mock('@/lib/ads/meta/sync', () => ({
@@ -64,6 +77,7 @@ describe('Meta Ads sync route', () => {
 
     expect(response.status).toBe(200);
     expect(sync).toHaveBeenCalledWith({
+      credentialSupabase: mockCredentialSupabase,
       endDate: '2026-08-20',
       finalChunk: true,
       merchantId: 'merchant',
@@ -121,6 +135,7 @@ describe('Meta Ads sync route', () => {
       ).status
     ).toBe(401);
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('validates an authenticated body before resolving merchant access', async () => {
@@ -142,5 +157,6 @@ describe('Meta Ads sync route', () => {
     expect(response.status).toBe(400);
     expect(access).not.toHaveBeenCalled();
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 });

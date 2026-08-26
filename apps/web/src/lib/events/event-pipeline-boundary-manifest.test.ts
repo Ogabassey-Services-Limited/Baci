@@ -63,7 +63,7 @@ describe('event pipeline authority manifest', () => {
     );
     expect(manifest.frozenRoutes).toEqual({
       'apps/web/src/app/api/analytics/ads/route.ts':
-        'be2ef1b3e55c6c02c8fccebdcb7df6422608d83e021861991e840aafb8f30bb1',
+        'b94a554a3c1ed649cd970e7ffb32c3ac31b481020c288e3510d84c9e81951c81',
       'apps/web/src/app/api/analytics/facebook-capi/route.ts':
         'f41e1de587645b8fdb2af8af180eb581b2bfeecae688670d7b5c7a80088b7c32',
       'apps/web/src/app/api/analytics/ga4/route.ts':
@@ -155,6 +155,7 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/analytics/conversion/route.ts',
       'apps/web/src/app/api/events/route.ts',
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
+      'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
@@ -176,10 +177,113 @@ describe('event pipeline authority manifest', () => {
         'apps/web/src/app/api/integrations/ads/tiktok/sync/route.ts',
         'apps/web/src/lib/ads/server-spend-client.ts',
       ],
+      [
+        'apps/web/src/app/api/integrations/ads/google/accounts/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/google/callback/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/google/disconnect/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/google/sync/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/meta/accounts/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/meta/callback/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/meta/disconnect/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/meta/sync/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/snapchat/accounts/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/snapchat/callback/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/snapchat/disconnect/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/snapchat/sync/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/tiktok/accounts/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/tiktok/callback/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/tiktok/disconnect/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
+      [
+        'apps/web/src/app/api/integrations/ads/tiktok/sync/route.ts',
+        'apps/web/src/lib/ads/server-credential-client.ts',
+      ],
     ]);
     expect(manifest.authority.operationalServiceImporters).toEqual([
       'apps/web/src/scripts/reconcile-paystack-unmatched-partial.ts',
     ]);
+  });
+
+  it('allows the dedicated Ads credential sentinel only in its server helper', () => {
+    const helper = 'apps/web/src/lib/ads/server-credential-client.ts';
+    const allowed = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('ads-credentials');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, allowed)).toEqual([]);
+
+    const wrongSentinel = ts.createSourceFile(
+      helper,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('event-pipeline');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(helper, wrongSentinel)).toContain(
+      `${helper}: service factory requires ads-credentials sentinel`
+    );
+
+    const route = 'apps/web/src/app/api/integrations/ads/fourth/route.ts';
+    const unlisted = ts.createSourceFile(
+      route,
+      "import { createServiceClient } from '@/lib/supabase/service'; createServiceClient('ads-credentials');",
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TS
+    );
+    expect(authorityFindings(route, unlisted)).toEqual(
+      expect.arrayContaining([
+        `${route}: unauthorized service factory importer`,
+        `${route}: service factory requires event-pipeline sentinel`,
+        `${route}: privileged route client construction is forbidden`,
+      ])
+    );
   });
 
   it.each([

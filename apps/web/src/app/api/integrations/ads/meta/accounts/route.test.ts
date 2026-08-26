@@ -8,6 +8,10 @@ const csrf = vi.fn();
 const listAccounts = vi.fn();
 const resolveToken = vi.fn();
 const rpc = vi.fn();
+const { credentialRpc, createAdsCredentialServiceClient } = vi.hoisted(() => ({
+  credentialRpc: vi.fn(),
+  createAdsCredentialServiceClient: vi.fn(),
+}));
 const getConfig = vi.fn();
 const markReauth = vi.fn();
 const invalidateAnalytics = vi.fn();
@@ -41,6 +45,12 @@ vi.mock('@/lib/ads/meta/sync', () => ({
     code = 'META_ADS_REAUTH_PERSIST_FAILED';
   },
 }));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
+}));
 
 import { GET, PATCH } from './route';
 
@@ -68,6 +78,21 @@ describe('Meta Ads accounts route', () => {
       },
     ]);
     rpc.mockImplementation((name: string) =>
+      name === 'get_merchant_ads_connection_secret'
+        ? Promise.resolve({
+            data: [
+              {
+                access_token_ciphertext: 'cipher',
+                provider_customer_id: null,
+                status: 'active',
+                token_expires_at: '2026-10-01T00:00:00Z',
+              },
+            ],
+            error: null,
+          })
+        : Promise.resolve({ data: true, error: null })
+    );
+    credentialRpc.mockImplementation((name: string) =>
       name === 'get_merchant_ads_connection_secret'
         ? Promise.resolve({
             data: [
@@ -126,6 +151,7 @@ describe('Meta Ads accounts route', () => {
         )
       ).status
     ).toBe(401);
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('rejects malformed selection input before merchant lookup', async () => {
@@ -143,6 +169,7 @@ describe('Meta Ads accounts route', () => {
     expect(response.status).toBe(400);
     expect(access).not.toHaveBeenCalled();
     expect(listAccounts).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('selects only a freshly discovered canonical act_ account', async () => {
@@ -157,7 +184,7 @@ describe('Meta Ads accounts route', () => {
       )
     );
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith(
+    expect(credentialRpc).toHaveBeenCalledWith(
       'set_merchant_ads_account',
       expect.objectContaining({
         p_expected_access_token_ciphertext: 'cipher',
@@ -165,6 +192,10 @@ describe('Meta Ads accounts route', () => {
       })
     );
     expect(invalidateAnalytics).toHaveBeenCalledWith('merchant');
+    expect(rpc).not.toHaveBeenCalledWith(
+      'get_merchant_ads_connection_secret',
+      expect.anything()
+    );
     listAccounts.mockResolvedValueOnce([]);
     const rejected = await PATCH(
       new NextRequest(

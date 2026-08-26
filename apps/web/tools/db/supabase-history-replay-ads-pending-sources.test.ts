@@ -27,5 +27,8 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '20260825191000_revoke_legacy_google_ads_spend_upsert.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      'a191c7045cb7e2efe1a160f0d7656f0cd433feb9a43f00fa48801fd1ffe91ca1 20260826090000_restrict_ads_credential_rpcs_to_service_role.sql'
+    );
   });
 });

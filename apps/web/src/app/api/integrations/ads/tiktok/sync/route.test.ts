@@ -5,8 +5,15 @@ const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const invalidateAdsAnalyticsCache = vi.fn();
-const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+const {
+  createAdsCredentialServiceClient,
+  createAdsSpendServiceClient,
+  mockCredentialSupabase,
+  mockSpendSupabase,
+} = vi.hoisted(() => ({
+  createAdsCredentialServiceClient: vi.fn(),
   createAdsSpendServiceClient: vi.fn(),
+  mockCredentialSupabase: { rpc: vi.fn() },
   mockSpendSupabase: { rpc: vi.fn() },
 }));
 vi.mock('@/lib/api-auth', () => ({
@@ -26,6 +33,12 @@ vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
     createAdsSpendServiceClient();
     return mockSpendSupabase;
+  },
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: () => {
+    createAdsCredentialServiceClient();
+    return mockCredentialSupabase;
   },
 }));
 const sync = vi.fn();
@@ -60,6 +73,7 @@ describe('TikTok Ads sync route', () => {
       ).status
     ).toBe(401);
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('rejects a malformed authenticated sync body after CSRF validation', async () => {
@@ -87,6 +101,7 @@ describe('TikTok Ads sync route', () => {
     ).toBe(400);
     expect(access).not.toHaveBeenCalled();
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('runs an authenticated valid CSRF/Zod sync and returns the normalized success', async () => {
@@ -115,7 +130,10 @@ describe('TikTok Ads sync route', () => {
       synced: true,
     });
     expect(sync).toHaveBeenCalledWith(
-      expect.objectContaining({ spendSupabase: mockSpendSupabase })
+      expect.objectContaining({
+        credentialSupabase: mockCredentialSupabase,
+        spendSupabase: mockSpendSupabase,
+      })
     );
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant'

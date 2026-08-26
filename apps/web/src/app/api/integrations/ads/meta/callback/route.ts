@@ -16,6 +16,7 @@ import {
   MetaAdsProviderError,
   validateMetaAdsGrant,
 } from '@/lib/ads/meta/provider';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { verifyAdsOAuthState } from '@/lib/ads/state';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { metaAdsOAuthCallbackQuerySchema } from '@/schemas/meta-ads';
@@ -111,7 +112,8 @@ export async function GET(request: NextRequest) {
     const expiresAt = new Date(
       Date.now() + longLived.expires_in * 1000
     ).toISOString();
-    const { error } = await auth.supabase.rpc(
+    const credentialSupabase = createAdsCredentialServiceClient();
+    const { error } = await credentialSupabase.rpc(
       'upsert_merchant_ads_connection',
       {
         p_access_token_ciphertext: encryptAdsToken(

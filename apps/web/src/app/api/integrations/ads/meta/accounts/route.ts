@@ -16,15 +16,18 @@ import {
   MetaAdsReauthPersistenceError,
   markMetaAdsReauthRequired,
 } from '@/lib/ads/meta/sync';
+import {
+  type AdsCredentialServiceClient,
+  createAdsCredentialServiceClient,
+} from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { metaAdsAccountSelectionSchema } from '@/schemas/meta-ads';
 
 async function connectionForMerchant(
-  supabase: Awaited<ReturnType<typeof authenticateApiRequest>>['supabase'],
+  supabase: AdsCredentialServiceClient,
   merchantId: string
 ) {
-  if (!supabase) return null;
   const result = await supabase.rpc('get_merchant_ads_connection_secret', {
     p_merchant_id: merchantId,
     p_provider: META_ADS_PROVIDER,
@@ -52,6 +55,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
@@ -59,7 +63,7 @@ export async function GET(request: NextRequest) {
   try {
     const config = getMetaAdsConfig();
     const result = await connectionForMerchant(
-      auth.supabase,
+      credentialSupabase,
       access.merchantId
     );
     if (!result || ('error' in result && result.error))
@@ -99,7 +103,7 @@ export async function GET(request: NextRequest) {
           connection,
           failureCode: 'META_ADS_ACCESS_REVOKED',
           merchantId: access.merchantId,
-          supabase: auth.supabase,
+          credentialSupabase,
         });
       } catch (persistError) {
         if (persistError instanceof MetaAdsReauthPersistenceError)
@@ -172,13 +176,14 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
   } | null = null;
   try {
     const result = await connectionForMerchant(
-      auth.supabase,
+      credentialSupabase,
       access.merchantId
     );
     if (!result || ('error' in result && result.error))
@@ -203,7 +208,7 @@ export async function PATCH(request: NextRequest) {
         { error: 'Meta Ads account is not accessible' },
         { status: 400 }
       );
-    const { data, error } = await auth.supabase.rpc(
+    const { data, error } = await credentialSupabase.rpc(
       'set_merchant_ads_account',
       {
         p_account_timezone: account.timezoneName,
@@ -245,7 +250,7 @@ export async function PATCH(request: NextRequest) {
           connection,
           failureCode: 'META_ADS_ACCESS_REVOKED',
           merchantId: access.merchantId,
-          supabase: auth.supabase,
+          credentialSupabase,
         });
       } catch (persistError) {
         if (persistError instanceof MetaAdsReauthPersistenceError)

@@ -7,7 +7,10 @@ const mockHasPermission = vi.fn();
 const mockCsrf = vi.fn();
 const mockRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockCredentialRpc = vi.fn();
+const mockCredentialSupabase = { rpc: mockCredentialRpc };
 const mockInvalidate = vi.hoisted(() => vi.fn());
+const mockCreateAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -19,6 +22,12 @@ vi.mock('@/lib/csrf', () => ({
 }));
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) => mockInvalidate(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    mockCreateAdsCredentialServiceClient(...args);
+    return mockCredentialSupabase;
+  },
 }));
 
 import { DELETE, POST } from './route';
@@ -35,6 +44,8 @@ describe('Google Ads disconnect route', () => {
     mockHasPermission.mockReturnValue(true);
     mockCsrf.mockResolvedValue({ valid: true });
     mockRpc.mockResolvedValue({ data: true, error: null });
+    mockCredentialRpc.mockResolvedValue({ data: true, error: null });
+    mockCreateAdsCredentialServiceClient.mockClear();
   });
 
   it('returns 401 before mutating when unauthenticated', async () => {
@@ -53,6 +64,7 @@ describe('Google Ads disconnect route', () => {
     );
     expect(response.status).toBe(401);
     expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('requires CSRF protection for browser mutations', async () => {
@@ -70,6 +82,7 @@ describe('Google Ads disconnect route', () => {
     );
     expect(response.status).toBe(403);
     expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('deletes only the authenticated merchant Google Ads connection', async () => {
@@ -83,9 +96,13 @@ describe('Google Ads disconnect route', () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ connected: false });
-    expect(mockRpc).toHaveBeenCalledWith('delete_google_ads_connection', {
-      p_merchant_id: 'merchant-1',
-    });
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'delete_google_ads_connection',
+      {
+        p_merchant_id: 'merchant-1',
+      }
+    );
     expect(mockInvalidate).toHaveBeenCalledWith('merchant-1');
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
   });
 });

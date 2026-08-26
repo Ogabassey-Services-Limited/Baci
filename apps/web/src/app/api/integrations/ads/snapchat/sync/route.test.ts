@@ -7,8 +7,15 @@ const permission = vi.fn();
 const csrf = vi.fn();
 const sync = vi.fn();
 const invalidateAdsAnalyticsCache = vi.fn();
-const { mockSpendSupabase, createAdsSpendServiceClient } = vi.hoisted(() => ({
+const {
+  createAdsCredentialServiceClient,
+  createAdsSpendServiceClient,
+  mockCredentialSupabase,
+  mockSpendSupabase,
+} = vi.hoisted(() => ({
+  createAdsCredentialServiceClient: vi.fn(),
   createAdsSpendServiceClient: vi.fn(),
+  mockCredentialSupabase: { rpc: vi.fn() },
   mockSpendSupabase: { rpc: vi.fn() },
 }));
 vi.mock('@/lib/api-auth', () => ({
@@ -27,6 +34,12 @@ vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
     createAdsSpendServiceClient();
     return mockSpendSupabase;
+  },
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: () => {
+    createAdsCredentialServiceClient();
+    return mockCredentialSupabase;
   },
 }));
 vi.mock('@/lib/ads/snapchat/sync', () => ({
@@ -79,6 +92,7 @@ describe('Snapchat Ads sync route', () => {
       ).status
     ).toBe(401);
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('validates CSRF and input before synchronizing, then returns safe success data', async () => {
@@ -106,7 +120,10 @@ describe('Snapchat Ads sync route', () => {
       synced: true,
     });
     expect(sync).toHaveBeenCalledWith(
-      expect.objectContaining({ spendSupabase: mockSpendSupabase })
+      expect.objectContaining({
+        credentialSupabase: mockCredentialSupabase,
+        spendSupabase: mockSpendSupabase,
+      })
     );
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant'
@@ -169,6 +186,7 @@ describe('Snapchat Ads sync route', () => {
       ).status
     ).toBe(403);
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
     csrf.mockResolvedValue({ valid: true });
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(false);
@@ -189,6 +207,7 @@ describe('Snapchat Ads sync route', () => {
       ).status
     ).toBe(403);
     expect(createAdsSpendServiceClient).not.toHaveBeenCalled();
+    expect(createAdsCredentialServiceClient).not.toHaveBeenCalled();
     permission.mockReturnValue(true);
     expect(
       (

@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const csrf = vi.fn();
 const invalidate = vi.hoisted(() => vi.fn());
+const credentialRpc = vi.hoisted(() => vi.fn());
+const createAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -17,10 +19,20 @@ vi.mock('@/lib/csrf', () => ({
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
 }));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
+}));
 
 import { DELETE } from './route';
 
 describe('Snapchat Ads disconnect route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('denies unauthenticated deletion before CSRF or RPC work', async () => {
     auth.mockResolvedValue({
       error: 'Unauthorized',
@@ -40,7 +52,8 @@ describe('Snapchat Ads disconnect route', () => {
   });
 
   it('treats an already-missing connection as successfully disconnected', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    const rpc = vi.fn();
+    credentialRpc.mockResolvedValue({ data: false, error: null });
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -57,9 +70,13 @@ describe('Snapchat Ads disconnect route', () => {
         )
       )
     ).resolves.toMatchObject({ status: 200 });
-    expect(rpc).toHaveBeenCalledWith(
+    expect(credentialRpc).toHaveBeenCalledWith(
       'delete_snapchat_ads_connection_and_spend',
       { p_merchant_id: 'merchant' }
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'delete_snapchat_ads_connection_and_spend',
+      expect.anything()
     );
     expect(invalidate).toHaveBeenCalledWith('merchant');
   });
@@ -86,7 +103,8 @@ describe('Snapchat Ads disconnect route', () => {
   });
 
   it('denies permissions and hides RPC failure sentinels', async () => {
-    const rpc = vi.fn().mockResolvedValue({
+    const rpc = vi.fn();
+    credentialRpc.mockResolvedValue({
       data: false,
       error: { message: 'SNAP_DISCONNECT_SENTINEL' },
     });
@@ -115,7 +133,11 @@ describe('Snapchat Ads disconnect route', () => {
       )
     );
     expect(failure.status).toBe(500);
-    expect(rpc).toHaveBeenCalledOnce();
+    expect(credentialRpc).toHaveBeenCalledOnce();
+    expect(rpc).not.toHaveBeenCalledWith(
+      'delete_snapchat_ads_connection_and_spend',
+      expect.anything()
+    );
     expect(JSON.stringify(await failure.json())).not.toContain(
       'SNAP_DISCONNECT_SENTINEL'
     );

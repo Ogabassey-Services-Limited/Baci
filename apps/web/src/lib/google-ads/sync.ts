@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import {
   type GoogleAdsResolvedAccessToken,
   resolveGoogleAdsAccessToken,
@@ -35,6 +36,7 @@ export async function syncGoogleAdsSpendForMerchant(
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
+    credentialSupabase: AdsCredentialServiceClient;
     spendSupabase: SupabaseClient;
     startDate: string;
     supabase: SupabaseClient;
@@ -52,7 +54,7 @@ export async function syncGoogleAdsSpendForMerchant(
   const oauthConfig = getGoogleAdsOAuthConfig();
   const reportingConfig = getGoogleAdsReportingConfig();
   const { data: connections, error: connectionError } =
-    await input.supabase.rpc('get_google_ads_connection_secret', {
+    await input.credentialSupabase.rpc('get_google_ads_connection_secret', {
       p_merchant_id: input.merchantId,
     });
   if (connectionError) throw new GoogleAdsSyncError('CONNECTION_READ_FAILED');
@@ -60,6 +62,7 @@ export async function syncGoogleAdsSpendForMerchant(
   if (!connection?.provider_customer_id) {
     throw new GoogleAdsSyncError('GOOGLE_ADS_CUSTOMER_NOT_SELECTED');
   }
+  const customerId = connection.provider_customer_id;
 
   let resolvedToken: GoogleAdsResolvedAccessToken;
   try {
@@ -73,9 +76,9 @@ export async function syncGoogleAdsSpendForMerchant(
     if (reauthReason) {
       const persisted = await persistGoogleAdsReauthRequired({
         connection,
+        credentialSupabase: input.credentialSupabase,
         merchantId: input.merchantId,
         reason: reauthReason,
-        supabase: input.supabase,
       });
       if (!persisted) {
         throw new GoogleAdsSyncError('REAUTH_STATUS_UPDATE_FAILED');
@@ -89,7 +92,7 @@ export async function syncGoogleAdsSpendForMerchant(
   }
   if (resolvedToken.encryptedAccessToken) {
     const { data: tokenUpdated, error: tokenUpdateError } =
-      await input.supabase.rpc(
+      await input.credentialSupabase.rpc(
         'update_google_ads_connection_token_if_current',
         {
           p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
@@ -116,7 +119,7 @@ export async function syncGoogleAdsSpendForMerchant(
     rows = await fetchGoogleAdsDailySpend(
       {
         accessToken: resolvedToken.accessToken,
-        customerId: connection.provider_customer_id,
+        customerId,
         endDate: input.endDate,
         reportingConfig,
         startDate: input.startDate,
@@ -127,9 +130,9 @@ export async function syncGoogleAdsSpendForMerchant(
     if (error instanceof GoogleAdsProviderError && error.status === 401) {
       const persisted = await persistGoogleAdsReauthRequired({
         connection,
+        credentialSupabase: input.credentialSupabase,
         merchantId: input.merchantId,
         reason: 'GOOGLE_ADS_ACCESS_REVOKED',
-        supabase: input.supabase,
       });
       if (!persisted) {
         throw new GoogleAdsSyncError('REAUTH_STATUS_UPDATE_FAILED');
@@ -152,7 +155,7 @@ export async function syncGoogleAdsSpendForMerchant(
     {
       p_end_date: input.endDate,
       p_merchant_id: input.merchantId,
-      p_provider_customer_id: connection.provider_customer_id,
+      p_provider_customer_id: customerId,
       p_rows: records,
       p_start_date: input.startDate,
     }
@@ -166,14 +169,14 @@ export async function syncGoogleAdsSpendForMerchant(
       finalChunk: input.finalChunk,
       merchantId: input.merchantId,
       provider: 'google_ads',
-      providerCustomerId: connection.provider_customer_id,
+      providerCustomerId: customerId,
       supabase: input.supabase,
     }))
   )
     throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
 
   return {
-    customerId: connection.provider_customer_id,
+    customerId,
     rowsWritten: records.length,
   };
 }

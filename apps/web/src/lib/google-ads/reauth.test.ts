@@ -32,7 +32,7 @@ describe('Google Ads reauthorization helpers', () => {
         },
         merchantId: 'merchant-1',
         reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
-        supabase: { rpc } as never,
+        credentialSupabase: { rpc } as never,
       })
     ).resolves.toBe(true);
     expect(rpc).not.toHaveBeenCalled();
@@ -50,7 +50,7 @@ describe('Google Ads reauthorization helpers', () => {
       },
       merchantId: 'merchant-1',
       reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
-      supabase: { rpc } as never,
+      credentialSupabase: { rpc } as never,
     };
 
     await expect(persistGoogleAdsReauthRequired(input)).resolves.toBe(true);

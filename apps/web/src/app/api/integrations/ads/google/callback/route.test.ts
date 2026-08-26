@@ -10,9 +10,12 @@ const mockVerifyState = vi.fn();
 const mockExchange = vi.fn();
 const mockEncrypt = vi.fn();
 const mockRpc = vi.fn();
+const mockCredentialRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockCredentialSupabase = { rpc: mockCredentialRpc };
 const mockResolveMerchant = vi.fn();
 const mockInvalidate = vi.hoisted(() => vi.fn());
+const mockCreateAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -25,6 +28,12 @@ vi.mock('@/lib/ads/merchant-context', () => ({
 }));
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) => mockInvalidate(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    mockCreateAdsCredentialServiceClient(...args);
+    return mockCredentialSupabase;
+  },
 }));
 vi.mock('@/lib/google-ads/config', () => ({
   GOOGLE_ADS_CONFIG_MISSING: 'Google Ads integration is not configured',
@@ -75,18 +84,13 @@ describe('GET /api/integrations/ads/google/callback', () => {
       if (name === 'consume_merchant_ads_oauth_state_nonce') {
         return Promise.resolve({ data: true, error: null });
       }
-      if (name === 'get_google_ads_connection_secret') {
-        return Promise.resolve({
-          data: [
-            {
-              provider_customer_id: '9876543210',
-              refresh_token_ciphertext: 'existing-refresh-ciphertext',
-            },
-          ],
-          error: null,
-        });
+      return Promise.resolve({ data: true, error: null });
+    });
+    mockCredentialRpc.mockImplementation((name: string) => {
+      if (name === 'upsert_google_ads_connection') {
+        return Promise.resolve({ data: 'connection-1', error: null });
       }
-      return Promise.resolve({ data: 'connection-1', error: null });
+      return Promise.resolve({ data: true, error: null });
     });
     mockExchange.mockResolvedValue({
       access_token: 'access-token',
@@ -112,6 +116,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
 
     expect(response.status).toBe(401);
     expect(mockExchange).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('rejects a state mismatch and redirects only to the canonical Baci origin', async () => {
@@ -133,6 +138,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
       'https://usebaci.com/dashboard/analytics?google_ads=error&reason=invalid_state'
     );
     expect(mockExchange).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('exchanges the code and stores only encrypted grants', async () => {
@@ -156,7 +162,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(mockExchange).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'code', codeVerifier: 'verifier' })
     );
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'upsert_google_ads_connection',
       expect.objectContaining({
         p_access_token_ciphertext: 'encrypted-secret',
@@ -165,6 +171,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
       })
     );
     expect(mockInvalidate).toHaveBeenCalledWith('merchant-1');
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(await response.text())).not.toContain('access-token');
   });
 
@@ -190,7 +197,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(response.headers.get('location')).toBe(
       'https://usebaci.com/dashboard/analytics?google_ads=error&reason=offline_access_required'
     );
-    expect(mockRpc).not.toHaveBeenCalledWith(
+    expect(mockCredentialRpc).not.toHaveBeenCalledWith(
       'upsert_google_ads_connection',
       expect.anything()
     );
@@ -218,5 +225,6 @@ describe('GET /api/integrations/ads/google/callback', () => {
 
     expect(response.headers.get('location')).toContain('reason=invalid_state');
     expect(mockExchange).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,8 @@ const config = vi.fn();
 const exchange = vi.fn();
 const resolveMerchant = vi.fn();
 const invalidate = vi.hoisted(() => vi.fn());
+const credentialRpc = vi.hoisted(() => vi.fn());
+const createAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => auth(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -28,6 +30,12 @@ vi.mock('@/lib/ads/snapchat/config', () => ({
 vi.mock('@/lib/ads/snapchat/oauth', () => ({
   exchangeSnapchatAdsAuthorizationCode: (...args: unknown[]) =>
     exchange(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
 }));
 
 function snapchatConfig() {
@@ -55,6 +63,8 @@ import { GET } from './route';
 
 describe('Snapchat Ads callback route', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
+    credentialRpc.mockResolvedValue({ data: true, error: null });
     resolveMerchant.mockResolvedValue({
       access: { merchantId: 'merchant' },
       response: null,
@@ -123,10 +133,7 @@ describe('Snapchat Ads callback route', () => {
   it('consumes the exact nonce, exchanges tokens, and persists encrypted ciphertext only', async () => {
     config.mockReturnValue(snapchatConfig());
     const state = signedState();
-    const rpc = vi
-      .fn()
-      .mockResolvedValueOnce({ data: true, error: null })
-      .mockResolvedValueOnce({ data: true, error: null });
+    const rpc = vi.fn().mockResolvedValueOnce({ data: true, error: null });
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -153,15 +160,19 @@ describe('Snapchat Ads callback route', () => {
     expect(JSON.stringify(Object.fromEntries(response.headers))).not.toContain(
       'SNAP_CALLBACK_ACCESS_SENTINEL'
     );
-    const upsert = rpc.mock.calls[1]?.[1] as Record<string, unknown>;
+    const upsert = credentialRpc.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(upsert.p_access_token_ciphertext).not.toBe(
       'SNAP_CALLBACK_ACCESS_SENTINEL'
     );
     expect(upsert.p_refresh_token_ciphertext).not.toBe(
       'SNAP_CALLBACK_REFRESH_SENTINEL'
     );
-    expect(JSON.stringify(rpc.mock.calls)).not.toContain(
+    expect(JSON.stringify(credentialRpc.mock.calls)).not.toContain(
       'SNAP_CALLBACK_ACCESS_SENTINEL'
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.anything()
     );
     expect(invalidate).toHaveBeenCalledWith('merchant');
     expect(log).not.toHaveBeenCalled();

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -54,10 +55,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   }
   try {
+    // Credential reads/refreshes are service-role-only. Construct the
+    // dedicated client only after the request has passed auth, merchant, and
+    // permission checks; the spend writer has its own narrowly scoped service
+    // client.
+    const credentialSupabase = createAdsCredentialServiceClient();
     const result = await syncGoogleAdsSpendForMerchant({
       endDate: parsed.data.endDate,
       finalChunk: parsed.data.finalChunk,
       merchantId: access.merchantId,
+      credentialSupabase,
       spendSupabase: createAdsSpendServiceClient(),
       startDate: parsed.data.startDate,
       supabase: auth.supabase,

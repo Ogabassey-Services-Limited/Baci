@@ -11,7 +11,10 @@ const mockResolveToken = vi.fn();
 const mockListAccounts = vi.fn();
 const mockInvalidateAnalytics = vi.fn();
 const mockRpc = vi.fn();
+const mockCredentialRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockCredentialSupabase = { rpc: mockCredentialRpc };
+const mockCreateAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -38,6 +41,12 @@ vi.mock('@/lib/google-ads/provider', () => ({
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) =>
     mockInvalidateAnalytics(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    mockCreateAdsCredentialServiceClient(...args);
+    return mockCredentialSupabase;
+  },
 }));
 
 import { GET, PATCH } from './route';
@@ -78,12 +87,14 @@ describe('Google Ads account discovery and selection', () => {
       expiresAt: null,
     });
     mockListAccounts.mockResolvedValue(['1234567890', '0987654321']);
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({ data: [connection], error: null });
       }
       return Promise.resolve({ data: true, error: null });
     });
+    mockRpc.mockResolvedValue({ data: true, error: null });
+    mockCreateAdsCredentialServiceClient.mockClear();
   });
 
   it('returns 401 before account discovery when unauthenticated', async () => {
@@ -99,6 +110,7 @@ describe('Google Ads account discovery and selection', () => {
     );
     expect(response.status).toBe(401);
     expect(mockListAccounts).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('lists accessible customer IDs without returning token ciphertext', async () => {
@@ -114,6 +126,15 @@ describe('Google Ads account discovery and selection', () => {
       { customerId: '0987654321', selected: false },
     ]);
     expect(JSON.stringify(json)).not.toContain('encrypted-access');
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'get_google_ads_connection_secret',
+      { p_merchant_id: 'merchant-1' }
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'get_google_ads_connection_secret',
+      expect.anything()
+    );
   });
 
   it('does not overwrite a newer OAuth connection when refresh CAS loses the race', async () => {
@@ -122,7 +143,7 @@ describe('Google Ads account discovery and selection', () => {
       encryptedAccessToken: 'new-encrypted-access',
       expiresAt: '2026-08-22T01:00:00.000Z',
     });
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({ data: [connection], error: null });
       }
@@ -143,7 +164,7 @@ describe('Google Ads account discovery and selection', () => {
       error: 'Google Ads authorization changed; retry account discovery',
       retry: true,
     });
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'update_google_ads_connection_token_if_current',
       {
         p_access_token_ciphertext: 'new-encrypted-access',
@@ -169,7 +190,7 @@ describe('Google Ads account discovery and selection', () => {
     );
 
     expect(response.status).toBe(502);
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       {
         p_access_token_ciphertext: 'encrypted-access',
@@ -192,7 +213,7 @@ describe('Google Ads account discovery and selection', () => {
       )
     );
     expect(response.status).toBe(400);
-    expect(mockRpc).not.toHaveBeenCalledWith(
+    expect(mockCredentialRpc).not.toHaveBeenCalledWith(
       'set_google_ads_customer',
       expect.anything()
     );
@@ -212,6 +233,7 @@ describe('Google Ads account discovery and selection', () => {
     expect(response.status).toBe(400);
     expect(mockGetUserAccess).not.toHaveBeenCalled();
     expect(mockListAccounts).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
   });
 
   it('selects only a discovered customer account', async () => {
@@ -228,16 +250,17 @@ describe('Google Ads account discovery and selection', () => {
     const json = await response.json();
     expect(response.status).toBe(200);
     expect(json).toEqual({ customerId: '1234567890', selected: true });
-    expect(mockRpc).toHaveBeenCalledWith('set_google_ads_customer', {
+    expect(mockCredentialRpc).toHaveBeenCalledWith('set_google_ads_customer', {
       p_expected_access_token_ciphertext: 'encrypted-access',
       p_merchant_id: 'merchant-1',
       p_provider_customer_id: '1234567890',
     });
     expect(mockInvalidateAnalytics).toHaveBeenCalledWith('merchant-1');
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a selection when the guarded RPC reports no updated connection', async () => {
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({ data: [connection], error: null });
       }

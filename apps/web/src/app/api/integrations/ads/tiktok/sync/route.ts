@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { TikTokAdsConfigError } from '@/lib/ads/tiktok/config';
 import { TikTokAdsProviderError } from '@/lib/ads/tiktok/provider';
@@ -47,9 +48,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   try {
     const result = await syncTikTokAdsSpendForMerchant({
       ...parsed.data,
+      credentialSupabase,
       merchantId: access.merchantId,
       spendSupabase: createAdsSpendServiceClient(),
       supabase: auth.supabase,

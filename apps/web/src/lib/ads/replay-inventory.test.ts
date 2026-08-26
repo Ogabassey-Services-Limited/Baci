@@ -63,6 +63,10 @@ const accountAwareSyncMarkerMigrationName =
   '20260824110000_account_aware_ads_sync_marker.sql' as const;
 const accountAwareSyncMarkerMigrationHash =
   '7b693e30176a0c500614d933161ba7e6dd03ec0468e250a3a99ac7d618c7b7b3' as const;
+const adsCredentialBoundaryMigrationName =
+  '20260826090000_restrict_ads_credential_rpcs_to_service_role.sql' as const;
+const adsCredentialBoundaryMigrationHash =
+  'a191c7045cb7e2efe1a160f0d7656f0cd433feb9a43f00fa48801fd1ffe91ca1' as const;
 const prerequisiteMigrations = [
   '20260821171051_google_ads_connections_and_spend.sql',
   '20260821174945_google_ads_secret_rpcs.sql',
@@ -388,5 +392,46 @@ describe('provider-neutral ads migration replay inventory', () => {
         historySources.indexOf(migrationName)
       );
     }
+  });
+
+  it('registers the service-only Ads credential boundary migration', () => {
+    const migration = readFileSync(
+      path.resolve(
+        process.cwd(),
+        `../../supabase/migrations/${adsCredentialBoundaryMigrationName}`
+      )
+    );
+    const historySources = [
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-sources.ts'
+        ),
+        'utf8'
+      ),
+      readFileSync(
+        path.resolve(
+          process.cwd(),
+          'tools/db/supabase-history-replay-ads-pending-sources.ts'
+        ),
+        'utf8'
+      ),
+    ].join('\n');
+    const pendingSources = readFileSync(
+      path.resolve(
+        process.cwd(),
+        'tools/db/recent-pending-sources.test-fixture.ts'
+      ),
+      'utf8'
+    );
+
+    expect(createHash('sha256').update(migration).digest('hex')).toBe(
+      adsCredentialBoundaryMigrationHash
+    );
+    expect(historySources).toContain(
+      `${adsCredentialBoundaryMigrationHash} ${adsCredentialBoundaryMigrationName}`
+    );
+    expect(pendingSources).toContain(adsCredentialBoundaryMigrationName);
+    expect(pendingSources).toContain(adsCredentialBoundaryMigrationHash);
   });
 });

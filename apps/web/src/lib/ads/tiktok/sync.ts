@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { tiktokAdsSyncRequestSchema } from '@/schemas/tiktok-ads';
 import { resolveTikTokAdsAccessToken } from './access-token';
 import { getTikTokAdsConfig } from './config';
@@ -64,13 +65,13 @@ export async function markTikTokAdsReauthRequired(input: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
   };
+  credentialSupabase: AdsCredentialServiceClient;
   failureCode: string;
   merchantId: string;
-  supabase: SupabaseClient;
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new TikTokAdsReauthPersistenceError();
-  const { error } = await input.supabase.rpc(
+  const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
@@ -106,6 +107,7 @@ function needsReauth(error: unknown): boolean {
 
 export async function syncTikTokAdsSpendForMerchant(
   input: {
+    credentialSupabase: AdsCredentialServiceClient;
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
@@ -123,7 +125,7 @@ export async function syncTikTokAdsSpendForMerchant(
   )
     throw new TikTokAdsSyncError('INVALID_DATE_RANGE');
   const config = getTikTokAdsConfig();
-  const { data, error } = await input.supabase.rpc(
+  const { data, error } = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
     { p_merchant_id: input.merchantId, p_provider: TIKTOK_ADS_PROVIDER }
   );
@@ -231,7 +233,7 @@ export async function syncTikTokAdsSpendForMerchant(
             connection,
             failureCode: errorCode(cause),
             merchantId: input.merchantId,
-            supabase: input.supabase,
+            credentialSupabase: input.credentialSupabase,
           });
         } catch {
           throw new TikTokAdsSyncError('TIKTOK_ADS_REAUTH_PERSIST_FAILED');

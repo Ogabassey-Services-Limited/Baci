@@ -9,7 +9,10 @@ const mockGetReportingConfig = vi.fn();
 const mockResolveToken = vi.fn();
 const mockListAccounts = vi.fn();
 const mockRpc = vi.fn();
+const mockCredentialRpc = vi.fn();
 const mockSupabase = { rpc: mockRpc };
+const mockCredentialSupabase = { rpc: mockCredentialRpc };
+const mockCreateAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -18,6 +21,12 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/ads/merchant-context', () => ({
   resolveAdsMerchantAccess: (...args: unknown[]) =>
     mockResolveMerchant(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    mockCreateAdsCredentialServiceClient(...args);
+    return mockCredentialSupabase;
+  },
 }));
 vi.mock('@/lib/google-ads/config', () => ({
   GOOGLE_ADS_CONFIG_MISSING: 'Google Ads integration is not configured',
@@ -77,12 +86,13 @@ describe('Google Ads account discovery revoked-token handling', () => {
     mockListAccounts.mockRejectedValue(
       new GoogleAdsProviderError('GOOGLE_ADS_ACCOUNT_DISCOVERY_FAILED', 401)
     );
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({ data: [connection], error: null });
       }
       return Promise.resolve({ data: true, error: null });
     });
+    mockRpc.mockResolvedValue({ data: true, error: null });
   });
 
   it('marks the currently rejected grant reconnect-required when discovery returns 401', async () => {
@@ -93,7 +103,7 @@ describe('Google Ads account discovery revoked-token handling', () => {
     );
 
     expect(response.status).toBe(502);
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       {
         p_access_token_ciphertext: 'current-access-ciphertext',
@@ -101,6 +111,10 @@ describe('Google Ads account discovery revoked-token handling', () => {
         p_reason: 'GOOGLE_ADS_ACCESS_REVOKED',
         p_refresh_token_ciphertext: 'current-refresh-ciphertext',
       }
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'get_google_ads_connection_secret',
+      expect.anything()
     );
   });
 
@@ -118,7 +132,7 @@ describe('Google Ads account discovery revoked-token handling', () => {
     );
 
     expect(response.status).toBe(502);
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'update_google_ads_connection_token_if_current',
       expect.objectContaining({
         p_access_token_ciphertext: 'refreshed-access-ciphertext',
@@ -126,7 +140,7 @@ describe('Google Ads account discovery revoked-token handling', () => {
         p_expected_refresh_token_ciphertext: 'current-refresh-ciphertext',
       })
     );
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       expect.objectContaining({
         p_access_token_ciphertext: 'refreshed-access-ciphertext',
@@ -136,7 +150,7 @@ describe('Google Ads account discovery revoked-token handling', () => {
   });
 
   it('reports a status-write failure when a newer OAuth grant wins the race', async () => {
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({ data: [connection], error: null });
       }

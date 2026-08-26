@@ -7,6 +7,7 @@ import {
   MetaAdsSyncError,
   syncMetaAdsSpendForMerchant,
 } from '@/lib/ads/meta/sync';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -48,9 +49,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   try {
     const result = await syncMetaAdsSpendForMerchant({
       ...parsed.data,
+      credentialSupabase,
       merchantId: access.merchantId,
       spendSupabase: createAdsSpendServiceClient(),
       supabase: auth.supabase,

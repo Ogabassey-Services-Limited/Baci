@@ -2,6 +2,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import {
+  type AdsCredentialServiceClient,
+  createAdsCredentialServiceClient,
+} from '@/lib/ads/server-credential-client';
+import {
   getSnapchatAdsUsableAccessToken,
   getSnapchatAdsUsableGrant,
   SnapchatAdsTokenRefreshError,
@@ -29,10 +33,9 @@ type SecretConnection = {
   token_expires_at: string | null;
 };
 async function connection(
-  supabase: Awaited<ReturnType<typeof authenticateApiRequest>>['supabase'],
+  supabase: AdsCredentialServiceClient,
   merchantId: string
 ) {
-  if (!supabase) return null;
   const result = await supabase.rpc('get_merchant_ads_connection_secret', {
     p_merchant_id: merchantId,
     p_provider: SNAPCHAT_ADS_PROVIDER,
@@ -45,9 +48,7 @@ async function revoked(
   error: unknown,
   current: SecretConnection | null,
   merchantId: string,
-  supabase: NonNullable<
-    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
-  >
+  credentialSupabase: AdsCredentialServiceClient
 ) {
   const shouldMarkReauth =
     (error instanceof SnapchatAdsProviderError &&
@@ -60,7 +61,7 @@ async function revoked(
       connection: current,
       failureCode: error.code,
       merchantId,
-      supabase,
+      credentialSupabase,
     });
     return null;
   } catch {
@@ -104,9 +105,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let current: SecretConnection | null = null;
   try {
-    const read = await connection(auth.supabase, access.merchantId);
+    const read = await connection(credentialSupabase, access.merchantId);
     if (!read || ('error' in read && read.error))
       return NextResponse.json(
         { error: 'Failed to read Snapchat Ads connection' },
@@ -121,7 +123,7 @@ export async function GET(request: NextRequest) {
         config,
         connection: current,
         merchantId: access.merchantId,
-        supabase: auth.supabase,
+        credentialSupabase,
       }),
     });
     return NextResponse.json({
@@ -137,7 +139,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     return (
-      (await revoked(error, current, access.merchantId, auth.supabase)) ??
+      (await revoked(error, current, access.merchantId, credentialSupabase)) ??
       providerFailure(error)
     );
   }
@@ -178,9 +180,10 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let current: SecretConnection | null = null;
   try {
-    const read = await connection(auth.supabase, access.merchantId);
+    const read = await connection(credentialSupabase, access.merchantId);
     if (!read || ('error' in read && read.error))
       return NextResponse.json(
         { error: 'Failed to read Snapchat Ads connection' },
@@ -197,7 +200,7 @@ export async function PATCH(request: NextRequest) {
       config,
       connection: current,
       merchantId: access.merchantId,
-      supabase: auth.supabase,
+      credentialSupabase,
     });
     const account = (
       await listSnapchatAdsAccounts({
@@ -209,7 +212,7 @@ export async function PATCH(request: NextRequest) {
         { error: 'Snapchat Ads account is not accessible' },
         { status: 400 }
       );
-    const result = await auth.supabase.rpc('set_merchant_ads_account', {
+    const result = await credentialSupabase.rpc('set_merchant_ads_account', {
       p_account_timezone: account.timezoneName,
       p_attribution_metadata: {
         currencyCode: account.currencyCode,
@@ -238,7 +241,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {
     return (
-      (await revoked(error, current, access.merchantId, auth.supabase)) ??
+      (await revoked(error, current, access.merchantId, credentialSupabase)) ??
       providerFailure(error)
     );
   }

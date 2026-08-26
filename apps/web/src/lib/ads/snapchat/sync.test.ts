@@ -74,6 +74,7 @@ describe('Snapchat Ads sync', () => {
   it('rediscovers the selected account and persists exact micro-currency with Snap labels', async () => {
     await expect(
       syncSnapchatAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
@@ -123,6 +124,7 @@ describe('Snapchat Ads sync', () => {
 
     await expect(
       syncSnapchatAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
@@ -160,6 +162,7 @@ describe('Snapchat Ads sync', () => {
     );
     await expect(
       syncSnapchatAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',

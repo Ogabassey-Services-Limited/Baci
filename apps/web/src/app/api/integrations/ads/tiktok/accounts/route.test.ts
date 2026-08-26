@@ -5,6 +5,7 @@ const authenticate = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const invalidateAnalytics = vi.fn();
+const createAdsCredentialServiceClient = vi.fn();
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) =>
     invalidateAnalytics(...args),
@@ -38,6 +39,10 @@ vi.mock('@/lib/ads/tiktok/provider', () => ({
 vi.mock('@/lib/ads/tiktok/sync', () => ({
   markTikTokAdsReauthRequired: vi.fn(),
   TikTokAdsReauthPersistenceError: class TikTokAdsReauthPersistenceError extends Error {},
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) =>
+    createAdsCredentialServiceClient(...args),
 }));
 
 import { GET, PATCH } from './route';
@@ -118,6 +123,7 @@ describe('TikTok Ads accounts route', () => {
         });
       return Promise.resolve({ data: true, error: null });
     });
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -173,6 +179,7 @@ describe('TikTok Ads accounts route', () => {
         error: null,
       })
     );
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },

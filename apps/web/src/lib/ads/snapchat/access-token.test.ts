@@ -64,7 +64,7 @@ describe('Snapchat Ads access token', () => {
           token_expires_at: '2020-01-01T00:00:00Z',
         },
         merchantId: 'merchant',
-        supabase: { rpc } as never,
+        credentialSupabase: { rpc } as never,
       })
     ).resolves.toBe('new-access');
     expect(rpc).toHaveBeenCalledWith(
@@ -102,7 +102,7 @@ describe('Snapchat Ads access token', () => {
           token_expires_at: new Date(Date.now() + 30_000).toISOString(),
         },
         merchantId: 'merchant',
-        supabase: { rpc } as never,
+        credentialSupabase: { rpc } as never,
       })
     ).resolves.toBe('refreshed-access');
     expect(refresh).toHaveBeenCalledTimes(1);
@@ -133,7 +133,7 @@ describe('Snapchat Ads access token', () => {
           token_expires_at: '2020-01-01T00:00:00Z',
         },
         merchantId: 'merchant',
-        supabase: { rpc } as never,
+        credentialSupabase: { rpc } as never,
       })
     ).rejects.toMatchObject({
       code: 'SNAPCHAT_ADS_TOKEN_REFRESH_WRITE_FAILED',

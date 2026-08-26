@@ -1,7 +1,7 @@
 import 'server-only';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { decryptAdsToken, encryptAdsToken } from '@/lib/ads/crypto';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import type { SnapchatAdsConfig } from './config';
 import { SNAPCHAT_ADS_PROVIDER } from './constants';
 import { refreshSnapchatAdsAccessToken, type SnapchatAdsGrant } from './oauth';
@@ -57,8 +57,8 @@ export class SnapchatAdsTokenRefreshError extends Error {
 export async function getSnapchatAdsUsableGrant(input: {
   config: SnapchatAdsConfig;
   connection: SnapchatAdsEncryptedConnection;
+  credentialSupabase: AdsCredentialServiceClient;
   merchantId: string;
-  supabase: SupabaseClient;
 }): Promise<{ accessToken: string; accessTokenCiphertext: string | null }> {
   const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
   const expiresAt = input.connection.token_expires_at
@@ -101,7 +101,7 @@ export async function getSnapchatAdsUsableGrant(input: {
     input.config.tokenEncryptionKey,
     SNAPCHAT_ADS_PROVIDER
   );
-  const updated = await input.supabase.rpc(
+  const updated = await input.credentialSupabase.rpc(
     'update_snapchat_ads_connection_tokens',
     {
       p_access_token_ciphertext: accessTokenCiphertext,
@@ -128,8 +128,8 @@ export async function getSnapchatAdsUsableGrant(input: {
 export async function getSnapchatAdsUsableAccessToken(input: {
   config: SnapchatAdsConfig;
   connection: SnapchatAdsEncryptedConnection;
+  credentialSupabase: AdsCredentialServiceClient;
   merchantId: string;
-  supabase: SupabaseClient;
 }): Promise<string> {
   return (await getSnapchatAdsUsableGrant(input)).accessToken;
 }

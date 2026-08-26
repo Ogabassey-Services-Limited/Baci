@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
@@ -28,7 +29,8 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const result = await auth.supabase.rpc(
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const result = await credentialSupabase.rpc(
     'delete_snapchat_ads_connection_and_spend',
     { p_merchant_id: access.merchantId }
   );

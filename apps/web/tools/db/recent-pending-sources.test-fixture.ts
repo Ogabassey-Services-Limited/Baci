@@ -176,4 +176,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260825191000_revoke_legacy_google_ads_spend_upsert.sql',
     sha256: '313610b5bae49c42960a4ac516230f02227eaec78a601c31e8edc41f5fc04c75',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826090000_restrict_ads_credential_rpcs_to_service_role.sql',
+    sha256: 'a191c7045cb7e2efe1a160f0d7656f0cd433feb9a43f00fa48801fd1ffe91ca1',
+  },
 ];

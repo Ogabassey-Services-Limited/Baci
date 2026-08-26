@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { META_ADS_PROVIDER } from '@/lib/ads/meta/constants';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
@@ -29,10 +30,14 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const { error } = await auth.supabase.rpc('delete_merchant_ads_connection', {
-    p_merchant_id: access.merchantId,
-    p_provider: META_ADS_PROVIDER,
-  });
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const { error } = await credentialSupabase.rpc(
+    'delete_merchant_ads_connection',
+    {
+      p_merchant_id: access.merchantId,
+      p_provider: META_ADS_PROVIDER,
+    }
+  );
   if (error)
     return NextResponse.json(
       { error: 'Failed to disconnect Meta Ads' },

@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { encryptAdsToken, timingSafeStringEqual } from '@/lib/ads/crypto';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import {
   getSnapchatAdsConfig,
   SnapchatAdsConfigError,
@@ -100,7 +101,8 @@ export async function GET(request: NextRequest) {
       )
     )
       return redirect('error', 'required_scopes_missing');
-    const { error } = await auth.supabase.rpc(
+    const credentialSupabase = createAdsCredentialServiceClient();
+    const { error } = await credentialSupabase.rpc(
       'upsert_merchant_ads_connection',
       {
         p_access_token_ciphertext: encryptAdsToken(

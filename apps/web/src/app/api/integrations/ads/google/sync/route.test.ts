@@ -7,12 +7,17 @@ const mockHasPermission = vi.fn();
 const mockCsrf = vi.fn();
 const mockSync = vi.fn();
 const mockInvalidateAdsAnalyticsCache = vi.fn();
-const { mockSpendSupabase, mockCreateAdsSpendServiceClient } = vi.hoisted(
-  () => ({
-    mockCreateAdsSpendServiceClient: vi.fn(),
-    mockSpendSupabase: { rpc: vi.fn() },
-  })
-);
+const {
+  mockCredentialSupabase,
+  mockCreateAdsCredentialServiceClient,
+  mockSpendSupabase,
+  mockCreateAdsSpendServiceClient,
+} = vi.hoisted(() => ({
+  mockCreateAdsCredentialServiceClient: vi.fn(),
+  mockCredentialSupabase: { rpc: vi.fn() },
+  mockCreateAdsSpendServiceClient: vi.fn(),
+  mockSpendSupabase: { rpc: vi.fn() },
+}));
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => mockAuthenticate(...args),
@@ -30,6 +35,12 @@ vi.mock('@/lib/ads/server-spend-client', () => ({
   createAdsSpendServiceClient: () => {
     mockCreateAdsSpendServiceClient();
     return mockSpendSupabase;
+  },
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: () => {
+    mockCreateAdsCredentialServiceClient();
+    return mockCredentialSupabase;
   },
 }));
 vi.mock('@/lib/google-ads/sync', () => ({
@@ -61,6 +72,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     mockHasPermission.mockReturnValue(true);
     mockCsrf.mockResolvedValue({ valid: true });
     mockSync.mockResolvedValue({ customerId: '1234567890', rowsWritten: 2 });
+    mockCreateAdsCredentialServiceClient.mockClear();
     mockCreateAdsSpendServiceClient.mockClear();
   });
 
@@ -77,6 +89,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     );
     expect(response.status).toBe(401);
     expect(mockSync).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
     expect(mockCreateAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
@@ -97,6 +110,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     );
     expect(response.status).toBe(403);
     expect(mockSync).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
     expect(mockCreateAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 
@@ -121,6 +135,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
       endDate: '2026-08-21',
       finalChunk: true,
       merchantId: 'merchant-1',
+      credentialSupabase: mockCredentialSupabase,
       spendSupabase: mockSpendSupabase,
       startDate: '2026-08-20',
       supabase: {},
@@ -128,6 +143,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     expect(mockInvalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant-1'
     );
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
   });
 
   it('invalidates only after a successful final chunk', async () => {
@@ -143,10 +159,12 @@ describe('POST /api/integrations/ads/google/sync', () => {
       });
 
     expect((await POST(request(false))).status).toBe(200);
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
     expect(mockInvalidateAdsAnalyticsCache).not.toHaveBeenCalled();
 
     mockSync.mockRejectedValueOnce(new Error('write failed'));
     expect((await POST(request(true))).status).toBe(502);
+    expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(2);
     expect(mockInvalidateAdsAnalyticsCache).not.toHaveBeenCalled();
   });
 
@@ -164,6 +182,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
     expect(response.status).toBe(400);
     expect(mockGetUserAccess).not.toHaveBeenCalled();
     expect(mockSync).not.toHaveBeenCalled();
+    expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
     expect(mockCreateAdsSpendServiceClient).not.toHaveBeenCalled();
   });
 });

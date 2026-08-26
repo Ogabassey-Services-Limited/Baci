@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 
@@ -35,9 +36,16 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   }
 
-  const { error } = await auth.supabase.rpc('delete_google_ads_connection', {
-    p_merchant_id: access.merchantId,
-  });
+  // Connection deletion is a service-role-only credential lifecycle RPC. Do
+  // not construct the dedicated client until all request, merchant, and
+  // integrations:manage checks have succeeded.
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const { error } = await credentialSupabase.rpc(
+    'delete_google_ads_connection',
+    {
+      p_merchant_id: access.merchantId,
+    }
+  );
   if (error) {
     return NextResponse.json(
       { error: 'Failed to disconnect Google Ads' },

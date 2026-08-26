@@ -7,6 +7,8 @@ const access = vi.fn();
 const permission = vi.fn();
 const resolveMerchant = vi.fn();
 const invalidate = vi.hoisted(() => vi.fn());
+const credentialRpc = vi.hoisted(() => vi.fn());
+const createAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -46,12 +48,19 @@ vi.mock('@/lib/ads/tiktok/config', () => ({
   }),
   TikTokAdsConfigError: class TikTokAdsConfigError extends Error {},
 }));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
+}));
 
 import { GET } from './route';
 
 describe('TikTok Ads callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    credentialRpc.mockResolvedValue({ data: true, error: null });
     resolveMerchant.mockResolvedValue({
       access: { merchantId: 'merchant' },
       response: null,
@@ -137,13 +146,17 @@ describe('TikTok Ads callback route', () => {
     expect(location.searchParams.get('tiktok_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(encrypt).toHaveBeenCalledWith('token', 'key', 'tiktok_ads');
-    expect(rpc).toHaveBeenCalledWith(
+    expect(credentialRpc).toHaveBeenCalledWith(
       'upsert_merchant_ads_connection',
       expect.objectContaining({
         p_access_token_ciphertext: 'v2.tiktok_ads.iv.tag.ciphertext',
         p_refresh_token_ciphertext: null,
         p_scopes: ['44', '100'],
       })
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.anything()
     );
     expect(invalidate).toHaveBeenCalledWith('merchant');
   });

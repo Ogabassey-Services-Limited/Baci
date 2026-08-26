@@ -5,7 +5,9 @@ const mockGetReportingConfig = vi.fn();
 const mockResolveToken = vi.fn();
 const mockFetchSpend = vi.fn();
 const mockRpc = vi.fn();
+const mockCredentialRpc = vi.fn();
 const supabase = { rpc: mockRpc } as never;
+const credentialSupabase = { rpc: mockCredentialRpc } as never;
 
 vi.mock('@/lib/google-ads/config', () => ({
   getGoogleAdsOAuthConfig: (...args: unknown[]) => mockGetOAuthConfig(...args),
@@ -46,7 +48,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     mockGetReportingConfig.mockReturnValue({
       developerToken: 'developer-token',
     });
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({
           data: [
@@ -64,6 +66,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       }
       return Promise.resolve({ data: true, error: null });
     });
+    mockRpc.mockResolvedValue({ data: true, error: null });
     mockResolveToken.mockResolvedValue({
       accessToken: 'access-token',
       encryptedAccessToken: null,
@@ -85,6 +88,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
   it('writes normalized provider rows through the guarded RPCs', async () => {
     const result = await syncGoogleAdsSpendForMerchant({
       endDate: '2026-08-21',
+      credentialSupabase,
       merchantId: 'merchant-1',
       spendSupabase: supabase,
       startDate: '2026-08-20',
@@ -92,6 +96,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     });
 
     expect(result).toEqual({ customerId: '1234567890', rowsWritten: 1 });
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'get_google_ads_connection_secret',
+      { p_merchant_id: 'merchant-1' }
+    );
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'get_google_ads_connection_secret',
+      expect.anything()
+    );
     expect(mockRpc).toHaveBeenCalledWith(
       'replace_google_ads_spend_daily',
       expect.objectContaining({
@@ -121,12 +133,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     await expect(
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
+        credentialSupabase,
         merchantId: 'merchant-1',
         spendSupabase: supabase,
         startDate: '2026-01-01',
         supabase,
       })
     ).rejects.toMatchObject({ code: 'INVALID_DATE_RANGE' });
+    expect(mockCredentialRpc).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockFetchSpend).not.toHaveBeenCalled();
   });
@@ -141,13 +155,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     await expect(
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
+        credentialSupabase,
         merchantId: 'merchant-1',
         spendSupabase: supabase,
         startDate: '2026-08-20',
         supabase,
       })
     ).rejects.toMatchObject({ code: 'ACCESS_TOKEN_REFRESH_FAILED' });
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       {
         p_access_token_ciphertext: 'encrypted-access',
@@ -167,6 +182,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     await expect(
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
+        credentialSupabase,
         merchantId: 'merchant-1',
         spendSupabase: supabase,
         startDate: '2026-08-20',
@@ -176,7 +192,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       code: 'GOOGLE_ADS_SPEND_QUERY_FAILED',
       status: 401,
     });
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       {
         p_access_token_ciphertext: 'encrypted-access',
@@ -197,7 +213,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       encryptedAccessToken: 'new-encrypted-access',
       expiresAt: '2026-08-22T01:00:00.000Z',
     });
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({
           data: [
@@ -222,13 +238,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
     await expect(
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
+        credentialSupabase,
         merchantId: 'merchant-1',
         spendSupabase: supabase,
         startDate: '2026-08-20',
         supabase,
       })
     ).rejects.toMatchObject({ code: 'TOKEN_UPDATE_FAILED' });
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'update_google_ads_connection_token_if_current',
       {
         p_access_token_ciphertext: 'new-encrypted-access',
@@ -246,6 +263,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
 
     const result = await syncGoogleAdsSpendForMerchant({
       endDate: '2026-08-21',
+      credentialSupabase,
       merchantId: 'merchant-1',
       spendSupabase: supabase,
       startDate: '2026-08-20',

@@ -7,6 +7,8 @@ const access = vi.fn();
 const permission = vi.fn();
 const verifyState = vi.fn();
 const rpc = vi.fn();
+const credentialRpc = vi.fn();
+const createAdsCredentialServiceClient = vi.fn();
 const resolveMerchant = vi.fn();
 const exchangeCode = vi.hoisted(() => vi.fn());
 const exchangeLongLived = vi.hoisted(() => vi.fn());
@@ -62,12 +64,19 @@ vi.mock('@/lib/ads/meta/provider', () => ({
   MetaAdsProviderError: class MetaAdsProviderError extends Error {},
   validateMetaAdsGrant: (...args: unknown[]) => validateGrant(...args),
 }));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
+}));
 
 import { GET } from './route';
 
 describe('Meta Ads callback route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    credentialRpc.mockResolvedValue({ data: true, error: null });
     resolveMerchant.mockResolvedValue({
       access: { merchantId: 'merchant' },
       response: null,
@@ -196,6 +205,14 @@ describe('Meta Ads callback route', () => {
     const location = new URL(response.headers.get('location') ?? '');
     expect(location.searchParams.get('meta_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
+    expect(credentialRpc).toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.anything()
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'upsert_merchant_ads_connection',
+      expect.anything()
+    );
     expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 
@@ -229,7 +246,7 @@ describe('Meta Ads callback route', () => {
     expect(location.searchParams.get('reason')).toBe(
       'meta_ads_token_response_invalid'
     );
-    expect(rpc).not.toHaveBeenCalledWith(
+    expect(credentialRpc).not.toHaveBeenCalledWith(
       'upsert_merchant_ads_connection',
       expect.anything()
     );

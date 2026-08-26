@@ -13,7 +13,7 @@ type CredentialReaderLedgers = {
 const defaultLedgers: CredentialReaderLedgers = {
   approvedTask6ReaderHashes: {
     'apps/web/src/lib/supabase/service.ts':
-      '13e10a25092e1a53c8f091b3576e804f6e1268f55d63393d2a2231ddc46cc5bc',
+      '71e29bc441be13550aaf436b2cf123825ed196072668772115aaf384b5fe6ef1',
   },
   // These are pre-existing factory, worker, or route readers. They are not part
   // of the temporary three-edge Task 6 analytics exception. Tracked operational
@@ -114,13 +114,17 @@ const defaultLedgers: CredentialReaderLedgers = {
 
 function readsCredential(path: string, source: string): boolean {
   const file = parseEventPipelineTypeScriptSource(path, source);
+  const credentialNames = new Set([
+    'SUPABASE_ADS_CREDENTIAL_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+  ]);
   const key = (expression: ts.Expression | undefined, at: ts.Node) =>
-    resolveLexicalString(expression, file, at) === 'SUPABASE_SERVICE_ROLE_KEY';
+    credentialNames.has(resolveLexicalString(expression, file, at) ?? '');
   let found = false;
   function visit(node: ts.Node) {
     if (
       ts.isPropertyAccessExpression(node) &&
-      node.name.text === 'SUPABASE_SERVICE_ROLE_KEY'
+      credentialNames.has(node.name.text)
     ) {
       found = true;
     } else if (
@@ -140,8 +144,7 @@ function readsCredential(path: string, source: string): boolean {
     } else if (ts.isBindingElement(node)) {
       const property = node.propertyName ?? node.name;
       if (
-        (ts.isIdentifier(property) &&
-          property.text === 'SUPABASE_SERVICE_ROLE_KEY') ||
+        (ts.isIdentifier(property) && credentialNames.has(property.text)) ||
         (ts.isComputedPropertyName(property) && key(property.expression, node))
       )
         found = true;

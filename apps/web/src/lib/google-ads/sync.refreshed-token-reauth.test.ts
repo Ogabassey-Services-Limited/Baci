@@ -5,7 +5,9 @@ const mockGetReportingConfig = vi.fn();
 const mockResolveToken = vi.fn();
 const mockFetchSpend = vi.fn();
 const mockRpc = vi.fn();
+const mockCredentialRpc = vi.fn();
 const supabase = { rpc: mockRpc } as never;
+const credentialSupabase = { rpc: mockCredentialRpc } as never;
 
 vi.mock('@/lib/google-ads/config', () => ({
   getGoogleAdsOAuthConfig: () => mockGetOAuthConfig(),
@@ -48,7 +50,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
       encryptedAccessToken: 'refreshed-access-ciphertext',
       expiresAt: '2026-08-22T01:00:00.000Z',
     });
-    mockRpc.mockImplementation((name: string) => {
+    mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
         return Promise.resolve({
           data: [
@@ -65,6 +67,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
       }
       return Promise.resolve({ data: true, error: null });
     });
+    mockRpc.mockResolvedValue({ data: true, error: null });
     mockFetchSpend.mockRejectedValue(
       new GoogleAdsProviderError('GOOGLE_ADS_SPEND_QUERY_FAILED', 401)
     );
@@ -74,6 +77,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
     await expect(
       syncGoogleAdsSpendForMerchant({
         endDate: '2026-08-21',
+        credentialSupabase,
         merchantId: 'merchant-1',
         spendSupabase: supabase,
         startDate: '2026-08-20',
@@ -84,7 +88,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
       status: 401,
     });
 
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'update_google_ads_connection_token_if_current',
       expect.objectContaining({
         p_access_token_ciphertext: 'refreshed-access-ciphertext',
@@ -92,7 +96,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
         p_expected_refresh_token_ciphertext: 'refresh-ciphertext',
       })
     );
-    expect(mockRpc).toHaveBeenCalledWith(
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       {
         p_access_token_ciphertext: 'refreshed-access-ciphertext',
@@ -101,7 +105,7 @@ describe('syncGoogleAdsSpendForMerchant refreshed token reauthorization', () => 
         p_refresh_token_ciphertext: 'refresh-ciphertext',
       }
     );
-    expect(mockRpc).not.toHaveBeenCalledWith(
+    expect(mockCredentialRpc).not.toHaveBeenCalledWith(
       'mark_google_ads_connection_reauth_if_current',
       expect.objectContaining({
         p_access_token_ciphertext: 'expired-access-ciphertext',

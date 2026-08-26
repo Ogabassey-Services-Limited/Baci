@@ -2,6 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
 import {
   getSnapchatAdsUsableAccessToken,
@@ -58,13 +59,13 @@ export async function markSnapchatAdsReauthRequired(input: {
     provider_customer_id: string | null;
     refresh_token_ciphertext: string | null;
   };
+  credentialSupabase: AdsCredentialServiceClient;
   failureCode: string;
   merchantId: string;
-  supabase: SupabaseClient;
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_REAUTH_PERSIST_FAILED');
-  const { error } = await input.supabase.rpc(
+  const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
@@ -80,6 +81,7 @@ export async function markSnapchatAdsReauthRequired(input: {
 }
 export async function syncSnapchatAdsSpendForMerchant(
   input: {
+    credentialSupabase: AdsCredentialServiceClient;
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
@@ -92,10 +94,13 @@ export async function syncSnapchatAdsSpendForMerchant(
   if (!snapchatAdsSyncRequestSchema.safeParse(input).success)
     throw new SnapchatAdsSyncError('INVALID_DATE_RANGE');
   const config = getSnapchatAdsConfig();
-  const read = await input.supabase.rpc('get_merchant_ads_connection_secret', {
-    p_merchant_id: input.merchantId,
-    p_provider: SNAPCHAT_ADS_PROVIDER,
-  });
+  const read = await input.credentialSupabase.rpc(
+    'get_merchant_ads_connection_secret',
+    {
+      p_merchant_id: input.merchantId,
+      p_provider: SNAPCHAT_ADS_PROVIDER,
+    }
+  );
   if (read.error) throw new SnapchatAdsSyncError('CONNECTION_READ_FAILED');
   const connection = read.data?.[0];
   if (!connection?.provider_customer_id || connection.status !== 'active')
@@ -105,8 +110,8 @@ export async function syncSnapchatAdsSpendForMerchant(
     token = await getSnapchatAdsUsableAccessToken({
       config,
       connection,
+      credentialSupabase: input.credentialSupabase,
       merchantId: input.merchantId,
-      supabase: input.supabase,
     });
   } catch (error) {
     if (
@@ -115,9 +120,9 @@ export async function syncSnapchatAdsSpendForMerchant(
     )
       await markSnapchatAdsReauthRequired({
         connection,
+        credentialSupabase: input.credentialSupabase,
         failureCode: error.code,
         merchantId: input.merchantId,
-        supabase: input.supabase,
       });
     throw new SnapchatAdsSyncError(codeOf(error));
   }
@@ -213,9 +218,9 @@ export async function syncSnapchatAdsSpendForMerchant(
       if (codeOf(error) === 'SNAPCHAT_ADS_ACCESS_REVOKED')
         await markSnapchatAdsReauthRequired({
           connection,
+          credentialSupabase: input.credentialSupabase,
           failureCode: codeOf(error),
           merchantId: input.merchantId,
-          supabase: input.supabase,
         });
       throw error;
     }

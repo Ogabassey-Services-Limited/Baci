@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import {
+  type AdsCredentialServiceClient,
+  createAdsCredentialServiceClient,
+} from '@/lib/ads/server-credential-client';
 import { resolveTikTokAdsAccessToken } from '@/lib/ads/tiktok/access-token';
 import {
   getTikTokAdsConfig,
@@ -21,10 +25,9 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { tiktokAdsAccountSelectionSchema } from '@/schemas/tiktok-ads';
 
 async function connection(
-  supabase: Awaited<ReturnType<typeof authenticateApiRequest>>['supabase'],
+  supabase: AdsCredentialServiceClient,
   merchantId: string
 ) {
-  if (!supabase) return null;
   const result = await supabase.rpc('get_merchant_ads_connection_secret', {
     p_merchant_id: merchantId,
     p_provider: TIKTOK_ADS_PROVIDER,
@@ -40,9 +43,7 @@ async function handleRevocation(
     provider_customer_id: string | null;
   } | null,
   merchantId: string,
-  supabase: NonNullable<
-    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
-  >
+  credentialSupabase: AdsCredentialServiceClient
 ): Promise<NextResponse | null> {
   if (
     !current ||
@@ -57,7 +58,7 @@ async function handleRevocation(
       connection: current,
       failureCode: error.code,
       merchantId,
-      supabase,
+      credentialSupabase,
     });
     return null;
   } catch (persist) {
@@ -84,13 +85,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let current: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
   } | null = null;
   try {
     const config = getTikTokAdsConfig();
-    const result = await connection(auth.supabase, access.merchantId);
+    const result = await connection(credentialSupabase, access.merchantId);
     if (!result || ('error' in result && result.error))
       return NextResponse.json(
         { error: 'Failed to read TikTok Ads connection' },
@@ -119,7 +121,7 @@ export async function GET(request: NextRequest) {
       error,
       current,
       access.merchantId,
-      auth.supabase
+      credentialSupabase
     );
     if (revocation) return revocation;
     if (error instanceof TikTokAdsConfigError)
@@ -174,12 +176,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const credentialSupabase = createAdsCredentialServiceClient();
   let current: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
   } | null = null;
   try {
-    const result = await connection(auth.supabase, access.merchantId);
+    const result = await connection(credentialSupabase, access.merchantId);
     if (!result || ('error' in result && result.error))
       return NextResponse.json(
         { error: 'Failed to read TikTok Ads connection' },
@@ -204,7 +207,7 @@ export async function PATCH(request: NextRequest) {
         { error: 'TikTok Ads account is not accessible' },
         { status: 400 }
       );
-    const { data, error } = await auth.supabase.rpc(
+    const { data, error } = await credentialSupabase.rpc(
       'set_merchant_ads_account',
       {
         p_account_timezone: account.timezoneName,
@@ -239,7 +242,7 @@ export async function PATCH(request: NextRequest) {
       error,
       current,
       access.merchantId,
-      auth.supabase
+      credentialSupabase
     );
     if (revocation) return revocation;
     if (error instanceof TikTokAdsConfigError)

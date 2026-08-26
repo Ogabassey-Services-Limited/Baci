@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 
 export function getGoogleAdsReauthReason(error: unknown): string | null {
   const record =
@@ -25,12 +25,12 @@ export async function persistGoogleAdsReauthRequired(input: {
     access_token_ciphertext: string | null;
     refresh_token_ciphertext: string | null;
   };
+  credentialSupabase: AdsCredentialServiceClient;
   merchantId: string;
-  supabase: SupabaseClient;
   reason: string;
 }): Promise<boolean> {
   if (!input.connection.refresh_token_ciphertext) return true;
-  const { data, error } = await input.supabase.rpc(
+  const { data, error } = await input.credentialSupabase.rpc(
     'mark_google_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,

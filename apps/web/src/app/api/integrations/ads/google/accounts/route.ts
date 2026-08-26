@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import {
@@ -62,12 +63,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: connections, error: connectionError } = await auth.supabase.rpc(
-    'get_google_ads_connection_secret',
-    {
+  // The connection secret and token CAS RPCs are service-role-only. Create the
+  // dedicated credential client only after all user/merchant/permission gates
+  // have passed; keep auth.supabase for non-sensitive user-scoped operations.
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const { data: connections, error: connectionError } =
+    await credentialSupabase.rpc('get_google_ads_connection_secret', {
       p_merchant_id: access.merchantId,
-    }
-  );
+    });
   if (connectionError) {
     return NextResponse.json(
       { error: 'Failed to read Google Ads connection' },
@@ -88,9 +91,9 @@ export async function GET(request: NextRequest) {
       reason &&
       !(await persistGoogleAdsReauthRequired({
         connection,
+        credentialSupabase,
         merchantId: access.merchantId,
         reason,
-        supabase: auth.supabase,
       }))
     ) {
       return NextResponse.json(
@@ -104,7 +107,7 @@ export async function GET(request: NextRequest) {
     );
   }
   if (resolvedToken.encryptedAccessToken) {
-    const { data: updated, error: updateError } = await auth.supabase.rpc(
+    const { data: updated, error: updateError } = await credentialSupabase.rpc(
       'update_google_ads_connection_token_if_current',
       {
         p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
@@ -155,9 +158,9 @@ export async function GET(request: NextRequest) {
       error.status === 401 &&
       !(await persistGoogleAdsReauthRequired({
         connection,
+        credentialSupabase,
         merchantId: access.merchantId,
         reason: 'GOOGLE_ADS_ACCESS_REVOKED',
-        supabase: auth.supabase,
       }))
     ) {
       return NextResponse.json(
@@ -224,12 +227,11 @@ export async function PATCH(request: NextRequest) {
       { status: 503 }
     );
   }
-  const { data: connections, error: connectionError } = await auth.supabase.rpc(
-    'get_google_ads_connection_secret',
-    {
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const { data: connections, error: connectionError } =
+    await credentialSupabase.rpc('get_google_ads_connection_secret', {
       p_merchant_id: access.merchantId,
-    }
-  );
+    });
   if (connectionError) {
     return NextResponse.json(
       { error: 'Failed to read Google Ads connection' },
@@ -270,7 +272,7 @@ export async function PATCH(request: NextRequest) {
       { status: 400 }
     );
   }
-  const { data: updated, error: updateError } = await auth.supabase.rpc(
+  const { data: updated, error: updateError } = await credentialSupabase.rpc(
     'set_google_ads_customer',
     {
       p_expected_access_token_ciphertext: connection.access_token_ciphertext,

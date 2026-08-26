@@ -2,9 +2,11 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { metaAdsSyncRequestSchema } from '@/schemas/meta-ads';
 import { resolveMetaAdsAccessToken } from './access-token';
 import { getMetaAdsConfig } from './config';
+import type { MetaAdsConnection } from './connection-types';
 import {
   META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
   META_ADS_CONVERSION_ACTION_TYPES,
@@ -41,11 +43,6 @@ const inFlightSyncs = new Map<
   Promise<{ accountId: string; rowsWritten: number }>
 >();
 
-type MetaAdsConnection = {
-  access_token_ciphertext: string | null;
-  provider_customer_id: string | null;
-  refresh_token_ciphertext?: string | null;
-};
 function addExactDecimalStrings(values: string[]): string {
   const maxScale = values.reduce(
     (maximum, value) => Math.max(maximum, value.split('.')[1]?.length ?? 0),
@@ -74,13 +71,13 @@ function actionCount(actions: MetaAdsDailyInsight['actions']): string {
 
 export async function markMetaAdsReauthRequired(input: {
   connection: MetaAdsConnection;
+  credentialSupabase: AdsCredentialServiceClient;
   failureCode: string;
   merchantId: string;
-  supabase: SupabaseClient;
 }): Promise<void> {
   if (!input.connection.access_token_ciphertext)
     throw new MetaAdsReauthPersistenceError();
-  const { error } = await input.supabase.rpc(
+  const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
@@ -128,6 +125,7 @@ function reauthFailureCode(error: unknown): string {
 
 export async function syncMetaAdsSpendForMerchant(
   input: {
+    credentialSupabase: AdsCredentialServiceClient;
     endDate: string;
     finalChunk?: boolean;
     merchantId: string;
@@ -147,7 +145,7 @@ export async function syncMetaAdsSpendForMerchant(
   }
   const config = getMetaAdsConfig();
   const { data: connections, error: connectionError } =
-    await input.supabase.rpc('get_merchant_ads_connection_secret', {
+    await input.credentialSupabase.rpc('get_merchant_ads_connection_secret', {
       p_merchant_id: input.merchantId,
       p_provider: META_ADS_PROVIDER,
     });
@@ -165,7 +163,7 @@ export async function syncMetaAdsSpendForMerchant(
           connection,
           failureCode: reauthFailureCode(error),
           merchantId: input.merchantId,
-          supabase: input.supabase,
+          credentialSupabase: input.credentialSupabase,
         });
       } catch {
         throw new MetaAdsSyncError('META_ADS_REAUTH_PERSIST_FAILED');
@@ -183,6 +181,7 @@ export async function syncMetaAdsSpendForMerchant(
     fetchImpl,
     finalChunk: input.finalChunk,
     merchantId: input.merchantId,
+    credentialSupabase: input.credentialSupabase,
     spendSupabase: input.spendSupabase,
     startDate: input.startDate,
     supabase: input.supabase,
@@ -202,6 +201,7 @@ async function syncSelectedMetaAdsAccount(input: {
   fetchImpl: typeof fetch;
   finalChunk?: boolean;
   merchantId: string;
+  credentialSupabase: AdsCredentialServiceClient;
   spendSupabase: SupabaseClient;
   startDate: string;
   supabase: SupabaseClient;
@@ -288,7 +288,7 @@ async function syncSelectedMetaAdsAccount(input: {
           connection: input.connection,
           failureCode: reauthFailureCode(error),
           merchantId: input.merchantId,
-          supabase: input.supabase,
+          credentialSupabase: input.credentialSupabase,
         });
       } catch {
         throw new MetaAdsSyncError('META_ADS_REAUTH_PERSIST_FAILED');

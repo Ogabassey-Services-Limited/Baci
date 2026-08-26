@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { getGoogleAdsOAuthConfig } from '@/lib/google-ads/config';
 import {
@@ -152,7 +153,11 @@ export async function GET(request: NextRequest) {
   const tokenExpiresAt = tokens.expires_in
     ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
     : null;
-  const { error: upsertError } = await auth.supabase.rpc(
+  // Credential RPCs are service-role-only. The user-scoped client remains the
+  // authority for nonce consumption, while this client is created only after
+  // authentication, merchant resolution, and integrations:manage checks.
+  const credentialSupabase = createAdsCredentialServiceClient();
+  const { error: upsertError } = await credentialSupabase.rpc(
     'upsert_google_ads_connection',
     {
       p_access_token_ciphertext: encryptGoogleAdsSecret(

@@ -75,6 +75,7 @@ describe('TikTok Ads sync', () => {
   it('rediscovers the opaque account, writes exact decimals, and runs every requested chunk', async () => {
     await expect(
       syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-01',
         endDate: '2026-08-31',
@@ -117,6 +118,7 @@ describe('TikTok Ads sync', () => {
 
     await expect(
       syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
@@ -143,6 +145,7 @@ describe('TikTok Ads sync', () => {
     );
     await expect(
       syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-20',
         endDate: '2026-08-20',
@@ -178,6 +181,7 @@ describe('TikTok Ads sync', () => {
 
     await expect(
       syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
         merchantId: 'merchant',
         startDate: '2026-08-01',
         endDate: '2026-08-31',

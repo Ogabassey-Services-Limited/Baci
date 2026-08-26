@@ -6,6 +6,8 @@ const csrf = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
 const invalidate = vi.hoisted(() => vi.fn());
+const credentialRpc = vi.hoisted(() => vi.fn());
+const createAdsCredentialServiceClient = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) => authenticate(...args),
   getUserAccess: (...args: unknown[]) => access(...args),
@@ -16,6 +18,12 @@ vi.mock('@/lib/csrf', () => ({
 }));
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) => invalidate(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) => {
+    createAdsCredentialServiceClient(...args);
+    return { rpc: credentialRpc };
+  },
 }));
 
 import { DELETE } from './route';
@@ -59,7 +67,8 @@ describe('TikTok Ads disconnect route', () => {
   });
 
   it('treats an already-missing connection as successfully disconnected', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+    const rpc = vi.fn();
+    credentialRpc.mockResolvedValue({ data: false, error: null });
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -76,10 +85,17 @@ describe('TikTok Ads disconnect route', () => {
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ connected: false });
-    expect(rpc).toHaveBeenCalledWith('delete_merchant_ads_connection', {
-      p_merchant_id: 'merchant',
-      p_provider: 'tiktok_ads',
-    });
+    expect(credentialRpc).toHaveBeenCalledWith(
+      'delete_merchant_ads_connection',
+      {
+        p_merchant_id: 'merchant',
+        p_provider: 'tiktok_ads',
+      }
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      'delete_merchant_ads_connection',
+      expect.anything()
+    );
     expect(invalidate).toHaveBeenCalledWith('merchant');
   });
 });

@@ -9,6 +9,7 @@ const accounts = vi.fn();
 const csrf = vi.fn();
 const config = vi.fn();
 const invalidateAnalytics = vi.fn();
+const createAdsCredentialServiceClient = vi.fn();
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) =>
     invalidateAnalytics(...args),
@@ -49,6 +50,10 @@ vi.mock('@/lib/ads/snapchat/provider', () => ({
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => csrf(...args),
+}));
+vi.mock('@/lib/ads/server-credential-client', () => ({
+  createAdsCredentialServiceClient: (...args: unknown[]) =>
+    createAdsCredentialServiceClient(...args),
 }));
 
 import { GET, PATCH } from './route';
@@ -100,6 +105,7 @@ describe('Snapchat Ads accounts route', () => {
         });
       return Promise.resolve({ data: true, error: null });
     });
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -199,6 +205,7 @@ describe('Snapchat Ads accounts route', () => {
       .mockResolvedValueOnce({ data: [activeConnection()], error: null })
       .mockResolvedValueOnce({ data: [activeConnection()], error: null })
       .mockResolvedValueOnce({ data: [activeConnection()], error: null });
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
     auth.mockResolvedValue({
       error: null,
       supabase: { rpc },
