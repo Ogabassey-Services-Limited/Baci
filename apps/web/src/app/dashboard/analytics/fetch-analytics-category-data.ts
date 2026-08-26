@@ -1,5 +1,8 @@
 import type { AnalyticsCategory } from '@/components/analytics/analytics-category-nav';
-import type { AnalyticsData } from '@/components/analytics/draggable-analytics-grid';
+import type {
+  AnalyticsData,
+  InventoryForecastStatus,
+} from '@/components/analytics/draggable-analytics-grid';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { mapGoogleAdsReporting } from './google-ads-analytics-mapper';
 import { mapSocialAdsReporting } from './social-ads-analytics-mapper';
@@ -49,6 +52,34 @@ function asNumber(value: unknown): number {
   return 0;
 }
 
+function asOptionalNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return undefined;
+}
+
+function asInventoryForecastStatus(
+  value: unknown
+): InventoryForecastStatus | undefined {
+  if (
+    value === 'healthy' ||
+    value === 'warning' ||
+    value === 'critical' ||
+    value === 'out_of_stock'
+  ) {
+    return value;
+  }
+
+  return undefined;
+}
+
 function asString(value: unknown, fallback: string): string {
   return typeof value === 'string' && value.trim() !== '' ? value : fallback;
 }
@@ -87,9 +118,11 @@ function mapInventoryForecast(forecast: JsonRecord) {
     avg_daily_sales: asNumber(forecast.avgDailySales),
     current_stock: asNumber(forecast.currentStock),
     days_of_stock: asNumber(forecast.daysOfStock),
+    low_stock_threshold: asOptionalNumber(forecast.lowStockThreshold),
     product_id: asString(forecast.productId, 'unknown-product'),
     product_name: asString(forecast.productName, 'Unknown Product'),
     sales_trend: asString(forecast.salesTrend, 'stable'),
+    status: asInventoryForecastStatus(forecast.status),
   };
 }
 

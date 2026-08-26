@@ -13,9 +13,20 @@ export function AnalyticsInventoryWidgets({
   isWidgetVisible,
 }: AnalyticsInventoryWidgetsProps) {
   const lowStockProducts = (data.inventoryForecasts || [])
-    .filter(
-      (forecast) => forecast.current_stock <= 0 || forecast.days_of_stock <= 14
-    )
+    .filter((forecast) => {
+      const isClassifiedLowStock =
+        forecast.status === 'critical' ||
+        forecast.status === 'warning' ||
+        forecast.status === 'out_of_stock';
+      const lowStockThreshold = forecast.low_stock_threshold ?? 5;
+
+      return (
+        forecast.current_stock <= 0 ||
+        isClassifiedLowStock ||
+        forecast.current_stock <= lowStockThreshold ||
+        forecast.days_of_stock <= 14
+      );
+    })
     .slice(0, 5);
   return (
     <>

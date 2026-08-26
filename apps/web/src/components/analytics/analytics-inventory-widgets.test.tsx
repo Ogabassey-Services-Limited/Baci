@@ -40,4 +40,32 @@ describe('AnalyticsInventoryWidgets', () => {
       screen.queryByText('All products well stocked')
     ).not.toBeInTheDocument();
   });
+
+  it('lists positive-stock threshold-critical products even with no sales', () => {
+    render(
+      <AnalyticsInventoryWidgets
+        data={{
+          inventoryForecasts: [
+            {
+              avg_daily_sales: 0,
+              current_stock: 2,
+              days_of_stock: 999,
+              low_stock_threshold: 2,
+              product_id: 'threshold-critical',
+              product_name: 'Threshold-critical product',
+              sales_trend: 'stable',
+              status: 'critical',
+            },
+          ],
+        }}
+        isWidgetVisible={(id) => id === 'low-stock-products'}
+      />
+    );
+
+    expect(screen.getByText('Threshold-critical product')).toBeInTheDocument();
+    expect(screen.getByText('2 left')).toBeInTheDocument();
+    expect(
+      screen.queryByText('All products well stocked')
+    ).not.toBeInTheDocument();
+  });
 });

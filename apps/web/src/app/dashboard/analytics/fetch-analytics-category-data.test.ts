@@ -192,6 +192,47 @@ describe('fetchAnalyticsCategoryData', () => {
     );
   });
 
+  it('preserves forecast status and threshold for low-stock widget classification', async () => {
+    fetchMock.mockImplementation(async () =>
+      response({
+        forecasts: [
+          {
+            avgDailySales: 0,
+            currentStock: 2,
+            daysOfStock: 999,
+            lowStockThreshold: 2,
+            productId: 'threshold-critical',
+            productName: 'Threshold-critical product',
+            salesTrend: 'stable',
+            status: 'critical',
+          },
+        ],
+        summary: { critical: 1, outOfStock: 0, warning: 0 },
+      })
+    );
+
+    const result = await fetchAnalyticsCategoryData({
+      category: 'inventory',
+      from,
+      merchantId,
+      signal: new AbortController().signal,
+      to,
+    });
+
+    expect(result.inventoryForecasts).toEqual([
+      {
+        avg_daily_sales: 0,
+        current_stock: 2,
+        days_of_stock: 999,
+        low_stock_threshold: 2,
+        product_id: 'threshold-critical',
+        product_name: 'Threshold-critical product',
+        sales_trend: 'stable',
+        status: 'critical',
+      },
+    ]);
+  });
+
   it('maps the customer segment summary into dashboard segment metrics', async () => {
     fetchMock.mockResolvedValue(
       response({

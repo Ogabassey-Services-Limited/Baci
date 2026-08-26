@@ -19,6 +19,7 @@ export type {
   AnalyticsData,
   InventoryAlert,
   InventoryForecast,
+  InventoryForecastStatus,
   SegmentInfo,
   SegmentSummary,
 } from './analytics-grid-types';

@@ -202,6 +202,41 @@ describe('Google Ads account discovery and selection', () => {
     );
   });
 
+  it('marks the current grant revoked when selection discovery returns 401', async () => {
+    mockListAccounts.mockRejectedValueOnce(
+      new MockGoogleAdsProviderError('GOOGLE_ADS_ACCESS_REVOKED', 401)
+    );
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts',
+        {
+          body: JSON.stringify({ customerId: '123-456-7890' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to discover Google Ads accounts',
+    });
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'encrypted-access',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_ACCESS_REVOKED',
+        p_refresh_token_ciphertext: 'encrypted-refresh',
+      }
+    );
+    expect(mockCredentialRpc).not.toHaveBeenCalledWith(
+      'set_google_ads_customer',
+      expect.anything()
+    );
+  });
+
   it('marks the connection for reauthorization when selection token refresh fails', async () => {
     mockResolveToken.mockRejectedValueOnce({
       code: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',

@@ -53,6 +53,12 @@ export interface InventoryAlert {
   status: string;
 }
 
+export type InventoryForecastStatus =
+  | 'healthy'
+  | 'warning'
+  | 'critical'
+  | 'out_of_stock';
+
 export interface InventoryForecast {
   product_id: string;
   product_name: string;
@@ -60,6 +66,8 @@ export interface InventoryForecast {
   avg_daily_sales: number;
   days_of_stock: number;
   sales_trend: string;
+  low_stock_threshold?: number;
+  status?: InventoryForecastStatus;
 }
 
 export interface SegmentInfo {
