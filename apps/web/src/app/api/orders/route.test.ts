@@ -3948,6 +3948,12 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
         p_expected_total: null,
         p_source: 'mobile_app',
         p_tax_amount: 75,
+        p_ad_tracking: expect.objectContaining({
+          baci_transaction_discount: {
+            lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+            version: 1,
+          },
+        }),
       })
     );
   });

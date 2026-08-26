@@ -22,6 +22,7 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 980 })])
     ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -31,6 +32,7 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 999 })])
     ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 1, vatRelief: 0.08 }],
       totalDiscount: 1.08,
       rejectionCode: null,
     });
@@ -83,7 +85,11 @@ describe('computeEligibleLineDiscount', () => {
           clientUnitPrice: 500,
         }), // Tecno at catalog
       ])
-    ).toEqual({ totalDiscount: 21.5, rejectionCode: null });
+    ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }, null],
+      totalDiscount: 21.5,
+      rejectionCode: null,
+    });
   });
 
   it('does not gross up VAT for zero-rated lines', () => {
@@ -92,14 +98,22 @@ describe('computeEligibleLineDiscount', () => {
       computeEligibleLineDiscount([
         line({ clientUnitPrice: 980, vatCategoryCode: 'Z' }),
       ])
-    ).toEqual({ totalDiscount: 20, rejectionCode: null });
+    ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 0 }],
+      totalDiscount: 20,
+      rejectionCode: null,
+    });
   });
 
   it('respects quantity in line totals and the floor', () => {
     // 2 × (1000 → 980): reduction 40 = 2% floor (2000) → +VAT 3 = 43
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 980, quantity: 2 })])
-    ).toEqual({ totalDiscount: 43, rejectionCode: null });
+    ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 40, vatRelief: 3 }],
+      totalDiscount: 43,
+      rejectionCode: null,
+    });
   });
 
   it('allows a non-negotiable line exactly 1 NGN below catalog (tolerance boundary)', () => {
@@ -136,6 +150,10 @@ describe('computeEligibleLineDiscount', () => {
     // +7.5% VAT on the 50 reduction = 3.75 → discount 53.75.
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 950 })], 0.05)
-    ).toEqual({ totalDiscount: 53.75, rejectionCode: null });
+    ).toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 50, vatRelief: 3.75 }],
+      totalDiscount: 53.75,
+      rejectionCode: null,
+    });
   });
 });

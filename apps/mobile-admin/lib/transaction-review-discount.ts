@@ -1,8 +1,6 @@
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
-// Matches the order_items column default used when a standard-rated line does
-// not carry an explicit VAT rate.
-const DEFAULT_TRANSACTION_VAT_RATE = 7.5;
+export const TRANSACTION_DISCOUNT_METADATA_KEY = 'baci_transaction_discount';
 
 export interface DiscountableTransactionItem {
   price: number | string | null;
@@ -12,13 +10,70 @@ export interface DiscountableTransactionItem {
   vat_rate?: number | string | null;
 }
 
+export interface TransactionDiscountLineAllocation {
+  merchandiseDiscount: number;
+}
+
 export interface TransactionDiscountOptions {
   /**
-   * Auto-negotiated discounts include the VAT relief on the negotiated price
-   * reduction. Transaction item revenue is tax-exclusive, so remove that
-   * gross-up before adjusting the merchandise unit price.
+   * Explicit per-line merchandise reductions persisted by the checkout route.
+   * A present array is authoritative: null entries are intentionally left at
+   * their recorded price because the negotiated discount did not originate on
+   * that line.
    */
-  discountIncludesVat?: boolean;
+  lineDiscounts?: Array<TransactionDiscountLineAllocation | null>;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads only the server-authored checkout marker from the order's persisted
+ * ad-tracking JSON. Invalid or client-shaped metadata is ignored so ordinary
+ * order discounts continue through the proportional fallback.
+ */
+export function parseTransactionDiscountOptions(
+  adTracking: unknown
+): TransactionDiscountOptions | undefined {
+  if (!isRecord(adTracking)) {
+    return undefined;
+  }
+
+  const metadata = adTracking[TRANSACTION_DISCOUNT_METADATA_KEY];
+  if (!isRecord(metadata) || metadata.version !== 1) {
+    return undefined;
+  }
+
+  if (!Array.isArray(metadata.lineDiscounts)) {
+    return undefined;
+  }
+
+  let hasInvalidLine = false;
+  const lineDiscounts = metadata.lineDiscounts.map((line) => {
+    if (line === null) {
+      return null;
+    }
+    if (!isRecord(line)) {
+      hasInvalidLine = true;
+      return null;
+    }
+
+    const merchandiseDiscount = toFiniteNumberOrNull(line.merchandiseDiscount);
+    if (merchandiseDiscount == null || merchandiseDiscount < 0) {
+      hasInvalidLine = true;
+      return null;
+    }
+    return merchandiseDiscount != null && merchandiseDiscount > 0
+      ? { merchandiseDiscount }
+      : null;
+  });
+
+  if (hasInvalidLine) {
+    return undefined;
+  }
+
+  return { lineDiscounts };
 }
 
 /**
@@ -55,8 +110,33 @@ export function getDiscountedTransactionUnitPrices(
     return unitPrices;
   }
 
+  const explicitLineDiscounts = options?.lineDiscounts;
+  if (explicitLineDiscounts) {
+    return unitPrices.map((unitPrice, index) => {
+      if (unitPrice < 0) {
+        return unitPrice;
+      }
+
+      const line = lineTotals[index];
+      const allocation = explicitLineDiscounts[index];
+      if (
+        !line ||
+        line.quantity <= 0 ||
+        !allocation ||
+        !Number.isFinite(allocation.merchandiseDiscount) ||
+        allocation.merchandiseDiscount <= 0
+      ) {
+        return unitPrice;
+      }
+
+      return Math.max(
+        0,
+        unitPrice - allocation.merchandiseDiscount / line.quantity
+      );
+    });
+  }
+
   const discountRatio = Math.min(1, normalizedDiscount / discountBasis);
-  const discountIncludesVat = options?.discountIncludesVat === true;
 
   return unitPrices.map((unitPrice, index) => {
     if (unitPrice < 0) {
@@ -69,18 +149,8 @@ export function getDiscountedTransactionUnitPrices(
     }
 
     const allocatedDiscount = line.total * discountRatio;
-    const vatCategory = (items[index]?.vat_category_code ?? 'S').toUpperCase();
-    const vatRate =
-      discountIncludesVat && vatCategory === 'S'
-        ? Math.max(
-            0,
-            toFiniteNumberOrNull(items[index]?.vat_rate) ??
-              DEFAULT_TRANSACTION_VAT_RATE
-          )
-        : 0;
-    const taxExclusiveDiscount = allocatedDiscount / (1 + vatRate / 100);
     const merchandiseDiscount =
-      taxExclusiveDiscount * (line.merchandiseTotal / line.total);
+      allocatedDiscount * (line.merchandiseTotal / line.total);
 
     return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
   });

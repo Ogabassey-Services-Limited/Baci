@@ -72,7 +72,11 @@ describe('computeOrderNegotiationDiscount', () => {
         supabase: supabase as never,
         vatRegistered: true,
       })
-    ).resolves.toEqual({ totalDiscount: 21.5, rejectionCode: null });
+    ).resolves.toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      totalDiscount: 21.5,
+      rejectionCode: null,
+    });
   });
 
   it('omits the VAT gross-up for a non-registered merchant', async () => {
@@ -95,7 +99,11 @@ describe('computeOrderNegotiationDiscount', () => {
         supabase: supabase as never,
         vatRegistered: false,
       })
-    ).resolves.toEqual({ totalDiscount: 20, rejectionCode: null });
+    ).resolves.toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 0 }],
+      totalDiscount: 20,
+      rejectionCode: null,
+    });
   });
 
   it('flags a non-negotiable line priced below catalog', async () => {
@@ -151,7 +159,11 @@ describe('computeOrderNegotiationDiscount', () => {
         supabase: supabase as never,
         vatRegistered: true,
       })
-    ).resolves.toEqual({ totalDiscount: 21.5, rejectionCode: null });
+    ).resolves.toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }, null],
+      totalDiscount: 21.5,
+      rejectionCode: null,
+    });
   });
 
   it('exempts a verified quiz-voucher award line (price 0)', async () => {
@@ -212,7 +224,11 @@ describe('computeOrderNegotiationDiscount', () => {
         supabase: supabase as never,
         vatRegistered: true,
       })
-    ).resolves.toEqual({ totalDiscount: 21.5, rejectionCode: null });
+    ).resolves.toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      totalDiscount: 21.5,
+      rejectionCode: null,
+    });
   });
 
   it('computes the discount off a variant price_override when present', async () => {
@@ -240,7 +256,11 @@ describe('computeOrderNegotiationDiscount', () => {
         supabase: supabase as never,
         vatRegistered: true,
       })
-    ).resolves.toEqual({ totalDiscount: 21.5, rejectionCode: null });
+    ).resolves.toEqual({
+      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      totalDiscount: 21.5,
+      rejectionCode: null,
+    });
   });
 
   it('throws a CanonicalOrderSubtotalLoadError preserving pgCode when the products load fails (22P02)', async () => {

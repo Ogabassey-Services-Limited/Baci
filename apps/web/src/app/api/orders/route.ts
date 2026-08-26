@@ -35,6 +35,7 @@ import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiatio
 import { persistReplayedDeliveryMetadata } from '@/lib/checkout/persist-replayed-delivery-metadata';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
+import { TRANSACTION_DISCOUNT_METADATA_KEY } from '@/lib/checkout/transaction-discount-metadata';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -1828,13 +1829,20 @@ export async function POST(request: NextRequest) {
       ? (negotiationDiscount?.totalDiscount ?? 0)
       : 0;
 
-    const adTrackingPayload = ad_tracking
+    const adTrackingWithoutReservedMetadata = ad_tracking
+      ? Object.fromEntries(
+          Object.entries(ad_tracking).filter(
+            ([key]) => key !== TRANSACTION_DISCOUNT_METADATA_KEY
+          )
+        )
+      : null;
+    const adTrackingBase = adTrackingWithoutReservedMetadata
       ? {
-          ...ad_tracking,
-          userIp: clientIp || ad_tracking.userIp,
-          userAgent: clientUserAgent || ad_tracking.userAgent,
+          ...adTrackingWithoutReservedMetadata,
+          userIp: clientIp || ad_tracking?.userIp,
+          userAgent: clientUserAgent || ad_tracking?.userAgent,
           limitedDataUse:
-            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
+            geoPrivacy.shouldApplyLDU || ad_tracking?.limitedDataUse,
           geoCountry: geoPrivacy.country,
           geoRegion: geoPrivacy.region,
         }
@@ -1847,6 +1855,23 @@ export async function POST(request: NextRequest) {
             geoRegion: geoPrivacy.region,
           }
         : null;
+    // Persist the server-derived line boundaries alongside the order. The
+    // order RPC already stores ad-tracking JSON for guest checkouts, so this
+    // avoids inferring VAT provenance from a mutable source/channel value while
+    // keeping the transaction review read-only.
+    const transactionDiscountMetadata =
+      shouldApplyServerDerivedDiscount && negotiationDiscount?.lineDiscounts
+        ? {
+            lineDiscounts: negotiationDiscount.lineDiscounts,
+            version: 1,
+          }
+        : null;
+    const adTrackingPayload = transactionDiscountMetadata
+      ? {
+          ...(adTrackingBase ?? {}),
+          [TRANSACTION_DISCOUNT_METADATA_KEY]: transactionDiscountMetadata,
+        }
+      : adTrackingBase;
 
     const {
       __baci_airport_type: _clientAirportType,

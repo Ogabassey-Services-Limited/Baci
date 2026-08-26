@@ -28,6 +28,7 @@ import {
 import { loadOrderItemImageMap } from './order-item-images';
 import { parseOptionalOrderAmount } from './order-money';
 import type { PaymentStatus, ShippingStatus } from './order-statuses';
+import { parseOrderTaxBasis } from './order-tax-basis';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
 

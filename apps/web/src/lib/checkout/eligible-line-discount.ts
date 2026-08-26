@@ -17,6 +17,11 @@ export type EligibleLineRejectionCode =
   | 'non_negotiable_line_discounted'
   | 'negotiated_price_below_floor';
 
+export interface EligibleLineDiscountAllocation {
+  merchandiseDiscount: number;
+  vatRelief: number;
+}
+
 export interface EligibleLineDiscountResult {
   totalDiscount: number;
   // Non-null when the order must be rejected: a non-negotiable (budget-brand /
@@ -25,6 +30,9 @@ export interface EligibleLineDiscountResult {
   // case also bounds the assurance fee, which /api/orders derives from the line
   // price — a within-floor line ⇒ assurance ≤ maxRate below catalog too.
   rejectionCode: EligibleLineRejectionCode | null;
+  // Aligned with the input lines so order history can preserve the negotiated
+  // line boundaries instead of redistributing one order total.
+  lineDiscounts?: Array<EligibleLineDiscountAllocation | null>;
 }
 
 // Mirrors roundToCents in checkout-order-tax.ts and the RPC trigger formula.
@@ -37,8 +45,10 @@ export function computeEligibleLineDiscount(
   maxRate: number = MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
 ): EligibleLineDiscountResult {
   let totalDiscount = 0;
+  const lineDiscounts: Array<EligibleLineDiscountAllocation | null> = [];
 
-  for (const lineInput of lines) {
+  for (const [lineIndex, lineInput] of lines.entries()) {
+    lineDiscounts[lineIndex] = null;
     const quantity = Number(lineInput.quantity);
     const catalogUnit = Number(lineInput.catalogUnitPrice);
     const clientUnit = Number(lineInput.clientUnitPrice);
@@ -93,7 +103,15 @@ export function computeEligibleLineDiscount(
     // negotiated total the customer saw.
     const reductionVat = roundToCents((reduction * rate) / 100);
     totalDiscount = roundToCents(totalDiscount + reduction + reductionVat);
+    lineDiscounts[lineIndex] = {
+      merchandiseDiscount: reduction,
+      vatRelief: reductionVat,
+    };
   }
 
-  return { totalDiscount, rejectionCode: null };
+  return {
+    totalDiscount,
+    rejectionCode: null,
+    ...(lineDiscounts.some(Boolean) ? { lineDiscounts } : {}),
+  };
 }

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
+import {
+  getDiscountedTransactionUnitPrices,
+  parseTransactionDiscountOptions,
+} from './transaction-review-discount';
 
 describe('getDiscountedTransactionUnitPrices', () => {
   it('allocates an order discount proportionally across merchandise lines', () => {
@@ -68,7 +71,7 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([90]);
   });
 
-  it('removes VAT relief from auto-negotiated merchandise discounts', () => {
+  it('applies the persisted merchandise reduction without VAT relief', () => {
     const items = [
       {
         price: 100,
@@ -79,9 +82,34 @@ describe('getDiscountedTransactionUnitPrices', () => {
     ];
 
     const prices = getDiscountedTransactionUnitPrices(items, 2.15, {
-      discountIncludesVat: true,
+      lineDiscounts: [{ merchandiseDiscount: 2 }],
     });
 
     expect(prices).toEqual([98]);
+  });
+
+  it('does not redistribute a negotiated line discount to full-price merchandise', () => {
+    const items = [
+      { price: 100, quantity: 1 },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 10, {
+      lineDiscounts: [{ merchandiseDiscount: 10 }, null],
+    });
+
+    expect(prices).toEqual([90, 200]);
+  });
+
+  it('ignores malformed persisted discount metadata', () => {
+    expect(
+      parseTransactionDiscountOptions({
+        baci_transaction_discount: {
+          lineDiscounts: [{ merchandiseDiscount: 'not-a-number' }],
+          version: 1,
+        },
+      })
+    ).toBeUndefined();
+    expect(parseTransactionDiscountOptions(null)).toBeUndefined();
   });
 });

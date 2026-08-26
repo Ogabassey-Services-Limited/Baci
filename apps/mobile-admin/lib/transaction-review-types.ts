@@ -23,6 +23,7 @@ export interface TransactionReviewUnitCostRow {
 export interface TransactionReviewOrderRow {
   cancelled_at?: string | null;
   created_at: string;
+  ad_tracking?: unknown;
   discount_amount?: number | null;
   discount_code_id?: string | null;
   source?: string | null;

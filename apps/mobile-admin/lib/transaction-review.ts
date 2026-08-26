@@ -1,4 +1,7 @@
-import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
+import {
+  getDiscountedTransactionUnitPrices,
+  parseTransactionDiscountOptions,
+} from './transaction-review-discount';
 import {
   buildFulfillmentUnitIndex,
   buildSearchText,
@@ -23,13 +26,6 @@ import { resolveTransactionReviewUnitRow } from './transaction-review-unit-row';
 import { resolveSplitUnitIndexes } from './transaction-review-units';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-function isVatInclusiveNegotiationDiscount(order: TransactionReviewOrderRow) {
-  return (
-    order.discount_code_id === null &&
-    (order.source === 'online_store' || order.source === 'mobile_app')
-  );
-}
 
 export {
   filterOrdersForTransactionTab,
@@ -108,9 +104,7 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
       order.discount_amount,
-      {
-        discountIncludesVat: isVatInclusiveNegotiationDiscount(order),
-      }
+      parseTransactionDiscountOptions(order.ad_tracking)
     );
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {
