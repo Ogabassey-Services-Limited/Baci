@@ -72,6 +72,12 @@ describe('useTransactionReview', () => {
     await waitFor(() => expect(result.current.data).toEqual([]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        selectStatement: expect.stringContaining('assurance_fee'),
+      })
+    );
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         includeCancelledAt: true,

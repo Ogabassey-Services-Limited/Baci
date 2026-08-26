@@ -27,6 +27,10 @@ export function isTransactionReviewSchemaCacheError(
     errorText.includes('transaction_date') ||
     errorText.includes('cost_price') ||
     errorText.includes('discount_amount') ||
+    errorText.includes('discount_code_id') ||
+    errorText.includes('assurance_fee') ||
+    errorText.includes('vat_category_code') ||
+    errorText.includes('vat_rate') ||
     errorText.includes('product_variants') ||
     errorText.includes('variant_id');
 

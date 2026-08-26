@@ -10,11 +10,13 @@ interface OrderPaymentSummaryProps {
     Order,
     | 'currency'
     | 'discount_amount'
+    | 'gift_wrapping_fee'
     | 'paymentMethod'
     | 'payment_reference'
     | 'shipping_fee'
     | 'subtotal'
     | 'tax_amount'
+    | 'tax_basis'
     | 'total'
   >;
 }
@@ -35,11 +37,20 @@ function normalizeAmount(amount: number | undefined, fallback = 0) {
 export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
   const orderCurrency = order.currency || 'NGN';
   const shippingFee = normalizeAmount(order.shipping_fee);
+  const giftWrappingFee = normalizeAmount(order.gift_wrapping_fee);
   const taxes = normalizeAmount(order.tax_amount);
   const discountAmount = normalizeAmount(order.discount_amount);
+  const taxesIncluded = order.tax_basis === 'inclusive';
   const subtotal = normalizeAmount(
     order.subtotal,
-    Math.max(0, order.total - shippingFee - taxes + discountAmount)
+    Math.max(
+      0,
+      order.total -
+        shippingFee -
+        giftWrappingFee -
+        (taxesIncluded ? 0 : taxes) +
+        discountAmount
+    )
   );
 
   return (
@@ -72,8 +83,15 @@ export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
           <span>Shipping Fee</span>{' '}
           <span>{formatCurrency(shippingFee, orderCurrency)}</span>
         </div>
+        {giftWrappingFee > 0 && (
+          <div className="flex justify-between">
+            <span>Gift Wrapping</span>{' '}
+            <span>{formatCurrency(giftWrappingFee, orderCurrency)}</span>
+          </div>
+        )}
         <div className="flex justify-between">
-          <span>Taxes</span> <span>{formatCurrency(taxes, orderCurrency)}</span>
+          <span>{taxesIncluded ? 'Taxes (included)' : 'Taxes'}</span>{' '}
+          <span>{formatCurrency(taxes, orderCurrency)}</span>
         </div>
         {discountAmount > 0 && (
           <div className="flex justify-between text-red-600">

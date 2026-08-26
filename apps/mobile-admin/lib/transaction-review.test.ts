@@ -68,6 +68,44 @@ describe('transaction review helpers', () => {
     expect(order.searchText).toContain('slot wholesale');
   });
 
+  it('keeps VAT relief out of merchandise profit for auto-negotiated orders', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        customer_email: null,
+        customer_name: 'Negotiated Customer',
+        customer_phone: null,
+        discount_amount: 2.15,
+        discount_code_id: null,
+        fulfillment_details: null,
+        id: 'order-negotiated',
+        order_items: [
+          {
+            cost_price: 50,
+            fulfillment_data: null,
+            id: 'item-negotiated',
+            name: 'Negotiated Product',
+            price: 100,
+            product_id: 'product-negotiated',
+            products: null,
+            quantity: 1,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          },
+        ],
+        order_number: 'ORD-NEGOTIATED',
+        payment_method: 'card',
+        source: 'online_store',
+        total: 100,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      profit: 48,
+      revenue: 98,
+    });
+  });
+
   it('uses item-level fulfillment identifiers without repeating unrelated order serials', () => {
     const [order] = mapTransactionOrderRows([
       {

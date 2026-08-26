@@ -24,6 +24,8 @@ export interface TransactionReviewOrderRow {
   cancelled_at?: string | null;
   created_at: string;
   discount_amount?: number | null;
+  discount_code_id?: string | null;
+  source?: string | null;
   transaction_date?: string | null;
   customer_email: string | null;
   customer_name: string | null;
@@ -32,6 +34,7 @@ export interface TransactionReviewOrderRow {
   id: string;
   order_items: Array<{
     cost_price?: number | null;
+    assurance_fee?: number | string | null;
     fulfillment_data: unknown;
     id: string;
     name: string | null;
@@ -49,6 +52,8 @@ export interface TransactionReviewOrderRow {
       | null;
     quantity: number | null;
     supplier_name?: string | null;
+    vat_category_code?: string | null;
+    vat_rate?: number | string | null;
     variant_id?: string | null;
   }> | null;
   order_number: string | null;

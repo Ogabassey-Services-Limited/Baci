@@ -55,4 +55,30 @@ describe('getDiscountedTransactionUnitPrices', () => {
       )
     ).toEqual([-100, 50]);
   });
+
+  it('allocates discounts across merchandise and assurance fees', () => {
+    expect(
+      getDiscountedTransactionUnitPrices(
+        [{ assurance_fee: 20, price: 100, quantity: 1 }],
+        12
+      )
+    ).toEqual([90]);
+  });
+
+  it('removes VAT relief from auto-negotiated merchandise discounts', () => {
+    expect(
+      getDiscountedTransactionUnitPrices(
+        [
+          {
+            price: 100,
+            quantity: 1,
+            vat_category_code: 'S',
+            vat_rate: 7.5,
+          },
+        ],
+        2.15,
+        { discountIncludesVat: true }
+      )
+    ).toEqual([98]);
+  });
 });

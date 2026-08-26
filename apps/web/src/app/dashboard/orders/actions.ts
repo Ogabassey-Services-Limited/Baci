@@ -51,7 +51,9 @@ export interface Order {
   total: number;
   subtotal?: number;
   shipping_fee?: number;
+  gift_wrapping_fee?: number;
   tax_amount?: number;
+  tax_basis?: 'exclusive' | 'inclusive' | null;
   discount_amount?: number;
   currency: string;
   shippingStatus: ShippingStatus;
@@ -121,7 +123,9 @@ interface DashboardOrderRecord {
   total: string;
   subtotal?: string | number | null;
   shipping_fee?: string | number | null;
+  gift_wrapping_fee?: string | number | null;
   tax_amount?: string | number | null;
+  tax_basis?: string | null;
   discount_amount?: string | number | null;
   currency?: string | null;
   shipping_status: string;
@@ -141,6 +145,11 @@ interface DashboardOrderRecord {
   customer_phone?: string;
   notes?: string;
   order_items?: OrderItem[];
+}
+function parseOrderTaxBasis(
+  value: string | null | undefined
+): 'exclusive' | 'inclusive' | undefined {
+  return value === 'exclusive' || value === 'inclusive' ? value : undefined;
 }
 interface OrderConfirmationRecord {
   id: string;
@@ -396,7 +405,9 @@ export async function getOrders(
     total: Number.parseFloat(order.total),
     subtotal: parseOptionalOrderAmount(order.subtotal),
     shipping_fee: parseOptionalOrderAmount(order.shipping_fee),
+    gift_wrapping_fee: parseOptionalOrderAmount(order.gift_wrapping_fee),
     tax_amount: parseOptionalOrderAmount(order.tax_amount),
+    tax_basis: parseOrderTaxBasis(order.tax_basis),
     discount_amount: parseOptionalOrderAmount(order.discount_amount),
     currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
@@ -670,7 +681,9 @@ export async function getOrder(
     total: Number.parseFloat(order.total),
     subtotal: parseOptionalOrderAmount(order.subtotal),
     shipping_fee: parseOptionalOrderAmount(order.shipping_fee),
+    gift_wrapping_fee: parseOptionalOrderAmount(order.gift_wrapping_fee),
     tax_amount: parseOptionalOrderAmount(order.tax_amount),
+    tax_basis: parseOrderTaxBasis(order.tax_basis),
     discount_amount: parseOptionalOrderAmount(order.discount_amount),
     currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,

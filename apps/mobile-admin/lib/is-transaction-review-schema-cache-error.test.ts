@@ -29,6 +29,15 @@ describe('isTransactionReviewSchemaCacheError', () => {
     expect(result).toBe(true);
   });
 
+  it('returns true when discount allocation fields are missing', () => {
+    const result = isTransactionReviewSchemaCacheError({
+      code: 'PGRST204',
+      message:
+        "Could not find the 'assurance_fee' column of 'order_items' in the schema cache",
+    });
+    expect(result).toBe(true);
+  });
+
   it('returns true for undefined-column responses from embedded order items', () => {
     const result = isTransactionReviewSchemaCacheError({
       code: '42703',

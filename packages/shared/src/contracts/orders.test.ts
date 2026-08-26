@@ -7,12 +7,16 @@ import {
   normalizeOrderEditChangeCategory,
   shouldNotifyCustomerForOrderEdit,
   WEB_ORDER_COLUMNS,
+  WEB_ORDER_COLUMNS_PUBLIC,
   WEB_ORDER_ITEMS_COLUMNS,
   WEB_ORDER_WITH_ITEMS_QUERY,
 } from './orders';
 
 describe('order column constants', () => {
   const webColumns = WEB_ORDER_COLUMNS.split(',').map((column) =>
+    column.trim()
+  );
+  const publicWebColumns = WEB_ORDER_COLUMNS_PUBLIC.split(',').map((column) =>
     column.trim()
   );
   const mobileAdminColumns = MOBILE_ADMIN_ORDER_COLUMNS.split(',').map(
@@ -56,6 +60,18 @@ describe('order column constants', () => {
 
   it('WEB_ORDER_COLUMNS includes amount_paid for payment tracking', () => {
     expect(webColumns).toContain('amount_paid');
+  });
+
+  it('WEB_ORDER_COLUMNS includes payment breakdown basis fields', () => {
+    expect(webColumns).toEqual(
+      expect.arrayContaining(['gift_wrapping_fee', 'tax_basis'])
+    );
+  });
+
+  it('WEB_ORDER_COLUMNS_PUBLIC includes payment breakdown basis fields', () => {
+    expect(publicWebColumns).toEqual(
+      expect.arrayContaining(['gift_wrapping_fee', 'tax_basis'])
+    );
   });
 
   it('includes branch_id in web and mobile admin order contracts', () => {

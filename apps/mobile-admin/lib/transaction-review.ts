@@ -24,6 +24,13 @@ import { resolveSplitUnitIndexes } from './transaction-review-units';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
+function isVatInclusiveNegotiationDiscount(order: TransactionReviewOrderRow) {
+  return (
+    order.discount_code_id === null &&
+    (order.source === 'online_store' || order.source === 'mobile_app')
+  );
+}
+
 export {
   filterOrdersForTransactionTab,
   formatCostPriceInput,
@@ -100,7 +107,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const orderItems = order.order_items ?? [];
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
-      order.discount_amount
+      order.discount_amount,
+      {
+        discountIncludesVat: isVatInclusiveNegotiationDiscount(order),
+      }
     );
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {

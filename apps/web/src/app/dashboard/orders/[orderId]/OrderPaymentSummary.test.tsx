@@ -69,4 +69,44 @@ describe('OrderPaymentSummary', () => {
 
     expect(screen.getByText('₦10,000')).toBeInTheDocument();
   });
+
+  it('does not present inclusive taxes as an additional charge', () => {
+    render(
+      <OrderPaymentSummary
+        order={{
+          currency: 'NGN',
+          paymentMethod: null,
+          shipping_fee: 0,
+          subtotal: 10000,
+          tax_amount: 750,
+          tax_basis: 'inclusive',
+          total: 10000,
+        }}
+      />
+    );
+
+    expect(screen.getByText('Taxes (included)')).toBeInTheDocument();
+    expect(screen.getByText('Total Amount').parentElement).toHaveTextContent(
+      '₦10,000'
+    );
+  });
+
+  it('shows gift wrapping as a separate total component', () => {
+    render(
+      <OrderPaymentSummary
+        order={{
+          currency: 'NGN',
+          gift_wrapping_fee: 500,
+          paymentMethod: null,
+          shipping_fee: 1000,
+          subtotal: 10000,
+          tax_amount: 0,
+          total: 11500,
+        }}
+      />
+    );
+
+    expect(screen.getByText('Gift Wrapping')).toBeInTheDocument();
+    expect(screen.getByText('₦500')).toBeInTheDocument();
+  });
 });
