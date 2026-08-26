@@ -5,7 +5,7 @@ export const frozenEventPipelineAuthoritySources = {
 
 export const eventPipelineFrozenRoutes = {
   'apps/web/src/app/api/analytics/ads/route.ts':
-    'b94a554a3c1ed649cd970e7ffb32c3ac31b481020c288e3510d84c9e81951c81',
+    '2b9a2c526fec50e00d8a912a123ba490aea27ab4ebb25ba2abf80af708ee320d',
   'apps/web/src/app/api/analytics/facebook-capi/route.ts':
     'f41e1de587645b8fdb2af8af180eb581b2bfeecae688670d7b5c7a80088b7c32',
   'apps/web/src/app/api/analytics/ga4/route.ts':

@@ -44,7 +44,7 @@ describe('analytics delivery authority manifest', () => {
       manifest.callerScopedRouteHashes[
         'apps/web/src/app/api/analytics/ads/route.ts'
       ]
-    ).toBe('b94a554a3c1ed649cd970e7ffb32c3ac31b481020c288e3510d84c9e81951c81');
+    ).toBe('2b9a2c526fec50e00d8a912a123ba490aea27ab4ebb25ba2abf80af708ee320d');
     expect(manifest.platformRouteHash).toEqual({
       path: 'apps/web/src/app/api/platform/events/route.ts',
       sha256:

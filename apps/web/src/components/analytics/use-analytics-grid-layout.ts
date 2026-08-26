@@ -59,6 +59,27 @@ export function useAnalyticsGridLayout({
     const previousWrites = layoutSaveQueueRef.current.reset();
     persistedLayoutConfigRef.current = null;
 
+    const flushPendingLayout = (layoutConfig: unknown) => {
+      const pendingLayout = pendingLayoutRef.current;
+      pendingLayoutRef.current = null;
+      if (!pendingLayout) return false;
+
+      const nextLayoutConfig = mergeDashboardLayoutConfig(
+        layoutConfig,
+        activeCategory,
+        pendingLayout
+      );
+      persistedLayoutConfigRef.current = nextLayoutConfig;
+      setLayouts(pendingLayout);
+      void layoutSaveQueueRef.current
+        .enqueue(nextLayoutConfig, merchantId)
+        .catch((error: unknown) => {
+          if (error instanceof Error && error.name === 'AbortError') return;
+          console.error('Failed to save layout:', error);
+        });
+      return true;
+    };
+
     void previousWrites
       .then(() => {
         if (controller.signal.aborted) return null;
@@ -69,27 +90,7 @@ export function useAnalyticsGridLayout({
 
         persistedLayoutConfigRef.current = layoutConfig;
         hydrationReadyRef.current = true;
-        const pendingLayout = pendingLayoutRef.current;
-        pendingLayoutRef.current = null;
-
-        if (pendingLayout) {
-          const nextLayoutConfig = mergeDashboardLayoutConfig(
-            layoutConfig,
-            activeCategory,
-            pendingLayout
-          );
-          persistedLayoutConfigRef.current = nextLayoutConfig;
-          setLayouts(pendingLayout);
-          void layoutSaveQueueRef.current
-            .enqueue(nextLayoutConfig, merchantId)
-            .catch((error: unknown) => {
-              if (error instanceof Error && error.name === 'AbortError') {
-                return;
-              }
-              console.error('Failed to save layout:', error);
-            });
-          return;
-        }
+        if (flushPendingLayout(layoutConfig)) return;
 
         if (!layoutConfig) return;
 
@@ -107,6 +108,8 @@ export function useAnalyticsGridLayout({
           return;
         }
         console.error('Failed to hydrate dashboard layout:', error);
+        hydrationReadyRef.current = true;
+        if (flushPendingLayout(null)) return;
       });
 
     return () => {

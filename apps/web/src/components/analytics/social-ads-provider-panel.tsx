@@ -1,17 +1,13 @@
 'use client';
 
-import {
-  AlertCircle,
-  CheckCircle2,
-  ExternalLink,
-  RefreshCcw,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, RefreshCcw } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
 import { AdsDisconnectButton } from './ads-disconnect-button';
 import { SocialAdsAccountControls } from './social-ads-account-controls';
+import { SocialAdsConnectAction } from './social-ads-connect-action';
 import type {
   SocialAdsProvider,
   SocialAdsProviderReporting,
@@ -120,6 +116,7 @@ export function SocialAdsProviderPanel({
     'https://usebaci.com'
   );
   if (merchantId) connectPath.searchParams.set('merchantId', merchantId);
+  const connectHref = `${connectPath.pathname}${connectPath.search}`;
   const syncedAt = formatSyncTime(provider.lastSyncedAt);
   const hasReportingReadFailure = provider.dataStatus !== 'ready';
   const hasConfirmedConnectionError =
@@ -178,13 +175,11 @@ export function SocialAdsProviderPanel({
             </Alert>
           ) : null}
           {canManageCredential && (
-            <Button asChild size="sm">
-              <a href={`${connectPath.pathname}${connectPath.search}`}>
-                {hasConfirmedConnectionError ? 'Reconnect' : 'Connect'}{' '}
-                {provider.displayName}
-                <ExternalLink className="size-4" />
-              </a>
-            </Button>
+            <SocialAdsConnectAction
+              displayName={provider.displayName}
+              href={connectHref}
+              reconnect={hasConfirmedConnectionError}
+            />
           )}
         </div>
       ) : (

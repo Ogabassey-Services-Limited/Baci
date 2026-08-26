@@ -196,4 +196,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260826150000_restrict_ads_connection_select_to_view_permission.sql',
     sha256: 'c2b4d82902c24edb2f3d17b001c4646c9db787f92fa28ab0912a279b40f71c65',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826160000_prioritize_out_of_stock_inventory_forecast.sql',
+    sha256: '446ea5fe68b2d140405d810527ff8c5b8005b3ac73a607dfe85911a20c58b13b',
+  },
 ];

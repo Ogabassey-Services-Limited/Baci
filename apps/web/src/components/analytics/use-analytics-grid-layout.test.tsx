@@ -114,4 +114,53 @@ describe('useAnalyticsGridLayout', () => {
       ])
     );
   });
+
+  it('settles a failed preference read and persists an early edit', async () => {
+    let rejectPreference: ((error: unknown) => void) | undefined;
+    fetchPreference.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectPreference = reject;
+        })
+    );
+
+    const { result } = renderHook(() =>
+      useAnalyticsGridLayout({
+        activeCategory: 'overview',
+        isEditMode: true,
+        merchantId: 'merchant-1',
+      })
+    );
+
+    await waitFor(() => expect(fetchPreference).toHaveBeenCalled());
+    act(() => {
+      result.current.onLayoutChange([], {
+        lg: [
+          {
+            h: 2,
+            i: 'summary-revenue',
+            w: 4,
+            x: 5,
+            y: 1,
+          },
+        ],
+      });
+    });
+    expect(savePreference).not.toHaveBeenCalled();
+
+    await act(async () => {
+      rejectPreference?.(new Error('preference read failed'));
+    });
+
+    await waitFor(() => expect(savePreference).toHaveBeenCalledTimes(1));
+    const savedConfig = savePreference.mock.calls[0]?.[0] as Record<
+      string,
+      { lg?: unknown }
+    >;
+    expect(savedConfig.overview?.lg).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ i: 'summary-revenue', x: 5, y: 1 }),
+      ])
+    );
+  });
 });
