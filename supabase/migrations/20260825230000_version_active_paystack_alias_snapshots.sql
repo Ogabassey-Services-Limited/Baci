@@ -12,6 +12,31 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.bound_authenticated_paystack_alias_timestamps()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.provider = 'paystack'
+    AND COALESCE(auth.role(), '') <> 'service_role' THEN
+    IF TG_OP = 'UPDATE' AND OLD.provider = 'paystack_version' THEN
+      RETURN NEW;
+    END IF;
+    IF NEW.assigned_at IS NULL
+      OR NEW.expires_at IS NULL
+      OR NEW.assigned_at < now() - interval '5 minutes'
+      OR NEW.assigned_at > now() + interval '5 minutes'
+      OR NEW.expires_at <= NEW.assigned_at
+      OR NEW.expires_at > NEW.assigned_at + interval '90 minutes' THEN
+      RAISE EXCEPTION 'invalid authenticated Paystack alias timestamps';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.version_active_paystack_alias_snapshot()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -63,5 +88,14 @@ CREATE TRIGGER e_version_active_paystack_alias_snapshot
   BEFORE UPDATE OF payable_amount ON public.order_payment_accounts
   FOR EACH ROW EXECUTE FUNCTION public.version_active_paystack_alias_snapshot();
 
+DROP TRIGGER IF EXISTS b_bound_authenticated_paystack_alias_timestamps
+  ON public.order_payment_accounts;
+CREATE TRIGGER b_bound_authenticated_paystack_alias_timestamps
+  BEFORE INSERT OR UPDATE OF provider, assigned_at, expires_at
+  ON public.order_payment_accounts
+  FOR EACH ROW EXECUTE FUNCTION public.bound_authenticated_paystack_alias_timestamps();
+
 REVOKE ALL ON FUNCTION public.version_active_paystack_alias_snapshot()
+  FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.bound_authenticated_paystack_alias_timestamps()
   FROM PUBLIC;

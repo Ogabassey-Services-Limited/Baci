@@ -99,17 +99,11 @@ export async function POST(
         { status: provisioningContext.status }
       );
     }
-    const { data: existingVba, error: existingVbaError } = await supabase
-      .from('order_payment_accounts')
-      .select(
-        'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
-      )
-      .eq('order_id', orderId)
-      .eq('provider', 'paystack')
-      .order('assigned_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: existingVba, error: existingVbaError } =
+      await generateDvaHelpers.loadLatestPaystackOrderAccount(
+        supabase,
+        orderId
+      );
 
     if (existingVbaError) {
       return NextResponse.json(
@@ -125,16 +119,7 @@ export async function POST(
       });
     }
     const { data: existingLegacyAccount, error: existingLegacyError } =
-      await supabase
-        .from('order_payment_accounts')
-        .select(
-          'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
-        )
-        .eq('order_id', orderId)
-        .neq('provider', 'paystack')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      await generateDvaHelpers.loadLatestLegacyOrderAccount(supabase, orderId);
 
     if (existingLegacyError) {
       logger.error({
@@ -166,7 +151,34 @@ export async function POST(
         'release_expired_paystack_order_account',
         { p_order_id: orderId }
       );
-      if (releaseError || !released) {
+      if (releaseError) {
+        return NextResponse.json(
+          {
+            code: 'PAYMENT_ACCOUNT_RELEASE_FAILED',
+            error: 'Unable to reprovision the automatic confirmation account',
+          },
+          { status: 500 }
+        );
+      }
+      if (!released) {
+        const { data: racedAccount, error: racedAccountError } =
+          await generateDvaHelpers.loadLatestPaystackOrderAccount(
+            supabase,
+            orderId
+          );
+
+        if (
+          !racedAccountError &&
+          racedAccount &&
+          generateDvaHelpers.isActivePaymentAccount(racedAccount)
+        ) {
+          return NextResponse.json({
+            success: true,
+            virtualAccount: generateDvaHelpers.toVirtualAccount(racedAccount),
+            existing: true,
+          });
+        }
+
         return NextResponse.json(
           {
             code: 'PAYMENT_ACCOUNT_RELEASE_FAILED',

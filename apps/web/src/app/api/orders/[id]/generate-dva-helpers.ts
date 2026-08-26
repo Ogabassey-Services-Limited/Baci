@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 const PAYSTACK_DVA_WINDOW_MS = 90 * 60 * 1000;
 const PAYSTACK_DVA_PAYMENT_STATUSES = [
   'unpaid',
@@ -25,6 +27,39 @@ function toVirtualAccount(account: PaymentAccount) {
     account_number: account.account_number,
     bank_name: account.bank_name,
   };
+}
+
+function loadLatestPaystackOrderAccount(
+  supabase: SupabaseClient,
+  orderId: string
+) {
+  return supabase
+    .from('order_payment_accounts')
+    .select(
+      'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+    )
+    .eq('order_id', orderId)
+    .eq('provider', 'paystack')
+    .order('assigned_at', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+}
+
+function loadLatestLegacyOrderAccount(
+  supabase: SupabaseClient,
+  orderId: string
+) {
+  return supabase
+    .from('order_payment_accounts')
+    .select(
+      'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+    )
+    .eq('order_id', orderId)
+    .neq('provider', 'paystack')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 }
 
 function isActivePaymentAccount(
@@ -105,6 +140,8 @@ export const generateDvaHelpers = {
   isActivePaymentAccount,
   isEligibleOrderForPaystackDva,
   isUniqueViolation,
+  loadLatestLegacyOrderAccount,
+  loadLatestPaystackOrderAccount,
   PAYSTACK_DVA_WINDOW_MS,
   toCustomerName,
   toVirtualAccount,

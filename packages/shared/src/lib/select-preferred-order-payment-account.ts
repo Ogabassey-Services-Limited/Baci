@@ -25,26 +25,24 @@ function isActivePaystackAccount(
   const expiresAt = account.expires_at
     ? Date.parse(account.expires_at)
     : Number.NaN;
+  const hasExplicitExpiry = Number.isFinite(expiresAt);
   const assignmentUpperBound = Number.isFinite(expiresAt)
     ? expiresAt
     : Number.isFinite(assignedAt)
       ? assignedAt + PAYSTACK_DVA_WINDOW_MS
       : Number.NaN;
-  const expirationGraceMs =
-    Number.isFinite(assignedAt) &&
-    expiresAt >= assignedAt + PAYSTACK_DVA_WINDOW_MS
-      ? PAYSTACK_DVA_CLOCK_SKEW_MS
-      : 0;
   if (
-    Number.isFinite(expiresAt) &&
-    nowMs > expiresAt + expirationGraceMs
+    hasExplicitExpiry &&
+    nowMs >= expiresAt
   )
     return false;
 
   return (
     !Number.isFinite(assignedAt) ||
     (nowMs >= assignedAt - PAYSTACK_DVA_CLOCK_SKEW_MS &&
-      nowMs <= assignmentUpperBound + PAYSTACK_DVA_CLOCK_SKEW_MS)
+      nowMs <=
+        assignmentUpperBound +
+          (hasExplicitExpiry ? 0 : PAYSTACK_DVA_CLOCK_SKEW_MS))
   );
 }
 

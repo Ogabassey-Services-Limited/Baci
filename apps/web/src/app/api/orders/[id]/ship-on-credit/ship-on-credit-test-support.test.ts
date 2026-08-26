@@ -3,7 +3,7 @@ import {
   createParams,
   createRequest,
   ORDER_ID,
-} from './ship-on-credit-test-support';
+} from './ship-on-credit.test-support';
 
 describe('ship-on-credit test support', () => {
   it('builds a POST request and async route params', async () => {

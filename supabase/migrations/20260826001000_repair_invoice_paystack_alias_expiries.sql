@@ -2,25 +2,136 @@
 -- clamp migration. Immediate invoices use the order issue timestamp plus the
 -- fourteen-day term; invoices with an explicit payment_due_date use that
 -- persisted due date instead.
-UPDATE public.order_payment_accounts AS account
-SET expires_at = invoice_expiry.expires_at
-FROM (
-  SELECT
-    account.id,
-    CASE
-      WHEN orders.payment_due_date IS NOT NULL
-        THEN orders.payment_due_date::timestamptz
-      ELSE COALESCE(orders.created_at, account.assigned_at, account.created_at)
-        + interval '14 days'
-    END AS expires_at,
-    COALESCE(account.assigned_at, account.created_at) + interval '90 minutes'
-      AS clamped_expiry
-  FROM public.order_payment_accounts AS account
-  JOIN public.orders AS orders ON orders.id = account.order_id
-  WHERE account.provider = 'paystack'
-    AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
-    AND account.expires_at IS NOT NULL
-) AS invoice_expiry
-WHERE account.id = invoice_expiry.id
-  AND account.expires_at = invoice_expiry.clamped_expiry
-  AND invoice_expiry.expires_at > invoice_expiry.clamped_expiry;
+--
+-- Every candidate is re-read after the order and receiver advisory locks are
+-- held. The ownership checks and expiry update therefore share one serialized
+-- transaction with the runtime reservation paths. A receiver that has been
+-- claimed by another order, a customer wallet, or an active checkout session
+-- is left unchanged rather than being reactivated by this repair.
+
+-- This is a trusted, append-only repair. The timestamp-bound trigger added in
+-- the preceding migration permits the service-role claim used only for this
+-- migration transaction so explicit invoice terms can be restored.
+SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
+
+DO $$
+DECLARE
+  v_candidate record;
+  v_current record;
+BEGIN
+  FOR v_candidate IN
+    SELECT
+      account.id,
+      account.order_id,
+      NULLIF(trim(account.account_number), '') AS account_number
+    FROM public.order_payment_accounts AS account
+    JOIN public.orders AS orders ON orders.id = account.order_id
+    WHERE account.provider = 'paystack'
+      AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
+      AND account.expires_at IS NOT NULL
+    ORDER BY account.id
+  LOOP
+    IF v_candidate.account_number IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    -- Match the lock order used by the authenticated reservation and raw
+    -- order-account writers: order first, receiver second.
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(
+        'baci_order_payment:' || v_candidate.order_id::text, 0
+      )
+    );
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(
+        'paystack_order_account:' || v_candidate.account_number, 0
+      )
+    );
+
+    -- Re-read and lock the rows after both advisory locks. This prevents a
+    -- stale candidate snapshot from changing ownership during the repair.
+    SELECT
+      account.id,
+      account.order_id,
+      NULLIF(trim(account.account_number), '') AS account_number,
+      account.expires_at AS current_expires_at,
+      COALESCE(account.assigned_at, account.created_at)
+        + interval '90 minutes' AS clamped_expiry,
+      CASE
+        WHEN orders.payment_due_date IS NOT NULL
+          THEN orders.payment_due_date::timestamptz
+        ELSE COALESCE(
+          orders.created_at,
+          account.assigned_at,
+          account.created_at
+        ) + interval '14 days'
+      END AS invoice_expiry
+    INTO v_current
+    FROM public.order_payment_accounts AS account
+    JOIN public.orders AS orders ON orders.id = account.order_id
+    WHERE account.id = v_candidate.id
+      AND account.provider = 'paystack'
+      AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
+    FOR UPDATE OF account, orders;
+
+    IF NOT FOUND OR v_current.account_number IS NULL THEN
+      CONTINUE;
+    END IF;
+
+    -- Account numbers are not normally mutable, but lock a newly observed
+    -- receiver too if a concurrent maintenance writer changed the row after
+    -- the candidate scan.
+    IF v_current.account_number IS DISTINCT FROM v_candidate.account_number THEN
+      PERFORM pg_catalog.pg_advisory_xact_lock(
+        pg_catalog.hashtextextended(
+          'paystack_order_account:' || v_current.account_number, 0
+        )
+      );
+    END IF;
+
+    IF v_current.invoice_expiry IS NULL
+      OR v_current.clamped_expiry IS NULL
+      OR v_current.invoice_expiry <= v_current.clamped_expiry
+      OR v_current.current_expires_at IS DISTINCT FROM v_current.clamped_expiry THEN
+      CONTINUE;
+    END IF;
+
+    -- Do not revive this receiver when another active owner already holds it.
+    IF EXISTS (
+      SELECT 1
+      FROM public.order_payment_accounts AS other
+      WHERE other.id <> v_current.id
+        AND other.provider = 'paystack'
+        AND trim(other.account_number) = v_current.account_number
+        AND COALESCE(
+          other.expires_at,
+          other.assigned_at + interval '90 minutes',
+          other.created_at + interval '90 minutes'
+        ) > now()
+    ) OR EXISTS (
+      SELECT 1
+      FROM public.customer_wallet_payment_accounts AS wallet
+      WHERE wallet.provider = 'paystack'
+        AND wallet.account_number = v_current.account_number
+        AND wallet.status = 'active'
+    ) OR EXISTS (
+      SELECT 1
+      FROM public.checkout_sessions AS checkout
+      WHERE checkout.virtual_account_number = v_current.account_number
+        AND checkout.payment_provider = 'paystack'
+        AND checkout.status IN ('pending', 'processing')
+        AND COALESCE(
+          checkout.virtual_account_expires_at,
+          checkout.expires_at
+        ) > now()
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    UPDATE public.order_payment_accounts AS account
+    SET expires_at = v_current.invoice_expiry
+    WHERE account.id = v_current.id
+      AND account.expires_at = v_current.clamped_expiry;
+  END LOOP;
+END;
+$$;

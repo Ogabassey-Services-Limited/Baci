@@ -8,7 +8,7 @@ import {
 // B0 tightens DVA reconciliation to require ALL of:
 // - amount = verified Paystack amount (kobo precision; ₦0.01 tolerance)
 // - customer_email matches the Paystack customer
-// - paid_at IN [created_at, LEAST(expires_at, created_at + 90min)]
+// - paid_at IN [created_at, expires_at when present, otherwise created_at + 90min]
 // Plus the upstream lookup already filters by:
 // - merchant_id (inferred via the order's merchant)
 // - account_number + provider (the lookup key)
@@ -230,6 +230,28 @@ describe('matchPaystackDvaCandidates — paid_at window', () => {
     );
 
     expect(result.kind).toBe('none');
+  });
+
+  it('matches a partial invoice transfer throughout its explicit reservation term', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          merchant_created: true,
+          outstanding_amount_kobo: 83_500_000,
+          account_expires_at: new Date('2026-05-23T10:00:00Z'),
+        }),
+      ],
+      ctx({
+        verifiedAmountKobo: 30_000_000,
+        paidAt: new Date('2026-05-15T12:53:00Z'),
+      })
+    );
+
+    expect(result).toMatchObject({
+      allocation: 'partial',
+      kind: 'single',
+      timing: 'in_window',
+    });
   });
 
   it('uses the unique late-match fallback when account_expires_at is beyond the grace window', () => {

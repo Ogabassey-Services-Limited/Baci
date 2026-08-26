@@ -11,7 +11,7 @@ import {
   postShipOnCredit as POST,
   resetShipOnCreditMocks,
   shipOnCreditMocks,
-} from './ship-on-credit-test-support';
+} from './ship-on-credit.test-support';
 
 const {
   mockAuthenticateApiRequest,
@@ -49,6 +49,44 @@ describe('POST /api/orders/[id]/ship-on-credit validation', () => {
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: 'Invalid request body' });
     expect(mockGetMerchantIdForApiUser).not.toHaveBeenCalled();
+  });
+
+  it('does not send a synthetic email to Paystack for an order without one', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectSingleQuery({
+          id: MERCHANT_ID,
+          business_name: 'Ogabassey',
+        });
+      }
+
+      if (table === 'orders') {
+        return {
+          ...createSelectSingleQuery({
+            id: ORDER_ID,
+            order_number: 'ORD-001',
+            total: '5000',
+            customer_name: 'John Doe',
+            customer_email: null,
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+          }),
+          ...createUpdateQuery(),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      createRequest({ credit_notes: 'Ship now' }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.virtualAccount).toBeNull();
+    expect(shipOnCreditMocks.mockGeneratePaymentAccount).not.toHaveBeenCalled();
   });
 
   it('returns 500 when checking the current order fails after a no-row update', async () => {

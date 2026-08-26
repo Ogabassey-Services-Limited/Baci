@@ -10,7 +10,7 @@ import {
   postShipOnCredit as POST,
   resetShipOnCreditMocks,
   shipOnCreditMocks,
-} from './ship-on-credit-test-support';
+} from './ship-on-credit.test-support';
 
 const {
   mockFrom,

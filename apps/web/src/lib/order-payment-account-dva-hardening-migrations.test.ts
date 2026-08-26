@@ -88,6 +88,11 @@ describe('order payment account DVA hardening migrations', () => {
     expect(versions).toContain('NEW.payable_amount := OLD.payable_amount');
     expect(versions).toContain("SET provider = 'paystack'");
     expect(versions).not.toContain("interval '90 minutes';\n  NEW.expires_at");
+    expect(versions).toContain('bound_authenticated_paystack_alias_timestamps');
+    expect(versions).toContain(
+      "NEW.expires_at > NEW.assigned_at + interval '90 minutes'"
+    );
+    expect(versions).toContain('NEW.expires_at <= NEW.assigned_at');
   });
 
   it('repairs invoice expiries truncated by the legacy clamp', () => {
@@ -96,8 +101,10 @@ describe('order payment account DVA hardening migrations', () => {
     );
     expect(repair).toContain("COALESCE(orders.payment_method, '')");
     expect(repair).toContain("interval '14 days'");
-    expect(repair).toContain(
-      'account.expires_at = invoice_expiry.clamped_expiry'
-    );
+    expect(repair).toContain('account.expires_at = v_current.clamped_expiry');
+    expect(repair).toContain("'paystack_order_account:'");
+    expect(repair).toContain('FOR UPDATE OF account, orders');
+    expect(repair).toContain('customer_wallet_payment_accounts');
+    expect(repair).toContain('checkout_sessions');
   });
 });

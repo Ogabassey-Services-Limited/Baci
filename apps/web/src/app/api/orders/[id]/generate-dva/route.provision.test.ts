@@ -59,6 +59,55 @@ describe('POST /api/orders/[id]/generate-dva provisioning', () => {
     expect(paymentAccountQuery.limit).toHaveBeenCalledWith(1);
   });
 
+  it('returns a concurrently reprovisioned account when release observes a winner', async () => {
+    authenticateMerchant();
+    const paymentAccountQuery = useOrderQueries();
+    paymentAccountQuery.maybeSingle
+      .mockResolvedValueOnce({
+        data: {
+          account_number: '1234567890',
+          bank_name: 'Wema Bank',
+          account_name: 'Ogabassey/Old Customer',
+          provider: 'paystack',
+          assigned_at: '2026-08-24T08:00:00.000Z',
+          expires_at: '2026-08-24T09:30:00.000Z',
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          account_number: '9876543210',
+          bank_name: 'Wema Bank',
+          account_name: 'Ogabassey/John Doe',
+          provider: 'paystack',
+          assigned_at: '2999-01-01T00:00:00.000Z',
+          expires_at: '2999-01-01T01:30:00.000Z',
+        },
+        error: null,
+      });
+    mockRpc.mockImplementation((name: string) =>
+      Promise.resolve(
+        name === 'release_expired_paystack_order_account'
+          ? { data: false, error: null }
+          : { data: 5000, error: null }
+      )
+    );
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      existing: true,
+      virtualAccount: { account_number: '9876543210' },
+    });
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when checking for an existing DVA fails', async () => {
     authenticateMerchant();
     useOrderQueries({

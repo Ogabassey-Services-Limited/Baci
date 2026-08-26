@@ -14,13 +14,13 @@
 // match is accepted; multiple late matches remain ambiguous for review.
 //
 //   paid_at IN [assignment timestamp,
-//               LEAST(account_expires_at, assignment timestamp + 90 min)]
+//               account_expires_at when present, else assignment + 90 min]
 //
 // Lower bound = DVA assignment time (we don't accept payments
 // predating the DVA — defensive against ref-replay).
-// Upper bound respects Paystack's expires_at if returned, else
-// `created_at + 1h DVA countdown + 30min inter-bank settlement grace`
-// = 90 minutes total.
+// Upper bound respects the persisted expires_at when returned. If no expiry
+// was stored, use `created_at + 1h DVA countdown + 30min inter-bank settlement
+// grace` = 90 minutes total.
 
 const KOBO_TOLERANCE = 1; // ±₦0.01
 const NINETY_MINUTES_MS = 90 * 60 * 1000;
@@ -144,7 +144,7 @@ function isInsideProtectedWindow(
     candidate.account_assigned_at ?? candidate.account_created_at;
   const upperBoundFromGrace = assignedAt.getTime() + NINETY_MINUTES_MS;
   const upperBound = candidate.account_expires_at
-    ? Math.min(candidate.account_expires_at.getTime(), upperBoundFromGrace)
+    ? candidate.account_expires_at.getTime()
     : upperBoundFromGrace;
   return paidAtMs <= upperBound;
 }

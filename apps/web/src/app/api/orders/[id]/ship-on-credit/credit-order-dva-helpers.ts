@@ -25,11 +25,19 @@ async function provisionCreditOrderDva({
   orderId,
   supabase,
 }: ProvisionCreditOrderDvaInput) {
+  const normalizedEmail = customerEmail?.trim();
+  if (!normalizedEmail) {
+    logger.warn({
+      message: 'Cannot create DVA for credit order without customer email',
+      orderId,
+    });
+    return null;
+  }
+
   try {
     const name = toCustomerName(customerName);
-    const fallbackEmail = customerEmail || `${orderId}@orders.usebaci.com`;
     const dvaResult = await generatePaymentAccount({
-      email: fallbackEmail,
+      email: normalizedEmail,
       firstName: name.firstName,
       lastName: name.lastName,
       phone: '',
@@ -44,7 +52,7 @@ async function provisionCreditOrderDva({
       accountName: dvaResult.data.account_name,
       accountNumber: dvaResult.data.account_number,
       bankName: dvaResult.data.bank_name,
-      customerEmail: fallbackEmail,
+      customerEmail: normalizedEmail,
       orderId,
     });
 
