@@ -193,6 +193,92 @@ describe('TikTok Ads provider', () => {
     ).resolves.toEqual([]);
     expect(sleep).toHaveBeenCalledOnce();
   });
+
+  it('resolves missing account currency and timezone through advertiser info before selection', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              list: [
+                {
+                  advertiser_id: 'opaque-001',
+                  advertiser_name: 'Account',
+                },
+              ],
+            },
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              list: [
+                {
+                  advertiser_id: 'opaque-001',
+                  currency: 'NGN',
+                  timezone: 'Africa/Lagos',
+                },
+              ],
+            },
+          })
+        )
+      );
+
+    await expect(
+      listTikTokAdsAccounts(
+        { accessToken: 'token', appId: 'app', appSecret: 'secret' },
+        fetchImpl
+      )
+    ).resolves.toEqual([
+      {
+        accountId: 'opaque-001',
+        currencyCode: 'NGN',
+        label: 'Account',
+        timezoneName: 'Africa/Lagos',
+      },
+    ]);
+    const metadataUrl = new URL(fetchImpl.mock.calls[1]?.[0].toString());
+    expect(metadataUrl.pathname).toBe('/open_api/v1.3/advertiser/info/');
+    expect(metadataUrl.searchParams.get('advertiser_ids')).toBe(
+      '["opaque-001"]'
+    );
+  });
+
+  it('excludes advertisers that still lack required reporting metadata', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              list: [
+                {
+                  advertiser_id: 'opaque-001',
+                  advertiser_name: 'Incomplete',
+                },
+              ],
+            },
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ code: 0, data: { list: [] } }))
+      );
+
+    await expect(
+      listTikTokAdsAccounts(
+        { accessToken: 'token', appId: 'app', appSecret: 'secret' },
+        fetchImpl
+      )
+    ).resolves.toEqual([]);
+  });
+
   it('keeps async task states bounded and explicit', () => {
     expect(
       parseTikTokAdsAsyncTaskStatus({ data: { task_status: 'PROCESSING' } })

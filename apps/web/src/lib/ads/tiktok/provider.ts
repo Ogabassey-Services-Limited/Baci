@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { z } from 'zod';
+import { resolveTikTokAdsAccountMetadata } from './account-metadata';
 import { TIKTOK_ADS_API_ROOT } from './constants';
 import { requestTikTokAdsJson, TikTokAdsProviderError } from './request';
 
@@ -13,9 +14,9 @@ export { TikTokAdsProviderError } from './request';
 
 export interface TikTokAdsAccount {
   accountId: string;
-  currencyCode: string | null;
+  currencyCode: string;
   label: string;
-  timezoneName: string | null;
+  timezoneName: string;
 }
 export interface TikTokAdsDailyReport {
   accountId: string;
@@ -73,7 +74,7 @@ export async function listTikTokAdsAccounts(
   const list = data?.list;
   if (!Array.isArray(list))
     throw new TikTokAdsProviderError('TIKTOK_ADS_ACCOUNT_DISCOVERY_INVALID');
-  return list.flatMap((item) => {
+  const candidates = list.flatMap((item) => {
     const parsed = accountSchema.safeParse(item);
     return parsed.success
       ? [
@@ -84,6 +85,25 @@ export async function listTikTokAdsAccounts(
             timezoneName: parsed.data.timezone ?? null,
           },
         ]
+      : [];
+  });
+  const incomplete = candidates.filter(
+    (account) => !account.currencyCode || !account.timezoneName
+  );
+  const metadata = await resolveTikTokAdsAccountMetadata(
+    {
+      accessToken: input.accessToken,
+      advertiserIds: incomplete.map((account) => account.accountId),
+    },
+    fetchImpl,
+    sleep
+  );
+  return candidates.flatMap((account) => {
+    const resolved = metadata.get(account.accountId);
+    const currencyCode = account.currencyCode ?? resolved?.currencyCode;
+    const timezoneName = account.timezoneName ?? resolved?.timezoneName;
+    return currencyCode && timezoneName
+      ? [{ ...account, currencyCode, timezoneName }]
       : [];
   });
 }

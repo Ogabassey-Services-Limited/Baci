@@ -31,8 +31,8 @@ async function disconnect(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   const credentialSupabase = createAdsCredentialServiceClient();
   const result = await credentialSupabase.rpc(
-    'delete_snapchat_ads_connection_and_spend',
-    { p_merchant_id: access.merchantId }
+    'delete_merchant_ads_connection',
+    { p_merchant_id: access.merchantId, p_provider: 'snapchat_ads' }
   );
   if (result.error) {
     return NextResponse.json(

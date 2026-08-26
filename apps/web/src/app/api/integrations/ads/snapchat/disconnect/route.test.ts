@@ -71,11 +71,11 @@ describe('Snapchat Ads disconnect route', () => {
       )
     ).resolves.toMatchObject({ status: 200 });
     expect(credentialRpc).toHaveBeenCalledWith(
-      'delete_snapchat_ads_connection_and_spend',
-      { p_merchant_id: 'merchant' }
+      'delete_merchant_ads_connection',
+      { p_merchant_id: 'merchant', p_provider: 'snapchat_ads' }
     );
     expect(rpc).not.toHaveBeenCalledWith(
-      'delete_snapchat_ads_connection_and_spend',
+      'delete_merchant_ads_connection',
       expect.anything()
     );
     expect(invalidate).toHaveBeenCalledWith('merchant');
@@ -135,7 +135,7 @@ describe('Snapchat Ads disconnect route', () => {
     expect(failure.status).toBe(500);
     expect(credentialRpc).toHaveBeenCalledOnce();
     expect(rpc).not.toHaveBeenCalledWith(
-      'delete_snapchat_ads_connection_and_spend',
+      'delete_merchant_ads_connection',
       expect.anything()
     );
     expect(JSON.stringify(await failure.json())).not.toContain(

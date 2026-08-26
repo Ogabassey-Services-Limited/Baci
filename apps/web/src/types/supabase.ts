@@ -20565,10 +20565,6 @@ export type Database = {
         Args: { p_merchant_id: string; p_provider: string };
         Returns: boolean;
       };
-      delete_snapchat_ads_connection_and_spend: {
-        Args: { p_merchant_id: string };
-        Returns: boolean;
-      };
       mark_merchant_ads_connection_synced: {
         Args: { p_merchant_id: string; p_provider: string };
         Returns: boolean;
