@@ -105,6 +105,9 @@ describe('GoogleAdsReportingCard', () => {
     expect(
       screen.queryByRole('link', { name: /reconnect google ads/i })
     ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /disconnect google ads/i })
+    ).toBeInTheDocument();
   });
 
   it('does not imply reporting is ready before an account is selected', () => {
@@ -262,6 +265,9 @@ describe('GoogleAdsReportingCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText('Reporting window: 2026-08-01 – 2026-08-21')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /disconnect google ads/i })
     ).toBeInTheDocument();
   });
 });

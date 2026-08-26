@@ -53,9 +53,10 @@ describe('Snapchat Ads spend route', () => {
   it('returns normalized safe spend metrics for an authenticated viewer', async () => {
     const connection = {
       eq: vi.fn().mockReturnThis(),
-      maybeSingle: vi
-        .fn()
-        .mockResolvedValue({ data: { account_timezone: 'UTC' }, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { account_timezone: 'UTC', provider_customer_id: 'ad' },
+        error: null,
+      }),
       select: vi.fn().mockReturnThis(),
     };
     const spend = {
@@ -106,6 +107,8 @@ describe('Snapchat Ads spend route', () => {
       clicksLabel: 'Swipe Ups',
       spendMicros: '1200000',
     });
+    expect(connection.eq).toHaveBeenCalledWith('status', 'active');
+    expect(spend.eq).toHaveBeenCalledWith('provider_customer_id', 'ad');
     expect(JSON.stringify(body)).not.toContain('SNAP_SPEND_SENTINEL');
   });
 
@@ -129,7 +132,7 @@ describe('Snapchat Ads spend route', () => {
     const validConnection = {
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({
-        data: { account_timezone: 'UTC' },
+        data: { account_timezone: 'UTC', provider_customer_id: 'ad' },
         error: null,
       }),
       select: vi.fn().mockReturnThis(),

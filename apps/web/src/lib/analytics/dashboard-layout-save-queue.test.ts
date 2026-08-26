@@ -77,4 +77,39 @@ describe('createDashboardLayoutSaveQueue', () => {
     await Promise.all([write, reset]);
     expect(resetFinished).toBe(true);
   });
+
+  it('does not abort an in-flight upsert before a newer generation write', async () => {
+    let releaseOldWrite: (() => void) | undefined;
+    const oldWriteFinished = new Promise<void>((resolve) => {
+      releaseOldWrite = resolve;
+    });
+    let oldSignal: AbortSignal | undefined;
+    const save = vi.fn<DashboardLayoutSave>(
+      async (_layout, merchantId, signal) => {
+        if (merchantId === 'merchant-old') {
+          oldSignal = signal;
+          await oldWriteFinished;
+        }
+      }
+    );
+    const queue = createDashboardLayoutSaveQueue(save);
+
+    const oldWrite = queue.enqueue(layout, 'merchant-old');
+    await Promise.resolve();
+    await Promise.resolve();
+    const reset = queue.reset();
+    const newLayout = { lg: [{ ...layout.lg[0], x: 6 }] };
+    const newWrite = queue.enqueue(newLayout, 'merchant-new');
+
+    expect(oldSignal?.aborted).toBe(false);
+    expect(save).toHaveBeenCalledTimes(1);
+
+    releaseOldWrite?.();
+    await Promise.all([oldWrite, reset, newWrite]);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save.mock.calls[1]?.slice(0, 2)).toEqual([
+      newLayout,
+      'merchant-new',
+    ]);
+  });
 });

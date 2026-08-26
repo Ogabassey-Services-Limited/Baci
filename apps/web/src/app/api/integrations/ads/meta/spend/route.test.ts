@@ -47,4 +47,41 @@ describe('Meta Ads spend route', () => {
       ).status
     ).toBe(403);
   });
+
+  it('scopes an omitted account id to the selected active account', async () => {
+    const connection = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { provider_customer_id: 'act_123' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const spend = {
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(connection)
+      .mockReturnValueOnce(spend);
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/spend')
+    );
+
+    expect(response.status).toBe(200);
+    expect(connection.eq).toHaveBeenCalledWith('status', 'active');
+    expect(spend.eq).toHaveBeenCalledWith('provider_customer_id', 'act_123');
+  });
 });

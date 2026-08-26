@@ -43,9 +43,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   const connection = await auth.supabase
     .from('merchant_ad_connections')
-    .select('account_timezone')
+    .select('account_timezone, provider_customer_id')
     .eq('merchant_id', access.merchantId)
     .eq('provider', SNAPCHAT_ADS_PROVIDER)
+    .eq('status', 'active')
     .maybeSingle();
   if (connection.error)
     return NextResponse.json(
@@ -53,16 +54,25 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   const defaults = dates(connection.data?.account_timezone ?? 'UTC');
-  let query = auth.supabase
+  const accountId =
+    parsed.data.accountId ?? connection.data?.provider_customer_id ?? undefined;
+  if (!accountId)
+    return NextResponse.json({
+      currencyCode: null,
+      endDate: parsed.data.endDate ?? defaults.endDate,
+      provider: SNAPCHAT_ADS_PROVIDER,
+      rows: [],
+      startDate: parsed.data.startDate ?? defaults.startDate,
+    });
+  const query = auth.supabase
     .from('merchant_ad_spend_daily')
     .select(SELECT)
     .eq('merchant_id', access.merchantId)
     .eq('provider', SNAPCHAT_ADS_PROVIDER)
     .gte('spend_date', parsed.data.startDate ?? defaults.startDate)
     .lte('spend_date', parsed.data.endDate ?? defaults.endDate)
+    .eq('provider_customer_id', accountId)
     .order('spend_date', { ascending: true });
-  if (parsed.data.accountId)
-    query = query.eq('provider_customer_id', parsed.data.accountId);
   const { data, error } = await query;
   if (error)
     return NextResponse.json(

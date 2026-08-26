@@ -12,9 +12,10 @@ export interface DashboardLayoutSaveQueue {
 }
 
 /**
- * Serializes layout writes and invalidates queued work when the selected
- * merchant or category changes. The API upsert is last-write-wins, so allowing
- * concurrent requests would let an older drag overwrite the latest layout.
+ * Serializes layout writes and invalidates unstarted work when the selected
+ * merchant or category changes. An in-flight request must be allowed to settle:
+ * aborting the browser request cannot prove that the server did not commit its
+ * upsert, and starting the next write early could therefore restore stale data.
  */
 export function createDashboardLayoutSaveQueue(
   save: DashboardLayoutSave
@@ -43,7 +44,10 @@ export function createDashboardLayoutSaveQueue(
     },
     reset() {
       generation += 1;
-      controller.abort();
+      // Do not abort the current controller. The server may finish an upsert
+      // after the aborted fetch rejects, so the next generation must remain
+      // behind the existing tail until that response is known to have settled.
+      // The generation check above still discards every old task not yet begun.
       controller = new AbortController();
       return tail.catch(() => undefined);
     },

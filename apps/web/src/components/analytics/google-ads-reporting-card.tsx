@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { BentoCard } from '@/components/ui/bento-card';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
+import { AdsDisconnectButton } from './ads-disconnect-button';
 import {
   formatGoogleAdsMetric,
   formatGoogleAdsReportingWindow,
@@ -39,13 +40,11 @@ export interface GoogleAdsReportingMetrics {
   spend?: number;
   startDate?: string;
 }
-
 export type GoogleAdsConnectionStatus =
   | 'connected'
   | 'disconnected'
   | 'error'
   | 'syncing';
-
 export interface GoogleAdsReportingData {
   connectionStatus?: GoogleAdsConnectionStatus;
   currency?: string;
@@ -58,7 +57,6 @@ export interface GoogleAdsReportingData {
   /** A non-sensitive account label supplied by the server. */
   accountName?: string;
 }
-
 interface GoogleAdsReportingCardProps {
   canManageIntegrations: boolean;
   className?: string;
@@ -68,7 +66,6 @@ interface GoogleAdsReportingCardProps {
   reporting?: GoogleAdsReportingData | null;
   syncWindow?: AdsSyncWindow;
 }
-
 export function GoogleAdsReportingCard({
   canManageIntegrations,
   className,
@@ -84,7 +81,6 @@ export function GoogleAdsReportingCard({
   const currency = reporting?.currency ?? 'USD';
   const metrics = reporting?.metrics;
   const periodLabel = metrics ? formatGoogleAdsReportingWindow(metrics) : null;
-
   return (
     <BentoCard
       className={cn('h-full', className)}
@@ -182,7 +178,6 @@ export function GoogleAdsReportingCard({
             </span>
             {periodLabel && <span>Reporting window: {periodLabel}</span>}
           </div>
-
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {metrics.spend !== undefined && (
               <GoogleAdsMetric
@@ -251,7 +246,6 @@ export function GoogleAdsReportingCard({
               />
             )}
           </div>
-
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
             <span>Source: Google Ads reporting</span>
             {reporting.lastSyncedAt && (
@@ -284,6 +278,14 @@ export function GoogleAdsReportingCard({
             </div>
           )}
         </div>
+      )}
+      {canManageIntegrations && ['connected', 'error'].includes(status) && (
+        <AdsDisconnectButton
+          displayName="Google Ads"
+          merchantId={merchantId}
+          onDisconnected={onSynced}
+          provider="google"
+        />
       )}
     </BentoCard>
   );

@@ -36,7 +36,7 @@ function getDefaultCalendarDateRange(now: Date): {
 } {
   const endDate = getUtcCalendarDate(now);
   const start = new Date(now);
-  start.setUTCDate(start.getUTCDate() - 30);
+  start.setUTCDate(start.getUTCDate() - 29);
   return { endDate, startDate: getUtcCalendarDate(start) };
 }
 

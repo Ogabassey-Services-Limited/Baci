@@ -12,7 +12,10 @@ import {
   getGoogleAdsOAuthConfig,
   getGoogleAdsReportingConfig,
 } from '@/lib/google-ads/config';
-import { listGoogleAdsAccessibleCustomerIds } from '@/lib/google-ads/provider';
+import {
+  GoogleAdsProviderError,
+  listGoogleAdsAccessibleCustomerIds,
+} from '@/lib/google-ads/provider';
 import {
   getGoogleAdsReauthReason,
   persistGoogleAdsReauthRequired,
@@ -71,7 +74,7 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-  const connection = connections?.[0] ?? null;
+  let connection = connections?.[0] ?? null;
   if (connection?.status !== 'active') {
     return NextResponse.json({ connected: false, accounts: [] });
   }
@@ -127,6 +130,11 @@ export async function GET(request: NextRequest) {
         { status: 409 }
       );
     }
+    connection = {
+      ...connection,
+      access_token_ciphertext: resolvedToken.encryptedAccessToken,
+      token_expires_at: resolvedToken.expiresAt,
+    };
   }
 
   try {
@@ -141,7 +149,22 @@ export async function GET(request: NextRequest) {
       })),
       connected: true,
     });
-  } catch {
+  } catch (error) {
+    if (
+      error instanceof GoogleAdsProviderError &&
+      error.status === 401 &&
+      !(await persistGoogleAdsReauthRequired({
+        connection,
+        merchantId: access.merchantId,
+        reason: 'GOOGLE_ADS_ACCESS_REVOKED',
+        supabase: auth.supabase,
+      }))
+    ) {
+      return NextResponse.json(
+        { error: 'Failed to update Google Ads authorization status' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to discover Google Ads accounts' },
       { status: 502 }

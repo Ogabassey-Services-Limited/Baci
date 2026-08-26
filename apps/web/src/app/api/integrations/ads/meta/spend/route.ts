@@ -42,16 +42,39 @@ export async function GET(request: NextRequest) {
   if (!hasPermission(access, 'analytics', 'view'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   const defaults = defaultDateRange();
-  let query = auth.supabase
+  let accountId = parsed.data.accountId;
+  if (!accountId) {
+    const { data: connection, error: connectionError } = await auth.supabase
+      .from('merchant_ad_connections')
+      .select('provider_customer_id')
+      .eq('merchant_id', access.merchantId)
+      .eq('provider', 'meta_ads')
+      .eq('status', 'active')
+      .maybeSingle();
+    if (connectionError)
+      return NextResponse.json(
+        { error: 'Failed to read Meta Ads connection status' },
+        { status: 500 }
+      );
+    accountId = connection?.provider_customer_id ?? undefined;
+  }
+  if (!accountId)
+    return NextResponse.json({
+      currencyCode: null,
+      endDate: parsed.data.endDate ?? defaults.endDate,
+      provider: 'meta_ads',
+      rows: [],
+      startDate: parsed.data.startDate ?? defaults.startDate,
+    });
+  const query = auth.supabase
     .from('merchant_ad_spend_daily')
     .select(SPEND_SELECT)
     .eq('merchant_id', access.merchantId)
     .eq('provider', 'meta_ads')
     .gte('spend_date', parsed.data.startDate ?? defaults.startDate)
     .lte('spend_date', parsed.data.endDate ?? defaults.endDate)
+    .eq('provider_customer_id', accountId)
     .order('spend_date', { ascending: true });
-  if (parsed.data.accountId)
-    query = query.eq('provider_customer_id', parsed.data.accountId);
   const { data, error } = await query;
   if (error)
     return NextResponse.json(

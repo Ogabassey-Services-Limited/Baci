@@ -105,12 +105,54 @@ describe('TikTok Ads spend route', () => {
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(true);
     const response = await GET(
-      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/spend')
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/spend?accountId=opaque-001'
+      )
     );
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       currencyCode: 'NGN',
       rows: [expect.objectContaining({ spendAmountDecimal: '1.000000001' })],
     });
+  });
+
+  it('scopes an omitted account id to the selected active account', async () => {
+    const connection = {
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { provider_customer_id: 'opaque-selected' },
+        error: null,
+      }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const spend = {
+      eq: vi.fn().mockReturnThis(),
+      gte: vi.fn().mockReturnThis(),
+      lte: vi.fn().mockReturnThis(),
+      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      select: vi.fn().mockReturnThis(),
+    };
+    const from = vi
+      .fn()
+      .mockReturnValueOnce(connection)
+      .mockReturnValueOnce(spend);
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/tiktok/spend')
+    );
+
+    expect(response.status).toBe(200);
+    expect(connection.eq).toHaveBeenCalledWith('status', 'active');
+    expect(spend.eq).toHaveBeenCalledWith(
+      'provider_customer_id',
+      'opaque-selected'
+    );
   });
 });

@@ -5,6 +5,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { cn } from '@/lib/utils';
+import { AdsDisconnectButton } from './ads-disconnect-button';
 import { SocialAdsAccountControls } from './social-ads-account-controls';
 import type {
   SocialAdsProvider,
@@ -16,11 +17,11 @@ interface SpendByCurrency {
   spendAmountDecimal: string;
 }
 
-const PATH_SEGMENT: Record<SocialAdsProvider, string> = {
+const PATH_SEGMENT = {
   meta_ads: 'meta',
   snapchat_ads: 'snapchat',
   tiktok_ads: 'tiktok',
-};
+} as const satisfies Record<SocialAdsProvider, 'meta' | 'snapchat' | 'tiktok'>;
 
 export function formatSocialAdsCount(value: string): string {
   const number = Number(value);
@@ -203,6 +204,16 @@ export function SocialAdsProviderPanel({
           )}
         </>
       )}
+
+      {canManageIntegrations &&
+        ['connected', 'error'].includes(provider.connectionStatus) && (
+          <AdsDisconnectButton
+            displayName={provider.displayName}
+            merchantId={merchantId}
+            onDisconnected={onSynced}
+            provider={PATH_SEGMENT[provider.provider]}
+          />
+        )}
 
       <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
         <span>Source: {provider.displayName} reporting</span>
