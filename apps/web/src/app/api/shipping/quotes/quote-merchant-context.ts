@@ -48,6 +48,11 @@ function normalizeHost(value: string | null): string {
   return (value ?? '').split(':')[0]?.trim().toLowerCase() ?? '';
 }
 
+function isBodyOnlyStorefrontClient(request: HeaderReader): boolean {
+  const client = normalizeHeader(request.headers.get('x-baci-client'));
+  return client === 'mobile-storefront' || client === 'web-storefront';
+}
+
 function isTrustedStorefrontHeader(request: HeaderReader): boolean {
   const host = normalizeHost(request.headers.get('host'));
   const slug = normalizeHeader(request.headers.get('x-merchant-slug'));
@@ -213,8 +218,7 @@ export async function resolveQuoteMerchantContext({
   const bodyOnlyMerchantId =
     !trustedSenderMerchantId &&
     merchantId &&
-    normalizeHeader(request.headers.get('x-baci-client')) ===
-      'mobile-storefront'
+    isBodyOnlyStorefrontClient(request)
       ? merchantId
       : undefined;
   let senderInfo =

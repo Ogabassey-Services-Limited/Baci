@@ -125,6 +125,10 @@ describe('loadCheckoutShippingQuotes', () => {
           '{}'
       )
     );
+    const requestHeaders = new Headers(
+      (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1]?.headers
+    );
+    expect(requestHeaders.get('x-baci-client')).toBe('web-storefront');
     expect(requestBody).toMatchObject({
       deliveryPreference: 'door',
       items: [expect.objectContaining({ value: 0 })],

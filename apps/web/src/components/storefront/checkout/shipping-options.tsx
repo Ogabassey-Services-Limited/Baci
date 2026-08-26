@@ -3,12 +3,12 @@
 import { Check, Clock, Loader2, Package, Truck } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { apiPost } from '@/lib/api-client';
 import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import { normalizeShippingQuoteResponse } from '@/lib/shipping/quote-response';
 import { MERCHANT_PROVIDER_CODE } from '@/lib/shipping/types';
 import { cn } from '@/lib/utils';
 import type { ShippingQuote } from '@/types/shipping-quote';
+import { requestShippingOptions } from './shipping-options-quote-request';
 
 interface QuoteItemPayload {
   name: string;
@@ -104,25 +104,14 @@ export function ShippingOptions({
       lastFetchKey.current = fetchKey;
 
       const quoteItems = JSON.parse(serializedCartItems) as QuoteItemPayload[];
-      apiPost<unknown>('/api/shipping/quotes', {
+      requestShippingOptions({
         merchantId,
-        receiver: {
-          name: receiverName || 'Customer',
-          phone: receiverPhone || '',
-          address: receiverAddress || receiverCity,
-          city: receiverCity,
-          state: receiverState,
-          // This preview path is gated to Nigerian customers upstream.
-          country: 'Nigeria',
-          countryCode: 'NG',
-        },
-        items: quoteItems,
-        shipmentType: 'domestic',
-        // Lets free-over / price-tier merchant rates quote at their real price.
-        cart_subtotal: quoteItems.reduce(
-          (sum, item) => sum + item.value * item.quantity,
-          0
-        ),
+        receiverCity,
+        receiverState,
+        receiverAddress,
+        receiverPhone,
+        receiverName,
+        quoteItems,
       })
         .then((response) => {
           const normalized = normalizeShippingQuoteResponse(response);

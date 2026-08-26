@@ -86,7 +86,10 @@ describe('POST /api/shipping/quotes merchant context', () => {
     expect(mockGetQuotes).not.toHaveBeenCalled();
   });
 
-  it('quotes a non-NG merchant on the body-only path without reading the merchants table', async () => {
+  it.each([
+    'mobile-storefront',
+    'web-storefront',
+  ] as const)('quotes a non-NG merchant on the body-only %s path without reading the merchants table', async (client) => {
     // Root-domain slug storefront: only a body merchantId, no trusted
     // x-merchant-slug header and no auth. The route cannot read `merchants` for
     // the arbitrary body id (anti-enumeration), so the merchant's INR currency
@@ -170,7 +173,7 @@ describe('POST /api/shipping/quotes merchant context', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-baci-client': 'mobile-storefront',
+          'x-baci-client': client,
         },
         body: JSON.stringify({
           shipmentType: 'domestic',

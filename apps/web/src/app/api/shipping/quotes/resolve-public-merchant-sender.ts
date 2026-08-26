@@ -30,7 +30,7 @@ export type PublicMerchantSenderResult =
   | { error: unknown; ok: false };
 
 /**
- * Loads the anonymous-safe origin projection used by body-only mobile quotes.
+ * Loads the anonymous-safe origin projection used by body-only storefront quotes.
  * The RPC returns no sender for unpublished or missing merchants, so callers
  * can fail closed instead of fabricating a Lagos origin.
  */
