@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { ADS_SYNC_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
+import {
+  ADS_SYNC_MAX_DAYS,
+  getInclusiveAdsDateRangeDays,
+} from '@/lib/analytics/ads-sync-limits';
 
 export const MAX_GOOGLE_ADS_SYNC_DAYS = ADS_SYNC_MAX_DAYS.google_ads;
 
@@ -36,6 +39,17 @@ export const googleAdsSpendQuerySchema = z
         message: 'startDate must be on or before endDate',
         path: ['startDate'],
       });
+      return;
+    }
+    if (value.startDate && value.endDate) {
+      const days = getInclusiveAdsDateRangeDays(value.startDate, value.endDate);
+      if (days > MAX_GOOGLE_ADS_SYNC_DAYS) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Spend range cannot exceed ${MAX_GOOGLE_ADS_SYNC_DAYS} days`,
+          path: ['endDate'],
+        });
+      }
     }
   });
 
@@ -54,9 +68,7 @@ export const googleAdsSyncRequestSchema = z
       });
       return;
     }
-    const start = Date.parse(`${value.startDate}T00:00:00Z`);
-    const end = Date.parse(`${value.endDate}T00:00:00Z`);
-    const days = Math.floor((end - start) / (24 * 60 * 60 * 1000)) + 1;
+    const days = getInclusiveAdsDateRangeDays(value.startDate, value.endDate);
     if (days > MAX_GOOGLE_ADS_SYNC_DAYS) {
       context.addIssue({
         code: z.ZodIssueCode.custom,

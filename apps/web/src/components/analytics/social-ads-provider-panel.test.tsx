@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import {
   formatSocialAdsCount,
   formatSocialAdsSpend,
@@ -31,7 +31,8 @@ const providerPath = {
 
 function reporting(
   provider: SocialAdsProvider,
-  connectionStatus: 'connected' | 'error'
+  connectionStatus: 'connected' | 'error',
+  overrides: Partial<SocialAdsProviderReporting> = {}
 ): SocialAdsProviderReporting {
   return {
     accountName: 'Reporting account',
@@ -48,6 +49,7 @@ function reporting(
     metrics: null,
     needsAccountSelection: false,
     provider,
+    ...overrides,
   };
 }
 
@@ -92,5 +94,39 @@ describe('SocialAdsProviderPanel disconnect controls', () => {
     expect(
       screen.queryByRole('button', { name: /disconnect meta ads/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('uses a retry state and hides credential actions when reporting reads fail', () => {
+    const onRetry = vi.fn();
+    render(
+      <SocialAdsProviderPanel
+        canManageIntegrations
+        onSynced={onRetry}
+        provider={reporting('meta_ads', 'error', {
+          dataStatus: 'error',
+          error: 'Reporting data is temporarily unavailable.',
+        })}
+      />
+    );
+
+    expect(
+      screen.getByText('Reporting data is temporarily unavailable.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Reporting unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Needs attention')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Retry Meta Ads reporting' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /reconnect meta ads/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /disconnect meta ads/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry Meta Ads reporting' })
+    );
+    expect(onRetry).toHaveBeenCalledOnce();
   });
 });

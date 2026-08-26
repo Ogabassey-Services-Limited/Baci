@@ -11,6 +11,7 @@ const mockQuery = {
   lte: vi.fn(),
   maybeSingle: vi.fn(),
   order: vi.fn(),
+  range: vi.fn(),
   select: vi.fn(),
 };
 for (const method of [
@@ -41,7 +42,8 @@ describe('GET /api/integrations/ads/google/spend', () => {
     });
     mockGetUserAccess.mockResolvedValue({ merchantId: 'merchant-1' });
     mockHasPermission.mockReturnValue(true);
-    mockQuery.order.mockResolvedValue({
+    mockQuery.order.mockReturnValue(mockQuery);
+    mockQuery.range.mockResolvedValue({
       data: [
         {
           clicks: 2,
@@ -111,5 +113,17 @@ describe('GET /api/integrations/ads/google/spend', () => {
       'provider_customer_id',
       '1234567890'
     );
+  });
+
+  it('rejects a direct spend window longer than the Google sync limit', async () => {
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/spend?startDate=2026-01-01&endDate=2026-04-01'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockGetUserAccess).not.toHaveBeenCalled();
+    expect(mockQuery.from).not.toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import {
   googleAdsOAuthCallbackQuerySchema,
   googleAdsSpendQuerySchema,
   googleAdsSyncRequestSchema,
+  MAX_GOOGLE_ADS_SYNC_DAYS,
 } from './google-ads';
 
 describe('Google Ads schemas', () => {
@@ -34,5 +35,21 @@ describe('Google Ads schemas', () => {
         startDate: '2026-01-01',
       })
     ).toThrow();
+  });
+
+  it('bounds direct spend windows at the provider sync limit', () => {
+    expect(
+      googleAdsSpendQuerySchema.safeParse({
+        endDate: '2026-03-31',
+        startDate: '2026-01-01',
+      }).success
+    ).toBe(true);
+    expect(
+      googleAdsSpendQuerySchema.safeParse({
+        endDate: '2026-04-01',
+        startDate: '2026-01-01',
+      }).success
+    ).toBe(false);
+    expect(MAX_GOOGLE_ADS_SYNC_DAYS).toBe(90);
   });
 });

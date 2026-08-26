@@ -61,7 +61,8 @@ describe('Meta Ads spend route', () => {
       eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({ data: [], error: null }),
       select: vi.fn().mockReturnThis(),
     };
     const from = vi
@@ -83,5 +84,23 @@ describe('Meta Ads spend route', () => {
     expect(response.status).toBe(200);
     expect(connection.eq).toHaveBeenCalledWith('status', 'active');
     expect(spend.eq).toHaveBeenCalledWith('provider_customer_id', 'act_123');
+  });
+
+  it('rejects a direct spend window longer than the Meta sync limit', async () => {
+    access.mockClear();
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn() },
+      user: { id: 'user' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/spend?accountId=act_123&startDate=2026-01-01&endDate=2026-02-01'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
   });
 });

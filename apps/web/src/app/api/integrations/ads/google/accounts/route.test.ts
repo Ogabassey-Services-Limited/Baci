@@ -202,6 +202,39 @@ describe('Google Ads account discovery and selection', () => {
     );
   });
 
+  it('marks the connection for reauthorization when selection token refresh fails', async () => {
+    mockResolveToken.mockRejectedValueOnce({
+      code: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+      status: 400,
+    });
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts',
+        {
+          body: JSON.stringify({ customerId: '123-456-7890' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Google Ads authorization expired',
+    });
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'encrypted-access',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+        p_refresh_token_ciphertext: 'encrypted-refresh',
+      }
+    );
+    expect(mockListAccounts).not.toHaveBeenCalled();
+  });
+
   it('does not overwrite a newer OAuth connection when refresh CAS loses the race', async () => {
     mockResolveToken.mockResolvedValueOnce({
       accessToken: 'refreshed-access-token',

@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { ADS_SYNC_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
+import {
+  ADS_SYNC_MAX_DAYS,
+  getInclusiveAdsDateRangeDays,
+} from '@/lib/analytics/ads-sync-limits';
 
 export const MAX_TIKTOK_ADS_SYNC_DAYS = ADS_SYNC_MAX_DAYS.tiktok_ads;
 export const tiktokAdsOAuthCallbackQuerySchema = z.object({
@@ -33,7 +36,21 @@ export const tiktokAdsSpendQuerySchema = z
     endDate: z.string().date().optional(),
     startDate: z.string().date().optional(),
   })
-  .superRefine(dateOrder);
+  .superRefine((value, context) => {
+    dateOrder(value, context);
+    if (
+      value.startDate &&
+      value.endDate &&
+      value.startDate <= value.endDate &&
+      getInclusiveAdsDateRangeDays(value.startDate, value.endDate) >
+        MAX_TIKTOK_ADS_SYNC_DAYS
+    )
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Spend range cannot exceed ${MAX_TIKTOK_ADS_SYNC_DAYS} days`,
+        path: ['endDate'],
+      });
+  });
 export const tiktokAdsSyncRequestSchema = z
   .object({
     endDate: z.string().date(),
@@ -43,12 +60,7 @@ export const tiktokAdsSyncRequestSchema = z
   .superRefine((value, context) => {
     dateOrder(value, context);
     if (value.startDate > value.endDate) return;
-    const days =
-      Math.floor(
-        (Date.parse(`${value.endDate}T00:00:00Z`) -
-          Date.parse(`${value.startDate}T00:00:00Z`)) /
-          86_400_000
-      ) + 1;
+    const days = getInclusiveAdsDateRangeDays(value.startDate, value.endDate);
     if (days > MAX_TIKTOK_ADS_SYNC_DAYS)
       context.addIssue({
         code: z.ZodIssueCode.custom,

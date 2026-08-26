@@ -63,7 +63,8 @@ describe('Snapchat Ads spend route', () => {
       eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({
         data: [
           {
             access_token_ciphertext: 'SNAP_SPEND_SENTINEL',
@@ -149,7 +150,8 @@ describe('Snapchat Ads spend route', () => {
       eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({
         data: [{ provider_body: 'SNAP_SPEND_QUERY_SENTINEL' }],
         error: { message: 'SNAP_SPEND_QUERY_SENTINEL' },
       }),
@@ -188,5 +190,23 @@ describe('Snapchat Ads spend route', () => {
     expect(JSON.stringify(await connectionFailure.json())).not.toContain(
       'SNAP_CONNECTION_SENTINEL'
     );
+  });
+
+  it('rejects a direct spend window longer than the Snapchat sync limit', async () => {
+    access.mockClear();
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn() },
+      user: { id: 'user' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/snapchat/spend?accountId=acc-01_x&startDate=2025-01-01&endDate=2026-01-02'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
   });
 });

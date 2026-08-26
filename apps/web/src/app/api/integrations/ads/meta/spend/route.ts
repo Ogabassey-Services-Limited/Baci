@@ -1,7 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { fetchPaginatedSpendRows } from '@/lib/ads/spend-pagination';
+import { getInclusiveAdsDateRangeDays } from '@/lib/analytics/ads-sync-limits';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import { metaAdsSpendQuerySchema } from '@/schemas/meta-ads';
+import {
+  MAX_META_ADS_SYNC_DAYS,
+  metaAdsSpendQuerySchema,
+} from '@/schemas/meta-ads';
 
 const SPEND_SELECT =
   'provider_customer_id, spend_date, currency_code, spend_amount_decimal, impressions, clicks, conversions, reach, account_timezone, attribution_metadata, fetched_at' as const;
@@ -20,6 +25,7 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
+  const supabase = auth.supabase;
   const parsed = metaAdsSpendQuerySchema.safeParse({
     accountId: request.nextUrl.searchParams.get('accountId') ?? undefined,
     endDate: request.nextUrl.searchParams.get('endDate') ?? undefined,
@@ -42,6 +48,26 @@ export async function GET(request: NextRequest) {
   if (!hasPermission(access, 'analytics', 'view'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   const defaults = defaultDateRange();
+  const startDate = parsed.data.startDate ?? defaults.startDate;
+  const endDate = parsed.data.endDate ?? defaults.endDate;
+  if (
+    startDate > endDate ||
+    getInclusiveAdsDateRangeDays(startDate, endDate) > MAX_META_ADS_SYNC_DAYS
+  )
+    return NextResponse.json(
+      {
+        error: 'Invalid input',
+        details: {
+          fieldErrors: {
+            endDate: [
+              `Spend range cannot exceed ${MAX_META_ADS_SYNC_DAYS} days`,
+            ],
+          },
+          formErrors: [],
+        },
+      },
+      { status: 400 }
+    );
   let accountId = parsed.data.accountId;
   if (!accountId) {
     const { data: connection, error: connectionError } = await auth.supabase
@@ -61,21 +87,23 @@ export async function GET(request: NextRequest) {
   if (!accountId)
     return NextResponse.json({
       currencyCode: null,
-      endDate: parsed.data.endDate ?? defaults.endDate,
+      endDate,
       provider: 'meta_ads',
       rows: [],
-      startDate: parsed.data.startDate ?? defaults.startDate,
+      startDate,
     });
-  const query = auth.supabase
-    .from('merchant_ad_spend_daily')
-    .select(SPEND_SELECT)
-    .eq('merchant_id', access.merchantId)
-    .eq('provider', 'meta_ads')
-    .gte('spend_date', parsed.data.startDate ?? defaults.startDate)
-    .lte('spend_date', parsed.data.endDate ?? defaults.endDate)
-    .eq('provider_customer_id', accountId)
-    .order('spend_date', { ascending: true });
-  const { data, error } = await query;
+  const { data, error } = await fetchPaginatedSpendRows((from, to) =>
+    supabase
+      .from('merchant_ad_spend_daily')
+      .select(SPEND_SELECT)
+      .eq('merchant_id', access.merchantId)
+      .eq('provider', 'meta_ads')
+      .gte('spend_date', startDate)
+      .lte('spend_date', endDate)
+      .eq('provider_customer_id', accountId)
+      .order('spend_date', { ascending: true })
+      .range(from, to)
+  );
   if (error)
     return NextResponse.json(
       { error: 'Failed to read Meta Ads spend' },
@@ -96,9 +124,9 @@ export async function GET(request: NextRequest) {
   }));
   return NextResponse.json({
     currencyCode: rows[0]?.currencyCode ?? null,
-    endDate: parsed.data.endDate ?? defaults.endDate,
+    endDate,
     provider: 'meta_ads',
     rows,
-    startDate: parsed.data.startDate ?? defaults.startDate,
+    startDate,
   });
 }

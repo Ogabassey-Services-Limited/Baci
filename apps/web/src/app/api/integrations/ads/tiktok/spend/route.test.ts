@@ -73,13 +73,15 @@ describe('TikTok Ads spend route', () => {
       gte: vi.fn(),
       lte: vi.fn(),
       order: vi.fn(),
+      range: vi.fn(),
       select: vi.fn(),
     };
     query.select.mockReturnValue(query);
     query.eq.mockReturnValue(query);
     query.gte.mockReturnValue(query);
     query.lte.mockReturnValue(query);
-    query.order.mockResolvedValue({
+    query.order.mockReturnValue(query);
+    query.range.mockResolvedValue({
       data: [
         {
           account_timezone: 'Africa/Lagos',
@@ -129,7 +131,8 @@ describe('TikTok Ads spend route', () => {
       eq: vi.fn().mockReturnThis(),
       gte: vi.fn().mockReturnThis(),
       lte: vi.fn().mockReturnThis(),
-      order: vi.fn().mockResolvedValue({ data: [], error: null }),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockResolvedValue({ data: [], error: null }),
       select: vi.fn().mockReturnThis(),
     };
     const from = vi
@@ -154,5 +157,23 @@ describe('TikTok Ads spend route', () => {
       'provider_customer_id',
       'opaque-selected'
     );
+  });
+
+  it('rejects a direct spend window longer than the TikTok sync limit', async () => {
+    access.mockClear();
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { from: vi.fn() },
+      user: { id: 'user' },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/spend?accountId=opaque-001&startDate=2026-08-01&endDate=2026-08-31'
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(access).not.toHaveBeenCalled();
   });
 });

@@ -18,3 +18,19 @@ export const ADS_SYNC_MAX_DAYS = {
 export const ADS_ANALYTICS_MAX_DAYS = 366;
 
 export type AdsSyncProvider = keyof typeof ADS_SYNC_MAX_DAYS;
+
+const UTC_DAY_MS = 86_400_000;
+
+/** Returns the number of inclusive UTC calendar days in a date-only window. */
+export function getInclusiveAdsDateRangeDays(
+  startDate: string,
+  endDate: string
+): number {
+  return (
+    Math.floor(
+      (Date.parse(`${endDate}T00:00:00Z`) -
+        Date.parse(`${startDate}T00:00:00Z`)) /
+        UTC_DAY_MS
+    ) + 1
+  );
+}

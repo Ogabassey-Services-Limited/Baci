@@ -2,8 +2,13 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
 import { SNAPCHAT_ADS_PROVIDER } from '@/lib/ads/snapchat/constants';
 import { snapchatAdsLocalDate } from '@/lib/ads/snapchat/provider';
+import { fetchPaginatedSpendRows } from '@/lib/ads/spend-pagination';
+import { getInclusiveAdsDateRangeDays } from '@/lib/analytics/ads-sync-limits';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import { snapchatAdsSpendQuerySchema } from '@/schemas/snapchat-ads';
+import {
+  MAX_SNAPCHAT_ADS_SYNC_DAYS,
+  snapchatAdsSpendQuerySchema,
+} from '@/schemas/snapchat-ads';
 
 const SELECT =
   'provider_customer_id, spend_date, currency_code, spend_amount_decimal, spend_micros, impressions, clicks, conversions, account_timezone, attribution_metadata, fetched_at' as const;
@@ -20,6 +25,7 @@ export async function GET(request: NextRequest) {
       { error: auth.error || 'Unauthorized' },
       { status: 401 }
     );
+  const supabase = auth.supabase;
   const parsed = snapchatAdsSpendQuerySchema.safeParse({
     accountId: request.nextUrl.searchParams.get('accountId') ?? undefined,
     endDate: request.nextUrl.searchParams.get('endDate') ?? undefined,
@@ -54,26 +60,49 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   const defaults = dates(connection.data?.account_timezone ?? 'UTC');
+  const startDate = parsed.data.startDate ?? defaults.startDate;
+  const endDate = parsed.data.endDate ?? defaults.endDate;
+  if (
+    startDate > endDate ||
+    getInclusiveAdsDateRangeDays(startDate, endDate) >
+      MAX_SNAPCHAT_ADS_SYNC_DAYS
+  )
+    return NextResponse.json(
+      {
+        error: 'Invalid input',
+        details: {
+          fieldErrors: {
+            endDate: [
+              `Spend range cannot exceed ${MAX_SNAPCHAT_ADS_SYNC_DAYS} days`,
+            ],
+          },
+          formErrors: [],
+        },
+      },
+      { status: 400 }
+    );
   const accountId =
     parsed.data.accountId ?? connection.data?.provider_customer_id ?? undefined;
   if (!accountId)
     return NextResponse.json({
       currencyCode: null,
-      endDate: parsed.data.endDate ?? defaults.endDate,
+      endDate,
       provider: SNAPCHAT_ADS_PROVIDER,
       rows: [],
-      startDate: parsed.data.startDate ?? defaults.startDate,
+      startDate,
     });
-  const query = auth.supabase
-    .from('merchant_ad_spend_daily')
-    .select(SELECT)
-    .eq('merchant_id', access.merchantId)
-    .eq('provider', SNAPCHAT_ADS_PROVIDER)
-    .gte('spend_date', parsed.data.startDate ?? defaults.startDate)
-    .lte('spend_date', parsed.data.endDate ?? defaults.endDate)
-    .eq('provider_customer_id', accountId)
-    .order('spend_date', { ascending: true });
-  const { data, error } = await query;
+  const { data, error } = await fetchPaginatedSpendRows((from, to) =>
+    supabase
+      .from('merchant_ad_spend_daily')
+      .select(SELECT)
+      .eq('merchant_id', access.merchantId)
+      .eq('provider', SNAPCHAT_ADS_PROVIDER)
+      .gte('spend_date', startDate)
+      .lte('spend_date', endDate)
+      .eq('provider_customer_id', accountId)
+      .order('spend_date', { ascending: true })
+      .range(from, to)
+  );
   if (error)
     return NextResponse.json(
       { error: 'Failed to read Snapchat Ads spend' },
@@ -96,9 +125,9 @@ export async function GET(request: NextRequest) {
   }));
   return NextResponse.json({
     currencyCode: rows[0]?.currencyCode ?? null,
-    endDate: parsed.data.endDate ?? defaults.endDate,
+    endDate,
     provider: SNAPCHAT_ADS_PROVIDER,
     rows,
-    startDate: parsed.data.startDate ?? defaults.startDate,
+    startDate,
   });
 }

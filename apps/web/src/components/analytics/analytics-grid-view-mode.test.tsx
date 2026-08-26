@@ -16,6 +16,12 @@ vi.mock('./analytics-business-widgets', () => ({
 vi.mock('./analytics-sales-widgets', () => ({
   AnalyticsSalesWidgets: () => <div>Sales</div>,
 }));
+vi.mock('./analytics-inventory-widgets', () => ({
+  AnalyticsInventoryWidgets: () => <div>Inventory</div>,
+}));
+vi.mock('./analytics-segment-widgets', () => ({
+  AnalyticsSegmentWidgets: () => <div>Segments</div>,
+}));
 vi.mock('./analytics-detail-widget-group', () => ({
   AnalyticsDetailWidgetGroup: () => <div>Details</div>,
 }));
@@ -37,6 +43,24 @@ const baseProps = {
 };
 
 describe('AnalyticsGridViewMode', () => {
+  it.each([
+    { activeCategory: 'inventory' as const, label: 'Inventory' },
+    { activeCategory: 'segments' as const, label: 'Segments' },
+  ])('renders the $label widgets in normal view mode', ({
+    activeCategory,
+    label,
+  }) => {
+    render(
+      <AnalyticsGridViewMode
+        {...baseProps}
+        activeCategory={activeCategory}
+        canCustomizeLayout={false}
+      />
+    );
+
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
   it('hides layout customization without settings edit permission', () => {
     render(<AnalyticsGridViewMode {...baseProps} canCustomizeLayout={false} />);
 

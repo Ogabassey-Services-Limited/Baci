@@ -12,7 +12,9 @@ import type {
   PercentFormatter,
   WidgetVisibility,
 } from './analytics-grid-types';
+import { AnalyticsInventoryWidgets } from './analytics-inventory-widgets';
 import { AnalyticsSalesWidgets } from './analytics-sales-widgets';
+import { AnalyticsSegmentWidgets } from './analytics-segment-widgets';
 import { AnalyticsSummaryWidgets } from './analytics-summary-widgets';
 
 interface AnalyticsGridViewModeProps
@@ -117,6 +119,19 @@ export function AnalyticsGridViewMode({
         isWidgetVisible={isWidgetVisible}
         viewSection="lists"
       />
+      {activeCategory === 'inventory' && (
+        <AnalyticsInventoryWidgets
+          data={data}
+          isWidgetVisible={isWidgetVisible}
+        />
+      )}
+      {activeCategory === 'segments' && (
+        <AnalyticsSegmentWidgets
+          data={data}
+          formatCurrency={formatCurrency}
+          isWidgetVisible={isWidgetVisible}
+        />
+      )}
       {activeCategory === 'ads' &&
         renderAdsAnalyticsWidgets({
           adAnalytics: data.adAnalytics,

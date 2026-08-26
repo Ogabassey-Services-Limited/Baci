@@ -1,6 +1,11 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, ExternalLink } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  RefreshCcw,
+} from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import type { AdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
@@ -66,6 +71,37 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ReportingReadFailure({
+  displayName,
+  error,
+  onRetry,
+}: {
+  displayName: string;
+  error: string | null;
+  onRetry?: () => void;
+}) {
+  return (
+    <Alert variant="destructive">
+      <AlertCircle className="size-4" />
+      <AlertDescription>
+        <p>{error ?? 'Reporting data is temporarily unavailable.'}</p>
+        {onRetry && (
+          <Button
+            className="mt-2"
+            onClick={onRetry}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <RefreshCcw className="size-4" />
+            Retry {displayName} reporting
+          </Button>
+        )}
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 export function SocialAdsProviderPanel({
   canManageIntegrations,
   merchantId,
@@ -85,6 +121,11 @@ export function SocialAdsProviderPanel({
   );
   if (merchantId) connectPath.searchParams.set('merchantId', merchantId);
   const syncedAt = formatSyncTime(provider.lastSyncedAt);
+  const hasReportingReadFailure = provider.dataStatus !== 'ready';
+  const hasConfirmedConnectionError =
+    provider.dataStatus === 'ready' && provider.connectionStatus === 'error';
+  const canManageCredential =
+    canManageIntegrations && provider.dataStatus === 'ready';
 
   return (
     <section
@@ -103,35 +144,43 @@ export function SocialAdsProviderPanel({
         <span
           className={cn(
             'rounded-full px-2 py-1 text-xs',
-            provider.connectionStatus === 'connected'
-              ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-              : provider.connectionStatus === 'error'
-                ? 'bg-destructive/10 text-destructive'
-                : 'bg-muted text-muted-foreground'
+            hasReportingReadFailure
+              ? 'bg-destructive/10 text-destructive'
+              : provider.connectionStatus === 'connected'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : provider.connectionStatus === 'error'
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-muted text-muted-foreground'
           )}
         >
-          {provider.connectionStatus === 'connected'
-            ? 'Connected'
-            : provider.connectionStatus === 'error'
-              ? 'Needs attention'
-              : 'Not connected'}
+          {hasReportingReadFailure
+            ? 'Reporting unavailable'
+            : provider.connectionStatus === 'connected'
+              ? 'Connected'
+              : provider.connectionStatus === 'error'
+                ? 'Needs attention'
+                : 'Not connected'}
         </span>
       </div>
 
       {provider.connectionStatus !== 'connected' ? (
         <div className="space-y-2">
-          {provider.error && (
+          {hasReportingReadFailure ? (
+            <ReportingReadFailure
+              displayName={provider.displayName}
+              error={provider.error}
+              onRetry={onSynced}
+            />
+          ) : provider.error ? (
             <Alert variant="destructive">
               <AlertCircle className="size-4" />
               <AlertDescription>{provider.error}</AlertDescription>
             </Alert>
-          )}
-          {canManageIntegrations && (
+          ) : null}
+          {canManageCredential && (
             <Button asChild size="sm">
               <a href={`${connectPath.pathname}${connectPath.search}`}>
-                {provider.connectionStatus === 'error'
-                  ? 'Reconnect'
-                  : 'Connect'}{' '}
+                {hasConfirmedConnectionError ? 'Reconnect' : 'Connect'}{' '}
                 {provider.displayName}
                 <ExternalLink className="size-4" />
               </a>
@@ -140,11 +189,12 @@ export function SocialAdsProviderPanel({
         </div>
       ) : (
         <>
-          {provider.dataStatus === 'error' && provider.error && (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
-              <AlertDescription>{provider.error}</AlertDescription>
-            </Alert>
+          {hasReportingReadFailure && (
+            <ReportingReadFailure
+              displayName={provider.displayName}
+              error={provider.error}
+              onRetry={onSynced}
+            />
           )}
           {provider.isStale && (
             <Alert>
@@ -205,8 +255,9 @@ export function SocialAdsProviderPanel({
         </>
       )}
 
-      {canManageIntegrations &&
-        ['connected', 'error'].includes(provider.connectionStatus) && (
+      {canManageCredential &&
+        (provider.connectionStatus === 'connected' ||
+          hasConfirmedConnectionError) && (
           <AdsDisconnectButton
             displayName={provider.displayName}
             merchantId={merchantId}

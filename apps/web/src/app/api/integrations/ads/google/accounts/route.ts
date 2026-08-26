@@ -23,6 +23,7 @@ import {
 } from '@/lib/google-ads/reauth';
 import { googleAdsAccountSelectionSchema } from '@/schemas/google-ads';
 import { accountDiscoveryErrorResponse } from './discovery-error-response';
+import { tokenResolutionErrorResponse } from './token-resolution-error-response';
 
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -246,11 +247,13 @@ export async function PATCH(request: NextRequest) {
   let resolvedToken: GoogleAdsResolvedAccessToken;
   try {
     resolvedToken = await resolveGoogleAdsAccessToken(connection, oauthConfig);
-  } catch {
-    return NextResponse.json(
-      { error: 'Google Ads authorization expired' },
-      { status: 502 }
-    );
+  } catch (error) {
+    return tokenResolutionErrorResponse({
+      connection,
+      credentialSupabase,
+      error,
+      merchantId: access.merchantId,
+    });
   }
   let customerIds: string[];
   try {

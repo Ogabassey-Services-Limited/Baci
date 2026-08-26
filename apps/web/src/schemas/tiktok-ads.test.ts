@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_TIKTOK_ADS_SYNC_DAYS,
   tiktokAdsAccountSelectionSchema,
+  tiktokAdsSpendQuerySchema,
   tiktokAdsSyncRequestSchema,
 } from './tiktok-ads';
 
@@ -26,5 +28,21 @@ describe('TikTok Ads schemas', () => {
         endDate: '2026-08-31',
       }).success
     ).toBe(false);
+  });
+
+  it('bounds direct spend windows at the provider sync limit', () => {
+    expect(
+      tiktokAdsSpendQuerySchema.safeParse({
+        endDate: '2026-08-30',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(true);
+    expect(
+      tiktokAdsSpendQuerySchema.safeParse({
+        endDate: '2026-08-31',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+    expect(MAX_TIKTOK_ADS_SYNC_DAYS).toBe(30);
   });
 });
