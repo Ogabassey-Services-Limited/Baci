@@ -297,4 +297,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260827080000_bind_follow_up_notification_preference_to_invoice.sql',
     sha256: 'ad413b38e0df617994e0c4ad3cded3f856eecaa62fe16897cf682d6434d86920',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827110000_complete_agentic_paystack_dva_cross_flow_guard.sql',
+    sha256: 'da9c00d6f54ce5c4b1d620978cbf381f3f340ddaea139e0ab10ed20bc4325281',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
