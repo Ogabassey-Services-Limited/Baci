@@ -70,6 +70,7 @@ function buildDockerRuntimeArgs({
 function addDependencyMounts({
   args,
   dependencyRoot,
+  prepareMountPoints = false,
   worktreeDir,
   destinationRoot = worktreeDir,
 }) {
@@ -81,9 +82,19 @@ function addDependencyMounts({
   ]) {
     const source = join(dependencyRoot, relativePath);
     if (existsSync(source)) {
+      const destination = join(destinationRoot, relativePath);
+      if (prepareMountPoints) {
+        if (existsSync(destination)) {
+          if (!lstatSync(destination).isDirectory()) {
+            throw new Error('dependency mount path must be a real directory');
+          }
+        } else {
+          mkdirSync(destination, { recursive: true });
+        }
+      }
       args.push(
         '--mount',
-        bindMount(source, join(destinationRoot, relativePath), {
+        bindMount(source, destination, {
           readonly: true,
         })
       );
@@ -163,6 +174,7 @@ export function buildRemediationCodexCommand({
   addDependencyMounts({
     args: dockerArgs,
     dependencyRoot,
+    prepareMountPoints: readOnly,
     worktreeDir,
   });
 
