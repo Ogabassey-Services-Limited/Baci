@@ -124,7 +124,7 @@ export async function POST(
     const { data: paymentAccounts } = await supabase
       .from('order_payment_accounts')
       .select(
-        'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
       )
       .eq('order_id', orderId)
       .order('created_at', { ascending: false });

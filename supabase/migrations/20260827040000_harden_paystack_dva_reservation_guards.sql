@@ -1,10 +1,7 @@
 -- Close the remaining authenticated Paystack DVA reservation edges.
 --
--- The application signer uses SUPABASE_SERVICE_ROLE_KEY. Prefer the same
--- service_role_key Vault entry in the verifier so an optional dedicated Vault
--- value cannot silently make every proof invalid. The dedicated value remains
--- a fallback for installations that intentionally do not store service_role_key.
-
+-- The application signer and database verifier use the same Supabase
+-- service_role_key Vault entry. Fail closed when it is unavailable.
 CREATE OR REPLACE FUNCTION public.paystack_dva_reservation_proof_valid(
   p_proof jsonb,
   p_order_id uuid,
@@ -33,25 +30,18 @@ DECLARE
   v_issued_at text := COALESCE(p_proof->>'issued_at', '');
   v_issued_at_at timestamptz;
   v_order_id text := COALESCE(p_proof->>'order_id', '');
-  v_secret text := NULLIF(
-    pg_catalog.current_setting('app.paystack_dva_reservation_secret', true),
-    ''
-  );
+  v_secret text;
   v_signature text := COALESCE(p_proof->>'signature', '');
   v_expected_signature text;
   v_scope text := COALESCE(p_proof->>'scope', '');
   v_version text := COALESCE(p_proof->>'version', '');
 BEGIN
-  IF v_secret IS NULL
-    AND pg_catalog.to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
+  -- The application signer and database verifier both use the Supabase
+  -- service-role key. Fail closed when the Vault entry is unavailable.
+  IF pg_catalog.to_regclass('vault.decrypted_secrets') IS NOT NULL THEN
     EXECUTE 'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = $1 LIMIT 1'
       INTO v_secret
       USING 'service_role_key';
-    IF v_secret IS NULL THEN
-      EXECUTE 'SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = $1 LIMIT 1'
-        INTO v_secret
-        USING 'paystack_dva_reservation_secret';
-    END IF;
   END IF;
 
   IF p_proof IS NULL

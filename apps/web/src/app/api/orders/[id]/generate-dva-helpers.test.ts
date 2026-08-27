@@ -24,6 +24,17 @@ describe('generateDvaHelpers', () => {
     ).toBe(false);
   });
 
+  it('does not advertise a legacy-untrusted Paystack account', () => {
+    expect(
+      generateDvaHelpers.isActivePaymentAccount({
+        assignment_customer_email_source: 'legacy_untrusted',
+        assigned_at: '2026-08-24T10:00:00.000Z',
+        expires_at: '2026-08-24T23:59:00.000Z',
+        provider: 'paystack',
+      })
+    ).toBe(false);
+  });
+
   it('stops advertising a Paystack account after its assignment window', () => {
     const assignedAt = new Date('2026-08-24T10:00:00.000Z');
     const account = {
@@ -114,7 +125,7 @@ describe('generateDvaHelpers', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('order_payment_accounts');
     expect(query.select).toHaveBeenCalledWith(
-      'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+      'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
     );
     expect(query.eq).toHaveBeenNthCalledWith(1, 'order_id', 'order-1');
     expect(query.eq).toHaveBeenNthCalledWith(2, 'provider', 'paystack');

@@ -187,7 +187,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260826002000_revoke_backfilled_paystack_alias_emails.sql',
-    sha256: '6ef847dd17cf38bf5c78a6461c2654fddab1a95d04c284f6dbb3b73fd01a9681',
+    sha256: '4600a2ac25cf8ec8c6ea573466acbb7868bd1a06f8923dcaf354fa802c0fa37e',
   },
   {
     repositoryPath:
@@ -202,21 +202,36 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260827030000_authenticate_paystack_dva_reservations.sql',
-    sha256: '64174bc84e9bab0e9e91aca406cac00315af162b450abfb222d3939a82c74913',
+    sha256: '98db0d43e49c102f18743e173d41388f7203a67edf08536dfe2a0f5ecd00744d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827030100_authorize_paystack_dva_reservation.sql',
+    sha256: 'd4f2d234ca56a356b9b3ee7fb224d10baa06a3be5468743bd5c420c2b25fcfa0',
   },
   {
     repositoryPath:
       'supabase/migrations/20260827040000_harden_paystack_dva_reservation_guards.sql',
-    sha256: 'a8d68e95560d78cc740ee662caf153444c288cca836a5f03e057be5aabee18be',
+    sha256: '97d908e5f31a5fa7b6caf44a2d0111687b82d1b14e8d706a8a00ba98244b3cf4',
   },
   {
     repositoryPath:
       'supabase/migrations/20260827050000_repair_paystack_dva_alias_snapshot_guards.sql',
-    sha256: 'a4c52ea5db04b15c856d3320b5392924e1df0e845baff24576cd3484f8846319',
+    sha256: '8f6826fd9edde60fc6f79dd72f7483d48a95609302371e09caa6f6aa0e4859ad',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827060000_repair_paystack_dva_internal_verification.sql',
-    sha256: '8e088747c7c57e8f24d58d35257606dd44801e7ec1779d400df45a2b7dd6ffd1',
+      'supabase/migrations/20260827060000_repair_paystack_dva_reservation.sql',
+    sha256: '6a202700a41742b86669bf64c2a50bef907996a85d68cab2e18de54b4fa9e7b3',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827060100_repair_paystack_dva_payable.sql',
+    sha256: '41b32ed9b7b197a54d1461461992750777172c65fc8275b919773c003277465a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827060200_repair_paystack_alias_timestamps.sql',
+    sha256: 'fe6606707984dedde350c8547d77965c87ccf5da89f10c10c715c3441408972d',
   },
 ];

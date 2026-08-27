@@ -9,6 +9,13 @@ const authenticatedReservationMigration = readFileSync(
   ),
   'utf8'
 );
+const authorizationMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827030100_authorize_paystack_dva_reservation.sql'
+  ),
+  'utf8'
+);
 const guardMigration = readFileSync(
   join(
     process.cwd(),
@@ -23,10 +30,24 @@ const guardRepairMigration = readFileSync(
   ),
   'utf8'
 );
-const internalVerificationRepairMigration = readFileSync(
+const internalVerificationReservationMigration = readFileSync(
   join(
     process.cwd(),
-    '../../supabase/migrations/20260827060000_repair_paystack_dva_internal_verification.sql'
+    '../../supabase/migrations/20260827060000_repair_paystack_dva_reservation.sql'
+  ),
+  'utf8'
+);
+const internalVerificationPayableMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827060100_repair_paystack_dva_payable.sql'
+  ),
+  'utf8'
+);
+const internalVerificationTimestampMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827060200_repair_paystack_alias_timestamps.sql'
   ),
   'utf8'
 );
@@ -37,16 +58,7 @@ describe('Paystack DVA reservation guard migrations', () => {
       'paystack_dva_reservation_proof_valid'
     );
     expect(authenticatedReservationMigration).toContain(
-      'p_provisioning_proof jsonb'
-    );
-    expect(authenticatedReservationMigration).toContain(
       'GRANT EXECUTE ON FUNCTION public.reserve_paystack_order_payment_account'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      'TO anon, authenticated, service_role'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      "USING 'paystack_dva_reservation_secret'"
     );
     expect(authenticatedReservationMigration).toContain(
       "USING 'service_role_key'"
@@ -54,21 +66,19 @@ describe('Paystack DVA reservation guard migrations', () => {
     expect(authenticatedReservationMigration).toContain(
       "'baci.paystack_dva_reservation_verified'"
     );
-    expect(authenticatedReservationMigration).toContain(
+    expect(authorizationMigration).toContain('p_provisioning_proof jsonb');
+    expect(authorizationMigration).toContain(
+      'TO anon, authenticated, service_role'
+    );
+    expect(authorizationMigration).toContain(
       'REVOKE ALL ON FUNCTION public.reserve_paystack_order_payment_account(\n  uuid, text, text, text, timestamptz, timestamptz, text\n) FROM PUBLIC, anon, authenticated'
     );
   });
 
   it('aligns proof verification with the application signer and closes raw inserts', () => {
-    const serviceRoleOffset = guardMigration.indexOf(
-      "USING 'service_role_key'"
-    );
-    const dedicatedSecretOffset = guardMigration.indexOf(
-      "USING 'paystack_dva_reservation_secret'"
-    );
-
-    expect(serviceRoleOffset).toBeGreaterThan(-1);
-    expect(dedicatedSecretOffset).toBeGreaterThan(serviceRoleOffset);
+    expect(guardMigration).toContain("USING 'service_role_key'");
+    expect(guardMigration).not.toContain('app.paystack_dva_reservation_secret');
+    expect(guardMigration).not.toContain('paystack_dva_reservation_secret');
     expect(guardMigration).toContain(
       'DROP POLICY IF EXISTS owners_and_staff_insert_order_payment_accounts'
     );
@@ -105,21 +115,47 @@ describe('Paystack DVA reservation guard migrations', () => {
     expect(guardRepairMigration).toContain(
       'NEW.expires_at := LEAST(COALESCE(NEW.expires_at, now()), now())'
     );
-    expect(guardRepairMigration).toContain("OLD.provider = 'paystack_version'");
+    expect(guardRepairMigration).toContain('paystack_version ->');
   });
 
   it('guards wallet aliases when an existing receiver or status is updated', () => {
     expect(guardRepairMigration).toContain(
       'BEFORE INSERT OR UPDATE OF provider, status, account_number'
     );
+    expect(guardRepairMigration).toContain('v_needs_order_lock');
+    expect(guardRepairMigration).toContain(
+      'Terminal lifecycle updates already hold that row'
+    );
   });
 
   it('treats a missing internal verification flag as unverified', () => {
-    expect(internalVerificationRepairMigration).toContain(
-      'COALESCE(\n      pg_catalog.current_setting('
-    );
-    expect(internalVerificationRepairMigration).toContain(
-      "'baci.paystack_dva_reservation_verified', true"
-    );
+    for (const migration of [
+      internalVerificationReservationMigration,
+      internalVerificationPayableMigration,
+      internalVerificationTimestampMigration,
+    ]) {
+      expect(migration).toContain(
+        'COALESCE(\n      pg_catalog.current_setting('
+      );
+      expect(migration).toContain(
+        "'baci.paystack_dva_reservation_verified', true"
+      );
+    }
+  });
+
+  it('keeps each focused reservation migration below the module size limit', () => {
+    const migrations = [
+      authenticatedReservationMigration,
+      authorizationMigration,
+      guardMigration,
+      guardRepairMigration,
+      internalVerificationReservationMigration,
+      internalVerificationPayableMigration,
+      internalVerificationTimestampMigration,
+    ];
+
+    for (const migration of migrations) {
+      expect(migration.split(/\r?\n/).length).toBeLessThan(300);
+    }
   });
 });

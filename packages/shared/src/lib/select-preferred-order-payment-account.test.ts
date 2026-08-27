@@ -109,6 +109,22 @@ describe('selectPreferredOrderPaymentAccount', () => {
     expect(selected).toBeNull();
   });
 
+  it('does not display a legacy-untrusted Paystack account', () => {
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        {
+          ...account('paystack', '4444444444', '2026-08-24T12:00:00.000Z'),
+          assignment_customer_email_source: 'legacy_untrusted',
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-09-07T12:00:00.000Z',
+        },
+      ],
+      new Date('2026-08-24T14:00:00.000Z')
+    );
+
+    expect(selected).toBeNull();
+  });
+
   it('keeps an invoice Paystack account visible through its explicit expiry', () => {
     const selected = selectPreferredOrderPaymentAccount(
       [

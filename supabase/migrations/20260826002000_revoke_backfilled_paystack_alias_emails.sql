@@ -42,7 +42,8 @@ SELECT pg_catalog.set_config(
 
 UPDATE public.order_payment_accounts AS account
 SET assignment_customer_email = NULL,
-    assignment_customer_email_source = 'legacy_untrusted'
+    assignment_customer_email_source = 'legacy_untrusted',
+    expires_at = LEAST(COALESCE(account.expires_at, now()), now())
 WHERE account.provider = 'paystack'
   AND account.assignment_customer_email_source = 'legacy_backfill';
 

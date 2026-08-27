@@ -118,6 +118,7 @@ export interface StorefrontAccountDocumentTransactionRow {
 
 export interface StorefrontAccountDocumentPaymentAccountRow {
   account_number: string;
+  assignment_customer_email_source?: string | null;
   assigned_at?: string | null;
   bank_name: string | null;
   account_name: string | null;

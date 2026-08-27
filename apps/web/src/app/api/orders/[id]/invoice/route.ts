@@ -63,6 +63,7 @@ interface TaxSubtotalRow {
 
 interface PaymentAccountRow {
   account_number: string;
+  assignment_customer_email_source?: string | null;
   bank_name: string | null;
   account_name: string | null;
 }
@@ -496,10 +497,13 @@ export async function GET(
     const { data: paymentAccounts, error: paymentAccountError } = await supabase
       .from('order_payment_accounts')
       .select(
-        'account_number, bank_name, account_name, provider, created_at, expires_at'
+        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, expires_at'
       )
       .eq('order_id', orderId)
       .eq('provider', 'paystack')
+      .or(
+        'assignment_customer_email_source.is.null,assignment_customer_email_source.neq.legacy_untrusted'
+      )
       .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
       .order('created_at', { ascending: false })
       .limit(1);
@@ -519,9 +523,12 @@ export async function GET(
       );
     }
 
-    const paymentAccount = (
-      Array.isArray(paymentAccounts) ? paymentAccounts[0] : null
-    ) as PaymentAccountRow | null;
+    const paymentAccount = Array.isArray(paymentAccounts)
+      ? ((paymentAccounts as PaymentAccountRow[]).find(
+          (account) =>
+            account.assignment_customer_email_source !== 'legacy_untrusted'
+        ) ?? null)
+      : null;
 
     // Parse shipping address
     const shippingAddr = order.shipping_address as ShippingAddress | null;

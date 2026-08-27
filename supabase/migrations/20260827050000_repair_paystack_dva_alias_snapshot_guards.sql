@@ -14,6 +14,7 @@ SET search_path = ''
 AS $$
 DECLARE
   v_current_id uuid;
+  v_needs_order_lock boolean;
 BEGIN
   IF TG_OP = 'UPDATE' THEN
     -- version_active_paystack_alias_snapshot inserts a non-active
@@ -24,20 +25,38 @@ BEGIN
       AND NEW.provider = 'paystack'
       AND NEW.order_id IS NOT DISTINCT FROM OLD.order_id
       AND NEW.account_number IS NOT DISTINCT FROM OLD.account_number
-      AND NEW.assigned_at IS NOT DISTINCT FROM OLD.assigned_at
+      AND NEW.assigned_at IS NOT DISTINCT FROM OLD.assIGNED_AT
       AND NEW.expires_at IS NOT DISTINCT FROM OLD.expires_at THEN
       RETURN NEW;
     END IF;
+    -- Keep the current row out of conflict checks for lifecycle updates.
     v_current_id := OLD.id;
+  END IF;
+
+  -- Reservation acquires the order advisory lock before the order row lock.
+  -- Terminal lifecycle updates already hold that row, so reacquiring the
+  -- advisory lock here would invert the order and deadlock. Key-changing
+  -- writes retain order-first serialization; expiry-only writes only need
+  -- the account lock below.
+  IF TG_OP = 'INSERT' THEN
+    v_needs_order_lock := true;
+  ELSE
+    v_needs_order_lock :=
+      NEW.order_id IS DISTINCT FROM OLD.order_id
+      OR NEW.account_number IS DISTINCT FROM OLD.account_number
+      OR NEW.provider IS DISTINCT FROM OLD.provider;
+  END IF;
+
+  IF v_needs_order_lock THEN
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended('baci_order_payment:' || NEW.order_id::text, 0)
+    );
   END IF;
 
   IF NEW.provider <> 'paystack' THEN
     RETURN NEW;
   END IF;
 
-  PERFORM pg_catalog.pg_advisory_xact_lock(
-    pg_catalog.hashtextextended('baci_order_payment:' || NEW.order_id::text, 0)
-  );
   PERFORM pg_catalog.pg_advisory_xact_lock(
     pg_catalog.hashtextextended(
       'paystack_order_account:' || trim(NEW.account_number), 0

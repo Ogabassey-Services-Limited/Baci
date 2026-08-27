@@ -811,6 +811,45 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
   });
 
+  it('does not include a legacy-untrusted Paystack DVA on the invoice', async () => {
+    const supabase = createSupabaseMock({
+      paymentAccounts: {
+        data: [
+          {
+            account_number: '2222333344',
+            bank_name: 'Paystack-Titan',
+            account_name: 'Legacy DVA',
+            assignment_customer_email_source: 'legacy_untrusted',
+            created_at: '2026-08-24T10:00:00.000Z',
+            expires_at: '2026-09-07T10:00:00.000Z',
+            provider: 'paystack',
+          },
+        ],
+        error: null,
+      },
+    });
+    vi.mocked(createClient).mockReturnValue(
+      supabase as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(supabase.queries.paymentAccountsQuery.or).toHaveBeenCalledWith(
+      'assignment_customer_email_source.is.null,assignment_customer_email_source.neq.legacy_untrusted'
+    );
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({
+        virtual_account: null,
+      }),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it('passes stored credit-note type codes into the branded renderer', async () => {
     vi.mocked(createClient).mockReturnValue(
       createSupabaseMock({

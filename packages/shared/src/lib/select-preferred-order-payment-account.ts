@@ -1,6 +1,7 @@
 export interface OrderPaymentAccountLike {
   account_name: string | null;
   account_number: string;
+  assignment_customer_email_source?: string | null;
   assigned_at?: string | null;
   bank_name: string | null;
   created_at?: string | null;
@@ -25,6 +26,9 @@ function isActivePaystackAccount(
   { allowDeviceClockSkew = false }: SelectPreferredOrderPaymentAccountOptions
 ) {
   if (account.provider !== 'paystack') return true;
+  if (account.assignment_customer_email_source === 'legacy_untrusted') {
+    return false;
+  }
 
   const assignedAt = account.assigned_at
     ? Date.parse(account.assigned_at)

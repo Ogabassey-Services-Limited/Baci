@@ -64,7 +64,7 @@ async function provisionCreditOrderDva({
       await supabase
         .from('order_payment_accounts')
         .select(
-          'account_number, bank_name, account_name, assigned_at, created_at, expires_at, provider'
+          'account_number, bank_name, account_name, assignment_customer_email_source, assigned_at, created_at, expires_at, provider'
         )
         .eq('order_id', orderId)
         .eq('provider', 'paystack')

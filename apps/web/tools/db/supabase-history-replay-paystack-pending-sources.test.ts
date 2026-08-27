@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260827060000_repair_paystack_dva_internal_verification.sql'
+      'supabase/migrations/20260827060200_repair_paystack_alias_timestamps.sql'
     );
   });
 

@@ -150,6 +150,7 @@ export async function GET(request: NextRequest) {
           bank_name,
           account_name,
           provider,
+          assignment_customer_email_source,
           created_at,
           assigned_at,
           expires_at

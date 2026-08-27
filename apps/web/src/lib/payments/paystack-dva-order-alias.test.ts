@@ -151,6 +151,17 @@ describe('paystack DVA order alias helpers', () => {
     ).toBe(false);
   });
 
+  it('treats a legacy-untrusted alias as inactive even when in-window', () => {
+    expect(
+      isActiveOrderDvaAlias(
+        orderAliasRow({
+          assignment_customer_email_source: 'legacy_untrusted',
+        }),
+        new Date('2026-05-22T10:30:00.000Z')
+      )
+    ).toBe(false);
+  });
+
   it('ignores a cancelled order alias when scanning Supabase rows', async () => {
     const cancelledSupabase = createSupabaseResult({
       data: [

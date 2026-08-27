@@ -130,6 +130,9 @@ describe('order payment account DVA hardening migrations', () => {
       "assignment_customer_email_source = 'legacy_backfill'"
     );
     expect(untrusted).toContain(
+      'expires_at = LEAST(COALESCE(account.expires_at, now()), now())'
+    );
+    expect(untrusted).toContain(
       "set_config(\n  'baci.paystack_alias_email_cleanup', 'on', true\n)"
     );
     expect(untrusted).toContain('current_setting(');
