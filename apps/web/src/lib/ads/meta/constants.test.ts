@@ -13,6 +13,10 @@ describe('Meta Ads constants', () => {
     expect(META_ADS_GRAPH_VERSION).toBe('v25.0');
     expect(META_ADS_SCOPE).toBe('ads_read');
     expect(META_ADS_STATE_COOKIE).toBe('baci_meta_ads_oauth_state');
-    expect([...META_ADS_CONVERSION_ACTION_TYPES]).toEqual(['purchase']);
+    expect([...META_ADS_CONVERSION_ACTION_TYPES]).toEqual([
+      'offsite_conversion.fb_pixel_purchase',
+      'omni_purchase',
+      'purchase',
+    ]);
   });
 });

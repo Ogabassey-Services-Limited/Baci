@@ -82,7 +82,7 @@ describe('TikTok Ads callback route', () => {
       )
     );
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?tiktok_ads=error&reason=invalid_state'
+      'https://usebaci.com/dashboard/analytics?category=ads&tiktok_ads=error&reason=invalid_state'
     );
   });
 
@@ -149,7 +149,7 @@ describe('TikTok Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      `https://usebaci.com/dashboard/analytics?tiktok_ads=error&reason=provider_denied&merchantId=${merchantId}`
+      `https://usebaci.com/dashboard/analytics?category=ads&tiktok_ads=error&reason=provider_denied&merchantId=${merchantId}`
     );
     expect(exchange).not.toHaveBeenCalled();
   });
@@ -179,7 +179,7 @@ describe('TikTok Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      `https://usebaci.com/dashboard/analytics?tiktok_ads=error&reason=token_exchange_failed&merchantId=${merchantId}`
+      `https://usebaci.com/dashboard/analytics?category=ads&tiktok_ads=error&reason=token_exchange_failed&merchantId=${merchantId}`
     );
   });
 
@@ -210,6 +210,7 @@ describe('TikTok Ads callback route', () => {
       )
     );
     const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('category')).toBe('ads');
     expect(location.searchParams.get('tiktok_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(encrypt).toHaveBeenCalledWith('token', 'key', 'tiktok_ads');

@@ -26,6 +26,7 @@ function redirect(
   merchantId?: string
 ): NextResponse {
   const target = new URL('https://usebaci.com/dashboard/analytics');
+  target.searchParams.set('category', 'ads');
   target.searchParams.set('tiktok_ads', result);
   if (reason) target.searchParams.set('reason', reason);
   if (merchantId) target.searchParams.set('merchantId', merchantId);

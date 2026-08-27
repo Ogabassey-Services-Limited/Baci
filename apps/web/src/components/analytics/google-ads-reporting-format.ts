@@ -15,7 +15,6 @@ function formatCurrency(value: number, currency: string): string {
     return new Intl.NumberFormat('en-US', {
       currency,
       currencyDisplay: 'symbol',
-      maximumFractionDigits: 2,
       style: 'currency',
     }).format(value);
   } catch {

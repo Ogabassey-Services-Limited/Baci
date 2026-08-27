@@ -27,6 +27,7 @@ function callbackRedirect(
   merchantId?: string
 ): NextResponse {
   const target = new URL('https://usebaci.com/dashboard/analytics');
+  target.searchParams.set('category', 'ads');
   target.searchParams.set('meta_ads', result);
   if (reason) target.searchParams.set('reason', reason);
   if (merchantId) target.searchParams.set('merchantId', merchantId);

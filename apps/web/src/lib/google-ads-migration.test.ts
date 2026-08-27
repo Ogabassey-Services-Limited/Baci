@@ -14,6 +14,10 @@ const reauthClearAccountMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260823210000_google_ads_reauth_clear_account.sql'
 );
+const reauthMissingRefreshMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827100000_google_ads_reauth_missing_refresh.sql'
+);
 const spendRlsMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260824100000_require_analytics_permission_for_ad_spend.sql'
@@ -90,6 +94,23 @@ describe('Google Ads migration contract', () => {
     );
     expect(sql).toContain(
       'refresh_token_ciphertext is not distinct from p_refresh_token_ciphertext'
+    );
+  });
+
+  it('matches legacy Google connections whose refresh grant is missing', () => {
+    const sql = readFileSync(
+      reauthMissingRefreshMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'p_refresh_token_ciphertext is not null\n      and p_refresh_token_ciphertext !~'
+    );
+    expect(sql).toContain(
+      'refresh_token_ciphertext is not distinct from p_refresh_token_ciphertext'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.mark_google_ads_connection_reauth_if_current'
     );
   });
 

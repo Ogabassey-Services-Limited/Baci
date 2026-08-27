@@ -14,6 +14,7 @@ export function getGoogleAdsReauthReason(error: unknown): string | null {
         ? error.message
         : null;
   const status = record?.status;
+  if (code === 'GOOGLE_ADS_REFRESH_TOKEN_MISSING') return code;
   return code === 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED' &&
     (status === undefined || status === null || status === 400)
     ? code
@@ -29,7 +30,6 @@ export async function persistGoogleAdsReauthRequired(input: {
   merchantId: string;
   reason: string;
 }): Promise<boolean> {
-  if (!input.connection.refresh_token_ciphertext) return true;
   const { data, error } = await input.credentialSupabase.rpc(
     'mark_google_ads_connection_reauth_if_current',
     {

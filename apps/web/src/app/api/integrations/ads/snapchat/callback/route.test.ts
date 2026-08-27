@@ -155,6 +155,7 @@ describe('Snapchat Ads callback route', () => {
       )
     );
     const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('category')).toBe('ads');
     expect(location.searchParams.get('snapchat_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(JSON.stringify(Object.fromEntries(response.headers))).not.toContain(
@@ -203,7 +204,7 @@ describe('Snapchat Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      `https://usebaci.com/dashboard/analytics?snapchat_ads=error&reason=provider_denied&merchantId=${merchantId}`
+      `https://usebaci.com/dashboard/analytics?category=ads&snapchat_ads=error&reason=provider_denied&merchantId=${merchantId}`
     );
     expect(exchange).not.toHaveBeenCalled();
   });

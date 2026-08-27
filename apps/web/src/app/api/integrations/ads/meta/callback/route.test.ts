@@ -97,7 +97,7 @@ describe('Meta Ads callback route', () => {
       )
     );
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?meta_ads=error&reason=invalid_state'
+      'https://usebaci.com/dashboard/analytics?category=ads&meta_ads=error&reason=invalid_state'
     );
   });
 
@@ -124,7 +124,7 @@ describe('Meta Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?meta_ads=error&reason=invalid_state&merchantId=merchant'
+      'https://usebaci.com/dashboard/analytics?category=ads&meta_ads=error&reason=invalid_state&merchantId=merchant'
     );
     expect(rpc).toHaveBeenCalledWith(
       'consume_merchant_ads_oauth_state_nonce',
@@ -156,7 +156,7 @@ describe('Meta Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      `https://usebaci.com/dashboard/analytics?meta_ads=error&reason=provider_denied&merchantId=${merchantId}`
+      `https://usebaci.com/dashboard/analytics?category=ads&meta_ads=error&reason=provider_denied&merchantId=${merchantId}`
     );
     expect(exchangeCode).not.toHaveBeenCalled();
   });
@@ -232,6 +232,7 @@ describe('Meta Ads callback route', () => {
     );
 
     const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('category')).toBe('ads');
     expect(location.searchParams.get('meta_ads')).toBe('connected');
     expect(location.searchParams.get('cacheBust')).toMatch(/^\d{1,10}$/);
     expect(credentialRpc).toHaveBeenCalledWith(
@@ -276,6 +277,7 @@ describe('Meta Ads callback route', () => {
     );
 
     const location = new URL(response.headers.get('location') ?? '');
+    expect(location.searchParams.get('category')).toBe('ads');
     expect(location.searchParams.get('meta_ads')).toBe('error');
     expect(location.searchParams.get('reason')).toBe(
       'meta_ads_token_response_invalid'

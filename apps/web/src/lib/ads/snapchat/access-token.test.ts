@@ -152,6 +152,37 @@ describe('Snapchat Ads access token', () => {
     );
   });
 
+  it('refreshes an expired grant without decrypting its stale access ciphertext', async () => {
+    const refreshCiphertext = encryptAdsToken(
+      'stored-refresh',
+      tokenEncryptionKey,
+      'snapchat_ads'
+    );
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    refresh.mockResolvedValue({
+      accessToken: 'recovered-access',
+      expiresIn: 3600,
+      refreshToken: 'rotated-refresh',
+      scopes: [],
+    });
+
+    await expect(
+      getSnapchatAdsUsableGrant({
+        config,
+        connection: {
+          access_token_ciphertext: 'unreadable-expired-access',
+          refresh_token_ciphertext: refreshCiphertext,
+          token_expires_at: '2020-01-01T00:00:00Z',
+        },
+        merchantId: 'merchant',
+        credentialSupabase: { rpc } as never,
+      })
+    ).resolves.toMatchObject({ accessToken: 'recovered-access' });
+    expect(refresh).toHaveBeenCalledWith(
+      expect.objectContaining({ refreshToken: 'stored-refresh' })
+    );
+  });
+
   it('returns refreshed ciphertext and expiry for compare-and-set reauth marking', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     refresh.mockResolvedValue({

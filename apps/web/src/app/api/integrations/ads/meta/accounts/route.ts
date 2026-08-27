@@ -37,6 +37,23 @@ async function connectionForMerchant(
     : { connection: result.data?.[0] ?? null };
 }
 
+function reauthFailureCode(
+  error: unknown
+): 'META_ADS_ACCESS_REVOKED' | 'META_ADS_REAUTH_REQUIRED' | null {
+  const code =
+    error instanceof MetaAdsProviderError
+      ? error.code
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object'
+          ? (error as { code?: unknown }).code
+          : null;
+  return code === 'META_ADS_ACCESS_REVOKED' ||
+    code === 'META_ADS_REAUTH_REQUIRED'
+    ? code
+    : null;
+}
+
 export async function GET(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase)
@@ -59,6 +76,7 @@ export async function GET(request: NextRequest) {
   let connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext: string | null;
   } | null = null;
   try {
     const config = getMetaAdsConfig();
@@ -90,18 +108,12 @@ export async function GET(request: NextRequest) {
       connected: true,
     });
   } catch (error) {
-    if (
-      connection &&
-      ((error instanceof MetaAdsProviderError &&
-        error.code === 'META_ADS_ACCESS_REVOKED') ||
-        (error &&
-          typeof error === 'object' &&
-          (error as { code?: unknown }).code === 'META_ADS_ACCESS_REVOKED'))
-    ) {
+    const failureCode = reauthFailureCode(error);
+    if (connection && failureCode) {
       try {
         await markMetaAdsReauthRequired({
           connection,
-          failureCode: 'META_ADS_ACCESS_REVOKED',
+          failureCode,
           merchantId: access.merchantId,
           credentialSupabase,
         });
@@ -180,6 +192,7 @@ export async function PATCH(request: NextRequest) {
   let connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext: string | null;
   } | null = null;
   try {
     const result = await connectionForMerchant(
@@ -237,18 +250,12 @@ export async function PATCH(request: NextRequest) {
     invalidateAdsAnalyticsCache(access.merchantId);
     return NextResponse.json({ accountId: account.accountId, selected: true });
   } catch (error) {
-    if (
-      connection &&
-      ((error instanceof MetaAdsProviderError &&
-        error.code === 'META_ADS_ACCESS_REVOKED') ||
-        (error &&
-          typeof error === 'object' &&
-          (error as { code?: unknown }).code === 'META_ADS_ACCESS_REVOKED'))
-    ) {
+    const failureCode = reauthFailureCode(error);
+    if (connection && failureCode) {
       try {
         await markMetaAdsReauthRequired({
           connection,
-          failureCode: 'META_ADS_ACCESS_REVOKED',
+          failureCode,
           merchantId: access.merchantId,
           credentialSupabase,
         });

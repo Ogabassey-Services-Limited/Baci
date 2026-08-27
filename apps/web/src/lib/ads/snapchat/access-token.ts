@@ -70,21 +70,21 @@ export async function getSnapchatAdsUsableGrant(input: {
     ? Date.parse(input.connection.token_expires_at)
     : Number.NaN;
 
-  // A legacy connection can have a refresh grant without an access token.
-  // Skip access-token resolution in that case so the refresh path can recover
-  // the connection instead of surfacing an unhandled reauth error.
-  if (input.connection.access_token_ciphertext) {
+  // Resolve the access token only when its expiry proves it can be returned.
+  // Missing or stale expiry metadata must take the refresh path, even when the
+  // stored access ciphertext is unreadable.
+  if (
+    input.connection.access_token_ciphertext &&
+    Number.isFinite(expiresAt) &&
+    expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
+  ) {
     const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
-    if (
-      Number.isFinite(expiresAt) &&
-      expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
-    )
-      return {
-        accessToken: token,
-        accessTokenCiphertext: input.connection.access_token_ciphertext,
-        refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
-        tokenExpiresAt: input.connection.token_expires_at,
-      };
+    return {
+      accessToken: token,
+      accessTokenCiphertext: input.connection.access_token_ciphertext,
+      refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
+      tokenExpiresAt: input.connection.token_expires_at,
+    };
   }
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');

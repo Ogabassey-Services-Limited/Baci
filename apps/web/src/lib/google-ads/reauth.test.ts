@@ -18,11 +18,14 @@ describe('Google Ads reauthorization helpers', () => {
         status: 503,
       })
     ).toBeNull();
+    expect(
+      getGoogleAdsReauthReason(new Error('GOOGLE_ADS_REFRESH_TOKEN_MISSING'))
+    ).toBe('GOOGLE_ADS_REFRESH_TOKEN_MISSING');
     expect(getGoogleAdsReauthReason(new Error('network failure'))).toBeNull();
   });
 
-  it('does not mutate a connection that has no refresh token', async () => {
-    const rpc = vi.fn();
+  it('marks a connection with a missing refresh token for reauthorization', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
 
     await expect(
       persistGoogleAdsReauthRequired({
@@ -31,11 +34,19 @@ describe('Google Ads reauthorization helpers', () => {
           refresh_token_ciphertext: null,
         },
         merchantId: 'merchant-1',
-        reason: 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED',
+        reason: 'GOOGLE_ADS_REFRESH_TOKEN_MISSING',
         credentialSupabase: { rpc } as never,
       })
     ).resolves.toBe(true);
-    expect(rpc).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_google_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: 'access-ciphertext',
+        p_merchant_id: 'merchant-1',
+        p_reason: 'GOOGLE_ADS_REFRESH_TOKEN_MISSING',
+        p_refresh_token_ciphertext: null,
+      }
+    );
   });
 
   it('reports whether the compare-and-set reauthorization write succeeded', async () => {

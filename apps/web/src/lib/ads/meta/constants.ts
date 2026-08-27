@@ -6,5 +6,9 @@ export const META_ADS_SCOPE = 'ads_read' as const;
 export const META_ADS_STATE_COOKIE = 'baci_meta_ads_oauth_state' as const;
 export const META_ADS_OAUTH_COOKIE_MAX_AGE = 10 * 60;
 export const META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION =
-  'meta_ads_purchase_v1' as const;
-export const META_ADS_CONVERSION_ACTION_TYPES = new Set(['purchase']);
+  'meta_ads_purchase_v2' as const;
+export const META_ADS_CONVERSION_ACTION_TYPES = new Set([
+  'offsite_conversion.fb_pixel_purchase',
+  'omni_purchase',
+  'purchase',
+]);

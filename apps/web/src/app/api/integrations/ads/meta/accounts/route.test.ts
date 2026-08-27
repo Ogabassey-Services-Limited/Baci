@@ -84,6 +84,7 @@ describe('Meta Ads accounts route', () => {
               {
                 access_token_ciphertext: 'cipher',
                 provider_customer_id: null,
+                refresh_token_ciphertext: 'refresh-cipher',
                 status: 'active',
                 token_expires_at: '2026-10-01T00:00:00Z',
               },
@@ -99,6 +100,7 @@ describe('Meta Ads accounts route', () => {
               {
                 access_token_ciphertext: 'cipher',
                 provider_customer_id: null,
+                refresh_token_ciphertext: 'refresh-cipher',
                 status: 'active',
                 token_expires_at: '2026-10-01T00:00:00Z',
               },
@@ -134,6 +136,41 @@ describe('Meta Ads accounts route', () => {
     expect((await revoked.json()).error).toBe('META_ADS_ACCESS_REVOKED');
     expect(markReauth).toHaveBeenCalledWith(
       expect.objectContaining({ failureCode: 'META_ADS_ACCESS_REVOKED' })
+    );
+  });
+
+  it('marks a missing Meta access grant for reauthorization during discovery and selection', async () => {
+    resolveToken.mockImplementation(() => {
+      throw new Error('META_ADS_REAUTH_REQUIRED');
+    });
+
+    const discovery = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/accounts')
+    );
+    expect(discovery.status).toBe(502);
+    expect(markReauth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connection: expect.objectContaining({
+          refresh_token_ciphertext: 'refresh-cipher',
+        }),
+        failureCode: 'META_ADS_REAUTH_REQUIRED',
+      })
+    );
+
+    markReauth.mockClear();
+    const selection = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/accounts',
+        {
+          body: JSON.stringify({ accountId: 'act_12' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+    expect(selection.status).toBe(502);
+    expect(markReauth).toHaveBeenCalledWith(
+      expect.objectContaining({ failureCode: 'META_ADS_REAUTH_REQUIRED' })
     );
   });
   it('does not discover accounts without authentication', async () => {

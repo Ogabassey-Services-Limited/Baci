@@ -20,4 +20,14 @@ describe('countMetaAdsConversions', () => {
       ])
     ).toBe('0');
   });
+
+  it('counts provider-specific purchase action types', () => {
+    expect(
+      countMetaAdsConversions([
+        { actionType: 'offsite_conversion.fb_pixel_purchase', value: '2' },
+        { actionType: 'omni_purchase', value: '3' },
+        { actionType: 'link_click', value: '50' },
+      ])
+    ).toBe('5');
+  });
 });

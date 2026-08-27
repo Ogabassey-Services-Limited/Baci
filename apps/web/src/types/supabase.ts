@@ -20553,7 +20553,7 @@ export type Database = {
           p_access_token_ciphertext: string | null;
           p_merchant_id: string;
           p_reason: string;
-          p_refresh_token_ciphertext: string;
+          p_refresh_token_ciphertext: string | null;
         };
         Returns: boolean;
       };
