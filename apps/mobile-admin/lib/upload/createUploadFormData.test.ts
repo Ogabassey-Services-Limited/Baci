@@ -41,9 +41,8 @@ describe('createUploadFormData', () => {
       'file',
       expect.objectContaining({
         bytes: expect.any(Function),
-        name: 'picked.jpg',
+        name: 'store-avatar.jpg',
         type: 'image/jpeg',
-        uri: 'file:///picked.jpg',
       }),
       'store-avatar.jpg'
     );

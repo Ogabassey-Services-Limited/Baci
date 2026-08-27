@@ -182,12 +182,13 @@ vi.mock('@/lib/upload/pickAndUploadFavicon', () => ({
   pickAndUploadFavicon: mocks.pickAndUploadFavicon,
 }));
 
-export function resetHomeScreenMocks() {
-  vi.clearAllMocks();
-  mocks.branchScope = { isAllLocations: true };
-  mocks.safeAreaEdges = null;
-}
-
-export function getHomeScreenMocks() {
-  return mocks;
-}
+export const homeScreenTestSupport = {
+  getMocks() {
+    return mocks;
+  },
+  reset() {
+    vi.clearAllMocks();
+    mocks.branchScope = { isAllLocations: true };
+    mocks.safeAreaEdges = null;
+  },
+};

@@ -139,52 +139,51 @@ vi.mock('@/lib/upload/uploadBlogImage', () => ({
   uploadBlogImage: vi.fn(),
 }));
 
-export function setupSupabaseMocks(deleteResult: { error: unknown }) {
-  const eqMerchant = vi.fn().mockResolvedValue(deleteResult);
-  const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
-  mocks.deleteFn.mockReturnValue({ eq: eqId });
-
-  const updateEqMerchant = vi.fn().mockResolvedValue({ error: null });
-  const updateEqId = vi.fn().mockReturnValue({ eq: updateEqMerchant });
-  mocks.updateFn.mockReturnValue({ eq: updateEqId });
-
-  const selectSingle = vi.fn().mockResolvedValue({
-    data: {
-      title: 'Test Post',
-      excerpt: 'Excerpt',
-      category: 'Tech',
-      featured_image_url: '',
-      published_at: null,
-      status: 'draft',
-    },
-    error: null,
-  });
-
-  const selectEqMerchant = vi.fn().mockReturnValue({ single: selectSingle });
-  const selectEqId = vi.fn().mockReturnValue({ eq: selectEqMerchant });
-  const selectMock = vi.fn().mockReturnValue({ eq: selectEqId });
-
-  mocks.supabaseFrom.mockReturnValue({
-    select: selectMock,
-    delete: mocks.deleteFn,
-    insert: vi.fn().mockResolvedValue({ error: null }),
-    update: mocks.updateFn,
-  });
-
-  return { eqId, eqMerchant, updateEqId, updateEqMerchant };
-}
-
 type AlertButton = { text: string; onPress?: () => Promise<void> };
 
-export function getDeleteConfirmButton(): AlertButton | undefined {
-  const alertButtons = mocks.alert.mock.calls[0][2] as AlertButton[];
-  return alertButtons.find((button) => button.text === 'Delete');
-}
+export const blogPostTestSupport = {
+  getDeleteConfirmButton(): AlertButton | undefined {
+    const alertButtons = mocks.alert.mock.calls[0][2] as AlertButton[];
+    return alertButtons.find((button) => button.text === 'Delete');
+  },
+  getMocks() {
+    return mocks;
+  },
+  reset() {
+    vi.clearAllMocks();
+  },
+  setupSupabaseMocks(deleteResult: { error: unknown }) {
+    const eqMerchant = vi.fn().mockResolvedValue(deleteResult);
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    mocks.deleteFn.mockReturnValue({ eq: eqId });
 
-export function resetBlogPostMocks() {
-  vi.clearAllMocks();
-}
+    const updateEqMerchant = vi.fn().mockResolvedValue({ error: null });
+    const updateEqId = vi.fn().mockReturnValue({ eq: updateEqMerchant });
+    mocks.updateFn.mockReturnValue({ eq: updateEqId });
 
-export function getBlogPostMocks() {
-  return mocks;
-}
+    const selectSingle = vi.fn().mockResolvedValue({
+      data: {
+        title: 'Test Post',
+        excerpt: 'Excerpt',
+        category: 'Tech',
+        featured_image_url: '',
+        published_at: null,
+        status: 'draft',
+      },
+      error: null,
+    });
+
+    const selectEqMerchant = vi.fn().mockReturnValue({ single: selectSingle });
+    const selectEqId = vi.fn().mockReturnValue({ eq: selectEqMerchant });
+    const selectMock = vi.fn().mockReturnValue({ eq: selectEqId });
+
+    mocks.supabaseFrom.mockReturnValue({
+      select: selectMock,
+      delete: mocks.deleteFn,
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: mocks.updateFn,
+    });
+
+    return { eqId, eqMerchant, updateEqId, updateEqMerchant };
+  },
+};

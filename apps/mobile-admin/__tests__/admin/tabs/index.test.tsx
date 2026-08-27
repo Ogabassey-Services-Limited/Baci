@@ -1,15 +1,15 @@
 // biome-ignore assist/source/organizeImports: load test-support mocks before the screen module
 import { fireEvent, render, screen } from '@testing-library/react';
-import { getHomeScreenMocks, resetHomeScreenMocks } from './index.test-support';
+import { homeScreenTestSupport } from './index.test-support';
 import { router } from 'expo-router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import HomeScreen from '../../../app/(admin)/(tabs)/index';
 
-const mocks = getHomeScreenMocks();
+const mocks = homeScreenTestSupport.getMocks();
 
 describe('HomeScreen', () => {
   beforeEach(() => {
-    resetHomeScreenMocks();
+    homeScreenTestSupport.reset();
   });
 
   it('reserves the top safe area on the dashboard tab', () => {

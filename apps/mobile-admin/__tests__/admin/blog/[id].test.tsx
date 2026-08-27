@@ -8,19 +8,14 @@ import {
   waitFor,
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  getDeleteConfirmButton,
-  getBlogPostMocks,
-  resetBlogPostMocks,
-  setupSupabaseMocks,
-} from './[id].test-support';
+import { blogPostTestSupport } from './[id].test-support';
 import BlogPostDetailScreen from '../../../app/(admin)/blog/[id]';
 
-const mocks = getBlogPostMocks();
+const mocks = blogPostTestSupport.getMocks();
 
 describe('BlogPostDetailScreen - Delete handler', () => {
   beforeEach(() => {
-    resetBlogPostMocks();
+    blogPostTestSupport.reset();
   });
 
   afterEach(() => {
@@ -28,7 +23,9 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   });
 
   it('scopes delete query to merchant_id for tenant isolation', async () => {
-    const { eqId, eqMerchant } = setupSupabaseMocks({ error: null });
+    const { eqId, eqMerchant } = blogPostTestSupport.setupSupabaseMocks({
+      error: null,
+    });
 
     await act(async () => {
       render(<BlogPostDetailScreen />);
@@ -45,7 +42,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
       expect.any(Array)
     );
 
-    const deleteConfirm = getDeleteConfirmButton();
+    const deleteConfirm = blogPostTestSupport.getDeleteConfirmButton();
     expect(deleteConfirm).toBeDefined();
 
     await act(async () => {
@@ -63,7 +60,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   });
 
   it('shows error alert and does not navigate on delete failure', async () => {
-    setupSupabaseMocks({
+    blogPostTestSupport.setupSupabaseMocks({
       error: { message: 'RLS policy violation', code: '42501' },
     });
 
@@ -76,7 +73,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
     });
 
     fireEvent.click(screen.getByText('Delete Post'));
-    const deleteConfirm = getDeleteConfirmButton();
+    const deleteConfirm = blogPostTestSupport.getDeleteConfirmButton();
     mocks.alert.mockClear();
     mocks.routerBack.mockClear();
 
@@ -92,9 +89,10 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   });
 
   it('publishes the current draft from an explicit publish button', async () => {
-    const { updateEqId, updateEqMerchant } = setupSupabaseMocks({
-      error: null,
-    });
+    const { updateEqId, updateEqMerchant } =
+      blogPostTestSupport.setupSupabaseMocks({
+        error: null,
+      });
 
     await act(async () => {
       render(<BlogPostDetailScreen />);
@@ -128,7 +126,7 @@ describe('BlogPostDetailScreen - Delete handler', () => {
   });
 
   it('opens the native article preview instead of showing the placeholder alert', async () => {
-    setupSupabaseMocks({ error: null });
+    blogPostTestSupport.setupSupabaseMocks({ error: null });
 
     await act(async () => {
       render(<BlogPostDetailScreen />);
