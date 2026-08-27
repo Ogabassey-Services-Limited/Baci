@@ -17,6 +17,9 @@ describe('useGadgetPatternAttribution', () => {
   });
 
   it('attributes rendered patterns and marks their unmount', () => {
+    const endTrace = jest.fn();
+    jest.mocked(recordPerformanceSurface).mockReturnValueOnce(endTrace);
+
     const { unmount } = renderHook(() =>
       useGadgetPatternAttribution(true, 'tabbar')
     );
@@ -29,6 +32,7 @@ describe('useGadgetPatternAttribution', () => {
       })
     );
     unmount();
+    expect(endTrace).toHaveBeenCalledTimes(1);
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(
       expect.stringMatching(/^gadget_pattern:unmounted:gadget_pattern_/),
       expect.objectContaining({

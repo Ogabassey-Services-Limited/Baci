@@ -204,7 +204,10 @@ export default function HomeScreen() {
     });
     recordCrashBreadcrumb('home:state', { focused: isFocused });
     if (isFocused) {
-      recordPerformanceSurface('home', { template_id: CONFIG.TEMPLATE_ID });
+      const endTrace = recordPerformanceSurface('home', {
+        template_id: CONFIG.TEMPLATE_ID,
+      });
+      return () => endTrace?.();
     }
   }, [isFocused]);
 
