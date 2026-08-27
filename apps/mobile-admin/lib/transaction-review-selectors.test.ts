@@ -43,6 +43,18 @@ describe('transaction review selectors', () => {
   });
 
   it('keeps cost relationships when discount code ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode;
+
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('cost_price');
+    expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('vat_category_code');
+    expect(selector).toContain('vat_rate');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
+  it('keeps a cost fallback when adjustment columns are unavailable too', () => {
     const selector =
       TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode;
 
@@ -50,5 +62,6 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('cost_price');
     expect(selector).toContain('order_item_unit_costs');
     expect(selector).toContain('product_variants');
+    expect(selector).not.toContain('assurance_fee');
   });
 });

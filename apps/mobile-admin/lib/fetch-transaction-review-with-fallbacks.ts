@@ -24,6 +24,7 @@ type TransactionReviewFallbackStage =
   | 'BaseWithDiscount'
   | 'Full'
   | 'FullNoDiscount'
+  | 'LegacyNoDiscountCode'
   | 'LegacyNoAdjustments'
   | 'LegacyNoAdjustmentsNoDiscountCode'
   | 'Legacy';
@@ -140,20 +141,33 @@ export async function fetchTransactionReviewWithFallbacks({
   }
 
   if (isMissingDiscountCodeIdSchemaError(error)) {
-    ({ data, error } = await runTransactionReviewQuery(
-      'LegacyNoAdjustmentsNoDiscountCode',
-      {
-        endDateFilter,
-        endDateIso,
-        includeCancelledAt: true,
-        includeTransactionDate: true,
-        merchantId,
-        selectStatement:
-          TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
-        startDateFilter,
-        startDateIso,
-      }
-    ));
+    ({ data, error } = await runTransactionReviewQuery('LegacyNoDiscountCode', {
+      endDateFilter,
+      endDateIso,
+      includeCancelledAt: true,
+      includeTransactionDate: true,
+      merchantId,
+      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode,
+      startDateFilter,
+      startDateIso,
+    }));
+
+    if (isTransactionReviewSchemaCacheError(error)) {
+      ({ data, error } = await runTransactionReviewQuery(
+        'LegacyNoAdjustmentsNoDiscountCode',
+        {
+          endDateFilter,
+          endDateIso,
+          includeCancelledAt: true,
+          includeTransactionDate: true,
+          merchantId,
+          selectStatement:
+            TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
+          startDateFilter,
+          startDateIso,
+        }
+      ));
+    }
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
