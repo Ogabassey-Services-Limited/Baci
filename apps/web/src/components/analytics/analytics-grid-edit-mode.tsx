@@ -10,7 +10,6 @@ import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { renderAdsAnalyticsWidgets } from './ads-analytics-widgets';
-import { AIInsightsPanel } from './ai-insights-panel';
 import { AnalyticsBusinessWidgets } from './analytics-business-widgets';
 import { AnalyticsDetailWidgetGroup } from './analytics-detail-widget-group';
 import type { Layouts } from './analytics-grid-layouts';
@@ -130,12 +129,6 @@ export function AnalyticsGridEditMode({
         </Alert>
       )}
       <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div className="w-full min-w-0 flex-1">
-          <AIInsightsPanel
-            activeCategory={activeCategory}
-            merchantId={merchant?.id}
-          />
-        </div>
         <Button
           aria-label="Save Dashboard Layout"
           className="shrink-0 gap-2"

@@ -188,6 +188,44 @@ describe('GoogleAdsAccountPicker', () => {
     ).toBeInTheDocument();
   });
 
+  it('provides retry and cancel controls when discovery succeeds with no accounts', async () => {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ accounts: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          accounts: [{ customerId: '1234567890', selected: false }],
+        })
+      );
+
+    render(<GoogleAdsAccountPicker />);
+    fireEvent.click(
+      screen.getByRole('button', { name: /select google ads account/i })
+    );
+
+    expect(
+      await screen.findByText(
+        'No accessible Google Ads accounts were found for this login.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /retry account discovery/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /retry account discovery/i })
+    );
+
+    expect(
+      await screen.findByRole('radio', { name: /••••7890/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+  });
+
   it('syncs the local calendar day near a positive-offset midnight boundary', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 7, 21, 0, 30));

@@ -179,6 +179,14 @@ export function GoogleAdsAccountPicker({
     }
   };
 
+  const closePicker = () => {
+    setIsOpen(false);
+    setAccounts([]);
+    setSelectedCustomerId(null);
+    setError(null);
+    setSyncComplete(false);
+  };
+
   return (
     <div className={cn('space-y-3', className)}>
       {!isOpen && (
@@ -204,9 +212,24 @@ export function GoogleAdsAccountPicker({
       )}
 
       {isOpen && !isLoadingAccounts && accounts.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">
-          No accessible Google Ads accounts were found for this login.
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            No accessible Google Ads accounts were found for this login.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={loadAccounts}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Retry account discovery
+            </Button>
+            <Button onClick={closePicker} size="sm" type="button">
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
       {isOpen && !isLoadingAccounts && accounts.length > 0 && (
@@ -253,6 +276,15 @@ export function GoogleAdsAccountPicker({
               <Check className="size-4" />
             )}
             Save account and sync spend
+          </Button>
+          <Button
+            disabled={isSaving}
+            onClick={closePicker}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Cancel
           </Button>
         </div>
       )}

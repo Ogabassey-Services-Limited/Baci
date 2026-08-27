@@ -2,7 +2,6 @@ import { AlertTriangle, Settings2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { renderAdsAnalyticsWidgets } from './ads-analytics-widgets';
-import { AIInsightsPanel } from './ai-insights-panel';
 import { AnalyticsBusinessWidgets } from './analytics-business-widgets';
 import { AnalyticsDetailWidgetGroup } from './analytics-detail-widget-group';
 import type {
@@ -60,12 +59,6 @@ export function AnalyticsGridViewMode({
         </Alert>
       )}
       <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div className="w-full min-w-0 flex-1">
-          <AIInsightsPanel
-            activeCategory={activeCategory}
-            merchantId={merchant?.id}
-          />
-        </div>
         {canCustomizeLayout && (
           <Button
             aria-label="Customize Dashboard Layout"

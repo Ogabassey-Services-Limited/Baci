@@ -29,20 +29,9 @@ function loadGridLayoutStyles(): void {
   import('react-resizable/css/styles.css');
 }
 
-function AnalyticsGridLoading({
-  activeCategory,
-  merchantId,
-}: Pick<AnalyticsGridProps, 'activeCategory'> & { merchantId?: string }) {
+function AnalyticsGridLoading() {
   return (
     <div className="space-y-4">
-      <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
-        <div className="w-full min-w-0 flex-1">
-          <AIInsightsPanel
-            activeCategory={activeCategory}
-            merchantId={merchantId}
-          />
-        </div>
-      </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         {[...Array(4)].map((_, index) => (
           <div
@@ -90,12 +79,23 @@ export function DraggableAnalyticsGrid({
     loadGridLayoutStyles();
   }, []);
 
+  const insightsPanel = (
+    <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+      <div className="w-full min-w-0 flex-1">
+        <AIInsightsPanel
+          activeCategory={activeCategory}
+          merchantId={merchant?.id}
+        />
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
-      <AnalyticsGridLoading
-        activeCategory={activeCategory}
-        merchantId={merchant?.id}
-      />
+      <div className="w-full">
+        {insightsPanel}
+        <AnalyticsGridLoading />
+      </div>
     );
   }
 
@@ -120,19 +120,25 @@ export function DraggableAnalyticsGrid({
 
   if (!isEditMode) {
     return (
-      <AnalyticsGridViewMode
-        {...sharedProps}
-        onEdit={() => setIsEditMode(true)}
-      />
+      <div className="w-full">
+        {insightsPanel}
+        <AnalyticsGridViewMode
+          {...sharedProps}
+          onEdit={() => setIsEditMode(true)}
+        />
+      </div>
     );
   }
 
   return (
-    <AnalyticsGridEditMode
-      {...sharedProps}
-      layouts={layouts}
-      onLayoutChange={onLayoutChange}
-      onSave={() => setIsEditMode(false)}
-    />
+    <div className="w-full">
+      {insightsPanel}
+      <AnalyticsGridEditMode
+        {...sharedProps}
+        layouts={layouts}
+        onLayoutChange={onLayoutChange}
+        onSave={() => setIsEditMode(false)}
+      />
+    </div>
   );
 }
