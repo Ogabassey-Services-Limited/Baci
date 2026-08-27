@@ -4,7 +4,7 @@ import { getCurrentSlugForAlias } from '@/lib/slug-alias-cache';
 import { resolveStorefrontBlogListingStatus } from '@/lib/storefront-blog-listing-status';
 import { resolveStorefrontBlogPostStatus } from '@/lib/storefront-blog-post-status';
 import { resolveStorefrontCompareHubStatus } from '@/lib/storefront-compare-hub-status';
-import { resolveStorefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
+import { storefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
 import { getStorefrontProductCanonicalRedirectResult } from '@/lib/storefront-product-canonical-redirect';
 import { resolveStorefrontProductSlugResolution } from '@/lib/storefront-product-slug-membership';
 import { proxy } from './proxy';
@@ -64,9 +64,9 @@ vi.mock('@/lib/storefront-compare-hub-status', () => ({
 }));
 
 vi.mock('@/lib/storefront-compare-page-status', () => ({
-  resolveStorefrontComparePageStatus: vi
-    .fn()
-    .mockResolvedValue({ kind: 'renderable-or-unknown' }),
+  storefrontComparePageStatus: {
+    resolve: vi.fn().mockResolvedValue({ kind: 'renderable-or-unknown' }),
+  },
 }));
 
 vi.mock('@/lib/rate-limit', () => ({
@@ -82,7 +82,7 @@ vi.mock('@/lib/rate-limit', () => ({
 }));
 
 describe('compare-page proxy hard-status preflight', () => {
-  const comparePageStatusMock = vi.mocked(resolveStorefrontComparePageStatus);
+  const comparePageStatusMock = vi.mocked(storefrontComparePageStatus.resolve);
 
   beforeEach(() => {
     vi.clearAllMocks();
