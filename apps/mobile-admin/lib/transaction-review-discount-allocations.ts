@@ -4,6 +4,7 @@ import {
   getProductVariantIdentity,
   toPositiveInteger,
 } from './transaction-review-discount-helpers';
+import { getPersistedLineKey } from './transaction-review-discount-line-key';
 import { getValidatedLineKeyDiscounts } from './transaction-review-discount-line-key-allocations';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
@@ -11,6 +12,7 @@ export interface DiscountableTransactionItem {
   condition?: string | null;
   line_id?: number | string | null;
   product_id?: string | null;
+  quiz_award_id?: string | null;
   variant_id?: string | null;
   variant_attributes?: Record<string, string> | null;
   price: number | string | null;
@@ -36,6 +38,41 @@ export type ValidatedExplicitLineDiscounts =
     };
 
 export { toPositiveInteger } from './transaction-review-discount-helpers';
+
+export function resolveTransactionDiscountAllocation(
+  allocations: ValidatedExplicitLineDiscounts,
+  item: DiscountableTransactionItem
+): TransactionDiscountLineAllocation | undefined {
+  const identity =
+    typeof item.product_id === 'string' &&
+    (item.variant_id === null || typeof item.variant_id === 'string')
+      ? JSON.stringify([item.product_id, item.variant_id ?? null])
+      : null;
+
+  if (allocations.mode === 'lineKey') {
+    const lineKey = getPersistedLineKey(item);
+    if (lineKey != null) {
+      const keyedAllocation = allocations.allocationsByLineKey.get(lineKey);
+      if (keyedAllocation) {
+        return keyedAllocation;
+      }
+    }
+    return identity == null
+      ? undefined
+      : allocations.allocationsByIdentity.get(identity);
+  }
+
+  if (allocations.mode === 'identity') {
+    return identity == null
+      ? undefined
+      : allocations.allocationsByIdentity.get(identity);
+  }
+
+  const lineId = toPositiveInteger(item.line_id);
+  return lineId == null
+    ? undefined
+    : allocations.allocationsByLineId.get(lineId);
+}
 
 export function getValidatedExplicitLineDiscounts(
   items: DiscountableTransactionItem[],

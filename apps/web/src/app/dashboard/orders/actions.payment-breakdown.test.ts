@@ -79,10 +79,10 @@ const mockOrder = {
   ],
 };
 
-function mockGetOrderQueries() {
+function mockGetOrderQueries(order: Record<string, unknown> = mockOrder) {
   const ordersMaybeSingle = vi
     .fn()
-    .mockResolvedValue({ data: mockOrder, error: null });
+    .mockResolvedValue({ data: order, error: null });
   const productsIn = vi.fn().mockResolvedValue({
     data: [
       {
@@ -161,5 +161,45 @@ describe('getOrder payment breakdown', () => {
         (order?.tax_amount ?? 0) -
         (order?.discount_amount ?? 0)
     );
+  });
+
+  it('preserves the persisted total when legacy payment fields are absent', async () => {
+    vi.clearAllMocks();
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'admin-user' } },
+      error: null,
+    });
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        role: null,
+        permissions: { full_access: { all: true } },
+      },
+    });
+    const legacyOrder = {
+      ...mockOrder,
+      discount_amount: null,
+      gift_wrapping_fee: null,
+      shipping_fee: null,
+      subtotal: null,
+      tax_amount: null,
+      tax_basis: undefined,
+      total: '10500',
+    };
+    mockGetOrderQueries(legacyOrder);
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(order).toMatchObject({
+      discount_amount: undefined,
+      gift_wrapping_fee: undefined,
+      shipping_fee: undefined,
+      subtotal: undefined,
+      tax_amount: undefined,
+      tax_basis: undefined,
+      total: 10500,
+    });
   });
 });

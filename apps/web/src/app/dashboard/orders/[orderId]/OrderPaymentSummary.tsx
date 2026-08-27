@@ -1,5 +1,3 @@
-import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
@@ -63,10 +61,6 @@ export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Payment Summary</CardTitle>
-        <Button variant="outline" size="sm" className="gap-1">
-          <Download className="size-3.5" />
-          Download Receipt
-        </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex justify-between">

@@ -117,6 +117,41 @@ const { POST } = await import('./route');
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 let latestRpc: ReturnType<typeof vi.fn>;
 
+function createOrderRequest(overrides: Record<string, unknown> = {}) {
+  return new NextRequest('http://localhost/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({
+      merchant_id: MERCHANT_ID,
+      customer_email: 'customer@example.com',
+      customer_name: 'Test Customer',
+      customer_phone: '08012345678',
+      items: [
+        {
+          product_id: 'p-mac',
+          quantity: 1,
+          price: 980,
+          name: 'MacBook Air M1',
+          has_assurance: true,
+        },
+      ],
+      subtotal: 980,
+      shipping_fee: 0,
+      discount_amount: 0,
+      tax_amount: 73.5,
+      payment_method: 'paystack',
+      payment_status: 'unpaid',
+      shipping_status: 'pending',
+      shipping_address: {
+        address: '123 Test St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+      source: 'mobile_app',
+      ...overrides,
+    }),
+  });
+}
+
 function buildSupabaseMock() {
   const rpc = vi.fn().mockResolvedValue({
     data: [
@@ -202,37 +237,7 @@ describe('POST /api/orders transaction discount metadata', () => {
   });
 
   it('persists mobile negotiated line discounts when expected_total is omitted', async () => {
-    const request = new NextRequest('http://localhost/api/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        merchant_id: MERCHANT_ID,
-        customer_email: 'customer@example.com',
-        customer_name: 'Test Customer',
-        customer_phone: '08012345678',
-        items: [
-          {
-            product_id: 'p-mac',
-            quantity: 1,
-            price: 980,
-            name: 'MacBook Air M1',
-            has_assurance: true,
-          },
-        ],
-        subtotal: 980,
-        shipping_fee: 0,
-        discount_amount: 0,
-        tax_amount: 73.5,
-        payment_method: 'paystack',
-        payment_status: 'unpaid',
-        shipping_status: 'pending',
-        shipping_address: {
-          address: '123 Test St',
-          city: 'Lagos',
-          state: 'Lagos',
-        },
-        source: 'mobile_app',
-      }),
-    });
+    const request = createOrderRequest();
 
     const response = await POST(request);
 
@@ -260,5 +265,18 @@ describe('POST /api/orders transaction discount metadata', () => {
         }),
       })
     );
+  });
+
+  it('omits transaction discount metadata when no line allocations exist', async () => {
+    mockComputeOrderNegotiationDiscount.mockResolvedValue({
+      rejectionCode: null,
+      totalDiscount: 0,
+    });
+
+    const response = await POST(createOrderRequest());
+
+    expect(response.status).toBe(201);
+    const adTracking = latestRpc.mock.calls[0]?.[1]?.p_ad_tracking;
+    expect(adTracking?.baci_transaction_discount).toBeUndefined();
   });
 });

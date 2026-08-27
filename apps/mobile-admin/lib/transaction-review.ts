@@ -2,6 +2,7 @@ import {
   getDiscountedTransactionUnitPrices,
   parseTransactionDiscountOptions,
 } from './transaction-review-discount';
+import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,
   buildSearchText,
@@ -103,10 +104,16 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const orderItems = order.order_items ?? [];
     const isNetPricedMarketplaceOrder =
       order.external_source?.toLowerCase() === 'jumia';
+    const persistedDiscountOptions = parseTransactionDiscountOptions(
+      order.ad_tracking
+    );
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
       isNetPricedMarketplaceOrder ? 0 : order.discount_amount,
-      parseTransactionDiscountOptions(order.ad_tracking)
+      persistedDiscountOptions ??
+        (isLegacyVatInclusiveNegotiationDiscount(order, orderItems)
+          ? { discountIncludesVat: true }
+          : undefined)
     );
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {

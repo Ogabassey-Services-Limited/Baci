@@ -14,7 +14,8 @@ describe('transaction review selectors', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId;
 
     expect(selector).toContain('discount_amount');
-    expect(selector).toContain('ad_tracking');
+    expect(selector).not.toContain('ad_tracking');
+    expect(selector).toContain('quiz_award_id');
     expect(selector).toContain('line_id');
     expect(selector).toContain('external_source');
     expect(selector).not.toContain('variant_id');
@@ -24,6 +25,8 @@ describe('transaction review selectors', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.noVariantId;
 
     expect(selector).toContain('discount_amount');
+    expect(selector).not.toContain('ad_tracking');
+    expect(selector).toContain('quiz_award_id');
     expect(selector).toContain('external_source');
     expect(selector).not.toContain('line_id');
     expect(selector).not.toContain('variant_id');

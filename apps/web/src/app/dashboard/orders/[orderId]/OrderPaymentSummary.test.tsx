@@ -4,16 +4,6 @@ import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OrderPaymentSummary } from './OrderPaymentSummary';
 
-vi.mock('lucide-react', () => ({
-  Download: () => <span aria-hidden="true" />,
-}));
-
-vi.mock('@/components/ui/button', () => ({
-  Button: ({ children }: { children: React.ReactNode }) => (
-    <button type="button">{children}</button>
-  ),
-}));
-
 vi.mock('@/components/ui/card', () => ({
   Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardContent: ({ children }: { children: React.ReactNode }) => (
@@ -51,6 +41,25 @@ describe('OrderPaymentSummary', () => {
     expect(screen.getByText('Discount')).toBeInTheDocument();
     expect(screen.getByText('-₦1,000')).toBeInTheDocument();
     expect(screen.getByText('₦9,500')).toBeInTheDocument();
+  });
+
+  it('does not render an inactive receipt action', () => {
+    render(
+      <OrderPaymentSummary
+        order={{
+          currency: 'NGN',
+          paymentMethod: null,
+          shipping_fee: 0,
+          subtotal: 10000,
+          tax_amount: 0,
+          total: 10000,
+        }}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: /download receipt/i })
+    ).not.toBeInTheDocument();
   });
 
   it('derives a subtotal when older orders do not have one persisted', () => {

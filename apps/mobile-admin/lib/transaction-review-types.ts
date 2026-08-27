@@ -46,6 +46,7 @@ export interface TransactionReviewOrderRow {
     price: number | null;
     product_id: string | null;
     product_match_status?: 'custom' | 'linked' | 'unreviewed' | null;
+    quiz_award_id?: string | null;
     product_variants?:
       | TransactionReviewVariantRow
       | TransactionReviewVariantRow[]

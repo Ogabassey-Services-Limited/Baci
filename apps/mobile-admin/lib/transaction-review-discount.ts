@@ -5,10 +5,9 @@ import {
 import {
   type DiscountableTransactionItem,
   getValidatedExplicitLineDiscounts,
+  resolveTransactionDiscountAllocation,
   toPositiveInteger,
-  type ValidatedExplicitLineDiscounts,
 } from './transaction-review-discount-allocations';
-import { getPersistedLineKey } from './transaction-review-discount-line-key';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
@@ -23,6 +22,8 @@ export interface TransactionDiscountOptions {
    * that line.
    */
   lineDiscounts?: Array<TransactionDiscountLineAllocation | null>;
+  /** Legacy auto-negotiated discounts included relief for standard VAT. */
+  discountIncludesVat?: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -122,41 +123,6 @@ export function parseTransactionDiscountOptions(
   return { lineDiscounts };
 }
 
-function resolveAllocation(
-  allocations: ValidatedExplicitLineDiscounts,
-  item: DiscountableTransactionItem
-): TransactionDiscountLineAllocation | undefined {
-  const identity =
-    typeof item.product_id === 'string' &&
-    (item.variant_id === null || typeof item.variant_id === 'string')
-      ? JSON.stringify([item.product_id, item.variant_id ?? null])
-      : null;
-
-  if (allocations.mode === 'lineKey') {
-    const lineKey = getPersistedLineKey(item);
-    if (lineKey != null) {
-      const keyedAllocation = allocations.allocationsByLineKey.get(lineKey);
-      if (keyedAllocation) {
-        return keyedAllocation;
-      }
-    }
-    return identity == null
-      ? undefined
-      : allocations.allocationsByIdentity.get(identity);
-  }
-
-  if (allocations.mode === 'identity') {
-    return identity == null
-      ? undefined
-      : allocations.allocationsByIdentity.get(identity);
-  }
-
-  const lineId = toPositiveInteger(item.line_id);
-  return lineId == null
-    ? undefined
-    : allocations.allocationsByLineId.get(lineId);
-}
-
 /**
  * Returns effective unit prices after applying an order-level merchandise
  * discount proportionally across its line items. Payment totals remain sourced
@@ -191,17 +157,57 @@ export function getDiscountedTransactionUnitPrices(
     return unitPrices;
   }
 
+  const voucherLineIndexes = new Set(
+    items.flatMap((item, index) =>
+      typeof item.quiz_award_id === 'string' && item.quiz_award_id.trim()
+        ? [index]
+        : []
+    )
+  );
+  const voucherDiscountBasis = [...voucherLineIndexes].reduce(
+    (sum, index) => sum + (lineTotals[index]?.total ?? 0),
+    0
+  );
+
   const explicitLineDiscounts = options?.lineDiscounts;
   if (explicitLineDiscounts) {
-    const allocationsByLineId = getValidatedExplicitLineDiscounts(
+    let allocationsByLineId = getValidatedExplicitLineDiscounts(
       items,
       lineTotals,
       normalizedDiscount,
       explicitLineDiscounts
     );
-    if (!allocationsByLineId) {
-      return getDiscountedTransactionUnitPrices(items, normalizedDiscount);
+    let voucherDiscount = 0;
+    if (!allocationsByLineId && voucherDiscountBasis > 0) {
+      const explicitDiscount = explicitLineDiscounts.reduce(
+        (sum, allocation) =>
+          sum +
+          (allocation?.merchandiseDiscount ?? 0) +
+          (allocation?.vatRelief ?? 0),
+        0
+      );
+      if (explicitDiscount <= normalizedDiscount + 0.01) {
+        allocationsByLineId = getValidatedExplicitLineDiscounts(
+          items,
+          lineTotals,
+          explicitDiscount,
+          explicitLineDiscounts
+        );
+        if (allocationsByLineId) {
+          voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
+        }
+      }
     }
+    if (!allocationsByLineId) {
+      if (voucherDiscountBasis <= 0) {
+        return getDiscountedTransactionUnitPrices(items, normalizedDiscount);
+      }
+      voucherDiscount = normalizedDiscount;
+    }
+    const voucherDiscountRatio =
+      voucherDiscountBasis > 0
+        ? Math.min(1, voucherDiscount / voucherDiscountBasis)
+        : 0;
 
     return unitPrices.map((unitPrice, index) => {
       if (unitPrice < 0) {
@@ -210,9 +216,22 @@ export function getDiscountedTransactionUnitPrices(
 
       const line = lineTotals[index];
       const item = items[index];
-      const allocation = item
-        ? resolveAllocation(allocationsByLineId, item)
-        : undefined;
+      const allocation =
+        allocationsByLineId && item
+          ? resolveTransactionDiscountAllocation(allocationsByLineId, item)
+          : undefined;
+      if (
+        voucherLineIndexes.has(index) &&
+        !allocation &&
+        line &&
+        line.quantity > 0 &&
+        line.total > 0
+      ) {
+        const allocatedDiscount = line.total * voucherDiscountRatio;
+        const merchandiseDiscount =
+          allocatedDiscount * (line.merchandiseTotal / line.total);
+        return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
+      }
       if (
         !line ||
         line.quantity <= 0 ||
@@ -230,7 +249,13 @@ export function getDiscountedTransactionUnitPrices(
     });
   }
 
-  const discountRatio = Math.min(1, normalizedDiscount / discountBasis);
+  const discountBasisForFallback =
+    voucherDiscountBasis > 0 ? voucherDiscountBasis : discountBasis;
+  const discountRatio = Math.min(
+    1,
+    normalizedDiscount / discountBasisForFallback
+  );
+  const discountIncludesVat = options?.discountIncludesVat === true;
 
   return unitPrices.map((unitPrice, index) => {
     if (unitPrice < 0) {
@@ -243,8 +268,17 @@ export function getDiscountedTransactionUnitPrices(
     }
 
     const allocatedDiscount = line.total * discountRatio;
+    if (voucherDiscountBasis > 0 && !voucherLineIndexes.has(index)) {
+      return unitPrice;
+    }
+    const vatCategory = (items[index]?.vat_category_code ?? 'S').toUpperCase();
+    const vatRate =
+      discountIncludesVat && voucherDiscountBasis <= 0 && vatCategory === 'S'
+        ? Math.max(0, toFiniteNumberOrNull(items[index]?.vat_rate) ?? 7.5)
+        : 0;
+    const taxExclusiveDiscount = allocatedDiscount / (1 + vatRate / 100);
     const merchandiseDiscount =
-      allocatedDiscount * (line.merchandiseTotal / line.total);
+      taxExclusiveDiscount * (line.merchandiseTotal / line.total);
 
     return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
   });

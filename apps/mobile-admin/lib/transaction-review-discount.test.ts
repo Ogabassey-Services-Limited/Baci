@@ -63,6 +63,34 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([-100, 50]);
   });
 
+  it('keeps quiz voucher discounts on awarded lines', () => {
+    const items = [
+      { price: 100, quantity: 1, quiz_award_id: 'award-1' },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 100);
+
+    expect(prices).toEqual([0, 200]);
+  });
+
+  it('applies a residual voucher discount after explicit merchandise allocations', () => {
+    const items = [
+      { line_id: 1, price: 100, quantity: 1, quiz_award_id: 'award-1' },
+      { line_id: 2, price: 200, quantity: 1 },
+    ];
+    const options = {
+      lineDiscounts: [
+        null,
+        { lineId: 2, merchandiseDiscount: 20, vatRelief: 0 },
+      ],
+    };
+
+    const prices = getDiscountedTransactionUnitPrices(items, 120, options);
+
+    expect(prices).toEqual([0, 180]);
+  });
+
   it('allocates discounts across merchandise and assurance fees', () => {
     const items = [{ assurance_fee: 20, price: 100, quantity: 1 }];
 
@@ -72,17 +100,18 @@ describe('getDiscountedTransactionUnitPrices', () => {
   });
 
   it('ignores malformed persisted discount metadata', () => {
-    expect(
-      parseTransactionDiscountOptions({
-        baci_transaction_discount: {
-          lineDiscounts: [
-            { lineId: 1, merchandiseDiscount: 'not-a-number', vatRelief: 0 },
-          ],
-          version: 2,
-        },
-      })
-    ).toBeUndefined();
-    expect(parseTransactionDiscountOptions(null)).toBeUndefined();
+    const malformedOptions = parseTransactionDiscountOptions({
+      baci_transaction_discount: {
+        lineDiscounts: [
+          { lineId: 1, merchandiseDiscount: 'not-a-number', vatRelief: 0 },
+        ],
+        version: 2,
+      },
+    });
+    const nullOptions = parseTransactionDiscountOptions(null);
+
+    expect(malformedOptions).toBeUndefined();
+    expect(nullOptions).toBeUndefined();
   });
 
   it('parses a valid version-3 server allocation', () => {
