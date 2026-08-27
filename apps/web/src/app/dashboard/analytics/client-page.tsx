@@ -76,12 +76,16 @@ export default function AnalyticsClientPage() {
   )
     ? activeCategory
     : 'overview';
-  const { data: baseAnalytics, loading: loadingAnalytics } =
-    useMerchantBoundBaseAnalytics({
-      from: date.from,
-      merchantId: selectedMerchantId,
-      to: date.to,
-    });
+  const {
+    data: baseAnalytics,
+    error: baseAnalyticsError,
+    loading: loadingAnalytics,
+  } = useMerchantBoundBaseAnalytics({
+    from: date.from,
+    merchantId: selectedMerchantId,
+    refreshKey: analyticsRefreshKey,
+    to: date.to,
+  });
   const {
     data: categoryAnalytics,
     error: categoryAnalyticsError,
@@ -224,7 +228,8 @@ export default function AnalyticsClientPage() {
         loading={loadingAnalytics || loadingCategoryAnalytics}
         activeCategory={effectiveCategory}
         merchant={selectedContext.merchant}
-        categoryError={categoryAnalyticsError}
+        categoryError={baseAnalyticsError ?? categoryAnalyticsError}
+        onAnalyticsRetry={handleAdsReportingSynced}
         onAdsReportingSynced={handleAdsReportingSynced}
         syncWindow={
           date.from && date.to

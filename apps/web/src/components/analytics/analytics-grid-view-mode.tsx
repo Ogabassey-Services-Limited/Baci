@@ -1,4 +1,4 @@
-import { AlertTriangle, Settings2 } from 'lucide-react';
+import { AlertTriangle, RefreshCcw, Settings2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { renderAdsAnalyticsWidgets } from './ads-analytics-widgets';
@@ -25,6 +25,7 @@ interface AnalyticsGridViewModeProps
     | 'categoryError'
     | 'data'
     | 'merchant'
+    | 'onAnalyticsRetry'
     | 'onAdsReportingSynced'
     | 'syncWindow'
   > {
@@ -45,6 +46,7 @@ export function AnalyticsGridViewMode({
   formatPercent,
   isWidgetVisible,
   merchant,
+  onAnalyticsRetry,
   onAdsReportingSynced,
   onEdit,
   summary,
@@ -55,7 +57,21 @@ export function AnalyticsGridViewMode({
       {categoryError && (
         <Alert className="mb-4" variant="destructive">
           <AlertTriangle className="size-4" />
-          <AlertDescription>{categoryError}</AlertDescription>
+          <AlertDescription>
+            <p>{categoryError}</p>
+            {onAnalyticsRetry && (
+              <Button
+                className="mt-2"
+                onClick={onAnalyticsRetry}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <RefreshCcw className="size-4" />
+                Retry analytics
+              </Button>
+            )}
+          </AlertDescription>
         </Alert>
       )}
       <div className="mb-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">

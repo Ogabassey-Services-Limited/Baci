@@ -8,6 +8,7 @@ import { fetchBaseAnalytics } from './fetch-base-analytics';
 interface UseMerchantBoundBaseAnalyticsOptions {
   from: Date | undefined;
   merchantId: string | undefined;
+  refreshKey: number;
   to: Date | undefined;
 }
 
@@ -28,16 +29,22 @@ function buildRequestKey(
 export function useMerchantBoundBaseAnalytics({
   from,
   merchantId,
+  refreshKey,
   to,
 }: UseMerchantBoundBaseAnalyticsOptions) {
   const requestKey = buildRequestKey(merchantId, from, to);
   const requestKeyRef = useRef<string | null>(requestKey);
   requestKeyRef.current = requestKey;
   const [snapshot, setSnapshot] = useState<BaseAnalyticsSnapshot | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorRequestKey, setErrorRequestKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshKey intentionally triggers a manual reload even though the request body is unchanged.
   useEffect(() => {
     setSnapshot(null);
+    setError(null);
+    setErrorRequestKey(null);
     if (!merchantId || !from || !to || !requestKey) return;
 
     const controller = new AbortController();
@@ -59,6 +66,14 @@ export function useMerchantBoundBaseAnalytics({
       if (requestKeyRef.current !== requestKeyAtStart) return;
       setLoading(next);
     };
+    const setBoundError: Dispatch<SetStateAction<string | null>> = (next) => {
+      if (requestKeyRef.current !== requestKeyAtStart) return;
+      setError((current) => {
+        const nextError = typeof next === 'function' ? next(current) : next;
+        setErrorRequestKey(nextError ? requestKeyAtStart : null);
+        return nextError;
+      });
+    };
 
     fetchBaseAnalytics({
       from,
@@ -66,14 +81,18 @@ export function useMerchantBoundBaseAnalytics({
       signal: controller.signal,
       to,
       setBaseAnalytics: setBoundAnalytics,
+      setError: setBoundError,
       setLoadingAnalytics: setBoundLoading,
     });
 
     return () => controller.abort();
-  }, [from, merchantId, requestKey, to]);
+  }, [from, merchantId, refreshKey, requestKey, to]);
 
+  const isCurrent = snapshot?.requestKey === requestKey;
+  const hasCurrentError = errorRequestKey === requestKey;
   return {
-    data: snapshot?.requestKey === requestKey ? snapshot.data : null,
+    data: isCurrent ? snapshot.data : null,
+    error: hasCurrentError ? error : null,
     loading,
   };
 }

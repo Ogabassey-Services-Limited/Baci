@@ -5,6 +5,7 @@ import type { AnalyticsData } from '@/components/analytics/draggable-analytics-g
 
 interface FetchRequest {
   setBaseAnalytics: Dispatch<SetStateAction<AnalyticsData | null>>;
+  setError: Dispatch<SetStateAction<string | null>>;
   setLoadingAnalytics: Dispatch<SetStateAction<boolean>>;
 }
 
@@ -29,7 +30,12 @@ describe('useMerchantBoundBaseAnalytics', () => {
     const to = new Date('2026-08-07T00:00:00.000Z');
     const { result, rerender } = renderHook(
       ({ merchantId }: { merchantId: string }) =>
-        useMerchantBoundBaseAnalytics({ from, merchantId, to }),
+        useMerchantBoundBaseAnalytics({
+          from,
+          merchantId,
+          refreshKey: 0,
+          to,
+        }),
       { initialProps: { merchantId: 'merchant-a' } }
     );
 
@@ -52,5 +58,39 @@ describe('useMerchantBoundBaseAnalytics', () => {
       state.requests[1].setBaseAnalytics({ revenueOverTime: [200] });
     });
     expect(result.current.data).toEqual({ revenueOverTime: [200] });
+  });
+
+  it('exposes a request-bound error and clears it for a replacement merchant', async () => {
+    const from = new Date('2026-08-01T00:00:00.000Z');
+    const to = new Date('2026-08-07T00:00:00.000Z');
+    const { result, rerender } = renderHook(
+      ({ merchantId }: { merchantId: string }) =>
+        useMerchantBoundBaseAnalytics({
+          from,
+          merchantId,
+          refreshKey: 0,
+          to,
+        }),
+      { initialProps: { merchantId: 'merchant-a' } }
+    );
+
+    await waitFor(() => expect(state.requests).toHaveLength(1));
+    act(() => {
+      state.requests[0].setError('Unable to load analytics. Please try again.');
+    });
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        'Unable to load analytics. Please try again.'
+      )
+    );
+
+    rerender({ merchantId: 'merchant-b' });
+    expect(result.current.error).toBeNull();
+    await waitFor(() => expect(state.requests).toHaveLength(2));
+
+    act(() => {
+      state.requests[0].setError('stale error');
+    });
+    expect(result.current.error).toBeNull();
   });
 });

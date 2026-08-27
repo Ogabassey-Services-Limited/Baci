@@ -84,4 +84,19 @@ describe('AnalyticsGridViewMode', () => {
     );
     expect(onEdit).toHaveBeenCalledOnce();
   });
+
+  it('renders a retry action when analytics loading fails', () => {
+    const onAnalyticsRetry = vi.fn();
+    render(
+      <AnalyticsGridViewMode
+        {...baseProps}
+        categoryError="Unable to load analytics. Please try again."
+        canCustomizeLayout={false}
+        onAnalyticsRetry={onAnalyticsRetry}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry analytics' }));
+    expect(onAnalyticsRetry).toHaveBeenCalledOnce();
+  });
 });

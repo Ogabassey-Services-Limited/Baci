@@ -65,6 +65,7 @@ export function DraggableAnalyticsGrid({
   data,
   loading,
   merchant,
+  onAnalyticsRetry,
   onAdsReportingSynced,
   syncWindow,
 }: AnalyticsGridProps) {
@@ -113,6 +114,7 @@ export function DraggableAnalyticsGrid({
     formatPercent,
     isWidgetVisible,
     merchant,
+    onAnalyticsRetry,
     onAdsReportingSynced,
     summary,
     syncWindow,

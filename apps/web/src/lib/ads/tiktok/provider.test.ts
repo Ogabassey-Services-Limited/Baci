@@ -248,6 +248,7 @@ describe('TikTok Ads provider', () => {
                   advertiser_name: 'Account',
                 },
               ],
+              page_info: { page: 1, total_page: 1 },
             },
           })
         )
@@ -289,6 +290,74 @@ describe('TikTok Ads provider', () => {
     );
   });
 
+  it('paginates every authorized advertiser page before resolving metadata', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              list: [
+                {
+                  advertiser_id: 'opaque-001',
+                  advertiser_name: 'First account',
+                  currency: 'NGN',
+                  timezone: 'Africa/Lagos',
+                },
+              ],
+              page_info: { page: 1, total_page: 2 },
+            },
+          })
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            code: 0,
+            data: {
+              list: [
+                {
+                  advertiser_id: 'opaque-002',
+                  advertiser_name: 'Second account',
+                  currency: 'USD',
+                  timezone: 'UTC',
+                },
+              ],
+              page_info: { page: 2, total_page: 2 },
+            },
+          })
+        )
+      );
+
+    await expect(
+      listTikTokAdsAccounts(
+        { accessToken: 'token', appId: 'app', appSecret: 'secret' },
+        fetchImpl
+      )
+    ).resolves.toEqual([
+      {
+        accountId: 'opaque-001',
+        currencyCode: 'NGN',
+        label: 'First account',
+        timezoneName: 'Africa/Lagos',
+      },
+      {
+        accountId: 'opaque-002',
+        currencyCode: 'USD',
+        label: 'Second account',
+        timezoneName: 'UTC',
+      },
+    ]);
+
+    const firstUrl = new URL(fetchImpl.mock.calls[0]?.[0].toString());
+    const secondUrl = new URL(fetchImpl.mock.calls[1]?.[0].toString());
+    expect(firstUrl.searchParams.get('page')).toBe('1');
+    expect(firstUrl.searchParams.get('page_size')).toBe('100');
+    expect(secondUrl.searchParams.get('page')).toBe('2');
+    expect(secondUrl.searchParams.get('page_size')).toBe('100');
+  });
+
   it('excludes advertisers that still lack required reporting metadata', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -303,6 +372,7 @@ describe('TikTok Ads provider', () => {
                   advertiser_name: 'Incomplete',
                 },
               ],
+              page_info: { page: 1, total_page: 1 },
             },
           })
         )

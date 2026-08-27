@@ -155,6 +155,7 @@ export interface AnalyticsGridProps {
   canManageAdsIntegrations: boolean;
   canCustomizeLayout: boolean;
   categoryError?: string | null;
+  onAnalyticsRetry?: () => void;
   onAdsReportingSynced?: () => void;
   syncWindow?: AdsSyncWindow;
 }
