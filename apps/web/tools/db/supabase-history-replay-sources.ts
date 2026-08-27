@@ -4,6 +4,7 @@ import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
+import { SEARCH_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-search-pending-sources';
 import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
@@ -260,6 +261,7 @@ const PENDING_SOURCES = [
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
   FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
   NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
+  SEARCH_PENDING_REPLAY_SOURCE_ROWS,
 ]
   .flatMap((sourceBlock) => sourceBlock.trim().split('\n'))
   .sort((left, right) => {
