@@ -70,8 +70,8 @@ describe('withAdaptiveAndroidManifest', () => {
       { $: { 'android:shell': 'false', 'tools:targetApi': 'q' } },
     ];
 
-    const application = withAdaptiveAndroidManifest(config).modResults.manifest
-      .application[0];
+    const application =
+      withAdaptiveAndroidManifest(config).modResults.manifest.application[0];
 
     expect(application.profileable).toEqual([
       {
@@ -87,8 +87,8 @@ describe('withAdaptiveAndroidManifest', () => {
     const config = buildConfig([]);
     config.modResults.manifest.application[0].profileable = [];
 
-    const application = withAdaptiveAndroidManifest(config).modResults.manifest
-      .application[0];
+    const application =
+      withAdaptiveAndroidManifest(config).modResults.manifest.application[0];
 
     expect(application.profileable).toEqual([
       { $: { 'android:shell': 'true' } },
