@@ -53,6 +53,15 @@ describe('createBlogOgImageResponse', () => {
     );
   });
 
+  it('keeps a successfully rendered no-store response strict no-store', async () => {
+    const response = await createBlogOgImageResponse(<div>Transient</div>, {
+      size,
+      noStore: true,
+    });
+
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+  });
+
   it('uses the configured no-store fallback when primary rendering fails', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
@@ -63,7 +72,7 @@ describe('createBlogOgImageResponse', () => {
 
     const response = await createBlogOgImageResponse(<div>Primary</div>, {
       size,
-      fallback: { element: <div>Fallback</div>, noStore: true },
+      fallback: { element: <div>Fallback</div> },
     });
 
     expect(mockImageResponse).toHaveBeenCalledTimes(2);
@@ -86,7 +95,7 @@ describe('createBlogOgImageResponse', () => {
 
     const response = await createBlogOgImageResponse(<div>Primary</div>, {
       size,
-      fallback: { element: <div>Fallback</div>, noStore: false },
+      fallback: { element: <div>Fallback</div> },
     });
 
     expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
@@ -98,7 +107,7 @@ describe('createBlogOgImageResponse', () => {
 
     const response = await createBlogOgImageResponse(<div>Primary</div>, {
       size,
-      fallback: { element: <div>Fallback</div>, noStore: true },
+      fallback: { element: <div>Fallback</div> },
     });
 
     expect(response.headers.get('content-type')).toBe('image/png');

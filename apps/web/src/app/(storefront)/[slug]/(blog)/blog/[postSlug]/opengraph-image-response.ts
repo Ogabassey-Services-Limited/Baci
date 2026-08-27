@@ -20,7 +20,6 @@ type BlogOgImageSize = {
 
 type BlogOgFallback = {
   element: ReactElement;
-  noStore: boolean;
 };
 
 type BlogOgResponseOptions = {

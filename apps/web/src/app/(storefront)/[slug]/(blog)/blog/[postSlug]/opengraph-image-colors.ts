@@ -1,5 +1,9 @@
+import { colord, extend } from 'colord';
+import namesPlugin from 'colord/plugins/names';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 import { getContrastingTextColor } from '@/lib/color-utils';
+
+extend([namesPlugin]);
 
 export type BlogOgBrandColors = {
   background: string;
@@ -18,7 +22,15 @@ export function getBlogOgBrandColors(
 }
 
 export function getBlogOgForegroundColor(background: string): string {
-  return getContrastingTextColor(background);
+  const parsed = colord(background.trim());
+  if (!parsed.isValid()) return '#000000';
+
+  const normalized = parsed.toHex();
+  // The contrast helper accepts opaque hex values. Ignore alpha when a valid
+  // CSS color includes one; the configured background is composited by Satori.
+  return getContrastingTextColor(
+    normalized.length === 9 ? normalized.slice(0, 7) : normalized
+  );
 }
 
 function toRgba(color: string, fallback: string, opacity: number) {

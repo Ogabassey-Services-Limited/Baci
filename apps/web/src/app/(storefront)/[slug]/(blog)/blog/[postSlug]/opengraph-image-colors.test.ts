@@ -25,6 +25,12 @@ describe('merchant blog OG color helpers', () => {
     expect(getBlogOgForegroundColor('#101820')).toBe('#FFFFFF');
   });
 
+  it('normalizes valid rgb, hsl, and named backgrounds before choosing readable text', () => {
+    expect(getBlogOgForegroundColor('rgb(0, 0, 0)')).toBe('#FFFFFF');
+    expect(getBlogOgForegroundColor('hsl(240, 100%, 50%)')).toBe('#FFFFFF');
+    expect(getBlogOgForegroundColor('black')).toBe('#FFFFFF');
+  });
+
   it('uses merchant brand colors when present and falls back only for missing values', () => {
     expect(
       getBlogOgBrandColors(

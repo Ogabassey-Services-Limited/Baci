@@ -17,7 +17,7 @@ export const size = {
 };
 export const contentType = 'image/png';
 type ImageProps = { params: Promise<{ slug: string; postSlug: string }> };
-type ImageResponseFallback = { element: ReactElement; noStore: boolean };
+type ImageResponseFallback = { element: ReactElement };
 
 function isTransientImageStatus(status: RemoteImageLoadStatus): boolean {
   return !['source_missing', 'source_disallowed', 'loaded'].includes(status);
@@ -72,7 +72,6 @@ export default async function Image({ params }: ImageProps) {
       false,
       {
         element: renderGenericFallback('Post Not Found'),
-        noStore: true,
       }
     );
   }
@@ -83,13 +82,11 @@ export default async function Image({ params }: ImageProps) {
       isTransientImageStatus(data.featuredImageStatus),
       {
         element: renderGenericFallback(data.post.title || 'Blog post'),
-        noStore: true,
       }
     );
   }
 
   return createImageResponse(renderPrimaryCard(data), false, {
     element: renderMerchantFallback(data, data.post.title || 'Blog post'),
-    noStore: true,
   });
 }
