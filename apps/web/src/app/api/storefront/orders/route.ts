@@ -1,4 +1,7 @@
-import { selectPreferredOrderPaymentAccount } from '@baci/shared';
+import {
+  getPaystackDvaAccountNumberFromTransactions,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
@@ -21,6 +24,14 @@ interface JoinedProduct {
     | null;
 }
 
+type StorefrontOrderTransaction = {
+  order_id: string;
+  metadata: unknown;
+  gateway?: string | null;
+  status?: string | null;
+  transaction_type?: string | null;
+};
+
 function extractJoinedProduct(
   products: JoinedProduct | JoinedProduct[] | null | undefined
 ) {
@@ -41,15 +52,7 @@ function normalizeImageUrl(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-/**
- * Customer Orders API
- *
- * GET - Fetch orders for the authenticated customer
- *
- * Uses authenticateApiRequest to support both:
- * - Mobile apps sending Bearer tokens in the Authorization header
- * - Web browsers using cookie-based Supabase sessions
- */
+/** Customer orders for authenticated web and mobile customers. */
 
 export async function GET(request: NextRequest) {
   try {
@@ -168,10 +171,45 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const paidOrderIds = (orders ?? [])
+      .filter(
+        (order) => normalizePaymentStatus(order.payment_status) === 'paid'
+      )
+      .map((order) => order.id);
+    const transactionsResult =
+      paidOrderIds.length > 0
+        ? await supabase
+            .from('transactions')
+            .select(
+              'order_id, created_at, metadata, gateway, status, transaction_type'
+            )
+            .in('order_id', paidOrderIds)
+            .order('created_at', { ascending: true })
+        : { data: [], error: null };
+
+    if (transactionsResult.error) {
+      console.error(
+        'Orders transaction fetch error:',
+        transactionsResult.error
+      );
+    }
+
+    const transactionsByOrderId = new Map<
+      string,
+      StorefrontOrderTransaction[]
+    >();
+    for (const transaction of transactionsResult.data ?? []) {
+      const orderTransactions =
+        transactionsByOrderId.get(transaction.order_id) ?? [];
+      orderTransactions.push(transaction as StorefrontOrderTransaction);
+      transactionsByOrderId.set(transaction.order_id, orderTransactions);
+    }
+
     // Transform to expected format
     const transformedOrders = orders.map((order) => {
       const paymentStatus = normalizePaymentStatus(order.payment_status);
       const shippingStatus = normalizeShippingStatus(order.shipping_status);
+      const transactionRows = transactionsByOrderId.get(order.id) ?? [];
 
       return {
         id: order.id,
@@ -195,7 +233,13 @@ export async function GET(request: NextRequest) {
           selectPreferredOrderPaymentAccount(
             order.order_payment_accounts,
             new Date(),
-            { allowExpiredPaystackAccount: paymentStatus === 'paid' }
+            {
+              allowExpiredPaystackAccount: paymentStatus === 'paid',
+              preferredPaystackAccountNumber:
+                paymentStatus === 'paid'
+                  ? getPaystackDvaAccountNumberFromTransactions(transactionRows)
+                  : null,
+            }
           ) || null,
         balance: Math.max(
           0,

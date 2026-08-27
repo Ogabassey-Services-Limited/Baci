@@ -1,7 +1,3 @@
-import {
-  getPaystackDvaAccountNumberFromTransactions,
-  selectPreferredOrderPaymentAccount,
-} from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
@@ -18,6 +14,7 @@ import type {
   ReceiptDetail,
   ReceiptListItem,
 } from '@/types/receipt';
+import { resolveReceiptPaymentAccount } from './resolve-receipt-payment-account';
 
 const log = createLogger('Receipts');
 
@@ -197,18 +194,10 @@ async function fetchReceiptDetail(
       ...item,
       product_name: item.name,
     })),
-    virtual_account: selectPreferredOrderPaymentAccount(
+    virtual_account: resolveReceiptPaymentAccount(
       virtualAccounts,
-      new Date(),
-      {
-        allowExpiredPaystackAccount:
-          order.payment_status?.trim().toLowerCase() === 'paid',
-        preferredPaystackAccountNumber:
-          order.payment_status?.trim().toLowerCase() === 'paid'
-            ? getPaystackDvaAccountNumberFromTransactions(transactions)
-            : null,
-        allowDeviceClockSkew: true,
-      }
+      transactions,
+      order.payment_status
     ),
     transactions: transactions ?? [],
   };

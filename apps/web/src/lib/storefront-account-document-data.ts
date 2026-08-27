@@ -149,7 +149,9 @@ export async function getStorefrontAccountDocumentData({
       .eq('order_id', orderId),
     supabase
       .from('transactions')
-      .select('id, amount, created_at, description, metadata')
+      .select(
+        'id, amount, created_at, description, metadata, gateway, status, transaction_type'
+      )
       .eq('order_id', orderId)
       .order('created_at', { ascending: true }),
     supabase

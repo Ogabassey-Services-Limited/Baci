@@ -15,6 +15,26 @@ interface QueryResult<TData> {
   error: { message: string } | null;
 }
 
+interface OrderPaymentAccountFixture {
+  account_number: string;
+  bank_name: string | null;
+  account_name: string | null;
+  provider?: string | null;
+  assignment_customer_email_source?: string | null;
+  created_at?: string | null;
+  assigned_at?: string | null;
+  expires_at?: string | null;
+}
+
+interface OrderTransactionFixture {
+  order_id: string;
+  created_at: string | null;
+  metadata: unknown;
+  gateway?: string | null;
+  status?: string | null;
+  transaction_type?: string | null;
+}
+
 function createSingleQuery<TData>(result: QueryResult<TData>) {
   const query = {
     select: vi.fn(),
@@ -35,6 +55,18 @@ function createOrdersQuery<TData>(result: QueryResult<TData>) {
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.order.mockResolvedValue(result);
+  return query;
+}
+
+function createTransactionsQuery<TData>(result: QueryResult<TData>) {
+  const query = {
+    select: vi.fn(),
+    in: vi.fn(),
+    order: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.in.mockReturnValue(query);
   query.order.mockResolvedValue(result);
   return query;
 }
@@ -67,6 +99,7 @@ function createSupabaseMock(input?: {
         serialNumber?: string | null;
         serial_number?: string | null;
       } | null;
+      order_payment_accounts?: OrderPaymentAccountFixture[];
       order_items: Array<{
         id: string;
         product_id: string;
@@ -87,6 +120,7 @@ function createSupabaseMock(input?: {
       }>;
     }>
   >;
+  transactions?: QueryResult<OrderTransactionFixture[]>;
 }) {
   const merchantQuery = createSingleQuery(
     input?.merchant ?? {
@@ -106,6 +140,9 @@ function createSupabaseMock(input?: {
       error: null,
     }
   );
+  const transactionsQuery = createTransactionsQuery(
+    input?.transactions ?? { data: [], error: null }
+  );
 
   return {
     from: vi.fn((table: string) => {
@@ -119,6 +156,10 @@ function createSupabaseMock(input?: {
 
       if (table === 'orders') {
         return ordersQuery;
+      }
+
+      if (table === 'transactions') {
+        return transactionsQuery;
       }
 
       throw new Error(`Unexpected table: ${table}`);
@@ -395,6 +436,87 @@ describe('GET /api/storefront/orders', () => {
         }),
       ],
     });
+  });
+
+  it('uses the paid transaction receiver when historical aliases coexist', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue(
+      createAuthenticatedAuthResult(
+        createSupabaseMock({
+          orders: {
+            data: [
+              {
+                id: 'order-paid-history',
+                order_number: 'ORD-HISTORY-1',
+                created_at: '2026-07-08T12:00:00.000Z',
+                total: 100000,
+                subtotal: 100000,
+                shipping_fee: 0,
+                tax_amount: 0,
+                discount_amount: 0,
+                amount_paid: 100000,
+                currency: 'NGN',
+                external_source: null,
+                import_job_id: null,
+                payment_status: 'paid',
+                shipping_status: 'delivered',
+                shipping_address: null,
+                tracking_number: null,
+                shipping_provider: null,
+                payment_method: 'paystack',
+                order_items: [],
+                order_payment_accounts: [
+                  {
+                    account_name: 'Paid DVA',
+                    account_number: '1111111111',
+                    bank_name: 'Paystack',
+                    created_at: '2026-07-08T11:00:00.000Z',
+                    expires_at: '2026-07-08T12:30:00.000Z',
+                    provider: 'paystack',
+                  },
+                  {
+                    account_name: 'Newer DVA',
+                    account_number: '2222222222',
+                    bank_name: 'Paystack',
+                    created_at: '2026-07-08T12:00:00.000Z',
+                    expires_at: '2026-07-08T13:30:00.000Z',
+                    provider: 'paystack',
+                  },
+                ],
+              },
+            ],
+            error: null,
+          },
+          transactions: {
+            data: [
+              {
+                order_id: 'order-paid-history',
+                created_at: '2026-07-08T12:45:00.000Z',
+                metadata: { dva_account_number: '1111111111' },
+                gateway: 'paystack',
+                status: 'completed',
+                transaction_type: 'payment',
+              },
+            ],
+            error: null,
+          },
+        })
+      )
+    );
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/storefront/orders?merchantSlug=ogabassey'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const payload = await response.json();
+    expect(payload.orders[0].virtual_account).toEqual(
+      expect.objectContaining({
+        account_number: '1111111111',
+        provider: 'paystack',
+      })
+    );
   });
 
   it('falls back to joined product images when imported order items have no snapshot image', async () => {
