@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '@/lib/logger';
 import { dispatchOrderCreationNotifications } from './order-notification-dispatch';
 
 const { mockNotifyNewInvoice, mockNotifyNewOrder, mockNotifyPaymentReceived } =
@@ -121,5 +122,47 @@ describe('dispatchOrderCreationNotifications', () => {
       'NGN'
     );
     expect(mockNotifyNewInvoice).not.toHaveBeenCalled();
+  });
+
+  it('logs an invoice push failure and still sends the paid confirmation', async () => {
+    const pushError = new Error('expo push unavailable');
+    mockNotifyNewInvoice.mockRejectedValueOnce(pushError);
+
+    await dispatchOrderCreationNotifications(
+      input({ isWalletFullyPaid: true })
+    );
+
+    expect(logger.error).toHaveBeenCalledWith({
+      message: 'Push notification failed',
+      error: pushError,
+    });
+    expect(mockNotifyPaymentReceived).toHaveBeenCalledWith(
+      'merchant-1',
+      15000,
+      'NGN',
+      'ORD-001',
+      'order-1'
+    );
+  });
+
+  it('keeps the paid confirmation after a reachable paid-order push failure', async () => {
+    const pushError = new Error('expo push unavailable');
+    mockNotifyNewOrder.mockRejectedValueOnce(pushError);
+
+    await dispatchOrderCreationNotifications(
+      input({ paymentMethod: 'pay_on_delivery', isWalletFullyPaid: true })
+    );
+
+    expect(logger.error).toHaveBeenCalledWith({
+      message: 'Push notification failed',
+      error: pushError,
+    });
+    expect(mockNotifyPaymentReceived).toHaveBeenCalledWith(
+      'merchant-1',
+      15000,
+      'NGN',
+      'ORD-001',
+      'order-1'
+    );
   });
 });
