@@ -63,7 +63,10 @@ export async function requestSnapchatAdsJson(
     } catch {
       /* discard provider body */
     }
-    if (response.status === 401 || response.status === 403)
+    // A 401 indicates an invalid or expired token. A 403 can be a valid token
+    // without the Reports role, account access, or app activation; keep it as
+    // an operation failure so callers do not incorrectly force reauth.
+    if (response.status === 401)
       throw new SnapchatAdsProviderError(
         'SNAPCHAT_ADS_ACCESS_REVOKED',
         response.status

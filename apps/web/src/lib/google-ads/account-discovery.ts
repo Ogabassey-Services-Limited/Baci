@@ -94,9 +94,10 @@ async function listGoogleAdsManagerClients(
       batch === null ||
       typeof batch !== 'object' ||
       !Array.isArray((batch as { results?: unknown }).results)
-    ) {
-      continue;
-    }
+    )
+      throw input.createError(
+        'GOOGLE_ADS_MANAGER_ACCOUNT_DISCOVERY_RESPONSE_INVALID'
+      );
     for (const result of (batch as { results: unknown[] }).results) {
       if (result === null || typeof result !== 'object') continue;
       const customerClient = (result as { customerClient?: unknown })

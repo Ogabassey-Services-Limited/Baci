@@ -88,6 +88,27 @@ describe('Google Ads account discovery traversal', () => {
     ).resolves.toEqual(['2222222222']);
   });
 
+  it('rejects a malformed manager batch instead of returning partial accounts', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify([{ notResults: [] }])));
+    const createError = (code: string, status?: number) =>
+      Object.assign(new Error(code), { code, status });
+
+    await expect(
+      discoverGoogleAdsCustomerIds({
+        apiRoot: 'https://googleads.googleapis.com/v25',
+        createError,
+        directCustomerIds: ['1111111111'],
+        fetchImpl,
+        headers: { Authorization: 'Bearer access-token' },
+      })
+    ).rejects.toMatchObject({
+      code: 'GOOGLE_ADS_MANAGER_ACCOUNT_DISCOVERY_RESPONSE_INVALID',
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
+
   it('returns an explicit manager limit error instead of a partial list', async () => {
     const directCustomerIds = Array.from({ length: 21 }, (_, index) =>
       String(1_000_000_000 + index)

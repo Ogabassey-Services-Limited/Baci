@@ -113,4 +113,25 @@ describe('Snapchat Ads request boundary', () => {
     expect(sleep).toHaveBeenNthCalledWith(1, 250);
     expect(sleep).toHaveBeenNthCalledWith(2, 500);
   });
+
+  it('does not mark a permission-denied response as a revoked token', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'missing Reports role' }), {
+        status: 403,
+      })
+    );
+
+    await expect(
+      requestSnapchatAdsJson(
+        new URL('https://adsapi.snapchat.com/v1/me/organizations'),
+        {},
+        'SNAPCHAT_ADS_ACCOUNT_DISCOVERY_FAILED',
+        fetchImpl
+      )
+    ).rejects.toMatchObject({
+      code: 'SNAPCHAT_ADS_ACCOUNT_DISCOVERY_FAILED',
+      status: 403,
+    });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+  });
 });
