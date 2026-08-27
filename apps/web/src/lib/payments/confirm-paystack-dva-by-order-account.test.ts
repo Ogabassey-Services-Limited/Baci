@@ -54,6 +54,34 @@ describe('confirmPaystackDvaByOrderAccount — matching', () => {
     expect(state.insertCalls[0]).toMatchObject({ amount: '350000' });
   });
 
+  it('rejects a legacy-untrusted alias instead of matching the current order email', async () => {
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [
+        {
+          ...baseAccountRow,
+          assignment_customer_email: null,
+          assignment_customer_email_source: 'legacy_untrusted',
+          orders: {
+            ...baseAccountRow.orders,
+            customer_email: 'new@example.com',
+          },
+        },
+      ],
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+      paystackResponse: {
+        customer: { email: 'new@example.com' },
+        paid_at: '2026-05-09T10:30:00Z',
+      },
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
   it('matches unpaid generated invoices inside their active DVA window', async () => {
     const { supabase } = createSupabaseMock({
       accountRows: [

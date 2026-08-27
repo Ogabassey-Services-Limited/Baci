@@ -96,6 +96,17 @@ describe('paystack DVA order candidate', () => {
     ).toMatchObject({ customer_email: 'old@example.com' });
   });
 
+  it('rejects legacy-untrusted aliases instead of falling back to the current order email', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        assignment_customer_email: null,
+        assignment_customer_email_source: 'legacy_untrusted',
+        orders: { ...row.orders, customer_email: 'new@example.com' },
+      })
+    ).toBeNull();
+  });
+
   it.each([
     Number.NaN,
     Number.POSITIVE_INFINITY,

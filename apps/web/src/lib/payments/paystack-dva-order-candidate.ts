@@ -46,6 +46,12 @@ export function normalizePaystackDvaOrderCandidate(
   const outstandingAmount = normalizedPayableAmount ?? orderRemainingAmount;
   const expiresAt =
     typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
+  // The legacy cleanup deliberately clears unverifiable assignment snapshots.
+  // Never fall back to the mutable order email for those aliases: doing so
+  // could match a delayed transfer to the wrong customer after an email edit.
+  if (row.assignment_customer_email_source === 'legacy_untrusted') {
+    return null;
+  }
   return {
     order_id: String(row.order_id),
     merchant_id: String(order.merchant_id ?? ''),
