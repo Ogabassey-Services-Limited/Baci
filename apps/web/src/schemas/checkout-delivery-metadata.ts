@@ -26,10 +26,7 @@ export const orderDeliveryMetadataSchema = z
       });
     }
 
-    if (
-      data.delivery_method !== 'airport' &&
-      data.airport_type !== undefined
-    ) {
+    if (data.delivery_method !== 'airport' && data.airport_type !== undefined) {
       ctx.addIssue({
         code: 'custom',
         message: 'Airport type is only valid for airport delivery',

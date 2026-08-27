@@ -1638,10 +1638,7 @@ export async function POST(request: NextRequest) {
         isIdempotentLocalAirportReplay = hasExistingOrder === true;
       }
     }
-    if (
-      localAirportShippingFeeMismatch &&
-      !isIdempotentLocalAirportReplay
-    ) {
+    if (localAirportShippingFeeMismatch && !isIdempotentLocalAirportReplay) {
       logger.warn({
         message:
           'Storefront order rejected: local airport shipping fee mismatch',
