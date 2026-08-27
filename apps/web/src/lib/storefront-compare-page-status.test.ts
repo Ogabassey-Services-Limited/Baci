@@ -3,10 +3,9 @@ import {
   resetStorefrontComparePageStatusForTests,
   resolveStorefrontComparePageStatus,
 } from './storefront-compare-page-status';
-import {
-  buildOptions,
-  jsonResponse,
-} from './storefront-compare-page-status.test-helpers';
+import { storefrontComparePageStatusTestHelpers } from './storefront-compare-page-status.test-helpers';
+
+const { buildOptions, jsonResponse } = storefrontComparePageStatusTestHelpers;
 
 describe('resolveStorefrontComparePageStatus', () => {
   beforeEach(() => {

@@ -3,10 +3,9 @@ import {
   resetStorefrontComparePageStatusForTests,
   resolveStorefrontComparePageStatus,
 } from './storefront-compare-page-status';
-import {
-  buildOptions,
-  jsonResponse,
-} from './storefront-compare-page-status.test-helpers';
+import { storefrontComparePageStatusTestHelpers } from './storefront-compare-page-status.test-helpers';
+
+const { buildOptions, jsonResponse } = storefrontComparePageStatusTestHelpers;
 
 describe('compare page status breaker regressions', () => {
   beforeEach(() => {
@@ -137,5 +136,57 @@ describe('compare page status breaker regressions', () => {
       '[storefront-internal-preflight] skip',
       expect.objectContaining({ reason: 'circuit-open' })
     );
+  });
+
+  it('fails open immediately for an in-flight probe after the breaker opens', async () => {
+    let resolveHangingProbe: (response: Response) => void = () => undefined;
+    let callCount = 0;
+    const fetchImpl = vi.fn(() => {
+      callCount += 1;
+      if (callCount === 1) {
+        return new Promise<Response>((resolve) => {
+          resolveHangingProbe = resolve;
+        });
+      }
+      return Promise.reject(new Error('upstream down'));
+    });
+
+    const hangingProbe = resolveStorefrontComparePageStatus(
+      buildOptions(fetchImpl)
+    );
+    await Promise.resolve();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await resolveStorefrontComparePageStatus(
+        buildOptions(fetchImpl, {
+          comparisonSlug: `left-outage-${attempt}-vs-right-outage-${attempt}`,
+        })
+      );
+    }
+
+    const duplicateProbe = resolveStorefrontComparePageStatus(
+      buildOptions(fetchImpl)
+    );
+    let resolveSentinel: (value: { source: 'sentinel' }) => void = () =>
+      undefined;
+    const sentinel = new Promise<{ source: 'sentinel' }>((resolve) => {
+      resolveSentinel = resolve;
+    });
+    const duplicateRace = Promise.race([
+      duplicateProbe.then((result) => ({ source: 'probe', result })),
+      sentinel,
+    ]);
+    await Promise.resolve();
+    resolveSentinel({ source: 'sentinel' });
+    await expect(duplicateRace).resolves.toEqual({
+      source: 'probe',
+      result: { kind: 'renderable-or-unknown' },
+    });
+
+    resolveHangingProbe(jsonResponse({ present: true, hasError: false }));
+    await expect(hangingProbe).resolves.toEqual({
+      kind: 'renderable-or-unknown',
+    });
   });
 });

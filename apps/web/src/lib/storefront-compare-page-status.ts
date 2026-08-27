@@ -69,6 +69,16 @@ function recordComparePageStatusFailure(
   captureBreakerOpenTransition(failOpenContext);
 }
 
+function skipForComparePageStatusCircuit(
+  failOpenContext: ComparePageStatusFailOpenContext
+): StorefrontComparePageStatusResolution {
+  storefrontInternalPreflight.warnSkip({
+    ...failOpenContext,
+    reason: 'circuit-open',
+  });
+  return { kind: 'renderable-or-unknown' };
+}
+
 function isRequestValidationError(response: Response): boolean {
   return response.status === 400;
 }
@@ -81,11 +91,7 @@ async function resolveStorefrontComparePageStatusUncached(
   failOpenContext: ComparePageStatusFailOpenContext
 ): Promise<StorefrontComparePageStatusResolution> {
   if (comparePageStatusBreaker.isOpen()) {
-    storefrontInternalPreflight.warnSkip({
-      ...failOpenContext,
-      reason: 'circuit-open',
-    });
-    return { kind: 'renderable-or-unknown' };
+    return skipForComparePageStatusCircuit(failOpenContext);
   }
 
   let response: Response;
@@ -244,6 +250,13 @@ export async function resolveStorefrontComparePageStatus(
     opts.comparisonSlug
   )}`;
   const fetchImpl = opts.fetchImpl ?? fetch;
+
+  // Do not join a probe that may be hanging after another request has opened
+  // the breaker. Fail open immediately while preserving coalescing while the
+  // transport is healthy.
+  if (comparePageStatusBreaker.isOpen()) {
+    return skipForComparePageStatusCircuit(failOpenContext);
+  }
 
   const requestKey = comparePageStatusRequestKey(url, opts.secret);
   const pending = comparePageStatusInFlight.get(requestKey);
