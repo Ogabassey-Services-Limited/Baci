@@ -30,4 +30,20 @@ describe('TikTok Ads config', () => {
       'authorization URL must be HTTPS on tiktok.com'
     );
   });
+
+  it('rejects a malformed token encryption key before OAuth starts', () => {
+    vi.stubEnv('TIKTOK_ADS_APP_ID', 'app');
+    vi.stubEnv('TIKTOK_ADS_APP_SECRET', 'secret');
+    vi.stubEnv(
+      'TIKTOK_ADS_AUTHORIZATION_URL',
+      'https://business-api.tiktok.com/portal/authorize'
+    );
+    vi.stubEnv('TIKTOK_ADS_STATE_SECRET', 'a'.repeat(32));
+    vi.stubEnv('TIKTOK_ADS_STATE_ECHO_VERIFIED', 'true');
+    vi.stubEnv('TIKTOK_ADS_TOKEN_ENCRYPTION_KEY', 'not-a-key');
+
+    expect(() => getTikTokAdsConfig()).toThrow(
+      'Invalid TIKTOK_ADS_TOKEN_ENCRYPTION_KEY'
+    );
+  });
 });

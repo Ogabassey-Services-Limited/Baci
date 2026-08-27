@@ -198,6 +198,11 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260827110300_restore_snapchat_refresh_state.sql',
+    sha256: '3b12e4ae8b95685d7641dbc141d98df2ed188e2777b02de2234d43aedbae8dc6',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260826150000_restrict_ads_connection_select_to_view_permission.sql',
     sha256: 'c2b4d82902c24edb2f3d17b001c4646c9db787f92fa28ab0912a279b40f71c65',
   },

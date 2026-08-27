@@ -10,6 +10,10 @@ const refreshMigration = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260821180005_snapchat_ads_atomic_refresh_tokens.sql'
 );
+const refreshStateMigration = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827110300_restore_snapchat_refresh_state.sql'
+);
 
 describe('Snapchat Ads security migration', () => {
   it('atomically consumes OAuth nonces and deletes spend before its connection', () => {
@@ -34,6 +38,17 @@ describe('Snapchat Ads security migration', () => {
       'refresh_token_ciphertext = p_current_refresh_token_ciphertext'
     );
     expect(sql).toContain("set search_path = ''");
+    expect(sql).toContain('grant execute');
+  });
+
+  it('clears a stale reauth marker when the refresh-token CAS succeeds', () => {
+    const sql = readFileSync(refreshStateMigration, 'utf8').toLowerCase();
+    expect(sql).toContain("status = 'active'");
+    expect(sql).toContain("metadata - 'reauthrequired' - 'reauthreason'");
+    expect(sql).toContain("attribution_metadata - 'reauthrequired'");
+    expect(sql).toContain(
+      'refresh_token_ciphertext = p_current_refresh_token_ciphertext'
+    );
     expect(sql).toContain('grant execute');
   });
 });

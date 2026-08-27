@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { getCanonicalAdsCallbackUri } from '@/lib/ads/config';
+import { isValidAdsTokenEncryptionKey } from '@/lib/ads/token-encryption-key';
 import { TIKTOK_ADS_PROVIDER } from './constants';
 
 export const TIKTOK_ADS_CONFIG_MISSING =
@@ -27,6 +28,16 @@ function required(name: string, minimumLength = 1): string {
   const value = process.env[name]?.trim();
   if (!value || value.length < minimumLength)
     throw new TikTokAdsConfigError(`Missing ${name}`);
+  return value;
+}
+
+function tokenEncryptionKey(): string {
+  const value = required('TIKTOK_ADS_TOKEN_ENCRYPTION_KEY');
+  if (!isValidAdsTokenEncryptionKey(value)) {
+    throw new TikTokAdsConfigError(
+      'Invalid TIKTOK_ADS_TOKEN_ENCRYPTION_KEY: expected 32-byte hex or base64url'
+    );
+  }
   return value;
 }
 
@@ -64,6 +75,6 @@ export function getTikTokAdsConfig(): TikTokAdsConfig {
     authorizationUrl: approvedAuthorizationUrl(),
     oauthStateSecret: required('TIKTOK_ADS_STATE_SECRET', 32),
     redirectUri: getCanonicalAdsCallbackUri(TIKTOK_ADS_PROVIDER),
-    tokenEncryptionKey: required('TIKTOK_ADS_TOKEN_ENCRYPTION_KEY'),
+    tokenEncryptionKey: tokenEncryptionKey(),
   };
 }

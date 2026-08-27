@@ -1,5 +1,7 @@
 import 'server-only';
 
+import { isValidAdsTokenEncryptionKey } from '@/lib/ads/token-encryption-key';
+
 export const GOOGLE_ADS_PROVIDER = 'google_ads' as const;
 export const GOOGLE_ADS_SCOPE =
   'https://www.googleapis.com/auth/adwords' as const;
@@ -62,13 +64,23 @@ function readRedirectUri(): string {
   return value;
 }
 
+function readTokenEncryptionKey(): string {
+  const value = readRequired('GOOGLE_ADS_TOKEN_ENCRYPTION_KEY');
+  if (!isValidAdsTokenEncryptionKey(value)) {
+    throw new GoogleAdsConfigError(
+      'Invalid GOOGLE_ADS_TOKEN_ENCRYPTION_KEY: expected 32-byte hex or base64url'
+    );
+  }
+  return value;
+}
+
 export function getGoogleAdsOAuthConfig(): GoogleAdsOAuthConfig {
   return {
     clientId: readRequired('GOOGLE_ADS_OAUTH_CLIENT_ID'),
     clientSecret: readRequired('GOOGLE_ADS_OAUTH_CLIENT_SECRET'),
     oauthStateSecret: readRequired('GOOGLE_ADS_STATE_SECRET', 32),
     redirectUri: readRedirectUri(),
-    tokenEncryptionKey: readRequired('GOOGLE_ADS_TOKEN_ENCRYPTION_KEY'),
+    tokenEncryptionKey: readTokenEncryptionKey(),
   };
 }
 

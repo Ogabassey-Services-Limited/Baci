@@ -29,11 +29,26 @@ export function nested(value: SnapchatRecord, name: string): SnapchatRecord {
 }
 
 export function integer(value: unknown): string | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && Number.isInteger(value) && value >= 0
+      ? BigInt(value).toString()
+      : null;
+  }
   const stringValue = typeof value === 'string' ? value : null;
   return stringValue && INTEGER.test(stringValue) ? stringValue : null;
 }
 
 export function decimal(value: unknown): string | null {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) return null;
+    const stringValue = String(value);
+    if (/^\d+(?:\.\d+)?$/.test(stringValue)) return stringValue;
+    const expanded = value.toLocaleString('en-US', {
+      maximumFractionDigits: 20,
+      useGrouping: false,
+    });
+    return /^\d+(?:\.\d+)?$/.test(expanded) ? expanded : null;
+  }
   const stringValue = typeof value === 'string' ? value : null;
   return stringValue && /^\d+(?:\.\d+)?$/.test(stringValue)
     ? stringValue

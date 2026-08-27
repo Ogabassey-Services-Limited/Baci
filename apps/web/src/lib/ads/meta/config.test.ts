@@ -33,4 +33,16 @@ describe('Meta Ads configuration', () => {
       'https://usebaci.com/api/integrations/ads/meta/callback'
     );
   });
+
+  it('rejects a malformed token encryption key before OAuth starts', () => {
+    Object.assign(process.env, {
+      META_ADS_APP_ID: 'app',
+      META_ADS_APP_SECRET: 'secret',
+      META_ADS_STATE_SECRET: 'a'.repeat(32),
+      META_ADS_TOKEN_ENCRYPTION_KEY: 'not-a-key',
+    });
+    expect(() => getMetaAdsConfig()).toThrow(
+      'Invalid META_ADS_TOKEN_ENCRYPTION_KEY'
+    );
+  });
 });

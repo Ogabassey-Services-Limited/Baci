@@ -116,6 +116,49 @@ describe('Snapchat Ads provider', () => {
     expect(url.searchParams.get('end_time')).toBe('2026-03-09T04:00:00.000Z');
   });
 
+  it('accepts numeric daily stats returned by the Snapchat API', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          timeseries: [
+            {
+              end_time: '2026-08-21T00:00:00Z',
+              start_time: '2026-08-20T00:00:00Z',
+              stats: {
+                conversion_purchases: 2.5,
+                impressions: 120,
+                spend: 1250000,
+                swipes: 7,
+              },
+            },
+          ],
+        })
+      )
+    );
+
+    await expect(
+      fetchSnapchatAdsDailyReport(
+        {
+          accessToken: 'token',
+          accountId: 'ad-1',
+          currencyCode: 'USD',
+          endDate: '2026-08-20',
+          startDate: '2026-08-20',
+          timezoneName: 'UTC',
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual([
+      expect.objectContaining({
+        clicks: '7',
+        conversions: '2.5',
+        impressions: '120',
+        spendAmountDecimal: '1.25',
+        spendMicros: '1250000',
+      }),
+    ]);
+  });
+
   it('rejects report objects without a recognized timeseries payload', async () => {
     const fetchImpl = vi
       .fn<typeof fetch>()

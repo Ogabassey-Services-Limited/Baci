@@ -48,6 +48,13 @@ describe('Google Ads server configuration', () => {
     expect(() => getGoogleAdsOAuthConfig()).toThrow(GoogleAdsConfigError);
   });
 
+  it('rejects a malformed token encryption key before OAuth starts', () => {
+    process.env.GOOGLE_ADS_TOKEN_ENCRYPTION_KEY = 'not-a-key';
+    expect(() => getGoogleAdsOAuthConfig()).toThrow(
+      'Invalid GOOGLE_ADS_TOKEN_ENCRYPTION_KEY'
+    );
+  });
+
   it('normalizes a hyphenated login customer ID', () => {
     process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID = '123-456-7890';
     expect(getGoogleAdsReportingConfig().loginCustomerId).toBe('1234567890');
