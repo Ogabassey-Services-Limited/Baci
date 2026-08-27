@@ -149,6 +149,42 @@ describe('event pipeline credential-path authority', () => {
         'apps/web/src/lib/agentic/request-integrity.ts',
         'apps/web/src/env.ts',
       ],
+      [
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/[id]/generate-dva/route.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/[id]/generate-dva/generate-dva-test-support.ts',
+        'apps/web/src/app/api/orders/[id]/generate-dva/route.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/[id]/ship-on-credit/credit-order-dva-helpers.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/[id]/ship-on-credit/route.ts',
+        'apps/web/src/app/api/orders/[id]/ship-on-credit/credit-order-dva-helpers.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/route.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/payments/initialize/route.ts',
+        'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
+        'apps/web/src/env.ts',
+      ],
       ...eventPipelineJumiaCredentialPaths,
     ]);
   });
