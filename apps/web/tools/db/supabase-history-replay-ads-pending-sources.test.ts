@@ -37,7 +37,7 @@ describe('supabase history replay ads pending sources', () => {
       'c2b4d82902c24edb2f3d17b001c4646c9db787f92fa28ab0912a279b40f71c65 20260826150000_restrict_ads_connection_select_to_view_permission.sql'
     );
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
-      'd35b075406091766d009071449cd197c15e777f46d778f7d049c7939bf35fa21 20260827100000_google_ads_reauth_missing_refresh.sql'
+      'd35b075406091766d009071449cd197c15e777f46d778f7d049c7939bf35fa21 20260827100001_google_ads_reauth_missing_refresh.sql'
     );
   });
 });

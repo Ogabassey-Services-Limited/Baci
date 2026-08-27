@@ -16,7 +16,7 @@ const reauthClearAccountMigrationPath = path.resolve(
 );
 const reauthMissingRefreshMigrationPath = path.resolve(
   process.cwd(),
-  '../../supabase/migrations/20260827100000_google_ads_reauth_missing_refresh.sql'
+  '../../supabase/migrations/20260827100001_google_ads_reauth_missing_refresh.sql'
 );
 const spendRlsMigrationPath = path.resolve(
   process.cwd(),
