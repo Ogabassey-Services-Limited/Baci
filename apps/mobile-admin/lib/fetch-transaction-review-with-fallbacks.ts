@@ -20,6 +20,7 @@ type TransactionReviewQueryError = {
 type TransactionReviewFallbackStage =
   | 'Base'
   | 'BaseNoLineId'
+  | 'BaseNoQuizAwardId'
   | 'BaseNoVariantId'
   | 'BaseWithDiscount'
   | 'Full'
@@ -292,6 +293,17 @@ export async function fetchTransactionReviewWithFallbacks({
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.noVariantId,
+      startDateIso,
+    }));
+  }
+
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runTransactionReviewQuery('BaseNoQuizAwardId', {
+      endDateIso,
+      includeCancelledAt: false,
+      includeTransactionDate: false,
+      merchantId,
+      selectStatement: TRANSACTION_REVIEW_SELECTORS.noVariantIdNoQuizAwardId,
       startDateIso,
     }));
   }

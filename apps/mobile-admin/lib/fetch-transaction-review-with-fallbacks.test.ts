@@ -157,6 +157,35 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     ).not.toContain('variant_id');
   });
 
+  it('uses the final projection without quiz award ids when the voucher column is unavailable', async () => {
+    const rows = [{ id: 'pre-voucher-migration-order' }];
+    const quizAwardIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
+    };
+    for (let attempt = 0; attempt < 13; attempt += 1) {
+      mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+        data: null,
+        error: quizAwardIdSchemaError,
+      });
+    }
+    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+      data: rows,
+      error: null,
+    });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(14);
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[13][0].selectStatement
+    ).not.toContain('quiz_award_id');
+  });
+
   it('preserves cost relationships when adjustment columns are unavailable', async () => {
     const rows = [{ id: 'legacy-adjustment-order' }];
     const adjustmentSchemaError = {

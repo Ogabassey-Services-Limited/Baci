@@ -34,6 +34,14 @@ describe('transaction review selectors', () => {
     expect(selector).not.toContain('condition');
   });
 
+  it('keeps a final selector when quiz award ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.noVariantIdNoQuizAwardId;
+
+    expect(selector).toContain('discount_amount');
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).not.toContain('variant_id');
+  });
+
   it('keeps cost relationships when adjustment columns are unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments;
 

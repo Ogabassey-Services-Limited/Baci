@@ -2,10 +2,6 @@ import { MAX_AUTO_NEGOTIATION_DISCOUNT_RATE } from '@baci/shared';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 import type { TransactionReviewOrderRow } from './transaction-review-types';
 
-const LEGACY_TRANSACTION_DISCOUNT_CUTOFF = Date.parse(
-  '2026-08-27T00:00:00.000Z'
-);
-
 function hasPersistedTransactionDiscountMetadata(adTracking: unknown) {
   return (
     typeof adTracking === 'object' &&
@@ -16,8 +12,11 @@ function hasPersistedTransactionDiscountMetadata(adTracking: unknown) {
 }
 
 /**
- * Recognizes only the old, capped auto-negotiation shape. Manual discounts
- * remain on the ordinary path because their source and amount are ambiguous.
+ * Recognizes the capped auto-negotiation shape when older rows lack the
+ * server-authored marker. The marker is the reliable rollout boundary; a
+ * wall-clock cutoff would misclassify orders created while app and database
+ * deployments are rolling out. Discount-code and non-storefront sources stay
+ * on the ordinary path because their discount provenance is different.
  */
 export function isLegacyVatInclusiveNegotiationDiscount(
   order: TransactionReviewOrderRow,
@@ -27,14 +26,6 @@ export function isLegacyVatInclusiveNegotiationDiscount(
     hasPersistedTransactionDiscountMetadata(order.ad_tracking) ||
     order.discount_code_id != null ||
     !['online_store', 'mobile_app'].includes(order.source?.toLowerCase() ?? '')
-  ) {
-    return false;
-  }
-
-  const createdAt = Date.parse(order.created_at);
-  if (
-    !Number.isFinite(createdAt) ||
-    createdAt >= LEGACY_TRANSACTION_DISCOUNT_CUTOFF
   ) {
     return false;
   }

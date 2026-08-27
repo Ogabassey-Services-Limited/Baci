@@ -49,12 +49,12 @@ describe('legacy transaction discount detection', () => {
     ).toBe(false);
   });
 
-  it('does not classify orders after the metadata rollout as legacy', () => {
+  it('recognizes a no-marker negotiation after the former date cutoff', () => {
     expect(
       isLegacyVatInclusiveNegotiationDiscount(
-        { ...baseOrder, created_at: '2026-08-27T00:00:00.000Z' },
+        { ...baseOrder, created_at: '2026-08-28T23:00:00.000Z' },
         baseOrder.order_items ?? []
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 });

@@ -35,4 +35,6 @@ export const TRANSACTION_REVIEW_SELECTORS = {
     'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, external_source, fulfillment_details, order_items(id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   noVariantId:
     'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, external_source, fulfillment_details, order_items(id, product_id, quiz_award_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
+  noVariantIdNoQuizAwardId:
+    'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, external_source, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
 } as const;
