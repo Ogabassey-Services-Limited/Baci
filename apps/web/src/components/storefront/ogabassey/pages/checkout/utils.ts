@@ -7,16 +7,14 @@ import type {
   DeliveryMethod,
   ShippingQuote,
 } from './types';
-import {
-  isGiglGoFasterQuote,
-  isStationPickupQuote,
-} from './calculate-delivery-cost';
+import { isGiglGoFasterQuote } from './is-gigl-go-faster-quote';
+import { isStationPickupQuote } from './is-station-pickup-quote';
 
 export {
   calculateDeliveryCost,
-  isGiglGoFasterQuote,
-  isStationPickupQuote,
 } from './calculate-delivery-cost';
+export { isGiglGoFasterQuote } from './is-gigl-go-faster-quote';
+export { isStationPickupQuote } from './is-station-pickup-quote';
 
 /** Date range string for door delivery (tomorrow to +3 days). */
 export function getDeliveryDateRange(): string {

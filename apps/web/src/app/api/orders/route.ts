@@ -20,6 +20,7 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
+import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -1091,6 +1092,8 @@ export async function POST(request: NextRequest) {
       shipping_address,
       source,
       notes,
+      delivery_method,
+      airport_type,
       // Ad tracking data for offline conversions
       ad_tracking,
       // Wallet redemption
@@ -1599,6 +1602,32 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: 'Invalid pricing values' },
+        { status: 400 }
+      );
+    }
+
+    const localAirportShippingFee = getLocalAirportDeliveryFee({
+      airportType: airport_type,
+      deliveryMethod: delivery_method,
+      selectedQuoteId: body.selected_quote_id,
+      shippingAddress: shipping_address,
+      shippingRateId: body.shipping_rate_id,
+    });
+    if (
+      localAirportShippingFee !== null &&
+      Math.abs(shippingFeeValue - localAirportShippingFee) > 0.01
+    ) {
+      logger.warn({
+        message:
+          'Storefront order rejected: local airport shipping fee mismatch',
+        clientShippingFee: shippingFeeValue,
+        serverShippingFee: localAirportShippingFee,
+      });
+      return NextResponse.json(
+        {
+          error: 'Shipping fee does not match the local airport delivery fee',
+          code: 'SHIPPING_FEE_MISMATCH',
+        },
         { status: 400 }
       );
     }
@@ -2286,10 +2315,15 @@ export async function POST(request: NextRequest) {
     // The SERVER-verified amount wins for merchant-rate orders (it differs
     // from the client value by ≤ 0.01 — anything larger was rejected above,
     // so the RPC's ±1 expected_total parity guard still passes). The
+    // delivery metadata above is request-only validation context: the current
+    // create_storefront_order RPC has no delivery_method/airport_type
+    // parameters, so it must not be forwarded as an unknown RPC argument.
     // idempotency hash below intentionally keeps the CLIENT value so retries
     // of the same request hash identically.
     const effectiveShippingFee =
-      verifiedMerchantShippingRate?.amount ?? shippingFeeValue;
+      verifiedMerchantShippingRate?.amount ??
+      localAirportShippingFee ??
+      shippingFeeValue;
 
     const checkoutRequestHash = requestIdempotencyKey
       ? hashOrderIdempotencyPayload(

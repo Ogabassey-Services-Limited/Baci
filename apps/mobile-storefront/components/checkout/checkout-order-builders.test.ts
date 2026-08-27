@@ -295,6 +295,8 @@ describe('checkout order builders', () => {
 
     expect(request.selected_quote_id).toBe('gofaster-quote');
     expect(request.shipping_provider).toBe('GIGL');
+    expect(request.delivery_method).toBe('airport');
+    expect(request.airport_type).toBeUndefined();
   });
 
   it('uses the merchant pickup address when no provider station quote is selected', () => {

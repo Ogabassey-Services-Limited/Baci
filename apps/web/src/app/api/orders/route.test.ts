@@ -7096,6 +7096,57 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
     );
   });
 
+  it('rejects a stale local airport fee before the order RPC runs', async () => {
+    // Arrange — an older checkout client still submits the previous airport
+    // delivery fee even though the server-owned fee is now 35,000.
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          delivery_method: 'airport',
+          airport_type: 'delivery',
+          shipping_fee: 25_000,
+        }),
+      })
+    );
+
+    // Assert — fail closed instead of creating an undercharged order.
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'SHIPPING_FEE_MISMATCH',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
+  it('passes the server-owned fee for a valid local airport order', async () => {
+    const supabase = await primeStorefrontClient();
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          delivery_method: 'airport',
+          airport_type: 'delivery',
+          shipping_fee: 35_000,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 35_000 })
+    );
+  });
+
   it('replays the original order on an idempotent retry without re-verifying a since-changed merchant rate', async () => {
     // Arrange — the first attempt already created the order; the merchant then
     // deleted/repriced the selected rate, so the rates RPC now returns an

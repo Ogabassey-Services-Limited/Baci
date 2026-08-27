@@ -1,7 +1,19 @@
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import { Plane } from 'lucide-react';
 import { AUTO_FRACTION_OPTIONS } from '@/lib/currency';
 import { formatAmountInCurrency } from '@/lib/resolve-merchant-currency';
 import type { ShippingQuote } from '../types';
+
+const AIRPORT_DELIVERY_PRICE_LABEL = formatAmountInCurrency(
+  AIRPORT_DELIVERY_FEES.delivery,
+  'NGN',
+  AUTO_FRACTION_OPTIONS,
+);
+const AIRPORT_PICKUP_PRICE_LABEL = formatAmountInCurrency(
+  AIRPORT_DELIVERY_FEES.pickup,
+  'NGN',
+  AUTO_FRACTION_OPTIONS,
+);
 
 type AirportType = 'delivery' | 'pickup';
 
@@ -74,7 +86,9 @@ export function AirportDeliveryOptions({
               Delivery to your doorstep
             </p>
           </div>
-          <span className="font-bold text-store-background-text">₦35,000</span>
+          <span className="font-bold text-store-background-text">
+            {AIRPORT_DELIVERY_PRICE_LABEL}
+          </span>
         </label>
         <label
           className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${
@@ -110,7 +124,9 @@ export function AirportDeliveryOptions({
               Collect at the airport
             </p>
           </div>
-          <span className="font-bold text-store-background-text">₦20,000</span>
+          <span className="font-bold text-store-background-text">
+            {AIRPORT_PICKUP_PRICE_LABEL}
+          </span>
         </label>
       </div>
       {airDeliveryQuotes.map((quote) => (

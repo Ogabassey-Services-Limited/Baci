@@ -2200,6 +2200,11 @@ export const CheckoutPage: React.FC = () => {
             shipping_status: 'pending',
             shipping_address: shippingAddressData,
             source: 'online_store',
+            delivery_method: deliveryMethod,
+            ...(deliveryMethod === 'airport' &&
+            !selectedQuoteMatchesDeliveryMethod
+              ? { airport_type: airportType }
+              : {}),
             shipping_provider: shippingProvider,
             // Merchant-rate orders: send the bare rate id and force the null
             // shipping_provider/selected_quote_id path (there is no persisted

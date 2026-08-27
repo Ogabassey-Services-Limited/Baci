@@ -1,20 +1,7 @@
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import type { DeliveryMethod, ShippingQuote } from './types';
-
-const AIRPORT_DELIVERY_FEE = 35_000;
-const AIRPORT_PICKUP_FEE = 20_000;
-
-export function isStationPickupQuote(quote: ShippingQuote): boolean {
-  return quote.isStationPickup === true;
-}
-
-export function isGiglGoFasterQuote(quote: ShippingQuote | undefined): boolean {
-  return (
-    quote !== undefined &&
-    !isStationPickupQuote(quote) &&
-    quote.provider.toUpperCase() === 'GIGL' &&
-    quote.serviceTier.toLowerCase().includes('gofaster')
-  );
-}
+import { isGiglGoFasterQuote } from './is-gigl-go-faster-quote';
+import { isStationPickupQuote } from './is-station-pickup-quote';
 
 /** Calculate the delivery cost based on the selected method and quote. */
 export function calculateDeliveryCost(
@@ -49,5 +36,5 @@ export function calculateDeliveryCost(
   if (selectedAirQuote && isGiglGoFasterQuote(selectedAirQuote)) {
     return selectedAirQuote.price;
   }
-  return airportType === 'delivery' ? AIRPORT_DELIVERY_FEE : AIRPORT_PICKUP_FEE;
+  return AIRPORT_DELIVERY_FEES[airportType];
 }

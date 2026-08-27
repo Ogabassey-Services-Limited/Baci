@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import {
-  calculateDeliveryCost,
-  isGiglGoFasterQuote,
-  isStationPickupQuote,
-} from './calculate-delivery-cost';
+import { calculateDeliveryCost } from './calculate-delivery-cost';
+import { isGiglGoFasterQuote } from './is-gigl-go-faster-quote';
+import { isStationPickupQuote } from './is-station-pickup-quote';
 import type { ShippingQuote } from './types';
 
 const roadQuote: ShippingQuote = {
   id: 'road-quote',
-  provider: 'Topship',
+  provider: 'TOPSHIP',
   serviceTier: 'standard',
   carrierName: 'Topship',
   displayName: 'Topship Standard',
@@ -38,13 +36,13 @@ describe('calculateDeliveryCost', () => {
 
   it('uses a selected GIGL GoFaster quote for airport delivery', () => {
     expect(
-      calculateDeliveryCost('airport', 'air-quote', [airQuote], 'delivery'),
+      calculateDeliveryCost('airport', 'air-quote', [airQuote], 'delivery')
     ).toBe(18500);
   });
 
   it('returns the selected road quote price', () => {
     expect(
-      calculateDeliveryCost('door', 'road-quote', [roadQuote], 'delivery'),
+      calculateDeliveryCost('door', 'road-quote', [roadQuote], 'delivery')
     ).toBe(3500);
   });
 });
@@ -52,7 +50,7 @@ describe('calculateDeliveryCost', () => {
 describe('delivery quote predicates', () => {
   it('identifies station and GoFaster quotes', () => {
     expect(isStationPickupQuote({ ...roadQuote, isStationPickup: true })).toBe(
-      true,
+      true
     );
     expect(isGiglGoFasterQuote(airQuote)).toBe(true);
     expect(isGiglGoFasterQuote(roadQuote)).toBe(false);
