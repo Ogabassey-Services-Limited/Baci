@@ -116,6 +116,25 @@ describe('blog post social image projection', () => {
     }
   });
 
+  it('publishes immutable uploaded landscape variants as explicit native WebP', () => {
+    expect(
+      getBlogPostSocialImage(
+        STORE_URL,
+        POST_SLUG,
+        'https://cdn.ogabassey.com/media/merchant-1/blog/upload/cover.webp',
+        {
+          landscape_16x9:
+            'https://cdn.ogabassey.com/media/merchant-1/blog/upload/landscape_16x9.webp',
+        }
+      )
+    ).toEqual({
+      url: 'https://cdn.ogabassey.com/media/merchant-1/blog/upload/landscape_16x9.webp',
+      width: 1200,
+      height: 675,
+      type: 'image/webp',
+    });
+  });
+
   it('keeps PNG MIME for managed PNG URLs with query strings and hashes', () => {
     expect(
       getBlogPostSocialImage(

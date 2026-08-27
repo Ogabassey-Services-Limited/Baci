@@ -129,9 +129,9 @@ function getTransformedDimensions(dimensions?: {
 }
 
 /**
- * Projects cached blog-post media into direct social metadata. Managed
- * OgaBassey assets are pinned to the fixed, browser-safe CDN fallback format;
- * all other absolute HTTP(S) assets remain direct URLs.
+ * Projects cached blog-post media into direct social metadata. Transformable
+ * OgaBassey assets are pinned to JPEG/PNG; immutable uploaded variants under
+ * /media keep their explicit native format. Other HTTP(S) assets remain direct.
  */
 export function getBlogPostSocialImage(
   storeUrl: string,
