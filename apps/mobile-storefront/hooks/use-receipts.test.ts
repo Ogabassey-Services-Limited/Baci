@@ -199,6 +199,22 @@ describe('receiptDetailQueryOptions', () => {
     );
   });
 
+  it('fails closed when a paid receipt transaction lookup fails', async () => {
+    const error = new Error('customer transaction lookup failed');
+    mockOrderSingle.mockResolvedValueOnce({
+      data: { payment_status: 'paid' },
+      error: null,
+    });
+    mockTransactionsRpc.mockResolvedValueOnce({ data: null, error });
+
+    await expect(
+      receiptDetailQueryOptions('order-1', {
+        merchantId: 'merchant-1',
+        userId: 'user-1',
+      }).queryFn()
+    ).rejects.toBe(error);
+  });
+
   it('requires both user and merchant scope for receipt detail queries', async () => {
     await expect(
       receiptDetailQueryOptions('order-1', {

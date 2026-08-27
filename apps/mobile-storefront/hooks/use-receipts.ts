@@ -14,6 +14,7 @@ import type {
   ReceiptDetail,
   ReceiptListItem,
 } from '@/types/receipt';
+import { mapCustomerTransactionRpcRows } from './receipt-transaction-mappers';
 import { resolveReceiptPaymentAccount } from './resolve-receipt-payment-account';
 
 const log = createLogger('Receipts');
@@ -23,16 +24,6 @@ const MERCHANT_SLUG = CONFIG.MERCHANT_SLUG || 'ogabassey';
 interface ReceiptDetailScope {
   merchantId: string | null;
   userId: string | null;
-}
-
-interface CustomerTransactionRpcRow {
-  amount: number | string | null;
-  created_at: string;
-  description: string | null;
-  dva_account_number: string | null;
-  gateway: string | null;
-  status: string | null;
-  transaction_type: string | null;
 }
 
 function resolveReceiptMerchantId(merchantId?: string | null) {
@@ -191,21 +182,14 @@ async function fetchReceiptDetail(
       }),
     { maxRetries: 2 }
   );
-  if (txError) log.warn('Failed to fetch transactions:', txError.message);
+  if (txError) {
+    log.warn('Failed to fetch transactions:', txError.message);
+    if (order.payment_status?.trim().toLowerCase() === 'paid') {
+      throw txError;
+    }
+  }
 
-  const transactions = (
-    (transactionRows as CustomerTransactionRpcRow[] | null) ?? []
-  ).map((transaction: CustomerTransactionRpcRow) => ({
-    amount: transaction.amount,
-    created_at: transaction.created_at,
-    description: transaction.description,
-    gateway: transaction.gateway,
-    metadata: transaction.dva_account_number
-      ? { dva_account_number: transaction.dva_account_number }
-      : null,
-    status: transaction.status,
-    transaction_type: transaction.transaction_type,
-  }));
+  const transactions = mapCustomerTransactionRpcRows(transactionRows);
 
   const detail = {
     ...order,
