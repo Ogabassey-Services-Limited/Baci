@@ -57,9 +57,7 @@ describe('checkout-step-helpers', () => {
   it('resolves delivery fees by method', () => {
     expect(getDeliveryMethodFee('airport', baseQuote)).toBe(35_000);
     expect(getDeliveryMethodFee('airport', goFasterQuote)).toBe(18500);
-    expect(getDeliveryMethodFee('airport', stationGoFasterQuote)).toBe(
-      35_000
-    );
+    expect(getDeliveryMethodFee('airport', stationGoFasterQuote)).toBe(35_000);
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
     expect(getDeliveryMethodFee('pickup_station', stationPickupQuote)).toBe(
       9493
