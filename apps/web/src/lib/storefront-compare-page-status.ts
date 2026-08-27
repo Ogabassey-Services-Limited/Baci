@@ -3,9 +3,20 @@ import { parseCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { internalComparePageStatusBodySchema } from '@/schemas/internal-slug-set-route';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
+import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-circuit-breaker';
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 const MAX_COMPARE_STATUS_COMPOSITE_LENGTH = 1_024;
+// Compare status is an optional hard-404 optimization. Bound concurrent
+// self-fetches so a crawler burst cannot turn the slow internal route into an
+// unbounded fan-out; admitted callers still retain the existing fail-open
+// timeout and circuit-breaker semantics.
+const MAX_COMPARE_PAGE_STATUS_IN_FLIGHT = 8;
+const comparePageStatusBreaker = createStorefrontPreflightCircuitBreaker();
+const comparePageStatusInFlight = new Map<
+  string,
+  Promise<StorefrontComparePageStatusResolution>
+>();
 
 interface ComparePageStatusOptions {
   /** Public request origin; the transport resolves a trusted platform target. */
@@ -27,6 +38,114 @@ interface ComparePageStatusOptions {
 export type StorefrontComparePageStatusResolution =
   | { kind: 'missing' }
   | { kind: 'renderable-or-unknown' };
+
+type ComparePageStatusFailOpenContext = {
+  surface: 'compare-page-status';
+  identifier: string;
+  slug: string;
+};
+
+function comparePageStatusRequestKey(url: string, secret: string): string {
+  // Keep the credential in the in-memory key so a rotated secret cannot share
+  // a pending response with the previous credential. The key is never logged.
+  return `${url}\u0000${secret}`;
+}
+
+function captureBreakerOpenTransition(
+  failOpenContext: ComparePageStatusFailOpenContext
+): void {
+  if (comparePageStatusBreaker.consumeOpenTransition()) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'circuit-open',
+    });
+  }
+}
+
+function recordComparePageStatusFailure(
+  failOpenContext: ComparePageStatusFailOpenContext
+): void {
+  comparePageStatusBreaker.recordFailure();
+  captureBreakerOpenTransition(failOpenContext);
+}
+
+async function resolveStorefrontComparePageStatusUncached(
+  opts: ComparePageStatusOptions,
+  secret: string,
+  url: string,
+  fetchImpl: typeof fetch,
+  failOpenContext: ComparePageStatusFailOpenContext
+): Promise<StorefrontComparePageStatusResolution> {
+  if (comparePageStatusBreaker.isOpen()) {
+    storefrontInternalPreflight.warnSkip({
+      ...failOpenContext,
+      reason: 'circuit-open',
+    });
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImpl(url, {
+      headers: { [INTERNAL_AUTH_HEADER]: secret },
+      redirect: 'manual',
+      signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
+    });
+  } catch (error) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: storefrontInternalPreflight.getFetchErrorReason(error),
+    });
+    recordComparePageStatusFailure(failOpenContext);
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  const body = await storefrontInternalPreflight.readJsonResponse(
+    response,
+    failOpenContext
+  );
+  if (body === null) {
+    recordComparePageStatusFailure(failOpenContext);
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  const parsedBody = internalComparePageStatusBodySchema.safeParse(body);
+  if (!parsedBody.success) {
+    recordComparePageStatusFailure(failOpenContext);
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'parse',
+    });
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  if (parsedBody.data.hasError) {
+    recordComparePageStatusFailure(failOpenContext);
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'has-error',
+    });
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  if (parsedBody.data.present) {
+    comparePageStatusBreaker.recordSuccess();
+    return { kind: 'renderable-or-unknown' };
+  }
+
+  comparePageStatusBreaker.recordSuccess();
+  return { kind: 'missing' };
+}
+
+function skipForComparePageStatusConcurrency(
+  failOpenContext: ComparePageStatusFailOpenContext
+): StorefrontComparePageStatusResolution {
+  storefrontInternalPreflight.warnSkip({
+    ...failOpenContext,
+    reason: 'concurrency-limit',
+  });
+  return { kind: 'renderable-or-unknown' };
+}
 
 /**
  * Resolve a compare-pair hard-status verdict before PPR can flush the page.
@@ -110,47 +229,34 @@ export async function resolveStorefrontComparePageStatus(
   )}`;
   const fetchImpl = opts.fetchImpl ?? fetch;
 
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      headers: { [INTERNAL_AUTH_HEADER]: opts.secret },
-      redirect: 'manual',
-      signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
-    });
-  } catch (error) {
-    storefrontInternalPreflight.warnFailOpen({
-      ...failOpenContext,
-      reason: storefrontInternalPreflight.getFetchErrorReason(error),
-    });
-    return { kind: 'renderable-or-unknown' };
+  const requestKey = comparePageStatusRequestKey(url, opts.secret);
+  const pending = comparePageStatusInFlight.get(requestKey);
+  if (pending) {
+    return await pending;
+  }
+  if (comparePageStatusInFlight.size >= MAX_COMPARE_PAGE_STATUS_IN_FLIGHT) {
+    return skipForComparePageStatusConcurrency(failOpenContext);
   }
 
-  const body = await storefrontInternalPreflight.readJsonResponse(
-    response,
+  const next = resolveStorefrontComparePageStatusUncached(
+    opts,
+    opts.secret,
+    url,
+    fetchImpl,
     failOpenContext
   );
-  if (body === null) {
-    return { kind: 'renderable-or-unknown' };
-  }
-
-  const parsedBody = internalComparePageStatusBodySchema.safeParse(body);
-  if (!parsedBody.success) {
-    storefrontInternalPreflight.warnFailOpen({
-      ...failOpenContext,
-      reason: 'parse',
-    });
-    return { kind: 'renderable-or-unknown' };
-  }
-
-  if (parsedBody.data.hasError || parsedBody.data.present) {
-    if (parsedBody.data.hasError) {
-      storefrontInternalPreflight.warnFailOpen({
-        ...failOpenContext,
-        reason: 'has-error',
-      });
+  comparePageStatusInFlight.set(requestKey, next);
+  try {
+    return await next;
+  } finally {
+    if (comparePageStatusInFlight.get(requestKey) === next) {
+      comparePageStatusInFlight.delete(requestKey);
     }
-    return { kind: 'renderable-or-unknown' };
   }
+}
 
-  return { kind: 'missing' };
+/** Test hook: clears the per-instance storm guards between isolated cases. */
+export function resetStorefrontComparePageStatusForTests(): void {
+  comparePageStatusInFlight.clear();
+  comparePageStatusBreaker.reset();
 }
