@@ -27,7 +27,12 @@ export async function fetchBaseAnalytics({
       signal,
     });
     if (!signal.aborted) {
-      setBaseAnalytics(response.ok ? await response.json() : null);
+      if (response.ok) {
+        const analytics = await response.json();
+        if (!signal.aborted) setBaseAnalytics(analytics);
+      } else {
+        setBaseAnalytics(null);
+      }
     }
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return;

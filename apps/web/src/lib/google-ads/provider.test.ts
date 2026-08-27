@@ -28,7 +28,22 @@ describe('Google Ads provider client', () => {
                     'customers/not-an-id',
                   ],
                 }
-              : []
+              : {
+                  error: {
+                    details: [
+                      {
+                        errors: [
+                          {
+                            errorCode: {
+                              customerNotManager: 'CUSTOMER_NOT_MANAGER',
+                            },
+                            message: 'The customer is not a manager account.',
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                }
           ),
           { status: isAccessibleCustomersRequest ? 200 : 400 }
         );

@@ -27,4 +27,37 @@ describe('fetchBaseAnalytics', () => {
     expect(setBaseAnalytics).toHaveBeenCalledWith({ summary: {} });
     expect(setLoadingAnalytics).toHaveBeenLastCalledWith(false);
   });
+
+  it('does not update analytics when cancellation occurs during response parsing', async () => {
+    const setBaseAnalytics = vi.fn();
+    const setLoadingAnalytics = vi.fn();
+    const controller = new AbortController();
+    let resolveJson: (value: { summary: Record<string, never> }) => void =
+      () => {};
+    const jsonPromise = new Promise<{ summary: Record<string, never> }>(
+      (resolve) => {
+        resolveJson = resolve;
+      }
+    );
+    const response = new Response();
+    vi.spyOn(response, 'json').mockReturnValue(jsonPromise);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(response);
+
+    const request = fetchBaseAnalytics({
+      from: new Date('2026-08-01T00:00:00.000Z'),
+      merchantId: 'merchant-2',
+      setBaseAnalytics,
+      setLoadingAnalytics,
+      signal: controller.signal,
+      to: new Date('2026-08-02T00:00:00.000Z'),
+    });
+
+    await Promise.resolve();
+    controller.abort();
+    resolveJson({ summary: {} });
+    await request;
+
+    expect(setBaseAnalytics).not.toHaveBeenCalled();
+    expect(setLoadingAnalytics).not.toHaveBeenLastCalledWith(false);
+  });
 });

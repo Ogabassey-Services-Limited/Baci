@@ -49,6 +49,58 @@ type AccountDiscoveryInput = {
   headers: Record<string, string>;
 };
 
+const GOOGLE_ADS_NON_MANAGER_ERROR_CODES = new Set([
+  'CUSTOMER_NOT_A_MANAGER',
+  'CUSTOMER_NOT_MANAGER',
+  'CUSTOMER_NOT_MANAGER_ACCOUNT',
+  'NON_MANAGER_CUSTOMER',
+  'NOT_A_MANAGER',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+function hasNonManagerError(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasNonManagerError);
+  if (!isRecord(value)) return false;
+
+  const errorCode = value.errorCode ?? value.error_code;
+  if (isRecord(errorCode)) {
+    for (const code of Object.values(errorCode)) {
+      if (
+        typeof code === 'string' &&
+        GOOGLE_ADS_NON_MANAGER_ERROR_CODES.has(code)
+      ) {
+        return true;
+      }
+    }
+  }
+
+  const message = value.message;
+  if (
+    typeof message === 'string' &&
+    /\bcustomer\b[^.\n]{0,80}\b(?:is|was|isn't|is not)\b[^.\n]{0,40}\b(?:a )?manager(?: account)?\b/i.test(
+      message
+    )
+  ) {
+    return true;
+  }
+
+  return Object.values(value).some(hasNonManagerError);
+}
+
+async function isConfirmedNonManagerResponse(
+  response: Response
+): Promise<boolean> {
+  try {
+    const payload: unknown = await response.json();
+    return hasNonManagerError(payload);
+  } catch {
+    return false;
+  }
+}
+
 function parseGoogleAdsCustomerId(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const customerId = value.replace(/^customers\//, '');
@@ -70,9 +122,14 @@ async function listGoogleAdsManagerClients(
       method: 'POST',
     }
   );
-  // A normal, non-manager customer rejects the customer_client query. It is
-  // still a valid directly accessible account, so there are no descendants.
-  if (response.status === 400 || response.status === 404) {
+  // A normal, non-manager customer rejects the customer_client query with a
+  // provider error that identifies the account as non-manager. Only that
+  // explicit signal is safe to treat as a leaf; malformed, inaccessible, or
+  // otherwise unexpected 4xx responses must remain discovery failures.
+  if (
+    (response.status === 400 || response.status === 404) &&
+    (await isConfirmedNonManagerResponse(response))
+  ) {
     return { clients: [], isManager: false };
   }
   if (!response.ok) {
