@@ -194,4 +194,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260827010000_guard_paystack_alias_updates.sql',
     sha256: '5f2ae99fbe969345fd2a4cf33dacb79fb63238ab83460e1de29d536922a8e626',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827020000_exclude_updated_paystack_alias_rows.sql',
+    sha256: '8804add87d828e1701643b4d1c5af0df6f07e79db8b42583b0ae0ed87f30d0d8',
+  },
 ];

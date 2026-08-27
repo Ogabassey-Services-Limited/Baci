@@ -93,6 +93,13 @@ const aliasUpdateMigration = readFileSync(
   ),
   'utf8'
 );
+const aliasUpdateRepairMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827020000_exclude_updated_paystack_alias_rows.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -280,5 +287,15 @@ describe('order payment account mutation RPC migration', () => {
     expect(aliasUpdateMigration).toContain(
       'z_reject_cross_order_paystack_dva_alias'
     );
+  });
+
+  it('excludes the current row from alias conflicts during lifecycle updates', () => {
+    expect(aliasUpdateRepairMigration).toContain("IF TG_OP = 'UPDATE' THEN");
+    expect(aliasUpdateRepairMigration).toContain('v_current_id := OLD.id;');
+    expect(
+      aliasUpdateRepairMigration.match(
+        /account\.id IS DISTINCT FROM v_current_id/g
+      )
+    ).toHaveLength(2);
   });
 });

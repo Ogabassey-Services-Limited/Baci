@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260827010000_guard_paystack_alias_updates.sql'
+      'supabase/migrations/20260827020000_exclude_updated_paystack_alias_rows.sql'
     );
   });
 
