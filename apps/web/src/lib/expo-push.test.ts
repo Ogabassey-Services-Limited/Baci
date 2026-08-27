@@ -54,6 +54,12 @@ function createChainableMock(
   return chain;
 }
 
+function createPreferenceClient(result: { data: unknown; error: unknown }) {
+  return {
+    rpc: vi.fn().mockResolvedValue(result),
+  };
+}
+
 vi.mock('@/env', () => ({
   getExpoAccessToken: () => 'test-expo-token',
 }));
@@ -883,7 +889,13 @@ describe('notifyNewInvoice', () => {
       'order-1',
       'ORD001',
       'John Doe',
-      15000
+      15000,
+      {
+        preferenceClient: createPreferenceClient({
+          data: true,
+          error: null,
+        }) as never,
+      }
     );
 
     const sentMessages = mockChunkPushNotifications.mock
@@ -903,9 +915,13 @@ describe('notifyNewInvoice', () => {
   });
 
   it('does not send a follow-up alert when the merchant has disabled it', async () => {
-    const preferenceChain = createChainableMock({
-      follow_up_notifications_enabled: false,
+    const preferenceClient = createPreferenceClient({
+      data: false,
+      error: null,
     });
+    const preferenceChain = createChainableMock([
+      { token: 'ExponentPushToken[m1]' },
+    ]);
     vi.mocked(createAdminClient).mockReturnValue({
       from: vi.fn().mockReturnValue(preferenceChain),
     } as never);
@@ -915,12 +931,14 @@ describe('notifyNewInvoice', () => {
       'order-1',
       'ORD001',
       'John Doe',
-      15000
+      15000,
+      { preferenceClient: preferenceClient as never }
     );
 
     expect(result).toEqual({ sent: 0, failed: 0, errors: [] });
-    expect(preferenceChain.select).toHaveBeenCalledWith(
-      'follow_up_notifications_enabled'
+    expect(preferenceClient.rpc).toHaveBeenCalledWith(
+      'get_follow_up_notification_preference',
+      { p_merchant_id: 'merchant-1' }
     );
     expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });

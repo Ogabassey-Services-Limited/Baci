@@ -5765,7 +5765,10 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       'ORD-123',
       'Test Customer',
       1000,
-      'NGN'
+      {
+        currency: 'NGN',
+        preferenceClient: supabase,
+      }
     );
     expect(mockNotifyNewOrder).not.toHaveBeenCalled();
     expect(orderItemsOrder).toHaveBeenCalledTimes(2);
@@ -6467,6 +6470,96 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       }),
       expect.any(Object),
       expect.any(Object)
+    );
+  });
+
+  it('does not send a payment-collection alert for an invoice fully paid by wallet credit', async () => {
+    const supabase = buildMockSupabase({
+      redeem_wallet_for_order: {
+        data: [
+          {
+            success: true,
+            redeemed_amount: 1000,
+            new_balance: 0,
+            transaction_id: 'wallet-tx-full',
+          },
+        ],
+        error: null,
+      },
+    });
+    const { backgroundSupabase } = createBackgroundSupabaseMock();
+    mockCreateAdminClient.mockReturnValue(backgroundSupabase);
+
+    supabase.from = vi.fn((_table: string) => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: MERCHANT_ID,
+          business_name: 'Test Merchant',
+          country: 'NG',
+          slug: 'test-merchant',
+          support_email: 'support@example.com',
+          email_sender_name: 'Test Store',
+          email: 'merchant@example.com',
+          vat_registration_status: 'registered',
+          vat_rate: 7.5,
+        },
+        error: null,
+      }),
+      in: vi.fn().mockReturnThis(),
+      returns: vi.fn().mockResolvedValue({ data: [], error: null }),
+      overrideTypes: vi.fn().mockResolvedValue({ data: [], error: null }),
+      insert: vi.fn().mockResolvedValue({ error: null }),
+      update: vi.fn().mockReturnThis(),
+      // biome-ignore lint/suspicious/noThenProperty: simulated thenable mock
+      then: (resolve: any) => Promise.resolve().then(resolve),
+    })) as any;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          payment_method: 'invoice',
+          use_wallet_credit: true,
+          wallet_amount: 1000,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(mockNotifyNewInvoice).not.toHaveBeenCalled();
+    expect(mockNotifyPaymentReceived).toHaveBeenCalledWith(
+      MERCHANT_ID,
+      1000,
+      'NGN',
+      'ORD-123',
+      'order-id'
     );
   });
 });

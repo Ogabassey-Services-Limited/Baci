@@ -17577,6 +17577,10 @@ export type Database = {
           total_sent: number;
         }[];
       };
+      get_follow_up_notification_preference: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
       get_scheduled_notification_recipient_page_v1: {
         Args: {
           p_after_merchant_id?: string;

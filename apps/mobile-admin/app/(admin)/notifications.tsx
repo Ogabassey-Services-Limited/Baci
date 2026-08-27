@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FollowUpAlertsSetting } from '@/components/notifications/FollowUpAlertsSetting';
 import { styles } from '@/components/notifications/notifications.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useAuth } from '@/hooks/useAuth';
@@ -91,7 +92,6 @@ export default function NotificationsScreen() {
 
       const { error } = await supabase.from('notification_preferences').upsert({
         merchant_id: merchant.id,
-        ...preferences,
         ...updates,
         updated_at: new Date().toISOString(),
       });
@@ -270,39 +270,15 @@ export default function NotificationsScreen() {
                 style={[styles.divider, { backgroundColor: colors.border }]}
               />
 
-              <View style={styles.settingRow}>
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: colors.text }]}>
-                    Follow-up Alerts
-                  </Text>
-                  <Text
-                    style={[
-                      styles.settingDesc,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    Alert me when a customer creates an invoice that needs
-                    follow-up
-                  </Text>
-                </View>
-                <Switch
-                  value={preferences?.follow_up_notifications_enabled ?? true}
-                  onValueChange={(value) =>
-                    updatePreferencesMutation.mutate({
-                      follow_up_notifications_enabled: value,
-                    })
-                  }
-                  trackColor={{
-                    false: colors.border,
-                    true: `${colors.primary}50`,
-                  }}
-                  thumbColor={
-                    (preferences?.follow_up_notifications_enabled ?? true)
-                      ? colors.card
-                      : colors.textMuted
-                  }
-                />
-              </View>
+              <FollowUpAlertsSetting
+                colors={colors}
+                enabled={preferences?.follow_up_notifications_enabled ?? true}
+                onValueChange={(value) =>
+                  updatePreferencesMutation.mutate({
+                    follow_up_notifications_enabled: value,
+                  })
+                }
+              />
             </View>
           </View>
 

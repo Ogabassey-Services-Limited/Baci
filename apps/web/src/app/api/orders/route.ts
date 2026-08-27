@@ -3598,17 +3598,35 @@ export async function POST(request: NextRequest) {
 
         try {
           const isInvoiceCreation = effectivePaymentMethod === 'invoice';
-          const pushResult = await (isInvoiceCreation
-            ? notifyNewInvoice
-            : notifyNewOrder)(
-            merchant_id,
-            order.id,
-            orderNum,
-            customer_name,
-            orderTotal,
-            orderCurrency
-          );
-          if (pushResult.failed > 0 || pushResult.errors.length > 0) {
+          // A wallet/store-credit redemption can settle an invoice before the
+          // after() callback runs. Do not tell the merchant to collect payment
+          // when the order already has a zero balance.
+          const pushResult = isInvoiceCreation
+            ? isWalletFullyPaid
+              ? undefined
+              : await notifyNewInvoice(
+                  merchant_id,
+                  order.id,
+                  orderNum,
+                  customer_name,
+                  orderTotal,
+                  {
+                    currency: orderCurrency,
+                    preferenceClient: supabase,
+                  }
+                )
+            : await notifyNewOrder(
+                merchant_id,
+                order.id,
+                orderNum,
+                customer_name,
+                orderTotal,
+                orderCurrency
+              );
+          if (
+            pushResult &&
+            (pushResult.failed > 0 || pushResult.errors.length > 0)
+          ) {
             logger.warn({
               message: isInvoiceCreation
                 ? 'New invoice push notification was not fully delivered'

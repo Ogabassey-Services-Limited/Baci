@@ -9,6 +9,13 @@ const migrationSql = readFileSync(
   ),
   'utf8'
 );
+const preferenceRpcMigrationSql = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260826140000_read_follow_up_notification_preference_rpc.sql'
+  ),
+  'utf8'
+);
 
 describe('follow-up notification preference migration', () => {
   it('opts existing and new merchants into follow-up alerts by default', () => {
@@ -21,6 +28,19 @@ describe('follow-up notification preference migration', () => {
   it('documents the preference as an event-driven follow-up alert control', () => {
     expect(migrationSql).toContain(
       'event-driven alerts for actionable customer follow-up items'
+    );
+  });
+
+  it('exposes only the follow-up switch to guest checkout through a bounded RPC', () => {
+    expect(preferenceRpcMigrationSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.get_follow_up_notification_preference('
+    );
+    expect(preferenceRpcMigrationSql).toContain('RETURNS boolean');
+    expect(preferenceRpcMigrationSql).toContain(
+      'GRANT EXECUTE ON FUNCTION public.get_follow_up_notification_preference(uuid)'
+    );
+    expect(preferenceRpcMigrationSql).toContain(
+      'TO anon, authenticated, service_role'
     );
   });
 });

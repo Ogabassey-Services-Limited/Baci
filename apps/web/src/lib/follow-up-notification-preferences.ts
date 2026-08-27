@@ -14,11 +14,10 @@ export async function isFollowUpNotificationsEnabled(
   supabase: NotificationPreferencesClient,
   merchantId: string
 ): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('notification_preferences')
-    .select('follow_up_notifications_enabled')
-    .eq('merchant_id', merchantId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    'get_follow_up_notification_preference',
+    { p_merchant_id: merchantId }
+  );
 
   if (error) {
     console.warn(
@@ -28,5 +27,5 @@ export async function isFollowUpNotificationsEnabled(
     return true;
   }
 
-  return data?.follow_up_notifications_enabled ?? true;
+  return data ?? true;
 }

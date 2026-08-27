@@ -5,6 +5,7 @@
  * @see https://docs.expo.dev/push-notifications/sending-notifications/
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
 import Expo, {
   type ExpoPushMessage,
   type ExpoPushTicket,
@@ -19,6 +20,7 @@ import {
   shouldDeactivateForInvalidCredentials,
 } from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
+import type { Database } from '@/types/supabase';
 import {
   type DeliveryStartOptions,
   sendPushNotificationChunks,
@@ -84,6 +86,7 @@ export type NotificationChannel =
 
 type MerchantNotificationOptions = DeliveryStartOptions & {
   notificationCategory?: 'follow_up';
+  preferenceClient?: SupabaseClient<Database>;
 };
 
 // ── Core send functions ──────────────────────────────────────────────────────
@@ -146,11 +149,22 @@ export async function notifyMerchant(
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
-  if (
-    options?.notificationCategory === 'follow_up' &&
-    !(await isFollowUpNotificationsEnabled(supabase, merchantId))
-  ) {
-    return { sent: 0, failed: 0, errors: [] };
+  if (options?.notificationCategory === 'follow_up') {
+    if (!options.preferenceClient) {
+      return {
+        sent: 0,
+        failed: 0,
+        errors: ['Follow-up notification preference client is required'],
+      };
+    }
+    if (
+      !(await isFollowUpNotificationsEnabled(
+        options.preferenceClient,
+        merchantId
+      ))
+    ) {
+      return { sent: 0, failed: 0, errors: [] };
+    }
   }
 
   const tokenQuery = filterPushTokensByShipmentUpdateCapability(
@@ -764,8 +778,12 @@ export function notifyNewInvoice(
   orderNumber: string,
   customerName: string,
   amount: number,
-  currency = 'NGN'
+  options: {
+    currency?: string;
+    preferenceClient: SupabaseClient<Database>;
+  }
 ): Promise<NotificationSendResult> {
+  const currency = options.currency ?? 'NGN';
   const formattedAmount = formatCurrency(amount, currency);
 
   return notifyMerchant(
@@ -780,7 +798,10 @@ export function notifyNewInvoice(
       currency,
     },
     'orders',
-    { notificationCategory: 'follow_up' }
+    {
+      notificationCategory: 'follow_up',
+      preferenceClient: options.preferenceClient,
+    }
   );
 }
 

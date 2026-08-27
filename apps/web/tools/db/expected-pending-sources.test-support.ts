@@ -280,6 +280,16 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260825154500_persist_shipment_shipping_quote.sql',
     sha256: '2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826130000_add_follow_up_notification_preference.sql',
+    sha256: '073009158808b2a75df6251c12dcaa5110c8ba65c8d166ef9df45520af6800a9',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260826140000_read_follow_up_notification_preference_rpc.sql',
+    sha256: '216aa707d497f26c93c7ec0a29389d9202c6dc795ab632f942bb1522f6dfe90e',
+  },
 ].sort((left, right) =>
   left.repositoryPath.localeCompare(right.repositoryPath)
 );
