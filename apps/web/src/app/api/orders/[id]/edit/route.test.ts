@@ -234,10 +234,13 @@ describe('PATCH /api/orders/[id]/edit', () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(rpc).toHaveBeenCalledWith('update_admin_order', {
-      p_order_id: '11111111-1111-4111-8111-111111111111',
-      p_payload: validPayload,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'update_admin_order_with_transaction_discount_metadata',
+      {
+        p_order_id: '11111111-1111-4111-8111-111111111111',
+        p_payload: validPayload,
+      }
+    );
     expect(select).toHaveBeenCalledWith(
       expect.stringContaining('order_items(')
     );
@@ -253,8 +256,8 @@ describe('PATCH /api/orders/[id]/edit', () => {
     });
   });
 
-  it('clears stale negotiated discount metadata after a financial edit', async () => {
-    const { supabase, update } = createSupabaseMock({
+  it('uses the transactional edit RPC for item changes that invalidate allocations', async () => {
+    const { supabase, rpc } = createSupabaseMock({
       adTracking: {
         fbclid: 'fb-1',
         baci_transaction_discount: {
@@ -268,7 +271,32 @@ describe('PATCH /api/orders/[id]/edit', () => {
     const response = await callPatch(createRequest(validPayload));
 
     expect(response.status).toBe(200);
-    expect(update).toHaveBeenCalledWith({ ad_tracking: { fbclid: 'fb-1' } });
+    expect(rpc).toHaveBeenCalledWith(
+      'update_admin_order_with_transaction_discount_metadata',
+      expect.objectContaining({ p_payload: validPayload })
+    );
+  });
+
+  it('covers metadata-only cleanup through the transactional edit RPC', async () => {
+    const { supabase, rpc } = createSupabaseMock({
+      adTracking: {
+        baci_transaction_discount: {
+          lineDiscounts: [],
+          version: 3,
+        },
+      },
+    });
+    mockAuthenticated(supabase);
+
+    const response = await callPatch(createRequest(validPayload));
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith(
+      'update_admin_order_with_transaction_discount_metadata',
+      expect.objectContaining({
+        p_order_id: '11111111-1111-4111-8111-111111111111',
+      })
+    );
   });
 
   it.each([

@@ -2,7 +2,6 @@ import {
   MOBILE_ADMIN_ORDER_WITH_ITEMS_QUERY,
   normalizeOrderEditChangeCategory,
   shouldNotifyCustomerForOrderEdit,
-  TRANSACTION_DISCOUNT_METADATA_KEY,
 } from '@baci/shared';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -11,7 +10,6 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { sendOrderUpdatedEmail } from '@/lib/order-update-email';
 import { adminOrderEditSchema } from '@/schemas/admin-order-edit';
-import type { Json } from '@/types/supabase';
 
 const paramsSchema = z.object({
   id: z.uuid(),
@@ -113,70 +111,6 @@ function mapOrderEditError(error: { code?: string; message?: string }) {
   );
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-async function clearStaleTransactionDiscountMetadata({
-  merchantId,
-  orderId,
-  supabase,
-}: {
-  merchantId: string;
-  orderId: string;
-  supabase: Awaited<ReturnType<typeof authenticateApiRequest>>['supabase'];
-}) {
-  if (!supabase) {
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from('orders')
-    .select('ad_tracking')
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId)
-    .single();
-
-  if (error) {
-    logger.warn({
-      error,
-      message: 'Order edit could not validate transaction discount metadata',
-      orderId,
-    });
-    return;
-  }
-
-  if (!isRecord(data?.ad_tracking)) {
-    return;
-  }
-
-  const {
-    [TRANSACTION_DISCOUNT_METADATA_KEY]: _removed,
-    ...remainingTracking
-  } = data.ad_tracking;
-  if (_removed === undefined) {
-    return;
-  }
-
-  const { error: clearError } = await supabase
-    .from('orders')
-    .update({
-      ad_tracking: (Object.keys(remainingTracking).length
-        ? remainingTracking
-        : null) as Json | null,
-    })
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId);
-
-  if (clearError) {
-    logger.warn({
-      error: clearError,
-      message: 'Order edit could not clear stale transaction discount metadata',
-      orderId,
-    });
-  }
-}
-
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -218,10 +152,13 @@ export async function PATCH(
     );
   }
 
-  const { data, error } = await supabase.rpc('update_admin_order', {
-    p_order_id: paramsResult.data.id,
-    p_payload: parsed.data,
-  });
+  const { data, error } = await supabase.rpc(
+    'update_admin_order_with_transaction_discount_metadata',
+    {
+      p_order_id: paramsResult.data.id,
+      p_payload: parsed.data,
+    }
+  );
 
   if (error) {
     return mapOrderEditError(error);
@@ -231,14 +168,6 @@ export async function PATCH(
   const changeCategory = normalizeOrderEditChangeCategory(
     result.change_category
   );
-
-  if (changeCategory === 'financial' && result.merchant_id) {
-    await clearStaleTransactionDiscountMetadata({
-      merchantId: result.merchant_id,
-      orderId: paramsResult.data.id,
-      supabase,
-    });
-  }
 
   if (
     shouldNotifyCustomerForOrderEdit({

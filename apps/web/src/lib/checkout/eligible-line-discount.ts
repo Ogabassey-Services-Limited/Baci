@@ -12,6 +12,9 @@ export interface NegotiationLineInput {
   clientUnitPrice: number;
   /** Persistent order_items.line_id (one-based) when the caller has it. */
   lineId?: number;
+  /** Persisted order-item identity used to match allocations after RPC reads. */
+  productId: string;
+  variantId: string | null;
   quantity: number;
   negotiable: boolean;
   vatCategoryCode: string | null;
@@ -50,10 +53,13 @@ export function computeEligibleLineDiscount(
   const lineDiscounts: Array<EligibleLineDiscountAllocation | null> = [];
 
   for (const [lineIndex, lineInput] of lines.entries()) {
-    const outputLineIndex =
-      Number.isInteger(lineInput.lineId) && (lineInput.lineId ?? 0) > 0
-        ? (lineInput.lineId as number) - 1
-        : lineIndex;
+    const resolvedLineId =
+      typeof lineInput.lineId === 'number' &&
+      Number.isInteger(lineInput.lineId) &&
+      lineInput.lineId > 0
+        ? lineInput.lineId
+        : lineIndex + 1;
+    const outputLineIndex = resolvedLineId - 1;
     lineDiscounts[outputLineIndex] = null;
     const quantity = Number(lineInput.quantity);
     const catalogUnit = Number(lineInput.catalogUnitPrice);
@@ -110,9 +116,11 @@ export function computeEligibleLineDiscount(
     const reductionVat = roundToCents((reduction * rate) / 100);
     totalDiscount = roundToCents(totalDiscount + reduction + reductionVat);
     lineDiscounts[outputLineIndex] = {
-      lineId: lineInput.lineId ?? lineIndex + 1,
+      lineId: resolvedLineId,
       merchandiseDiscount: reduction,
+      productId: lineInput.productId,
       vatRelief: reductionVat,
+      variantId: lineInput.variantId,
     };
   }
 

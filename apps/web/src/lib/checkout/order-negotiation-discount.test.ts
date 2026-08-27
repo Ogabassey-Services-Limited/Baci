@@ -73,7 +73,15 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+      ],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -100,7 +108,15 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: false,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 0 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 0,
+          variantId: null,
+        },
+      ],
       totalDiscount: 20,
       rejectionCode: null,
     });
@@ -161,7 +177,13 @@ describe('computeOrderNegotiationDiscount', () => {
       })
     ).resolves.toEqual({
       lineDiscounts: [
-        { lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 },
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: null,
+        },
         null,
       ],
       totalDiscount: 21.5,
@@ -230,7 +252,13 @@ describe('computeOrderNegotiationDiscount', () => {
     ).resolves.toEqual({
       lineDiscounts: [
         null,
-        { lineId: 2, merchandiseDiscount: 20, vatRelief: 1.5 },
+        {
+          lineId: 2,
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: null,
+        },
       ],
       totalDiscount: 21.5,
       rejectionCode: null,
@@ -263,7 +291,15 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: 'v-mac',
+        },
+      ],
       totalDiscount: 21.5,
       rejectionCode: null,
     });

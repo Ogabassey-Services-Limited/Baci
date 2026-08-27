@@ -15,7 +15,15 @@ describe('buildTransactionDiscountAdTracking', () => {
         region: 'LA',
         shouldApplyLDU: false,
       },
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'product-1',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+      ],
       shouldApplyServerDerivedDiscount: true,
     });
 
@@ -27,8 +35,16 @@ describe('buildTransactionDiscountAdTracking', () => {
       userAgent: 'test-agent',
       userIp: '203.0.113.10',
       baci_transaction_discount: {
-        lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
-        version: 2,
+        lineDiscounts: [
+          {
+            lineId: 1,
+            merchandiseDiscount: 20,
+            productId: 'product-1',
+            vatRelief: 1.5,
+            variantId: null,
+          },
+        ],
+        version: 3,
       },
     });
   });

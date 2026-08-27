@@ -31,21 +31,30 @@ const TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT =
   'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 // Keep a final selector for deployments whose schema cache predates the
 // persisted order discount column. The mapper treats the omitted value as 0.
 const TRANSACTION_REVIEW_NO_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+
+// A final compatibility path for deployments whose schema cache predates
+// order_items.line_id. Keep order-level discount provenance when possible;
+// the mapper can still match version-3 allocations by product/variant identity.
+const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_NO_LINE_ID_SELECT =
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+
+const TRANSACTION_REVIEW_NO_LINE_ID_SELECT =
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 function isMissingDiscountAmountSchemaError(
   error: {
@@ -67,7 +76,13 @@ function isMissingDiscountAmountSchemaError(
 }
 
 function warnTransactionReviewQueryError(
-  stage: 'Base' | 'BaseWithDiscount' | 'Full' | 'FullNoDiscount' | 'Legacy',
+  stage:
+    | 'Base'
+    | 'BaseNoLineId'
+    | 'BaseWithDiscount'
+    | 'Full'
+    | 'FullNoDiscount'
+    | 'Legacy',
   error: {
     code?: string;
     details?: string;
@@ -265,6 +280,41 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         error = noDiscountResult.error;
 
         warnTransactionReviewQueryError('Base', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const baseWithDiscountNoLineIdResult = await fetchTransactionReviewRows(
+          {
+            endDateIso,
+            includeCancelledAt: false,
+            includeTransactionDate: false,
+            merchantId: merchant.id,
+            selectStatement:
+              TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_NO_LINE_ID_SELECT,
+            startDateIso,
+          }
+        );
+
+        data = baseWithDiscountNoLineIdResult.data;
+        error = baseWithDiscountNoLineIdResult.error;
+
+        warnTransactionReviewQueryError('BaseNoLineId', error);
+      }
+
+      if (isTransactionReviewSchemaCacheError(error)) {
+        const noLineIdResult = await fetchTransactionReviewRows({
+          endDateIso,
+          includeCancelledAt: false,
+          includeTransactionDate: false,
+          merchantId: merchant.id,
+          selectStatement: TRANSACTION_REVIEW_NO_LINE_ID_SELECT,
+          startDateIso,
+        });
+
+        data = noLineIdResult.data;
+        error = noLineIdResult.error;
+
+        warnTransactionReviewQueryError('BaseNoLineId', error);
       }
 
       if (error) {

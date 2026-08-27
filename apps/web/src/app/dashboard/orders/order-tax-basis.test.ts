@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseOrderTaxBasis } from './order-tax-basis';
+import { parseOrderTaxBasis } from '@/app/dashboard/orders/order-tax-basis';
 
 describe('parseOrderTaxBasis', () => {
   it('accepts the persisted tax basis values', () => {

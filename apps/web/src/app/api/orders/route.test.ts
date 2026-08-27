@@ -3951,9 +3951,15 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
         p_ad_tracking: expect.objectContaining({
           baci_transaction_discount: {
             lineDiscounts: [
-              { lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 },
+              {
+                lineId: 1,
+                merchandiseDiscount: 20,
+                productId: 'p-mac',
+                vatRelief: 1.5,
+                variantId: null,
+              },
             ],
-            version: 2,
+            version: 3,
           },
         }),
       })

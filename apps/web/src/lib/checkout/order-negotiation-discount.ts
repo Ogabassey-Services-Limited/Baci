@@ -139,6 +139,7 @@ export async function computeOrderNegotiationDiscount({
       catalogUnitPrice: Number(variant?.price_override ?? product.price ?? 0),
       clientUnitPrice: Number(item.price),
       lineId,
+      productId: item.product_id,
       quantity: Number(item.quantity),
       negotiable: isProductNegotiable({
         brand: product.brand,
@@ -153,6 +154,7 @@ export async function computeOrderNegotiationDiscount({
           ? null
           : Number(product.vat_rate)
         : 0,
+      variantId: item.variant_id ?? null,
     });
   }
 

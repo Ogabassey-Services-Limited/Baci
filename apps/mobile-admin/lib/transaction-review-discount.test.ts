@@ -121,6 +121,46 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([180, 90]);
   });
 
+  it('matches version-3 allocations by persisted product and variant identity', () => {
+    const items = [
+      {
+        product_id: 'product-2',
+        variant_id: 'variant-2',
+        line_id: 88,
+        price: 200,
+        quantity: 1,
+      },
+      {
+        product_id: 'product-1',
+        variant_id: null,
+        line_id: 87,
+        price: 100,
+        quantity: 1,
+      },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 30, {
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 10,
+          productId: 'product-1',
+          vatRelief: 0,
+          variantId: null,
+        },
+        {
+          lineId: 2,
+          merchandiseDiscount: 20,
+          productId: 'product-2',
+          vatRelief: 0,
+          variantId: 'variant-2',
+        },
+      ],
+    });
+
+    expect(prices).toEqual([180, 90]);
+  });
+
   it('falls back proportionally when persisted allocations are stale', () => {
     const items = [
       { line_id: 1, price: 100, quantity: 1 },
@@ -149,5 +189,51 @@ describe('getDiscountedTransactionUnitPrices', () => {
       })
     ).toBeUndefined();
     expect(parseTransactionDiscountOptions(null)).toBeUndefined();
+  });
+
+  it('parses a valid version-3 server allocation', () => {
+    const adTracking = {
+      baci_transaction_discount: {
+        lineDiscounts: [
+          {
+            lineId: 1,
+            merchandiseDiscount: 20,
+            productId: 'product-1',
+            vatRelief: 1.5,
+            variantId: null,
+          },
+        ],
+        version: 3,
+      },
+    };
+
+    const parsed = parseTransactionDiscountOptions(adTracking);
+
+    expect(parsed).toEqual({
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'product-1',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+      ],
+    });
+  });
+
+  it('parses a valid legacy version-2 server allocation', () => {
+    const adTracking = {
+      baci_transaction_discount: {
+        lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+        version: 2,
+      },
+    };
+
+    const parsed = parseTransactionDiscountOptions(adTracking);
+
+    expect(parsed).toEqual({
+      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+    });
   });
 });

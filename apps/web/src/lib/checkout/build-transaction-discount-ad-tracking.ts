@@ -65,7 +65,7 @@ export function buildTransactionDiscountAdTracking({
     shouldApplyServerDerivedDiscount && lineDiscounts
       ? {
           lineDiscounts,
-          version: 2 as const,
+          version: 3 as const,
         }
       : null;
 

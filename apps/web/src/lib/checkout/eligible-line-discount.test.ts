@@ -9,6 +9,8 @@ const line = (
 ): NegotiationLineInput => ({
   catalogUnitPrice: 1000,
   clientUnitPrice: 1000,
+  productId: 'product-1',
+  variantId: null,
   quantity: 1,
   negotiable: true,
   vatCategoryCode: 'S',
@@ -22,7 +24,15 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 980 })])
     ).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'product-1',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+      ],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -32,7 +42,15 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 999 })])
     ).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 1, vatRelief: 0.08 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 1,
+          productId: 'product-1',
+          vatRelief: 0.08,
+          variantId: null,
+        },
+      ],
       totalDiscount: 1.08,
       rejectionCode: null,
     });
@@ -87,7 +105,13 @@ describe('computeEligibleLineDiscount', () => {
       ])
     ).toEqual({
       lineDiscounts: [
-        { lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 },
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'product-1',
+          vatRelief: 1.5,
+          variantId: null,
+        },
         null,
       ],
       totalDiscount: 21.5,
@@ -102,7 +126,15 @@ describe('computeEligibleLineDiscount', () => {
         line({ clientUnitPrice: 980, vatCategoryCode: 'Z' }),
       ])
     ).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 0 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 20,
+          productId: 'product-1',
+          vatRelief: 0,
+          variantId: null,
+        },
+      ],
       totalDiscount: 20,
       rejectionCode: null,
     });
@@ -113,7 +145,15 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 980, quantity: 2 })])
     ).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 40, vatRelief: 3 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 40,
+          productId: 'product-1',
+          vatRelief: 3,
+          variantId: null,
+        },
+      ],
       totalDiscount: 43,
       rejectionCode: null,
     });
@@ -154,9 +194,33 @@ describe('computeEligibleLineDiscount', () => {
     expect(
       computeEligibleLineDiscount([line({ clientUnitPrice: 950 })], 0.05)
     ).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 50, vatRelief: 3.75 }],
+      lineDiscounts: [
+        {
+          lineId: 1,
+          merchandiseDiscount: 50,
+          productId: 'product-1',
+          vatRelief: 3.75,
+          variantId: null,
+        },
+      ],
       totalDiscount: 53.75,
       rejectionCode: null,
     });
+  });
+
+  it('persists the fallback line identity when lineId is invalid', () => {
+    const result = computeEligibleLineDiscount([
+      line({ clientUnitPrice: 980, lineId: 0 }),
+    ]);
+
+    expect(result.lineDiscounts).toEqual([
+      {
+        lineId: 1,
+        merchandiseDiscount: 20,
+        productId: 'product-1',
+        vatRelief: 1.5,
+        variantId: null,
+      },
+    ]);
   });
 });

@@ -240,4 +240,53 @@ describe('useTransactionReview', () => {
       discountedOrder,
     ]);
   });
+
+  it('omits line_id after a schema-cache failure while retaining discount fields', async () => {
+    const lineIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'line_id' column of 'order_items' in the schema cache",
+    };
+    const discountedOrder = {
+      discount_amount: 25,
+      id: 'discounted-no-line-id-order',
+      order_items: [
+        {
+          product_id: 'product-1',
+          price: 100,
+          quantity: 1,
+          variant_id: null,
+        },
+      ],
+      source: 'online_store',
+      total: 75,
+    };
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+        data: null,
+        error: lineIdSchemaError,
+      });
+    }
+    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+      data: [discountedOrder],
+      error: null,
+    });
+
+    const { result } = renderHook(() => useTransactionReview(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
+
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
+      9,
+      expect.objectContaining({
+        selectStatement: expect.stringContaining('discount_amount'),
+      })
+    );
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[8][0].selectStatement
+    ).not.toContain('line_id');
+  });
 });

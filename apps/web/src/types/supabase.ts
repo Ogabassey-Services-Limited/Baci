@@ -20934,6 +20934,10 @@ export type Database = {
         Args: { p_order_id: string; p_payload: Json };
         Returns: Json;
       };
+      update_admin_order_with_transaction_discount_metadata: {
+        Args: { p_order_id: string; p_payload: Json };
+        Returns: Json;
+      };
       update_inventory_tracking_policy: {
         Args: {
           p_inventory_tracking_policy: string;

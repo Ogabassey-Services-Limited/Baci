@@ -3,17 +3,23 @@ import { hasAdTrackingData } from './has-ad-tracking-data';
 
 describe('hasAdTrackingData', () => {
   it('does not count discount provenance metadata as ad tracking', () => {
-    expect(
-      hasAdTrackingData({
-        baci_transaction_discount: {
-          lineDiscounts: [],
-          version: 2,
-        },
-      })
-    ).toBe(false);
+    const input = {
+      baci_transaction_discount: {
+        lineDiscounts: [],
+        version: 2,
+      },
+    };
+
+    const result = hasAdTrackingData(input);
+
+    expect(result).toBe(false);
   });
 
   it('counts ordinary attribution fields', () => {
-    expect(hasAdTrackingData({ fbclid: 'fb-1' })).toBe(true);
+    const input = { fbclid: 'fb-1' };
+
+    const result = hasAdTrackingData(input);
+
+    expect(result).toBe(true);
   });
 });
