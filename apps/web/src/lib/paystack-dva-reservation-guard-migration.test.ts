@@ -23,6 +23,13 @@ const guardRepairMigration = readFileSync(
   ),
   'utf8'
 );
+const internalVerificationRepairMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827060000_repair_paystack_dva_internal_verification.sql'
+  ),
+  'utf8'
+);
 
 describe('Paystack DVA reservation guard migrations', () => {
   it('requires a server-generated proof before exposing DVA reservation metadata', () => {
@@ -104,6 +111,15 @@ describe('Paystack DVA reservation guard migrations', () => {
   it('guards wallet aliases when an existing receiver or status is updated', () => {
     expect(guardRepairMigration).toContain(
       'BEFORE INSERT OR UPDATE OF provider, status, account_number'
+    );
+  });
+
+  it('treats a missing internal verification flag as unverified', () => {
+    expect(internalVerificationRepairMigration).toContain(
+      'COALESCE(\n      pg_catalog.current_setting('
+    );
+    expect(internalVerificationRepairMigration).toContain(
+      "'baci.paystack_dva_reservation_verified', true"
     );
   });
 });

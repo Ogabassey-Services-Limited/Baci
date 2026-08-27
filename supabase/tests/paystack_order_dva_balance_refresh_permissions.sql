@@ -6,7 +6,9 @@
 
 BEGIN;
 
-SET LOCAL ROLE service_role;
+-- Keep the fixture setup on the replay connection's postgres role. The local
+-- auth schema intentionally does not grant service_role direct writes to
+-- auth.users; the assertions below switch to authenticated explicitly.
 SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
 
 DO $fixtures$

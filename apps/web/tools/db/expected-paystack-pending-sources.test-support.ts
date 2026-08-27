@@ -214,4 +214,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260827050000_repair_paystack_dva_alias_snapshot_guards.sql',
     sha256: 'a4c52ea5db04b15c856d3320b5392924e1df0e845baff24576cd3484f8846319',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827060000_repair_paystack_dva_internal_verification.sql',
+    sha256: '8e088747c7c57e8f24d58d35257606dd44801e7ec1779d400df45a2b7dd6ffd1',
+  },
 ];
