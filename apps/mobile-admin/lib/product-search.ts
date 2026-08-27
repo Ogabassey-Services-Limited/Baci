@@ -11,6 +11,8 @@ export type AdminProductStockFilter = 'in_stock' | 'low_stock' | 'out_of_stock';
 
 export interface AdminProductSearchFilters {
   category?: string;
+  /** Include archived products for historical reconciliation workflows. */
+  includeArchived?: boolean;
   search?: string;
   status?: AdminProductStatus;
   stockFilter?: AdminProductStockFilter;
@@ -35,6 +37,7 @@ const ADMIN_SEARCH_STOCK_FILTERS: Record<AdminProductStockFilter, string> = {
   out_of_stock: 'admin_out_of_stock',
 };
 const ADMIN_SEARCH_VISIBLE_STATUS_FILTER = 'not_archived';
+const ADMIN_SEARCH_VISIBLE_STATUS_QUERY = 'status.neq.archived,status.is.null';
 
 type ProductFilterQuery<TQuery> = {
   eq: (column: string, value: unknown) => TQuery;
@@ -72,6 +75,7 @@ function clampPositiveInteger(value: number, maximum: number) {
 
 function getAdminSearchStatusFilter(filters: AdminProductSearchFilters) {
   if (filters.status) return filters.status;
+  if (filters.includeArchived) return null;
   return ADMIN_SEARCH_VISIBLE_STATUS_FILTER;
 }
 
@@ -146,8 +150,8 @@ export async function fetchAdminProductSearchRows<
   if (args.filters.category) {
     rowsQuery = rowsQuery.eq('category_id', args.filters.category);
   }
-  if (!args.filters.status) {
-    rowsQuery = rowsQuery.neq('status', 'archived');
+  if (!args.filters.status && !args.filters.includeArchived) {
+    rowsQuery = rowsQuery.or(ADMIN_SEARCH_VISIBLE_STATUS_QUERY);
   }
   rowsQuery = applyAdminProductStockFilter(rowsQuery, args.filters.stockFilter);
 
