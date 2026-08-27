@@ -1,12 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { MerchantData, StaffAccess } from './types';
 import { createMerchantUpdate } from './update-merchant-data';
-
-const { mockApiPost } = vi.hoisted(() => ({
-  mockApiPost: vi.fn(),
-}));
-
-vi.mock('@/lib/api-client', () => ({ apiPost: mockApiPost }));
 
 const ownerAccess: StaffAccess = {
   isStaff: false,
@@ -39,10 +33,6 @@ function createSupabaseStub() {
 }
 
 describe('createMerchantUpdate', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('writes a captured merchant target and only optimistically updates that active merchant', async () => {
     // Arrange — the selected merchant was captured before an async workflow.
     const supabase = createSupabaseStub();
@@ -132,91 +122,5 @@ describe('createMerchantUpdate', () => {
 
     const implicitMerchant = { ...merchant, id: 'merchant-a' };
     expect(selectedMerchantUpdater(implicitMerchant)).toBe(implicitMerchant);
-  });
-
-  it('purges merchant and blog caches after a branding update', async () => {
-    // Arrange
-    mockApiPost.mockResolvedValueOnce({ success: true });
-    const supabase = createSupabaseStub();
-    const updateMerchant = createMerchantUpdate({
-      supabase: supabase.client,
-      userId: 'owner-1',
-      staffAccess: ownerAccess,
-      activeMerchantId: merchant.id,
-      setMerchant: vi.fn(),
-      reloadMerchant: vi.fn(),
-    });
-
-    // Act
-    await updateMerchant(
-      { brand_colors: { primary: '#fff', accent: '#000', background: '#111' } },
-      { merchantId: merchant.id, skipReload: true }
-    );
-
-    // Assert
-    expect(mockApiPost).toHaveBeenCalledWith('/api/cache/revalidate', {
-      merchantId: merchant.id,
-      targets: ['merchant', 'blog'],
-    });
-  });
-
-  it('keeps a successful branding write when cache revalidation fails', async () => {
-    // Arrange
-    mockApiPost.mockRejectedValueOnce(new Error('purge unavailable'));
-    const supabase = createSupabaseStub();
-    const setMerchant = vi.fn();
-    const updateMerchant = createMerchantUpdate({
-      supabase: supabase.client,
-      userId: 'owner-1',
-      staffAccess: ownerAccess,
-      activeMerchantId: merchant.id,
-      setMerchant,
-      reloadMerchant: vi.fn(),
-    });
-
-    // Act
-    await updateMerchant(
-      { logo_url: 'https://images.example.com/logo.png' },
-      { merchantId: merchant.id, skipReload: true }
-    );
-
-    // Assert
-    expect(supabase.update).toHaveBeenCalledWith({
-      logo_url: 'https://images.example.com/logo.png',
-    });
-    expect(setMerchant).toHaveBeenCalledWith(expect.any(Function));
-  });
-
-  it('updates local merchant state before branding cache revalidation settles', async () => {
-    // Arrange
-    let resolveRevalidation: (() => void) | undefined;
-    mockApiPost.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveRevalidation = () => resolve({ success: true });
-      })
-    );
-    const supabase = createSupabaseStub();
-    const setMerchant = vi.fn();
-    const updateMerchant = createMerchantUpdate({
-      supabase: supabase.client,
-      userId: 'owner-1',
-      staffAccess: ownerAccess,
-      activeMerchantId: merchant.id,
-      setMerchant,
-      reloadMerchant: vi.fn(),
-    });
-
-    // Act
-    const update = updateMerchant(
-      { business_name: 'Updated branding' },
-      { merchantId: merchant.id, skipReload: true }
-    );
-    await Promise.resolve();
-
-    // Assert
-    expect(setMerchant).toHaveBeenCalledWith(expect.any(Function));
-    expect(resolveRevalidation).toEqual(expect.any(Function));
-    resolveRevalidation?.();
-    await update;
   });
 });

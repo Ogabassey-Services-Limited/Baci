@@ -56,20 +56,39 @@ function getImagePathname(url: string): string | undefined {
   }
 }
 
-function getManagedTransformMimeType(
-  url: string
-): `image/${string}` | undefined {
+function getManagedTransformProjection(url: string):
+  | {
+      type: `image/${string}`;
+      width?: number;
+    }
+  | undefined {
   try {
     const options = new URL(url).pathname.match(/^\/image\/([^/]+)\//)?.[1];
-    const format = options
-      ?.split(',')
-      .map((token) => token.split('=', 2))
+    const optionEntries =
+      options?.split(',').map((token) => token.split('=', 2)) ?? [];
+    const format = optionEntries
       .find(([name]) => name?.toLowerCase() === 'format')?.[1]
       ?.toLowerCase();
-    if (format === 'jpg' || format === 'jpeg') return 'image/jpeg';
-    if (format === 'png') return 'image/png';
-    if (format === 'webp') return 'image/webp';
-    if (format === 'avif') return 'image/avif';
+    const widthValue = optionEntries.find(
+      ([name]) => name?.toLowerCase() === 'width'
+    )?.[1];
+    const width = widthValue ? Number.parseInt(widthValue, 10) : undefined;
+    const type =
+      format === 'jpg' || format === 'jpeg'
+        ? 'image/jpeg'
+        : format === 'png'
+          ? 'image/png'
+          : format === 'webp'
+            ? 'image/webp'
+            : format === 'avif'
+              ? 'image/avif'
+              : undefined;
+    if (type) {
+      return {
+        type,
+        ...(width !== undefined && width > 0 ? { width } : {}),
+      };
+    }
   } catch {
     return undefined;
   }
@@ -116,14 +135,15 @@ function projectDirectImage(
       1200,
       DEFAULT_IMAGE_QUALITY
     );
+    const managedTransform = getManagedTransformProjection(url);
     const transformedMimeType =
-      getManagedTransformMimeType(url) ??
+      managedTransform?.type ??
       (url !== sourceUrl
         ? (`image/${resolveOgabasseyCdnFallbackFormat(getImagePathname(sourceUrl) ?? '')}` as const)
         : mimeType);
     const transformedDimensions =
-      url !== sourceUrl && !isLandscape
-        ? getTransformedDimensions(dimensions)
+      managedTransform && !isLandscape
+        ? getTransformedDimensions(dimensions, managedTransform.width)
         : isLandscape
           ? LANDSCAPE_DIMENSIONS
           : dimensions;
@@ -141,15 +161,18 @@ function projectDirectImage(
   };
 }
 
-function getTransformedDimensions(dimensions?: {
-  width?: number;
-  height?: number;
-}): { width: number; height: number } | undefined {
+function getTransformedDimensions(
+  dimensions?: {
+    width?: number;
+    height?: number;
+  },
+  requestedWidth: number = LANDSCAPE_DIMENSIONS.width
+): { width: number; height: number } | undefined {
   const width = getPositiveDimension(dimensions?.width);
   const height = getPositiveDimension(dimensions?.height);
   if (width === undefined || height === undefined) return undefined;
 
-  const transformedWidth = Math.min(LANDSCAPE_DIMENSIONS.width, width);
+  const transformedWidth = Math.min(requestedWidth, width);
   const transformedHeight = Math.round((transformedWidth * height) / width);
   return transformedHeight > 0
     ? { width: transformedWidth, height: transformedHeight }

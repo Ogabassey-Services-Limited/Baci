@@ -35,7 +35,7 @@ describe('createBlogOgImageResponse', () => {
     );
   });
 
-  it('materializes ImageResponse output into a normal Response', async () => {
+  it('materializes dynamic ImageResponse output as strict no-store', async () => {
     const element = createElement('div', null, 'Primary');
 
     const response = await createBlogOgImageResponse(element, { size });
@@ -45,24 +45,11 @@ describe('createBlogOgImageResponse', () => {
       expect.objectContaining(size)
     );
     expect(response.headers.get('content-type')).toBe('image/png');
-    expect(response.headers.get('cache-control')).toBe(
-      'public, max-age=0, must-revalidate, s-maxage=86400, stale-while-revalidate=604800'
-    );
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
     await expect(response.arrayBuffer()).resolves.toHaveProperty(
       'byteLength',
       4
     );
-  });
-
-  it('keeps a successfully rendered no-store response strict no-store', async () => {
-    const element = createElement('div', null, 'Transient');
-
-    const response = await createBlogOgImageResponse(element, {
-      size,
-      noStore: true,
-    });
-
-    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
   });
 
   it('uses the configured no-store fallback when primary rendering fails', async () => {

@@ -162,6 +162,27 @@ describe('blog post social image projection', () => {
     });
   });
 
+  it('reports transformed dimensions for an already-pinned CDN URL', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image/width=1200,quality=75,format=jpeg/core-assets/blog/card.webp';
+
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      transformedUrl,
+      {},
+      1600,
+      900
+    );
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width: 1200,
+      height: 675,
+      type: 'image/jpeg',
+    });
+  });
+
   it('publishes immutable uploaded landscape variants as explicit native WebP', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,
