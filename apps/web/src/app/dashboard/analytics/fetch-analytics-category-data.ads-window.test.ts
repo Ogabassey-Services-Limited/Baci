@@ -21,7 +21,7 @@ describe('fetchAnalyticsCategoryData Ads order window', () => {
     vi.unstubAllGlobals();
   });
 
-  it('preserves exact order instants while retaining provider calendar dates', async () => {
+  it('extends the selected order window through the local end date while retaining provider calendar dates', async () => {
     fetchMock.mockResolvedValue(response({}));
 
     await fetchAnalyticsCategoryData({
@@ -38,8 +38,10 @@ describe('fetchAnalyticsCategoryData Ads order window', () => {
     expect(String(url)).toContain(
       `orderStart=${encodeURIComponent(from.toISOString())}`
     );
+    const expectedOrderEnd = new Date(to);
+    expectedOrderEnd.setHours(23, 59, 59, 999);
     expect(String(url)).toContain(
-      `orderEnd=${encodeURIComponent(to.toISOString())}`
+      `orderEnd=${encodeURIComponent(expectedOrderEnd.toISOString())}`
     );
     expect(init).toEqual(
       expect.objectContaining({

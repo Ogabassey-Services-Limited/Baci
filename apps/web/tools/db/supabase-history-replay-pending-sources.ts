@@ -1,6 +1,7 @@
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
+import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
 import { INVENTORY_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-inventory-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
 import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
@@ -16,6 +17,7 @@ export function buildPendingSources(pendingSourcesHead: string): string {
     ADS_PENDING_REPLAY_SOURCE_ROWS,
     ADMIN_PLATFORM_PENDING_SOURCES,
     EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
+    FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
     INVENTORY_PENDING_REPLAY_SOURCE_ROWS,
     NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
   ]

@@ -28,7 +28,10 @@ describe('bulk inventory forecast dashboard migration', () => {
 
   it('byte-freezes the append-only migration in both replay inventories', () => {
     const replaySources = readFileSync(
-      resolve(process.cwd(), 'tools/db/supabase-history-replay-sources.ts'),
+      resolve(
+        process.cwd(),
+        'tools/db/supabase-history-replay-inventory-pending-sources.ts'
+      ),
       'utf8'
     );
     const recentSources = readFileSync(

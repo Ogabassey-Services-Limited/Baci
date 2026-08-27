@@ -1,8 +1,5 @@
-// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live there.
-// manifest module. Each `<sha256> <filename>.sql` row is byte-frozen: the
-// manifest verifier re-hashes the on-disk migration, so never edit a migration
-// after registering it without recomputing its hash here.
-
+// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live in the manifest module.
+// Each `<sha256> <filename>.sql` row is byte-frozen: the manifest verifier re-hashes the on-disk migration, so never edit a migration after registering it without recomputing its hash here.
 import { buildPendingSources } from './supabase-history-replay-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
@@ -250,8 +247,8 @@ c3e73bdc49a901993f4422b89a6e88405681c36fcb068138f7a0ad46cc7c50e2 20260806000100_
 c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql
 da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_public_shipping_sender_projection.sql
 2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b 20260825154500_persist_shipment_shipping_quote.sql
-d38466b8daa79ac75dd96d0ee5e52039c62074cfaabf1ee326cbf3fb7f9f9a03 20260825190000_bulk_inventory_forecast_dashboard.sql
 `;
+
 const PENDING_SOURCES = buildPendingSources(PENDING_SOURCES_HEAD);
 const PRODUCTION_MAPPINGS = `20260623190041\t20260623190000_enable_realtime_negotiation_requests.sql\tbc2165173828d7a5c667e5a7415fb37b9ba7762aad2e12268b70eab6dcc94526\tcanonical
 20260624211416\t20260624200000_merchant_email_domains.sql\t120e16cb8768fdec2e36ce041dc5049e299594d271e1f900a4abd0ac3c775ad6\tcanonical
