@@ -238,7 +238,7 @@ export function calculateDeliveryCost(
   if (selectedAirQuote && isGiglGoFasterQuote(selectedAirQuote)) {
     return selectedAirQuote.price;
   }
-  return airportType === 'delivery' ? 25000 : 20000;
+  return airportType === 'delivery' ? 35000 : 20000;
 }
 
 export function isStationPickupQuote(quote: ShippingQuote): boolean {

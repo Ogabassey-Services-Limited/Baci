@@ -4017,7 +4017,7 @@ export const CheckoutPage: React.FC = () => {
                                   </p>
                                   <p className="text-xs text-store-background-text/55 mt-0.5">Delivery to your doorstep</p>
                                 </div>
-                                <span className="font-bold text-store-background-text">₦25,000</span>
+                                <span className="font-bold text-store-background-text">₦35,000</span>
                               </label>
                               <label
                                 className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod
