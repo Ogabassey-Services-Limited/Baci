@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { generateTextWithChainMock } = vi.hoisted(() => ({
+  generateTextWithChainMock: vi.fn(),
+}));
+
 // ---- Test fixtures ----
 const TEST_LLM_SERVER_URL = 'https://llm.example.com';
 const TEST_LLM_SERVER_BEARER = 'a'.repeat(64);
@@ -34,6 +38,10 @@ vi.mock('ai', () => ({
   }),
 }));
 
+vi.mock('@/ai/generate-text-with-chain', () => ({
+  generateTextWithChain: generateTextWithChainMock,
+}));
+
 vi.mock('next/headers', () => ({
   headers: vi.fn(async () => ({
     get: (name: string) => {
@@ -45,12 +53,15 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('@/ai/provider', () => ({
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-2.5-flash',
+  FALLBACK_TEXT_MODEL_NAME: 'gemini-2.5-flash-lite',
   checkRateLimit: vi.fn(() =>
     rateLimitAllowed
       ? { allowed: true }
       : { allowed: false, resetIn: rateLimitResetIn }
   ),
   activeTextModel: 'mock-model',
+  fallbackTextModel: 'mock-fallback-model',
 }));
 
 vi.mock('@/env', () => ({
@@ -286,6 +297,23 @@ describe('POST /api/chat', () => {
     llmStreamError = null;
     llmResponseText = 'LLM response';
     chatProvider = 'auto';
+    generateTextWithChainMock.mockImplementation(
+      async (options: Parameters<typeof generateText>[0]) => {
+        const { chain, ...generationOptions } = options as Parameters<
+          typeof generateText
+        >[0] & {
+          chain?: Array<{ model: Parameters<typeof generateText>[0]['model'] }>;
+        };
+        const result = await generateText({
+          ...generationOptions,
+          model: chain?.[0]?.model ?? 'mock-model',
+        });
+        return {
+          providerName: 'google:gemini-2.5-flash',
+          text: result.text,
+        };
+      }
+    );
   });
 
   it('returns 429 when rate limited', async () => {
@@ -741,7 +769,7 @@ describe('POST /api/chat', () => {
       'Ollama chat request timed out'
     );
     expect(errorSpy).toHaveBeenCalledWith(
-      '[Agentic Chat] Gemini fallback failed; returning static response:',
+      '[Agentic Chat] Cloud provider fallback failed; returning static response:',
       'Gemini quota exhausted'
     );
   });
@@ -977,7 +1005,7 @@ describe('POST /api/chat', () => {
     expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
     expect(text).toContain('AI assistant is temporarily busy');
     expect(errorSpy).toHaveBeenCalledWith(
-      '[Agentic Chat] Gemini fallback failed; returning static response:',
+      '[Agentic Chat] Cloud provider fallback failed; returning static response:',
       'Model unavailable'
     );
   });

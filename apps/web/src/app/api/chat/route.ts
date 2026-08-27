@@ -19,11 +19,9 @@
  */
 
 import crypto from 'node:crypto';
-import { generateText } from 'ai';
 import { headers } from 'next/headers';
 import z from 'zod';
-import { activeTextModel, checkRateLimit } from '@/ai/provider';
-import { createAiSdkAgenticChatTools } from '@/app/api/chat/chat-tool-runtime';
+import { checkRateLimit } from '@/ai/provider';
 import { executeAgenticChatToolForOllama } from '@/app/api/chat/ollama-chat-tool-runtime';
 import { ollamaAgenticChatTools } from '@/app/api/chat/ollama-chat-tools';
 import {
@@ -35,7 +33,7 @@ import {
   getSafeChatBackendErrorMessage,
   isChatAbortError,
 } from '@/app/api/chat/route-helpers';
-import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
+import { runChatProviderChain } from '@/app/api/chat/run-chat-provider-chain';
 import {
   getAiChatModel,
   getAiChatProvider,
@@ -302,12 +300,10 @@ export async function POST(req: Request) {
 
     let result: { text: string } | null = null;
     try {
-      result = await generateText({
-        model: activeTextModel,
-        system: AGENTIC_SYSTEM_PROMPT,
+      result = await runChatProviderChain({
         messages: sanitizedMessages,
         abortSignal: req.signal,
-        tools: createAiSdkAgenticChatTools(sessionId),
+        sessionId,
       });
     } catch (error) {
       if (isChatAbortError(error, req.signal)) {
@@ -315,7 +311,7 @@ export async function POST(req: Request) {
       }
 
       console.error(
-        '[Agentic Chat] Gemini fallback failed; returning static response:',
+        '[Agentic Chat] Cloud provider fallback failed; returning static response:',
         getSafeChatBackendErrorMessage(error)
       );
     }

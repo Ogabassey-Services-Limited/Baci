@@ -1,0 +1,101 @@
+import { generateText } from 'ai';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  createTools: vi.fn(),
+  generateText: vi.fn(),
+  getTextProviderChain: vi.fn(),
+}));
+
+vi.mock('ai', () => ({ generateText: mocks.generateText }));
+vi.mock('@/app/api/chat/chat-tool-runtime', () => ({
+  createAiSdkAgenticChatTools: mocks.createTools,
+}));
+vi.mock('@/ai/text-provider-chain', () => ({
+  getTextProviderChain: mocks.getTextProviderChain,
+}));
+vi.mock('@/config/agentic-chat-system-prompt', () => ({
+  AGENTIC_SYSTEM_PROMPT: 'test system prompt',
+}));
+
+import { resetProviderCooldowns } from '@/ai/provider-cooldown';
+import type { TextProvider } from '@/ai/text-provider-chain';
+import { runChatProviderChain } from './run-chat-provider-chain';
+
+function provider(name: string): TextProvider {
+  return {
+    model: { id: name } as unknown as TextProvider['model'],
+    name,
+  };
+}
+
+let markSideEffect: ((toolName: string) => void) | undefined;
+
+describe('runChatProviderChain', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetProviderCooldowns();
+    markSideEffect = undefined;
+    mocks.createTools.mockImplementation(
+      (
+        _sessionId: string,
+        options: { onSideEffect?: (toolName: string) => void } = {}
+      ) => {
+        markSideEffect = options.onSideEffect;
+        return {};
+      }
+    );
+    mocks.getTextProviderChain.mockReturnValue([
+      provider('cerebras:gemma-4-31b'),
+      provider('google:gemini-2.5-flash'),
+      provider('google:gemini-2.5-flash-lite'),
+    ]);
+  });
+
+  it('falls from Gemini Flash to Flash-Lite without attempting non-tool providers', async () => {
+    vi.mocked(generateText).mockImplementation(((options: {
+      model: { id: string };
+    }) => {
+      if (options.model.id === 'google:gemini-2.5-flash') {
+        return Promise.reject(new Error('Gemini Flash quota exhausted'));
+      }
+      return Promise.resolve({ text: 'Flash-Lite response' });
+    }) as unknown as typeof generateText);
+
+    const result = await runChatProviderChain({
+      abortSignal: new AbortController().signal,
+      messages: [{ content: 'Hello', role: 'user' }],
+      sessionId: 'session-1',
+    });
+
+    expect(result).toEqual({
+      providerName: 'google:gemini-2.5-flash-lite',
+      text: 'Flash-Lite response',
+    });
+    expect(vi.mocked(generateText)).toHaveBeenCalledTimes(2);
+    expect(
+      vi.mocked(generateText).mock.calls.map(([options]) => options.model)
+    ).toEqual([
+      { id: 'google:gemini-2.5-flash' },
+      { id: 'google:gemini-2.5-flash-lite' },
+    ]);
+  });
+
+  it('stops the chain when a provider fails after a commerce side effect', async () => {
+    vi.mocked(generateText).mockImplementation((() => {
+      markSideEffect?.('createVirtualAccount');
+      return Promise.reject(new Error('provider failed after tool execution'));
+    }) as unknown as typeof generateText);
+
+    const attempt = runChatProviderChain({
+      abortSignal: new AbortController().signal,
+      messages: [{ content: 'Create a payment account', role: 'user' }],
+      sessionId: 'session-1',
+    });
+
+    await expect(attempt).rejects.toThrow(
+      'provider chain walk stopped after google:gemini-2.5-flash failed'
+    );
+    expect(vi.mocked(generateText)).toHaveBeenCalledOnce();
+  });
+});
