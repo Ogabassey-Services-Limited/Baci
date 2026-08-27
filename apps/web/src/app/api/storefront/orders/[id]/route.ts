@@ -6,12 +6,10 @@ import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
-import {
-  fetchProductRouteDetails,
-  mapOrderItemsWithRoutes,
-  type OrderItem,
-  resolveMerchantIdBySlug,
-} from './route-helpers';
+import { fetchProductRouteDetails } from './fetch-product-route-details';
+import { mapOrderItemsWithRoutes } from './map-order-items-with-routes';
+import type { OrderItem } from './order-item-types';
+import { resolveMerchantIdBySlug } from './resolve-merchant-id-by-slug';
 
 // GET /api/storefront/orders/[id] - Fetch order details for resuming checkout or BNPL flows
 

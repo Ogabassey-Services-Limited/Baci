@@ -51,6 +51,13 @@ const internalVerificationTimestampMigration = readFileSync(
   ),
   'utf8'
 );
+const activePayableRefreshMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827060300_restrict_paystack_payable_refresh.sql'
+  ),
+  'utf8'
+);
 
 describe('Paystack DVA reservation guard migrations', () => {
   it('requires a server-generated proof before exposing DVA reservation metadata', () => {
@@ -143,6 +150,16 @@ describe('Paystack DVA reservation guard migrations', () => {
     }
   });
 
+  it('refreshes only the active payable snapshot', () => {
+    expect(activePayableRefreshMigration).toContain(
+      "account.provider = 'paystack'"
+    );
+    expect(activePayableRefreshMigration).toContain(
+      "account.expires_at,\n      account.assigned_at + interval '90 minutes',\n      account.created_at + interval '90 minutes'"
+    );
+    expect(activePayableRefreshMigration).toContain(') > pg_catalog.now();');
+  });
+
   it('keeps each focused reservation migration below the module size limit', () => {
     const migrations = [
       authenticatedReservationMigration,
@@ -152,6 +169,7 @@ describe('Paystack DVA reservation guard migrations', () => {
       internalVerificationReservationMigration,
       internalVerificationPayableMigration,
       internalVerificationTimestampMigration,
+      activePayableRefreshMigration,
     ];
 
     for (const migration of migrations) {
