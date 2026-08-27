@@ -39,6 +39,38 @@ describe('blog post social image projection', () => {
     });
   });
 
+  it('ignores an untrusted landscape URL and uses the original featured image', () => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      'https://images.example.com/article.png',
+      {
+        landscape_16x9: 'https://legacy.example.com/missing-landscape.jpg',
+      }
+    );
+
+    expect(image).toEqual({
+      url: 'https://images.example.com/article.png',
+      type: 'image/png',
+    });
+  });
+
+  it('routes external AVIF images through the PNG compatibility renderer', () => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      'https://images.example.com/article.avif',
+      {}
+    );
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
   it('falls back when an absolute URL has no recognized raster image type', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,
