@@ -31,6 +31,7 @@ permissions:
   contents: read
 
 env:
+  BACI_MOBILE_BUILD_PLATFORM: ios
   NODE_VERSION: '24'
   RUBY_VERSION: '3.4'
   XCODE_VERSION: '26.2'

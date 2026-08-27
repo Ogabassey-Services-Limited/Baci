@@ -43,6 +43,7 @@ permissions:
   contents: read
 
 env:
+  BACI_MOBILE_BUILD_PLATFORM: android
   JAVA_VERSION: "21"
   NODE_VERSION: "24"
   ANDROID_NODE_OPTIONS: "--no-experimental-strip-types --max-old-space-size=2048"
