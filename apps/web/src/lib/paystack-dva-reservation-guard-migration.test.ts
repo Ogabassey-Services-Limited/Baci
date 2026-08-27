@@ -16,6 +16,13 @@ const guardMigration = readFileSync(
   ),
   'utf8'
 );
+const guardRepairMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827050000_repair_paystack_dva_alias_snapshot_guards.sql'
+  ),
+  'utf8'
+);
 
 describe('Paystack DVA reservation guard migrations', () => {
   it('requires a server-generated proof before exposing DVA reservation metadata', () => {
@@ -82,5 +89,21 @@ describe('Paystack DVA reservation guard migrations', () => {
 
     expect(sourceExpiryOffset).toBeGreaterThan(-1);
     expect(versionInsertOffset).toBeGreaterThan(sourceExpiryOffset);
+  });
+
+  it('does not update the source row recursively from its payable trigger', () => {
+    expect(guardRepairMigration).not.toContain(
+      'UPDATE public.order_payment_accounts AS source'
+    );
+    expect(guardRepairMigration).toContain(
+      'NEW.expires_at := LEAST(COALESCE(NEW.expires_at, now()), now())'
+    );
+    expect(guardRepairMigration).toContain("OLD.provider = 'paystack_version'");
+  });
+
+  it('guards wallet aliases when an existing receiver or status is updated', () => {
+    expect(guardRepairMigration).toContain(
+      'BEFORE INSERT OR UPDATE OF provider, status, account_number'
+    );
   });
 });
