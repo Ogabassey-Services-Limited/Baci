@@ -7,6 +7,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
+import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
 import { fetchProductRouteDetails } from './fetch-product-route-details';
@@ -167,13 +168,11 @@ export async function GET(
 
         const isPaidOrder =
           order.payment_status?.trim().toLowerCase() === 'paid';
-        const { data: transactions, error: transactionsError } = isPaidOrder
-          ? await supabase
-              .from('transactions')
-              .select('created_at, metadata, gateway, status, transaction_type')
-              .eq('order_id', order.id)
-              .order('created_at', { ascending: true })
+        const transactionsResult = isPaidOrder
+          ? await loadStorefrontCustomerTransactions(supabase, [order.id])
           : { data: [], error: null };
+        const { data: transactions, error: transactionsError } =
+          transactionsResult;
         if (transactionsError) {
           console.error(
             '[API/Orders] Transaction fetch error (session):',

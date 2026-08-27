@@ -60,6 +60,9 @@ function createFullSupabaseMock(options?: {
         options?.canCancelResult ?? { data: true, error: null }
       );
     }
+    if (fn === 'get_customer_order_transactions') {
+      return Promise.resolve({ data: [], error: null });
+    }
     return Promise.reject(new Error(`Unexpected rpc: ${fn}`));
   });
 
@@ -152,8 +155,6 @@ function createFullSupabaseMock(options?: {
         case 'orders':
           return tableQuery({ data: order, error: null });
         case 'order_items':
-          return tableQuery({ data: [], error: null });
-        case 'transactions':
           return tableQuery({ data: [], error: null });
         case 'order_payment_accounts':
           return tableQuery({ data: [], error: null });

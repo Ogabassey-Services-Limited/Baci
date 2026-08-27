@@ -5563,10 +5563,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     orderItemsResponses?: Array<{ data: unknown[]; error: unknown }>;
     reminderError?: unknown;
   } = {}) {
-    const accountUpsert = vi.fn().mockResolvedValue({
-      data: accountError ? null : 'inserted',
-      error: accountError,
-    });
+    const accountUpsert = vi.fn().mockResolvedValue({ error: accountError });
     const reminderInsert = vi.fn().mockResolvedValue({ error: reminderError });
     const orderItemReadResponses = orderItemsResponses ?? [
       {
@@ -5587,7 +5584,6 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       order: orderItemsOrder,
     };
     const backgroundSupabase = {
-      rpc: accountUpsert,
       from: vi.fn((table: string) => {
         // Serves the route's stamped-currency read-back (service-role client).
         if (table === 'orders') {
@@ -5602,6 +5598,10 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
         if (table === 'order_items') {
           return orderItemsQuery;
+        }
+
+        if (table === 'order_payment_accounts') {
+          return { upsert: accountUpsert };
         }
 
         if (table === 'order_reminders') {
@@ -5852,17 +5852,26 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
       pdfOptions.documentDate.getTime() + 14 * 24 * 60 * 60 * 1000
     );
 
-    // Assert the auto-generated DVA used the history-safe reservation contract.
-    expect(accountUpsert).toHaveBeenCalledWith(
-      'reserve_paystack_order_payment_account',
-      expect.objectContaining({
-        p_order_id: 'order-id',
-        p_account_number: '1234567890',
-        p_bank_name: 'Wema Bank',
-        p_account_name: 'OgaBassey-Test',
-        p_expected_customer_email: 'customer@example.com',
-      })
+    // Assert the auto-generated DVA was persisted with the shared upsert/expiry contract.
+    expect(backgroundSupabase.from).toHaveBeenCalledWith(
+      'order_payment_accounts'
     );
+    expect(accountUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        order_id: 'order-id',
+        account_number: '1234567890',
+        bank_name: 'Wema Bank',
+        account_name: 'OgaBassey-Test',
+        provider: 'paystack',
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
+    );
+    expect(
+      Date.parse(
+        (accountUpsert.mock.calls[0]?.[0] as { expires_at: string }).expires_at
+      )
+    ).toBe(pdfOptions.dueDate.getTime());
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(supabase.from).not.toHaveBeenCalledWith('order_payment_accounts');
   });
@@ -6325,17 +6334,21 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
 
     expect(mockGeneratePaymentAccount).toHaveBeenCalled();
     expect(accountUpsert).toHaveBeenCalledWith(
-      'reserve_paystack_order_payment_account',
       expect.objectContaining({
-        p_order_id: 'order-id',
-        p_account_number: '1234567890',
-      })
+        order_id: 'order-id',
+        account_number: '1234567890',
+        expires_at: expect.any(String),
+      }),
+      { onConflict: 'order_id,provider' }
     );
     expect(reminderInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         order_id: 'order-id',
         channel: 'email',
       })
+    );
+    expect(backgroundSupabase.from).toHaveBeenCalledWith(
+      'order_payment_accounts'
     );
     expect(backgroundSupabase.from).toHaveBeenCalledWith('order_reminders');
     expect(mockSendEmail).toHaveBeenCalledWith(

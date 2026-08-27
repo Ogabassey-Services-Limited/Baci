@@ -17,12 +17,6 @@ import {
   resetStorefrontOrderMocks,
 } from './route.test-support';
 
-const mockTransactionsQuery = {
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  order: vi.fn().mockResolvedValue({ data: [], error: null }),
-};
-
 describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
   beforeEach(resetStorefrontOrderMocks);
 
@@ -46,7 +40,6 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'order_items') return mockItemsQuery;
-      if (table === 'transactions') return mockTransactionsQuery;
       return {};
     });
 
@@ -100,7 +93,6 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'merchants') return mockMerchantQuery;
-      if (table === 'transactions') return mockTransactionsQuery;
       return {};
     });
 
@@ -141,7 +133,6 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'merchants') return mockMerchantQuery;
       if (table === 'order_items') return mockItemsQuery;
-      if (table === 'transactions') return mockTransactionsQuery;
       return {};
     });
 
@@ -190,7 +181,6 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'order_items') return mockItemsQuery;
-      if (table === 'transactions') return mockTransactionsQuery;
       return {};
     });
 
@@ -254,12 +244,16 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockResolvedValue({ data: mockItems, error: null }),
     };
-    mockTransactionsQuery.order.mockResolvedValueOnce({
+    mockSupabaseClient.rpc.mockResolvedValueOnce({
       data: [
         {
+          amount: 1000,
           created_at: '2026-08-24T12:45:00.000Z',
+          description: 'Paystack transfer',
+          dva_account_number: '1111111111',
           gateway: 'paystack',
-          metadata: { dva_account_number: '1111111111' },
+          id: 'transaction-1',
+          order_id: 'order-uuid-123',
           status: 'completed',
           transaction_type: 'payment',
         },
@@ -269,7 +263,6 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'order_items') return mockItemsQuery;
-      if (table === 'transactions') return mockTransactionsQuery;
       return {};
     });
 

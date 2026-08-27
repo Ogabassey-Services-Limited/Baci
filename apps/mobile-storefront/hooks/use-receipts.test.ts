@@ -6,7 +6,8 @@ const mockSelectCalls: Record<string, string[]> = {};
 const mockOrderEq = jest.fn();
 const mockOrderSingle = jest.fn<() => SupabaseMockResult>();
 const mockPaymentAccountOrder = jest.fn<() => SupabaseMockResult>();
-const mockTransactionsOrder = jest.fn<() => SupabaseMockResult>();
+const mockTransactionsRpc =
+  jest.fn<(fn: string, args: unknown) => SupabaseMockResult>();
 
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>) => operation(),
@@ -22,6 +23,12 @@ jest.mock('@/lib/logger', () => ({
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
+    rpc: (fn: string, args: unknown) => {
+      if (fn === 'get_customer_order_transactions') {
+        return mockTransactionsRpc(fn, args);
+      }
+      return Promise.resolve({ data: [], error: null });
+    },
     from: (table: string) => ({
       select: (query: string) => {
         mockSelectCalls[table] = [...(mockSelectCalls[table] ?? []), query];
@@ -38,9 +45,7 @@ jest.mock('@/lib/supabase', () => ({
           };
         }
 
-        return {
-          eq: () => ({ order: mockTransactionsOrder }),
-        };
+        return { eq: () => ({}) };
       },
     }),
   },
@@ -93,7 +98,7 @@ describe('receiptDetailQueryOptions', () => {
       single: mockOrderSingle,
     }));
     mockPaymentAccountOrder.mockResolvedValue({ data: [], error: null });
-    mockTransactionsOrder.mockResolvedValue({ data: [], error: null });
+    mockTransactionsRpc.mockResolvedValue({ data: [], error: null });
   });
 
   it('fetches and returns receipt item condition and variant metadata', async () => {
@@ -167,14 +172,14 @@ describe('receiptDetailQueryOptions', () => {
       ],
       error: null,
     });
-    mockTransactionsOrder.mockResolvedValueOnce({
+    mockTransactionsRpc.mockResolvedValueOnce({
       data: [
         {
           amount: 1000,
           created_at: '2026-07-08T12:45:00.000Z',
           description: 'Paystack DVA payment',
+          dva_account_number: '1111111111',
           gateway: 'paystack',
-          metadata: { dva_account_number: '1111111111' },
           status: 'completed',
           transaction_type: 'payment',
         },
@@ -188,6 +193,10 @@ describe('receiptDetailQueryOptions', () => {
     }).queryFn();
 
     expect(detail.virtual_account?.account_number).toBe('1111111111');
+    expect(mockTransactionsRpc).toHaveBeenCalledWith(
+      'get_customer_order_transactions',
+      { p_order_ids: ['order-1'] }
+    );
   });
 
   it('requires both user and merchant scope for receipt detail queries', async () => {

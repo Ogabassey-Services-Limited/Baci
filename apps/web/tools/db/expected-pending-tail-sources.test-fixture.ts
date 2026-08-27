@@ -136,5 +136,11 @@ export const EXPECTED_PENDING_TAIL_SOURCES = {
       sha256:
         'da9c00d6f54ce5c4b1d620978cbf381f3f340ddaea139e0ab10ed20bc4325281',
     },
+    {
+      repositoryPath:
+        'supabase/migrations/20260827120000_get_customer_order_transactions.sql',
+      sha256:
+        '5ef2e8ee12750a77fb7d5d450d1f7f0dce726e21e5d5f923154c02b4661e2883',
+    },
   ],
 } as const;

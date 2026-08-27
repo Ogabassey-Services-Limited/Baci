@@ -42,6 +42,7 @@ export const mockSupabaseClient = {
     getUser: vi.fn(),
   },
   from: vi.fn(),
+  rpc: vi.fn(),
 };
 
 export const mockAnonClient = {
@@ -54,6 +55,7 @@ export function resetStorefrontOrderMocks() {
   vi.mocked(cookies).mockResolvedValue({} as never);
   vi.mocked(createClient).mockReturnValue(mockSupabaseClient as never);
   vi.mocked(createAnonClient).mockReturnValue(mockAnonClient as never);
+  mockSupabaseClient.rpc.mockResolvedValue({ data: [], error: null });
   vi.mocked(isValidUuid).mockReturnValue(true);
   vi.mocked(sanitizeForLog).mockImplementation((value) => String(value));
 

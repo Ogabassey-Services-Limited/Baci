@@ -12,7 +12,7 @@ type SupabaseMockResult = Promise<{ data: unknown; error: unknown }>;
 const mockOrderEq = jest.fn();
 const mockOrderSingle = jest.fn<() => SupabaseMockResult>();
 const mockPaymentAccountOrder = jest.fn<() => SupabaseMockResult>();
-const mockTransactionsOrder = jest.fn<() => SupabaseMockResult>();
+const mockTransactionsRpc = jest.fn<() => SupabaseMockResult>();
 
 jest.mock('@/lib/api', () => ({
   withSupabaseRetry: (operation: () => Promise<unknown>) => operation(),
@@ -23,13 +23,14 @@ jest.mock('@/lib/logger', () => ({
 }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
+    rpc: () => mockTransactionsRpc(),
     from: (table: string) => ({
       select: () => {
         if (table === 'orders') return { eq: mockOrderEq };
         if (table === 'order_payment_accounts') {
           return { eq: () => ({ order: mockPaymentAccountOrder }) };
         }
-        return { eq: () => ({ order: mockTransactionsOrder }) };
+        return { eq: jest.fn() };
       },
     }),
   },
@@ -76,7 +77,7 @@ describe('receipt payment-account history', () => {
       single: mockOrderSingle,
     }));
     mockPaymentAccountOrder.mockResolvedValue({ data: [], error: null });
-    mockTransactionsOrder.mockResolvedValue({ data: [], error: null });
+    mockTransactionsRpc.mockResolvedValue({ data: [], error: null });
   });
 
   afterEach(() => {

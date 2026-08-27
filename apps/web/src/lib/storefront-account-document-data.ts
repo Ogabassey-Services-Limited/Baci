@@ -14,6 +14,7 @@ import type {
   StorefrontAccountDocumentTaxSubtotalRow,
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
+import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 
 const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
 
@@ -147,13 +148,7 @@ export async function getStorefrontAccountDocumentData({
         'id, product_id, variant_id, condition, variant_name, name, quantity, price, assurance_fee, line_extension_amount, unit_code, vat_category_code, vat_rate, vat_amount, sellers_item_id, fulfillment_data'
       )
       .eq('order_id', orderId),
-    supabase
-      .from('transactions')
-      .select(
-        'id, amount, created_at, description, metadata, gateway, status, transaction_type'
-      )
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: true }),
+    loadStorefrontCustomerTransactions(supabase, [orderId]),
     supabase
       .from('order_payment_accounts')
       .select(

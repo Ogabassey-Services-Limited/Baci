@@ -25,6 +25,16 @@ interface ReceiptDetailScope {
   userId: string | null;
 }
 
+interface CustomerTransactionRpcRow {
+  amount: number | string | null;
+  created_at: string;
+  description: string | null;
+  dva_account_number: string | null;
+  gateway: string | null;
+  status: string | null;
+  transaction_type: string | null;
+}
+
 function resolveReceiptMerchantId(merchantId?: string | null) {
   return merchantId || CONFIG.MERCHANT_ID || null;
 }
@@ -174,18 +184,28 @@ async function fetchReceiptDetail(
   );
   if (vaError) log.warn('Failed to fetch virtual account:', vaError.message);
 
-  const { data: transactions, error: txError } = await withSupabaseRetry(
+  const { data: transactionRows, error: txError } = await withSupabaseRetry(
     async () =>
-      await supabase
-        .from('transactions')
-        .select(
-          'amount, created_at, description, metadata, gateway, status, transaction_type'
-        )
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: true }),
+      await supabase.rpc('get_customer_order_transactions', {
+        p_order_ids: [orderId],
+      }),
     { maxRetries: 2 }
   );
   if (txError) log.warn('Failed to fetch transactions:', txError.message);
+
+  const transactions = (
+    (transactionRows as CustomerTransactionRpcRow[] | null) ?? []
+  ).map((transaction: CustomerTransactionRpcRow) => ({
+    amount: transaction.amount,
+    created_at: transaction.created_at,
+    description: transaction.description,
+    gateway: transaction.gateway,
+    metadata: transaction.dva_account_number
+      ? { dva_account_number: transaction.dva_account_number }
+      : null,
+    status: transaction.status,
+    transaction_type: transaction.transaction_type,
+  }));
 
   const detail = {
     ...order,

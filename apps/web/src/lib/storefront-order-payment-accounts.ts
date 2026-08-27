@@ -3,7 +3,9 @@ import {
   type OrderPaymentAccountLike,
   selectPreferredOrderPaymentAccount,
 } from '@baci/shared';
-import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
+import type { Database } from '@/types/supabase';
 
 interface StorefrontOrderPaymentAccountOrder {
   id: string;
@@ -24,29 +26,23 @@ interface StorefrontOrderTransaction {
  * lookup, preserving the receiver recorded by a successful Paystack payment.
  */
 export async function resolveStorefrontOrderPaymentAccounts(
-  supabase: SupabaseClient,
+  supabase: SupabaseClient<Database>,
   orders: readonly StorefrontOrderPaymentAccountOrder[],
   now = new Date()
 ) {
   const paidOrderIds = orders
     .filter((order) => order.payment_status?.trim().toLowerCase() === 'paid')
     .map((order) => order.id);
-  const transactionsResult =
-    paidOrderIds.length > 0
-      ? await supabase
-          .from('transactions')
-          .select(
-            'order_id, created_at, metadata, gateway, status, transaction_type'
-          )
-          .in('order_id', paidOrderIds)
-          .order('created_at', { ascending: true })
-      : { data: [], error: null as PostgrestError | null };
+  const transactionsResult = await loadStorefrontCustomerTransactions(
+    supabase,
+    paidOrderIds
+  );
 
   const transactionsByOrderId = new Map<string, StorefrontOrderTransaction[]>();
   for (const transaction of transactionsResult.data ?? []) {
     const orderTransactions =
       transactionsByOrderId.get(transaction.order_id) ?? [];
-    orderTransactions.push(transaction as StorefrontOrderTransaction);
+    orderTransactions.push(transaction);
     transactionsByOrderId.set(transaction.order_id, orderTransactions);
   }
 

@@ -17724,6 +17724,20 @@ export type Database = {
           quote_request: Json;
         }[];
       };
+      get_customer_order_transactions: {
+        Args: { p_order_ids: string[] };
+        Returns: {
+          amount: number | null;
+          created_at: string;
+          description: string | null;
+          dva_account_number: string | null;
+          gateway: string | null;
+          id: string;
+          order_id: string;
+          status: string | null;
+          transaction_type: string | null;
+        }[];
+      };
       get_credit_direct_settings: {
         Args: { p_merchant_slug: string };
         Returns: {

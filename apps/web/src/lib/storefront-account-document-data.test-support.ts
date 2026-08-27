@@ -14,6 +14,29 @@ export function createStorefrontDocumentSupabaseMock(options?: {
         options?.canCancelResult ?? { data: true, error: null }
       );
     }
+    if (fn === 'get_customer_order_transactions') {
+      return Promise.resolve({
+        data: (options?.transactions ?? []).map((transaction) => ({
+          amount: (transaction as { amount?: unknown }).amount ?? null,
+          created_at:
+            (transaction as { created_at?: unknown }).created_at ??
+            '2026-03-22T10:00:00.000Z',
+          description:
+            (transaction as { description?: unknown }).description ?? null,
+          dva_account_number:
+            (transaction as { metadata?: { dva_account_number?: unknown } })
+              .metadata?.dva_account_number ?? null,
+          gateway: (transaction as { gateway?: unknown }).gateway ?? null,
+          id: (transaction as { id?: unknown }).id ?? null,
+          order_id: 'order-1',
+          status: (transaction as { status?: unknown }).status ?? null,
+          transaction_type:
+            (transaction as { transaction_type?: unknown }).transaction_type ??
+            null,
+        })),
+        error: null,
+      });
+    }
     return Promise.reject(new Error(`Unexpected rpc: ${fn}`));
   });
   function tableQuery(result: QueryResult) {
@@ -105,8 +128,6 @@ export function createStorefrontDocumentSupabaseMock(options?: {
         case 'order_items':
         case 'order_tax_subtotals':
           return tableQuery({ data: [], error: null });
-        case 'transactions':
-          return tableQuery({ data: options?.transactions ?? [], error: null });
         case 'order_payment_accounts':
           return tableQuery({
             data: options?.paymentAccounts ?? [],

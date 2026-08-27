@@ -87,7 +87,7 @@ export async function POST(
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select(
-        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status, cancelled_at'
+        'id, order_number, total, customer_name, customer_email, payment_status, shipping_status, cancelled_at, payment_due_date'
       )
       .eq('id', orderId)
       .eq('merchant_id', merchantId)
@@ -201,6 +201,7 @@ export async function POST(
       customerEmail: order.customer_email,
       customerName: order.customer_name,
       orderId,
+      paymentDueDate: order.payment_due_date,
       supabase,
     });
 

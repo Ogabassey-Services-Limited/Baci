@@ -2,15 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { resolveStorefrontOrderPaymentAccounts } from './storefront-order-payment-accounts';
 
-function createQuery(result: { data: unknown; error: unknown }) {
-  const query = {
-    select: vi.fn(() => query),
-    in: vi.fn(() => query),
-    order: vi.fn().mockResolvedValue(result),
-  };
-  return query;
-}
-
 const accounts = [
   {
     account_name: 'Paid DVA',
@@ -32,12 +23,15 @@ const accounts = [
 
 describe('resolveStorefrontOrderPaymentAccounts', () => {
   it('uses the paid transaction receiver for a historical alias', async () => {
-    const transactionQuery = createQuery({
+    const rpc = vi.fn().mockResolvedValue({
       data: [
         {
+          amount: 1000,
           created_at: '2026-07-08T12:45:00.000Z',
+          description: 'Paystack transfer',
+          dva_account_number: '1111111111',
           gateway: 'paystack',
-          metadata: { dva_account_number: '1111111111' },
+          id: 'transaction-1',
           order_id: 'order-1',
           status: 'completed',
           transaction_type: 'payment',
@@ -46,7 +40,7 @@ describe('resolveStorefrontOrderPaymentAccounts', () => {
       error: null,
     });
     const supabase = {
-      from: vi.fn(() => transactionQuery),
+      rpc,
     } as unknown as SupabaseClient;
 
     const result = await resolveStorefrontOrderPaymentAccounts(
@@ -64,14 +58,16 @@ describe('resolveStorefrontOrderPaymentAccounts', () => {
     expect(result.paymentAccountsByOrderId.get('order-1')?.account_number).toBe(
       '1111111111'
     );
-    expect(transactionQuery.in).toHaveBeenCalledWith('order_id', ['order-1']);
+    expect(rpc).toHaveBeenCalledWith('get_customer_order_transactions', {
+      p_order_ids: ['order-1'],
+    });
   });
 
   it('returns transaction lookup errors while preserving account resolution', async () => {
     const error = new Error('transaction lookup unavailable');
-    const transactionQuery = createQuery({ data: null, error });
+    const rpc = vi.fn().mockResolvedValue({ data: null, error });
     const supabase = {
-      from: vi.fn(() => transactionQuery),
+      rpc,
     } as unknown as SupabaseClient;
 
     const result = await resolveStorefrontOrderPaymentAccounts(
