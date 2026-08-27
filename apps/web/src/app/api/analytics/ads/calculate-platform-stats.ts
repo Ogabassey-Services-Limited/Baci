@@ -78,9 +78,12 @@ function configuredPlatformStats(
 function addAttribution(
   stats: PlatformStats,
   revenue: number,
-  configured: boolean
+  configured: boolean,
+  hasClickId: boolean
 ): void {
-  stats.clickAttributed += 1;
+  if (hasClickId) {
+    stats.clickAttributed += 1;
+  }
   if (configured) {
     stats.conversions += 1;
     stats.revenue += revenue;
@@ -128,24 +131,32 @@ export function calculatePlatformStats(
       addAttribution(
         platformStats.facebook,
         revenue,
-        platformStats.facebook.configured
+        platformStats.facebook.configured,
+        Boolean(tracking.fbclid)
       );
     }
     if (tracking.ttclid || tracking.ttp) {
       addAttribution(
         platformStats.tiktok,
         revenue,
-        platformStats.tiktok.configured
+        platformStats.tiktok.configured,
+        Boolean(tracking.ttclid)
       );
     }
     if (tracking.gclid || tracking.gaClientId) {
-      addAttribution(platformStats.ga4, revenue, platformStats.ga4.configured);
+      addAttribution(
+        platformStats.ga4,
+        revenue,
+        platformStats.ga4.configured,
+        Boolean(tracking.gclid)
+      );
     }
     if (tracking.sccid) {
       addAttribution(
         platformStats.snapchat,
         revenue,
-        platformStats.snapchat.configured
+        platformStats.snapchat.configured,
+        true
       );
     }
 

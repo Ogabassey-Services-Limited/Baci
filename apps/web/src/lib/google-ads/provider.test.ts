@@ -120,6 +120,22 @@ describe('Google Ads provider client', () => {
     });
   });
 
+  it('rejects a malformed accessible-customer response instead of reporting no accounts', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
+
+    await expect(
+      listGoogleAdsAccessibleCustomerIds(
+        'access-token',
+        reportingConfig,
+        fetchImpl
+      )
+    ).rejects.toMatchObject({
+      code: 'GOOGLE_ADS_ACCOUNT_DISCOVERY_RESPONSE_INVALID',
+    });
+  });
+
   it('fails instead of returning a partial set when the manager-node cap leaves work queued', async () => {
     const directIds = Array.from({ length: 30 }, (_, index) =>
       String(1_000_000_000 + index)

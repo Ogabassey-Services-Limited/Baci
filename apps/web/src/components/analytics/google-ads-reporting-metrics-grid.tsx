@@ -76,7 +76,7 @@ export function GoogleAdsReportingMetricsGrid({
         <GoogleAdsMetric
           formattedValue={formatGoogleAdsMetric(
             metrics.conversions,
-            'number',
+            'conversion',
             currency
           )}
           icon={<CheckCircle2 className="size-3.5" />}

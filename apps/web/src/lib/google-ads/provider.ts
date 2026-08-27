@@ -120,12 +120,16 @@ export async function listGoogleAdsAccessibleCustomerIds(
     );
   }
   const payload: unknown = await response.json();
-  const resourceNames =
-    payload !== null &&
-    typeof payload === 'object' &&
-    Array.isArray((payload as { resourceNames?: unknown }).resourceNames)
-      ? (payload as { resourceNames: unknown[] }).resourceNames
-      : [];
+  if (
+    payload === null ||
+    typeof payload !== 'object' ||
+    !Array.isArray((payload as { resourceNames?: unknown }).resourceNames)
+  ) {
+    throw new GoogleAdsProviderError(
+      'GOOGLE_ADS_ACCOUNT_DISCOVERY_RESPONSE_INVALID'
+    );
+  }
+  const resourceNames = (payload as { resourceNames: unknown[] }).resourceNames;
   const directCustomerIds = resourceNames
     .filter((value: unknown): value is string => typeof value === 'string')
     .map(parseGoogleAdsCustomerId)

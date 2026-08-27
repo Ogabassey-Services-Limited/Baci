@@ -4,6 +4,12 @@ function formatNumber(value: number): string {
   }).format(value);
 }
 
+function formatConversion(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 function formatCurrency(value: number, currency: string): string {
   try {
     return new Intl.NumberFormat('en-US', {
@@ -19,11 +25,12 @@ function formatCurrency(value: number, currency: string): string {
 
 export function formatGoogleAdsMetric(
   value: number,
-  kind: 'currency' | 'number' | 'percent',
+  kind: 'conversion' | 'currency' | 'number' | 'percent',
   currency: string
 ): string {
   if (kind === 'currency') return formatCurrency(value, currency);
   if (kind === 'percent') return `${value.toFixed(2)}%`;
+  if (kind === 'conversion') return formatConversion(value);
   return formatNumber(value);
 }
 

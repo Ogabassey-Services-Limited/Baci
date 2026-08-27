@@ -88,4 +88,31 @@ describe('calculatePlatformStats', () => {
       revenue: 0,
     });
   });
+
+  it('does not count browser identifiers as click attribution', () => {
+    const result = calculatePlatformStats(
+      [
+        {
+          ad_tracking: {
+            fbp: 'fb-browser',
+            gaClientId: '123.456',
+            ttp: 'tt-browser',
+          },
+          created_at: '2026-08-01T00:00:00.000Z',
+          id: 'order-1',
+          payment_status: 'paid',
+          total: 90,
+        },
+      ],
+      configuredMerchant
+    );
+
+    expect(result.details.ordersWithClickIds).toBe(0);
+    expect(result.platformStats.facebook.clickAttributed).toBe(0);
+    expect(result.platformStats.tiktok.clickAttributed).toBe(0);
+    expect(result.platformStats.ga4.clickAttributed).toBe(0);
+    expect(result.platformStats.facebook.conversions).toBe(1);
+    expect(result.platformStats.tiktok.conversions).toBe(1);
+    expect(result.platformStats.ga4.conversions).toBe(1);
+  });
 });
