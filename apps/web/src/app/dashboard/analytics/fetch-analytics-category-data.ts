@@ -4,6 +4,10 @@ import type {
   InventoryForecastStatus,
 } from '@/components/analytics/draggable-analytics-grid';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
+import {
+  type AnalyticsJsonRecord,
+  analyticsDataParsers,
+} from './analytics-data-parsers';
 import { mapGoogleAdsReporting } from './google-ads-analytics-mapper';
 import { mapSocialAdsReporting } from './social-ads-analytics-mapper';
 
@@ -16,54 +20,8 @@ interface FetchAnalyticsCategoryDataOptions {
   to: Date;
 }
 
-interface JsonRecord {
-  [key: string]: unknown;
-}
-
-function asRecord(value: unknown): JsonRecord | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as JsonRecord;
-}
-
-function asArray(value: unknown): JsonRecord[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.flatMap((item) => {
-    const record = asRecord(item);
-    return record ? [record] : [];
-  });
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-
-  return 0;
-}
-
-function asOptionalNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  return undefined;
-}
+const { asArray, asNumber, asOptionalNumber, asRecord, asString } =
+  analyticsDataParsers;
 
 function asInventoryForecastStatus(
   value: unknown
@@ -80,15 +38,11 @@ function asInventoryForecastStatus(
   return undefined;
 }
 
-function asString(value: unknown, fallback: string): string {
-  return typeof value === 'string' && value.trim() !== '' ? value : fallback;
-}
-
 async function fetchAnalyticsJson(
   path: string,
   merchantId: string,
   signal: AbortSignal
-): Promise<JsonRecord> {
+): Promise<AnalyticsJsonRecord> {
   const response = await fetch(path, {
     headers: { 'x-baci-merchant-id': merchantId },
     signal,
@@ -102,7 +56,7 @@ async function fetchAnalyticsJson(
   return asRecord(payload) ?? {};
 }
 
-function mapInventoryAlert(alert: JsonRecord) {
+function mapInventoryAlert(alert: AnalyticsJsonRecord) {
   const product = asRecord(alert.products);
   return {
     alert_type: asString(alert.alert_type, 'unknown'),
@@ -113,7 +67,7 @@ function mapInventoryAlert(alert: JsonRecord) {
   };
 }
 
-function mapInventoryForecast(forecast: JsonRecord) {
+function mapInventoryForecast(forecast: AnalyticsJsonRecord) {
   return {
     avg_daily_sales: asNumber(forecast.avgDailySales),
     current_stock: asNumber(forecast.currentStock),
@@ -235,7 +189,7 @@ async function fetchSegmentData(
   };
 }
 
-function mapAdPlatform(platform: JsonRecord) {
+function mapAdPlatform(platform: AnalyticsJsonRecord) {
   return {
     clickAttributed: asNumber(platform.clickAttributed),
     configured: platform.configured === true,

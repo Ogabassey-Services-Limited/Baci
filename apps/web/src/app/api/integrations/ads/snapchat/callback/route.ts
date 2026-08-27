@@ -31,7 +31,13 @@ function redirect(
     target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
   }
   const response = NextResponse.redirect(target);
-  response.cookies.delete(SNAPCHAT_ADS_STATE_COOKIE);
+  response.cookies.set(SNAPCHAT_ADS_STATE_COOKIE, '', {
+    httpOnly: true,
+    maxAge: 0,
+    path: '/api/integrations/ads/snapchat',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }

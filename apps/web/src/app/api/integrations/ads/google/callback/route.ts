@@ -20,8 +20,15 @@ import {
 import { googleAdsOAuthCallbackQuerySchema } from '@/schemas/google-ads';
 
 function clearOAuthCookies(response: NextResponse): NextResponse {
-  response.cookies.delete(GOOGLE_ADS_STATE_COOKIE);
-  response.cookies.delete(GOOGLE_ADS_VERIFIER_COOKIE);
+  const options = {
+    httpOnly: true,
+    maxAge: 0,
+    path: '/api/integrations/ads/google',
+    sameSite: 'lax' as const,
+    secure: process.env.NODE_ENV === 'production',
+  };
+  response.cookies.set(GOOGLE_ADS_STATE_COOKIE, '', options);
+  response.cookies.set(GOOGLE_ADS_VERIFIER_COOKIE, '', options);
   return response;
 }
 

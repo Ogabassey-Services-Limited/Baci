@@ -72,9 +72,7 @@ describe('SocialAdsAccountDiscoveryPanel', () => {
     expect(
       screen.queryByRole('button', { name: 'Retry account discovery' })
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Cancel' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
     expect(screen.getByRole('radiogroup')).toBeInTheDocument();
   });
 
@@ -109,6 +107,32 @@ describe('SocialAdsAccountDiscoveryPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(onRetry).toHaveBeenCalledOnce();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it('offers an exit after discovering accessible accounts', () => {
+    const onCancel = vi.fn();
+
+    render(
+      <SocialAdsAccountDiscoveryPanel
+        accounts={[account]}
+        displayName="TikTok Ads"
+        error={null}
+        isChoosing
+        isDiscoveryError={false}
+        isLoading={false}
+        isSaving={false}
+        onCancel={onCancel}
+        onRetry={vi.fn()}
+        onSave={vi.fn()}
+        onSelect={vi.fn()}
+        provider="tiktok_ads"
+        selectedId={account.accountId}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
     expect(onCancel).toHaveBeenCalledOnce();
   });
 });

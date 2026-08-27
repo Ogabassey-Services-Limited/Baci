@@ -34,7 +34,13 @@ function callbackRedirect(
     target.searchParams.set('cacheBust', String(Math.floor(Date.now() / 1000)));
   }
   const response = NextResponse.redirect(target);
-  response.cookies.delete(META_ADS_STATE_COOKIE);
+  response.cookies.set(META_ADS_STATE_COOKIE, '', {
+    httpOnly: true,
+    maxAge: 0,
+    path: '/api/integrations/ads/meta',
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+  });
   response.headers.set('Cache-Control', 'private, no-store');
   return response;
 }

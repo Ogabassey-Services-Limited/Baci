@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, Check, ListRestart, Loader2 } from 'lucide-react';
+import { AlertCircle, ListRestart, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -11,25 +11,19 @@ import {
 } from '@/lib/analytics/default-ads-sync-window';
 import { fetchWithCsrf } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import {
+  type GoogleAdsAccount,
+  GoogleAdsAccountList,
+} from './google-ads-account-list';
 
 const ACCOUNTS_PATH = '/api/integrations/ads/google/accounts' as const;
 const SYNC_PATH = '/api/integrations/ads/google/sync' as const;
-
-interface GoogleAdsAccount {
-  customerId: string;
-  selected: boolean;
-}
 
 interface GoogleAdsAccountPickerProps {
   className?: string;
   merchantId?: string;
   onSynced?: () => void;
   syncWindow?: AdsSyncWindow;
-}
-
-function maskCustomerId(customerId: string): string {
-  const normalized = customerId.replaceAll('-', '');
-  return `Google Ads account ••••${normalized.slice(-4)}`;
 }
 
 async function readError(
@@ -233,60 +227,14 @@ export function GoogleAdsAccountPicker({
       )}
 
       {isOpen && !isLoadingAccounts && accounts.length > 0 && (
-        <div
-          aria-label="Google Ads accounts"
-          className="space-y-2"
-          role="radiogroup"
-        >
-          {accounts.map((account) => {
-            const selected = account.customerId === selectedCustomerId;
-            return (
-              <label
-                className={cn(
-                  'flex min-h-11 w-full cursor-pointer items-center justify-between rounded-lg border p-3 text-left text-sm transition-colors',
-                  selected
-                    ? 'border-primary bg-primary/10'
-                    : 'border-border hover:bg-muted/50'
-                )}
-                key={account.customerId}
-              >
-                <input
-                  checked={selected}
-                  className="sr-only"
-                  name="google-ads-account"
-                  onChange={() => setSelectedCustomerId(account.customerId)}
-                  type="radio"
-                  value={account.customerId}
-                />
-                <span>{maskCustomerId(account.customerId)}</span>
-                {selected && <Check className="size-4 text-primary" />}
-              </label>
-            );
-          })}
-          <Button
-            className="gap-2"
-            disabled={isSaving || selectedCustomerId === null}
-            onClick={selectAccount}
-            size="sm"
-            type="button"
-          >
-            {isSaving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Check className="size-4" />
-            )}
-            Save account and sync spend
-          </Button>
-          <Button
-            disabled={isSaving}
-            onClick={closePicker}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Cancel
-          </Button>
-        </div>
+        <GoogleAdsAccountList
+          accounts={accounts}
+          isSaving={isSaving}
+          onCancel={closePicker}
+          onSave={selectAccount}
+          onSelect={setSelectedCustomerId}
+          selectedCustomerId={selectedCustomerId}
+        />
       )}
 
       {error && (

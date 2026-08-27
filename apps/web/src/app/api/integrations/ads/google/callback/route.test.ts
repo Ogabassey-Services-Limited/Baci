@@ -173,6 +173,9 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(mockInvalidate).toHaveBeenCalledWith('merchant-1');
     expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(await response.text())).not.toContain('access-token');
+    expect(response.headers.get('set-cookie')).toContain(
+      'Path=/api/integrations/ads/google'
+    );
   });
 
   it('does not reuse an older refresh token when reauthorization omits one', async () => {

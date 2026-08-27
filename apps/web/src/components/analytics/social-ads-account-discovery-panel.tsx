@@ -120,6 +120,15 @@ export function SocialAdsAccountDiscoveryPanel({
             )}
             Save account and sync
           </Button>
+          <Button
+            disabled={isSaving}
+            onClick={onCancel}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Cancel
+          </Button>
         </div>
       )}
 

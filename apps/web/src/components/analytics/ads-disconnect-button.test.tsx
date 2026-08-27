@@ -28,6 +28,7 @@ describe('AdsDisconnectButton', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: /disconnect ads/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^Disconnect$/ }));
 
     await waitFor(() => expect(onDisconnected).toHaveBeenCalledOnce());
     expect(fetchWithCsrf).toHaveBeenCalledWith(
@@ -53,6 +54,7 @@ describe('AdsDisconnectButton', () => {
     fireEvent.click(
       screen.getByRole('button', { name: /disconnect meta ads/i })
     );
+    fireEvent.click(screen.getByRole('button', { name: /^Disconnect$/ }));
     expect(
       screen.getByRole('button', { name: /disconnecting meta ads/i })
     ).toBeDisabled();
@@ -66,5 +68,18 @@ describe('AdsDisconnectButton', () => {
     expect(
       screen.getByRole('button', { name: /disconnect meta ads/i })
     ).toBeEnabled();
+  });
+
+  it('does not delete credentials when the confirmation is cancelled', () => {
+    render(
+      <AdsDisconnectButton displayName="Snapchat Ads" provider="snapchat" />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /disconnect snapchat ads/i })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/ }));
+
+    expect(fetchWithCsrf).not.toHaveBeenCalled();
   });
 });

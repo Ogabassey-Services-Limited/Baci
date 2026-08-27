@@ -3,6 +3,17 @@
 import { Loader2, Unplug } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { fetchWithCsrf } from '@/lib/api-client';
 
@@ -32,6 +43,7 @@ export function AdsDisconnectButton({
 }: AdsDisconnectButtonProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
 
   const disconnect = async () => {
     setError(null);
@@ -68,22 +80,41 @@ export function AdsDisconnectButton({
 
   return (
     <div className="space-y-2">
-      <Button
-        disabled={isDisconnecting}
-        onClick={disconnect}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        {isDisconnecting ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          <Unplug className="size-4" />
-        )}
-        {isDisconnecting
-          ? `Disconnecting ${displayName}…`
-          : `Disconnect ${displayName}`}
-      </Button>
+      <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+        <AlertDialogTrigger asChild>
+          <Button
+            disabled={isDisconnecting}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {isDisconnecting ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Unplug className="size-4" />
+            )}
+            {isDisconnecting
+              ? `Disconnecting ${displayName}…`
+              : `Disconnect ${displayName}`}
+          </Button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect {displayName}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the saved Ads credentials and reporting connection.
+              You will need to reconnect the account before metrics can sync
+              again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={isDisconnecting} onClick={disconnect}>
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
