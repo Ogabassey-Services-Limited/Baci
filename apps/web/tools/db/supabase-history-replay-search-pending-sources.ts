@@ -1,2 +1,2 @@
 // Frozen replay row for the search_products_v2 NULL-status compatibility repair.
-export const SEARCH_PENDING_REPLAY_SOURCE_ROWS = `00043e0db0d93420a2ca2da74ac0dba4414b952ff31bcdaadda659edd7a96ba0 20260827100000_fix_search_products_not_archived_nulls.sql`;
+export const SEARCH_PENDING_REPLAY_SOURCE_ROWS = `7d64c0b78fe68d3ce5d996c616769efd26cd4a6fbc56beebefc7e65fec1d620d 20260827100000_fix_search_products_not_archived_nulls.sql`;

@@ -9,18 +9,26 @@ BEGIN
     'public.search_products_v2(text,uuid,integer,integer,text,uuid,text,text,numeric,numeric,double precision,text,boolean,text)'::regprocedure
   ) INTO v_original_definition;
 
-  v_definition := replace(
-    v_original_definition,
-    E'OR (status_filter = ''not_archived'' AND p.status <> ''archived'')',
-    E'OR (status_filter = ''not_archived'' AND (p.status IS NULL OR p.status <> ''archived''))'
-  );
+  IF v_original_definition IS NULL THEN
+    RAISE EXCEPTION 'search_products_v2 function is missing';
+  ELSIF v_original_definition LIKE '%p.status IS NULL OR p.status <> ''archived''%' THEN
+    -- The repair is already installed. This makes history recovery and
+    -- manually retried migration application a safe no-op.
+    NULL;
+  ELSE
+    v_definition := replace(
+      v_original_definition,
+      E'OR (status_filter = ''not_archived'' AND p.status <> ''archived'')',
+      E'OR (status_filter = ''not_archived'' AND (p.status IS NULL OR p.status <> ''archived''))'
+    );
 
-  IF v_definition = v_original_definition
-    OR v_definition NOT LIKE '%p.status IS NULL OR p.status <> ''archived''%'
-  THEN
-    RAISE EXCEPTION 'search_products_v2 not_archived NULL-safe repair did not apply';
+    IF v_definition = v_original_definition
+      OR v_definition NOT LIKE '%p.status IS NULL OR p.status <> ''archived''%'
+    THEN
+      RAISE EXCEPTION 'search_products_v2 not_archived NULL-safe repair did not apply';
+    END IF;
+
+    EXECUTE v_definition;
   END IF;
-
-  EXECUTE v_definition;
 END;
 $migration$;
