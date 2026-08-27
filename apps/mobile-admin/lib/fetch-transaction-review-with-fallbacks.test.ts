@@ -69,6 +69,34 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('uses a cost-rich projection when product match status is unavailable', async () => {
+    const rows = [{ id: 'legacy-product-match-status-order' }];
+    const productMatchStatusSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'product_match_status' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: productMatchStatusSchemaError,
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
   it('uses the final projection without variant_id after schema-cache retries', async () => {
     const rows = [{ id: 'legacy-order' }];
     for (let attempt = 0; attempt < 12; attempt += 1) {

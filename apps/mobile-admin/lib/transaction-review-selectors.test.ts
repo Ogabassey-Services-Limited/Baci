@@ -52,6 +52,16 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('keeps cost relationships when product match status is unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.legacyNoProductMatchStatus;
+
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).toContain('variant_attributes');
+    expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
   it('keeps cost relationships when discount code ids are unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode;
 

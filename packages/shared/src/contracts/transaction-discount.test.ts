@@ -49,4 +49,14 @@ describe('buildTransactionDiscountLineKey', () => {
     expect(omitted).toBe('["product-1",null,null,{}]');
     expect(explicitDefaults).toBe(omitted);
   });
+
+  it('orders locale-sensitive attribute keys by code point', () => {
+    const key = buildTransactionDiscountLineKey({
+      productId: 'product-1',
+      variantAttributes: { z: 'last', '\u00e4': 'accent' },
+      variantId: null,
+    });
+
+    expect(key).toBe('["product-1",null,null,{"z":"last","ä":"accent"}]');
+  });
 });

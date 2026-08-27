@@ -25,6 +25,7 @@ type TransactionReviewFallbackStage =
   | 'Full'
   | 'FullNoDiscount'
   | 'LegacyNoDiscountCode'
+  | 'LegacyNoProductMatchStatus'
   | 'LegacyNoVariantAttributes'
   | 'LegacyNoAdjustments'
   | 'LegacyNoAdjustmentsNoDiscountCode'
@@ -37,29 +38,12 @@ function getTransactionReviewErrorText(error: TransactionReviewQueryError) {
     .toLowerCase();
 }
 
-function isMissingDiscountAmountSchemaError(
-  error: TransactionReviewQueryError
+function isMissingSchemaColumn(
+  error: TransactionReviewQueryError,
+  column: string
 ) {
   return (
-    getTransactionReviewErrorText(error).includes('discount_amount') &&
-    isTransactionReviewSchemaCacheError(error)
-  );
-}
-
-function isMissingDiscountCodeIdSchemaError(
-  error: TransactionReviewQueryError
-) {
-  return (
-    getTransactionReviewErrorText(error).includes('discount_code_id') &&
-    isTransactionReviewSchemaCacheError(error)
-  );
-}
-
-function isMissingVariantAttributesSchemaError(
-  error: TransactionReviewQueryError
-) {
-  return (
-    getTransactionReviewErrorText(error).includes('variant_attributes') &&
+    getTransactionReviewErrorText(error).includes(column) &&
     isTransactionReviewSchemaCacheError(error)
   );
 }
@@ -129,7 +113,7 @@ export async function fetchTransactionReviewWithFallbacks({
     startDateIso,
   });
 
-  if (isMissingDiscountAmountSchemaError(error)) {
+  if (isMissingSchemaColumn(error, 'discount_amount')) {
     ({ data, error } = await runTransactionReviewQuery('FullNoDiscount', {
       endDateFilter,
       endDateIso,
@@ -142,11 +126,20 @@ export async function fetchTransactionReviewWithFallbacks({
     }));
   }
 
-  if (isMissingVariantAttributesSchemaError(error)) {
+  if (isMissingSchemaColumn(error, 'variant_attributes')) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'LegacyNoVariantAttributes',
       legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes,
+      true
+    ));
+  }
+
+  if (isMissingSchemaColumn(error, 'product_match_status')) {
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'LegacyNoProductMatchStatus',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacyNoProductMatchStatus,
       true
     ));
   }
@@ -169,7 +162,7 @@ export async function fetchTransactionReviewWithFallbacks({
     ));
   }
 
-  if (isMissingDiscountCodeIdSchemaError(error)) {
+  if (isMissingSchemaColumn(error, 'discount_code_id')) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'LegacyNoDiscountCode',
       legacyQuery,
