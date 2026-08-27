@@ -52,20 +52,26 @@ describe('HomeScreen', () => {
   });
 
   it('ends the home performance trace on focus loss and unmount', () => {
-    const endTrace = jest.fn();
-    mockRecordPerformanceSurface.mockReturnValue(endTrace);
+    const endTraces: jest.Mock[] = [];
+    mockRecordPerformanceSurface.mockImplementation(() => {
+      const endTrace = jest.fn();
+      endTraces.push(endTrace);
+      return endTrace;
+    });
     const { rerender, unmount } = render(<HomeScreen />);
+    const focusedEndTrace = endTraces.at(-1);
 
     mockUseIsFocused.mockReturnValue(false);
     rerender(<HomeScreen />);
 
-    expect(endTrace).toHaveBeenCalledTimes(1);
+    expect(focusedEndTrace).toHaveBeenCalledTimes(1);
 
     mockUseIsFocused.mockReturnValue(true);
     rerender(<HomeScreen />);
+    const unmountedEndTrace = endTraces.at(-1);
     unmount();
 
-    expect(endTrace).toHaveBeenCalledTimes(2);
+    expect(unmountedEndTrace).toHaveBeenCalledTimes(1);
   });
 
   it('uses tab-bar clearance only when the chat widget is disabled', () => {
