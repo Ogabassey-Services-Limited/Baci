@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { getDvaReservationFailureResponse } from './generate-dva-reservation-response';
+import {
+  getDvaReservationFailureResponse,
+  getDvaReservationProofFailureResponse,
+} from './generate-dva-reservation-response';
+
+describe('getDvaReservationProofFailureResponse', () => {
+  it('returns a stable persistence failure response', async () => {
+    const response = getDvaReservationProofFailureResponse();
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+      error: 'Failed to save automatic confirmation account',
+    });
+  });
+});
 
 describe('getDvaReservationFailureResponse', () => {
   it.each([

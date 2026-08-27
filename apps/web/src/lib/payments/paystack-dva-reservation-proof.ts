@@ -1,5 +1,4 @@
 import { createHmac } from 'node:crypto';
-import { getSupabaseServiceRoleKey } from '@/env';
 
 const PROOF_VERSION = 'paystack-dva-reservation:v1' as const;
 const PROOF_SCOPE = 'paystack_dva_reservation' as const;
@@ -71,9 +70,9 @@ function canonicalReservationProof({
 }
 
 function reservationProofSecret(explicitSecret?: string): string {
-  const secret = explicitSecret?.trim() || getSupabaseServiceRoleKey().trim();
+  const secret = explicitSecret?.trim();
   if (!secret) {
-    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
+    throw new Error('Paystack DVA reservation secret is not configured');
   }
   return secret;
 }

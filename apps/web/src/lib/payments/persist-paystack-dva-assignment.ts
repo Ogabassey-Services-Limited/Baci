@@ -1,10 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { getSupabaseServiceRoleKey } from '@/env';
 import { logger } from '@/lib/logger';
 import { createPaystackDvaReservationProof } from '@/lib/payments/paystack-dva-reservation-proof';
 import type { Database } from '@/types/supabase';
 
-interface PaystackDvaAssignment {
+export interface PaystackDvaAssignment {
   accountName: string;
   accountNumber: string;
   bankName: string;
@@ -13,10 +14,16 @@ interface PaystackDvaAssignment {
   expiresAt?: string;
 }
 
-export async function persistPaystackDvaAssignment(
+export interface PaystackDvaReservationResult {
+  data: string | null;
+  error: { message?: string } | null;
+  proofError?: string;
+}
+
+export async function reservePaystackDvaAssignment(
   supabase: SupabaseClient<Database>,
   assignment: PaystackDvaAssignment
-) {
+): Promise<PaystackDvaReservationResult> {
   const assignedAtMs = Date.now();
   const assignedAt = new Date(assignedAtMs).toISOString();
   const expiresAt =
@@ -24,31 +31,32 @@ export async function persistPaystackDvaAssignment(
     new Date(assignedAtMs + 90 * 60 * 1000).toISOString();
   let provisioningProof: ReturnType<typeof createPaystackDvaReservationProof>;
   try {
-    provisioningProof = createPaystackDvaReservationProof({
-      accountName: assignment.accountName,
-      accountNumber: assignment.accountNumber,
-      assignedAt,
-      bankName: assignment.bankName,
-      customerEmail: assignment.customerEmail,
-      expiresAt,
-      orderId: assignment.orderId,
-    });
+    provisioningProof = createPaystackDvaReservationProof(
+      {
+        accountName: assignment.accountName,
+        accountNumber: assignment.accountNumber,
+        assignedAt,
+        bankName: assignment.bankName,
+        customerEmail: assignment.customerEmail,
+        expiresAt,
+        orderId: assignment.orderId,
+      },
+      { secret: getSupabaseServiceRoleKey() }
+    );
   } catch (error) {
     logger.error({
       message: 'Paystack DVA reservation proof is unavailable',
       orderId: assignment.orderId,
-      error,
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return NextResponse.json(
-      {
-        error:
-          'Unable to reserve a bank account for this order. Please try again.',
-        code: 'DVA_PERSISTENCE_FAILED',
-      },
-      { status: 503 }
-    );
+    return {
+      data: null,
+      error: null,
+      proofError: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
-  const { data: reservationStatus, error } = await supabase.rpc(
+
+  const { data, error } = await supabase.rpc(
     'reserve_paystack_order_payment_account',
     {
       p_account_name: assignment.accountName,
@@ -61,6 +69,28 @@ export async function persistPaystackDvaAssignment(
       p_provisioning_proof: provisioningProof,
     }
   );
+  return { data, error };
+}
+
+export async function persistPaystackDvaAssignment(
+  supabase: SupabaseClient<Database>,
+  assignment: PaystackDvaAssignment
+) {
+  const {
+    data: reservationStatus,
+    error,
+    proofError,
+  } = await reservePaystackDvaAssignment(supabase, assignment);
+  if (proofError) {
+    return NextResponse.json(
+      {
+        error:
+          'Unable to reserve a bank account for this order. Please try again.',
+        code: 'DVA_PERSISTENCE_FAILED',
+      },
+      { status: 503 }
+    );
+  }
   if (
     !error &&
     (reservationStatus === 'inserted' || reservationStatus === 'existing')

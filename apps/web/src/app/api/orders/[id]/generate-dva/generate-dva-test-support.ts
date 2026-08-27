@@ -5,6 +5,10 @@ vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
 }));
 
+vi.mock('@/env', () => ({
+  getSupabaseServiceRoleKey: () => 'test-service-role-key',
+}));
+
 const {
   mockAuthenticateApiRequest,
   mockCreatePaystackDvaReservationProof,

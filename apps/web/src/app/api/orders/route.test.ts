@@ -200,7 +200,6 @@ interface RpcOverrides {
   finalize_store_credit_order_payment?: { data: unknown; error: unknown };
   finalize_quiz_voucher_order_payment?: { data: unknown; error: unknown };
   get_checkout_shipping_quote?: { data: unknown; error: unknown };
-  reserve_paystack_order_payment_account?: { data: unknown; error: unknown };
 }
 
 function buildMockSupabase(
@@ -374,7 +373,6 @@ function buildMockSupabase(
         data: opts.shippingQuote ? [opts.shippingQuote] : null,
         error: null,
       },
-      reserve_paystack_order_payment_account: { data: null, error: null },
     };
 
   if (!overrides.create_storefront_order_with_savings) {
@@ -5645,13 +5643,8 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
   });
 
   it('generates a branded PDF invoice and attaches it to the confirmation email when payment method is invoice', async () => {
-    const supabase = buildMockSupabase({
-      reserve_paystack_order_payment_account: {
-        data: 'inserted',
-        error: null,
-      },
-    });
-    const { backgroundSupabase, orderItemsOrder } =
+    const supabase = buildMockSupabase();
+    const { accountUpsert, backgroundSupabase, orderItemsOrder } =
       createBackgroundSupabaseMock({
         orderItemsResponses: [
           { data: [], error: null },
@@ -5860,7 +5853,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     );
 
     // Assert the auto-generated DVA used the history-safe reservation contract.
-    expect(supabase.rpc).toHaveBeenCalledWith(
+    expect(accountUpsert).toHaveBeenCalledWith(
       'reserve_paystack_order_payment_account',
       expect.objectContaining({
         p_order_id: 'order-id',
@@ -6257,17 +6250,12 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
   });
 
   it('still sends the invoice email when background DVA persistence fails', async () => {
-    const supabase = buildMockSupabase({
-      reserve_paystack_order_payment_account: {
-        data: null,
-        error: { message: 'insert failed' },
-      },
-    });
-    const { backgroundSupabase, reminderInsert } = createBackgroundSupabaseMock(
-      {
+    const supabase = buildMockSupabase();
+    const { accountUpsert, backgroundSupabase, reminderInsert } =
+      createBackgroundSupabaseMock({
+        accountError: { message: 'insert failed' },
         reminderError: { message: 'reminder failed' },
-      }
-    );
+      });
     mockCreateAdminClient.mockReturnValue(backgroundSupabase);
 
     supabase.from = vi.fn((_table: string) => ({
@@ -6336,7 +6324,7 @@ describe('POST /api/orders — invoice payment method email attachment', () => {
     });
 
     expect(mockGeneratePaymentAccount).toHaveBeenCalled();
-    expect(supabase.rpc).toHaveBeenCalledWith(
+    expect(accountUpsert).toHaveBeenCalledWith(
       'reserve_paystack_order_payment_account',
       expect.objectContaining({
         p_order_id: 'order-id',

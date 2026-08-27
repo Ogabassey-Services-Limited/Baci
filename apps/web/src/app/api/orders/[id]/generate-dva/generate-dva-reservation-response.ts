@@ -1,5 +1,15 @@
 import { NextResponse } from 'next/server';
 
+export function getDvaReservationProofFailureResponse() {
+  return NextResponse.json(
+    {
+      code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+      error: 'Failed to save automatic confirmation account',
+    },
+    { status: 500 }
+  );
+}
+
 export function getDvaReservationFailureResponse(
   reservation: string | null,
   insertError: { message?: string } | null

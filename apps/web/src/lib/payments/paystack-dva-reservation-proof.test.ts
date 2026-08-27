@@ -57,4 +57,10 @@ describe('createPaystackDvaReservationProof', () => {
       )
     ).toThrow('Invalid Paystack DVA reservation expires_at');
   });
+
+  it('fails closed when a signing secret is missing', () => {
+    expect(() => createPaystackDvaReservationProof(input)).toThrow(
+      'Paystack DVA reservation secret is not configured'
+    );
+  });
 });
