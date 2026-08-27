@@ -62,6 +62,10 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
+vi.mock('@/types/upload', () => ({
+  readUploadBytes: vi.fn().mockResolvedValue(new ArrayBuffer(1)),
+}));
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 

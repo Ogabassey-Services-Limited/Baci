@@ -20,7 +20,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { createUploadFile, type RNFormData } from '@/types/upload';
+import { readUploadBytes } from '@/types/upload';
 
 // Route param validation - accepts UUID or 'new' for creating new posts
 const routeParamsSchema = z.object({
@@ -63,17 +63,8 @@ async function uploadBlogImage(
   const fileExt = uri.split('.').pop() || 'jpg';
   const fileName = `${merchantId}/blog/${Date.now()}.${fileExt}`;
 
-  // Use FormData for reliable file upload in React Native
-  const fileData = new FormData() as RNFormData;
   const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
-  fileData.append(
-    'file',
-    createUploadFile({
-      uri,
-      name: fileName.split('/').pop() || 'image.jpg',
-      type: mimeType,
-    })
-  );
+  const fileData = await readUploadBytes(uri);
 
   const { error: uploadError } = await supabase.storage
     .from('merchant-assets')

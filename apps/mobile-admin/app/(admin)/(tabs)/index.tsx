@@ -33,7 +33,7 @@ import { useStoreReadiness } from '@/hooks/useStoreReadiness';
 import { useTheme } from '@/hooks/useTheme';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
-import { createUploadFile, type RNFormData } from '@/types/upload';
+import { createUploadFormData } from '@/types/upload';
 
 // Helper to get currency symbol from merchant's payout_currency
 const getCurrencySymbol = (currencyCode: string | null | undefined) => {
@@ -93,15 +93,11 @@ async function pickAndUploadFavicon(
     // Favicon variants are generated server-side (sharp), so send the picked
     // image to the web API rather than uploading from the device. The route
     // resolves the merchant from the auth token and persists every variant.
-    const fileData = new FormData() as RNFormData;
-    fileData.append(
-      'file',
-      createUploadFile({
-        uri: asset.uri,
-        name: fileName,
-        type: mimeType,
-      })
-    );
+    const fileData = await createUploadFormData({
+      uri: asset.uri,
+      name: fileName,
+      type: mimeType,
+    });
 
     const {
       data: { session },
@@ -113,7 +109,7 @@ async function pickAndUploadFavicon(
     const response = await fetch(`${BASE_URL}/api/merchant/favicon`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${session.access_token}` },
-      body: fileData as unknown as FormData,
+      body: fileData,
     });
 
     const payload = (await response.json().catch(() => null)) as {

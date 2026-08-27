@@ -1,10 +1,17 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { router } from 'expo-router';
 import type React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   branchScope: { isAllLocations: true },
+  createUploadFormData: vi.fn(),
+  fetch: vi.fn(),
+  getSession: vi.fn(),
+  invalidateQueries: vi.fn(),
+  launchImageLibraryAsync: vi.fn(),
+  requestMediaLibraryPermissionsAsync: vi.fn(),
   safeAreaEdges: null as null | readonly string[],
 }));
 
@@ -13,7 +20,7 @@ vi.mock('react-native', async () => {
 
   return {
     StatusBar: () => null,
-    Alert: { alert: vi.fn() },
+    Alert: { alert: mocks.alert },
     Pressable: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('button', null, children),
     RefreshControl: () => null,
@@ -49,12 +56,13 @@ vi.mock('@react-native-vector-icons/ionicons', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
 }));
 
 vi.mock('expo-image-picker', () => ({
-  requestMediaLibraryPermissionsAsync: vi.fn(),
-  launchImageLibraryAsync: vi.fn(),
+  requestMediaLibraryPermissionsAsync:
+    mocks.requestMediaLibraryPermissionsAsync,
+  launchImageLibraryAsync: mocks.launchImageLibraryAsync,
 }));
 
 vi.mock('expo-router', () => ({
@@ -85,7 +93,16 @@ vi.mock('@/components/dashboard', async () => {
     ),
     RevenueChart: () => <Text>revenue-chart</Text>,
     StatCard: ({ label }: { label: string }) => <Text>{label}</Text>,
-    WelcomeHeader: () => <Text>welcome-header</Text>,
+    WelcomeHeader: ({ onAvatarPress }: { onAvatarPress?: () => void }) => (
+      <>
+        <button
+          aria-label="Change store avatar"
+          onClick={onAvatarPress}
+          type="button"
+        />
+        <Text>welcome-header</Text>
+      </>
+    ),
   };
 });
 
@@ -184,6 +201,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
+    auth: { getSession: mocks.getSession },
     from: () => ({ update: () => ({ eq: vi.fn() }) }),
     storage: {
       from: () => ({
@@ -197,7 +215,7 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('@/types/upload', () => ({
-  createUploadFile: vi.fn(),
+  createUploadFormData: mocks.createUploadFormData,
 }));
 
 vi.mock('@/lib/api-client', () => ({
@@ -208,8 +226,41 @@ import HomeScreen from '../../../app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mocks.branchScope = { isAllLocations: true };
     mocks.safeAreaEdges = null;
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'test-token' } },
+    });
+    mocks.requestMediaLibraryPermissionsAsync.mockResolvedValue({
+      granted: true,
+    });
+    mocks.launchImageLibraryAsync.mockResolvedValue({
+      assets: [
+        {
+          fileName: 'store-avatar.jpg',
+          mimeType: 'image/jpeg',
+          uri: 'file:///store-avatar.jpg',
+        },
+      ],
+      canceled: false,
+    });
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new Blob(['image-bytes'], { type: 'image/jpeg' }),
+      'store-avatar.jpg'
+    );
+    mocks.createUploadFormData.mockResolvedValue(formData);
+    mocks.fetch.mockResolvedValue({
+      json: vi.fn().mockResolvedValue({ success: true }),
+      ok: true,
+    });
+    vi.stubGlobal('fetch', mocks.fetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('reserves the top safe area on the dashboard tab', () => {
@@ -239,5 +290,46 @@ describe('HomeScreen', () => {
     fireEvent.click(button);
 
     expect(router.push).toHaveBeenCalledWith('/(admin)/negotiations');
+  });
+
+  it('sends a Blob-backed multipart body when changing the store avatar', async () => {
+    render(<HomeScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change store avatar' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.createUploadFormData).toHaveBeenCalledWith({
+        name: 'store-avatar.jpg',
+        type: 'image/jpeg',
+        uri: 'file:///store-avatar.jpg',
+      });
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        'https://example.com/api/merchant/favicon',
+        expect.objectContaining({
+          body: expect.any(FormData),
+          headers: { Authorization: 'Bearer test-token' },
+          method: 'POST',
+        })
+      );
+    });
+  });
+
+  it('surfaces avatar upload failures instead of failing silently', async () => {
+    mocks.fetch.mockResolvedValueOnce({
+      json: vi.fn().mockResolvedValue({ error: 'Upload rejected' }),
+      ok: false,
+    });
+
+    render(<HomeScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change store avatar' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'Upload rejected');
+    });
   });
 });
