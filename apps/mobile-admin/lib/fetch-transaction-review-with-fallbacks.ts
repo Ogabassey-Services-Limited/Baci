@@ -25,20 +25,23 @@ type TransactionReviewFallbackStage =
   | 'Full'
   | 'FullNoDiscount'
   | 'LegacyNoDiscountCode'
+  | 'LegacyNoVariantAttributes'
   | 'LegacyNoAdjustments'
   | 'LegacyNoAdjustmentsNoDiscountCode'
   | 'Legacy';
 
-function isMissingDiscountAmountSchemaError(
-  error: TransactionReviewQueryError
-) {
-  const errorText = [error?.code, error?.message, error?.details, error?.hint]
+function getTransactionReviewErrorText(error: TransactionReviewQueryError) {
+  return [error?.code, error?.message, error?.details, error?.hint]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
+}
 
+function isMissingDiscountAmountSchemaError(
+  error: TransactionReviewQueryError
+) {
   return (
-    errorText.includes('discount_amount') &&
+    getTransactionReviewErrorText(error).includes('discount_amount') &&
     isTransactionReviewSchemaCacheError(error)
   );
 }
@@ -46,13 +49,17 @@ function isMissingDiscountAmountSchemaError(
 function isMissingDiscountCodeIdSchemaError(
   error: TransactionReviewQueryError
 ) {
-  const errorText = [error?.code, error?.message, error?.details, error?.hint]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-
   return (
-    errorText.includes('discount_code_id') &&
+    getTransactionReviewErrorText(error).includes('discount_code_id') &&
+    isTransactionReviewSchemaCacheError(error)
+  );
+}
+
+function isMissingVariantAttributesSchemaError(
+  error: TransactionReviewQueryError
+) {
+  return (
+    getTransactionReviewErrorText(error).includes('variant_attributes') &&
     isTransactionReviewSchemaCacheError(error)
   );
 }
@@ -79,6 +86,20 @@ async function runTransactionReviewQuery(
   return result;
 }
 
+function runLegacyTransactionReviewQuery(
+  stage: TransactionReviewFallbackStage,
+  query: TransactionReviewFallbackQuery,
+  selectStatement: string,
+  includeCancelledAt: boolean
+) {
+  return runTransactionReviewQuery(stage, {
+    ...query,
+    includeCancelledAt,
+    includeTransactionDate: true,
+    selectStatement,
+  });
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -90,6 +111,13 @@ export async function fetchTransactionReviewWithFallbacks({
   startDateFilter,
   startDateIso,
 }: TransactionReviewFallbackQuery) {
+  const legacyQuery = {
+    endDateFilter,
+    endDateIso,
+    merchantId,
+    startDateFilter,
+    startDateIso,
+  };
   let { data, error } = await runTransactionReviewQuery('Full', {
     endDateFilter,
     endDateIso,
@@ -114,58 +142,47 @@ export async function fetchTransactionReviewWithFallbacks({
     }));
   }
 
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('Legacy', {
-      endDateFilter,
-      endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: true,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacy,
-      startDateFilter,
-      startDateIso,
-    }));
+  if (isMissingVariantAttributesSchemaError(error)) {
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'LegacyNoVariantAttributes',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes,
+      true
+    ));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('LegacyNoAdjustments', {
-      endDateFilter,
-      endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: true,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments,
-      startDateFilter,
-      startDateIso,
-    }));
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'Legacy',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacy,
+      true
+    ));
+  }
+
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'LegacyNoAdjustments',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments,
+      true
+    ));
   }
 
   if (isMissingDiscountCodeIdSchemaError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('LegacyNoDiscountCode', {
-      endDateFilter,
-      endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: true,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode,
-      startDateFilter,
-      startDateIso,
-    }));
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'LegacyNoDiscountCode',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode,
+      true
+    ));
 
     if (isTransactionReviewSchemaCacheError(error)) {
-      ({ data, error } = await runTransactionReviewQuery(
+      ({ data, error } = await runLegacyTransactionReviewQuery(
         'LegacyNoAdjustmentsNoDiscountCode',
-        {
-          endDateFilter,
-          endDateIso,
-          includeCancelledAt: true,
-          includeTransactionDate: true,
-          merchantId,
-          selectStatement:
-            TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
-          startDateFilter,
-          startDateIso,
-        }
+        legacyQuery,
+        TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
+        true
       ));
     }
   }
@@ -193,16 +210,12 @@ export async function fetchTransactionReviewWithFallbacks({
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('Legacy', {
-      endDateFilter,
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: true,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyCompat,
-      startDateFilter,
-      startDateIso,
-    }));
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'Legacy',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.legacyCompat,
+      false
+    ));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {

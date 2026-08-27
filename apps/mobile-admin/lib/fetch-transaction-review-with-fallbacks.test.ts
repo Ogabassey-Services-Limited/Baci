@@ -42,6 +42,33 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     );
   });
 
+  it('uses a cost-rich projection when variant attributes are unavailable', async () => {
+    const rows = [{ id: 'legacy-variant-attributes-order' }];
+    const variantAttributesSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: variantAttributesSchemaError,
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
   it('uses the final projection without variant_id after schema-cache retries', async () => {
     const rows = [{ id: 'legacy-order' }];
     for (let attempt = 0; attempt < 12; attempt += 1) {

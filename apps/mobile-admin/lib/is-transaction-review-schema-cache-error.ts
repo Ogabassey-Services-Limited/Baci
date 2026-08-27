@@ -32,7 +32,8 @@ export function isTransactionReviewSchemaCacheError(
     errorText.includes('vat_category_code') ||
     errorText.includes('vat_rate') ||
     errorText.includes('product_variants') ||
-    errorText.includes('variant_id');
+    errorText.includes('variant_id') ||
+    errorText.includes('variant_attributes');
 
   return isMissingSchemaShape && mentionsTransactionReviewShape;
 }
