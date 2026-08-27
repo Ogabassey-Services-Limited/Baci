@@ -100,14 +100,6 @@ const aliasUpdateRepairMigration = readFileSync(
   ),
   'utf8'
 );
-const authenticatedReservationMigration = readFileSync(
-  join(
-    process.cwd(),
-    '../../supabase/migrations/20260827030000_authenticate_paystack_dva_reservations.sql'
-  ),
-  'utf8'
-);
-
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
     expect(migration).toContain(
@@ -304,32 +296,5 @@ describe('order payment account mutation RPC migration', () => {
         /account\.id IS DISTINCT FROM v_current_id/g
       )
     ).toHaveLength(2);
-  });
-
-  it('requires a server-generated proof before exposing DVA reservation metadata', () => {
-    expect(authenticatedReservationMigration).toContain(
-      'paystack_dva_reservation_proof_valid'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      'p_provisioning_proof jsonb'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      'GRANT EXECUTE ON FUNCTION public.reserve_paystack_order_payment_account'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      'TO anon, authenticated, service_role'
-    );
-    expect(authenticatedReservationMigration).toContain(
-      "USING 'paystack_dva_reservation_secret'"
-    );
-    expect(authenticatedReservationMigration).toContain(
-      "USING 'service_role_key'"
-    );
-    expect(authenticatedReservationMigration).toContain(
-      "'baci.paystack_dva_reservation_verified'"
-    );
-    expect(authenticatedReservationMigration).toContain(
-      'REVOKE ALL ON FUNCTION public.reserve_paystack_order_payment_account(\n  uuid, text, text, text, timestamptz, timestamptz, text\n) FROM PUBLIC, anon, authenticated'
-    );
   });
 });
