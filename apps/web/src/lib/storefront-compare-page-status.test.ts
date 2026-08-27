@@ -230,6 +230,41 @@ describe('resolveStorefrontComparePageStatus', () => {
     );
   });
 
+  it('does not open the breaker for repeated designed unknown verdicts', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: true }))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: true }))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: true }))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: true }))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: true }))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: false }));
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await expect(
+        resolveStorefrontComparePageStatus(
+          buildOptions(fetchImpl, {
+            comparisonSlug: `left-unknown-${attempt}-vs-right-${attempt}`,
+          })
+        )
+      ).resolves.toEqual({ kind: 'renderable-or-unknown' });
+    }
+
+    await expect(
+      resolveStorefrontComparePageStatus(
+        buildOptions(fetchImpl, {
+          comparisonSlug: 'left-healthy-vs-right-healthy',
+        })
+      )
+    ).resolves.toEqual({ kind: 'missing' });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(console.warn).not.toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'circuit-open' })
+    );
+  });
+
   it('fails open on redirects, non-2xx, non-JSON, and malformed bodies', async () => {
     const redirectFetch = vi.fn().mockResolvedValue(
       new Response(null, {

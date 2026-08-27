@@ -120,7 +120,6 @@ async function resolveStorefrontComparePageStatusUncached(
   }
 
   if (parsedBody.data.hasError) {
-    recordComparePageStatusFailure(failOpenContext);
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: 'has-error',
