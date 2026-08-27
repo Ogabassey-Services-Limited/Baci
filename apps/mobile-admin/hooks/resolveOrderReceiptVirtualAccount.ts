@@ -65,7 +65,8 @@ function resolveAccountCandidate(
     const expiresAt = account.expires_at
       ? Date.parse(account.expires_at)
       : Number.NaN;
-    if (Number.isFinite(expiresAt) && nowMs >= expiresAt) {
+    const hasExplicitExpiry = Number.isFinite(expiresAt);
+    if (hasExplicitExpiry && nowMs >= expiresAt) {
       return null;
     }
 
@@ -74,9 +75,13 @@ function resolveAccountCandidate(
       : account.created_at
         ? Date.parse(account.created_at)
         : Number.NaN;
+    if (Number.isFinite(assignedAt) && nowMs < assignedAt) {
+      return null;
+    }
     if (
+      !hasExplicitExpiry &&
       Number.isFinite(assignedAt) &&
-      (nowMs < assignedAt || nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS)
+      nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS
     ) {
       return null;
     }
