@@ -1,0 +1,145 @@
+import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
+import {
+  buildOgabasseyCdnImageLoaderUrl,
+  isOgabasseyCdnImageUrl,
+  resolveOgabasseyCdnFallbackFormat,
+} from '@/lib/ogabassey-cdn-image-url';
+
+const LANDSCAPE_DIMENSIONS = { width: 1200, height: 675 } as const;
+const FALLBACK_DIMENSIONS = { width: 1200, height: 630 } as const;
+
+export type BlogPostSocialImage = {
+  url: string;
+  width?: number;
+  height?: number;
+  type?: `image/${string}`;
+};
+
+function getAbsoluteHttpUrl(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return null;
+    }
+    return url.href;
+  } catch {
+    return null;
+  }
+}
+
+function getImageMimeType(url: string): `image/${string}` | undefined {
+  let pathname: string;
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    return undefined;
+  }
+
+  const extension = pathname.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  if (!extension) return undefined;
+
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  if (extension === 'avif') return 'image/avif';
+  return undefined;
+}
+
+function getPositiveDimension(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+    ? value
+    : undefined;
+}
+
+function getCompatibilityImageUrl(storeUrl: string, postSlug: string): string {
+  const baseUrl = storeUrl.endsWith('/') ? storeUrl : `${storeUrl}/`;
+  try {
+    return new URL(
+      `blog/${encodeURIComponent(postSlug)}/opengraph-image`,
+      baseUrl
+    ).toString();
+  } catch {
+    return `/blog/${encodeURIComponent(postSlug)}/opengraph-image`;
+  }
+}
+
+function projectDirectImage(
+  sourceUrl: string,
+  dimensions?: { width?: number; height?: number }
+): BlogPostSocialImage {
+  const mimeType = getImageMimeType(sourceUrl);
+  const isLandscape =
+    dimensions?.width === LANDSCAPE_DIMENSIONS.width &&
+    dimensions.height === LANDSCAPE_DIMENSIONS.height;
+
+  if (isOgabasseyCdnImageUrl(sourceUrl)) {
+    const url = buildOgabasseyCdnImageLoaderUrl(
+      sourceUrl,
+      1200,
+      DEFAULT_IMAGE_QUALITY
+    );
+    const transformedMimeType =
+      url !== sourceUrl
+        ? (`image/${resolveOgabasseyCdnFallbackFormat(sourceUrl)}` as const)
+        : mimeType;
+    return {
+      url,
+      ...(isLandscape ? LANDSCAPE_DIMENSIONS : dimensions),
+      ...(transformedMimeType ? { type: transformedMimeType } : {}),
+    };
+  }
+
+  return {
+    url: sourceUrl,
+    ...(isLandscape ? LANDSCAPE_DIMENSIONS : dimensions),
+    ...(mimeType ? { type: mimeType } : {}),
+  };
+}
+
+/**
+ * Projects cached blog-post media into direct social metadata. Managed
+ * OgaBassey assets are pinned to the fixed, browser-safe CDN fallback format;
+ * all other absolute HTTP(S) assets remain direct URLs.
+ */
+export function getBlogPostSocialImage(
+  storeUrl: string,
+  postSlug: string,
+  featuredImageUrl: unknown,
+  featuredImageVariants: unknown,
+  featuredImageWidth?: unknown,
+  featuredImageHeight?: unknown
+): BlogPostSocialImage {
+  const variants =
+    featuredImageVariants &&
+    typeof featuredImageVariants === 'object' &&
+    !Array.isArray(featuredImageVariants)
+      ? featuredImageVariants
+      : {};
+  const landscapeUrl = getAbsoluteHttpUrl(variants.landscape_16x9);
+  const originalUrl = getAbsoluteHttpUrl(featuredImageUrl);
+
+  if (landscapeUrl) {
+    return projectDirectImage(landscapeUrl, LANDSCAPE_DIMENSIONS);
+  }
+
+  if (originalUrl) {
+    const width = getPositiveDimension(featuredImageWidth);
+    const height = getPositiveDimension(featuredImageHeight);
+    return projectDirectImage(
+      originalUrl,
+      width !== undefined && height !== undefined
+        ? { width, height }
+        : undefined
+    );
+  }
+
+  return {
+    url: getCompatibilityImageUrl(storeUrl, postSlug),
+    ...FALLBACK_DIMENSIONS,
+    type: 'image/png',
+  };
+}
