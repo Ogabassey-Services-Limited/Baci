@@ -9,6 +9,7 @@ import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-sup
 import { PAYMENT_INGRESS_AND_PROVENANCE_PENDING_SOURCES } from './expected-pending-payment-ingress-sources.test-support';
 import { EXPECTED_PENDING_TAIL_SOURCES } from './expected-pending-tail-sources.test-fixture';
 import { EXPECTED_QUIZ_LIVE_PENDING_SOURCES } from './expected-quiz-live-pending-sources.test-support';
+import { EXPECTED_SEARCH_PENDING_SOURCES } from './expected-search-pending-sources.test-support';
 import { ORDER_NOTIFICATION_OUTBOX_PENDING_SOURCES } from './order-notification-outbox-pending-sources.test-fixture';
 import { RECENT_PENDING_SOURCES } from './recent-pending-sources.test-fixture';
 export const EXPECTED_PENDING_SOURCES = [
@@ -200,6 +201,7 @@ export const EXPECTED_PENDING_SOURCES = [
     })
   ),
   ...EXPECTED_PENDING_TAIL_SOURCES.storefrontSearchReadiness,
+  ...EXPECTED_SEARCH_PENDING_SOURCES,
   {
     repositoryPath:
       'supabase/migrations/20260803120000_allow_safe_admin_order_item_append.sql',
@@ -295,6 +297,4 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260827080000_bind_follow_up_notification_preference_to_invoice.sql',
     sha256: 'ad413b38e0df617994e0c4ad3cded3f856eecaa62fe16897cf682d6434d86920',
   },
-].sort((left, right) =>
-  left.repositoryPath.localeCompare(right.repositoryPath)
-);
+].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
