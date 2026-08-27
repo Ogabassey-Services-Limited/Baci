@@ -1,9 +1,9 @@
 import {
   getBlogOgBrandColors,
-  getBlogOgForegroundColor,
   getTransparentBlogOgBrandColors,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
+import { getBlogOgForegroundColor } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-foreground-color';
 
 function getSatoriSafeText(value: string | null | undefined): string {
   return (value || '').replace(/₦\s*/g, 'NGN ').replace(/\s+/g, ' ').trim();

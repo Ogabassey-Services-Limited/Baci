@@ -125,9 +125,10 @@ function getTransformedDimensions(dimensions?: {
   const height = getPositiveDimension(dimensions?.height);
   if (width === undefined || height === undefined) return undefined;
 
-  const transformedHeight = Math.round((1200 * height) / width);
+  const transformedWidth = Math.min(LANDSCAPE_DIMENSIONS.width, width);
+  const transformedHeight = Math.round((transformedWidth * height) / width);
   return transformedHeight > 0
-    ? { width: 1200, height: transformedHeight }
+    ? { width: transformedWidth, height: transformedHeight }
     : undefined;
 }
 

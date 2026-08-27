@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   getBlogOgBrandColors,
-  getBlogOgForegroundColor,
   getTransparentBlogOgBrandColors,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
@@ -20,33 +19,6 @@ function createData(
 }
 
 describe('merchant blog OG color helpers', () => {
-  it('projects light backgrounds to dark text and dark backgrounds to white text', () => {
-    expect(getBlogOgForegroundColor('#ffffff')).toBe('#000000');
-    expect(getBlogOgForegroundColor('#101820')).toBe('#FFFFFF');
-  });
-
-  it('normalizes valid rgb, hsl, and named backgrounds before choosing readable text', () => {
-    expect(getBlogOgForegroundColor('rgb(0, 0, 0)')).toBe('#FFFFFF');
-    expect(getBlogOgForegroundColor('hsl(240, 100%, 50%)')).toBe('#FFFFFF');
-    expect(getBlogOgForegroundColor('black')).toBe('#FFFFFF');
-  });
-
-  it('chooses the foreground with the higher WCAG contrast ratio', () => {
-    expect(getBlogOgForegroundColor('#24a418')).toBe('#000000');
-  });
-
-  it('chooses contrast against translucent gradient stops composited over the background', () => {
-    const foreground = getBlogOgForegroundColor('#747474', [
-      'rgba(255, 255, 255, 0.2)',
-    ]);
-
-    expect(foreground).toBe('#000000');
-  });
-
-  it('uses dark text when the background color is invalid', () => {
-    expect(getBlogOgForegroundColor('not-a-color')).toBe('#000000');
-  });
-
   it('uses merchant brand colors when present and falls back only for missing values', () => {
     expect(
       getBlogOgBrandColors(
