@@ -276,6 +276,42 @@ describe('fetchAnalyticsCategoryData', () => {
     );
   });
 
+  it('weights CLV across every segment included in the at-risk count', async () => {
+    fetchMock.mockResolvedValue(
+      response({
+        summary: [
+          {
+            avg_clv: 80,
+            customer_count: 3,
+            segment_name: 'At Risk',
+            total_revenue: 240,
+          },
+          {
+            avg_clv: 20,
+            customer_count: 1,
+            segment_name: "Can't Lose Them",
+            total_revenue: 20,
+          },
+        ],
+      })
+    );
+
+    await expect(
+      fetchAnalyticsCategoryData({
+        category: 'segments',
+        from,
+        merchantId,
+        signal: new AbortController().signal,
+        to,
+      })
+    ).resolves.toMatchObject({
+      segmentSummary: {
+        at_risk_avg_clv: 65,
+        at_risk_count: 4,
+      },
+    });
+  });
+
   it('loads ad conversion analytics for the selected date range', async () => {
     fetchMock.mockResolvedValue(
       response({

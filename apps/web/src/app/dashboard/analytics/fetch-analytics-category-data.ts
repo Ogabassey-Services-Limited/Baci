@@ -198,10 +198,17 @@ async function fetchSegmentData(
   const atRisk = segments.filter((row) =>
     ['at risk', "can't lose them"].includes(row.segment.toLowerCase())
   );
+  const atRiskCount = atRisk.reduce((sum, row) => sum + row.count, 0);
+  const atRiskAverageClv =
+    atRiskCount > 0
+      ? atRisk.reduce((sum, row) => sum + row.avg_clv * row.count, 0) /
+        atRiskCount
+      : undefined;
 
   return {
     segmentSummary: {
-      at_risk_count: atRisk.reduce((sum, row) => sum + row.count, 0),
+      at_risk_avg_clv: atRiskAverageClv,
+      at_risk_count: atRiskCount,
       champions_count: champions?.count ?? 0,
       segments,
       total_customers: totalCustomers,

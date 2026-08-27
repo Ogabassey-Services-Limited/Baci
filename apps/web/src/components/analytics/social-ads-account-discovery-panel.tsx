@@ -50,9 +50,32 @@ export function SocialAdsAccountDiscoveryPanel({
       )}
 
       {isChoosing && !isLoading && accounts.length === 0 && !error && (
-        <p className="text-sm text-muted-foreground">
-          No accessible {displayName} accounts were found.
-        </p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            No accessible {displayName} accounts were found.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={isLoading || isSaving}
+              onClick={onRetry}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <RefreshCcw className="size-4" />
+              Retry account discovery
+            </Button>
+            <Button
+              disabled={isLoading || isSaving}
+              onClick={onCancel}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
       )}
 
       {isChoosing && !isLoading && !isDiscoveryError && accounts.length > 0 && (

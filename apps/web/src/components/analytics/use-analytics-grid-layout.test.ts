@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolveCategoryLayouts } from './analytics-grid-layouts';
 
 const { enqueue, fetchPreference, reset } = vi.hoisted(() => ({
   enqueue: vi.fn().mockResolvedValue(undefined),
@@ -59,5 +60,35 @@ describe('useAnalyticsGridLayout', () => {
     await waitFor(() =>
       expect(enqueue).toHaveBeenCalledWith(expect.any(Object), 'merchant-1')
     );
+  });
+
+  it('does not persist a default layout callback before hydration', async () => {
+    let resolvePreference: ((layoutConfig: unknown) => void) | undefined;
+    fetchPreference.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreference = resolve;
+        })
+    );
+
+    const { result } = renderHook(() =>
+      useAnalyticsGridLayout({
+        activeCategory: 'overview',
+        isEditMode: true,
+        merchantId: 'merchant-1',
+      })
+    );
+
+    await waitFor(() => expect(fetchPreference).toHaveBeenCalled());
+    act(() => {
+      result.current.onLayoutChange([], resolveCategoryLayouts('overview'));
+    });
+    expect(enqueue).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolvePreference?.(null);
+    });
+
+    expect(enqueue).not.toHaveBeenCalled();
   });
 });

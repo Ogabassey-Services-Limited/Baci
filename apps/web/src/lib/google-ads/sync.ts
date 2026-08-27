@@ -148,7 +148,7 @@ export async function syncGoogleAdsSpendForMerchant(
     impressions: Math.trunc(row.impressions),
     provider_customer_id: row.customerId,
     spend_date: row.date,
-    spend_micros: Math.trunc(row.spendMicros),
+    spend_micros: row.spendMicros,
   }));
   const { error: replaceError } = await input.spendSupabase.rpc(
     'replace_google_ads_spend_daily',

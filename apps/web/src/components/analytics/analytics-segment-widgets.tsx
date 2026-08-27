@@ -28,9 +28,7 @@ export function AnalyticsSegmentWidgets({
   formatCurrency,
   isWidgetVisible,
 }: AnalyticsSegmentWidgetsProps) {
-  const atRisk = data.segmentSummary?.segments.find(
-    (segment) => segment.segment === 'At Risk'
-  );
+  const atRiskAverageClv = data.segmentSummary?.at_risk_avg_clv;
   const champions = data.segmentSummary?.segments.find(
     (segment) => segment.segment === 'Champions'
   );
@@ -133,7 +131,9 @@ export function AnalyticsSegmentWidgets({
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium">
-                    {atRisk?.avg_clv ? formatCurrency(atRisk.avg_clv) : 'N/A'}
+                    {atRiskAverageClv !== undefined
+                      ? formatCurrency(atRiskAverageClv)
+                      : 'N/A'}
                   </div>
                   <div className="text-xs text-muted-foreground">avg. CLV</div>
                 </div>

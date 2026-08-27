@@ -82,6 +82,7 @@ export interface SegmentSummary {
   total_customers: number;
   champions_count: number;
   at_risk_count: number;
+  at_risk_avg_clv?: number;
   segments: SegmentInfo[];
 }
 

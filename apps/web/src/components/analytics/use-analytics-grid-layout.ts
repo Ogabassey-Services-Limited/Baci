@@ -18,6 +18,28 @@ interface AnalyticsGridLayoutInput {
   merchantId?: string;
 }
 
+const LAYOUT_BREAKPOINTS = ['lg', 'md', 'sm', 'xs', 'xxs'] as const;
+
+function haveSameLayout(left: Layout, right: Layout): boolean {
+  if (left.length !== right.length) return false;
+  const rightById = new Map(right.map((item) => [item.i, item]));
+  return left.every((item) => {
+    const matchingItem = rightById.get(item.i);
+    return (
+      matchingItem?.x === item.x &&
+      matchingItem.y === item.y &&
+      matchingItem.w === item.w &&
+      matchingItem.h === item.h
+    );
+  });
+}
+
+function haveSameLayouts(left: Layouts, right: Layouts): boolean {
+  return LAYOUT_BREAKPOINTS.every((breakpoint) =>
+    haveSameLayout(left[breakpoint], right[breakpoint])
+  );
+}
+
 export function useAnalyticsGridLayout({
   activeCategory,
   isEditMode,
@@ -126,8 +148,9 @@ export function useAnalyticsGridLayout({
     _currentLayout: Layout,
     allLayouts: ResponsiveLayouts
   ) {
+    const defaultLayouts = resolveCategoryLayouts(activeCategory);
     const completeLayouts: Layouts = {
-      ...resolveCategoryLayouts(activeCategory),
+      ...defaultLayouts,
       ...allLayouts,
     };
     const nextLayoutConfig = mergeDashboardLayoutConfig(
@@ -137,7 +160,9 @@ export function useAnalyticsGridLayout({
     );
     setLayouts(completeLayouts);
     if (merchantId && !hydrationReadyRef.current) {
-      if (isEditMode) pendingLayoutRef.current = completeLayouts;
+      if (isEditMode && !haveSameLayouts(completeLayouts, defaultLayouts)) {
+        pendingLayoutRef.current = completeLayouts;
+      }
       return;
     }
 

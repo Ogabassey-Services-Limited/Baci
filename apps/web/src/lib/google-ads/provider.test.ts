@@ -293,7 +293,7 @@ describe('Google Ads provider client', () => {
 
     expect(rows[0]).toMatchObject({
       currencyCode: 'NGN',
-      spendMicros: 2000000,
+      spendMicros: '2000000',
     });
     expect(fetchImpl.mock.calls[0]?.[1]).toMatchObject({ method: 'POST' });
     expect(String(fetchImpl.mock.calls[0]?.[0])).toContain(

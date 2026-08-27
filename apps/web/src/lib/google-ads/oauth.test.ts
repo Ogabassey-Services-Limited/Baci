@@ -106,7 +106,7 @@ describe('parseGoogleAdsSpendRows', () => {
         currencyCode: 'NGN',
         date: '2026-08-20',
         impressions: 100,
-        spendMicros: 1250000,
+        spendMicros: '1250000',
       },
     ]);
   });
@@ -135,5 +135,26 @@ describe('parseGoogleAdsSpendRows', () => {
 
   it('accepts an empty searchStream response', () => {
     expect(parseGoogleAdsSpendRows([])).toEqual([]);
+  });
+
+  it('preserves large cost micros strings without lossy number conversion', () => {
+    const rows = parseGoogleAdsSpendRows([
+      {
+        results: [
+          {
+            customer: { currencyCode: 'NGN', id: '1234567890' },
+            metrics: {
+              clicks: '1',
+              conversions: '0',
+              costMicros: '9007199254740993',
+              impressions: '10',
+            },
+            segments: { date: '2026-08-20' },
+          },
+        ],
+      },
+    ]);
+
+    expect(rows[0]?.spendMicros).toBe('9007199254740993');
   });
 });

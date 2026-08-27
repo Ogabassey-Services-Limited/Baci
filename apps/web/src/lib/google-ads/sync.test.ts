@@ -80,7 +80,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         customerId: '1234567890',
         date: '2026-08-20',
         impressions: 100,
-        spendMicros: 2500000,
+        spendMicros: '2500000',
       },
     ]);
   });
@@ -114,7 +114,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
             clicks: 4,
             currency_code: 'NGN',
             provider_customer_id: '1234567890',
-            spend_micros: 2500000,
+            spend_micros: '2500000',
           }),
         ],
       })

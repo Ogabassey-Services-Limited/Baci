@@ -77,4 +77,38 @@ describe('SocialAdsAccountDiscoveryPanel', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole('radiogroup')).toBeInTheDocument();
   });
+
+  it('offers an exit when discovery succeeds without accessible accounts', () => {
+    const onCancel = vi.fn();
+    const onRetry = vi.fn();
+
+    render(
+      <SocialAdsAccountDiscoveryPanel
+        accounts={[]}
+        displayName="Snapchat Ads"
+        error={null}
+        isChoosing
+        isDiscoveryError={false}
+        isLoading={false}
+        isSaving={false}
+        onCancel={onCancel}
+        onRetry={onRetry}
+        onSave={vi.fn()}
+        onSelect={vi.fn()}
+        provider="snapchat_ads"
+        selectedId={null}
+      />
+    );
+
+    expect(
+      screen.getByText('No accessible Snapchat Ads accounts were found.')
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Retry account discovery' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(onRetry).toHaveBeenCalledOnce();
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
 });
