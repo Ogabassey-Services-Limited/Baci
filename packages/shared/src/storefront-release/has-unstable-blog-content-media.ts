@@ -44,16 +44,55 @@ function hasUnstableHtmlContent(content: string): boolean {
   return false;
 }
 
-function getInlineMarkdownDestinations(
-  content: string
-): Readonly<{ destination: string; image: boolean }>[] {
+interface MarkdownLinkSyntax {
+  destinations: Readonly<{ destination: string; image: boolean }>[];
+  imageReferenceLabels: ReadonlySet<string>;
+}
+
+function normalizeMarkdownReferenceLabel(label: string): string {
+  return label.trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
   const destinations: Readonly<{
     destination: string;
     image: boolean;
   }>[] = [];
-  const openingPattern = /(!?)\[[^\]\r\n]*\]\(/gu;
-  for (const match of content.matchAll(openingPattern)) {
-    let cursor = (match.index ?? 0) + match[0].length;
+  const imageReferenceLabels = new Set<string>();
+  let index = 0;
+  while (index < content.length) {
+    const image = content[index] === '!' && content[index + 1] === '[';
+    if (!image && content[index] !== '[') {
+      index += 1;
+      continue;
+    }
+    const openingBracket = image ? index + 1 : index;
+    const closingBracket = content.indexOf(']', openingBracket + 1);
+    if (closingBracket === -1) break;
+    const label = content.slice(openingBracket + 1, closingBracket);
+    const suffix = content[closingBracket + 1];
+    if (image && suffix !== '(') {
+      if (suffix === '[') {
+        const referenceEnd = content.indexOf(']', closingBracket + 2);
+        if (referenceEnd !== -1) {
+          const explicitLabel = content.slice(closingBracket + 2, referenceEnd);
+          imageReferenceLabels.add(
+            normalizeMarkdownReferenceLabel(explicitLabel || label)
+          );
+          index = referenceEnd + 1;
+          continue;
+        }
+      } else {
+        imageReferenceLabels.add(normalizeMarkdownReferenceLabel(label));
+      }
+      index = closingBracket + 1;
+      continue;
+    }
+    if (suffix !== '(') {
+      index = closingBracket + 1;
+      continue;
+    }
+    let cursor = closingBracket + 2;
     while (/\s/u.test(content[cursor] ?? '')) cursor += 1;
     const start = cursor;
     let end = cursor;
@@ -64,9 +103,10 @@ function getInlineMarkdownDestinations(
       if (content[cursor] === '>') {
         destinations.push({
           destination: content.slice(angleStart, cursor),
-          image: match[1] === '!',
+          image,
         });
       }
+      index = cursor + 1;
       continue;
     }
     let depth = 0;
@@ -88,14 +128,11 @@ function getInlineMarkdownDestinations(
     if (end > start)
       destinations.push({
         destination: content.slice(start, end),
-        image: match[1] === '!',
+        image,
       });
+    index = Math.max(cursor + 1, closingBracket + 1);
   }
-  return destinations;
-}
-
-function normalizeMarkdownReferenceLabel(label: string): string {
-  return label.trim().replace(/\s+/gu, ' ').toLowerCase();
+  return { destinations, imageReferenceLabels };
 }
 
 function hasUnstableMarkdownContent(content: string): boolean {
@@ -104,15 +141,8 @@ function hasUnstableMarkdownContent(content: string): boolean {
     const destination = decodeHtmlAttributeEntities(match[1] ?? '');
     if (!destination || !isSafePublicReleaseUrl(destination)) return true;
   }
-  const imageReferenceLabels = new Set<string>();
-  for (const pattern of [
-    /!\[[^\]\r\n]*\]\[([^\]\r\n]+)\]/gu,
-    /!\[([^\]\r\n]+)\]\[\]/gu,
-    /!\[([^\]\r\n]+)\](?![[(])/gu,
-  ])
-    for (const match of content.matchAll(pattern))
-      imageReferenceLabels.add(normalizeMarkdownReferenceLabel(match[1] ?? ''));
-  for (const inline of getInlineMarkdownDestinations(content)) {
+  const markdown = scanMarkdownLinkSyntax(content);
+  for (const inline of markdown.destinations) {
     const destination = decodeHtmlAttributeEntities(inline.destination);
     const safe = inline.image
       ? isStablePublicMediaUrl(destination)
@@ -126,7 +156,7 @@ function hasUnstableMarkdownContent(content: string): boolean {
       match[0].match(/^\s{0,3}\[([^\]\r\n]+)\]/u)?.[1] ?? ''
     );
     const destination = decodeHtmlAttributeEntities(match[1] ?? match[2] ?? '');
-    const safe = imageReferenceLabels.has(label)
+    const safe = markdown.imageReferenceLabels.has(label)
       ? isStablePublicMediaUrl(destination)
       : isSafePublicReleaseUrl(destination);
     if (!destination || !safe) return true;

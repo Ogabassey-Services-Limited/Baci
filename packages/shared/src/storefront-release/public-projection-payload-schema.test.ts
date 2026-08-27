@@ -11,6 +11,7 @@ const validPayload = {
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',
+    template: { contractVersion: 'v1', id: 'ogabassey' },
   },
   publishedConfig: { content: [], root: { props: { title: 'Home' } } },
   products: [],

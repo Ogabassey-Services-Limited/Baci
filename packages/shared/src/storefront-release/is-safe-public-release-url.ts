@@ -118,11 +118,20 @@ function isPrivateHostname(hostname: string): boolean {
   );
 }
 
+function isSafeRootRelativePath(value: string): boolean {
+  if (value.startsWith('//') || value.includes('\\')) return false;
+  if (/%(?:2e|2f|5c)/iu.test(value)) return false;
+  return value
+    .split('/')
+    .every((segment) => segment !== '.' && segment !== '..');
+}
+
 /** Accepts only query-free navigation URLs that cannot target private networks. */
 export function isSafePublicReleaseUrl(value: string): boolean {
   if (!builderDesignCapabilityAdapter.isSafeUrl(value) || value.includes('?'))
     return false;
-  if (value.startsWith('/') || value.startsWith('#')) return true;
+  if (value.startsWith('/')) return isSafeRootRelativePath(value);
+  if (value.startsWith('#')) return true;
   try {
     return !isPrivateHostname(new URL(value).hostname);
   } catch {

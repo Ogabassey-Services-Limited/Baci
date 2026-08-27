@@ -33,6 +33,11 @@ describe('isSafePublicReleaseUrl', () => {
     'https://router.home.arpa/admin',
     'https://intranet/admin',
     'https://example.com/contact?token=secret',
+    '/%2e%2e/admin',
+    '/foo%2Fbar',
+    '/%5Cadmin',
+    '/../admin',
+    '/foo\\bar',
   ])('rejects the private or unstable URL %s', (value) => {
     expect(isSafePublicReleaseUrl(value)).toBe(false);
   });

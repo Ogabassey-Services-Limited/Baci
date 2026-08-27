@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
+import { StorefrontPublicContentPageStructuredSchema } from './public-projection-content-page-structured-schema';
 
 const PUBLISHED_CONTENT_PAGE_SLUGS = new Set([
   'about',
@@ -33,6 +34,7 @@ export const StorefrontPublicContentPageSchema = z
     format: z.enum(['plain_text', 'sanitized_markdown']),
     status: z.literal('published'),
     publishedAt: z.iso.datetime({ offset: true }).optional(),
+    structuredContent: StorefrontPublicContentPageStructuredSchema.optional(),
   })
   .superRefine((page, context) => {
     if (
@@ -43,5 +45,11 @@ export const StorefrontPublicContentPageSchema = z
         code: 'custom',
         message: 'Content page links and media must be release-safe',
         path: ['body'],
+      });
+    if (page.structuredContent && page.structuredContent.kind !== page.slug)
+      context.addIssue({
+        code: 'custom',
+        message: 'Structured content must match its published page route',
+        path: ['structuredContent', 'kind'],
       });
   });

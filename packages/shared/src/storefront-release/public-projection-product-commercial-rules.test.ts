@@ -25,6 +25,7 @@ describe('StorefrontPublicProductSchema commercial rules', () => {
         name: 'Pilot Store',
         publishedStatus: 'published',
         slug: 'pilot-store',
+        template: { contractVersion: 'v1', id: 'ogabassey' },
       },
       products: [
         {

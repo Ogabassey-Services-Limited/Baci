@@ -59,6 +59,18 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
     .max(35)
     .regex(/^[a-z]{2,3}(?:-[A-Z][a-z]{3})?(?:-[A-Z]{2}|-[0-9]{3})?$/),
   publishedStatus: z.literal('published'),
+  template: z.strictObject({
+    id: z
+      .string()
+      .min(1)
+      .max(80)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+    contractVersion: z
+      .string()
+      .min(2)
+      .max(32)
+      .regex(/^v[1-9][0-9]*$/),
+  }),
   businessType: z.string().trim().min(1).max(100).nullable().optional(),
   email: z.email().max(320).optional(),
   phone: z.string().trim().min(1).max(40).optional(),

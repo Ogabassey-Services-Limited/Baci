@@ -10,6 +10,7 @@ const validMerchant = {
   name: 'Pilot Store',
   publishedStatus: 'published',
   slug: 'pilot-store',
+  template: { contractVersion: 'v1', id: 'ogabassey' },
 } as const;
 
 describe('StorefrontPublicMerchantSchema', () => {
@@ -86,6 +87,20 @@ describe('StorefrontPublicMerchantSchema', () => {
             merchantCenterId: 'merchant-secret',
           },
         },
+      }).success
+    ).toBe(false);
+  });
+
+  it('requires a bounded versioned storefront template identity', () => {
+    const merchant = { ...validMerchant } as Record<string, unknown>;
+    delete merchant.template;
+    expect(StorefrontPublicMerchantSchema.safeParse(merchant).success).toBe(
+      false
+    );
+    expect(
+      StorefrontPublicMerchantSchema.safeParse({
+        ...validMerchant,
+        template: { contractVersion: 'latest', id: 'Custom Theme' },
       }).success
     ).toBe(false);
   });

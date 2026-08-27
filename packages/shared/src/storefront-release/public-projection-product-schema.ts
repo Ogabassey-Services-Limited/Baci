@@ -3,6 +3,7 @@ import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
+import { StorefrontPublicProductColorGalleriesSchema } from './public-projection-product-color-galleries-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 
 const ProductConditionSchema = z
@@ -151,6 +152,8 @@ export const StorefrontPublicProductSchema = z
       .optional(),
     categoryIds: z.array(z.uuid()).max(64).optional(),
     mediaIds: z.array(z.uuid()).max(64).optional(),
+    colorGalleries: StorefrontPublicProductColorGalleriesSchema.optional(),
+    createdAt: z.iso.datetime({ offset: true }).optional(),
     variants: z.array(ProductVariantSchema).max(250).optional(),
     hasConditionOffers: z.boolean().optional(),
     conditionOffers: z.array(ProductConditionOfferSchema).max(16).optional(),

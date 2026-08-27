@@ -118,4 +118,16 @@ describe('hasUnstableBlogContentMedia', () => {
       )
     ).toBe(true);
   });
+
+  it('rejects query-bearing Markdown links with multiline labels', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '[download\nnow](https://example.test/export?token=secret)'
+      )
+    ).toBe(true);
+  });
+
+  it('scans unmatched Markdown brackets without recursive or quadratic parsing', () => {
+    expect(hasUnstableBlogContentMedia('['.repeat(500_000))).toBe(false);
+  });
 });

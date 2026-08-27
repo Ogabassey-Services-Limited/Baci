@@ -24,6 +24,10 @@ const SlugSchema = z
   .min(1)
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+const CategorySeoFaqSchema = z.strictObject({
+  question: z.string().trim().min(1).max(500),
+  answer: z.string().min(1).max(5_000),
+});
 const CategorySchema = z.strictObject({
   id: z.uuid(),
   slug: SlugSchema.refine(
@@ -35,6 +39,14 @@ const CategorySchema = z.strictObject({
   status: z.literal('active'),
   parentId: z.uuid().nullable().optional(),
   mediaId: z.uuid().nullable().optional(),
+  seoHeading: z.string().trim().min(1).max(240).nullable().optional(),
+  seoDescription: z.string().max(2_000).nullable().optional(),
+  seoFeatures: z
+    .array(z.string().trim().min(1).max(500))
+    .max(32)
+    .nullable()
+    .optional(),
+  seoFaq: z.array(CategorySeoFaqSchema).max(64).nullable().optional(),
 });
 
 const MediaSchema = z.strictObject({
@@ -84,6 +96,17 @@ export const StorefrontPublicProjectionPayloadSchema = z
   })
   .superRefine((payload, context) => {
     validatePublicProjectionIdentities(payload, context);
+    if (
+      (payload.blogPosts?.length ?? 0) > 0 &&
+      !payload.featureFlags?.some(
+        (flag) => flag.key === 'blog_enabled' && flag.enabled
+      )
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Published blog posts require the blog feature to be enabled',
+        path: ['blogPosts'],
+      });
     const policyPageSlugs = {
       privacy: new Set<string>(['privacy', 'privacy-policy']),
       returns: new Set<string>(['returns']),
@@ -173,6 +196,21 @@ export const StorefrontPublicProjectionPayloadSchema = z
               productIndex,
               'variants',
               variantIndex,
+              'mediaIds',
+              mediaIndex,
+            ],
+          ]);
+      for (const [galleryIndex, gallery] of (
+        product.colorGalleries ?? []
+      ).entries())
+        for (const [mediaIndex, mediaId] of gallery.mediaIds.entries())
+          references.push([
+            mediaId,
+            [
+              'products',
+              productIndex,
+              'colorGalleries',
+              galleryIndex,
               'mediaIds',
               mediaIndex,
             ],

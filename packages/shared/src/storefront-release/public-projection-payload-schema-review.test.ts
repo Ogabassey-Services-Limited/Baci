@@ -11,6 +11,7 @@ const validPayload = {
     name: 'Pilot Store',
     publishedStatus: 'published',
     slug: 'pilot-store',
+    template: { contractVersion: 'v1', id: 'ogabassey' },
   },
   publishedConfig: { content: [], root: { props: { title: 'Home' } } },
   products: [],
@@ -240,6 +241,7 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
       StorefrontPublicProjectionPayloadSchema.safeParse({
         ...validPayload,
         blogPosts: [post, { ...post, title: 'Duplicate' }],
+        featureFlags: [{ enabled: true, key: 'blog_enabled' }],
       }).success
     ).toBe(false);
   });

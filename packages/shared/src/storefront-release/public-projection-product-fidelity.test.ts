@@ -35,6 +35,21 @@ describe('StorefrontPublicProductSchema fidelity', () => {
     expect(StorefrontPublicProductSchema.parse(value)).toEqual(value);
   });
 
+  it('preserves launch ordering and legacy color galleries', () => {
+    const value = {
+      ...product,
+      colorGalleries: [
+        {
+          color: 'Black',
+          mediaIds: ['123e4567-e89b-42d3-a456-426614174090'],
+        },
+      ],
+      createdAt: '2026-08-25T14:00:00+01:00',
+    } as const;
+
+    expect(StorefrontPublicProductSchema.parse(value)).toEqual(value);
+  });
+
   it('rejects an available-condition summary that contradicts the selection model', () => {
     expect(
       StorefrontPublicProductSchema.safeParse({
