@@ -3,7 +3,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import { Alert } from 'react-native';
 import type { ProductEditFormData } from '@/components/product/product-edit.types';
 import { supabase } from '@/lib/supabase';
-import { readUploadBytes } from '@/types/upload';
+import { readUploadBytes } from '@/lib/upload/readUploadBytes';
 
 interface PickerResult {
   assets?: Array<{ uri: string }> | null;

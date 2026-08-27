@@ -22,8 +22,8 @@ vi.mock('@/lib/api-client', () => ({
   apiFormData: vi.fn(),
   NetworkError: class NetworkError extends Error {},
 }));
-vi.mock('@/types/upload', () => ({
-  createUploadFormData: vi.fn().mockResolvedValue(new FormData()),
+vi.mock('@/lib/upload/createUploadFormData', () => ({
+  createUploadFormData: vi.fn().mockReturnValue(new FormData()),
 }));
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({ colors: {}, shadows: {} }),

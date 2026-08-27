@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   createUploadFormData: vi.fn(),
 }));
 
-vi.mock('@/types/upload', () => ({
+vi.mock('@/lib/upload/createUploadFormData', () => ({
   createUploadFormData: mocks.createUploadFormData,
 }));
 
@@ -38,7 +38,7 @@ function stubFetch(body: unknown, status = 200) {
 describe('blog-editor-api', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
-    mocks.createUploadFormData.mockResolvedValue(new FormData());
+    mocks.createUploadFormData.mockReturnValue(new FormData());
   });
 
   it('returns AI-edited content on success', async () => {

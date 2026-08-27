@@ -20,7 +20,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { readUploadBytes } from '@/types/upload';
+import { uploadBlogImage } from '@/lib/upload/uploadBlogImage';
 
 // Route param validation - accepts UUID or 'new' for creating new posts
 const routeParamsSchema = z.object({
@@ -54,32 +54,6 @@ async function fetchBlogPost(id: string, merchantId: string) {
 
   if (error) throw error;
   return data;
-}
-
-async function uploadBlogImage(
-  uri: string,
-  merchantId: string | undefined
-): Promise<string> {
-  const fileExt = uri.split('.').pop() || 'jpg';
-  const fileName = `${merchantId}/blog/${Date.now()}.${fileExt}`;
-
-  const mimeType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
-  const fileData = await readUploadBytes(uri);
-
-  const { error: uploadError } = await supabase.storage
-    .from('merchant-assets')
-    .upload(fileName, fileData, {
-      contentType: mimeType,
-      upsert: true,
-    });
-
-  if (uploadError) throw uploadError;
-
-  const { data } = supabase.storage
-    .from('merchant-assets')
-    .getPublicUrl(fileName);
-
-  return data.publicUrl;
 }
 
 async function persistBlogPost({

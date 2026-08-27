@@ -62,7 +62,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }));
 
-vi.mock('@/types/upload', () => ({
+vi.mock('@/lib/upload/readUploadBytes', () => ({
   readUploadBytes: vi.fn().mockResolvedValue(new ArrayBuffer(1)),
 }));
 

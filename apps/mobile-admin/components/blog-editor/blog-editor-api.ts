@@ -1,5 +1,5 @@
 import { readEditorApiError } from '@/components/blog-editor/blog-editor-helpers';
-import { createUploadFormData } from '@/types/upload';
+import { createUploadFormData } from '@/lib/upload/createUploadFormData';
 
 interface RequestBlogEditorAiEditOptions {
   accessToken: string;

@@ -12,7 +12,7 @@ import SafeImage from '@/components/ui/SafeImage';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { readUploadBytes } from '@/types/upload';
+import { readUploadBytes } from '@/lib/upload/readUploadBytes';
 
 interface LogoPickerProps {
   merchantId: string | undefined;

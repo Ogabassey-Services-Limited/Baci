@@ -6,7 +6,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { apiClient, apiFormData } from '@/lib/api-client';
 import { tryRefreshStoreReadiness } from '@/lib/try-refresh-store-readiness';
-import { createUploadFormData } from '@/types/upload';
+import { createUploadFormData } from '@/lib/upload/createUploadFormData';
 import CacResultStep from './CacResultStep';
 import CacSearchStep from './CacSearchStep';
 import CacUploadStep from './CacUploadStep';
