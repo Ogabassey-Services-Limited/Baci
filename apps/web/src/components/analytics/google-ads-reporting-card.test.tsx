@@ -238,11 +238,13 @@ describe('GoogleAdsReportingCard', () => {
       2,
       '/api/integrations/ads/google/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-08-21',
-          startDate: '2026-08-01',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-08-21","startDate":"2026-08-01","finalChunk":true'
+        ),
+        headers: {
+          'x-baci-merchant-id': merchantId,
+        },
+        method: 'POST',
       })
     );
   });
