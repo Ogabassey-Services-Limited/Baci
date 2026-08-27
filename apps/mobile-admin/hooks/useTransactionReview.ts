@@ -10,6 +10,7 @@ import {
   type TransactionReviewOrder,
   type TransactionReviewOrderRow,
 } from '@/lib/transaction-review';
+import { TRANSACTION_REVIEW_SELECTORS } from '@/lib/transaction-review-selectors';
 
 interface TransactionReviewRange {
   endDate?: Date;
@@ -18,43 +19,8 @@ interface TransactionReviewRange {
 
 export type { TransactionReviewItem, TransactionReviewOrder };
 
-const TRANSACTION_REVIEW_FULL_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_FULL_NO_DISCOUNT_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
-
 export const TRANSACTION_REVIEW_LEGACY_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_BASE_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_BASE_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-// Keep a final selector for deployments whose schema cache predates the
-// persisted order discount column. The mapper treats the omitted value as 0.
-const TRANSACTION_REVIEW_NO_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-// A final compatibility path for deployments whose schema cache predates
-// order_items.line_id. Keep order-level discount provenance when possible;
-// the mapper can still match version-3 allocations by product/variant identity.
-const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_NO_LINE_ID_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
-
-const TRANSACTION_REVIEW_NO_LINE_ID_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, variant_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  TRANSACTION_REVIEW_SELECTORS.legacy;
 
 function isMissingDiscountAmountSchemaError(
   error: {
@@ -141,7 +107,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         includeCancelledAt: true,
         includeTransactionDate: true,
         merchantId: merchant.id,
-        selectStatement: TRANSACTION_REVIEW_FULL_SELECT,
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.full,
         startDateFilter,
         startDateIso,
       });
@@ -155,7 +121,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: true,
           includeTransactionDate: true,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_FULL_NO_DISCOUNT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscount,
           startDateFilter,
           startDateIso,
         });
@@ -173,7 +139,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: true,
           includeTransactionDate: true,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_LEGACY_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.legacy,
           startDateFilter,
           startDateIso,
         });
@@ -190,7 +156,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: true,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscount,
           startDateIso,
         });
 
@@ -206,7 +172,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: false,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
           startDateIso,
         });
 
@@ -222,7 +188,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: true,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_BASE_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.base,
           startDateIso,
         });
 
@@ -239,7 +205,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: false,
           includeTransactionDate: true,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyCompat,
           startDateFilter,
           startDateIso,
         });
@@ -256,7 +222,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: false,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_BASE_COMPAT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.baseCompat,
           startDateIso,
         });
 
@@ -272,7 +238,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: false,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_NO_DISCOUNT_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.noDiscount,
           startDateIso,
         });
 
@@ -290,7 +256,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
             includeTransactionDate: false,
             merchantId: merchant.id,
             selectStatement:
-              TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_NO_LINE_ID_SELECT,
+              TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
             startDateIso,
           }
         );
@@ -307,7 +273,7 @@ export function useTransactionReview(range?: TransactionReviewRange) {
           includeCancelledAt: false,
           includeTransactionDate: false,
           merchantId: merchant.id,
-          selectStatement: TRANSACTION_REVIEW_NO_LINE_ID_SELECT,
+          selectStatement: TRANSACTION_REVIEW_SELECTORS.noLineId,
           startDateIso,
         });
 
