@@ -50,14 +50,16 @@ describe('notifyNewInvoice', () => {
   });
 
   it('does not send when the merchant has disabled follow-up alerts', async () => {
+    const preferenceClient = {} as never;
     mockPreference.mockResolvedValueOnce(false);
 
     await expect(
       notifyNewInvoice('merchant-1', 'order-1', 'ORD-001', 'Customer', 9000, {
-        preferenceClient: {} as never,
+        preferenceClient,
       })
     ).resolves.toEqual({ sent: 0, failed: 0, errors: [] });
 
+    expect(mockPreference).toHaveBeenCalledWith(preferenceClient, 'order-1');
     expect(mockNotifyMerchant).not.toHaveBeenCalled();
   });
 });

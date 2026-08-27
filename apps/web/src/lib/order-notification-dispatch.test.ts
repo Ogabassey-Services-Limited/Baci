@@ -89,7 +89,7 @@ describe('dispatchOrderCreationNotifications', () => {
     );
   });
 
-  it('sends the paid confirmation when wallet settlement completes the invoice', async () => {
+  it('regression: skips the payment-collection alert when wallet settles the invoice', async () => {
     await dispatchOrderCreationNotifications(
       input({
         invoiceBalanceDue: 0,
