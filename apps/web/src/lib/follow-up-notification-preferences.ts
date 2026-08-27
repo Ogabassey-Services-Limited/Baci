@@ -4,7 +4,7 @@ import type { Database } from '@/types/supabase';
 type NotificationPreferencesClient = SupabaseClient<Database>;
 
 /**
- * Read the merchant's follow-up alert preference.
+ * Read the follow-up alert preference for a newly-created invoice.
  *
  * Missing preference rows are treated as enabled so existing merchants keep
  * receiving the new invoice alert. A read failure also fails open: delivery
@@ -12,11 +12,11 @@ type NotificationPreferencesClient = SupabaseClient<Database>;
  */
 export async function isFollowUpNotificationsEnabled(
   supabase: NotificationPreferencesClient,
-  merchantId: string
+  orderId: string
 ): Promise<boolean> {
   const { data, error } = await supabase.rpc(
     'get_follow_up_notification_preference',
-    { p_merchant_id: merchantId }
+    { p_order_id: orderId }
   );
 
   if (error) {

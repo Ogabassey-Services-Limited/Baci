@@ -9,7 +9,7 @@ const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..');
 describe('follow-up notification pending replay sources', () => {
   it('pins each preference migration to its checked-in bytes', async () => {
     const rows = FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS.split('\n');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
 
     for (const row of rows) {
       const [sha256, filename, ...extra] = row.split(' ');

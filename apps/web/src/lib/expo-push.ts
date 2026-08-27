@@ -5,14 +5,12 @@
  * @see https://docs.expo.dev/push-notifications/sending-notifications/
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js';
 import Expo, {
   type ExpoPushMessage,
   type ExpoPushTicket,
 } from 'expo-server-sdk';
 import { getExpoAccessToken } from '@/env';
 import { chunkArray, SUPABASE_IN_FILTER_CHUNK_SIZE } from '@/lib/chunk-array';
-import { isFollowUpNotificationsEnabled } from '@/lib/follow-up-notification-preferences';
 import { preparePushNotificationPayload } from '@/lib/prepare-push-notification-payload';
 import { filterPushTokensByShipmentUpdateCapability } from '@/lib/push-token-capability';
 import {
@@ -20,7 +18,6 @@ import {
   shouldDeactivateForInvalidCredentials,
 } from '@/lib/push-token-errors';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { Database } from '@/types/supabase';
 import {
   type DeliveryStartOptions,
   sendPushNotificationChunks,
@@ -84,10 +81,7 @@ export type NotificationChannel =
   | 'admin'
   | 'promotions';
 
-type MerchantNotificationOptions = DeliveryStartOptions & {
-  notificationCategory?: 'follow_up';
-  preferenceClient?: SupabaseClient<Database>;
-};
+type MerchantNotificationOptions = DeliveryStartOptions;
 
 // ── Core send functions ──────────────────────────────────────────────────────
 
@@ -148,24 +142,6 @@ export async function notifyMerchant(
   options?: MerchantNotificationOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
-
-  if (options?.notificationCategory === 'follow_up') {
-    if (!options.preferenceClient) {
-      return {
-        sent: 0,
-        failed: 0,
-        errors: ['Follow-up notification preference client is required'],
-      };
-    }
-    if (
-      !(await isFollowUpNotificationsEnabled(
-        options.preferenceClient,
-        merchantId
-      ))
-    ) {
-      return { sent: 0, failed: 0, errors: [] };
-    }
-  }
 
   const tokenQuery = filterPushTokensByShipmentUpdateCapability(
     supabase
@@ -766,46 +742,6 @@ export function notifyNewOrder(
 }
 
 /**
- * Notify merchant that a customer created an invoice that needs follow-up.
- *
- * Invoice creation is intentionally distinct from a paid/new-order event:
- * the order is still unpaid and the merchant should contact the customer to
- * arrange payment before fulfilment starts.
- */
-export function notifyNewInvoice(
-  merchantId: string,
-  orderId: string,
-  orderNumber: string,
-  customerName: string,
-  amount: number,
-  options: {
-    currency?: string;
-    preferenceClient: SupabaseClient<Database>;
-  }
-): Promise<NotificationSendResult> {
-  const currency = options.currency ?? 'NGN';
-  const formattedAmount = formatCurrency(amount, currency);
-
-  return notifyMerchant(
-    merchantId,
-    '🧾 New Invoice',
-    `Invoice #${orderNumber} created by ${customerName} for ${formattedAmount}. Follow up with the customer to collect payment.`,
-    {
-      type: 'new_invoice',
-      order_id: orderId,
-      order_number: orderNumber,
-      amount,
-      currency,
-    },
-    'orders',
-    {
-      notificationCategory: 'follow_up',
-      preferenceClient: options.preferenceClient,
-    }
-  );
-}
-
-/**
  * Notify merchant of payment received.
  */
 export function notifyPaymentReceived(
@@ -1094,6 +1030,7 @@ export async function notifyPriceDrop(
   );
 }
 
+export { notifyNewInvoice } from './invoice-notifications';
 export type {
   StorefrontUpdateNudgeParams,
   StorefrontUpdateNudgeResult,

@@ -16,6 +16,13 @@ const preferenceRpcMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const invoiceBoundPreferenceRpcMigrationSql = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260827080000_bind_follow_up_notification_preference_to_invoice.sql'
+  ),
+  'utf8'
+);
 
 describe('follow-up notification preference migration', () => {
   it('opts existing and new merchants into follow-up alerts by default', () => {
@@ -40,6 +47,22 @@ describe('follow-up notification preference migration', () => {
       'GRANT EXECUTE ON FUNCTION public.get_follow_up_notification_preference(uuid)'
     );
     expect(preferenceRpcMigrationSql).toContain(
+      'TO anon, authenticated, service_role'
+    );
+  });
+
+  it('binds the preference read to an existing unpaid invoice order', () => {
+    expect(invoiceBoundPreferenceRpcMigrationSql).toContain(
+      'DROP FUNCTION IF EXISTS public.get_follow_up_notification_preference(uuid)'
+    );
+    expect(invoiceBoundPreferenceRpcMigrationSql).toContain('p_order_id uuid');
+    expect(invoiceBoundPreferenceRpcMigrationSql).toContain(
+      "invoice_order.payment_method = 'invoice'"
+    );
+    expect(invoiceBoundPreferenceRpcMigrationSql).toContain(
+      "invoice_order.payment_status IS DISTINCT FROM 'paid'"
+    );
+    expect(invoiceBoundPreferenceRpcMigrationSql).toContain(
       'TO anon, authenticated, service_role'
     );
   });

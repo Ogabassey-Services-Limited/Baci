@@ -16,13 +16,13 @@ describe('isFollowUpNotificationsEnabled', () => {
 
     const enabled = await isFollowUpNotificationsEnabled(
       client as never,
-      'merchant-123'
+      'order-123'
     );
 
     expect(enabled).toBe(false);
     expect(client.rpc).toHaveBeenCalledWith(
       'get_follow_up_notification_preference',
-      { p_merchant_id: 'merchant-123' }
+      { p_order_id: 'order-123' }
     );
   });
 
@@ -30,7 +30,7 @@ describe('isFollowUpNotificationsEnabled', () => {
     const client = createClient({ data: null, error: null });
 
     await expect(
-      isFollowUpNotificationsEnabled(client as never, 'merchant-123')
+      isFollowUpNotificationsEnabled(client as never, 'order-123')
     ).resolves.toBe(true);
   });
 
@@ -42,7 +42,7 @@ describe('isFollowUpNotificationsEnabled', () => {
     });
 
     await expect(
-      isFollowUpNotificationsEnabled(client as never, 'merchant-123')
+      isFollowUpNotificationsEnabled(client as never, 'order-123')
     ).resolves.toBe(true);
     expect(warn).toHaveBeenCalledWith(
       '[notifications] Failed to read follow-up alert preference; keeping alerts enabled',

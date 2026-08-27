@@ -17578,7 +17578,7 @@ export type Database = {
         }[];
       };
       get_follow_up_notification_preference: {
-        Args: { p_merchant_id: string };
+        Args: { p_order_id: string };
         Returns: boolean;
       };
       get_scheduled_notification_recipient_page_v1: {

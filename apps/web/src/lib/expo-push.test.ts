@@ -938,7 +938,7 @@ describe('notifyNewInvoice', () => {
     expect(result).toEqual({ sent: 0, failed: 0, errors: [] });
     expect(preferenceClient.rpc).toHaveBeenCalledWith(
       'get_follow_up_notification_preference',
-      { p_merchant_id: 'merchant-1' }
+      { p_order_id: 'order-1' }
     );
     expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
   });
