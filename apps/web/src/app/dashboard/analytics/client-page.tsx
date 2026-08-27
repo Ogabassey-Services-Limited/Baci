@@ -16,10 +16,10 @@ import { BagLoader } from '@/components/ui/bag-loader';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
-import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
 import { loadAnalyticsExport } from './load-analytics-export';
 import { mergeAnalyticsData } from './merge-analytics-data';
 import { useMerchantBoundBaseAnalytics } from './use-merchant-bound-base-analytics';
+import { useMerchantBoundCategoryAnalytics } from './use-merchant-bound-category-analytics';
 import { useSelectedAnalyticsMerchant } from './use-selected-analytics-merchant';
 
 export default function AnalyticsClientPage() {
@@ -54,14 +54,6 @@ export default function AnalyticsClientPage() {
       : 'overview';
   const [activeCategory, setActiveCategory] =
     useState<AnalyticsCategory>(requestedCategory);
-  const [categoryAnalytics, setCategoryAnalytics] = useState<
-    Partial<AnalyticsData>
-  >({});
-  const [categoryAnalyticsError, setCategoryAnalyticsError] = useState<
-    string | null
-  >(null);
-  const [loadingCategoryAnalytics, setLoadingCategoryAnalytics] =
-    useState(false);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
     initialAnalyticsRefreshKey
   );
@@ -90,6 +82,21 @@ export default function AnalyticsClientPage() {
       merchantId: selectedMerchantId,
       to: date.to,
     });
+  const {
+    data: categoryAnalytics,
+    error: categoryAnalyticsError,
+    loading: loadingCategoryAnalytics,
+  } = useMerchantBoundCategoryAnalytics({
+    allowed: isAnalyticsCategoryAllowed(
+      effectiveCategory,
+      selectedContext.hasPermission
+    ),
+    category: effectiveCategory,
+    from: date.from,
+    merchantId: selectedMerchantId,
+    refreshKey: analyticsRefreshKey,
+    to: date.to,
+  });
   useEffect(() => {
     if (!callbackProvider) return;
     toast({
@@ -102,68 +109,8 @@ export default function AnalyticsClientPage() {
   }, [callbackProvider?.[0], callbackReason, toast]);
   const analyticsData: AnalyticsData | null = mergeAnalyticsData(
     baseAnalytics,
-    categoryAnalytics
+    categoryAnalytics ?? {}
   );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: effectiveCategory captures the selected-context permission decision without depending on a render-local evaluator
-  useEffect(() => {
-    const controller = new AbortController();
-    setCategoryAnalytics({});
-    setCategoryAnalyticsError(null);
-    const isSpecialized = ['ads', 'inventory', 'segments'].includes(
-      effectiveCategory
-    );
-    setLoadingCategoryAnalytics(isSpecialized);
-    if (
-      !selectedMerchantId ||
-      !date.from ||
-      !date.to ||
-      !isAnalyticsCategoryAllowed(
-        effectiveCategory,
-        selectedContext.hasPermission
-      )
-    ) {
-      setLoadingCategoryAnalytics(false);
-      return () => controller.abort();
-    }
-
-    fetchAnalyticsCategoryData({
-      category: effectiveCategory,
-      from: date.from,
-      merchantId: selectedMerchantId,
-      refreshKey: analyticsRefreshKey > 0 ? analyticsRefreshKey : undefined,
-      signal: controller.signal,
-      to: date.to,
-    })
-      .then((categoryData) => {
-        if (!controller.signal.aborted) {
-          setCategoryAnalytics(categoryData);
-        }
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        console.error('Error fetching category analytics:', error);
-        if (!controller.signal.aborted) {
-          setCategoryAnalytics({});
-          setCategoryAnalyticsError(
-            `Unable to load ${effectiveCategory} analytics. Please try again.`
-          );
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoadingCategoryAnalytics(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [
-    effectiveCategory,
-    analyticsRefreshKey,
-    date.from,
-    date.to,
-    selectedMerchantId,
-  ]);
 
   const visibleCategories = VALID_CATEGORIES.filter((category) =>
     isAnalyticsCategoryAllowed(category, selectedContext.hasPermission)

@@ -13,6 +13,7 @@ import {
   getGoogleAdsOAuthConfig,
   getGoogleAdsReportingConfig,
 } from '@/lib/google-ads/config';
+import { persistGoogleAdsAccessToken } from '@/lib/google-ads/persist-access-token';
 import { listGoogleAdsAccessibleCustomerIds } from '@/lib/google-ads/provider';
 import {
   getGoogleAdsReauthReason,
@@ -105,39 +106,28 @@ export async function GET(request: NextRequest) {
       { status: 502 }
     );
   }
-  if (resolvedToken.encryptedAccessToken) {
-    const { data: updated, error: updateError } = await credentialSupabase.rpc(
-      'update_google_ads_connection_token_if_current',
-      {
-        p_access_token_ciphertext: resolvedToken.encryptedAccessToken,
-        p_expected_access_token_ciphertext: connection.access_token_ciphertext,
-        p_expected_refresh_token_ciphertext:
-          connection.refresh_token_ciphertext,
-        p_merchant_id: access.merchantId,
-        p_token_expires_at: resolvedToken.expiresAt,
-      }
+  const tokenPersistence = await persistGoogleAdsAccessToken({
+    connection,
+    credentialSupabase,
+    merchantId: access.merchantId,
+    resolvedToken,
+  });
+  if (tokenPersistence.status === 'error') {
+    return NextResponse.json(
+      { error: 'Failed to update Google Ads token' },
+      { status: 500 }
     );
-    if (updateError) {
-      return NextResponse.json(
-        { error: 'Failed to update Google Ads token' },
-        { status: 500 }
-      );
-    }
-    if (updated !== true) {
-      return NextResponse.json(
-        {
-          error: 'Google Ads authorization changed; retry account discovery',
-          retry: true,
-        },
-        { status: 409 }
-      );
-    }
-    connection = {
-      ...connection,
-      access_token_ciphertext: resolvedToken.encryptedAccessToken,
-      token_expires_at: resolvedToken.expiresAt,
-    };
   }
+  if (tokenPersistence.status === 'conflict') {
+    return NextResponse.json(
+      {
+        error: 'Google Ads authorization changed; retry account discovery',
+        retry: true,
+      },
+      { status: 409 }
+    );
+  }
+  connection = { ...connection, ...tokenPersistence.connection };
 
   try {
     const customerIds = await listGoogleAdsAccessibleCustomerIds(
@@ -224,7 +214,7 @@ export async function PATCH(request: NextRequest) {
       { status: 500 }
     );
   }
-  const connection = connections?.[0] ?? null;
+  let connection = connections?.[0] ?? null;
   if (!connection) {
     return NextResponse.json(
       { error: 'Google Ads is not connected' },
@@ -242,6 +232,25 @@ export async function PATCH(request: NextRequest) {
       merchantId: access.merchantId,
     });
   }
+  const tokenPersistence = await persistGoogleAdsAccessToken({
+    connection,
+    credentialSupabase,
+    merchantId: access.merchantId,
+    resolvedToken,
+  });
+  if (tokenPersistence.status === 'error') {
+    return NextResponse.json(
+      { error: 'Failed to update Google Ads token' },
+      { status: 500 }
+    );
+  }
+  if (tokenPersistence.status === 'conflict') {
+    return NextResponse.json(
+      { error: 'Google Ads authorization changed; retry account selection' },
+      { status: 409 }
+    );
+  }
+  connection = { ...connection, ...tokenPersistence.connection };
   let customerIds: string[];
   try {
     customerIds = await listGoogleAdsAccessibleCustomerIds(

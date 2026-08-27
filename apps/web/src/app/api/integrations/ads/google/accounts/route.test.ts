@@ -392,6 +392,49 @@ describe('Google Ads account discovery and selection', () => {
     expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
   });
 
+  it('persists a refreshed token before selecting an account', async () => {
+    mockResolveToken.mockResolvedValueOnce({
+      accessToken: 'refreshed-access-token',
+      encryptedAccessToken: 'new-encrypted-access',
+      expiresAt: '2026-08-22T01:00:00.000Z',
+    });
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/accounts',
+        {
+          body: JSON.stringify({ customerId: '123-456-7890' }),
+          headers: { 'content-type': 'application/json' },
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockCredentialRpc).toHaveBeenCalledWith(
+      'update_google_ads_connection_token_if_current',
+      {
+        p_access_token_ciphertext: 'new-encrypted-access',
+        p_expected_access_token_ciphertext: 'encrypted-access',
+        p_expected_refresh_token_ciphertext: 'encrypted-refresh',
+        p_merchant_id: 'merchant-1',
+        p_token_expires_at: '2026-08-22T01:00:00.000Z',
+      }
+    );
+    expect(mockCredentialRpc).toHaveBeenCalledWith('set_google_ads_customer', {
+      p_expected_access_token_ciphertext: 'new-encrypted-access',
+      p_merchant_id: 'merchant-1',
+      p_provider_customer_id: '1234567890',
+    });
+    const updateCallIndex = mockCredentialRpc.mock.calls.findIndex(
+      ([name]) => name === 'update_google_ads_connection_token_if_current'
+    );
+    const selectionCallIndex = mockCredentialRpc.mock.calls.findIndex(
+      ([name]) => name === 'set_google_ads_customer'
+    );
+    expect(updateCallIndex).toBeLessThan(selectionCallIndex);
+  });
+
   it('rejects a selection when the guarded RPC reports no updated connection', async () => {
     mockCredentialRpc.mockImplementation((name: string) => {
       if (name === 'get_google_ads_connection_secret') {
