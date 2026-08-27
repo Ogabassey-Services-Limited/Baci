@@ -63,9 +63,10 @@ export async function GET(request: NextRequest) {
         { error: 'TikTok Ads integration unavailable' },
         { status: 503 }
       );
-    const response = NextResponse.redirect(
-      buildTikTokAdsAuthorizationUrl(config, state)
-    );
+    const authorizationUrl = buildTikTokAdsAuthorizationUrl(config, state);
+    const response = request.headers.get('accept')?.includes('application/json')
+      ? NextResponse.json({ authorizationUrl })
+      : NextResponse.redirect(authorizationUrl);
     response.cookies.set(TIKTOK_ADS_STATE_COOKIE, state, {
       httpOnly: true,
       maxAge: TIKTOK_ADS_OAUTH_COOKIE_MAX_AGE,

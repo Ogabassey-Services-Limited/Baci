@@ -61,9 +61,12 @@ export async function GET(request: NextRequest) {
         { error: 'Snapchat Ads authorization unavailable' },
         { status: 503 }
       );
-    const response = NextResponse.redirect(
-      buildSnapchatAdsAuthorizationUrl(config, state)
-    );
+    const authorizationUrl = buildSnapchatAdsAuthorizationUrl(config, state);
+    const response = request.headers
+      ?.get('accept')
+      ?.includes('application/json')
+      ? NextResponse.json({ authorizationUrl })
+      : NextResponse.redirect(authorizationUrl);
     response.cookies.set(SNAPCHAT_ADS_STATE_COOKIE, state, {
       httpOnly: true,
       maxAge: SNAPCHAT_ADS_OAUTH_COOKIE_MAX_AGE,

@@ -3,7 +3,11 @@ import 'server-only';
 import { tiktokAdsProviderRateLimiter } from './rate-limit';
 
 const MAX_RETRIES = 3;
-const MAX_RETRY_DELAY_MS = 2_000;
+/**
+ * Keep retry waits inside the synchronous route's request window. This is a
+ * budget for the whole retry walk, rather than a cap that resets per attempt.
+ */
+export const MAX_RETRY_WAIT_BUDGET_MS = 10_000;
 const REVOKED_TOKEN_CODES = new Set([
   '40101',
   '40102',
@@ -32,6 +36,18 @@ function payloadCode(payload: unknown): string | null {
     : null;
 }
 
+export interface TikTokAdsRetryBudget {
+  remainingMs: number;
+}
+
+export function createTikTokAdsRetryBudget(
+  maxWaitMs = MAX_RETRY_WAIT_BUDGET_MS
+): TikTokAdsRetryBudget {
+  return {
+    remainingMs: Number.isFinite(maxWaitMs) && maxWaitMs >= 0 ? maxWaitMs : 0,
+  };
+}
+
 function retryDelay(
   response: Response,
   attempt: number,
@@ -43,10 +59,7 @@ function retryDelay(
     : 0;
   const exponential = 250 * 2 ** attempt;
   const jitter = Math.floor(exponential * Math.min(1, Math.max(0, random())));
-  return Math.min(
-    MAX_RETRY_DELAY_MS,
-    Math.max(retryAfter, exponential + jitter)
-  );
+  return Math.max(retryAfter, exponential + jitter);
 }
 
 export async function requestTikTokAdsJson(
@@ -56,6 +69,7 @@ export async function requestTikTokAdsJson(
   fetchImpl: typeof fetch,
   options: {
     random?: () => number;
+    retryBudget?: TikTokAdsRetryBudget;
     sleep?: (milliseconds: number) => Promise<void>;
   } = {}
 ): Promise<unknown> {
@@ -64,6 +78,7 @@ export async function requestTikTokAdsJson(
     ((milliseconds: number) =>
       new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const random = options.random ?? Math.random;
+  const retryBudget = options.retryBudget ?? createTikTokAdsRetryBudget();
   for (let attempt = 0; attempt < MAX_RETRIES; attempt += 1) {
     await tiktokAdsProviderRateLimiter.acquire();
     const response = await fetchImpl(url, init);
@@ -90,7 +105,20 @@ export async function requestTikTokAdsJson(
         throttled ? 'TIKTOK_ADS_THROTTLED' : failureCode,
         response.status
       );
-    await sleep(retryDelay(response, attempt, random));
+    const delayMs = retryDelay(response, attempt, random);
+    const remainingWaitMs =
+      Number.isFinite(retryBudget.remainingMs) && retryBudget.remainingMs > 0
+        ? retryBudget.remainingMs
+        : 0;
+    if (delayMs > remainingWaitMs)
+      throw new TikTokAdsProviderError(
+        throttled ? 'TIKTOK_ADS_THROTTLED' : failureCode,
+        response.status
+      );
+    const waitStartedAt = Date.now();
+    await sleep(delayMs);
+    const elapsedWaitMs = Math.max(delayMs, Date.now() - waitStartedAt);
+    retryBudget.remainingMs = Math.max(0, remainingWaitMs - elapsedWaitMs);
   }
   throw new TikTokAdsProviderError(failureCode);
 }

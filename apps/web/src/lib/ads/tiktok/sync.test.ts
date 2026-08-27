@@ -163,6 +163,49 @@ describe('TikTok Ads sync', () => {
     );
   });
 
+  it('persists missing access-token credentials as reauthentication required', async () => {
+    resolveToken.mockImplementationOnce(() => {
+      throw new Error('TIKTOK_ADS_REAUTH_REQUIRED');
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: null,
+              provider_customer_id: 'opaque-001',
+              refresh_token_ciphertext: null,
+              status: 'active',
+            },
+          ],
+          error: null,
+        });
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    await expect(
+      syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'TIKTOK_ADS_REAUTH_REQUIRED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      {
+        p_access_token_ciphertext: null,
+        p_merchant_id: 'merchant',
+        p_provider: 'tiktok_ads',
+        p_refresh_token_ciphertext: null,
+        p_reason: 'TIKTOK_ADS_REAUTH_REQUIRED',
+      }
+    );
+    expect(accounts).not.toHaveBeenCalled();
+  });
+
   it('does not write when the provider request fails', async () => {
     reports.mockRejectedValueOnce(new Error('provider request failed'));
 

@@ -20591,7 +20591,7 @@ export type Database = {
       };
       mark_merchant_ads_connection_reauth_if_current: {
         Args: {
-          p_access_token_ciphertext: string;
+          p_access_token_ciphertext: string | null;
           p_merchant_id: string;
           p_provider: string;
           p_reason: string;

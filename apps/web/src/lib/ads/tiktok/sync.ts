@@ -67,20 +67,20 @@ export async function markTikTokAdsReauthRequired(input: {
   connection: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext?: string | null;
   };
   credentialSupabase: AdsCredentialServiceClient;
   failureCode: string;
   merchantId: string;
 }): Promise<void> {
-  if (!input.connection.access_token_ciphertext)
-    throw new TikTokAdsReauthPersistenceError();
   const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {
       p_access_token_ciphertext: input.connection.access_token_ciphertext,
       p_merchant_id: input.merchantId,
       p_provider: TIKTOK_ADS_PROVIDER,
-      p_refresh_token_ciphertext: null,
+      p_refresh_token_ciphertext:
+        input.connection.refresh_token_ciphertext ?? null,
       p_reason: input.failureCode,
     }
   );
@@ -140,6 +140,18 @@ export async function syncTikTokAdsSpendForMerchant(
   try {
     token = resolveTikTokAdsAccessToken(connection, config);
   } catch (cause) {
+    if (needsReauth(cause)) {
+      try {
+        await markTikTokAdsReauthRequired({
+          connection,
+          failureCode: errorCode(cause),
+          merchantId: input.merchantId,
+          credentialSupabase: input.credentialSupabase,
+        });
+      } catch {
+        throw new TikTokAdsSyncError('TIKTOK_ADS_REAUTH_PERSIST_FAILED');
+      }
+    }
     throw new TikTokAdsSyncError(errorCode(cause));
   }
   const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;

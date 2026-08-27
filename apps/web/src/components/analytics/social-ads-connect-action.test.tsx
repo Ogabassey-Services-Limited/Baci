@@ -31,7 +31,10 @@ describe('SocialAdsConnectAction', () => {
     );
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/integrations/ads/meta/connect?merchantId=merchant-1',
-      { credentials: 'include', redirect: 'manual' }
+      {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      }
     );
     expect(
       screen.getByRole('link', { name: /connect meta ads/i })
@@ -39,13 +42,18 @@ describe('SocialAdsConnectAction', () => {
     expect(window.location.href).toBe(initialLocation);
   });
 
-  it('navigates to the provider authorization URL after a redirect response', async () => {
+  it('navigates to the provider authorization URL from a readable response', async () => {
     const navigateTo = vi.fn();
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(null, {
-        headers: { location: 'https://www.facebook.com/dialog/oauth' },
-        status: 302,
-      })
+      new Response(
+        JSON.stringify({
+          authorizationUrl: 'https://www.facebook.com/dialog/oauth',
+        }),
+        {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        }
+      )
     );
 
     render(
@@ -64,7 +72,83 @@ describe('SocialAdsConnectAction', () => {
         'https://www.facebook.com/dialog/oauth'
       )
     );
+    expect(navigateTo).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/integrations/ads/meta/connect?merchantId=merchant-1',
+      {
+        credentials: 'include',
+        headers: { Accept: 'application/json' },
+      }
+    );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('does not navigate twice when the authorization payload is malformed', async () => {
+    const navigateTo = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({}), {
+        headers: { 'content-type': 'application/json' },
+        status: 200,
+      })
+    );
+
+    render(
+      <SocialAdsConnectAction
+        displayName="Meta Ads"
+        href="/api/integrations/ads/meta/connect?merchantId=merchant-1"
+        navigateTo={navigateTo}
+        reconnect={false}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('link', { name: /connect meta ads/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText('Unable to connect Meta Ads.')
+      ).toBeInTheDocument()
+    );
+    expect(navigateTo).not.toHaveBeenCalled();
+  });
+
+  it('ignores repeated clicks while the authorization request is pending', async () => {
+    let resolveResponse!: (response: Response) => void;
+    const responsePromise = new Promise<Response>((resolve) => {
+      resolveResponse = resolve;
+    });
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockReturnValue(responsePromise);
+    const navigateTo = vi.fn();
+
+    render(
+      <SocialAdsConnectAction
+        displayName="Meta Ads"
+        href="/api/integrations/ads/meta/connect?merchantId=merchant-1"
+        navigateTo={navigateTo}
+        reconnect={false}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /connect meta ads/i });
+    fireEvent.click(link);
+    await waitFor(() => expect(link).toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.click(link);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    resolveResponse(
+      new Response(
+        JSON.stringify({
+          authorizationUrl: 'https://www.facebook.com/dialog/oauth',
+        }),
+        {
+          headers: { 'content-type': 'application/json' },
+          status: 200,
+        }
+      )
+    );
+
+    await waitFor(() => expect(navigateTo).toHaveBeenCalledTimes(1));
   });
 });

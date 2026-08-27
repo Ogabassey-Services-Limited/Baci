@@ -83,6 +83,13 @@ describe('GET /api/integrations/ads/google/connect', () => {
     expect(response.headers.get('set-cookie')).toContain(
       'baci_google_ads_oauth_verifier='
     );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_google_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
+    expect(
+      setCookie.match(/baci_google_ads_oauth_verifier=/g) ?? []
+    ).toHaveLength(1);
     expect(mockRpc).toHaveBeenCalledWith(
       'reserve_merchant_ads_oauth_state_nonce',
       expect.objectContaining({
@@ -90,6 +97,35 @@ describe('GET /api/integrations/ads/google/connect', () => {
         p_provider: 'google_ads',
       })
     );
+  });
+
+  it('returns a readable authorization URL for same-origin dashboard fetches', async () => {
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/connect',
+        {
+          headers: { accept: 'application/json' },
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(await response.json()).toEqual({
+      authorizationUrl:
+        'https://accounts.google.com/o/oauth2/v2/auth?state=signed-state',
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_google_ads_oauth_state='
+    );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_google_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
+    expect(
+      setCookie.match(/baci_google_ads_oauth_verifier=/g) ?? []
+    ).toHaveLength(1);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed when the server cannot reserve the state nonce', async () => {

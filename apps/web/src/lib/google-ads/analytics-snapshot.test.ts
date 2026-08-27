@@ -223,4 +223,79 @@ describe('buildGoogleAdsAnalyticsSnapshot', () => {
     expect(result?.lastSyncedAt).toBe('2026-08-19T09:00:00.000Z');
     expect(result?.isStale).toBe(true);
   });
+
+  it('derives freshness from the selected window rows instead of the connection marker', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-27T09:00:00.000Z',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [
+        {
+          clicks: 1,
+          conversions: 0,
+          currency_code: 'USD',
+          fetched_at: '2026-08-01T09:00:00.000Z',
+          impressions: 10,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-21',
+          spend_micros: 1,
+        },
+        {
+          clicks: 2,
+          conversions: 0,
+          currency_code: 'USD',
+          fetched_at: '2026-08-27T09:00:00.000Z',
+          impressions: 20,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-22',
+          spend_micros: 2,
+        },
+        {
+          clicks: 99,
+          conversions: 0,
+          currency_code: 'USD',
+          fetched_at: '2026-08-27T09:00:00.000Z',
+          impressions: 999,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-23',
+          spend_micros: 999,
+        },
+      ],
+      {
+        endDate: '2026-08-22',
+        now: new Date('2026-08-27T10:00:00.000Z'),
+        startDate: '2026-08-21',
+      }
+    );
+
+    expect(result).toMatchObject({
+      isStale: true,
+      lastSyncedAt: '2026-08-01T09:00:00.000Z',
+      spendMicros: '3',
+    });
+    expect(result?.daily).toHaveLength(2);
+  });
+
+  it('does not mark an empty requested window fresh from the connection marker', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-27T09:00:00.000Z',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [],
+      {
+        endDate: '2026-08-22',
+        now: new Date('2026-08-27T10:00:00.000Z'),
+        startDate: '2026-08-21',
+      }
+    );
+
+    expect(result).toMatchObject({
+      isStale: false,
+      lastSyncedAt: null,
+    });
+  });
 });

@@ -78,6 +78,32 @@ describe('Meta Ads connect route', () => {
         p_provider: 'meta_ads',
       })
     );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_meta_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
+  });
+
+  it('returns a readable authorization URL for same-origin dashboard fetches', async () => {
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/connect', {
+        headers: { accept: 'application/json' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(await response.json()).toEqual({
+      authorizationUrl: 'https://facebook.com/oauth',
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_meta_ads_oauth_state='
+    );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_meta_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('does not redirect when nonce reservation is rejected', async () => {

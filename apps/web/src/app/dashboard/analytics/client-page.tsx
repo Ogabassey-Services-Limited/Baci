@@ -17,9 +17,9 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { buildAdsSyncWindow } from '@/lib/analytics/default-ads-sync-window';
 import { fetchAnalyticsCategoryData } from './fetch-analytics-category-data';
-import { fetchBaseAnalytics } from './fetch-base-analytics';
 import { loadAnalyticsExport } from './load-analytics-export';
 import { mergeAnalyticsData } from './merge-analytics-data';
+import { useMerchantBoundBaseAnalytics } from './use-merchant-bound-base-analytics';
 import { useSelectedAnalyticsMerchant } from './use-selected-analytics-merchant';
 
 export default function AnalyticsClientPage() {
@@ -54,16 +54,12 @@ export default function AnalyticsClientPage() {
       : 'overview';
   const [activeCategory, setActiveCategory] =
     useState<AnalyticsCategory>(requestedCategory);
-  const [baseAnalytics, setBaseAnalytics] = useState<AnalyticsData | null>(
-    null
-  );
   const [categoryAnalytics, setCategoryAnalytics] = useState<
     Partial<AnalyticsData>
   >({});
   const [categoryAnalyticsError, setCategoryAnalyticsError] = useState<
     string | null
   >(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
   const [loadingCategoryAnalytics, setLoadingCategoryAnalytics] =
     useState(false);
   const [analyticsRefreshKey, setAnalyticsRefreshKey] = useState(
@@ -88,6 +84,12 @@ export default function AnalyticsClientPage() {
   )
     ? activeCategory
     : 'overview';
+  const { data: baseAnalytics, loading: loadingAnalytics } =
+    useMerchantBoundBaseAnalytics({
+      from: date.from,
+      merchantId: selectedMerchantId,
+      to: date.to,
+    });
   useEffect(() => {
     if (!callbackProvider) return;
     toast({
@@ -102,19 +104,6 @@ export default function AnalyticsClientPage() {
     baseAnalytics,
     categoryAnalytics
   );
-  useEffect(() => {
-    if (!selectedMerchantId || !date.from || !date.to) return;
-    const controller = new AbortController();
-    fetchBaseAnalytics({
-      from: date.from,
-      merchantId: selectedMerchantId,
-      to: date.to,
-      signal: controller.signal,
-      setBaseAnalytics,
-      setLoadingAnalytics,
-    });
-    return () => controller.abort();
-  }, [date.from, date.to, selectedMerchantId]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: effectiveCategory captures the selected-context permission decision without depending on a render-local evaluator
   useEffect(() => {

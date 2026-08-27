@@ -92,9 +92,10 @@ export async function GET(request: NextRequest) {
       { status: 503 }
     );
   }
-  const response = NextResponse.redirect(
-    buildGoogleAdsAuthorizationUrl(config, state, pkce)
-  );
+  const authorizationUrl = buildGoogleAdsAuthorizationUrl(config, state, pkce);
+  const response = request.headers.get('accept')?.includes('application/json')
+    ? NextResponse.json({ authorizationUrl })
+    : NextResponse.redirect(authorizationUrl);
   response.cookies.set(GOOGLE_ADS_STATE_COOKIE, state, cookieOptions());
   response.cookies.set(
     GOOGLE_ADS_VERIFIER_COOKIE,

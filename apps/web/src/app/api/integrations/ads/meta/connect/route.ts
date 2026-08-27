@@ -85,9 +85,10 @@ export async function GET(request: NextRequest) {
       { error: 'Meta Ads integration unavailable' },
       { status: 503 }
     );
-  const response = NextResponse.redirect(
-    buildMetaAdsAuthorizationUrl(config, state)
-  );
+  const authorizationUrl = buildMetaAdsAuthorizationUrl(config, state);
+  const response = request.headers.get('accept')?.includes('application/json')
+    ? NextResponse.json({ authorizationUrl })
+    : NextResponse.redirect(authorizationUrl);
   response.cookies.set(META_ADS_STATE_COOKIE, state, cookieOptions());
   response.headers.set('Cache-Control', 'private, no-store');
   return response;

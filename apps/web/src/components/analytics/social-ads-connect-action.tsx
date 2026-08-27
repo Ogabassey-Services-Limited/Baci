@@ -21,6 +21,18 @@ async function readConnectError(response: Response, fallback: string) {
   }
 }
 
+async function readAuthorizationUrl(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { authorizationUrl?: unknown };
+    if (typeof payload.authorizationUrl === 'string') {
+      return payload.authorizationUrl;
+    }
+  } catch {
+    // Fall through to the actionable integration error below.
+  }
+  throw new Error(fallback);
+}
+
 export function SocialAdsConnectAction({
   displayName,
   href,
@@ -39,19 +51,19 @@ export function SocialAdsConnectAction({
     try {
       const response = await fetch(href, {
         credentials: 'include',
-        redirect: 'manual',
+        headers: { Accept: 'application/json' },
       });
-      const isRedirect =
-        response.type === 'opaqueredirect' ||
-        (response.status >= 300 && response.status < 400);
-      if (!response.ok && !isRedirect) {
+      if (!response.ok) {
         throw new Error(
           await readConnectError(response, `Unable to connect ${displayName}.`)
         );
       }
 
       (navigateTo ?? ((target: string) => window.location.assign(target)))(
-        response.headers.get('location') ?? href
+        await readAuthorizationUrl(
+          response,
+          `Unable to connect ${displayName}.`
+        )
       );
     } catch (error: unknown) {
       setConnectError(

@@ -91,10 +91,48 @@ describe('TikTok Ads connect route', () => {
       'baci_tiktok_ads_oauth_state=signed-state'
     );
     expect(response.headers.get('set-cookie')).toContain('HttpOnly');
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_tiktok_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
     expect(rpc).toHaveBeenCalledWith(
       'reserve_merchant_ads_oauth_state_nonce',
       expect.objectContaining({ p_nonce: 'nonce', p_provider: 'tiktok_ads' })
     );
+  });
+
+  it('returns a readable authorization URL for same-origin dashboard fetches', async () => {
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/connect',
+        {
+          headers: { accept: 'application/json' },
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(await response.json()).toEqual({
+      authorizationUrl:
+        'https://business-api.tiktok.com/portal/authorize?state=signed-state',
+    });
+    expect(response.headers.get('set-cookie')).toContain(
+      'baci_tiktok_ads_oauth_state=signed-state'
+    );
+    const setCookie = response.headers.get('set-cookie') ?? '';
+    expect(setCookie.match(/baci_tiktok_ads_oauth_state=/g) ?? []).toHaveLength(
+      1
+    );
+    expect(rpc).toHaveBeenCalledTimes(1);
   });
 
   it('does not redirect if the signed state nonce cannot be reserved', async () => {

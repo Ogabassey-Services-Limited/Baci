@@ -22,6 +22,10 @@ const syncStartedMarkerMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260827030000_mark_ads_sync_started.sql'
 );
+const nullReauthCasMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827040000_allow_null_ads_reauth_cas.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -118,5 +122,28 @@ describe('provider-neutral ads storage migration', () => {
       'grant execute on function public.mark_merchant_ads_connection_sync_started_if_current'
     );
     expect(sql).toContain('to authenticated, service_role');
+  });
+
+  it('marks missing social credentials for reauthorization with a null-safe CAS', () => {
+    const sql = readFileSync(nullReauthCasMigrationPath, 'utf8').toLowerCase();
+
+    expect(sql).toContain(
+      'create or replace function public.mark_merchant_ads_connection_reauth_if_current'
+    );
+    expect(sql).toContain('p_access_token_ciphertext is not null');
+    expect(sql).toContain(
+      'access_token_ciphertext is not distinct from p_access_token_ciphertext'
+    );
+    expect(sql).toContain(
+      'refresh_token_ciphertext is not distinct from p_refresh_token_ciphertext'
+    );
+    expect(sql).toContain('ads_credential_rpc_authorized(p_merchant_id)');
+    expect(sql).toContain(
+      'revoke all on function public.mark_merchant_ads_connection_reauth_if_current'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.mark_merchant_ads_connection_reauth_if_current'
+    );
+    expect(sql).toContain('to service_role');
   });
 });

@@ -1,3 +1,5 @@
+import { deriveWindowLastSyncedAt } from '@/lib/analytics/reporting-freshness';
+
 export interface GoogleAdsAnalyticsConnection {
   last_synced_at: string | null;
   provider_customer_id: string | null;
@@ -99,8 +101,17 @@ export function buildGoogleAdsAnalyticsSnapshot(
   const lastSyncedAt = connection.last_synced_at;
   const selectedRows =
     selectedCustomerId && lastSyncedAt
-      ? rows.filter((row) => row.provider_customer_id === selectedCustomerId)
+      ? rows.filter(
+          (row) =>
+            row.provider_customer_id === selectedCustomerId &&
+            (!startDate || row.spend_date >= startDate) &&
+            (!endDate || row.spend_date <= endDate)
+        )
       : [];
+  const windowLastSyncedAt =
+    startDate || endDate
+      ? deriveWindowLastSyncedAt(selectedRows, null)
+      : lastSyncedAt;
   const daily = selectedRows.map((row) => {
     const spendMicros = nonNegativeMicros(row.spend_micros);
     return {
@@ -116,8 +127,8 @@ export function buildGoogleAdsAnalyticsSnapshot(
   });
   const isStale =
     connected &&
-    lastSyncedAt !== null &&
-    now.getTime() - Date.parse(lastSyncedAt) > STALE_AFTER_MS;
+    windowLastSyncedAt !== null &&
+    now.getTime() - Date.parse(windowLastSyncedAt) > STALE_AFTER_MS;
   const dataStatus = spendReadFailed ? 'error' : 'ready';
   const error =
     dataStatus === 'error'
@@ -134,7 +145,7 @@ export function buildGoogleAdsAnalyticsSnapshot(
       endDate,
       error,
       isStale,
-      lastSyncedAt,
+      lastSyncedAt: windowLastSyncedAt,
       needsAccountSelection: connected && !connection.provider_customer_id,
       startDate,
     };
@@ -152,7 +163,7 @@ export function buildGoogleAdsAnalyticsSnapshot(
     endDate,
     error,
     isStale,
-    lastSyncedAt,
+    lastSyncedAt: windowLastSyncedAt,
     needsAccountSelection: connected && !connection.provider_customer_id,
     spend: Number(spendMicros) / 1_000_000,
     spendMicros: spendMicros.toString(),

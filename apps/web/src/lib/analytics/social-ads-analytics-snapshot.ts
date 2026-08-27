@@ -1,3 +1,5 @@
+import { deriveWindowLastSyncedAt } from './reporting-freshness';
+
 export const SOCIAL_ADS_REPORTING_PROVIDERS = [
   'meta_ads',
   'tiktok_ads',
@@ -151,6 +153,8 @@ export function buildSocialAdsAnalyticsSnapshot({
       (candidate) => candidate.provider === row.provider
     );
     return (
+      row.spend_date >= startDate &&
+      row.spend_date <= endDate &&
       connection?.status === 'active' &&
       Boolean(connection.last_synced_at) &&
       !tokenExpiryRequiresReauthorization(
@@ -170,15 +174,18 @@ export function buildSocialAdsAnalyticsSnapshot({
       connection?.token_expires_at,
       now
     );
-    const lastSyncedAt = connection?.last_synced_at ?? null;
     const isConnected = connection?.status === 'active' && !tokenExpired;
     const needsAccountSelection =
       isConnected && !connection?.provider_customer_id;
+    // The connection marker does not prove that this requested date window
+    // was fetched. A populated window derives its timestamp from row fetches;
+    // an empty window remains unknown until window tracking exists.
+    const windowLastSyncedAt = deriveWindowLastSyncedAt(rows, null);
     const freshness = !isConnected
       ? 'not_applicable'
-      : !lastSyncedAt
+      : !windowLastSyncedAt
         ? 'never_synced'
-        : now.getTime() - Date.parse(lastSyncedAt) > STALE_AFTER_MS
+        : now.getTime() - Date.parse(windowLastSyncedAt) > STALE_AFTER_MS
           ? 'stale'
           : 'fresh';
     const dataStatus =
@@ -210,7 +217,7 @@ export function buildSocialAdsAnalyticsSnapshot({
             : null,
       freshness,
       isStale: freshness === 'stale',
-      lastSyncedAt,
+      lastSyncedAt: windowLastSyncedAt,
       metrics:
         rows.length === 0
           ? null
