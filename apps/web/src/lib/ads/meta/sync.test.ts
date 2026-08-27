@@ -209,6 +209,41 @@ describe('Meta Ads sync', () => {
     );
   });
 
+  it('marks a selected legacy connection with no access ciphertext for reauthorization', async () => {
+    mockResolve.mockImplementationOnce(() => {
+      throw new Error('META_ADS_REAUTH_REQUIRED');
+    });
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: null,
+              provider_customer_id: 'act_12',
+              refresh_token_ciphertext: null,
+              status: 'active',
+              token_expires_at: null,
+            },
+          ],
+          error: null,
+        });
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_REAUTH_REQUIRED',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_access_token_ciphertext: null,
+        p_provider: 'meta_ads',
+        p_refresh_token_ciphertext: null,
+        p_reason: 'META_ADS_REAUTH_REQUIRED',
+      })
+    );
+  });
+
   it('treats a stale CAS marker as a superseded connection', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');

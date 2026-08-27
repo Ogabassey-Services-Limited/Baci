@@ -186,6 +186,16 @@ describe('GoogleAdsAccountPicker', () => {
     expect(
       await screen.findByText('Google Ads account discovery failed.')
     ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(
+      screen.getByRole('button', { name: /select google ads account/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Google Ads account discovery failed.')
+    ).not.toBeInTheDocument();
   });
 
   it('provides retry and cancel controls when discovery succeeds with no accounts', async () => {

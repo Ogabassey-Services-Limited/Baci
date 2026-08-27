@@ -76,7 +76,7 @@ export async function getSnapchatAdsUsableGrant(input: {
   if (input.connection.access_token_ciphertext) {
     const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
     if (
-      !Number.isFinite(expiresAt) ||
+      Number.isFinite(expiresAt) &&
       expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
     )
       return {

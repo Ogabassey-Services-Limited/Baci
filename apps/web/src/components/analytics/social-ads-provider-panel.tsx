@@ -44,7 +44,6 @@ export function formatSocialAdsSpend({
   try {
     return new Intl.NumberFormat('en-US', {
       currency: currencyCode,
-      maximumFractionDigits: 2,
       style: 'currency',
     }).format(value);
   } catch {

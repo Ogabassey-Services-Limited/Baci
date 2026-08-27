@@ -21,6 +21,32 @@ describe('social ads provider panel formatting', () => {
       })
     ).toBe('USD 9007199254740993.123456');
   });
+
+  it('uses each currency standard minor-unit precision', () => {
+    expect(
+      formatSocialAdsSpend({
+        currencyCode: 'KWD',
+        spendAmountDecimal: '1.234',
+      })
+    ).toBe(
+      new Intl.NumberFormat('en-US', {
+        currency: 'KWD',
+        style: 'currency',
+      }).format(1.234)
+    );
+    expect(
+      formatSocialAdsSpend({
+        currencyCode: 'USD',
+        spendAmountDecimal: '1.2',
+      })
+    ).toBe('$1.20');
+    expect(
+      formatSocialAdsSpend({
+        currencyCode: 'USD',
+        spendAmountDecimal: '0',
+      })
+    ).toBe('$0.00');
+  });
 });
 
 const providerPath = {

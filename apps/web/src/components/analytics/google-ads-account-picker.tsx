@@ -243,14 +243,21 @@ export function GoogleAdsAccountPicker({
             <AlertCircle className="size-4" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
-          <Button
-            onClick={loadAccounts}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            Retry account discovery
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={loadAccounts}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              Retry account discovery
+            </Button>
+            {accounts.length === 0 && (
+              <Button onClick={closePicker} size="sm" type="button">
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       )}
 

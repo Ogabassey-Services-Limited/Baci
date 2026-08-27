@@ -51,8 +51,6 @@ export async function markMetaAdsReauthRequired(input: {
   failureCode: string;
   merchantId: string;
 }): Promise<void> {
-  if (!input.connection.access_token_ciphertext)
-    throw new MetaAdsReauthPersistenceError();
   const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {
