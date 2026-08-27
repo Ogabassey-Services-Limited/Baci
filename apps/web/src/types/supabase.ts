@@ -18734,6 +18734,10 @@ export type Database = {
         Returns: Json;
       };
       has_cache_invalidation_dead_letters: { Args: never; Returns: boolean };
+      has_storefront_order_idempotency_key: {
+        Args: { p_checkout_idempotency_key: string; p_merchant_id: string };
+        Returns: boolean;
+      };
       has_merchant_access: {
         Args: { p_merchant_id: string };
         Returns: boolean;

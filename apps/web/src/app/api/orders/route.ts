@@ -1609,7 +1609,6 @@ export async function POST(request: NextRequest) {
     const localAirportShippingFee = getLocalAirportDeliveryFee({
       airportType: airport_type,
       deliveryMethod: delivery_method,
-      shippingFee: shippingFeeValue,
       selectedQuoteId: body.selected_quote_id,
       shippingAddress: shipping_address,
       shippingRateId: body.shipping_rate_id,
@@ -1619,13 +1618,15 @@ export async function POST(request: NextRequest) {
       Math.abs(shippingFeeValue - localAirportShippingFee) > 0.01;
     let isIdempotentLocalAirportReplay = false;
     if (localAirportShippingFeeMismatch && requestIdempotencyKey) {
-      const { data: existingOrder, error: existingOrderError } =
-        await createAdminClient()
-          .from('orders')
-          .select('id')
-          .eq('merchant_id', merchant_id)
-          .eq('checkout_idempotency_key', requestIdempotencyKey)
-          .maybeSingle();
+      // Guest checkouts cannot read `orders` through RLS. The narrowly scoped
+      // boolean RPC runs with the caller's normal client and reveals no order
+      // fields; it only lets an existing idempotent retry reach the canonical
+      // order RPC, whose replay path returns the original fee.
+      const { data: hasExistingOrder, error: existingOrderError } =
+        await supabase.rpc('has_storefront_order_idempotency_key', {
+          p_checkout_idempotency_key: requestIdempotencyKey,
+          p_merchant_id: merchant_id,
+        });
       if (existingOrderError) {
         logger.warn({
           message:
@@ -1634,7 +1635,7 @@ export async function POST(request: NextRequest) {
           error: existingOrderError,
         });
       } else {
-        isIdempotentLocalAirportReplay = Boolean(existingOrder?.id);
+        isIdempotentLocalAirportReplay = hasExistingOrder === true;
       }
     }
     if (

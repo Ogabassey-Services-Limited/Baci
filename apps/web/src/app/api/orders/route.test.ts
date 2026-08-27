@@ -193,6 +193,7 @@ interface RpcOverrides {
     data: unknown;
     error: unknown;
   };
+  has_storefront_order_idempotency_key?: { data: unknown; error: unknown };
   get_storefront_discount_code?: { data: unknown; error: unknown };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
   redeem_savings_for_order?: { data: unknown; error: unknown };
@@ -366,6 +367,7 @@ function buildMockSupabase(
       finalize_wallet_order_payment: { data: null, error: null },
       finalize_store_credit_order_payment: { data: null, error: null },
       finalize_quiz_voucher_order_payment: { data: true, error: null },
+      has_storefront_order_idempotency_key: { data: false, error: null },
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
@@ -7126,18 +7128,9 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
   });
 
   it('replays an older local airport order before enforcing the new fee', async () => {
-    const maybeSingle = vi
-      .fn()
-      .mockResolvedValueOnce({ data: { id: 'existing-order-id' }, error: null })
-      .mockResolvedValue({ data: { currency: 'NGN' }, error: null });
-    mockCreateAdminClient.mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn().mockReturnThis(),
-        eq: vi.fn().mockReturnThis(),
-        maybeSingle,
-      })),
-    } as never);
+    primeAdminOrderCurrencyRead();
     const supabase = buildMockSupabase({
+      has_storefront_order_idempotency_key: { data: true, error: null },
       create_storefront_order: {
         data: [{ ...baseOrderRow, idempotency_replayed: true }],
         error: null,
@@ -7154,7 +7147,8 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
         headers: { 'Idempotency-Key': 'airport-retry-key-1' },
         body: JSON.stringify({
           ...baseOrderPayload,
-          // Legacy clients omit delivery metadata but preserve a real address.
+          delivery_method: 'airport',
+          airport_type: 'delivery',
           shipping_address: {
             ...baseOrderPayload.shipping_address,
             address: '12 Airport Road',
@@ -7174,7 +7168,13 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
         p_shipping_fee: 25_000,
       })
     );
-    expect(maybeSingle).toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'has_storefront_order_idempotency_key',
+      {
+        p_checkout_idempotency_key: 'airport-retry-key-1',
+        p_merchant_id: MERCHANT_ID,
+      }
+    );
   });
 
   it('passes the server-owned fee for a valid local airport order', async () => {

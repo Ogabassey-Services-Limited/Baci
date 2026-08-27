@@ -1,22 +1,17 @@
-import {
-  AIRPORT_DELIVERY_FEES,
-  LEGACY_AIRPORT_DELIVERY_FEES,
-} from '@baci/shared/constants';
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 
 type AirportType = keyof typeof AIRPORT_DELIVERY_FEES;
 
 interface LocalAirportDeliveryFeeInput {
   airportType?: AirportType;
   deliveryMethod?: string;
-  shippingFee?: number;
   selectedQuoteId?: string | null;
   shippingAddress?: { address?: string | null } | null;
   shippingRateId?: string | null;
 }
 
 function getLegacyAirportType(
-  address: string | null | undefined,
-  shippingFee: number | undefined
+  address: string | null | undefined
 ): AirportType | null {
   const normalized = address?.trim().toLowerCase();
   if (normalized) {
@@ -28,13 +23,6 @@ function getLegacyAirportType(
       return 'delivery';
     }
   }
-
-  // Pre-metadata web and mobile clients preserve a shopper-entered address,
-  // so the placeholder marker is not reliable. Their fixed fee, combined
-  // with the absence of a quote/rate id, is the remaining server-verifiable
-  // signal for a legacy local airport order.
-  if (shippingFee === LEGACY_AIRPORT_DELIVERY_FEES.pickup) return 'pickup';
-  if (shippingFee === LEGACY_AIRPORT_DELIVERY_FEES.delivery) return 'delivery';
   return null;
 }
 
@@ -43,14 +31,14 @@ function getLegacyAirportType(
  *
  * Provider-backed airport quotes and merchant-configured rates have their own
  * server verification paths, so this returns null for either selected id.
- * Older clients omit delivery metadata. Their historical fixed fee, combined
- * with the absence of a quote/rate id, preserves protection even when they
- * sent a real shopper-entered address instead of an airport placeholder.
+ * The exact legacy address markers preserve protection for older clients that
+ * did not yet send delivery metadata. A fee amount alone is intentionally not
+ * treated as an airport signal because the same amount can be a valid
+ * merchant-configured door-delivery rate.
  */
 export function getLocalAirportDeliveryFee({
   airportType,
   deliveryMethod,
-  shippingFee,
   selectedQuoteId,
   shippingAddress,
   shippingRateId,
@@ -59,10 +47,7 @@ export function getLocalAirportDeliveryFee({
 
   if (deliveryMethod !== undefined && deliveryMethod !== 'airport') return null;
 
-  const legacyAirportType = getLegacyAirportType(
-    shippingAddress?.address,
-    shippingFee
-  );
+  const legacyAirportType = getLegacyAirportType(shippingAddress?.address);
   if (deliveryMethod === undefined && legacyAirportType === null) return null;
 
   const resolvedAirportType =
