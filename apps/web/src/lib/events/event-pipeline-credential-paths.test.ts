@@ -31,6 +31,25 @@ describe('event-pipeline credential paths', () => {
     );
   });
 
+  it('records the scoped invoice notification delivery edges', () => {
+    expect(eventPipelineCredentialPaths).toEqual(
+      expect.arrayContaining([
+        [
+          'apps/web/src/app/api/orders/route.ts',
+          'apps/web/src/lib/order-notification-dispatch.ts',
+          'apps/web/src/lib/expo-push.ts',
+          'apps/web/src/env.ts',
+        ],
+        [
+          'apps/web/src/lib/invoice-notifications.ts',
+          'apps/web/src/lib/expo-push.ts',
+          'apps/web/src/lib/supabase/admin.ts',
+          'apps/web/src/env.ts',
+        ],
+      ])
+    );
+  });
+
   it('records only the signed catalog routes that reach the agentic secret', () => {
     const mutationRequest = 'apps/web/src/lib/agentic/mutation-request.ts';
     const requestIntegrity = 'apps/web/src/lib/agentic/request-integrity.ts';

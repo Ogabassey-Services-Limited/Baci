@@ -45,7 +45,7 @@ export async function GET() {
     const { data: preferences, error } = await supabase
       .from('notification_preferences')
       .select(
-        'merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
+        'merchant_id, in_app_enabled, banner_enabled, follow_up_notifications_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -65,6 +65,7 @@ export async function GET() {
         merchant_id: merchantId,
         in_app_enabled: true,
         banner_enabled: true,
+        follow_up_notifications_enabled: true,
         quiet_hours_start: null,
         quiet_hours_end: null,
         quiet_hours_time_zone: 'Africa/Lagos',
@@ -148,6 +149,9 @@ export async function PATCH(request: NextRequest) {
       updates.in_app_enabled = body.in_app_enabled;
     if (body.banner_enabled !== undefined)
       updates.banner_enabled = body.banner_enabled;
+    if (body.follow_up_notifications_enabled !== undefined)
+      updates.follow_up_notifications_enabled =
+        body.follow_up_notifications_enabled;
     if (body.quiet_hours_start !== undefined)
       updates.quiet_hours_start = body.quiet_hours_start;
     if (body.quiet_hours_end !== undefined)
@@ -160,7 +164,7 @@ export async function PATCH(request: NextRequest) {
       .from('notification_preferences')
       .upsert(updates, { onConflict: 'merchant_id' })
       .select(
-        'merchant_id, in_app_enabled, banner_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
+        'merchant_id, in_app_enabled, banner_enabled, follow_up_notifications_enabled, quiet_hours_start, quiet_hours_end, quiet_hours_time_zone, updated_at'
       )
       .single();
 

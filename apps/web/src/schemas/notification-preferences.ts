@@ -23,6 +23,7 @@ export const notificationPreferencesPatchSchema = z
   .strictObject({
     in_app_enabled: z.boolean().optional(),
     banner_enabled: z.boolean().optional(),
+    follow_up_notifications_enabled: z.boolean().optional(),
     quiet_hours_start: timeStringSchema.optional(),
     quiet_hours_end: timeStringSchema.optional(),
     quiet_hours_time_zone: timeZoneSchema.optional(),
@@ -44,6 +45,7 @@ export const notificationPreferencesPatchSchema = z
     (data) =>
       data.in_app_enabled !== undefined ||
       data.banner_enabled !== undefined ||
+      data.follow_up_notifications_enabled !== undefined ||
       data.quiet_hours_start !== undefined ||
       data.quiet_hours_end !== undefined ||
       data.quiet_hours_time_zone !== undefined,

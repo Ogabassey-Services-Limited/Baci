@@ -1,10 +1,8 @@
-// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live there.
-// manifest module. Each `<sha256> <filename>.sql` row is byte-frozen: the
-// manifest verifier re-hashes the on-disk migration, so never edit a migration
-// after registering it without recomputing its hash here.
-
+// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live in the manifest module.
+// Each `<sha256> <filename>.sql` row is byte-frozen: the manifest verifier re-hashes the on-disk migration, so never edit a migration after registering it without recomputing its hash here.
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
+import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
 import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-negotiation-pending-sources';
 import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
 
@@ -254,11 +252,13 @@ c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_
 da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_public_shipping_sender_projection.sql
 2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b 20260825154500_persist_shipment_shipping_quote.sql
 `;
+
 const PENDING_SOURCES = [
   PENDING_SOURCES_HEAD,
   STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES,
   ADMIN_PLATFORM_PENDING_SOURCES,
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
+  FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
   NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS,
 ]
   .flatMap((sourceBlock) => sourceBlock.trim().split('\n'))

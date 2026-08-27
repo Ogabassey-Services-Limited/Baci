@@ -10,6 +10,14 @@ describe('notificationPreferencesPatchSchema', () => {
     ).toBe(true);
   });
 
+  it('accepts a follow-up alert toggle update', () => {
+    expect(
+      notificationPreferencesPatchSchema.safeParse({
+        follow_up_notifications_enabled: false,
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects quiet hours when only one boundary is provided', () => {
     const result = notificationPreferencesPatchSchema.safeParse({
       quiet_hours_start: '22:00',

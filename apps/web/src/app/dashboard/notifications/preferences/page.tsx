@@ -1,10 +1,10 @@
 'use client';
 
-import { AlertTriangle, ArrowLeft, Bell, RefreshCw, Save } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, RefreshCw, Save } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { NotificationChannelsCard } from '@/components/notifications/notification-channels-card';
 import { BagLoader } from '@/components/ui/bag-loader';
-
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 import type {
@@ -89,6 +88,8 @@ export default function NotificationPreferencesPage() {
       body: JSON.stringify({
         in_app_enabled: preferences.in_app_enabled,
         banner_enabled: preferences.banner_enabled,
+        follow_up_notifications_enabled:
+          preferences.follow_up_notifications_enabled,
         quiet_hours_start: preferences.quiet_hours_start,
         quiet_hours_end: preferences.quiet_hours_end,
         quiet_hours_time_zone: preferences.quiet_hours_time_zone,
@@ -182,51 +183,10 @@ export default function NotificationPreferencesPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Bell className="size-5" />
-            Notification Channels
-          </CardTitle>
-          <CardDescription>
-            Choose how you want to receive notifications
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="in_app">In-App Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Show notifications in the notification center
-              </p>
-            </div>
-            <Switch
-              id="in_app"
-              checked={preferences?.in_app_enabled ?? true}
-              onCheckedChange={(checked) =>
-                updatePreference({ in_app_enabled: checked })
-              }
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="banner">Banner Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Show important notifications as banners at the top of the
-                dashboard
-              </p>
-            </div>
-            <Switch
-              id="banner"
-              checked={preferences?.banner_enabled ?? true}
-              onCheckedChange={(checked) =>
-                updatePreference({ banner_enabled: checked })
-              }
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <NotificationChannelsCard
+        onUpdate={updatePreference}
+        preferences={preferences}
+      />
 
       <Card>
         <CardHeader>

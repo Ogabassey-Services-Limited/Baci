@@ -37,7 +37,6 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { recordPlatformOrderCreatedEvent } from '@/lib/events/record-platform-order-created-event';
-import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { hasPriceNegotiationEntitlement } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
@@ -52,6 +51,7 @@ import type {
 } from '@/lib/invoice-generator';
 import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item-metadata';
 import { logger } from '@/lib/logger';
+import { dispatchOrderCreationNotifications } from '@/lib/order-notification-dispatch';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { recordPreGatewayRedemption } from '@/lib/payments/record-pre-gateway-redemption';
 import { generatePaymentAccount } from '@/lib/paystack';
@@ -3584,67 +3584,22 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Notify merchant of new order — fire-and-forget via after() for the same reason.
-      after(async () => {
-        if (!shouldSendImmediateOrderNotifications) {
-          // Card/Paystack payments trigger notifyNewOrder from the webhook/payment-verify handler
-          // upon successful payment callback to prevent premature/duplicate notifications.
-          return;
-        }
-
-        try {
-          const pushResult = await notifyNewOrder(
-            merchant_id,
-            order.id,
-            orderNum,
-            customer_name,
-            orderTotal,
-            orderCurrency
-          );
-          if (pushResult.failed > 0 || pushResult.errors.length > 0) {
-            logger.warn({
-              message: 'New order push notification was not fully delivered',
-              orderId: order.id,
-              merchantId: merchant_id,
-              sent: pushResult.sent,
-              failed: pushResult.failed,
-              errors: pushResult.errors,
-            });
-          }
-        } catch (err) {
-          logger.error({ message: 'Push notification failed', error: err });
-        }
-
-        if (isWalletFullyPaid) {
-          try {
-            const paymentPushResult = await notifyPaymentReceived(
-              merchant_id,
-              orderTotal,
-              orderCurrency,
-              orderNum,
-              order.id
-            );
-            if (
-              paymentPushResult.failed > 0 ||
-              paymentPushResult.errors.length > 0
-            ) {
-              logger.warn({
-                message: 'Payment push notification was not fully delivered',
-                orderId: order.id,
-                merchantId: merchant_id,
-                sent: paymentPushResult.sent,
-                failed: paymentPushResult.failed,
-                errors: paymentPushResult.errors,
-              });
-            }
-          } catch (err) {
-            logger.error({
-              message: 'Payment push notification failed',
-              error: err,
-            });
-          }
-        }
-      });
+      // Notify merchant of a new order or invoice — fire-and-forget via after().
+      after(() =>
+        dispatchOrderCreationNotifications({
+          merchantId: merchant_id,
+          orderId: order.id,
+          orderNumber: orderNum,
+          customerName: customer_name,
+          orderTotal,
+          orderCurrency,
+          paymentMethod: effectivePaymentMethod,
+          paymentStatus: order.payment_status,
+          invoiceBalanceDue: Math.max(amountDueToGateway, 0),
+          isWalletFullyPaid,
+          preferenceClient: supabase,
+        })
+      );
     }
 
     // The create RPC's RETURNS TABLE carries no currency column, so surface

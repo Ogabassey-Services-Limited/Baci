@@ -11,10 +11,11 @@ import { eventPipelineSourceFilePolicy } from './event-pipeline-source-file-poli
 
 const FROZEN_EVENT_PIPELINE_BASE_SHA =
   'cfe0e9864cd776af98ef400969257e2ec147f65d';
-// Rotation is two commits: first commit the reviewed production bytes, then
-// advance this receipt to that immutable parent. Never derive it from HEAD.
+// Keep this on a landing ancestor: squash merges do not preserve PR-only
+// review-fix commits. Changed inherited routes use content receipts instead of
+// a baseline commit so the check remains valid after the squash.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  '33e8c0e80ef80891be4ac809362cf59781b758cf';
+  'c0dd4d90ffcc3c1faa4f495f288f4b5f6c8e7eba';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([

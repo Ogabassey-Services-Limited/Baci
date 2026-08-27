@@ -20,6 +20,41 @@ describe('event pipeline credential-path authority', () => {
 
     expect(manifest.authority.credentialPaths).toEqual([
       [
+        'apps/web/src/app/api/orders/route.ts',
+        'apps/web/src/lib/order-notification-dispatch.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/app/api/orders/route.ts',
+        'apps/web/src/lib/order-notification-dispatch.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/order-notification-dispatch.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/order-notification-dispatch.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/invoice-notifications.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
+        'apps/web/src/lib/invoice-notifications.ts',
+        'apps/web/src/lib/expo-push.ts',
+        'apps/web/src/lib/supabase/admin.ts',
+        'apps/web/src/env.ts',
+      ],
+      [
         'apps/web/src/app/(platform)/onboarding/actions.ts',
         'apps/web/src/app/(platform)/onboarding/submit-onboarding-workflow.ts',
         'apps/web/src/env.ts',

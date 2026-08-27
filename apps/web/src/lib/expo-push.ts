@@ -81,6 +81,8 @@ export type NotificationChannel =
   | 'admin'
   | 'promotions';
 
+type MerchantNotificationOptions = DeliveryStartOptions;
+
 // ── Core send functions ──────────────────────────────────────────────────────
 
 /**
@@ -137,7 +139,7 @@ export async function notifyMerchant(
   body: string,
   data?: Record<string, unknown>,
   channelId: NotificationChannel = 'general',
-  options?: DeliveryStartOptions
+  options?: MerchantNotificationOptions
 ): Promise<NotificationSendResult> {
   const supabase = createAdminClient();
 
@@ -1028,6 +1030,7 @@ export async function notifyPriceDrop(
   );
 }
 
+export { notifyNewInvoice } from './invoice-notifications';
 export type {
   StorefrontUpdateNudgeParams,
   StorefrontUpdateNudgeResult,

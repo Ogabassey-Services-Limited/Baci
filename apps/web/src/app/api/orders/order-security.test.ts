@@ -208,6 +208,7 @@ vi.mock('@/lib/email-templates', () => ({
 }));
 
 vi.mock('@/lib/expo-push', () => ({
+  notifyNewInvoice: vi.fn(() => Promise.resolve()),
   notifyNewOrder: mockNotifyNewOrder,
   notifyPaymentReceived: mockNotifyPaymentReceived,
 }));

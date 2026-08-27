@@ -7165,6 +7165,7 @@ export type Database = {
       notification_preferences: {
         Row: {
           banner_enabled: boolean | null;
+          follow_up_notifications_enabled: boolean;
           in_app_enabled: boolean | null;
           merchant_id: string;
           quiet_hours_end: string | null;
@@ -7174,6 +7175,7 @@ export type Database = {
         };
         Insert: {
           banner_enabled?: boolean | null;
+          follow_up_notifications_enabled?: boolean;
           in_app_enabled?: boolean | null;
           merchant_id: string;
           quiet_hours_end?: string | null;
@@ -7183,6 +7185,7 @@ export type Database = {
         };
         Update: {
           banner_enabled?: boolean | null;
+          follow_up_notifications_enabled?: boolean;
           in_app_enabled?: boolean | null;
           merchant_id?: string;
           quiet_hours_end?: string | null;
@@ -17573,6 +17576,10 @@ export type Database = {
           total_read: number;
           total_sent: number;
         }[];
+      };
+      get_follow_up_notification_preference: {
+        Args: { p_order_id: string };
+        Returns: boolean;
       };
       get_scheduled_notification_recipient_page_v1: {
         Args: {
