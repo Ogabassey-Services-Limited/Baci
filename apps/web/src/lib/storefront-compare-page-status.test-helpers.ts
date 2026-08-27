@@ -1,4 +1,4 @@
-import type { resolveStorefrontComparePageStatus } from './storefront-compare-page-status';
+import type { storefrontComparePageStatus } from './storefront-compare-page-status';
 
 export const storefrontComparePageStatusTestHelpers = {
   jsonResponse(body: unknown, status = 200) {
@@ -11,7 +11,7 @@ export const storefrontComparePageStatusTestHelpers = {
   buildOptions(
     fetchImpl: typeof fetch,
     overrides: Partial<
-      Parameters<typeof resolveStorefrontComparePageStatus>[0]
+      Parameters<typeof storefrontComparePageStatus.resolve>[0]
     > = {}
   ) {
     return {

@@ -13,8 +13,10 @@ vi.mock('@/env', () => ({
 }));
 
 vi.mock('@/lib/storefront-compare-page-status', () => ({
-  resolveStorefrontComparePageStatus: (...args: unknown[]) =>
-    mockResolveStorefrontComparePageStatus(...args),
+  storefrontComparePageStatus: {
+    resolve: (...args: unknown[]) =>
+      mockResolveStorefrontComparePageStatus(...args),
+  },
 }));
 
 const mockIsEligibleForHardStatusPreflight = vi.fn();

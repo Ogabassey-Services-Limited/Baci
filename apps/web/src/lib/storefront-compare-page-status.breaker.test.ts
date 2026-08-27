@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  resetStorefrontComparePageStatusForTests,
-  resolveStorefrontComparePageStatus,
-} from './storefront-compare-page-status';
+import { storefrontComparePageStatus } from './storefront-compare-page-status';
 import { storefrontComparePageStatusTestHelpers } from './storefront-compare-page-status.test-helpers';
 
 const { buildOptions, jsonResponse } = storefrontComparePageStatusTestHelpers;
+const {
+  resolve: resolveStorefrontComparePageStatus,
+  resetForTests: resetStorefrontComparePageStatusForTests,
+} = storefrontComparePageStatus;
 
 describe('compare page status breaker regressions', () => {
   beforeEach(() => {

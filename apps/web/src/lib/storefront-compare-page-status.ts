@@ -35,7 +35,7 @@ interface ComparePageStatusOptions {
   timeoutMs?: number;
 }
 
-export type StorefrontComparePageStatusResolution =
+type StorefrontComparePageStatusResolution =
   | { kind: 'missing' }
   | { kind: 'renderable-or-unknown' };
 
@@ -178,7 +178,7 @@ function skipForComparePageStatusConcurrency(
  * Every transport, schema, safety, draft, and degraded-resolver uncertainty
  * fails open. Only `{ present: false, hasError: false }` becomes `missing`.
  */
-export async function resolveStorefrontComparePageStatus(
+async function resolveStorefrontComparePageStatus(
   opts: ComparePageStatusOptions
 ): Promise<StorefrontComparePageStatusResolution> {
   const failOpenContext = {
@@ -285,7 +285,12 @@ export async function resolveStorefrontComparePageStatus(
 }
 
 /** Test hook: clears the per-instance storm guards between isolated cases. */
-export function resetStorefrontComparePageStatusForTests(): void {
+function resetStorefrontComparePageStatusForTests(): void {
   comparePageStatusInFlight.clear();
   comparePageStatusBreaker.reset();
 }
+
+export const storefrontComparePageStatus = {
+  resolve: resolveStorefrontComparePageStatus,
+  resetForTests: resetStorefrontComparePageStatusForTests,
+};
