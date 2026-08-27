@@ -6,11 +6,13 @@ const releaseWorkflows = [
     bannerUnitSecret: 'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
     name: 'Android',
     path: '../../../../.github/workflows/android-storefront-release.yml',
+    platform: 'android',
   },
   {
     bannerUnitSecret: 'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
     name: 'iOS',
     path: '../../../../.github/workflows/ios-storefront-release.yml',
+    platform: 'ios',
   },
 ] as const;
 
@@ -20,6 +22,7 @@ describe('quiz ads in storefront release workflows', () => {
   )('enables quiz ads in both $name build phases only when its banner unit is configured', ({
     bannerUnitSecret,
     path: workflowPath,
+    platform,
   }) => {
     const workflowSource = readFileSync(
       path.resolve(__dirname, workflowPath),
@@ -31,5 +34,10 @@ describe('quiz ads in storefront release workflows', () => {
     expect(workflowSource).not.toContain(
       "EXPO_PUBLIC_QUIZ_ADS_ENABLED: 'true'"
     );
+    expect(
+      workflowSource.match(
+        /^\s*BACI_MOBILE_BUILD_PLATFORM:\s*([a-z]+)\s*$/m
+      )?.[1]
+    ).toBe(platform);
   });
 });

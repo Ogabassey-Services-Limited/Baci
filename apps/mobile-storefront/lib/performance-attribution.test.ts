@@ -19,7 +19,10 @@ jest.mock('@sentry/react-native', () => ({ addBreadcrumb: jest.fn() }));
 
 describe('performance attribution', () => {
   it('stamps the same bounded surface context into crash and analytics telemetry', () => {
-    recordPerformanceSurface('gadget_pattern', {
+    const endTrace = jest.fn();
+    jest.mocked(beginPerformanceTrace).mockReturnValueOnce(endTrace);
+
+    const cleanup = recordPerformanceSurface('gadget_pattern', {
       api_level: 28,
       os: 'android',
       variant: 'hero',
@@ -46,5 +49,7 @@ describe('performance attribution', () => {
       surface: 'gadget_pattern',
       variant: 'hero',
     });
+    cleanup?.();
+    expect(endTrace).toHaveBeenCalledTimes(1);
   });
 });

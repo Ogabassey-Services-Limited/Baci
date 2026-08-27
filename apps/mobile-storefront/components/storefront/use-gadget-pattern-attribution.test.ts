@@ -23,6 +23,8 @@ describe('useGadgetPatternAttribution', () => {
     const { unmount } = renderHook(() =>
       useGadgetPatternAttribution(true, 'tabbar')
     );
+    unmount();
+
     expect(recordPerformanceSurface).toHaveBeenCalledWith(
       'gadget_pattern',
       expect.objectContaining({
@@ -31,7 +33,6 @@ describe('useGadgetPatternAttribution', () => {
         variant: 'tabbar',
       })
     );
-    unmount();
     expect(endTrace).toHaveBeenCalledTimes(1);
     expect(recordCrashBreadcrumb).toHaveBeenCalledWith(
       expect.stringMatching(/^gadget_pattern:unmounted:gadget_pattern_/),
