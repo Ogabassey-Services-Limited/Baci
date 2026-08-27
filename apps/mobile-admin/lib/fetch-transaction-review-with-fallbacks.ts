@@ -124,22 +124,6 @@ export async function fetchTransactionReviewWithFallbacks({
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseWithDiscountCompatResult = await fetchTransactionReviewRows({
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
-      startDateIso,
-    });
-
-    data = baseWithDiscountCompatResult.data;
-    error = baseWithDiscountCompatResult.error;
-
-    warnTransactionReviewQueryError('BaseWithDiscount', error);
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
     const baseResult = await fetchTransactionReviewRows({
       endDateIso,
       includeCancelledAt: true,
@@ -171,6 +155,22 @@ export async function fetchTransactionReviewWithFallbacks({
     error = legacyCompatResult.error;
 
     warnTransactionReviewQueryError('Legacy', error);
+  }
+
+  if (isTransactionReviewSchemaCacheError(error)) {
+    const baseWithDiscountCompatResult = await fetchTransactionReviewRows({
+      endDateIso,
+      includeCancelledAt: false,
+      includeTransactionDate: false,
+      merchantId,
+      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
+      startDateIso,
+    });
+
+    data = baseWithDiscountCompatResult.data;
+    error = baseWithDiscountCompatResult.error;
+
+    warnTransactionReviewQueryError('BaseWithDiscount', error);
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
