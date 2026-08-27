@@ -69,8 +69,8 @@ function recordComparePageStatusFailure(
   captureBreakerOpenTransition(failOpenContext);
 }
 
-function isRequestSpecificClientError(response: Response): boolean {
-  return response.status >= 400 && response.status < 500;
+function isRequestValidationError(response: Response): boolean {
+  return response.status === 400;
 }
 
 async function resolveStorefrontComparePageStatusUncached(
@@ -109,11 +109,14 @@ async function resolveStorefrontComparePageStatusUncached(
     failOpenContext
   );
   if (body === null) {
-    // A 4xx is a request-specific rejection (for example, a trimmed-empty
-    // query rejected by the internal route), not evidence that this instance's
-    // internal transport is unhealthy. Keep it fail-open without poisoning the
-    // shared breaker for unrelated storefront probes.
-    if (!isRequestSpecificClientError(response)) {
+    // The internal route uses 400 for request validation (for example, a
+    // trimmed-empty query). It is not evidence that this instance's transport
+    // is unhealthy, so reset the streak without poisoning the shared breaker.
+    // Other 4xx responses, especially 401 auth failures, are infrastructure
+    // signals and remain breaker failures.
+    if (isRequestValidationError(response)) {
+      comparePageStatusBreaker.recordSuccess();
+    } else {
       recordComparePageStatusFailure(failOpenContext);
     }
     return { kind: 'renderable-or-unknown' };

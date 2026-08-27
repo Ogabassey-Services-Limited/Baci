@@ -82,24 +82,36 @@ describe('compare page status breaker regressions', () => {
     );
   });
 
-  it('does not open the breaker for request-specific 4xx responses', async () => {
+  it('resets the breaker after a request-validation 400 between failures', async () => {
     const fetchImpl = vi
       .fn()
+      .mockRejectedValueOnce(new Error('upstream down'))
+      .mockRejectedValueOnce(new Error('upstream down'))
+      .mockRejectedValueOnce(new Error('upstream down'))
+      .mockRejectedValueOnce(new Error('upstream down'))
       .mockResolvedValueOnce(jsonResponse({ error: 'Invalid input' }, 400))
-      .mockResolvedValueOnce(jsonResponse({ error: 'Invalid input' }, 400))
-      .mockResolvedValueOnce(jsonResponse({ error: 'Invalid input' }, 400))
-      .mockResolvedValueOnce(jsonResponse({ error: 'Invalid input' }, 400))
-      .mockResolvedValueOnce(jsonResponse({ error: 'Invalid input' }, 400))
+      .mockRejectedValueOnce(new Error('upstream down'))
       .mockResolvedValueOnce(jsonResponse({ present: false, hasError: false }));
 
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
       await resolveStorefrontComparePageStatus(
         buildOptions(fetchImpl, {
-          categorySlug: ' ',
-          comparisonSlug: `left-invalid-${attempt}-vs-right-invalid-${attempt}`,
+          comparisonSlug: `left-failure-${attempt}-vs-right-failure-${attempt}`,
         })
       );
     }
+    await resolveStorefrontComparePageStatus(
+      buildOptions(fetchImpl, {
+        categorySlug: ' ',
+        comparisonSlug: 'left-invalid-vs-right-invalid',
+      })
+    );
+    await resolveStorefrontComparePageStatus(
+      buildOptions(fetchImpl, {
+        comparisonSlug:
+          'left-after-invalid-failure-vs-right-after-invalid-failure',
+      })
+    );
 
     await expect(
       resolveStorefrontComparePageStatus(
@@ -108,8 +120,40 @@ describe('compare page status breaker regressions', () => {
         })
       )
     ).resolves.toEqual({ kind: 'missing' });
-    expect(fetchImpl).toHaveBeenCalledTimes(6);
+    expect(fetchImpl).toHaveBeenCalledTimes(7);
     expect(console.warn).not.toHaveBeenCalledWith(
+      '[storefront-internal-preflight] skip',
+      expect.objectContaining({ reason: 'circuit-open' })
+    );
+  });
+
+  it('opens the breaker after repeated authentication failures', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'Unauthorized' }, 401))
+      .mockResolvedValueOnce(jsonResponse({ present: false, hasError: false }));
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await resolveStorefrontComparePageStatus(
+        buildOptions(fetchImpl, {
+          comparisonSlug: `left-auth-${attempt}-vs-right-auth-${attempt}`,
+        })
+      );
+    }
+
+    await expect(
+      resolveStorefrontComparePageStatus(
+        buildOptions(fetchImpl, {
+          comparisonSlug: 'left-after-auth-vs-right-after-auth',
+        })
+      )
+    ).resolves.toEqual({ kind: 'renderable-or-unknown' });
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
+    expect(console.warn).toHaveBeenCalledWith(
       '[storefront-internal-preflight] skip',
       expect.objectContaining({ reason: 'circuit-open' })
     );
