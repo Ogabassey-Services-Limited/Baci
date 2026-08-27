@@ -69,6 +69,10 @@ function recordComparePageStatusFailure(
   captureBreakerOpenTransition(failOpenContext);
 }
 
+function isRequestSpecificClientError(response: Response): boolean {
+  return response.status >= 400 && response.status < 500;
+}
+
 async function resolveStorefrontComparePageStatusUncached(
   opts: ComparePageStatusOptions,
   secret: string,
@@ -105,7 +109,13 @@ async function resolveStorefrontComparePageStatusUncached(
     failOpenContext
   );
   if (body === null) {
-    recordComparePageStatusFailure(failOpenContext);
+    // A 4xx is a request-specific rejection (for example, a trimmed-empty
+    // query rejected by the internal route), not evidence that this instance's
+    // internal transport is unhealthy. Keep it fail-open without poisoning the
+    // shared breaker for unrelated storefront probes.
+    if (!isRequestSpecificClientError(response)) {
+      recordComparePageStatusFailure(failOpenContext);
+    }
     return { kind: 'renderable-or-unknown' };
   }
 
@@ -120,6 +130,10 @@ async function resolveStorefrontComparePageStatusUncached(
   }
 
   if (parsedBody.data.hasError) {
+    // The route deliberately encodes resolver unknowns and caught data/cache
+    // failures as a valid fail-open body. The HTTP round trip succeeded, so it
+    // must clear any prior transport-failure streak.
+    comparePageStatusBreaker.recordSuccess();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: 'has-error',
