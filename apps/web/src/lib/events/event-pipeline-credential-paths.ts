@@ -135,6 +135,10 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/env.ts',
   ],
   [
+    'apps/web/src/lib/payments/reserve-paystack-dva-assignment.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
     'apps/web/src/app/api/orders/[id]/generate-dva/route.ts',
     'apps/web/src/lib/payments/reserve-paystack-dva-assignment.ts',
     'apps/web/src/env.ts',
