@@ -125,11 +125,11 @@ describe('admin product search helpers', () => {
         stock_filter: 'admin_in_stock',
       })
     );
-    expect(query.or).toHaveBeenCalledWith('status.neq.archived,status.is.null');
-    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledTimes(1);
     expect(query.or).toHaveBeenCalledWith(
-      'stock_quantity.gt.0,and(stock_quantity.is.null,stock.gt.0),and(stock_quantity.lte.0,stock.gt.0)'
+      'and(status.neq.archived,stock_quantity.gt.0),and(status.neq.archived,stock_quantity.is.null,stock.gt.0),and(status.neq.archived,stock_quantity.lte.0,stock.gt.0),and(status.is.null,stock_quantity.gt.0),and(status.is.null,stock_quantity.is.null,stock.gt.0),and(status.is.null,stock_quantity.lte.0,stock.gt.0)'
     );
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
     expect(result.rows).toEqual([
       {
         id: 'prod-legacy',
@@ -167,11 +167,11 @@ describe('admin product search helpers', () => {
         stock_filter: 'admin_out_of_stock',
       })
     );
-    expect(query.or).toHaveBeenCalledWith('status.neq.archived,status.is.null');
-    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
+    expect(query.or).toHaveBeenCalledTimes(1);
     expect(query.or).toHaveBeenCalledWith(
-      'and(stock_quantity.is.null,stock.is.null),and(stock_quantity.is.null,stock.lte.0),and(stock_quantity.lte.0,stock.is.null),and(stock_quantity.lte.0,stock.lte.0)'
+      'and(status.neq.archived,stock_quantity.is.null,stock.is.null),and(status.neq.archived,stock_quantity.is.null,stock.lte.0),and(status.neq.archived,stock_quantity.lte.0,stock.is.null),and(status.neq.archived,stock_quantity.lte.0,stock.lte.0),and(status.is.null,stock_quantity.is.null,stock.is.null),and(status.is.null,stock_quantity.is.null,stock.lte.0),and(status.is.null,stock_quantity.lte.0,stock.is.null),and(status.is.null,stock_quantity.lte.0,stock.lte.0)'
     );
+    expect(query.eq).toHaveBeenCalledWith('manage_stock', true);
   });
 
   it('excludes archived products from default product search results', async () => {
