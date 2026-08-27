@@ -22,6 +22,7 @@ type NegotiationCatalogRow = {
   name: string | null;
   brand: string | null;
   price: number | string | null;
+  condition: string | null;
   vat_category_code: string | null;
   vat_rate: number | string | null;
 };
@@ -81,7 +82,7 @@ export async function computeOrderNegotiationDiscount({
 
   const { data: products, error: productsError } = await supabase
     .from('products')
-    .select('id, name, brand, price, vat_category_code, vat_rate')
+    .select('id, name, brand, price, condition, vat_category_code, vat_rate')
     .eq('merchant_id', merchantId)
     .in('id', productIds)
     .overrideTypes<NegotiationCatalogRow[], { merge: false }>();
@@ -143,7 +144,10 @@ export async function computeOrderNegotiationDiscount({
       lineId,
       productId: item.product_id,
       quantity: Number(item.quantity),
-      condition: item.condition ?? null,
+      // The storefront RPC persists a blank/omitted line condition as the
+      // catalog condition. Build the allocation key from that same snapshot
+      // so duplicate product/variant lines remain matchable in history.
+      condition: item.condition?.trim() || product.condition,
       variantAttributes: item.variant_attributes ?? null,
       negotiable: isProductNegotiable({
         brand: product.brand,

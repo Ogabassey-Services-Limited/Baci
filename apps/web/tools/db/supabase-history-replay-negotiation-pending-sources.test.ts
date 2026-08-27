@@ -7,9 +7,9 @@ import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-repla
 const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..');
 
 describe('negotiation pending replay sources', () => {
-  it('pins each contact-enforcement migration to its checked-in bytes', async () => {
+  it('pins each pending negotiation replay source to its checked-in bytes', async () => {
     const rows = NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS.split('\n');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
 
     for (const row of rows) {
       const [sha256, filename, ...extra] = row.split(' ');

@@ -15,6 +15,7 @@ function buildSupabaseMock() {
       id: 'p-mac',
       name: 'MacBook Air M1',
       price: 1000,
+      condition: 'new',
       vat_category_code: 'S',
       vat_rate: 7.5,
     },
@@ -89,6 +90,49 @@ describe('computeOrderNegotiationDiscount persisted line identity', () => {
         vatRelief: 1.5,
         variantId: 'v-mac',
       },
+    ]);
+  });
+
+  it('uses the catalog condition when duplicate lines omit their condition', async () => {
+    const result = await computeOrderNegotiationDiscount({
+      items: [
+        {
+          price: 980,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_attributes: { Color: 'Blue' },
+          variant_id: 'v-mac',
+        },
+        {
+          price: 980,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_attributes: { Color: 'Green' },
+          variant_id: 'v-mac',
+        },
+      ],
+      merchantId: 'merchant-1',
+      supabase: buildSupabaseMock() as never,
+      vatRegistered: true,
+    });
+
+    expect(result?.lineDiscounts).toEqual([
+      expect.objectContaining({
+        lineKey: buildTransactionDiscountLineKey({
+          condition: 'new',
+          productId: 'p-mac',
+          variantAttributes: { Color: 'Blue' },
+          variantId: 'v-mac',
+        }),
+      }),
+      expect.objectContaining({
+        lineKey: buildTransactionDiscountLineKey({
+          condition: 'new',
+          productId: 'p-mac',
+          variantAttributes: { Color: 'Green' },
+          variantId: 'v-mac',
+        }),
+      }),
     ]);
   });
 });
