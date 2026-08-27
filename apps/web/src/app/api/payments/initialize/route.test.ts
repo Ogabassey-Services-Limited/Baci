@@ -204,6 +204,10 @@ vi.mock('@/lib/supabase/admin', () => ({
   }),
 }));
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => createMockSupabase(),
+}));
+
 // ---- Import handler AFTER mocks ----
 import { POST } from './route';
 

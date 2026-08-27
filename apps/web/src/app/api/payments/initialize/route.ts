@@ -44,6 +44,7 @@ import {
 } from '@/lib/paystack';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
 // Types & Constants
 
@@ -1037,12 +1038,10 @@ export async function POST(request: NextRequest) {
     const clientRequestedCurrency =
       typeof rawBodyCurrency === 'string' ? rawBodyCurrency : undefined;
 
-    // Use the admin client throughout this route.
-    // This endpoint is called by the mobile storefront which authenticates via
-    // Bearer token (not cookies), so the cookie-based server client cannot
-    // establish a session. The admin client bypasses RLS, which is safe here
-    // because every data operation is scoped by validated order/merchant IDs
-    // (enforced by the SECURITY DEFINER RPC below).
+    // Use the admin client for the bearer-authenticated mobile storefront's
+    // order, merchant, and gateway-setting reads. The proof-bound DVA
+    // reservation below deliberately uses the request-scoped server client so
+    // the reservation itself never crosses a service-role boundary.
     const adminSupabase = createAdminClient();
 
     // Validate order context (order + email) before initiating payment
@@ -1424,8 +1423,9 @@ export async function POST(request: NextRequest) {
             // `assigned_at` is refreshed on retries so the webhook
             // window follows the current account assignment rather
             // than the row's first insert time.
+            const reservationSupabase = await createServerSupabaseClient();
             const persistenceFailure = await persistPaystackDvaAssignment(
-              adminSupabase,
+              reservationSupabase,
               {
                 accountName: dvaResult.account_name,
                 accountNumber: dvaResult.account_number,

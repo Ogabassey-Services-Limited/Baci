@@ -3286,13 +3286,13 @@ export async function POST(request: NextRequest) {
                     account_name: dvaResult.data.account_name,
                   };
 
-                  // System-owned DVA/reminder records are written after the
-                  // validated order exists; customers do not own these tables
-                  // through RLS, so the server-only admin client is scoped to
-                  // this post-response side effect and order.id.
-                  backgroundSupabase ??= createAdminClient();
+                  // The proof-bound reservation RPC is called through the
+                  // request-scoped RLS client. It accepts guest checkout's
+                  // anon session only with a server-generated Paystack proof;
+                  // the background admin client remains reserved for the
+                  // separate invoice/reminder projections below.
                   const persistenceFailure = await persistPaystackDvaAssignment(
-                    backgroundSupabase,
+                    supabase,
                     {
                       accountName: dvaResult.data.account_name,
                       accountNumber: dvaResult.data.account_number,

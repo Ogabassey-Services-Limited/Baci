@@ -7,6 +7,7 @@ vi.mock('@/lib/csrf', () => ({
 
 const {
   mockAuthenticateApiRequest,
+  mockCreatePaystackDvaReservationProof,
   mockGetUserAccess,
   mockGeneratePaymentAccount,
   mockFrom,
@@ -17,6 +18,19 @@ const {
   const mockRpc = vi.fn().mockResolvedValue({ error: null });
   return {
     mockAuthenticateApiRequest: vi.fn(),
+    mockCreatePaystackDvaReservationProof: vi.fn(() => ({
+      account_name: 'Ogabassey/John Doe',
+      account_number: '9876543210',
+      assigned_at: '2026-08-25T12:00:00.000Z',
+      bank_name: 'Wema Bank',
+      customer_email: 'john@test.com',
+      expires_at: '2026-08-25T13:30:00.000Z',
+      issued_at: '2026-08-25T12:00:01.000Z',
+      order_id: '550e8400-e29b-41d4-a716-446655440000',
+      scope: 'paystack_dva_reservation',
+      signature: 'a'.repeat(64),
+      version: 'paystack-dva-reservation:v1',
+    })),
     mockGetUserAccess: vi.fn(),
     mockGeneratePaymentAccount: vi.fn(),
     mockFrom,
@@ -31,6 +45,7 @@ const {
 
 export const generateDvaTestMocks = {
   mockAuthenticateApiRequest,
+  mockCreatePaystackDvaReservationProof,
   mockGeneratePaymentAccount,
   mockGetUserAccess,
   mockRpc,
@@ -43,6 +58,10 @@ vi.mock('@/lib/api-auth', () => ({
 
 vi.mock('@/lib/paystack', () => ({
   generatePaymentAccount: mockGeneratePaymentAccount,
+}));
+
+vi.mock('@/lib/payments/paystack-dva-reservation-proof', () => ({
+  createPaystackDvaReservationProof: mockCreatePaystackDvaReservationProof,
 }));
 
 vi.mock('@/lib/logger', () => ({

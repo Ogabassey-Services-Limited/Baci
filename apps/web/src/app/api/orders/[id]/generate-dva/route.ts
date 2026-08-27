@@ -3,6 +3,7 @@ import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { hasPermission } from '@/lib/api-permissions';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
+import { createPaystackDvaReservationProof } from '@/lib/payments/paystack-dva-reservation-proof';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
@@ -219,6 +220,31 @@ export async function POST(
     }
 
     const assignment = generateDvaHelpers.createAssignmentWindow();
+    let provisioningProof: ReturnType<typeof createPaystackDvaReservationProof>;
+    try {
+      provisioningProof = createPaystackDvaReservationProof({
+        accountName: dvaResult.data.account_name,
+        accountNumber: dvaResult.data.account_number,
+        assignedAt: assignment.assignedAt,
+        bankName: dvaResult.data.bank_name,
+        customerEmail,
+        expiresAt: assignment.expiresAt,
+        orderId,
+      });
+    } catch (error) {
+      logger.error({
+        message: 'Paystack DVA reservation proof is unavailable',
+        orderId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return NextResponse.json(
+        {
+          code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+          error: 'Failed to save automatic confirmation account',
+        },
+        { status: 500 }
+      );
+    }
     const { data: reservation, error: insertError } = await supabase.rpc(
       'reserve_paystack_order_payment_account',
       {
@@ -229,6 +255,7 @@ export async function POST(
         p_expires_at: assignment.expiresAt,
         p_expected_customer_email: customerEmail,
         p_order_id: orderId,
+        p_provisioning_proof: provisioningProof,
       }
     );
 

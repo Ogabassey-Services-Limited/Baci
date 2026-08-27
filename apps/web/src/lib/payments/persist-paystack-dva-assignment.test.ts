@@ -11,6 +11,10 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: mockLoggerError },
 }));
 
+vi.mock('@/env', () => ({
+  getSupabaseServiceRoleKey: () => 'test-service-role-key',
+}));
+
 function createSupabase(
   reservationStatus: string | null = 'inserted',
   error: unknown = null
@@ -52,6 +56,18 @@ describe('persistPaystackDvaAssignment', () => {
       p_expires_at: '2026-08-25T13:30:00.000Z',
       p_expected_customer_email: 'ada@example.com',
       p_order_id: assignment.orderId,
+      p_provisioning_proof: expect.objectContaining({
+        account_name: 'Baci/Ada',
+        account_number: '0123456789',
+        assigned_at: '2026-08-25T12:00:00.000Z',
+        bank_name: 'Wema Bank',
+        customer_email: 'ada@example.com',
+        expires_at: '2026-08-25T13:30:00.000Z',
+        order_id: assignment.orderId,
+        scope: 'paystack_dva_reservation',
+        version: 'paystack-dva-reservation:v1',
+        signature: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }),
     });
   });
 

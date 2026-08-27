@@ -108,6 +108,10 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => createAdminClientMock(),
 }));
 
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn().mockResolvedValue({}),
+}));
+
 import { POST } from './route';
 
 function request() {

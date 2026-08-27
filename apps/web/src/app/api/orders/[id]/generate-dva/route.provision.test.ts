@@ -12,7 +12,11 @@ import {
   useOrderQueries,
 } from './generate-dva-test-support';
 
-const { mockGeneratePaymentAccount, mockRpc } = generateDvaTestMocks;
+const {
+  mockCreatePaystackDvaReservationProof,
+  mockGeneratePaymentAccount,
+  mockRpc,
+} = generateDvaTestMocks;
 
 describe('POST /api/orders/[id]/generate-dva provisioning', () => {
   beforeEach(resetGenerateDvaMocks);
@@ -228,5 +232,27 @@ describe('POST /api/orders/[id]/generate-dva provisioning', () => {
       code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
       error: 'Failed to save automatic confirmation account',
     });
+  });
+
+  it('returns a stable persistence error when the reservation proof cannot be created', async () => {
+    authenticateMerchant();
+    useOrderQueries();
+    mockGeneratePaymentAccount.mockResolvedValue(generatedDva);
+    mockCreatePaystackDvaReservationProof.mockImplementationOnce(() => {
+      throw new Error('reservation secret unavailable');
+    });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      code: 'PAYMENT_ACCOUNT_PERSIST_FAILED',
+      error: 'Failed to save automatic confirmation account',
+    });
+    expect(mockRpc).not.toHaveBeenCalledWith(
+      'reserve_paystack_order_payment_account',
+      expect.anything()
+    );
   });
 });

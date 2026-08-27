@@ -15872,6 +15872,7 @@ export type Database = {
           p_expires_at: string;
           p_expected_customer_email: string;
           p_order_id: string;
+          p_provisioning_proof: Json;
         };
         Returns: string;
       };
