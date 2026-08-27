@@ -78,15 +78,17 @@ vi.mock('react-native', async () => {
       React.createElement('div', null, children),
     StatusBar: () => null,
     Switch: ({
+      accessibilityLabel,
       onValueChange,
       value,
     }: {
+      accessibilityLabel?: string;
       onValueChange?: (value: boolean) => void;
       value?: boolean;
     }) =>
       React.createElement('button', {
         'aria-checked': value ?? false,
-        'aria-label': 'Follow-up alerts',
+        'aria-label': accessibilityLabel,
         onClick: () => onValueChange?.(!(value ?? false)),
         role: 'switch',
         type: 'button',
@@ -152,7 +154,9 @@ describe('NotificationsScreen follow-up alerts', () => {
   it('renders follow-up alerts enabled by default', () => {
     render(<NotificationsScreen />);
 
-    expect(screen.getAllByRole('switch')[2]).toBeChecked();
+    expect(
+      screen.getByRole('switch', { name: 'Follow-up alerts' })
+    ).toBeChecked();
     expect(
       screen.getByText(
         'Alert me when a customer creates an invoice that needs follow-up'
@@ -163,7 +167,7 @@ describe('NotificationsScreen follow-up alerts', () => {
   it('persists disabling follow-up alerts through the notification preferences mutation', () => {
     render(<NotificationsScreen />);
 
-    fireEvent.click(screen.getAllByRole('switch')[2]);
+    fireEvent.click(screen.getByRole('switch', { name: 'Follow-up alerts' }));
 
     expect(mocks.mutate).toHaveBeenCalledWith({
       follow_up_notifications_enabled: false,

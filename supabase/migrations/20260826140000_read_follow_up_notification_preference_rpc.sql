@@ -1,8 +1,6 @@
 -- Storefront checkout needs a single preference bit to decide whether an
 -- invoice follow-up push should be sent. Keep the read boundary narrow so the
 -- guest checkout path never receives service-role table access.
-BEGIN;
-
 CREATE OR REPLACE FUNCTION public.get_follow_up_notification_preference(
   p_merchant_id uuid
 )
@@ -32,5 +30,3 @@ GRANT EXECUTE ON FUNCTION public.get_follow_up_notification_preference(uuid)
 
 COMMENT ON FUNCTION public.get_follow_up_notification_preference(uuid) IS
   'Returns only the merchant follow-up alert switch for guest invoice notification gating.';
-
-COMMIT;
