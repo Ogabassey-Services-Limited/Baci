@@ -21,6 +21,39 @@ describe('Jumia credential hardening migrations', () => {
     expect(sql.match(/'integrations',\s*'manage'/gi)).toHaveLength(2);
   });
 
+  it('overrides the active-view experiment with manage-only credential RPCs', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260827100000_restore_jumia_manage_credential_rotation_after_view.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).not.toMatch(/'integrations',\s*'view'/i);
+    expect(sql.match(/'integrations',\s*'manage'/gi)).toHaveLength(2);
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.claim_jumia_authorization_refresh_lease/i
+    );
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.rotate_jumia_authorization_credentials/i
+    );
+  });
+
+  it('rechecks self-authorization conflicts after acquiring OAuth shop locks', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260827100100_recheck_jumia_oauth_self_authorization_conflicts.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /pg_advisory_xact_lock[\s\S]*?END LOOP;[\s\S]*?FROM jsonb_to_recordset\(p_integrations\) AS requested\(shop_id text\)[\s\S]*?connection_method = 'self_authorization'[\s\S]*?RAISE EXCEPTION 'Jumia shop is already connected through self-authorization'/i
+    );
+  });
+
   it('locks the provider shop before the disconnect purge locks rows', () => {
     const sql = readFileSync(
       path.join(

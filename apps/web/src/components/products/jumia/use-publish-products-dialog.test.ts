@@ -3,9 +3,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { usePublishProductsDialog } from './use-publish-products-dialog';
 
 const mockToast = vi.fn();
+const mockFetchWithCsrf = vi.hoisted(() => vi.fn());
 
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
+}));
+
+vi.mock('@/lib/api-client', () => ({
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
 }));
 
 function createFetchMock(
@@ -197,5 +202,70 @@ describe('usePublishProductsDialog', () => {
 
     act(() => result.current.toggleProduct('prod-2'));
     expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
+  });
+
+  it('ignores inventory-anchor variants when validating submit SKUs', async () => {
+    const fetchMock = createFetchMock({
+      'mapped-product-ids': async () => ({
+        ok: true,
+        json: async () => ({ productIds: [] }),
+      }),
+      '/api/products': async () => ({
+        ok: true,
+        json: async () => ({
+          products: [
+            {
+              id: 'prod-1',
+              name: 'Phone',
+              price: 100,
+              image: 'https://cdn.example.com/phone.jpg',
+              category: 'Phones',
+              brand: 'Acme',
+              variants: [
+                { sku: 'PHONE-RED', stock_quantity: 2 },
+                { sku: null, is_inventory_anchor: true },
+              ],
+            },
+          ],
+        }),
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ success: true }),
+    });
+    const onOpenChange = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange,
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => {
+      result.current.setCategoryCode(42);
+      result.current.setBrand({ code: 1, name: 'Generic' });
+    });
+    act(() => result.current.toggleProduct('prod-1'));
+    act(() => result.current.submit());
+
+    await waitFor(() => {
+      expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+        '/api/marketplace/jumia/products/export',
+        expect.objectContaining({ method: 'POST' })
+      );
+    });
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'SKU required' })
+    );
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

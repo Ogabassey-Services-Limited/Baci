@@ -139,7 +139,10 @@ export function usePublishProductsDialog({
       (product) =>
         !product.sku?.trim() &&
         (!(product.variants ?? []).length ||
-          (product.variants ?? []).some((variant) => !variant.sku?.trim()))
+          (product.variants ?? []).some(
+            (variant) =>
+              variant.is_inventory_anchor !== true && !variant.sku?.trim()
+          ))
     );
     if (invalid) {
       toast({

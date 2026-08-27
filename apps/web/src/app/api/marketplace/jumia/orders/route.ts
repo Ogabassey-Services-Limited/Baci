@@ -110,7 +110,7 @@ export async function GET(request: NextRequest) {
     if (integrationId) {
       const { data: integration, error: integrationError } = await supabase
         .from('marketplace_integrations')
-        .select('jumia_shop_id')
+        .select('shop_id')
         .eq('id', integrationId)
         .eq('merchant_id', merchantId)
         .maybeSingle();
@@ -127,16 +127,13 @@ export async function GET(request: NextRequest) {
           { status: 404 }
         );
       }
-      if (
-        !integration.jumia_shop_id ||
-        typeof integration.jumia_shop_id !== 'string'
-      ) {
+      if (!integration.shop_id || typeof integration.shop_id !== 'string') {
         return NextResponse.json(
           { error: 'Integration is missing a Jumia shop ID' },
           { status: 400 }
         );
       }
-      jumiaShopId = integration.jumia_shop_id;
+      jumiaShopId = integration.shop_id;
     }
 
     let query = supabase
