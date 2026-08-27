@@ -52,6 +52,18 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('omits later schema fields in the older variant compatibility selector', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields;
+
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).not.toContain('order_item_unit_costs');
+    expect(selector).toContain('product_match_status');
+    expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('product_variants');
+  });
+
   it('keeps cost relationships when product match status is unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.legacyNoProductMatchStatus;
 

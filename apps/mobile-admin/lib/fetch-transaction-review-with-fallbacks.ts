@@ -27,6 +27,7 @@ type TransactionReviewFallbackStage =
   | 'LegacyNoDiscountCode'
   | 'LegacyNoProductMatchStatus'
   | 'LegacyNoVariantAttributes'
+  | 'LegacyNoVariantAttributesNoLaterFields'
   | 'LegacyNoAdjustments'
   | 'LegacyNoAdjustmentsNoDiscountCode'
   | 'Legacy';
@@ -133,6 +134,18 @@ export async function fetchTransactionReviewWithFallbacks({
       TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes,
       true
     ));
+
+    if (
+      isMissingSchemaColumn(error, 'discount_code_id') ||
+      isMissingSchemaColumn(error, 'order_item_unit_costs')
+    ) {
+      ({ data, error } = await runLegacyTransactionReviewQuery(
+        'LegacyNoVariantAttributesNoLaterFields',
+        legacyQuery,
+        TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields,
+        true
+      ));
+    }
   }
 
   if (isMissingSchemaColumn(error, 'product_match_status')) {
@@ -143,7 +156,6 @@ export async function fetchTransactionReviewWithFallbacks({
       true
     ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'Legacy',
@@ -152,7 +164,6 @@ export async function fetchTransactionReviewWithFallbacks({
       true
     ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'LegacyNoAdjustments',
@@ -161,7 +172,6 @@ export async function fetchTransactionReviewWithFallbacks({
       true
     ));
   }
-
   if (isMissingSchemaColumn(error, 'discount_code_id')) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'LegacyNoDiscountCode',
@@ -179,7 +189,6 @@ export async function fetchTransactionReviewWithFallbacks({
       ));
     }
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runTransactionReviewQuery('BaseWithDiscount', {
       endDateIso,
@@ -190,7 +199,6 @@ export async function fetchTransactionReviewWithFallbacks({
       startDateIso,
     }));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runTransactionReviewQuery('Base', {
       endDateIso,
