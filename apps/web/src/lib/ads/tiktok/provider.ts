@@ -173,14 +173,36 @@ function parseReportRows(
   return parsedRows;
 }
 
-function nextPage(payload: unknown): number | null {
-  const page = record(record(payload)?.data)?.page_info;
-  if (!record(page)) return null;
-  const current = Number(record(page)?.page);
-  const total = Number(record(page)?.total_page);
-  return Number.isInteger(current) && Number.isInteger(total) && current < total
-    ? current + 1
-    : null;
+function nextPage(payload: unknown, hasRows: boolean): number | null {
+  const pageInfo = record(record(record(payload)?.data)?.page_info);
+  if (!pageInfo) {
+    if (hasRows)
+      throw new TikTokAdsProviderError('TIKTOK_ADS_REPORT_PAGING_INVALID');
+    return null;
+  }
+
+  const current =
+    typeof pageInfo.page === 'number'
+      ? pageInfo.page
+      : typeof pageInfo.page === 'string' && INTEGER.test(pageInfo.page)
+        ? Number(pageInfo.page)
+        : Number.NaN;
+  const total =
+    typeof pageInfo.total_page === 'number'
+      ? pageInfo.total_page
+      : typeof pageInfo.total_page === 'string' &&
+          INTEGER.test(pageInfo.total_page)
+        ? Number(pageInfo.total_page)
+        : Number.NaN;
+  if (
+    !Number.isSafeInteger(current) ||
+    !Number.isSafeInteger(total) ||
+    current < 1 ||
+    total < 1 ||
+    current > total
+  )
+    throw new TikTokAdsProviderError('TIKTOK_ADS_REPORT_PAGING_INVALID');
+  return current < total ? current + 1 : null;
 }
 
 export async function fetchTikTokAdsDailyReport(
@@ -233,14 +255,13 @@ export async function fetchTikTokAdsDailyReport(
       fetchImpl,
       { sleep }
     );
-    results.push(
-      ...parseReportRows(payload, {
-        accountId: input.accountId,
-        currencyCode: input.currencyCode ?? null,
-        timezoneName: input.timezoneName ?? null,
-      })
-    );
-    const next = nextPage(payload);
+    const pageRows = parseReportRows(payload, {
+      accountId: input.accountId,
+      currencyCode: input.currencyCode ?? null,
+      timezoneName: input.timezoneName ?? null,
+    });
+    results.push(...pageRows);
+    const next = nextPage(payload, pageRows.length > 0);
     if (!next) return results;
     page = next;
   }

@@ -68,4 +68,28 @@ describe('AnalyticsInventoryWidgets', () => {
       screen.queryByText('All products well stocked')
     ).not.toBeInTheDocument();
   });
+
+  it('labels no-sales out-of-stock forecasts instead of showing 999 days', () => {
+    render(
+      <AnalyticsInventoryWidgets
+        data={{
+          inventoryForecasts: [
+            {
+              avg_daily_sales: 0,
+              current_stock: 0,
+              days_of_stock: 999,
+              product_id: 'out-of-stock',
+              product_name: 'Out-of-stock product',
+              sales_trend: 'stable',
+              status: 'out_of_stock',
+            },
+          ],
+        }}
+        isWidgetVisible={(id) => id === 'inventory-forecast'}
+      />
+    );
+
+    expect(screen.getByText('Out of stock')).toBeInTheDocument();
+    expect(screen.queryByText('999 days')).not.toBeInTheDocument();
+  });
 });

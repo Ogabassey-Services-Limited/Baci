@@ -35,6 +35,7 @@ function callbackRedirect(
   // canonical Baci dashboard origin.
   const target = new URL('https://usebaci.com/dashboard/analytics');
   target.searchParams.set('google_ads', result);
+  target.searchParams.set('category', 'ads');
   if (reason) target.searchParams.set('reason', reason);
   if (merchantId) target.searchParams.set('merchantId', merchantId);
   if (result === 'connected') {
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
   if (!statePayload || statePayload.userId !== auth.user.id) {
     return callbackRedirect('error', 'invalid_state');
   }
+  const callbackMerchantId = statePayload.merchantId;
 
   const merchant = await resolveAdsMerchantAccess({
     merchantId: statePayload.merchantId,
@@ -98,11 +100,11 @@ export async function GET(request: NextRequest) {
     userId: auth.user.id,
   });
   if (merchant.response || !merchant.access) {
-    return callbackRedirect('error', 'merchant_mismatch');
+    return callbackRedirect('error', 'merchant_mismatch', callbackMerchantId);
   }
   const access = merchant.access;
   if (!hasPermission(access, 'integrations', 'manage')) {
-    return callbackRedirect('error', 'forbidden');
+    return callbackRedirect('error', 'forbidden', callbackMerchantId);
   }
 
   const { data: nonceConsumed, error: nonceConsumeError } =
@@ -114,14 +116,14 @@ export async function GET(request: NextRequest) {
       p_user_id: auth.user.id,
     });
   if (nonceConsumeError || !nonceConsumed) {
-    return callbackRedirect('error', 'invalid_state');
+    return callbackRedirect('error', 'invalid_state', callbackMerchantId);
   }
 
   if (parsedQuery.data.error) {
-    return callbackRedirect('error', 'provider_denied');
+    return callbackRedirect('error', 'provider_denied', callbackMerchantId);
   }
   if (!parsedQuery.data.code) {
-    return callbackRedirect('error', 'missing_code');
+    return callbackRedirect('error', 'missing_code', callbackMerchantId);
   }
 
   let tokens: Awaited<ReturnType<typeof exchangeGoogleAdsAuthorizationCode>>;
@@ -135,9 +137,17 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof GoogleAdsOAuthError) {
-      return callbackRedirect('error', error.code.toLowerCase());
+      return callbackRedirect(
+        'error',
+        error.code.toLowerCase(),
+        callbackMerchantId
+      );
     }
-    return callbackRedirect('error', 'token_exchange_failed');
+    return callbackRedirect(
+      'error',
+      'token_exchange_failed',
+      callbackMerchantId
+    );
   }
 
   // The authorization request always uses prompt=consent and offline access.
@@ -147,7 +157,11 @@ export async function GET(request: NextRequest) {
     ? encryptGoogleAdsSecret(tokens.refresh_token, config.tokenEncryptionKey)
     : null;
   if (!refreshTokenCiphertext) {
-    return callbackRedirect('error', 'offline_access_required');
+    return callbackRedirect(
+      'error',
+      'offline_access_required',
+      callbackMerchantId
+    );
   }
 
   const tokenExpiresAt = tokens.expires_in
@@ -176,7 +190,11 @@ export async function GET(request: NextRequest) {
     }
   );
   if (upsertError) {
-    return callbackRedirect('error', 'connection_write_failed');
+    return callbackRedirect(
+      'error',
+      'connection_write_failed',
+      callbackMerchantId
+    );
   }
 
   invalidateAdsAnalyticsCache(access.merchantId);

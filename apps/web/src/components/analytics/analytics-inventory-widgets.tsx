@@ -8,6 +8,14 @@ interface AnalyticsInventoryWidgetsProps {
   isWidgetVisible: WidgetVisibility;
 }
 
+type InventoryForecastRow = NonNullable<
+  AnalyticsData['inventoryForecasts']
+>[number];
+
+function isOutOfStockForecast(forecast: InventoryForecastRow): boolean {
+  return forecast.status === 'out_of_stock' || forecast.current_stock <= 0;
+}
+
 export function AnalyticsInventoryWidgets({
   data,
   isWidgetVisible,
@@ -146,14 +154,17 @@ export function AnalyticsInventoryWidgets({
                       <p
                         className={cn(
                           'text-sm font-bold',
-                          forecast.days_of_stock <= 7
+                          isOutOfStockForecast(forecast) ||
+                            forecast.days_of_stock <= 7
                             ? 'text-red-500'
                             : forecast.days_of_stock <= 14
                               ? 'text-amber-500'
                               : 'text-green-500'
                         )}
                       >
-                        {Math.round(forecast.days_of_stock)} days
+                        {isOutOfStockForecast(forecast)
+                          ? 'Out of stock'
+                          : `${Math.round(forecast.days_of_stock)} days`}
                       </p>
                       <div className="text-xs text-muted-foreground">
                         {forecast.sales_trend === 'increasing' && '↑'}

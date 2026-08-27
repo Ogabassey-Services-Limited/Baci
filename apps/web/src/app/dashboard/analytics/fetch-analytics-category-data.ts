@@ -126,6 +126,24 @@ function mapInventoryForecast(forecast: JsonRecord) {
   };
 }
 
+function inventoryForecastPriority(
+  forecast: ReturnType<typeof mapInventoryForecast>
+): number {
+  if (forecast.status === 'out_of_stock' || forecast.current_stock <= 0) {
+    return 0;
+  }
+
+  if (forecast.status === 'critical') {
+    return 1;
+  }
+
+  if (forecast.status === 'warning') {
+    return 2;
+  }
+
+  return 3;
+}
+
 async function fetchInventoryData(
   merchantId: string,
   signal: AbortSignal
@@ -154,6 +172,7 @@ async function fetchInventoryData(
     .map(mapInventoryForecast)
     .sort(
       (left, right) =>
+        inventoryForecastPriority(left) - inventoryForecastPriority(right) ||
         left.days_of_stock - right.days_of_stock ||
         left.product_id.localeCompare(right.product_id)
     );

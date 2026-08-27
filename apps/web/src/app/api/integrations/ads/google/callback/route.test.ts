@@ -135,7 +135,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?google_ads=error&reason=invalid_state'
+      'https://usebaci.com/dashboard/analytics?google_ads=error&category=ads&reason=invalid_state'
     );
     expect(mockExchange).not.toHaveBeenCalled();
     expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
     expect(response.status).toBe(307);
     const location = response.headers.get('location');
     expect(location).toMatch(
-      /^https:\/\/usebaci\.com\/dashboard\/analytics\?google_ads=connected&merchantId=merchant-1&cacheBust=\d{1,10}$/
+      /^https:\/\/usebaci\.com\/dashboard\/analytics\?google_ads=connected&category=ads&merchantId=merchant-1&cacheBust=\d{1,10}$/
     );
     expect(mockExchange).toHaveBeenCalledWith(
       expect.objectContaining({ code: 'code', codeVerifier: 'verifier' })
@@ -195,7 +195,7 @@ describe('GET /api/integrations/ads/google/callback', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?google_ads=error&reason=offline_access_required'
+      'https://usebaci.com/dashboard/analytics?google_ads=error&category=ads&reason=offline_access_required&merchantId=merchant-1'
     );
     expect(mockCredentialRpc).not.toHaveBeenCalledWith(
       'upsert_google_ads_connection',
@@ -223,8 +223,39 @@ describe('GET /api/integrations/ads/google/callback', () => {
       )
     );
 
-    expect(response.headers.get('location')).toContain('reason=invalid_state');
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/dashboard/analytics?google_ads=error&category=ads&reason=invalid_state&merchantId=merchant-1'
+    );
     expect(mockExchange).not.toHaveBeenCalled();
     expect(mockCreateAdsCredentialServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('preserves the signed merchant and ads context when Google denies access', async () => {
+    mockVerifyState.mockReturnValueOnce({
+      merchantId: 'merchant-2',
+      nonce: 'nonce',
+      userId: 'user-1',
+    });
+    mockResolveMerchant.mockResolvedValueOnce({
+      access: { merchantId: 'merchant-2' },
+      response: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/google/callback?state=stored&error=access_denied',
+        {
+          headers: {
+            cookie:
+              'baci_google_ads_oauth_state=stored; baci_google_ads_oauth_verifier=verifier',
+          },
+        }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      'https://usebaci.com/dashboard/analytics?google_ads=error&category=ads&reason=provider_denied&merchantId=merchant-2'
+    );
+    expect(mockExchange).not.toHaveBeenCalled();
   });
 });

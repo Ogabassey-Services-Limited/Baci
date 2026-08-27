@@ -201,4 +201,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260826160000_prioritize_out_of_stock_inventory_forecast.sql',
     sha256: '446ea5fe68b2d140405d810527ff8c5b8005b3ac73a607dfe85911a20c58b13b',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827010000_use_effective_inventory_forecast_stock.sql',
+    sha256: 'e2812d6c8e27dca4e546453d9ae80a8096d82f2602b741fd3408d320a144ab03',
+  },
 ];

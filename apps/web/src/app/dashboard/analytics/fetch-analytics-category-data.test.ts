@@ -233,6 +233,51 @@ describe('fetchAnalyticsCategoryData', () => {
     ]);
   });
 
+  it('keeps out-of-stock forecasts ahead of finite-day products', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/inventory/forecast')) {
+        return response({
+          forecasts: [
+            {
+              avgDailySales: 1,
+              currentStock: 2,
+              daysOfStock: 2,
+              productId: 'finite-days',
+              productName: 'Finite-days product',
+              salesTrend: 'stable',
+              status: 'healthy',
+            },
+            {
+              avgDailySales: 0,
+              currentStock: 0,
+              daysOfStock: 999,
+              productId: 'out-of-stock',
+              productName: 'Out-of-stock product',
+              salesTrend: 'stable',
+              status: 'out_of_stock',
+            },
+          ],
+          summary: { critical: 0, outOfStock: 1, warning: 0 },
+        });
+      }
+
+      return response({ alerts: [], stats: { total: 0 } });
+    });
+
+    const result = await fetchAnalyticsCategoryData({
+      category: 'inventory',
+      from,
+      merchantId,
+      signal: new AbortController().signal,
+      to,
+    });
+
+    expect(
+      result.inventoryForecasts?.map((forecast) => forecast.product_id)
+    ).toEqual(['out-of-stock', 'finite-days']);
+  });
+
   it('maps the customer segment summary into dashboard segment metrics', async () => {
     fetchMock.mockResolvedValue(
       response({
