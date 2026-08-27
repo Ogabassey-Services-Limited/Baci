@@ -26,7 +26,7 @@ describe('PAYSTACK_PENDING_SOURCES', () => {
 
     expect(sources).toEqual(EXPECTED_PAYSTACK_PENDING_SOURCES);
     expect(sources.at(-1)?.repositoryPath).toBe(
-      'supabase/migrations/20260826002000_revoke_backfilled_paystack_alias_emails.sql'
+      'supabase/migrations/20260827010000_guard_paystack_alias_updates.sql'
     );
   });
 

@@ -189,4 +189,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260826002000_revoke_backfilled_paystack_alias_emails.sql',
     sha256: '6ef847dd17cf38bf5c78a6461c2654fddab1a95d04c284f6dbb3b73fd01a9681',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827010000_guard_paystack_alias_updates.sql',
+    sha256: '5f2ae99fbe969345fd2a4cf33dacb79fb63238ab83460e1de29d536922a8e626',
+  },
 ];

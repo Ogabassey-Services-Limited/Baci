@@ -86,6 +86,13 @@ const checkoutReservationMigration = readFileSync(
   ),
   'utf8'
 );
+const aliasUpdateMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260827010000_guard_paystack_alias_updates.sql'
+  ),
+  'utf8'
+);
 
 describe('order payment account mutation RPC migration', () => {
   it('removes broad updates and scopes payable refreshes to accessible orders', () => {
@@ -257,6 +264,21 @@ describe('order payment account mutation RPC migration', () => {
       checkoutReservationMigration.indexOf(
         'INSERT INTO public.order_payment_accounts'
       )
+    );
+  });
+
+  it('guards cross-flow alias ownership updates as well as inserts', () => {
+    expect(aliasUpdateMigration).toContain(
+      'BEFORE INSERT OR UPDATE OF provider, account_number, order_id, assigned_at'
+    );
+    expect(aliasUpdateMigration).toContain(
+      'public.guard_order_paystack_dva_alias()'
+    );
+    expect(aliasUpdateMigration).toContain(
+      'public.reject_cross_order_paystack_dva_alias()'
+    );
+    expect(aliasUpdateMigration).toContain(
+      'z_reject_cross_order_paystack_dva_alias'
     );
   });
 });
