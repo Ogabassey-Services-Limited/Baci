@@ -2,6 +2,10 @@ import { ImageResponse } from 'next/og';
 import type { ReactElement } from 'react';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' };
+const SHARED_CACHE_HEADERS = {
+  'Cache-Control':
+    'public, max-age=0, must-revalidate, s-maxage=86400, stale-while-revalidate=604800',
+};
 const EMERGENCY_PNG_BYTES = Uint8Array.from([
   137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0,
   0, 0, 1, 8, 4, 0, 0, 0, 181, 28, 12, 2, 0, 0, 0, 11, 73, 68, 65, 84, 120, 218,
@@ -44,9 +48,16 @@ async function renderImageResponse(
     ...(noStore ? { headers: NO_STORE_HEADERS } : {}),
   });
   const body = await response.arrayBuffer();
+  const headers = new Headers(response.headers);
+  headers.set(
+    'Cache-Control',
+    noStore
+      ? NO_STORE_HEADERS['Cache-Control']
+      : SHARED_CACHE_HEADERS['Cache-Control']
+  );
   return new Response(body, {
     status: response.status,
-    headers: response.headers,
+    headers,
   });
 }
 
@@ -63,7 +74,9 @@ export async function createBlogOgImageResponse(
   if (!fallback) return createEmergencyPngResponse();
 
   try {
-    return await renderImageResponse(fallback.element, size, fallback.noStore);
+    // A fallback reached after a render exception is an error recovery result;
+    // never let it become a shared-cacheable representation.
+    return await renderImageResponse(fallback.element, size, true);
   } catch (error) {
     console.error('Failed to render merchant blog OG fallback image', {
       error,

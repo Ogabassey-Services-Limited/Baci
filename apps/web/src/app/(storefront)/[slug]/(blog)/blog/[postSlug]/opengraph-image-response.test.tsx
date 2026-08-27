@@ -44,6 +44,9 @@ describe('createBlogOgImageResponse', () => {
       expect.objectContaining(size)
     );
     expect(response.headers.get('content-type')).toBe('image/png');
+    expect(response.headers.get('cache-control')).toBe(
+      'public, max-age=0, must-revalidate, s-maxage=86400, stale-while-revalidate=604800'
+    );
     await expect(response.arrayBuffer()).resolves.toHaveProperty(
       'byteLength',
       4
@@ -73,6 +76,20 @@ describe('createBlogOgImageResponse', () => {
       'Failed to render merchant blog OG image',
       expect.objectContaining({ error: expect.any(Error) })
     );
+  });
+
+  it('keeps a fallback response no-store when primary rendering fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockImageResponseArrayBuffer
+      .mockRejectedValueOnce(new Error('primary failed'))
+      .mockResolvedValueOnce(Uint8Array.from([1, 2, 3]).buffer);
+
+    const response = await createBlogOgImageResponse(<div>Primary</div>, {
+      size,
+      fallback: { element: <div>Fallback</div>, noStore: false },
+    });
+
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
   });
 
   it('returns an emergency PNG when all rendering attempts fail', async () => {

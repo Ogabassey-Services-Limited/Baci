@@ -1,4 +1,5 @@
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
+import { getContrastingTextColor } from '@/lib/color-utils';
 
 export type BlogOgBrandColors = {
   background: string;
@@ -14,6 +15,10 @@ export function getBlogOgBrandColors(
     primary: data.merchantBrandColors.primary || '#3B82F6',
     accent: data.merchantBrandColors.accent || '#F59E0B',
   };
+}
+
+export function getBlogOgForegroundColor(background: string): string {
+  return getContrastingTextColor(background);
 }
 
 function toRgba(color: string, fallback: string, opacity: number) {

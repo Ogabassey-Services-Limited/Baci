@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getBlogOgBrandColors,
+  getBlogOgForegroundColor,
   getTransparentBlogOgBrandColors,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
@@ -19,6 +20,11 @@ function createData(
 }
 
 describe('merchant blog OG color helpers', () => {
+  it('projects light backgrounds to dark text and dark backgrounds to white text', () => {
+    expect(getBlogOgForegroundColor('#ffffff')).toBe('#000000');
+    expect(getBlogOgForegroundColor('#101820')).toBe('#FFFFFF');
+  });
+
   it('uses merchant brand colors when present and falls back only for missing values', () => {
     expect(
       getBlogOgBrandColors(

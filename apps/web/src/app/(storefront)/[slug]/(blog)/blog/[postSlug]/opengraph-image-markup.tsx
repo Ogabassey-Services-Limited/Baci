@@ -1,5 +1,6 @@
 import {
   getBlogOgBrandColors,
+  getBlogOgForegroundColor,
   getTransparentBlogOgBrandColors,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
@@ -46,6 +47,7 @@ export function renderMerchantFallback(
   title: string
 ) {
   const colors = getBlogOgBrandColors(data);
+  const foreground = getBlogOgForegroundColor(colors.background);
   const transparentColors = getTransparentBlogOgBrandColors(colors);
 
   return (
@@ -57,7 +59,7 @@ export function renderMerchantFallback(
         flexDirection: 'column',
         justifyContent: 'space-between',
         backgroundColor: colors.background,
-        color: 'white',
+        color: foreground,
         padding: '60px',
         position: 'relative',
         overflow: 'hidden',
@@ -127,6 +129,7 @@ export function renderMerchantFallback(
 
 export function renderPrimaryCard(data: MerchantBlogOgImageData) {
   const colors = getBlogOgBrandColors(data);
+  const foreground = getBlogOgForegroundColor(colors.background);
   const transparentColors = getTransparentBlogOgBrandColors(colors);
   const post = data.post;
   const title = post?.title || 'Blog post';
@@ -138,7 +141,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
         width: '100%',
         display: 'flex',
         backgroundColor: colors.background,
-        color: 'white',
+        color: foreground,
         overflow: 'hidden',
       }}
     >
@@ -223,7 +226,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
             {truncate(title, 82)}
           </div>
           {post?.author_name ? (
-            <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 22 }}>
+            <div style={{ color: foreground, fontSize: 22 }}>
               {`By ${getSatoriSafeText(post.author_name)}`}
             </div>
           ) : null}

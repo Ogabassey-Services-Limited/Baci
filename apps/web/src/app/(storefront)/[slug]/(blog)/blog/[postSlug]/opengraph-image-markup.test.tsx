@@ -82,6 +82,23 @@ function collectStyleKeys(node: unknown): string[] {
   ];
 }
 
+function collectStyleValues(node: unknown, key: string): unknown[] {
+  if (node === null || node === undefined || typeof node !== 'object') {
+    return [];
+  }
+  if (Array.isArray(node))
+    return node.flatMap((child) => collectStyleValues(child, key));
+  if (!('props' in node)) return [];
+
+  const element = node as {
+    props: { children?: unknown; style?: Record<string, unknown> };
+  };
+  return [
+    ...(key in (element.props.style ?? []) ? [element.props.style?.[key]] : []),
+    ...collectStyleValues(element.props.children, key),
+  ];
+}
+
 function hasExactChildren(node: unknown, children: string): boolean {
   if (node === null || node === undefined || typeof node !== 'object') {
     return false;
@@ -115,6 +132,35 @@ describe('merchant blog OG image markup', () => {
     const element = renderMerchantFallback(createData(), 'Missing post');
 
     expect(collectText(element)).toContain('Missing post');
+  });
+
+  it('uses dark foreground text for a light merchant fallback background', () => {
+    const element = renderMerchantFallback(
+      createData({
+        merchantBrandColors: {
+          background: '#ffffff',
+          primary: '#0af',
+          accent: '#fc0',
+        },
+      }),
+      'Missing post'
+    );
+
+    expect(collectStyleValues(element, 'color')).toContain('#000000');
+  });
+
+  it('uses dark foreground text for a light primary-card background', () => {
+    const element = renderPrimaryCard(
+      createData({
+        merchantBrandColors: {
+          background: '#ffffff',
+          primary: '#0af',
+          accent: '#fc0',
+        },
+      })
+    );
+
+    expect(collectStyleValues(element, 'color')).toContain('#000000');
   });
 
   it('keeps branded fallback art free of unsupported Satori zIndex styles', () => {
