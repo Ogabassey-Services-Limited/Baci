@@ -1,8 +1,6 @@
 -- Bind the follow-up preference read to an existing invoice order. The
 -- storefront only needs this bit after creating an invoice; it must not be
 -- able to probe arbitrary merchant preference rows by UUID.
-BEGIN;
-
 DROP FUNCTION IF EXISTS public.get_follow_up_notification_preference(uuid);
 
 CREATE FUNCTION public.get_follow_up_notification_preference(
@@ -38,5 +36,3 @@ GRANT EXECUTE ON FUNCTION public.get_follow_up_notification_preference(uuid)
 
 COMMENT ON FUNCTION public.get_follow_up_notification_preference(uuid) IS
   'Returns the merchant follow-up alert switch only for an existing unpaid invoice order.';
-
-COMMIT;

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import type { NotificationPreferences } from '@/types/notifications';
 import { NotificationChannelsCard } from './notification-channels-card';
 
 vi.mock('@/components/ui/card', () => {
@@ -51,13 +52,15 @@ vi.mock('lucide-react', () => ({
 }));
 
 const preferences = {
+  merchant_id: 'merchant-1',
   banner_enabled: true,
   follow_up_notifications_enabled: true,
   in_app_enabled: true,
   quiet_hours_end: null,
   quiet_hours_start: null,
   quiet_hours_time_zone: 'Africa/Lagos',
-} as never;
+  updated_at: '2026-08-27T00:00:00.000Z',
+} satisfies NotificationPreferences;
 
 describe('NotificationChannelsCard', () => {
   it('forwards channel changes, including follow-up alerts', async () => {
