@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import type { ShippingQuote } from '@/components/checkout/types';
 import {
-  AIRPORT_DELIVERY_FEE,
   findSelectedQuote,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
@@ -56,12 +55,10 @@ describe('checkout-step-helpers', () => {
   });
 
   it('resolves delivery fees by method', () => {
-    expect(getDeliveryMethodFee('airport', baseQuote)).toBe(
-      AIRPORT_DELIVERY_FEE
-    );
+    expect(getDeliveryMethodFee('airport', baseQuote)).toBe(35_000);
     expect(getDeliveryMethodFee('airport', goFasterQuote)).toBe(18500);
     expect(getDeliveryMethodFee('airport', stationGoFasterQuote)).toBe(
-      AIRPORT_DELIVERY_FEE
+      35_000
     );
     expect(getDeliveryMethodFee('pickup_station', baseQuote)).toBe(0);
     expect(getDeliveryMethodFee('pickup_station', stationPickupQuote)).toBe(
