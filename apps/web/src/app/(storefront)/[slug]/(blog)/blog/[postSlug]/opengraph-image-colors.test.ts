@@ -35,6 +35,18 @@ describe('merchant blog OG color helpers', () => {
     });
   });
 
+  it('flattens translucent backgrounds onto an opaque card surface', () => {
+    const colors = getBlogOgBrandColors(
+      createData({
+        background: 'rgba(0, 0, 0, 0.1)',
+        primary: '#fff',
+        accent: '#fc0',
+      })
+    );
+
+    expect(colors.background).toBe('rgb(23, 23, 41)');
+  });
+
   it('converts 3-digit and 6-digit hex values into Satori-safe rgba stops', () => {
     expect(
       getTransparentBlogOgBrandColors({

@@ -84,6 +84,19 @@ describe('blog post social image projection', () => {
     );
   });
 
+  it('rejects credential-bearing image URLs before metadata emission', () => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      'https://user:password@images.example.com/article.jpg',
+      {}
+    );
+
+    expect(image.url).toBe(
+      'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image'
+    );
+  });
+
   it('uses positive recorded dimensions for a direct original image', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,
@@ -130,6 +143,23 @@ describe('blog post social image projection', () => {
         type: 'image/jpeg',
       });
     }
+  });
+
+  it('derives MIME from an existing fixed CDN transform', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image/width=1200,quality=75,format=jpeg/core-assets/blog/card.webp';
+
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      transformedUrl,
+      {}
+    );
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      type: 'image/jpeg',
+    });
   });
 
   it('publishes immutable uploaded landscape variants as explicit native WebP', () => {

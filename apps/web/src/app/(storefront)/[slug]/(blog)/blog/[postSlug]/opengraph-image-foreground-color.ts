@@ -9,6 +9,8 @@ type RgbColor = {
   b: number;
 };
 
+const OPAQUE_CARD_BACKING = { r: 26, g: 26, b: 46 } as const;
+
 function compositeOverBackground(
   overlay: string,
   background: RgbColor
@@ -49,7 +51,9 @@ export function getBlogOgForegroundColor(
   const parsed = colord(background.trim());
   if (!parsed.isValid()) return '#000000';
 
-  const backgroundColor = parsed.toRgb();
+  const backgroundColor =
+    compositeOverBackground(background, OPAQUE_CARD_BACKING) ??
+    OPAQUE_CARD_BACKING;
   const surfaceLuminances = [
     getRelativeLuminance(backgroundColor),
     ...gradientStops.flatMap((stop) => {

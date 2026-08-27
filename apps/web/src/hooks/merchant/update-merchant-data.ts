@@ -1,3 +1,4 @@
+import { apiPost } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { permissionGrantsAccess } from '@/lib/permission-grant';
 import type { createClient } from '@/lib/supabase/client';
@@ -27,6 +28,36 @@ interface CreateMerchantUpdateArgs {
   activeMerchantId: string | null | undefined;
   setMerchant: SetMerchant;
   reloadMerchant: () => void;
+}
+
+const BLOG_CARD_BRANDING_FIELDS = new Set<string>([
+  'brand_colors',
+  'business_name',
+  'logo_url',
+] satisfies readonly (keyof MerchantData)[]);
+
+async function revalidateBrandDependentBlogCards(
+  data: Partial<MerchantData>,
+  merchantId: string
+) {
+  if (!Object.keys(data).some((key) => BLOG_CARD_BRANDING_FIELDS.has(key))) {
+    return;
+  }
+
+  try {
+    await apiPost('/api/cache/revalidate', {
+      merchantId,
+      targets: ['merchant', 'blog'],
+    });
+  } catch (error) {
+    // The authoritative merchant write already succeeded. Keep cache eviction
+    // fail-open, matching the existing revalidation boundary: stale cards
+    // self-heal, while retrying the settings save must not duplicate the write.
+    logger.warn({
+      message: 'Merchant branding saved but blog card revalidation failed.',
+      error: error instanceof Error ? error : new Error(String(error)),
+    });
+  }
 }
 
 export function createMerchantUpdate({
@@ -94,6 +125,8 @@ export function createMerchantUpdate({
       });
       throw error;
     }
+
+    void revalidateBrandDependentBlogCards(writableData, merchantId);
 
     const hasExplicitMerchantTarget = options?.merchantId !== undefined;
     if (options?.skipReload || hasExplicitMerchantTarget) {

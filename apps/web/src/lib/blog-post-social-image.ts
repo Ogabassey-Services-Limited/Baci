@@ -25,6 +25,9 @@ function getAbsoluteHttpUrl(value: unknown): string | null {
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       return null;
     }
+    if (url.username || url.password) {
+      return null;
+    }
     return url.href;
   } catch {
     return null;
@@ -51,6 +54,26 @@ function getImagePathname(url: string): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+function getManagedTransformMimeType(
+  url: string
+): `image/${string}` | undefined {
+  try {
+    const options = new URL(url).pathname.match(/^\/image\/([^/]+)\//)?.[1];
+    const format = options
+      ?.split(',')
+      .map((token) => token.split('=', 2))
+      .find(([name]) => name?.toLowerCase() === 'format')?.[1]
+      ?.toLowerCase();
+    if (format === 'jpg' || format === 'jpeg') return 'image/jpeg';
+    if (format === 'png') return 'image/png';
+    if (format === 'webp') return 'image/webp';
+    if (format === 'avif') return 'image/avif';
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 function getPositiveDimension(value: unknown): number | undefined {
@@ -94,9 +117,10 @@ function projectDirectImage(
       DEFAULT_IMAGE_QUALITY
     );
     const transformedMimeType =
-      url !== sourceUrl
+      getManagedTransformMimeType(url) ??
+      (url !== sourceUrl
         ? (`image/${resolveOgabasseyCdnFallbackFormat(getImagePathname(sourceUrl) ?? '')}` as const)
-        : mimeType;
+        : mimeType);
     const transformedDimensions =
       url !== sourceUrl && !isLandscape
         ? getTransformedDimensions(dimensions)

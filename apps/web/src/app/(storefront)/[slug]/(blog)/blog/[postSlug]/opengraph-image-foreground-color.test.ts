@@ -20,8 +20,8 @@ describe('getBlogOgForegroundColor', () => {
     expect(namedForeground).toBe('#FFFFFF');
   });
 
-  it('normalizes an alpha-bearing background before choosing readable text', () => {
-    const foreground = getBlogOgForegroundColor('rgba(0, 0, 0, 0.8)');
+  it('composites an alpha-bearing background onto the opaque card backing', () => {
+    const foreground = getBlogOgForegroundColor('rgba(0, 0, 0, 0.1)');
 
     expect(foreground).toBe('#FFFFFF');
   });
