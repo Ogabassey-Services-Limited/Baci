@@ -244,6 +244,22 @@ describe('Meta Ads sync', () => {
     );
   });
 
+  it('marks an undecryptable access token for reauthorization', async () => {
+    mockResolve.mockImplementationOnce(() => {
+      throw new Error('META_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
+    });
+
+    await expect(sync()).rejects.toMatchObject({
+      code: 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_reason: 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED',
+      })
+    );
+  });
+
   it('treats a stale CAS marker as a superseded connection', async () => {
     mockResolve.mockImplementationOnce(() => {
       throw new Error('META_ADS_REAUTH_REQUIRED');

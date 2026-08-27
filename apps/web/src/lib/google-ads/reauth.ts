@@ -14,7 +14,12 @@ export function getGoogleAdsReauthReason(error: unknown): string | null {
         ? error.message
         : null;
   const status = record?.status;
-  if (code === 'GOOGLE_ADS_REFRESH_TOKEN_MISSING') return code;
+  if (
+    code === 'GOOGLE_ADS_ACCESS_TOKEN_DECRYPT_FAILED' ||
+    code === 'GOOGLE_ADS_REFRESH_TOKEN_DECRYPT_FAILED' ||
+    code === 'GOOGLE_ADS_REFRESH_TOKEN_MISSING'
+  )
+    return code;
   return code === 'GOOGLE_ADS_ACCESS_TOKEN_REFRESH_FAILED' &&
     (status === undefined || status === null || status === 400)
     ? code

@@ -206,6 +206,30 @@ describe('TikTok Ads sync', () => {
     expect(accounts).not.toHaveBeenCalled();
   });
 
+  it('persists an undecryptable access token as reauthentication required', async () => {
+    resolveToken.mockImplementationOnce(() => {
+      throw new Error('TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
+    });
+
+    await expect(
+      syncTikTokAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({ code: 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED' });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_reason: 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED',
+      })
+    );
+    expect(accounts).not.toHaveBeenCalled();
+  });
+
   it('does not write when the provider request fails', async () => {
     reports.mockRejectedValueOnce(new Error('provider request failed'));
 

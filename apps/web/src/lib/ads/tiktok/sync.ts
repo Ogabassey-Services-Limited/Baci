@@ -104,6 +104,7 @@ function errorCode(error: unknown): string {
 function needsReauth(error: unknown): boolean {
   return (
     errorCode(error) === 'TIKTOK_ADS_ACCESS_REVOKED' ||
+    errorCode(error) === 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED' ||
     errorCode(error) === 'TIKTOK_ADS_REAUTH_REQUIRED'
   );
 }

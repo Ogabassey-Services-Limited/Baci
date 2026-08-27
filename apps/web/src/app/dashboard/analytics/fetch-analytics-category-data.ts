@@ -199,6 +199,12 @@ function mapAdPlatform(platform: AnalyticsJsonRecord) {
   };
 }
 
+function endOfLocalCalendarDay(date: Date): Date {
+  const end = new Date(date);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 async function fetchAdAnalyticsData(
   merchantId: string,
   from: Date,
@@ -209,7 +215,7 @@ async function fetchAdAnalyticsData(
   const params = new URLSearchParams({
     // The ads endpoint accepts calendar dates. Converting date-picker values
     // through ISO/UTC here shifts account-local provider spend windows.
-    orderEnd: to.toISOString(),
+    orderEnd: endOfLocalCalendarDay(to).toISOString(),
     orderStart: from.toISOString(),
     ...buildAdsSyncWindow(from, to),
   });

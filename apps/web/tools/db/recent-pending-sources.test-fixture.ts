@@ -183,12 +183,12 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260826130000_retire_snapchat_disconnect_spend_rpc.sql',
+      'supabase/migrations/20260827110000_retire_snapchat_disconnect_spend_rpc.sql',
     sha256: '08c2b4e066a77294c8f3515a904beac9861e9273c2d7d856e5254d749dfb159a',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260826140000_preserve_zero_inventory_threshold.sql',
+      'supabase/migrations/20260827110100_preserve_zero_inventory_threshold.sql',
     sha256: 'a8fcac98895d9114ceef91a9dce08d461d63fe9b36ebd651686f61297eabdcb0',
   },
   {

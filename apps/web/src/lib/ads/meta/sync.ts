@@ -82,6 +82,7 @@ function shouldRequireReauth(error: unknown): boolean {
   return (
     code === 'META_ADS_REAUTH_REQUIRED' ||
     code === 'META_ADS_ACCESS_REVOKED' ||
+    code === 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED' ||
     code === 'META_ADS_ADS_READ_NOT_GRANTED'
   );
 }

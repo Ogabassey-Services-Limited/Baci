@@ -39,7 +39,11 @@ async function connectionForMerchant(
 
 function reauthFailureCode(
   error: unknown
-): 'META_ADS_ACCESS_REVOKED' | 'META_ADS_REAUTH_REQUIRED' | null {
+):
+  | 'META_ADS_ACCESS_REVOKED'
+  | 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED'
+  | 'META_ADS_REAUTH_REQUIRED'
+  | null {
   const code =
     error instanceof MetaAdsProviderError
       ? error.code
@@ -49,6 +53,7 @@ function reauthFailureCode(
           ? (error as { code?: unknown }).code
           : null;
   return code === 'META_ADS_ACCESS_REVOKED' ||
+    code === 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED' ||
     code === 'META_ADS_REAUTH_REQUIRED'
     ? code
     : null;

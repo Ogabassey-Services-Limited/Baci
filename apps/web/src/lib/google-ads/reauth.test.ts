@@ -21,6 +21,16 @@ describe('Google Ads reauthorization helpers', () => {
     expect(
       getGoogleAdsReauthReason(new Error('GOOGLE_ADS_REFRESH_TOKEN_MISSING'))
     ).toBe('GOOGLE_ADS_REFRESH_TOKEN_MISSING');
+    expect(
+      getGoogleAdsReauthReason(
+        new Error('GOOGLE_ADS_ACCESS_TOKEN_DECRYPT_FAILED')
+      )
+    ).toBe('GOOGLE_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
+    expect(
+      getGoogleAdsReauthReason(
+        new Error('GOOGLE_ADS_REFRESH_TOKEN_DECRYPT_FAILED')
+      )
+    ).toBe('GOOGLE_ADS_REFRESH_TOKEN_DECRYPT_FAILED');
     expect(getGoogleAdsReauthReason(new Error('network failure'))).toBeNull();
   });
 

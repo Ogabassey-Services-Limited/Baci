@@ -281,6 +281,50 @@ describe('TikTok Ads accounts route', () => {
     );
   });
 
+  it('marks an undecryptable access token for reauthorization during GET discovery', async () => {
+    const rpc = vi.fn((name: string) =>
+      name === 'get_merchant_ads_connection_secret'
+        ? Promise.resolve({
+            data: [
+              {
+                access_token_ciphertext: 'cipher',
+                provider_customer_id: 'opaque-001',
+                refresh_token_ciphertext: 'refresh-cipher',
+                status: 'active',
+              },
+            ],
+            error: null,
+          })
+        : Promise.resolve({ data: true, error: null })
+    );
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    resolveToken.mockImplementationOnce(() => {
+      throw new Error('TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
+    });
+    markReauth.mockClear();
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/accounts'
+      )
+    );
+
+    expect(response.status).toBe(502);
+    expect(markReauth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failureCode: 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED',
+      })
+    );
+    expect(listAccounts).not.toHaveBeenCalled();
+  });
+
   it('does not persist a well-formed advertiser ID absent from fresh discovery', async () => {
     const rpc = vi.fn((name: string) =>
       Promise.resolve({

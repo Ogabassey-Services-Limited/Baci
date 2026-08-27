@@ -544,6 +544,8 @@ describe('fetchAnalyticsCategoryData', () => {
     fetchMock.mockResolvedValue(response({}));
     const localFrom = new Date(2026, 7, 1, 0, 0, 0);
     const localTo = new Date(2026, 7, 2, 23, 59, 59);
+    const expectedOrderEnd = new Date(localTo);
+    expectedOrderEnd.setHours(23, 59, 59, 999);
 
     await fetchAnalyticsCategoryData({
       category: 'ads',
@@ -557,6 +559,32 @@ describe('fetchAnalyticsCategoryData', () => {
     expect(String(url)).toContain('startDate=2026-08-01');
     expect(String(url)).toContain('endDate=2026-08-02');
     expect(String(url)).not.toContain('T00%3A00%3A00');
+    expect(String(url)).toContain(
+      `orderStart=${encodeURIComponent(localFrom.toISOString())}`
+    );
+    expect(String(url)).toContain(
+      `orderEnd=${encodeURIComponent(expectedOrderEnd.toISOString())}`
+    );
+  });
+
+  it('extends a date-only selection to local end of day for order attribution', async () => {
+    fetchMock.mockResolvedValue(response({}));
+    const localTo = new Date(2026, 7, 2, 0, 0, 0, 0);
+    const expectedOrderEnd = new Date(localTo);
+    expectedOrderEnd.setHours(23, 59, 59, 999);
+
+    await fetchAnalyticsCategoryData({
+      category: 'ads',
+      from: new Date(2026, 7, 1, 0, 0, 0, 0),
+      merchantId,
+      signal: new AbortController().signal,
+      to: localTo,
+    });
+
+    const [url] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toContain(
+      `orderEnd=${encodeURIComponent(expectedOrderEnd.toISOString())}`
+    );
   });
 
   it('preserves mixed-currency and stale social reporting without changing legacy attribution', async () => {

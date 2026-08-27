@@ -38,7 +38,11 @@ async function connection(
 }
 function reauthFailureCode(
   error: unknown
-): 'TIKTOK_ADS_ACCESS_REVOKED' | 'TIKTOK_ADS_REAUTH_REQUIRED' | null {
+):
+  | 'TIKTOK_ADS_ACCESS_REVOKED'
+  | 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED'
+  | 'TIKTOK_ADS_REAUTH_REQUIRED'
+  | null {
   const code =
     error instanceof TikTokAdsProviderError
       ? error.code
@@ -48,6 +52,7 @@ function reauthFailureCode(
           ? (error as { code?: unknown }).code
           : null;
   return code === 'TIKTOK_ADS_ACCESS_REVOKED' ||
+    code === 'TIKTOK_ADS_ACCESS_TOKEN_DECRYPT_FAILED' ||
     code === 'TIKTOK_ADS_REAUTH_REQUIRED'
     ? code
     : null;

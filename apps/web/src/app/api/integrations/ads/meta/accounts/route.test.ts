@@ -173,6 +173,26 @@ describe('Meta Ads accounts route', () => {
       expect.objectContaining({ failureCode: 'META_ADS_REAUTH_REQUIRED' })
     );
   });
+
+  it('marks an undecryptable Meta access grant for reauthorization', async () => {
+    resolveToken.mockImplementation(() => {
+      throw new Error('META_ADS_ACCESS_TOKEN_DECRYPT_FAILED');
+    });
+
+    const response = await GET(
+      new NextRequest('https://usebaci.com/api/integrations/ads/meta/accounts')
+    );
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error).toBe(
+      'META_ADS_AUTHORIZATION_UNAVAILABLE'
+    );
+    expect(markReauth).toHaveBeenCalledWith(
+      expect.objectContaining({
+        failureCode: 'META_ADS_ACCESS_TOKEN_DECRYPT_FAILED',
+      })
+    );
+  });
   it('does not discover accounts without authentication', async () => {
     authenticate.mockResolvedValue({
       error: 'Unauthorized',

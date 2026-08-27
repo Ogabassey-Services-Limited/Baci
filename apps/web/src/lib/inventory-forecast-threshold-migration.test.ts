@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migrationName =
-  '20260826140000_preserve_zero_inventory_threshold.sql' as const;
+  '20260827110100_preserve_zero_inventory_threshold.sql' as const;
 const migration = readFileSync(
   resolve(process.cwd(), `../../supabase/migrations/${migrationName}`),
   'utf8'
