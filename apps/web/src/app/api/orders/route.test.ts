@@ -3280,6 +3280,55 @@ describe('POST /api/orders — selected shipping quote validation', () => {
     });
   });
 
+  it('rejects a domestic GoStandard quote on the airport path before creating the order', async () => {
+    // Arrange — a caller tries to bypass the fixed airport fee by attaching a
+    // cheaper domestic road quote. The persisted provider rate metadata must
+    // prove that a selected airport quote is actually GIGL GoFaster.
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {},
+      {
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+        shippingQuote: {
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_30_0_1_0_0_4',
+          price: 12_000,
+          expires_at: '2099-01-01T00:00:00.000Z',
+        },
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    // Act
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          delivery_method: 'airport',
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+          shipping_fee: 12_000,
+        }),
+      })
+    );
+
+    // Assert — the quote is rejected before the order RPC can create an
+    // undercharged airport order.
+    expect(response.status).toBe(400);
+    await expect(readJson(response)).resolves.toMatchObject({
+      code: 'AIRPORT_QUOTE_INVALID',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
+  });
+
   it('validates selected GIGL international quote items against canonical products', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     const supabase = buildMockSupabase(

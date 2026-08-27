@@ -20,7 +20,6 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
-import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -33,6 +32,11 @@ import {
   hashOrderIdempotencyPayload,
 } from '@/lib/checkout/order-idempotency';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
+import {
+  LocalAirportDeliveryFeeMismatchError,
+  LocalAirportDeliveryValidationError,
+  validateLocalAirportDeliveryFee,
+} from '@/lib/checkout/validate-local-airport-delivery-fee';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -1606,52 +1610,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const localAirportShippingFee = getLocalAirportDeliveryFee({
-      airportType: airport_type,
-      deliveryMethod: delivery_method,
-      selectedQuoteId: body.selected_quote_id,
-      shippingAddress: shipping_address,
-      shippingRateId: body.shipping_rate_id,
-    });
-    const localAirportShippingFeeMismatch =
-      localAirportShippingFee !== null &&
-      Math.abs(shippingFeeValue - localAirportShippingFee) > 0.01;
-    let isIdempotentLocalAirportReplay = false;
-    if (localAirportShippingFeeMismatch && requestIdempotencyKey) {
-      // Guest checkouts cannot read `orders` through RLS. The narrowly scoped
-      // boolean RPC runs with the caller's normal client and reveals no order
-      // fields; it only lets an existing idempotent retry reach the canonical
-      // order RPC, whose replay path returns the original fee.
-      const { data: hasExistingOrder, error: existingOrderError } =
-        await supabase.rpc('has_storefront_order_idempotency_key', {
-          p_checkout_idempotency_key: requestIdempotencyKey,
-          p_merchant_id: merchant_id,
-        });
-      if (existingOrderError) {
-        logger.warn({
-          message:
-            'Idempotent local-airport order pre-check failed; rejecting the stale fee',
+    let localAirportShippingFee: number | null;
+    let isIdempotentLocalAirportReplay: boolean;
+    try {
+      ({ isIdempotentLocalAirportReplay, localAirportShippingFee } =
+        await validateLocalAirportDeliveryFee({
+          airportType: airport_type,
+          deliveryMethod: delivery_method,
           merchantId: merchant_id,
-          error: existingOrderError,
-        });
-      } else {
-        isIdempotentLocalAirportReplay = hasExistingOrder === true;
+          requestIdempotencyKey,
+          selectedQuoteId: body.selected_quote_id,
+          shippingAddress: shipping_address,
+          shippingFee: shippingFeeValue,
+          shippingProvider: body.shipping_provider,
+          shippingRateId: body.shipping_rate_id,
+          supabase,
+        }));
+    } catch (error) {
+      if (
+        error instanceof LocalAirportDeliveryFeeMismatchError ||
+        error instanceof LocalAirportDeliveryValidationError
+      ) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        );
       }
-    }
-    if (localAirportShippingFeeMismatch && !isIdempotentLocalAirportReplay) {
-      logger.warn({
-        message:
-          'Storefront order rejected: local airport shipping fee mismatch',
-        clientShippingFee: shippingFeeValue,
-        serverShippingFee: localAirportShippingFee,
-      });
-      return NextResponse.json(
-        {
-          error: 'Shipping fee does not match the local airport delivery fee',
-          code: 'SHIPPING_FEE_MISMATCH',
-        },
-        { status: 400 }
-      );
+      throw error;
     }
 
     if (discountAmountValue !== 0) {
