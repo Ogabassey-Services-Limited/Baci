@@ -106,6 +106,7 @@ export async function syncMetaAdsSpendForMerchant(
     merchantId: string;
     spendSupabase: SupabaseClient;
     startDate: string;
+    syncRunId?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -114,10 +115,12 @@ export async function syncMetaAdsSpendForMerchant(
     !metaAdsSyncRequestSchema.safeParse({
       endDate: input.endDate,
       startDate: input.startDate,
+      syncRunId: input.syncRunId,
     }).success
   ) {
     throw new MetaAdsSyncError('INVALID_DATE_RANGE');
   }
+  const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const config = getMetaAdsConfig();
   const { data: connections, error: connectionError } =
     await input.credentialSupabase.rpc('get_merchant_ads_connection_secret', {
@@ -146,7 +149,7 @@ export async function syncMetaAdsSpendForMerchant(
     }
     throw new MetaAdsSyncError(reauthFailureCode(error));
   }
-  const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
+  const syncKey = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
   const activeSync = inFlightSyncs.get(syncKey);
   if (activeSync) return activeSync;
   const syncPromise = syncSelectedMetaAdsAccount({
@@ -159,6 +162,7 @@ export async function syncMetaAdsSpendForMerchant(
     credentialSupabase: input.credentialSupabase,
     spendSupabase: input.spendSupabase,
     startDate: input.startDate,
+    syncRunId,
     supabase: input.supabase,
   });
   inFlightSyncs.set(syncKey, syncPromise);
@@ -179,6 +183,7 @@ async function syncSelectedMetaAdsAccount(input: {
   credentialSupabase: AdsCredentialServiceClient;
   spendSupabase: SupabaseClient;
   startDate: string;
+  syncRunId: string;
   supabase: SupabaseClient;
 }): Promise<{ accountId: string; rowsWritten: number }> {
   let usageTelemetry: MetaAdsUsageTelemetry | null = null;
@@ -240,6 +245,7 @@ async function syncSelectedMetaAdsAccount(input: {
         merchantId: input.merchantId,
         provider: META_ADS_PROVIDER,
         providerCustomerId: account.accountId,
+        syncRunId: input.syncRunId,
         supabase: input.supabase,
       }))
     )
@@ -252,6 +258,7 @@ async function syncSelectedMetaAdsAccount(input: {
         p_provider_customer_id: account.accountId,
         p_rows: records,
         p_start_date: input.startDate,
+        p_sync_run_id: input.syncRunId,
       });
     if (spendWriteError) throw new MetaAdsSyncError('SPEND_WRITE_FAILED');
     if (
@@ -260,6 +267,7 @@ async function syncSelectedMetaAdsAccount(input: {
         merchantId: input.merchantId,
         provider: META_ADS_PROVIDER,
         providerCustomerId: account.accountId,
+        syncRunId: input.syncRunId,
         supabase: input.supabase,
       }))
     )

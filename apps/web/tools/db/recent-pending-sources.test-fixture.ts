@@ -236,4 +236,14 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260827100001_google_ads_reauth_missing_refresh.sql',
     sha256: 'd35b075406091766d009071449cd197c15e777f46d778f7d049c7939bf35fa21',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827120000_fence_ads_sync_runs.sql',
+    sha256: '97c11c851442c4a12dd5079111d18fbce369a2a34fd3cc7c6be96e849df64938',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827120100_fence_ads_spend_replacements.sql',
+    sha256: 'bff3ca2da014926b884dca64fc6a3a7e28e9f611bce051d0e5380fc719943eed',
+  },
 ];

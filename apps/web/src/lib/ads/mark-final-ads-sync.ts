@@ -6,6 +6,7 @@ export async function markAdsSyncStarted(input: {
   merchantId: string;
   provider: string;
   providerCustomerId: string;
+  syncRunId: string;
   supabase: SupabaseClient;
 }): Promise<boolean> {
   const result = await input.supabase.rpc(
@@ -14,6 +15,7 @@ export async function markAdsSyncStarted(input: {
       p_merchant_id: input.merchantId,
       p_provider: input.provider,
       p_provider_customer_id: input.providerCustomerId,
+      p_sync_run_id: input.syncRunId,
     }
   );
   return !result.error && result.data === true;
@@ -24,6 +26,7 @@ export async function markFinalAdsSync(input: {
   merchantId: string;
   provider: string;
   providerCustomerId: string;
+  syncRunId: string;
   supabase: SupabaseClient;
 }): Promise<boolean> {
   if (input.finalChunk === false) return true;
@@ -33,6 +36,7 @@ export async function markFinalAdsSync(input: {
       p_merchant_id: input.merchantId,
       p_provider: input.provider,
       p_provider_customer_id: input.providerCustomerId,
+      p_sync_run_id: input.syncRunId,
     }
   );
   return !result.error && result.data === true;

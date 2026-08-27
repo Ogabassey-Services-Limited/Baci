@@ -42,6 +42,7 @@ export async function syncGoogleAdsSpendForMerchant(
     credentialSupabase: AdsCredentialServiceClient;
     spendSupabase: SupabaseClient;
     startDate: string;
+    syncRunId?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -50,10 +51,12 @@ export async function syncGoogleAdsSpendForMerchant(
     !googleAdsSyncRequestSchema.safeParse({
       endDate: input.endDate,
       startDate: input.startDate,
+      syncRunId: input.syncRunId,
     }).success
   ) {
     throw new GoogleAdsSyncError('INVALID_DATE_RANGE');
   }
+  const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const oauthConfig = getGoogleAdsOAuthConfig();
   const reportingConfig = getGoogleAdsReportingConfig();
   const { data: connections, error: connectionError } =
@@ -158,6 +161,7 @@ export async function syncGoogleAdsSpendForMerchant(
       merchantId: input.merchantId,
       provider: 'google_ads',
       providerCustomerId: customerId,
+      syncRunId,
       supabase: input.supabase,
     }))
   )
@@ -170,6 +174,7 @@ export async function syncGoogleAdsSpendForMerchant(
       p_provider_customer_id: customerId,
       p_rows: records,
       p_start_date: input.startDate,
+      p_sync_run_id: syncRunId,
     }
   );
   if (replaceError) {
@@ -182,6 +187,7 @@ export async function syncGoogleAdsSpendForMerchant(
       merchantId: input.merchantId,
       provider: 'google_ads',
       providerCustomerId: customerId,
+      syncRunId,
       supabase: input.supabase,
     }))
   )

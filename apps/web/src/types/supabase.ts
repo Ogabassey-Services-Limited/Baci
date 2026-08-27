@@ -25,6 +25,7 @@ export type Database = {
           refresh_token_ciphertext: string | null;
           scopes: string[];
           status: string;
+          sync_run_id: string | null;
           token_expires_at: string | null;
           updated_at: string;
         };
@@ -43,6 +44,7 @@ export type Database = {
           refresh_token_ciphertext?: string | null;
           scopes?: string[];
           status?: string;
+          sync_run_id?: string | null;
           token_expires_at?: string | null;
           updated_at?: string;
         };
@@ -61,6 +63,7 @@ export type Database = {
           refresh_token_ciphertext?: string | null;
           scopes?: string[];
           status?: string;
+          sync_run_id?: string | null;
           token_expires_at?: string | null;
           updated_at?: string;
         };
@@ -20541,6 +20544,7 @@ export type Database = {
           p_provider_customer_id: string;
           p_rows: Json;
           p_start_date: string;
+          p_sync_run_id: string;
         };
         Returns: number;
       };
@@ -20574,6 +20578,7 @@ export type Database = {
           p_merchant_id: string;
           p_provider: string;
           p_provider_customer_id: string;
+          p_sync_run_id: string;
         };
         Returns: boolean;
       };
@@ -20582,6 +20587,7 @@ export type Database = {
           p_merchant_id: string;
           p_provider: string;
           p_provider_customer_id: string;
+          p_sync_run_id: string;
         };
         Returns: boolean;
       };
@@ -20655,6 +20661,7 @@ export type Database = {
           p_provider_customer_id: string;
           p_rows: Json;
           p_start_date: string;
+          p_sync_run_id: string;
         };
         Returns: number;
       };

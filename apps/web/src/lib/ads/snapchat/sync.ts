@@ -88,12 +88,14 @@ export async function syncSnapchatAdsSpendForMerchant(
     merchantId: string;
     spendSupabase: SupabaseClient;
     startDate: string;
+    syncRunId?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
 ): Promise<{ accountId: string; rowsWritten: number }> {
   if (!snapchatAdsSyncRequestSchema.safeParse(input).success)
     throw new SnapchatAdsSyncError('INVALID_DATE_RANGE');
+  const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const config = getSnapchatAdsConfig();
   const read = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -135,7 +137,7 @@ export async function syncSnapchatAdsSpendForMerchant(
       });
     throw new SnapchatAdsSyncError(codeOf(error));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
+  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
   const current = activeSyncs.get(key);
   if (current) return current;
   const work = (async () => {
@@ -204,6 +206,7 @@ export async function syncSnapchatAdsSpendForMerchant(
           merchantId: input.merchantId,
           provider: SNAPCHAT_ADS_PROVIDER,
           providerCustomerId: account.accountId,
+          syncRunId,
           supabase: input.supabase,
         }))
       )
@@ -217,6 +220,7 @@ export async function syncSnapchatAdsSpendForMerchant(
           p_provider_customer_id: account.accountId,
           p_rows: rows,
           p_start_date: startDate,
+          p_sync_run_id: syncRunId,
         }
       );
       if (written.error) throw new SnapchatAdsSyncError('SPEND_WRITE_FAILED');
@@ -227,6 +231,7 @@ export async function syncSnapchatAdsSpendForMerchant(
           merchantId: input.merchantId,
           provider: SNAPCHAT_ADS_PROVIDER,
           providerCustomerId: account.accountId,
+          syncRunId,
           supabase: input.supabase,
         }))
       )

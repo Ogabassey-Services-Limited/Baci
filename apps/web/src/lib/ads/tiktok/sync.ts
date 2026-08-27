@@ -117,6 +117,7 @@ export async function syncTikTokAdsSpendForMerchant(
     merchantId: string;
     spendSupabase: SupabaseClient;
     startDate: string;
+    syncRunId?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -125,9 +126,11 @@ export async function syncTikTokAdsSpendForMerchant(
     !tiktokAdsSyncRequestSchema.safeParse({
       endDate: input.endDate,
       startDate: input.startDate,
+      syncRunId: input.syncRunId,
     }).success
   )
     throw new TikTokAdsSyncError('INVALID_DATE_RANGE');
+  const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const config = getTikTokAdsConfig();
   const { data, error } = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -155,7 +158,7 @@ export async function syncTikTokAdsSpendForMerchant(
     }
     throw new TikTokAdsSyncError(errorCode(cause));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}`;
+  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
   const active = inFlightSyncs.get(key);
   if (active) return active;
   const work = (async () => {
@@ -223,6 +226,7 @@ export async function syncTikTokAdsSpendForMerchant(
           merchantId: input.merchantId,
           provider: TIKTOK_ADS_PROVIDER,
           providerCustomerId: account.accountId,
+          syncRunId,
           supabase: input.supabase,
         }))
       )
@@ -236,6 +240,7 @@ export async function syncTikTokAdsSpendForMerchant(
           p_provider_customer_id: account.accountId,
           p_rows: pendingRows,
           p_start_date: input.startDate,
+          p_sync_run_id: syncRunId,
         }
       );
       if (written.error) throw new TikTokAdsSyncError('SPEND_WRITE_FAILED');
@@ -246,6 +251,7 @@ export async function syncTikTokAdsSpendForMerchant(
           merchantId: input.merchantId,
           provider: TIKTOK_ADS_PROVIDER,
           providerCustomerId: account.accountId,
+          syncRunId,
           supabase: input.supabase,
         }))
       )

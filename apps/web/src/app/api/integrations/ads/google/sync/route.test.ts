@@ -139,6 +139,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
       spendSupabase: mockSpendSupabase,
       startDate: '2026-08-20',
       supabase: {},
+      syncRunId: expect.any(String),
     });
     expect(mockInvalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant-1'

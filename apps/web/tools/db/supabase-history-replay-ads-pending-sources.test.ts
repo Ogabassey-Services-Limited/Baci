@@ -39,5 +39,11 @@ describe('supabase history replay ads pending sources', () => {
     expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
       'd35b075406091766d009071449cd197c15e777f46d778f7d049c7939bf35fa21 20260827100001_google_ads_reauth_missing_refresh.sql'
     );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '97c11c851442c4a12dd5079111d18fbce369a2a34fd3cc7c6be96e849df64938 20260827120000_fence_ads_sync_runs.sql'
+    );
+    expect(ADS_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      'bff3ca2da014926b884dca64fc6a3a7e28e9f611bce051d0e5380fc719943eed 20260827120100_fence_ads_spend_replacements.sql'
+    );
   });
 });

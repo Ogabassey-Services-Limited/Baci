@@ -95,6 +95,7 @@ describe('Snapchat Ads sync', () => {
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
+        p_sync_run_id: expect.any(String),
         p_rows: [
           expect.objectContaining({
             attribution_metadata: expect.objectContaining({
@@ -112,6 +113,7 @@ describe('Snapchat Ads sync', () => {
         p_merchant_id: 'merchant',
         p_provider: 'snapchat_ads',
         p_provider_customer_id: 'ad-1',
+        p_sync_run_id: expect.any(String),
       }
     );
   });

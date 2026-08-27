@@ -26,6 +26,14 @@ const nullReauthCasMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260827040000_allow_null_ads_reauth_cas.sql'
 );
+const syncRunFenceMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827120000_fence_ads_sync_runs.sql'
+);
+const syncReplacementFenceMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827120100_fence_ads_spend_replacements.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -145,5 +153,33 @@ describe('provider-neutral ads storage migration', () => {
       'grant execute on function public.mark_merchant_ads_connection_reauth_if_current'
     );
     expect(sql).toContain('to service_role');
+  });
+
+  it('fences every replacement and freshness marker to one refresh run', () => {
+    const sql = readFileSync(syncRunFenceMigrationPath, 'utf8').toLowerCase();
+    const replacementSql = readFileSync(
+      syncReplacementFenceMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'add column if not exists sync_run_id pg_catalog.uuid'
+    );
+    expect(replacementSql).toContain('and c.sync_run_id = p_sync_run_id');
+    expect(replacementSql).toContain('for update');
+    expect(sql).toContain(
+      'create or replace function public.mark_merchant_ads_connection_sync_started_if_current('
+    );
+    expect(sql).toContain(
+      'create or replace function public.mark_merchant_ads_connection_synced_if_current('
+    );
+    expect(sql).toContain('p_sync_run_id pg_catalog.uuid');
+    expect(replacementSql).toContain(
+      "raise exception 'ads sync run changed during spend replacement'"
+    );
+    expect(replacementSql).toContain(
+      "raise exception 'google ads sync run changed during spend replacement'"
+    );
+    expect(sql).toContain('clear_merchant_ads_sync_run_on_identity_change');
   });
 });

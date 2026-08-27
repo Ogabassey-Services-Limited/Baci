@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  const syncRunId = parsed.data.syncRunId ?? crypto.randomUUID();
   const credentialSupabase = createAdsCredentialServiceClient();
   try {
     const result = await syncSnapchatAdsSpendForMerchant({
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       credentialSupabase,
       merchantId: access.merchantId,
       spendSupabase: createAdsSpendServiceClient(),
+      syncRunId,
       supabase: auth.supabase,
     });
     if (parsed.data.finalChunk) {

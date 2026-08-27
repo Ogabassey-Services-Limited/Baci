@@ -100,11 +100,13 @@ export function SocialAdsAccountControls({
   const sync = async () => {
     const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
     const windows = buildAdsSyncWindowChunks(requestedWindow, provider);
+    const syncRunId = crypto.randomUUID();
     for (const [index, window] of windows.entries()) {
       const response = await fetchWithCsrf(`${path}/sync`, {
         body: JSON.stringify({
           ...window,
           finalChunk: index === windows.length - 1,
+          syncRunId,
         }),
         headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',

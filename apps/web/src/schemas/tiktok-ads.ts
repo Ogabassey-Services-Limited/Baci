@@ -56,6 +56,7 @@ export const tiktokAdsSyncRequestSchema = z
     endDate: z.string().date(),
     finalChunk: z.boolean().default(true),
     startDate: z.string().date(),
+    syncRunId: z.string().uuid().optional(),
   })
   .superRefine((value, context) => {
     dateOrder(value, context);

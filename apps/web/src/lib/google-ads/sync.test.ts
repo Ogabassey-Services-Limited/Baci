@@ -109,6 +109,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       expect.objectContaining({
         p_merchant_id: 'merchant-1',
         p_provider_customer_id: '1234567890',
+        p_sync_run_id: expect.any(String),
         p_rows: [
           expect.objectContaining({
             clicks: 4,
@@ -125,6 +126,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         p_merchant_id: 'merchant-1',
         p_provider: 'google_ads',
         p_provider_customer_id: '1234567890',
+        p_sync_run_id: expect.any(String),
       }
     );
   });
@@ -277,6 +279,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       p_provider_customer_id: '1234567890',
       p_rows: [],
       p_start_date: '2026-08-20',
+      p_sync_run_id: expect.any(String),
     });
     expect(mockRpc).toHaveBeenCalledWith(
       'mark_merchant_ads_connection_synced_if_current',
@@ -284,6 +287,7 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         p_merchant_id: 'merchant-1',
         p_provider: 'google_ads',
         p_provider_customer_id: '1234567890',
+        p_sync_run_id: expect.any(String),
       }
     );
   });

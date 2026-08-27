@@ -84,6 +84,7 @@ describe('Meta Ads sync route', () => {
       spendSupabase: mockSpendSupabase,
       startDate: '2026-08-20',
       supabase: {},
+      syncRunId: expect.any(String),
     });
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant'

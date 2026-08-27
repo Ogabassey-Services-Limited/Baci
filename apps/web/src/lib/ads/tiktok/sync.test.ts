@@ -87,6 +87,7 @@ describe('TikTok Ads sync', () => {
     expect(rpc).toHaveBeenCalledWith(
       'replace_merchant_ads_spend_daily_window',
       expect.objectContaining({
+        p_sync_run_id: expect.any(String),
         p_rows: expect.arrayContaining([
           expect.objectContaining({ spend_amount_decimal: '1.000000001' }),
         ]),
@@ -98,6 +99,7 @@ describe('TikTok Ads sync', () => {
         p_merchant_id: 'merchant',
         p_provider: 'tiktok_ads',
         p_provider_customer_id: 'opaque-001',
+        p_sync_run_id: expect.any(String),
       }
     );
   });

@@ -109,11 +109,9 @@ describe('GoogleAdsAccountPicker', () => {
       2,
       '/api/integrations/ads/google/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-08-21',
-          startDate: '2026-08-01',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-08-21","startDate":"2026-08-01","finalChunk":true'
+        ),
         headers: {
           'x-baci-merchant-id': '550e8400-e29b-41d4-a716-446655440000',
         },
@@ -264,11 +262,9 @@ describe('GoogleAdsAccountPicker', () => {
       2,
       '/api/integrations/ads/google/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-08-21',
-          startDate: '2026-07-22',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-08-21","startDate":"2026-07-22","finalChunk":true'
+        ),
       })
     );
   });
@@ -301,23 +297,29 @@ describe('GoogleAdsAccountPicker', () => {
       2,
       '/api/integrations/ads/google/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-03-31',
-          startDate: '2026-01-01',
-          finalChunk: false,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-03-31","startDate":"2026-01-01","finalChunk":false'
+        ),
       })
     );
     expect(mockFetchWithCsrf).toHaveBeenNthCalledWith(
       3,
       '/api/integrations/ads/google/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-05-01',
-          startDate: '2026-04-01',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-05-01","startDate":"2026-04-01","finalChunk":true'
+        ),
       })
     );
+    const firstPayload = JSON.parse(
+      (mockFetchWithCsrf.mock.calls[1]?.[1] as { body: string }).body
+    ) as { syncRunId: string };
+    const secondPayload = JSON.parse(
+      (mockFetchWithCsrf.mock.calls[2]?.[1] as { body: string }).body
+    ) as { syncRunId: string };
+    expect(firstPayload.syncRunId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    expect(secondPayload.syncRunId).toBe(firstPayload.syncRunId);
   });
 });

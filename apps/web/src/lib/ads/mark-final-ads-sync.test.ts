@@ -6,6 +6,7 @@ describe('markAdsSyncStarted', () => {
     merchantId: 'merchant-1',
     provider: 'google_ads',
     providerCustomerId: 'customer-1',
+    syncRunId: '00000000-0000-4000-8000-000000000001',
     supabase: { rpc: vi.fn() } as never,
   };
 
@@ -21,6 +22,7 @@ describe('markAdsSyncStarted', () => {
         p_merchant_id: 'merchant-1',
         p_provider: 'google_ads',
         p_provider_customer_id: 'customer-1',
+        p_sync_run_id: '00000000-0000-4000-8000-000000000001',
       }
     );
   });
@@ -44,6 +46,7 @@ describe('markFinalAdsSync', () => {
       merchantId: 'merchant-1',
       provider: 'google_ads',
       providerCustomerId: 'customer-1',
+      syncRunId: '00000000-0000-4000-8000-000000000001',
       supabase: { rpc } as never,
     };
 
@@ -59,7 +62,23 @@ describe('markFinalAdsSync', () => {
         p_merchant_id: 'merchant-1',
         p_provider: 'google_ads',
         p_provider_customer_id: 'customer-1',
+        p_sync_run_id: '00000000-0000-4000-8000-000000000001',
       }
     );
+  });
+
+  it('does not report a stale refresh as fresh when the final CAS loses', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: false, error: null });
+
+    await expect(
+      markFinalAdsSync({
+        finalChunk: true,
+        merchantId: 'merchant-1',
+        provider: 'google_ads',
+        providerCustomerId: 'customer-1',
+        syncRunId: '00000000-0000-4000-8000-000000000001',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toBe(false);
   });
 });

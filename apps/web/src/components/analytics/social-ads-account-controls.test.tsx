@@ -332,11 +332,9 @@ describe('SocialAdsAccountControls', () => {
     expect(fetchWithCsrf).toHaveBeenCalledWith(
       '/api/integrations/ads/meta/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-08-21',
-          startDate: '2026-07-22',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-08-21","startDate":"2026-07-22","finalChunk":true'
+        ),
       })
     );
   });
@@ -358,11 +356,9 @@ describe('SocialAdsAccountControls', () => {
     expect(fetchWithCsrf).toHaveBeenCalledWith(
       '/api/integrations/ads/meta/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-08-21',
-          startDate: '2026-08-01',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-08-21","startDate":"2026-08-01","finalChunk":true'
+        ),
       })
     );
   });
@@ -385,23 +381,29 @@ describe('SocialAdsAccountControls', () => {
       1,
       '/api/integrations/ads/meta/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-01-31',
-          startDate: '2026-01-01',
-          finalChunk: false,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-01-31","startDate":"2026-01-01","finalChunk":false'
+        ),
       })
     );
     expect(fetchWithCsrf).toHaveBeenNthCalledWith(
       2,
       '/api/integrations/ads/meta/sync',
       expect.objectContaining({
-        body: JSON.stringify({
-          endDate: '2026-02-15',
-          startDate: '2026-02-01',
-          finalChunk: true,
-        }),
+        body: expect.stringContaining(
+          '"endDate":"2026-02-15","startDate":"2026-02-01","finalChunk":true'
+        ),
       })
     );
+    const firstPayload = JSON.parse(
+      (fetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
+    ) as { syncRunId: string };
+    const secondPayload = JSON.parse(
+      (fetchWithCsrf.mock.calls[1]?.[1] as { body: string }).body
+    ) as { syncRunId: string };
+    expect(firstPayload.syncRunId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
+    expect(secondPayload.syncRunId).toBe(firstPayload.syncRunId);
   });
 });
