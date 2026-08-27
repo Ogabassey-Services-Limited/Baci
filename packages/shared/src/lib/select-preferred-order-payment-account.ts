@@ -11,9 +11,18 @@ export interface OrderPaymentAccountLike {
 const PAYSTACK_DVA_WINDOW_MS = 90 * 60 * 1000;
 const PAYSTACK_DVA_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
+export interface SelectPreferredOrderPaymentAccountOptions {
+  /**
+   * Allow a bounded assignment-window grace period for clients whose local
+   * clock may lag the server clock. Keep this disabled for server consumers.
+   */
+  allowDeviceClockSkew?: boolean;
+}
+
 function isActivePaystackAccount(
   account: OrderPaymentAccountLike,
-  nowMs: number
+  nowMs: number,
+  { allowDeviceClockSkew = false }: SelectPreferredOrderPaymentAccountOptions
 ) {
   if (account.provider !== 'paystack') return true;
 
@@ -31,18 +40,17 @@ function isActivePaystackAccount(
     : Number.isFinite(assignedAt)
       ? assignedAt + PAYSTACK_DVA_WINDOW_MS
       : Number.NaN;
-  if (
-    hasExplicitExpiry &&
-    nowMs >= expiresAt
-  )
-    return false;
+  if (hasExplicitExpiry && nowMs >= expiresAt) return false;
 
   return (
     !Number.isFinite(assignedAt) ||
-    (nowMs >= assignedAt - PAYSTACK_DVA_CLOCK_SKEW_MS &&
+    (nowMs >=
+      assignedAt - (allowDeviceClockSkew ? PAYSTACK_DVA_CLOCK_SKEW_MS : 0) &&
       nowMs <=
         assignmentUpperBound +
-          (hasExplicitExpiry ? 0 : PAYSTACK_DVA_CLOCK_SKEW_MS))
+          (hasExplicitExpiry || !allowDeviceClockSkew
+            ? 0
+            : PAYSTACK_DVA_CLOCK_SKEW_MS))
   );
 }
 
@@ -53,14 +61,20 @@ function isActivePaystackAccount(
  */
 export function selectPreferredOrderPaymentAccount<
   T extends OrderPaymentAccountLike,
->(accounts: readonly T[] | null | undefined, now = new Date()): T | null {
+>(
+  accounts: readonly T[] | null | undefined,
+  now = new Date(),
+  options: SelectPreferredOrderPaymentAccountOptions = {}
+): T | null {
   if (!accounts || accounts.length === 0) {
     return null;
   }
 
   return (
     accounts
-      .filter((account) => isActivePaystackAccount(account, now.getTime()))
+      .filter((account) =>
+        isActivePaystackAccount(account, now.getTime(), options)
+      )
       .sort((left, right) => {
         const leftProviderRank = left.provider === 'paystack' ? 0 : 1;
         const rightProviderRank = right.provider === 'paystack' ? 0 : 1;

@@ -192,7 +192,13 @@ async function fetchReceiptDetail(
       ...item,
       product_name: item.name,
     })),
-    virtual_account: selectPreferredOrderPaymentAccount(virtualAccounts),
+    virtual_account: selectPreferredOrderPaymentAccount(
+      virtualAccounts,
+      new Date(),
+      {
+        allowDeviceClockSkew: true,
+      }
+    ),
     transactions: transactions ?? [],
   };
 

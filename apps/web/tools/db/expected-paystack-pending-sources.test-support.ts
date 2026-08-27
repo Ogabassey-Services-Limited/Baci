@@ -182,7 +182,7 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260826001000_repair_invoice_paystack_alias_expiries.sql',
-    sha256: 'dc34df687444d806bb151bec6b9cc193a4ee6eb5068059972be4e3df19e5a7ac',
+    sha256: 'd98de00157d34546247eab4f9da93c2ebefc22bf6d33dddfe5b1edbf7a1670d2',
   },
   {
     repositoryPath:

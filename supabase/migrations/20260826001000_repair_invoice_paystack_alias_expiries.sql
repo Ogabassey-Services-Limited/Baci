@@ -95,7 +95,10 @@ BEGIN
       orders.payment_status,
       CASE
         WHEN orders.payment_due_date IS NOT NULL
-          THEN orders.payment_due_date::timestamptz
+          -- payment_due_date is a calendar date. Use the following midnight
+          -- as the exclusive bound so the advertised due date remains valid
+          -- through its final instant.
+          THEN (orders.payment_due_date + 1)::timestamptz
         ELSE COALESCE(
           orders.created_at,
           account.assigned_at,

@@ -276,7 +276,10 @@ export async function fetchOrderById(
     }),
     recorded_by_name: recordedByName,
     staff_terminal: staffTerminal,
-    virtual_account: selectPreferredOrderPaymentAccount(virtualAccount) || null,
+    virtual_account:
+      selectPreferredOrderPaymentAccount(virtualAccount, new Date(), {
+        allowDeviceClockSkew: true,
+      }) || null,
   };
 }
 
