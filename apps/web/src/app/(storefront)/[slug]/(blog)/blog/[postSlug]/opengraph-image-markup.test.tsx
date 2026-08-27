@@ -160,7 +160,7 @@ describe('merchant blog OG image markup', () => {
       })
     );
 
-    expect(collectStyleValues(element, 'color')).toContain('#000000');
+    expect(element.props.style).toMatchObject({ color: '#000000' });
   });
 
   it('keeps branded fallback art free of unsupported Satori zIndex styles', () => {

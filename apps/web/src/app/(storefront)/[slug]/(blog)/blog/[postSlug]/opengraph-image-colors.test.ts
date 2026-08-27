@@ -31,6 +31,10 @@ describe('merchant blog OG color helpers', () => {
     expect(getBlogOgForegroundColor('black')).toBe('#FFFFFF');
   });
 
+  it('uses dark text when the background color is invalid', () => {
+    expect(getBlogOgForegroundColor('not-a-color')).toBe('#000000');
+  });
+
   it('uses merchant brand colors when present and falls back only for missing values', () => {
     expect(
       getBlogOgBrandColors(
