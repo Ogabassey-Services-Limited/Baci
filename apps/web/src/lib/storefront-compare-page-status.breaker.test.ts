@@ -3,30 +3,10 @@ import {
   resetStorefrontComparePageStatusForTests,
   resolveStorefrontComparePageStatus,
 } from './storefront-compare-page-status';
-
-function jsonResponse(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function buildOptions(
-  fetchImpl: typeof fetch,
-  overrides: Partial<
-    Parameters<typeof resolveStorefrontComparePageStatus>[0]
-  > = {}
-) {
-  return {
-    origin: 'http://localhost:3000',
-    identifier: 'ogabassey',
-    categorySlug: 'laptops',
-    comparisonSlug: 'left-laptop-vs-right-laptop',
-    secret: 'test-internal-secret',
-    fetchImpl,
-    ...overrides,
-  };
-}
+import {
+  buildOptions,
+  jsonResponse,
+} from './storefront-compare-page-status.test-helpers';
 
 describe('compare page status breaker regressions', () => {
   beforeEach(() => {
