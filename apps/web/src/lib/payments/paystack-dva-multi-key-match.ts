@@ -33,9 +33,9 @@ export type DvaMatchCandidate = {
   total_kobo: number;
   // Residual amount after wallet/savings credits, when persisted.
   payable_amount_kobo?: number | null;
-  // Current collectible balance. Candidate normalization prefers the order
-  // ledger once any amount has been recorded, otherwise the persisted DVA
-  // payable amount remains the checkout fallback.
+  // Current collectible balance. Candidate normalization preserves the
+  // assignment snapshot for merchant-created invoices while capping
+  // storefront orders at their current order remainder.
   outstanding_amount_kobo?: number | null;
   // Only merchant-created invoices may infer an underpayment as intentional.
   merchant_created?: boolean;

@@ -67,6 +67,7 @@ export interface OrderDetailsRecord {
   total: number;
   updated_at: string;
   virtual_account?: {
+    assignment_customer_email_source?: string | null;
     account_name: string;
     account_number: string;
     bank_name: string;

@@ -192,8 +192,11 @@ export async function GET(request: NextRequest) {
         payment_method: order.payment_method,
         fulfillment_details: order.fulfillment_details,
         virtual_account:
-          selectPreferredOrderPaymentAccount(order.order_payment_accounts) ||
-          null,
+          selectPreferredOrderPaymentAccount(
+            order.order_payment_accounts,
+            new Date(),
+            { allowExpiredPaystackAccount: paymentStatus === 'paid' }
+          ) || null,
         balance: Math.max(
           0,
           Number(order.total || 0) - Number(order.amount_paid || 0)

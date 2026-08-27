@@ -60,7 +60,7 @@ export async function fetchOrderById(
     supabase
       .from('order_payment_accounts')
       .select(
-        'account_number, bank_name, account_name, provider, created_at, assigned_at, expires_at'
+        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
       )
       .eq('order_id', orderId)
       .order('created_at', { ascending: false }),
@@ -197,6 +197,7 @@ export async function fetchOrderById(
     staff_terminal: staffTerminal,
     virtual_account:
       selectPreferredOrderPaymentAccount(virtualAccount, new Date(), {
+        allowExpiredPaystackAccount: paymentStatus === 'paid',
         allowDeviceClockSkew: true,
       }) || null,
   };

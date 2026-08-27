@@ -70,6 +70,25 @@ describe('paystack DVA order candidate', () => {
     });
   });
 
+  it('caps a stale storefront snapshot at the current remaining balance', () => {
+    expect(
+      normalizePaystackDvaOrderCandidate({
+        ...row,
+        payable_amount: '835000',
+        orders: {
+          ...row.orders,
+          amount_paid: '300000',
+          payment_status: 'partially_paid',
+          recorded_by_user_id: null,
+        },
+      })
+    ).toMatchObject({
+      merchant_created: false,
+      outstanding_amount_kobo: 53_500_000,
+      payable_amount_kobo: 83_500_000,
+    });
+  });
+
   it('preserves the assignment-time balance for a delayed historical transfer', () => {
     expect(
       normalizePaystackDvaOrderCandidate({

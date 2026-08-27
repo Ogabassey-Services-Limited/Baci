@@ -18,12 +18,20 @@ export interface SelectPreferredOrderPaymentAccountOptions {
    * clock may lag the server clock. Keep this disabled for server consumers.
    */
   allowDeviceClockSkew?: boolean;
+  /**
+   * Keep an expired Paystack alias available for a paid document's historical
+   * payment instructions. Never enable this for a new payment attempt.
+   */
+  allowExpiredPaystackAccount?: boolean;
 }
 
 function isActivePaystackAccount(
   account: OrderPaymentAccountLike,
   nowMs: number,
-  { allowDeviceClockSkew = false }: SelectPreferredOrderPaymentAccountOptions
+  {
+    allowDeviceClockSkew = false,
+    allowExpiredPaystackAccount = false,
+  }: SelectPreferredOrderPaymentAccountOptions
 ) {
   if (account.provider !== 'paystack') return true;
   if (account.assignment_customer_email_source === 'legacy_untrusted') {
@@ -44,7 +52,30 @@ function isActivePaystackAccount(
     : Number.isFinite(assignedAt)
       ? assignedAt + PAYSTACK_DVA_WINDOW_MS
       : Number.NaN;
-  if (hasExplicitExpiry && nowMs >= expiresAt) return false;
+
+  // A future assignment must never become visible just because a caller is
+  // rendering a historical paid document. Mobile clients may still use the
+  // bounded device-clock grace that applies to active assignments.
+  if (
+    Number.isFinite(assignedAt) &&
+    nowMs <
+      assignedAt -
+        (allowDeviceClockSkew ? PAYSTACK_DVA_CLOCK_SKEW_MS : 0)
+  ) {
+    return false;
+  }
+
+  if (hasExplicitExpiry && nowMs >= expiresAt) {
+    return allowExpiredPaystackAccount;
+  }
+
+  if (
+    !hasExplicitExpiry &&
+    Number.isFinite(assignedAt) &&
+    nowMs > assignmentUpperBound
+  ) {
+    return allowExpiredPaystackAccount;
+  }
 
   return (
     !Number.isFinite(assignedAt) ||

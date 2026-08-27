@@ -43,7 +43,17 @@ export function normalizePaystackDvaOrderCandidate(
   const validAssignedAt =
     assignedAt && !Number.isNaN(assignedAt.getTime()) ? assignedAt : null;
   const orderRemainingAmount = Math.max(total - amountPaid, 0);
-  const outstandingAmount = normalizedPayableAmount ?? orderRemainingAmount;
+  // Merchant-created invoices keep their assignment-time payable snapshot so
+  // a delayed transfer can still be attributed to the invoice. Storefront
+  // orders, however, can receive a manual or wallet payment after DVA
+  // assignment; cap their expected amount at the current order remainder so a
+  // stale snapshot cannot accept an old total or reject the new remainder.
+  const outstandingAmount =
+    normalizedPayableAmount == null
+      ? orderRemainingAmount
+      : merchantCreated
+        ? normalizedPayableAmount
+        : Math.min(normalizedPayableAmount, orderRemainingAmount);
   const expiresAt =
     typeof row.expires_at === 'string' ? new Date(row.expires_at) : null;
   // The legacy cleanup deliberately clears unverifiable assignment snapshots.

@@ -210,7 +210,9 @@ export async function getStorefrontAccountDocumentData({
     transactions: (transactionsResult.data ||
       []) as StorefrontAccountDocumentTransactionRow[],
     paymentAccount: selectPreferredOrderPaymentAccount(
-      paymentAccountsResult.data as StorefrontAccountDocumentPaymentAccountRow[]
+      paymentAccountsResult.data as StorefrontAccountDocumentPaymentAccountRow[],
+      new Date(),
+      { allowExpiredPaystackAccount: paymentStatus === 'paid' }
     ),
     taxRows: (taxResult.data ||
       []) as StorefrontAccountDocumentTaxSubtotalRow[],

@@ -176,7 +176,14 @@ export async function GET(
             short_id: order.order_number,
             items: mapOrderItemsWithRoutes(items || []),
             virtual_account:
-              selectPreferredOrderPaymentAccount(orderPaymentAccounts) || null,
+              selectPreferredOrderPaymentAccount(
+                orderPaymentAccounts,
+                new Date(),
+                {
+                  allowExpiredPaystackAccount:
+                    order.payment_status?.trim().toLowerCase() === 'paid',
+                }
+              ) || null,
           })
         );
       }

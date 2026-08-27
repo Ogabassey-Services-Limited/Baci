@@ -246,4 +246,56 @@ describe('receiptDetailQueryOptions', () => {
 
     expect(detail.virtual_account?.account_number).toBe('1111111111');
   });
+
+  it('keeps an expired Paystack account on a paid receipt', async () => {
+    mockOrderSingle.mockResolvedValueOnce({
+      data: {
+        amount_paid: 690000,
+        created_at: '2026-07-08T12:33:00.000Z',
+        currency: 'NGN',
+        customer_email: 'buyer@example.com',
+        customer_name: 'Buyer',
+        customer_phone: null,
+        discount_amount: 0,
+        id: 'order-1',
+        is_credit_order: false,
+        notes: null,
+        order_items: [],
+        order_number: 'ORD-1',
+        payment_method: 'paystack',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_fee: 0,
+        subtotal: 690000,
+        tax_amount: 0,
+        total: 690000,
+      },
+      error: null,
+    });
+    mockPaymentAccountOrder.mockResolvedValueOnce({
+      data: [
+        {
+          account_name: 'Expired automatic confirmation',
+          account_number: '2222222222',
+          assigned_at: '2026-07-08T11:00:00.000Z',
+          bank_name: 'Paystack',
+          expires_at: '2026-07-08T12:30:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+
+    const detail = await receiptDetailQueryOptions('order-1', {
+      merchantId: 'merchant-1',
+      userId: 'user-1',
+    }).queryFn();
+
+    expect(detail.virtual_account).toEqual(
+      expect.objectContaining({
+        account_number: '2222222222',
+        provider: 'paystack',
+      })
+    );
+  });
 });

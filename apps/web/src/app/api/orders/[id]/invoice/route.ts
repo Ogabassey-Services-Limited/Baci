@@ -5,6 +5,7 @@ import {
   type ReceiptMerchant,
   type ReceiptOrder,
   resolveReceiptItemFulfillmentAttachment,
+  selectPreferredOrderPaymentAccount,
 } from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
@@ -66,6 +67,10 @@ interface PaymentAccountRow {
   assignment_customer_email_source?: string | null;
   bank_name: string | null;
   account_name: string | null;
+  created_at?: string | null;
+  assigned_at?: string | null;
+  expires_at?: string | null;
+  provider?: string | null;
 }
 
 interface RegisteredAddress {
@@ -494,19 +499,28 @@ export async function GET(
       );
     }
 
-    const { data: paymentAccounts, error: paymentAccountError } = await supabase
+    const isPaidOrder = order.payment_status?.trim().toLowerCase() === 'paid';
+    let paymentAccountQuery = supabase
       .from('order_payment_accounts')
       .select(
-        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, expires_at'
+        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
       )
       .eq('order_id', orderId)
       .eq('provider', 'paystack')
       .or(
         'assignment_customer_email_source.is.null,assignment_customer_email_source.neq.legacy_untrusted'
-      )
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-      .order('created_at', { ascending: false })
-      .limit(1);
+      );
+    if (!isPaidOrder) {
+      paymentAccountQuery = paymentAccountQuery.or(
+        `expires_at.is.null,expires_at.gt.${new Date().toISOString()}`
+      );
+    }
+    const orderedPaymentAccountQuery = paymentAccountQuery.order('created_at', {
+      ascending: false,
+    });
+    const { data: paymentAccounts, error: paymentAccountError } = isPaidOrder
+      ? await orderedPaymentAccountQuery
+      : await orderedPaymentAccountQuery.limit(1);
 
     if (paymentAccountError) {
       console.error(
@@ -523,12 +537,17 @@ export async function GET(
       );
     }
 
-    const paymentAccount = Array.isArray(paymentAccounts)
-      ? ((paymentAccounts as PaymentAccountRow[]).find(
+    const paymentAccountRows = Array.isArray(paymentAccounts)
+      ? (paymentAccounts as PaymentAccountRow[])
+      : [];
+    const paymentAccount = isPaidOrder
+      ? selectPreferredOrderPaymentAccount(paymentAccountRows, new Date(), {
+          allowExpiredPaystackAccount: true,
+        })
+      : (paymentAccountRows.find(
           (account) =>
             account.assignment_customer_email_source !== 'legacy_untrusted'
-        ) ?? null)
-      : null;
+        ) ?? null);
 
     // Parse shipping address
     const shippingAddr = order.shipping_address as ShippingAddress | null;

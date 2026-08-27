@@ -36,11 +36,16 @@ interface ResolveAccountNameResponse {
   account_name?: string | null;
 }
 
+interface ResolveAccountCandidateOptions {
+  allowExpiredPaystackAccount?: boolean;
+}
+
 function resolveAccountCandidate(
   account:
     | {
         account_name?: string | null;
         account_number?: string | null;
+        assignment_customer_email_source?: string | null;
         assigned_at?: string | null;
         bank?: string | null;
         bank_name?: string | null;
@@ -49,7 +54,8 @@ function resolveAccountCandidate(
         provider?: string | null;
       }
     | null
-    | undefined
+    | undefined,
+  options: ResolveAccountCandidateOptions = {}
 ) {
   if (!account) {
     return null;
@@ -61,15 +67,16 @@ function resolveAccountCandidate(
   }
 
   if (account.provider === 'paystack') {
+    if (account.assignment_customer_email_source === 'legacy_untrusted') {
+      return null;
+    }
+
+    const { allowExpiredPaystackAccount = false } = options;
     const nowMs = Date.now();
     const expiresAt = account.expires_at
       ? Date.parse(account.expires_at)
       : Number.NaN;
     const hasExplicitExpiry = Number.isFinite(expiresAt);
-    if (hasExplicitExpiry && nowMs >= expiresAt) {
-      return null;
-    }
-
     const assignedAt = account.assigned_at
       ? Date.parse(account.assigned_at)
       : account.created_at
@@ -79,9 +86,17 @@ function resolveAccountCandidate(
       return null;
     }
     if (
+      hasExplicitExpiry &&
+      nowMs >= expiresAt &&
+      !allowExpiredPaystackAccount
+    ) {
+      return null;
+    }
+    if (
       !hasExplicitExpiry &&
       Number.isFinite(assignedAt) &&
-      nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS
+      nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS &&
+      !allowExpiredPaystackAccount
     ) {
       return null;
     }
@@ -166,7 +181,9 @@ export async function resolveOrderReceiptVirtualAccount({
   }
 
   if (order.payment_status === 'paid') {
-    return resolveAccountCandidate(order.virtual_account);
+    return resolveAccountCandidate(order.virtual_account, {
+      allowExpiredPaystackAccount: true,
+    });
   }
 
   const shouldProvisionPaystackDva = canProvisionPaystackDva(order);
