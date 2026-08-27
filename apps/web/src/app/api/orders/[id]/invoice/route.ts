@@ -489,15 +489,17 @@ export async function GET(
     }
 
     const isPaidOrder = order.payment_status?.trim().toLowerCase() === 'paid';
-    const { error: paymentAccountError, paymentAccount } =
-      await resolveInvoicePaymentAccount(supabase, orderId, isPaidOrder);
+    const {
+      error: paymentAccountError,
+      transactionError,
+      paymentAccount,
+    } = await resolveInvoicePaymentAccount(supabase, orderId, isPaidOrder);
 
-    if (paymentAccountError) {
-      console.error(
-        'Error fetching order_payment_accounts for invoice:',
-        orderId,
-        paymentAccountError
-      );
+    if (paymentAccountError || transactionError) {
+      console.error('Error fetching invoice payment account data:', orderId, {
+        paymentAccountError,
+        transactionError,
+      });
       return NextResponse.json(
         {
           error: 'Failed to load invoice payment account',

@@ -1,4 +1,7 @@
-import { selectPreferredOrderPaymentAccount } from '@baci/shared';
+import {
+  getPaystackDvaAccountNumberFromTransactions,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -162,6 +165,22 @@ export async function GET(
           );
         }
 
+        const isPaidOrder =
+          order.payment_status?.trim().toLowerCase() === 'paid';
+        const { data: transactions, error: transactionsError } = isPaidOrder
+          ? await supabase
+              .from('transactions')
+              .select('created_at, metadata, gateway, status, transaction_type')
+              .eq('order_id', order.id)
+              .order('created_at', { ascending: true })
+          : { data: [], error: null };
+        if (transactionsError) {
+          console.error(
+            '[API/Orders] Transaction fetch error (session):',
+            transactionsError
+          );
+        }
+
         const {
           order_payment_accounts: orderPaymentAccounts,
           ...orderWithoutPaymentAccounts
@@ -178,8 +197,10 @@ export async function GET(
                 orderPaymentAccounts,
                 new Date(),
                 {
-                  allowExpiredPaystackAccount:
-                    order.payment_status?.trim().toLowerCase() === 'paid',
+                  allowExpiredPaystackAccount: isPaidOrder,
+                  preferredPaystackAccountNumber: isPaidOrder
+                    ? getPaystackDvaAccountNumberFromTransactions(transactions)
+                    : null,
                 }
               ) || null,
           })

@@ -1,7 +1,3 @@
-import {
-  getPaystackDvaAccountNumberFromTransactions,
-  selectPreferredOrderPaymentAccount,
-} from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
@@ -11,6 +7,7 @@ import {
   normalizePaymentStatus,
   normalizeShippingStatus,
 } from '@/lib/storefront-account-document-data';
+import { resolveStorefrontOrderPaymentAccounts } from '@/lib/storefront-order-payment-accounts';
 import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
 interface JoinedProduct {
@@ -23,14 +20,6 @@ interface JoinedProduct {
     | { name?: string; slug?: string }
     | null;
 }
-
-type StorefrontOrderTransaction = {
-  order_id: string;
-  metadata: unknown;
-  gateway?: string | null;
-  status?: string | null;
-  transaction_type?: string | null;
-};
 
 function extractJoinedProduct(
   products: JoinedProduct | JoinedProduct[] | null | undefined
@@ -171,45 +160,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const paidOrderIds = (orders ?? [])
-      .filter(
-        (order) => normalizePaymentStatus(order.payment_status) === 'paid'
-      )
-      .map((order) => order.id);
-    const transactionsResult =
-      paidOrderIds.length > 0
-        ? await supabase
-            .from('transactions')
-            .select(
-              'order_id, created_at, metadata, gateway, status, transaction_type'
-            )
-            .in('order_id', paidOrderIds)
-            .order('created_at', { ascending: true })
-        : { data: [], error: null };
-
-    if (transactionsResult.error) {
-      console.error(
-        'Orders transaction fetch error:',
-        transactionsResult.error
-      );
-    }
-
-    const transactionsByOrderId = new Map<
-      string,
-      StorefrontOrderTransaction[]
-    >();
-    for (const transaction of transactionsResult.data ?? []) {
-      const orderTransactions =
-        transactionsByOrderId.get(transaction.order_id) ?? [];
-      orderTransactions.push(transaction as StorefrontOrderTransaction);
-      transactionsByOrderId.set(transaction.order_id, orderTransactions);
+    const { paymentAccountsByOrderId, transactionError } =
+      await resolveStorefrontOrderPaymentAccounts(supabase, orders ?? []);
+    if (transactionError) {
+      console.error('Orders transaction fetch error:', transactionError);
     }
 
     // Transform to expected format
     const transformedOrders = orders.map((order) => {
       const paymentStatus = normalizePaymentStatus(order.payment_status);
       const shippingStatus = normalizeShippingStatus(order.shipping_status);
-      const transactionRows = transactionsByOrderId.get(order.id) ?? [];
 
       return {
         id: order.id,
@@ -229,18 +189,7 @@ export async function GET(request: NextRequest) {
         shipping_provider: order.shipping_provider,
         payment_method: order.payment_method,
         fulfillment_details: order.fulfillment_details,
-        virtual_account:
-          selectPreferredOrderPaymentAccount(
-            order.order_payment_accounts,
-            new Date(),
-            {
-              allowExpiredPaystackAccount: paymentStatus === 'paid',
-              preferredPaystackAccountNumber:
-                paymentStatus === 'paid'
-                  ? getPaystackDvaAccountNumberFromTransactions(transactionRows)
-                  : null,
-            }
-          ) || null,
+        virtual_account: paymentAccountsByOrderId.get(order.id) ?? null,
         balance: Math.max(
           0,
           Number(order.total || 0) - Number(order.amount_paid || 0)

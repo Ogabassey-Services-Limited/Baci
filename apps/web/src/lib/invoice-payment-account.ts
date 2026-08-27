@@ -30,12 +30,14 @@ export async function resolveInvoicePaymentAccount(
   now = new Date()
 ) {
   let preferredPaystackAccountNumber: string | null = null;
+  let transactionError: unknown = null;
   if (isPaidOrder) {
-    const { data: transactions } = await supabase
+    const { data: transactions, error } = await supabase
       .from('transactions')
       .select('created_at, metadata, gateway, status, transaction_type')
       .eq('order_id', orderId)
       .order('created_at', { ascending: true });
+    transactionError = error;
     preferredPaystackAccountNumber =
       getPaystackDvaAccountNumberFromTransactions(transactions);
   }
@@ -68,6 +70,7 @@ export async function resolveInvoicePaymentAccount(
 
   return {
     error,
+    transactionError,
     paymentAccount: selectPreferredOrderPaymentAccount(rows, now, {
       allowExpiredPaystackAccount: isPaidOrder,
       allowMissingExpiryPaystackAccount: !isPaidOrder,

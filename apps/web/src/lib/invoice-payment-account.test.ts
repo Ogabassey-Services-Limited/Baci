@@ -158,4 +158,40 @@ describe('resolveInvoicePaymentAccount', () => {
     expect(result.error).toBe(error);
     expect(result.paymentAccount).toBeNull();
   });
+
+  it('returns a paid transaction lookup error alongside the payment account result', async () => {
+    const transactionError = new Error('transaction lookup unavailable');
+    const transactionQuery = createQuery({
+      data: null,
+      error: transactionError,
+    });
+    const paymentAccountQuery = createQuery({
+      data: [
+        {
+          account_name: 'Automatic confirmation',
+          account_number: '2222222222',
+          bank_name: 'Paystack',
+          created_at: '2026-08-27T10:00:00.000Z',
+          expires_at: '2026-08-27T11:30:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'transactions' ? transactionQuery : paymentAccountQuery
+      ),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await resolveInvoicePaymentAccount(
+      supabase,
+      'order-1',
+      true,
+      new Date('2026-08-27T10:15:00.000Z')
+    );
+
+    expect(result.transactionError).toBe(transactionError);
+    expect(result.error).toBeNull();
+  });
 });
