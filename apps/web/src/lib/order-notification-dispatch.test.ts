@@ -144,4 +144,25 @@ describe('dispatchOrderCreationNotifications', () => {
       'order-1'
     );
   });
+
+  it('keeps the paid confirmation after a reachable paid-order push failure', async () => {
+    const pushError = new Error('expo push unavailable');
+    mockNotifyNewOrder.mockRejectedValueOnce(pushError);
+
+    await dispatchOrderCreationNotifications(
+      input({ paymentMethod: 'pay_on_delivery', isWalletFullyPaid: true })
+    );
+
+    expect(logger.error).toHaveBeenCalledWith({
+      message: 'Push notification failed',
+      error: pushError,
+    });
+    expect(mockNotifyPaymentReceived).toHaveBeenCalledWith(
+      'merchant-1',
+      15000,
+      'NGN',
+      'ORD-001',
+      'order-1'
+    );
+  });
 });
