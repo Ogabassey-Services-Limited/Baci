@@ -7341,7 +7341,13 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
     expect(response.status).toBe(201);
     expect(supabase.rpc).toHaveBeenCalledWith(
       'create_storefront_order',
-      expect.objectContaining({ p_shipping_fee: 35_000 })
+      expect.objectContaining({
+        p_ad_tracking: expect.objectContaining({
+          __baci_airport_type: 'delivery',
+          __baci_delivery_method: 'airport',
+        }),
+        p_shipping_fee: 35_000,
+      })
     );
   });
 

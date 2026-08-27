@@ -1826,6 +1826,25 @@ export async function POST(request: NextRequest) {
           }
         : null;
 
+    const {
+      __baci_airport_type: _clientAirportType,
+      __baci_delivery_method: _clientDeliveryMethod,
+      ...adTrackingWithoutDeliveryMetadata
+    } = (adTrackingPayload ?? {}) as Record<string, unknown>;
+    const sanitizedAdTrackingPayload = adTrackingPayload
+      ? adTrackingWithoutDeliveryMetadata
+      : null;
+    const orderAdTrackingPayload =
+      delivery_method || airport_type
+        ? {
+            ...(sanitizedAdTrackingPayload ?? {}),
+            ...(delivery_method
+              ? { __baci_delivery_method: delivery_method }
+              : {}),
+            ...(airport_type ? { __baci_airport_type: airport_type } : {}),
+          }
+        : sanitizedAdTrackingPayload;
+
     // Merchant-rate orders (shipping_rate_id present) take the existing
     // pickup/airport RPC bypass: shipping_provider null + selected_quote_id
     // null. Merchant rates are computed from config — never persisted in
@@ -2321,10 +2340,10 @@ export async function POST(request: NextRequest) {
 
     // The SERVER-verified amount wins for merchant-rate orders (it differs
     // from the client value by ≤ 0.01 — anything larger was rejected above,
-    // so the RPC's ±1 expected_total parity guard still passes). The
-    // delivery metadata above is request-only validation context: the current
-    // create_storefront_order RPC has no delivery_method/airport_type
-    // parameters, so it must not be forwarded as an unknown RPC argument.
+    // so the RPC's ±1 expected_total parity guard still passes). The existing
+    // RPC signatures intentionally remain stable; delivery metadata is passed
+    // through reserved ad-tracking keys and persisted/enforced by the orders
+    // insert trigger, which strips those keys before storage.
     // idempotency hash below intentionally keeps the CLIENT value so retries
     // of the same request hash identically.
     const effectiveShippingFee =
@@ -2398,7 +2417,7 @@ export async function POST(request: NextRequest) {
       p_shipping_address: shippingAddressForOrder || null,
       p_source: source,
       p_notes: notes || null,
-      p_ad_tracking: adTrackingPayload,
+      p_ad_tracking: orderAdTrackingPayload,
       p_selected_quote_id: resolvedSelectedQuoteId,
       p_shipping_provider: resolvedShippingProvider,
       p_tracking_number: resolvedTrackingNumber || null,

@@ -8574,6 +8574,8 @@ export type Database = {
           customer_name: string | null;
           customer_phone: string | null;
           delivered_at: string | null;
+          delivery_method: string | null;
+          airport_type: string | null;
           discount_amount: number | null;
           discount_code_id: string | null;
           exchange_rate: number | null;
@@ -8657,6 +8659,8 @@ export type Database = {
           customer_name?: string | null;
           customer_phone?: string | null;
           delivered_at?: string | null;
+          delivery_method?: string | null;
+          airport_type?: string | null;
           discount_amount?: number | null;
           discount_code_id?: string | null;
           exchange_rate?: number | null;
@@ -8740,6 +8744,8 @@ export type Database = {
           customer_name?: string | null;
           customer_phone?: string | null;
           delivered_at?: string | null;
+          delivery_method?: string | null;
+          airport_type?: string | null;
           discount_amount?: number | null;
           discount_code_id?: string | null;
           exchange_rate?: number | null;
