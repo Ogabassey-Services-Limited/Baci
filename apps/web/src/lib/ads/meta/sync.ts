@@ -12,13 +12,12 @@ import { getMetaAdsConfig } from './config';
 import type { MetaAdsConnection } from './connection-types';
 import {
   META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
-  META_ADS_CONVERSION_ACTION_TYPES,
   META_ADS_PROVIDER,
 } from './constants';
+import { countMetaAdsConversions } from './conversion-count';
 import {
   fetchMetaAdsDailyInsights,
   listMetaAdsAccounts,
-  type MetaAdsDailyInsight,
   MetaAdsProviderError,
   type MetaAdsUsageTelemetry,
 } from './provider';
@@ -45,32 +44,6 @@ const inFlightSyncs = new Map<
   string,
   Promise<{ accountId: string; rowsWritten: number }>
 >();
-
-function addExactDecimalStrings(values: string[]): string {
-  const maxScale = values.reduce(
-    (maximum, value) => Math.max(maximum, value.split('.')[1]?.length ?? 0),
-    0
-  );
-  const total = values.reduce((sum, value) => {
-    const [whole, fractional = ''] = value.split('.');
-    return sum + BigInt(`${whole}${fractional.padEnd(maxScale, '0')}`);
-  }, 0n);
-  if (maxScale === 0) return total.toString();
-  const padded = total.toString().padStart(maxScale + 1, '0');
-  const whole = padded.slice(0, -maxScale);
-  const fractional = padded.slice(-maxScale).replace(/0+$/, '');
-  return fractional ? `${whole}.${fractional}` : whole;
-}
-
-function actionCount(actions: MetaAdsDailyInsight['actions']): string {
-  return addExactDecimalStrings(
-    actions
-      .filter((action) =>
-        META_ADS_CONVERSION_ACTION_TYPES.has(action.actionType)
-      )
-      .map((action) => action.value)
-  );
-}
 
 export async function markMetaAdsReauthRequired(input: {
   connection: MetaAdsConnection;
@@ -253,7 +226,7 @@ async function syncSelectedMetaAdsAccount(input: {
         usageTelemetry,
       },
       clicks: insight.clicks,
-      conversions: actionCount(insight.actions),
+      conversions: countMetaAdsConversions(insight.actions),
       currency_code: account.currencyCode,
       fetched_at: fetchedAt,
       impressions: insight.impressions,
