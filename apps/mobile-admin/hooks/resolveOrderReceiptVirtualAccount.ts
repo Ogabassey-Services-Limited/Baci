@@ -1,4 +1,7 @@
-import { getBankNameFromCode } from '@baci/shared';
+import {
+  getBankNameFromCode,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { BASE_URL } from '@/lib/api-client';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +14,6 @@ const PAYSTACK_DVA_PAYMENT_STATUSES = [
   'pending',
   'partially_paid',
 ] as const;
-const PAYSTACK_DVA_WINDOW_MS = 90 * 60 * 1000;
 
 interface ReceiptMerchantDetails {
   bank_account_name?: string | null;
@@ -37,6 +39,7 @@ interface ResolveAccountNameResponse {
 }
 
 interface ResolveAccountCandidateOptions {
+  allowDeviceClockSkew?: boolean;
   allowExpiredPaystackAccount?: boolean;
 }
 
@@ -66,46 +69,32 @@ function resolveAccountCandidate(
     return null;
   }
 
-  if (account.provider === 'paystack') {
-    if (account.assignment_customer_email_source === 'legacy_untrusted') {
-      return null;
-    }
+  const selectedAccount = selectPreferredOrderPaymentAccount(
+    [
+      {
+        account_name: account.account_name?.trim() || null,
+        account_number: accountNumber,
+        assignment_customer_email_source:
+          account.assignment_customer_email_source,
+        assigned_at: account.assigned_at,
+        bank_name: account.bank_name?.trim() || account.bank?.trim() || null,
+        created_at: account.created_at,
+        expires_at: account.expires_at,
+        provider: account.provider,
+      },
+    ],
+    new Date(),
+    options
+  );
 
-    const { allowExpiredPaystackAccount = false } = options;
-    const nowMs = Date.now();
-    const expiresAt = account.expires_at
-      ? Date.parse(account.expires_at)
-      : Number.NaN;
-    const hasExplicitExpiry = Number.isFinite(expiresAt);
-    const assignedAt = account.assigned_at
-      ? Date.parse(account.assigned_at)
-      : account.created_at
-        ? Date.parse(account.created_at)
-        : Number.NaN;
-    if (Number.isFinite(assignedAt) && nowMs < assignedAt) {
-      return null;
-    }
-    if (
-      hasExplicitExpiry &&
-      nowMs >= expiresAt &&
-      !allowExpiredPaystackAccount
-    ) {
-      return null;
-    }
-    if (
-      !hasExplicitExpiry &&
-      Number.isFinite(assignedAt) &&
-      nowMs > assignedAt + PAYSTACK_DVA_WINDOW_MS &&
-      !allowExpiredPaystackAccount
-    ) {
-      return null;
-    }
+  if (!selectedAccount) {
+    return null;
   }
 
   return {
-    account_name: account.account_name?.trim() || '',
-    account_number: accountNumber,
-    bank_name: account.bank_name?.trim() || account.bank?.trim() || '',
+    account_name: selectedAccount.account_name?.trim() || '',
+    account_number: selectedAccount.account_number.trim(),
+    bank_name: selectedAccount.bank_name?.trim() || '',
   };
 }
 
@@ -182,6 +171,7 @@ export async function resolveOrderReceiptVirtualAccount({
 
   if (order.payment_status === 'paid') {
     return resolveAccountCandidate(order.virtual_account, {
+      allowDeviceClockSkew: true,
       allowExpiredPaystackAccount: true,
     });
   }

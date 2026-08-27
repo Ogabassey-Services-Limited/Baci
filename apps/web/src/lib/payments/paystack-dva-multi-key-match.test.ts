@@ -245,6 +245,30 @@ describe('matchPaystackDvaCandidates — ambiguity + zero candidates', () => {
     }
   });
 
+  it('deduplicates repeated snapshots for one order before late ambiguity', () => {
+    const result = matchPaystackDvaCandidates(
+      [
+        candidate({
+          account_assigned_at: new Date('2026-05-09T10:00:00Z'),
+          account_created_at: new Date('2026-05-09T10:00:00Z'),
+        }),
+        candidate({
+          account_assigned_at: new Date('2026-05-09T10:30:00Z'),
+          account_created_at: new Date('2026-05-09T10:30:00Z'),
+        }),
+      ],
+      ctx({ paidAt: new Date('2026-05-09T12:53:00Z') })
+    );
+
+    expect(result).toMatchObject({
+      candidate: {
+        account_assigned_at: new Date('2026-05-09T10:30:00Z'),
+      },
+      kind: 'single',
+      timing: 'late',
+    });
+  });
+
   it('returns none when zero candidates pass the filter', () => {
     const result = matchPaystackDvaCandidates(
       [candidate({ customer_email: 'mismatch@example.com' })],

@@ -89,12 +89,14 @@ export function matchPaystackDvaCandidates(
     return true;
   });
 
-  const exactMatches = identityMatches.filter(
+  const applicableMatches = selectApplicableCandidatePerOrder(identityMatches);
+
+  const exactMatches = applicableMatches.filter(
     (candidate) =>
       Math.abs(expectedAmountKobo(candidate) - context.verifiedAmountKobo) <=
       KOBO_TOLERANCE
   );
-  const partialMatches = identityMatches.filter((candidate) => {
+  const partialMatches = applicableMatches.filter((candidate) => {
     const expected = expectedAmountKobo(candidate);
     return (
       candidate.merchant_created === true &&
@@ -126,6 +128,41 @@ export function matchPaystackDvaCandidates(
   }
 
   return { kind: 'none' };
+}
+
+function selectApplicableCandidatePerOrder(
+  candidates: readonly DvaMatchCandidate[]
+): DvaMatchCandidate[] {
+  const latestByOrder = new Map<string, DvaMatchCandidate>();
+
+  for (const candidate of candidates) {
+    const current = latestByOrder.get(candidate.order_id);
+    if (!current || isNewerCandidate(candidate, current)) {
+      latestByOrder.set(candidate.order_id, candidate);
+    }
+  }
+
+  return [...latestByOrder.values()];
+}
+
+function isNewerCandidate(
+  candidate: DvaMatchCandidate,
+  current: DvaMatchCandidate
+): boolean {
+  const candidateAssignedAt = (
+    candidate.account_assigned_at ?? candidate.account_created_at
+  ).getTime();
+  const currentAssignedAt = (
+    current.account_assigned_at ?? current.account_created_at
+  ).getTime();
+  if (candidateAssignedAt !== currentAssignedAt) {
+    return candidateAssignedAt > currentAssignedAt;
+  }
+
+  return (
+    candidate.account_created_at.getTime() >
+    current.account_created_at.getTime()
+  );
 }
 
 function expectedAmountKobo(candidate: DvaMatchCandidate): number {
