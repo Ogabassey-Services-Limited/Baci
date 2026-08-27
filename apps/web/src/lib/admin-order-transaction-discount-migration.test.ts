@@ -31,6 +31,9 @@ describe('atomic admin order transaction discount cleanup migration', () => {
     expect(migrationSql).toContain(
       "RAISE EXCEPTION 'order_transaction_discount_cleanup_failed'"
     );
+    expect(migrationSql).toContain(
+      'REVOKE ALL ON FUNCTION public.update_admin_order(uuid, jsonb)\n  FROM PUBLIC, anon, authenticated;'
+    );
     expect(migrationSql).not.toContain(
       "ARRAY['items', 'subtotal', 'shipping_fee', 'gift_wrapping_fee', 'tax_amount', 'discount_amount']::text[]"
     );

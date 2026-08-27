@@ -68,5 +68,9 @@ REVOKE ALL ON FUNCTION public.update_admin_order_with_transaction_discount_metad
 GRANT EXECUTE ON FUNCTION public.update_admin_order_with_transaction_discount_metadata(uuid, jsonb)
   TO authenticated;
 
+-- Force authenticated callers through the transaction-discount cleanup wrapper.
+REVOKE ALL ON FUNCTION public.update_admin_order(uuid, jsonb)
+  FROM PUBLIC, anon, authenticated;
+
 COMMENT ON FUNCTION public.update_admin_order_with_transaction_discount_metadata(uuid, jsonb)
   IS 'Atomically applies an admin order edit and clears negotiated discount metadata when merchandise or discount fields change.';
