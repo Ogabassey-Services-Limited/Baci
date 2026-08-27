@@ -1,10 +1,18 @@
 import type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
+import {
+  DISCOUNT_TOLERANCE,
+  getProductVariantIdentity,
+  toPositiveInteger,
+} from './transaction-review-discount-helpers';
+import { getValidatedLineKeyDiscounts } from './transaction-review-discount-line-key-allocations';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export interface DiscountableTransactionItem {
+  condition?: string | null;
   line_id?: number | string | null;
   product_id?: string | null;
   variant_id?: string | null;
+  variant_attributes?: Record<string, string> | null;
   price: number | string | null;
   quantity: number | string | null;
   assurance_fee?: number | string | null;
@@ -12,7 +20,7 @@ export interface DiscountableTransactionItem {
   vat_rate?: number | string | null;
 }
 
-type ValidatedExplicitLineDiscounts =
+export type ValidatedExplicitLineDiscounts =
   | {
       allocationsByLineId: Map<number, TransactionDiscountLineAllocation>;
       mode: 'lineId';
@@ -20,18 +28,14 @@ type ValidatedExplicitLineDiscounts =
   | {
       allocationsByIdentity: Map<string, TransactionDiscountLineAllocation>;
       mode: 'identity';
+    }
+  | {
+      allocationsByLineKey: Map<string, TransactionDiscountLineAllocation>;
+      allocationsByIdentity: Map<string, TransactionDiscountLineAllocation>;
+      mode: 'lineKey';
     };
 
-export function toPositiveInteger(value: unknown): number | null {
-  const numericValue = toFiniteNumberOrNull(value);
-  return numericValue != null &&
-    Number.isInteger(numericValue) &&
-    numericValue > 0
-    ? numericValue
-    : null;
-}
-
-const DISCOUNT_TOLERANCE = 0.01;
+export { toPositiveInteger } from './transaction-review-discount-helpers';
 
 export function getValidatedExplicitLineDiscounts(
   items: DiscountableTransactionItem[],
@@ -43,6 +47,20 @@ export function getValidatedExplicitLineDiscounts(
   normalizedDiscount: number,
   explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>
 ): ValidatedExplicitLineDiscounts | undefined {
+  const usesPersistedLineKey = explicitLineDiscounts.some(
+    (allocation) =>
+      typeof allocation?.lineKey === 'string' && allocation.lineKey.length > 0
+  );
+
+  if (usesPersistedLineKey) {
+    return getValidatedLineKeyDiscounts(
+      items,
+      lineTotals,
+      normalizedDiscount,
+      explicitLineDiscounts
+    );
+  }
+
   const usesPersistedIdentity = explicitLineDiscounts.some(
     (allocation) => allocation?.productId !== undefined
   );
@@ -50,17 +68,13 @@ export function getValidatedExplicitLineDiscounts(
   if (usesPersistedIdentity) {
     const itemIndexesByIdentity = new Map<string, number>();
     for (const [itemIndex, item] of items.entries()) {
-      if (
-        typeof item.product_id !== 'string' ||
-        item.product_id.trim().length === 0 ||
-        (item.variant_id !== null && typeof item.variant_id !== 'string')
-      ) {
+      const identity = getProductVariantIdentity(
+        item.product_id,
+        item.variant_id
+      );
+      if (identity == null) {
         return undefined;
       }
-      const identity = JSON.stringify([
-        item.product_id,
-        item.variant_id ?? null,
-      ]);
       if (itemIndexesByIdentity.has(identity)) {
         // Ambiguous duplicate identities cannot safely receive a negotiated
         // line allocation; proportional fallback is safer than guessing.
@@ -78,18 +92,13 @@ export function getValidatedExplicitLineDiscounts(
       if (allocation == null) {
         continue;
       }
-      if (
-        typeof allocation.productId !== 'string' ||
-        allocation.productId.trim().length === 0 ||
-        (allocation.variantId !== null &&
-          typeof allocation.variantId !== 'string')
-      ) {
+      const identity = getProductVariantIdentity(
+        allocation.productId,
+        allocation.variantId
+      );
+      if (identity == null) {
         return undefined;
       }
-      const identity = JSON.stringify([
-        allocation.productId,
-        allocation.variantId ?? null,
-      ]);
       const itemIndex = itemIndexesByIdentity.get(identity);
       const line = itemIndex == null ? undefined : lineTotals[itemIndex];
       const lineId = toPositiveInteger(allocation.lineId);
@@ -107,7 +116,8 @@ export function getValidatedExplicitLineDiscounts(
         vatRelief == null ||
         vatRelief < 0 ||
         merchandiseDiscount > line.merchandiseTotal + DISCOUNT_TOLERANCE ||
-        vatRelief > line.total + DISCOUNT_TOLERANCE
+        vatRelief > line.total + DISCOUNT_TOLERANCE ||
+        merchandiseDiscount + vatRelief > line.total + DISCOUNT_TOLERANCE
       ) {
         return undefined;
       }
@@ -176,7 +186,8 @@ export function getValidatedExplicitLineDiscounts(
     if (
       !line ||
       merchandiseDiscount > line.merchandiseTotal + DISCOUNT_TOLERANCE ||
-      vatRelief > line.total + DISCOUNT_TOLERANCE
+      vatRelief > line.total + DISCOUNT_TOLERANCE ||
+      merchandiseDiscount + vatRelief > line.total + DISCOUNT_TOLERANCE
     ) {
       return undefined;
     }

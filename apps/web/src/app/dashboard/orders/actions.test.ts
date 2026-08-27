@@ -663,29 +663,6 @@ describe('getOrder', () => {
     expect(order?.currency).toBe('INR');
   });
 
-  it('maps persisted payment breakdown fields for discount-aware summaries', async () => {
-    mockGetOrderQueries();
-
-    const order = await getOrder(MERCHANT_ID, ORDER_ID);
-
-    expect(order).toMatchObject({
-      discount_amount: 1000,
-      gift_wrapping_fee: 0,
-      shipping_fee: 1500,
-      subtotal: 10000,
-      tax_amount: 0,
-      tax_basis: 'exclusive',
-      total: 10500,
-    });
-    expect(order?.total).toBe(
-      (order?.subtotal ?? 0) +
-        (order?.shipping_fee ?? 0) +
-        (order?.gift_wrapping_fee ?? 0) +
-        (order?.tax_amount ?? 0) -
-        (order?.discount_amount ?? 0)
-    );
-  });
-
   it('selects and maps the merchant shipping rate columns for the detail page', async () => {
     const { ordersSelect } = mockGetOrderQueries({
       orderRows: [

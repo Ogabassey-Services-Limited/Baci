@@ -1,4 +1,5 @@
 import {
+  buildTransactionDiscountLineKey,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
   type TransactionDiscountLineAllocation,
 } from '@baci/shared';
@@ -15,6 +16,8 @@ export interface NegotiationLineInput {
   /** Persisted order-item identity used to match allocations after RPC reads. */
   productId: string;
   variantId: string | null;
+  condition?: string | null;
+  variantAttributes?: Record<string, string> | null;
   quantity: number;
   negotiable: boolean;
   vatCategoryCode: string | null;
@@ -51,6 +54,25 @@ export function computeEligibleLineDiscount(
 ): EligibleLineDiscountResult {
   let totalDiscount = 0;
   const lineDiscounts: Array<EligibleLineDiscountAllocation | null> = [];
+  const productVariantCounts = new Map<string, number>();
+  const persistedLineKeyCounts = new Map<string, number>();
+  for (const line of lines) {
+    const identity = JSON.stringify([line.productId, line.variantId]);
+    productVariantCounts.set(
+      identity,
+      (productVariantCounts.get(identity) ?? 0) + 1
+    );
+    const lineKey = buildTransactionDiscountLineKey({
+      condition: line.condition,
+      productId: line.productId,
+      variantAttributes: line.variantAttributes,
+      variantId: line.variantId,
+    });
+    persistedLineKeyCounts.set(
+      lineKey,
+      (persistedLineKeyCounts.get(lineKey) ?? 0) + 1
+    );
+  }
 
   for (const [lineIndex, lineInput] of lines.entries()) {
     const resolvedLineId =
@@ -115,13 +137,28 @@ export function computeEligibleLineDiscount(
     // negotiated total the customer saw.
     const reductionVat = roundToCents((reduction * rate) / 100);
     totalDiscount = roundToCents(totalDiscount + reduction + reductionVat);
-    lineDiscounts[outputLineIndex] = {
+    const allocation: EligibleLineDiscountAllocation = {
       lineId: resolvedLineId,
       merchandiseDiscount: reduction,
       productId: lineInput.productId,
       vatRelief: reductionVat,
       variantId: lineInput.variantId,
     };
+    const lineKey = buildTransactionDiscountLineKey({
+      condition: lineInput.condition,
+      productId: lineInput.productId,
+      variantAttributes: lineInput.variantAttributes,
+      variantId: lineInput.variantId,
+    });
+    if (
+      (productVariantCounts.get(
+        JSON.stringify([lineInput.productId, lineInput.variantId])
+      ) ?? 0) > 1 &&
+      persistedLineKeyCounts.get(lineKey) === 1
+    ) {
+      allocation.lineKey = lineKey;
+    }
+    lineDiscounts[outputLineIndex] = allocation;
   }
 
   return {

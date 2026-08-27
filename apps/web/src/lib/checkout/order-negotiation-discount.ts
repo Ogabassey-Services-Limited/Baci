@@ -27,7 +27,9 @@ type NegotiationCatalogRow = {
 };
 
 type NegotiationDiscountItem = {
+  condition?: string | null;
   product_id?: string;
+  variant_attributes?: Record<string, string> | null;
   variant_id?: string | null;
   quantity: number;
   price: number; // client negotiated unit price (orderItemsPayload[].price)
@@ -141,6 +143,8 @@ export async function computeOrderNegotiationDiscount({
       lineId,
       productId: item.product_id,
       quantity: Number(item.quantity),
+      condition: item.condition ?? null,
+      variantAttributes: item.variant_attributes ?? null,
       negotiable: isProductNegotiable({
         brand: product.brand,
         name: product.name,

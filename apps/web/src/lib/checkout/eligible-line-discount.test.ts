@@ -1,3 +1,4 @@
+import { buildTransactionDiscountLineKey } from '@baci/shared';
 import { describe, expect, it } from 'vitest';
 import {
   computeEligibleLineDiscount,
@@ -222,5 +223,60 @@ describe('computeEligibleLineDiscount', () => {
         variantId: null,
       },
     ]);
+  });
+
+  it('persists distinct keys for discounted duplicate product and variant lines', () => {
+    const result = computeEligibleLineDiscount([
+      line({
+        clientUnitPrice: 980,
+        condition: 'new',
+        variantAttributes: { Color: 'Blue' },
+      }),
+      line({
+        clientUnitPrice: 990,
+        condition: 'used',
+        variantAttributes: { Color: 'Green' },
+      }),
+    ]);
+
+    expect(result.lineDiscounts).toEqual([
+      {
+        lineId: 1,
+        lineKey: buildTransactionDiscountLineKey({
+          condition: 'new',
+          productId: 'product-1',
+          variantAttributes: { Color: 'Blue' },
+          variantId: null,
+        }),
+        merchandiseDiscount: 20,
+        productId: 'product-1',
+        vatRelief: 1.5,
+        variantId: null,
+      },
+      {
+        lineId: 2,
+        lineKey: buildTransactionDiscountLineKey({
+          condition: 'used',
+          productId: 'product-1',
+          variantAttributes: { Color: 'Green' },
+          variantId: null,
+        }),
+        merchandiseDiscount: 10,
+        productId: 'product-1',
+        vatRelief: 0.75,
+        variantId: null,
+      },
+    ]);
+  });
+
+  it('does not persist a key when duplicate lines have the same identity', () => {
+    const result = computeEligibleLineDiscount([
+      line({ clientUnitPrice: 980 }),
+      line({ clientUnitPrice: 990 }),
+    ]);
+
+    expect(
+      result.lineDiscounts?.map((allocation) => allocation?.lineKey)
+    ).toEqual([undefined, undefined]);
   });
 });

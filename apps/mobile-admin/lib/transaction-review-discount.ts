@@ -6,7 +6,9 @@ import {
   type DiscountableTransactionItem,
   getValidatedExplicitLineDiscounts,
   toPositiveInteger,
+  type ValidatedExplicitLineDiscounts,
 } from './transaction-review-discount-allocations';
+import { getPersistedLineKey } from './transaction-review-discount-line-key';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
@@ -53,7 +55,7 @@ export function parseTransactionDiscountOptions(
 
   let hasInvalidLine = false;
   const lineIds = new Set<number>();
-  const lineIdentities = new Set<string>();
+  const lineKeys = new Set<string>();
   const lineDiscounts = metadata.lineDiscounts.map((line) => {
     if (line === null) {
       return null;
@@ -78,6 +80,11 @@ export function parseTransactionDiscountOptions(
       productId == null || variantId === undefined
         ? null
         : JSON.stringify([productId, variantId]);
+    const lineKey =
+      typeof line.lineKey === 'string' && line.lineKey.length > 0
+        ? line.lineKey
+        : null;
+    const persistedIdentity = lineKey ?? lineIdentity;
     if (
       lineId == null ||
       lineIds.has(lineId) ||
@@ -86,18 +93,19 @@ export function parseTransactionDiscountOptions(
       vatRelief == null ||
       vatRelief < 0 ||
       (metadata.version === 3 &&
-        (lineIdentity == null || lineIdentities.has(lineIdentity)))
+        (persistedIdentity == null || lineKeys.has(persistedIdentity)))
     ) {
       hasInvalidLine = true;
       return null;
     }
     lineIds.add(lineId);
-    if (lineIdentity != null) {
-      lineIdentities.add(lineIdentity);
+    if (persistedIdentity != null) {
+      lineKeys.add(persistedIdentity);
     }
     return merchandiseDiscount > 0 || vatRelief > 0
       ? {
           lineId,
+          ...(lineKey ? { lineKey } : {}),
           merchandiseDiscount,
           ...(metadata.version === 3
             ? { productId: productId as string, variantId: variantId ?? null }
@@ -112,6 +120,41 @@ export function parseTransactionDiscountOptions(
   }
 
   return { lineDiscounts };
+}
+
+function resolveAllocation(
+  allocations: ValidatedExplicitLineDiscounts,
+  item: DiscountableTransactionItem
+): TransactionDiscountLineAllocation | undefined {
+  const identity =
+    typeof item.product_id === 'string' &&
+    (item.variant_id === null || typeof item.variant_id === 'string')
+      ? JSON.stringify([item.product_id, item.variant_id ?? null])
+      : null;
+
+  if (allocations.mode === 'lineKey') {
+    const lineKey = getPersistedLineKey(item);
+    if (lineKey != null) {
+      const keyedAllocation = allocations.allocationsByLineKey.get(lineKey);
+      if (keyedAllocation) {
+        return keyedAllocation;
+      }
+    }
+    return identity == null
+      ? undefined
+      : allocations.allocationsByIdentity.get(identity);
+  }
+
+  if (allocations.mode === 'identity') {
+    return identity == null
+      ? undefined
+      : allocations.allocationsByIdentity.get(identity);
+  }
+
+  const lineId = toPositiveInteger(item.line_id);
+  return lineId == null
+    ? undefined
+    : allocations.allocationsByLineId.get(lineId);
 }
 
 /**
@@ -166,24 +209,10 @@ export function getDiscountedTransactionUnitPrices(
       }
 
       const line = lineTotals[index];
-      const allocation =
-        allocationsByLineId.mode === 'identity'
-          ? typeof items[index]?.product_id === 'string' &&
-            (items[index]?.variant_id === null ||
-              typeof items[index]?.variant_id === 'string')
-            ? allocationsByLineId.allocationsByIdentity.get(
-                JSON.stringify([
-                  items[index]?.product_id,
-                  items[index]?.variant_id ?? null,
-                ])
-              )
-            : undefined
-          : (() => {
-              const lineId = toPositiveInteger(items[index]?.line_id);
-              return lineId
-                ? allocationsByLineId.allocationsByLineId.get(lineId)
-                : undefined;
-            })();
+      const item = items[index];
+      const allocation = item
+        ? resolveAllocation(allocationsByLineId, item)
+        : undefined;
       if (
         !line ||
         line.quantity <= 0 ||

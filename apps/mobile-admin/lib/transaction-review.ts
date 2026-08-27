@@ -101,7 +101,8 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
     const orderItems = order.order_items ?? [];
-    const isNetPricedMarketplaceOrder = order.source?.toLowerCase() === 'jumia';
+    const isNetPricedMarketplaceOrder =
+      order.external_source?.toLowerCase() === 'jumia';
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
       isNetPricedMarketplaceOrder ? 0 : order.discount_amount,

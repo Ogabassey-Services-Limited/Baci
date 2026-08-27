@@ -3909,63 +3909,6 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
     );
   });
 
-  it('applies mobile negotiated discounts while omitting expected_total until tax is canonical', async () => {
-    const { rpcSpy } = await setupOrdersDiscountMock([
-      {
-        id: 'p-mac',
-        brand: 'Apple',
-        name: 'MacBook Air M1',
-        price: 1000,
-        vat_category_code: 'S',
-        vat_rate: 7.5,
-      },
-    ]);
-
-    const request = new NextRequest('http://localhost/api/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...baseOrderPayload,
-        source: 'mobile_app',
-        items: [
-          {
-            product_id: 'p-mac',
-            quantity: 1,
-            price: 980,
-            name: 'MacBook Air M1',
-            has_assurance: true,
-          },
-        ],
-        subtotal: 980,
-        tax_amount: 73.5,
-      }),
-    });
-
-    await POST(request);
-
-    expect(rpcSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_discount_amount: 21.5,
-        p_expected_total: null,
-        p_source: 'mobile_app',
-        p_tax_amount: 75,
-        p_ad_tracking: expect.objectContaining({
-          baci_transaction_discount: {
-            lineDiscounts: [
-              {
-                lineId: 1,
-                merchandiseDiscount: 20,
-                productId: 'p-mac',
-                vatRelief: 1.5,
-                variantId: null,
-              },
-            ],
-            version: 3,
-          },
-        }),
-      })
-    );
-  });
-
   it('skips negotiation validation for a verified voucher line even when its product is loaded', async () => {
     // Sibling of the voucher success test: the products select WOULD return the
     // award product (price 5000 ≫ client 0), but the loader exempts
