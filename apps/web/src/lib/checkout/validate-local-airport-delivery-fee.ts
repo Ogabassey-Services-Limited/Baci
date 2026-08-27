@@ -108,6 +108,7 @@ function isEligibleAirportQuote(
 
 async function validateSelectedAirportQuote({
   merchantId,
+  requestIdempotencyKey,
   selectedQuoteId,
   shippingFee,
   shippingProvider,
@@ -115,12 +116,13 @@ async function validateSelectedAirportQuote({
 }: Pick<
   ValidateLocalAirportDeliveryFeeInput,
   | 'merchantId'
+  | 'requestIdempotencyKey'
   | 'selectedQuoteId'
   | 'shippingFee'
   | 'shippingProvider'
   | 'supabase'
->): Promise<void> {
-  if (!selectedQuoteId) return;
+>): Promise<boolean> {
+  if (!selectedQuoteId) return false;
 
   const { data, error } = await supabase.rpc('get_checkout_shipping_quote', {
     p_merchant_id: merchantId,
@@ -154,6 +156,13 @@ async function validateSelectedAirportQuote({
       ? Date.parse(quote.expires_at)
       : Number.NaN;
   if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
+    const isIdempotentReplay = await isConfirmedLocalAirportReplay({
+      merchantId,
+      requestIdempotencyKey,
+      supabase,
+    });
+    if (isIdempotentReplay) return true;
+
     throw new LocalAirportDeliveryValidationError(
       'The selected airport delivery quote has expired',
       'AIRPORT_QUOTE_EXPIRED',
@@ -166,8 +175,17 @@ async function validateSelectedAirportQuote({
     Number.isFinite(quotePrice) &&
     Math.abs(shippingFee - quotePrice) > 0.01
   ) {
+    const isIdempotentReplay = await isConfirmedLocalAirportReplay({
+      merchantId,
+      requestIdempotencyKey,
+      supabase,
+    });
+    if (isIdempotentReplay) return true;
+
     throw new LocalAirportDeliveryFeeMismatchError(shippingFee, quotePrice);
   }
+
+  return false;
 }
 
 async function isConfirmedLocalAirportReplay({
@@ -228,15 +246,16 @@ export async function validateLocalAirportDeliveryFee({
   }
 
   if (deliveryMethod === 'airport' && selectedQuoteId) {
-    await validateSelectedAirportQuote({
+    const isIdempotentLocalAirportReplay = await validateSelectedAirportQuote({
       merchantId,
+      requestIdempotencyKey,
       selectedQuoteId,
       shippingFee,
       shippingProvider,
       supabase,
     });
     return {
-      isIdempotentLocalAirportReplay: false,
+      isIdempotentLocalAirportReplay,
       localAirportShippingFee: null,
     };
   }

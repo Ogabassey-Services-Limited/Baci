@@ -3329,6 +3329,72 @@ describe('POST /api/orders — selected shipping quote validation', () => {
     );
   });
 
+  it('replays an expired airport provider quote when the idempotency key already exists', async () => {
+    // Arrange — the original provider-backed airport order was created, but
+    // the response was lost and the one-hour quote has since expired. The
+    // replay probe must let the canonical RPC return the existing order.
+    const supabaseMod = await import('@/lib/supabase/server');
+    const supabase = buildMockSupabase(
+      {
+        has_storefront_order_idempotency_key: { data: true, error: null },
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      },
+      {
+        productRows: [
+          { id: 'p-1', name: 'Widget', price: 1000, slug: 'widget' },
+        ],
+        shippingQuote: {
+          provider: 'GIGL',
+          provider_rate_id: 'GIGL_30_0_1_0_1_4',
+          price: 18_500,
+          expires_at: '2020-01-01T00:00:00.000Z',
+        },
+      }
+    );
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    // Act
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'airport-provider-retry-key' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          delivery_method: 'airport',
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+          shipping_fee: 18_500,
+        }),
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    await expect(readJson(response)).resolves.toMatchObject({
+      idempotency: { replayed: true },
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'has_storefront_order_idempotency_key',
+      {
+        p_checkout_idempotency_key: 'airport-provider-retry-key',
+        p_merchant_id: MERCHANT_ID,
+      }
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'airport-provider-retry-key',
+        p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
+        p_shipping_fee: 18_500,
+      })
+    );
+  });
+
   it('validates selected GIGL international quote items against canonical products', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     const supabase = buildMockSupabase(

@@ -43,6 +43,31 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('allows a confirmed idempotent replay after the provider quote expires', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      deliveryMethod: 'airport',
+      merchantId: MERCHANT_ID,
+      requestIdempotencyKey: 'airport-provider-retry-key',
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingFee: 18_500,
+      shippingProvider: 'GIGL',
+      supabase: mockSupabase(
+        [
+          {
+            ...validGoFasterQuote,
+            expires_at: '2020-01-01T00:00:00.000Z',
+          },
+        ],
+        true
+      ),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: true,
+      localAirportShippingFee: null,
+    });
+  });
+
   it('rejects a selected road quote instead of bypassing the fixed airport fee', async () => {
     const promise = validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',
