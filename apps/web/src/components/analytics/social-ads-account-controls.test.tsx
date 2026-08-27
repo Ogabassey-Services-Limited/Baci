@@ -282,6 +282,7 @@ describe('SocialAdsAccountControls', () => {
   });
 
   it('shows a safe sync error without exposing response internals', async () => {
+    const onSynced = vi.fn();
     fetchWithCsrf.mockResolvedValue(
       new Response(
         JSON.stringify({ error: 'TikTok reporting is unavailable' }),
@@ -296,6 +297,7 @@ describe('SocialAdsAccountControls', () => {
         displayName="TikTok Ads"
         merchantId="550e8400-e29b-41d4-a716-446655440000"
         needsAccountSelection={false}
+        onSynced={onSynced}
         provider="tiktok_ads"
       />
     );
@@ -307,6 +309,7 @@ describe('SocialAdsAccountControls', () => {
     expect(
       screen.queryByRole('button', { name: 'Retry account discovery' })
     ).not.toBeInTheDocument();
+    expect(onSynced).toHaveBeenCalledOnce();
   });
 
   it('syncs the local calendar day near a positive-offset midnight boundary', async () => {

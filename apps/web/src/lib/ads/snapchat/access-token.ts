@@ -66,20 +66,26 @@ export async function getSnapchatAdsUsableGrant(input: {
   credentialSupabase: AdsCredentialServiceClient;
   merchantId: string;
 }): Promise<SnapchatAdsUsableGrant> {
-  const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
   const expiresAt = input.connection.token_expires_at
     ? Date.parse(input.connection.token_expires_at)
     : Number.NaN;
-  if (
-    !Number.isFinite(expiresAt) ||
-    expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
-  )
-    return {
-      accessToken: token,
-      accessTokenCiphertext: input.connection.access_token_ciphertext,
-      refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
-      tokenExpiresAt: input.connection.token_expires_at,
-    };
+
+  // A legacy connection can have a refresh grant without an access token.
+  // Skip access-token resolution in that case so the refresh path can recover
+  // the connection instead of surfacing an unhandled reauth error.
+  if (input.connection.access_token_ciphertext) {
+    const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
+    if (
+      !Number.isFinite(expiresAt) ||
+      expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
+    )
+      return {
+        accessToken: token,
+        accessTokenCiphertext: input.connection.access_token_ciphertext,
+        refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
+        tokenExpiresAt: input.connection.token_expires_at,
+      };
+  }
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
   let grant: SnapchatAdsGrant;

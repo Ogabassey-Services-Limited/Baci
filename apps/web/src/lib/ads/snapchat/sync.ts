@@ -66,8 +66,6 @@ export async function markSnapchatAdsReauthRequired(input: {
   failureCode: string;
   merchantId: string;
 }): Promise<void> {
-  if (!input.connection.access_token_ciphertext)
-    throw new SnapchatAdsSyncError('SNAPCHAT_ADS_REAUTH_PERSIST_FAILED');
   const { error } = await input.credentialSupabase.rpc(
     'mark_merchant_ads_connection_reauth_if_current',
     {

@@ -123,7 +123,6 @@ export function SocialAdsAccountControls({
     setErrorSource(null);
     try {
       await sync();
-      onSynced?.();
     } catch (syncError) {
       setErrorSource('sync');
       setError(
@@ -132,6 +131,7 @@ export function SocialAdsAccountControls({
           : `Unable to sync ${displayName}.`
       );
     } finally {
+      onSynced?.();
       setIsSaving(false);
     }
   };
