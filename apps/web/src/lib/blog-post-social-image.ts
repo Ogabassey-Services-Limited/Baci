@@ -32,12 +32,8 @@ function getAbsoluteHttpUrl(value: unknown): string | null {
 }
 
 function getImageMimeType(url: string): `image/${string}` | undefined {
-  let pathname: string;
-  try {
-    pathname = new URL(url).pathname;
-  } catch {
-    return undefined;
-  }
+  const pathname = getImagePathname(url);
+  if (!pathname) return undefined;
 
   const extension = pathname.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
   if (!extension) return undefined;
@@ -47,6 +43,14 @@ function getImageMimeType(url: string): `image/${string}` | undefined {
   if (extension === 'webp') return 'image/webp';
   if (extension === 'avif') return 'image/avif';
   return undefined;
+}
+
+function getImagePathname(url: string): string | undefined {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return undefined;
+  }
 }
 
 function getPositiveDimension(value: unknown): number | undefined {
@@ -84,11 +88,17 @@ function projectDirectImage(
     );
     const transformedMimeType =
       url !== sourceUrl
-        ? (`image/${resolveOgabasseyCdnFallbackFormat(sourceUrl)}` as const)
+        ? (`image/${resolveOgabasseyCdnFallbackFormat(getImagePathname(sourceUrl) ?? '')}` as const)
         : mimeType;
+    const transformedDimensions =
+      url !== sourceUrl && !isLandscape
+        ? getTransformedDimensions(dimensions)
+        : isLandscape
+          ? LANDSCAPE_DIMENSIONS
+          : dimensions;
     return {
       url,
-      ...(isLandscape ? LANDSCAPE_DIMENSIONS : dimensions),
+      ...transformedDimensions,
       ...(transformedMimeType ? { type: transformedMimeType } : {}),
     };
   }
@@ -98,6 +108,20 @@ function projectDirectImage(
     ...(isLandscape ? LANDSCAPE_DIMENSIONS : dimensions),
     ...(mimeType ? { type: mimeType } : {}),
   };
+}
+
+function getTransformedDimensions(dimensions?: {
+  width?: number;
+  height?: number;
+}): { width: number; height: number } | undefined {
+  const width = getPositiveDimension(dimensions?.width);
+  const height = getPositiveDimension(dimensions?.height);
+  if (width === undefined || height === undefined) return undefined;
+
+  const transformedHeight = Math.round((1200 * height) / width);
+  return transformedHeight > 0
+    ? { width: 1200, height: transformedHeight }
+    : undefined;
 }
 
 /**

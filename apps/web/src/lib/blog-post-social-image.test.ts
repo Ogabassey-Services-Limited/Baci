@@ -115,4 +115,36 @@ describe('blog post social image projection', () => {
       });
     }
   });
+
+  it('keeps PNG MIME for managed PNG URLs with query strings and hashes', () => {
+    expect(
+      getBlogPostSocialImage(
+        STORE_URL,
+        POST_SLUG,
+        'https://cdn.ogabassey.com/core-assets/blog/card.png?version=1#hero',
+        {}
+      )
+    ).toEqual({
+      url: 'https://cdn.ogabassey.com/image/width=1200,quality=75,format=png/core-assets/blog/card.png?version=1#hero',
+      type: 'image/png',
+    });
+  });
+
+  it('matches transformed managed-original dimensions to its 1200px output', () => {
+    expect(
+      getBlogPostSocialImage(
+        STORE_URL,
+        POST_SLUG,
+        'https://cdn.ogabassey.com/core-assets/blog/card.jpg',
+        {},
+        1600,
+        900
+      )
+    ).toEqual({
+      url: 'https://cdn.ogabassey.com/image/width=1200,quality=75,format=jpeg/core-assets/blog/card.jpg',
+      width: 1200,
+      height: 675,
+      type: 'image/jpeg',
+    });
+  });
 });
