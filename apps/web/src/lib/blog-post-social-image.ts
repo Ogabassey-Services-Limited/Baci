@@ -59,6 +59,10 @@ function getPositiveDimension(value: unknown): number | undefined {
     : undefined;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function getCompatibilityImageUrl(storeUrl: string, postSlug: string): string {
   const baseUrl = storeUrl.endsWith('/') ? storeUrl : `${storeUrl}/`;
   try {
@@ -137,12 +141,7 @@ export function getBlogPostSocialImage(
   featuredImageWidth?: unknown,
   featuredImageHeight?: unknown
 ): BlogPostSocialImage {
-  const variants =
-    featuredImageVariants &&
-    typeof featuredImageVariants === 'object' &&
-    !Array.isArray(featuredImageVariants)
-      ? featuredImageVariants
-      : {};
+  const variants = isRecord(featuredImageVariants) ? featuredImageVariants : {};
   const landscapeUrl = getAbsoluteHttpUrl(variants.landscape_16x9);
   const originalUrl = getAbsoluteHttpUrl(featuredImageUrl);
 
