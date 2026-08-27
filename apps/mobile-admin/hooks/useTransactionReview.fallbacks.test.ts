@@ -142,6 +142,7 @@ describe('useTransactionReview schema fallbacks', () => {
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: [baseOrder], error: null });
 
     const { result } = renderHook(() => useTransactionReview(), {
@@ -151,7 +152,7 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([baseOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      4,
+      5,
       expect.objectContaining({
         selectStatement: expect.not.stringContaining('discount_amount'),
       })
@@ -177,6 +178,7 @@ describe('useTransactionReview schema fallbacks', () => {
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: [discountedOrder], error: null });
 
     const { result } = renderHook(() => useTransactionReview(), {
@@ -186,7 +188,7 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      3,
+      4,
       expect.objectContaining({
         includeCancelledAt: true,
         includeTransactionDate: false,
@@ -219,7 +221,7 @@ describe('useTransactionReview schema fallbacks', () => {
       total: 75,
     };
 
-    for (let attempt = 0; attempt < 8; attempt += 1) {
+    for (let attempt = 0; attempt < 9; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,
         error: lineIdSchemaError,
@@ -237,13 +239,13 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      9,
+      10,
       expect.objectContaining({
         selectStatement: expect.stringContaining('discount_amount'),
       })
     );
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[8][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[9][0].selectStatement
     ).not.toContain('line_id');
   });
 
@@ -265,7 +267,7 @@ describe('useTransactionReview schema fallbacks', () => {
       total: 100,
     };
 
-    const failedAttempts = 11;
+    const failedAttempts = 12;
     for (let attempt = 0; attempt < failedAttempts; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,

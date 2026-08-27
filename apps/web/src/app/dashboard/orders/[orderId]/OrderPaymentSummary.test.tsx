@@ -91,6 +91,26 @@ describe('OrderPaymentSummary', () => {
     );
   });
 
+  it('labels an unknown tax basis without treating taxes as exclusive', () => {
+    render(
+      <OrderPaymentSummary
+        order={{
+          currency: 'NGN',
+          paymentMethod: null,
+          shipping_fee: 0,
+          tax_amount: 750,
+          tax_basis: null,
+          total: 10000,
+        }}
+      />
+    );
+
+    expect(screen.getByText('Taxes (unclassified)')).toBeInTheDocument();
+    expect(screen.getByText('Subtotal').parentElement).toHaveTextContent(
+      '₦10,000'
+    );
+  });
+
   it('shows gift wrapping as a separate total component', () => {
     render(
       <OrderPaymentSummary

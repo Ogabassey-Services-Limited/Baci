@@ -41,6 +41,12 @@ export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
   const taxes = normalizeAmount(order.tax_amount);
   const discountAmount = normalizeAmount(order.discount_amount);
   const taxesIncluded = order.tax_basis === 'inclusive';
+  const taxesExcluded = order.tax_basis === 'exclusive';
+  const taxLabel = taxesIncluded
+    ? 'Taxes (included)'
+    : order.tax_basis == null
+      ? 'Taxes (unclassified)'
+      : 'Taxes';
   const subtotal = normalizeAmount(
     order.subtotal,
     Math.max(
@@ -48,7 +54,7 @@ export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
       order.total -
         shippingFee -
         giftWrappingFee -
-        (taxesIncluded ? 0 : taxes) +
+        (taxesExcluded ? taxes : 0) +
         discountAmount
     )
   );
@@ -90,7 +96,7 @@ export function OrderPaymentSummary({ order }: OrderPaymentSummaryProps) {
           </div>
         )}
         <div className="flex justify-between">
-          <span>{taxesIncluded ? 'Taxes (included)' : 'Taxes'}</span>{' '}
+          <span>{taxLabel}</span>{' '}
           <span>{formatCurrency(taxes, orderCurrency)}</span>
         </div>
         {discountAmount > 0 && (

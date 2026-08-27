@@ -39,6 +39,7 @@ function warnTransactionReviewQueryError(
     | 'BaseWithDiscount'
     | 'Full'
     | 'FullNoDiscount'
+    | 'LegacyNoAdjustments'
     | 'Legacy',
   error: TransactionReviewQueryError
 ) {
@@ -105,6 +106,24 @@ export async function fetchTransactionReviewWithFallbacks({
     error = legacyResult.error;
 
     warnTransactionReviewQueryError('Legacy', error);
+  }
+
+  if (isTransactionReviewSchemaCacheError(error)) {
+    const legacyNoAdjustmentsResult = await fetchTransactionReviewRows({
+      endDateFilter,
+      endDateIso,
+      includeCancelledAt: true,
+      includeTransactionDate: true,
+      merchantId,
+      selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments,
+      startDateFilter,
+      startDateIso,
+    });
+
+    data = legacyNoAdjustmentsResult.data;
+    error = legacyNoAdjustmentsResult.error;
+
+    warnTransactionReviewQueryError('LegacyNoAdjustments', error);
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {

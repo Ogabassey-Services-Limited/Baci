@@ -44,7 +44,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
 
   it('uses the final projection without variant_id after schema-cache retries', async () => {
     const rows = [{ id: 'legacy-order' }];
-    for (let attempt = 0; attempt < 11; attempt += 1) {
+    for (let attempt = 0; attempt < 12; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,
         error: schemaCacheError,
@@ -60,15 +60,41 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(12);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(13);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[11][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[12][0].selectStatement
     ).not.toContain('variant_id');
+  });
+
+  it('preserves cost relationships when adjustment columns are unavailable', async () => {
+    const rows = [{ id: 'legacy-adjustment-order' }];
+    const adjustmentSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'vat_rate' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: adjustmentSchemaError })
+      .mockResolvedValueOnce({ data: null, error: adjustmentSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
+    ).toContain('order_item_unit_costs');
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
+    ).not.toContain('vat_rate');
   });
 
   it('tries the rich legacy projection before the discount-only compatibility fallback', async () => {
     const rows = [{ id: 'legacy-cost-order' }];
-    for (let attempt = 0; attempt < 4; attempt += 1) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,
         error: schemaCacheError,
@@ -84,12 +110,12 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(6);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
     ).toContain('cost_price');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
     ).toContain('product_variants');
   });
 });
