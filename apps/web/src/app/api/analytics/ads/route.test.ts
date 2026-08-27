@@ -133,6 +133,7 @@ describe('GET /api/analytics/ads', () => {
             provider_account_label: 'Baci Meta',
             provider_customer_id: 'act_1',
             status: 'active',
+            token_expires_at: '2026-09-01T00:00:00.000Z',
           },
         ],
         error: null,
