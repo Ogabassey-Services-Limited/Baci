@@ -1,4 +1,7 @@
-import { selectPreferredOrderPaymentAccount } from '@baci/shared';
+import {
+  getPaystackDvaAccountNumberFromTransactions,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@/types/supabase';
 
@@ -26,6 +29,17 @@ export async function resolveInvoicePaymentAccount(
   isPaidOrder: boolean,
   now = new Date()
 ) {
+  let preferredPaystackAccountNumber: string | null = null;
+  if (isPaidOrder) {
+    const { data: transactions } = await supabase
+      .from('transactions')
+      .select('created_at, metadata, gateway, status, transaction_type')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true });
+    preferredPaystackAccountNumber =
+      getPaystackDvaAccountNumberFromTransactions(transactions);
+  }
+
   let paymentAccountQuery = supabase
     .from('order_payment_accounts')
     .select(PAYMENT_ACCOUNT_COLUMNS)
@@ -57,6 +71,7 @@ export async function resolveInvoicePaymentAccount(
     paymentAccount: selectPreferredOrderPaymentAccount(rows, now, {
       allowExpiredPaystackAccount: isPaidOrder,
       allowMissingExpiryPaystackAccount: !isPaidOrder,
+      preferredPaystackAccountNumber,
     }),
   };
 }

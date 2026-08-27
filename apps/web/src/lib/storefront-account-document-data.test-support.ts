@@ -3,7 +3,9 @@ import { vi } from 'vitest';
 
 export function createStorefrontDocumentSupabaseMock(options?: {
   canCancelResult?: { data: unknown; error: unknown };
+  orderPatch?: Record<string, unknown>;
   paymentAccounts?: unknown[];
+  transactions?: unknown[];
 }) {
   type QueryResult = { data: unknown; error: unknown };
   const rpc = vi.fn((fn: string) => {
@@ -96,11 +98,15 @@ export function createStorefrontDocumentSupabaseMock(options?: {
         case 'customers':
           return tableQuery({ data: { id: 'customer-1' }, error: null });
         case 'orders':
-          return tableQuery({ data: order, error: null });
+          return tableQuery({
+            data: { ...order, ...options?.orderPatch },
+            error: null,
+          });
         case 'order_items':
-        case 'transactions':
         case 'order_tax_subtotals':
           return tableQuery({ data: [], error: null });
+        case 'transactions':
+          return tableQuery({ data: options?.transactions ?? [], error: null });
         case 'order_payment_accounts':
           return tableQuery({
             data: options?.paymentAccounts ?? [],

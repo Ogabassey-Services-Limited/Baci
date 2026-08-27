@@ -119,6 +119,77 @@ describe('receiptDetailQueryOptions', () => {
     );
   });
 
+  it('uses the paid transaction receiver when historical aliases coexist', async () => {
+    mockOrderSingle.mockResolvedValueOnce({
+      data: {
+        amount_paid: 1000,
+        created_at: '2026-07-08T12:33:00.000Z',
+        currency: 'NGN',
+        customer_email: 'buyer@example.com',
+        customer_name: 'Buyer',
+        customer_phone: null,
+        discount_amount: 0,
+        id: 'order-1',
+        is_credit_order: false,
+        notes: null,
+        order_items: [],
+        order_number: 'ORD-1',
+        payment_method: 'paystack',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_fee: 0,
+        subtotal: 1000,
+        tax_amount: 0,
+        total: 1000,
+      },
+      error: null,
+    });
+    mockPaymentAccountOrder.mockResolvedValueOnce({
+      data: [
+        {
+          account_name: 'Paid DVA',
+          account_number: '1111111111',
+          assigned_at: '2026-07-08T11:00:00.000Z',
+          bank_name: 'Paystack',
+          created_at: '2026-07-08T11:00:00.000Z',
+          expires_at: '2026-07-08T12:30:00.000Z',
+          provider: 'paystack',
+        },
+        {
+          account_name: 'Newer DVA',
+          account_number: '2222222222',
+          assigned_at: '2026-07-08T12:00:00.000Z',
+          bank_name: 'Paystack',
+          created_at: '2026-07-08T12:00:00.000Z',
+          expires_at: '2026-07-08T13:30:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+    mockTransactionsOrder.mockResolvedValueOnce({
+      data: [
+        {
+          amount: 1000,
+          created_at: '2026-07-08T12:45:00.000Z',
+          description: 'Paystack DVA payment',
+          gateway: 'paystack',
+          metadata: { dva_account_number: '1111111111' },
+          status: 'completed',
+          transaction_type: 'payment',
+        },
+      ],
+      error: null,
+    });
+
+    const detail = await receiptDetailQueryOptions('order-1', {
+      merchantId: 'merchant-1',
+      userId: 'user-1',
+    }).queryFn();
+
+    expect(detail.virtual_account?.account_number).toBe('1111111111');
+  });
+
   it('requires both user and merchant scope for receipt detail queries', async () => {
     await expect(
       receiptDetailQueryOptions('order-1', {

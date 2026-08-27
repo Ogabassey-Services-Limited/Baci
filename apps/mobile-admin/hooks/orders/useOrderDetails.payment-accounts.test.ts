@@ -42,6 +42,63 @@ describe('fetchOrderById payment accounts and status', () => {
     );
   });
 
+  it('uses the paid transaction receiver when historical Paystack aliases coexist', async () => {
+    supabaseMock.setOrderDetailResult({
+      data: {
+        id: 'order-1',
+        payment_status: 'paid',
+        recorded_by_user_id: null,
+        total: 1000,
+        wallet_amount_used: 0,
+      },
+      error: null,
+    });
+    supabaseMock.setTableResult('transactions', {
+      data: [
+        {
+          amount: 1000,
+          created_at: '2026-08-24T13:30:00.000Z',
+          gateway: 'paystack',
+          metadata: { dva_account_number: '1111111111' },
+          status: 'completed',
+          transaction_type: 'payment',
+        },
+      ],
+      error: null,
+    });
+    supabaseMock.setTableResult('order_payment_accounts', {
+      data: [
+        {
+          account_name: 'Paid DVA',
+          account_number: '1111111111',
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          bank_name: 'Paystack-Titan',
+          created_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-08-24T13:00:00.000Z',
+          provider: 'paystack',
+        },
+        {
+          account_name: 'Newer DVA',
+          account_number: '2222222222',
+          assigned_at: '2026-08-24T12:30:00.000Z',
+          bank_name: 'Paystack-Titan',
+          created_at: '2026-08-24T12:30:00.000Z',
+          expires_at: '2026-08-24T13:30:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+
+    await expect(fetchOrderById('order-1', 'merchant-1')).resolves.toEqual(
+      expect.objectContaining({
+        virtual_account: expect.objectContaining({
+          account_number: '1111111111',
+        }),
+      })
+    );
+  });
+
   it('treats paid orders without ledger rows as fully paid', async () => {
     supabaseMock.setOrderDetailResult({
       data: {

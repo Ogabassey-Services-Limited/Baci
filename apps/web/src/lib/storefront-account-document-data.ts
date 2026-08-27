@@ -1,4 +1,7 @@
-import { selectPreferredOrderPaymentAccount } from '@baci/shared';
+import {
+  getPaystackDvaAccountNumberFromTransactions,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
 import { buildStorefrontAccountDocumentBundle } from '@/lib/storefront-account-document-bundle';
@@ -201,18 +204,25 @@ export async function getStorefrontAccountDocumentData({
     externalSource: order.external_source,
     importJobId: order.import_job_id,
   });
+  const transactionRows = (transactionsResult.data ||
+    []) as StorefrontAccountDocumentTransactionRow[];
 
   return buildStorefrontAccountDocumentBundle({
     merchant: merchant as StorefrontAccountDocumentMerchantRow,
     customer: customer as StorefrontAccountDocumentCustomerRow,
     order: order as StorefrontAccountDocumentOrderRow,
     itemRows: (itemsResult.data || []) as StorefrontAccountDocumentItemRow[],
-    transactions: (transactionsResult.data ||
-      []) as StorefrontAccountDocumentTransactionRow[],
+    transactions: transactionRows,
     paymentAccount: selectPreferredOrderPaymentAccount(
       paymentAccountsResult.data as StorefrontAccountDocumentPaymentAccountRow[],
       new Date(),
-      { allowExpiredPaystackAccount: paymentStatus === 'paid' }
+      {
+        allowExpiredPaystackAccount: paymentStatus === 'paid',
+        preferredPaystackAccountNumber:
+          paymentStatus === 'paid'
+            ? getPaystackDvaAccountNumberFromTransactions(transactionRows)
+            : null,
+      }
     ),
     taxRows: (taxResult.data ||
       []) as StorefrontAccountDocumentTaxSubtotalRow[],

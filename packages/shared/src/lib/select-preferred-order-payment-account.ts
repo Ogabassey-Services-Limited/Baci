@@ -28,6 +28,12 @@ export interface SelectPreferredOrderPaymentAccountOptions {
    * Explicitly expired rows remain hidden unless historical mode is enabled.
    */
   allowMissingExpiryPaystackAccount?: boolean;
+  /**
+   * Account recorded on the successful Paystack transaction for a paid
+   * document. This takes precedence over alias recency when the matching
+   * account is still an eligible historical row.
+   */
+  preferredPaystackAccountNumber?: string | null;
 }
 
 function isActivePaystackAccount(
@@ -109,11 +115,24 @@ export function selectPreferredOrderPaymentAccount<
     return null;
   }
 
+  const eligibleAccounts = accounts.filter((account) =>
+    isActivePaystackAccount(account, now.getTime(), options)
+  );
+  const preferredAccountNumber =
+    options.preferredPaystackAccountNumber?.trim();
+  if (preferredAccountNumber && /^\d{6,20}$/.test(preferredAccountNumber)) {
+    const preferredAccount = eligibleAccounts.find(
+      (account) =>
+        account.provider === 'paystack' &&
+        account.account_number.trim() === preferredAccountNumber
+    );
+    if (preferredAccount) {
+      return preferredAccount;
+    }
+  }
+
   return (
-    accounts
-      .filter((account) =>
-        isActivePaystackAccount(account, now.getTime(), options)
-      )
+    eligibleAccounts
       .sort((left, right) => {
         const leftProviderRank = left.provider === 'paystack' ? 0 : 1;
         const rightProviderRank = right.provider === 'paystack' ? 0 : 1;

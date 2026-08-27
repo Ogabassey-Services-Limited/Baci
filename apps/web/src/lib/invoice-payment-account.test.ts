@@ -89,6 +89,58 @@ describe('resolveInvoicePaymentAccount', () => {
     expect(result.paymentAccount?.account_number).toBe('2222222222');
   });
 
+  it('uses the paid transaction receiver instead of the newest historical alias', async () => {
+    const paymentAccountQuery = createQuery({
+      data: [
+        {
+          account_name: 'Paid DVA',
+          account_number: '1111111111',
+          assigned_at: '2026-08-27T10:00:00.000Z',
+          bank_name: 'Paystack',
+          created_at: '2026-08-27T10:00:00.000Z',
+          expires_at: '2026-08-27T10:05:00.000Z',
+          provider: 'paystack',
+        },
+        {
+          account_name: 'Newer DVA',
+          account_number: '2222222222',
+          assigned_at: '2026-08-27T10:10:00.000Z',
+          bank_name: 'Paystack',
+          created_at: '2026-08-27T10:10:00.000Z',
+          expires_at: '2026-08-27T10:15:00.000Z',
+          provider: 'paystack',
+        },
+      ],
+      error: null,
+    });
+    const transactionQuery = createQuery({
+      data: [
+        {
+          created_at: '2026-08-27T10:20:00.000Z',
+          gateway: 'paystack',
+          metadata: { dva_account_number: '1111111111' },
+          status: 'completed',
+          transaction_type: 'payment',
+        },
+      ],
+      error: null,
+    });
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'transactions' ? transactionQuery : paymentAccountQuery
+      ),
+    } as unknown as SupabaseClient<Database>;
+
+    const result = await resolveInvoicePaymentAccount(
+      supabase,
+      'order-1',
+      true,
+      new Date('2026-08-27T10:30:00.000Z')
+    );
+
+    expect(result.paymentAccount?.account_number).toBe('1111111111');
+  });
+
   it('returns the lookup error without selecting a payment account', async () => {
     const error = new Error('database unavailable');
     const query = createQuery({ data: null, error });

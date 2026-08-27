@@ -114,6 +114,9 @@ export interface StorefrontAccountDocumentTransactionRow {
   created_at: string;
   description: string | null;
   metadata: JsonRecord | null;
+  gateway?: string | null;
+  status?: string | null;
+  transaction_type?: string | null;
 }
 
 export interface StorefrontAccountDocumentPaymentAccountRow {

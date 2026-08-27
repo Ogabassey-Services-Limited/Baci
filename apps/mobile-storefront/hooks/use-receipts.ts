@@ -1,4 +1,7 @@
-import { selectPreferredOrderPaymentAccount } from '@baci/shared';
+import {
+  getPaystackDvaAccountNumberFromTransactions,
+  selectPreferredOrderPaymentAccount,
+} from '@baci/shared';
 import { useQuery } from '@tanstack/react-query';
 import { withSupabaseRetry } from '@/lib/api';
 import { CONFIG } from '@/lib/config';
@@ -178,7 +181,9 @@ async function fetchReceiptDetail(
     async () =>
       await supabase
         .from('transactions')
-        .select('amount, created_at, description, metadata')
+        .select(
+          'amount, created_at, description, metadata, gateway, status, transaction_type'
+        )
         .eq('order_id', orderId)
         .order('created_at', { ascending: true }),
     { maxRetries: 2 }
@@ -198,6 +203,10 @@ async function fetchReceiptDetail(
       {
         allowExpiredPaystackAccount:
           order.payment_status?.trim().toLowerCase() === 'paid',
+        preferredPaystackAccountNumber:
+          order.payment_status?.trim().toLowerCase() === 'paid'
+            ? getPaystackDvaAccountNumberFromTransactions(transactions)
+            : null,
         allowDeviceClockSkew: true,
       }
     ),

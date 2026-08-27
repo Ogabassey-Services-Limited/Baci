@@ -1,4 +1,5 @@
 import {
+  getPaystackDvaAccountNumberFromTransactions,
   MOBILE_ADMIN_ORDER_ITEMS_COLUMNS,
   type OrderFulfillmentDetails,
   selectPreferredOrderPaymentAccount,
@@ -52,7 +53,7 @@ export async function fetchOrderById(
       .eq('order_id', orderId),
     supabase
       .from('transactions')
-      .select('amount, gateway')
+      .select('amount, gateway, created_at, metadata, status, transaction_type')
       .eq('order_id', orderId)
       .eq('merchant_id', merchantId)
       .eq('transaction_type', 'payment')
@@ -198,6 +199,10 @@ export async function fetchOrderById(
     virtual_account:
       selectPreferredOrderPaymentAccount(virtualAccount, new Date(), {
         allowExpiredPaystackAccount: paymentStatus === 'paid',
+        preferredPaystackAccountNumber:
+          paymentStatus === 'paid'
+            ? getPaystackDvaAccountNumberFromTransactions(transactions)
+            : null,
         allowDeviceClockSkew: true,
       }) || null,
   };
