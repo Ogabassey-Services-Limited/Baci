@@ -104,25 +104,40 @@ function createThrowingJsonRequest(): NextRequest {
 }
 
 function createSupabaseMock({
+  adTracking = null,
   refreshError = null,
   rpcError = null,
 }: {
+  adTracking?: Record<string, unknown> | null;
   refreshError?: { code?: string; message?: string } | null;
   rpcError?: { code?: string; message?: string } | null;
 } = {}) {
-  const single = vi.fn().mockResolvedValue({
-    data: refreshError ? null : updatedOrder,
-    error: refreshError,
+  let selectedColumns = '';
+  const single = vi.fn().mockImplementation(() => {
+    if (selectedColumns === 'ad_tracking') {
+      return Promise.resolve({
+        data: { ad_tracking: adTracking },
+        error: null,
+      });
+    }
+    return Promise.resolve({
+      data: refreshError ? null : updatedOrder,
+      error: refreshError,
+    });
   });
   const eq = vi.fn(() => selectBuilder);
   const selectBuilder = {
     eq,
     single,
   };
-  const select = vi.fn(() => selectBuilder);
-  const from = vi.fn(() => ({
-    select,
-  }));
+  const select = vi.fn((columns: string) => {
+    selectedColumns = columns;
+    return selectBuilder;
+  });
+  const updateEq = vi.fn(() => updateBuilder);
+  const updateBuilder = { eq: updateEq };
+  const update = vi.fn(() => updateBuilder);
+  const from = vi.fn(() => ({ select, update }));
   const rpc = vi.fn().mockResolvedValue({
     data: rpcError ? null : editResult,
     error: rpcError,
@@ -132,6 +147,7 @@ function createSupabaseMock({
     from,
     rpc,
     select,
+    update,
     supabase: { from, rpc } as unknown as SupabaseClient,
   };
 }
@@ -235,6 +251,24 @@ describe('PATCH /api/orders/[id]/edit', () => {
         total: updatedOrder.total,
       },
     });
+  });
+
+  it('clears stale negotiated discount metadata after a financial edit', async () => {
+    const { supabase, update } = createSupabaseMock({
+      adTracking: {
+        fbclid: 'fb-1',
+        baci_transaction_discount: {
+          lineDiscounts: [],
+          version: 2,
+        },
+      },
+    });
+    mockAuthenticated(supabase);
+
+    const response = await callPatch(createRequest(validPayload));
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith({ ad_tracking: { fbclid: 'fb-1' } });
   });
 
   it.each([

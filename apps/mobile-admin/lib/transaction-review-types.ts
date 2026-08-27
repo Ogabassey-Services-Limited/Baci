@@ -38,6 +38,7 @@ export interface TransactionReviewOrderRow {
     assurance_fee?: number | string | null;
     fulfillment_data: unknown;
     id: string;
+    line_id?: number | string | null;
     name: string | null;
     order_item_unit_costs?: TransactionReviewUnitCostRow[] | null;
     price: number | null;

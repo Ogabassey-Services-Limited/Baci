@@ -19,33 +19,33 @@ interface TransactionReviewRange {
 export type { TransactionReviewItem, TransactionReviewOrder };
 
 const TRANSACTION_REVIEW_FULL_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_FULL_NO_DISCOUNT_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value), product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 export const TRANSACTION_REVIEW_LEGACY_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_LEGACY_COMPAT_SELECT =
-  'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, transaction_date, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, product_match_status, name, price, quantity, cost_price, assurance_fee, vat_category_code, vat_rate, supplier_name, fulfillment_data, product_variants(cost_price, sku, attributes, condition), products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 const TRANSACTION_REVIEW_BASE_WITH_DISCOUNT_COMPAT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 // Keep a final selector for deployments whose schema cache predates the
 // persisted order discount column. The mapper treats the omitted value as 0.
 const TRANSACTION_REVIEW_NO_DISCOUNT_SELECT =
-  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
+  'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, fulfillment_details, order_items(id, line_id, product_id, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))';
 
 function isMissingDiscountAmountSchemaError(
   error: {

@@ -1,1 +1,5 @@
-export const TRANSACTION_DISCOUNT_METADATA_KEY = 'baci_transaction_discount';
+export {
+  TRANSACTION_DISCOUNT_METADATA_KEY,
+  type TransactionDiscountLineAllocation,
+  type TransactionDiscountMetadata,
+} from '@baci/shared/contracts';

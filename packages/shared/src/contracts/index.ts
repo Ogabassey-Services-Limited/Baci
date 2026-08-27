@@ -13,3 +13,4 @@ export * from './orders';
 export * from './payment-method-settings';
 export * from './products';
 export * from './store-readiness';
+export * from './transaction-discount';

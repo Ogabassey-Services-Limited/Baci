@@ -20,6 +20,7 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
+import { buildTransactionDiscountAdTracking } from '@/lib/checkout/build-transaction-discount-ad-tracking';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -1829,49 +1830,18 @@ export async function POST(request: NextRequest) {
       ? (negotiationDiscount?.totalDiscount ?? 0)
       : 0;
 
-    const adTrackingWithoutReservedMetadata = ad_tracking
-      ? Object.fromEntries(
-          Object.entries(ad_tracking).filter(
-            ([key]) => key !== TRANSACTION_DISCOUNT_METADATA_KEY
-          )
-        )
-      : null;
-    const adTrackingBase = adTrackingWithoutReservedMetadata
-      ? {
-          ...adTrackingWithoutReservedMetadata,
-          userIp: clientIp || ad_tracking?.userIp,
-          userAgent: clientUserAgent || ad_tracking?.userAgent,
-          limitedDataUse:
-            geoPrivacy.shouldApplyLDU || ad_tracking?.limitedDataUse,
-          geoCountry: geoPrivacy.country,
-          geoRegion: geoPrivacy.region,
-        }
-      : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-        ? {
-            userIp: clientIp,
-            userAgent: clientUserAgent,
-            limitedDataUse: geoPrivacy.shouldApplyLDU,
-            geoCountry: geoPrivacy.country,
-            geoRegion: geoPrivacy.region,
-          }
-        : null;
     // Persist the server-derived line boundaries alongside the order. The
     // order RPC already stores ad-tracking JSON for guest checkouts, so this
     // avoids inferring VAT provenance from a mutable source/channel value while
     // keeping the transaction review read-only.
-    const transactionDiscountMetadata =
-      shouldApplyServerDerivedDiscount && negotiationDiscount?.lineDiscounts
-        ? {
-            lineDiscounts: negotiationDiscount.lineDiscounts,
-            version: 1,
-          }
-        : null;
-    const adTrackingPayload = transactionDiscountMetadata
-      ? {
-          ...(adTrackingBase ?? {}),
-          [TRANSACTION_DISCOUNT_METADATA_KEY]: transactionDiscountMetadata,
-        }
-      : adTrackingBase;
+    const adTrackingPayload = buildTransactionDiscountAdTracking({
+      adTracking: ad_tracking,
+      clientIp,
+      clientUserAgent,
+      geoPrivacy,
+      lineDiscounts: negotiationDiscount?.lineDiscounts,
+      shouldApplyServerDerivedDiscount,
+    });
 
     const {
       __baci_airport_type: _clientAirportType,

@@ -76,13 +76,14 @@ describe('getDiscountedTransactionUnitPrices', () => {
       {
         price: 100,
         quantity: 1,
+        line_id: 1,
         vat_category_code: 'S',
         vat_rate: 7.5,
       },
     ];
 
     const prices = getDiscountedTransactionUnitPrices(items, 2.15, {
-      lineDiscounts: [{ merchandiseDiscount: 2 }],
+      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 2, vatRelief: 0.15 }],
     });
 
     expect(prices).toEqual([98]);
@@ -90,23 +91,60 @@ describe('getDiscountedTransactionUnitPrices', () => {
 
   it('does not redistribute a negotiated line discount to full-price merchandise', () => {
     const items = [
-      { price: 100, quantity: 1 },
-      { price: 200, quantity: 1 },
+      { line_id: 1, price: 100, quantity: 1 },
+      { line_id: 2, price: 200, quantity: 1 },
     ];
 
     const prices = getDiscountedTransactionUnitPrices(items, 10, {
-      lineDiscounts: [{ merchandiseDiscount: 10 }, null],
+      lineDiscounts: [
+        { lineId: 1, merchandiseDiscount: 10, vatRelief: 0 },
+        null,
+      ],
     });
 
     expect(prices).toEqual([90, 200]);
+  });
+
+  it('matches persisted allocations by line id after relation rows are reordered', () => {
+    const items = [
+      { line_id: 2, price: 200, quantity: 1 },
+      { line_id: 1, price: 100, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 30, {
+      lineDiscounts: [
+        { lineId: 1, merchandiseDiscount: 10, vatRelief: 0 },
+        { lineId: 2, merchandiseDiscount: 20, vatRelief: 0 },
+      ],
+    });
+
+    expect(prices).toEqual([180, 90]);
+  });
+
+  it('falls back proportionally when persisted allocations are stale', () => {
+    const items = [
+      { line_id: 1, price: 100, quantity: 1 },
+      { line_id: 2, price: 100, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 100, {
+      lineDiscounts: [
+        { lineId: 1, merchandiseDiscount: 10, vatRelief: 0 },
+        { lineId: 2, merchandiseDiscount: 10, vatRelief: 0 },
+      ],
+    });
+
+    expect(prices).toEqual([50, 50]);
   });
 
   it('ignores malformed persisted discount metadata', () => {
     expect(
       parseTransactionDiscountOptions({
         baci_transaction_discount: {
-          lineDiscounts: [{ merchandiseDiscount: 'not-a-number' }],
-          version: 1,
+          lineDiscounts: [
+            { lineId: 1, merchandiseDiscount: 'not-a-number', vatRelief: 0 },
+          ],
+          version: 2,
         },
       })
     ).toBeUndefined();

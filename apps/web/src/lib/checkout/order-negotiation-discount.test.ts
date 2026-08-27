@@ -73,7 +73,7 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -100,7 +100,7 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: false,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 0 }],
+      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 0 }],
       totalDiscount: 20,
       rejectionCode: null,
     });
@@ -160,7 +160,10 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }, null],
+      lineDiscounts: [
+        { lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 },
+        null,
+      ],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -225,7 +228,10 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [
+        null,
+        { lineId: 2, merchandiseDiscount: 20, vatRelief: 1.5 },
+      ],
       totalDiscount: 21.5,
       rejectionCode: null,
     });
@@ -257,7 +263,7 @@ describe('computeOrderNegotiationDiscount', () => {
         vatRegistered: true,
       })
     ).resolves.toEqual({
-      lineDiscounts: [{ merchandiseDiscount: 20, vatRelief: 1.5 }],
+      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
       totalDiscount: 21.5,
       rejectionCode: null,
     });

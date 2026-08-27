@@ -77,8 +77,10 @@ describe('transaction review helpers', () => {
         customer_phone: null,
         ad_tracking: {
           baci_transaction_discount: {
-            lineDiscounts: [{ merchandiseDiscount: 2, vatRelief: 0.15 }],
-            version: 1,
+            lineDiscounts: [
+              { lineId: 1, merchandiseDiscount: 2, vatRelief: 0.15 },
+            ],
+            version: 2,
           },
         },
         discount_amount: 2.15,
@@ -90,6 +92,7 @@ describe('transaction review helpers', () => {
             cost_price: 50,
             fulfillment_data: null,
             id: 'item-negotiated',
+            line_id: 1,
             name: 'Negotiated Product',
             price: 100,
             product_id: 'product-negotiated',

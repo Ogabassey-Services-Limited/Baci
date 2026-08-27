@@ -1,4 +1,7 @@
-import { MAX_AUTO_NEGOTIATION_DISCOUNT_RATE } from '@baci/shared/lib';
+import {
+  MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
+  type TransactionDiscountLineAllocation,
+} from '@baci/shared';
 
 // ±1 NGN tolerance mirrors the RPC's parity tolerances so display rounding is
 // not mistaken for tampering / breaking the floor.
@@ -7,6 +10,8 @@ const PRICE_TOLERANCE = 1;
 export interface NegotiationLineInput {
   catalogUnitPrice: number;
   clientUnitPrice: number;
+  /** Persistent order_items.line_id (one-based) when the caller has it. */
+  lineId?: number;
   quantity: number;
   negotiable: boolean;
   vatCategoryCode: string | null;
@@ -17,10 +22,7 @@ export type EligibleLineRejectionCode =
   | 'non_negotiable_line_discounted'
   | 'negotiated_price_below_floor';
 
-export interface EligibleLineDiscountAllocation {
-  merchandiseDiscount: number;
-  vatRelief: number;
-}
+export type EligibleLineDiscountAllocation = TransactionDiscountLineAllocation;
 
 export interface EligibleLineDiscountResult {
   totalDiscount: number;
@@ -48,7 +50,11 @@ export function computeEligibleLineDiscount(
   const lineDiscounts: Array<EligibleLineDiscountAllocation | null> = [];
 
   for (const [lineIndex, lineInput] of lines.entries()) {
-    lineDiscounts[lineIndex] = null;
+    const outputLineIndex =
+      Number.isInteger(lineInput.lineId) && (lineInput.lineId ?? 0) > 0
+        ? (lineInput.lineId as number) - 1
+        : lineIndex;
+    lineDiscounts[outputLineIndex] = null;
     const quantity = Number(lineInput.quantity);
     const catalogUnit = Number(lineInput.catalogUnitPrice);
     const clientUnit = Number(lineInput.clientUnitPrice);
@@ -103,7 +109,8 @@ export function computeEligibleLineDiscount(
     // negotiated total the customer saw.
     const reductionVat = roundToCents((reduction * rate) / 100);
     totalDiscount = roundToCents(totalDiscount + reduction + reductionVat);
-    lineDiscounts[lineIndex] = {
+    lineDiscounts[outputLineIndex] = {
+      lineId: lineInput.lineId ?? lineIndex + 1,
       merchandiseDiscount: reduction,
       vatRelief: reductionVat,
     };
@@ -112,6 +119,13 @@ export function computeEligibleLineDiscount(
   return {
     totalDiscount,
     rejectionCode: null,
-    ...(lineDiscounts.some(Boolean) ? { lineDiscounts } : {}),
+    ...(lineDiscounts.some(Boolean)
+      ? {
+          lineDiscounts: Array.from(
+            { length: lineDiscounts.length },
+            (_, index) => lineDiscounts[index] ?? null
+          ),
+        }
+      : {}),
   };
 }

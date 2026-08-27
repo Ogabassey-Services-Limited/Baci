@@ -55,18 +55,20 @@ export async function computeOrderNegotiationDiscount({
   // priced at 0 and dispatched to the voucher RPC. Excluding them from the id
   // lists means a pure-voucher order skips the products query and returns null
   // (so existing voucher tests need no products mock).
-  const validatableItems = items.filter((item) => !item.voucher_award_id);
+  const validatableItems = items
+    .map((item, index) => ({ item, lineId: index + 1 }))
+    .filter(({ item }) => !item.voucher_award_id);
   const productIds = Array.from(
     new Set(
       validatableItems
-        .map((item) => item.product_id)
+        .map(({ item }) => item.product_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
     )
   );
   const variantIds = Array.from(
     new Set(
       validatableItems
-        .map((item) => item.variant_id)
+        .map(({ item }) => item.variant_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
     )
   );
@@ -118,7 +120,7 @@ export async function computeOrderNegotiationDiscount({
   );
 
   const lines: NegotiationLineInput[] = [];
-  for (const item of validatableItems) {
+  for (const { item, lineId } of validatableItems) {
     if (!item.product_id) {
       return null;
     }
@@ -136,6 +138,7 @@ export async function computeOrderNegotiationDiscount({
     lines.push({
       catalogUnitPrice: Number(variant?.price_override ?? product.price ?? 0),
       clientUnitPrice: Number(item.price),
+      lineId,
       quantity: Number(item.quantity),
       negotiable: isProductNegotiable({
         brand: product.brand,
