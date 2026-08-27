@@ -47,8 +47,11 @@ export function renderMerchantFallback(
   title: string
 ) {
   const colors = getBlogOgBrandColors(data);
-  const foreground = getBlogOgForegroundColor(colors.background);
   const transparentColors = getTransparentBlogOgBrandColors(colors);
+  const foreground = getBlogOgForegroundColor(colors.background, [
+    transparentColors.primary20,
+    transparentColors.accent15,
+  ]);
 
   return (
     <div
@@ -129,8 +132,10 @@ export function renderMerchantFallback(
 
 export function renderPrimaryCard(data: MerchantBlogOgImageData) {
   const colors = getBlogOgBrandColors(data);
-  const foreground = getBlogOgForegroundColor(colors.background);
   const transparentColors = getTransparentBlogOgBrandColors(colors);
+  const foreground = getBlogOgForegroundColor(colors.background, [
+    transparentColors.primary15,
+  ]);
   const post = data.post;
   const title = post?.title || 'Blog post';
 

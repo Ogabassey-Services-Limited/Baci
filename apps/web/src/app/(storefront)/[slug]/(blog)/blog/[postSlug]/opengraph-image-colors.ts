@@ -20,15 +20,49 @@ export function getBlogOgBrandColors(
   };
 }
 
-export function getBlogOgForegroundColor(background: string): string {
+export function getBlogOgForegroundColor(
+  background: string,
+  gradientStops: readonly string[] = []
+): string {
   const parsed = colord(background.trim());
   if (!parsed.isValid()) return '#000000';
 
-  const { r, g, b } = parsed.toRgb();
-  const backgroundLuminance = getRelativeLuminance(r, g, b);
-  const blackContrast = getContrastRatio(backgroundLuminance, 0);
-  const whiteContrast = getContrastRatio(backgroundLuminance, 1);
+  const backgroundColor = parsed.toRgb();
+  const surfaceLuminances = [
+    getRelativeLuminance(
+      backgroundColor.r,
+      backgroundColor.g,
+      backgroundColor.b
+    ),
+    ...gradientStops.flatMap((stop) => {
+      const composited = compositeOverBackground(stop, backgroundColor);
+      return composited
+        ? [getRelativeLuminance(composited.r, composited.g, composited.b)]
+        : [];
+    }),
+  ];
+  const blackContrast = Math.min(
+    ...surfaceLuminances.map((luminance) => getContrastRatio(luminance, 0))
+  );
+  const whiteContrast = Math.min(
+    ...surfaceLuminances.map((luminance) => getContrastRatio(luminance, 1))
+  );
   return blackContrast >= whiteContrast ? '#000000' : '#FFFFFF';
+}
+
+function compositeOverBackground(
+  overlay: string,
+  background: { r: number; g: number; b: number }
+): { r: number; g: number; b: number } | null {
+  const parsed = colord(overlay.trim());
+  if (!parsed.isValid()) return null;
+
+  const { r, g, b, a } = parsed.toRgb();
+  return {
+    r: r * a + background.r * (1 - a),
+    g: g * a + background.g * (1 - a),
+    b: b * a + background.b * (1 - a),
+  };
 }
 
 function getRelativeLuminance(

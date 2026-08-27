@@ -163,6 +163,22 @@ describe('merchant blog OG image markup', () => {
     expect(element.props.style).toMatchObject({ color: '#000000' });
   });
 
+  it('uses readable foreground text across lightened gradient surfaces', () => {
+    const data = createData({
+      merchantBrandColors: {
+        background: '#747474',
+        primary: '#ffffff',
+        accent: '#ffffff',
+      },
+    });
+
+    const primaryCard = renderPrimaryCard(data);
+    const fallbackCard = renderMerchantFallback(data, 'Missing post');
+
+    expect(primaryCard.props.style).toMatchObject({ color: '#000000' });
+    expect(collectStyleValues(fallbackCard, 'color')).toContain('#000000');
+  });
+
   it('keeps branded fallback art free of unsupported Satori zIndex styles', () => {
     const element = renderMerchantFallback(createData(), 'Missing post');
 

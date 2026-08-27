@@ -35,6 +35,14 @@ describe('merchant blog OG color helpers', () => {
     expect(getBlogOgForegroundColor('#24a418')).toBe('#000000');
   });
 
+  it('chooses contrast against translucent gradient stops composited over the background', () => {
+    const foreground = getBlogOgForegroundColor('#747474', [
+      'rgba(255, 255, 255, 0.2)',
+    ]);
+
+    expect(foreground).toBe('#000000');
+  });
+
   it('uses dark text when the background color is invalid', () => {
     expect(getBlogOgForegroundColor('not-a-color')).toBe('#000000');
   });
