@@ -74,10 +74,15 @@ describe('order payment account DVA hardening migrations', () => {
     expect(snapshots).toContain(
       'ADD COLUMN IF NOT EXISTS assignment_customer_email'
     );
+    expect(snapshots).toContain(
+      'ADD COLUMN IF NOT EXISTS assignment_customer_email_source'
+    );
     expect(snapshots).toContain('NEW.payable_amount := OLD.payable_amount');
     expect(snapshots).toContain(
       'NEW.assignment_customer_email := OLD.assignment_customer_email'
     );
+    expect(snapshots).toContain("'legacy_backfill'");
+    expect(snapshots).toContain("'assignment'");
   });
 
   it('versions active balance snapshots and preserves invoice terms', () => {
@@ -111,6 +116,9 @@ describe('order payment account DVA hardening migrations', () => {
     expect(repair).toContain('payment_status');
     expect(repair).toContain('customer_wallet_payment_accounts');
     expect(repair).toContain('checkout_sessions');
+    expect(repair.indexOf("'baci_order_payment:'")).toBeLessThan(
+      repair.indexOf("'paystack_order_account:'")
+    );
   });
 
   it('clears untrusted historical email backfills', () => {
@@ -119,11 +127,12 @@ describe('order payment account DVA hardening migrations', () => {
     );
     expect(untrusted).toContain('SET assignment_customer_email = NULL');
     expect(untrusted).toContain(
-      "created_at < TIMESTAMPTZ '2026-08-25 22:30:00+00'"
+      "assignment_customer_email_source = 'legacy_backfill'"
     );
     expect(untrusted).toContain(
-      "set_config('request.jwt.claim.role', 'service_role'"
+      "set_config(\n  'baci.paystack_alias_email_cleanup', 'on', true\n)"
     );
-    expect(untrusted).toContain("COALESCE(auth.role(), '') = 'service_role'");
+    expect(untrusted).toContain('current_setting(');
+    expect(untrusted).not.toContain("auth.role(), '') = 'service_role'");
   });
 });

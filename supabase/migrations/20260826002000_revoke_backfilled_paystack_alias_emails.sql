@@ -3,8 +3,10 @@
 -- used when the Paystack assignment was created, so do not let them drive
 -- delayed webhook matching. New rows continue to be captured by the insert
 -- trigger with an assignment-time value.
-
-SELECT pg_catalog.set_config('request.jwt.claim.role', 'service_role', true);
+--
+-- The cleanup uses provenance recorded by the snapshot migration rather than
+-- a filename timestamp: this also covers rows with nullable created_at and
+-- deployments that apply the migration later than its filename suggests.
 
 CREATE OR REPLACE FUNCTION public.freeze_expired_paystack_alias_snapshot()
 RETURNS trigger
@@ -12,10 +14,12 @@ LANGUAGE plpgsql
 SET search_path = ''
 AS $$
 BEGIN
-  -- Trusted migrations and backend repair paths may clear an untrusted
-  -- historical snapshot. Authenticated callers still cannot rewrite an
-  -- expired assignment's immutable fields.
-  IF COALESCE(auth.role(), '') = 'service_role' THEN
+  -- Only the one-time legacy-email cleanup may clear an untrusted historical
+  -- snapshot. Backend refreshes, including service-role checkout paths, still
+  -- preserve immutable fields on expired assignments.
+  IF pg_catalog.current_setting(
+    'baci.paystack_alias_email_cleanup', true
+  ) = 'on' THEN
     RETURN NEW;
   END IF;
 
@@ -32,11 +36,19 @@ BEGIN
 END;
 $$;
 
+SELECT pg_catalog.set_config(
+  'baci.paystack_alias_email_cleanup', 'on', true
+);
+
 UPDATE public.order_payment_accounts AS account
-SET assignment_customer_email = NULL
+SET assignment_customer_email = NULL,
+    assignment_customer_email_source = 'legacy_untrusted'
 WHERE account.provider = 'paystack'
-  AND account.assignment_customer_email IS NOT NULL
-  AND account.created_at < TIMESTAMPTZ '2026-08-25 22:30:00+00';
+  AND account.assignment_customer_email_source = 'legacy_backfill';
+
+SELECT pg_catalog.set_config(
+  'baci.paystack_alias_email_cleanup', 'off', true
+);
 
 REVOKE ALL ON FUNCTION public.freeze_expired_paystack_alias_snapshot()
   FROM PUBLIC;

@@ -78,12 +78,6 @@ function isActivePaymentAccount(
     return false;
   }
 
-  // Persisted invoice assignments may intentionally outlive the default
-  // provisioning window. When an expiry is supplied, it is authoritative.
-  if (Number.isFinite(expiresAt)) {
-    return true;
-  }
-
   const assignedAt = account.assigned_at
     ? Date.parse(account.assigned_at)
     : account.created_at
@@ -93,7 +87,17 @@ function isActivePaymentAccount(
     return true;
   }
 
-  return nowMs >= assignedAt && nowMs <= assignedAt + PAYSTACK_DVA_WINDOW_MS;
+  if (nowMs < assignedAt) {
+    return false;
+  }
+
+  // Persisted invoice assignments may intentionally outlive the default
+  // provisioning window. When an expiry is supplied, it is authoritative.
+  if (Number.isFinite(expiresAt)) {
+    return true;
+  }
+
+  return nowMs <= assignedAt + PAYSTACK_DVA_WINDOW_MS;
 }
 
 function isEligibleOrderForPaystackDva(order: {

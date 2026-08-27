@@ -81,11 +81,12 @@ BEGIN
 
   INSERT INTO public.order_payment_accounts (
     order_id, account_number, bank_name, account_name, provider,
-    payable_amount, assigned_at, expires_at, assignment_customer_email
+    payable_amount, assigned_at, expires_at, assignment_customer_email,
+    assignment_customer_email_source
   ) VALUES (
     OLD.order_id, OLD.account_number, OLD.bank_name, OLD.account_name,
     'paystack_version', NEW.payable_amount, now(), OLD.expires_at,
-    OLD.assignment_customer_email
+    OLD.assignment_customer_email, OLD.assignment_customer_email_source
   ) RETURNING id INTO v_version_id;
 
   UPDATE public.order_payment_accounts

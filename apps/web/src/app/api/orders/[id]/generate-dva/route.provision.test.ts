@@ -84,7 +84,7 @@ describe('POST /api/orders/[id]/generate-dva provisioning', () => {
           bank_name: 'Wema Bank',
           account_name: 'Ogabassey/John Doe',
           provider: 'paystack',
-          assigned_at: '2999-01-01T00:00:00.000Z',
+          assigned_at: '2026-08-24T10:00:00.000Z',
           expires_at: '2999-01-01T01:30:00.000Z',
         },
         error: null,

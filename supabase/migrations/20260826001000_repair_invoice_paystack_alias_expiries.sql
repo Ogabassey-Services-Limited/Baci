@@ -19,6 +19,44 @@ DECLARE
   v_candidate record;
   v_current record;
 BEGIN
+  -- Advisory locks are transaction-scoped. Acquire every candidate order lock
+  -- in deterministic order before acquiring any receiver lock, so the repair
+  -- never waits on an order while retaining a receiver lock from an earlier
+  -- candidate in the loop.
+  FOR v_candidate IN
+    SELECT DISTINCT account.order_id
+    FROM public.order_payment_accounts AS account
+    JOIN public.orders AS orders ON orders.id = account.order_id
+    WHERE account.provider = 'paystack'
+      AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
+      AND account.expires_at IS NOT NULL
+      AND NULLIF(trim(account.account_number), '') IS NOT NULL
+    ORDER BY account.order_id
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(
+        'baci_order_payment:' || v_candidate.order_id::text, 0
+      )
+    );
+  END LOOP;
+
+  FOR v_candidate IN
+    SELECT DISTINCT NULLIF(trim(account.account_number), '') AS account_number
+    FROM public.order_payment_accounts AS account
+    JOIN public.orders AS orders ON orders.id = account.order_id
+    WHERE account.provider = 'paystack'
+      AND lower(trim(COALESCE(orders.payment_method, ''))) = 'invoice'
+      AND account.expires_at IS NOT NULL
+      AND NULLIF(trim(account.account_number), '') IS NOT NULL
+    ORDER BY account_number
+  LOOP
+    PERFORM pg_catalog.pg_advisory_xact_lock(
+      pg_catalog.hashtextextended(
+        'paystack_order_account:' || v_candidate.account_number, 0
+      )
+    );
+  END LOOP;
+
   FOR v_candidate IN
     SELECT DISTINCT ON (
       account.order_id,
@@ -42,19 +80,6 @@ BEGIN
     IF v_candidate.account_number IS NULL THEN
       CONTINUE;
     END IF;
-
-    -- Match the lock order used by the authenticated reservation and raw
-    -- order-account writers: order first, receiver second.
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-      pg_catalog.hashtextextended(
-        'baci_order_payment:' || v_candidate.order_id::text, 0
-      )
-    );
-    PERFORM pg_catalog.pg_advisory_xact_lock(
-      pg_catalog.hashtextextended(
-        'paystack_order_account:' || v_candidate.account_number, 0
-      )
-    );
 
     -- Re-read and lock the rows after both advisory locks. This prevents a
     -- stale candidate snapshot from changing ownership during the repair.
@@ -128,17 +153,6 @@ BEGIN
 
     IF NOT FOUND OR v_current.account_number IS NULL THEN
       CONTINUE;
-    END IF;
-
-    -- Account numbers are not normally mutable, but lock a newly observed
-    -- receiver too if a concurrent maintenance writer changed the row after
-    -- the candidate scan.
-    IF v_current.account_number IS DISTINCT FROM v_candidate.account_number THEN
-      PERFORM pg_catalog.pg_advisory_xact_lock(
-        pg_catalog.hashtextextended(
-          'paystack_order_account:' || v_current.account_number, 0
-        )
-      );
     END IF;
 
     -- A terminal order must not regain an invoice receiver. Re-read the

@@ -172,21 +172,21 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260825223000_freeze_paystack_alias_snapshots.sql',
-    sha256: '37eb2e9fcae6a648e8159b6cdb28e5e72481692bb1406672d978a95e5cd63c83',
+    sha256: 'acde2c54bfbb35f37440c67801d5e17ee579b8de99ae1c6250214be44838f9eb',
   },
   {
     repositoryPath:
       'supabase/migrations/20260825230000_version_active_paystack_alias_snapshots.sql',
-    sha256: '0e77a056798ca19ac9c584a5cb8d85085b0c65e4fb2397bb52ac2ed06e65eb28',
+    sha256: '301ce6ed233392607ac5d4e944255a70475f77c743f071b1c0d2d96b50e74d12',
   },
   {
     repositoryPath:
       'supabase/migrations/20260826001000_repair_invoice_paystack_alias_expiries.sql',
-    sha256: 'd58b01fe66f6faf60a233802011ddbd77a98e3bb54eafbb17592391e637a112d',
+    sha256: 'dc34df687444d806bb151bec6b9cc193a4ee6eb5068059972be4e3df19e5a7ac',
   },
   {
     repositoryPath:
       'supabase/migrations/20260826002000_revoke_backfilled_paystack_alias_emails.sql',
-    sha256: '28b164bba6d4ce14d422aaade4be3083eb7360d6407a75bb4e3bbcbe515c0cb2',
+    sha256: '6ef847dd17cf38bf5c78a6461c2654fddab1a95d04c284f6dbb3b73fd01a9681',
   },
 ];
