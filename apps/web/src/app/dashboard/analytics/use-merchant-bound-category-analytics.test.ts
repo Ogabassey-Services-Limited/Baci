@@ -27,6 +27,7 @@ const dates = {
 describe('useMerchantBoundCategoryAnalytics', () => {
   afterEach(() => {
     state.requests.length = 0;
+    vi.restoreAllMocks();
   });
 
   it('does not expose specialized data from a previous merchant or category', async () => {
@@ -94,5 +95,33 @@ describe('useMerchantBoundCategoryAnalytics', () => {
     rerender({ to: undefined });
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.data).toBeNull();
+  });
+
+  it('exposes a current category error when the request fails before a snapshot exists', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const { result } = renderHook(() =>
+      useMerchantBoundCategoryAnalytics({
+        allowed: true,
+        category: 'ads',
+        ...dates,
+        merchantId: 'merchant-a',
+        refreshKey: 0,
+      })
+    );
+
+    await waitFor(() => expect(state.requests).toHaveLength(1));
+    act(() => {
+      state.requests[0].reject(new Error('provider unavailable'));
+    });
+
+    await waitFor(() =>
+      expect(result.current.error).toBe(
+        'Unable to load ads analytics. Please try again.'
+      )
+    );
+    expect(result.current.data).toBeNull();
+    consoleError.mockRestore();
   });
 });

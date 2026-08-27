@@ -12,8 +12,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ADS_ANALYTICS_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
 import { cn } from '@/lib/utils';
+import type { AnalyticsCategory } from './analytics-category-nav';
 
 interface AnalyticsFiltersProps {
+  category: AnalyticsCategory;
   date: { from: Date | undefined; to: Date | undefined };
   onDateChange: (date: {
     from: Date | undefined;
@@ -24,6 +26,7 @@ interface AnalyticsFiltersProps {
 }
 
 export function AnalyticsFilters({
+  category,
   date,
   onDateChange,
   onExport,
@@ -37,7 +40,7 @@ export function AnalyticsFilters({
     >
       <DateRangePicker
         date={date}
-        maxRangeDays={ADS_ANALYTICS_MAX_DAYS}
+        maxRangeDays={category === 'ads' ? ADS_ANALYTICS_MAX_DAYS : undefined}
         setDate={onDateChange}
       />
 

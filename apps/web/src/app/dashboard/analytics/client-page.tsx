@@ -207,6 +207,7 @@ export default function AnalyticsClientPage() {
           visibleCategories={visibleCategories}
         />
         <AnalyticsFilters
+          category={effectiveCategory}
           date={date}
           onDateChange={setDate}
           onExport={handleExport}

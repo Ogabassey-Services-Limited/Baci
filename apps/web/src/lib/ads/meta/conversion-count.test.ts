@@ -21,13 +21,23 @@ describe('countMetaAdsConversions', () => {
     ).toBe('0');
   });
 
-  it('counts provider-specific purchase action types', () => {
+  it('selects one canonical purchase aggregate when providers overlap', () => {
     expect(
       countMetaAdsConversions([
         { actionType: 'offsite_conversion.fb_pixel_purchase', value: '2' },
         { actionType: 'omni_purchase', value: '3' },
+        { actionType: 'purchase', value: '4' },
         { actionType: 'link_click', value: '50' },
       ])
-    ).toBe('5');
+    ).toBe('2');
+  });
+
+  it('falls back to the next canonical aggregate when the preferred one is absent', () => {
+    expect(
+      countMetaAdsConversions([
+        { actionType: 'omni_purchase', value: '3' },
+        { actionType: 'purchase', value: '4' },
+      ])
+    ).toBe('3');
   });
 });

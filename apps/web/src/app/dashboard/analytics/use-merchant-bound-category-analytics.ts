@@ -47,6 +47,7 @@ export function useMerchantBoundCategoryAnalytics({
     null
   );
   const [error, setError] = useState<string | null>(null);
+  const [errorRequestKey, setErrorRequestKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const isSpecialized = ['ads', 'inventory', 'segments'].includes(category);
 
@@ -54,6 +55,7 @@ export function useMerchantBoundCategoryAnalytics({
     const controller = new AbortController();
     setSnapshot(null);
     setError(null);
+    setErrorRequestKey(null);
     setLoading(isSpecialized);
 
     if (!allowed || !requestKey || !merchantId || !from || !to) {
@@ -89,6 +91,7 @@ export function useMerchantBoundCategoryAnalytics({
         ) {
           setSnapshot(null);
           setError(`Unable to load ${category} analytics. Please try again.`);
+          setErrorRequestKey(requestKeyAtStart);
         }
       })
       .finally(() => {
@@ -113,9 +116,10 @@ export function useMerchantBoundCategoryAnalytics({
   ]);
 
   const isCurrent = snapshot?.requestKey === requestKey;
+  const hasCurrentError = errorRequestKey === requestKey;
   return {
     data: isCurrent ? snapshot.data : null,
-    error: isCurrent ? error : null,
+    error: hasCurrentError ? error : null,
     loading,
   };
 }

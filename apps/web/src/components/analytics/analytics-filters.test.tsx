@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const dateRangePickerProps = vi.hoisted(() => vi.fn());
 vi.mock('@/components/ui/date-range-picker', () => ({
@@ -12,9 +12,14 @@ vi.mock('@/components/ui/date-range-picker', () => ({
 import { AnalyticsFilters } from './analytics-filters';
 
 describe('AnalyticsFilters', () => {
+  beforeEach(() => {
+    dateRangePickerProps.mockClear();
+  });
+
   it('applies the server reporting-range limit to the date picker', () => {
     render(
       <AnalyticsFilters
+        category="ads"
         date={{ from: new Date(2024, 0, 1), to: new Date(2024, 0, 31) }}
         onDateChange={vi.fn()}
       />
@@ -22,6 +27,20 @@ describe('AnalyticsFilters', () => {
 
     expect(dateRangePickerProps).toHaveBeenCalledWith(
       expect.objectContaining({ maxRangeDays: 366 })
+    );
+  });
+
+  it('does not apply the Ads range limit to non-Ads categories', () => {
+    render(
+      <AnalyticsFilters
+        category="overview"
+        date={{ from: new Date(2020, 0, 1), to: new Date(2024, 0, 31) }}
+        onDateChange={vi.fn()}
+      />
+    );
+
+    expect(dateRangePickerProps).toHaveBeenCalledWith(
+      expect.objectContaining({ maxRangeDays: undefined })
     );
   });
 });

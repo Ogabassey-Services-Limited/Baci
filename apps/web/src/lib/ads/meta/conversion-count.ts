@@ -1,4 +1,4 @@
-import { META_ADS_CONVERSION_ACTION_TYPES } from './constants';
+import { META_ADS_CONVERSION_ACTION_PRIORITY } from './constants';
 import type { MetaAdsDailyInsight } from './provider-types';
 
 function addExactDecimalStrings(values: string[]): string {
@@ -20,11 +20,14 @@ function addExactDecimalStrings(values: string[]): string {
 export function countMetaAdsConversions(
   actions: MetaAdsDailyInsight['actions']
 ): string {
+  const canonicalActionType = META_ADS_CONVERSION_ACTION_PRIORITY.find(
+    (actionType) => actions.some((action) => action.actionType === actionType)
+  );
+  if (!canonicalActionType) return '0';
+
   return addExactDecimalStrings(
     actions
-      .filter((action) =>
-        META_ADS_CONVERSION_ACTION_TYPES.has(action.actionType)
-      )
+      .filter((action) => action.actionType === canonicalActionType)
       .map((action) => action.value)
   );
 }
