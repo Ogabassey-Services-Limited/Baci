@@ -1,7 +1,10 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import {
+  markAdsSyncStarted,
+  markFinalAdsSync,
+} from '@/lib/ads/mark-final-ads-sync';
 import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { snapchatAdsSyncRequestSchema } from '@/schemas/snapchat-ads';
 import {
@@ -197,6 +200,15 @@ export async function syncSnapchatAdsSpendForMerchant(
         spend_date: report.spendDate,
         spend_micros: report.spendMicros,
       }));
+      if (
+        !(await markAdsSyncStarted({
+          merchantId: input.merchantId,
+          provider: SNAPCHAT_ADS_PROVIDER,
+          providerCustomerId: account.accountId,
+          supabase: input.supabase,
+        }))
+      )
+        throw new SnapchatAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {

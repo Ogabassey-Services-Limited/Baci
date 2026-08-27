@@ -20577,6 +20577,14 @@ export type Database = {
         };
         Returns: boolean;
       };
+      mark_merchant_ads_connection_sync_started_if_current: {
+        Args: {
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_customer_id: string;
+        };
+        Returns: boolean;
+      };
       mark_merchant_ads_connection_reauth: {
         Args: { p_merchant_id: string; p_reason: string };
         Returns: boolean;

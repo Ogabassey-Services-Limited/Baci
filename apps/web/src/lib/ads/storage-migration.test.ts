@@ -18,6 +18,10 @@ const accountAwareSyncMarkerMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260824110000_account_aware_ads_sync_marker.sql'
 );
+const syncStartedMarkerMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827030000_mark_ads_sync_started.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -93,5 +97,26 @@ describe('provider-neutral ads storage migration', () => {
     expect(sql).toContain("'tiktok_ads'");
     expect(sql).toContain("'snapchat_ads'");
     expect(sql).toContain('return found');
+  });
+
+  it('clears freshness before an authenticated spend replacement begins', () => {
+    const sql = readFileSync(
+      syncStartedMarkerMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'create or replace function public.mark_merchant_ads_connection_sync_started_if_current'
+    );
+    expect(sql).toContain('set last_synced_at = null');
+    expect(sql).toContain("and status = 'active'");
+    expect(sql).toContain(
+      'and provider_customer_id = pg_catalog.btrim(p_provider_customer_id)'
+    );
+    expect(sql).toContain('from public, anon');
+    expect(sql).toContain(
+      'grant execute on function public.mark_merchant_ads_connection_sync_started_if_current'
+    );
+    expect(sql).toContain('to authenticated, service_role');
   });
 });

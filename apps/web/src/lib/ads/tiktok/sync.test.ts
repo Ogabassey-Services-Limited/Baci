@@ -114,6 +114,7 @@ describe('TikTok Ads sync', () => {
       ],
       error: null,
     });
+    rpc.mockResolvedValueOnce({ data: true, error: null });
     rpc.mockResolvedValueOnce({ data: 0, error: null });
 
     await expect(

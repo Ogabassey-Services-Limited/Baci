@@ -1,7 +1,10 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import {
+  markAdsSyncStarted,
+  markFinalAdsSync,
+} from '@/lib/ads/mark-final-ads-sync';
 import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import {
   type GoogleAdsResolvedAccessToken,
@@ -150,6 +153,15 @@ export async function syncGoogleAdsSpendForMerchant(
     spend_date: row.date,
     spend_micros: row.spendMicros,
   }));
+  if (
+    !(await markAdsSyncStarted({
+      merchantId: input.merchantId,
+      provider: 'google_ads',
+      providerCustomerId: customerId,
+      supabase: input.supabase,
+    }))
+  )
+    throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
   const { error: replaceError } = await input.spendSupabase.rpc(
     'replace_google_ads_spend_daily',
     {

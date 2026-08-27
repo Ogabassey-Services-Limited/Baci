@@ -113,6 +113,7 @@ describe('Meta Ads sync', () => {
       ],
       error: null,
     });
+    rpc.mockResolvedValueOnce({ data: true, error: null });
     rpc.mockResolvedValueOnce({ data: 0, error: null });
 
     await expect(sync()).resolves.toEqual({
@@ -129,6 +130,35 @@ describe('Meta Ads sync', () => {
         p_rows: [],
         p_start_date: '2026-08-20',
       })
+    );
+  });
+
+  it('does not replace a window when the sync-start freshness marker cannot be cleared', async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === 'get_merchant_ads_connection_secret')
+        return Promise.resolve({
+          data: [
+            {
+              access_token_ciphertext: 'cipher',
+              provider_customer_id: 'act_12',
+              refresh_token_ciphertext: 'refresh-cipher',
+              status: 'active',
+              token_expires_at: '2026-10-20T00:00:00Z',
+            },
+          ],
+          error: null,
+        });
+      if (name === 'mark_merchant_ads_connection_sync_started_if_current')
+        return Promise.resolve({ data: false, error: null });
+      return Promise.resolve({ data: true, error: null });
+    });
+
+    await expect(sync()).rejects.toMatchObject({
+      code: 'SYNC_STATUS_UPDATE_FAILED',
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'replace_merchant_ads_spend_daily_window',
+      expect.anything()
     );
   });
 

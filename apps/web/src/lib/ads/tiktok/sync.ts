@@ -1,7 +1,10 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import {
+  markAdsSyncStarted,
+  markFinalAdsSync,
+} from '@/lib/ads/mark-final-ads-sync';
 import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { tiktokAdsSyncRequestSchema } from '@/schemas/tiktok-ads';
 import { resolveTikTokAdsAccessToken } from './access-token';
@@ -202,6 +205,15 @@ export async function syncTikTokAdsSpendForMerchant(
         }));
         pendingRows.push(...rows);
       }
+      if (
+        !(await markAdsSyncStarted({
+          merchantId: input.merchantId,
+          provider: TIKTOK_ADS_PROVIDER,
+          providerCustomerId: account.accountId,
+          supabase: input.supabase,
+        }))
+      )
+        throw new TikTokAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {

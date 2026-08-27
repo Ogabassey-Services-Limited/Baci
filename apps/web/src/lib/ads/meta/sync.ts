@@ -1,7 +1,10 @@
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { markFinalAdsSync } from '@/lib/ads/mark-final-ads-sync';
+import {
+  markAdsSyncStarted,
+  markFinalAdsSync,
+} from '@/lib/ads/mark-final-ads-sync';
 import type { AdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { metaAdsSyncRequestSchema } from '@/schemas/meta-ads';
 import { resolveMetaAdsAccessToken } from './access-token';
@@ -260,6 +263,15 @@ async function syncSelectedMetaAdsAccount(input: {
       spend_amount_decimal: insight.spendAmountDecimal,
       spend_date: insight.dateStart,
     }));
+    if (
+      !(await markAdsSyncStarted({
+        merchantId: input.merchantId,
+        provider: META_ADS_PROVIDER,
+        providerCustomerId: account.accountId,
+        supabase: input.supabase,
+      }))
+    )
+      throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
     const { data: rowsWritten, error: spendWriteError } =
       await input.spendSupabase.rpc('replace_merchant_ads_spend_daily_window', {
         p_end_date: input.endDate,
