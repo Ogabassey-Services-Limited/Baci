@@ -77,17 +77,18 @@ export async function GET(request: NextRequest) {
     userId: auth.user.id,
   });
   if (!verifiedState) return callbackRedirect('error', 'invalid_state');
+  const callbackMerchantId = verifiedState.merchantId;
   const merchant = await resolveAdsMerchantAccess({
-    merchantId: verifiedState.merchantId,
+    merchantId: callbackMerchantId,
     request,
     supabase: auth.supabase,
     userId: auth.user.id,
   });
   if (merchant.response || !merchant.access)
-    return callbackRedirect('error', 'merchant_mismatch');
+    return callbackRedirect('error', 'merchant_mismatch', callbackMerchantId);
   const access = merchant.access;
   if (!hasPermission(access, 'integrations', 'manage'))
-    return callbackRedirect('error', 'forbidden');
+    return callbackRedirect('error', 'forbidden', callbackMerchantId);
   const { data: nonceConsumed, error: nonceConsumeError } =
     await auth.supabase.rpc('consume_merchant_ads_oauth_state_nonce', {
       p_merchant_id: access.merchantId,
@@ -97,10 +98,11 @@ export async function GET(request: NextRequest) {
       p_user_id: auth.user.id,
     });
   if (nonceConsumeError || !nonceConsumed)
-    return callbackRedirect('error', 'invalid_state');
+    return callbackRedirect('error', 'invalid_state', callbackMerchantId);
   if (parsedQuery.data.error)
-    return callbackRedirect('error', 'provider_denied');
-  if (!parsedQuery.data.code) return callbackRedirect('error', 'missing_code');
+    return callbackRedirect('error', 'provider_denied', callbackMerchantId);
+  if (!parsedQuery.data.code)
+    return callbackRedirect('error', 'missing_code', callbackMerchantId);
   try {
     const shortLived = await exchangeMetaAdsAuthorizationCode({
       ...config,
@@ -146,15 +148,28 @@ export async function GET(request: NextRequest) {
         p_token_expires_at: expiresAt,
       }
     );
-    if (error) return callbackRedirect('error', 'connection_write_failed');
+    if (error)
+      return callbackRedirect(
+        'error',
+        'connection_write_failed',
+        callbackMerchantId
+      );
     invalidateAdsAnalyticsCache(access.merchantId);
   } catch (error) {
     if (
       error instanceof MetaAdsOAuthError ||
       error instanceof MetaAdsProviderError
     )
-      return callbackRedirect('error', error.code.toLowerCase());
-    return callbackRedirect('error', 'token_exchange_failed');
+      return callbackRedirect(
+        'error',
+        error.code.toLowerCase(),
+        callbackMerchantId
+      );
+    return callbackRedirect(
+      'error',
+      'token_exchange_failed',
+      callbackMerchantId
+    );
   }
   return callbackRedirect('connected', undefined, access.merchantId);
 }

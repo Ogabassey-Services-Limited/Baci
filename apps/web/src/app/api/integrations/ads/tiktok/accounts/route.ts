@@ -36,27 +36,38 @@ async function connection(
     ? { error: true as const }
     : { connection: result.data?.[0] ?? null };
 }
+function reauthFailureCode(
+  error: unknown
+): 'TIKTOK_ADS_ACCESS_REVOKED' | 'TIKTOK_ADS_REAUTH_REQUIRED' | null {
+  const code =
+    error instanceof TikTokAdsProviderError
+      ? error.code
+      : error instanceof Error
+        ? error.message
+        : error && typeof error === 'object'
+          ? (error as { code?: unknown }).code
+          : null;
+  return code === 'TIKTOK_ADS_ACCESS_REVOKED' ||
+    code === 'TIKTOK_ADS_REAUTH_REQUIRED'
+    ? code
+    : null;
+}
 async function handleRevocation(
   error: unknown,
   current: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext: string | null;
   } | null,
   merchantId: string,
   credentialSupabase: AdsCredentialServiceClient
 ): Promise<NextResponse | null> {
-  if (
-    !current ||
-    !(
-      error instanceof TikTokAdsProviderError &&
-      error.code === 'TIKTOK_ADS_ACCESS_REVOKED'
-    )
-  )
-    return null;
+  const failureCode = reauthFailureCode(error);
+  if (!current || !failureCode) return null;
   try {
     await markTikTokAdsReauthRequired({
       connection: current,
-      failureCode: error.code,
+      failureCode,
       merchantId,
       credentialSupabase,
     });
@@ -89,6 +100,7 @@ export async function GET(request: NextRequest) {
   let current: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext: string | null;
   } | null = null;
   try {
     const config = getTikTokAdsConfig();
@@ -180,6 +192,7 @@ export async function PATCH(request: NextRequest) {
   let current: {
     access_token_ciphertext: string | null;
     provider_customer_id: string | null;
+    refresh_token_ciphertext: string | null;
   } | null = null;
   try {
     const result = await connection(credentialSupabase, access.merchantId);

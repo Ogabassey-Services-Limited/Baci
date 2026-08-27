@@ -124,12 +124,41 @@ describe('Meta Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toBe(
-      'https://usebaci.com/dashboard/analytics?meta_ads=error&reason=invalid_state'
+      'https://usebaci.com/dashboard/analytics?meta_ads=error&reason=invalid_state&merchantId=merchant'
     );
     expect(rpc).toHaveBeenCalledWith(
       'consume_merchant_ads_oauth_state_nonce',
       expect.objectContaining({ p_provider: 'meta_ads' })
     );
+  });
+
+  it('preserves the signed merchant when Meta denies access', async () => {
+    const merchantId = 'merchant-selected';
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({ merchantId, nonce: 'n'.repeat(24) });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/meta/callback?state=state&error=access_denied',
+        { headers: { cookie: 'baci_meta_ads_oauth_state=state' } }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      `https://usebaci.com/dashboard/analytics?meta_ads=error&reason=provider_denied&merchantId=${merchantId}`
+    );
+    expect(exchangeCode).not.toHaveBeenCalled();
   });
 
   it('consumes OAuth state only for its signed selected merchant', async () => {
@@ -217,6 +246,7 @@ describe('Meta Ads callback route', () => {
   });
 
   it('does not persist a connection when the long-lived token has no expiry', async () => {
+    const merchantId = 'merchant-selected';
     authenticate.mockResolvedValue({
       error: null,
       supabase: { rpc },
@@ -225,8 +255,12 @@ describe('Meta Ads callback route', () => {
     compare.mockReturnValue(true);
     permission.mockReturnValue(true);
     verifyState.mockReturnValue({
-      merchantId: 'merchant',
+      merchantId,
       nonce: 'n'.repeat(24),
+    });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
     });
     rpc.mockResolvedValue({ data: true, error: null });
     exchangeCode.mockResolvedValue({ access_token: 'short-lived' });
@@ -246,6 +280,7 @@ describe('Meta Ads callback route', () => {
     expect(location.searchParams.get('reason')).toBe(
       'meta_ads_token_response_invalid'
     );
+    expect(location.searchParams.get('merchantId')).toBe(merchantId);
     expect(credentialRpc).not.toHaveBeenCalledWith(
       'upsert_merchant_ads_connection',
       expect.anything()

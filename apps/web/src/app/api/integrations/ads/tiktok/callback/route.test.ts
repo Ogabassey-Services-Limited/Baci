@@ -5,6 +5,7 @@ const authenticate = vi.fn();
 const compare = vi.fn();
 const access = vi.fn();
 const permission = vi.fn();
+const rpc = vi.fn();
 const resolveMerchant = vi.fn();
 const invalidate = vi.hoisted(() => vi.fn());
 const credentialRpc = vi.hoisted(() => vi.fn());
@@ -86,6 +87,7 @@ describe('TikTok Ads callback route', () => {
   });
 
   it('rejects a state-validated callback that omitted the required reporting scopes', async () => {
+    const merchantId = 'merchant-selected';
     const rpc = vi.fn((name: string) => {
       if (name === 'consume_merchant_ads_oauth_state_nonce')
         return Promise.resolve({ data: true, error: null });
@@ -97,9 +99,13 @@ describe('TikTok Ads callback route', () => {
       user: { id: 'user' },
     });
     compare.mockReturnValue(true);
-    access.mockResolvedValue({ merchantId: 'merchant' });
+    access.mockResolvedValue({ merchantId });
     permission.mockReturnValue(true);
-    verifyState.mockReturnValue({ merchantId: 'merchant', nonce: 'nonce' });
+    verifyState.mockReturnValue({ merchantId, nonce: 'nonce' });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
     exchange.mockResolvedValue({
       accessToken: 'token',
       advertiserIds: ['opaque-001'],
@@ -113,6 +119,67 @@ describe('TikTok Ads callback route', () => {
     );
     expect(response.headers.get('location')).toContain(
       'reason=required_scopes_missing'
+    );
+    expect(response.headers.get('location')).toContain(
+      `merchantId=${merchantId}`
+    );
+  });
+
+  it('preserves the signed merchant when TikTok denies access', async () => {
+    const merchantId = 'merchant-selected';
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({ merchantId, nonce: 'nonce' });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/callback?state=state&error=access_denied',
+        { headers: { cookie: 'baci_tiktok_ads_oauth_state=state' } }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      `https://usebaci.com/dashboard/analytics?tiktok_ads=error&reason=provider_denied&merchantId=${merchantId}`
+    );
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it('preserves the signed merchant when TikTok token exchange fails', async () => {
+    const merchantId = 'merchant-selected';
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    compare.mockReturnValue(true);
+    permission.mockReturnValue(true);
+    verifyState.mockReturnValue({ merchantId, nonce: 'nonce' });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
+    rpc.mockResolvedValue({ data: true, error: null });
+    exchange.mockRejectedValueOnce(new Error('provider failed'));
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/callback?state=state&code=code',
+        { headers: { cookie: 'baci_tiktok_ads_oauth_state=state' } }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      `https://usebaci.com/dashboard/analytics?tiktok_ads=error&reason=token_exchange_failed&merchantId=${merchantId}`
     );
   });
 
@@ -162,6 +229,7 @@ describe('TikTok Ads callback route', () => {
   });
 
   it('rejects a consumed state before exchanging a replayed authorization code', async () => {
+    const merchantId = 'merchant-selected';
     const rpc = vi.fn((name: string) => {
       if (name === 'consume_merchant_ads_oauth_state_nonce')
         return Promise.resolve({ data: false, error: null });
@@ -173,9 +241,13 @@ describe('TikTok Ads callback route', () => {
       user: { id: 'user' },
     });
     compare.mockReturnValue(true);
-    access.mockResolvedValue({ merchantId: 'merchant' });
+    access.mockResolvedValue({ merchantId });
     permission.mockReturnValue(true);
-    verifyState.mockReturnValue({ merchantId: 'merchant', nonce: 'nonce' });
+    verifyState.mockReturnValue({ merchantId, nonce: 'nonce' });
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
 
     const response = await GET(
       new NextRequest(
@@ -185,6 +257,9 @@ describe('TikTok Ads callback route', () => {
     );
 
     expect(response.headers.get('location')).toContain('reason=invalid_state');
+    expect(response.headers.get('location')).toContain(
+      `merchantId=${merchantId}`
+    );
     expect(exchange).not.toHaveBeenCalled();
   });
 });

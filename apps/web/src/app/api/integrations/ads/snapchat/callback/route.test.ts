@@ -46,10 +46,10 @@ function snapchatConfig() {
   };
 }
 
-function signedState() {
+function signedState(merchantId = 'merchant') {
   return createAdsOAuthState(
     {
-      merchantId: 'merchant',
+      merchantId,
       nonce: 'nonce-value-that-is-long-enough',
       provider: 'snapchat_ads',
       redirectUri: 'https://usebaci.com/api/integrations/ads/snapchat/callback',
@@ -179,9 +179,39 @@ describe('Snapchat Ads callback route', () => {
     log.mockRestore();
   });
 
+  it('preserves the signed merchant when Snapchat denies access', async () => {
+    config.mockReturnValue(snapchatConfig());
+    const merchantId = 'merchant-selected';
+    const state = signedState(merchantId);
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    auth.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    permission.mockReturnValue(true);
+    resolveMerchant.mockResolvedValueOnce({
+      access: { merchantId },
+      response: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `https://usebaci.com/api/integrations/ads/snapchat/callback?state=${encodeURIComponent(state)}&error=access_denied`,
+        { headers: { cookie: `baci_snapchat_ads_oauth_state=${state}` } }
+      )
+    );
+
+    expect(response.headers.get('location')).toBe(
+      `https://usebaci.com/dashboard/analytics?snapchat_ads=error&reason=provider_denied&merchantId=${merchantId}`
+    );
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
   it('returns safe redirects for provider failures, denied scopes, and missing configuration', async () => {
     config.mockReturnValue(snapchatConfig());
-    const state = signedState();
+    const merchantId = 'merchant-selected';
+    const state = signedState(merchantId);
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     auth.mockResolvedValue({
       error: null,
@@ -190,6 +220,10 @@ describe('Snapchat Ads callback route', () => {
     });
     access.mockResolvedValue({ merchantId: 'merchant' });
     permission.mockReturnValue(true);
+    resolveMerchant.mockResolvedValue({
+      access: { merchantId },
+      response: null,
+    });
     exchange.mockRejectedValueOnce(new Error('SNAP_TOKEN_SENTINEL'));
     const providerFailure = await GET(
       new NextRequest(
@@ -199,6 +233,9 @@ describe('Snapchat Ads callback route', () => {
     );
     expect(providerFailure.headers.get('location')).toContain(
       'reason=token_exchange_failed'
+    );
+    expect(providerFailure.headers.get('location')).toContain(
+      `merchantId=${merchantId}`
     );
     expect(
       JSON.stringify(Object.fromEntries(providerFailure.headers))
@@ -218,6 +255,9 @@ describe('Snapchat Ads callback route', () => {
     );
     expect(scopeFailure.headers.get('location')).toContain(
       'reason=required_scopes_missing'
+    );
+    expect(scopeFailure.headers.get('location')).toContain(
+      `merchantId=${merchantId}`
     );
 
     config.mockImplementationOnce(() => {

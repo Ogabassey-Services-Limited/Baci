@@ -6,6 +6,8 @@ const access = vi.fn();
 const permission = vi.fn();
 const invalidateAnalytics = vi.fn();
 const createAdsCredentialServiceClient = vi.fn();
+const resolveToken = vi.fn(() => 'token');
+const markReauth = vi.fn();
 vi.mock('@/lib/ads/analytics-cache', () => ({
   invalidateAdsAnalyticsCache: (...args: unknown[]) =>
     invalidateAnalytics(...args),
@@ -29,7 +31,7 @@ vi.mock('@/lib/ads/tiktok/config', () => ({
   TikTokAdsConfigError: class TikTokAdsConfigError extends Error {},
 }));
 vi.mock('@/lib/ads/tiktok/access-token', () => ({
-  resolveTikTokAdsAccessToken: () => 'token',
+  resolveTikTokAdsAccessToken: () => resolveToken(),
 }));
 const listAccounts = vi.fn();
 vi.mock('@/lib/ads/tiktok/provider', () => ({
@@ -37,7 +39,7 @@ vi.mock('@/lib/ads/tiktok/provider', () => ({
   TikTokAdsProviderError: class TikTokAdsProviderError extends Error {},
 }));
 vi.mock('@/lib/ads/tiktok/sync', () => ({
-  markTikTokAdsReauthRequired: vi.fn(),
+  markTikTokAdsReauthRequired: (...args: unknown[]) => markReauth(...args),
   TikTokAdsReauthPersistenceError: class TikTokAdsReauthPersistenceError extends Error {},
 }));
 vi.mock('@/lib/ads/server-credential-client', () => ({
@@ -161,6 +163,122 @@ describe('TikTok Ads accounts route', () => {
       })
     );
     expect(invalidateAnalytics).toHaveBeenCalledWith('merchant');
+  });
+
+  it('marks a missing access token for reauthorization during GET discovery', async () => {
+    const rpc = vi.fn((name: string) =>
+      name === 'get_merchant_ads_connection_secret'
+        ? Promise.resolve({
+            data: [
+              {
+                access_token_ciphertext: null,
+                provider_customer_id: 'opaque-001',
+                refresh_token_ciphertext: 'refresh-cipher',
+                status: 'active',
+              },
+            ],
+            error: null,
+          })
+        : Promise.resolve({ data: true, error: null })
+    );
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    resolveToken.mockClear();
+    resolveToken.mockImplementationOnce(() => {
+      throw new Error('TIKTOK_ADS_REAUTH_REQUIRED');
+    });
+    listAccounts.mockClear();
+    markReauth.mockClear();
+
+    const response = await GET(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/accounts'
+      )
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: 'TIKTOK_ADS_AUTHORIZATION_UNAVAILABLE',
+    });
+    expect(markReauth).toHaveBeenCalledWith({
+      connection: expect.objectContaining({
+        access_token_ciphertext: null,
+        provider_customer_id: 'opaque-001',
+        refresh_token_ciphertext: 'refresh-cipher',
+      }),
+      credentialSupabase: { rpc },
+      failureCode: 'TIKTOK_ADS_REAUTH_REQUIRED',
+      merchantId: 'merchant',
+    });
+    expect(listAccounts).not.toHaveBeenCalled();
+  });
+
+  it('marks a missing access token for reauthorization during PATCH selection', async () => {
+    const rpc = vi.fn((name: string) =>
+      name === 'get_merchant_ads_connection_secret'
+        ? Promise.resolve({
+            data: [
+              {
+                access_token_ciphertext: null,
+                provider_customer_id: 'opaque-001',
+                refresh_token_ciphertext: 'refresh-cipher',
+                status: 'active',
+              },
+            ],
+            error: null,
+          })
+        : Promise.resolve({ data: true, error: null })
+    );
+    createAdsCredentialServiceClient.mockReturnValue({ rpc });
+    authenticate.mockResolvedValue({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user' },
+    });
+    access.mockResolvedValue({ merchantId: 'merchant' });
+    permission.mockReturnValue(true);
+    csrf.mockResolvedValue({ valid: true });
+    resolveToken.mockClear();
+    resolveToken.mockImplementationOnce(() => {
+      throw new Error('TIKTOK_ADS_REAUTH_REQUIRED');
+    });
+    listAccounts.mockClear();
+    markReauth.mockClear();
+
+    const response = await PATCH(
+      new NextRequest(
+        'https://usebaci.com/api/integrations/ads/tiktok/accounts',
+        {
+          body: JSON.stringify({ accountId: 'opaque-001' }),
+          method: 'PATCH',
+        }
+      )
+    );
+
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({
+      error: 'TIKTOK_ADS_AUTHORIZATION_UNAVAILABLE',
+    });
+    expect(markReauth).toHaveBeenCalledWith({
+      connection: expect.objectContaining({
+        access_token_ciphertext: null,
+        provider_customer_id: 'opaque-001',
+        refresh_token_ciphertext: 'refresh-cipher',
+      }),
+      credentialSupabase: { rpc },
+      failureCode: 'TIKTOK_ADS_REAUTH_REQUIRED',
+      merchantId: 'merchant',
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      'set_merchant_ads_account',
+      expect.anything()
+    );
   });
 
   it('does not persist a well-formed advertiser ID absent from fresh discovery', async () => {

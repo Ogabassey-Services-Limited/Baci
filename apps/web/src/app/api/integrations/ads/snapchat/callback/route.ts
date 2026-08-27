@@ -72,17 +72,18 @@ export async function GET(request: NextRequest) {
     userId: auth.user.id,
   });
   if (!verifiedState) return redirect('error', 'invalid_state');
+  const callbackMerchantId = verifiedState.merchantId;
   const merchant = await resolveAdsMerchantAccess({
-    merchantId: verifiedState.merchantId,
+    merchantId: callbackMerchantId,
     request,
     supabase: auth.supabase,
     userId: auth.user.id,
   });
   if (merchant.response || !merchant.access)
-    return redirect('error', 'merchant_mismatch');
+    return redirect('error', 'merchant_mismatch', callbackMerchantId);
   const access = merchant.access;
   if (!hasPermission(access, 'integrations', 'manage'))
-    return redirect('error', 'forbidden');
+    return redirect('error', 'forbidden', callbackMerchantId);
   const consumed = await auth.supabase.rpc(
     'consume_snapchat_ads_oauth_state_nonce',
     {
@@ -93,9 +94,11 @@ export async function GET(request: NextRequest) {
     }
   );
   if (consumed.error || consumed.data !== true)
-    return redirect('error', 'invalid_state');
-  if (query.data.error) return redirect('error', 'provider_denied');
-  if (!query.data.code) return redirect('error', 'missing_code');
+    return redirect('error', 'invalid_state', callbackMerchantId);
+  if (query.data.error)
+    return redirect('error', 'provider_denied', callbackMerchantId);
+  if (!query.data.code)
+    return redirect('error', 'missing_code', callbackMerchantId);
   try {
     const grant = await exchangeSnapchatAdsAuthorizationCode({
       ...config,
@@ -106,7 +109,7 @@ export async function GET(request: NextRequest) {
         grant.scopes.includes(scope)
       )
     )
-      return redirect('error', 'required_scopes_missing');
+      return redirect('error', 'required_scopes_missing', callbackMerchantId);
     const credentialSupabase = createAdsCredentialServiceClient();
     const { error } = await credentialSupabase.rpc(
       'upsert_merchant_ads_connection',
@@ -141,14 +144,16 @@ export async function GET(request: NextRequest) {
         ).toISOString(),
       }
     );
-    if (error) return redirect('error', 'connection_write_failed');
+    if (error)
+      return redirect('error', 'connection_write_failed', callbackMerchantId);
     invalidateAdsAnalyticsCache(access.merchantId);
   } catch (error) {
     return redirect(
       'error',
       error instanceof SnapchatAdsProviderError
         ? error.code.toLowerCase()
-        : 'token_exchange_failed'
+        : 'token_exchange_failed',
+      callbackMerchantId
     );
   }
   return redirect('connected', undefined, access.merchantId);
