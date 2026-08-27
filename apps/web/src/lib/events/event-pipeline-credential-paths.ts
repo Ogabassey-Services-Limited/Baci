@@ -129,4 +129,22 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/lib/agentic/request-integrity.ts',
     'apps/web/src/env.ts',
   ],
+  [
+    'apps/web/src/app/api/chat/route.ts',
+    'apps/web/src/app/api/chat/ollama-chat-tool-runtime.ts',
+    'apps/web/src/ai/chat-order-cancellation.ts',
+    'apps/web/src/lib/agentic/scoped-supabase.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/app/api/chat/run-chat-provider-chain.ts',
+    'apps/web/src/app/api/chat/chat-tool-runtime.ts',
+    'apps/web/src/ai/chat-order-cancellation.ts',
+    'apps/web/src/lib/agentic/scoped-supabase.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
 ] as const;

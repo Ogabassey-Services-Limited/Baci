@@ -66,4 +66,29 @@ describe('event-pipeline credential paths', () => {
       )
     );
   });
+
+  it('records the chat cancellation secret edges', () => {
+    const cancellation = [
+      'apps/web/src/ai/chat-order-cancellation.ts',
+      'apps/web/src/lib/agentic/scoped-supabase.ts',
+      'apps/web/src/lib/supabase/scoped-jwt.ts',
+      'apps/web/src/lib/agentic/jwt-signing-material.ts',
+      'apps/web/src/env.ts',
+    ];
+
+    expect(eventPipelineCredentialPaths).toEqual(
+      expect.arrayContaining([
+        [
+          'apps/web/src/app/api/chat/route.ts',
+          'apps/web/src/app/api/chat/ollama-chat-tool-runtime.ts',
+          ...cancellation,
+        ],
+        [
+          'apps/web/src/app/api/chat/run-chat-provider-chain.ts',
+          'apps/web/src/app/api/chat/chat-tool-runtime.ts',
+          ...cancellation,
+        ],
+      ])
+    );
+  });
 });
