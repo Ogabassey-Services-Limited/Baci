@@ -334,12 +334,12 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827100000_restore_jumia_manage_credential_rotation_after_view.sql',
+      'supabase/migrations/20260827110000_restore_jumia_manage_credential_rotation_after_view.sql',
     sha256: 'a60ebbb878c90266d34bc83d6596fbcbff4f07d1f31f10db5e59a0e3de447081',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827100100_recheck_jumia_oauth_self_authorization_conflicts.sql',
+      'supabase/migrations/20260827110100_recheck_jumia_oauth_self_authorization_conflicts.sql',
     sha256: '89a888fd6c211e1e048487a228dae26e5d2221c6db33860de96394eab1c14fdb',
   },
 ]
