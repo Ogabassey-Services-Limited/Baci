@@ -31,6 +31,10 @@ describe('merchant blog OG color helpers', () => {
     expect(getBlogOgForegroundColor('black')).toBe('#FFFFFF');
   });
 
+  it('chooses the foreground with the higher WCAG contrast ratio', () => {
+    expect(getBlogOgForegroundColor('#24a418')).toBe('#000000');
+  });
+
   it('uses dark text when the background color is invalid', () => {
     expect(getBlogOgForegroundColor('not-a-color')).toBe('#000000');
   });

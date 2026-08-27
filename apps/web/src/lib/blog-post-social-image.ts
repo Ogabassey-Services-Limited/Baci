@@ -78,8 +78,11 @@ function getCompatibilityImageUrl(storeUrl: string, postSlug: string): string {
 function projectDirectImage(
   sourceUrl: string,
   dimensions?: { width?: number; height?: number }
-): BlogPostSocialImage {
+): BlogPostSocialImage | null {
   const mimeType = getImageMimeType(sourceUrl);
+  if (!mimeType) {
+    return null;
+  }
   const isLandscape =
     dimensions?.width === LANDSCAPE_DIMENSIONS.width &&
     dimensions.height === LANDSCAPE_DIMENSIONS.height;
@@ -131,7 +134,8 @@ function getTransformedDimensions(dimensions?: {
 /**
  * Projects cached blog-post media into direct social metadata. Transformable
  * OgaBassey assets are pinned to JPEG/PNG; immutable uploaded variants under
- * /media keep their explicit native format. Other HTTP(S) assets remain direct.
+ * /media keep their explicit native format. Unrecognized HTTP(S) assets use
+ * the compatibility route so social metadata never advertises a non-image.
  */
 export function getBlogPostSocialImage(
   storeUrl: string,
@@ -146,18 +150,24 @@ export function getBlogPostSocialImage(
   const originalUrl = getAbsoluteHttpUrl(featuredImageUrl);
 
   if (landscapeUrl) {
-    return projectDirectImage(landscapeUrl, LANDSCAPE_DIMENSIONS);
+    const directImage = projectDirectImage(landscapeUrl, LANDSCAPE_DIMENSIONS);
+    if (directImage) {
+      return directImage;
+    }
   }
 
   if (originalUrl) {
     const width = getPositiveDimension(featuredImageWidth);
     const height = getPositiveDimension(featuredImageHeight);
-    return projectDirectImage(
+    const directImage = projectDirectImage(
       originalUrl,
       width !== undefined && height !== undefined
         ? { width, height }
         : undefined
     );
+    if (directImage) {
+      return directImage;
+    }
   }
 
   return {

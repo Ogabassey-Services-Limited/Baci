@@ -1,7 +1,6 @@
 import { colord, extend } from 'colord';
 import namesPlugin from 'colord/plugins/names';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
-import { getContrastingTextColor } from '@/lib/color-utils';
 
 extend([namesPlugin]);
 
@@ -25,12 +24,36 @@ export function getBlogOgForegroundColor(background: string): string {
   const parsed = colord(background.trim());
   if (!parsed.isValid()) return '#000000';
 
-  const normalized = parsed.toHex();
-  // The contrast helper accepts opaque hex values. Ignore alpha when a valid
-  // CSS color includes one; the configured background is composited by Satori.
-  return getContrastingTextColor(
-    normalized.length === 9 ? normalized.slice(0, 7) : normalized
+  const { r, g, b } = parsed.toRgb();
+  const backgroundLuminance = getRelativeLuminance(r, g, b);
+  const blackContrast = getContrastRatio(backgroundLuminance, 0);
+  const whiteContrast = getContrastRatio(backgroundLuminance, 1);
+  return blackContrast >= whiteContrast ? '#000000' : '#FFFFFF';
+}
+
+function getRelativeLuminance(
+  red: number,
+  green: number,
+  blue: number
+): number {
+  const linearize = (channel: number) => {
+    const normalized = channel / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  };
+
+  return (
+    0.2126 * linearize(red) +
+    0.7152 * linearize(green) +
+    0.0722 * linearize(blue)
   );
+}
+
+function getContrastRatio(firstLuminance: number, secondLuminance: number) {
+  const lighter = Math.max(firstLuminance, secondLuminance);
+  const darker = Math.min(firstLuminance, secondLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 function toRgba(color: string, fallback: string, opacity: number) {

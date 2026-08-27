@@ -39,6 +39,22 @@ describe('blog post social image projection', () => {
     });
   });
 
+  it('falls back when an absolute URL has no recognized raster image type', () => {
+    expect(
+      getBlogPostSocialImage(
+        STORE_URL,
+        POST_SLUG,
+        'https://images.example.com/article.pdf',
+        {}
+      )
+    ).toEqual({
+      url: 'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
   it('preserves the store-aware compatibility route when candidates are unusable', () => {
     expect(
       getBlogPostSocialImage(
