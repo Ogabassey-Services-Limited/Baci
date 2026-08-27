@@ -79,4 +79,35 @@ describe('remediation Codex dependency mounts', () => {
       rmSync(root, { recursive: true, force: true });
     }
   });
+
+  it('rejects a symlinked ancestor before creating dependency mount points', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-dependency-ancestor-'));
+    const dependencyRoot = join(root, 'dependencies');
+    const externalApps = join(root, 'external-apps');
+    const worktreeDir = join(root, 'worktree');
+    try {
+      mkdirSync(join(dependencyRoot, 'apps/web/node_modules'), {
+        recursive: true,
+      });
+      mkdirSync(externalApps, { recursive: true });
+      mkdirSync(worktreeDir, { recursive: true });
+      symlinkSync(externalApps, join(worktreeDir, 'apps'));
+
+      assert.throws(
+        () =>
+          buildRemediationCodexCommand({
+            codexBin: '/opt/host/codex',
+            env: dockerEnvironment(dependencyRoot),
+            prompt: 'Research safely.',
+            readOnly: true,
+            repoDir: worktreeDir,
+            worktreeDir,
+          }),
+        /dependency mount path must be a real directory/
+      );
+      assert.equal(existsSync(join(externalApps, 'web')), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
