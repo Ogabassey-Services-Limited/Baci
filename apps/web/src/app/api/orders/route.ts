@@ -1609,13 +1609,37 @@ export async function POST(request: NextRequest) {
     const localAirportShippingFee = getLocalAirportDeliveryFee({
       airportType: airport_type,
       deliveryMethod: delivery_method,
+      shippingFee: shippingFeeValue,
       selectedQuoteId: body.selected_quote_id,
       shippingAddress: shipping_address,
       shippingRateId: body.shipping_rate_id,
     });
-    if (
+    const localAirportShippingFeeMismatch =
       localAirportShippingFee !== null &&
-      Math.abs(shippingFeeValue - localAirportShippingFee) > 0.01
+      Math.abs(shippingFeeValue - localAirportShippingFee) > 0.01;
+    let isIdempotentLocalAirportReplay = false;
+    if (localAirportShippingFeeMismatch && requestIdempotencyKey) {
+      const { data: existingOrder, error: existingOrderError } =
+        await createAdminClient()
+          .from('orders')
+          .select('id')
+          .eq('merchant_id', merchant_id)
+          .eq('checkout_idempotency_key', requestIdempotencyKey)
+          .maybeSingle();
+      if (existingOrderError) {
+        logger.warn({
+          message:
+            'Idempotent local-airport order pre-check failed; rejecting the stale fee',
+          merchantId: merchant_id,
+          error: existingOrderError,
+        });
+      } else {
+        isIdempotentLocalAirportReplay = Boolean(existingOrder?.id);
+      }
+    }
+    if (
+      localAirportShippingFeeMismatch &&
+      !isIdempotentLocalAirportReplay
     ) {
       logger.warn({
         message:
@@ -2322,7 +2346,7 @@ export async function POST(request: NextRequest) {
     // of the same request hash identically.
     const effectiveShippingFee =
       verifiedMerchantShippingRate?.amount ??
-      localAirportShippingFee ??
+      (isIdempotentLocalAirportReplay ? null : localAirportShippingFee) ??
       shippingFeeValue;
 
     const checkoutRequestHash = requestIdempotencyKey

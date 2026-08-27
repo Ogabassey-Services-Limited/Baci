@@ -52,4 +52,35 @@ describe('getLocalAirportDeliveryFee', () => {
       })
     ).toBeNull();
   });
+
+  it('recognizes legacy fixed fees even when an older client sends a real street address', () => {
+    expect(
+      getLocalAirportDeliveryFee({
+        shippingAddress: { address: '12 Airport Road' },
+        shippingFee: 25_000,
+      })
+    ).toBe(35_000);
+    expect(
+      getLocalAirportDeliveryFee({
+        shippingAddress: { address: '12 Airport Road' },
+        shippingFee: 20_000,
+      })
+    ).toBe(20_000);
+    expect(
+      getLocalAirportDeliveryFee({
+        shippingAddress: { address: '12 Airport Road' },
+        shippingFee: 12_500,
+      })
+    ).toBeNull();
+  });
+
+  it('does not infer airport delivery when a client explicitly selects another method', () => {
+    expect(
+      getLocalAirportDeliveryFee({
+        deliveryMethod: 'door',
+        shippingAddress: { address: 'Airport Delivery' },
+        shippingFee: 25_000,
+      })
+    ).toBeNull();
+  });
 });

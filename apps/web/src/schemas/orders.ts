@@ -6,6 +6,7 @@ import {
   sanitizeText,
   sanitizeUrl,
 } from '@/lib/sanitize-core';
+import { orderDeliveryMetadataSchema } from './checkout-delivery-metadata';
 
 const optionalHttpUrlSchema = z.preprocess(
   (value) => {
@@ -264,14 +265,6 @@ const orderCreateSchemaBase = z
     savings_goal_id: z.uuid().optional(),
     savings_amount: z.number().positive().optional(),
     user_id: z.uuid().optional(),
-    // Shipping metadata.
-    //
-    // B3 (plan §5 B3): pickup/airport flows send `shipping_provider:
-    // null` instead of fabricating a label like 'Pickup'/'Airport' that
-    // would trip the RPC's `shipping_quote_required` guard. The schemas
-    // accept both undefined and null; the route normalizes `?? null`
-    // before passing to the RPC.
-    selected_quote_id: z.uuid().nullable().optional(),
     // Merchant-configured shipping rate (merchant_shipping_rates.id). Sent by
     // checkout when the shopper picks a merchant rate (an `mrate_` quote).
     // The orders route re-verifies the rate against the merchant's zone
@@ -290,12 +283,6 @@ const orderCreateSchemaBase = z
       .nullable()
       .optional()
       .transform((val) => (val ? sanitizeText(val) : val)),
-    // Explicit checkout metadata lets the orders route enforce fixed local
-    // airport fees server-side instead of trusting a client-calculated amount.
-    delivery_method: z
-      .enum(['pickup', 'door', 'airport', 'pickup_station'])
-      .optional(),
-    airport_type: z.enum(['delivery', 'pickup']).optional(),
     tracking_number: z.string().optional(),
     // Legacy/Optional fields
     shipping_provider_legacy: z
@@ -303,30 +290,8 @@ const orderCreateSchemaBase = z
       .optional()
       .transform((val) => (val ? sanitizeText(val) : val)),
   })
+  .and(orderDeliveryMetadataSchema)
   .superRefine((data, ctx) => {
-    if (
-      data.delivery_method === 'airport' &&
-      !data.selected_quote_id &&
-      data.airport_type === undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Airport type is required for local airport delivery',
-        path: ['airport_type'],
-      });
-    }
-
-    if (
-      data.delivery_method !== 'airport' &&
-      data.airport_type !== undefined
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Airport type is only valid for airport delivery',
-        path: ['airport_type'],
-      });
-    }
-
     if (!data.use_savings_credit) {
       return;
     }

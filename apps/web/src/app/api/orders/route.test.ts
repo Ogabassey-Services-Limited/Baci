@@ -7125,6 +7125,58 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
     );
   });
 
+  it('replays an older local airport order before enforcing the new fee', async () => {
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { id: 'existing-order-id' }, error: null })
+      .mockResolvedValue({ data: { currency: 'NGN' }, error: null });
+    mockCreateAdminClient.mockReturnValue({
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle,
+      })),
+    } as never);
+    const supabase = buildMockSupabase({
+      create_storefront_order: {
+        data: [{ ...baseOrderRow, idempotency_replayed: true }],
+        error: null,
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'airport-retry-key-1' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          // Legacy clients omit delivery metadata but preserve a real address.
+          shipping_address: {
+            ...baseOrderPayload.shipping_address,
+            address: '12 Airport Road',
+          },
+          shipping_fee: 25_000,
+        }),
+      })
+    );
+
+    const body = await readJson(response);
+    expect(response.status).toBe(200);
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'airport-retry-key-1',
+        p_shipping_fee: 25_000,
+      })
+    );
+    expect(maybeSingle).toHaveBeenCalled();
+  });
+
   it('passes the server-owned fee for a valid local airport order', async () => {
     const supabase = await primeStorefrontClient();
 
