@@ -3,7 +3,7 @@ import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
 import { hasPermission } from '@/lib/api-permissions';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
-import { reservePaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
+import { reservePaystackDvaAssignment } from '@/lib/payments/reserve-paystack-dva-assignment';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';

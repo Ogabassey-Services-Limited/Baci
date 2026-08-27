@@ -857,6 +857,40 @@ describe('GET /api/orders/[id]/invoice', () => {
     );
   });
 
+  it('does not print an unpaid Paystack DVA before its assignment starts', async () => {
+    const supabase = createSupabaseMock({
+      paymentAccounts: {
+        data: [
+          {
+            account_number: '2222333344',
+            bank_name: 'Paystack-Titan',
+            account_name: 'Future DVA',
+            assigned_at: '2099-03-22T10:00:00.000Z',
+            created_at: '2099-03-22T10:00:00.000Z',
+            expires_at: '2099-03-22T11:30:00.000Z',
+            provider: 'paystack',
+          },
+        ],
+        error: null,
+      },
+    });
+    vi.mocked(createClient).mockReturnValue(
+      supabase as unknown as ReturnType<typeof createClient>
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/orders/${ORDER_ID}/invoice`),
+      { params: Promise.resolve({ id: ORDER_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(generateReceiptBlob).toHaveBeenCalledWith(
+      expect.objectContaining({ virtual_account: null }),
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it('does not include a legacy-untrusted Paystack DVA on the invoice', async () => {
     const supabase = createSupabaseMock({
       paymentAccounts: {

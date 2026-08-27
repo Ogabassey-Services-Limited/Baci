@@ -540,14 +540,14 @@ export async function GET(
     const paymentAccountRows = Array.isArray(paymentAccounts)
       ? (paymentAccounts as PaymentAccountRow[])
       : [];
-    const paymentAccount = isPaidOrder
-      ? selectPreferredOrderPaymentAccount(paymentAccountRows, new Date(), {
-          allowExpiredPaystackAccount: true,
-        })
-      : (paymentAccountRows.find(
-          (account) =>
-            account.assignment_customer_email_source !== 'legacy_untrusted'
-        ) ?? null);
+    const paymentAccount = selectPreferredOrderPaymentAccount(
+      paymentAccountRows,
+      new Date(),
+      {
+        allowExpiredPaystackAccount: isPaidOrder,
+        allowMissingExpiryPaystackAccount: !isPaidOrder,
+      }
+    );
 
     // Parse shipping address
     const shippingAddr = order.shipping_address as ShippingAddress | null;

@@ -158,6 +158,22 @@ describe('selectPreferredOrderPaymentAccount', () => {
     expect(selected).toBeNull();
   });
 
+  it('preserves a legacy Paystack row without an explicit expiry when requested', () => {
+    const selected = selectPreferredOrderPaymentAccount(
+      [
+        {
+          ...account('paystack', '2222222222', '2026-08-01T12:00:00.000Z'),
+          assigned_at: '2026-08-01T12:00:00.000Z',
+          expires_at: null,
+        },
+      ],
+      new Date('2026-08-24T13:32:00.000Z'),
+      { allowMissingExpiryPaystackAccount: true }
+    );
+
+    expect(selected?.account_number).toBe('2222222222');
+  });
+
   it('does not display a legacy-untrusted Paystack account', () => {
     const selected = selectPreferredOrderPaymentAccount(
       [

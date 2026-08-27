@@ -23,6 +23,11 @@ export interface SelectPreferredOrderPaymentAccountOptions {
    * payment instructions. Never enable this for a new payment attempt.
    */
   allowExpiredPaystackAccount?: boolean;
+  /**
+   * Preserve legacy Paystack rows that never received an explicit expiry.
+   * Explicitly expired rows remain hidden unless historical mode is enabled.
+   */
+  allowMissingExpiryPaystackAccount?: boolean;
 }
 
 function isActivePaystackAccount(
@@ -31,6 +36,7 @@ function isActivePaystackAccount(
   {
     allowDeviceClockSkew = false,
     allowExpiredPaystackAccount = false,
+    allowMissingExpiryPaystackAccount = false,
   }: SelectPreferredOrderPaymentAccountOptions
 ) {
   if (account.provider !== 'paystack') return true;
@@ -58,9 +64,7 @@ function isActivePaystackAccount(
   // bounded device-clock grace that applies to active assignments.
   if (
     Number.isFinite(assignedAt) &&
-    nowMs <
-      assignedAt -
-        (allowDeviceClockSkew ? PAYSTACK_DVA_CLOCK_SKEW_MS : 0)
+    nowMs < assignedAt - (allowDeviceClockSkew ? PAYSTACK_DVA_CLOCK_SKEW_MS : 0)
   ) {
     return false;
   }
@@ -74,7 +78,7 @@ function isActivePaystackAccount(
     Number.isFinite(assignedAt) &&
     nowMs > assignmentUpperBound
   ) {
-    return allowExpiredPaystackAccount;
+    return allowExpiredPaystackAccount || allowMissingExpiryPaystackAccount;
   }
 
   return (
