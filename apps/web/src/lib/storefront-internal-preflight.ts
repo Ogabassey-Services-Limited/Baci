@@ -48,13 +48,15 @@ export const UNKNOWN_STOREFRONT_FAIL_OPEN_REASON = 'unknown-storefront';
 /**
  * Reasons a preflight is skipped or resolved as expected non-incident garbage:
  * unsafe bot slugs (never sent to the internal route), the internal
- * `unknown-storefront` verdict (junk subdomains / unpublished stores), and the
- * RPC transport's open circuit breaker (already captured once per transition).
+ * `unknown-storefront` verdict (junk subdomains / unpublished stores), an
+ * open circuit breaker, and a per-instance concurrency cap (both already
+ * captured or bounded at their transport boundary).
  */
 type StorefrontInternalPreflightSkipReason =
   | StorefrontSlugSafetyReason
   | typeof UNKNOWN_STOREFRONT_FAIL_OPEN_REASON
-  | 'circuit-open';
+  | 'circuit-open'
+  | 'concurrency-limit';
 
 interface StorefrontInternalPreflightSkipContext {
   surface: StorefrontInternalPreflightSurface;
@@ -164,7 +166,8 @@ function warnFailOpen(context: StorefrontInternalPreflightContext) {
 function warnSkip(context: StorefrontInternalPreflightSkipContext) {
   const log =
     context.reason === UNKNOWN_STOREFRONT_FAIL_OPEN_REASON ||
-    context.reason === 'circuit-open'
+    context.reason === 'circuit-open' ||
+    context.reason === 'concurrency-limit'
       ? console.warn
       : console.info;
 

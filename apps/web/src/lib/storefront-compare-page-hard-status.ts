@@ -1,6 +1,6 @@
 import type { NextRequest, NextResponse } from 'next/server';
 import { getInternalApiSecret } from '@/env';
-import { resolveStorefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
+import { storefrontComparePageStatus } from '@/lib/storefront-compare-page-status';
 
 type StorefrontRouteType = 'admin' | 'auth' | 'storefront' | 'api';
 
@@ -87,7 +87,7 @@ export function createStorefrontComparePageHardStatusResolver(
       return null;
     }
 
-    const resolution = await resolveStorefrontComparePageStatus({
+    const resolution = await storefrontComparePageStatus.resolve({
       origin: request.nextUrl.origin,
       identifier,
       categorySlug,
