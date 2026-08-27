@@ -78,12 +78,9 @@ function configuredPlatformStats(
 function addAttribution(
   stats: PlatformStats,
   revenue: number,
-  configured: boolean,
-  hasClickId: boolean
+  configured: boolean
 ): void {
-  if (hasClickId) {
-    stats.clickAttributed += 1;
-  }
+  stats.clickAttributed += 1;
   if (configured) {
     stats.conversions += 1;
     stats.revenue += revenue;
@@ -95,10 +92,9 @@ function hasConfiguredPlatformTracking(
   platformStats: Record<string, PlatformStats>
 ): boolean {
   return Boolean(
-    (platformStats.facebook.configured && (tracking.fbclid || tracking.fbp)) ||
-      (platformStats.tiktok.configured && (tracking.ttclid || tracking.ttp)) ||
-      (platformStats.ga4.configured &&
-        (tracking.gclid || tracking.gaClientId)) ||
+    (platformStats.facebook.configured && tracking.fbclid) ||
+      (platformStats.tiktok.configured && tracking.ttclid) ||
+      (platformStats.ga4.configured && tracking.gclid) ||
       (platformStats.snapchat.configured && tracking.sccid)
   );
 }
@@ -127,36 +123,28 @@ export function calculatePlatformStats(
     );
     if (hasClickId) ordersWithClickIds += 1;
 
-    if (tracking.fbclid || tracking.fbp) {
+    if (tracking.fbclid) {
       addAttribution(
         platformStats.facebook,
         revenue,
-        platformStats.facebook.configured,
-        Boolean(tracking.fbclid)
+        platformStats.facebook.configured
       );
     }
-    if (tracking.ttclid || tracking.ttp) {
+    if (tracking.ttclid) {
       addAttribution(
         platformStats.tiktok,
         revenue,
-        platformStats.tiktok.configured,
-        Boolean(tracking.ttclid)
+        platformStats.tiktok.configured
       );
     }
-    if (tracking.gclid || tracking.gaClientId) {
-      addAttribution(
-        platformStats.ga4,
-        revenue,
-        platformStats.ga4.configured,
-        Boolean(tracking.gclid)
-      );
+    if (tracking.gclid) {
+      addAttribution(platformStats.ga4, revenue, platformStats.ga4.configured);
     }
     if (tracking.sccid) {
       addAttribution(
         platformStats.snapchat,
         revenue,
-        platformStats.snapchat.configured,
-        true
+        platformStats.snapchat.configured
       );
     }
 

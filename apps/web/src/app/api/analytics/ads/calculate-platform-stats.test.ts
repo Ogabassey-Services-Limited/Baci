@@ -111,8 +111,10 @@ describe('calculatePlatformStats', () => {
     expect(result.platformStats.facebook.clickAttributed).toBe(0);
     expect(result.platformStats.tiktok.clickAttributed).toBe(0);
     expect(result.platformStats.ga4.clickAttributed).toBe(0);
-    expect(result.platformStats.facebook.conversions).toBe(1);
-    expect(result.platformStats.tiktok.conversions).toBe(1);
-    expect(result.platformStats.ga4.conversions).toBe(1);
+    expect(result.totalConversions).toBe(0);
+    expect(result.totalAttributedRevenue).toBe(0);
+    expect(result.platformStats.facebook.conversions).toBe(0);
+    expect(result.platformStats.tiktok.conversions).toBe(0);
+    expect(result.platformStats.ga4.conversions).toBe(0);
   });
 });

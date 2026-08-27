@@ -165,7 +165,7 @@ describe('GET /api/analytics/ads', () => {
 
     const response = await GET(
       new Request(
-        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
+        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22&orderStart=2026-08-01T12:34:56.000Z&orderEnd=2026-08-22T18:45:00.000Z'
       ) as unknown as NextRequest
     );
     const body = await response.json();
@@ -227,18 +227,18 @@ describe('GET /api/analytics/ads', () => {
 
     const response = await GET(
       new Request(
-        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22'
+        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22&orderStart=2026-08-01T12:34:56.000Z&orderEnd=2026-08-22T18:45:00.000Z'
       ) as unknown as NextRequest
     );
 
     expect(response.status).toBe(200);
     expect(ordersQuery.gte).toHaveBeenCalledWith(
       'created_at',
-      '2026-08-01T00:00:00.000Z'
+      '2026-08-01T12:34:56.000Z'
     );
     expect(ordersQuery.lte).toHaveBeenCalledWith(
       'created_at',
-      '2026-08-22T23:59:59.999Z'
+      '2026-08-22T18:45:00.000Z'
     );
   });
 

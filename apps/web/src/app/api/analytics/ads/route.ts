@@ -62,6 +62,8 @@ export async function GET(request: Request) {
     const parsedQuery = adsAnalyticsQuerySchema.safeParse({
       cacheBust: searchParams.get('cacheBust') || undefined,
       endDate: searchParams.get('endDate') || undefined,
+      orderEnd: searchParams.get('orderEnd') || undefined,
+      orderStart: searchParams.get('orderStart') || undefined,
       startDate: searchParams.get('startDate') || undefined,
     });
     if (!parsedQuery.success) {
@@ -71,14 +73,15 @@ export async function GET(request: Request) {
       );
     }
 
-    // Date-only parameters are deliberate: provider spend_date is an account-
-    // local calendar date. Legacy Baci order attribution uses the same UTC
-    // calendar-day boundary, with the end date inclusive through its final ms.
+    // Provider spend_date is an account-local calendar date. Order attribution
+    // uses the exact dashboard instants when supplied, with a date-only
+    // fallback for callers that do not yet send those boundaries.
     const defaultRange = getDefaultCalendarDateRange(new Date());
     const startDate = parsedQuery.data.startDate ?? defaultRange.startDate;
     const endDate = parsedQuery.data.endDate ?? defaultRange.endDate;
-    const orderStart = `${startDate}T00:00:00.000Z`;
-    const orderEnd = `${endDate}T23:59:59.999Z`;
+    const orderStart =
+      parsedQuery.data.orderStart ?? `${startDate}T00:00:00.000Z`;
+    const orderEnd = parsedQuery.data.orderEnd ?? `${endDate}T23:59:59.999Z`;
 
     const requestedMerchant = parseRequestedMerchantId(request);
     if (requestedMerchant.response) {
@@ -125,6 +128,8 @@ export async function GET(request: Request) {
         : buildAdsAnalyticsCacheKey({
             endDate,
             merchantId,
+            orderEnd,
+            orderStart,
             startDate,
             version: cacheVersion,
           });

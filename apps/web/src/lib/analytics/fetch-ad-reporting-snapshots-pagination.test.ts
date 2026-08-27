@@ -33,7 +33,7 @@ describe('fetchAdReportingSnapshots pagination', () => {
     const results = [
       {
         data: {
-          last_synced_at: null,
+          last_synced_at: '2026-08-22T09:00:00.000Z',
           provider_customer_id: 'google-1',
           status: 'active',
         },

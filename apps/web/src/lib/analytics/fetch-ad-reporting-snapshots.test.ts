@@ -7,7 +7,7 @@ describe('fetchAdReportingSnapshots', () => {
     const results = [
       {
         data: {
-          last_synced_at: null,
+          last_synced_at: '2026-08-22T09:00:00.000Z',
           provider_customer_id: 'google-1',
           status: 'active',
         },
@@ -42,7 +42,7 @@ describe('fetchAdReportingSnapshots', () => {
         data: [
           {
             account_timezone: 'UTC',
-            last_synced_at: null,
+            last_synced_at: '2026-08-22T09:00:00.000Z',
             provider: 'snapchat_ads',
             provider_account_label: 'Baci Snap',
             provider_customer_id: 'snap-1',

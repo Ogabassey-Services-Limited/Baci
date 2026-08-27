@@ -96,9 +96,11 @@ export function buildGoogleAdsAnalyticsSnapshot(
         ? 'connected'
         : 'disconnected';
   const selectedCustomerId = connected ? connection.provider_customer_id : null;
-  const selectedRows = selectedCustomerId
-    ? rows.filter((row) => row.provider_customer_id === selectedCustomerId)
-    : [];
+  const lastSyncedAt = connection.last_synced_at;
+  const selectedRows =
+    selectedCustomerId && lastSyncedAt
+      ? rows.filter((row) => row.provider_customer_id === selectedCustomerId)
+      : [];
   const daily = selectedRows.map((row) => {
     const spendMicros = nonNegativeMicros(row.spend_micros);
     return {
@@ -112,7 +114,6 @@ export function buildGoogleAdsAnalyticsSnapshot(
       spendMicros,
     };
   });
-  const lastSyncedAt = connection.last_synced_at;
   const isStale =
     connected &&
     lastSyncedAt !== null &&

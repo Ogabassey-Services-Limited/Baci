@@ -55,6 +55,8 @@ export async function getAdsAnalyticsCacheVersion(
 export function buildAdsAnalyticsCacheKey(input: {
   endDate: string;
   merchantId: string;
+  orderEnd?: string;
+  orderStart?: string;
   startDate: string;
   version: string;
 }): string | undefined {
@@ -62,7 +64,11 @@ export function buildAdsAnalyticsCacheKey(input: {
   const normalizedVersion = input.version.trim();
   if (!normalizedMerchantId || !normalizedVersion) return undefined;
 
-  return `${ADS_ANALYTICS_CACHE_PREFIX}:${normalizedMerchantId}:${input.startDate}:${input.endDate}:${normalizedVersion}`;
+  const orderRange =
+    input.orderStart && input.orderEnd
+      ? `:${input.orderStart}:${input.orderEnd}`
+      : '';
+  return `${ADS_ANALYTICS_CACHE_PREFIX}:${normalizedMerchantId}:${input.startDate}:${input.endDate}${orderRange}:${normalizedVersion}`;
 }
 
 /**

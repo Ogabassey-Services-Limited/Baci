@@ -113,6 +113,36 @@ describe('buildGoogleAdsAnalyticsSnapshot', () => {
     });
   });
 
+  it('hides retained rows until the selected account completes a sync', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: null,
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [
+        {
+          clicks: 4,
+          conversions: '1.5',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-22T09:00:00.000Z',
+          impressions: 40,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-22',
+          spend_micros: '1250000',
+        },
+      ],
+      { now: new Date('2026-08-22T10:00:00.000Z') }
+    );
+
+    expect(result).toMatchObject({
+      lastSyncedAt: null,
+      needsAccountSelection: false,
+    });
+    expect(result?.daily).toBeUndefined();
+    expect(result?.spend).toBeUndefined();
+  });
+
   it('keeps a read failure visible instead of presenting a disconnected account', () => {
     expect(
       buildGoogleAdsAnalyticsSnapshot(null, [], {

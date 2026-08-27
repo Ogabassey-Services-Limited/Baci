@@ -209,6 +209,8 @@ async function fetchAdAnalyticsData(
   const params = new URLSearchParams({
     // The ads endpoint accepts calendar dates. Converting date-picker values
     // through ISO/UTC here shifts account-local provider spend windows.
+    orderEnd: to.toISOString(),
+    orderStart: from.toISOString(),
     ...buildAdsSyncWindow(from, to),
   });
   if (refreshKey !== undefined) {

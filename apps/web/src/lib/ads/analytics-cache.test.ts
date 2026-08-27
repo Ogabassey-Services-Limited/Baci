@@ -111,6 +111,27 @@ describe('durable ads analytics cache revisions', () => {
     );
     expect(afterMutation).not.toBe(beforeMutation);
   });
+
+  it('separates exact order windows that share provider calendar dates', () => {
+    const morning = buildAdsAnalyticsCacheKey({
+      endDate: '2026-08-26',
+      merchantId: 'merchant-1',
+      orderEnd: '2026-08-26T12:00:00.000Z',
+      orderStart: '2026-08-01T12:00:00.000Z',
+      startDate: '2026-08-01',
+      version: 'empty',
+    });
+    const evening = buildAdsAnalyticsCacheKey({
+      endDate: '2026-08-26',
+      merchantId: 'merchant-1',
+      orderEnd: '2026-08-26T18:00:00.000Z',
+      orderStart: '2026-08-01T18:00:00.000Z',
+      startDate: '2026-08-01',
+      version: 'empty',
+    });
+
+    expect(morning).not.toBe(evening);
+  });
 });
 
 function createVersionQuery(result: { data: unknown; error: unknown }) {

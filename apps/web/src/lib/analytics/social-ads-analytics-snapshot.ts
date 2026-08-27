@@ -152,6 +152,7 @@ export function buildSocialAdsAnalyticsSnapshot({
     );
     return (
       connection?.status === 'active' &&
+      Boolean(connection.last_synced_at) &&
       !tokenExpiryRequiresReauthorization(
         connection.provider,
         connection.token_expires_at,

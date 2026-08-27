@@ -11,6 +11,71 @@ describe('adsAnalyticsQuerySchema', () => {
     ).toBe(true);
   });
 
+  it('accepts exact order instants alongside calendar provider dates', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-08-22',
+        orderEnd: '2026-08-22T18:30:00.000Z',
+        orderStart: '2026-08-01T18:30:00.000Z',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(true);
+  });
+
+  it('accepts an order-only exact reporting window', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        orderEnd: '2026-08-22T18:30:00.000Z',
+        orderStart: '2026-08-01T18:30:00.000Z',
+      }).success
+    ).toBe(true);
+  });
+
+  it('accepts exact order instants with a non-UTC offset', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-08-22',
+        orderEnd: '2026-08-22T18:30:00+05:30',
+        orderStart: '2026-08-01T18:30:00+05:30',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(true);
+  });
+
+  it('requires exact order instants to be complete and ordered', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-08-22',
+        orderStart: '2026-08-01T00:00:00.000Z',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        orderEnd: '2026-08-22T18:30:00.000Z',
+      }).success
+    ).toBe(false);
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-08-22',
+        orderEnd: '2026-08-01T00:00:00.000Z',
+        orderStart: '2026-08-22T00:00:00.000Z',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects exact order windows longer than the reporting limit', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-08-22',
+        orderEnd: '2025-01-01T00:00:00.000Z',
+        orderStart: '2024-01-01T00:00:00.000Z',
+        startDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects instants so account-local dates cannot be shifted through UTC', () => {
     expect(
       adsAnalyticsQuerySchema.safeParse({
