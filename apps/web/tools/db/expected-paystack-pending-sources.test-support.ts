@@ -234,4 +234,9 @@ export const EXPECTED_PAYSTACK_PENDING_SOURCES = [
       'supabase/migrations/20260827060200_repair_paystack_alias_timestamps.sql',
     sha256: 'fe6606707984dedde350c8547d77965c87ccf5da89f10c10c715c3441408972d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827060300_restrict_paystack_payable_refresh.sql',
+    sha256: '36117fd5fbcb1e5538422ce06fe2df2b0a4c8f377dfa29cc9cb4671e9d3d9dd9',
+  },
 ];
