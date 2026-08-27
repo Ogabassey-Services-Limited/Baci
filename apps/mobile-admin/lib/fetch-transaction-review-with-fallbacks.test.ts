@@ -92,6 +92,33 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     ).not.toContain('vat_rate');
   });
 
+  it('preserves cost relationships when discount code ids are unavailable', async () => {
+    const rows = [{ id: 'legacy-discount-code-order' }];
+    const discountCodeSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(4);
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).toContain('order_item_unit_costs');
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).not.toContain('discount_code_id');
+  });
+
   it('tries the rich legacy projection before the discount-only compatibility fallback', async () => {
     const rows = [{ id: 'legacy-cost-order' }];
     for (let attempt = 0; attempt < 5; attempt += 1) {

@@ -41,4 +41,14 @@ describe('transaction review selectors', () => {
     expect(selector).not.toContain('vat_category_code');
     expect(selector).not.toContain('vat_rate');
   });
+
+  it('keeps cost relationships when discount code ids are unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode;
+
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('cost_price');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
 });

@@ -31,6 +31,20 @@ function isMissingDiscountAmountSchemaError(
   );
 }
 
+function isMissingDiscountCodeIdSchemaError(
+  error: TransactionReviewQueryError
+) {
+  const errorText = [error?.code, error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return (
+    errorText.includes('discount_code_id') &&
+    isTransactionReviewSchemaCacheError(error)
+  );
+}
+
 function warnTransactionReviewQueryError(
   stage:
     | 'Base'
@@ -40,6 +54,7 @@ function warnTransactionReviewQueryError(
     | 'Full'
     | 'FullNoDiscount'
     | 'LegacyNoAdjustments'
+    | 'LegacyNoAdjustmentsNoDiscountCode'
     | 'Legacy',
   error: TransactionReviewQueryError
 ) {
@@ -124,6 +139,26 @@ export async function fetchTransactionReviewWithFallbacks({
     error = legacyNoAdjustmentsResult.error;
 
     warnTransactionReviewQueryError('LegacyNoAdjustments', error);
+  }
+
+  if (isMissingDiscountCodeIdSchemaError(error)) {
+    const legacyNoAdjustmentsNoDiscountCodeResult =
+      await fetchTransactionReviewRows({
+        endDateFilter,
+        endDateIso,
+        includeCancelledAt: true,
+        includeTransactionDate: true,
+        merchantId,
+        selectStatement:
+          TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
+        startDateFilter,
+        startDateIso,
+      });
+
+    data = legacyNoAdjustmentsNoDiscountCodeResult.data;
+    error = legacyNoAdjustmentsNoDiscountCodeResult.error;
+
+    warnTransactionReviewQueryError('LegacyNoAdjustmentsNoDiscountCode', error);
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
