@@ -54,7 +54,7 @@ export function AirportDeliveryOptions({
           className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${
             airportType === 'delivery' && localAirportTypeSelected
               ? 'border-store-primary bg-store-primary/5'
-              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+              : 'border-store-background-text/10 bg-store-background hover:border-store-primary/40'
           }`}
         >
           <input
@@ -69,7 +69,7 @@ export function AirportDeliveryOptions({
             className={`size-5 rounded-full border-2 flex items-center justify-center ${
               airportType === 'delivery' && localAirportTypeSelected
                 ? 'border-store-primary'
-                : 'border-gray-400'
+                : 'border-store-background-text/40'
             }`}
           >
             {airportType === 'delivery' && localAirportTypeSelected && (
@@ -94,7 +94,7 @@ export function AirportDeliveryOptions({
           className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${
             airportType === 'pickup' && localAirportTypeSelected
               ? 'border-store-primary bg-store-primary/5'
-              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+              : 'border-store-background-text/10 bg-store-background hover:border-store-primary/40'
           }`}
         >
           <input
@@ -109,7 +109,7 @@ export function AirportDeliveryOptions({
             className={`size-5 rounded-full border-2 flex items-center justify-center ${
               airportType === 'pickup' && localAirportTypeSelected
                 ? 'border-store-primary'
-                : 'border-gray-400'
+                : 'border-store-background-text/40'
             }`}
           >
             {airportType === 'pickup' && localAirportTypeSelected && (

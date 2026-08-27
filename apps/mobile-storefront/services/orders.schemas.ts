@@ -34,7 +34,7 @@ const OrderItemSchema = z.object({
     .optional(),
 });
 
-export const CreateOrderRequestSchema = z.object({
+const createOrderRequestSchemaBase = z.object({
   customer_email: z.email('Invalid email address'),
   customer_name: z.string().min(1, 'Name is required'),
   customer_phone: z.string().min(10, 'Valid phone number required'),
@@ -73,6 +73,29 @@ export const CreateOrderRequestSchema = z.object({
     .max(MAX_SAVINGS_CREDIT_AMOUNT, 'Savings amount exceeds maximum')
     .optional(),
 });
+
+export const CreateOrderRequestSchema =
+  createOrderRequestSchemaBase.superRefine((data, ctx) => {
+    if (
+      data.delivery_method === 'airport' &&
+      !data.selected_quote_id &&
+      data.airport_type === undefined
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Airport type is required for local airport delivery',
+        path: ['airport_type'],
+      });
+    }
+
+    if (data.delivery_method !== 'airport' && data.airport_type !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Airport type is only valid for airport delivery',
+        path: ['airport_type'],
+      });
+    }
+  });
 
 export const OrderResponseSchema = z.object({
   order: z.object({

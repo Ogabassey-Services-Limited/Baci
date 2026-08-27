@@ -299,6 +299,35 @@ describe('checkout order builders', () => {
     expect(request.airport_type).toBeUndefined();
   });
 
+  it('serializes the fixed airport delivery type without a GoFaster quote', () => {
+    const itemsSnapshot = [
+      {
+        id: 'line-1',
+        product_id: 'product-1',
+        slug: 'iphone-13',
+        name: 'iPhone 13',
+        price: 500000,
+        quantity: 1,
+      },
+    ];
+    const request = buildCheckoutOrderRequest({
+      address,
+      customerEmail: 'ada@example.com',
+      customerName: 'Ada Lovelace',
+      customerPhone: '08012345678',
+      deliveryMethod: 'airport',
+      itemsSnapshot,
+      paymentMethodForOrder: 'paystack',
+      selectedQuote: undefined,
+      shippingProvider: undefined,
+      snapshot: createCheckoutSnapshot(itemsSnapshot, 35000, 0),
+    });
+
+    expect(request.delivery_method).toBe('airport');
+    expect(request.selected_quote_id).toBeUndefined();
+    expect(request.airport_type).toBe('delivery');
+  });
+
   it('uses the merchant pickup address when no provider station quote is selected', () => {
     const request = buildCheckoutOrderRequest({
       address,

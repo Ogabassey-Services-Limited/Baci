@@ -7098,6 +7098,37 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
     );
   });
 
+  it('accepts a metadata-free non-airport order with the legacy 25,000 fee', async () => {
+    // Arrange — a door-delivery caller from before the airport metadata
+    // rollout may legitimately use the same 25,000 fee. The amount alone must
+    // not classify this order as airport delivery.
+    primeAdminOrderCurrencyRead();
+    const supabase = await primeStorefrontClient();
+
+    // Act
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_fee: 25_000,
+        }),
+      })
+    );
+
+    // Assert — no airport-fee mismatch and the submitted fee reaches the
+    // canonical order RPC unchanged.
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_shipping_fee: 25_000 })
+    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
+      'has_storefront_order_idempotency_key',
+      expect.anything()
+    );
+  });
+
   it('rejects a stale local airport fee before the order RPC runs', async () => {
     // Arrange — an older checkout client still submits the previous airport
     // delivery fee even though the server-owned fee is now 35,000.

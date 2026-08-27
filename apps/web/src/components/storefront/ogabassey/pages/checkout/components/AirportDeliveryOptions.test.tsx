@@ -55,6 +55,24 @@ describe('AirportDeliveryOptions', () => {
     expect(onSelectAirportType).toHaveBeenCalledWith('pickup');
   });
 
+  it('checks the selected provider quote instead of either fixed airport option', () => {
+    renderAirportOptions({
+      airDeliveryQuotes: [airQuote],
+      selectedQuoteId: airQuote.id,
+      selectedQuoteMatchesDeliveryMethod: true,
+    });
+
+    expect(
+      screen.getByRole('radio', { name: /gigl air cargo/i })
+    ).toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /airport delivery/i })
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /airport pickup/i })
+    ).not.toBeChecked();
+  });
+
   it('renders and selects provider GoFaster quotes', async () => {
     const user = userEvent.setup();
     const onSelectQuote = vi.fn();
