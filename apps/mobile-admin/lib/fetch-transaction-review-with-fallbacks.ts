@@ -17,6 +17,17 @@ type TransactionReviewQueryError = {
   message?: string;
 } | null;
 
+type TransactionReviewFallbackStage =
+  | 'Base'
+  | 'BaseNoLineId'
+  | 'BaseNoVariantId'
+  | 'BaseWithDiscount'
+  | 'Full'
+  | 'FullNoDiscount'
+  | 'LegacyNoAdjustments'
+  | 'LegacyNoAdjustmentsNoDiscountCode'
+  | 'Legacy';
+
 function isMissingDiscountAmountSchemaError(
   error: TransactionReviewQueryError
 ) {
@@ -46,21 +57,25 @@ function isMissingDiscountCodeIdSchemaError(
 }
 
 function warnTransactionReviewQueryError(
-  stage:
-    | 'Base'
-    | 'BaseNoLineId'
-    | 'BaseNoVariantId'
-    | 'BaseWithDiscount'
-    | 'Full'
-    | 'FullNoDiscount'
-    | 'LegacyNoAdjustments'
-    | 'LegacyNoAdjustmentsNoDiscountCode'
-    | 'Legacy',
+  stage: TransactionReviewFallbackStage,
   error: TransactionReviewQueryError
 ) {
   if (__DEV__ && error) {
     console.warn('[TransactionReview] select failed', { error, stage });
   }
+}
+
+type TransactionReviewQueryOptions = Parameters<
+  typeof fetchTransactionReviewRows
+>[0];
+
+async function runTransactionReviewQuery(
+  stage: TransactionReviewFallbackStage,
+  options: TransactionReviewQueryOptions
+) {
+  const result = await fetchTransactionReviewRows(options);
+  warnTransactionReviewQueryError(stage, result.error);
+  return result;
 }
 
 /**
@@ -74,7 +89,7 @@ export async function fetchTransactionReviewWithFallbacks({
   startDateFilter,
   startDateIso,
 }: TransactionReviewFallbackQuery) {
-  let { data, error } = await fetchTransactionReviewRows({
+  let { data, error } = await runTransactionReviewQuery('Full', {
     endDateFilter,
     endDateIso,
     includeCancelledAt: true,
@@ -85,10 +100,8 @@ export async function fetchTransactionReviewWithFallbacks({
     startDateIso,
   });
 
-  warnTransactionReviewQueryError('Full', error);
-
   if (isMissingDiscountAmountSchemaError(error)) {
-    const noDiscountResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('FullNoDiscount', {
       endDateFilter,
       endDateIso,
       includeCancelledAt: true,
@@ -97,16 +110,11 @@ export async function fetchTransactionReviewWithFallbacks({
       selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscount,
       startDateFilter,
       startDateIso,
-    });
-
-    data = noDiscountResult.data;
-    error = noDiscountResult.error;
-
-    warnTransactionReviewQueryError('FullNoDiscount', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const legacyResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('Legacy', {
       endDateFilter,
       endDateIso,
       includeCancelledAt: true,
@@ -115,16 +123,11 @@ export async function fetchTransactionReviewWithFallbacks({
       selectStatement: TRANSACTION_REVIEW_SELECTORS.legacy,
       startDateFilter,
       startDateIso,
-    });
-
-    data = legacyResult.data;
-    error = legacyResult.error;
-
-    warnTransactionReviewQueryError('Legacy', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const legacyNoAdjustmentsResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('LegacyNoAdjustments', {
       endDateFilter,
       endDateIso,
       includeCancelledAt: true,
@@ -133,17 +136,13 @@ export async function fetchTransactionReviewWithFallbacks({
       selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments,
       startDateFilter,
       startDateIso,
-    });
-
-    data = legacyNoAdjustmentsResult.data;
-    error = legacyNoAdjustmentsResult.error;
-
-    warnTransactionReviewQueryError('LegacyNoAdjustments', error);
+    }));
   }
 
   if (isMissingDiscountCodeIdSchemaError(error)) {
-    const legacyNoAdjustmentsNoDiscountCodeResult =
-      await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery(
+      'LegacyNoAdjustmentsNoDiscountCode',
+      {
         endDateFilter,
         endDateIso,
         includeCancelledAt: true,
@@ -153,48 +152,34 @@ export async function fetchTransactionReviewWithFallbacks({
           TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
         startDateFilter,
         startDateIso,
-      });
-
-    data = legacyNoAdjustmentsNoDiscountCodeResult.data;
-    error = legacyNoAdjustmentsNoDiscountCodeResult.error;
-
-    warnTransactionReviewQueryError('LegacyNoAdjustmentsNoDiscountCode', error);
+      }
+    ));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseWithDiscountResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseWithDiscount', {
       endDateIso,
       includeCancelledAt: true,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscount,
       startDateIso,
-    });
-
-    data = baseWithDiscountResult.data;
-    error = baseWithDiscountResult.error;
-
-    warnTransactionReviewQueryError('BaseWithDiscount', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('Base', {
       endDateIso,
       includeCancelledAt: true,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.base,
       startDateIso,
-    });
-
-    data = baseResult.data;
-    error = baseResult.error;
-
-    warnTransactionReviewQueryError('Base', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const legacyCompatResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('Legacy', {
       endDateFilter,
       endDateIso,
       includeCancelledAt: false,
@@ -203,124 +188,84 @@ export async function fetchTransactionReviewWithFallbacks({
       selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyCompat,
       startDateFilter,
       startDateIso,
-    });
-
-    data = legacyCompatResult.data;
-    error = legacyCompatResult.error;
-
-    warnTransactionReviewQueryError('Legacy', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseWithDiscountCompatResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseWithDiscount', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
       startDateIso,
-    });
-
-    data = baseWithDiscountCompatResult.data;
-    error = baseWithDiscountCompatResult.error;
-
-    warnTransactionReviewQueryError('BaseWithDiscount', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseCompatResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('Base', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.baseCompat,
       startDateIso,
-    });
-
-    data = baseCompatResult.data;
-    error = baseCompatResult.error;
-
-    warnTransactionReviewQueryError('Base', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const noDiscountResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('Base', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.noDiscount,
       startDateIso,
-    });
-
-    data = noDiscountResult.data;
-    error = noDiscountResult.error;
-
-    warnTransactionReviewQueryError('Base', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseWithDiscountNoLineIdResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseNoLineId', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
       startDateIso,
-    });
-
-    data = baseWithDiscountNoLineIdResult.data;
-    error = baseWithDiscountNoLineIdResult.error;
-
-    warnTransactionReviewQueryError('BaseNoLineId', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const noLineIdResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseNoLineId', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.noLineId,
       startDateIso,
-    });
-
-    data = noLineIdResult.data;
-    error = noLineIdResult.error;
-
-    warnTransactionReviewQueryError('BaseNoLineId', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const baseWithDiscountNoVariantIdResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseNoVariantId', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId,
       startDateIso,
-    });
-
-    data = baseWithDiscountNoVariantIdResult.data;
-    error = baseWithDiscountNoVariantIdResult.error;
-
-    warnTransactionReviewQueryError('BaseNoVariantId', error);
+    }));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    const noVariantIdResult = await fetchTransactionReviewRows({
+    ({ data, error } = await runTransactionReviewQuery('BaseNoVariantId', {
       endDateIso,
       includeCancelledAt: false,
       includeTransactionDate: false,
       merchantId,
       selectStatement: TRANSACTION_REVIEW_SELECTORS.noVariantId,
       startDateIso,
-    });
-
-    data = noVariantIdResult.data;
-    error = noVariantIdResult.error;
-
-    warnTransactionReviewQueryError('BaseNoVariantId', error);
+    }));
   }
 
   return { data, error };
