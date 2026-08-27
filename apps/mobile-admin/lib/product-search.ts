@@ -72,8 +72,7 @@ function clampPositiveInteger(value: number, maximum: number) {
 
 function getAdminSearchStatusFilter(filters: AdminProductSearchFilters) {
   if (filters.status) return filters.status;
-  if (filters.stockFilter) return ADMIN_SEARCH_VISIBLE_STATUS_FILTER;
-  return null;
+  return ADMIN_SEARCH_VISIBLE_STATUS_FILTER;
 }
 
 function getAdminSearchStockFilter(filters: AdminProductSearchFilters) {
@@ -147,7 +146,7 @@ export async function fetchAdminProductSearchRows<
   if (args.filters.category) {
     rowsQuery = rowsQuery.eq('category_id', args.filters.category);
   }
-  if (!args.filters.status && args.filters.stockFilter) {
+  if (!args.filters.status) {
     rowsQuery = rowsQuery.neq('status', 'archived');
   }
   rowsQuery = applyAdminProductStockFilter(rowsQuery, args.filters.stockFilter);

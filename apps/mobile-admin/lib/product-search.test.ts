@@ -177,6 +177,37 @@ describe('admin product search helpers', () => {
     );
   });
 
+  it('excludes archived products from default product search results', async () => {
+    const query = createQueryChain({
+      data: [{ id: 'prod-archived', name: 'Samsung Galaxy A07 4GB 128GB' }],
+    });
+    query.neq.mockImplementation(() => {
+      query.data = [];
+      return query;
+    });
+
+    mockRpc.mockResolvedValue({
+      data: [{ product_id: 'prod-archived', relevance: 9.5, total_count: 1 }],
+      error: null,
+    });
+    mockFrom.mockReturnValue(query);
+
+    const result = await fetchAdminProductSearchRows({
+      cursor: 0,
+      filters: { search: 'a07' },
+      merchantId: 'merchant-1',
+      pageSize: 20,
+      selectColumns: 'id, name',
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'search_products_v2',
+      expect.objectContaining({ status_filter: 'not_archived' })
+    );
+    expect(query.neq).toHaveBeenCalledWith('status', 'archived');
+    expect(result.rows).toEqual([]);
+  });
+
   it('fetches suggestion candidates in rpc rank order and excludes the current product', async () => {
     const query = createQueryChain({
       data: [
