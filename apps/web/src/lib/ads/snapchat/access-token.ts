@@ -98,6 +98,11 @@ export async function getSnapchatAdsUsableGrant(input: {
       ),
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED'
+    )
+      throw new SnapchatAdsTokenRefreshError(error.message);
     const status =
       error &&
       typeof error === 'object' &&

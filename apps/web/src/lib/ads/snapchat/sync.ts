@@ -124,7 +124,8 @@ export async function syncSnapchatAdsSpendForMerchant(
   } catch (error) {
     if (
       error instanceof SnapchatAdsTokenRefreshError &&
-      error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED'
+      (error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED' ||
+        error.code === 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED')
     )
       await markSnapchatAdsReauthRequired({
         connection,

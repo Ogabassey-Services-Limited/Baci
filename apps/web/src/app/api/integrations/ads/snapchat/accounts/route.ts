@@ -53,7 +53,8 @@ async function revoked(
     (error instanceof SnapchatAdsProviderError &&
       error.code === 'SNAPCHAT_ADS_ACCESS_REVOKED') ||
     (error instanceof SnapchatAdsTokenRefreshError &&
-      error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED');
+      (error.code === 'SNAPCHAT_ADS_REFRESH_REJECTED' ||
+        error.code === 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED'));
   if (!current || !shouldMarkReauth) return null;
   try {
     await markSnapchatAdsReauthRequired({

@@ -110,7 +110,9 @@ function tokenExpiryRequiresReauthorization(
   tokenExpiresAt: string | null | undefined,
   now: Date
 ): boolean {
-  return provider !== 'snapchat_ads' && hasExpiredToken(tokenExpiresAt, now);
+  if (provider === 'snapchat_ads') return false;
+  if (provider === 'meta_ads' && !tokenExpiresAt) return true;
+  return hasExpiredToken(tokenExpiresAt, now);
 }
 
 function spendByCurrency(rows: SocialAdsSpendRow[]) {

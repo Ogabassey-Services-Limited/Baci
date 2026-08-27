@@ -38,11 +38,17 @@ export function AnalyticsFilters({
       animate={{ opacity: 1, y: 0 }}
       className={cn('flex items-center justify-between gap-4', className)}
     >
-      <DateRangePicker
-        date={date}
-        maxRangeDays={category === 'ads' ? ADS_ANALYTICS_MAX_DAYS : undefined}
-        setDate={onDateChange}
-      />
+      {category === 'segments' ? (
+        <span className="text-sm text-muted-foreground">
+          Segments show lifetime data
+        </span>
+      ) : (
+        <DateRangePicker
+          date={date}
+          maxRangeDays={category === 'ads' ? ADS_ANALYTICS_MAX_DAYS : undefined}
+          setDate={onDateChange}
+        />
+      )}
 
       <div className="flex items-center gap-2">
         <DropdownMenu>

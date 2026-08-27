@@ -183,6 +183,25 @@ describe('Snapchat Ads access token', () => {
     );
   });
 
+  it('preserves refresh-token decrypt failures for reauthorization marking', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    await expect(
+      getSnapchatAdsUsableGrant({
+        config,
+        connection: {
+          access_token_ciphertext: 'unreadable-expired-access',
+          refresh_token_ciphertext: 'unreadable-refresh',
+          token_expires_at: '2020-01-01T00:00:00Z',
+        },
+        merchantId: 'merchant',
+        credentialSupabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({
+      code: 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED',
+    });
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it('returns refreshed ciphertext and expiry for compare-and-set reauth marking', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
     refresh.mockResolvedValue({

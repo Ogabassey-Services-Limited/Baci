@@ -12,6 +12,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           provider_account_label: 'Baci Meta',
           provider_customer_id: 'act_1',
           status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
         },
         {
           account_timezone: 'UTC',
@@ -113,6 +114,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           provider_account_label: 'Baci Meta',
           provider_customer_id: 'act_1',
           status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
         },
       ],
       endDate: '2026-08-22',
@@ -180,6 +182,47 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
     });
   });
 
+  it('treats a Meta connection without expiry metadata as reauthorization-required', () => {
+    const snapshot = buildSocialAdsAnalyticsSnapshot({
+      connections: [
+        {
+          account_timezone: 'UTC',
+          last_synced_at: '2026-08-22T09:00:00.000Z',
+          provider: 'meta_ads',
+          provider_account_label: 'Baci Meta',
+          provider_customer_id: 'act_1',
+          status: 'active',
+          token_expires_at: null,
+        },
+      ],
+      endDate: '2026-08-22',
+      now: new Date('2026-08-22T10:00:00.000Z'),
+      spendRows: [
+        {
+          account_timezone: 'UTC',
+          clicks: '10',
+          conversions: '1',
+          currency_code: 'NGN',
+          fetched_at: '2026-08-22T09:30:00.000Z',
+          impressions: '100',
+          provider: 'meta_ads',
+          provider_customer_id: 'act_1',
+          reach: '80',
+          spend_amount_decimal: '100',
+          spend_date: '2026-08-22',
+        },
+      ],
+      startDate: '2026-08-22',
+    });
+
+    expect(snapshot.providers[0]).toMatchObject({
+      connectionStatus: 'error',
+      error: 'This connection needs to be reauthorized.',
+      metrics: null,
+      provider: 'meta_ads',
+    });
+  });
+
   it('binds metrics only to each active selected account after switches and reconnects', () => {
     const snapshot = buildSocialAdsAnalyticsSnapshot({
       connections: [
@@ -190,6 +233,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           provider_account_label: null,
           provider_customer_id: null,
           status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
         },
         {
           account_timezone: 'UTC',
@@ -299,6 +343,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           provider_account_label: null,
           provider_customer_id: null,
           status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
         },
         {
           account_timezone: 'UTC',
@@ -358,6 +403,7 @@ describe('buildSocialAdsAnalyticsSnapshot', () => {
           provider_account_label: 'Baci Meta',
           provider_customer_id: 'act_1',
           status: 'active',
+          token_expires_at: '2026-09-01T00:00:00.000Z',
         },
       ],
       endDate: '2026-08-22',

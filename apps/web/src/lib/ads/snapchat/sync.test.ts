@@ -233,6 +233,34 @@ describe('Snapchat Ads sync', () => {
     expect(accounts).not.toHaveBeenCalled();
   });
 
+  it('marks an undecryptable refresh token as reconnect-required', async () => {
+    usableGrant.mockRejectedValueOnce(
+      new SnapchatAdsTokenRefreshError(
+        'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED'
+      )
+    );
+
+    await expect(
+      syncSnapchatAdsSpendForMerchant({
+        credentialSupabase: { rpc } as never,
+        merchantId: 'merchant',
+        startDate: '2026-08-20',
+        endDate: '2026-08-20',
+        spendSupabase: { rpc } as never,
+        supabase: { rpc } as never,
+      })
+    ).rejects.toMatchObject({
+      code: 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_reauth_if_current',
+      expect.objectContaining({
+        p_reason: 'SNAPCHAT_ADS_REFRESH_TOKEN_DECRYPT_FAILED',
+      })
+    );
+    expect(accounts).not.toHaveBeenCalled();
+  });
+
   it('uses refreshed ciphertext when a provider rejects the refreshed token', async () => {
     usableGrant.mockResolvedValueOnce({
       accessToken: 'refreshed-token',
