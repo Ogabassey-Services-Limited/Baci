@@ -2,7 +2,12 @@ import 'server-only';
 
 import { z } from 'zod';
 import { TIKTOK_ADS_API_ROOT } from './constants';
-import { requestTikTokAdsJson, TikTokAdsProviderError } from './request';
+import {
+  createTikTokAdsRetryBudget,
+  requestTikTokAdsJson,
+  TikTokAdsProviderError,
+  type TikTokAdsRetryBudget,
+} from './request';
 
 const metadataSchema = z.object({
   advertiser_id: z.string().trim().min(1).max(255),
@@ -19,7 +24,8 @@ function record(payload: unknown): Record<string, unknown> | null {
 export async function resolveTikTokAdsAccountMetadata(
   input: { accessToken: string; advertiserIds: string[] },
   fetchImpl: typeof fetch = fetch,
-  sleep?: (milliseconds: number) => Promise<void>
+  sleep?: (milliseconds: number) => Promise<void>,
+  retryBudget: TikTokAdsRetryBudget = createTikTokAdsRetryBudget()
 ): Promise<Map<string, { currencyCode: string; timezoneName: string }>> {
   if (input.advertiserIds.length === 0) return new Map();
   const url = new URL(`${TIKTOK_ADS_API_ROOT}/advertiser/info/`);
@@ -33,7 +39,7 @@ export async function resolveTikTokAdsAccountMetadata(
     { headers: { 'Access-Token': input.accessToken } },
     'TIKTOK_ADS_ACCOUNT_METADATA_FAILED',
     fetchImpl,
-    { sleep }
+    { retryBudget, sleep }
   );
   const list = record(record(payload)?.data)?.list;
   if (!Array.isArray(list))
