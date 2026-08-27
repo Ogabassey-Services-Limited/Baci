@@ -22,6 +22,16 @@ describe('orderDeliveryMetadataSchema', () => {
     ).toBe(true);
   });
 
+  it('rejects airport pickup metadata for provider-backed airport orders', () => {
+    expect(
+      orderDeliveryMetadataSchema.safeParse({
+        delivery_method: 'airport',
+        selected_quote_id: '123e4567-e89b-12d3-a456-426614174777',
+        airport_type: 'pickup',
+      }).success
+    ).toBe(false);
+  });
+
   it('rejects airport_type on a non-airport order', () => {
     expect(
       orderDeliveryMetadataSchema.safeParse({

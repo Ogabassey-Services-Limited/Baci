@@ -2361,7 +2361,9 @@ export async function POST(request: NextRequest) {
             // checkout_idempotency_conflict before the wrapper's replay path.
             discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
             discount_code: requestedDiscountCode,
+            delivery_method,
             gift_wrapping_fee: giftWrappingFeeValue,
+            airport_type,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
             // Merchant-rate orders null shipping_provider + selected_quote_id, so

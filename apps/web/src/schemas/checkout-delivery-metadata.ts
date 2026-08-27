@@ -26,6 +26,18 @@ export const orderDeliveryMetadataSchema = z
       });
     }
 
+    if (
+      data.delivery_method === 'airport' &&
+      data.selected_quote_id &&
+      data.airport_type === 'pickup'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Provider-backed airport delivery only supports delivery',
+        path: ['airport_type'],
+      });
+    }
+
     if (data.delivery_method !== 'airport' && data.airport_type !== undefined) {
       ctx.addIssue({
         code: 'custom',
