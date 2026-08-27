@@ -74,6 +74,21 @@ describe('dispatchOrderCreationNotifications', () => {
     expect(mockNotifyNewOrder).not.toHaveBeenCalled();
   });
 
+  it('uses the outstanding invoice balance for a partial-credit follow-up alert', async () => {
+    await dispatchOrderCreationNotifications(
+      input({ orderTotal: 15000, invoiceBalanceDue: 9000 })
+    );
+
+    expect(mockNotifyNewInvoice).toHaveBeenCalledWith(
+      'merchant-1',
+      'order-1',
+      'ORD-001',
+      'Customer',
+      9000,
+      { currency: 'NGN', preferenceClient: expect.anything() }
+    );
+  });
+
   it('sends the paid confirmation when wallet settlement completes the invoice', async () => {
     await dispatchOrderCreationNotifications(
       input({

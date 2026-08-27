@@ -54,7 +54,7 @@ describe('event pipeline authority manifest', () => {
     ]);
   });
 
-  it('pins the six compatibility route receipts and two Task 6 wrappers', async () => {
+  it('pins the seven compatibility route receipts and two Task 6 wrappers', async () => {
     expect(existsSync(modulePath), 'boundary manifest is missing').toBe(true);
     if (!existsSync(modulePath)) return;
     const moduleUrl = pathToFileURL(modulePath).href;
@@ -74,6 +74,8 @@ describe('event pipeline authority manifest', () => {
         '4d59510f6a72ae25dd45c8cc8ea6762a709bf745286140a7a9e1aa4b64ee942e',
       'apps/web/src/app/api/platform/events/route.ts':
         'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
+      'apps/web/src/app/api/orders/route.ts':
+        '870548d3b7690ac4bcdf7213582f1dd49454d8c1c15f0f3d49441ab1972576fb',
     });
     expect(manifest.trustedWrapperImporters).toEqual([
       'apps/web/src/app/api/analytics/conversion/route.ts',

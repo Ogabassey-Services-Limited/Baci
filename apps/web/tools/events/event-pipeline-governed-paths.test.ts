@@ -36,9 +36,9 @@ describe('eventPipelineGovernedPaths', () => {
     expect(governed.missingProductionRoots).toEqual([]);
   });
 
-  it('pins the authority-byte baseline to a reachable reviewed commit', () => {
+  it('pins the authority-byte baseline to a reachable landing ancestor', () => {
     const root = eventPipelineGovernedPaths.repoRoot();
-    const reviewedSha = 'd7ec7678619b04db11505ccc5f0de312020c3de4';
+    const reviewedSha = 'c0dd4d90ffcc3c1faa4f495f288f4b5f6c8e7eba';
 
     expect(eventPipelineGovernedPaths.authorityByteBaseSha).toBe(reviewedSha);
     expect(

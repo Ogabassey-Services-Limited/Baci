@@ -43,7 +43,7 @@ export async function dispatchOrderCreationNotifications(
             input.orderId,
             input.orderNumber,
             input.customerName,
-            input.orderTotal,
+            input.invoiceBalanceDue,
             {
               currency: input.orderCurrency,
               preferenceClient: input.preferenceClient,
