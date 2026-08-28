@@ -93,6 +93,7 @@ describe('storefront order RPC context migration contract', () => {
     expect(replayContextMigration).toContain(
       'OLD.checkout_idempotency_key IS NOT NULL'
     );
+    expect(replayContextMigration).toContain("NEW.shipping_status = 'pending'");
     expect(replayContextMigration).toContain(
       'private.enforce_storefront_order_route_context()'
     );

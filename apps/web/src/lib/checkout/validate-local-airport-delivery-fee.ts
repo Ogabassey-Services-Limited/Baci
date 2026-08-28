@@ -5,11 +5,9 @@ import {
   PickupOptions,
   parseGiglProviderRateId,
 } from '@/lib/shipping/providers/gigl.constants';
-import {
-  getLegacyAirportType,
-  getLocalAirportDeliveryFee,
-} from './airport-delivery-fee';
+import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
 import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
+import { getLegacyAirportType } from './airport-delivery-legacy-marker';
 import { isConfirmedLocalAirportReplay } from './is-confirmed-local-airport-replay';
 import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from './local-airport-delivery-fee-validation-result';

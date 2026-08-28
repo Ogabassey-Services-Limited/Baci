@@ -1,4 +1,5 @@
 import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
+import { getLegacyAirportType } from './airport-delivery-legacy-marker';
 
 type AirportType = keyof typeof AIRPORT_DELIVERY_FEES;
 
@@ -8,22 +9,6 @@ interface LocalAirportDeliveryFeeInput {
   selectedQuoteId?: string | null;
   shippingAddress?: { address?: string | null } | null;
   shippingRateId?: string | null;
-}
-
-export function getLegacyAirportType(
-  address: string | null | undefined
-): AirportType | null {
-  const normalized = address?.trim().toLowerCase();
-  if (normalized) {
-    if (normalized === 'airport pickup') return 'pickup';
-    if (
-      normalized === 'airport delivery' ||
-      normalized === 'airport delivery (outside lagos)'
-    ) {
-      return 'delivery';
-    }
-  }
-  return null;
 }
 
 /**
