@@ -16,6 +16,7 @@ describe('resolveStorefrontComparePageStatus', () => {
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 
@@ -156,6 +157,20 @@ describe('resolveStorefrontComparePageStatus', () => {
       )
     ).resolves.toEqual({ kind: 'renderable-or-unknown' });
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('fails open before self-fetching from a public production origin', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    const fetchImpl = vi.fn();
+
+    await expect(
+      resolveStorefrontComparePageStatus(
+        buildOptions(fetchImpl, { origin: 'https://ogabassey.com' })
+      )
+    ).resolves.toEqual({ kind: 'renderable-or-unknown' });
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(console.info).not.toHaveBeenCalled();
   });
 
   it('hard-statuses a bounded malformed composite as a confirmed absence', async () => {

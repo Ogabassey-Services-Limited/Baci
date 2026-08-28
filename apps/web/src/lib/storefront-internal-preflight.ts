@@ -79,7 +79,7 @@ function truncateSlugForDiagnostics(value: string): string {
   })`;
 }
 
-function isLoopbackOrigin(origin: string): boolean {
+export function isLoopbackOrigin(origin: string): boolean {
   try {
     const { hostname } = new URL(origin);
     return (
@@ -274,6 +274,7 @@ function getFetchErrorReason(
 export const storefrontInternalPreflight = {
   getFetchErrorReason,
   captureFailOpen,
+  isLoopbackOrigin,
   readJsonResponse,
   resolveBaseUrl,
   warnFailOpen,

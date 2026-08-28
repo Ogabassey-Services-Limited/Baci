@@ -235,6 +235,17 @@ async function resolveStorefrontComparePageStatus(
     return { kind: 'renderable-or-unknown' };
   }
 
+  // Proxy runs before the App Router and is not a safe place for a slow data
+  // fetch. The compare resolver performs a bounded inventory read plus
+  // maintained-manifest work, so the public-origin self-fetch can still spend
+  // the full transport budget even when the internal route eventually returns
+  // 200. Keep the optional hard-404 optimization for loopback development,
+  // while production and custom-domain requests fail open before opening a
+  // second HTTP/RPC hop. The normal compare page remains the source of truth.
+  if (!storefrontInternalPreflight.isLoopbackOrigin(opts.origin)) {
+    return { kind: 'renderable-or-unknown' };
+  }
+
   const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
     storefrontInternalPreflight.warnFailOpen({
