@@ -254,6 +254,12 @@ jobs:
         # attempt and every explicit promotion, so a superseded run cannot win
         # the production alias race after main advances.
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --skip-domain --archive=tgz
+      # The previous Vercel revision can keep an order request in flight until
+      # the route's 60-second maxDuration. Let that bounded window drain before
+      # installing the signed route-context trigger, so an old invocation never
+      # reaches the newly enforced RPC without its claim.
+      - name: Drain previous storefront order requests
+        run: sleep 65
       - name: Apply migrations deferred until application deploy
         env:
           MIGRATION_PHASE: postdeploy

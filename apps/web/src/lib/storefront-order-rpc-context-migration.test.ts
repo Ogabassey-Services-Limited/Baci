@@ -51,6 +51,10 @@ const deferredMigrationPolicy = readFileSync(
   ),
   'utf8'
 );
+const deployWorkflow = readFileSync(
+  resolve(process.cwd(), '../../.github/workflows/deploy.yml'),
+  'utf8'
+);
 const postdeployMigrationPolicy = deferredMigrationPolicy.slice(
   0,
   deferredMigrationPolicy.indexOf('# These migrations replace')
@@ -150,6 +154,19 @@ describe('storefront order RPC context migration contract', () => {
     expect(postdeployMigrationPolicy).not.toContain(
       '20260828151100_prepare_storefront_order_delivery_metadata_persistence'
     );
+  });
+
+  it('drains the previous route revision before postdeploy enforcement', () => {
+    const drainStep = deployWorkflow.indexOf(
+      '- name: Drain previous storefront order requests'
+    );
+    const migrationStep = deployWorkflow.indexOf(
+      '- name: Apply migrations deferred until application deploy'
+    );
+
+    expect(drainStep).toBeGreaterThanOrEqual(0);
+    expect(deployWorkflow).toContain('run: sleep 65');
+    expect(migrationStep).toBeGreaterThan(drainStep);
   });
 
   it('stamps only signed v2 storefront hashes before promotion', () => {

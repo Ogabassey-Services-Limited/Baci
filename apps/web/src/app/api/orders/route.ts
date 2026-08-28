@@ -962,6 +962,10 @@ function getQuizVoucherAwardEvent(row: unknown) {
   };
 }
 
+// Keep the old revision's maximum execution window explicit so deploys can
+// wait for every in-flight checkout before enabling the route-context trigger.
+export const maxDuration = 60;
+
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
   try {

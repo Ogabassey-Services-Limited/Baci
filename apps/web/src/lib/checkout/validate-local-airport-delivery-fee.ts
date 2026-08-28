@@ -11,6 +11,7 @@ import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airpo
 import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import { readAirportQuote } from '@/lib/checkout/read-airport-delivery-quote';
+import { resolveLegacyAirportDeliveryMetadata } from '@/lib/checkout/resolve-legacy-airport-delivery-metadata';
 import { logger } from '@/lib/logger';
 
 type AirportType = 'delivery' | 'pickup';
@@ -189,7 +190,8 @@ export async function validateLocalAirportDeliveryFee({
     deliveryMethod === undefined && resolvedDeliveryMethod === 'airport'
       ? {
           resolvedDeliveryMethod: 'airport' as const,
-          resolvedAirportType: 'delivery' as const,
+          resolvedAirportType: (resolvedAirportType ??
+            'delivery') as AirportType,
         }
       : {};
 
@@ -224,7 +226,13 @@ export async function validateLocalAirportDeliveryFee({
     shippingAddress,
     shippingRateId,
   });
-
+  // Promote fixed legacy markers after validation so v2 retries hash like explicit clients.
+  const legacyFixedAirportMetadata = resolveLegacyAirportDeliveryMetadata({
+    deliveryMethod,
+    legacyAirportType,
+    selectedQuoteId,
+    shippingRateId,
+  });
   if (
     localAirportShippingFee === null &&
     isAmbiguousMetadataFreeAirportFee({
@@ -247,7 +255,6 @@ export async function validateLocalAirportDeliveryFee({
         400
       );
     }
-
     return {
       isIdempotentLocalAirportReplay: true,
       localAirportShippingFee: null,
@@ -286,12 +293,7 @@ export async function validateLocalAirportDeliveryFee({
   }
 
   return {
-    ...(shouldUseServerOwnedLegacyFee
-      ? {
-          resolvedDeliveryMethod: 'airport' as const,
-          resolvedAirportType: 'delivery' as const,
-        }
-      : resolvedDeliveryMetadata),
+    ...(legacyFixedAirportMetadata ?? resolvedDeliveryMetadata),
     isIdempotentLocalAirportReplay,
     localAirportShippingFee,
   };

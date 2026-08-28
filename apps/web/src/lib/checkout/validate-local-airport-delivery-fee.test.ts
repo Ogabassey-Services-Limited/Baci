@@ -252,6 +252,39 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it.each([
+    {
+      address: 'Airport Delivery',
+      airportType: 'delivery' as const,
+      shippingFee: 35_000,
+    },
+    {
+      address: 'Airport Pickup',
+      airportType: 'pickup' as const,
+      shippingFee: 20_000,
+    },
+  ])('canonicalizes the $airportType legacy marker at the current fixed fee', async ({
+    address,
+    airportType,
+    shippingFee,
+  }) => {
+    const request = {
+      merchantId: MERCHANT_ID,
+      shippingAddress: { address },
+      shippingFee,
+      supabase: mockSupabase(null),
+    };
+
+    const result = await validateLocalAirportDeliveryFee(request);
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: false,
+      localAirportShippingFee: shippingFee,
+      resolvedDeliveryMethod: 'airport',
+      resolvedAirportType: airportType,
+    });
+  });
+
   it('does not extend the legacy fee compatibility path to another source', async () => {
     const promise = validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,
