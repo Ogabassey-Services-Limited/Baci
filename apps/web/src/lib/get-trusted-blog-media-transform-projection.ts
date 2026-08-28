@@ -4,6 +4,7 @@ const MIN_TRANSFORM_DIMENSION = 16;
 const MAX_TRANSFORM_DIMENSION = 3840;
 const TRANSFORMABLE_SOURCE_PATTERN = /\.(?:avif|jpe?g|png|webp)$/iu;
 const ENCODED_TRAVERSAL_PATTERN = /%(?:2e|2f|5c)/iu;
+const PARENT_TRAVERSAL_SEGMENT_PATTERN = /(?:^|\/)\.\.(?:\/|$)/u;
 
 function getTransformDimension(value: string | undefined) {
   if (!value) return undefined;
@@ -53,6 +54,7 @@ export function getTrustedBlogMediaTransformProjection(url: string):
       sourcePath.includes('\0') ||
       sourcePath.includes('\\') ||
       ENCODED_TRAVERSAL_PATTERN.test(sourcePath) ||
+      PARENT_TRAVERSAL_SEGMENT_PATTERN.test(sourcePath) ||
       !TRANSFORMABLE_SOURCE_PATTERN.test(sourcePath)
     ) {
       return undefined;

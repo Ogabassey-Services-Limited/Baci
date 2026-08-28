@@ -62,4 +62,12 @@ describe('getTrustedBlogMediaTransformProjection', () => {
 
     expect(projection).toBeUndefined();
   });
+
+  it('rejects a decoded parent traversal source path', () => {
+    const projection = getTrustedBlogMediaTransformProjection(
+      'https://cdn.ogabassey.com/image/format=jpeg/%2e%2e%2foutside.jpg'
+    );
+
+    expect(projection).toBeUndefined();
+  });
 });
