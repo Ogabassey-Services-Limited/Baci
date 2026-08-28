@@ -235,7 +235,7 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_PENDING_TAIL_SOURCES.late,
   {
     repositoryPath:
-      'supabase/migrations/20260827120000_storefront_order_idempotency_probe.sql',
+      'supabase/migrations/20260828004000_storefront_order_idempotency_probe.sql',
     sha256: 'fa4bf84898c9c9881731f1387de6678e2afe575209b369fa1645a34d62afe292',
   },
   {
