@@ -113,6 +113,7 @@ export function createSupabaseMock(input?: {
     }>
   >;
   transactions?: QueryResult<OrderTransactionFixture[]>;
+  paymentAccounts?: QueryResult<OrderPaymentAccountFixture[]>;
 }) {
   const merchantQuery = createSingleQuery(
     input?.merchant ?? {
@@ -154,7 +155,9 @@ export function createSupabaseMock(input?: {
           order_id: order.id,
         }))
       );
-      return Promise.resolve({ data: accounts, error: null });
+      return Promise.resolve(
+        input?.paymentAccounts ?? { data: accounts, error: null }
+      );
     }
     return Promise.reject(new Error(`Unexpected rpc: ${fn}`));
   });

@@ -17,8 +17,6 @@ import { mapOrderItemsWithRoutes } from './map-order-items-with-routes';
 import type { OrderItem } from './order-item-types';
 import { resolveMerchantIdBySlug } from './resolve-merchant-id-by-slug';
 
-// GET /api/storefront/orders/[id] - Fetch order details for resuming checkout or BNPL flows
-
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -129,6 +127,10 @@ export async function GET(
             '[API/Orders] Payment-account fetch error (session):',
             paymentAccountsResult.error
           );
+          return NextResponse.json(
+            { error: 'Failed to fetch payment accounts' },
+            { status: 500 }
+          );
         }
 
         console.log(
@@ -211,14 +213,12 @@ export async function GET(
         );
       }
     }
-
     if (!merchantSlug) {
       return NextResponse.json(
         { error: 'merchant_slug is required for public order lookup' },
         { status: 400 }
       );
     }
-
     if (!token && !email) {
       return NextResponse.json(
         { error: 'Tracking token or email is required' },

@@ -7,12 +7,18 @@ import { reservePaystackDvaAssignment } from '@/lib/payments/reserve-paystack-dv
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import { generatePaymentAccount } from '@/lib/paystack';
 import { orderIdParamsSchema } from '@/schemas/orders';
-import { generateDvaHelpers } from '../generate-dva-helpers';
 import { loadDvaProvisioningContext } from '../load-dva-provisioning-context';
 import {
   getDvaReservationFailureResponse,
   getDvaReservationProofFailureResponse,
 } from './generate-dva-reservation-response';
+import { isActivePaymentAccount } from './is-active-payment-account';
+import { isEligibleOrderForPaystackDva } from './is-eligible-order-for-paystack-dva';
+import { isUniqueViolation } from './is-unique-violation';
+import { loadLatestLegacyOrderAccount } from './load-latest-legacy-order-account';
+import { loadLatestPaystackOrderAccount } from './load-latest-paystack-order-account';
+import { toCustomerName } from './to-customer-name';
+import { toVirtualAccount } from './to-virtual-account';
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -59,7 +65,7 @@ export async function POST(
         { status: 400 }
       );
     }
-    if (!generateDvaHelpers.isEligibleOrderForPaystackDva(order)) {
+    if (!isEligibleOrderForPaystackDva(order)) {
       return NextResponse.json(
         {
           code: 'ORDER_NOT_ELIGIBLE_FOR_DVA',
@@ -104,10 +110,7 @@ export async function POST(
       );
     }
     const { data: existingVba, error: existingVbaError } =
-      await generateDvaHelpers.loadLatestPaystackOrderAccount(
-        supabase,
-        orderId
-      );
+      await loadLatestPaystackOrderAccount(supabase, orderId);
 
     if (existingVbaError) {
       return NextResponse.json(
@@ -115,15 +118,15 @@ export async function POST(
         { status: 500 }
       );
     }
-    if (existingVba && generateDvaHelpers.isActivePaymentAccount(existingVba)) {
+    if (existingVba && isActivePaymentAccount(existingVba)) {
       return NextResponse.json({
         success: true,
-        virtualAccount: generateDvaHelpers.toVirtualAccount(existingVba),
+        virtualAccount: toVirtualAccount(existingVba),
         existing: true,
       });
     }
     const { data: existingLegacyAccount, error: existingLegacyError } =
-      await generateDvaHelpers.loadLatestLegacyOrderAccount(supabase, orderId);
+      await loadLatestLegacyOrderAccount(supabase, orderId);
 
     if (existingLegacyError) {
       logger.error({
@@ -138,9 +141,7 @@ export async function POST(
     if (existingLegacyAccount) {
       return NextResponse.json({
         success: true,
-        virtualAccount: generateDvaHelpers.toVirtualAccount(
-          existingLegacyAccount
-        ),
+        virtualAccount: toVirtualAccount(existingLegacyAccount),
         existing: true,
       });
     }
@@ -166,19 +167,16 @@ export async function POST(
       }
       if (!released) {
         const { data: racedAccount, error: racedAccountError } =
-          await generateDvaHelpers.loadLatestPaystackOrderAccount(
-            supabase,
-            orderId
-          );
+          await loadLatestPaystackOrderAccount(supabase, orderId);
 
         if (
           !racedAccountError &&
           racedAccount &&
-          generateDvaHelpers.isActivePaymentAccount(racedAccount)
+          isActivePaymentAccount(racedAccount)
         ) {
           return NextResponse.json({
             success: true,
-            virtualAccount: generateDvaHelpers.toVirtualAccount(racedAccount),
+            virtualAccount: toVirtualAccount(racedAccount),
             existing: true,
           });
         }
@@ -193,9 +191,7 @@ export async function POST(
       }
     }
 
-    const { firstName, lastName } = generateDvaHelpers.toCustomerName(
-      order.customer_name
-    );
+    const { firstName, lastName } = toCustomerName(order.customer_name);
 
     let phone = order.customer_phone || '';
     if (!phone) {
@@ -241,7 +237,7 @@ export async function POST(
     }
 
     if (insertError) {
-      if (generateDvaHelpers.isUniqueViolation(insertError)) {
+      if (isUniqueViolation(insertError)) {
         const { data: racedAccount, error: racedAccountError } = await supabase
           .from('order_payment_accounts')
           .select(
@@ -252,10 +248,10 @@ export async function POST(
           .maybeSingle();
 
         if (!racedAccountError && racedAccount) {
-          if (generateDvaHelpers.isActivePaymentAccount(racedAccount)) {
+          if (isActivePaymentAccount(racedAccount)) {
             return NextResponse.json({
               success: true,
-              virtualAccount: generateDvaHelpers.toVirtualAccount(racedAccount),
+              virtualAccount: toVirtualAccount(racedAccount),
               existing: true,
             });
           }

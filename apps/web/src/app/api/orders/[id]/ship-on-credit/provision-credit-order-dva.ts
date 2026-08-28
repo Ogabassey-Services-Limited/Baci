@@ -1,16 +1,11 @@
-import {
-  type OrderPaymentAccountLike,
-  selectPreferredOrderPaymentAccount,
-} from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
 import { generatePaymentAccount } from '@/lib/paystack';
-
-interface CreditOrderDvaAccount extends OrderPaymentAccountLike {
-  account_name: string;
-  bank_name: string;
-}
+import { getCreditOrderDvaExpiry } from './get-credit-order-dva-expiry';
+import { isReusableCreditOrderAccount } from './is-reusable-credit-order-account';
+import { toCreditOrderCustomerName } from './to-credit-order-customer-name';
+import { toCreditOrderVirtualAccount } from './to-credit-order-virtual-account';
 
 interface ProvisionCreditOrderDvaInput {
   customerEmail: string | null;
@@ -21,35 +16,7 @@ interface ProvisionCreditOrderDvaInput {
   now?: Date;
 }
 
-const CREDIT_ORDER_DVA_TERM_DAYS = 14;
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function getCreditOrderDvaExpiry(
-  paymentDueDate: string | null | undefined,
-  now = new Date()
-) {
-  const dueDateMatch = paymentDueDate?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dueDateMatch) {
-    const dueDate = new Date(`${paymentDueDate}T00:00:00.000Z`);
-    const [year, month, day] = dueDateMatch.slice(1).map(Number);
-    const isValidDueDate =
-      Number.isFinite(dueDate.getTime()) &&
-      dueDate.getUTCFullYear() === year &&
-      dueDate.getUTCMonth() + 1 === month &&
-      dueDate.getUTCDate() === day;
-    const dueDateExpiry = new Date(dueDate.getTime() + MILLISECONDS_PER_DAY);
-
-    if (isValidDueDate && dueDateExpiry.getTime() > now.getTime()) {
-      return dueDateExpiry.toISOString();
-    }
-  }
-
-  return new Date(
-    now.getTime() + CREDIT_ORDER_DVA_TERM_DAYS * MILLISECONDS_PER_DAY
-  ).toISOString();
-}
-
-async function provisionCreditOrderDva({
+export async function provisionCreditOrderDva({
   customerEmail,
   customerName,
   orderId,
@@ -67,7 +34,7 @@ async function provisionCreditOrderDva({
   }
 
   try {
-    const name = toCustomerName(customerName);
+    const name = toCreditOrderCustomerName(customerName);
     const dvaResult = await generatePaymentAccount({
       email: normalizedEmail,
       firstName: name.firstName,
@@ -90,7 +57,7 @@ async function provisionCreditOrderDva({
     });
 
     if (!persistenceFailure) {
-      return toVirtualAccount(dvaResult.data);
+      return toCreditOrderVirtualAccount(dvaResult.data);
     }
 
     const { data: existingAccount, error: existingAccountError } =
@@ -123,14 +90,14 @@ async function provisionCreditOrderDva({
     if (
       !existingAccountError &&
       existingAccount &&
-      isReusableAccount(existingAccount)
+      isReusableCreditOrderAccount(existingAccount)
     ) {
       logger.info({
         message:
           'Order payment account already exists, treating as idempotent success',
         orderId,
       });
-      return toVirtualAccount(existingAccount);
+      return toCreditOrderVirtualAccount(existingAccount);
     }
 
     logger.warn({
@@ -147,31 +114,3 @@ async function provisionCreditOrderDva({
 
   return null;
 }
-
-function isReusableAccount(account: CreditOrderDvaAccount) {
-  return selectPreferredOrderPaymentAccount([account]) !== null;
-}
-
-function toCustomerName(customerName: string | null) {
-  const parts = (customerName || 'Customer').trim().split(' ');
-  return {
-    firstName: parts[0] || 'Customer',
-    lastName: parts.slice(1).join(' ') || 'User',
-  };
-}
-
-function toVirtualAccount(account: CreditOrderDvaAccount) {
-  return {
-    account_number: account.account_number,
-    bank_name: account.bank_name,
-    account_name: account.account_name,
-  };
-}
-
-export const creditOrderDvaHelpers = {
-  getCreditOrderDvaExpiry,
-  isReusableAccount,
-  provisionCreditOrderDva,
-  toCustomerName,
-  toVirtualAccount,
-};

@@ -150,14 +150,14 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/env.ts',
   ],
   [
-    'apps/web/src/app/api/orders/[id]/ship-on-credit/credit-order-dva-helpers.ts',
+    'apps/web/src/app/api/orders/[id]/ship-on-credit/provision-credit-order-dva.ts',
     'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
     'apps/web/src/lib/payments/reserve-paystack-dva-assignment.ts',
     'apps/web/src/env.ts',
   ],
   [
     'apps/web/src/app/api/orders/[id]/ship-on-credit/route.ts',
-    'apps/web/src/app/api/orders/[id]/ship-on-credit/credit-order-dva-helpers.ts',
+    'apps/web/src/app/api/orders/[id]/ship-on-credit/provision-credit-order-dva.ts',
     'apps/web/src/lib/payments/persist-paystack-dva-assignment.ts',
     'apps/web/src/lib/payments/reserve-paystack-dva-assignment.ts',
     'apps/web/src/env.ts',

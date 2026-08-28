@@ -154,6 +154,10 @@ export async function GET(request: NextRequest) {
       await resolveStorefrontOrderPaymentAccounts(supabase, orders ?? []);
     if (paymentAccountError) {
       console.error('Orders payment-account fetch error:', paymentAccountError);
+      return NextResponse.json(
+        { error: 'Failed to fetch payment accounts' },
+        { status: 500 }
+      );
     }
     if (transactionError) {
       console.error('Orders transaction fetch error:', transactionError);

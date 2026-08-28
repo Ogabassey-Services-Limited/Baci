@@ -216,4 +216,36 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
     });
     expect(data).not.toHaveProperty('order_payment_accounts');
   });
+
+  it('returns 500 when payment accounts cannot be loaded', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/storefront/orders/order-uuid-123'
+    );
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: 'user-123' } },
+    });
+
+    const mockOrderQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: mockOrderData, error: null }),
+    };
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === 'orders') return mockOrderQuery;
+      return {};
+    });
+    mockSupabaseClient.rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'payment account RPC unavailable' },
+    });
+
+    const response = await GET(request, {
+      params: Promise.resolve({ id: 'order-uuid-123' }),
+    });
+
+    expect(response.status).toBe(500);
+    expect((await response.json()).error).toBe(
+      'Failed to fetch payment accounts'
+    );
+  });
 });

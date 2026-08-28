@@ -10,7 +10,7 @@ import {
   isOrderClampedAsCancelled,
 } from '@/lib/payments/handle-payment-for-cancelled-order';
 import { shipOnCreditBodySchema } from '@/schemas/ship-on-credit-schema';
-import { creditOrderDvaHelpers } from './credit-order-dva-helpers';
+import { provisionCreditOrderDva } from './provision-credit-order-dva';
 
 /**
  * POST /api/orders/[id]/ship-on-credit
@@ -197,7 +197,7 @@ export async function POST(
     }
 
     let virtualAccount = null;
-    virtualAccount = await creditOrderDvaHelpers.provisionCreditOrderDva({
+    virtualAccount = await provisionCreditOrderDva({
       customerEmail: order.customer_email,
       customerName: order.customer_name,
       orderId,
