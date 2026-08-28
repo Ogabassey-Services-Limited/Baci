@@ -79,6 +79,7 @@ describe('blog post social image transform projection', () => {
   });
 
   it('projects a fixed-format transform with an extensionless source path', () => {
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
     const transformedUrl =
       'https://media.example.com/image/width=600,format=webp/media/photo';
 
@@ -95,6 +96,58 @@ describe('blog post social image transform projection', () => {
       url: transformedUrl,
       width: 600,
       height: 338,
+      type: 'image/webp',
+    });
+  });
+
+  it('rejects transform syntax from an unconfigured origin', () => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      'https://example.com/image/format=jpeg/login',
+      {},
+      1200,
+      675
+    );
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
+  it('projects a height-constrained landscape transform', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image/height=300,format=webp/media/merchant-1/blog/upload/landscape_16x9.webp';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, transformedUrl, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width: 533,
+      height: 300,
+      type: 'image/webp',
+    });
+  });
+
+  it.each([
+    ['inside', 533, 300],
+    ['cover', 600, 300],
+  ] as const)('projects a width-and-height transform using %s fit', (fit, width, height) => {
+    const transformedUrl = `https://cdn.ogabassey.com/image/width=600,height=300,fit=${fit},format=webp/media/merchant-1/blog/upload/landscape_16x9.webp`;
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, transformedUrl, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width,
+      height,
       type: 'image/webp',
     });
   });

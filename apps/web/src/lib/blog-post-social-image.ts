@@ -1,4 +1,5 @@
 import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
+import { getTrustedBlogMediaTransformProjection } from '@/lib/get-trusted-blog-media-transform-projection';
 import { isTrustedImmutableBlogLandscapeVariantUrl } from '@/lib/is-trusted-immutable-blog-landscape-variant-url';
 import {
   buildOgabasseyCdnImageLoaderUrl,
@@ -57,45 +58,6 @@ function getImagePathname(url: string): string | undefined {
   }
 }
 
-function getManagedTransformProjection(url: string):
-  | {
-      type?: `image/${string}`;
-      width?: number;
-    }
-  | undefined {
-  try {
-    const options = new URL(url).pathname.match(/^\/image\/([^/]+)\//)?.[1];
-    const optionEntries =
-      options?.split(',').map((token) => token.split('=', 2)) ?? [];
-    const format = optionEntries
-      .find(([name]) => name?.toLowerCase() === 'format')?.[1]
-      ?.toLowerCase();
-    const widthValue = optionEntries.find(
-      ([name]) => name?.toLowerCase() === 'width'
-    )?.[1];
-    const width = widthValue ? Number.parseInt(widthValue, 10) : undefined;
-    const type =
-      format === 'jpg' || format === 'jpeg'
-        ? 'image/jpeg'
-        : format === 'png'
-          ? 'image/png'
-          : format === 'webp'
-            ? 'image/webp'
-            : format === 'avif'
-              ? 'image/avif'
-              : undefined;
-    if (type || format === 'auto') {
-      return {
-        ...(type ? { type } : {}),
-        ...(width !== undefined && width > 0 ? { width } : {}),
-      };
-    }
-  } catch {
-    return undefined;
-  }
-  return undefined;
-}
-
 function getPositiveDimension(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
     ? value
@@ -122,7 +84,7 @@ function projectDirectImage(
   sourceUrl: string,
   dimensions?: { width?: number; height?: number }
 ): BlogPostSocialImage | null {
-  const sourceTransform = getManagedTransformProjection(sourceUrl);
+  const sourceTransform = getTrustedBlogMediaTransformProjection(sourceUrl);
   const mimeType = getImageMimeType(sourceUrl);
   const isLandscape =
     dimensions?.width === LANDSCAPE_DIMENSIONS.width &&
@@ -134,7 +96,7 @@ function projectDirectImage(
       1200,
       DEFAULT_IMAGE_QUALITY
     );
-    const managedTransform = getManagedTransformProjection(url);
+    const managedTransform = getTrustedBlogMediaTransformProjection(url);
     const transformedMimeType =
       managedTransform?.type ??
       (url !== sourceUrl && mimeType
@@ -144,7 +106,7 @@ function projectDirectImage(
       return null;
     }
     const transformedDimensions = managedTransform
-      ? getTransformedDimensions(dimensions, managedTransform.width)
+      ? getTransformedDimensions(dimensions, managedTransform)
       : isLandscape
         ? LANDSCAPE_DIMENSIONS
         : dimensions;
@@ -161,7 +123,7 @@ function projectDirectImage(
     }
     const transformedDimensions = getTransformedDimensions(
       dimensions,
-      sourceTransform.width
+      sourceTransform
     );
     return {
       url: sourceUrl,
@@ -187,17 +149,42 @@ function getTransformedDimensions(
     width?: number;
     height?: number;
   },
-  requestedWidth: number = LANDSCAPE_DIMENSIONS.width
+  transform: {
+    fit: 'cover' | 'inside';
+    height?: number;
+    width?: number;
+  } = { fit: 'inside', width: LANDSCAPE_DIMENSIONS.width }
 ): { width: number; height: number } | undefined {
   const width = getPositiveDimension(dimensions?.width);
   const height = getPositiveDimension(dimensions?.height);
   if (width === undefined || height === undefined) return undefined;
+  const requestedWidth = getPositiveDimension(transform.width);
+  const requestedHeight = getPositiveDimension(transform.height);
+  if (requestedWidth === undefined && requestedHeight === undefined) {
+    return { width, height };
+  }
 
-  const transformedWidth = Math.min(requestedWidth, width);
-  const transformedHeight = Math.round((transformedWidth * height) / width);
-  return transformedHeight > 0
-    ? { width: transformedWidth, height: transformedHeight }
-    : undefined;
+  const widthScale = requestedWidth === undefined ? 1 : requestedWidth / width;
+  const heightScale =
+    requestedHeight === undefined ? 1 : requestedHeight / height;
+  const constrainedScale =
+    transform.fit === 'cover' &&
+    requestedWidth !== undefined &&
+    requestedHeight !== undefined
+      ? Math.max(widthScale, heightScale)
+      : Math.min(widthScale, heightScale);
+  const scale = Math.min(1, constrainedScale);
+  const scaledWidth = Math.round(width * scale);
+  const scaledHeight = Math.round(height * scale);
+
+  return transform.fit === 'cover' &&
+    requestedWidth !== undefined &&
+    requestedHeight !== undefined
+    ? {
+        width: Math.min(requestedWidth, scaledWidth),
+        height: Math.min(requestedHeight, scaledHeight),
+      }
+    : { width: scaledWidth, height: scaledHeight };
 }
 
 /**
