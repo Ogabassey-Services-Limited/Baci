@@ -66,6 +66,8 @@ printf '%s\n' "SELECT 'delivery-columns';" \
   >"$deferred_dir/20260828150000_prepare_storefront_order_delivery_columns.sql"
 printf '%s\n' "SELECT 'pickup-location';" \
   >"$deferred_dir/20260828151000_enforce_storefront_airport_pickup_location.sql"
+printf '%s\n' "SELECT 'delivery-metadata-persistence';" \
+  >"$deferred_dir/20260828151100_prepare_storefront_order_delivery_metadata_persistence.sql"
 printf '%s\n' "SELECT 'quiz-reserved-delivery-metadata';" \
   >"$deferred_dir/20260828160000_persist_quiz_reserved_order_delivery_metadata.sql"
 printf '%s\n' "SELECT 'quiz-reserved-delivery-metadata-preserve';" \
@@ -90,13 +92,14 @@ grep -q 'deferred until postdeploy: 20260828110000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828110100' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828151000' "$deferred_predeploy_output"
 grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
 grep -q 'applied:         20260828150000  prepare_storefront_order_delivery_columns' "$deferred_predeploy_output"
-grep -q 'deferred until postdeploy: 20260828151000' "$deferred_predeploy_output"
-grep -q 'deferred until postdeploy: 20260828160000' "$deferred_predeploy_output"
-grep -q 'deferred until postdeploy: 20260828160100' "$deferred_predeploy_output"
+grep -q 'applied:         20260828151100  prepare_storefront_order_delivery_metadata_persistence' "$deferred_predeploy_output"
+grep -q 'applied:         20260828160000  persist_quiz_reserved_order_delivery_metadata' "$deferred_predeploy_output"
+grep -q 'applied:         20260828160100  preserve_quiz_reserved_order_delivery_metadata' "$deferred_predeploy_output"
 grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 3 applied, 0 skipped, 10 deferred.' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 6 applied, 0 skipped, 8 deferred.' "$deferred_predeploy_output"
 if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
@@ -104,9 +107,7 @@ if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'hash-stamping-finalizer'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'pickup-location'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'quiz-reserved-delivery-metadata-preserve'" "$deferred_predeploy_log"; then
+  grep -q "SELECT 'pickup-location'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
@@ -129,6 +130,7 @@ grep -q 'applied:         20260828110100  finalize_storefront_order_hash_stampin
 grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828151000  enforce_storefront_airport_pickup_location' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828151100  prepare_storefront_order_delivery_metadata_persistence' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828160000  persist_quiz_reserved_order_delivery_metadata' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828160100  preserve_quiz_reserved_order_delivery_metadata' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_postdeploy_output"
@@ -140,6 +142,7 @@ grep -q "SELECT 'hash-stamping-finalizer'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-scope'" "$deferred_postdeploy_log"
 grep -q "SELECT 'pickup-location'" "$deferred_postdeploy_log"
+grep -q "SELECT 'delivery-metadata-persistence'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-reserved-delivery-metadata-preserve'" "$deferred_postdeploy_log"
 grep -q "SELECT 'hash-version-context'" "$deferred_postdeploy_log"

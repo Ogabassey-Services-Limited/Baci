@@ -37,12 +37,23 @@ const quizReservedDeliveryMetadataPreservationMigration = readFileSync(
   ),
   'utf8'
 );
+const deliveryMetadataPersistencePreparationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828151100_prepare_storefront_order_delivery_metadata_persistence.sql'
+  ),
+  'utf8'
+);
 const deferredMigrationPolicy = readFileSync(
   resolve(
     process.cwd(),
     '../../.github/scripts/deferred-production-migrations.sh'
   ),
   'utf8'
+);
+const postdeployMigrationPolicy = deferredMigrationPolicy.slice(
+  0,
+  deferredMigrationPolicy.indexOf('# These migrations replace')
 );
 const replayContextMigration = readFileSync(
   resolve(
@@ -108,7 +119,7 @@ describe('storefront order RPC context migration contract', () => {
     expect(migration).toContain('TO anon, authenticated');
   });
 
-  it('defers delivery enforcement and hash stamping until the application is live', () => {
+  it('defers enforcement while delivery metadata persistence is predeploy', () => {
     expect(hashPreparationMigration).toContain(
       'ADD COLUMN IF NOT EXISTS checkout_request_hash_version smallint'
     );
@@ -118,23 +129,26 @@ describe('storefront order RPC context migration contract', () => {
     expect(hashPreparationMigration).toContain(
       'CREATE OR REPLACE FUNCTION public.is_legacy_storefront_order_idempotency_key('
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).toContain(
       '20260827140000_enforce_storefront_order_delivery_metadata'
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).toContain(
       '20260828110000_prepare_storefront_order_hash_stamping'
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).toContain(
       '20260828110100_finalize_storefront_order_hash_stamping'
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).toContain(
       '20260828151000_enforce_storefront_airport_pickup_location'
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).not.toContain(
       '20260828160000_persist_quiz_reserved_order_delivery_metadata'
     );
-    expect(deferredMigrationPolicy).toContain(
+    expect(postdeployMigrationPolicy).not.toContain(
       '20260828160100_preserve_quiz_reserved_order_delivery_metadata'
+    );
+    expect(postdeployMigrationPolicy).not.toContain(
+      '20260828151100_prepare_storefront_order_delivery_metadata_persistence'
     );
   });
 
@@ -171,6 +185,39 @@ describe('storefront order RPC context migration contract', () => {
     );
     expect(quizReservedDeliveryMetadataPreservationMigration).toContain(
       'NEW.delivery_method := NULL'
+    );
+  });
+
+  it('persists signed route delivery metadata before deferred enforcement', () => {
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      'CREATE OR REPLACE FUNCTION private.validate_storefront_order_delivery_metadata()'
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      "'storefront_order_context', '') = 'route'"
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      'IF NOT v_route_context'
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      "pg_catalog.jsonb_typeof(NEW.ad_tracking) <> 'object'"
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      "'storefront_order_merchant_id', '')"
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      "NEW.ad_tracking ->> '__baci_delivery_method'"
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      'BEFORE INSERT ON public.orders'
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      'private.validate_storefront_airport_pickup_location()'
+    );
+    expect(deliveryMetadataPersistencePreparationMigration).toContain(
+      "NEW.ad_tracking := NEW.ad_tracking\n    - '__baci_delivery_method'"
+    );
+    expect(postdeployMigrationPolicy).not.toContain(
+      '20260828151100_prepare_storefront_order_delivery_metadata_persistence'
     );
   });
 

@@ -1,5 +1,4 @@
-// Raw frozen replay-source data extracted from the manifest to stay within the 300-line modularity gate. The parsers and assembled object live in the manifest module.
-// Each `<sha256> <filename>.sql` row is byte-frozen: the manifest verifier re-hashes the on-disk migration, so never edit a migration after registering it without recomputing its hash here.
+// Raw frozen replay-source data; update migration hashes in lockstep.
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
@@ -263,6 +262,7 @@ d47e7f8edaa2fb6d51f81b1cb13e02da78a268fb1b589f54c53a441efaba08e5 20260828110100_
 6d50cefa7621d3f1085375ae22954a877dc5bb93a17ca09e1f6baa065de01af3 20260828130000_scope_storefront_order_replay_route_context.sql
 462c99543a414b594f43407f54a97cb8785e914709883b6434b1668396b09815 20260828150000_prepare_storefront_order_delivery_columns.sql
 6cf6464ce3e36a23b2fa6d6b206b1165c7c6fdf3927bbbc7558fa418d3c9da40 20260828151000_enforce_storefront_airport_pickup_location.sql
+596742042b56a606cf161006f68e8114325788cee04c6275fda2733f9509772a 20260828151100_prepare_storefront_order_delivery_metadata_persistence.sql
 bff3c706c64afef80bbde9012c4a50465022d33cb2053701ebf024dab9a67f6b 20260828160000_persist_quiz_reserved_order_delivery_metadata.sql
 c26332074863ab1cf4b5d92d7485a3793d087326c1f3f13e1a922a0deccd3a68 20260828160100_preserve_quiz_reserved_order_delivery_metadata.sql
 59fe2125660db0085d6b1def95d56b6c8530bb99796ddc880fd7bbeb00343f28 20260828170000_prepare_storefront_order_hash_version_context.sql

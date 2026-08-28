@@ -1940,7 +1940,6 @@ export const CheckoutPage: React.FC = () => {
     } else if (deliveryMethod === 'airport') {
       const airportAddress = resolveAirportShippingAddress({
         airportType,
-        isProviderBacked: selectedQuoteMatchesDeliveryMethod,
         manualAddress: newAddressStreet,
         manualCity: newAddressCity,
         manualState: newAddressState,
