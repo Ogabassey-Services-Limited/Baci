@@ -179,6 +179,22 @@ describe('merchant blog OG image markup', () => {
     expect(collectStyleValues(fallbackCard, 'color')).toContain('#000000');
   });
 
+  it('uses the accessible foreground for category labels on light cards', () => {
+    const data = createData({
+      merchantBrandColors: {
+        background: '#ffffff',
+        primary: '#0af',
+        accent: '#ffffff',
+      },
+    });
+
+    const primaryCard = renderPrimaryCard(data);
+    const fallbackCard = renderMerchantFallback(data, 'Missing post');
+
+    expect(collectStyleValues(primaryCard, 'color')).not.toContain('#ffffff');
+    expect(collectStyleValues(fallbackCard, 'color')).not.toContain('#ffffff');
+  });
+
   it('keeps branded fallback art free of unsupported Satori zIndex styles', () => {
     const element = renderMerchantFallback(createData(), 'Missing post');
 

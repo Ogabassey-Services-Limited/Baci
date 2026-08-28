@@ -36,6 +36,19 @@ describe('getTrustedBlogMediaTransformProjection', () => {
     expect(projection).toEqual({ fit: 'inside', width: 600 });
   });
 
+  it('uses non-empty dimension aliases when long-form options are empty', () => {
+    const projection = getTrustedBlogMediaTransformProjection(
+      'https://cdn.ogabassey.com/image/width=,w=600,height=,h=300,format=webp/media/photo.jpg'
+    );
+
+    expect(projection).toEqual({
+      fit: 'inside',
+      type: 'image/webp',
+      width: 600,
+      height: 300,
+    });
+  });
+
   it('rejects transform syntax on an unconfigured origin', () => {
     const projection = getTrustedBlogMediaTransformProjection(
       'https://example.com/image/format=jpeg/login'

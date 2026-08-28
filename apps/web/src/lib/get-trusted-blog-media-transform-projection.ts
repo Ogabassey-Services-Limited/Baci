@@ -67,10 +67,10 @@ export function getTrustedBlogMediaTransformProjection(url: string):
               ? 'image/avif'
               : undefined;
     const width = getTransformDimension(
-      entries.get('width') ?? entries.get('w')
+      entries.get('width') || entries.get('w')
     );
     const height = getTransformDimension(
-      entries.get('height') ?? entries.get('h')
+      entries.get('height') || entries.get('h')
     );
 
     return {

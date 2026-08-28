@@ -1,5 +1,8 @@
-import { colord } from 'colord';
+import { colord, extend } from 'colord';
+import namesPlugin from 'colord/plugins/names';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
+
+extend([namesPlugin]);
 
 const DEFAULT_BACKGROUND = '#1a1a2e';
 

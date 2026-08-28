@@ -108,7 +108,7 @@ export function renderMerchantFallback(
       >
         <div
           style={{
-            color: `${colors.accent}`,
+            color: foreground,
             fontSize: 24,
             fontWeight: 400,
             textTransform: 'uppercase',
@@ -212,7 +212,7 @@ export function renderPrimaryCard(data: MerchantBlogOgImageData) {
           {post?.category ? (
             <div
               style={{
-                color: colors.accent,
+                color: foreground,
                 fontSize: 22,
                 fontWeight: 400,
                 textTransform: 'uppercase',
