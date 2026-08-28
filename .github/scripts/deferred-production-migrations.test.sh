@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+applier="$script_dir/apply-pending-migrations.sh"
+fixture_root="$(mktemp -d)"
+trap 'rm -rf "$fixture_root"' EXIT
+
+fake_bin="$fixture_root/bin"
+mkdir -p "$fake_bin"
+cat >"$fake_bin/curl" <<'FAKE_CURL'
+#!/usr/bin/env bash
+set -euo pipefail
+
+data_binary=''
+while (($#)); do
+  case "$1" in
+    --data-binary)
+      if (($# < 2)); then
+        echo 'Expected a value for --data-binary' >&2
+        exit 2
+      fi
+      data_binary="$2"
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+if [ "$data_binary" != '@-' ]; then
+  echo "Expected curl --data-binary @-, got ${data_binary:-<missing>}" >&2
+  exit 2
+fi
+
+payload="$(cat)"
+printf '%s\n' "$payload" >>"$FAKE_QUERY_LOG"
+if jq -e '.query | startswith("SELECT version, name")' >/dev/null <<<"$payload"; then
+  printf '%s\n' "$FAKE_INITIAL_RESPONSE"
+else
+  printf '%s\n' '[]'
+fi
+FAKE_CURL
+chmod +x "$fake_bin/curl"
+
+deferred_dir="$fixture_root/deferred"
+mkdir -p "$deferred_dir"
+printf '%s\n' "SELECT 'context';" \
+  >"$deferred_dir/20260828090000_harden_storefront_order_rpc_context_and_replays.sql"
+printf '%s\n' "SELECT 'quiz-context';" \
+  >"$deferred_dir/20260828100000_allow_legacy_quiz_award_order_context.sql"
+printf '%s\n' "SELECT 'hash-stamping';" \
+  >"$deferred_dir/20260828110000_prepare_storefront_order_hash_stamping.sql"
+printf '%s\n' "SELECT 'replay-context';" \
+  >"$deferred_dir/20260828120000_enforce_storefront_order_replay_route_context.sql"
+printf '%s\n' "SELECT 'replay-scope';" \
+  >"$deferred_dir/20260828130000_scope_storefront_order_replay_route_context.sql"
+printf '%s\n' "SELECT 'ordinary';" \
+  >"$deferred_dir/20260828140000_ordinary_follow_up.sql"
+
+deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
+deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  MIGRATION_PHASE=predeploy \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$deferred_predeploy_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828090000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828100000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
+grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_predeploy_output"
+grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 2 applied, 0 skipped, 4 deferred.' "$deferred_predeploy_output"
+if grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log"; then
+  echo 'Predeploy phase must not send deferred migration SQL' >&2
+  exit 1
+fi
+grep -q "SELECT 'hash-stamping'" "$deferred_predeploy_log"
+
+deferred_postdeploy_log="$fixture_root/deferred-postdeploy-queries.log"
+deferred_postdeploy_output="$fixture_root/deferred-postdeploy-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  MIGRATION_PHASE=postdeploy \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$deferred_postdeploy_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$deferred_postdeploy_output"
+grep -q 'applied:         20260828090000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828100000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
+grep -q "SELECT 'context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'replay-context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'replay-scope'" "$deferred_postdeploy_log"
+jq -e -s \
+  --arg broad "SELECT 'replay-context';" \
+  --arg scoped "SELECT 'replay-scope';" \
+  '[.[].query | select(contains($broad) and contains($scoped))] | length == 1' \
+  "$deferred_postdeploy_log" >/dev/null
+
+echo 'Deferred migration phase tests passed'

@@ -5,6 +5,7 @@ import {
   PickupOptions,
   parseGiglProviderRateId,
 } from '@/lib/shipping/providers/gigl.constants';
+import { validateAirportDeliveryAddress } from './airport-delivery-address';
 import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
 import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
 import { getLegacyAirportType } from './airport-delivery-legacy-marker';
@@ -28,7 +29,11 @@ interface ValidateLocalAirportDeliveryFeeInput {
   merchantId: string;
   requestIdempotencyKey?: string | null;
   selectedQuoteId?: string | null;
-  shippingAddress?: { address?: string | null } | null;
+  shippingAddress?: {
+    address?: string | null;
+    city?: string | null;
+    state?: string | null;
+  } | null;
   shippingFee: number;
   shippingProvider?: string | null;
   shippingRateId?: string | null;
@@ -219,6 +224,14 @@ export async function validateLocalAirportDeliveryFee({
       localAirportShippingFee: null,
     };
   }
+
+  validateAirportDeliveryAddress({
+    airportType,
+    deliveryMethod,
+    selectedQuoteId,
+    shippingAddress,
+    shippingRateId,
+  });
 
   const localAirportShippingFee = getLocalAirportDeliveryFee({
     airportType,

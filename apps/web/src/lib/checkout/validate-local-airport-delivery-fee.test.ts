@@ -114,6 +114,21 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('rejects local airport delivery without a complete destination address', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      airportType: 'delivery',
+      deliveryMethod: 'airport',
+      merchantId: MERCHANT_ID,
+      shippingFee: 35_000,
+      supabase: mockSupabase(null),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'AIRPORT_ADDRESS_REQUIRED',
+      status: 400,
+    });
+  });
+
   it('rejects a provider quote whose submitted fee differs from the stored price', async () => {
     const promise = validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',
@@ -135,7 +150,11 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       requestIdempotencyKey: 'airport-retry-key',
-      shippingAddress: { address: '12 Airport Road' },
+      shippingAddress: {
+        address: '12 Airport Road',
+        city: 'Ikeja',
+        state: 'Lagos',
+      },
       shippingFee: 25_000,
       supabase: mockSupabase(null, true),
     });

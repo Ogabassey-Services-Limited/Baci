@@ -15,3 +15,17 @@ is_postdeploy_migration() {
       ;;
   esac
 }
+
+# These migrations replace a live pending-order trigger. They must be sent in
+# one Management API transaction so the broad predecessor is never observable
+# without its scoped replacement.
+atomic_migration_group_next_base() {
+  case "$1" in
+    20260828120000_enforce_storefront_order_replay_route_context)
+      printf '%s\n' '20260828130000_scope_storefront_order_replay_route_context'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}

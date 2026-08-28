@@ -111,6 +111,8 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
+. "$script_dir/apply-atomic-migration-group.sh"
+
 applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
 applied_versions_response="$(api_query <<<"$applied_versions_body")"
 applied_migrations="$(jq -r '.[] | [.version, .name] | @tsv' <<<"$applied_versions_response")"
@@ -134,11 +136,17 @@ sorted_files=("${files[@]}")
 applied_count=0
 skipped_count=0
 deferred_count=0
+atomic_group_skip_base=''
 
 for file in "${sorted_files[@]}"; do
   base="$(basename "$file" .sql)"
   version="${base%%_*}"
   name="${base#*_}"
+
+  if [ "$base" = "$atomic_group_skip_base" ]; then
+    atomic_group_skip_base=''
+    continue
+  fi
 
   recorded_name="$(awk -F '\t' -v version="$version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
   if [ -n "$recorded_name" ]; then
@@ -182,6 +190,14 @@ for file in "${sorted_files[@]}"; do
   if [ "$migration_phase" = "predeploy" ] && is_postdeploy_migration "$base"; then
     echo "⏸ deferred until postdeploy: $version  ${name}"
     deferred_count=$((deferred_count + 1))
+    continue
+  fi
+
+  if next_base="$(atomic_migration_group_next_base "$base")" && \
+    [ -f "$migrations_dir/${next_base}.sql" ] && \
+    [ -z "$(awk -F '\t' -v version="${next_base%%_*}" '$1 == version { print $2; exit }' <<<"$applied_migrations")" ]; then
+    apply_atomic_migration_group "$file" "$migrations_dir/${next_base}.sql" || exit 1
+    atomic_group_skip_base="$next_base"
     continue
   fi
 

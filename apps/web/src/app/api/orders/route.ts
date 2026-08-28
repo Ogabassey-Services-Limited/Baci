@@ -30,10 +30,10 @@ import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import {
-  buildLegacyOrderIdempotencyPayload,
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from '@/lib/checkout/order-idempotency';
+import { buildLegacyOrderIdempotencyPayload } from '@/lib/checkout/order-idempotency-legacy';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';

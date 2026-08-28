@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildLegacyOrderIdempotencyPayload,
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from './order-idempotency';
+import { buildLegacyOrderIdempotencyPayload } from './order-idempotency-legacy';
 
 const baseOrder = {
   merchant_id: '11111111-1111-1111-1111-111111111111',
