@@ -74,11 +74,14 @@ function completedWindowCoversRequest(
 
   const completedStartDate = connection.last_synced_start_date;
   const completedEndDate = connection.last_synced_end_date;
+  const hasCompletionMarker =
+    completedStartDate !== undefined || completedEndDate !== undefined;
 
   // Connections created before range markers were introduced can still have
   // row-level freshness evidence. Keep that legacy path intact; once a marker
   // exists, never project rows from a window that it does not fully cover.
-  if (!completedStartDate || !completedEndDate) return true;
+  if (!hasCompletionMarker) return true;
+  if (!completedStartDate || !completedEndDate) return false;
   return (
     (!startDate || completedStartDate <= startDate) &&
     (!endDate || completedEndDate >= endDate)

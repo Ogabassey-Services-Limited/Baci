@@ -124,11 +124,14 @@ function completedWindowCoversRequest(
 ): boolean {
   const completedStartDate = connection?.last_synced_start_date;
   const completedEndDate = connection?.last_synced_end_date;
+  const hasCompletionMarker =
+    completedStartDate !== undefined || completedEndDate !== undefined;
 
   // Connections created before range markers were introduced can still have
   // row-level freshness evidence. Keep that legacy path intact; once a marker
   // exists, never project rows from a window that it does not fully cover.
-  if (!completedStartDate || !completedEndDate) return true;
+  if (!hasCompletionMarker) return true;
+  if (!completedStartDate || !completedEndDate) return false;
   return completedStartDate <= startDate && completedEndDate >= endDate;
 }
 
@@ -198,8 +201,8 @@ export function buildSocialAdsAnalyticsSnapshot({
     const needsAccountSelection =
       isConnected && !connection?.provider_customer_id;
     // A populated window derives its timestamp from row fetches. Empty
-    // windows need the exact completion range recorded by the final sync CAS;
-    // an unrelated connection-level marker must not make them appear fresh.
+    // windows need a completion marker covering the requested range; an
+    // unrelated connection-level marker must not make them appear fresh.
     const completedWindowMatches =
       Boolean(connection?.last_synced_start_date) &&
       Boolean(connection?.last_synced_end_date) &&
