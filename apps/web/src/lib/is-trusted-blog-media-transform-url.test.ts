@@ -21,6 +21,14 @@ describe('isTrustedBlogMediaTransformUrl', () => {
     expect(result).toBe(true);
   });
 
+  it('recognizes a transformer route with an empty options segment', () => {
+    const result = isTrustedBlogMediaTransformUrl(
+      'https://cdn.ogabassey.com/image//media/cover.jpg'
+    );
+
+    expect(result).toBe(true);
+  });
+
   it('recognizes transform syntax on a configured media origin', () => {
     process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
 

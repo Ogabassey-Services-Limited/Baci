@@ -1,6 +1,6 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
-const TRANSFORM_PATH_PATTERN = /^\/image\/[^/]+\/.+$/u;
+const TRANSFORM_PATH_PATTERN = /^\/image\/[^/]*\/.+$/u;
 
 /** Identifies transform-shaped URLs served by an approved blog media origin. */
 export function isTrustedBlogMediaTransformUrl(raw: string): boolean {

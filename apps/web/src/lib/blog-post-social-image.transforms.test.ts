@@ -132,6 +132,22 @@ describe('blog post social image transform projection', () => {
     });
   });
 
+  it('falls back for a managed transform with empty auto options', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image//media/landscape_16x9.jpg';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, transformedUrl, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
   it('rejects transform syntax from an unconfigured origin', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,
