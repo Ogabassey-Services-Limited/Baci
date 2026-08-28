@@ -117,6 +117,21 @@ function tokenExpiryRequiresReauthorization(
   return hasExpiredToken(tokenExpiresAt, now);
 }
 
+function completedWindowCoversRequest(
+  connection: SocialAdsConnectionRow | undefined,
+  startDate: string,
+  endDate: string
+): boolean {
+  const completedStartDate = connection?.last_synced_start_date;
+  const completedEndDate = connection?.last_synced_end_date;
+
+  // Connections created before range markers were introduced can still have
+  // row-level freshness evidence. Keep that legacy path intact; once a marker
+  // exists, never project rows from a window that it does not fully cover.
+  if (!completedStartDate || !completedEndDate) return true;
+  return completedStartDate <= startDate && completedEndDate >= endDate;
+}
+
 function spendByCurrency(rows: SocialAdsSpendRow[]) {
   const totals = new Map<string, string>();
   for (const row of rows) {
@@ -167,7 +182,8 @@ export function buildSocialAdsAnalyticsSnapshot({
         now
       ) &&
       Boolean(connection.provider_customer_id) &&
-      row.provider_customer_id === connection.provider_customer_id
+      row.provider_customer_id === connection.provider_customer_id &&
+      completedWindowCoversRequest(connection, startDate, endDate)
     );
   });
   const providers = SOCIAL_ADS_REPORTING_PROVIDERS.map((provider) => {
@@ -185,8 +201,9 @@ export function buildSocialAdsAnalyticsSnapshot({
     // windows need the exact completion range recorded by the final sync CAS;
     // an unrelated connection-level marker must not make them appear fresh.
     const completedWindowMatches =
-      connection?.last_synced_start_date === startDate &&
-      connection?.last_synced_end_date === endDate;
+      Boolean(connection?.last_synced_start_date) &&
+      Boolean(connection?.last_synced_end_date) &&
+      completedWindowCoversRequest(connection, startDate, endDate);
     const windowLastSyncedAt = deriveWindowLastSyncedAt(
       rows,
       completedWindowMatches ? (connection?.last_synced_at ?? null) : null

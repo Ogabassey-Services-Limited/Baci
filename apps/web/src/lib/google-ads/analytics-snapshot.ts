@@ -65,6 +65,26 @@ interface BuildGoogleAdsAnalyticsSnapshotOptions {
 
 const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
 
+function completedWindowCoversRequest(
+  connection: GoogleAdsAnalyticsConnection,
+  startDate: string | undefined,
+  endDate: string | undefined
+): boolean {
+  if (!startDate && !endDate) return true;
+
+  const completedStartDate = connection.last_synced_start_date;
+  const completedEndDate = connection.last_synced_end_date;
+
+  // Connections created before range markers were introduced can still have
+  // row-level freshness evidence. Keep that legacy path intact; once a marker
+  // exists, never project rows from a window that it does not fully cover.
+  if (!completedStartDate || !completedEndDate) return true;
+  return (
+    (!startDate || completedStartDate <= startDate) &&
+    (!endDate || completedEndDate >= endDate)
+  );
+}
+
 export function buildGoogleAdsAnalyticsSnapshot(
   connection: GoogleAdsAnalyticsConnection | null,
   rows: GoogleAdsAnalyticsSpendRow[],
@@ -101,8 +121,13 @@ export function buildGoogleAdsAnalyticsSnapshot(
         : 'disconnected';
   const selectedCustomerId = connected ? connection.provider_customer_id : null;
   const lastSyncedAt = connection.last_synced_at;
+  const requestedWindowCovered = completedWindowCoversRequest(
+    connection,
+    startDate,
+    endDate
+  );
   const selectedRows =
-    selectedCustomerId && lastSyncedAt
+    selectedCustomerId && lastSyncedAt && requestedWindowCovered
       ? rows.filter(
           (row) =>
             row.provider_customer_id === selectedCustomerId &&
@@ -114,8 +139,11 @@ export function buildGoogleAdsAnalyticsSnapshot(
     startDate || endDate
       ? deriveWindowLastSyncedAt(
           selectedRows,
-          connection.last_synced_start_date === startDate &&
-            connection.last_synced_end_date === endDate
+          connection.last_synced_start_date !== null &&
+            connection.last_synced_start_date !== undefined &&
+            connection.last_synced_end_date !== null &&
+            connection.last_synced_end_date !== undefined &&
+            requestedWindowCovered
             ? lastSyncedAt
             : null
         )

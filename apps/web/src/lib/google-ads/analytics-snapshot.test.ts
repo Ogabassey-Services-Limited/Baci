@@ -346,4 +346,41 @@ describe('buildGoogleAdsAnalyticsSnapshot', () => {
       lastSyncedAt: null,
     });
   });
+
+  it('hides retained overlap rows when the completed marker does not cover the requested range', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-10T09:00:00.000Z',
+        last_synced_end_date: '2026-08-10',
+        last_synced_start_date: '2026-08-01',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [
+        {
+          clicks: 1,
+          conversions: 1,
+          currency_code: 'USD',
+          fetched_at: '2026-08-10T09:00:00.000Z',
+          impressions: 10,
+          provider_customer_id: '1234567890',
+          spend_date: '2026-08-05',
+          spend_micros: '1000000',
+        },
+      ],
+      {
+        endDate: '2026-08-20',
+        now: new Date('2026-08-10T10:00:00.000Z'),
+        startDate: '2026-08-01',
+      }
+    );
+
+    expect(result).toMatchObject({
+      isStale: false,
+      lastSyncedAt: null,
+    });
+    expect(result?.daily).toBeUndefined();
+    expect(result?.spend).toBeUndefined();
+    expect(result?.spendMicros).toBeUndefined();
+  });
 });
