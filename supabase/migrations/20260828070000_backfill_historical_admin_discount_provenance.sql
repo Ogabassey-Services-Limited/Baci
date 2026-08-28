@@ -1,6 +1,8 @@
 -- Orders edited through the legacy admin RPC have an audit event but may not
 -- have the newer server-authored marker. Preserve that historical provenance
 -- before transaction review applies its VAT-inclusive negotiation heuristic.
+BEGIN;
+
 CREATE TEMP TABLE historical_admin_discount_edits (
   order_id uuid PRIMARY KEY
 ) ON COMMIT DROP;
@@ -55,3 +57,5 @@ DELETE FROM private.transaction_discount_admin_edit_context AS context
 USING historical_admin_discount_edits AS edits
 WHERE context.transaction_id = pg_catalog.txid_current()
   AND context.order_id = edits.order_id;
+
+COMMIT;

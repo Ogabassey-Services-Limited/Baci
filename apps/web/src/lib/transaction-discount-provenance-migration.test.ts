@@ -38,6 +38,13 @@ const replaySignatureBindingMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const historicalBackfillMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828070000_backfill_historical_admin_discount_provenance.sql'
+  ),
+  'utf8'
+);
 const proofRejectionMigrationSql = readFileSync(
   resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -121,6 +128,14 @@ describe('transaction discount provenance migration', () => {
     expect(replaySignatureBindingMigrationSql).toMatch(
       /INSERT INTO private\.transaction_discount_proof_replay\s*\(\s*proof_id,\s*order_id,\s*merchant_id\s*\)\s*VALUES\s*\(\s*v_proof ->> 'signature',\s*NEW\.id,\s*NEW\.merchant_id\s*\)/i
     );
+  });
+
+  it('keeps the historical backfill temp rows alive until the migration commits', () => {
+    expect(historicalBackfillMigrationSql).toMatch(/\nBEGIN;\s/i);
+    expect(historicalBackfillMigrationSql).toMatch(
+      /CREATE TEMP TABLE historical_admin_discount_edits[\s\S]*?ON COMMIT DROP;/i
+    );
+    expect(historicalBackfillMigrationSql).toMatch(/\nCOMMIT;\s*$/i);
   });
 
   it('fails closed when a version-three proof cannot be accepted', () => {
