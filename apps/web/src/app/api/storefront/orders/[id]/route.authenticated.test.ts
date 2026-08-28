@@ -178,6 +178,21 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockResolvedValue({ data: mockItems, error: null }),
     };
+    mockSupabaseClient.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          account_number: '0123456789',
+          account_name: 'Current account',
+          bank_name: 'Paystack-Titan',
+          provider: 'paystack',
+          created_at: '2026-08-24T12:00:00.000Z',
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-09-07T12:00:00.000Z',
+          order_id: mockOrderData.id,
+        },
+      ],
+      error: null,
+    });
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === 'orders') return mockOrderQuery;
       if (table === 'order_items') return mockItemsQuery;
@@ -244,6 +259,31 @@ describe('GET /api/storefront/orders/[id] authenticated lookup', () => {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockResolvedValue({ data: mockItems, error: null }),
     };
+    mockSupabaseClient.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          account_number: '1111111111',
+          account_name: 'Paid DVA',
+          bank_name: 'Paystack',
+          provider: 'paystack',
+          created_at: '2026-08-24T12:00:00.000Z',
+          assigned_at: '2026-08-24T12:00:00.000Z',
+          expires_at: '2026-08-24T12:30:00.000Z',
+          order_id: mockOrderData.id,
+        },
+        {
+          account_number: '2222222222',
+          account_name: 'Newer DVA',
+          bank_name: 'Paystack',
+          provider: 'paystack',
+          created_at: '2026-08-24T12:20:00.000Z',
+          assigned_at: '2026-08-24T12:20:00.000Z',
+          expires_at: '2026-09-07T12:20:00.000Z',
+          order_id: mockOrderData.id,
+        },
+      ],
+      error: null,
+    });
     mockSupabaseClient.rpc.mockResolvedValueOnce({
       data: [
         {

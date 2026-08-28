@@ -135,8 +135,32 @@ export function createSupabaseMock(input?: {
   const transactionsQuery = createTransactionsQuery(
     input?.transactions ?? { data: [], error: null }
   );
+  const rpc = vi.fn((fn: string) => {
+    if (fn === 'get_customer_order_transactions') {
+      return Promise.resolve({
+        data: (input?.transactions?.data ?? []).map((transaction) => ({
+          ...transaction,
+          dva_account_number:
+            (transaction.metadata as { dva_account_number?: unknown } | null)
+              ?.dva_account_number ?? null,
+        })),
+        error: input?.transactions?.error ?? null,
+      });
+    }
+    if (fn === 'get_customer_order_payment_accounts') {
+      const accounts = (input?.orders?.data ?? []).flatMap((order) =>
+        (order.order_payment_accounts ?? []).map((account) => ({
+          ...account,
+          order_id: order.id,
+        }))
+      );
+      return Promise.resolve({ data: accounts, error: null });
+    }
+    return Promise.reject(new Error(`Unexpected rpc: ${fn}`));
+  });
 
   return {
+    rpc,
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
         return merchantQuery;

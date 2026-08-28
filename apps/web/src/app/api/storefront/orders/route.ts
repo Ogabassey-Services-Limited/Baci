@@ -136,16 +136,6 @@ export async function GET(request: NextRequest) {
               slug
             )
           )
-        ),
-        order_payment_accounts (
-          account_number,
-          bank_name,
-          account_name,
-          provider,
-          assignment_customer_email_source,
-          created_at,
-          assigned_at,
-          expires_at
         )
       `)
       .eq('customer_id', customer.id)
@@ -160,8 +150,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { paymentAccountsByOrderId, transactionError } =
+    const { paymentAccountsByOrderId, paymentAccountError, transactionError } =
       await resolveStorefrontOrderPaymentAccounts(supabase, orders ?? []);
+    if (paymentAccountError) {
+      console.error('Orders payment-account fetch error:', paymentAccountError);
+    }
     if (transactionError) {
       console.error('Orders transaction fetch error:', transactionError);
     }

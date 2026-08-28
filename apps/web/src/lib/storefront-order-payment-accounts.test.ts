@@ -23,21 +23,32 @@ const accounts = [
 
 describe('resolveStorefrontOrderPaymentAccounts', () => {
   it('uses the paid transaction receiver for a historical alias', async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: [
-        {
-          amount: 1000,
-          created_at: '2026-07-08T12:45:00.000Z',
-          description: 'Paystack transfer',
-          dva_account_number: '1111111111',
-          gateway: 'paystack',
-          id: 'transaction-1',
-          order_id: 'order-1',
-          status: 'completed',
-          transaction_type: 'payment',
-        },
-      ],
-      error: null,
+    const rpc = vi.fn((fn: string) => {
+      if (fn === 'get_customer_order_payment_accounts') {
+        return Promise.resolve({
+          data: accounts.map((account) => ({
+            ...account,
+            order_id: 'order-1',
+          })),
+          error: null,
+        });
+      }
+      return Promise.resolve({
+        data: [
+          {
+            amount: 1000,
+            created_at: '2026-07-08T12:45:00.000Z',
+            description: 'Paystack transfer',
+            dva_account_number: '1111111111',
+            gateway: 'paystack',
+            id: 'transaction-1',
+            order_id: 'order-1',
+            status: 'completed',
+            transaction_type: 'payment',
+          },
+        ],
+        error: null,
+      });
     });
     const supabase = {
       rpc,
@@ -61,11 +72,25 @@ describe('resolveStorefrontOrderPaymentAccounts', () => {
     expect(rpc).toHaveBeenCalledWith('get_customer_order_transactions', {
       p_order_ids: ['order-1'],
     });
+    expect(rpc).toHaveBeenCalledWith('get_customer_order_payment_accounts', {
+      p_order_ids: ['order-1'],
+    });
   });
 
   it('returns transaction lookup errors while preserving account resolution', async () => {
     const error = new Error('transaction lookup unavailable');
-    const rpc = vi.fn().mockResolvedValue({ data: null, error });
+    const rpc = vi.fn((fn: string) => {
+      if (fn === 'get_customer_order_payment_accounts') {
+        return Promise.resolve({
+          data: accounts.map((account) => ({
+            ...account,
+            order_id: 'order-1',
+          })),
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error });
+    });
     const supabase = {
       rpc,
     } as unknown as SupabaseClient;

@@ -4,6 +4,10 @@ import {
   selectPreferredOrderPaymentAccount,
 } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import {
+  loadStorefrontCustomerPaymentAccounts,
+  toOrderPaymentAccount,
+} from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 import type { Database } from '@/types/supabase';
 
@@ -37,6 +41,10 @@ export async function resolveStorefrontOrderPaymentAccounts(
     supabase,
     paidOrderIds
   );
+  const paymentAccountsResult = await loadStorefrontCustomerPaymentAccounts(
+    supabase,
+    orders.map((order) => order.id)
+  );
 
   const transactionsByOrderId = new Map<string, StorefrontOrderTransaction[]>();
   for (const transaction of transactionsResult.data ?? []) {
@@ -46,6 +54,17 @@ export async function resolveStorefrontOrderPaymentAccounts(
     transactionsByOrderId.set(transaction.order_id, orderTransactions);
   }
 
+  const customerPaymentAccountsByOrderId = new Map<
+    string,
+    OrderPaymentAccountLike[]
+  >();
+  for (const account of paymentAccountsResult.data ?? []) {
+    const orderAccounts =
+      customerPaymentAccountsByOrderId.get(account.order_id) ?? [];
+    orderAccounts.push(toOrderPaymentAccount(account));
+    customerPaymentAccountsByOrderId.set(account.order_id, orderAccounts);
+  }
+
   const paymentAccountsByOrderId = new Map<
     string,
     OrderPaymentAccountLike | null
@@ -53,7 +72,8 @@ export async function resolveStorefrontOrderPaymentAccounts(
   for (const order of orders) {
     const isPaid = order.payment_status?.trim().toLowerCase() === 'paid';
     const account = selectPreferredOrderPaymentAccount(
-      order.order_payment_accounts,
+      customerPaymentAccountsByOrderId.get(order.id) ??
+        order.order_payment_accounts,
       now,
       {
         allowExpiredPaystackAccount: isPaid,
@@ -69,6 +89,7 @@ export async function resolveStorefrontOrderPaymentAccounts(
 
   return {
     paymentAccountsByOrderId,
+    paymentAccountError: paymentAccountsResult.error,
     transactionError: transactionsResult.error,
   };
 }

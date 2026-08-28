@@ -14,6 +14,10 @@ import type {
   StorefrontAccountDocumentTaxSubtotalRow,
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
+import {
+  loadStorefrontCustomerPaymentAccounts,
+  toOrderPaymentAccount,
+} from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 
 const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
@@ -149,13 +153,7 @@ export async function getStorefrontAccountDocumentData({
       )
       .eq('order_id', orderId),
     loadStorefrontCustomerTransactions(supabase, [orderId]),
-    supabase
-      .from('order_payment_accounts')
-      .select(
-        'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
-      )
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: false }),
+    loadStorefrontCustomerPaymentAccounts(supabase, [orderId]),
     supabase
       .from('order_tax_subtotals')
       .select(
@@ -211,7 +209,9 @@ export async function getStorefrontAccountDocumentData({
     itemRows: (itemsResult.data || []) as StorefrontAccountDocumentItemRow[],
     transactions: transactionRows,
     paymentAccount: selectPreferredOrderPaymentAccount(
-      paymentAccountsResult.data as StorefrontAccountDocumentPaymentAccountRow[],
+      paymentAccountsResult.data.map(
+        toOrderPaymentAccount
+      ) as StorefrontAccountDocumentPaymentAccountRow[],
       new Date(),
       {
         allowExpiredPaystackAccount: paymentStatus === 'paid',

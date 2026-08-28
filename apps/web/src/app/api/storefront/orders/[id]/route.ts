@@ -7,6 +7,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
+import {
+  loadStorefrontCustomerPaymentAccounts,
+  toOrderPaymentAccount,
+} from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
@@ -89,17 +93,7 @@ export async function GET(
             shipping_status,
             payment_method,
             merchant_id,
-            fulfillment_details,
-            order_payment_accounts (
-              account_number,
-              bank_name,
-              account_name,
-              provider,
-              assignment_customer_email_source,
-              created_at,
-              assigned_at,
-              expires_at
-            )
+            fulfillment_details
           `
         )
         .eq('id', id)
@@ -128,6 +122,15 @@ export async function GET(
               { status: 404 }
             );
           }
+        }
+
+        const paymentAccountsResult =
+          await loadStorefrontCustomerPaymentAccounts(supabase, [order.id]);
+        if (paymentAccountsResult.error) {
+          console.error(
+            '[API/Orders] Payment-account fetch error (session):',
+            paymentAccountsResult.error
+          );
         }
 
         console.log(
@@ -180,20 +183,20 @@ export async function GET(
           );
         }
 
-        const {
-          order_payment_accounts: orderPaymentAccounts,
-          ...orderWithoutPaymentAccounts
-        } = order;
+        const orderForResponse = {
+          ...order,
+        } as typeof order & { order_payment_accounts?: unknown };
+        delete orderForResponse.order_payment_accounts;
 
         return NextResponse.json(
           sanitizePublicOrder({
-            ...orderWithoutPaymentAccounts,
+            ...orderForResponse,
             shipping_cost: order.shipping_fee,
             short_id: order.order_number,
             items: mapOrderItemsWithRoutes(items || []),
             virtual_account:
               selectPreferredOrderPaymentAccount(
-                orderPaymentAccounts,
+                paymentAccountsResult.data.map(toOrderPaymentAccount),
                 new Date(),
                 {
                   allowExpiredPaystackAccount: isPaidOrder,

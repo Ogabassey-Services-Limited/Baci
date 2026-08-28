@@ -17738,6 +17738,20 @@ export type Database = {
           transaction_type: string | null;
         }[];
       };
+      get_customer_order_payment_accounts: {
+        Args: { p_order_ids: string[] };
+        Returns: {
+          account_name: string | null;
+          account_number: string;
+          assigned_at: string | null;
+          assignment_customer_email_source: string | null;
+          bank_name: string | null;
+          created_at: string;
+          expires_at: string | null;
+          order_id: string;
+          provider: string | null;
+        }[];
+      };
       get_credit_direct_settings: {
         Args: { p_merchant_slug: string };
         Returns: {

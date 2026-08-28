@@ -14,6 +14,7 @@ import type {
   ReceiptDetail,
   ReceiptListItem,
 } from '@/types/receipt';
+import { mapCustomerPaymentAccountRpcRows } from './receipt-payment-account-mappers';
 import { mapCustomerTransactionRpcRows } from './receipt-transaction-mappers';
 import { resolveReceiptPaymentAccount } from './resolve-receipt-payment-account';
 
@@ -162,18 +163,21 @@ async function fetchReceiptDetail(
   if (orderError) throw orderError;
   if (!order) throw new Error('Order not found');
 
-  const { data: virtualAccounts, error: vaError } = await withSupabaseRetry(
+  const isPaidOrder = order.payment_status?.trim().toLowerCase() === 'paid';
+  const { data: virtualAccountRows, error: vaError } = await withSupabaseRetry(
     async () =>
-      await supabase
-        .from('order_payment_accounts')
-        .select(
-          'account_number, bank_name, account_name, provider, assignment_customer_email_source, created_at, assigned_at, expires_at'
-        )
-        .eq('order_id', orderId)
-        .order('created_at', { ascending: false }),
+      await supabase.rpc('get_customer_order_payment_accounts', {
+        p_order_ids: [orderId],
+      }),
     { maxRetries: 2 }
   );
-  if (vaError) log.warn('Failed to fetch virtual account:', vaError.message);
+  if (vaError) {
+    log.warn('Failed to fetch virtual account:', vaError.message);
+    if (isPaidOrder) {
+      throw vaError;
+    }
+  }
+  const virtualAccounts = mapCustomerPaymentAccountRpcRows(virtualAccountRows);
 
   const { data: transactionRows, error: txError } = await withSupabaseRetry(
     async () =>
@@ -184,7 +188,7 @@ async function fetchReceiptDetail(
   );
   if (txError) {
     log.warn('Failed to fetch transactions:', txError.message);
-    if (order.payment_status?.trim().toLowerCase() === 'paid') {
+    if (isPaidOrder) {
       throw txError;
     }
   }

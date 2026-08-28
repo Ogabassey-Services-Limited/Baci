@@ -11,7 +11,7 @@ type SupabaseMockResult = Promise<{ data: unknown; error: unknown }>;
 
 const mockOrderEq = jest.fn();
 const mockOrderSingle = jest.fn<() => SupabaseMockResult>();
-const mockPaymentAccountOrder = jest.fn<() => SupabaseMockResult>();
+const mockPaymentAccountsRpc = jest.fn<() => SupabaseMockResult>();
 const mockTransactionsRpc = jest.fn<() => SupabaseMockResult>();
 
 jest.mock('@/lib/api', () => ({
@@ -23,13 +23,15 @@ jest.mock('@/lib/logger', () => ({
 }));
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    rpc: () => mockTransactionsRpc(),
+    rpc: (fn: string) => {
+      if (fn === 'get_customer_order_payment_accounts') {
+        return mockPaymentAccountsRpc();
+      }
+      return mockTransactionsRpc();
+    },
     from: (table: string) => ({
       select: () => {
         if (table === 'orders') return { eq: mockOrderEq };
-        if (table === 'order_payment_accounts') {
-          return { eq: () => ({ order: mockPaymentAccountOrder }) };
-        }
         return { eq: jest.fn() };
       },
     }),
@@ -76,7 +78,7 @@ describe('receipt payment-account history', () => {
       eq: mockOrderEq,
       single: mockOrderSingle,
     }));
-    mockPaymentAccountOrder.mockResolvedValue({ data: [], error: null });
+    mockPaymentAccountsRpc.mockResolvedValue({ data: [], error: null });
     mockTransactionsRpc.mockResolvedValue({ data: [], error: null });
   });
 
@@ -86,7 +88,7 @@ describe('receipt payment-account history', () => {
 
   it('selects the Paystack account when legacy provider rows coexist', async () => {
     jest.setSystemTime(new Date('2026-07-08T12:15:00.000Z'));
-    mockPaymentAccountOrder.mockResolvedValueOnce({
+    mockPaymentAccountsRpc.mockResolvedValueOnce({
       data: [
         {
           account_name: 'Legacy account',
@@ -118,7 +120,7 @@ describe('receipt payment-account history', () => {
 
   it('selects a legacy account when the Paystack alias has expired', async () => {
     jest.setSystemTime(new Date('2026-07-08T13:00:00.000Z'));
-    mockPaymentAccountOrder.mockResolvedValueOnce({
+    mockPaymentAccountsRpc.mockResolvedValueOnce({
       data: [
         {
           account_name: 'Legacy account',
@@ -150,7 +152,7 @@ describe('receipt payment-account history', () => {
       data: { ...baseOrder, amount_paid: 690000, payment_status: 'paid' },
       error: null,
     });
-    mockPaymentAccountOrder.mockResolvedValueOnce({
+    mockPaymentAccountsRpc.mockResolvedValueOnce({
       data: [
         {
           account_name: 'Expired automatic confirmation',

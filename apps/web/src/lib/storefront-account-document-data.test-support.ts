@@ -37,6 +37,12 @@ export function createStorefrontDocumentSupabaseMock(options?: {
         error: null,
       });
     }
+    if (fn === 'get_customer_order_payment_accounts') {
+      return Promise.resolve({
+        data: options?.paymentAccounts ?? [],
+        error: null,
+      });
+    }
     return Promise.reject(new Error(`Unexpected rpc: ${fn}`));
   });
   function tableQuery(result: QueryResult) {
@@ -128,11 +134,6 @@ export function createStorefrontDocumentSupabaseMock(options?: {
         case 'order_items':
         case 'order_tax_subtotals':
           return tableQuery({ data: [], error: null });
-        case 'order_payment_accounts':
-          return tableQuery({
-            data: options?.paymentAccounts ?? [],
-            error: null,
-          });
         default:
           throw new Error(`Unexpected table: ${table}`);
       }
