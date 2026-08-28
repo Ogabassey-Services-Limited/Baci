@@ -113,8 +113,8 @@ function nextPage(payload: unknown, hasRows: boolean): number | null {
     !Number.isSafeInteger(current) ||
     !Number.isSafeInteger(total) ||
     current < 1 ||
-    total < 1 ||
-    current > total
+    total < 0 ||
+    (total === 0 ? hasRows || current !== 1 : current > total)
   )
     throw new TikTokAdsProviderError('TIKTOK_ADS_REPORT_PAGING_INVALID');
   return current < total ? current + 1 : null;
