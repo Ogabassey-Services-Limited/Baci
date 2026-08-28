@@ -108,11 +108,19 @@ export function DeferredPlatformInsights({
 
     const loadInsightModules = loadModules ?? loadDefaultInsightModules;
 
-    loadInsightModules().then((loadedModules) => {
-      if (!cancelled) {
-        setModules(loadedModules);
-      }
-    });
+    // These modules are optional observability enhancements. A failed dynamic
+    // import must stay fail-open; without a terminal catch, Safari reports its
+    // generic `TypeError: Load failed` as an unhandled rejection on every route.
+    void loadInsightModules()
+      .then((loadedModules) => {
+        if (!cancelled) {
+          setModules(loadedModules);
+        }
+      })
+      .catch(() => {
+        // Keep the core storefront usable when either optional module cannot
+        // be fetched (offline, blocked, or a transient chunk failure).
+      });
 
     return () => {
       cancelled = true;
