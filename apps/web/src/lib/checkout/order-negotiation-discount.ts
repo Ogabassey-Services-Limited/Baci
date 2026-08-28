@@ -1,4 +1,8 @@
 import {
+  buildTransactionDiscountLineKey,
+  buildTransactionDiscountLineOccurrenceKey,
+} from '@baci/shared/contracts';
+import {
   isProductNegotiable,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
 } from '@baci/shared/lib';
@@ -41,6 +45,78 @@ type NegotiationDiscountItem = {
   voucher_award_id?: string | null;
 };
 
+type IndexedNegotiationItem = {
+  item: NegotiationDiscountItem;
+  lineId: number;
+};
+
+function applyPersistedLineOccurrenceKeys(
+  result: EligibleLineDiscountResult,
+  indexedItems: IndexedNegotiationItem[],
+  productMap: Map<string, NegotiationCatalogRow>
+): EligibleLineDiscountResult {
+  if (!result.lineDiscounts) {
+    return result;
+  }
+
+  const lineKeys = indexedItems.map(({ item }) => {
+    if (!item.product_id) {
+      return null;
+    }
+    const product = productMap.get(item.product_id);
+    return buildTransactionDiscountLineKey({
+      condition: item.condition?.trim() || product?.condition,
+      productId: item.product_id,
+      variantAttributes: item.variant_attributes ?? null,
+      variantId: item.variant_id ?? null,
+    });
+  });
+  const lineKeyCounts = new Map<string, number>();
+  const occurrenceByLineId = new Map<number, number>();
+  for (const lineKey of lineKeys) {
+    if (lineKey == null) {
+      continue;
+    }
+    lineKeyCounts.set(lineKey, (lineKeyCounts.get(lineKey) ?? 0) + 1);
+  }
+  const seenLineKeys = new Map<string, number>();
+  for (const [index, lineKey] of lineKeys.entries()) {
+    if (lineKey == null) {
+      continue;
+    }
+    const occurrence = (seenLineKeys.get(lineKey) ?? 0) + 1;
+    seenLineKeys.set(lineKey, occurrence);
+    occurrenceByLineId.set(
+      indexedItems[index]?.lineId ?? index + 1,
+      occurrence
+    );
+  }
+
+  return {
+    ...result,
+    lineDiscounts: result.lineDiscounts.map((allocation) => {
+      if (!allocation) {
+        return allocation;
+      }
+      const itemIndex = allocation.lineId - 1;
+      const lineKey = lineKeys[itemIndex];
+      if (lineKey == null || (lineKeyCounts.get(lineKey) ?? 0) < 2) {
+        return allocation;
+      }
+      const occurrence = occurrenceByLineId.get(allocation.lineId);
+      return occurrence == null
+        ? allocation
+        : {
+            ...allocation,
+            lineKey: buildTransactionDiscountLineOccurrenceKey(
+              lineKey,
+              occurrence
+            ),
+          };
+    }),
+  };
+}
+
 export async function computeOrderNegotiationDiscount({
   items,
   merchantId,
@@ -58,12 +134,19 @@ export async function computeOrderNegotiationDiscount({
   // priced at 0 and dispatched to the voucher RPC. Excluding them from the id
   // lists means a pure-voucher order skips the products query and returns null
   // (so existing voucher tests need no products mock).
-  const validatableItems = items
-    .map((item, index) => ({ item, lineId: index + 1 }))
-    .filter(({ item }) => !item.voucher_award_id);
+  const indexedItems = items.map((item, index) => ({
+    item,
+    lineId: index + 1,
+  }));
+  const validatableItems = indexedItems.filter(
+    ({ item }) => !item.voucher_award_id
+  );
+  if (validatableItems.length === 0) {
+    return null;
+  }
   const productIds = Array.from(
     new Set(
-      validatableItems
+      indexedItems
         .map(({ item }) => item.product_id)
         .filter((id): id is string => typeof id === 'string' && id.length > 0)
     )
@@ -166,5 +249,9 @@ export async function computeOrderNegotiationDiscount({
     });
   }
 
-  return computeEligibleLineDiscount(lines, MAX_AUTO_NEGOTIATION_DISCOUNT_RATE);
+  return applyPersistedLineOccurrenceKeys(
+    computeEligibleLineDiscount(lines, MAX_AUTO_NEGOTIATION_DISCOUNT_RATE),
+    indexedItems,
+    productMap
+  );
 }

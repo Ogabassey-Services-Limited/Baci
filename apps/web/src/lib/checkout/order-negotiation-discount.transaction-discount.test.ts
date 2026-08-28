@@ -1,4 +1,7 @@
-import { buildTransactionDiscountLineKey } from '@baci/shared/contracts';
+import {
+  buildTransactionDiscountLineKey,
+  buildTransactionDiscountLineOccurrenceKey,
+} from '@baci/shared/contracts';
 import { describe, expect, it, vi } from 'vitest';
 import { computeOrderNegotiationDiscount } from './order-negotiation-discount';
 
@@ -134,5 +137,66 @@ describe('computeOrderNegotiationDiscount persisted line identity', () => {
         }),
       }),
     ]);
+  });
+
+  it('counts a voucher line when assigning duplicate occurrence keys', async () => {
+    const result = await computeOrderNegotiationDiscount({
+      items: [
+        {
+          condition: 'new',
+          price: 0,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_id: null,
+          voucher_award_id: 'award-1',
+        },
+        {
+          condition: 'new',
+          price: 980,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_id: null,
+        },
+        {
+          condition: 'new',
+          price: 980,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_id: null,
+        },
+      ],
+      merchantId: 'merchant-1',
+      supabase: buildSupabaseMock() as never,
+      vatRegistered: true,
+    });
+    const lineKey = buildTransactionDiscountLineKey({
+      condition: 'new',
+      productId: 'p-mac',
+      variantId: null,
+    });
+
+    expect(result).toEqual({
+      lineDiscounts: [
+        null,
+        {
+          lineId: 2,
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+        {
+          lineId: 3,
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 3),
+          merchandiseDiscount: 20,
+          productId: 'p-mac',
+          vatRelief: 1.5,
+          variantId: null,
+        },
+      ],
+      rejectionCode: null,
+      totalDiscount: 43,
+    });
   });
 });
