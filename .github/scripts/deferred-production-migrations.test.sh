@@ -47,9 +47,9 @@ chmod +x "$fake_bin/curl"
 deferred_dir="$fixture_root/deferred"
 mkdir -p "$deferred_dir"
 printf '%s\n' "SELECT 'context';" \
-  >"$deferred_dir/20260828090000_harden_storefront_order_rpc_context_and_replays.sql"
+  >"$deferred_dir/20260828091000_harden_storefront_order_rpc_context_and_replays.sql"
 printf '%s\n' "SELECT 'quiz-context';" \
-  >"$deferred_dir/20260828100000_allow_legacy_quiz_award_order_context.sql"
+  >"$deferred_dir/20260828101000_allow_legacy_quiz_award_order_context.sql"
 printf '%s\n' "SELECT 'hash-stamping';" \
   >"$deferred_dir/20260828110000_prepare_storefront_order_hash_stamping.sql"
 printf '%s\n' "SELECT 'replay-context';" \
@@ -69,8 +69,8 @@ PATH="$fake_bin:$PATH" \
   FAKE_QUERY_LOG="$deferred_predeploy_log" \
   FAKE_INITIAL_RESPONSE='[]' \
   bash "$applier" >"$deferred_predeploy_output"
-grep -q 'deferred until postdeploy: 20260828090000' "$deferred_predeploy_output"
-grep -q 'deferred until postdeploy: 20260828100000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828091000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828101000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
 grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_predeploy_output"
@@ -95,8 +95,8 @@ PATH="$fake_bin:$PATH" \
   FAKE_QUERY_LOG="$deferred_postdeploy_log" \
   FAKE_INITIAL_RESPONSE='[]' \
   bash "$applier" >"$deferred_postdeploy_output"
-grep -q 'applied:         20260828090000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
-grep -q 'applied:         20260828100000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828091000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828101000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q "SELECT 'context'" "$deferred_postdeploy_log"

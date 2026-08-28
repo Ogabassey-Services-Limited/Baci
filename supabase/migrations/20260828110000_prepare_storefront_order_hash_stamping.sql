@@ -1,6 +1,6 @@
 -- Prepare the idempotency schema before the application revision is promoted.
 -- The route-context enforcement trigger remains in
--- 20260828090000_harden_storefront_order_rpc_context_and_replays.sql, which
+-- 20260828091000_harden_storefront_order_rpc_context_and_replays.sql, which
 -- the deploy applier intentionally runs postdeploy after the signed client is
 -- live. Keeping the hash stamp and legacy probe here prevents orders created
 -- during the deployment window from being misclassified as legacy replays.

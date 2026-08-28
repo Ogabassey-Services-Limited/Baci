@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    '../../supabase/migrations/20260828090000_harden_storefront_order_rpc_context_and_replays.sql'
+    '../../supabase/migrations/20260828091000_harden_storefront_order_rpc_context_and_replays.sql'
   ),
   'utf8'
 );
@@ -54,7 +54,7 @@ describe('storefront order RPC context migration contract', () => {
     const quizMigration = readFileSync(
       resolve(
         process.cwd(),
-        '../../supabase/migrations/20260828100000_allow_legacy_quiz_award_order_context.sql'
+        '../../supabase/migrations/20260828101000_allow_legacy_quiz_award_order_context.sql'
       ),
       'utf8'
     );

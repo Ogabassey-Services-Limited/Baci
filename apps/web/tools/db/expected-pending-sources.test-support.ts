@@ -245,18 +245,18 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260828090000_harden_storefront_order_rpc_context_and_replays.sql',
+      'supabase/migrations/20260828091000_harden_storefront_order_rpc_context_and_replays.sql',
     sha256: 'b6efbc427ba4cab78826e7790495a9b5a668316e44626f7f96cd7ba53508a3d9',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260828100000_allow_legacy_quiz_award_order_context.sql',
+      'supabase/migrations/20260828101000_allow_legacy_quiz_award_order_context.sql',
     sha256: '6358f0b4b927dd3376ceca1f4f3c3b433146f62d68df39ab41de317e904f885e',
   },
   {
     repositoryPath:
       'supabase/migrations/20260828110000_prepare_storefront_order_hash_stamping.sql',
-    sha256: '194037d2995e8c5bad0fc41a55e7089925ddd4ba18b46bfe53f315fc760b300a',
+    sha256: '05007dffc62d3a57b844a99b856eed3f29d20055f232208d8dfc4a9caf1fb278',
   },
   {
     repositoryPath:
