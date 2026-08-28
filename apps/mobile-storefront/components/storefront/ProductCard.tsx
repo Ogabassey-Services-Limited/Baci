@@ -158,6 +158,7 @@ export function ProductCard({
     contentFit: 'cover' as const,
     recyclingKey: product.id,
     allowDownscaling: true,
+    enforceEarlyResizing: true,
     autoplay: false,
     onError: () => {
       if (imageAttempt < imageCandidates.length) {

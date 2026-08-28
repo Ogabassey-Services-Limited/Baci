@@ -4,8 +4,9 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 const mockPush = jest.fn();
 const mockUseProducts = jest.fn();
 const mockUsePinned = jest.fn();
+const mockImage = jest.fn(() => null);
 
-jest.mock('expo-image', () => ({ Image: () => null }));
+jest.mock('expo-image', () => ({ Image: mockImage }));
 jest.mock('expo-router', () => ({
   router: { push: (path: string) => mockPush(path) },
 }));
@@ -83,6 +84,20 @@ describe('JustLaunchedCarousel', () => {
       screen.getByRole('button', { name: /Samsung Galaxy A27 5G Preorder/ })
     );
     expect(mockPush).toHaveBeenCalledWith('/product/samsung-galaxy-a27-5g');
+  });
+
+  it('requests early resizing for oversized launch product images', () => {
+    mockUseProducts.mockReturnValue({
+      products: [xiaomi],
+      isLoading: false,
+      isError: false,
+    });
+
+    render(<JustLaunchedCarousel />);
+
+    expect(mockImage).toHaveBeenCalledWith(
+      expect.objectContaining({ enforceEarlyResizing: true })
+    );
   });
 
   it('uses the shared cutoff-adjusted launch order when newer arrivals exist', () => {
