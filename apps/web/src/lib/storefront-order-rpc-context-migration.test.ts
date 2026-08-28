@@ -23,6 +23,13 @@ const replayContextMigration = readFileSync(
   ),
   'utf8'
 );
+const replayScopeMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828130000_scope_storefront_order_replay_route_context.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order RPC context migration contract', () => {
   it('requires a signed merchant-bound route context for non-internal inserts', () => {
@@ -96,6 +103,27 @@ describe('storefront order RPC context migration contract', () => {
     expect(replayContextMigration).toContain("NEW.shipping_status = 'pending'");
     expect(replayContextMigration).toContain(
       'private.enforce_storefront_order_route_context()'
+    );
+  });
+
+  it('scopes the update trigger to the guarded create replay delegate', () => {
+    expect(replayScopeMigration).toContain(
+      'RENAME TO create_storefront_order_unchecked'
+    );
+    expect(replayScopeMigration).toContain(
+      "'baci.storefront_order_replay_context'"
+    );
+    expect(replayScopeMigration).toContain(
+      "'create_storefront_order',\n    true"
+    );
+    expect(replayScopeMigration).toContain(
+      'REVOKE ALL ON FUNCTION private.create_storefront_order_unchecked'
+    );
+    expect(replayScopeMigration).toContain(
+      "current_setting('baci.storefront_order_replay_context', true)"
+    );
+    expect(replayScopeMigration).toContain(
+      'NEW.checkout_idempotency_key IS NOT DISTINCT FROM OLD.checkout_idempotency_key'
     );
   });
 });
