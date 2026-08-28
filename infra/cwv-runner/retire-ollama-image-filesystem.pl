@@ -23,11 +23,11 @@ my $PROJECTOR_TEMP_ROOT;
 my @PROJECTOR_TEMP_IDENTITY;
 my $DIAGNOSTIC = 0;
 my $COUNT_DIAGNOSTIC = 0; my @DIAGNOSTIC_LAYER_HEADERS; my @DIAGNOSTIC_LAYER_EXPANDED; my $DIAGNOSTIC_OUTER_HEADERS = 0; my $DIAGNOSTIC_EXPANDED_TOTAL = 0;
-my $DIAGNOSTIC_REMOVE_SCANS = 0;
+my $DIAGNOSTIC_REMOVE_SCANS = 0; my $DIAGNOSTIC_INDEX_VISITS = 0; my $INDEX_ENTRIES = 0;
 my $PHASE = 'input';
 
 sub phase { $PHASE = $_[0] }
-sub diagnostic_summary { print STDERR 'image projection diagnostic headers=' . $DIAGNOSTIC_OUTER_HEADERS . ',' . join(',', @DIAGNOSTIC_LAYER_HEADERS) . ' expanded=' . join(',', @DIAGNOSTIC_LAYER_EXPANDED) . ' total=' . $PARSED_HEADERS . ' expanded-total=' . $DIAGNOSTIC_EXPANDED_TOTAL . ' scans=' . $DIAGNOSTIC_REMOVE_SCANS . "\n" }
+sub diagnostic_summary { print STDERR 'image projection diagnostic headers=' . $DIAGNOSTIC_OUTER_HEADERS . ',' . join(',', @DIAGNOSTIC_LAYER_HEADERS) . ' expanded=' . join(',', @DIAGNOSTIC_LAYER_EXPANDED) . ' total=' . $PARSED_HEADERS . ' expanded-total=' . $DIAGNOSTIC_EXPANDED_TOTAL . ' scans=' . $DIAGNOSTIC_REMOVE_SCANS . ' index-visits=' . $DIAGNOSTIC_INDEX_VISITS . "\n" }
 sub fail { if ($DIAGNOSTIC) { print STDERR "image projection refused phase=$PHASE\n"; diagnostic_summary() if $COUNT_DIAGNOSTIC } die "image projection refused\n" }
 sub verdict { my ($value) = @_; print STDOUT $value or fail(); close STDOUT or fail(); exit 0 }
 sub read_at {
@@ -212,9 +212,9 @@ sub inflate_layer {
   return { fh => $out, start => 0, size => $expanded, path => $path, compressed => $layer->{size} };
 }
 sub parent_path { my ($path) = @_; my $parent = $path; $parent =~ s!/[^/]+$!!; return $parent eq $path ? '' : $parent }
-sub mark_prefixes { my ($prefixes, $tree, $path) = @_; my $parent = ''; for my $part (split('/', $path)) { my $current = length($parent) ? "$parent/$part" : $part; $tree->{$parent}{$current} = 1; $prefixes->{$parent} = 1; $parent = $current } my $index_entries = keys %$prefixes; $index_entries += scalar keys %$_ for values %$tree; fail() if $index_entries > $MAX_STATE }
-sub remove_descendants { my ($state, $tree, $target) = @_; my @pending = keys %{delete($tree->{$target}) // {}}; while (@pending) { my $candidate = pop @pending; $DIAGNOSTIC_REMOVE_SCANS++ if $COUNT_DIAGNOSTIC; push @pending, keys %{delete($tree->{$candidate}) // {}}; delete $state->{$candidate}; my $parent = parent_path($candidate); delete $tree->{$parent}{$candidate}; delete $tree->{$parent} unless keys %{$tree->{$parent} // {}} } }
-sub remove_path { my ($state, $prefixes, $tree, $target, $children) = @_; delete $state->{$target}; remove_descendants($state, $tree, $target) if $children && (!length($target) || $prefixes->{$target}); my $parent = parent_path($target); delete $tree->{$parent}{$target}; delete $tree->{$parent} unless keys %{$tree->{$parent} // {}} }
+sub mark_prefixes { my ($prefixes, $tree, $path) = @_; my $parent = ''; for my $part (split('/', $path)) { my $current = length($parent) ? "$parent/$part" : $part; if (!exists $tree->{$parent}{$current}) { $tree->{$parent}{$current} = 1; $INDEX_ENTRIES++ } if (!exists $prefixes->{$parent}) { $prefixes->{$parent} = 1; $INDEX_ENTRIES++ } $DIAGNOSTIC_INDEX_VISITS++ if $COUNT_DIAGNOSTIC; $parent = $current } fail() if $INDEX_ENTRIES > $MAX_STATE }
+sub remove_descendants { my ($state, $tree, $target) = @_; my $children = delete($tree->{$target}) // {}; $INDEX_ENTRIES -= scalar keys %$children; my @pending = keys %$children; while (@pending) { my $candidate = pop @pending; $DIAGNOSTIC_REMOVE_SCANS++ if $COUNT_DIAGNOSTIC; my $descendants = delete($tree->{$candidate}) // {}; $INDEX_ENTRIES -= scalar keys %$descendants; push @pending, keys %$descendants; delete $state->{$candidate}; my $parent = parent_path($candidate); $INDEX_ENTRIES-- if delete $tree->{$parent}{$candidate}; delete $tree->{$parent} unless keys %{$tree->{$parent} // {}} } }
+sub remove_path { my ($state, $prefixes, $tree, $target, $children) = @_; delete $state->{$target}; remove_descendants($state, $tree, $target) if $children && (!length($target) || $prefixes->{$target}); my $parent = parent_path($target); $INDEX_ENTRIES-- if delete $tree->{$parent}{$target}; delete $tree->{$parent} unless keys %{$tree->{$parent} // {}} }
 sub remove_children { my ($state, $prefixes, $tree, $target) = @_; return if length($target) && !$prefixes->{$target}; remove_descendants($state, $tree, $target) }
 sub whiteout {
   phase('layer-whiteout-validate'); my ($entry) = @_; my $base = $entry->{path}; $base =~ s!^.*/!!; return undef unless index($base, '.wh.') == 0;

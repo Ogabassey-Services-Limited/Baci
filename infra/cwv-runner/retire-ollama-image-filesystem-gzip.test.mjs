@@ -106,6 +106,32 @@ async function diagnostic(layers) {
   }
 }
 
+async function diagnosticCounts(layers) {
+  const directory = await mkdtemp(
+    join(tmpdir(), 'baci-image-index-diagnostic-')
+  );
+  const archive = join(directory, 'image.tar');
+  try {
+    await writeFile(archive, imageArchive(layers), { mode: 0o600 });
+    return await execFileAsync('/usr/bin/perl', [
+      helper.pathname,
+      archive,
+      directory,
+      '--diagnostic-counts',
+    ]);
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+}
+
+test('bounds index visits for image layers with many unique parent directories', async () => {
+  const entries = Array.from({ length: 1000 }, (_, index) => ({
+    path: `directory-${String(index).padStart(4, '0')}/file`,
+  }));
+  const result = await diagnosticCounts([entries]);
+  assert.match(result.stderr, /headers=2,1000 .*index-visits=2000\n$/);
+});
+
 test('does not report a gzip historical marker deleted by a later whiteout', async () => {
   assert.equal(
     await project([
