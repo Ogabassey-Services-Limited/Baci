@@ -86,6 +86,22 @@ function runLegacyTransactionReviewQuery(
   });
 }
 
+function runBaseTransactionReviewQuery(
+  stage: TransactionReviewFallbackStage,
+  query: TransactionReviewFallbackQuery,
+  selectStatement: string,
+  includeCancelledAt: boolean
+) {
+  return runTransactionReviewQuery(stage, {
+    endDateIso: query.endDateIso,
+    includeCancelledAt,
+    includeTransactionDate: false,
+    merchantId: query.merchantId,
+    selectStatement,
+    startDateIso: query.startDateIso,
+  });
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -191,26 +207,21 @@ export async function fetchTransactionReviewWithFallbacks({
     }
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseWithDiscount', {
-      endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscount,
-      startDateIso,
-    }));
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseWithDiscount',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscount,
+      true
+    ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('Base', {
-      endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.base,
-      startDateIso,
-    }));
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'Base',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.base,
+      true
+    ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runLegacyTransactionReviewQuery(
       'Legacy',
@@ -219,93 +230,70 @@ export async function fetchTransactionReviewWithFallbacks({
       false
     ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseWithDiscount', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
-      startDateIso,
-    }));
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseWithDiscount',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'Base',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.baseCompat,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'Base',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.noDiscount,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseNoLineId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseNoLineId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.noLineId,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseNoVariantId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId,
+      false
+    ));
+  }
+  if (isTransactionReviewSchemaCacheError(error)) {
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseNoVariantId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.noVariantId,
+      false
+    ));
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('Base', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseCompat,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('Base', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.noDiscount,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseNoLineId', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseNoLineId', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.noLineId,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseNoVariantId', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseNoVariantId', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.noVariantId,
-      startDateIso,
-    }));
-  }
-
-  if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runTransactionReviewQuery('BaseNoQuizAwardId', {
-      endDateIso,
-      includeCancelledAt: false,
-      includeTransactionDate: false,
-      merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.noVariantIdNoQuizAwardId,
-      startDateIso,
-    }));
+    ({ data, error } = await runBaseTransactionReviewQuery(
+      'BaseNoQuizAwardId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.noVariantIdNoQuizAwardId,
+      false
+    ));
   }
 
   return { data, error };
