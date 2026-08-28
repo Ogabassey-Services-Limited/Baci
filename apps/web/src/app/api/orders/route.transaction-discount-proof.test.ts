@@ -6,7 +6,7 @@ import {
   omitNegotiationDiscountAllocations,
   POST,
   resetOrderRouteMocks,
-} from './route.transaction-discount-fixtures';
+} from './route.transaction-discount-fixtures.test';
 
 describe('POST /api/orders transaction discount proof', () => {
   beforeEach(() => {
