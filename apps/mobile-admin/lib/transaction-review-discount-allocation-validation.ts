@@ -11,13 +11,20 @@ import { getValidatedLineKeyDiscounts } from './transaction-review-discount-line
 import { toPositiveInteger } from './transaction-review-positive-integer';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
+interface DiscountLineTotal {
+  merchandiseTotal: number;
+  quantity: number;
+  total: number;
+}
+
+type ValidatedLineIdDiscounts = Extract<
+  ValidatedExplicitLineDiscounts,
+  { mode: 'lineId' }
+>;
+
 export function getValidatedExplicitLineDiscounts(
   items: DiscountableTransactionItem[],
-  lineTotals: Array<{
-    merchandiseTotal: number;
-    quantity: number;
-    total: number;
-  }>,
+  lineTotals: DiscountLineTotal[],
   normalizedDiscount: number,
   explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>,
   occurrenceOrdinals?: Map<number, number>
@@ -26,8 +33,22 @@ export function getValidatedExplicitLineDiscounts(
     (allocation) =>
       typeof allocation?.lineKey === 'string' && allocation.lineKey.length > 0
   );
+  const hasDeletedCatalogIdentity =
+    items.some((item) => item.product_id === null) ||
+    explicitLineDiscounts.some((allocation) => {
+      if (allocation == null || typeof allocation.variantId !== 'string') {
+        return false;
+      }
+      const lineId = toPositiveInteger(allocation.lineId);
+      const item = items.find(
+        (candidate) => toPositiveInteger(candidate.line_id) === lineId
+      );
+      return (
+        item?.variant_id === null && allocation.variantId.trim().length > 0
+      );
+    });
 
-  if (usesPersistedLineKey) {
+  if (usesPersistedLineKey && !hasDeletedCatalogIdentity) {
     return getValidatedLineKeyDiscounts(
       items,
       lineTotals,
@@ -41,7 +62,7 @@ export function getValidatedExplicitLineDiscounts(
     (allocation) => allocation?.productId !== undefined
   );
 
-  if (usesPersistedIdentity) {
+  if (usesPersistedIdentity && !hasDeletedCatalogIdentity) {
     const itemIndexesByIdentity = new Map<string, number>();
     for (const [itemIndex, item] of items.entries()) {
       const identity = getProductVariantIdentity(
@@ -118,6 +139,20 @@ export function getValidatedExplicitLineDiscounts(
     return { allocationsByIdentity, mode: 'identity' };
   }
 
+  return getValidatedLineIdDiscounts(
+    items,
+    lineTotals,
+    normalizedDiscount,
+    explicitLineDiscounts
+  );
+}
+
+function getValidatedLineIdDiscounts(
+  items: DiscountableTransactionItem[],
+  lineTotals: DiscountLineTotal[],
+  normalizedDiscount: number,
+  explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>
+): ValidatedLineIdDiscounts | undefined {
   const itemLineIds = new Set<number>();
   for (const item of items) {
     const lineId = toPositiveInteger(item.line_id);
