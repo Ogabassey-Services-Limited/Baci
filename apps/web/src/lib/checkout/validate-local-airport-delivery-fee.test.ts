@@ -1,9 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  LocalAirportDeliveryFeeMismatchError,
-  validateLocalAirportDeliveryFee,
-} from './validate-local-airport-delivery-fee';
+import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
+import { validateLocalAirportDeliveryFee } from './validate-local-airport-delivery-fee';
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const GOFASTER_QUOTE_ID = '11111111-1111-4111-8111-111111111111';

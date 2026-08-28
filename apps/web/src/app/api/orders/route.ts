@@ -27,6 +27,8 @@ import {
 } from '@/lib/checkout/canonical-order-subtotal';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
+import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
+import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import {
   buildLegacyOrderIdempotencyPayload,
   buildOrderIdempotencyPayload,
@@ -34,11 +36,7 @@ import {
 } from '@/lib/checkout/order-idempotency';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
-import {
-  LocalAirportDeliveryFeeMismatchError,
-  LocalAirportDeliveryValidationError,
-  validateLocalAirportDeliveryFee,
-} from '@/lib/checkout/validate-local-airport-delivery-fee';
+import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,

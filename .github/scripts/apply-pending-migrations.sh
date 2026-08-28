@@ -24,6 +24,11 @@
 #      CONCURRENTLY can run outside a transaction; their history row is written
 #      only after every statement succeeds.
 #
+# MIGRATION_PHASE=predeploy leaves the explicit postdeploy-only enforcement
+# list unapplied so the old application revision keeps working while the new
+# claim-minting revision is rolled out. MIGRATION_PHASE=postdeploy (or the
+# default `all`) applies those migrations normally.
+#
 # `statements` remains ARRAY[]::text[] because the CLI only consults version/name;
 # preserving SQL there would require fragile escaping of `$$` and single quotes.
 set -euo pipefail
@@ -34,6 +39,21 @@ if [ ! -d "$migrations_dir" ]; then
   echo "::error::supabase/migrations directory not found at $migrations_dir"
   exit 1
 fi
+
+if ! . "$script_dir/deferred-production-migrations.sh"; then
+  echo "::error::deferred production migration policy could not be loaded" >&2
+  exit 1
+fi
+
+migration_phase="${MIGRATION_PHASE:-all}"
+case "$migration_phase" in
+  all|predeploy|postdeploy)
+    ;;
+  *)
+    echo "::error::MIGRATION_PHASE must be all, predeploy, or postdeploy" >&2
+    exit 1
+    ;;
+esac
 
 if ! . "$script_dir/historical-migration-repair-handler.sh"; then
   echo "::error::historical migration repair handler could not be loaded" >&2
@@ -113,6 +133,7 @@ sorted_files=("${files[@]}")
 
 applied_count=0
 skipped_count=0
+deferred_count=0
 
 for file in "${sorted_files[@]}"; do
   base="$(basename "$file" .sql)"
@@ -155,6 +176,12 @@ for file in "${sorted_files[@]}"; do
     fi
     echo "✓ already applied: $version  ${name}"
     skipped_count=$((skipped_count + 1))
+    continue
+  fi
+
+  if [ "$migration_phase" = "predeploy" ] && is_postdeploy_migration "$base"; then
+    echo "⏸ deferred until postdeploy: $version  ${name}"
+    deferred_count=$((deferred_count + 1))
     continue
   fi
 
@@ -247,4 +274,8 @@ SET LOCAL lock_timeout = '30s';
 done
 
 echo
-echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped."
+if [ "$deferred_count" -gt 0 ]; then
+  echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped, ${deferred_count} deferred."
+else
+  echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped."
+fi

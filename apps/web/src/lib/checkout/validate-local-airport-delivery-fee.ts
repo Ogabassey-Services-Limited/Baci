@@ -6,6 +6,9 @@ import {
   parseGiglProviderRateId,
 } from '@/lib/shipping/providers/gigl.constants';
 import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
+import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
+import type { LocalAirportDeliveryFeeValidationResult } from './local-airport-delivery-fee-validation-result';
+import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
 
 type AirportType = 'delivery' | 'pickup';
 
@@ -27,35 +30,6 @@ interface ValidateLocalAirportDeliveryFeeInput {
   shippingProvider?: string | null;
   shippingRateId?: string | null;
   supabase: SupabaseClient;
-}
-
-export class LocalAirportDeliveryValidationError extends Error {
-  constructor(
-    message: string,
-    readonly code: string,
-    readonly status: number
-  ) {
-    super(message);
-    this.name = 'LocalAirportDeliveryValidationError';
-  }
-}
-
-export class LocalAirportDeliveryFeeMismatchError extends Error {
-  readonly code = 'SHIPPING_FEE_MISMATCH';
-  readonly status = 400;
-
-  constructor(
-    readonly clientShippingFee: number,
-    readonly serverShippingFee: number
-  ) {
-    super('Shipping fee does not match the local airport delivery fee');
-    this.name = 'LocalAirportDeliveryFeeMismatchError';
-  }
-}
-
-export interface LocalAirportDeliveryFeeValidationResult {
-  isIdempotentLocalAirportReplay: boolean;
-  localAirportShippingFee: number | null;
 }
 
 function asAirportQuoteRecord(value: unknown): AirportQuoteRecord | null {

@@ -75,9 +75,12 @@ jobs:
         run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
 
   # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
-  # Vercel deploy so application code never lands ahead of the schema it depends on. Closes
-  # the gap that let 12 Apr 2026 migrations sit unapplied on production for
-  # nearly a week.
+  # Vercel deploy so application code never lands ahead of the schema it depends on. Migrations
+  # that install enforcement requiring a new application claim are explicitly
+  # deferred by the applier until the matching revision is live (see the
+  # postdeploy step in deploy-production). Closes the gap that let 12 Apr 2026
+  # migrations sit unapplied on production for nearly a week without creating
+  # a migration-first checkout outage.
   #
   # Runs on every main-branch deploy (not just PRs that touch
   # supabase/migrations/**) because previous failed pushes can leave drift
@@ -105,6 +108,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Apply pending migrations via Management API
+        env:
+          MIGRATION_PHASE: predeploy
         run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
@@ -249,6 +254,12 @@ jobs:
         # attempt and every explicit promotion, so a superseded run cannot win
         # the production alias race after main advances.
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --skip-domain --archive=tgz
+      - name: Apply migrations deferred until application deploy
+        env:
+          MIGRATION_PHASE: postdeploy
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+        run: .github/scripts/apply-pending-migrations.sh
       - name: Purge and verify storefront release HTML
         run: node .github/scripts/storefront-release-coherence.mjs
       - name: Smoke test storefront blog

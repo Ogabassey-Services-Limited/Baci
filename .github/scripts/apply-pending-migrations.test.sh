@@ -112,6 +112,49 @@ if [ "$(grep -c "schema_migrations(version, name, statements).*20260727220050" "
 fi
 grep -q 'pg_catalog.substr(realtime.topic(), 16)' "$historical_repair_log"
 
+deferred_dir="$fixture_root/deferred"
+mkdir -p "$deferred_dir"
+printf '%s\n' "SELECT 'context';" \
+  >"$deferred_dir/20260828090000_harden_storefront_order_rpc_context_and_replays.sql"
+printf '%s\n' "SELECT 'quiz-context';" \
+  >"$deferred_dir/20260828100000_allow_legacy_quiz_award_order_context.sql"
+printf '%s\n' "SELECT 'ordinary';" \
+  >"$deferred_dir/20260828110000_ordinary_follow_up.sql"
+deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
+deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  MIGRATION_PHASE=predeploy \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$deferred_predeploy_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828090000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828100000' "$deferred_predeploy_output"
+grep -q 'applied:         20260828110000  ordinary_follow_up' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 1 applied, 0 skipped, 2 deferred.' "$deferred_predeploy_output"
+if grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log"; then
+  echo 'Predeploy phase must not send deferred migration SQL' >&2
+  exit 1
+fi
+
+deferred_postdeploy_log="$fixture_root/deferred-postdeploy-queries.log"
+deferred_postdeploy_output="$fixture_root/deferred-postdeploy-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  MIGRATION_PHASE=postdeploy \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$deferred_postdeploy_log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$applier" >"$deferred_postdeploy_output"
+grep -q 'applied:         20260828090000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828100000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
+grep -q "SELECT 'context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
+
 retry_repair_dir="$fixture_root/retry-repair"
 mkdir -p "$retry_repair_dir"
 cp \
