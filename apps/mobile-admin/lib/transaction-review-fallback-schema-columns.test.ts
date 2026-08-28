@@ -66,4 +66,24 @@ describe('omitUnavailableTransactionReviewSchemaColumns', () => {
       'id, order_items(id, variant_id, order_item_unit_costs(unit_index, cost_price))'
     );
   });
+
+  it('omits rich fields from the tracked unavailable-column set', () => {
+    // Arrange
+    const selector =
+      'id, order_items(id, variant_attributes, product_match_status, order_item_unit_costs(unit_index, cost_price))';
+    const unavailableColumns = new Set([
+      'order_item_unit_costs',
+      'product_match_status',
+      'variant_attributes',
+    ]);
+
+    // Act
+    const result = omitUnavailableTransactionReviewSchemaColumns(
+      selector,
+      unavailableColumns
+    );
+
+    // Assert
+    expect(result).toBe('id, order_items(id)');
+  });
 });

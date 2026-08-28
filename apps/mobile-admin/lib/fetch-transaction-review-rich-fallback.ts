@@ -16,11 +16,6 @@ type TransactionReviewFallbackCallbacks = Readonly<{
 }>;
 const withoutSchemaColumn = (selector: string, column: string) =>
   selector.replace(`, ${column}`, '');
-const withoutUnitCostRelationship = (selector: string) =>
-  selector.replace(
-    ', order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value)',
-    ''
-  );
 
 /** Reads cost-rich transaction rows before compatibility/base fallbacks. */
 export async function fetchRichTransactionReviewRows(
@@ -78,31 +73,11 @@ export async function fetchRichTransactionReviewRows(
     selectStatement: string,
     taxAmountFallback?: TaxAmountFallback
   ) => {
-    const omitUnavailableSchemaColumns = (selector: string) => {
-      let result = omitUnavailableTransactionReviewSchemaColumns(selector, {
-        adTrackingUnavailable: unavailableSchemaColumns.has('ad_tracking'),
-        cancelledAtUnavailable: unavailableSchemaColumns.has('cancelled_at'),
-        discountAmountUnavailable:
-          unavailableSchemaColumns.has('discount_amount'),
-        discountCodeUnavailable:
-          unavailableSchemaColumns.has('discount_code_id'),
-        lineIdUnavailable: unavailableSchemaColumns.has('line_id'),
-        quizAwardIdUnavailable: unavailableSchemaColumns.has('quiz_award_id'),
-        transactionDateUnavailable:
-          unavailableSchemaColumns.has('transaction_date'),
-        variantIdUnavailable: unavailableSchemaColumns.has('variant_id'),
-      });
-      if (unavailableSchemaColumns.has('variant_attributes')) {
-        result = withoutSchemaColumn(result, 'variant_attributes');
-      }
-      if (unavailableSchemaColumns.has('product_match_status')) {
-        result = withoutSchemaColumn(result, 'product_match_status');
-      }
-      if (unavailableSchemaColumns.has('order_item_unit_costs')) {
-        result = withoutUnitCostRelationship(result);
-      }
-      return result;
-    };
+    const omitUnavailableSchemaColumns = (selector: string) =>
+      omitUnavailableTransactionReviewSchemaColumns(
+        selector,
+        unavailableSchemaColumns
+      );
     const runQuery = () =>
       runLegacyTransactionReviewQuery(
         stage,

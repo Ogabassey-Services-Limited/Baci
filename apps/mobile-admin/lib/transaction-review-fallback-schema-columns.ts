@@ -4,10 +4,17 @@ export type TransactionReviewSchemaColumnAvailability = Readonly<{
   discountAmountUnavailable: boolean;
   discountCodeUnavailable: boolean;
   lineIdUnavailable: boolean;
+  productMatchStatusUnavailable?: boolean;
   quizAwardIdUnavailable: boolean;
   transactionDateUnavailable: boolean;
+  unitCostRelationshipUnavailable?: boolean;
+  variantAttributesUnavailable?: boolean;
   variantIdUnavailable: boolean;
 }>;
+
+type SchemaColumnAvailability =
+  | TransactionReviewSchemaColumnAvailability
+  | ReadonlySet<string>;
 
 function withoutSchemaColumn(selector: string, column: string) {
   return selector.replace(`, ${column}`, '');
@@ -25,32 +32,52 @@ function withoutVariantRelationship(selector: string) {
 
 export function omitUnavailableTransactionReviewSchemaColumns(
   selector: string,
-  availability: TransactionReviewSchemaColumnAvailability
+  availability: SchemaColumnAvailability
 ) {
+  const isUnavailable = (
+    key: keyof TransactionReviewSchemaColumnAvailability,
+    column: string
+  ) => {
+    if (availability instanceof Set) return availability.has(column);
+    return Boolean(
+      (availability as TransactionReviewSchemaColumnAvailability)[key]
+    );
+  };
   let result = selector;
-  if (availability.quizAwardIdUnavailable) {
+  if (isUnavailable('quizAwardIdUnavailable', 'quiz_award_id')) {
     result = withoutSchemaColumn(result, 'quiz_award_id');
   }
-  if (availability.discountCodeUnavailable) {
+  if (isUnavailable('discountCodeUnavailable', 'discount_code_id')) {
     result = withoutSchemaColumn(result, 'discount_code_id');
   }
-  if (availability.discountAmountUnavailable) {
+  if (isUnavailable('discountAmountUnavailable', 'discount_amount')) {
     result = withoutSchemaColumn(result, 'discount_amount');
   }
-  if (availability.lineIdUnavailable) {
+  if (isUnavailable('lineIdUnavailable', 'line_id')) {
     result = withoutSchemaColumn(result, 'line_id');
   }
-  if (availability.adTrackingUnavailable) {
+  if (isUnavailable('adTrackingUnavailable', 'ad_tracking')) {
     result = withoutSchemaColumn(result, 'ad_tracking');
   }
-  if (availability.cancelledAtUnavailable) {
+  if (isUnavailable('cancelledAtUnavailable', 'cancelled_at')) {
     result = withoutSchemaColumn(result, 'cancelled_at');
   }
-  if (availability.transactionDateUnavailable) {
+  if (isUnavailable('transactionDateUnavailable', 'transaction_date')) {
     result = withoutSchemaColumn(result, 'transaction_date');
   }
-  if (availability.variantIdUnavailable) {
+  if (isUnavailable('variantIdUnavailable', 'variant_id')) {
     result = withoutVariantRelationship(result);
+  }
+  if (isUnavailable('variantAttributesUnavailable', 'variant_attributes')) {
+    result = withoutSchemaColumn(result, 'variant_attributes');
+  }
+  if (isUnavailable('productMatchStatusUnavailable', 'product_match_status')) {
+    result = withoutSchemaColumn(result, 'product_match_status');
+  }
+  if (
+    isUnavailable('unitCostRelationshipUnavailable', 'order_item_unit_costs')
+  ) {
+    result = result.replace(/, order_item_unit_costs\([^)]*\)/, '');
   }
   return result;
 }
