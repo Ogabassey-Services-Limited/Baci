@@ -41,10 +41,9 @@ export function isTrustedImmutableBlogLandscapeVariantUrl(
     }
 
     const decodedPath = decodeURIComponent(url.pathname);
-    const sourcePath =
-      transformerOrigins.includes(url.origin)
-        ? (decodedPath.match(/^\/image\/[^/]+(\/.+)$/u)?.[1] ?? decodedPath)
-        : decodedPath;
+    const sourcePath = transformerOrigins.includes(url.origin)
+      ? (decodedPath.match(/^\/image\/[^/]+(\/.+)$/u)?.[1] ?? decodedPath)
+      : decodedPath;
     return (
       IMMUTABLE_BLOG_IMAGE_PATH_PREFIXES.some((prefix) =>
         sourcePath.startsWith(prefix)
