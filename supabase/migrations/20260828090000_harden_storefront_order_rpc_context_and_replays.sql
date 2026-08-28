@@ -57,6 +57,26 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Legacy quiz answers can create a zero-total prize reservation inside the
+  -- guarded quiz RPC. Install this exception with the trigger itself so the
+  -- postdeploy migration cannot expose a partial enforcement window.
+  IF COALESCE(v_jwt ->> 'quiz_award_context', '') = 'legacy-answer'
+     AND (SELECT auth.uid()) IS NOT NULL
+     AND NEW.payment_method = 'quiz_award'
+     AND NEW.source = 'quiz_prize'
+     AND NEW.shipping_fee = 0
+     AND NEW.total = 0
+     AND EXISTS (
+       SELECT 1
+       FROM public.customers AS c
+       WHERE c.id = NEW.customer_id
+         AND c.merchant_id = NEW.merchant_id
+         AND c.user_id = (SELECT auth.uid())
+     )
+  THEN
+    RETURN NEW;
+  END IF;
+
   IF COALESCE(v_jwt ->> 'agentic_context', '') = 'checkout' THEN
     v_agentic_merchant_id := NULLIF(
       pg_catalog.btrim(v_jwt ->> 'agentic_merchant_id'),

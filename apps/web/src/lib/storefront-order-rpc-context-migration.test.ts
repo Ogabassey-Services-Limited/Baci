@@ -30,6 +30,13 @@ describe('storefront order RPC context migration contract', () => {
   });
 
   it('preserves only the signed customer-owned legacy quiz award path', () => {
+    expect(migration).toContain("'quiz_award_context'");
+    expect(migration).toContain("'legacy-answer'");
+    expect(migration).toContain("NEW.payment_method = 'quiz_award'");
+    expect(migration).toContain("NEW.source = 'quiz_prize'");
+    expect(migration).toContain('c.user_id = (SELECT auth.uid())');
+    expect(migration).toContain('c.merchant_id = NEW.merchant_id');
+
     const quizMigration = readFileSync(
       resolve(
         process.cwd(),

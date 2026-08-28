@@ -246,7 +246,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828090000_harden_storefront_order_rpc_context_and_replays.sql',
-    sha256: '82a66beb9348b9db0af7c5a04d69982743a7638fbc0ed36dba8ebdb1f582517a',
+    sha256: 'b6efbc427ba4cab78826e7790495a9b5a668316e44626f7f96cd7ba53508a3d9',
   },
   {
     repositoryPath:
