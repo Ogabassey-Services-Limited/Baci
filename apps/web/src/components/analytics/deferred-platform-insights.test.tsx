@@ -78,4 +78,27 @@ describe('DeferredPlatformInsights', () => {
     expect(loadModules).toHaveBeenCalledOnce();
     readyStateSpy.mockRestore();
   });
+
+  it('fails open when an optional insight chunk rejects with Safari Load failed', async () => {
+    const loadModules = vi.fn().mockRejectedValue(new TypeError('Load failed'));
+    const readyStateSpy = vi
+      .spyOn(document, 'readyState', 'get')
+      .mockReturnValue('complete');
+
+    render(
+      <DeferredPlatformInsights timeoutMs={1} loadModules={loadModules} />
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(loadModules).toHaveBeenCalledOnce();
+    expect(screen.queryByText('Analytics')).not.toBeInTheDocument();
+    expect(screen.queryByText('SpeedInsights')).not.toBeInTheDocument();
+
+    readyStateSpy.mockRestore();
+  });
 });
