@@ -57,6 +57,8 @@ quiz_db:
   - '.github/workflows/ci.yml'
   - 'supabase/migrations/**'
   - '.github/scripts/deferred-production-migrations.sh'
+  - '.github/scripts/deferred-production-migrations.test.sh'
+  - '.github/scripts/apply-atomic-migration-group.sh'
   - 'supabase/tests/cache_invalidation_outbox*.sql'
   - 'supabase/tests/run-cache-invalidation-outbox-test*.sh'
   - 'supabase/tests/gigl_tracking_retry_repair*.sql'

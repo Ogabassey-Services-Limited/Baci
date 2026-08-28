@@ -87,6 +87,8 @@ const mockOrder: {
   shipping_fee: string;
   total: string;
   currency?: string | null;
+  delivery_method?: string | null;
+  airport_type?: string | null;
   shipping_rate_id?: string | null;
   shipping_rate_name?: string | null;
   shipping_address: {
@@ -676,6 +678,29 @@ describe('getOrder', () => {
     );
     expect(order?.shipping_rate_id).toBe('rate-123');
     expect(order?.shipping_rate_name).toBe('Express Lagos');
+  });
+
+  it('selects and maps persisted delivery metadata for the detail page', async () => {
+    const { ordersSelect } = mockGetOrderQueries({
+      orderRows: [
+        {
+          ...mockOrder,
+          airport_type: 'delivery',
+          delivery_method: 'airport',
+        },
+      ],
+    });
+
+    const order = await getOrder(MERCHANT_ID, ORDER_ID);
+
+    expect(ordersSelect).toHaveBeenCalledWith(
+      expect.stringContaining('delivery_method')
+    );
+    expect(ordersSelect).toHaveBeenCalledWith(
+      expect.stringContaining('airport_type')
+    );
+    expect(order?.delivery_method).toBe('airport');
+    expect(order?.airport_type).toBe('delivery');
   });
 
   it('leaves the merchant shipping rate fields undefined for legacy orders', async () => {

@@ -57,6 +57,8 @@ export interface Order {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  delivery_method?: string | null;
+  airport_type?: string | null;
   shipping_rate_id?: string;
   shipping_rate_name?: string;
   /**
@@ -120,6 +122,8 @@ interface DashboardOrderRecord {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  delivery_method?: string | null;
+  airport_type?: string | null;
   shipping_rate_id?: string | null;
   shipping_rate_name?: string | null;
   shipping_pickup_details?: MerchantPickupAddress | null;
@@ -395,6 +399,8 @@ export async function getOrders(
     source: order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    delivery_method: order.delivery_method,
+    airport_type: order.airport_type,
     items: (order.order_items || []).map((item: OrderItem) => ({
       id: item.id,
       name: item.name || 'Unknown Product',
@@ -663,6 +669,8 @@ export async function getOrder(
     source: order.source,
     tracking_number: order.tracking_number,
     shipping_provider: order.shipping_provider,
+    delivery_method: order.delivery_method,
+    airport_type: order.airport_type,
     shipping_rate_id: order.shipping_rate_id ?? undefined,
     shipping_rate_name: order.shipping_rate_name ?? undefined,
     shipping_pickup_details: order.shipping_pickup_details ?? undefined,

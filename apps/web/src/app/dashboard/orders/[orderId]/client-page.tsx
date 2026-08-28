@@ -77,6 +77,15 @@ function fromDbShippingStatus(status: string): ShippingStatus {
     .join(' ') as ShippingStatus;
 }
 
+function formatDeliveryMetadataLabel(value: string | null | undefined) {
+  if (!value) return null;
+
+  return value
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
 interface ConfirmOrderResponse {
   error?: string;
   insuranceError?: string;
@@ -147,6 +156,14 @@ export default function OrderDetailsClientPage({
   const shippingMethodHeading = order.shipping_rate_name
     ? 'Shipping Method'
     : 'Provider';
+  const deliveryMethodLabel =
+    order.delivery_method === 'airport'
+      ? 'Airport Delivery'
+      : formatDeliveryMetadataLabel(order.delivery_method);
+  const airportTypeLabel =
+    order.delivery_method === 'airport'
+      ? formatDeliveryMetadataLabel(order.airport_type)
+      : null;
 
   // Surface the merchant pickup collection point so the merchant still knows
   // where the shopper collects even if the rate is later edited/deleted. Only
@@ -545,6 +562,22 @@ export default function OrderDetailsClientPage({
                 <CardTitle>Shipment</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {deliveryMethodLabel && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Delivery Method
+                    </p>
+                    <p className="font-semibold">{deliveryMethodLabel}</p>
+                  </div>
+                )}
+                {airportTypeLabel && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Airport Type
+                    </p>
+                    <p className="font-semibold">{airportTypeLabel}</p>
+                  </div>
+                )}
                 {shippingMethodLabel && (
                   <div>
                     <p className="text-sm text-muted-foreground">
@@ -586,7 +619,9 @@ export default function OrderDetailsClientPage({
                     </Button>
                   </div>
                 ) : (
-                  !shippingMethodLabel && (
+                  !shippingMethodLabel &&
+                  !deliveryMethodLabel &&
+                  !airportTypeLabel && (
                     <p className="text-sm text-muted-foreground">
                       No tracking information available.
                     </p>

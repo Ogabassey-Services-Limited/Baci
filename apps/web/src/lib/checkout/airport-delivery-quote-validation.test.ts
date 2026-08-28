@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isEligibleAirportQuote,
-  readAirportQuote,
-} from '@/lib/checkout/airport-delivery-quote-validation';
+import { isEligibleAirportQuote } from '@/lib/checkout/airport-delivery-quote-validation';
 
 describe('airport delivery quote validation helpers', () => {
   it('accepts a local GIGL GoFaster home-delivery quote', () => {
@@ -28,11 +25,5 @@ describe('airport delivery quote validation helpers', () => {
         'GIGL'
       )
     ).toBe(false);
-  });
-
-  it('reads the first quote from an RPC array', () => {
-    expect(readAirportQuote([{ provider: 'GIGL' }])).toEqual({
-      provider: 'GIGL',
-    });
   });
 });

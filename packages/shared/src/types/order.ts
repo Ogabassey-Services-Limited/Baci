@@ -116,6 +116,8 @@ export interface Order {
   payment_method: string | null;
   notes: string | null;
   is_credit_order?: boolean;
+  delivery_method?: string | null;
+  airport_type?: string | null;
   selected_quote_id?: string | null;
   shipping_provider?: string | null;
   tracking_number?: string | null;

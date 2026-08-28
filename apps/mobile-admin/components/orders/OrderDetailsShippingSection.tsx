@@ -4,13 +4,35 @@ import type { ThemeColors } from '@/constants/theme';
 
 interface OrderDetailsShippingSectionProps {
   address: string;
+  airportType?: string | null;
   colors: ThemeColors;
+  deliveryMethod?: string | null;
+}
+
+function formatDeliveryMetadataLabel(value: string | null | undefined) {
+  if (!value) return null;
+
+  return value
+    .split('_')
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
 }
 
 export function OrderDetailsShippingSection({
   address,
+  airportType,
   colors,
+  deliveryMethod,
 }: OrderDetailsShippingSectionProps) {
+  const deliveryMethodLabel =
+    deliveryMethod === 'airport'
+      ? 'Airport Delivery'
+      : formatDeliveryMetadataLabel(deliveryMethod);
+  const airportTypeLabel =
+    deliveryMethod === 'airport'
+      ? formatDeliveryMetadataLabel(airportType)
+      : null;
+
   return (
     <View
       accessibilityLabel="Shipping address"
@@ -35,6 +57,26 @@ export function OrderDetailsShippingSection({
       <Text style={[styles.addressText, { color: colors.textSecondary }]}>
         {address}
       </Text>
+      {deliveryMethodLabel && (
+        <View style={styles.metadataRow}>
+          <Text style={[styles.metadataLabel, { color: colors.textSecondary }]}>
+            Delivery Method
+          </Text>
+          <Text style={[styles.metadataValue, { color: colors.text }]}>
+            {deliveryMethodLabel}
+          </Text>
+        </View>
+      )}
+      {airportTypeLabel && (
+        <View style={styles.metadataRow}>
+          <Text style={[styles.metadataLabel, { color: colors.textSecondary }]}>
+            Airport Type
+          </Text>
+          <Text style={[styles.metadataValue, { color: colors.text }]}>
+            {airportTypeLabel}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -55,6 +97,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
+  },
+  metadataLabel: {
+    fontSize: 12,
+  },
+  metadataRow: {
+    gap: 4,
+    marginTop: 12,
+  },
+  metadataValue: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   title: {
     fontSize: 18,

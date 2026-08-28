@@ -3,14 +3,12 @@ import { validateAirportDeliveryAddress } from '@/lib/checkout/airport-delivery-
 import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
 import { isAmbiguousMetadataFreeAirportFee } from '@/lib/checkout/airport-delivery-fee-ambiguity';
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
-import {
-  isEligibleAirportQuote,
-  readAirportQuote,
-} from '@/lib/checkout/airport-delivery-quote-validation';
+import { isEligibleAirportQuote } from '@/lib/checkout/airport-delivery-quote-validation';
 import { isConfirmedLocalAirportReplay } from '@/lib/checkout/is-confirmed-local-airport-replay';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
+import { readAirportQuote } from '@/lib/checkout/read-airport-delivery-quote';
 import { logger } from '@/lib/logger';
 
 type AirportType = 'delivery' | 'pickup';
