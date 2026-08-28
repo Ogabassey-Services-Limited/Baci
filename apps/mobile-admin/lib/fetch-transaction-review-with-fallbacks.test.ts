@@ -171,8 +171,99 @@ describe('fetchTransactionReviewWithFallbacks', () => {
       mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
     expect(selector).not.toContain('variant_id');
     expect(selector).toContain('order_item_unit_costs');
+    expect(selector).not.toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
+  it('uses a rich projection when quiz award ids are unavailable', async () => {
+    const rows = [{ id: 'full-quiz-award-id-fallback-order' }];
+    const quizAwardIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: quizAwardIdSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).toContain('order_item_unit_costs');
     expect(selector).toContain('product_variants');
     expect(selector).toContain('cost_price');
+  });
+
+  it('keeps quiz award ids excluded across a variant-attributes fallback', async () => {
+    const rows = [{ id: 'quiz-and-variant-attributes-fallback-order' }];
+    const quizAwardIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
+    };
+    const variantAttributesSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: quizAwardIdSchemaError })
+      .mockResolvedValueOnce({
+        data: null,
+        error: variantAttributesSchemaError,
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement;
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
+  it('retries a variant-attributes fallback after discovering quiz award ids are missing', async () => {
+    const rows = [{ id: 'variant-attributes-and-quiz-fallback-order' }];
+    const variantAttributesSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+    };
+    const quizAwardIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: variantAttributesSchemaError,
+      })
+      .mockResolvedValueOnce({ data: null, error: quizAwardIdSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement;
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).toContain('order_item_unit_costs');
   });
 
   it('keeps discount provenance when the tax amount column is unavailable', async () => {
@@ -296,7 +387,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
       message:
         "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
     };
-    for (let attempt = 0; attempt < 13; attempt += 1) {
+    for (let attempt = 0; attempt < 14; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,
         error: quizAwardIdSchemaError,
@@ -312,9 +403,9 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(14);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(15);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[13][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[14][0].selectStatement
     ).not.toContain('quiz_award_id');
   });
 

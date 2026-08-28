@@ -55,6 +55,10 @@ type TaxAmountFallback = Readonly<{
   stage: TransactionReviewFallbackStage;
 }>;
 
+function withoutQuizAwardId(selector: string) {
+  return selector.replace(', quiz_award_id', '');
+}
+
 async function runTransactionReviewQuery(
   stage: TransactionReviewFallbackStage,
   options: TransactionReviewQueryOptions
@@ -154,12 +158,63 @@ export async function fetchRichTransactionReviewRows({
     }
   );
 
+  let quizAwardIdUnavailable = false;
+  const runLegacyFallbackQuery = async (
+    stage: TransactionReviewFallbackStage,
+    selectStatement: string,
+    taxAmountFallback?: TaxAmountFallback
+  ) => {
+    const omitUnavailableQuizAwardId = (selector: string) =>
+      quizAwardIdUnavailable ? withoutQuizAwardId(selector) : selector;
+
+    const runQuery = () =>
+      runLegacyTransactionReviewQuery(
+        stage,
+        legacyQuery,
+        omitUnavailableQuizAwardId(selectStatement),
+        true,
+        taxAmountFallback
+          ? {
+              ...taxAmountFallback,
+              selectStatement: omitUnavailableQuizAwardId(
+                taxAmountFallback.selectStatement
+              ),
+            }
+          : undefined
+      );
+
+    let result = await runQuery();
+    if (
+      !quizAwardIdUnavailable &&
+      isMissingSchemaColumn(result.error, 'quiz_award_id')
+    ) {
+      quizAwardIdUnavailable = true;
+      result = await runQuery();
+    }
+
+    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
+      quizAwardIdUnavailable = true;
+    }
+    return result;
+  };
+
+  if (isMissingSchemaColumn(error, 'quiz_award_id')) {
+    quizAwardIdUnavailable = true;
+    ({ data, error } = await runLegacyFallbackQuery(
+      'FullNoQuizAwardId',
+      TRANSACTION_REVIEW_SELECTORS.fullNoQuizAwardId,
+      {
+        selectStatement:
+          TRANSACTION_REVIEW_SELECTORS.fullNoQuizAwardIdNoTaxAmount,
+        stage: 'FullNoQuizAwardIdNoTaxAmount',
+      }
+    ));
+  }
+
   if (isMissingSchemaColumn(error, 'variant_attributes')) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoVariantAttributes',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes,
-      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoTaxAmount,
@@ -171,11 +226,9 @@ export async function fetchRichTransactionReviewRows({
       isMissingSchemaColumn(error, 'discount_code_id') ||
       isMissingSchemaColumn(error, 'order_item_unit_costs')
     ) {
-      ({ data, error } = await runLegacyTransactionReviewQuery(
+      ({ data, error } = await runLegacyFallbackQuery(
         'LegacyNoVariantAttributesNoLaterFields',
-        legacyQuery,
         TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields,
-        true,
         {
           selectStatement:
             TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFieldsNoTaxAmount,
@@ -186,11 +239,9 @@ export async function fetchRichTransactionReviewRows({
   }
 
   if (isMissingSchemaColumn(error, 'product_match_status')) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoProductMatchStatus',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyNoProductMatchStatus,
-      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.legacyNoProductMatchStatusNoTaxAmount,
@@ -199,11 +250,9 @@ export async function fetchRichTransactionReviewRows({
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'Legacy',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacy,
-      true,
       {
         selectStatement: TRANSACTION_REVIEW_SELECTORS.legacyNoTaxAmount,
         stage: 'LegacyNoTaxAmount',
@@ -211,11 +260,9 @@ export async function fetchRichTransactionReviewRows({
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoAdjustments',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustments,
-      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoTaxAmount,
@@ -224,11 +271,9 @@ export async function fetchRichTransactionReviewRows({
     ));
   }
   if (isMissingSchemaColumn(error, 'discount_code_id')) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoDiscountCode',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCode,
-      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.legacyNoDiscountCodeNoTaxAmount,
@@ -237,11 +282,9 @@ export async function fetchRichTransactionReviewRows({
     ));
 
     if (isTransactionReviewSchemaCacheError(error)) {
-      ({ data, error } = await runLegacyTransactionReviewQuery(
+      ({ data, error } = await runLegacyFallbackQuery(
         'LegacyNoAdjustmentsNoDiscountCode',
-        legacyQuery,
         TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCode,
-        true,
         {
           selectStatement:
             TRANSACTION_REVIEW_SELECTORS.legacyNoAdjustmentsNoDiscountCodeNoTaxAmount,

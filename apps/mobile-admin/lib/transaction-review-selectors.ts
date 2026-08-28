@@ -10,6 +10,21 @@ function withoutVariantId(selector: string) {
   return selector.replace(', variant_id', '');
 }
 
+function withoutProductVariants(selector: string) {
+  return selector.replace(
+    ', product_variants(cost_price, sku, attributes, condition)',
+    ''
+  );
+}
+
+function withoutVariantRelationship(selector: string) {
+  return withoutProductVariants(withoutVariantId(selector));
+}
+
+function withoutQuizAwardId(selector: string) {
+  return selector.replace(', quiz_award_id', '');
+}
+
 function withoutDiscountAmount(selector: string) {
   return selector.replace(', discount_amount', '');
 }
@@ -72,19 +87,23 @@ export const TRANSACTION_REVIEW_SELECTORS = {
     transactionReviewSelectors.baseWithDiscountNoVariantId
   ),
   fullNoTaxAmount: withoutTaxAmount(transactionReviewSelectors.full),
+  fullNoQuizAwardId: withoutQuizAwardId(transactionReviewSelectors.full),
+  fullNoQuizAwardIdNoTaxAmount: withoutTaxAmount(
+    withoutQuizAwardId(transactionReviewSelectors.full)
+  ),
   fullNoLineId: withoutLineId(transactionReviewSelectors.full),
   fullNoLineIdNoTaxAmount: withoutTaxAmount(
     withoutLineId(transactionReviewSelectors.full)
   ),
-  fullNoVariantId: withoutVariantId(transactionReviewSelectors.full),
+  fullNoVariantId: withoutVariantRelationship(transactionReviewSelectors.full),
   fullNoVariantIdNoTaxAmount: withoutTaxAmount(
-    withoutVariantId(transactionReviewSelectors.full)
+    withoutVariantRelationship(transactionReviewSelectors.full)
   ),
-  fullNoVariantIdNoDiscountCode: withoutVariantId(
+  fullNoVariantIdNoDiscountCode: withoutVariantRelationship(
     transactionReviewSelectors.fullNoDiscountCode
   ),
   fullNoVariantIdNoDiscountCodeNoTaxAmount: withoutTaxAmount(
-    withoutVariantId(transactionReviewSelectors.fullNoDiscountCode)
+    withoutVariantRelationship(transactionReviewSelectors.fullNoDiscountCode)
   ),
   fullNoDiscountCodeNoDiscount: withoutDiscountAmount(
     transactionReviewSelectors.fullNoDiscountCode
@@ -92,17 +111,17 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   fullNoDiscountCodeNoDiscountNoTaxAmount: withoutTaxAmount(
     withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
   ),
-  fullNoVariantIdNoDiscount: withoutVariantId(
+  fullNoVariantIdNoDiscount: withoutVariantRelationship(
     transactionReviewSelectors.fullNoDiscount
   ),
   fullNoVariantIdNoDiscountNoTaxAmount: withoutTaxAmount(
-    withoutVariantId(transactionReviewSelectors.fullNoDiscount)
+    withoutVariantRelationship(transactionReviewSelectors.fullNoDiscount)
   ),
-  fullNoVariantIdNoDiscountCodeNoDiscount: withoutVariantId(
+  fullNoVariantIdNoDiscountCodeNoDiscount: withoutVariantRelationship(
     withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
   ),
   fullNoVariantIdNoDiscountCodeNoDiscountNoTaxAmount: withoutTaxAmount(
-    withoutVariantId(
+    withoutVariantRelationship(
       withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
     )
   ),

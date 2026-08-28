@@ -20,6 +20,31 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('cost_price');
   });
 
+  it('omits the variant relationship when variant ids are unavailable', () => {
+    const selectors = [
+      TRANSACTION_REVIEW_SELECTORS.fullNoVariantId,
+      TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCode,
+      TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscount,
+      TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscount,
+    ];
+
+    for (const selector of selectors) {
+      expect(selector).not.toContain('variant_id');
+      expect(selector).not.toContain('product_variants');
+      expect(selector).toContain('order_item_unit_costs');
+    }
+  });
+
+  it('provides a rich projection when quiz award ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoQuizAwardId;
+
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).toContain('variant_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
   it('keeps the rich discount projection when tax provenance is unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.fullNoTaxAmount;
 
@@ -45,7 +70,7 @@ describe('transaction review selectors', () => {
     expect(selector).not.toContain('variant_id');
     expect(selector).toContain('order_items(id, line_id, product_id');
     expect(selector).toContain('order_item_unit_costs');
-    expect(selector).toContain('product_variants');
+    expect(selector).not.toContain('product_variants');
     expect(selector).toContain('cost_price');
   });
 
@@ -57,7 +82,7 @@ describe('transaction review selectors', () => {
     expect(selector).not.toContain('discount_code_id');
     expect(selector).not.toContain('discount_amount');
     expect(selector).toContain('order_item_unit_costs');
-    expect(selector).toContain('product_variants');
+    expect(selector).not.toContain('product_variants');
     expect(selector).toContain('cost_price');
   });
 

@@ -47,7 +47,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828070000_backfill_historical_admin_discount_provenance.sql',
-    sha256: 'b8dc3d7500231b035a8ca29cc3563cbf376e70c9167b35523d1f1e9b71c854a6',
+    sha256: '499f50e0ca487d35a67a534eafbbff4b76fb4600f629eccdbe43abfa351c3177',
   },
   {
     repositoryPath:

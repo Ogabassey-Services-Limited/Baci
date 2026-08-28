@@ -27,4 +27,18 @@ describe('historical admin discount provenance backfill', () => {
     );
     expect(migrationSql).toContain('COALESCE(orders.discount_amount, 0) > 0');
   });
+
+  it('preserves historical order timestamps while adding provenance', () => {
+    expect(migrationSql).toMatch(
+      /CREATE TEMP TABLE historical_admin_discount_edits[\s\S]*?updated_at timestamptz/i
+    );
+    expect(migrationSql).toContain(
+      'ALTER TABLE public.orders DISABLE TRIGGER "update_orders_updated_at"'
+    );
+    expect(migrationSql).toContain('FOR UPDATE OF orders');
+    expect(migrationSql).toContain('updated_at = edits.updated_at');
+    expect(migrationSql).toContain(
+      'ALTER TABLE public.orders ENABLE TRIGGER "update_orders_updated_at"'
+    );
+  });
 });
