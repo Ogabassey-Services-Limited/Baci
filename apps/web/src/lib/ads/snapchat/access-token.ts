@@ -78,13 +78,27 @@ export async function getSnapchatAdsUsableGrant(input: {
     Number.isFinite(expiresAt) &&
     expiresAt > Date.now() + SNAPCHAT_ADS_TOKEN_REFRESH_SAFETY_WINDOW_MS
   ) {
-    const token = resolveSnapchatAdsAccessToken(input.connection, input.config);
-    return {
-      accessToken: token,
-      accessTokenCiphertext: input.connection.access_token_ciphertext,
-      refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
-      tokenExpiresAt: input.connection.token_expires_at,
-    };
+    try {
+      const token = resolveSnapchatAdsAccessToken(
+        input.connection,
+        input.config
+      );
+      return {
+        accessToken: token,
+        accessTokenCiphertext: input.connection.access_token_ciphertext,
+        refreshTokenCiphertext: input.connection.refresh_token_ciphertext,
+        tokenExpiresAt: input.connection.token_expires_at,
+      };
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        error.message !== 'SNAPCHAT_ADS_ACCESS_TOKEN_DECRYPT_FAILED'
+      )
+        throw error;
+      // An unreadable access token can still be recovered while its refresh
+      // grant remains usable. Fall through to the refresh path instead of
+      // keeping the connection active until the stale expiry metadata passes.
+    }
   }
   if (!input.connection.refresh_token_ciphertext)
     throw new SnapchatAdsTokenRefreshError('SNAPCHAT_ADS_REFRESH_REJECTED');
