@@ -46,7 +46,7 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('discount_amount');
     expect(selector).toContain('discount_code_id');
     expect(selector).toContain('tax_amount');
-    expect(selector).not.toContain('ad_tracking');
+    expect(selector).toContain('ad_tracking');
     expect(selector).toContain('quiz_award_id');
     expect(selector).toContain('line_id');
     expect(selector).toContain('external_source');

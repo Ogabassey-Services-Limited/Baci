@@ -64,14 +64,23 @@ export function getDiscountedTransactionUnitPrices(
       explicitLineDiscounts
     );
     let voucherDiscount = 0;
+    let fallbackMerchandiseDiscount = 0;
     if (!allocationsByLineId && voucherDiscountBasis > 0) {
-      const explicitDiscount = explicitLineDiscounts.reduce(
+      const explicitMerchandiseDiscount = explicitLineDiscounts.reduce(
         (sum, allocation) =>
           sum +
-          (allocation?.merchandiseDiscount ?? 0) +
-          (allocation?.vatRelief ?? 0),
+          Math.max(
+            0,
+            toFiniteNumberOrNull(allocation?.merchandiseDiscount) ?? 0
+          ),
         0
       );
+      const explicitVatRelief = explicitLineDiscounts.reduce(
+        (sum, allocation) =>
+          sum + Math.max(0, toFiniteNumberOrNull(allocation?.vatRelief) ?? 0),
+        0
+      );
+      const explicitDiscount = explicitMerchandiseDiscount + explicitVatRelief;
       if (explicitDiscount <= normalizedDiscount + 0.01) {
         allocationsByLineId = getValidatedExplicitLineDiscounts(
           items,
@@ -80,6 +89,13 @@ export function getDiscountedTransactionUnitPrices(
           explicitLineDiscounts
         );
         if (allocationsByLineId) {
+          voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
+        } else {
+          // A compatibility selector may omit the identity fields needed to
+          // match v3 allocations. Preserve the server-authored merchandise
+          // total proportionally across non-voucher lines, then leave only the
+          // residual award amount for voucher lines.
+          fallbackMerchandiseDiscount = explicitMerchandiseDiscount;
           voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
         }
       }
@@ -103,6 +119,15 @@ export function getDiscountedTransactionUnitPrices(
       voucherDiscountBasis > 0
         ? Math.min(1, voucherDiscount / voucherDiscountBasis)
         : 0;
+    const merchandiseDiscountBasis = lineTotals.reduce(
+      (sum, line, index) =>
+        sum + (voucherLineIndexes.has(index) ? 0 : line.merchandiseTotal),
+      0
+    );
+    const fallbackMerchandiseDiscountRatio =
+      merchandiseDiscountBasis > 0
+        ? Math.min(1, fallbackMerchandiseDiscount / merchandiseDiscountBasis)
+        : 0;
 
     return unitPrices.map((unitPrice, index) => {
       if (unitPrice < 0) {
@@ -125,6 +150,18 @@ export function getDiscountedTransactionUnitPrices(
         const allocatedDiscount = line.total * voucherDiscountRatio;
         const merchandiseDiscount =
           allocatedDiscount * (line.merchandiseTotal / line.total);
+        return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
+      }
+      if (
+        !allocationsByLineId &&
+        !voucherLineIndexes.has(index) &&
+        line &&
+        line.quantity > 0 &&
+        line.merchandiseTotal > 0 &&
+        fallbackMerchandiseDiscountRatio > 0
+      ) {
+        const merchandiseDiscount =
+          line.merchandiseTotal * fallbackMerchandiseDiscountRatio;
         return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
       }
       if (

@@ -89,6 +89,28 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([0, 180]);
   });
 
+  it('preserves merchandise provenance when a compatibility selector cannot match v3 allocations', () => {
+    const items = [
+      { price: 100, quantity: 1, quiz_award_id: 'award-1' },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 120, {
+      lineDiscounts: [
+        null,
+        {
+          lineId: 2,
+          merchandiseDiscount: 20,
+          productId: 'product-2',
+          vatRelief: 0,
+          variantId: null,
+        },
+      ],
+    });
+
+    expect(prices).toEqual([0, 180]);
+  });
+
   it('allocates discounts across merchandise and assurance fees', () => {
     const items = [{ assurance_fee: 20, price: 100, quantity: 1 }];
 

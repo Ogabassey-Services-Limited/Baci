@@ -24,6 +24,13 @@ const payloadBindingMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const replayBindingMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828050000_bind_transaction_discount_proof_replay.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -78,6 +85,18 @@ describe('transaction discount provenance migration', () => {
     );
     expect(payloadBindingMigrationSql).toMatch(
       /v_proof ->> 'payload_hash'\s*=\s*private\.transaction_discount_payload_hash\(v_proof -> 'payload'\)/i
+    );
+  });
+
+  it('consumes each storefront transaction discount proof only once', () => {
+    expect(replayBindingMigrationSql).toMatch(
+      /CREATE TABLE IF NOT EXISTS private\.transaction_discount_proof_replay/i
+    );
+    expect(replayBindingMigrationSql).toMatch(
+      /ON CONFLICT \(proof_id\) DO NOTHING/i
+    );
+    expect(replayBindingMigrationSql).toMatch(
+      /GET DIAGNOSTICS v_inserted_count = ROW_COUNT/i
     );
   });
 });
