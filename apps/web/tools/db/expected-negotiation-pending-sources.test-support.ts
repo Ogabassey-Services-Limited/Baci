@@ -11,12 +11,12 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827110001_atomic_admin_order_transaction_discount_cleanup.sql',
+      'supabase/migrations/20260827110002_atomic_admin_order_transaction_discount_cleanup.sql',
     sha256: '4c176247fcba2ed68c06bb17926eb283e3b41b9ea7d446c53568c01ef314c1b6',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260828010000_preserve_admin_discount_provenance.sql',
+      'supabase/migrations/20260828010001_preserve_admin_discount_provenance.sql',
     sha256: '2654606f376eeb46ce40000d6155d79ffc88ce6f95a8101c24aa7a222ba79685',
   },
   {
@@ -56,7 +56,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260828100000_reject_unverified_transaction_discount_proofs.sql',
+      'supabase/migrations/20260828110000_reject_unverified_transaction_discount_proofs.sql',
     sha256: 'aa15f06646812df854179f19b38cfb121bca9c2c08b1b40914be78f8a989483d',
   },
 ];

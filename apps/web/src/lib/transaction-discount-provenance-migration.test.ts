@@ -41,7 +41,7 @@ const replaySignatureBindingMigrationSql = readFileSync(
 const proofRejectionMigrationSql = readFileSync(
   resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260828100000_reject_unverified_transaction_discount_proofs.sql'
+    '../../../../supabase/migrations/20260828110000_reject_unverified_transaction_discount_proofs.sql'
   ),
   'utf8'
 );

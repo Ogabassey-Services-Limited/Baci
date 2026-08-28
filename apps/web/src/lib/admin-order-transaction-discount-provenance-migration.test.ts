@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const migrationSql = readFileSync(
   resolve(
     dirname(fileURLToPath(import.meta.url)),
-    '../../../../supabase/migrations/20260828010000_preserve_admin_discount_provenance.sql'
+    '../../../../supabase/migrations/20260828010001_preserve_admin_discount_provenance.sql'
   ),
   'utf8'
 );
