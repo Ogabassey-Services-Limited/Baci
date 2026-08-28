@@ -409,7 +409,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     ).not.toContain('quiz_award_id');
   });
 
-  it('keeps quiz award ids excluded when a line id fallback discovers the missing column', async () => {
+  it('composes quiz and line-id omissions in the rich fallback', async () => {
     const rows = [{ id: 'line-and-quiz-fallback-order' }];
     const lineIdSchemaError = {
       code: 'PGRST204',
@@ -424,8 +424,6 @@ describe('fetchTransactionReviewWithFallbacks', () => {
 
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
-      .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
-      .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
       .mockResolvedValueOnce({ data: null, error: quizAwardIdSchemaError })
       .mockResolvedValueOnce({ data: rows, error: null });
 
@@ -434,9 +432,9 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
     const selector =
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement;
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement;
     expect(selector).not.toContain('line_id');
     expect(selector).not.toContain('quiz_award_id');
     expect(selector).toContain('order_item_unit_costs');

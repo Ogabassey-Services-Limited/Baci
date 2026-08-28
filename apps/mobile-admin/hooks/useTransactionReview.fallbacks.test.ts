@@ -166,6 +166,11 @@ describe('useTransactionReview schema fallbacks', () => {
       message:
         "Could not find the 'transaction_date' column of 'orders' in the schema cache",
     };
+    const richProjectionSchemaError = {
+      code: 'PGRST200',
+      message:
+        "Could not find the 'order_item_unit_costs' relationship in the schema cache",
+    };
     const discountedOrder = {
       discount_amount: 25,
       id: 'discounted-base-order',
@@ -177,6 +182,7 @@ describe('useTransactionReview schema fallbacks', () => {
 
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
+      .mockResolvedValueOnce({ data: null, error: richProjectionSchemaError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: null, error: schemaCacheError })
       .mockResolvedValueOnce({ data: [discountedOrder], error: null });
@@ -187,7 +193,7 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      4,
+      5,
       expect.objectContaining({
         includeCancelledAt: true,
         includeTransactionDate: false,
@@ -220,12 +226,10 @@ describe('useTransactionReview schema fallbacks', () => {
       total: 75,
     };
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
-        data: null,
-        error: lineIdSchemaError,
-      });
-    }
+    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
+      data: null,
+      error: lineIdSchemaError,
+    });
     mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
       data: [discountedOrder],
       error: null,
@@ -238,19 +242,19 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      4,
+      2,
       expect.objectContaining({
         selectStatement: expect.stringContaining('discount_amount'),
       })
     );
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement
     ).not.toContain('order_items(id, line_id');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement
     ).toContain('order_item_unit_costs');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement
     ).toContain('product_variants');
   });
 

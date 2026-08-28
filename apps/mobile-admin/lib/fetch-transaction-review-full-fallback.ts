@@ -19,7 +19,9 @@ type TaxAmountFallback = Readonly<{
 type FullFallbackFlags = Readonly<{
   discountAmountUnavailable: boolean;
   discountCodeUnavailable: boolean;
+  lineIdUnavailable: boolean;
   quizAwardIdUnavailable: boolean;
+  transactionDateUnavailable: boolean;
   variantIdUnavailable: boolean;
 }>;
 
@@ -48,7 +50,6 @@ function getFullFallbackProjection(
   const {
     discountAmountUnavailable,
     discountCodeUnavailable,
-    quizAwardIdUnavailable,
     variantIdUnavailable,
   } = flags;
 
@@ -124,17 +125,48 @@ function getFullFallbackProjection(
     };
   })();
 
-  if (!quizAwardIdUnavailable) {
-    return projection;
+  return applyMissingColumns(projection, flags);
+}
+
+function applyMissingColumns(
+  projection: FullFallbackProjection,
+  flags: FullFallbackFlags
+): FullFallbackProjection {
+  let selectStatement = projection.selectStatement;
+  let selectStatementNoTaxAmount = projection.selectStatementNoTaxAmount;
+  let stage = projection.stage;
+
+  if (flags.lineIdUnavailable) {
+    selectStatement = withoutLineId(selectStatement);
+    selectStatementNoTaxAmount = withoutLineId(selectStatementNoTaxAmount);
+    stage = `${stage}NoLineId`;
+  }
+  if (flags.transactionDateUnavailable) {
+    selectStatement = withoutTransactionDate(selectStatement);
+    selectStatementNoTaxAmount = withoutTransactionDate(
+      selectStatementNoTaxAmount
+    );
+    stage = `${stage}NoTransactionDate`;
+  }
+  if (flags.quizAwardIdUnavailable) {
+    selectStatement = withoutQuizAwardId(selectStatement);
+    selectStatementNoTaxAmount = withoutQuizAwardId(selectStatementNoTaxAmount);
+    stage = `${stage}NoQuizAwardId`;
   }
 
   return {
-    selectStatement: withoutQuizAwardId(projection.selectStatement),
-    selectStatementNoTaxAmount: withoutQuizAwardId(
-      projection.selectStatementNoTaxAmount
-    ),
-    stage: `${projection.stage}NoQuizAwardId`,
+    selectStatement,
+    selectStatementNoTaxAmount,
+    stage,
   };
+}
+
+function withoutLineId(selector: string) {
+  return selector.replace('order_items(id, line_id, ', 'order_items(id, ');
+}
+
+function withoutTransactionDate(selector: string) {
+  return selector.replace(', transaction_date', '');
 }
 
 function withoutQuizAwardId(selector: string) {
@@ -160,7 +192,6 @@ export async function fetchFullTransactionReviewRows(
     endDateFilter,
     endDateIso,
     includeCancelledAt: true,
-    includeTransactionDate: true,
     merchantId,
     startDateFilter,
     startDateIso,
@@ -168,7 +199,9 @@ export async function fetchFullTransactionReviewRows(
   let flags: FullFallbackFlags = {
     discountAmountUnavailable: false,
     discountCodeUnavailable: false,
+    lineIdUnavailable: false,
     quizAwardIdUnavailable: false,
+    transactionDateUnavailable: false,
     variantIdUnavailable: false,
   };
   const attemptedStages = new Set<string>();
@@ -182,6 +215,7 @@ export async function fetchFullTransactionReviewRows(
       projection.stage,
       {
         ...baseOptions,
+        includeTransactionDate: !flags.transactionDateUnavailable,
         selectStatement: projection.selectStatement,
       },
       {
@@ -197,9 +231,14 @@ export async function fetchFullTransactionReviewRows(
       discountCodeUnavailable:
         flags.discountCodeUnavailable ||
         isMissingSchemaColumn(error, 'discount_code_id'),
+      lineIdUnavailable:
+        flags.lineIdUnavailable || isMissingSchemaColumn(error, 'line_id'),
       quizAwardIdUnavailable:
         flags.quizAwardIdUnavailable ||
         isMissingSchemaColumn(error, 'quiz_award_id'),
+      transactionDateUnavailable:
+        flags.transactionDateUnavailable ||
+        isMissingSchemaColumn(error, 'transaction_date'),
       variantIdUnavailable:
         flags.variantIdUnavailable ||
         isMissingSchemaColumn(error, 'variant_id'),
@@ -207,10 +246,22 @@ export async function fetchFullTransactionReviewRows(
     if (nextFlags.quizAwardIdUnavailable && !flags.quizAwardIdUnavailable) {
       onMissingSchemaColumn?.('quiz_award_id');
     }
+    if (nextFlags.lineIdUnavailable && !flags.lineIdUnavailable) {
+      onMissingSchemaColumn?.('line_id');
+    }
+    if (
+      nextFlags.transactionDateUnavailable &&
+      !flags.transactionDateUnavailable
+    ) {
+      onMissingSchemaColumn?.('transaction_date');
+    }
     if (
       nextFlags.discountAmountUnavailable === flags.discountAmountUnavailable &&
       nextFlags.discountCodeUnavailable === flags.discountCodeUnavailable &&
+      nextFlags.lineIdUnavailable === flags.lineIdUnavailable &&
       nextFlags.quizAwardIdUnavailable === flags.quizAwardIdUnavailable &&
+      nextFlags.transactionDateUnavailable ===
+        flags.transactionDateUnavailable &&
       nextFlags.variantIdUnavailable === flags.variantIdUnavailable
     ) {
       break;

@@ -75,6 +75,25 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('cost_price');
   });
 
+  it('keeps cost snapshots when line and variant ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoLineIdNoVariantId;
+
+    expect(selector).not.toContain('line_id');
+    expect(selector).not.toContain('variant_id');
+    expect(selector).not.toContain('product_variants');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('cost_price');
+  });
+
+  it('keeps cost snapshots when transaction dates are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoTransactionDate;
+
+    expect(selector).not.toContain('transaction_date');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('cost_price');
+  });
+
   it('keeps cost snapshots when variant ids are unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.fullNoVariantId;
 

@@ -1,7 +1,4 @@
-import {
-  getDiscountedTransactionUnitPrices,
-  getQuizVoucherDiscountAmount,
-} from './transaction-review-discount';
+import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import {
   getPersistedTransactionDiscountAmount,
   parseTransactionDiscountOptions,
@@ -29,6 +26,7 @@ import type {
 } from './transaction-review-types';
 import { resolveTransactionReviewUnitRow } from './transaction-review-unit-row';
 import { resolveSplitUnitIndexes } from './transaction-review-units';
+import { getQuizVoucherDiscountAmount } from './transaction-review-voucher-discount';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

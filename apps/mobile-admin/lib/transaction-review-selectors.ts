@@ -6,6 +6,10 @@ function withoutLineId(selector: string) {
   return selector.replace('order_items(id, line_id, ', 'order_items(id, ');
 }
 
+function withoutTransactionDate(selector: string) {
+  return selector.replace(', transaction_date', '');
+}
+
 function withoutVariantId(selector: string) {
   return selector.replace(', variant_id', '');
 }
@@ -110,6 +114,18 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   fullNoLineId: withoutLineId(transactionReviewSelectors.full),
   fullNoLineIdNoTaxAmount: withoutTaxAmount(
     withoutLineId(transactionReviewSelectors.full)
+  ),
+  fullNoLineIdNoVariantId: withoutVariantRelationship(
+    withoutLineId(transactionReviewSelectors.full)
+  ),
+  fullNoLineIdNoVariantIdNoTaxAmount: withoutTaxAmount(
+    withoutVariantRelationship(withoutLineId(transactionReviewSelectors.full))
+  ),
+  fullNoTransactionDate: withoutTransactionDate(
+    transactionReviewSelectors.full
+  ),
+  fullNoTransactionDateNoTaxAmount: withoutTaxAmount(
+    withoutTransactionDate(transactionReviewSelectors.full)
   ),
   fullNoVariantId: withoutVariantRelationship(transactionReviewSelectors.full),
   fullNoVariantIdNoTaxAmount: withoutTaxAmount(
