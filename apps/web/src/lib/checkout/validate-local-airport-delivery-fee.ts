@@ -1,4 +1,3 @@
-import { LEGACY_AIRPORT_DELIVERY_FEE } from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateAirportDeliveryAddress } from '@/lib/checkout/airport-delivery-address';
 import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
@@ -6,6 +5,7 @@ import { isAmbiguousMetadataFreeAirportFee } from '@/lib/checkout/airport-delive
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 import { isEligibleAirportQuote } from '@/lib/checkout/airport-delivery-quote-validation';
 import { isConfirmedLocalAirportReplay } from '@/lib/checkout/is-confirmed-local-airport-replay';
+import { isLegacyMobileAirportDeliveryRequest } from '@/lib/checkout/is-legacy-mobile-airport-delivery';
 import { isSelectedAirportQuote } from '@/lib/checkout/is-selected-airport-quote';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
@@ -115,13 +115,7 @@ async function validateSelectedAirportQuote({
   return false;
 }
 
-/**
- * Validate fixed-fee airport delivery and airport-backed provider quotes.
- *
- * The route delegates the complete money-path decision here so fixed-fee
- * enforcement, airport quote verification, and replay handling cannot drift
- * apart in the oversized order route.
- */
+/** Validate fixed-fee airport delivery and airport-backed provider quotes. */
 export async function validateLocalAirportDeliveryFee({
   airportType,
   deliveryMethod,
@@ -138,14 +132,15 @@ export async function validateLocalAirportDeliveryFee({
   let resolvedDeliveryMethod = deliveryMethod;
   let resolvedAirportType = airportType;
   const legacyAirportType = getLegacyAirportType(shippingAddress?.address);
-  const isLegacyMobileAirportDelivery =
-    source === 'mobile_app' &&
-    deliveryMethod === undefined &&
-    airportType === undefined &&
-    legacyAirportType === 'delivery' &&
-    !selectedQuoteId &&
-    !shippingRateId &&
-    Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01;
+  const isLegacyMobileAirportDelivery = isLegacyMobileAirportDeliveryRequest({
+    address: shippingAddress?.address,
+    airportType,
+    deliveryMethod,
+    selectedQuoteId,
+    shippingFee,
+    shippingRateId,
+    source,
+  });
   if (
     legacyAirportType !== null &&
     deliveryMethod !== undefined &&
@@ -168,9 +163,7 @@ export async function validateLocalAirportDeliveryFee({
     );
   }
 
-  // GoFaster home-delivery quotes are the only provider-backed airport
-  // quotes exposed by checkout. Do not let a caller relabel one as door,
-  // pickup, or an unspecified method and bypass airport validation.
+  // Provider-backed airport quotes cannot be relabeled as non-airport orders.
   if (selectedQuoteId && deliveryMethod !== 'airport') {
     const selectedQuoteIsAirport = await isSelectedAirportQuote({
       merchantId,
@@ -179,10 +172,7 @@ export async function validateLocalAirportDeliveryFee({
     });
     if (selectedQuoteIsAirport) {
       if (deliveryMethod === undefined) {
-        // Older mobile clients identify GoFaster airport delivery by the
-        // selected quote and provider only. Promote that server-verified
-        // discriminator so persistence and idempotency use the same metadata
-        // as current clients.
+        // Promote the server-verified quote discriminator for persistence.
         resolvedDeliveryMethod = 'airport';
         resolvedAirportType = 'delivery';
       } else {
@@ -267,10 +257,7 @@ export async function validateLocalAirportDeliveryFee({
   const localAirportShippingFeeMismatch =
     localAirportShippingFee !== null &&
     Math.abs(shippingFee - localAirportShippingFee) > 0.01;
-  // Released mobile clients submitted the legacy fixed amount before the
-  // request gained delivery metadata. Keep those requests serviceable while
-  // charging the current server-owned fee; never accept the old amount as the
-  // persisted shipping fee.
+  // Preserve released mobile requests while applying the current server fee.
   const shouldUseServerOwnedLegacyFee =
     localAirportShippingFeeMismatch && isLegacyMobileAirportDelivery;
   const isIdempotentLocalAirportReplay =
