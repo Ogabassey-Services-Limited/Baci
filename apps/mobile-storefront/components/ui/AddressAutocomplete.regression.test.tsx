@@ -95,9 +95,13 @@ describe('AddressAutocomplete regressions', () => {
     fireEvent.changeText(input, 'Allen');
 
     await act(async () => {
-      jest.advanceTimersByTime(150);
+      jest.advanceTimersByTime(149);
     });
+    expect(fetchMock).not.toHaveBeenCalled();
 
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+    });
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
