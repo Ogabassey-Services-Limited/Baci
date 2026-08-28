@@ -3,37 +3,15 @@ import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-co
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { runBaseTransactionReviewQuery } from './run-base-transaction-review-query';
 import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
-import type { TransactionReviewFallbackQuery } from './transaction-review-fallback-types';
+import {
+  omitUnavailableTransactionReviewSchemaColumns,
+  type TransactionReviewSchemaColumnAvailability,
+} from './transaction-review-fallback-schema-columns';
+import type {
+  TaxAmountFallback,
+  TransactionReviewFallbackQuery,
+} from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
-
-type TaxAmountFallback = Readonly<{
-  selectStatement: string;
-  stage: string;
-}>;
-
-function withoutQuizAwardId(selector: string) {
-  return selector.replace(', quiz_award_id', '');
-}
-
-function withoutDiscountCode(selector: string) {
-  return selector.replace(', discount_code_id', '');
-}
-
-function withoutDiscountAmount(selector: string) {
-  return selector.replace(', discount_amount', '');
-}
-
-function withoutAdTracking(selector: string) {
-  return selector.replace(', ad_tracking', '');
-}
-
-function withoutCancelledAt(selector: string) {
-  return selector.replace(', cancelled_at', '');
-}
-
-function withoutTransactionDate(selector: string) {
-  return selector.replace(', transaction_date', '');
-}
 
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
@@ -56,6 +34,9 @@ export async function fetchTransactionReviewWithFallbacks(
     if (column === 'discount_code_id') {
       discountCodeUnavailable = true;
     }
+    if (column === 'discount_amount') {
+      discountAmountUnavailable = true;
+    }
     if (column === 'ad_tracking') {
       adTrackingUnavailable = true;
     }
@@ -66,26 +47,20 @@ export async function fetchTransactionReviewWithFallbacks(
       transactionDateUnavailable = true;
     }
   };
+  const getSchemaColumnAvailability =
+    (): TransactionReviewSchemaColumnAvailability => ({
+      adTrackingUnavailable,
+      cancelledAtUnavailable,
+      discountAmountUnavailable,
+      discountCodeUnavailable,
+      quizAwardIdUnavailable,
+      transactionDateUnavailable,
+    });
   const omitUnavailableSchemaColumns = (selector: string) => {
-    let result = quizAwardIdUnavailable
-      ? withoutQuizAwardId(selector)
-      : selector;
-    if (discountCodeUnavailable) {
-      result = withoutDiscountCode(result);
-    }
-    if (discountAmountUnavailable) {
-      result = withoutDiscountAmount(result);
-    }
-    if (adTrackingUnavailable) {
-      result = withoutAdTracking(result);
-    }
-    if (cancelledAtUnavailable) {
-      result = withoutCancelledAt(result);
-    }
-    if (transactionDateUnavailable) {
-      result = withoutTransactionDate(result);
-    }
-    return result;
+    return omitUnavailableTransactionReviewSchemaColumns(
+      selector,
+      getSchemaColumnAvailability()
+    );
   };
   type TransactionReviewFallbackResult = Awaited<
     ReturnType<typeof runLegacyTransactionReviewQuery>
