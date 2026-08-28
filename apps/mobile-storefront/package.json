@@ -85,7 +85,7 @@
     "react-native": "0.86.0",
     "react-native-css-interop": "^0.2.5",
     "react-native-fbsdk-next": "^13.4.3",
-    "react-native-google-mobile-ads": "16.4.0",
+    "react-native-google-mobile-ads": "16.3.4",
     "react-native-gesture-handler": "~3.0.1",
     "react-native-google-places-autocomplete": "^2.6.4",
     "react-native-keyboard-controller": "1.21.11",
