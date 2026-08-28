@@ -80,7 +80,10 @@ test('accepts zero-byte regular files in a bind directory', async () => {
       directory,
       directory,
     ]);
-    assert.match(stdout, new RegExp(`${join(directory, 'empty.conf').replaceAll('/', '\\/')}\\|`));
+    assert.match(
+      stdout,
+      new RegExp(`${join(directory, 'empty.conf').replaceAll('/', '\\/')}\\|`)
+    );
     assert.equal(stderr, '');
   } finally {
     await rm(directory, { force: true, recursive: true });
