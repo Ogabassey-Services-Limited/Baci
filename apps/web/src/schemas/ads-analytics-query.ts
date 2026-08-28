@@ -1,9 +1,11 @@
 import { z } from 'zod';
-import { ADS_ANALYTICS_MAX_DAYS } from '@/lib/analytics/ads-sync-limits';
+import {
+  ADS_ANALYTICS_MAX_DAYS,
+  getInclusiveAdsDateRangeDays,
+} from '@/lib/analytics/ads-sync-limits';
 
 const calendarDate = z.iso.date();
 const orderInstant = z.iso.datetime({ offset: true });
-const MILLISECONDS_PER_DAY = 86_400_000;
 
 /**
  * Provider spend rows use account-local calendar dates, while order
@@ -45,11 +47,23 @@ export const adsAnalyticsQuerySchema = z
           path: ['orderStart'],
         });
       } else {
-        const orderStart = Date.parse(value.orderStart);
-        const orderEnd = Date.parse(value.orderEnd);
-        const inclusiveOrderDays =
-          Math.floor((orderEnd - orderStart) / MILLISECONDS_PER_DAY) + 1;
-        if (inclusiveOrderDays > ADS_ANALYTICS_MAX_DAYS) {
+        // The exact order boundaries may be local instants whose elapsed
+        // duration crosses a DST transition. Measure the same calendar
+        // window used by provider spend rows so a valid 366-day selection is
+        // not rejected merely because the local day was 23 or 25 hours long.
+        const orderCalendarDays = getInclusiveAdsDateRangeDays(
+          value.orderStart.slice(0, 10),
+          value.orderEnd.slice(0, 10)
+        );
+        const selectedCalendarDays =
+          value.startDate && value.endDate
+            ? getInclusiveAdsDateRangeDays(value.startDate, value.endDate)
+            : undefined;
+        const orderWindowExceedsLimit =
+          orderCalendarDays > ADS_ANALYTICS_MAX_DAYS &&
+          (selectedCalendarDays === undefined ||
+            orderCalendarDays > selectedCalendarDays + 1);
+        if (orderWindowExceedsLimit) {
           ctx.addIssue({
             code: 'custom',
             message: `Order reporting range cannot exceed ${ADS_ANALYTICS_MAX_DAYS} days`,
@@ -88,9 +102,10 @@ export const adsAnalyticsQuerySchema = z
       return;
     }
 
-    const start = Date.parse(`${value.startDate}T00:00:00Z`);
-    const end = Date.parse(`${value.endDate}T00:00:00Z`);
-    const inclusiveDays = Math.floor((end - start) / MILLISECONDS_PER_DAY) + 1;
+    const inclusiveDays = getInclusiveAdsDateRangeDays(
+      value.startDate,
+      value.endDate
+    );
     if (inclusiveDays > ADS_ANALYTICS_MAX_DAYS) {
       ctx.addIssue({
         code: 'custom',

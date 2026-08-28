@@ -42,6 +42,20 @@ describe('adsAnalyticsQuerySchema', () => {
     ).toBe(true);
   });
 
+  it('accepts a 366-day New York window after local instants are serialized to UTC', () => {
+    expect(
+      adsAnalyticsQuerySchema.safeParse({
+        endDate: '2026-11-01',
+        // America/New_York: local 2025-11-01 00:00 through local
+        // 2026-11-01 23:59:59.999 crosses the fall-back transition and
+        // serializes to a UTC date range with one extra calendar label.
+        orderEnd: '2026-11-02T04:59:59.999Z',
+        orderStart: '2025-11-01T04:00:00.000Z',
+        startDate: '2025-11-01',
+      }).success
+    ).toBe(true);
+  });
+
   it('requires exact order instants to be complete and ordered', () => {
     expect(
       adsAnalyticsQuerySchema.safeParse({
