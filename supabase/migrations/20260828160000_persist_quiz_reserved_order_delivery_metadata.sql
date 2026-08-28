@@ -33,7 +33,7 @@ BEGIN
   );
 
   IF v_updated = v_definition
-    OR pg_catalog.position('ad_tracking = COALESCE(p_ad_tracking, ad_tracking)' IN v_updated) = 0 THEN
+    OR pg_catalog.strpos(v_updated, 'ad_tracking = COALESCE(p_ad_tracking, ad_tracking)') = 0 THEN
     RAISE EXCEPTION
       'The serialized quiz voucher function shape changed; refusing to patch its reserved-order metadata update';
   END IF;

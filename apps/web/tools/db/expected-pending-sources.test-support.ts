@@ -281,6 +281,6 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828160000_persist_quiz_reserved_order_delivery_metadata.sql',
-    sha256: '4365cff1c2a3459a5a139f765bc8997768ba1ac55f59c9ae6834fdb8a7ad2823',
+    sha256: 'bff3c706c64afef80bbde9012c4a50465022d33cb2053701ebf024dab9a67f6b',
   },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
