@@ -183,24 +183,47 @@ test('binds a Let’s Encrypt-style relative certificate symlink within the moun
   }
 });
 
-test('fails closed for a marker-bearing relative symlink with clean target bytes', async () => {
+test('records a marker-bearing Certbot symlink as sanitized consumer evidence', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-container-bind-marker-symlink-'))
   );
   try {
-    const target = join(directory, 'ollama');
-    await writeFile(target, '#!/bin/sh\nexit 0\n');
-    await symlink('./ollama', join(directory, 'ai-backend'));
+    const source = join(directory, 'letsencrypt');
+    const archive = join(source, 'archive', 'ollama.usebaci.com');
+    const live = join(source, 'live', 'ollama.usebaci.com');
+    await mkdir(archive, { recursive: true });
+    await mkdir(live, { recursive: true });
+    await writeFile(join(archive, 'cert3.pem'), 'certificate bytes\n');
+    await symlink(
+      '../../archive/ollama.usebaci.com/cert3.pem',
+      join(live, 'cert.pem')
+    );
+
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `${portableFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT HUP INT TERM; if container_bind_directory_consumers generic-api "$3" /etc/letsencrypt; then status=0; else status=$?; fi; [ "$status" -eq 0 ] || exit "$status"`,
+      'retire-ollama-container-bind-marker-symlink-test',
+      script.pathname,
+      directory,
+      source,
+    ]);
+
+    assert.match(
+      stdout,
+      /^container-bind-directory-link:[a-f0-9]{64}:[a-f0-9]{64}\|[a-f0-9]{64}\n?$/
+    );
+    assert.doesNotMatch(stdout, /ollama\.usebaci\.com|cert3\.pem/);
 
     await assert.rejects(
       execFileAsync('sh', [
         '-c',
         `${portableFilesystem}
-. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT HUP INT TERM; output=$(temp_path); if container_bind_directory_snapshot "$3" "$output"; then exit 5; else status=$?; fi; [ "$status" -eq 2 ] && [ ! -e "$output" ] || exit 4; exit 2`,
-        'retire-ollama-container-bind-marker-symlink-test',
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; grep() { return 2; }; output=$(temp_path); if container_bind_directory_snapshot "$3" "$output"; then exit 5; else status=$?; fi; [ "$status" -eq 2 ] && [ ! -e "$output" ] || exit 4; exit 2`,
+        'retire-ollama-container-bind-marker-grep-failure-test',
         script.pathname,
         directory,
-        directory,
+        source,
       ]),
       (error) => error.code === 2
     );
