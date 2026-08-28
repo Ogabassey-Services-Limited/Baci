@@ -33,6 +33,9 @@ atomic_migration_group_next_base() {
     20260828160000_persist_quiz_reserved_order_delivery_metadata)
       printf '%s\n' '20260828160100_preserve_quiz_reserved_order_delivery_metadata'
       ;;
+    20260828160100_preserve_quiz_reserved_order_delivery_metadata)
+      printf '%s\n' '20260828160200_limit_quiz_reserved_order_delivery_validation_to_redemption'
+      ;;
     *)
       return 1
       ;;

@@ -1,3 +1,4 @@
+import { LEGACY_AIRPORT_DELIVERY_FEE } from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { validateAirportDeliveryAddress } from '@/lib/checkout/airport-delivery-address';
 import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
@@ -28,6 +29,7 @@ interface ValidateLocalAirportDeliveryFeeInput {
   shippingFee: number;
   shippingProvider?: string | null;
   shippingRateId?: string | null;
+  source?: string;
   supabase: SupabaseClient;
 }
 
@@ -130,11 +132,20 @@ export async function validateLocalAirportDeliveryFee({
   shippingFee,
   shippingProvider,
   shippingRateId,
+  source,
   supabase,
 }: ValidateLocalAirportDeliveryFeeInput): Promise<LocalAirportDeliveryFeeValidationResult> {
   let resolvedDeliveryMethod = deliveryMethod;
   let resolvedAirportType = airportType;
   const legacyAirportType = getLegacyAirportType(shippingAddress?.address);
+  const isLegacyMobileAirportDelivery =
+    source === 'mobile_app' &&
+    deliveryMethod === undefined &&
+    airportType === undefined &&
+    legacyAirportType === 'delivery' &&
+    !selectedQuoteId &&
+    !shippingRateId &&
+    Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01;
   if (
     legacyAirportType !== null &&
     deliveryMethod !== undefined &&
@@ -256,15 +267,26 @@ export async function validateLocalAirportDeliveryFee({
   const localAirportShippingFeeMismatch =
     localAirportShippingFee !== null &&
     Math.abs(shippingFee - localAirportShippingFee) > 0.01;
-  const isIdempotentLocalAirportReplay = localAirportShippingFeeMismatch
-    ? await isConfirmedLocalAirportReplay({
-        merchantId,
-        requestIdempotencyKey,
-        supabase,
-      })
-    : false;
+  // Released mobile clients submitted the legacy fixed amount before the
+  // request gained delivery metadata. Keep those requests serviceable while
+  // charging the current server-owned fee; never accept the old amount as the
+  // persisted shipping fee.
+  const shouldUseServerOwnedLegacyFee =
+    localAirportShippingFeeMismatch && isLegacyMobileAirportDelivery;
+  const isIdempotentLocalAirportReplay =
+    localAirportShippingFeeMismatch && !shouldUseServerOwnedLegacyFee
+      ? await isConfirmedLocalAirportReplay({
+          merchantId,
+          requestIdempotencyKey,
+          supabase,
+        })
+      : false;
 
-  if (localAirportShippingFeeMismatch && !isIdempotentLocalAirportReplay) {
+  if (
+    localAirportShippingFeeMismatch &&
+    !isIdempotentLocalAirportReplay &&
+    !shouldUseServerOwnedLegacyFee
+  ) {
     logger.warn({
       message: 'Storefront order rejected: local airport shipping fee mismatch',
       clientShippingFee: shippingFee,
@@ -277,7 +299,12 @@ export async function validateLocalAirportDeliveryFee({
   }
 
   return {
-    ...resolvedDeliveryMetadata,
+    ...(shouldUseServerOwnedLegacyFee
+      ? {
+          resolvedDeliveryMethod: 'airport' as const,
+          resolvedAirportType: 'delivery' as const,
+        }
+      : resolvedDeliveryMetadata),
     isIdempotentLocalAirportReplay,
     localAirportShippingFee,
   };

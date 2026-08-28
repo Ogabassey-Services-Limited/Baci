@@ -7324,6 +7324,39 @@ describe('POST /api/orders — merchant shipping rate enforcement', () => {
     );
   });
 
+  it('charges the current airport fee for a legacy mobile request', async () => {
+    const supabase = await primeStorefrontClient();
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          source: 'mobile_app',
+          shipping_address: {
+            ...baseOrderPayload.shipping_address,
+            address: 'Airport Delivery (Outside Lagos)',
+            city: 'Airport',
+            state: 'Nigeria',
+          },
+          shipping_fee: 25_000,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_ad_tracking: expect.objectContaining({
+          __baci_airport_type: 'delivery',
+          __baci_delivery_method: 'airport',
+        }),
+        p_shipping_fee: 35_000,
+      })
+    );
+  });
+
   it('rejects a metadata-free legacy airport amount when no non-airport method is verifiable', async () => {
     // Arrange — an older airport checkout can carry a real street address and
     // therefore no legacy airport label. Do not trust its old 25,000 fee.

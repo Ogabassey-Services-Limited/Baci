@@ -1,6 +1,7 @@
-import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
-
-const LEGACY_AIRPORT_DELIVERY_FEE = 25_000;
+import {
+  AIRPORT_DELIVERY_FEES,
+  LEGACY_AIRPORT_DELIVERY_FEE,
+} from '@baci/shared/constants';
 
 type AirportType = 'delivery' | 'pickup';
 

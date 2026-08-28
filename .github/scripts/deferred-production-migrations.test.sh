@@ -166,7 +166,8 @@ jq -e -s \
 jq -e -s \
   --arg quiz "SELECT 'quiz-reserved-delivery-metadata';" \
   --arg preserve "SELECT 'quiz-reserved-delivery-metadata-preserve';" \
-  '[.[].query | select(contains($quiz) and contains($preserve))] | length == 1' \
+  --arg scope "SELECT 'quiz-reserved-delivery-validation-scope';" \
+  '[.[].query | select(contains($quiz) and contains($preserve) and contains($scope))] | length == 1' \
   "$deferred_postdeploy_log" >/dev/null
 jq -e -s \
   --arg scope "SELECT 'quiz-reserved-delivery-validation-scope';" \

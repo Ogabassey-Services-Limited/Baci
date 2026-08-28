@@ -231,6 +231,41 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('charges the current fee for a released mobile client using the legacy airport marker and amount', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      shippingAddress: {
+        address: 'Airport Delivery (Outside Lagos)',
+        city: 'Airport',
+        state: 'Nigeria',
+      },
+      shippingFee: 25_000,
+      source: 'mobile_app',
+      supabase: mockSupabase(null),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: false,
+      localAirportShippingFee: 35_000,
+      resolvedDeliveryMethod: 'airport',
+      resolvedAirportType: 'delivery',
+    });
+  });
+
+  it('does not extend the legacy fee compatibility path to another source', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      shippingAddress: { address: 'Airport Delivery' },
+      shippingFee: 25_000,
+      source: 'online_store',
+      supabase: mockSupabase(null),
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(
+      LocalAirportDeliveryFeeMismatchError
+    );
+  });
+
   it('rejects non-airport metadata that contradicts a legacy airport address marker', async () => {
     const promise = validateLocalAirportDeliveryFee({
       deliveryMethod: 'door',

@@ -1626,6 +1626,7 @@ export async function POST(request: NextRequest) {
         shippingFee: shippingFeeValue,
         shippingProvider: body.shipping_provider,
         shippingRateId: body.shipping_rate_id,
+        source,
         supabase,
       });
       ({ isIdempotentLocalAirportReplay, localAirportShippingFee } =

@@ -136,15 +136,15 @@ sorted_files=("${files[@]}")
 applied_count=0
 skipped_count=0
 deferred_count=0
-atomic_group_skip_base=''
+atomic_group_skip_bases=''
 
 for file in "${sorted_files[@]}"; do
   base="$(basename "$file" .sql)"
   version="${base%%_*}"
   name="${base#*_}"
 
-  if [ "$base" = "$atomic_group_skip_base" ]; then
-    atomic_group_skip_base=''
+  if [ -n "$atomic_group_skip_bases" ] && \
+    printf '%s\n' "$atomic_group_skip_bases" | grep -Fqx -- "$base"; then
     continue
   fi
 
@@ -193,11 +193,24 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
-  if next_base="$(atomic_migration_group_next_base "$base")" && \
-    [ -f "$migrations_dir/${next_base}.sql" ] && \
-    [ -z "$(awk -F '\t' -v version="${next_base%%_*}" '$1 == version { print $2; exit }' <<<"$applied_migrations")" ]; then
-    apply_atomic_migration_group "$file" "$migrations_dir/${next_base}.sql" || exit 1
-    atomic_group_skip_base="$next_base"
+  atomic_group_files=()
+  atomic_group_cursor="$base"
+  atomic_group_candidate_skip_bases=''
+  while next_base="$(atomic_migration_group_next_base "$atomic_group_cursor")"; do
+    next_file="$migrations_dir/${next_base}.sql"
+    if [ ! -f "$next_file" ] || \
+      [ -n "$(awk -F '\t' -v version="${next_base%%_*}" '$1 == version { print $2; exit }' <<<"$applied_migrations")" ]; then
+      atomic_group_files=()
+      atomic_group_candidate_skip_bases=''
+      break
+    fi
+    atomic_group_files+=("$next_file")
+    atomic_group_candidate_skip_bases="${atomic_group_candidate_skip_bases}${atomic_group_candidate_skip_bases:+$'\n'}${next_base}"
+    atomic_group_cursor="$next_base"
+  done
+  if [ "${#atomic_group_files[@]}" -gt 0 ]; then
+    apply_atomic_migration_group "$file" "${atomic_group_files[@]}" || exit 1
+    atomic_group_skip_bases="$atomic_group_candidate_skip_bases"
     continue
   fi
 
