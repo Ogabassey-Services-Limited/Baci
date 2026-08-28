@@ -155,6 +155,9 @@ const factoryExports: Readonly<Record<FactoryKind, readonly string[]>> = {
   server: ['createClient'],
   service: ['createServiceClient'],
 };
+const serviceSentinels: Readonly<Record<string, string>> = {
+  'apps/web/src/lib/ads/server-credential-client.ts': 'ads-credentials',
+};
 // biome-ignore format: exact construction allowlist preserves the 300-line verifier gate.
 const privilegedRouteAdminConstructors = ['apps/web/src/app/api/platform/events/platform-event-forwarding.ts'] as const;
 // biome-ignore format: compact signature preserves the 300-line verifier gate.
@@ -235,9 +238,13 @@ export function authorityFindings(path: string, sourceFile: ts.SourceFile): stri
         node
       ).found;
       if (kind && !shadowed && !exemptFactory) {
+        const requiredSentinel =
+          kind === 'service'
+            ? serviceSentinels[path] ?? 'event-pipeline'
+            : 'event-pipeline';
         const sentinel = node.arguments.some(
           (argument) =>
-            ts.isStringLiteral(argument) && argument.text === 'event-pipeline'
+            ts.isStringLiteral(argument) && argument.text === requiredSentinel
         );
         if (
           kind === 'sdk' &&
@@ -253,7 +260,7 @@ export function authorityFindings(path: string, sourceFile: ts.SourceFile): stri
             path.endsWith('/record-platform-order-created-event.ts')) ||
           (kind === 'server' && path.includes('/api/admin/event-pipeline/'));
         if (sentinelRequired && !sentinel)
-          add(`${kind} factory requires event-pipeline sentinel`);
+          add(`${kind} factory requires ${requiredSentinel} sentinel`);
         // biome-ignore format: compact authority guard preserves the 300-line verifier gate.
         if ((kind === 'service' || kind === 'admin') && path.includes('/app/api/') && !listed(kind === 'service' ? authority.serviceImporters : privilegedRouteAdminConstructors))
           add('privileged route client construction is forbidden');

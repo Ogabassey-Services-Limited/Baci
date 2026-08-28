@@ -22,7 +22,7 @@ describe('analytics delivery authority manifest', () => {
       'apps/web/src/lib/analytics/trusted-server-ad-platform-fanout.ts':
         '2f330fb4efcd9cbcbef7a524f43232572082908e4f73e27d72a8cbb8636380b5',
       'apps/web/src/lib/supabase/service.ts':
-        '13e10a25092e1a53c8f091b3576e804f6e1268f55d63393d2a2231ddc46cc5bc',
+        '71e29bc441be13550aaf436b2cf123825ed196072668772115aaf384b5fe6ef1',
     });
   });
 
@@ -40,6 +40,11 @@ describe('analytics delivery authority manifest', () => {
 
   it('classifies five caller-scoped roots separately from platform settings', () => {
     expect(Object.keys(manifest.callerScopedRouteHashes)).toHaveLength(5);
+    expect(
+      manifest.callerScopedRouteHashes[
+        'apps/web/src/app/api/analytics/ads/route.ts'
+      ]
+    ).toBe('dc74e421113d3447a816559282bcd0612c49d68d92403cafe5e9cb7001a35e50');
     expect(manifest.platformRouteHash).toEqual({
       path: 'apps/web/src/app/api/platform/events/route.ts',
       sha256:

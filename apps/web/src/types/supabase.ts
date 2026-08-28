@@ -9,6 +9,151 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      merchant_ad_connections: {
+        Row: {
+          access_token_ciphertext: string | null;
+          created_at: string;
+          id: string;
+          last_synced_at: string | null;
+          last_synced_end_date: string | null;
+          last_synced_start_date: string | null;
+          merchant_id: string;
+          metadata: Json;
+          account_timezone: string | null;
+          attribution_metadata: Json;
+          provider: string;
+          provider_account_label: string | null;
+          provider_customer_id: string | null;
+          refresh_token_ciphertext: string | null;
+          scopes: string[];
+          status: string;
+          sync_run_id: string | null;
+          sync_run_started_at: string | null;
+          token_expires_at: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          access_token_ciphertext?: string | null;
+          created_at?: string;
+          id?: string;
+          last_synced_at?: string | null;
+          last_synced_end_date?: string | null;
+          last_synced_start_date?: string | null;
+          merchant_id: string;
+          metadata?: Json;
+          account_timezone?: string | null;
+          attribution_metadata?: Json;
+          provider?: string;
+          provider_account_label?: string | null;
+          provider_customer_id?: string | null;
+          refresh_token_ciphertext?: string | null;
+          scopes?: string[];
+          status?: string;
+          sync_run_id?: string | null;
+          sync_run_started_at?: string | null;
+          token_expires_at?: string | null;
+          updated_at?: string;
+        };
+        Update: {
+          access_token_ciphertext?: string | null;
+          created_at?: string;
+          id?: string;
+          last_synced_at?: string | null;
+          last_synced_end_date?: string | null;
+          last_synced_start_date?: string | null;
+          merchant_id?: string;
+          metadata?: Json;
+          account_timezone?: string | null;
+          attribution_metadata?: Json;
+          provider?: string;
+          provider_account_label?: string | null;
+          provider_customer_id?: string | null;
+          refresh_token_ciphertext?: string | null;
+          scopes?: string[];
+          status?: string;
+          sync_run_id?: string | null;
+          sync_run_started_at?: string | null;
+          token_expires_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'merchant_ad_connections_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      merchant_ad_spend_daily: {
+        Row: {
+          account_timezone: string | null;
+          attribution_metadata: Json;
+          clicks: string;
+          conversions: string;
+          created_at: string;
+          currency_code: string;
+          fetched_at: string;
+          id: string;
+          impressions: string;
+          merchant_id: string;
+          provider: string;
+          provider_customer_id: string;
+          reach: string | null;
+          spend_amount_decimal: string | null;
+          spend_date: string;
+          spend_micros: string;
+          updated_at: string;
+        };
+        Insert: {
+          account_timezone?: string | null;
+          attribution_metadata?: Json;
+          clicks?: string;
+          conversions?: string;
+          created_at?: string;
+          currency_code: string;
+          fetched_at?: string;
+          id?: string;
+          impressions?: string;
+          merchant_id: string;
+          provider?: string;
+          provider_customer_id: string;
+          reach?: string | null;
+          spend_amount_decimal?: string | null;
+          spend_date: string;
+          spend_micros?: string;
+          updated_at?: string;
+        };
+        Update: {
+          account_timezone?: string | null;
+          attribution_metadata?: Json;
+          clicks?: string;
+          conversions?: string;
+          created_at?: string;
+          currency_code?: string;
+          fetched_at?: string;
+          id?: string;
+          impressions?: string;
+          merchant_id?: string;
+          provider?: string;
+          provider_customer_id?: string;
+          reach?: string | null;
+          spend_amount_decimal?: string | null;
+          spend_date?: string;
+          spend_micros?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'merchant_ad_spend_daily_merchant_id_fkey';
+            columns: ['merchant_id'];
+            isOneToOne: false;
+            referencedRelation: 'merchants';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       agentic_cart_sessions: {
         Row: {
           agent_id: string | null;
@@ -16060,6 +16205,15 @@ export type Database = {
           sales_trend: string;
         }[];
       };
+      get_inventory_forecast_dashboard: {
+        Args: {
+          p_limit?: number;
+          p_low_stock_only?: boolean;
+          p_merchant_id: string;
+          p_offset?: number;
+        };
+        Returns: Json;
+      };
       calculate_loyalty_tier: {
         Args: { p_lifetime_points: number; p_merchant_id: string };
         Returns: string;
@@ -17811,6 +17965,68 @@ export type Database = {
       get_merchant_analytics_config: {
         Args: { p_merchant_id: string };
         Returns: Json;
+      };
+      get_google_ads_connection_secret: {
+        Args: { p_merchant_id: string };
+        Returns: {
+          access_token_ciphertext: string | null;
+          id: string;
+          provider_customer_id: string | null;
+          refresh_token_ciphertext: string | null;
+          status: string;
+          token_expires_at: string | null;
+        }[];
+      };
+      get_merchant_ads_connection_secret: {
+        Args: { p_merchant_id: string; p_provider: string };
+        Returns: {
+          access_token_ciphertext: string | null;
+          id: string;
+          provider_customer_id: string | null;
+          refresh_token_ciphertext: string | null;
+          status: string;
+          token_expires_at: string | null;
+        }[];
+      };
+      consume_snapchat_ads_oauth_state_nonce: {
+        Args: {
+          p_merchant_id: string;
+          p_nonce: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      consume_merchant_ads_oauth_state_nonce: {
+        Args: {
+          p_merchant_id: string;
+          p_nonce: string;
+          p_provider: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      reserve_merchant_ads_oauth_state_nonce: {
+        Args: {
+          p_expires_at: string;
+          p_merchant_id: string;
+          p_nonce: string;
+          p_provider: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
+      reserve_snapchat_ads_oauth_state_nonce: {
+        Args: {
+          p_expires_at: string;
+          p_merchant_id: string;
+          p_nonce: string;
+          p_redirect_uri: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
       };
       get_merchant_balance: {
         Args: { currency_param: string; merchant_id_param: string };
@@ -20287,6 +20503,193 @@ export type Database = {
           p_signed_amount: number;
         };
         Returns: boolean;
+      };
+      set_google_ads_customer: {
+        Args: {
+          p_expected_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_provider_customer_id: string;
+        };
+        Returns: boolean;
+      };
+      update_google_ads_connection_token: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_merchant_id: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
+      update_google_ads_connection_token_if_current: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_expected_access_token_ciphertext: string | null;
+          p_expected_refresh_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
+      upsert_google_ads_connection: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_merchant_id: string;
+          p_provider_customer_id: string | null;
+          p_refresh_token_ciphertext: string;
+          p_scopes: string[];
+          p_status: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: string;
+      };
+      upsert_google_ads_spend_daily: {
+        Args: { p_merchant_id: string; p_rows: Json };
+        Returns: number;
+      };
+      replace_google_ads_spend_daily: {
+        Args: {
+          p_end_date: string;
+          p_merchant_id: string;
+          p_provider_customer_id: string;
+          p_rows: Json;
+          p_start_date: string;
+          p_sync_run_id: string;
+        };
+        Returns: number;
+      };
+      mark_google_ads_connection_synced: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
+      mark_google_ads_connection_reauth_if_current: {
+        Args: {
+          p_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_reason: string;
+          p_refresh_token_ciphertext: string | null;
+        };
+        Returns: boolean;
+      };
+      delete_google_ads_connection: {
+        Args: { p_merchant_id: string };
+        Returns: boolean;
+      };
+      delete_merchant_ads_connection: {
+        Args: { p_merchant_id: string; p_provider: string };
+        Returns: boolean;
+      };
+      mark_merchant_ads_connection_synced: {
+        Args: { p_merchant_id: string; p_provider: string };
+        Returns: boolean;
+      };
+      mark_merchant_ads_connection_synced_if_current: {
+        Args: {
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_customer_id: string;
+          p_sync_run_id: string;
+          p_sync_window_end_date: string;
+          p_sync_window_start_date: string;
+        };
+        Returns: boolean;
+      };
+      mark_merchant_ads_connection_sync_started_if_current: {
+        Args: {
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_customer_id: string;
+          p_sync_run_id: string;
+          p_sync_run_started_at: string;
+          p_sync_window_end_date: string;
+          p_sync_window_start_date: string;
+        };
+        Returns: boolean;
+      };
+      get_merchant_ads_sync_run_started_at: {
+        Args: {
+          p_merchant_id: string;
+          p_provider: string;
+          p_sync_run_id: string;
+        };
+        Returns: string | null;
+      };
+      mark_merchant_ads_connection_reauth: {
+        Args: { p_merchant_id: string; p_reason: string };
+        Returns: boolean;
+      };
+      mark_merchant_ads_connection_reauth_if_current: {
+        Args: {
+          p_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_provider: string;
+          p_reason: string;
+          p_refresh_token_ciphertext: string | null;
+        };
+        Returns: boolean;
+      };
+      set_merchant_ads_account: {
+        Args: {
+          p_account_timezone: string | null;
+          p_attribution_metadata: Json | null;
+          p_expected_access_token_ciphertext: string | null;
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_account_label: string | null;
+          p_provider_customer_id: string;
+        };
+        Returns: boolean;
+      };
+      update_merchant_ads_connection_token: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_merchant_id: string;
+          p_provider: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
+      update_snapchat_ads_connection_tokens: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_current_refresh_token_ciphertext: string;
+          p_merchant_id: string;
+          p_refresh_token_ciphertext: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: boolean;
+      };
+      upsert_merchant_ads_connection: {
+        Args: {
+          p_access_token_ciphertext: string;
+          p_account_timezone: string | null;
+          p_attribution_metadata: Json | null;
+          p_merchant_id: string;
+          p_metadata: Json | null;
+          p_provider: string;
+          p_provider_account_label: string | null;
+          p_provider_customer_id: string | null;
+          p_refresh_token_ciphertext: string | null;
+          p_scopes: string[] | null;
+          p_status: string;
+          p_token_expires_at: string | null;
+        };
+        Returns: string;
+      };
+      replace_merchant_ads_spend_daily_window: {
+        Args: {
+          p_end_date: string;
+          p_merchant_id: string;
+          p_provider: string;
+          p_provider_customer_id: string;
+          p_rows: Json;
+          p_start_date: string;
+          p_sync_run_id: string;
+        };
+        Returns: number;
+      };
+      upsert_merchant_ads_spend_daily: {
+        Args: { p_merchant_id: string; p_provider: string; p_rows: Json };
+        Returns: number;
       };
       set_customer_date_of_birth: {
         Args: { p_date_of_birth: string; p_merchant_id: string };
