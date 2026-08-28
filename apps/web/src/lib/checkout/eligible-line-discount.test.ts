@@ -296,4 +296,27 @@ describe('computeEligibleLineDiscount', () => {
       buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
     ]);
   });
+
+  it('uses duplicate occurrence ordinals instead of caller line ids', () => {
+    const lineKey = buildTransactionDiscountLineKey({
+      productId: 'product-1',
+      variantId: null,
+    });
+    const result = computeEligibleLineDiscount([
+      line({ clientUnitPrice: 980, lineId: 800 }),
+      line({ clientUnitPrice: 990, lineId: 801 }),
+    ]);
+
+    expect(
+      result.lineDiscounts
+        ?.filter(
+          (allocation): allocation is NonNullable<typeof allocation> =>
+            allocation !== null
+        )
+        .map((allocation) => allocation.lineKey)
+    ).toEqual([
+      buildTransactionDiscountLineOccurrenceKey(lineKey, 1),
+      buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
+    ]);
+  });
 });

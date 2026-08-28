@@ -1,3 +1,4 @@
+import { buildTransactionDiscountLineOccurrenceKey } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
@@ -109,6 +110,49 @@ describe('getDiscountedTransactionUnitPrices', () => {
     });
 
     expect(prices).toEqual([0, 180]);
+  });
+
+  it('matches duplicate line allocations by ascending persisted line id', () => {
+    const lineKey = '["product-duplicate",null,null,{}]';
+    const items = [
+      {
+        line_id: 801,
+        price: 100,
+        product_id: 'product-duplicate',
+        quantity: 1,
+        variant_id: null,
+      },
+      {
+        line_id: 800,
+        price: 100,
+        product_id: 'product-duplicate',
+        quantity: 1,
+        variant_id: null,
+      },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 30, {
+      lineDiscounts: [
+        {
+          lineId: 1,
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 1),
+          merchandiseDiscount: 10,
+          productId: 'product-duplicate',
+          vatRelief: 0,
+          variantId: null,
+        },
+        {
+          lineId: 2,
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
+          merchandiseDiscount: 20,
+          productId: 'product-duplicate',
+          vatRelief: 0,
+          variantId: null,
+        },
+      ],
+    });
+
+    expect(prices).toEqual([80, 90]);
   });
 
   it('allocates discounts across merchandise and assurance fees', () => {

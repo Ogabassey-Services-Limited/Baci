@@ -6,6 +6,14 @@ function withoutLineId(selector: string) {
   return selector.replace('order_items(id, line_id, ', 'order_items(id, ');
 }
 
+function withoutVariantId(selector: string) {
+  return selector.replace(', variant_id', '');
+}
+
+function withoutDiscountAmount(selector: string) {
+  return selector.replace(', discount_amount', '');
+}
+
 const transactionReviewSelectors = {
   base: 'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, external_source, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseCompat:
@@ -67,6 +75,36 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   fullNoLineId: withoutLineId(transactionReviewSelectors.full),
   fullNoLineIdNoTaxAmount: withoutTaxAmount(
     withoutLineId(transactionReviewSelectors.full)
+  ),
+  fullNoVariantId: withoutVariantId(transactionReviewSelectors.full),
+  fullNoVariantIdNoTaxAmount: withoutTaxAmount(
+    withoutVariantId(transactionReviewSelectors.full)
+  ),
+  fullNoVariantIdNoDiscountCode: withoutVariantId(
+    transactionReviewSelectors.fullNoDiscountCode
+  ),
+  fullNoVariantIdNoDiscountCodeNoTaxAmount: withoutTaxAmount(
+    withoutVariantId(transactionReviewSelectors.fullNoDiscountCode)
+  ),
+  fullNoDiscountCodeNoDiscount: withoutDiscountAmount(
+    transactionReviewSelectors.fullNoDiscountCode
+  ),
+  fullNoDiscountCodeNoDiscountNoTaxAmount: withoutTaxAmount(
+    withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
+  ),
+  fullNoVariantIdNoDiscount: withoutVariantId(
+    transactionReviewSelectors.fullNoDiscount
+  ),
+  fullNoVariantIdNoDiscountNoTaxAmount: withoutTaxAmount(
+    withoutVariantId(transactionReviewSelectors.fullNoDiscount)
+  ),
+  fullNoVariantIdNoDiscountCodeNoDiscount: withoutVariantId(
+    withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
+  ),
+  fullNoVariantIdNoDiscountCodeNoDiscountNoTaxAmount: withoutTaxAmount(
+    withoutVariantId(
+      withoutDiscountAmount(transactionReviewSelectors.fullNoDiscountCode)
+    )
   ),
   fullNoDiscountCodeNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.fullNoDiscountCode

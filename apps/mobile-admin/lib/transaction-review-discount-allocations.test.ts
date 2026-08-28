@@ -4,6 +4,7 @@ import {
 } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import { getValidatedExplicitLineDiscounts } from './transaction-review-discount-allocations';
+import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
 
 describe('getValidatedExplicitLineDiscounts', () => {
   it('matches persisted allocations by product and variant identity', () => {
@@ -49,28 +50,29 @@ describe('getValidatedExplicitLineDiscounts', () => {
     expect(result).toBeUndefined();
   });
 
-  it('accepts occurrence-safe keys for identical persisted lines', () => {
+  it('matches occurrence-safe keys by persisted order sequence, not global line ids', () => {
     const lineKey = buildTransactionDiscountLineKey({
       productId: 'product-1',
       variantId: null,
     });
+    const items = [
+      {
+        line_id: 800,
+        price: 100,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: null,
+      },
+      {
+        line_id: 801,
+        price: 100,
+        product_id: 'product-1',
+        quantity: 1,
+        variant_id: null,
+      },
+    ];
     const result = getValidatedExplicitLineDiscounts(
-      [
-        {
-          line_id: 8,
-          price: 100,
-          product_id: 'product-1',
-          quantity: 1,
-          variant_id: null,
-        },
-        {
-          line_id: 9,
-          price: 100,
-          product_id: 'product-1',
-          quantity: 1,
-          variant_id: null,
-        },
-      ],
+      items,
       [
         { merchandiseTotal: 100, quantity: 1, total: 100 },
         { merchandiseTotal: 100, quantity: 1, total: 100 },
@@ -79,7 +81,7 @@ describe('getValidatedExplicitLineDiscounts', () => {
       [
         {
           lineId: 1,
-          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 8),
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 1),
           merchandiseDiscount: 10,
           productId: 'product-1',
           vatRelief: 0,
@@ -87,13 +89,14 @@ describe('getValidatedExplicitLineDiscounts', () => {
         },
         {
           lineId: 2,
-          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 9),
+          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
           merchandiseDiscount: 20,
           productId: 'product-1',
           vatRelief: 0,
           variantId: null,
         },
-      ]
+      ],
+      getPersistedLineKeyOccurrenceOrdinals(items)
     );
 
     expect(result?.mode).toBe('lineKey');

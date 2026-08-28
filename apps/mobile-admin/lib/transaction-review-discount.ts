@@ -3,6 +3,7 @@ import {
   getValidatedExplicitLineDiscounts,
   resolveTransactionDiscountAllocation,
 } from './transaction-review-discount-allocations';
+import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
 import type { TransactionDiscountOptions } from './transaction-review-discount-metadata';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
@@ -57,11 +58,13 @@ export function getDiscountedTransactionUnitPrices(
 
   const explicitLineDiscounts = options?.lineDiscounts;
   if (explicitLineDiscounts) {
+    const occurrenceOrdinals = getPersistedLineKeyOccurrenceOrdinals(items);
     let allocationsByLineId = getValidatedExplicitLineDiscounts(
       items,
       lineTotals,
       normalizedDiscount,
-      explicitLineDiscounts
+      explicitLineDiscounts,
+      occurrenceOrdinals
     );
     let voucherDiscount = 0;
     let fallbackMerchandiseDiscount = 0;
@@ -86,7 +89,8 @@ export function getDiscountedTransactionUnitPrices(
           items,
           lineTotals,
           explicitDiscount,
-          explicitLineDiscounts
+          explicitLineDiscounts,
+          occurrenceOrdinals
         );
         if (allocationsByLineId) {
           voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
@@ -138,7 +142,11 @@ export function getDiscountedTransactionUnitPrices(
       const item = items[index];
       const allocation =
         allocationsByLineId && item
-          ? resolveTransactionDiscountAllocation(allocationsByLineId, item)
+          ? resolveTransactionDiscountAllocation(
+              allocationsByLineId,
+              item,
+              occurrenceOrdinals?.get(index)
+            )
           : undefined;
       if (
         voucherLineIndexes.has(index) &&

@@ -84,4 +84,22 @@ describe('legacy transaction discount detection', () => {
       )
     ).toBe(false);
   });
+
+  it('does not classify a historically backfilled admin edit as a negotiation', () => {
+    const result = isLegacyVatInclusiveNegotiationDiscount(
+      {
+        ...baseOrder,
+        ad_tracking: {
+          baci_transaction_discount: {
+            source: 'historical_audit',
+            status: 'admin_edit',
+            version: 4,
+          },
+        },
+      },
+      baseOrder.order_items ?? []
+    );
+
+    expect(result).toBe(false);
+  });
 });

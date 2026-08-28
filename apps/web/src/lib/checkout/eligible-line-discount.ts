@@ -56,7 +56,7 @@ export function computeEligibleLineDiscount(
   let totalDiscount = 0;
   const lineDiscounts: Array<EligibleLineDiscountAllocation | null> = [];
   const productVariantCounts = new Map<string, number>();
-  const persistedLineKeyCounts = new Map<string, number>();
+  const lineKeyCounts = new Map<string, number>();
   for (const line of lines) {
     const identity = JSON.stringify([line.productId, line.variantId]);
     productVariantCounts.set(
@@ -69,11 +69,10 @@ export function computeEligibleLineDiscount(
       variantAttributes: line.variantAttributes,
       variantId: line.variantId,
     });
-    persistedLineKeyCounts.set(
-      lineKey,
-      (persistedLineKeyCounts.get(lineKey) ?? 0) + 1
-    );
+    lineKeyCounts.set(lineKey, (lineKeyCounts.get(lineKey) ?? 0) + 1);
   }
+
+  const lineKeyOccurrences = new Map<string, number>();
 
   for (const [lineIndex, lineInput] of lines.entries()) {
     const resolvedLineId =
@@ -84,6 +83,14 @@ export function computeEligibleLineDiscount(
         : lineIndex + 1;
     const outputLineIndex = resolvedLineId - 1;
     lineDiscounts[outputLineIndex] = null;
+    const lineKey = buildTransactionDiscountLineKey({
+      condition: lineInput.condition,
+      productId: lineInput.productId,
+      variantAttributes: lineInput.variantAttributes,
+      variantId: lineInput.variantId,
+    });
+    const occurrenceOrdinal = (lineKeyOccurrences.get(lineKey) ?? 0) + 1;
+    lineKeyOccurrences.set(lineKey, occurrenceOrdinal);
     const quantity = Number(lineInput.quantity);
     const catalogUnit = Number(lineInput.catalogUnitPrice);
     const clientUnit = Number(lineInput.clientUnitPrice);
@@ -145,21 +152,18 @@ export function computeEligibleLineDiscount(
       vatRelief: reductionVat,
       variantId: lineInput.variantId,
     };
-    const lineKey = buildTransactionDiscountLineKey({
-      condition: lineInput.condition,
-      productId: lineInput.productId,
-      variantAttributes: lineInput.variantAttributes,
-      variantId: lineInput.variantId,
-    });
     if (
       (productVariantCounts.get(
         JSON.stringify([lineInput.productId, lineInput.variantId])
       ) ?? 0) > 1
     ) {
       allocation.lineKey =
-        persistedLineKeyCounts.get(lineKey) === 1
+        (lineKeyCounts.get(lineKey) ?? 0) === 1
           ? lineKey
-          : buildTransactionDiscountLineOccurrenceKey(lineKey, resolvedLineId);
+          : buildTransactionDiscountLineOccurrenceKey(
+              lineKey,
+              occurrenceOrdinal
+            );
     }
     lineDiscounts[outputLineIndex] = allocation;
   }

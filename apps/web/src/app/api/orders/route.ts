@@ -20,6 +20,7 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
+import { addStorefrontOrderLineOrdinals } from '@/lib/checkout/add-storefront-order-line-ordinals';
 import { buildTransactionDiscountAdTracking } from '@/lib/checkout/build-transaction-discount-ad-tracking';
 import {
   CanonicalOrderSubtotalLoadError,
@@ -2456,12 +2457,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const orderItemsRpcPayload =
+      addStorefrontOrderLineOrdinals(orderItemsPayload);
+
     const orderRpcArgs = {
       p_merchant_id: merchant_id,
       p_customer_email: customer_email,
       p_customer_name: customer_name,
       p_customer_phone: customer_phone || null,
-      p_items: orderItemsPayload,
+      p_items: orderItemsRpcPayload,
       p_shipping_fee: effectiveShippingFee,
       p_discount_amount: discountCodeId
         ? discountCodeAmount

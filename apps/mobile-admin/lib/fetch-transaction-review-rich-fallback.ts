@@ -1,3 +1,4 @@
+import { fetchFullTransactionReviewRows } from './fetch-transaction-review-full-fallback';
 import { fetchTransactionReviewRows } from './fetch-transaction-review-rows';
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
@@ -10,7 +11,7 @@ export interface TransactionReviewFallbackQuery {
   startDateIso?: string;
 }
 
-type TransactionReviewQueryError = {
+export type TransactionReviewQueryError = {
   code?: string;
   details?: string;
   hint?: string;
@@ -139,64 +140,19 @@ export async function fetchRichTransactionReviewRows({
     startDateFilter,
     startDateIso,
   };
-  let { data, error } = await runTransactionReviewQueryWithTaxFallback(
-    'Full',
+  let { data, error } = await fetchFullTransactionReviewRows(
     {
       endDateFilter,
       endDateIso,
-      includeCancelledAt: true,
-      includeTransactionDate: true,
       merchantId,
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.full,
       startDateFilter,
       startDateIso,
     },
     {
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoTaxAmount,
-      stage: 'FullNoTaxAmount',
+      isMissingSchemaColumn,
+      runQueryWithTaxFallback: runTransactionReviewQueryWithTaxFallback,
     }
   );
-
-  if (isMissingSchemaColumn(error, 'discount_code_id')) {
-    ({ data, error } = await runTransactionReviewQueryWithTaxFallback(
-      'FullNoDiscountCode',
-      {
-        endDateFilter,
-        endDateIso,
-        includeCancelledAt: true,
-        includeTransactionDate: true,
-        merchantId,
-        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCode,
-        startDateFilter,
-        startDateIso,
-      },
-      {
-        selectStatement:
-          TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoTaxAmount,
-        stage: 'FullNoDiscountCodeNoTaxAmount',
-      }
-    ));
-  }
-
-  if (isMissingSchemaColumn(error, 'discount_amount')) {
-    ({ data, error } = await runTransactionReviewQueryWithTaxFallback(
-      'FullNoDiscount',
-      {
-        endDateFilter,
-        endDateIso,
-        includeCancelledAt: true,
-        includeTransactionDate: true,
-        merchantId,
-        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscount,
-        startDateFilter,
-        startDateIso,
-      },
-      {
-        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscountNoTaxAmount,
-        stage: 'FullNoDiscountNoTaxAmount',
-      }
-    ));
-  }
 
   if (isMissingSchemaColumn(error, 'variant_attributes')) {
     ({ data, error } = await runLegacyTransactionReviewQuery(

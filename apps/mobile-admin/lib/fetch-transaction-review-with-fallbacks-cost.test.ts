@@ -40,12 +40,13 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
 
     expect(result).toEqual({ data: rows, error: null });
     expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(6);
+    const richProjectionSelectors = mocks.fetchTransactionReviewRows.mock.calls
+      .map(([options]) => options.selectStatement)
+      .filter((selector) => selector.includes('product_variants'));
+    expect(richProjectionSelectors.length).toBeGreaterThan(0);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
+      richProjectionSelectors[richProjectionSelectors.length - 1]
     ).toContain('cost_price');
-    expect(
-      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
-    ).toContain('product_variants');
   });
 
   it('preserves cost relationships when discount code ids are unavailable', async () => {

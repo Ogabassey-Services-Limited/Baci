@@ -26,8 +26,13 @@ export function getValidatedLineKeyDiscounts(
   items: DiscountableTransactionItem[],
   lineTotals: DiscountLineTotal[],
   normalizedDiscount: number,
-  explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>
+  explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>,
+  occurrenceOrdinals?: Map<number, number>
 ): ValidatedLineKeyDiscounts | undefined {
+  if (occurrenceOrdinals == null) {
+    return undefined;
+  }
+
   const itemIndexesByLineKey = new Map<string, number[]>();
   const itemIndexesByIdentity = new Map<string, number[]>();
   for (const [itemIndex, item] of items.entries()) {
@@ -42,7 +47,10 @@ export function getValidatedLineKeyDiscounts(
     identityIndexes.push(itemIndex);
     itemIndexesByIdentity.set(identity, identityIndexes);
 
-    for (const lineKey of getPersistedLineKeyCandidates(item)) {
+    for (const lineKey of getPersistedLineKeyCandidates(
+      item,
+      occurrenceOrdinals.get(itemIndex)
+    )) {
       const lineKeyIndexes = itemIndexesByLineKey.get(lineKey) ?? [];
       lineKeyIndexes.push(itemIndex);
       itemIndexesByLineKey.set(lineKey, lineKeyIndexes);

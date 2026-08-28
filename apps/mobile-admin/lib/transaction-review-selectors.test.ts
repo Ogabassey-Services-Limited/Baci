@@ -39,6 +39,28 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('cost_price');
   });
 
+  it('keeps cost snapshots when variant ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoVariantId;
+
+    expect(selector).not.toContain('variant_id');
+    expect(selector).toContain('order_items(id, line_id, product_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
+  it('keeps cost snapshots when both discount columns are unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscount;
+
+    expect(selector).not.toContain('variant_id');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).not.toContain('discount_amount');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
   it('retains discount provenance in the line-id compatibility selector', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId;
 

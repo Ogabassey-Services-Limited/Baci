@@ -13,11 +13,10 @@ function hasPersistedTransactionDiscountMetadata(adTracking: unknown) {
 
 /**
  * Recognizes the capped auto-negotiation shape when older rows lack the
- * server-authored marker (including the admin-edit marker). The marker is the
- * reliable rollout boundary; a
- * wall-clock cutoff would misclassify orders created while app and database
- * deployments are rolling out. Discount-code and non-storefront sources stay
- * on the ordinary path because their discount provenance is different.
+ * server-authored marker. Current admin edits and historical edits recorded in
+ * order_audit_events are marked as admin edits before this heuristic runs;
+ * discount-code and non-storefront sources stay on the ordinary path because
+ * their discount provenance is different.
  */
 export function isLegacyVatInclusiveNegotiationDiscount(
   order: TransactionReviewOrderRow,

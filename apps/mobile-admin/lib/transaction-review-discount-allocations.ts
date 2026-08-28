@@ -41,7 +41,8 @@ export { toPositiveInteger } from './transaction-review-discount-helpers';
 
 export function resolveTransactionDiscountAllocation(
   allocations: ValidatedExplicitLineDiscounts,
-  item: DiscountableTransactionItem
+  item: DiscountableTransactionItem,
+  occurrenceOrdinal?: number
 ): TransactionDiscountLineAllocation | undefined {
   const identity =
     typeof item.product_id === 'string' &&
@@ -50,7 +51,10 @@ export function resolveTransactionDiscountAllocation(
       : null;
 
   if (allocations.mode === 'lineKey') {
-    for (const lineKey of getPersistedLineKeyCandidates(item)) {
+    for (const lineKey of getPersistedLineKeyCandidates(
+      item,
+      occurrenceOrdinal
+    )) {
       const keyedAllocation = allocations.allocationsByLineKey.get(lineKey);
       if (keyedAllocation) {
         return keyedAllocation;
@@ -81,7 +85,8 @@ export function getValidatedExplicitLineDiscounts(
     total: number;
   }>,
   normalizedDiscount: number,
-  explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>
+  explicitLineDiscounts: Array<TransactionDiscountLineAllocation | null>,
+  occurrenceOrdinals?: Map<number, number>
 ): ValidatedExplicitLineDiscounts | undefined {
   const usesPersistedLineKey = explicitLineDiscounts.some(
     (allocation) =>
@@ -93,7 +98,8 @@ export function getValidatedExplicitLineDiscounts(
       items,
       lineTotals,
       normalizedDiscount,
-      explicitLineDiscounts
+      explicitLineDiscounts,
+      occurrenceOrdinals
     );
   }
 
