@@ -183,6 +183,32 @@ test('binds a Let’s Encrypt-style relative certificate symlink within the moun
   }
 });
 
+test('fails closed for a marker-bearing relative symlink with clean target bytes', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-marker-symlink-'))
+  );
+  try {
+    const target = join(directory, 'ollama');
+    await writeFile(target, '#!/bin/sh\nexit 0\n');
+    await symlink('./ollama', join(directory, 'ai-backend'));
+
+    await assert.rejects(
+      execFileAsync('sh', [
+        '-c',
+        `${portableFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT HUP INT TERM; output=$(temp_path); if container_bind_directory_snapshot "$3" "$output"; then exit 5; else status=$?; fi; [ "$status" -eq 2 ] && [ ! -e "$output" ] || exit 4; exit 2`,
+        'retire-ollama-container-bind-marker-symlink-test',
+        script.pathname,
+        directory,
+        directory,
+      ]),
+      (error) => error.code === 2
+    );
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('fails closed for a relative bind-tree symlink that escapes the mounted tree', async () => {
   const parent = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-container-bind-symlink-escape-'))

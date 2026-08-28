@@ -248,7 +248,18 @@ container_scan_bindings() {
   scan_line=$3
   scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" state "$scan_status"; return 2; }
   case "$scan_state" in
-    true) scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }; running_container_validate "$scan_id" "$scan_name" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" running-container "$scan_status"; return "$scan_status"; }) || return 2 ;;
+    true)
+      scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }) || return 2
+      running_container_validate "$scan_id" "$scan_name" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" running-container "$scan_status"; return "$scan_status"; }
+      scan_bound_after=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }) || return 2
+      if [ -n "$scan_bound_after" ]; then
+        if [ -n "$scan_bound" ]; then
+          scan_bound=$(printf '%s\n%s\n' "$scan_bound" "$scan_bound_after" | sort -u) || return 2
+        else
+          scan_bound=$scan_bound_after
+        fi
+      fi
+      ;;
     false) scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }; container_argument_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-arguments "$scan_status"; return "$scan_status"; }; container_option_argument_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-options "$scan_status"; return "$scan_status"; }; container_environment_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" stopped-environment "$scan_status"; return "$scan_status"; }; container_healthcheck_consumers "$scan_id" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" healthcheck "$scan_status"; return "$scan_status"; }) || return 2 ;;
     *) container_scan_note_failure "$scan_id" state 2; return 2 ;;
   esac

@@ -99,9 +99,6 @@ temp_root_verify_base() {
   temp_root_base_fstype_current=$(temp_root_mount_fstype "$TEMP_ROOT_BASE") || return 1
   [ "$temp_root_base_fstype_current" = "$TEMP_ROOT_BASE_FSTYPE" ] || return 1
   [ "$(temp_root_mount_fstype_field "$temp_root_base_mount_current")" = "$TEMP_ROOT_BASE_FSTYPE" ] || return 1
-  temp_root_base_available_current=$(temp_root_available_bytes "$TEMP_ROOT_BASE") || return 1
-  case "$temp_root_base_available_current" in ''|*[!0-9]*) return 1;; esac
-  [ "$temp_root_base_available_current" -ge "$TEMP_ROOT_REQUIRED_BYTES" ]
 }
 temp_root_verify_root() {
   [ -n "$TEMP_ROOT" ] && [ -d "$TEMP_ROOT" ] && [ ! -L "$TEMP_ROOT" ] || return 1
