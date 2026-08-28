@@ -10,17 +10,14 @@ import { metaAdsSyncRequestSchema } from '@/schemas/meta-ads';
 import { resolveMetaAdsAccessToken } from './access-token';
 import { getMetaAdsConfig } from './config';
 import type { MetaAdsConnection } from './connection-types';
-import {
-  META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
-  META_ADS_PROVIDER,
-} from './constants';
-import { countMetaAdsConversions } from './conversion-count';
+import { META_ADS_PROVIDER } from './constants';
 import {
   fetchMetaAdsDailyInsights,
   listMetaAdsAccounts,
   MetaAdsProviderError,
   type MetaAdsUsageTelemetry,
 } from './provider';
+import { buildMetaAdsSpendRecords } from './spend-records';
 
 export class MetaAdsSyncError extends Error {
   readonly code: string;
@@ -244,32 +241,12 @@ async function syncSelectedMetaAdsAccount(input: {
       collectTelemetry
     );
     const fetchedAt = new Date().toISOString();
-    const records = insights.map((insight) => ({
-      account_timezone: account.timezoneName,
-      attribution_metadata: {
-        actionValues: insight.actionValues,
-        actions: insight.actions,
-        attributionSetting: insight.attributionSetting,
-        provider: 'meta_ads',
-        providerAttributedConversionAllowlistVersion:
-          META_ADS_CONVERSION_ACTION_ALLOWLIST_VERSION,
-        providerDateStart: insight.dateStart,
-        providerDateStop: insight.dateStop,
-        providerTimezoneOffsetHours: account.timezoneOffsetHours,
-        providerVersion: 'v25.0',
-        usageTelemetry,
-      },
-      clicks: insight.clicks,
-      conversions: countMetaAdsConversions(insight.actions),
-      currency_code: account.currencyCode,
-      fetched_at: fetchedAt,
-      impressions: insight.impressions,
-      provider_customer_id: insight.accountId,
-      reach: insight.reach,
-      spend_micros: '0',
-      spend_amount_decimal: insight.spendAmountDecimal,
-      spend_date: insight.dateStart,
-    }));
+    const records = buildMetaAdsSpendRecords({
+      account,
+      fetchedAt,
+      insights,
+      usageTelemetry,
+    });
     const { data: rowsWritten, error: spendWriteError } =
       await input.spendSupabase.rpc('replace_merchant_ads_spend_daily_window', {
         p_end_date: input.endDate,

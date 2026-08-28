@@ -16,6 +16,11 @@ import {
   type GoogleAdsAccount,
   GoogleAdsAccountList,
 } from './google-ads-account-list';
+import {
+  parseGoogleAdsAccounts,
+  parseGoogleAdsSyncRun,
+  readGoogleAdsError,
+} from './google-ads-account-picker-helpers';
 
 const ACCOUNTS_PATH = '/api/integrations/ads/google/accounts' as const;
 const SYNC_PATH = '/api/integrations/ads/google/sync' as const;
@@ -25,33 +30,6 @@ interface GoogleAdsAccountPickerProps {
   merchantId?: string;
   onSynced?: () => void;
   syncWindow?: AdsSyncWindow;
-}
-
-async function readError(
-  response: Response,
-  fallback: string
-): Promise<string> {
-  try {
-    const payload = (await response.json()) as { error?: unknown };
-    return typeof payload.error === 'string' ? payload.error : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function parseSyncRun(payload: unknown): AdsSyncRun | null {
-  if (typeof payload !== 'object' || payload === null) return null;
-  const value = payload as { syncRunId?: unknown; syncRunStartedAt?: unknown };
-  if (
-    typeof value.syncRunId !== 'string' ||
-    typeof value.syncRunStartedAt !== 'string'
-  ) {
-    return null;
-  }
-  return {
-    syncRunId: value.syncRunId,
-    syncRunStartedAt: value.syncRunStartedAt,
-  };
 }
 
 export function GoogleAdsAccountPicker({
@@ -83,30 +61,17 @@ export function GoogleAdsAccountPicker({
       });
       if (!response.ok) {
         throw new Error(
-          await readError(response, 'Unable to discover Google Ads accounts.')
+          await readGoogleAdsError(
+            response,
+            'Unable to discover Google Ads accounts.'
+          )
         );
       }
 
       const payload = (await response.json()) as {
         accounts?: unknown;
       };
-      const nextAccounts = Array.isArray(payload.accounts)
-        ? payload.accounts.flatMap((account) => {
-            if (typeof account !== 'object' || account === null) return [];
-            const value = account as {
-              customerId?: unknown;
-              selected?: unknown;
-            };
-            return typeof value.customerId === 'string'
-              ? [
-                  {
-                    customerId: value.customerId,
-                    selected: value.selected === true,
-                  },
-                ]
-              : [];
-          })
-        : [];
+      const nextAccounts = parseGoogleAdsAccounts(payload);
       setAccounts(nextAccounts);
       setSelectedCustomerId(
         nextAccounts.find((account) => account.selected)?.customerId ??
@@ -137,7 +102,7 @@ export function GoogleAdsAccountPicker({
       });
       if (!selectionResponse.ok) {
         throw new Error(
-          await readError(
+          await readGoogleAdsError(
             selectionResponse,
             'Unable to select the Google Ads account.'
           )
@@ -164,14 +129,14 @@ export function GoogleAdsAccountPicker({
           });
           if (!response.ok) {
             throw new Error(
-              await readError(
+              await readGoogleAdsError(
                 response,
                 'Google Ads account selected, but sync failed.'
               )
             );
           }
           if (index < windows.length - 1) {
-            const nextSyncRun = parseSyncRun(await response.json());
+            const nextSyncRun = parseGoogleAdsSyncRun(await response.json());
             if (!nextSyncRun) {
               throw new Error(
                 'Google Ads sync did not return a server-owned run.'
