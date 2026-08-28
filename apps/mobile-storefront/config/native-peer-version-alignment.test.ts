@@ -41,6 +41,10 @@ describe('bugfix: hoisted native peer versions', () => {
     expect(storefront.devDependencies['@react-native/metro-config']).toBe(
       admin.devDependencies['@react-native/metro-config']
     );
+    expect(storefront.devDependencies['@react-native/jest-preset']).toBe(
+      storefront.dependencies['react-native']
+    );
+    expect(storefront.devDependencies['jest-expo']).toBe('57.0.4');
   });
 
   it('resolves one MMKV native peer graph in the workspace lockfile', () => {
