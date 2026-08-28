@@ -18,7 +18,9 @@ export function OrderDetailsShippingSection({
 }: OrderDetailsShippingSectionProps) {
   const deliveryMethodLabel =
     deliveryMethod === 'airport'
-      ? 'Airport Delivery'
+      ? airportType === 'pickup'
+        ? 'Airport Pickup'
+        : 'Airport Delivery'
       : formatDeliveryMetadataLabel(deliveryMethod);
   const airportTypeLabel =
     deliveryMethod === 'airport'

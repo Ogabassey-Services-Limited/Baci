@@ -2735,7 +2735,7 @@ export async function POST(request: NextRequest) {
     const { data: orderCurrencyRow, error: orderCurrencyError } =
       await createAdminClient()
         .from('orders')
-        .select('currency, shipping_provider, delivery_method, airport_type')
+        .select('currency, shipping_provider')
         .eq('id', order.id)
         .maybeSingle();
     if (orderCurrencyError) {

@@ -289,6 +289,24 @@ describe('OrderDetailsClientPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('labels persisted airport pickup metadata as pickup', () => {
+    render(
+      <OrderDetailsClientPage
+        initialOrder={makeOrder({
+          airport_type: 'pickup',
+          delivery_method: 'airport',
+          shipping_provider: undefined,
+        })}
+      />
+    );
+
+    expect(screen.getByText('Delivery Method')).toBeInTheDocument();
+    expect(screen.getByText('Airport Pickup')).toBeInTheDocument();
+    expect(screen.getByText('Airport Type')).toBeInTheDocument();
+    expect(screen.getByText('Pickup')).toBeInTheDocument();
+    expect(screen.queryByText('Airport Delivery')).not.toBeInTheDocument();
+  });
+
   it('renders the pickup collection address and instructions for a merchant-pickup order', () => {
     render(
       <OrderDetailsClientPage

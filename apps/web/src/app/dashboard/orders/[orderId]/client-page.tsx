@@ -150,7 +150,9 @@ export default function OrderDetailsClientPage({
     : 'Provider';
   const deliveryMethodLabel =
     order.delivery_method === 'airport'
-      ? 'Airport Delivery'
+      ? order.airport_type === 'pickup'
+        ? 'Airport Pickup'
+        : 'Airport Delivery'
       : formatDeliveryMetadataLabel(order.delivery_method);
   const airportTypeLabel =
     order.delivery_method === 'airport'
