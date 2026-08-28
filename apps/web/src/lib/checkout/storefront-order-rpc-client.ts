@@ -37,6 +37,7 @@ export function createStorefrontOrderRpcClient({
       iat: issuedAt,
       role: 'authenticated',
       storefront_order_context: 'route',
+      storefront_order_hash_version: 2,
       storefront_order_merchant_id: normalizedMerchantId,
     };
 

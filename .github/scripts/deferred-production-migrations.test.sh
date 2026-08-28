@@ -54,6 +54,8 @@ printf '%s\n' "SELECT 'quiz-context';" \
   >"$deferred_dir/20260828101000_allow_legacy_quiz_award_order_context.sql"
 printf '%s\n' "SELECT 'hash-stamping';" \
   >"$deferred_dir/20260828110000_prepare_storefront_order_hash_stamping.sql"
+printf '%s\n' "SELECT 'hash-stamping-finalizer';" \
+  >"$deferred_dir/20260828110100_finalize_storefront_order_hash_stamping.sql"
 printf '%s\n' "SELECT 'replay-context';" \
   >"$deferred_dir/20260828120000_enforce_storefront_order_replay_route_context.sql"
 printf '%s\n' "SELECT 'replay-scope';" \
@@ -66,6 +68,10 @@ printf '%s\n' "SELECT 'pickup-location';" \
   >"$deferred_dir/20260828151000_enforce_storefront_airport_pickup_location.sql"
 printf '%s\n' "SELECT 'quiz-reserved-delivery-metadata';" \
   >"$deferred_dir/20260828160000_persist_quiz_reserved_order_delivery_metadata.sql"
+printf '%s\n' "SELECT 'quiz-reserved-delivery-metadata-preserve';" \
+  >"$deferred_dir/20260828160100_preserve_quiz_reserved_order_delivery_metadata.sql"
+printf '%s\n' "SELECT 'hash-version-context';" \
+  >"$deferred_dir/20260828170000_prepare_storefront_order_hash_version_context.sql"
 
 deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
 deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
@@ -80,21 +86,27 @@ PATH="$fake_bin:$PATH" \
 grep -q 'deferred until postdeploy: 20260827140000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828091000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828101000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828110000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828110100' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
 grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
 grep -q 'applied:         20260828150000  prepare_storefront_order_delivery_columns' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828151000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828160000' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 2 applied, 0 skipped, 8 deferred.' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828160100' "$deferred_predeploy_output"
+grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 3 applied, 0 skipped, 10 deferred.' "$deferred_predeploy_output"
 if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'hash-stamping'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'hash-stamping-finalizer'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'pickup-location'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_predeploy_log"; then
+  grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'quiz-reserved-delivery-metadata-preserve'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
@@ -112,24 +124,41 @@ PATH="$fake_bin:$PATH" \
 grep -q 'applied:         20260827140000  enforce_storefront_order_delivery_metadata' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828091000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828101000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828110100  finalize_storefront_order_hash_stamping' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828151000  enforce_storefront_airport_pickup_location' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828160000  persist_quiz_reserved_order_delivery_metadata' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828160100  preserve_quiz_reserved_order_delivery_metadata' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_postdeploy_output"
 grep -q "SELECT 'delivery-metadata'" "$deferred_postdeploy_log"
 grep -q "SELECT 'context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'hash-stamping'" "$deferred_postdeploy_log"
+grep -q "SELECT 'hash-stamping-finalizer'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-scope'" "$deferred_postdeploy_log"
 grep -q "SELECT 'pickup-location'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_postdeploy_log"
+grep -q "SELECT 'quiz-reserved-delivery-metadata-preserve'" "$deferred_postdeploy_log"
+grep -q "SELECT 'hash-version-context'" "$deferred_postdeploy_log"
 jq -e -s \
   --arg delivery "SELECT 'delivery-metadata';" \
   --arg context "SELECT 'context';" \
   --arg broad "SELECT 'replay-context';" \
   --arg scoped "SELECT 'replay-scope';" \
   '[.[].query | select(contains($delivery) and contains($context))] | length == 1' \
+  "$deferred_postdeploy_log" >/dev/null
+jq -e -s \
+  --arg hash "SELECT 'hash-stamping';" \
+  --arg hash_finalizer "SELECT 'hash-stamping-finalizer';" \
+  '[.[].query | select(contains($hash) and contains($hash_finalizer))] | length == 1' \
+  "$deferred_postdeploy_log" >/dev/null
+jq -e -s \
+  --arg quiz "SELECT 'quiz-reserved-delivery-metadata';" \
+  --arg preserve "SELECT 'quiz-reserved-delivery-metadata-preserve';" \
+  '[.[].query | select(contains($quiz) and contains($preserve))] | length == 1' \
   "$deferred_postdeploy_log" >/dev/null
 jq -e -s \
   --arg broad "SELECT 'replay-context';" \

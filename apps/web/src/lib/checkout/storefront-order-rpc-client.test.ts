@@ -40,6 +40,7 @@ describe('createStorefrontOrderRpcClient', () => {
       iat: 1_787_875_200,
       role: 'authenticated',
       storefront_order_context: 'route',
+      storefront_order_hash_version: 2,
       storefront_order_merchant_id: 'merchant-123',
       sub: 'user-456',
     });
@@ -60,6 +61,7 @@ describe('createStorefrontOrderRpcClient', () => {
       iat: 1_787_875_200,
       role: 'authenticated',
       storefront_order_context: 'route',
+      storefront_order_hash_version: 2,
       storefront_order_merchant_id: 'merchant-123',
     });
   });

@@ -1612,20 +1612,27 @@ export async function POST(request: NextRequest) {
 
     let localAirportShippingFee: number | null;
     let isIdempotentLocalAirportReplay: boolean;
+    let canonicalDeliveryMethod = delivery_method;
+    let canonicalAirportType = airport_type;
     try {
+      const validationResult = await validateLocalAirportDeliveryFee({
+        airportType: airport_type,
+        deliveryMethod: delivery_method,
+        merchantId: merchant_id,
+        requestIdempotencyKey,
+        selectedQuoteId: body.selected_quote_id,
+        shippingAddress: shipping_address,
+        shippingFee: shippingFeeValue,
+        shippingProvider: body.shipping_provider,
+        shippingRateId: body.shipping_rate_id,
+        supabase,
+      });
       ({ isIdempotentLocalAirportReplay, localAirportShippingFee } =
-        await validateLocalAirportDeliveryFee({
-          airportType: airport_type,
-          deliveryMethod: delivery_method,
-          merchantId: merchant_id,
-          requestIdempotencyKey,
-          selectedQuoteId: body.selected_quote_id,
-          shippingAddress: shipping_address,
-          shippingFee: shippingFeeValue,
-          shippingProvider: body.shipping_provider,
-          shippingRateId: body.shipping_rate_id,
-          supabase,
-        }));
+        validationResult);
+      canonicalDeliveryMethod =
+        validationResult.resolvedDeliveryMethod ?? delivery_method;
+      canonicalAirportType =
+        validationResult.resolvedAirportType ?? airport_type;
     } catch (error) {
       if (
         error instanceof LocalAirportDeliveryFeeMismatchError ||
@@ -1643,10 +1650,9 @@ export async function POST(request: NextRequest) {
     // hash that durable discriminator even when older clients omitted the
     // redundant airport_type field, so equivalent retries cannot diverge on
     // omitted versus explicit metadata.
-    const canonicalAirportType =
-      delivery_method === 'airport' && body.selected_quote_id
-        ? 'delivery'
-        : airport_type;
+    if (canonicalDeliveryMethod === 'airport' && body.selected_quote_id) {
+      canonicalAirportType = 'delivery';
+    }
 
     if (discountAmountValue !== 0) {
       return NextResponse.json(
@@ -1844,11 +1850,11 @@ export async function POST(request: NextRequest) {
       ? adTrackingWithoutDeliveryMetadata
       : null;
     const orderAdTrackingPayload =
-      delivery_method || airport_type
+      canonicalDeliveryMethod || canonicalAirportType
         ? {
             ...(sanitizedAdTrackingPayload ?? {}),
-            ...(delivery_method
-              ? { __baci_delivery_method: delivery_method }
+            ...(canonicalDeliveryMethod
+              ? { __baci_delivery_method: canonicalDeliveryMethod }
               : {}),
             ...(canonicalAirportType
               ? { __baci_airport_type: canonicalAirportType }
@@ -2371,7 +2377,7 @@ export async function POST(request: NextRequest) {
           // checkout_idempotency_conflict before the wrapper's replay path.
           discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
           discount_code: requestedDiscountCode,
-          delivery_method,
+          delivery_method: canonicalDeliveryMethod,
           gift_wrapping_fee: giftWrappingFeeValue,
           airport_type: canonicalAirportType,
           items: orderItemsPayload,
@@ -2396,7 +2402,7 @@ export async function POST(request: NextRequest) {
     if (
       requestIdempotencyKey &&
       checkoutRequestPayload &&
-      (delivery_method || airport_type)
+      (canonicalDeliveryMethod || canonicalAirportType)
     ) {
       const { data: isLegacyOrder, error: legacyProbeError } =
         await supabase.rpc('is_legacy_storefront_order_idempotency_key', {
@@ -2417,7 +2423,7 @@ export async function POST(request: NextRequest) {
             shipping_address: shippingAddressForOrder,
             discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
             discount_code: requestedDiscountCode,
-            delivery_method,
+            delivery_method: canonicalDeliveryMethod,
             gift_wrapping_fee: giftWrappingFeeValue,
             airport_type: canonicalAirportType,
             items: orderItemsPayload,

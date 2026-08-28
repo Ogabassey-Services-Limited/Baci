@@ -16,6 +16,27 @@ const hashPreparationMigration = readFileSync(
   ),
   'utf8'
 );
+const rolloutSafeHashPreparationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828170000_prepare_storefront_order_hash_version_context.sql'
+  ),
+  'utf8'
+);
+const hashFinalizerMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828110100_finalize_storefront_order_hash_stamping.sql'
+  ),
+  'utf8'
+);
+const quizReservedDeliveryMetadataPreservationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828160100_preserve_quiz_reserved_order_delivery_metadata.sql'
+  ),
+  'utf8'
+);
 const deferredMigrationPolicy = readFileSync(
   resolve(
     process.cwd(),
@@ -104,10 +125,52 @@ describe('storefront order RPC context migration contract', () => {
       '20260828110000_prepare_storefront_order_hash_stamping'
     );
     expect(deferredMigrationPolicy).toContain(
+      '20260828110100_finalize_storefront_order_hash_stamping'
+    );
+    expect(deferredMigrationPolicy).toContain(
       '20260828151000_enforce_storefront_airport_pickup_location'
     );
     expect(deferredMigrationPolicy).toContain(
       '20260828160000_persist_quiz_reserved_order_delivery_metadata'
+    );
+    expect(deferredMigrationPolicy).toContain(
+      '20260828160100_preserve_quiz_reserved_order_delivery_metadata'
+    );
+  });
+
+  it('stamps only signed v2 storefront hashes before promotion', () => {
+    expect(rolloutSafeHashPreparationMigration).toContain(
+      'NEW.checkout_request_hash_version := NULL'
+    );
+    expect(rolloutSafeHashPreparationMigration).toContain(
+      'NEW.checkout_request_hash IS NOT NULL'
+    );
+    expect(rolloutSafeHashPreparationMigration).toContain(
+      "'storefront_order_hash_version', '') = '2'"
+    );
+    expect(rolloutSafeHashPreparationMigration).toContain(
+      "'storefront_order_context', '') = 'route'"
+    );
+    expect(rolloutSafeHashPreparationMigration).toContain(
+      "'storefront_order_merchant_id', '')"
+    );
+    expect(hashFinalizerMigration).toContain(
+      'NEW.checkout_request_hash_version := NULL'
+    );
+    expect(hashFinalizerMigration).toContain(
+      "'storefront_order_hash_version', '') = '2'"
+    );
+  });
+
+  it('preserves redeemed quiz delivery metadata on later fulfillment updates', () => {
+    expect(quizReservedDeliveryMetadataPreservationMigration).toContain(
+      "NEW.ad_tracking ? '__baci_delivery_method'"
+    );
+    expect(quizReservedDeliveryMetadataPreservationMigration).toContain(
+      "NEW.ad_tracking ? '__baci_airport_type'"
+    );
+    expect(quizReservedDeliveryMetadataPreservationMigration).toContain(
+      'NEW.delivery_method := NULL'
     );
   });
 

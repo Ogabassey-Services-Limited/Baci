@@ -260,6 +260,11 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260828110100_finalize_storefront_order_hash_stamping.sql',
+    sha256: 'd47e7f8edaa2fb6d51f81b1cb13e02da78a268fb1b589f54c53a441efaba08e5',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260828120000_enforce_storefront_order_replay_route_context.sql',
     sha256: '19043684cc45788b8e4eecdd3bcef3d78ef68cff87c418d2cf2438dca4c3c5e9',
   },
@@ -282,5 +287,15 @@ export const EXPECTED_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260828160000_persist_quiz_reserved_order_delivery_metadata.sql',
     sha256: 'bff3c706c64afef80bbde9012c4a50465022d33cb2053701ebf024dab9a67f6b',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828160100_preserve_quiz_reserved_order_delivery_metadata.sql',
+    sha256: 'c26332074863ab1cf4b5d92d7485a3793d087326c1f3f13e1a922a0deccd3a68',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828170000_prepare_storefront_order_hash_version_context.sql',
+    sha256: '59fe2125660db0085d6b1def95d56b6c8530bb99796ddc880fd7bbeb00343f28',
   },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

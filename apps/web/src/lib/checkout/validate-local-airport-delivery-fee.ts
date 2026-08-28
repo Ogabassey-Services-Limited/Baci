@@ -5,6 +5,7 @@ import { isAmbiguousMetadataFreeAirportFee } from '@/lib/checkout/airport-delive
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 import { isEligibleAirportQuote } from '@/lib/checkout/airport-delivery-quote-validation';
 import { isConfirmedLocalAirportReplay } from '@/lib/checkout/is-confirmed-local-airport-replay';
+import { isSelectedAirportQuote } from '@/lib/checkout/is-selected-airport-quote';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
@@ -112,40 +113,6 @@ async function validateSelectedAirportQuote({
   return false;
 }
 
-async function isSelectedAirportQuote({
-  merchantId,
-  selectedQuoteId,
-  supabase,
-}: Pick<
-  ValidateLocalAirportDeliveryFeeInput,
-  'merchantId' | 'selectedQuoteId' | 'supabase'
->): Promise<boolean> {
-  if (!selectedQuoteId) return false;
-
-  const { data, error } = await supabase.rpc('get_checkout_shipping_quote', {
-    p_merchant_id: merchantId,
-    p_quote_id: selectedQuoteId,
-  });
-  if (error) {
-    logger.error({
-      message: 'Unable to classify selected shipping quote',
-      merchantId,
-      selectedQuoteId,
-      error,
-    });
-    throw new LocalAirportDeliveryValidationError(
-      'Unable to validate the selected shipping quote',
-      'AIRPORT_QUOTE_LOOKUP_FAILED',
-      500
-    );
-  }
-
-  const quote = readAirportQuote(data);
-  const quoteProvider =
-    typeof quote?.provider === 'string' ? quote.provider : null;
-  return Boolean(quote && isEligibleAirportQuote(quote, quoteProvider));
-}
-
 /**
  * Validate fixed-fee airport delivery and airport-backed provider quotes.
  *
@@ -165,6 +132,8 @@ export async function validateLocalAirportDeliveryFee({
   shippingRateId,
   supabase,
 }: ValidateLocalAirportDeliveryFeeInput): Promise<LocalAirportDeliveryFeeValidationResult> {
+  let resolvedDeliveryMethod = deliveryMethod;
+  let resolvedAirportType = airportType;
   const legacyAirportType = getLegacyAirportType(shippingAddress?.address);
   if (
     legacyAirportType !== null &&
@@ -198,15 +167,32 @@ export async function validateLocalAirportDeliveryFee({
       supabase,
     });
     if (selectedQuoteIsAirport) {
-      throw new LocalAirportDeliveryValidationError(
-        'Airport provider quotes require airport delivery',
-        'DELIVERY_METADATA_MISMATCH',
-        400
-      );
+      if (deliveryMethod === undefined) {
+        // Older mobile clients identify GoFaster airport delivery by the
+        // selected quote and provider only. Promote that server-verified
+        // discriminator so persistence and idempotency use the same metadata
+        // as current clients.
+        resolvedDeliveryMethod = 'airport';
+        resolvedAirportType = 'delivery';
+      } else {
+        throw new LocalAirportDeliveryValidationError(
+          'Airport provider quotes require airport delivery',
+          'DELIVERY_METADATA_MISMATCH',
+          400
+        );
+      }
     }
   }
 
-  if (deliveryMethod === 'airport' && selectedQuoteId) {
+  const resolvedDeliveryMetadata =
+    deliveryMethod === undefined && resolvedDeliveryMethod === 'airport'
+      ? {
+          resolvedDeliveryMethod: 'airport' as const,
+          resolvedAirportType: 'delivery' as const,
+        }
+      : {};
+
+  if (resolvedDeliveryMethod === 'airport' && selectedQuoteId) {
     const isIdempotentLocalAirportReplay = await validateSelectedAirportQuote({
       merchantId,
       requestIdempotencyKey,
@@ -216,22 +202,23 @@ export async function validateLocalAirportDeliveryFee({
       supabase,
     });
     return {
+      ...resolvedDeliveryMetadata,
       isIdempotentLocalAirportReplay,
       localAirportShippingFee: null,
     };
   }
 
   validateAirportDeliveryAddress({
-    airportType,
-    deliveryMethod,
+    airportType: resolvedAirportType,
+    deliveryMethod: resolvedDeliveryMethod,
     selectedQuoteId,
     shippingAddress,
     shippingRateId,
   });
 
   const localAirportShippingFee = getLocalAirportDeliveryFee({
-    airportType,
-    deliveryMethod,
+    airportType: resolvedAirportType,
+    deliveryMethod: resolvedDeliveryMethod,
     selectedQuoteId,
     shippingAddress,
     shippingRateId,
@@ -240,8 +227,8 @@ export async function validateLocalAirportDeliveryFee({
   if (
     localAirportShippingFee === null &&
     isAmbiguousMetadataFreeAirportFee({
-      airportType,
-      deliveryMethod,
+      airportType: resolvedAirportType,
+      deliveryMethod: resolvedDeliveryMethod,
       selectedQuoteId,
       shippingFee,
       shippingRateId,
@@ -290,6 +277,7 @@ export async function validateLocalAirportDeliveryFee({
   }
 
   return {
+    ...resolvedDeliveryMetadata,
     isIdempotentLocalAirportReplay,
     localAirportShippingFee,
   };
