@@ -2,6 +2,8 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const MIN_TRANSFORM_DIMENSION = 16;
 const MAX_TRANSFORM_DIMENSION = 3840;
+const TRANSFORMABLE_SOURCE_PATTERN = /\.(?:avif|jpe?g|png|webp)$/iu;
+const ENCODED_TRAVERSAL_PATTERN = /%(?:2e|2f|5c)/iu;
 
 function getTransformDimension(value: string | undefined) {
   if (!value) return undefined;
@@ -35,11 +37,23 @@ export function getTrustedBlogMediaTransformProjection(url: string):
         return [];
       }
     });
-    const options = parsedUrl.pathname.match(/^\/image\/([^/]+)\//)?.[1];
+    const transformPath = parsedUrl.pathname.match(/^\/image\/([^/]+)\/(.+)$/u);
+    const options = transformPath?.[1];
+    const encodedSourcePath = transformPath?.[2];
     if (
       parsedUrl.protocol !== 'https:' ||
       !trustedOrigins.includes(parsedUrl.origin) ||
-      !options
+      !options ||
+      !encodedSourcePath
+    ) {
+      return undefined;
+    }
+    const sourcePath = decodeURIComponent(encodedSourcePath);
+    if (
+      sourcePath.includes('\0') ||
+      sourcePath.includes('\\') ||
+      ENCODED_TRAVERSAL_PATTERN.test(sourcePath) ||
+      !TRANSFORMABLE_SOURCE_PATTERN.test(sourcePath)
     ) {
       return undefined;
     }

@@ -17,7 +17,7 @@ describe('getTrustedBlogMediaTransformProjection', () => {
     process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
 
     const projection = getTrustedBlogMediaTransformProjection(
-      'https://media.example.com/image/w=600,h=300,f=webp,fit=cover/media/photo'
+      'https://media.example.com/image/w=600,h=300,f=webp,fit=cover/media/photo.jpg'
     );
 
     expect(projection).toEqual({
@@ -47,6 +47,17 @@ describe('getTrustedBlogMediaTransformProjection', () => {
   it('rejects direct image paths without a transform options segment', () => {
     const projection = getTrustedBlogMediaTransformProjection(
       'https://cdn.ogabassey.com/image/photo.jpg'
+    );
+
+    expect(projection).toBeUndefined();
+  });
+
+  it.each([
+    'photo.gif',
+    'photo',
+  ])('rejects the unsupported transform source %s', (sourceName) => {
+    const projection = getTrustedBlogMediaTransformProjection(
+      `https://cdn.ogabassey.com/image/format=jpeg/media/${sourceName}`
     );
 
     expect(projection).toBeUndefined();

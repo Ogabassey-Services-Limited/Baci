@@ -102,7 +102,11 @@ function projectDirectImage(
       (url !== sourceUrl && mimeType
         ? (`image/${resolveOgabasseyCdnFallbackFormat(getImagePathname(sourceUrl) ?? '')}` as const)
         : mimeType);
-    if (!transformedMimeType || transformedMimeType === 'image/avif') {
+    if (
+      (managedTransform && !managedTransform.type) ||
+      !transformedMimeType ||
+      transformedMimeType === 'image/avif'
+    ) {
       return null;
     }
     const transformedDimensions = managedTransform

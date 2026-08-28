@@ -78,10 +78,10 @@ describe('blog post social image transform projection', () => {
     });
   });
 
-  it('projects a fixed-format transform with an extensionless source path', () => {
+  it('rejects a fixed-format transform with an unsupported source path', () => {
     process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
     const transformedUrl =
-      'https://media.example.com/image/width=600,format=webp/media/photo';
+      'https://media.example.com/image/width=600,format=webp/media/photo.gif';
 
     const image = getBlogPostSocialImage(
       STORE_URL,
@@ -93,10 +93,26 @@ describe('blog post social image transform projection', () => {
     );
 
     expect(image).toEqual({
-      url: transformedUrl,
-      width: 600,
-      height: 338,
-      type: 'image/webp',
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
+  it('rejects an unchanged auto transform on the default CDN media path', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image/width=600,format=auto/media/merchant-1/blog/upload/landscape_16x9.jpg';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, transformedUrl, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
     });
   });
 
