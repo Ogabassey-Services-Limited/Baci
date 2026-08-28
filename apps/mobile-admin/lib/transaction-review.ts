@@ -1,8 +1,6 @@
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
-import {
-  getPersistedTransactionDiscountAmount,
-  parseTransactionDiscountOptions,
-} from './transaction-review-discount-metadata';
+import { getPersistedTransactionDiscountAmount } from './transaction-review-discount-amount';
+import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
 import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,

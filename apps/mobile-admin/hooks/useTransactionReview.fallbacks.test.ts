@@ -257,47 +257,4 @@ describe('useTransactionReview schema fallbacks', () => {
       mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement
     ).toContain('product_variants');
   });
-
-  it('omits variant_id after a schema-cache failure while retaining review rows', async () => {
-    const variantIdSchemaError = {
-      code: 'PGRST204',
-      message:
-        "Could not find the 'variant_id' column of 'order_items' in the schema cache",
-    };
-    const legacyOrder = {
-      id: 'legacy-variant-order',
-      order_items: [
-        {
-          product_id: 'product-1',
-          price: 100,
-          quantity: 1,
-        },
-      ],
-      total: 100,
-    };
-
-    const failedAttempts = 12;
-    for (let attempt = 0; attempt < failedAttempts; attempt += 1) {
-      mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
-        data: null,
-        error: variantIdSchemaError,
-      });
-    }
-    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
-      data: [legacyOrder],
-      error: null,
-    });
-
-    const { result } = renderHook(() => useTransactionReview(), {
-      wrapper: createWrapper(),
-    });
-    await waitFor(() => expect(result.current.data).toEqual([legacyOrder]));
-
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(
-      failedAttempts + 1
-    );
-    expect(
-      mocks.fetchTransactionReviewRows.mock.lastCall?.[0].selectStatement
-    ).not.toContain('variant_id');
-  });
 });

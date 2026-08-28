@@ -1,104 +1,61 @@
-import {
-  buildTransactionDiscountLineKey,
-  buildTransactionDiscountLineOccurrenceKey,
-} from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
-import { getValidatedExplicitLineDiscounts } from './transaction-review-discount-allocations';
-import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
+import { resolveTransactionDiscountAllocation } from './transaction-review-discount-allocations';
+import { getPersistedLineKey } from './transaction-review-discount-line-key';
 
-describe('getValidatedExplicitLineDiscounts', () => {
-  it('matches persisted allocations by product and variant identity', () => {
-    const result = getValidatedExplicitLineDiscounts(
-      [
-        {
-          line_id: 7,
-          price: 100,
-          product_id: 'product-1',
-          quantity: 1,
-          variant_id: null,
-        },
-      ],
-      [{ merchandiseTotal: 100, quantity: 1, total: 100 }],
-      10,
-      [
-        {
-          lineId: 1,
-          merchandiseDiscount: 10,
-          productId: 'product-1',
-          vatRelief: 0,
-          variantId: null,
-        },
-      ]
+describe('resolveTransactionDiscountAllocation', () => {
+  it('resolves a line-id allocation for an item', () => {
+    const allocation = { lineId: 7, merchandiseDiscount: 10, vatRelief: 0 };
+
+    const result = resolveTransactionDiscountAllocation(
+      { allocationsByLineId: new Map([[7, allocation]]), mode: 'lineId' },
+      { line_id: 7, price: 100, quantity: 1 }
     );
 
-    expect(result?.mode).toBe('identity');
-    expect(
-      result?.mode === 'identity'
-        ? result.allocationsByIdentity.get('["product-1",null]')
-        : undefined
-    ).toMatchObject({ merchandiseDiscount: 10 });
+    expect(result).toEqual(allocation);
   });
 
-  it('rejects allocations whose total does not match the order discount', () => {
-    const result = getValidatedExplicitLineDiscounts(
-      [{ line_id: 1, price: 100, quantity: 1 }],
-      [{ merchandiseTotal: 100, quantity: 1, total: 100 }],
-      25,
-      [{ lineId: 1, merchandiseDiscount: 10, vatRelief: 0 }]
+  it('returns undefined when no line-id allocation matches', () => {
+    const result = resolveTransactionDiscountAllocation(
+      { allocationsByLineId: new Map(), mode: 'lineId' },
+      { line_id: 7, price: 100, quantity: 1 }
     );
 
     expect(result).toBeUndefined();
   });
 
-  it('matches occurrence-safe keys by persisted order sequence, not global line ids', () => {
-    const lineKey = buildTransactionDiscountLineKey({
-      productId: 'product-1',
-      variantId: null,
-    });
-    const items = [
+  it('resolves an identity allocation for a product and variant', () => {
+    const allocation = { lineId: 7, merchandiseDiscount: 10, vatRelief: 0 };
+
+    const result = resolveTransactionDiscountAllocation(
       {
-        line_id: 800,
-        price: 100,
-        product_id: 'product-1',
-        quantity: 1,
-        variant_id: null,
+        allocationsByIdentity: new Map([['["product-1",null]', allocation]]),
+        mode: 'identity',
       },
-      {
-        line_id: 801,
-        price: 100,
-        product_id: 'product-1',
-        quantity: 1,
-        variant_id: null,
-      },
-    ];
-    const result = getValidatedExplicitLineDiscounts(
-      items,
-      [
-        { merchandiseTotal: 100, quantity: 1, total: 100 },
-        { merchandiseTotal: 100, quantity: 1, total: 100 },
-      ],
-      30,
-      [
-        {
-          lineId: 1,
-          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 1),
-          merchandiseDiscount: 10,
-          productId: 'product-1',
-          vatRelief: 0,
-          variantId: null,
-        },
-        {
-          lineId: 2,
-          lineKey: buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
-          merchandiseDiscount: 20,
-          productId: 'product-1',
-          vatRelief: 0,
-          variantId: null,
-        },
-      ],
-      getPersistedLineKeyOccurrenceOrdinals(items)
+      { product_id: 'product-1', variant_id: null, price: 100, quantity: 1 }
     );
 
-    expect(result?.mode).toBe('lineKey');
+    expect(result).toEqual(allocation);
+  });
+
+  it('resolves a persisted line-key allocation', () => {
+    const item = {
+      product_id: 'product-1',
+      variant_id: null,
+      price: 100,
+      quantity: 1,
+    };
+    const lineKey = getPersistedLineKey(item);
+    const allocation = { lineId: 7, merchandiseDiscount: 10, vatRelief: 0 };
+
+    const result = resolveTransactionDiscountAllocation(
+      {
+        allocationsByIdentity: new Map(),
+        allocationsByLineKey: new Map([[lineKey as string, allocation]]),
+        mode: 'lineKey',
+      },
+      item
+    );
+
+    expect(result).toEqual(allocation);
   });
 });

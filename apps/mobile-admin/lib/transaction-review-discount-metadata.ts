@@ -113,17 +113,3 @@ export function parseTransactionDiscountOptions(
 
   return { lineDiscounts };
 }
-
-export function getPersistedTransactionDiscountAmount(
-  options: TransactionDiscountOptions | undefined
-) {
-  return (
-    options?.lineDiscounts?.reduce(
-      (sum, allocation) =>
-        sum +
-        (allocation?.merchandiseDiscount ?? 0) +
-        (allocation?.vatRelief ?? 0),
-      0
-    ) ?? null
-  );
-}

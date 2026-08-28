@@ -1,6 +1,6 @@
+import { getValidatedExplicitLineDiscounts } from './transaction-review-discount-allocation-validation';
 import {
   type DiscountableTransactionItem,
-  getValidatedExplicitLineDiscounts,
   resolveTransactionDiscountAllocation,
 } from './transaction-review-discount-allocations';
 import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
