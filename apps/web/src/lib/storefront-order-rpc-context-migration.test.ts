@@ -22,6 +22,23 @@ describe('storefront order RPC context migration contract', () => {
     expect(migration).toContain('BEFORE INSERT ON public.orders');
   });
 
+  it('preserves only the signed customer-owned legacy quiz award path', () => {
+    const quizMigration = readFileSync(
+      resolve(
+        process.cwd(),
+        '../../supabase/migrations/20260828100000_allow_legacy_quiz_award_order_context.sql'
+      ),
+      'utf8'
+    );
+
+    expect(quizMigration).toContain("'quiz_award_context'");
+    expect(quizMigration).toContain("'legacy-answer'");
+    expect(quizMigration).toContain("NEW.payment_method = 'quiz_award'");
+    expect(quizMigration).toContain("NEW.source = 'quiz_prize'");
+    expect(quizMigration).toContain('c.user_id = (SELECT auth.uid())');
+    expect(quizMigration).toContain('c.merchant_id = NEW.merchant_id');
+  });
+
   it('marks new orders and exposes only a legacy-version boolean probe', () => {
     expect(migration).toContain(
       'ADD COLUMN IF NOT EXISTS checkout_request_hash_version smallint'

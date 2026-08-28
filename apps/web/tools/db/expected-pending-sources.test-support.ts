@@ -248,4 +248,9 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260828090000_harden_storefront_order_rpc_context_and_replays.sql',
     sha256: '82a66beb9348b9db0af7c5a04d69982743a7638fbc0ed36dba8ebdb1f582517a',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828100000_allow_legacy_quiz_award_order_context.sql',
+    sha256: '6358f0b4b927dd3376ceca1f4f3c3b433146f62d68df39ab41de317e904f885e',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
