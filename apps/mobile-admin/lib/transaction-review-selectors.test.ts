@@ -199,6 +199,39 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('keeps unit-cost snapshots when variant attributes and discount codes are unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoDiscountCode;
+
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('product_match_status');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
+  it('keeps unit-cost snapshots when variant attributes and match status are unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoProductMatchStatus;
+
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
+  it('composes a rich selector when all three optional fields are unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoProductMatchStatusNoDiscountCode;
+
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
   it('omits later schema fields in the older variant compatibility selector', () => {
     const selector =
       TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields;
@@ -208,6 +241,17 @@ describe('transaction review selectors', () => {
     expect(selector).not.toContain('order_item_unit_costs');
     expect(selector).toContain('product_match_status');
     expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('product_variants');
+  });
+
+  it('only omits unit-cost snapshots in the lossy combined fallback', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoProductMatchStatusNoLaterFields;
+
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).not.toContain('order_item_unit_costs');
     expect(selector).toContain('product_variants');
   });
 

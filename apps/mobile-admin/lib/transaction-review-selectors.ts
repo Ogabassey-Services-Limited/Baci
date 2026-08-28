@@ -41,6 +41,10 @@ function withoutDiscountCode(selector: string) {
   return selector.replace(', discount_code_id', '');
 }
 
+function withoutProductMatchStatus(selector: string) {
+  return selector.replace(', product_match_status', '');
+}
+
 function withoutAdTracking(selector: string) {
   return selector.replace(', ad_tracking', '');
 }
@@ -183,9 +187,47 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   legacyNoVariantAttributesNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.legacyNoVariantAttributes
   ),
+  legacyNoVariantAttributesNoProductMatchStatus: withoutProductMatchStatus(
+    transactionReviewSelectors.legacyNoVariantAttributes
+  ),
+  legacyNoVariantAttributesNoProductMatchStatusNoTaxAmount: withoutTaxAmount(
+    withoutProductMatchStatus(
+      transactionReviewSelectors.legacyNoVariantAttributes
+    )
+  ),
+  legacyNoVariantAttributesNoDiscountCode: withoutDiscountCode(
+    transactionReviewSelectors.legacyNoVariantAttributes
+  ),
+  legacyNoVariantAttributesNoDiscountCodeNoTaxAmount: withoutTaxAmount(
+    withoutDiscountCode(transactionReviewSelectors.legacyNoVariantAttributes)
+  ),
+  legacyNoVariantAttributesNoProductMatchStatusNoDiscountCode:
+    withoutDiscountCode(
+      withoutProductMatchStatus(
+        transactionReviewSelectors.legacyNoVariantAttributes
+      )
+    ),
+  legacyNoVariantAttributesNoProductMatchStatusNoDiscountCodeNoTaxAmount:
+    withoutTaxAmount(
+      withoutDiscountCode(
+        withoutProductMatchStatus(
+          transactionReviewSelectors.legacyNoVariantAttributes
+        )
+      )
+    ),
   legacyNoVariantAttributesNoLaterFieldsNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.legacyNoVariantAttributesNoLaterFields
   ),
+  legacyNoVariantAttributesNoProductMatchStatusNoLaterFields:
+    withoutProductMatchStatus(
+      transactionReviewSelectors.legacyNoVariantAttributesNoLaterFields
+    ),
+  legacyNoVariantAttributesNoProductMatchStatusNoLaterFieldsNoTaxAmount:
+    withoutTaxAmount(
+      withoutProductMatchStatus(
+        transactionReviewSelectors.legacyNoVariantAttributesNoLaterFields
+      )
+    ),
   legacyNoProductMatchStatusNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.legacyNoProductMatchStatus
   ),

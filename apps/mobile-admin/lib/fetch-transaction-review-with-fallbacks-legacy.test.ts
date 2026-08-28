@@ -47,7 +47,7 @@ describe('fetchTransactionReviewWithFallbacks legacy schema fallbacks', () => {
     expect(selector).toContain('order_item_unit_costs');
   });
 
-  it('uses the older cost-rich projection when later schema fields are unavailable', async () => {
+  it('keeps cost snapshots when variant attributes and discount codes are unavailable', async () => {
     const rows = [{ id: 'legacy-variant-attributes-order' }];
     const variantAttributesSchemaError = {
       code: 'PGRST204',
@@ -77,7 +77,7 @@ describe('fetchTransactionReviewWithFallbacks legacy schema fallbacks', () => {
       mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement;
     expect(selector).not.toContain('variant_attributes');
     expect(selector).not.toContain('discount_code_id');
-    expect(selector).not.toContain('order_item_unit_costs');
+    expect(selector).toContain('order_item_unit_costs');
     expect(selector).toContain('cost_price');
     expect(selector).toContain('assurance_fee');
     expect(selector).toContain('product_variants');

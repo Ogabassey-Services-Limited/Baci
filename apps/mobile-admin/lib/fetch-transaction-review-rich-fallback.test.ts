@@ -40,4 +40,74 @@ describe('fetchRichTransactionReviewRows', () => {
     expect(selector).toContain('discount_code_id');
     expect(selector).toContain('order_item_unit_costs');
   });
+
+  it('retains rich costs when variant attributes and match status are unavailable together', async () => {
+    const rows = [{ id: 'variant-and-match-fallback-order' }];
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'product_match_status' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector = mockFetchTransactionReviewRows.mock.calls[2][0]
+      .selectStatement as string;
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('product_match_status');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
+  it('retains unit-cost snapshots when variant attributes and discount codes are unavailable together', async () => {
+    const rows = [{ id: 'variant-and-discount-fallback-order' }];
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector = mockFetchTransactionReviewRows.mock.calls[2][0]
+      .selectStatement as string;
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
 });
