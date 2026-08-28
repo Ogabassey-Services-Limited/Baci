@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    '../../supabase/migrations/20260827020000_prioritize_inventory_status_before_limit.sql'
+    '../../supabase/migrations/20260827020001_prioritize_inventory_status_before_limit.sql'
   ),
   'utf8'
 );

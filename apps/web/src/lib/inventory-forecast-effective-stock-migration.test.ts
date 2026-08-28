@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    '../../supabase/migrations/20260827010000_use_effective_inventory_forecast_stock.sql'
+    '../../supabase/migrations/20260827010001_use_effective_inventory_forecast_stock.sql'
   ),
   'utf8'
 );

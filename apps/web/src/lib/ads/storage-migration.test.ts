@@ -20,15 +20,15 @@ const accountAwareSyncMarkerMigrationPath = path.resolve(
 );
 const syncStartedMarkerMigrationPath = path.resolve(
   process.cwd(),
-  '../../supabase/migrations/20260827030000_mark_ads_sync_started.sql'
+  '../../supabase/migrations/20260827030001_mark_ads_sync_started.sql'
 );
 const nullReauthCasMigrationPath = path.resolve(
   process.cwd(),
-  '../../supabase/migrations/20260827040000_allow_null_ads_reauth_cas.sql'
+  '../../supabase/migrations/20260827040001_allow_null_ads_reauth_cas.sql'
 );
 const syncRunFenceMigrationPath = path.resolve(
   process.cwd(),
-  '../../supabase/migrations/20260827120000_fence_ads_sync_runs.sql'
+  '../../supabase/migrations/20260827120001_fence_ads_sync_runs.sql'
 );
 const syncReplacementFenceMigrationPath = path.resolve(
   process.cwd(),

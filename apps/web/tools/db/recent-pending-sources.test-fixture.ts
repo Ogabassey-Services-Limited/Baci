@@ -143,7 +143,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260825150000_compare_and_set_ads_account_selection.sql',
+      'supabase/migrations/20260825150001_compare_and_set_ads_account_selection.sql',
     sha256: '318e0edccd8da2bf844bca55a60760cb96e1d9b04fc88b6bfc081c933a4cfc22',
   },
   {
@@ -183,7 +183,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827110000_retire_snapchat_disconnect_spend_rpc.sql',
+      'supabase/migrations/20260827110001_retire_snapchat_disconnect_spend_rpc.sql',
     sha256: '08c2b4e066a77294c8f3515a904beac9861e9273c2d7d856e5254d749dfb159a',
   },
   {
@@ -213,22 +213,22 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827010000_use_effective_inventory_forecast_stock.sql',
+      'supabase/migrations/20260827010001_use_effective_inventory_forecast_stock.sql',
     sha256: 'e2812d6c8e27dca4e546453d9ae80a8096d82f2602b741fd3408d320a144ab03',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827020000_prioritize_inventory_status_before_limit.sql',
+      'supabase/migrations/20260827020001_prioritize_inventory_status_before_limit.sql',
     sha256: 'f5bc90b0820af8924481b6518ee7949bedb6d73396a7522d8f8c4d24a47272db',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827030000_mark_ads_sync_started.sql',
+      'supabase/migrations/20260827030001_mark_ads_sync_started.sql',
     sha256: '66d40ffc1bf3c3b5b0c893e5e497f8469c720e740d07bc18d68a76e2c1e85c4f',
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827040000_allow_null_ads_reauth_cas.sql',
+      'supabase/migrations/20260827040001_allow_null_ads_reauth_cas.sql',
     sha256: '200fb297f08db945d7f7a185f669c60f147a338406371df3aeef32412d36d1b6',
   },
   {
@@ -238,7 +238,7 @@ export const RECENT_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827120000_fence_ads_sync_runs.sql',
+      'supabase/migrations/20260827120001_fence_ads_sync_runs.sql',
     sha256: '97c11c851442c4a12dd5079111d18fbce369a2a34fd3cc7c6be96e849df64938',
   },
   {
@@ -250,5 +250,20 @@ export const RECENT_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260827120200_order_ads_sync_run_starts.sql',
     sha256: '635152373f9ef17c17dec27eee616fe1ea2235a2a0cf907a40642135419eb5fc',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828010000_server_owned_ads_sync_runs.sql',
+    sha256: '89756694f550c5fb487f51b0267c67e15660e5ea93757bd5cee37f2e74ec8785',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828090000_allow_staff_dashboard_preferences.sql',
+    sha256: 'd983c2da2e003b816a7c21b7cca0fff235956fdc0d6d52a9a120cffad924492d',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828100000_ads_sync_window_completion.sql',
+    sha256: '5dad1e7b74d8f6d35b7849584b8241358aeec2a36dbe5882f159128bf246691b',
   },
 ];

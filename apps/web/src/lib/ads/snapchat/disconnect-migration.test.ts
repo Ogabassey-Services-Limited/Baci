@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   path.resolve(
     process.cwd(),
-    '../../supabase/migrations/20260827110000_retire_snapchat_disconnect_spend_rpc.sql'
+    '../../supabase/migrations/20260827110001_retire_snapchat_disconnect_spend_rpc.sql'
   ),
   'utf8'
 ).toLowerCase();
