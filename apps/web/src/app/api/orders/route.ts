@@ -1830,6 +1830,32 @@ export async function POST(request: NextRequest) {
       ? (negotiationDiscount?.totalDiscount ?? 0)
       : 0;
 
+    let transactionDiscountProof:
+      | ReturnType<typeof createQuizRpcServerProof>
+      | undefined;
+    if (
+      shouldApplyServerDerivedDiscount &&
+      negotiationDiscount?.lineDiscounts
+    ) {
+      try {
+        transactionDiscountProof = createQuizRpcServerProof({
+          action: 'storefront_transaction_discount',
+          payload: {
+            lineDiscounts: negotiationDiscount.lineDiscounts,
+            version: 3,
+          },
+          subjectId: merchant_id,
+          userId: resolvedUserId ?? 'guest',
+        });
+      } catch (transactionDiscountProofError) {
+        logger.warn({
+          error: transactionDiscountProofError,
+          merchantId: merchant_id,
+          message: 'Transaction discount provenance proof unavailable',
+        });
+      }
+    }
+
     // Persist the server-derived line boundaries alongside the order. The
     // order RPC already stores ad-tracking JSON for guest checkouts, so this
     // avoids inferring VAT provenance from a mutable source/channel value while
@@ -1841,6 +1867,7 @@ export async function POST(request: NextRequest) {
       geoPrivacy,
       lineDiscounts: negotiationDiscount?.lineDiscounts,
       shouldApplyServerDerivedDiscount,
+      transactionDiscountProof,
     });
 
     const {

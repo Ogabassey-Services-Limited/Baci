@@ -1,7 +1,8 @@
+import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import {
-  getDiscountedTransactionUnitPrices,
+  getPersistedTransactionDiscountAmount,
   parseTransactionDiscountOptions,
-} from './transaction-review-discount';
+} from './transaction-review-discount-metadata';
 import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,
@@ -107,9 +108,13 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const persistedDiscountOptions = parseTransactionDiscountOptions(
       order.ad_tracking
     );
+    const discountAmount =
+      toFiniteNumberOrNull(order.discount_amount) ??
+      getPersistedTransactionDiscountAmount(persistedDiscountOptions) ??
+      0;
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
-      isNetPricedMarketplaceOrder ? 0 : order.discount_amount,
+      isNetPricedMarketplaceOrder ? 0 : discountAmount,
       persistedDiscountOptions ??
         (isLegacyVatInclusiveNegotiationDiscount(order, orderItems)
           ? { discountIncludesVat: true }
@@ -253,10 +258,7 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       customerEmail: order.customer_email,
       customerName: order.customer_name ?? 'Customer',
       customerPhone: order.customer_phone,
-      discountAmount: Math.max(
-        0,
-        toFiniteNumberOrNull(order.discount_amount) ?? 0
-      ),
+      discountAmount: Math.max(0, discountAmount),
       estimatedProfit: items.reduce((sum, item) => sum + (item.profit ?? 0), 0),
       id: order.id,
       items,

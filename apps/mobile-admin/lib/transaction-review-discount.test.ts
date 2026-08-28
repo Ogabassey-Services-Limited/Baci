@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  getDiscountedTransactionUnitPrices,
-  parseTransactionDiscountOptions,
-} from './transaction-review-discount';
+import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
+import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
 
 describe('getDiscountedTransactionUnitPrices', () => {
   it('allocates an order discount proportionally across merchandise lines', () => {

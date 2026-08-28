@@ -25,6 +25,11 @@ describe('buildTransactionDiscountAdTracking', () => {
         },
       ],
       shouldApplyServerDerivedDiscount: true,
+      transactionDiscountProof: {
+        action: 'storefront_transaction_discount',
+        payload: { lineDiscounts: [], version: 3 },
+        signature: 'signed-proof',
+      },
     });
 
     expect(result).toEqual({
@@ -44,6 +49,11 @@ describe('buildTransactionDiscountAdTracking', () => {
             variantId: null,
           },
         ],
+        proof: {
+          action: 'storefront_transaction_discount',
+          payload: { lineDiscounts: [], version: 3 },
+          signature: 'signed-proof',
+        },
         version: 3,
       },
     });
