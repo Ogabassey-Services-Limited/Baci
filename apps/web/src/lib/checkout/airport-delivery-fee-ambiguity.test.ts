@@ -14,6 +14,12 @@ describe('isAmbiguousMetadataFreeAirportFee', () => {
     );
   });
 
+  it('flags the current airport-delivery fee when no delivery metadata is present', () => {
+    expect(isAmbiguousMetadataFreeAirportFee({ shippingFee: 35_000 })).toBe(
+      true
+    );
+  });
+
   it('does not classify an explicitly non-airport order from its fee', () => {
     expect(
       isAmbiguousMetadataFreeAirportFee({

@@ -43,6 +43,23 @@ describe('validateAirportDeliveryAddress', () => {
     );
   });
 
+  it('rejects a provider-backed airport quote without a concrete street address', () => {
+    expect(() =>
+      validateAirportDeliveryAddress({
+        airportType: 'delivery',
+        deliveryMethod: 'airport',
+        selectedQuoteId: 'quote-id',
+        shippingAddress: {
+          address: 'Airport Delivery',
+          city: 'Airport',
+          state: 'Nigeria',
+        },
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'AIRPORT_ADDRESS_REQUIRED' })
+    );
+  });
+
   it('accepts fixed airport pickup with a concrete city and state', () => {
     expect(() =>
       validateAirportDeliveryAddress({

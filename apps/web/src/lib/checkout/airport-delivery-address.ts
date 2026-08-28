@@ -27,12 +27,35 @@ export function validateAirportDeliveryAddress({
   const hasSyntheticDestination =
     normalizedCity === 'airport' && normalizedState === 'nigeria';
   const hasLegacyMarkerAddress =
-    getLegacyAirportType(shippingAddress?.address) === 'delivery';
+    getLegacyAirportType(shippingAddress?.address) !== null;
   const hasConcretePickupLocation = Boolean(
     shippingAddress?.city?.trim() &&
       shippingAddress?.state?.trim() &&
       !(normalizedCity === 'airport' && normalizedState === 'nigeria')
   );
+  const hasConcreteDeliveryAddress = Boolean(
+    shippingAddress?.address?.trim() &&
+      shippingAddress.city?.trim() &&
+      shippingAddress.state?.trim() &&
+      !hasSyntheticDestination &&
+      !hasLegacyMarkerAddress
+  );
+
+  // A provider quote only verifies the transport price. It does not supply a
+  // customer destination, so quoted airport delivery still needs a concrete
+  // street address before the order can be created.
+  if (
+    deliveryMethod === 'airport' &&
+    airportType === 'delivery' &&
+    selectedQuoteId &&
+    !hasConcreteDeliveryAddress
+  ) {
+    throw new LocalAirportDeliveryValidationError(
+      'A delivery address is required for local airport delivery',
+      'AIRPORT_ADDRESS_REQUIRED',
+      400
+    );
+  }
 
   if (
     deliveryMethod === 'airport' &&
@@ -51,13 +74,8 @@ export function validateAirportDeliveryAddress({
   if (
     deliveryMethod !== 'airport' ||
     airportType !== 'delivery' ||
-    selectedQuoteId ||
     shippingRateId ||
-    (shippingAddress?.address?.trim() &&
-      shippingAddress.city?.trim() &&
-      shippingAddress.state?.trim() &&
-      !hasSyntheticDestination &&
-      !hasLegacyMarkerAddress)
+    hasConcreteDeliveryAddress
   ) {
     return;
   }

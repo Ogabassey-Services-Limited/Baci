@@ -12,6 +12,7 @@ import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/loc
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import { readAirportQuote } from '@/lib/checkout/read-airport-delivery-quote';
 import { resolveLegacyAirportDeliveryMetadata } from '@/lib/checkout/resolve-legacy-airport-delivery-metadata';
+import { validateLocalAirportFeeMismatch } from '@/lib/checkout/validate-local-airport-fee-mismatch';
 import { logger } from '@/lib/logger';
 
 type AirportType = 'delivery' | 'pickup';
@@ -196,6 +197,22 @@ export async function validateLocalAirportDeliveryFee({
       : {};
 
   if (resolvedDeliveryMethod === 'airport' && selectedQuoteId) {
+    if (resolvedAirportType === 'pickup') {
+      throw new LocalAirportDeliveryValidationError(
+        'Provider-backed airport quotes require airport delivery',
+        'DELIVERY_METADATA_MISMATCH',
+        400
+      );
+    }
+
+    validateAirportDeliveryAddress({
+      airportType: 'delivery',
+      deliveryMethod: 'airport',
+      selectedQuoteId,
+      shippingAddress,
+      shippingRateId,
+    });
+
     const isIdempotentLocalAirportReplay = await validateSelectedAirportQuote({
       merchantId,
       requestIdempotencyKey,
@@ -261,36 +278,14 @@ export async function validateLocalAirportDeliveryFee({
     };
   }
 
-  const localAirportShippingFeeMismatch =
-    localAirportShippingFee !== null &&
-    Math.abs(shippingFee - localAirportShippingFee) > 0.01;
-  // Preserve released mobile requests while applying the current server fee.
-  const shouldUseServerOwnedLegacyFee =
-    localAirportShippingFeeMismatch && isLegacyMobileAirportDelivery;
-  const isIdempotentLocalAirportReplay =
-    localAirportShippingFeeMismatch && !shouldUseServerOwnedLegacyFee
-      ? await isConfirmedLocalAirportReplay({
-          merchantId,
-          requestIdempotencyKey,
-          supabase,
-        })
-      : false;
-
-  if (
-    localAirportShippingFeeMismatch &&
-    !isIdempotentLocalAirportReplay &&
-    !shouldUseServerOwnedLegacyFee
-  ) {
-    logger.warn({
-      message: 'Storefront order rejected: local airport shipping fee mismatch',
-      clientShippingFee: shippingFee,
-      serverShippingFee: localAirportShippingFee,
-    });
-    throw new LocalAirportDeliveryFeeMismatchError(
-      shippingFee,
-      localAirportShippingFee
-    );
-  }
+  const isIdempotentLocalAirportReplay = await validateLocalAirportFeeMismatch({
+    isLegacyMobileAirportDelivery,
+    localAirportShippingFee,
+    merchantId,
+    requestIdempotencyKey,
+    shippingFee,
+    supabase,
+  });
 
   return {
     ...(legacyFixedAirportMetadata ?? resolvedDeliveryMetadata),

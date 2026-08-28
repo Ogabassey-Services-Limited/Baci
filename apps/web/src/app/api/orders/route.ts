@@ -2760,13 +2760,10 @@ export async function POST(request: NextRequest) {
 
     if (idempotencyReplayed && isLegacyIdempotencyReplay) {
       const replayMetadataResult = await persistReplayedDeliveryMetadata({
-        adminClient: createAdminClient(),
         airportType: canonicalAirportType,
-        currentAirportType: orderCurrencyRow?.airport_type,
-        currentDeliveryMethod: orderCurrencyRow?.delivery_method,
         deliveryMethod: canonicalDeliveryMethod,
-        merchantId: merchant_id,
         orderId: order.id,
+        rpcClient: orderRpcClient,
       });
       if (replayMetadataResult.error) {
         logger.error({

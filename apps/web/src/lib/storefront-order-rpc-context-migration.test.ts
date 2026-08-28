@@ -73,6 +73,13 @@ const replayScopeMigration = readFileSync(
   ),
   'utf8'
 );
+const replayMetadataPersistenceMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828180000_persist_storefront_order_delivery_metadata_replay.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order RPC context migration contract', () => {
   it('requires a signed merchant-bound route context for non-internal inserts', () => {
@@ -268,6 +275,36 @@ describe('storefront order RPC context migration contract', () => {
     );
     expect(replayScopeMigration).toContain(
       'NEW.checkout_idempotency_key IS NOT DISTINCT FROM OLD.checkout_idempotency_key'
+    );
+  });
+
+  it('keeps legacy replay metadata repair route-scoped and discriminator-bound', () => {
+    expect(replayMetadataPersistenceMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.persist_storefront_order_delivery_metadata('
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      "'storefront_order_context', '') <> 'route'"
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      "'storefront_order_merchant_id'"
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      'v_order.checkout_idempotency_key IS NULL'
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      "v_marker IN ('airport delivery', 'airport delivery (outside lagos)')"
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      "v_marker = 'airport pickup'"
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      "v_quote_rate_id, '_', 6) = '1'"
+    );
+    expect(replayMetadataPersistenceMigration).toContain(
+      'GRANT EXECUTE ON FUNCTION public.persist_storefront_order_delivery_metadata'
+    );
+    expect(replayMetadataPersistenceMigration).not.toContain(
+      'shipping_fee = 25000'
     );
   });
 });

@@ -24,12 +24,19 @@ const validGoFasterQuote = {
   provider_rate_id: 'GIGL_30_0_1_0_1_4',
 };
 
+const validAirportAddress = {
+  address: '12 Airport Road',
+  city: 'Ikeja',
+  state: 'Lagos',
+};
+
 describe('validateLocalAirportDeliveryFee', () => {
   it('accepts a server-verified GIGL GoFaster airport quote at its stored price', async () => {
     const result = await validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([validGoFasterQuote]),
@@ -47,6 +54,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       merchantId: MERCHANT_ID,
       requestIdempotencyKey: 'airport-provider-retry-key',
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase(
@@ -71,6 +79,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 12_000,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([
@@ -89,6 +98,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'door',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([validGoFasterQuote]),
@@ -104,6 +114,7 @@ describe('validateLocalAirportDeliveryFee', () => {
     const result = await validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([validGoFasterQuote]),
@@ -122,6 +133,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([
@@ -140,6 +152,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 18_500,
       supabase: mockSupabase([validGoFasterQuote]),
     });
@@ -185,6 +198,7 @@ describe('validateLocalAirportDeliveryFee', () => {
       deliveryMethod: 'airport',
       merchantId: MERCHANT_ID,
       selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
       shippingFee: 17_500,
       shippingProvider: 'GIGL',
       supabase: mockSupabase([validGoFasterQuote]),
@@ -231,8 +245,21 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
-  it('charges the current fee for a released mobile client using the legacy airport marker and amount', async () => {
-    const result = await validateLocalAirportDeliveryFee({
+  it('rejects a metadata-free current airport-delivery fee without replay proof', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      shippingFee: 35_000,
+      supabase: mockSupabase(null),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'DELIVERY_METADATA_REQUIRED',
+      status: 400,
+    });
+  });
+
+  it('requires a released mobile client to refresh before accepting the changed airport fee', async () => {
+    const promise = validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,
       shippingAddress: {
         address: 'Airport Delivery (Outside Lagos)',
@@ -244,11 +271,9 @@ describe('validateLocalAirportDeliveryFee', () => {
       supabase: mockSupabase(null),
     });
 
-    expect(result).toEqual({
-      isIdempotentLocalAirportReplay: false,
-      localAirportShippingFee: 35_000,
-      resolvedDeliveryMethod: 'airport',
-      resolvedAirportType: 'delivery',
+    await expect(promise).rejects.toMatchObject({
+      code: 'AIRPORT_FEE_UPDATE_REQUIRED',
+      status: 400,
     });
   });
 

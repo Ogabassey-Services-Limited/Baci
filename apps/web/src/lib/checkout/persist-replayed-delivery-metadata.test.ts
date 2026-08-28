@@ -2,88 +2,96 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { persistReplayedDeliveryMetadata } from './persist-replayed-delivery-metadata';
 
-function createAdminClient(updateResult: { error: unknown }) {
-  const update = vi.fn(() => ({
-    eq: vi.fn(() => ({
-      eq: vi.fn().mockResolvedValue(updateResult),
-    })),
-  }));
+function createRpcClient(result: { data?: unknown; error: unknown }) {
+  const rpc = vi.fn().mockResolvedValue(result);
   return {
     client: {
-      from: vi.fn(() => ({ update })),
+      rpc,
     } as unknown as SupabaseClient,
-    update,
+    rpc,
   };
 }
 
 describe('persistReplayedDeliveryMetadata', () => {
   it('backfills canonical metadata when a legacy replay row is missing it', async () => {
-    const { client, update } = createAdminClient({ error: null });
+    const { client, rpc } = createRpcClient({ data: true, error: null });
 
     const result = await persistReplayedDeliveryMetadata({
-      adminClient: client,
       airportType: 'pickup',
-      currentAirportType: null,
-      currentDeliveryMethod: null,
       deliveryMethod: 'airport',
-      merchantId: 'merchant-id',
       orderId: 'order-id',
+      rpcClient: client,
     });
 
     expect(result).toEqual({ attempted: true, error: null });
-    expect(update).toHaveBeenCalledWith({
-      airport_type: 'pickup',
-      delivery_method: 'airport',
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      'persist_storefront_order_delivery_metadata',
+      {
+        p_airport_type: 'pickup',
+        p_delivery_method: 'airport',
+        p_order_id: 'order-id',
+      }
+    );
   });
 
-  it('does not overwrite metadata already persisted on a replay row', async () => {
-    const { client, update } = createAdminClient({ error: null });
+  it('does not claim a replay when the scoped RPC reports no durable airport evidence', async () => {
+    const { client, rpc } = createRpcClient({ data: false, error: null });
 
     const result = await persistReplayedDeliveryMetadata({
-      adminClient: client,
       airportType: 'delivery',
-      currentAirportType: 'delivery',
-      currentDeliveryMethod: 'airport',
       deliveryMethod: 'airport',
-      merchantId: 'merchant-id',
       orderId: 'order-id',
+      rpcClient: client,
     });
 
     expect(result).toEqual({ attempted: false, error: null });
-    expect(update).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalled();
+  });
+
+  it('does not overwrite metadata already persisted on a replay row', async () => {
+    const { client, rpc } = createRpcClient({ data: false, error: null });
+
+    const result = await persistReplayedDeliveryMetadata({
+      airportType: 'delivery',
+      deliveryMethod: 'airport',
+      orderId: 'order-id',
+      rpcClient: client,
+    });
+
+    expect(result).toEqual({ attempted: false, error: null });
+    expect(rpc).toHaveBeenCalled();
   });
 
   it('fills only the missing metadata field on a partially persisted replay row', async () => {
-    const { client, update } = createAdminClient({ error: null });
+    const { client, rpc } = createRpcClient({ data: true, error: null });
 
     const result = await persistReplayedDeliveryMetadata({
-      adminClient: client,
       airportType: 'pickup',
-      currentAirportType: null,
-      currentDeliveryMethod: 'airport',
       deliveryMethod: 'airport',
-      merchantId: 'merchant-id',
       orderId: 'order-id',
+      rpcClient: client,
     });
 
     expect(result).toEqual({ attempted: true, error: null });
-    expect(update).toHaveBeenCalledWith({ airport_type: 'pickup' });
+    expect(rpc).toHaveBeenCalledWith(
+      'persist_storefront_order_delivery_metadata',
+      expect.objectContaining({
+        p_airport_type: 'pickup',
+        p_delivery_method: 'airport',
+      })
+    );
   });
 
   it('returns the persistence error so the route can fail closed for a retry', async () => {
     const persistenceError = { code: 'PGRST001', message: 'temporary outage' };
-    const { client } = createAdminClient({ error: persistenceError });
+    const { client } = createRpcClient({ error: persistenceError });
 
     await expect(
       persistReplayedDeliveryMetadata({
-        adminClient: client,
         airportType: 'delivery',
-        currentAirportType: null,
-        currentDeliveryMethod: null,
         deliveryMethod: 'airport',
-        merchantId: 'merchant-id',
         orderId: 'order-id',
+        rpcClient: client,
       })
     ).resolves.toEqual({ attempted: true, error: persistenceError });
   });

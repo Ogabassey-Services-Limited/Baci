@@ -2,13 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { OrderCreateInput } from '@/schemas/orders';
 
 type PersistReplayedDeliveryMetadataInput = {
-  adminClient: SupabaseClient;
   airportType: OrderCreateInput['airport_type'];
-  currentAirportType?: string | null;
-  currentDeliveryMethod?: string | null;
   deliveryMethod: OrderCreateInput['delivery_method'];
-  merchantId: string;
   orderId: string;
+  rpcClient: SupabaseClient;
 };
 
 type PersistReplayedDeliveryMetadataResult = {
@@ -22,36 +19,23 @@ type PersistReplayedDeliveryMetadataResult = {
  * Existing non-null metadata is never overwritten.
  */
 export async function persistReplayedDeliveryMetadata({
-  adminClient,
   airportType,
-  currentAirportType,
-  currentDeliveryMethod,
   deliveryMethod,
-  merchantId,
   orderId,
+  rpcClient,
 }: PersistReplayedDeliveryMetadataInput): Promise<PersistReplayedDeliveryMetadataResult> {
   if (!deliveryMethod && !airportType) {
     return { attempted: false, error: null };
   }
 
-  const metadata = {
-    ...(deliveryMethod && currentDeliveryMethod == null
-      ? { delivery_method: deliveryMethod }
-      : {}),
-    ...(airportType && currentAirportType == null
-      ? { airport_type: airportType }
-      : {}),
-  };
+  const { data, error } = await rpcClient.rpc(
+    'persist_storefront_order_delivery_metadata',
+    {
+      p_airport_type: airportType ?? null,
+      p_delivery_method: deliveryMethod ?? null,
+      p_order_id: orderId,
+    }
+  );
 
-  if (Object.keys(metadata).length === 0) {
-    return { attempted: false, error: null };
-  }
-
-  const { error } = await adminClient
-    .from('orders')
-    .update(metadata)
-    .eq('id', orderId)
-    .eq('merchant_id', merchantId);
-
-  return { attempted: true, error };
+  return { attempted: error !== null || data === true, error };
 }

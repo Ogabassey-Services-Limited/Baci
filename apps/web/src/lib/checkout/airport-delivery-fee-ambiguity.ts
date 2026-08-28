@@ -31,6 +31,7 @@ export function isAmbiguousMetadataFreeAirportFee({
     !selectedQuoteId &&
     !shippingRateId &&
     (Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01 ||
+      Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.delivery) <= 0.01 ||
       Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.pickup) <= 0.01)
   );
 }
