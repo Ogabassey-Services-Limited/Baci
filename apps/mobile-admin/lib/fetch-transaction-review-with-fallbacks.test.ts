@@ -409,6 +409,39 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     ).not.toContain('quiz_award_id');
   });
 
+  it('keeps quiz award ids excluded when a line id fallback discovers the missing column', async () => {
+    const rows = [{ id: 'line-and-quiz-fallback-order' }];
+    const lineIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'line_id' column of 'order_items' in the schema cache",
+    };
+    const quizAwardIdSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'quiz_award_id' column of 'order_items' in the schema cache",
+    };
+
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
+      .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
+      .mockResolvedValueOnce({ data: null, error: lineIdSchemaError })
+      .mockResolvedValueOnce({ data: null, error: quizAwardIdSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement;
+    expect(selector).not.toContain('line_id');
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('preserves cost relationships when adjustment columns are unavailable', async () => {
     const rows = [{ id: 'legacy-adjustment-order' }];
     const adjustmentSchemaError = {

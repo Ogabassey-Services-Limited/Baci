@@ -19,6 +19,7 @@ type TaxAmountFallback = Readonly<{
 type FullFallbackFlags = Readonly<{
   discountAmountUnavailable: boolean;
   discountCodeUnavailable: boolean;
+  quizAwardIdUnavailable: boolean;
   variantIdUnavailable: boolean;
 }>;
 
@@ -33,6 +34,7 @@ interface FullFallbackDependencies {
     error: TransactionReviewQueryError,
     column: string
   ) => boolean;
+  onMissingSchemaColumn?: (column: string) => void;
   runQueryWithTaxFallback: (
     stage: string,
     options: TransactionReviewQueryOptions,
@@ -46,83 +48,106 @@ function getFullFallbackProjection(
   const {
     discountAmountUnavailable,
     discountCodeUnavailable,
+    quizAwardIdUnavailable,
     variantIdUnavailable,
   } = flags;
 
-  if (variantIdUnavailable && discountCodeUnavailable) {
-    return discountAmountUnavailable
-      ? {
-          selectStatement:
-            TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscount,
-          selectStatementNoTaxAmount:
-            TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscountNoTaxAmount,
-          stage: 'FullNoVariantIdNoDiscountCodeNoDiscount',
-        }
-      : {
-          selectStatement:
-            TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCode,
-          selectStatementNoTaxAmount:
-            TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoTaxAmount,
-          stage: 'FullNoVariantIdNoDiscountCode',
-        };
-  }
+  const projection = (() => {
+    if (variantIdUnavailable && discountCodeUnavailable) {
+      return discountAmountUnavailable
+        ? {
+            selectStatement:
+              TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscount,
+            selectStatementNoTaxAmount:
+              TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoDiscountNoTaxAmount,
+            stage: 'FullNoVariantIdNoDiscountCodeNoDiscount',
+          }
+        : {
+            selectStatement:
+              TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCode,
+            selectStatementNoTaxAmount:
+              TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountCodeNoTaxAmount,
+            stage: 'FullNoVariantIdNoDiscountCode',
+          };
+    }
 
-  if (variantIdUnavailable && discountAmountUnavailable) {
-    return {
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscount,
-      selectStatementNoTaxAmount:
-        TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountNoTaxAmount,
-      stage: 'FullNoVariantIdNoDiscount',
-    };
-  }
+    if (variantIdUnavailable && discountAmountUnavailable) {
+      return {
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscount,
+        selectStatementNoTaxAmount:
+          TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoDiscountNoTaxAmount,
+        stage: 'FullNoVariantIdNoDiscount',
+      };
+    }
 
-  if (discountCodeUnavailable && discountAmountUnavailable) {
-    return {
-      selectStatement:
-        TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoDiscount,
-      selectStatementNoTaxAmount:
-        TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoDiscountNoTaxAmount,
-      stage: 'FullNoDiscountCodeNoDiscount',
-    };
-  }
+    if (discountCodeUnavailable && discountAmountUnavailable) {
+      return {
+        selectStatement:
+          TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoDiscount,
+        selectStatementNoTaxAmount:
+          TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoDiscountNoTaxAmount,
+        stage: 'FullNoDiscountCodeNoDiscount',
+      };
+    }
 
-  if (variantIdUnavailable) {
-    return {
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoVariantId,
-      selectStatementNoTaxAmount:
-        TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoTaxAmount,
-      stage: 'FullNoVariantId',
-    };
-  }
+    if (variantIdUnavailable) {
+      return {
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoVariantId,
+        selectStatementNoTaxAmount:
+          TRANSACTION_REVIEW_SELECTORS.fullNoVariantIdNoTaxAmount,
+        stage: 'FullNoVariantId',
+      };
+    }
 
-  if (discountCodeUnavailable) {
-    return {
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCode,
-      selectStatementNoTaxAmount:
-        TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoTaxAmount,
-      stage: 'FullNoDiscountCode',
-    };
-  }
+    if (discountCodeUnavailable) {
+      return {
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCode,
+        selectStatementNoTaxAmount:
+          TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCodeNoTaxAmount,
+        stage: 'FullNoDiscountCode',
+      };
+    }
 
-  if (discountAmountUnavailable) {
+    if (discountAmountUnavailable) {
+      return {
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscount,
+        selectStatementNoTaxAmount:
+          TRANSACTION_REVIEW_SELECTORS.fullNoDiscountNoTaxAmount,
+        stage: 'FullNoDiscount',
+      };
+    }
+
     return {
-      selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoDiscount,
-      selectStatementNoTaxAmount:
-        TRANSACTION_REVIEW_SELECTORS.fullNoDiscountNoTaxAmount,
-      stage: 'FullNoDiscount',
+      selectStatement: TRANSACTION_REVIEW_SELECTORS.full,
+      selectStatementNoTaxAmount: TRANSACTION_REVIEW_SELECTORS.fullNoTaxAmount,
+      stage: 'Full',
     };
+  })();
+
+  if (!quizAwardIdUnavailable) {
+    return projection;
   }
 
   return {
-    selectStatement: TRANSACTION_REVIEW_SELECTORS.full,
-    selectStatementNoTaxAmount: TRANSACTION_REVIEW_SELECTORS.fullNoTaxAmount,
-    stage: 'Full',
+    selectStatement: withoutQuizAwardId(projection.selectStatement),
+    selectStatementNoTaxAmount: withoutQuizAwardId(
+      projection.selectStatementNoTaxAmount
+    ),
+    stage: `${projection.stage}NoQuizAwardId`,
   };
+}
+
+function withoutQuizAwardId(selector: string) {
+  return selector.replace(', quiz_award_id', '');
 }
 
 export async function fetchFullTransactionReviewRows(
   query: TransactionReviewFallbackQuery,
-  { isMissingSchemaColumn, runQueryWithTaxFallback }: FullFallbackDependencies
+  {
+    isMissingSchemaColumn,
+    onMissingSchemaColumn,
+    runQueryWithTaxFallback,
+  }: FullFallbackDependencies
 ) {
   const {
     endDateFilter,
@@ -143,6 +168,7 @@ export async function fetchFullTransactionReviewRows(
   let flags: FullFallbackFlags = {
     discountAmountUnavailable: false,
     discountCodeUnavailable: false,
+    quizAwardIdUnavailable: false,
     variantIdUnavailable: false,
   };
   const attemptedStages = new Set<string>();
@@ -171,13 +197,20 @@ export async function fetchFullTransactionReviewRows(
       discountCodeUnavailable:
         flags.discountCodeUnavailable ||
         isMissingSchemaColumn(error, 'discount_code_id'),
+      quizAwardIdUnavailable:
+        flags.quizAwardIdUnavailable ||
+        isMissingSchemaColumn(error, 'quiz_award_id'),
       variantIdUnavailable:
         flags.variantIdUnavailable ||
         isMissingSchemaColumn(error, 'variant_id'),
     };
+    if (nextFlags.quizAwardIdUnavailable && !flags.quizAwardIdUnavailable) {
+      onMissingSchemaColumn?.('quiz_award_id');
+    }
     if (
       nextFlags.discountAmountUnavailable === flags.discountAmountUnavailable &&
       nextFlags.discountCodeUnavailable === flags.discountCodeUnavailable &&
+      nextFlags.quizAwardIdUnavailable === flags.quizAwardIdUnavailable &&
       nextFlags.variantIdUnavailable === flags.variantIdUnavailable
     ) {
       break;

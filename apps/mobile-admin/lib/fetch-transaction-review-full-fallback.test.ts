@@ -91,6 +91,46 @@ describe('fetchFullTransactionReviewRows', () => {
     expect(selector).toContain('order_item_unit_costs');
   });
 
+  it('composes quiz omission with a later variant id fallback', async () => {
+    const runQueryWithTaxFallback = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST204', message: 'quiz_award_id unavailable' },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST204', message: 'variant_id unavailable' },
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 'order-quiz-variant' }],
+        error: null,
+      });
+
+    const result = await fetchFullTransactionReviewRows(
+      { merchantId: 'merchant-1' },
+      { isMissingSchemaColumn, runQueryWithTaxFallback }
+    );
+
+    expect(result).toEqual({
+      data: [{ id: 'order-quiz-variant' }],
+      error: null,
+    });
+    expect(runQueryWithTaxFallback).toHaveBeenCalledTimes(3);
+    expect(runQueryWithTaxFallback.mock.calls[1]?.[0]).toBe(
+      'FullNoQuizAwardId'
+    );
+    expect(runQueryWithTaxFallback.mock.calls[2]?.[0]).toBe(
+      'FullNoVariantIdNoQuizAwardId'
+    );
+    const selector =
+      runQueryWithTaxFallback.mock.calls[2]?.[1].selectStatement ?? '';
+    expect(selector).not.toContain('quiz_award_id');
+    expect(selector).not.toContain('variant_id');
+    expect(selector).not.toContain('product_variants');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('returns the final schema error when every full projection fails', async () => {
     const finalError = {
       code: 'PGRST204',

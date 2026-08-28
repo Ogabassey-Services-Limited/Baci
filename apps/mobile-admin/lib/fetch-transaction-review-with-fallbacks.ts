@@ -8,6 +8,15 @@ import {
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
 
+type TaxAmountFallback = Readonly<{
+  selectStatement: string;
+  stage: string;
+}>;
+
+function withoutQuizAwardId(selector: string) {
+  return selector.replace(', quiz_award_id', '');
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -16,12 +25,91 @@ export async function fetchTransactionReviewWithFallbacks(
   query: TransactionReviewFallbackQuery
 ) {
   const legacyQuery = query;
-  let { data, error } = await fetchRichTransactionReviewRows(query);
+  let quizAwardIdUnavailable = false;
+  const markMissingSchemaColumn = (column: string) => {
+    if (column === 'quiz_award_id') {
+      quizAwardIdUnavailable = true;
+    }
+  };
+  const omitUnavailableQuizAwardId = (selector: string) =>
+    quizAwardIdUnavailable ? withoutQuizAwardId(selector) : selector;
+  const runLegacyFallbackQuery = async (
+    stage: string,
+    selectStatement: string,
+    includeCancelledAt: boolean,
+    taxAmountFallback?: TaxAmountFallback
+  ) => {
+    const runQuery = () =>
+      runLegacyTransactionReviewQuery(
+        stage,
+        legacyQuery,
+        omitUnavailableQuizAwardId(selectStatement),
+        includeCancelledAt,
+        taxAmountFallback
+          ? {
+              ...taxAmountFallback,
+              selectStatement: omitUnavailableQuizAwardId(
+                taxAmountFallback.selectStatement
+              ),
+            }
+          : undefined
+      );
+
+    let result = await runQuery();
+    if (
+      !quizAwardIdUnavailable &&
+      isMissingSchemaColumn(result.error, 'quiz_award_id')
+    ) {
+      quizAwardIdUnavailable = true;
+      result = await runQuery();
+    }
+    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
+      quizAwardIdUnavailable = true;
+    }
+    return result;
+  };
+  const runBaseFallbackQuery = async (
+    stage: string,
+    selectStatement: string,
+    includeCancelledAt: boolean,
+    taxAmountFallback?: TaxAmountFallback
+  ) => {
+    const runQuery = () =>
+      runBaseTransactionReviewQuery(
+        stage,
+        legacyQuery,
+        omitUnavailableQuizAwardId(selectStatement),
+        includeCancelledAt,
+        taxAmountFallback
+          ? {
+              ...taxAmountFallback,
+              selectStatement: omitUnavailableQuizAwardId(
+                taxAmountFallback.selectStatement
+              ),
+            }
+          : undefined
+      );
+
+    let result = await runQuery();
+    if (
+      !quizAwardIdUnavailable &&
+      isMissingSchemaColumn(result.error, 'quiz_award_id')
+    ) {
+      quizAwardIdUnavailable = true;
+      result = await runQuery();
+    }
+    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
+      quizAwardIdUnavailable = true;
+    }
+    return result;
+  };
+  let { data, error } = await fetchRichTransactionReviewRows(query, {
+    onMissingSchemaColumn: markMissingSchemaColumn,
+  });
 
   if (isMissingSchemaColumn(error, 'line_id')) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'FullNoLineId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.fullNoLineId,
       true,
       {
@@ -32,9 +120,8 @@ export async function fetchTransactionReviewWithFallbacks(
   }
 
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseWithDiscount',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscount,
       true,
       {
@@ -45,17 +132,15 @@ export async function fetchTransactionReviewWithFallbacks(
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'Base',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.base,
       true
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runLegacyTransactionReviewQuery(
+    ({ data, error } = await runLegacyFallbackQuery(
       'Legacy',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.legacyCompat,
       false,
       {
@@ -65,9 +150,8 @@ export async function fetchTransactionReviewWithFallbacks(
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseWithDiscount',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscountCompat,
       false,
       {
@@ -78,25 +162,22 @@ export async function fetchTransactionReviewWithFallbacks(
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'Base',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseCompat,
       false
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'Base',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.noDiscount,
       false
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseNoLineId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
       true,
       {
@@ -107,17 +188,15 @@ export async function fetchTransactionReviewWithFallbacks(
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseNoLineId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.noLineId,
       false
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseNoVariantId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId,
       true,
       {
@@ -128,17 +207,15 @@ export async function fetchTransactionReviewWithFallbacks(
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseNoVariantId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.noVariantId,
       false
     ));
   }
   if (isTransactionReviewSchemaCacheError(error)) {
-    ({ data, error } = await runBaseTransactionReviewQuery(
+    ({ data, error } = await runBaseFallbackQuery(
       'BaseNoQuizAwardId',
-      legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.noVariantIdNoQuizAwardId,
       false
     ));

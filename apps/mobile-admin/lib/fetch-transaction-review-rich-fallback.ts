@@ -20,6 +20,10 @@ export type TransactionReviewQueryError = {
 
 type TransactionReviewFallbackStage = string;
 
+type TransactionReviewFallbackCallbacks = Readonly<{
+  onMissingSchemaColumn?: (column: string) => void;
+}>;
+
 function getTransactionReviewErrorText(error: TransactionReviewQueryError) {
   return [error?.code, error?.message, error?.details, error?.hint]
     .filter(Boolean)
@@ -130,13 +134,16 @@ export function runBaseTransactionReviewQuery(
 }
 
 /** Reads cost-rich transaction rows before compatibility/base fallbacks. */
-export async function fetchRichTransactionReviewRows({
-  endDateFilter,
-  endDateIso,
-  merchantId,
-  startDateFilter,
-  startDateIso,
-}: TransactionReviewFallbackQuery) {
+export async function fetchRichTransactionReviewRows(
+  {
+    endDateFilter,
+    endDateIso,
+    merchantId,
+    startDateFilter,
+    startDateIso,
+  }: TransactionReviewFallbackQuery,
+  { onMissingSchemaColumn }: TransactionReviewFallbackCallbacks = {}
+) {
   const legacyQuery = {
     endDateFilter,
     endDateIso,
@@ -144,6 +151,7 @@ export async function fetchRichTransactionReviewRows({
     startDateFilter,
     startDateIso,
   };
+  let quizAwardIdUnavailable = false;
   let { data, error } = await fetchFullTransactionReviewRows(
     {
       endDateFilter,
@@ -154,11 +162,16 @@ export async function fetchRichTransactionReviewRows({
     },
     {
       isMissingSchemaColumn,
+      onMissingSchemaColumn: (column) => {
+        if (column === 'quiz_award_id') {
+          quizAwardIdUnavailable = true;
+        }
+        onMissingSchemaColumn?.(column);
+      },
       runQueryWithTaxFallback: runTransactionReviewQueryWithTaxFallback,
     }
   );
 
-  let quizAwardIdUnavailable = false;
   const runLegacyFallbackQuery = async (
     stage: TransactionReviewFallbackStage,
     selectStatement: string,
@@ -189,27 +202,16 @@ export async function fetchRichTransactionReviewRows({
       isMissingSchemaColumn(result.error, 'quiz_award_id')
     ) {
       quizAwardIdUnavailable = true;
+      onMissingSchemaColumn?.('quiz_award_id');
       result = await runQuery();
     }
 
     if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
       quizAwardIdUnavailable = true;
+      onMissingSchemaColumn?.('quiz_award_id');
     }
     return result;
   };
-
-  if (isMissingSchemaColumn(error, 'quiz_award_id')) {
-    quizAwardIdUnavailable = true;
-    ({ data, error } = await runLegacyFallbackQuery(
-      'FullNoQuizAwardId',
-      TRANSACTION_REVIEW_SELECTORS.fullNoQuizAwardId,
-      {
-        selectStatement:
-          TRANSACTION_REVIEW_SELECTORS.fullNoQuizAwardIdNoTaxAmount,
-        stage: 'FullNoQuizAwardIdNoTaxAmount',
-      }
-    ));
-  }
 
   if (isMissingSchemaColumn(error, 'variant_attributes')) {
     ({ data, error } = await runLegacyFallbackQuery(
