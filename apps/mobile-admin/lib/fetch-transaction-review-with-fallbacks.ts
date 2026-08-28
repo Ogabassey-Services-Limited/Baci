@@ -27,6 +27,10 @@ function withoutCancelledAt(selector: string) {
   return selector.replace(', cancelled_at', '');
 }
 
+function withoutTransactionDate(selector: string) {
+  return selector.replace(', transaction_date', '');
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -39,6 +43,7 @@ export async function fetchTransactionReviewWithFallbacks(
   let discountCodeUnavailable = false;
   let adTrackingUnavailable = false;
   let cancelledAtUnavailable = false;
+  let transactionDateUnavailable = false;
   const markMissingSchemaColumn = (column: string) => {
     if (column === 'quiz_award_id') {
       quizAwardIdUnavailable = true;
@@ -51,6 +56,9 @@ export async function fetchTransactionReviewWithFallbacks(
     }
     if (column === 'cancelled_at') {
       cancelledAtUnavailable = true;
+    }
+    if (column === 'transaction_date') {
+      transactionDateUnavailable = true;
     }
   };
   const omitUnavailableSchemaColumns = (selector: string) => {
@@ -65,6 +73,9 @@ export async function fetchTransactionReviewWithFallbacks(
     }
     if (cancelledAtUnavailable) {
       result = withoutCancelledAt(result);
+    }
+    if (transactionDateUnavailable) {
+      result = withoutTransactionDate(result);
     }
     return result;
   };
@@ -105,6 +116,13 @@ export async function fetchTransactionReviewWithFallbacks(
         cancelledAtUnavailable = true;
         shouldRetry = true;
       }
+      if (
+        !transactionDateUnavailable &&
+        isMissingSchemaColumn(result.error, 'transaction_date')
+      ) {
+        transactionDateUnavailable = true;
+        shouldRetry = true;
+      }
       if (!shouldRetry) {
         return result;
       }
@@ -130,7 +148,8 @@ export async function fetchTransactionReviewWithFallbacks(
                 taxAmountFallback.selectStatement
               ),
             }
-          : undefined
+          : undefined,
+        !transactionDateUnavailable
       );
 
     return runWithUnavailableSchemaColumns(runQuery);

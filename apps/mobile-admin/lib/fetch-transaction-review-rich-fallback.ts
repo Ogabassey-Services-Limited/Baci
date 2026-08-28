@@ -14,33 +14,8 @@ type TransactionReviewFallbackCallbacks = Readonly<{
   onMissingSchemaColumn?: (column: string) => void;
 }>;
 
-function withoutQuizAwardId(selector: string) {
-  return selector.replace(', quiz_award_id', '');
-}
-
-function withoutAdTracking(selector: string) {
-  return selector.replace(', ad_tracking', '');
-}
-
-function withoutCancelledAt(selector: string) {
-  return selector.replace(', cancelled_at', '');
-}
-
-function withoutVariantAttributes(selector: string) {
-  return selector.replace(', variant_attributes', '');
-}
-
-function withoutProductMatchStatus(selector: string) {
-  return selector.replace(', product_match_status', '');
-}
-
-function withoutDiscountCode(selector: string) {
-  return selector.replace(', discount_code_id', '');
-}
-
-function withoutTaxAmount(selector: string) {
-  return selector.replace(', tax_amount', '');
-}
+const withoutSchemaColumn = (selector: string, column: string) =>
+  selector.replace(`, ${column}`, '');
 
 /** Reads cost-rich transaction rows before compatibility/base fallbacks. */
 export async function fetchRichTransactionReviewRows(
@@ -100,22 +75,25 @@ export async function fetchRichTransactionReviewRows(
     const omitUnavailableSchemaColumns = (selector: string) => {
       let result = selector;
       if (unavailableSchemaColumns.has('quiz_award_id')) {
-        result = withoutQuizAwardId(result);
+        result = withoutSchemaColumn(result, 'quiz_award_id');
       }
       if (unavailableSchemaColumns.has('ad_tracking')) {
-        result = withoutAdTracking(result);
+        result = withoutSchemaColumn(result, 'ad_tracking');
       }
       if (unavailableSchemaColumns.has('cancelled_at')) {
-        result = withoutCancelledAt(result);
+        result = withoutSchemaColumn(result, 'cancelled_at');
       }
       if (unavailableSchemaColumns.has('variant_attributes')) {
-        result = withoutVariantAttributes(result);
+        result = withoutSchemaColumn(result, 'variant_attributes');
       }
       if (unavailableSchemaColumns.has('product_match_status')) {
-        result = withoutProductMatchStatus(result);
+        result = withoutSchemaColumn(result, 'product_match_status');
       }
       if (unavailableSchemaColumns.has('discount_code_id')) {
-        result = withoutDiscountCode(result);
+        result = withoutSchemaColumn(result, 'discount_code_id');
+      }
+      if (unavailableSchemaColumns.has('transaction_date')) {
+        result = withoutSchemaColumn(result, 'transaction_date');
       }
       return result;
     };
@@ -133,7 +111,8 @@ export async function fetchRichTransactionReviewRows(
                 taxAmountFallback.selectStatement
               ),
             }
-          : undefined
+          : undefined,
+        !unavailableSchemaColumns.has('transaction_date')
       );
 
     let result = await runQuery();
@@ -189,6 +168,14 @@ export async function fetchRichTransactionReviewRows(
         onMissingSchemaColumn?.('discount_code_id');
         shouldRetry = true;
       }
+      if (
+        !unavailableSchemaColumns.has('transaction_date') &&
+        isMissingSchemaColumn(result.error, 'transaction_date')
+      ) {
+        markUnavailableSchemaColumn('transaction_date');
+        onMissingSchemaColumn?.('transaction_date');
+        shouldRetry = true;
+      }
       if (!shouldRetry) {
         break;
       }
@@ -207,8 +194,9 @@ export async function fetchRichTransactionReviewRows(
       : unavailableSchemaColumns.has('discount_code_id')
         ? TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoDiscountCode
         : TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes;
-    const variantAttributesSelectorNoTaxAmount = withoutTaxAmount(
-      variantAttributesSelector
+    const variantAttributesSelectorNoTaxAmount = withoutSchemaColumn(
+      variantAttributesSelector,
+      'tax_amount'
     );
 
     ({ data, error } = await runLegacyFallbackQuery(
@@ -226,8 +214,9 @@ export async function fetchRichTransactionReviewRows(
       )
         ? TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoProductMatchStatusNoLaterFields
         : TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields;
-      const noLaterFieldsSelectorNoTaxAmount = withoutTaxAmount(
-        noLaterFieldsSelector
+      const noLaterFieldsSelectorNoTaxAmount = withoutSchemaColumn(
+        noLaterFieldsSelector,
+        'tax_amount'
       );
 
       ({ data, error } = await runLegacyFallbackQuery(

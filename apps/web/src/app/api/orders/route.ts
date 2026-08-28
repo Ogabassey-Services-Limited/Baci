@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   appendReceiptFulfillmentDescription,
   formatCanonicalProductConditionLabel,
@@ -30,6 +29,7 @@ import {
 } from '@/lib/checkout/canonical-order-subtotal';
 import { prepareCheckoutIdempotencyReplay } from '@/lib/checkout/checkout-idempotency-replay';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
+import { createTransactionDiscountProof } from '@/lib/checkout/create-transaction-discount-proof';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import { hasExistingMerchantRateOrder } from '@/lib/checkout/has-existing-merchant-rate-order';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
@@ -1832,24 +1832,17 @@ export async function POST(request: NextRequest) {
       ? (negotiationDiscount?.totalDiscount ?? 0)
       : 0;
 
-    let transactionDiscountProof:
-      | ReturnType<typeof createQuizRpcServerProof>
+    let transactionDiscountProofResult:
+      | ReturnType<typeof createTransactionDiscountProof>
       | undefined;
-    let transactionDiscountNonce: string | undefined;
     if (
       shouldApplyServerDerivedDiscount &&
       negotiationDiscount?.lineDiscounts
     ) {
       try {
-        transactionDiscountNonce = randomUUID();
-        transactionDiscountProof = createQuizRpcServerProof({
-          action: 'storefront_transaction_discount',
-          payload: {
-            lineDiscounts: negotiationDiscount.lineDiscounts,
-            nonce: transactionDiscountNonce,
-            version: 3,
-          },
-          subjectId: merchant_id,
+        transactionDiscountProofResult = createTransactionDiscountProof({
+          lineDiscounts: negotiationDiscount.lineDiscounts,
+          merchantId: merchant_id,
           userId: resolvedUserId ?? 'guest',
         });
       } catch (transactionDiscountProofError) {
@@ -1879,8 +1872,8 @@ export async function POST(request: NextRequest) {
       geoPrivacy,
       lineDiscounts: negotiationDiscount?.lineDiscounts,
       shouldApplyServerDerivedDiscount,
-      transactionDiscountProof,
-      transactionDiscountNonce,
+      transactionDiscountProof: transactionDiscountProofResult?.proof,
+      transactionDiscountNonce: transactionDiscountProofResult?.nonce,
     });
 
     const {

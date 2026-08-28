@@ -15,12 +15,13 @@ export async function runLegacyTransactionReviewQuery(
   query: TransactionReviewFallbackQuery,
   selectStatement: string,
   includeCancelledAt: boolean,
-  taxAmountFallback?: TaxAmountFallback
+  taxAmountFallback?: TaxAmountFallback,
+  includeTransactionDate = true
 ) {
   const options: TransactionReviewQueryOptions = {
     ...query,
     includeCancelledAt,
-    includeTransactionDate: true,
+    includeTransactionDate,
     selectStatement,
   };
   return taxAmountFallback

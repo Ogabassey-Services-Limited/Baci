@@ -110,4 +110,37 @@ describe('fetchRichTransactionReviewRows', () => {
     expect(selector).toContain('order_item_unit_costs');
     expect(selector).toContain('product_variants');
   });
+
+  it('carries a missing transaction date into a rich legacy retry', async () => {
+    const rows = [{ id: 'transaction-date-and-variant-fallback-order' }];
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'transaction_date' column of 'orders' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const [options] = mockFetchTransactionReviewRows.mock.calls[2] ?? [];
+    expect(options.includeTransactionDate).toBe(false);
+    expect(options.selectStatement).not.toContain('transaction_date');
+    expect(options.selectStatement).toContain('order_item_unit_costs');
+  });
 });
