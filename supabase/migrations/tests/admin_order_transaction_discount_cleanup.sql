@@ -75,6 +75,15 @@ BEGIN
   )
   WHERE id = v_order_id;
 
+  SELECT ad_tracking
+  INTO v_tracking
+  FROM public.orders
+  WHERE id = v_order_id;
+
+  IF v_tracking ? 'baci_transaction_discount' THEN
+    RAISE EXCEPTION 'direct authenticated metadata write was not stripped: %', v_tracking;
+  END IF;
+
   SELECT COALESCE(
     jsonb_agg(
       jsonb_build_object(
@@ -147,15 +156,6 @@ BEGIN
     RAISE EXCEPTION 'item edit did not preserve admin discount provenance: %', v_tracking;
   END IF;
 
-  UPDATE public.orders
-  SET ad_tracking = jsonb_build_object(
-    'campaign', 'fee-only',
-    'baci_transaction_discount', jsonb_build_object('total_discount', 20)
-  )
-  WHERE id = v_order_id;
-  PERFORM set_config('request.jwt.claim.role', 'authenticated', false);
-  PERFORM set_config('request.jwt.claim.sub', v_owner_user_id::text, false);
-
   SELECT COALESCE(
     jsonb_agg(
       jsonb_build_object(
@@ -217,25 +217,16 @@ BEGIN
   FROM public.orders
   WHERE id = v_order_id;
 
-  IF NOT (v_tracking ? 'baci_transaction_discount')
-    OR v_tracking ->> 'campaign' IS DISTINCT FROM 'fee-only'
+  IF v_tracking -> 'baci_transaction_discount' ->> 'status' IS DISTINCT FROM 'admin_edit'
+    OR v_tracking ->> 'campaign' IS DISTINCT FROM 'keep-me'
   THEN
-    RAISE EXCEPTION 'fee-only edit unexpectedly cleared transaction discount metadata: %', v_tracking;
+    RAISE EXCEPTION 'fee-only edit unexpectedly changed transaction discount metadata: %', v_tracking;
   END IF;
 
   SELECT subtotal, total
   INTO v_before_subtotal, v_before_total
   FROM public.orders
   WHERE id = v_order_id;
-
-  UPDATE public.orders
-  SET ad_tracking = jsonb_build_object(
-    'campaign', 'rollback',
-    'baci_transaction_discount', jsonb_build_object('total_discount', 20)
-  )
-  WHERE id = v_order_id;
-  PERFORM set_config('request.jwt.claim.role', 'authenticated', false);
-  PERFORM set_config('request.jwt.claim.sub', v_owner_user_id::text, false);
 
   v_invalid_items := jsonb_set(
     v_items,
@@ -260,10 +251,10 @@ BEGIN
   FROM public.orders
   WHERE id = v_order_id;
 
-  IF NOT (v_tracking ? 'baci_transaction_discount')
-    OR v_tracking ->> 'campaign' IS DISTINCT FROM 'rollback'
+  IF v_tracking -> 'baci_transaction_discount' ->> 'status' IS DISTINCT FROM 'admin_edit'
+    OR v_tracking ->> 'campaign' IS DISTINCT FROM 'keep-me'
   THEN
-    RAISE EXCEPTION 'failed item edit did not roll back metadata: %', v_tracking;
+    RAISE EXCEPTION 'failed item edit did not preserve metadata: %', v_tracking;
   END IF;
 
   IF (SELECT subtotal FROM public.orders WHERE id = v_order_id) IS DISTINCT FROM v_before_subtotal

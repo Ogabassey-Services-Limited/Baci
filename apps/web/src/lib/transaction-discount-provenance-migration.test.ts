@@ -10,6 +10,13 @@ const migrationSql = readFileSync(
   ),
   'utf8'
 );
+const hardenedMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828030000_harden_transaction_discount_admin_context.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -37,6 +44,21 @@ describe('transaction discount provenance migration', () => {
     );
     expect(migrationSql).toContain(
       "jsonb_build_object('status', 'admin_edit', 'version', 4)"
+    );
+  });
+
+  it('uses a private transaction context instead of a caller-controlled GUC', () => {
+    expect(hardenedMigrationSql).toMatch(
+      /CREATE TABLE IF NOT EXISTS private\.transaction_discount_admin_edit_context/i
+    );
+    expect(hardenedMigrationSql).toMatch(
+      /context\.transaction_id = pg_catalog\.txid_current\(\)/i
+    );
+    expect(hardenedMigrationSql).toMatch(
+      /INSERT INTO private\.transaction_discount_admin_edit_context/i
+    );
+    expect(hardenedMigrationSql).not.toContain(
+      'app.transaction_discount_admin_edit'
     );
   });
 });
