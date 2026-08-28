@@ -165,7 +165,8 @@ describe('storefront order RPC context migration contract', () => {
     );
 
     expect(drainStep).toBeGreaterThanOrEqual(0);
-    expect(deployWorkflow).toContain('run: sleep 65');
+    expect(deployWorkflow).toContain('run: sleep 305');
+    expect(deployWorkflow).toContain("Vercel's 300-second default");
     expect(migrationStep).toBeGreaterThan(drainStep);
   });
 
