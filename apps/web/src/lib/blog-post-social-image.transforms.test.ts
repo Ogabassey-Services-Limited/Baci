@@ -148,6 +148,24 @@ describe('blog post social image transform projection', () => {
     });
   });
 
+  it('falls back when a trusted transformer route omits its options and source separator', () => {
+    const transformedUrl = 'https://cdn.ogabassey.com/image/card.jpg';
+
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      transformedUrl,
+      {}
+    );
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
   it('rejects transform syntax from an unconfigured origin', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,

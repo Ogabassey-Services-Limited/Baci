@@ -29,6 +29,14 @@ describe('isTrustedBlogMediaTransformUrl', () => {
     expect(result).toBe(true);
   });
 
+  it('recognizes a transformer route without an options or source separator', () => {
+    const result = isTrustedBlogMediaTransformUrl(
+      'https://cdn.ogabassey.com/image/card.jpg'
+    );
+
+    expect(result).toBe(true);
+  });
+
   it('recognizes transform syntax on a configured media origin', () => {
     process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
 
@@ -41,7 +49,6 @@ describe('isTrustedBlogMediaTransformUrl', () => {
 
   it.each([
     'https://example.com/image/format=jpeg/media/cover.jpg',
-    'https://cdn.ogabassey.com/image/cover.jpg',
     'http://cdn.ogabassey.com/image/format=jpeg/media/cover.jpg',
   ])('rejects the non-trusted transform candidate %s', (url) => {
     const result = isTrustedBlogMediaTransformUrl(url);

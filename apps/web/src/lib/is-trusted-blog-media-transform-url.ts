@@ -1,8 +1,6 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
-const TRANSFORM_PATH_PATTERN = /^\/image\/[^/]*\/.+$/u;
-
-/** Identifies transform-shaped URLs served by an approved blog media origin. */
+/** Identifies URLs routed through an approved blog media transformer. */
 export function isTrustedBlogMediaTransformUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
@@ -21,7 +19,7 @@ export function isTrustedBlogMediaTransformUrl(raw: string): boolean {
     return (
       url.protocol === 'https:' &&
       trustedOrigins.includes(url.origin) &&
-      TRANSFORM_PATH_PATTERN.test(url.pathname)
+      url.pathname.startsWith('/image/')
     );
   } catch {
     return false;
