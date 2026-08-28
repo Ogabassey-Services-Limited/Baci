@@ -159,6 +159,12 @@ vi.mock('@/lib/quiz-compliance-gate', () => ({
   QuizProductionNotApprovedError: MockQuizProductionNotApprovedError,
 }));
 
+vi.mock('@/lib/checkout/storefront-order-rpc-client', () => ({
+  createStorefrontOrderRpcClient: vi.fn(
+    ({ fallbackClient }: { fallbackClient: unknown }) => fallbackClient
+  ),
+}));
+
 vi.mock('@/lib/shipping/providers/gigl', () => ({
   giglProvider: { getLocations: vi.fn().mockResolvedValue([]) },
 }));

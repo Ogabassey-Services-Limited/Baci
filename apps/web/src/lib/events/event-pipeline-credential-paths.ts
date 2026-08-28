@@ -7,6 +7,19 @@ export const eventPipelineCredentialPaths = [
   ],
   [
     'apps/web/src/app/api/orders/route.ts',
+    'apps/web/src/lib/checkout/storefront-order-rpc-client.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/lib/checkout/storefront-order-rpc-client.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/app/api/orders/route.ts',
     'apps/web/src/lib/order-notification-dispatch.ts',
     'apps/web/src/lib/expo-push.ts',
     'apps/web/src/lib/supabase/admin.ts',

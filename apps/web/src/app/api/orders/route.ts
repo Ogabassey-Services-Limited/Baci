@@ -28,10 +28,12 @@ import {
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import {
+  buildLegacyOrderIdempotencyPayload,
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from '@/lib/checkout/order-idempotency';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
+import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import {
   LocalAirportDeliveryFeeMismatchError,
   LocalAirportDeliveryValidationError,
@@ -2351,14 +2353,59 @@ export async function POST(request: NextRequest) {
       (isIdempotentLocalAirportReplay ? null : localAirportShippingFee) ??
       shippingFeeValue;
 
-    const checkoutRequestHash = requestIdempotencyKey
-      ? hashOrderIdempotencyPayload(
-          buildOrderIdempotencyPayload({
+    const checkoutRequestPayload = requestIdempotencyKey
+      ? buildOrderIdempotencyPayload({
+          ...body,
+          shipping_address: shippingAddressForOrder,
+          // STABLE code identity, NOT the recomputed amount, so a merchant
+          // editing the code between a checkout and its retry can't trip
+          // checkout_idempotency_conflict before the wrapper's replay path.
+          discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
+          discount_code: requestedDiscountCode,
+          delivery_method,
+          gift_wrapping_fee: giftWrappingFeeValue,
+          airport_type,
+          items: orderItemsPayload,
+          shipping_fee: shippingFeeValue,
+          // Merchant-rate orders null shipping_provider + selected_quote_id, so
+          // the rate id is the only field that distinguishes two same-priced
+          // merchant rates (same fee + address) on an Idempotency-Key reuse.
+          // Without it the RPC would replay the ORIGINAL order instead of
+          // returning checkout_idempotency_conflict.
+          shipping_rate_id: body.shipping_rate_id,
+          tax_amount: orderTaxAmount,
+        })
+      : null;
+    let checkoutRequestHash = checkoutRequestPayload
+      ? hashOrderIdempotencyPayload(checkoutRequestPayload)
+      : null;
+
+    // Orders created before delivery metadata was added have a canonical hash
+    // that intentionally omitted delivery_method/airport_type. When a retry
+    // carries those fields, use the legacy form only after the database's
+    // merchant-scoped probe confirms the existing row predates the rollout.
+    if (
+      requestIdempotencyKey &&
+      checkoutRequestPayload &&
+      (delivery_method || airport_type)
+    ) {
+      const { data: isLegacyOrder, error: legacyProbeError } =
+        await supabase.rpc('is_legacy_storefront_order_idempotency_key', {
+          p_checkout_idempotency_key: requestIdempotencyKey,
+          p_merchant_id: merchant_id,
+        });
+      if (legacyProbeError) {
+        logger.warn({
+          message:
+            'Legacy checkout idempotency probe failed; using the current request hash',
+          merchantId: merchant_id,
+          error: legacyProbeError,
+        });
+      } else if (isLegacyOrder === true) {
+        checkoutRequestHash = hashOrderIdempotencyPayload(
+          buildLegacyOrderIdempotencyPayload({
             ...body,
             shipping_address: shippingAddressForOrder,
-            // STABLE code identity, NOT the recomputed amount, so a merchant
-            // editing the code between a checkout and its retry can't trip
-            // checkout_idempotency_conflict before the wrapper's replay path.
             discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
             discount_code: requestedDiscountCode,
             delivery_method,
@@ -2366,16 +2413,12 @@ export async function POST(request: NextRequest) {
             airport_type,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
-            // Merchant-rate orders null shipping_provider + selected_quote_id, so
-            // the rate id is the only field that distinguishes two same-priced
-            // merchant rates (same fee + address) on an Idempotency-Key reuse.
-            // Without it the RPC would replay the ORIGINAL order instead of
-            // returning checkout_idempotency_conflict.
             shipping_rate_id: body.shipping_rate_id,
             tax_amount: orderTaxAmount,
           })
-        )
-      : null;
+        );
+      }
+    }
 
     const savingsRedemptionIdempotencyKey = requestedSavingsRedemption
       ? getSavingsRedemptionIdempotencyKey({
@@ -2493,7 +2536,12 @@ export async function POST(request: NextRequest) {
         ? { ...orderRpcArgs, p_discount_code_id: discountCodeId }
         : orderRpcArgs;
 
-    const { data: orderRows, error: orderError } = await supabase.rpc(
+    const orderRpcClient = createStorefrontOrderRpcClient({
+      fallbackClient: supabase,
+      merchantId: merchant_id,
+      userId: resolvedUserId,
+    });
+    const { data: orderRows, error: orderError } = await orderRpcClient.rpc(
       orderCreateRpcName,
       orderCreateRpcArgs
     );

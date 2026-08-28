@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildLegacyOrderIdempotencyPayload,
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from './order-idempotency';
@@ -133,6 +134,19 @@ describe('order idempotency hashing', () => {
     );
     expect(hashOrderIdempotencyPayload(airportDelivery)).not.toBe(
       hashOrderIdempotencyPayload(doorDelivery)
+    );
+  });
+
+  it('recreates the pre-metadata hash for legacy order replays', () => {
+    const legacy = buildLegacyOrderIdempotencyPayload({
+      ...baseOrder,
+      delivery_method: 'door',
+      airport_type: undefined,
+    });
+    const preMetadataPayload = buildOrderIdempotencyPayload(baseOrder);
+
+    expect(hashOrderIdempotencyPayload(legacy)).toBe(
+      hashOrderIdempotencyPayload(preMetadataPayload)
     );
   });
 

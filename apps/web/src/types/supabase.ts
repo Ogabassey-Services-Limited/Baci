@@ -8566,6 +8566,7 @@ export type Database = {
           cancelled_by: string | null;
           checkout_idempotency_key: string | null;
           checkout_request_hash: string | null;
+          checkout_request_hash_version: number | null;
           created_at: string | null;
           credit_notes: string | null;
           currency: string | null;
@@ -8651,6 +8652,7 @@ export type Database = {
           cancelled_by?: string | null;
           checkout_idempotency_key?: string | null;
           checkout_request_hash?: string | null;
+          checkout_request_hash_version?: number | null;
           created_at?: string | null;
           credit_notes?: string | null;
           currency?: string | null;
@@ -8736,6 +8738,7 @@ export type Database = {
           cancelled_by?: string | null;
           checkout_idempotency_key?: string | null;
           checkout_request_hash?: string | null;
+          checkout_request_hash_version?: number | null;
           created_at?: string | null;
           credit_notes?: string | null;
           currency?: string | null;
@@ -18741,6 +18744,10 @@ export type Database = {
       };
       has_cache_invalidation_dead_letters: { Args: never; Returns: boolean };
       has_storefront_order_idempotency_key: {
+        Args: { p_checkout_idempotency_key: string; p_merchant_id: string };
+        Returns: boolean;
+      };
+      is_legacy_storefront_order_idempotency_key: {
         Args: { p_checkout_idempotency_key: string; p_merchant_id: string };
         Returns: boolean;
       };

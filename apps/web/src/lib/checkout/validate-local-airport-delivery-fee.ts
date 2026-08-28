@@ -100,9 +100,7 @@ function isEligibleAirportQuote(
     parsedRate.pickupOption === PickupOptions.HomeDelivery &&
     parsedRate.deliveryType === GiglDeliveryType.GoFaster &&
     (serviceTier === null || serviceTier.includes('gofaster')) &&
-    (normalizedShippingProvider === undefined ||
-      normalizedShippingProvider === '' ||
-      normalizedShippingProvider === provider)
+    normalizedShippingProvider === provider
   );
 }
 

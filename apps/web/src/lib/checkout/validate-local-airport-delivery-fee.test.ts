@@ -86,6 +86,21 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('rejects a GIGL quote when the submitted provider is missing', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      deliveryMethod: 'airport',
+      merchantId: MERCHANT_ID,
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingFee: 18_500,
+      supabase: mockSupabase([validGoFasterQuote]),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'AIRPORT_QUOTE_INVALID',
+      status: 400,
+    });
+  });
+
   it('rejects a merchant-configured rate on the airport path', async () => {
     const promise = validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',
