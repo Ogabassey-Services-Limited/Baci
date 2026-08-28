@@ -7,10 +7,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sanitizePublicOrder } from '@/lib/public-fulfillment-sanitizer';
 import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
-import {
-  loadStorefrontCustomerPaymentAccounts,
-  toOrderPaymentAccount,
-} from '@/lib/storefront-customer-payment-accounts';
+import { toOrderPaymentAccount } from '@/lib/storefront-customer-payment-account-adapter';
+import { loadStorefrontCustomerPaymentAccounts } from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 import { createAnonClient } from '@/lib/supabase/anon';
 import { createClient } from '@/lib/supabase/server';
@@ -195,16 +193,20 @@ export async function GET(
             short_id: order.order_number,
             items: mapOrderItemsWithRoutes(items || []),
             virtual_account:
-              selectPreferredOrderPaymentAccount(
-                paymentAccountsResult.data.map(toOrderPaymentAccount),
-                new Date(),
-                {
-                  allowExpiredPaystackAccount: isPaidOrder,
-                  preferredPaystackAccountNumber: isPaidOrder
-                    ? getPaystackDvaAccountNumberFromTransactions(transactions)
-                    : null,
-                }
-              ) || null,
+              isPaidOrder && transactionsError
+                ? null
+                : selectPreferredOrderPaymentAccount(
+                    paymentAccountsResult.data.map(toOrderPaymentAccount),
+                    new Date(),
+                    {
+                      allowExpiredPaystackAccount: isPaidOrder,
+                      preferredPaystackAccountNumber: isPaidOrder
+                        ? getPaystackDvaAccountNumberFromTransactions(
+                            transactions
+                          )
+                        : null,
+                    }
+                  ) || null,
           })
         );
       }

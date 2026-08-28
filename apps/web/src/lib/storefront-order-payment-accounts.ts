@@ -4,10 +4,8 @@ import {
   selectPreferredOrderPaymentAccount,
 } from '@baci/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import {
-  loadStorefrontCustomerPaymentAccounts,
-  toOrderPaymentAccount,
-} from '@/lib/storefront-customer-payment-accounts';
+import { toOrderPaymentAccount } from '@/lib/storefront-customer-payment-account-adapter';
+import { loadStorefrontCustomerPaymentAccounts } from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 import type { Database } from '@/types/supabase';
 

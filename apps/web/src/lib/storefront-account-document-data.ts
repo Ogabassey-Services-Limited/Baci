@@ -14,10 +14,8 @@ import type {
   StorefrontAccountDocumentTaxSubtotalRow,
   StorefrontAccountDocumentTransactionRow,
 } from '@/lib/storefront-account-document-bundle.types';
-import {
-  loadStorefrontCustomerPaymentAccounts,
-  toOrderPaymentAccount,
-} from '@/lib/storefront-customer-payment-accounts';
+import { toOrderPaymentAccount } from '@/lib/storefront-customer-payment-account-adapter';
+import { loadStorefrontCustomerPaymentAccounts } from '@/lib/storefront-customer-payment-accounts';
 import { loadStorefrontCustomerTransactions } from '@/lib/storefront-customer-transactions';
 
 const RECEIPT_READY_STATUSES = new Set(['shipped', 'delivered']);
