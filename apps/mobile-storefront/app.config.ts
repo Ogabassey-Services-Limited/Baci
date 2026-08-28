@@ -35,7 +35,7 @@ const parsedAndroidVersionCode =
     : Number(rawAndroidVersionCode);
 let androidVersionCode: number | undefined;
 const appVersion = '2.0.1';
-const androidRuntimeVersion = `${appVersion}-android-sdk57`;
+const androidRuntimeVersion = `${appVersion}-android-sdk57-rn0862`;
 const DEFAULT_ANDROID_VERSION_CODE = 741;
 
 // `parsedAndroidVersionCode` is undefined iff `rawAndroidVersionCode` is, so
