@@ -7,7 +7,7 @@
 # run before application deployment.
 is_postdeploy_migration() {
   case "$1" in
-    20260828090000_harden_storefront_order_rpc_context_and_replays|20260828100000_allow_legacy_quiz_award_order_context|20260828120000_enforce_storefront_order_replay_route_context)
+    20260828090000_harden_storefront_order_rpc_context_and_replays|20260828100000_allow_legacy_quiz_award_order_context|20260828120000_enforce_storefront_order_replay_route_context|20260828130000_scope_storefront_order_replay_route_context)
       return 0
       ;;
     *)

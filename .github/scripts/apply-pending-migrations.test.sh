@@ -122,8 +122,10 @@ printf '%s\n' "SELECT 'hash-stamping';" \
   >"$deferred_dir/20260828110000_prepare_storefront_order_hash_stamping.sql"
 printf '%s\n' "SELECT 'replay-context';" \
   >"$deferred_dir/20260828120000_enforce_storefront_order_replay_route_context.sql"
+printf '%s\n' "SELECT 'replay-scope';" \
+  >"$deferred_dir/20260828130000_scope_storefront_order_replay_route_context.sql"
 printf '%s\n' "SELECT 'ordinary';" \
-  >"$deferred_dir/20260828130000_ordinary_follow_up.sql"
+  >"$deferred_dir/20260828140000_ordinary_follow_up.sql"
 deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
 deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
 PATH="$fake_bin:$PATH" \
@@ -137,12 +139,14 @@ PATH="$fake_bin:$PATH" \
 grep -q 'deferred until postdeploy: 20260828090000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828100000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
 grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_predeploy_output"
-grep -q 'applied:         20260828130000  ordinary_follow_up' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 2 applied, 0 skipped, 3 deferred.' "$deferred_predeploy_output"
+grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 2 applied, 0 skipped, 4 deferred.' "$deferred_predeploy_output"
 if grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'replay-context'" "$deferred_predeploy_log"; then
+  grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
@@ -161,9 +165,11 @@ PATH="$fake_bin:$PATH" \
 grep -q 'applied:         20260828090000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828100000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q "SELECT 'context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'replay-scope'" "$deferred_postdeploy_log"
 
 retry_repair_dir="$fixture_root/retry-repair"
 mkdir -p "$retry_repair_dir"
