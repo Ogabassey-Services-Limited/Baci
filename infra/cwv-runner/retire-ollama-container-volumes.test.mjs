@@ -29,6 +29,7 @@ find() {
   case "$RETIRE_TEST_MODE" in
     entries) printf '%s\0' "$1"; /usr/bin/perl -e 'for (1..100000) { print $ENV{RETIRE_TEST_VOLUME} . "/file-" . $_ . "\0" } open my $f, ">", $ENV{RETIRE_TEST_PRODUCER_COMPLETE} or exit 3; print $f "complete\n";' ;;
     bytes) printf '%s\0%s/file-one\0%s/file-two\0' "$1" "$1" "$1" ;;
+    empty) printf '%s\0%s/empty-file\0' "$1" "$1" ;;
     boundary) printf '%s\0%s/file-one\0' "$1" "$1" ;;
     *) return 2 ;;
   esac
@@ -38,7 +39,7 @@ stat() {
   for value do :; done
   case "$*" in
     *"%d"*) printf '7\n' ;;
-    *"%F"*) [ "$value" = "$RETIRE_TEST_VOLUME" ] && printf 'directory\n' || printf 'regular file\n' ;;
+    *"%F"*) [ "$value" = "$RETIRE_TEST_VOLUME" ] && printf 'directory\n' || { [ "$RETIRE_TEST_MODE" = empty ] && printf 'regular empty file\n' || printf 'regular file\n'; } ;;
     *"%s"*) case "$RETIRE_TEST_MODE:$value" in bytes:*/file-one|boundary:*/file-one) printf '268435456\n';; bytes:*/file-two) printf '1\n';; *) printf '0\n';; esac ;;
     *) return 2 ;;
   esac
@@ -89,5 +90,11 @@ test('fails closed above the bounded named-volume content bytes', async () => {
 test('accepts a named-volume snapshot exactly at the content bound', async () => {
   const { stdout, stderr } = await volumeFiles('boundary');
   assert.match(stdout, /\/file-one\n$/);
+  assert.equal(stderr, '');
+});
+
+test('accepts zero-byte regular files reported as regular empty file', async () => {
+  const { stdout, stderr } = await volumeFiles('empty');
+  assert.match(stdout, /\/empty-file\n$/);
   assert.equal(stderr, '');
 });

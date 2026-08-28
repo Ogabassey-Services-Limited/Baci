@@ -61,6 +61,32 @@ docker() {
   }
 });
 
+test('accepts zero-byte regular files in a bind directory', async () => {
+  const directory = await realpath(
+    await mkdtemp(join(tmpdir(), 'baci-container-bind-empty-file-'))
+  );
+  try {
+    await writeFile(join(directory, 'empty.conf'), '');
+    const emptyFileFilesystem = portableFilesystem.replace(
+      "[ -d \"$last\" ] && printf 'directory\\n' || printf 'regular file\\n'",
+      "[ -d \"$last\" ] && printf 'directory\\n' || printf 'regular empty file\\n'"
+    );
+    const { stdout, stderr } = await execFileAsync('sh', [
+      '-c',
+      `${emptyFileFilesystem}
+. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_consumer_scanners; init_temp_root; trap cleanup_temp EXIT; output=$(temp_path); container_bind_directory_snapshot "$3" "$output"; cat "$output"`,
+      'retire-ollama-container-bind-empty-file-test',
+      script.pathname,
+      directory,
+      directory,
+    ]);
+    assert.match(stdout, new RegExp(`${join(directory, 'empty.conf').replaceAll('/', '\\/')}\\|`));
+    assert.equal(stderr, '');
+  } finally {
+    await rm(directory, { force: true, recursive: true });
+  }
+});
+
 test('fails closed when find emits a partial bind inventory then fails', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-container-bind-find-failure-'))
