@@ -33,4 +33,17 @@ describe('rate-limit route matching', () => {
       getRateLimitConfig('/api/storefront/products').config.maxRequests
     ).toBe(100);
   });
+
+  it('isolates autocomplete and place details in the Places bucket', () => {
+    expect(getRateLimitConfig('/api/places').config.maxRequests).toBe(60);
+    expect(getRateLimitConfig('/api/places/autocomplete')).toMatchObject({
+      pattern: '/api/places',
+      config: { maxRequests: 60, windowMs: 60_000 },
+    });
+    expect(getRateLimitConfig('/api/places/details')).toMatchObject({
+      pattern: '/api/places/details',
+      config: { maxRequests: 60, windowMs: 60_000 },
+    });
+    expect(getRateLimitConfig('/api/places-other').config.maxRequests).toBe(50);
+  });
 });
