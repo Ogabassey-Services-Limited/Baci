@@ -64,6 +64,27 @@ describe('blog post social image transform projection', () => {
     });
   });
 
+  it.each([
+    'http://cdn.ogabassey.com/core-assets/blog/card.jpg',
+    'https://cdn.ogabassey.com:444/core-assets/blog/card.jpg',
+  ])('falls back for a managed hostname on an unapproved origin: %s', (url) => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      url,
+      {},
+      1600,
+      900
+    );
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
   it('keeps an ordinary direct image whose path begins with image', () => {
     const image = getBlogPostSocialImage(
       STORE_URL,

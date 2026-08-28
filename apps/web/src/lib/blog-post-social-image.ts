@@ -1,4 +1,4 @@
-import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
+import { DEFAULT_IMAGE_QUALITY, DEFAULT_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import { getTrustedBlogMediaTransformProjection } from '@/lib/get-trusted-blog-media-transform-projection';
 import { isTrustedBlogMediaTransformUrl } from '@/lib/is-trusted-blog-media-transform-url';
 import { isTrustedImmutableBlogLandscapeVariantUrl } from '@/lib/is-trusted-immutable-blog-landscape-variant-url';
@@ -10,6 +10,7 @@ import {
 
 const LANDSCAPE_DIMENSIONS = { width: 1200, height: 675 } as const;
 const FALLBACK_DIMENSIONS = { width: 1200, height: 630 } as const;
+const MANAGED_CDN_ORIGIN = new URL(DEFAULT_MEDIA_CDN_ORIGIN).origin;
 
 export type BlogPostSocialImage = {
   url: string;
@@ -92,6 +93,9 @@ function projectDirectImage(
     dimensions.height === LANDSCAPE_DIMENSIONS.height;
 
   if (isOgabasseyCdnImageUrl(sourceUrl)) {
+    if (!isExactManagedCdnOrigin(sourceUrl)) {
+      return null;
+    }
     const url = buildOgabasseyCdnImageLoaderUrl(
       sourceUrl,
       1200,
@@ -154,6 +158,15 @@ function projectDirectImage(
     ...(isLandscape ? LANDSCAPE_DIMENSIONS : dimensions),
     ...(mimeType ? { type: mimeType } : {}),
   };
+}
+
+function isExactManagedCdnOrigin(sourceUrl: string): boolean {
+  try {
+    const url = new URL(sourceUrl);
+    return url.protocol === 'https:' && url.origin === MANAGED_CDN_ORIGIN;
+  } catch {
+    return false;
+  }
 }
 
 function getTransformedDimensions(
