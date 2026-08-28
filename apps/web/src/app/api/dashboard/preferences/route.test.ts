@@ -81,6 +81,61 @@ describe('dashboard preferences merchant context', () => {
     );
   });
 
+  it('lets settings editors hydrate preferences when view is not granted', async () => {
+    const query = createQuery({
+      data: { layout_config: [], visible_cards: [] },
+      error: null,
+    });
+    mocks.hasPermission.mockImplementation(
+      (_access: unknown, _resource: string, action: string) => action === 'edit'
+    );
+    mocks.createClient.mockReturnValue({
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+      },
+      from: vi.fn(() => query),
+    });
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/dashboard/preferences')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.hasPermission).toHaveBeenNthCalledWith(
+      1,
+      { permissions: {} },
+      'settings',
+      'view'
+    );
+    expect(mocks.hasPermission).toHaveBeenNthCalledWith(
+      2,
+      { permissions: {} },
+      'settings',
+      'edit'
+    );
+  });
+
+  it('forbids staff without settings view or edit access', async () => {
+    mocks.hasPermission.mockReturnValue(false);
+    mocks.createClient.mockReturnValue({
+      auth: {
+        getUser: vi
+          .fn()
+          .mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+      },
+      from: vi.fn(),
+    });
+
+    const response = await GET(
+      new Request('https://usebaci.com/api/dashboard/preferences')
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.hasPermission).toHaveBeenCalledTimes(2);
+  });
+
   it('writes preferences for the selected merchant', async () => {
     const query = createQuery({
       data: { layout_config: [], visible_cards: [] },

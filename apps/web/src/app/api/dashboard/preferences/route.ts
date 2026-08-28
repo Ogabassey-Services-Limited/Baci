@@ -42,7 +42,15 @@ export async function GET(_request: Request) {
     }
 
     const access = toUserAccess(merchantContext);
-    if (!hasPermission(access, 'settings', 'view')) {
+    // Layout editors must read the saved document before persisting an edit so
+    // that updating one category cannot overwrite other categories. `edit`
+    // does not imply `view` in the permission model, so allow editor-only
+    // staff to hydrate this non-sensitive layout projection while keeping the
+    // POST path gated on `settings.edit` below.
+    const canReadPreferences =
+      hasPermission(access, 'settings', 'view') ||
+      hasPermission(access, 'settings', 'edit');
+    if (!canReadPreferences) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
