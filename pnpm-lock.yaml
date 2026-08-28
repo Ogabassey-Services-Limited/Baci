@@ -710,8 +710,8 @@ importers:
         specifier: ~3.0.1
         version: 3.0.1(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))(react@19.2.3)
       react-native-google-mobile-ads:
-        specifier: 16.4.0
-        version: 16.4.0(expo@57.0.7)(react@19.2.3)
+        specifier: 16.3.4
+        version: 16.3.4(expo@57.0.7)(react@19.2.3)
       react-native-google-places-autocomplete:
         specifier: ^2.6.4
         version: 2.6.4(react-native@0.86.0(patch_hash=75d926ec5e933d6b59a8cefbd22c76d02106a0a2553d65bdcfd72743f461702c)(@babel/core@7.29.6)(@react-native/jest-preset@0.86.0(@babel/core@7.29.6)(react@19.2.3))(@react-native/metro-config@0.86.0(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3))
@@ -11860,8 +11860,8 @@ packages:
       react: '*'
       react-native: '*'
 
-  react-native-google-mobile-ads@16.4.0:
-    resolution: {integrity: sha512-I+H9huEO30XaNZ4InPLCZS2DsnbegGjWqFavJMFssDnm78OPJkAOodY6OSCsEtonq0pdG2YbhchhIuZmE427Mw==}
+  react-native-google-mobile-ads@16.3.4:
+    resolution: {integrity: sha512-UDwyymhXZ//AqQVTcnEGD6Nt2M14LNL332jwi9HEHBsGK+N6VKm+IOgsb/b26mtUHxHW+XrQBilbGtiENdrqTA==}
     peerDependencies:
       expo: '>=47.0.0'
     peerDependenciesMeta:
@@ -27472,7 +27472,7 @@ snapshots:
       react: 19.2.3
       react-native: 0.86.2(patch_hash=b26cbca024b9031ae1147b04272e3303c9df1d8e8d3deb865571803e09f41596)(@babel/core@7.29.6)(@react-native/metro-config@0.86.2(@babel/core@7.29.6))(@types/react@19.2.17)(react@19.2.3)
 
-  react-native-google-mobile-ads@16.4.0(expo@57.0.7)(react@19.2.3):
+  react-native-google-mobile-ads@16.3.4(expo@57.0.7)(react@19.2.3):
     dependencies:
       '@iabtcf/core': 1.5.6
       use-deep-compare-effect: 1.8.1(react@19.2.3)
