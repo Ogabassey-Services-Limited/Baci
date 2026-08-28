@@ -30,6 +30,15 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('order_item_unit_costs');
   });
 
+  it('keeps cost snapshots when line ids are unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoLineId;
+
+    expect(selector).not.toContain('order_items(id, line_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
   it('retains discount provenance in the line-id compatibility selector', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId;
 

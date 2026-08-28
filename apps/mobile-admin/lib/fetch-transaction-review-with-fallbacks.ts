@@ -1,5 +1,6 @@
 import {
   fetchRichTransactionReviewRows,
+  isMissingSchemaColumn,
   runBaseTransactionReviewQuery,
   runLegacyTransactionReviewQuery,
   type TransactionReviewFallbackQuery,
@@ -16,6 +17,19 @@ export async function fetchTransactionReviewWithFallbacks(
 ) {
   const legacyQuery = query;
   let { data, error } = await fetchRichTransactionReviewRows(query);
+
+  if (isMissingSchemaColumn(error, 'line_id')) {
+    ({ data, error } = await runLegacyTransactionReviewQuery(
+      'FullNoLineId',
+      legacyQuery,
+      TRANSACTION_REVIEW_SELECTORS.fullNoLineId,
+      true,
+      {
+        selectStatement: TRANSACTION_REVIEW_SELECTORS.fullNoLineIdNoTaxAmount,
+        stage: 'FullNoLineIdNoTaxAmount',
+      }
+    ));
+  }
 
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runBaseTransactionReviewQuery(

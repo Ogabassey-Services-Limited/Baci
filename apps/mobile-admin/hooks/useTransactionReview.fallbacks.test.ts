@@ -184,7 +184,6 @@ describe('useTransactionReview schema fallbacks', () => {
     const { result } = renderHook(() => useTransactionReview(), {
       wrapper: createWrapper(),
     });
-
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
@@ -221,7 +220,7 @@ describe('useTransactionReview schema fallbacks', () => {
       total: 75,
     };
 
-    for (let attempt = 0; attempt < 9; attempt += 1) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
         data: null,
         error: lineIdSchemaError,
@@ -239,14 +238,20 @@ describe('useTransactionReview schema fallbacks', () => {
     await waitFor(() => expect(result.current.data).toEqual([discountedOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      10,
+      4,
       expect.objectContaining({
         selectStatement: expect.stringContaining('discount_amount'),
       })
     );
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[9][0].selectStatement
-    ).not.toContain('line_id');
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).not.toContain('order_items(id, line_id');
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).toContain('order_item_unit_costs');
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).toContain('product_variants');
   });
 
   it('omits variant_id after a schema-cache failure while retaining review rows', async () => {
@@ -282,7 +287,6 @@ describe('useTransactionReview schema fallbacks', () => {
     const { result } = renderHook(() => useTransactionReview(), {
       wrapper: createWrapper(),
     });
-
     await waitFor(() => expect(result.current.data).toEqual([legacyOrder]));
 
     expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(

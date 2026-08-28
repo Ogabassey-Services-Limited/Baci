@@ -2,6 +2,10 @@ function withoutTaxAmount(selector: string) {
   return selector.replace(', tax_amount', '');
 }
 
+function withoutLineId(selector: string) {
+  return selector.replace('order_items(id, line_id, ', 'order_items(id, ');
+}
+
 const transactionReviewSelectors = {
   base: 'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, external_source, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseCompat:
@@ -60,6 +64,10 @@ export const TRANSACTION_REVIEW_SELECTORS = {
     transactionReviewSelectors.baseWithDiscountNoVariantId
   ),
   fullNoTaxAmount: withoutTaxAmount(transactionReviewSelectors.full),
+  fullNoLineId: withoutLineId(transactionReviewSelectors.full),
+  fullNoLineIdNoTaxAmount: withoutTaxAmount(
+    withoutLineId(transactionReviewSelectors.full)
+  ),
   fullNoDiscountCodeNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.fullNoDiscountCode
   ),

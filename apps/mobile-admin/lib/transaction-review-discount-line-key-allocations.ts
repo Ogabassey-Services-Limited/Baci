@@ -8,7 +8,7 @@ import {
   getProductVariantIdentity,
   toPositiveInteger,
 } from './transaction-review-discount-helpers';
-import { getPersistedLineKey } from './transaction-review-discount-line-key';
+import { getPersistedLineKeyCandidates } from './transaction-review-discount-line-key';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 interface DiscountLineTotal {
@@ -42,8 +42,7 @@ export function getValidatedLineKeyDiscounts(
     identityIndexes.push(itemIndex);
     itemIndexesByIdentity.set(identity, identityIndexes);
 
-    const lineKey = getPersistedLineKey(item);
-    if (lineKey != null) {
+    for (const lineKey of getPersistedLineKeyCandidates(item)) {
       const lineKeyIndexes = itemIndexesByLineKey.get(lineKey) ?? [];
       lineKeyIndexes.push(itemIndex);
       itemIndexesByLineKey.set(lineKey, lineKeyIndexes);

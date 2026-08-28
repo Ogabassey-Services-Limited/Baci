@@ -4,7 +4,7 @@ import {
   getProductVariantIdentity,
   toPositiveInteger,
 } from './transaction-review-discount-helpers';
-import { getPersistedLineKey } from './transaction-review-discount-line-key';
+import { getPersistedLineKeyCandidates } from './transaction-review-discount-line-key';
 import { getValidatedLineKeyDiscounts } from './transaction-review-discount-line-key-allocations';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
@@ -50,8 +50,7 @@ export function resolveTransactionDiscountAllocation(
       : null;
 
   if (allocations.mode === 'lineKey') {
-    const lineKey = getPersistedLineKey(item);
-    if (lineKey != null) {
+    for (const lineKey of getPersistedLineKeyCandidates(item)) {
       const keyedAllocation = allocations.allocationsByLineKey.get(lineKey);
       if (keyedAllocation) {
         return keyedAllocation;

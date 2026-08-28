@@ -26,7 +26,7 @@ function getTransactionReviewErrorText(error: TransactionReviewQueryError) {
     .toLowerCase();
 }
 
-function isMissingSchemaColumn(
+export function isMissingSchemaColumn(
   error: TransactionReviewQueryError,
   column: string
 ) {

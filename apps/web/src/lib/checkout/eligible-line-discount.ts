@@ -1,5 +1,6 @@
 import {
   buildTransactionDiscountLineKey,
+  buildTransactionDiscountLineOccurrenceKey,
   MAX_AUTO_NEGOTIATION_DISCOUNT_RATE,
   type TransactionDiscountLineAllocation,
 } from '@baci/shared';
@@ -153,10 +154,12 @@ export function computeEligibleLineDiscount(
     if (
       (productVariantCounts.get(
         JSON.stringify([lineInput.productId, lineInput.variantId])
-      ) ?? 0) > 1 &&
-      persistedLineKeyCounts.get(lineKey) === 1
+      ) ?? 0) > 1
     ) {
-      allocation.lineKey = lineKey;
+      allocation.lineKey =
+        persistedLineKeyCounts.get(lineKey) === 1
+          ? lineKey
+          : buildTransactionDiscountLineOccurrenceKey(lineKey, resolvedLineId);
     }
     lineDiscounts[outputLineIndex] = allocation;
   }

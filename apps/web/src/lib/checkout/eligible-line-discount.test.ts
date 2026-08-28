@@ -1,4 +1,7 @@
-import { buildTransactionDiscountLineKey } from '@baci/shared';
+import {
+  buildTransactionDiscountLineKey,
+  buildTransactionDiscountLineOccurrenceKey,
+} from '@baci/shared';
 import { describe, expect, it } from 'vitest';
 import {
   computeEligibleLineDiscount,
@@ -108,6 +111,13 @@ describe('computeEligibleLineDiscount', () => {
       lineDiscounts: [
         {
           lineId: 1,
+          lineKey: buildTransactionDiscountLineOccurrenceKey(
+            buildTransactionDiscountLineKey({
+              productId: 'product-1',
+              variantId: null,
+            }),
+            1
+          ),
           merchandiseDiscount: 20,
           productId: 'product-1',
           vatRelief: 1.5,
@@ -181,7 +191,7 @@ describe('computeEligibleLineDiscount', () => {
     });
   });
 
-  it('returns a zero, non-rejecting result for an empty cart', () => {
+  it('returns zero for an empty cart', () => {
     expect(computeEligibleLineDiscount([])).toEqual({
       totalDiscount: 0,
       rejectionCode: null,
@@ -269,7 +279,11 @@ describe('computeEligibleLineDiscount', () => {
     ]);
   });
 
-  it('does not persist a key when duplicate lines have the same identity', () => {
+  it('persists occurrence-safe keys when duplicate lines have the same identity', () => {
+    const lineKey = buildTransactionDiscountLineKey({
+      productId: 'product-1',
+      variantId: null,
+    });
     const result = computeEligibleLineDiscount([
       line({ clientUnitPrice: 980 }),
       line({ clientUnitPrice: 990 }),
@@ -277,6 +291,9 @@ describe('computeEligibleLineDiscount', () => {
 
     expect(
       result.lineDiscounts?.map((allocation) => allocation?.lineKey)
-    ).toEqual([undefined, undefined]);
+    ).toEqual([
+      buildTransactionDiscountLineOccurrenceKey(lineKey, 1),
+      buildTransactionDiscountLineOccurrenceKey(lineKey, 2),
+    ]);
   });
 });
