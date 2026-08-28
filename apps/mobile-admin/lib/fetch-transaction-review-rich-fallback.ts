@@ -16,6 +16,11 @@ type TransactionReviewFallbackCallbacks = Readonly<{
 }>;
 const withoutSchemaColumn = (selector: string, column: string) =>
   selector.replace(`, ${column}`, '');
+const withoutUnitCostRelationship = (selector: string) =>
+  selector.replace(
+    ', order_item_unit_costs(unit_index, cost_price, supplier_name, identifier_type, identifier_value)',
+    ''
+  );
 
 /** Reads cost-rich transaction rows before compatibility/base fallbacks. */
 export async function fetchRichTransactionReviewRows(
@@ -65,6 +70,9 @@ export async function fetchRichTransactionReviewRows(
   if (isMissingSchemaColumn(error, 'discount_code_id')) {
     markUnavailableSchemaColumn('discount_code_id');
   }
+  if (isMissingSchemaColumn(error, 'order_item_unit_costs')) {
+    markUnavailableSchemaColumn('order_item_unit_costs');
+  }
   const runLegacyFallbackQuery = async (
     stage: TransactionReviewFallbackStage,
     selectStatement: string,
@@ -90,6 +98,9 @@ export async function fetchRichTransactionReviewRows(
       if (unavailableSchemaColumns.has('product_match_status')) {
         result = withoutSchemaColumn(result, 'product_match_status');
       }
+      if (unavailableSchemaColumns.has('order_item_unit_costs')) {
+        result = withoutUnitCostRelationship(result);
+      }
       return result;
     };
     const runQuery = () =>
@@ -111,6 +122,14 @@ export async function fetchRichTransactionReviewRows(
     let result = await runQuery();
     while (true) {
       let shouldRetry = false;
+      if (
+        !unavailableSchemaColumns.has('order_item_unit_costs') &&
+        isMissingSchemaColumn(result.error, 'order_item_unit_costs')
+      ) {
+        markUnavailableSchemaColumn('order_item_unit_costs');
+        onMissingSchemaColumn?.('order_item_unit_costs');
+        shouldRetry = true;
+      }
       if (
         !unavailableSchemaColumns.has('quiz_award_id') &&
         isMissingSchemaColumn(result.error, 'quiz_award_id')
@@ -168,10 +187,11 @@ export async function fetchRichTransactionReviewRows(
         shouldRetry = true;
       }
       if (
-        (stage.includes('VariantAttributes') ||
-          stage === 'LegacyNoProductMatchStatus') &&
         !unavailableSchemaColumns.has('discount_code_id') &&
-        isMissingSchemaColumn(result.error, 'discount_code_id')
+        isMissingSchemaColumn(result.error, 'discount_code_id') &&
+        (stage.includes('VariantAttributes') ||
+          stage === 'LegacyNoProductMatchStatus' ||
+          unavailableSchemaColumns.has('order_item_unit_costs'))
       ) {
         markUnavailableSchemaColumn('discount_code_id');
         onMissingSchemaColumn?.('discount_code_id');

@@ -111,6 +111,38 @@ describe('fetchRichTransactionReviewRows', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('keeps cost snapshots when discount codes and unit-cost relations are unavailable together', async () => {
+    const rows = [{ id: 'discount-and-unit-cost-fallback-order' }];
+    const unitCostSchemaError = {
+      code: 'PGRST200',
+      message:
+        "Could not find a relationship between 'order_items' and 'order_item_unit_costs' in the schema cache",
+    };
+    const discountCodeSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
+    };
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: unitCostSchemaError })
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector = mockFetchTransactionReviewRows.mock.calls[2][0]
+      .selectStatement as string;
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).not.toContain('order_item_unit_costs');
+    expect(selector).toContain('cost_price');
+    expect(selector).toContain('assurance_fee');
+    expect(selector).toContain('product_variants');
+  });
+
   it('carries a missing transaction date into a rich legacy retry', async () => {
     const rows = [{ id: 'transaction-date-and-variant-fallback-order' }];
     mockFetchTransactionReviewRows

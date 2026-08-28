@@ -117,6 +117,9 @@ export async function fetchFullTransactionReviewRows(
     ) {
       onMissingSchemaColumn?.('discount_amount');
     }
+    if (nextFlags.discountCodeUnavailable && !flags.discountCodeUnavailable) {
+      onMissingSchemaColumn?.('discount_code_id');
+    }
     if (nextFlags.lineIdUnavailable && !flags.lineIdUnavailable) {
       onMissingSchemaColumn?.('line_id');
     }

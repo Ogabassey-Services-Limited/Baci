@@ -49,7 +49,7 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
     ).toContain('cost_price');
   });
 
-  it('preserves cost relationships when discount code ids are unavailable', async () => {
+  it('preserves cost snapshots when discount codes and unit-cost relations are unavailable', async () => {
     const rows = [{ id: 'legacy-discount-code-order' }];
     const discountCodeSchemaError = {
       code: 'PGRST204',
@@ -64,8 +64,6 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: null, error: unitCostSchemaError })
-      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
-      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: rows, error: null });
 
     const result = await fetchTransactionReviewWithFallbacks({
@@ -73,18 +71,18 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
-    ).toContain('order_item_unit_costs');
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
+    ).not.toContain('order_item_unit_costs');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
     ).not.toContain('discount_code_id');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
     ).toContain('assurance_fee');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement
     ).toContain('vat_rate');
   });
 
