@@ -11,7 +11,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827110000_atomic_admin_order_transaction_discount_cleanup.sql',
+      'supabase/migrations/20260827110001_atomic_admin_order_transaction_discount_cleanup.sql',
     sha256: '4c176247fcba2ed68c06bb17926eb283e3b41b9ea7d446c53568c01ef314c1b6',
   },
   {
