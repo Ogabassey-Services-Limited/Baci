@@ -19,6 +19,27 @@ export const eventPipelineCredentialPaths = [
     'apps/web/src/env.ts',
   ],
   [
+    'apps/web/src/app/api/quiz/attempts/[attemptId]/answers/route.ts',
+    'apps/web/src/app/api/quiz/attempts/[attemptId]/answers/legacy-route.ts',
+    'apps/web/src/lib/quiz/quiz-award-rpc-client.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/app/api/quiz/attempts/[attemptId]/answers/legacy-route.ts',
+    'apps/web/src/lib/quiz/quiz-award-rpc-client.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
+    'apps/web/src/lib/quiz/quiz-award-rpc-client.ts',
+    'apps/web/src/lib/supabase/scoped-jwt.ts',
+    'apps/web/src/lib/agentic/jwt-signing-material.ts',
+    'apps/web/src/env.ts',
+  ],
+  [
     'apps/web/src/app/api/orders/route.ts',
     'apps/web/src/lib/order-notification-dispatch.ts',
     'apps/web/src/lib/expo-push.ts',
