@@ -10,7 +10,13 @@ const API_BASE_URL = resolveApiBaseUrl(
   process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl
 );
 const PREDICTION_CACHE_MAX_SIZE = 50;
+const PREDICTION_REQUEST_LIMIT = 50;
+const PREDICTION_REQUEST_WINDOW_MS = 60_000;
 const predictionCache = new Map<string, PlacePrediction[]>();
+const predictionRequestWindows = new Map<
+  string,
+  { count: number; resetAt: number }
+>();
 
 export function generateSessionToken(): string {
   return Crypto.randomUUID();
@@ -18,6 +24,24 @@ export function generateSessionToken(): string {
 
 export function clearPredictionCache() {
   predictionCache.clear();
+  predictionRequestWindows.clear();
+}
+
+function reservePredictionRequest(sessionToken: string): boolean {
+  const now = Date.now();
+  const current = predictionRequestWindows.get(sessionToken);
+  if (!current || now >= current.resetAt) {
+    predictionRequestWindows.set(sessionToken, {
+      count: 1,
+      resetAt: now + PREDICTION_REQUEST_WINDOW_MS,
+    });
+    return true;
+  }
+  if (current.count >= PREDICTION_REQUEST_LIMIT) {
+    return false;
+  }
+  current.count += 1;
+  return true;
 }
 
 function setCacheEntry(key: string, value: PlacePrediction[]): void {
@@ -59,6 +83,9 @@ export async function fetchAddressPredictions({
   const cachedPredictions = predictionCache.get(cacheKey);
   if (cachedPredictions) {
     return cachedPredictions;
+  }
+  if (!reservePredictionRequest(sessionToken)) {
+    return [];
   }
 
   try {
