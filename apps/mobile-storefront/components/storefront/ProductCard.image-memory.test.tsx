@@ -4,9 +4,28 @@ import type { Product } from '@/types/product';
 import { ProductCard } from './ProductCard';
 import type GridProductCard from './product-card/GridProductCard';
 
+const mockUseWindowDimensions = jest.fn(() => ({
+  fontScale: 1,
+  height: 800,
+  scale: 2,
+  width: 400,
+}));
+
+jest.mock('react-native', () => {
+  const actual =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    ...actual,
+    PixelRatio: { ...actual.PixelRatio, get: () => 2 },
+    useWindowDimensions: () => mockUseWindowDimensions(),
+  };
+});
+
 const mockGridProductCard = jest.fn(
   (_props: ComponentProps<typeof GridProductCard>) => null
 );
+const mockEditorialProductCard = jest.fn((_props: unknown) => null);
+const mockListProductCard = jest.fn((_props: unknown) => null);
 
 jest.mock('./product-card/GridProductCard', () => ({
   __esModule: true,
@@ -15,11 +34,11 @@ jest.mock('./product-card/GridProductCard', () => ({
 }));
 jest.mock('./product-card/EditorialProductCard', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: unknown) => mockEditorialProductCard(props),
 }));
 jest.mock('./product-card/ListProductCard', () => ({
   __esModule: true,
-  default: () => null,
+  default: (props: unknown) => mockListProductCard(props),
 }));
 jest.mock('@/hooks/use-haptics', () => ({
   useHaptics: () => ({ light: jest.fn() }),
@@ -51,7 +70,7 @@ describe('ProductCard image memory behavior', () => {
     jest.clearAllMocks();
   });
 
-  it('bounds Android decoding and requests iOS early resizing for oversized images', () => {
+  it('bounds grid image decoding to the physical viewport size', () => {
     render(<ProductCard product={product} />);
 
     expect(mockGridProductCard).toHaveBeenCalledWith(
@@ -60,11 +79,39 @@ describe('ProductCard image memory behavior', () => {
           allowDownscaling: true,
           enforceEarlyResizing: true,
         }),
-        imageSource: expect.objectContaining({
-          height: expect.any(Number),
+        imageSource: {
+          height: 352,
           uri: product.image,
-          width: expect.any(Number),
-        }),
+          width: 352,
+        },
+      })
+    );
+  });
+
+  it('bounds list image decoding to the fixed physical image size', () => {
+    render(<ProductCard product={product} variant="list" />);
+
+    expect(mockListProductCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageSource: {
+          height: 200,
+          uri: product.image,
+          width: 200,
+        },
+      })
+    );
+  });
+
+  it('bounds editorial decoding to its physical portrait dimensions', () => {
+    render(<ProductCard product={product} variant="editorial" />);
+
+    expect(mockEditorialProductCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageSource: {
+          height: 920,
+          uri: product.image,
+          width: 736,
+        },
       })
     );
   });

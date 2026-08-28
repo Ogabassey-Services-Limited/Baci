@@ -5,8 +5,23 @@ const mockPush = jest.fn();
 const mockUseProducts = jest.fn();
 const mockUsePinned = jest.fn();
 const mockImage = jest.fn(() => null);
+const mockUseWindowDimensions = jest.fn(() => ({
+  fontScale: 1,
+  height: 800,
+  scale: 2,
+  width: 400,
+}));
 
 jest.mock('expo-image', () => ({ Image: mockImage }));
+jest.mock('react-native', () => {
+  const actual =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    ...actual,
+    PixelRatio: { ...actual.PixelRatio, get: () => 2 },
+    useWindowDimensions: () => mockUseWindowDimensions(),
+  };
+});
 jest.mock('expo-router', () => ({
   router: { push: (path: string) => mockPush(path) },
 }));
@@ -98,11 +113,11 @@ describe('JustLaunchedCarousel', () => {
     expect(mockImage).toHaveBeenCalledWith(
       expect.objectContaining({
         enforceEarlyResizing: true,
-        source: expect.objectContaining({
-          height: expect.any(Number),
+        source: {
+          height: 304,
           uri: xiaomi.image,
-          width: expect.any(Number),
-        }),
+          width: 244,
+        },
       })
     );
   });
