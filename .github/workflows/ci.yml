@@ -368,10 +368,19 @@ jobs:
       # Quiz runtime gate: enforced for either supported quiz phase. Phase 1a
       # still signs negotiated-checkout proofs, so validate the runtime secret
       # against the live database there too; production additionally validates
-      # prize approval evidence. Skipped on normal PRs so it never blocks
-      # unrelated work, but visible as its own named step.
+      # prize approval evidence. Run only on trusted main pushes and merge
+      # queue integration commits so pull requests stay secret-free.
       - name: Verify Quiz Production Approval
-        if: (needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true') && (vars.QUIZ_PHASE == '1a' || vars.QUIZ_PHASE == 'production')
+        if: >-
+          (
+            (
+              github.event_name == 'push' &&
+              github.ref == 'refs/heads/main'
+            ) ||
+            github.event_name == 'merge_group'
+          ) &&
+          (needs.changes.outputs.web == 'true' || needs.changes.outputs.quiz_db == 'true') &&
+          (vars.QUIZ_PHASE == '1a' || vars.QUIZ_PHASE == 'production')
         env:
           QUIZ_PHASE: ${{ vars.QUIZ_PHASE }}
           QUIZ_PRODUCTION_APPROVED: ${{ vars.QUIZ_PRODUCTION_APPROVED }}
