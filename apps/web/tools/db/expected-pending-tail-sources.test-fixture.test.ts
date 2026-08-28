@@ -159,6 +159,12 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
           sha256:
             '617c0911d8a2825621f47ba85c48494804411d94ffb221d6310d1e6d6d9b9e39',
         },
+        {
+          repositoryPath:
+            'supabase/migrations/20260828003000_revoke_legacy_paystack_dva_overloads.sql',
+          sha256:
+            '4d70af8e93d741df380f2d2f4726d1523e585f5cda0cd7f3519635c534ec4391',
+        },
       ],
     });
   });
