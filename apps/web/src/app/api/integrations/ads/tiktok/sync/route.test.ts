@@ -127,6 +127,8 @@ describe('TikTok Ads sync route', () => {
     await expect(response.json()).resolves.toEqual({
       accountId: 'opaque-001',
       rowsWritten: 2,
+      syncRunId: expect.any(String),
+      syncRunStartedAt: expect.any(String),
       synced: true,
     });
     expect(sync).toHaveBeenCalledWith(

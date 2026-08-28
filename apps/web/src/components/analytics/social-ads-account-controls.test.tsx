@@ -364,7 +364,17 @@ describe('SocialAdsAccountControls', () => {
   });
 
   it('chunks a long Meta analytics window into provider-safe sync requests', async () => {
-    fetchWithCsrf.mockResolvedValue(new Response('{}'));
+    fetchWithCsrf
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            syncRunId: '00000000-0000-4000-8000-000000000001',
+            syncRunStartedAt: '2026-08-28T10:00:00.000Z',
+            synced: true,
+          })
+        )
+      )
+      .mockResolvedValueOnce(new Response('{}'));
 
     render(
       <SocialAdsAccountControls
@@ -397,17 +407,15 @@ describe('SocialAdsAccountControls', () => {
     );
     const firstPayload = JSON.parse(
       (fetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
-    ) as { syncRunId: string; syncRunStartedAt: string };
+    ) as { syncRunId?: string; syncRunStartedAt?: string };
     const secondPayload = JSON.parse(
       (fetchWithCsrf.mock.calls[1]?.[1] as { body: string }).body
-    ) as { syncRunId: string; syncRunStartedAt: string };
-    expect(firstPayload.syncRunId).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    ) as { syncRunId?: string; syncRunStartedAt?: string };
+    expect(firstPayload.syncRunId).toBeUndefined();
+    expect(firstPayload.syncRunStartedAt).toBeUndefined();
+    expect(secondPayload.syncRunId).toBe(
+      '00000000-0000-4000-8000-000000000001'
     );
-    expect(secondPayload.syncRunId).toBe(firstPayload.syncRunId);
-    expect(secondPayload.syncRunStartedAt).toBe(firstPayload.syncRunStartedAt);
-    expect(firstPayload.syncRunStartedAt).toMatch(
-      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
-    );
+    expect(secondPayload.syncRunStartedAt).toBe('2026-08-28T10:00:00.000Z');
   });
 });

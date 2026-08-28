@@ -3,6 +3,7 @@
 import { ListRestart, Loader2, RefreshCcw } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import type { AdsSyncRun } from '@/lib/ads/resolve-sync-run';
 import {
   type AdsSyncWindow,
   buildAdsSyncWindowChunks,
@@ -40,6 +41,21 @@ async function responseError(response: Response, fallback: string) {
   } catch {
     return fallback;
   }
+}
+
+function parseSyncRun(payload: unknown): AdsSyncRun | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const value = payload as { syncRunId?: unknown; syncRunStartedAt?: unknown };
+  if (
+    typeof value.syncRunId !== 'string' ||
+    typeof value.syncRunStartedAt !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    syncRunId: value.syncRunId,
+    syncRunStartedAt: value.syncRunStartedAt,
+  };
 }
 
 export function SocialAdsAccountControls({
@@ -100,15 +116,15 @@ export function SocialAdsAccountControls({
   const sync = async () => {
     const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
     const windows = buildAdsSyncWindowChunks(requestedWindow, provider);
-    const syncRunId = crypto.randomUUID();
-    const syncRunStartedAt = new Date().toISOString();
+    let syncRun: AdsSyncRun | null = null;
     for (const [index, window] of windows.entries()) {
       const response = await fetchWithCsrf(`${path}/sync`, {
         body: JSON.stringify({
           ...window,
           finalChunk: index === windows.length - 1,
-          syncRunId,
-          syncRunStartedAt,
+          ...(syncRun ?? {}),
+          syncWindowEndDate: requestedWindow.endDate,
+          syncWindowStartDate: requestedWindow.startDate,
         }),
         headers: merchantId ? { 'x-baci-merchant-id': merchantId } : undefined,
         method: 'POST',
@@ -117,6 +133,15 @@ export function SocialAdsAccountControls({
         throw new Error(
           await responseError(response, `Unable to sync ${displayName}.`)
         );
+      }
+      if (index < windows.length - 1) {
+        const nextSyncRun = parseSyncRun(await response.json());
+        if (!nextSyncRun) {
+          throw new Error(
+            `${displayName} sync did not return a server-owned run.`
+          );
+        }
+        syncRun = nextSyncRun;
       }
     }
   };

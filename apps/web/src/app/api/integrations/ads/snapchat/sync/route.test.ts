@@ -117,6 +117,8 @@ describe('Snapchat Ads sync route', () => {
     expect(await response.json()).toEqual({
       accountId: 'ad',
       rowsWritten: 1,
+      syncRunId: expect.any(String),
+      syncRunStartedAt: expect.any(String),
       synced: true,
     });
     expect(sync).toHaveBeenCalledWith(

@@ -129,6 +129,8 @@ describe('POST /api/integrations/ads/google/sync', () => {
     expect(await response.json()).toEqual({
       customerId: '1234567890',
       rowsWritten: 2,
+      syncRunId: expect.any(String),
+      syncRunStartedAt: expect.any(String),
       synced: true,
     });
     expect(mockSync).toHaveBeenCalledWith({
@@ -146,6 +148,45 @@ describe('POST /api/integrations/ads/google/sync', () => {
       'merchant-1'
     );
     expect(mockCreateAdsCredentialServiceClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the persisted server timestamp for a continuation and ignores the caller timestamp', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: '2026-08-28T09:00:00.000Z',
+      error: null,
+    });
+    mockAuthenticate.mockResolvedValueOnce({
+      error: null,
+      supabase: { rpc },
+      user: { id: 'user-1' },
+    });
+    const syncRunId = '00000000-0000-4000-8000-000000000001';
+    const response = await POST(
+      new NextRequest('https://usebaci.com/api/integrations/ads/google/sync', {
+        body: JSON.stringify({
+          endDate: '2026-08-21',
+          finalChunk: false,
+          startDate: '2026-08-20',
+          syncRunId,
+          syncRunStartedAt: '2099-01-01T00:00:00.000Z',
+        }),
+        headers: { 'content-type': 'application/json' },
+        method: 'POST',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('get_merchant_ads_sync_run_started_at', {
+      p_merchant_id: 'merchant-1',
+      p_provider: 'google_ads',
+      p_sync_run_id: syncRunId,
+    });
+    expect(mockSync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        syncRunId,
+        syncRunStartedAt: '2026-08-28T09:00:00.000Z',
+      })
+    );
   });
 
   it('invalidates only after a successful final chunk', async () => {

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { invalidateAdsAnalyticsCache } from '@/lib/ads/analytics-cache';
 import { resolveAdsMerchantAccess } from '@/lib/ads/merchant-context';
+import { resolveAdsSyncRun } from '@/lib/ads/resolve-sync-run';
 import { createAdsCredentialServiceClient } from '@/lib/ads/server-credential-client';
 import { createAdsSpendServiceClient } from '@/lib/ads/server-spend-client';
 import { SnapchatAdsConfigError } from '@/lib/ads/snapchat/config';
@@ -48,9 +49,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-  const syncRunId = parsed.data.syncRunId ?? crypto.randomUUID();
-  const syncRunStartedAt =
-    parsed.data.syncRunStartedAt ?? new Date().toISOString();
+  const syncRun = await resolveAdsSyncRun({
+    merchantId: access.merchantId,
+    provider: 'snapchat_ads',
+    requestedSyncRunId: parsed.data.syncRunId,
+    supabase: auth.supabase,
+  });
+  if (!syncRun)
+    return NextResponse.json(
+      { error: 'SYNC_RUN_NOT_CURRENT' },
+      { status: 409 }
+    );
   const credentialSupabase = createAdsCredentialServiceClient();
   try {
     const result = await syncSnapchatAdsSpendForMerchant({
@@ -58,14 +67,21 @@ export async function POST(request: NextRequest) {
       credentialSupabase,
       merchantId: access.merchantId,
       spendSupabase: createAdsSpendServiceClient(),
-      syncRunId,
-      syncRunStartedAt,
+      syncRunId: syncRun.syncRunId,
+      syncRunStartedAt: syncRun.syncRunStartedAt,
+      syncWindowEndDate: parsed.data.syncWindowEndDate,
+      syncWindowStartDate: parsed.data.syncWindowStartDate,
       supabase: auth.supabase,
     });
     if (parsed.data.finalChunk) {
       invalidateAdsAnalyticsCache(access.merchantId);
     }
-    return NextResponse.json({ ...result, synced: true });
+    return NextResponse.json({
+      ...result,
+      syncRunId: syncRun.syncRunId,
+      syncRunStartedAt: syncRun.syncRunStartedAt,
+      synced: true,
+    });
   } catch (error) {
     if (error instanceof SnapchatAdsConfigError)
       return NextResponse.json(

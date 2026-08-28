@@ -38,6 +38,10 @@ const syncRunStartOrderMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260827120200_order_ads_sync_run_starts.sql'
 );
+const serverOwnedSyncRunMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260828010000_server_owned_ads_sync_runs.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -210,5 +214,25 @@ describe('provider-neutral ads storage migration', () => {
     expect(sql).toContain('set last_synced_at = pg_catalog.now(),');
     expect(sql).toContain('sync_run_id = null');
     expect(sql).toContain('and sync_run_id = p_sync_run_id');
+  });
+
+  it('only exposes the persisted server timestamp for a current run', () => {
+    const sql = readFileSync(
+      serverOwnedSyncRunMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'create or replace function public.get_merchant_ads_sync_run_started_at'
+    );
+    expect(sql).toContain('c.sync_run_id = p_sync_run_id');
+    expect(sql).toContain("and c.status = 'active'");
+    expect(sql).toContain('public.check_staff_permission');
+    expect(sql).toContain(
+      'revoke all on function public.get_merchant_ads_sync_run_started_at'
+    );
+    expect(sql).toContain(
+      'grant execute on function public.get_merchant_ads_sync_run_started_at'
+    );
   });
 });

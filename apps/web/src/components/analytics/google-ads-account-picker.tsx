@@ -4,6 +4,7 @@ import { AlertCircle, ListRestart, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import type { AdsSyncRun } from '@/lib/ads/resolve-sync-run';
 import {
   type AdsSyncWindow,
   buildAdsSyncWindowChunks,
@@ -36,6 +37,21 @@ async function readError(
   } catch {
     return fallback;
   }
+}
+
+function parseSyncRun(payload: unknown): AdsSyncRun | null {
+  if (typeof payload !== 'object' || payload === null) return null;
+  const value = payload as { syncRunId?: unknown; syncRunStartedAt?: unknown };
+  if (
+    typeof value.syncRunId !== 'string' ||
+    typeof value.syncRunStartedAt !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    syncRunId: value.syncRunId,
+    syncRunStartedAt: value.syncRunStartedAt,
+  };
 }
 
 export function GoogleAdsAccountPicker({
@@ -131,15 +147,15 @@ export function GoogleAdsAccountPicker({
       try {
         const requestedWindow = syncWindow ?? buildDefaultAdsSyncWindow();
         const windows = buildAdsSyncWindowChunks(requestedWindow, 'google_ads');
-        const syncRunId = crypto.randomUUID();
-        const syncRunStartedAt = new Date().toISOString();
+        let syncRun: AdsSyncRun | null = null;
         for (const [index, window] of windows.entries()) {
           const response = await fetchWithCsrf(SYNC_PATH, {
             body: JSON.stringify({
               ...window,
               finalChunk: index === windows.length - 1,
-              syncRunId,
-              syncRunStartedAt,
+              ...(syncRun ?? {}),
+              syncWindowEndDate: requestedWindow.endDate,
+              syncWindowStartDate: requestedWindow.startDate,
             }),
             headers: merchantId
               ? { 'x-baci-merchant-id': merchantId }
@@ -153,6 +169,15 @@ export function GoogleAdsAccountPicker({
                 'Google Ads account selected, but sync failed.'
               )
             );
+          }
+          if (index < windows.length - 1) {
+            const nextSyncRun = parseSyncRun(await response.json());
+            if (!nextSyncRun) {
+              throw new Error(
+                'Google Ads sync did not return a server-owned run.'
+              );
+            }
+            syncRun = nextSyncRun;
           }
         }
       } finally {

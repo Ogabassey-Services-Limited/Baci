@@ -15,6 +15,8 @@ export type Database = {
           created_at: string;
           id: string;
           last_synced_at: string | null;
+          last_synced_end_date: string | null;
+          last_synced_start_date: string | null;
           merchant_id: string;
           metadata: Json;
           account_timezone: string | null;
@@ -35,6 +37,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           last_synced_at?: string | null;
+          last_synced_end_date?: string | null;
+          last_synced_start_date?: string | null;
           merchant_id: string;
           metadata?: Json;
           account_timezone?: string | null;
@@ -55,6 +59,8 @@ export type Database = {
           created_at?: string;
           id?: string;
           last_synced_at?: string | null;
+          last_synced_end_date?: string | null;
+          last_synced_start_date?: string | null;
           merchant_id?: string;
           metadata?: Json;
           account_timezone?: string | null;
@@ -20582,6 +20588,8 @@ export type Database = {
           p_provider: string;
           p_provider_customer_id: string;
           p_sync_run_id: string;
+          p_sync_window_end_date: string;
+          p_sync_window_start_date: string;
         };
         Returns: boolean;
       };
@@ -20592,8 +20600,18 @@ export type Database = {
           p_provider_customer_id: string;
           p_sync_run_id: string;
           p_sync_run_started_at: string;
+          p_sync_window_end_date: string;
+          p_sync_window_start_date: string;
         };
         Returns: boolean;
+      };
+      get_merchant_ads_sync_run_started_at: {
+        Args: {
+          p_merchant_id: string;
+          p_provider: string;
+          p_sync_run_id: string;
+        };
+        Returns: string | null;
       };
       mark_merchant_ads_connection_reauth: {
         Args: { p_merchant_id: string; p_reason: string };
