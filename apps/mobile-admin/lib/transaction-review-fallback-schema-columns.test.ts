@@ -9,6 +9,7 @@ const noUnavailableColumns: TransactionReviewSchemaColumnAvailability = {
   cancelledAtUnavailable: false,
   discountAmountUnavailable: false,
   discountCodeUnavailable: false,
+  lineIdUnavailable: false,
   quizAwardIdUnavailable: false,
   transactionDateUnavailable: false,
   variantIdUnavailable: false,
@@ -50,5 +51,19 @@ describe('omitUnavailableTransactionReviewSchemaColumns', () => {
         variantIdUnavailable: true,
       })
     ).toBe('id, order_items(id)');
+  });
+
+  it('keeps rich fields while removing a missing line id', () => {
+    const selector =
+      'id, order_items(id, line_id, variant_id, order_item_unit_costs(unit_index, cost_price))';
+
+    expect(
+      omitUnavailableTransactionReviewSchemaColumns(selector, {
+        ...noUnavailableColumns,
+        lineIdUnavailable: true,
+      })
+    ).toBe(
+      'id, order_items(id, variant_id, order_item_unit_costs(unit_index, cost_price))'
+    );
   });
 });

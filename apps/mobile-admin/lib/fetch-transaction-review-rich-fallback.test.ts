@@ -178,4 +178,38 @@ describe('fetchRichTransactionReviewRows', () => {
     expect(selector).not.toContain('product_variants');
     expect(selector).toContain('order_item_unit_costs');
   });
+
+  it('composes missing line ids with later rich-field omissions', async () => {
+    const rows = [{ id: 'line-id-and-attributes-fallback-order' }];
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'line_id' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector = mockFetchTransactionReviewRows.mock.calls[2][0]
+      .selectStatement as string;
+    expect(selector).not.toContain('line_id');
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).toContain('order_item_unit_costs');
+  });
 });

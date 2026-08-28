@@ -3,6 +3,7 @@ export type TransactionReviewSchemaColumnAvailability = Readonly<{
   cancelledAtUnavailable: boolean;
   discountAmountUnavailable: boolean;
   discountCodeUnavailable: boolean;
+  lineIdUnavailable: boolean;
   quizAwardIdUnavailable: boolean;
   transactionDateUnavailable: boolean;
   variantIdUnavailable: boolean;
@@ -35,6 +36,9 @@ export function omitUnavailableTransactionReviewSchemaColumns(
   }
   if (availability.discountAmountUnavailable) {
     result = withoutSchemaColumn(result, 'discount_amount');
+  }
+  if (availability.lineIdUnavailable) {
+    result = withoutSchemaColumn(result, 'line_id');
   }
   if (availability.adTrackingUnavailable) {
     result = withoutSchemaColumn(result, 'ad_tracking');

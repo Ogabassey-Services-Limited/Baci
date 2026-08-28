@@ -39,6 +39,11 @@ describe('fetchTransactionReviewWithFallbacks', () => {
 
   it('keeps cancellation filtering on discount-aware base fallbacks', async () => {
     const rows = [{ id: 'legacy-cancellation-filter-order' }];
+    const baseWithDiscountNoLineAndVariantId =
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId.replace(
+        ', line_id',
+        ''
+      );
     const genericSchemaCacheError = {
       code: 'PGRST204',
       message:
@@ -58,10 +63,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
             },
           };
         }
-        if (
-          selectStatement ===
-          TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId
-        ) {
+        if (selectStatement === baseWithDiscountNoLineAndVariantId) {
           return { data: rows, error: null };
         }
         return { data: null, error: genericSchemaCacheError };
@@ -80,8 +82,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     );
     const noVariantIdCall = mocks.fetchTransactionReviewRows.mock.calls.find(
       ([options]) =>
-        options.selectStatement ===
-        TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId
+        options.selectStatement === baseWithDiscountNoLineAndVariantId
     );
 
     expect(noLineIdCall?.[0]).toEqual(

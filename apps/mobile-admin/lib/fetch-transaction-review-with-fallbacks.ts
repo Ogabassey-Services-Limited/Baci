@@ -3,29 +3,22 @@ import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-co
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { runBaseTransactionReviewQuery } from './run-base-transaction-review-query';
 import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
-import {
-  omitUnavailableTransactionReviewSchemaColumns,
-  type TransactionReviewSchemaColumnAvailability,
-} from './transaction-review-fallback-schema-columns';
+import { omitUnavailableTransactionReviewSchemaColumns } from './transaction-review-fallback-schema-columns';
 import type {
   TaxAmountFallback,
   TransactionReviewFallbackQuery,
 } from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
-
-/**
- * Reads transaction-review rows through selectors that tolerate schema-cache
- * drift while preserving the richest available discount and cost fields.
- */
+/** Reads transaction-review rows with schema-drift fallbacks. */
 export async function fetchTransactionReviewWithFallbacks(
   query: TransactionReviewFallbackQuery
 ) {
-  const legacyQuery = query;
   let quizAwardIdUnavailable = false;
   let discountAmountUnavailable = false;
   let discountCodeUnavailable = false;
   let adTrackingUnavailable = false;
   let cancelledAtUnavailable = false;
+  let lineIdUnavailable = false;
   let transactionDateUnavailable = false;
   let variantIdUnavailable = false;
   const markMissingSchemaColumn = (column: string) => {
@@ -44,6 +37,9 @@ export async function fetchTransactionReviewWithFallbacks(
     if (column === 'cancelled_at') {
       cancelledAtUnavailable = true;
     }
+    if (column === 'line_id') {
+      lineIdUnavailable = true;
+    }
     if (column === 'transaction_date') {
       transactionDateUnavailable = true;
     }
@@ -51,22 +47,21 @@ export async function fetchTransactionReviewWithFallbacks(
       variantIdUnavailable = true;
     }
   };
-  const getSchemaColumnAvailability =
-    (): TransactionReviewSchemaColumnAvailability => ({
-      adTrackingUnavailable,
-      cancelledAtUnavailable,
-      discountAmountUnavailable,
-      discountCodeUnavailable,
-      quizAwardIdUnavailable,
-      transactionDateUnavailable,
-      variantIdUnavailable,
-    });
-  const omitUnavailableSchemaColumns = (selector: string) => {
-    return omitUnavailableTransactionReviewSchemaColumns(
+  const getSchemaColumnAvailability = () => ({
+    adTrackingUnavailable,
+    cancelledAtUnavailable,
+    discountAmountUnavailable,
+    discountCodeUnavailable,
+    lineIdUnavailable,
+    quizAwardIdUnavailable,
+    transactionDateUnavailable,
+    variantIdUnavailable,
+  });
+  const omitUnavailableSchemaColumns = (selector: string) =>
+    omitUnavailableTransactionReviewSchemaColumns(
       selector,
       getSchemaColumnAvailability()
     );
-  };
   type TransactionReviewFallbackResult = Awaited<
     ReturnType<typeof runLegacyTransactionReviewQuery>
   >;
@@ -81,6 +76,13 @@ export async function fetchTransactionReviewWithFallbacks(
         isMissingSchemaColumn(result.error, 'quiz_award_id')
       ) {
         quizAwardIdUnavailable = true;
+        shouldRetry = true;
+      }
+      if (
+        !lineIdUnavailable &&
+        isMissingSchemaColumn(result.error, 'line_id')
+      ) {
+        lineIdUnavailable = true;
         shouldRetry = true;
       }
       if (
@@ -140,7 +142,7 @@ export async function fetchTransactionReviewWithFallbacks(
     const runQuery = () =>
       runLegacyTransactionReviewQuery(
         stage,
-        legacyQuery,
+        query,
         omitUnavailableSchemaColumns(selectStatement),
         includeCancelledAt && !cancelledAtUnavailable,
         taxAmountFallback
@@ -153,7 +155,6 @@ export async function fetchTransactionReviewWithFallbacks(
           : undefined,
         !transactionDateUnavailable
       );
-
     return runWithUnavailableSchemaColumns(runQuery);
   };
   const runBaseFallbackQuery = (
@@ -165,7 +166,7 @@ export async function fetchTransactionReviewWithFallbacks(
     const runQuery = () =>
       runBaseTransactionReviewQuery(
         stage,
-        legacyQuery,
+        query,
         omitUnavailableSchemaColumns(selectStatement),
         includeCancelledAt && !cancelledAtUnavailable,
         taxAmountFallback
@@ -177,7 +178,6 @@ export async function fetchTransactionReviewWithFallbacks(
             }
           : undefined
       );
-
     return runWithUnavailableSchemaColumns(runQuery);
   };
   let { data, error } = await fetchRichTransactionReviewRows(query, {
@@ -295,6 +295,5 @@ export async function fetchTransactionReviewWithFallbacks(
       false
     ));
   }
-
   return { data, error };
 }
