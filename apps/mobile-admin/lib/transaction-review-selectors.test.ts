@@ -6,6 +6,17 @@ describe('transaction review selectors', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscount;
 
     expect(selector).toContain('discount_amount');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('tax_amount');
+    expect(selector).toContain('ad_tracking');
+  });
+
+  it('provides a discount-code-free base projection when that column is unavailable', () => {
+    const selector =
+      TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoDiscountCode;
+
+    expect(selector).toContain('discount_amount');
+    expect(selector).not.toContain('discount_code_id');
     expect(selector).toContain('tax_amount');
     expect(selector).toContain('ad_tracking');
   });

@@ -29,14 +29,18 @@ function withoutDiscountAmount(selector: string) {
   return selector.replace(', discount_amount', '');
 }
 
+function withoutDiscountCode(selector: string) {
+  return selector.replace(', discount_code_id', '');
+}
+
 const transactionReviewSelectors = {
   base: 'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, external_source, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseCompat:
     'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, external_source, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseWithDiscount:
-    'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, tax_amount, source, external_source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
+    'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, tax_amount, source, external_source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseWithDiscountCompat:
-    'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, tax_amount, source, external_source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
+    'id, order_number, created_at, shipping_status, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, tax_amount, source, external_source, ad_tracking, fulfillment_details, order_items(id, line_id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseWithDiscountNoLineId:
     'id, order_number, created_at, shipping_status, cancelled_at, customer_name, customer_email, customer_phone, payment_method, total, discount_amount, discount_code_id, tax_amount, source, external_source, ad_tracking, fulfillment_details, order_items(id, product_id, variant_id, quiz_award_id, condition, variant_attributes, name, price, quantity, fulfillment_data, products(cost_price, metadata, sku, fulfillment_details))',
   baseWithDiscountNoVariantId:
@@ -79,6 +83,18 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   ),
   baseWithDiscountCompatNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.baseWithDiscountCompat
+  ),
+  baseWithDiscountNoDiscountCode: withoutDiscountCode(
+    transactionReviewSelectors.baseWithDiscount
+  ),
+  baseWithDiscountNoDiscountCodeNoTaxAmount: withoutTaxAmount(
+    withoutDiscountCode(transactionReviewSelectors.baseWithDiscount)
+  ),
+  baseWithDiscountCompatNoDiscountCode: withoutDiscountCode(
+    transactionReviewSelectors.baseWithDiscountCompat
+  ),
+  baseWithDiscountCompatNoDiscountCodeNoTaxAmount: withoutTaxAmount(
+    withoutDiscountCode(transactionReviewSelectors.baseWithDiscountCompat)
   ),
   baseWithDiscountNoLineIdNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.baseWithDiscountNoLineId

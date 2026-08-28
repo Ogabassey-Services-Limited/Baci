@@ -17,6 +17,10 @@ function withoutQuizAwardId(selector: string) {
   return selector.replace(', quiz_award_id', '');
 }
 
+function withoutDiscountCode(selector: string) {
+  return selector.replace(', discount_code_id', '');
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -26,14 +30,53 @@ export async function fetchTransactionReviewWithFallbacks(
 ) {
   const legacyQuery = query;
   let quizAwardIdUnavailable = false;
+  let discountCodeUnavailable = false;
   const markMissingSchemaColumn = (column: string) => {
     if (column === 'quiz_award_id') {
       quizAwardIdUnavailable = true;
     }
+    if (column === 'discount_code_id') {
+      discountCodeUnavailable = true;
+    }
   };
-  const omitUnavailableQuizAwardId = (selector: string) =>
-    quizAwardIdUnavailable ? withoutQuizAwardId(selector) : selector;
-  const runLegacyFallbackQuery = async (
+  const omitUnavailableSchemaColumns = (selector: string) => {
+    const withoutQuiz = quizAwardIdUnavailable
+      ? withoutQuizAwardId(selector)
+      : selector;
+    return discountCodeUnavailable
+      ? withoutDiscountCode(withoutQuiz)
+      : withoutQuiz;
+  };
+  type TransactionReviewFallbackResult = Awaited<
+    ReturnType<typeof runLegacyTransactionReviewQuery>
+  >;
+  const runWithUnavailableSchemaColumns = async (
+    runQuery: () => Promise<TransactionReviewFallbackResult>
+  ) => {
+    let result = await runQuery();
+    while (true) {
+      let shouldRetry = false;
+      if (
+        !quizAwardIdUnavailable &&
+        isMissingSchemaColumn(result.error, 'quiz_award_id')
+      ) {
+        quizAwardIdUnavailable = true;
+        shouldRetry = true;
+      }
+      if (
+        !discountCodeUnavailable &&
+        isMissingSchemaColumn(result.error, 'discount_code_id')
+      ) {
+        discountCodeUnavailable = true;
+        shouldRetry = true;
+      }
+      if (!shouldRetry) {
+        return result;
+      }
+      result = await runQuery();
+    }
+  };
+  const runLegacyFallbackQuery = (
     stage: string,
     selectStatement: string,
     includeCancelledAt: boolean,
@@ -43,32 +86,21 @@ export async function fetchTransactionReviewWithFallbacks(
       runLegacyTransactionReviewQuery(
         stage,
         legacyQuery,
-        omitUnavailableQuizAwardId(selectStatement),
+        omitUnavailableSchemaColumns(selectStatement),
         includeCancelledAt,
         taxAmountFallback
           ? {
               ...taxAmountFallback,
-              selectStatement: omitUnavailableQuizAwardId(
+              selectStatement: omitUnavailableSchemaColumns(
                 taxAmountFallback.selectStatement
               ),
             }
           : undefined
       );
 
-    let result = await runQuery();
-    if (
-      !quizAwardIdUnavailable &&
-      isMissingSchemaColumn(result.error, 'quiz_award_id')
-    ) {
-      quizAwardIdUnavailable = true;
-      result = await runQuery();
-    }
-    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
-      quizAwardIdUnavailable = true;
-    }
-    return result;
+    return runWithUnavailableSchemaColumns(runQuery);
   };
-  const runBaseFallbackQuery = async (
+  const runBaseFallbackQuery = (
     stage: string,
     selectStatement: string,
     includeCancelledAt: boolean,
@@ -78,30 +110,19 @@ export async function fetchTransactionReviewWithFallbacks(
       runBaseTransactionReviewQuery(
         stage,
         legacyQuery,
-        omitUnavailableQuizAwardId(selectStatement),
+        omitUnavailableSchemaColumns(selectStatement),
         includeCancelledAt,
         taxAmountFallback
           ? {
               ...taxAmountFallback,
-              selectStatement: omitUnavailableQuizAwardId(
+              selectStatement: omitUnavailableSchemaColumns(
                 taxAmountFallback.selectStatement
               ),
             }
           : undefined
       );
 
-    let result = await runQuery();
-    if (
-      !quizAwardIdUnavailable &&
-      isMissingSchemaColumn(result.error, 'quiz_award_id')
-    ) {
-      quizAwardIdUnavailable = true;
-      result = await runQuery();
-    }
-    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
-      quizAwardIdUnavailable = true;
-    }
-    return result;
+    return runWithUnavailableSchemaColumns(runQuery);
   };
   let { data, error } = await fetchRichTransactionReviewRows(query, {
     onMissingSchemaColumn: markMissingSchemaColumn,

@@ -88,6 +88,43 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
     ).toContain('vat_rate');
   });
 
+  it('preserves discount provenance when the date and discount-code columns are unavailable', async () => {
+    const rows = [{ id: 'legacy-base-discount-code-order' }];
+    const transactionDateSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'transaction_date' column of 'orders' in the schema cache",
+    };
+    const discountCodeSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
+    };
+
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: transactionDateSchemaError })
+      .mockResolvedValueOnce({ data: null, error: transactionDateSchemaError })
+      .mockResolvedValueOnce({ data: null, error: transactionDateSchemaError })
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    expect(
+      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+    ).toContain('discount_code_id');
+    const fallbackSelector =
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement;
+    expect(fallbackSelector).not.toContain('discount_code_id');
+    expect(fallbackSelector).toContain('discount_amount');
+    expect(fallbackSelector).toContain('tax_amount');
+    expect(fallbackSelector).toContain('ad_tracking');
+  });
+
   it('falls back to the cost projection when adjustment columns are unavailable', async () => {
     const rows = [{ id: 'legacy-discount-code-order' }];
     const discountCodeSchemaError = {
