@@ -141,10 +141,10 @@ BEGIN
   FROM public.orders
   WHERE id = v_order_id;
 
-  IF v_tracking ? 'baci_transaction_discount'
+  IF v_tracking -> 'baci_transaction_discount' ->> 'status' IS DISTINCT FROM 'admin_edit'
     OR v_tracking ->> 'campaign' IS DISTINCT FROM 'keep-me'
   THEN
-    RAISE EXCEPTION 'item edit did not clear only transaction discount metadata: %', v_tracking;
+    RAISE EXCEPTION 'item edit did not preserve admin discount provenance: %', v_tracking;
   END IF;
 
   UPDATE public.orders

@@ -13,7 +13,8 @@ function hasPersistedTransactionDiscountMetadata(adTracking: unknown) {
 
 /**
  * Recognizes the capped auto-negotiation shape when older rows lack the
- * server-authored marker. The marker is the reliable rollout boundary; a
+ * server-authored marker (including the admin-edit marker). The marker is the
+ * reliable rollout boundary; a
  * wall-clock cutoff would misclassify orders created while app and database
  * deployments are rolling out. Discount-code and non-storefront sources stay
  * on the ordinary path because their discount provenance is different.

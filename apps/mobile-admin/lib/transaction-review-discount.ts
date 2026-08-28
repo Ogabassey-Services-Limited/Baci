@@ -200,7 +200,16 @@ export function getDiscountedTransactionUnitPrices(
     }
     if (!allocationsByLineId) {
       if (voucherDiscountBasis <= 0) {
-        return getDiscountedTransactionUnitPrices(items, normalizedDiscount);
+        const preservesVatRelief =
+          options?.discountIncludesVat === true ||
+          explicitLineDiscounts.some(
+            (allocation) => (allocation?.vatRelief ?? 0) > 0
+          );
+        return getDiscountedTransactionUnitPrices(
+          items,
+          normalizedDiscount,
+          preservesVatRelief ? { discountIncludesVat: true } : undefined
+        );
       }
       voucherDiscount = normalizedDiscount;
     }

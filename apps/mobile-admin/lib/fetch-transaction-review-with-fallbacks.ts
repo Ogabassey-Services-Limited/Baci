@@ -286,7 +286,6 @@ export async function fetchTransactionReviewWithFallbacks({
       false
     ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runBaseTransactionReviewQuery(
       'BaseNoQuizAwardId',

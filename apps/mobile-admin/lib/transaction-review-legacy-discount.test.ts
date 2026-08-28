@@ -57,4 +57,21 @@ describe('legacy transaction discount detection', () => {
       )
     ).toBe(true);
   });
+
+  it('does not classify an admin-edited order marker as a negotiation', () => {
+    expect(
+      isLegacyVatInclusiveNegotiationDiscount(
+        {
+          ...baseOrder,
+          ad_tracking: {
+            baci_transaction_discount: {
+              status: 'admin_edit',
+              version: 4,
+            },
+          },
+        },
+        baseOrder.order_items ?? []
+      )
+    ).toBe(false);
+  });
 });

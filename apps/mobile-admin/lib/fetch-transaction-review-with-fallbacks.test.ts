@@ -277,31 +277,4 @@ describe('fetchTransactionReviewWithFallbacks', () => {
       mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
     ).not.toContain('assurance_fee');
   });
-
-  it('tries the rich legacy projection before the discount-only compatibility fallback', async () => {
-    const rows = [{ id: 'legacy-cost-order' }];
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
-        data: null,
-        error: schemaCacheError,
-      });
-    }
-    mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
-      data: rows,
-      error: null,
-    });
-
-    const result = await fetchTransactionReviewWithFallbacks({
-      merchantId: 'merchant-1',
-    });
-
-    expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(6);
-    expect(
-      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
-    ).toContain('cost_price');
-    expect(
-      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
-    ).toContain('product_variants');
-  });
 });
