@@ -35,10 +35,10 @@ describe('rate-limit route matching', () => {
   });
 
   it('isolates autocomplete and place details in the Places bucket', () => {
-    expect(getRateLimitConfig('/api/places').config.maxRequests).toBe(60);
+    expect(getRateLimitConfig('/api/places').config.maxRequests).toBe(400);
     expect(getRateLimitConfig('/api/places/autocomplete')).toMatchObject({
       pattern: '/api/places',
-      config: { maxRequests: 60, windowMs: 60_000 },
+      config: { maxRequests: 400, windowMs: 60_000 },
     });
     expect(getRateLimitConfig('/api/places/details')).toMatchObject({
       pattern: '/api/places/details',
