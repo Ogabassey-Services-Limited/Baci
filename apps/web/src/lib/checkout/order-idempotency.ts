@@ -17,6 +17,7 @@ type IdempotencyItem = {
 };
 
 export type OrderIdempotencyPayloadInput = {
+  airport_type?: string | null;
   customer_email: string;
   customer_name: string;
   customer_phone?: string | null;
@@ -26,7 +27,6 @@ export type OrderIdempotencyPayloadInput = {
   gift_wrapping_fee?: number;
   items: readonly IdempotencyItem[];
   merchant_id: string;
-  airport_type?: string | null;
   payment_method?: string | null;
   savings_amount?: number | null;
   savings_goal_id?: string | null;
@@ -146,6 +146,9 @@ export function buildOrderIdempotencyPayload(
   input: OrderIdempotencyPayloadInput
 ) {
   return {
+    // JSON.stringify preserves insertion order, so keep hash-significant keys
+    // alphabetical to prevent accidental changes during maintenance.
+    airport_type: normalizeText(input.airport_type) || undefined,
     customer_email: normalizeText(input.customer_email),
     customer_name: normalizeText(input.customer_name),
     customer_phone: normalizeText(input.customer_phone),
@@ -155,7 +158,6 @@ export function buildOrderIdempotencyPayload(
     gift_wrapping_fee: normalizeNumber(input.gift_wrapping_fee),
     items: normalizeItems(input.items),
     merchant_id: normalizeText(input.merchant_id),
-    airport_type: normalizeText(input.airport_type) || undefined,
     savings_amount: normalizeNumber(input.savings_amount),
     savings_goal_id: normalizeText(input.savings_goal_id) || null,
     selected_quote_id: normalizeText(input.selected_quote_id) || null,

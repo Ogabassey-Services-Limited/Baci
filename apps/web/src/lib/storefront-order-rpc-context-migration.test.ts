@@ -16,6 +16,13 @@ const hashPreparationMigration = readFileSync(
   ),
   'utf8'
 );
+const deferredMigrationPolicy = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../.github/scripts/deferred-production-migrations.sh'
+  ),
+  'utf8'
+);
 const replayContextMigration = readFileSync(
   resolve(
     process.cwd(),
@@ -80,7 +87,7 @@ describe('storefront order RPC context migration contract', () => {
     expect(migration).toContain('TO anon, authenticated');
   });
 
-  it('prepares hash stamping before the postdeploy route-context migration', () => {
+  it('defers delivery enforcement and hash stamping until the application is live', () => {
     expect(hashPreparationMigration).toContain(
       'ADD COLUMN IF NOT EXISTS checkout_request_hash_version smallint'
     );
@@ -90,8 +97,11 @@ describe('storefront order RPC context migration contract', () => {
     expect(hashPreparationMigration).toContain(
       'CREATE OR REPLACE FUNCTION public.is_legacy_storefront_order_idempotency_key('
     );
-    expect(hashPreparationMigration).not.toContain(
-      'enforce_storefront_order_route_context'
+    expect(deferredMigrationPolicy).toContain(
+      '20260827140000_enforce_storefront_order_delivery_metadata'
+    );
+    expect(deferredMigrationPolicy).toContain(
+      '20260828110000_prepare_storefront_order_hash_stamping'
     );
   });
 

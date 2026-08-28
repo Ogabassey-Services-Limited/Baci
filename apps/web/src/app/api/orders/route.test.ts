@@ -4477,6 +4477,36 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     expect(response.status).toBe(400);
   });
 
+  it('maps a database airport-quote expiry race to a re-quoteable 400', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: '22023',
+              message: 'The selected airport delivery quote has expired',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'AIRPORT_QUOTE_EXPIRED',
+      details: 'The selected airport delivery quote has expired',
+      error: 'Failed to create order',
+    });
+  });
+
   it('logs known client order rejections as warnings instead of Vercel errors', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(

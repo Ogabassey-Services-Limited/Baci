@@ -73,6 +73,21 @@ describe('AirportDeliveryOptions', () => {
     ).not.toBeChecked();
   });
 
+  it('does not check a stale provider quote after switching to a local airport option', () => {
+    renderAirportOptions({
+      airDeliveryQuotes: [airQuote],
+      selectedQuoteId: airQuote.id,
+      selectedQuoteMatchesDeliveryMethod: false,
+    });
+
+    expect(
+      screen.getByRole('radio', { name: /gigl air cargo/i })
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole('radio', { name: /airport delivery/i })
+    ).toBeChecked();
+  });
+
   it('renders and selects provider GoFaster quotes', async () => {
     const user = userEvent.setup();
     const onSelectQuote = vi.fn();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getLegacyAirportType } from './airport-delivery-legacy-marker';
+import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 
 describe('getLegacyAirportType', () => {
   it('recognizes exact legacy airport markers case-insensitively', () => {

@@ -154,7 +154,7 @@ BEGIN
             WHEN 'pickup' THEN 20000::numeric
           END
       ) > 0.01 THEN
-        RAISE EXCEPTION 'Shipping fee does not match the local airport delivery fee'
+        RAISE EXCEPTION 'Shipping fee does not match the selected local airport fee'
           USING ERRCODE = '22023';
       END IF;
     ELSE
@@ -181,6 +181,13 @@ BEGIN
       WHERE sq.id = NEW.selected_quote_id
         AND sq.merchant_id = NEW.merchant_id
       LIMIT 1;
+
+      IF FOUND
+        AND v_quote_expires_at IS NOT NULL
+        AND v_quote_expires_at <= pg_catalog.now() THEN
+        RAISE EXCEPTION 'The selected airport delivery quote has expired'
+          USING ERRCODE = '22023';
+      END IF;
 
       IF NOT FOUND
         OR pg_catalog.upper(pg_catalog.btrim(COALESCE(v_quote_provider, ''))) <> 'GIGL'

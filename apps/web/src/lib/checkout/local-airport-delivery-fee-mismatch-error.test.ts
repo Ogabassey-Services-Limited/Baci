@@ -6,7 +6,7 @@ describe('LocalAirportDeliveryFeeMismatchError', () => {
     const error = new LocalAirportDeliveryFeeMismatchError(25_000, 35_000);
 
     expect(error).toMatchObject({
-      message: 'Shipping fee does not match the local airport delivery fee',
+      message: 'Shipping fee does not match the selected local airport fee',
       name: 'LocalAirportDeliveryFeeMismatchError',
       clientShippingFee: 25_000,
       serverShippingFee: 35_000,

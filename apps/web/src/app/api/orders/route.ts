@@ -2553,6 +2553,10 @@ export async function POST(request: NextRequest) {
         typeof orderError?.message === 'string'
           ? orderError.message
           : code || 'Failed to create order';
+      const isAirportQuoteDatabaseRejection =
+        code === '22023' &&
+        (message === 'The selected airport delivery quote has expired' ||
+          message === 'Selected airport delivery quote is invalid or expired');
       if (
         requestedSavingsRedemption &&
         (message.includes('savings_') || code === '22023' || code === '42501')
@@ -2654,7 +2658,12 @@ export async function POST(request: NextRequest) {
       // create_storefront_order should return { message, code } for client errors.
       const isClientError =
         (code ? clientErrorCodes.includes(code) : false) ||
-        clientErrorCodes.includes(message);
+        clientErrorCodes.includes(message) ||
+        isAirportQuoteDatabaseRejection;
+      const airportQuoteErrorCode =
+        message === 'The selected airport delivery quote has expired'
+          ? 'AIRPORT_QUOTE_EXPIRED'
+          : 'AIRPORT_QUOTE_INVALID';
       if (isClientError) {
         logger.warn({
           message: 'Storefront order rejected by client-side validation',
@@ -2664,7 +2673,13 @@ export async function POST(request: NextRequest) {
         logger.error({ message: 'Error creating order', error: orderError });
       }
       return NextResponse.json(
-        { error: 'Failed to create order', details: message },
+        {
+          error: 'Failed to create order',
+          details: message,
+          ...(isAirportQuoteDatabaseRejection
+            ? { code: airportQuoteErrorCode }
+            : {}),
+        },
         { status: isClientError ? 400 : 500 }
       );
     }

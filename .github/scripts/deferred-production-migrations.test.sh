@@ -46,6 +46,8 @@ chmod +x "$fake_bin/curl"
 
 deferred_dir="$fixture_root/deferred"
 mkdir -p "$deferred_dir"
+printf '%s\n' "SELECT 'delivery-metadata';" \
+  >"$deferred_dir/20260827140000_enforce_storefront_order_delivery_metadata.sql"
 printf '%s\n' "SELECT 'context';" \
   >"$deferred_dir/20260828091000_harden_storefront_order_rpc_context_and_replays.sql"
 printf '%s\n' "SELECT 'quiz-context';" \
@@ -69,21 +71,22 @@ PATH="$fake_bin:$PATH" \
   FAKE_QUERY_LOG="$deferred_predeploy_log" \
   FAKE_INITIAL_RESPONSE='[]' \
   bash "$applier" >"$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260827140000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828091000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828101000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
-grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_predeploy_output"
 grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 2 applied, 0 skipped, 4 deferred.' "$deferred_predeploy_output"
-if grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
+grep -q 'Migrations summary: 1 applied, 0 skipped, 6 deferred.' "$deferred_predeploy_output"
+if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'hash-stamping'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
-grep -q "SELECT 'hash-stamping'" "$deferred_predeploy_log"
 
 deferred_postdeploy_log="$fixture_root/deferred-postdeploy-queries.log"
 deferred_postdeploy_output="$fixture_root/deferred-postdeploy-output.log"
@@ -95,14 +98,24 @@ PATH="$fake_bin:$PATH" \
   FAKE_QUERY_LOG="$deferred_postdeploy_log" \
   FAKE_INITIAL_RESPONSE='[]' \
   bash "$applier" >"$deferred_postdeploy_output"
+grep -q 'applied:         20260827140000  enforce_storefront_order_delivery_metadata' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828091000  harden_storefront_order_rpc_context_and_replays' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828101000  allow_legacy_quiz_award_order_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828120000  enforce_storefront_order_replay_route_context' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828130000  scope_storefront_order_replay_route_context' "$deferred_postdeploy_output"
+grep -q "SELECT 'delivery-metadata'" "$deferred_postdeploy_log"
 grep -q "SELECT 'context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'hash-stamping'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'replay-scope'" "$deferred_postdeploy_log"
+jq -e -s \
+  --arg delivery "SELECT 'delivery-metadata';" \
+  --arg context "SELECT 'context';" \
+  --arg broad "SELECT 'replay-context';" \
+  --arg scoped "SELECT 'replay-scope';" \
+  '[.[].query | select(contains($delivery) and contains($context))] | length == 1' \
+  "$deferred_postdeploy_log" >/dev/null
 jq -e -s \
   --arg broad "SELECT 'replay-context';" \
   --arg scoped "SELECT 'replay-scope';" \

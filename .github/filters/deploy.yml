@@ -26,6 +26,7 @@ web:
   - '.github/scripts/storefront-release-marker.mjs'
   - '.github/scripts/storefront-sitemap-purge.mjs'
   - '.github/scripts/deploy-with-retry.sh'
+  - '.github/scripts/deferred-production-migrations.sh'
   - '.github/scripts/current-main-deploy-guard.mjs'
   - '.github/scripts/inject-prebuilt-env-secret.mjs'
   - '.github/scripts/merge-static-union.sh'

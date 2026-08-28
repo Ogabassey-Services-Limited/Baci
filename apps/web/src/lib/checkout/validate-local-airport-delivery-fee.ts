@@ -1,27 +1,19 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { logger } from '@/lib/logger';
+import { validateAirportDeliveryAddress } from '@/lib/checkout/airport-delivery-address';
+import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
+import { isAmbiguousMetadataFreeAirportFee } from '@/lib/checkout/airport-delivery-fee-ambiguity';
+import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 import {
-  GiglDeliveryType,
-  PickupOptions,
-  parseGiglProviderRateId,
-} from '@/lib/shipping/providers/gigl.constants';
-import { validateAirportDeliveryAddress } from './airport-delivery-address';
-import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
-import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
-import { getLegacyAirportType } from './airport-delivery-legacy-marker';
-import { isConfirmedLocalAirportReplay } from './is-confirmed-local-airport-replay';
-import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
-import type { LocalAirportDeliveryFeeValidationResult } from './local-airport-delivery-fee-validation-result';
-import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
+  isEligibleAirportQuote,
+  readAirportQuote,
+} from '@/lib/checkout/airport-delivery-quote-validation';
+import { isConfirmedLocalAirportReplay } from '@/lib/checkout/is-confirmed-local-airport-replay';
+import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
+import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
+import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
+import { logger } from '@/lib/logger';
 
 type AirportType = 'delivery' | 'pickup';
-
-interface AirportQuoteRecord {
-  expires_at?: unknown;
-  price?: unknown;
-  provider?: unknown;
-  provider_rate_id?: unknown;
-}
 
 interface ValidateLocalAirportDeliveryFeeInput {
   airportType?: AirportType;
@@ -38,52 +30,6 @@ interface ValidateLocalAirportDeliveryFeeInput {
   shippingProvider?: string | null;
   shippingRateId?: string | null;
   supabase: SupabaseClient;
-}
-
-function asAirportQuoteRecord(value: unknown): AirportQuoteRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return null;
-  }
-
-  return value as AirportQuoteRecord;
-}
-
-function readAirportQuote(data: unknown): AirportQuoteRecord | null {
-  if (Array.isArray(data)) {
-    return asAirportQuoteRecord(data[0]);
-  }
-
-  return asAirportQuoteRecord(data);
-}
-
-function isEligibleAirportQuote(
-  quote: AirportQuoteRecord,
-  shippingProvider: string | null | undefined
-): boolean {
-  const provider =
-    typeof quote.provider === 'string'
-      ? quote.provider.trim().toUpperCase()
-      : '';
-  const providerRateId =
-    typeof quote.provider_rate_id === 'string'
-      ? quote.provider_rate_id.trim()
-      : '';
-  const serviceTier =
-    typeof (quote as Record<string, unknown>).service_tier === 'string'
-      ? String((quote as Record<string, unknown>).service_tier)
-          .trim()
-          .toLowerCase()
-      : null;
-  const parsedRate = parseGiglProviderRateId(providerRateId);
-  const normalizedShippingProvider = shippingProvider?.trim().toUpperCase();
-
-  return (
-    provider === 'GIGL' &&
-    parsedRate.pickupOption === PickupOptions.HomeDelivery &&
-    parsedRate.deliveryType === GiglDeliveryType.GoFaster &&
-    (serviceTier === null || serviceTier.includes('gofaster')) &&
-    normalizedShippingProvider === provider
-  );
 }
 
 async function validateSelectedAirportQuote({

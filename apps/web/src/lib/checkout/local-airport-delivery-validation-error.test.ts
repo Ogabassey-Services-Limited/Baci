@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
+import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 
 describe('LocalAirportDeliveryValidationError', () => {
   it('preserves the client error code and status', () => {

@@ -26,4 +26,20 @@ describe('validateAirportDeliveryAddress', () => {
       expect.objectContaining({ code: 'AIRPORT_ADDRESS_REQUIRED' })
     );
   });
+
+  it('rejects the synthetic airport destination used when no address is entered', () => {
+    expect(() =>
+      validateAirportDeliveryAddress({
+        airportType: 'delivery',
+        deliveryMethod: 'airport',
+        shippingAddress: {
+          address: 'Airport Delivery',
+          city: 'Airport',
+          state: 'Nigeria',
+        },
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'AIRPORT_ADDRESS_REQUIRED' })
+    );
+  });
 });

@@ -138,14 +138,22 @@ describe('order idempotency hashing', () => {
   });
 
   it('recreates the pre-metadata hash for legacy order replays', () => {
-    const legacy = buildLegacyOrderIdempotencyPayload({
+    const legacyDoor = buildLegacyOrderIdempotencyPayload({
       ...baseOrder,
       delivery_method: 'door',
       airport_type: undefined,
     });
+    const legacyAirport = buildLegacyOrderIdempotencyPayload({
+      ...baseOrder,
+      delivery_method: 'airport',
+      airport_type: 'delivery',
+    });
     const preMetadataPayload = buildOrderIdempotencyPayload(baseOrder);
 
-    expect(hashOrderIdempotencyPayload(legacy)).toBe(
+    expect(hashOrderIdempotencyPayload(legacyDoor)).toBe(
+      hashOrderIdempotencyPayload(preMetadataPayload)
+    );
+    expect(hashOrderIdempotencyPayload(legacyAirport)).toBe(
       hashOrderIdempotencyPayload(preMetadataPayload)
     );
   });

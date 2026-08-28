@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(
@@ -24,8 +25,16 @@ describe('storefront order delivery metadata migration contract', () => {
   });
 
   it('enforces fixed airport fees without treating fee amounts as a discriminator', () => {
+    expect(AIRPORT_DELIVERY_FEES.delivery).toBe(35_000);
+    expect(AIRPORT_DELIVERY_FEES.pickup).toBe(20_000);
     expect(migration).toContain("WHEN 'delivery' THEN 35000::numeric");
     expect(migration).toContain("WHEN 'pickup' THEN 20000::numeric");
+    expect(migration).toContain(
+      `WHEN 'delivery' THEN ${AIRPORT_DELIVERY_FEES.delivery}::numeric`
+    );
+    expect(migration).toContain(
+      `WHEN 'pickup' THEN ${AIRPORT_DELIVERY_FEES.pickup}::numeric`
+    );
     expect(migration).toContain("'airport delivery'");
     expect(migration).toContain("'airport pickup'");
     expect(migration).not.toContain('shipping_fee = 25000');

@@ -241,7 +241,7 @@ export const EXPECTED_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260827140000_enforce_storefront_order_delivery_metadata.sql',
-    sha256: 'ecefb968064982208b767c7e25a541610a583be251ed550ec7b05a5e566bbfe8',
+    sha256: 'e3f521a3028544de7325a3203ce267ec8152d5eddd1e970e2b95d040c03b26f4',
   },
   {
     repositoryPath:

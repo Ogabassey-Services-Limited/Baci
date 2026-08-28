@@ -6,7 +6,7 @@ export class LocalAirportDeliveryFeeMismatchError extends Error {
     readonly clientShippingFee: number,
     readonly serverShippingFee: number
   ) {
-    super('Shipping fee does not match the local airport delivery fee');
+    super('Shipping fee does not match the selected local airport fee');
     this.name = 'LocalAirportDeliveryFeeMismatchError';
   }
 }

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
-import { validateLocalAirportDeliveryFee } from './validate-local-airport-delivery-fee';
+import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
+import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const GOFASTER_QUOTE_ID = '11111111-1111-4111-8111-111111111111';
@@ -75,6 +75,24 @@ describe('validateLocalAirportDeliveryFee', () => {
       shippingProvider: 'GIGL',
       supabase: mockSupabase([
         { ...validGoFasterQuote, provider_rate_id: 'GIGL_30_0_1_0_0_4' },
+      ]),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'AIRPORT_QUOTE_INVALID',
+      status: 400,
+    });
+  });
+
+  it('rejects an international GIGL rate id as an airport quote', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      deliveryMethod: 'airport',
+      merchantId: MERCHANT_ID,
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingFee: 18_500,
+      shippingProvider: 'GIGL',
+      supabase: mockSupabase([
+        { ...validGoFasterQuote, provider_rate_id: 'GIGL_INTL_2_0_0_1' },
       ]),
     });
 

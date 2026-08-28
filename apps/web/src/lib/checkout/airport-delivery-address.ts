@@ -1,4 +1,5 @@
-import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
+import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
+import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 
 interface AirportDeliveryAddress {
   address?: string | null;
@@ -21,6 +22,13 @@ export function validateAirportDeliveryAddress({
   shippingAddress,
   shippingRateId,
 }: ValidateAirportDeliveryAddressInput): void {
+  const normalizedCity = shippingAddress?.city?.trim().toLowerCase();
+  const normalizedState = shippingAddress?.state?.trim().toLowerCase();
+  const hasSyntheticDestination =
+    normalizedCity === 'airport' && normalizedState === 'nigeria';
+  const hasLegacyMarkerAddress =
+    getLegacyAirportType(shippingAddress?.address) === 'delivery';
+
   if (
     deliveryMethod !== 'airport' ||
     airportType !== 'delivery' ||
@@ -28,7 +36,9 @@ export function validateAirportDeliveryAddress({
     shippingRateId ||
     (shippingAddress?.address?.trim() &&
       shippingAddress.city?.trim() &&
-      shippingAddress.state?.trim())
+      shippingAddress.state?.trim() &&
+      !hasSyntheticDestination &&
+      !hasLegacyMarkerAddress)
   ) {
     return;
   }
