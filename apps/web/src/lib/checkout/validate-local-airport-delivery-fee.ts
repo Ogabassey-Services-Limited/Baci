@@ -71,7 +71,14 @@ async function validateSelectedAirportQuote({
     );
   }
 
+  const isReplay = () =>
+    isConfirmedLocalAirportReplay({
+      merchantId,
+      requestIdempotencyKey,
+      supabase,
+    });
   const quote = readAirportQuote(data);
+  if (!quote && (await isReplay())) return true;
   if (!quote || !isEligibleAirportQuote(quote, shippingProvider)) {
     throw new LocalAirportDeliveryValidationError(
       'The selected airport delivery quote is not eligible for airport delivery',
@@ -85,11 +92,7 @@ async function validateSelectedAirportQuote({
       ? Date.parse(quote.expires_at)
       : Number.NaN;
   if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
-    const isIdempotentReplay = await isConfirmedLocalAirportReplay({
-      merchantId,
-      requestIdempotencyKey,
-      supabase,
-    });
+    const isIdempotentReplay = await isReplay();
     if (isIdempotentReplay) return true;
 
     throw new LocalAirportDeliveryValidationError(
@@ -104,11 +107,7 @@ async function validateSelectedAirportQuote({
     Number.isFinite(quotePrice) &&
     Math.abs(shippingFee - quotePrice) > 0.01
   ) {
-    const isIdempotentReplay = await isConfirmedLocalAirportReplay({
-      merchantId,
-      requestIdempotencyKey,
-      supabase,
-    });
+    const isIdempotentReplay = await isReplay();
     if (isIdempotentReplay) return true;
 
     throw new LocalAirportDeliveryFeeMismatchError(shippingFee, quotePrice);
@@ -157,14 +156,6 @@ export async function validateLocalAirportDeliveryFee({
     );
   }
 
-  if (deliveryMethod === 'airport' && shippingRateId) {
-    throw new LocalAirportDeliveryValidationError(
-      'Merchant shipping rates cannot be used for airport delivery',
-      'AIRPORT_QUOTE_INVALID',
-      400
-    );
-  }
-
   // Provider-backed airport quotes cannot be relabeled as non-airport orders.
   if (selectedQuoteId && deliveryMethod !== 'airport') {
     const selectedQuoteIsAirport = await isSelectedAirportQuote({
@@ -185,6 +176,14 @@ export async function validateLocalAirportDeliveryFee({
         );
       }
     }
+  }
+
+  if (resolvedDeliveryMethod === 'airport' && shippingRateId) {
+    throw new LocalAirportDeliveryValidationError(
+      'Merchant shipping rates cannot be used for airport delivery',
+      'AIRPORT_QUOTE_INVALID',
+      400
+    );
   }
 
   const resolvedDeliveryMetadata =

@@ -1929,8 +1929,12 @@ export async function POST(request: NextRequest) {
         {
           items: quoteValidationItems,
           merchantId: body.merchant_id,
-          shippingFee: shippingFeeValue,
-          shippingProvider: resolvedShippingProvider,
+          shippingFee: isIdempotentLocalAirportReplay
+            ? undefined
+            : shippingFeeValue,
+          shippingProvider: isIdempotentLocalAirportReplay
+            ? null
+            : resolvedShippingProvider,
         }
       );
     } catch (error) {
