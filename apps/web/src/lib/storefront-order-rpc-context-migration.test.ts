@@ -106,6 +106,9 @@ describe('storefront order RPC context migration contract', () => {
     expect(deferredMigrationPolicy).toContain(
       '20260828151000_enforce_storefront_airport_pickup_location'
     );
+    expect(deferredMigrationPolicy).toContain(
+      '20260828160000_persist_quiz_reserved_order_delivery_metadata'
+    );
   });
 
   it('guards idempotent replay updates with the same route context', () => {

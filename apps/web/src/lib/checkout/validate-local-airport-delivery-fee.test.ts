@@ -84,6 +84,22 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('rejects an eligible airport quote relabeled as non-airport delivery', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      deliveryMethod: 'door',
+      merchantId: MERCHANT_ID,
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingFee: 18_500,
+      shippingProvider: 'GIGL',
+      supabase: mockSupabase([validGoFasterQuote]),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'DELIVERY_METADATA_MISMATCH',
+      status: 400,
+    });
+  });
+
   it('rejects an international GIGL rate id as an airport quote', async () => {
     const promise = validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',

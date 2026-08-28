@@ -112,6 +112,40 @@ async function validateSelectedAirportQuote({
   return false;
 }
 
+async function isSelectedAirportQuote({
+  merchantId,
+  selectedQuoteId,
+  supabase,
+}: Pick<
+  ValidateLocalAirportDeliveryFeeInput,
+  'merchantId' | 'selectedQuoteId' | 'supabase'
+>): Promise<boolean> {
+  if (!selectedQuoteId) return false;
+
+  const { data, error } = await supabase.rpc('get_checkout_shipping_quote', {
+    p_merchant_id: merchantId,
+    p_quote_id: selectedQuoteId,
+  });
+  if (error) {
+    logger.error({
+      message: 'Unable to classify selected shipping quote',
+      merchantId,
+      selectedQuoteId,
+      error,
+    });
+    throw new LocalAirportDeliveryValidationError(
+      'Unable to validate the selected shipping quote',
+      'AIRPORT_QUOTE_LOOKUP_FAILED',
+      500
+    );
+  }
+
+  const quote = readAirportQuote(data);
+  const quoteProvider =
+    typeof quote?.provider === 'string' ? quote.provider : null;
+  return Boolean(quote && isEligibleAirportQuote(quote, quoteProvider));
+}
+
 /**
  * Validate fixed-fee airport delivery and airport-backed provider quotes.
  *
@@ -152,6 +186,24 @@ export async function validateLocalAirportDeliveryFee({
       'AIRPORT_QUOTE_INVALID',
       400
     );
+  }
+
+  // GoFaster home-delivery quotes are the only provider-backed airport
+  // quotes exposed by checkout. Do not let a caller relabel one as door,
+  // pickup, or an unspecified method and bypass airport validation.
+  if (selectedQuoteId && deliveryMethod !== 'airport') {
+    const selectedQuoteIsAirport = await isSelectedAirportQuote({
+      merchantId,
+      selectedQuoteId,
+      supabase,
+    });
+    if (selectedQuoteIsAirport) {
+      throw new LocalAirportDeliveryValidationError(
+        'Airport provider quotes require airport delivery',
+        'DELIVERY_METADATA_MISMATCH',
+        400
+      );
+    }
   }
 
   if (deliveryMethod === 'airport' && selectedQuoteId) {

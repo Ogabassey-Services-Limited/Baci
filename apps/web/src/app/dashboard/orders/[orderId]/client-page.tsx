@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDeliveryMetadataLabel } from '@baci/shared';
 import {
   CheckCircle,
   ChevronLeft,
@@ -75,15 +76,6 @@ function fromDbShippingStatus(status: string): ShippingStatus {
     .split('_')
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(' ') as ShippingStatus;
-}
-
-function formatDeliveryMetadataLabel(value: string | null | undefined) {
-  if (!value) return null;
-
-  return value
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
 }
 
 interface ConfirmOrderResponse {

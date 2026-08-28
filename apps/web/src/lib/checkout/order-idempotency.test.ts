@@ -3,7 +3,6 @@ import {
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
 } from './order-idempotency';
-import { buildLegacyOrderIdempotencyPayload } from './order-idempotency-legacy';
 
 const baseOrder = {
   merchant_id: '11111111-1111-1111-1111-111111111111',
@@ -134,27 +133,6 @@ describe('order idempotency hashing', () => {
     );
     expect(hashOrderIdempotencyPayload(airportDelivery)).not.toBe(
       hashOrderIdempotencyPayload(doorDelivery)
-    );
-  });
-
-  it('recreates the pre-metadata hash for legacy order replays', () => {
-    const legacyDoor = buildLegacyOrderIdempotencyPayload({
-      ...baseOrder,
-      delivery_method: 'door',
-      airport_type: undefined,
-    });
-    const legacyAirport = buildLegacyOrderIdempotencyPayload({
-      ...baseOrder,
-      delivery_method: 'airport',
-      airport_type: 'delivery',
-    });
-    const preMetadataPayload = buildOrderIdempotencyPayload(baseOrder);
-
-    expect(hashOrderIdempotencyPayload(legacyDoor)).toBe(
-      hashOrderIdempotencyPayload(preMetadataPayload)
-    );
-    expect(hashOrderIdempotencyPayload(legacyAirport)).toBe(
-      hashOrderIdempotencyPayload(preMetadataPayload)
     );
   });
 

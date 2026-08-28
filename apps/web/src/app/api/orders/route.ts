@@ -1639,6 +1639,15 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
+    // A provider-backed airport quote is always airport delivery. Persist and
+    // hash that durable discriminator even when older clients omitted the
+    // redundant airport_type field, so equivalent retries cannot diverge on
+    // omitted versus explicit metadata.
+    const canonicalAirportType =
+      delivery_method === 'airport' && body.selected_quote_id
+        ? 'delivery'
+        : airport_type;
+
     if (discountAmountValue !== 0) {
       return NextResponse.json(
         {
@@ -1841,7 +1850,9 @@ export async function POST(request: NextRequest) {
             ...(delivery_method
               ? { __baci_delivery_method: delivery_method }
               : {}),
-            ...(airport_type ? { __baci_airport_type: airport_type } : {}),
+            ...(canonicalAirportType
+              ? { __baci_airport_type: canonicalAirportType }
+              : {}),
           }
         : sanitizedAdTrackingPayload;
 
@@ -2362,7 +2373,7 @@ export async function POST(request: NextRequest) {
           discount_code: requestedDiscountCode,
           delivery_method,
           gift_wrapping_fee: giftWrappingFeeValue,
-          airport_type,
+          airport_type: canonicalAirportType,
           items: orderItemsPayload,
           shipping_fee: shippingFeeValue,
           // Merchant-rate orders null shipping_provider + selected_quote_id, so
@@ -2408,7 +2419,7 @@ export async function POST(request: NextRequest) {
             discount_code: requestedDiscountCode,
             delivery_method,
             gift_wrapping_fee: giftWrappingFeeValue,
-            airport_type,
+            airport_type: canonicalAirportType,
             items: orderItemsPayload,
             shipping_fee: shippingFeeValue,
             shipping_rate_id: body.shipping_rate_id,

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildOrderIdempotencyPayload } from './order-idempotency';
+import {
+  buildOrderIdempotencyPayload,
+  hashOrderIdempotencyPayload,
+} from './order-idempotency';
 import { buildLegacyOrderIdempotencyPayload } from './order-idempotency-legacy';
 
 const input = {
@@ -23,5 +26,30 @@ describe('buildLegacyOrderIdempotencyPayload', () => {
     expect(legacy).toEqual(expected);
     expect(legacy.delivery_method).toBeUndefined();
     expect(legacy.airport_type).toBeUndefined();
+  });
+
+  it('recreates the pre-metadata hash for legacy order replays', () => {
+    const legacyDoor = buildLegacyOrderIdempotencyPayload({
+      ...input,
+      delivery_method: 'door',
+      airport_type: undefined,
+    });
+    const legacyAirport = buildLegacyOrderIdempotencyPayload({
+      ...input,
+      delivery_method: 'airport',
+      airport_type: 'delivery',
+    });
+    const preMetadataPayload = buildOrderIdempotencyPayload({
+      ...input,
+      delivery_method: undefined,
+      airport_type: undefined,
+    });
+
+    expect(hashOrderIdempotencyPayload(legacyDoor)).toBe(
+      hashOrderIdempotencyPayload(preMetadataPayload)
+    );
+    expect(hashOrderIdempotencyPayload(legacyAirport)).toBe(
+      hashOrderIdempotencyPayload(preMetadataPayload)
+    );
   });
 });

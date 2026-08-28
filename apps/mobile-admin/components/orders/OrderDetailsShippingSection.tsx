@@ -1,3 +1,4 @@
+import { formatDeliveryMetadataLabel } from '@baci/shared';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
@@ -7,15 +8,6 @@ interface OrderDetailsShippingSectionProps {
   airportType?: string | null;
   colors: ThemeColors;
   deliveryMethod?: string | null;
-}
-
-function formatDeliveryMetadataLabel(value: string | null | undefined) {
-  if (!value) return null;
-
-  return value
-    .split('_')
-    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
-    .join(' ');
 }
 
 export function OrderDetailsShippingSection({

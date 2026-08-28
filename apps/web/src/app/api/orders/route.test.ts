@@ -3395,6 +3395,10 @@ describe('POST /api/orders — selected shipping quote validation', () => {
       'create_storefront_order',
       expect.objectContaining({
         p_checkout_idempotency_key: 'airport-provider-retry-key',
+        p_ad_tracking: expect.objectContaining({
+          __baci_airport_type: 'delivery',
+          __baci_delivery_method: 'airport',
+        }),
         p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
         p_shipping_fee: 18_500,
       })
