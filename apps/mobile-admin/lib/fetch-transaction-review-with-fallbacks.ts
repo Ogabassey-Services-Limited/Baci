@@ -19,6 +19,10 @@ function withoutDiscountCode(selector: string) {
   return selector.replace(', discount_code_id', '');
 }
 
+function withoutDiscountAmount(selector: string) {
+  return selector.replace(', discount_amount', '');
+}
+
 function withoutAdTracking(selector: string) {
   return selector.replace(', ad_tracking', '');
 }
@@ -40,6 +44,7 @@ export async function fetchTransactionReviewWithFallbacks(
 ) {
   const legacyQuery = query;
   let quizAwardIdUnavailable = false;
+  let discountAmountUnavailable = false;
   let discountCodeUnavailable = false;
   let adTrackingUnavailable = false;
   let cancelledAtUnavailable = false;
@@ -67,6 +72,9 @@ export async function fetchTransactionReviewWithFallbacks(
       : selector;
     if (discountCodeUnavailable) {
       result = withoutDiscountCode(result);
+    }
+    if (discountAmountUnavailable) {
+      result = withoutDiscountAmount(result);
     }
     if (adTrackingUnavailable) {
       result = withoutAdTracking(result);
@@ -100,6 +108,13 @@ export async function fetchTransactionReviewWithFallbacks(
         isMissingSchemaColumn(result.error, 'discount_code_id')
       ) {
         discountCodeUnavailable = true;
+        shouldRetry = true;
+      }
+      if (
+        !discountAmountUnavailable &&
+        isMissingSchemaColumn(result.error, 'discount_amount')
+      ) {
+        discountAmountUnavailable = true;
         shouldRetry = true;
       }
       if (

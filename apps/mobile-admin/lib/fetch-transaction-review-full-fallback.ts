@@ -269,6 +269,12 @@ export async function fetchFullTransactionReviewRows(
     if (nextFlags.cancelledAtUnavailable && !flags.cancelledAtUnavailable) {
       onMissingSchemaColumn?.('cancelled_at');
     }
+    if (
+      nextFlags.discountAmountUnavailable &&
+      !flags.discountAmountUnavailable
+    ) {
+      onMissingSchemaColumn?.('discount_amount');
+    }
     if (nextFlags.lineIdUnavailable && !flags.lineIdUnavailable) {
       onMissingSchemaColumn?.('line_id');
     }

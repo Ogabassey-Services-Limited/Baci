@@ -47,6 +47,40 @@ describe('fetchTransactionReviewWithFallbacks legacy schema fallbacks', () => {
     expect(selector).toContain('order_item_unit_costs');
   });
 
+  it('carries a missing discount amount into a rich legacy retry', async () => {
+    const rows = [{ id: 'discount-amount-and-variant-attributes-order' }];
+    const discountAmountSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_amount' column of 'orders' in the schema cache",
+    };
+    const variantAttributesSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+    };
+
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: discountAmountSchemaError })
+      .mockResolvedValueOnce({
+        data: null,
+        error: variantAttributesSchemaError,
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const fallbackSelector =
+      mocks.fetchTransactionReviewRows.mock.calls[2][0].selectStatement;
+    expect(fallbackSelector).not.toContain('discount_amount');
+    expect(fallbackSelector).not.toContain('variant_attributes');
+    expect(fallbackSelector).toContain('order_item_unit_costs');
+  });
+
   it('keeps cost snapshots when variant attributes and discount codes are unavailable', async () => {
     const rows = [{ id: 'legacy-variant-attributes-order' }];
     const variantAttributesSchemaError = {

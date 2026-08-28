@@ -92,6 +92,9 @@ export async function fetchRichTransactionReviewRows(
       if (unavailableSchemaColumns.has('discount_code_id')) {
         result = withoutSchemaColumn(result, 'discount_code_id');
       }
+      if (unavailableSchemaColumns.has('discount_amount')) {
+        result = withoutSchemaColumn(result, 'discount_amount');
+      }
       if (unavailableSchemaColumns.has('transaction_date')) {
         result = withoutSchemaColumn(result, 'transaction_date');
       }
@@ -166,6 +169,14 @@ export async function fetchRichTransactionReviewRows(
       ) {
         markUnavailableSchemaColumn('discount_code_id');
         onMissingSchemaColumn?.('discount_code_id');
+        shouldRetry = true;
+      }
+      if (
+        !unavailableSchemaColumns.has('discount_amount') &&
+        isMissingSchemaColumn(result.error, 'discount_amount')
+      ) {
+        markUnavailableSchemaColumn('discount_amount');
+        onMissingSchemaColumn?.('discount_amount');
         shouldRetry = true;
       }
       if (
