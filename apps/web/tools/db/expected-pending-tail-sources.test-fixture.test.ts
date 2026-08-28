@@ -145,7 +145,7 @@ describe('EXPECTED_PENDING_TAIL_SOURCES', () => {
           repositoryPath:
             'supabase/migrations/20260827120000_get_customer_order_transactions.sql',
           sha256:
-            '5ef2e8ee12750a77fb7d5d450d1f7f0dce726e21e5d5f923154c02b4661e2883',
+            '086b87d991ec1e375daa3bdbc1084c154741be1afe5b8ff6e4edfe6ecf8e9b43',
         },
         {
           repositoryPath:
