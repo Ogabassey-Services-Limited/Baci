@@ -4,7 +4,7 @@ import {
 } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import { getValidatedExplicitLineDiscounts } from './transaction-review-discount-allocation-validation';
-import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
+import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-persisted-line-key-occurrences';
 
 describe('getValidatedExplicitLineDiscounts', () => {
   it('matches persisted allocations by product and variant identity', () => {

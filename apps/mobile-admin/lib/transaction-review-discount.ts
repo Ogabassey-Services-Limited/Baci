@@ -3,8 +3,8 @@ import {
   type DiscountableTransactionItem,
   resolveTransactionDiscountAllocation,
 } from './transaction-review-discount-allocations';
-import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-discount-line-key';
 import type { TransactionDiscountOptions } from './transaction-review-discount-metadata';
+import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-persisted-line-key-occurrences';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';

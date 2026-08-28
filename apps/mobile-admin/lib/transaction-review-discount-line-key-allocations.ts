@@ -7,7 +7,7 @@ import {
   DISCOUNT_TOLERANCE,
   getProductVariantIdentity,
 } from './transaction-review-discount-helpers';
-import { getPersistedLineKeyCandidates } from './transaction-review-discount-line-key';
+import { getPersistedLineKeyCandidates } from './transaction-review-persisted-line-key-candidates';
 import { toPositiveInteger } from './transaction-review-positive-integer';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 

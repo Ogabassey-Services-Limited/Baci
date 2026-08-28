@@ -1,5 +1,5 @@
 import type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
-import { getPersistedLineKeyCandidates } from './transaction-review-discount-line-key';
+import { getPersistedLineKeyCandidates } from './transaction-review-persisted-line-key-candidates';
 import { toPositiveInteger } from './transaction-review-positive-integer';
 
 export interface DiscountableTransactionItem {
