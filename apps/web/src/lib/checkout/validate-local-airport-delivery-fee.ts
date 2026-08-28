@@ -1,4 +1,3 @@
-import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import {
@@ -7,42 +6,13 @@ import {
   parseGiglProviderRateId,
 } from '@/lib/shipping/providers/gigl.constants';
 import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
+import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
+import { isConfirmedLocalAirportReplay } from './is-confirmed-local-airport-replay';
 import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from './local-airport-delivery-fee-validation-result';
 import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
 
 type AirportType = 'delivery' | 'pickup';
-
-// Before delivery metadata shipped, local airport delivery used ₦25,000.
-// A metadata-free request at that amount is ambiguous with a non-airport
-// merchant fee, so it must be rejected unless it is a confirmed idempotent
-// replay. The current pickup fee is also included because it remains a valid
-// fixed airport amount with no metadata discriminator.
-const LEGACY_AIRPORT_DELIVERY_FEE = 25_000;
-
-function isAmbiguousMetadataFreeAirportFee({
-  airportType,
-  deliveryMethod,
-  selectedQuoteId,
-  shippingFee,
-  shippingRateId,
-}: Pick<
-  ValidateLocalAirportDeliveryFeeInput,
-  | 'airportType'
-  | 'deliveryMethod'
-  | 'selectedQuoteId'
-  | 'shippingFee'
-  | 'shippingRateId'
->) {
-  return (
-    deliveryMethod === undefined &&
-    airportType === undefined &&
-    !selectedQuoteId &&
-    !shippingRateId &&
-    (Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01 ||
-      Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.pickup) <= 0.01)
-  );
-}
 
 interface AirportQuoteRecord {
   expires_at?: unknown;
@@ -190,36 +160,6 @@ async function validateSelectedAirportQuote({
   }
 
   return false;
-}
-
-async function isConfirmedLocalAirportReplay({
-  merchantId,
-  requestIdempotencyKey,
-  supabase,
-}: Pick<
-  ValidateLocalAirportDeliveryFeeInput,
-  'merchantId' | 'requestIdempotencyKey' | 'supabase'
->): Promise<boolean> {
-  if (!requestIdempotencyKey) return false;
-
-  const { data, error } = await supabase.rpc(
-    'has_storefront_order_idempotency_key',
-    {
-      p_checkout_idempotency_key: requestIdempotencyKey,
-      p_merchant_id: merchantId,
-    }
-  );
-  if (error) {
-    logger.warn({
-      message:
-        'Idempotent local-airport order pre-check failed; rejecting the stale fee',
-      merchantId,
-      error,
-    });
-    return false;
-  }
-
-  return data === true;
 }
 
 /**

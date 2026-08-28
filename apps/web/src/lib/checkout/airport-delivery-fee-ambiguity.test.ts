@@ -1,0 +1,19 @@
+import { describe, expect, it } from 'vitest';
+import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
+
+describe('isAmbiguousMetadataFreeAirportFee', () => {
+  it('flags the legacy fixed amount when no delivery metadata is present', () => {
+    expect(isAmbiguousMetadataFreeAirportFee({ shippingFee: 25_000 })).toBe(
+      true
+    );
+  });
+
+  it('does not classify an explicitly non-airport order from its fee', () => {
+    expect(
+      isAmbiguousMetadataFreeAirportFee({
+        deliveryMethod: 'door',
+        shippingFee: 25_000,
+      })
+    ).toBe(false);
+  });
+});
