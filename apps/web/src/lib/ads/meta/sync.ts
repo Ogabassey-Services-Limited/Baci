@@ -39,7 +39,6 @@ export class MetaAdsReauthPersistenceError extends Error {
     this.name = 'MetaAdsReauthPersistenceError';
   }
 }
-
 const inFlightSyncs = new Map<
   string,
   Promise<{ accountId: string; rowsWritten: number }>
