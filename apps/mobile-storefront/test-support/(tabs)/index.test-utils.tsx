@@ -234,6 +234,7 @@ export function setupHomeScreenTestState() {
   });
 
   afterEach(() => {
+    mockRecordPerformanceSurface.mockReset();
     jest.runOnlyPendingTimers();
     jest.useRealTimers();
   });

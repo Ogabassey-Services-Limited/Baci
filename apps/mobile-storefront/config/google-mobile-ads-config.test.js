@@ -51,6 +51,34 @@ describe('Google Mobile Ads Expo configuration', () => {
     );
   });
 
+  it.each([
+    [
+      'android',
+      'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
+      'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
+    ],
+    [
+      'ios',
+      'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
+      'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
+    ],
+  ])('requires only the %s banner unit during a platform release', (platform, unusedKey, requiredKey) => {
+    const environment = {
+      ...productionEnvironment,
+      BACI_MOBILE_BUILD_PLATFORM: platform,
+    };
+    delete environment[unusedKey];
+
+    expect(buildGoogleMobileAdsExpoPlugin(environment)).toEqual(
+      PRODUCTION_PLUGIN
+    );
+
+    delete environment[requiredKey];
+    expect(() => buildGoogleMobileAdsExpoPlugin(environment)).toThrow(
+      requiredKey
+    );
+  });
+
   it('requires production app IDs even when runtime ads are disabled', () => {
     expect(() =>
       buildGoogleMobileAdsExpoPlugin({

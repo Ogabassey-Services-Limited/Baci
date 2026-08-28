@@ -20,12 +20,14 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { usePinnedLaunchProducts } from '@/hooks/use-pinned-launch-products';
 import { useProducts } from '@/hooks/use-products';
 import { useTheme } from '@/hooks/useTheme';
+import { createBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/product-normalization';
 import type { Product } from '@/types/product';
 
 const SECTION_TITLE = 'Just Launched';
 const CARD_HEIGHT = 168;
+const IMAGE_PADDING = 8;
 const BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
 
 export function JustLaunchedCarousel() {
@@ -71,6 +73,8 @@ export function JustLaunchedCarousel() {
   }
 
   const cardWidth = Math.round(width * 0.82);
+  const imageSourceWidth = cardWidth * 0.42 - IMAGE_PADDING * 2;
+  const imageSourceHeight = CARD_HEIGHT - IMAGE_PADDING * 2;
 
   // Show a skeleton on first load (rather than a blank gap) for clearer loading
   // feedback; gate on BOTH queries so pinned items can't pop in after the
@@ -151,9 +155,14 @@ export function JustLaunchedCarousel() {
               accessibilityLabel={item.name}
               cachePolicy="memory-disk"
               contentFit="contain"
+              enforceEarlyResizing
               autoplay={false}
               placeholder={{ blurhash: BLURHASH }}
-              source={{ uri: imageUri }}
+              source={createBoundedImageSource({
+                height: imageSourceHeight,
+                uri: imageUri,
+                width: imageSourceWidth,
+              })}
               style={styles.image}
               transition={200}
             />
@@ -230,7 +239,7 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
+    padding: IMAGE_PADDING,
   },
   image: {
     width: '100%',
