@@ -21,6 +21,19 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+export function isAdminEditedTransactionDiscount(adTracking: unknown) {
+  if (!isRecord(adTracking)) {
+    return false;
+  }
+
+  const metadata = adTracking[TRANSACTION_DISCOUNT_METADATA_KEY];
+  return (
+    isRecord(metadata) &&
+    metadata.status === 'admin_edit' &&
+    metadata.version === 4
+  );
+}
+
 /**
  * Reads only the server-authored checkout marker from the order's persisted
  * ad-tracking JSON. Invalid or client-shaped metadata is ignored so ordinary

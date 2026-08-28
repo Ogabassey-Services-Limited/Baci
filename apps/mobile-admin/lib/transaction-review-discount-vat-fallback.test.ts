@@ -97,4 +97,27 @@ describe('transaction review discount VAT fallback', () => {
 
     expect(prices).toEqual([90, 90]);
   });
+
+  it('allocates a legacy gross discount by each line VAT-inclusive basis', () => {
+    const prices = getDiscountedTransactionUnitPrices(
+      [
+        {
+          price: 10_000_000,
+          quantity: 1,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+        {
+          price: 10_000_000,
+          quantity: 1,
+          vat_category_code: 'Z',
+          vat_rate: 0,
+        },
+      ],
+      415_000,
+      { discountIncludesVat: true }
+    );
+
+    expect(prices).toEqual([9_800_000, 9_800_000]);
+  });
 });

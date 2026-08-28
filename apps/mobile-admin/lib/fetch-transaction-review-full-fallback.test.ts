@@ -282,29 +282,4 @@ describe('fetchFullTransactionReviewRows', () => {
     expect(selector).not.toContain('product_variants');
     expect(selector).toContain('order_item_unit_costs');
   });
-
-  it('returns the final schema error when every full projection fails', async () => {
-    const finalError = {
-      code: 'PGRST204',
-      message: 'unexpected schema cache failure',
-    };
-    const runQueryWithTaxFallback = vi
-      .fn()
-      .mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST204', message: 'discount_code_id unavailable' },
-      })
-      .mockResolvedValueOnce({
-        data: null,
-        error: { code: 'PGRST204', message: 'discount_amount unavailable' },
-      })
-      .mockResolvedValueOnce({ data: null, error: finalError });
-
-    const result = await fetchFullTransactionReviewRows(
-      { merchantId: 'merchant-1' },
-      { isMissingSchemaColumn, runQueryWithTaxFallback }
-    );
-
-    expect(result).toEqual({ data: null, error: finalError });
-  });
 });

@@ -1,6 +1,9 @@
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import { getPersistedTransactionDiscountAmount } from './transaction-review-discount-amount';
-import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
+import {
+  isAdminEditedTransactionDiscount,
+  parseTransactionDiscountOptions,
+} from './transaction-review-discount-metadata';
 import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,
@@ -104,6 +107,9 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const orderItems = order.order_items ?? [];
     const isNetPricedMarketplaceOrder =
       order.external_source?.toLowerCase() === 'jumia';
+    const isAdminEditedDiscount = isAdminEditedTransactionDiscount(
+      order.ad_tracking
+    );
     const persistedDiscountOptions = parseTransactionDiscountOptions(
       order.ad_tracking
     );
@@ -119,7 +125,9 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       0;
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,
-      isNetPricedMarketplaceOrder ? 0 : discountAmount,
+      isNetPricedMarketplaceOrder && !isAdminEditedDiscount
+        ? 0
+        : discountAmount,
       persistedDiscountOptions ??
         (isLegacyVatInclusiveNegotiationDiscount(order, orderItems)
           ? { discountIncludesVat: true }

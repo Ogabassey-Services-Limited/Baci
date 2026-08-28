@@ -251,4 +251,46 @@ describe('transaction review discount mapping', () => {
       revenue: 90,
     });
   });
+
+  it('applies admin-authored discounts to imported Jumia orders', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        ad_tracking: {
+          baci_transaction_discount: {
+            status: 'admin_edit',
+            version: 4,
+          },
+        },
+        created_at: '2026-08-28T12:30:00.000Z',
+        customer_email: null,
+        customer_name: 'Edited Jumia Customer',
+        customer_phone: null,
+        discount_amount: 10,
+        external_source: 'jumia',
+        fulfillment_details: null,
+        id: 'order-edited-jumia',
+        order_items: [
+          {
+            cost_price: 50,
+            fulfillment_data: null,
+            id: 'item-edited-jumia',
+            name: 'Edited Jumia Product',
+            price: 100,
+            product_id: 'product-edited-jumia',
+            products: null,
+            quantity: 1,
+          },
+        ],
+        order_number: 'JUMIA-EDITED-1',
+        payment_method: 'cash',
+        source: 'jumia',
+        total: 90,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      profit: 40,
+      revenue: 90,
+    });
+  });
 });
