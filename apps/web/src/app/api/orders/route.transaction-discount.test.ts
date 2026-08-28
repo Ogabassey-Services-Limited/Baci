@@ -4,7 +4,7 @@ import {
   getLatestRpc,
   POST,
   resetOrderRouteMocks,
-} from './route.transaction-discount-fixtures.test';
+} from './route.transaction-discount-fixtures.test-support';
 
 describe('POST /api/orders transaction discount metadata', () => {
   beforeEach(() => {
