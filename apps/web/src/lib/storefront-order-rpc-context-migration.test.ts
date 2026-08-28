@@ -44,6 +44,13 @@ const deliveryMetadataPersistencePreparationMigration = readFileSync(
   ),
   'utf8'
 );
+const deliveryMetadataEnforcementRestoreMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828190000_restore_storefront_order_delivery_metadata_enforcement.sql'
+  ),
+  'utf8'
+);
 const deferredMigrationPolicy = readFileSync(
   resolve(
     process.cwd(),
@@ -59,28 +66,6 @@ const postdeployMigrationPolicy = deferredMigrationPolicy.slice(
   0,
   deferredMigrationPolicy.indexOf('# These migrations replace')
 );
-const replayContextMigration = readFileSync(
-  resolve(
-    process.cwd(),
-    '../../supabase/migrations/20260828120000_enforce_storefront_order_replay_route_context.sql'
-  ),
-  'utf8'
-);
-const replayScopeMigration = readFileSync(
-  resolve(
-    process.cwd(),
-    '../../supabase/migrations/20260828130000_scope_storefront_order_replay_route_context.sql'
-  ),
-  'utf8'
-);
-const replayMetadataPersistenceMigration = readFileSync(
-  resolve(
-    process.cwd(),
-    '../../supabase/migrations/20260828180000_persist_storefront_order_delivery_metadata_replay.sql'
-  ),
-  'utf8'
-);
-
 describe('storefront order RPC context migration contract', () => {
   it('requires a signed merchant-bound route context for non-internal inserts', () => {
     expect(migration).toContain(
@@ -246,65 +231,21 @@ describe('storefront order RPC context migration contract', () => {
     );
   });
 
-  it('guards idempotent replay updates with the same route context', () => {
-    expect(replayContextMigration).toContain('BEFORE UPDATE ON public.orders');
-    expect(replayContextMigration).toContain(
-      'OLD.checkout_idempotency_key IS NOT NULL'
+  it('restores full delivery enforcement after chronological compatibility replay', () => {
+    expect(deliveryMetadataEnforcementRestoreMigration).toContain(
+      'CREATE OR REPLACE FUNCTION private.validate_storefront_order_delivery_metadata()'
     );
-    expect(replayContextMigration).toContain("NEW.shipping_status = 'pending'");
-    expect(replayContextMigration).toContain(
-      'private.enforce_storefront_order_route_context()'
+    expect(deliveryMetadataEnforcementRestoreMigration).toContain(
+      'Selected airport delivery quote is invalid or expired'
     );
-  });
-
-  it('scopes the update trigger to the guarded create replay delegate', () => {
-    expect(replayScopeMigration).toContain(
-      'RENAME TO create_storefront_order_unchecked'
+    expect(deliveryMetadataEnforcementRestoreMigration).toContain(
+      "WHEN 'delivery' THEN 35000::numeric"
     );
-    expect(replayScopeMigration).toContain(
-      "'baci.storefront_order_replay_context'"
+    expect(deliveryMetadataEnforcementRestoreMigration).toContain(
+      'BEFORE INSERT ON public.orders'
     );
-    expect(replayScopeMigration).toContain(
-      "'create_storefront_order',\n    true"
-    );
-    expect(replayScopeMigration).toContain(
-      'REVOKE ALL ON FUNCTION private.create_storefront_order_unchecked'
-    );
-    expect(replayScopeMigration).toContain(
-      "current_setting('baci.storefront_order_replay_context', true)"
-    );
-    expect(replayScopeMigration).toContain(
-      'NEW.checkout_idempotency_key IS NOT DISTINCT FROM OLD.checkout_idempotency_key'
-    );
-  });
-
-  it('keeps legacy replay metadata repair route-scoped and discriminator-bound', () => {
-    expect(replayMetadataPersistenceMigration).toContain(
-      'CREATE OR REPLACE FUNCTION public.persist_storefront_order_delivery_metadata('
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      "'storefront_order_context', '') <> 'route'"
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      "'storefront_order_merchant_id'"
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      'v_order.checkout_idempotency_key IS NULL'
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      "v_marker IN ('airport delivery', 'airport delivery (outside lagos)')"
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      "v_marker = 'airport pickup'"
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      "v_quote_rate_id, '_', 6) = '1'"
-    );
-    expect(replayMetadataPersistenceMigration).toContain(
-      'GRANT EXECUTE ON FUNCTION public.persist_storefront_order_delivery_metadata'
-    );
-    expect(replayMetadataPersistenceMigration).not.toContain(
-      'shipping_fee = 25000'
+    expect(postdeployMigrationPolicy).toContain(
+      '20260828190000_restore_storefront_order_delivery_metadata_enforcement'
     );
   });
 });

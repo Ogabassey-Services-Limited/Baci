@@ -112,6 +112,7 @@ build_register_migration_query() {
 }
 
 . "$script_dir/apply-atomic-migration-group.sh"
+. "$script_dir/apply-pending-migration.sh"
 
 applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
 applied_versions_response="$(api_query <<<"$applied_versions_body")"
@@ -228,78 +229,7 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
-  echo "→ applying:        $version  ${name}"
-
-  if head -n 1 "$file" | grep -qx -- '-- disable-transaction'; then
-    echo "  non-transactional migration marker detected"
-
-    # CREATE INDEX CONCURRENTLY fails inside a multi-statement transaction
-    # payload. Keep these marker migrations idempotent; if a later statement
-    # fails, the history row is not written and the next deploy can resume.
-    statement_count=0
-    while IFS= read -r statement_json; do
-      statement_count=$((statement_count + 1))
-      body="$(jq -n --argjson query "$statement_json" '{query: $query}')"
-      api_query_payload "$body"
-    done < <(split_sql_statements "$file")
-
-    if [ "$statement_count" -eq 0 ]; then
-      echo "::error::non-transactional migration $file did not contain executable SQL"
-      exit 1
-    fi
-
-    body="$(jq -n \
-      --arg query "$(build_register_migration_query "$version" "$name")" \
-      '{query: $query}')"
-    api_query_payload "$body"
-    echo "✓ applied:         $version  ${name}"
-    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-    applied_count=$((applied_count + 1))
-    continue
-  fi
-
-  # Strip comments before checking for statements that require the marker.
-  if sed 's/--.*//' "$file" | grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex'; then
-    echo "::error::$file contains a non-transactional statement but is missing the '-- disable-transaction' first-line marker"
-    exit 1
-  fi
-
-  # The migration SQL goes in untouched (jq --rawfile reads it verbatim and
-  # JSON-encodes for transport). The INSERT registers the same version+name
-  # we parsed from the filename, so the row matches the file 1:1.
-  #
-  # The SQL and the registration INSERT are wrapped in a single explicit
-  # transaction so they are atomic: if any migration statement errors (e.g. a
-  # hot-table ALTER that cannot acquire its lock), the whole block rolls back
-  # and the schema_migrations row is never written — so the next deploy retries
-  # instead of skipping a never-applied migration forever. `lock_timeout` keeps
-  # a blocked DDL from queueing on a busy table; it fails fast and retries.
-  #
-  # Version and name must be SQL string literals (single-quoted), NOT JSON
-  # double-quoted (which Postgres parses as identifiers — `"20260428000000"`
-  # would error with `column "20260428000000" does not exist`). Wrap in
-  # single quotes and double any embedded single quote per SQL spec.
-  body="$(jq -n \
-    --rawfile sql "$file" \
-    --arg registration "$(build_register_migration_query "$version" "$name")" \
-    --arg prefix "BEGIN;
-SET LOCAL lock_timeout = '30s';
-" \
-    '{
-       query: (
-         $prefix
-         + $sql
-         + "\n"
-         + $registration
-         + "\nCOMMIT;"
-       )
-     }'
-  )"
-
-  api_query_payload "$body"
-  echo "✓ applied:         $version  ${name}"
-  applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-  applied_count=$((applied_count + 1))
+  apply_pending_migration "$file" "$version" "$name" || exit 1
 done
 
 echo

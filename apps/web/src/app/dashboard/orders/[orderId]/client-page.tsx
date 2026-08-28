@@ -1,6 +1,5 @@
 'use client';
 
-import { formatDeliveryMetadataLabel } from '@baci/shared';
 import {
   CheckCircle,
   ChevronLeft,
@@ -54,6 +53,7 @@ import ConfirmInsuranceDialog, {
   type ConfirmOrderPayload,
 } from './confirm-insurance-dialog';
 import { summarizeInsuranceConfirmation } from './insurance-confirmation-summary';
+import { ShipmentDetailsCard } from './shipment-details-card';
 
 // Type definitions
 interface OrderDetailsClientPageProps {
@@ -137,47 +137,6 @@ export default function OrderDetailsClientPage({
 
   const displayItems = getOrderItems(order);
   const orderCurrency = order.currency || 'NGN';
-
-  // Prefer the human name of the merchant-configured shipping rate a shopper
-  // bought (e.g. "Standard", "Express", or the pickup-location name) over the
-  // bare provider label (`MERCHANT`/`MERCHANT_PICKUP`). Fall back to the provider
-  // for carrier orders and older merchant-rate orders that predate rate-name
-  // capture.
-  const shippingMethodLabel =
-    order.shipping_rate_name || order.shipping_provider || null;
-  const shippingMethodHeading = order.shipping_rate_name
-    ? 'Shipping Method'
-    : 'Provider';
-  const deliveryMethodLabel =
-    order.delivery_method === 'airport'
-      ? order.airport_type === 'pickup'
-        ? 'Airport Pickup'
-        : 'Airport Delivery'
-      : formatDeliveryMetadataLabel(order.delivery_method);
-  const airportTypeLabel =
-    order.delivery_method === 'airport'
-      ? formatDeliveryMetadataLabel(order.airport_type)
-      : null;
-
-  // Surface the merchant pickup collection point so the merchant still knows
-  // where the shopper collects even if the rate is later edited/deleted. Only
-  // merchant-pickup orders (provider MERCHANT_PICKUP) carry this snapshot;
-  // ship/carrier orders leave it null and render nothing.
-  const pickupDetails =
-    order.shipping_provider === 'MERCHANT_PICKUP'
-      ? order.shipping_pickup_details
-      : null;
-  const pickupLabel = pickupDetails?.label?.trim() || '';
-  const pickupAddressLine = pickupDetails
-    ? [pickupDetails.address, pickupDetails.city, pickupDetails.state]
-        .map((part) => part?.trim())
-        .filter((part): part is string => Boolean(part))
-        .join(', ')
-    : '';
-  const pickupInstructions = pickupDetails?.instructions?.trim() || '';
-  const hasPickupDetails = Boolean(
-    pickupLabel || pickupAddressLine || pickupInstructions
-  );
 
   const doesOrderRequireFulfillment = () => {
     // Check for fulfillment fields OR assurance
@@ -551,78 +510,7 @@ export default function OrderDetailsClientPage({
                 )}
               </CardFooter>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Shipment</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {deliveryMethodLabel && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Delivery Method
-                    </p>
-                    <p className="font-semibold">{deliveryMethodLabel}</p>
-                  </div>
-                )}
-                {airportTypeLabel && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Airport Type
-                    </p>
-                    <p className="font-semibold">{airportTypeLabel}</p>
-                  </div>
-                )}
-                {shippingMethodLabel && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {shippingMethodHeading}
-                    </p>
-                    <p className="font-semibold">{shippingMethodLabel}</p>
-                  </div>
-                )}
-                {hasPickupDetails && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      Pickup Location
-                    </p>
-                    {pickupLabel && (
-                      <p className="font-semibold">{pickupLabel}</p>
-                    )}
-                    {pickupAddressLine && (
-                      <p className="text-sm">{pickupAddressLine}</p>
-                    )}
-                    {pickupInstructions && (
-                      <p className="text-sm text-muted-foreground">
-                        {pickupInstructions}
-                      </p>
-                    )}
-                  </div>
-                )}
-                {order.tracking_number ? (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Tracking #
-                      </p>
-                      <p className="font-semibold">{order.tracking_number}</p>
-                    </div>
-                    <Button asChild variant="outline" size="sm">
-                      <Link href={`/track/${order.tracking_number}`}>
-                        Track
-                      </Link>
-                    </Button>
-                  </div>
-                ) : (
-                  !shippingMethodLabel &&
-                  !deliveryMethodLabel &&
-                  !airportTypeLabel && (
-                    <p className="text-sm text-muted-foreground">
-                      No tracking information available.
-                    </p>
-                  )
-                )}
-              </CardContent>
-            </Card>
+            <ShipmentDetailsCard order={order} />
           </div>
 
           <div className="grid auto-rows-max items-start gap-4">

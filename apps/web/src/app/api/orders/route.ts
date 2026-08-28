@@ -2565,6 +2565,9 @@ export async function POST(request: NextRequest) {
 
     const orderRpcClient = createStorefrontOrderRpcClient({
       fallbackClient: supabase,
+      hasCanonicalDeliveryMetadata: Boolean(
+        canonicalDeliveryMethod || canonicalAirportType
+      ),
       merchantId: merchant_id,
       userId: resolvedUserId,
     });

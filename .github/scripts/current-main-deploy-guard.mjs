@@ -27,6 +27,8 @@ const WEB_WORKFLOW_FILES = new Set([
   '.github/filters/deploy.yml',
   '.github/scripts/blog-smoke-check.mjs',
   '.github/scripts/apply-atomic-migration-group.sh',
+  '.github/scripts/apply-pending-migration.sh',
+  '.github/scripts/apply-pending-migrations.sh',
   '.github/scripts/cloudflare-purge-cache.mjs',
   '.github/scripts/current-main-deploy-guard.mjs',
   '.github/scripts/deploy-with-retry.sh',

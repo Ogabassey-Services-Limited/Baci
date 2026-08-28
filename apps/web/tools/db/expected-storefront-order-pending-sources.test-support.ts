@@ -81,4 +81,9 @@ export const EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES = [
       'supabase/migrations/20260828180000_persist_storefront_order_delivery_metadata_replay.sql',
     sha256: '45f5f06f2486fa9704d0092b03ef669647792f91a6977dce9159eec181289085',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828190000_restore_storefront_order_delivery_metadata_enforcement.sql',
+    sha256: '07f3127bd92fb004ef1eaa7f9558d9c5b2d73c6320512fd919ce37559b1c64f2',
+  },
 ];

@@ -28,6 +28,7 @@ describe('createStorefrontOrderRpcClient', () => {
   it('signs a merchant-bound route context while preserving an authenticated user', () => {
     const client = createStorefrontOrderRpcClient({
       fallbackClient,
+      hasCanonicalDeliveryMetadata: true,
       merchantId: ' merchant-123 ',
       userId: 'user-456',
       now: new Date('2026-08-28T00:00:00.000Z'),
@@ -50,6 +51,7 @@ describe('createStorefrontOrderRpcClient', () => {
   it('omits sub for guest checkout so the database keeps it anonymous', () => {
     createStorefrontOrderRpcClient({
       fallbackClient,
+      hasCanonicalDeliveryMetadata: true,
       merchantId: 'merchant-123',
       userId: null,
       now: new Date('2026-08-28T00:00:00.000Z'),
@@ -66,6 +68,25 @@ describe('createStorefrontOrderRpcClient', () => {
     });
   });
 
+  it('does not claim a v2 hash for legacy requests without delivery metadata', () => {
+    createStorefrontOrderRpcClient({
+      fallbackClient,
+      hasCanonicalDeliveryMetadata: false,
+      merchantId: 'merchant-123',
+      userId: null,
+      now: new Date('2026-08-28T00:00:00.000Z'),
+    });
+
+    expect(mocks.signScopedSupabaseJwt).toHaveBeenCalledWith({
+      aud: 'authenticated',
+      exp: 1_787_875_500,
+      iat: 1_787_875_200,
+      role: 'authenticated',
+      storefront_order_context: 'route',
+      storefront_order_merchant_id: 'merchant-123',
+    });
+  });
+
   it('uses the injected mock only in tests when signing material is unavailable', () => {
     mocks.signScopedSupabaseJwt.mockImplementation(() => {
       throw new Error('missing signing material');
@@ -74,6 +95,7 @@ describe('createStorefrontOrderRpcClient', () => {
     expect(
       createStorefrontOrderRpcClient({
         fallbackClient,
+        hasCanonicalDeliveryMetadata: true,
         merchantId: 'merchant-123',
         userId: null,
       })

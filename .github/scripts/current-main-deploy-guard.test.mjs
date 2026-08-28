@@ -223,4 +223,26 @@ test('production deploy is staged and binds the exact-main guard', () => {
       deployJob.indexOf('- uses: ./.github/actions/pnpm-install-cached'),
     'exact-main guard must run before dependency installation and build'
   );
+  const postdeployGuard = deployJob.indexOf(
+    '- name: Verify exact-main deployment authority before postdeploy migrations'
+  );
+  const drainStep = deployJob.indexOf(
+    '- name: Drain previous storefront order requests'
+  );
+  const postdeployMigrations = deployJob.indexOf(
+    '- name: Apply migrations deferred until application deploy'
+  );
+  assert.ok(drainStep >= 0, 'drain step must exist');
+  assert.ok(postdeployGuard >= 0, 'postdeploy guard must exist');
+  assert.ok(postdeployMigrations >= 0, 'deferred migrations step must exist');
+  assert.ok(postdeployGuard > drainStep, 'postdeploy guard must run after drain');
+  assert.ok(
+    postdeployGuard < postdeployMigrations,
+    'postdeploy guard must run immediately before deferred migrations'
+  );
+  assert.doesNotMatch(
+    deployJob.slice(postdeployGuard, postdeployMigrations),
+    /\n\s*-\s+(?:name|run|uses):/,
+    'no workflow step may separate the postdeploy guard from deferred migrations'
+  );
 });

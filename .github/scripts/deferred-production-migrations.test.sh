@@ -76,6 +76,8 @@ printf '%s\n' "SELECT 'quiz-reserved-delivery-validation-scope';" \
   >"$deferred_dir/20260828160200_limit_quiz_reserved_order_delivery_validation_to_redemption.sql"
 printf '%s\n' "SELECT 'hash-version-context';" \
   >"$deferred_dir/20260828170000_prepare_storefront_order_hash_version_context.sql"
+printf '%s\n' "SELECT 'delivery-metadata-enforcement-restore';" \
+  >"$deferred_dir/20260828190000_restore_storefront_order_delivery_metadata_enforcement.sql"
 
 deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
 deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
@@ -95,6 +97,7 @@ grep -q 'deferred until postdeploy: 20260828110100' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828120000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828130000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828151000' "$deferred_predeploy_output"
+grep -q 'deferred until postdeploy: 20260828190000' "$deferred_predeploy_output"
 grep -q 'applied:         20260828140000  ordinary_follow_up' "$deferred_predeploy_output"
 grep -q 'applied:         20260828150000  prepare_storefront_order_delivery_columns' "$deferred_predeploy_output"
 grep -q 'applied:         20260828151100  prepare_storefront_order_delivery_metadata_persistence' "$deferred_predeploy_output"
@@ -102,7 +105,7 @@ grep -q 'applied:         20260828160000  persist_quiz_reserved_order_delivery_m
 grep -q 'applied:         20260828160100  preserve_quiz_reserved_order_delivery_metadata' "$deferred_predeploy_output"
 grep -q 'applied:         20260828160200  limit_quiz_reserved_order_delivery_validation_to_redemption' "$deferred_predeploy_output"
 grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 7 applied, 0 skipped, 8 deferred.' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 7 applied, 0 skipped, 9 deferred.' "$deferred_predeploy_output"
 if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log" || \
@@ -110,7 +113,8 @@ if grep -q "SELECT 'delivery-metadata'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'hash-stamping-finalizer'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'replay-scope'" "$deferred_predeploy_log" || \
-  grep -q "SELECT 'pickup-location'" "$deferred_predeploy_log"; then
+  grep -q "SELECT 'pickup-location'" "$deferred_predeploy_log" || \
+  grep -q "SELECT 'delivery-metadata-enforcement-restore'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
@@ -138,6 +142,7 @@ grep -q 'applied:         20260828160000  persist_quiz_reserved_order_delivery_m
 grep -q 'applied:         20260828160100  preserve_quiz_reserved_order_delivery_metadata' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828160200  limit_quiz_reserved_order_delivery_validation_to_redemption' "$deferred_postdeploy_output"
 grep -q 'applied:         20260828170000  prepare_storefront_order_hash_version_context' "$deferred_postdeploy_output"
+grep -q 'applied:         20260828190000  restore_storefront_order_delivery_metadata_enforcement' "$deferred_postdeploy_output"
 grep -q "SELECT 'delivery-metadata'" "$deferred_postdeploy_log"
 grep -q "SELECT 'context'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-context'" "$deferred_postdeploy_log"
@@ -151,6 +156,7 @@ grep -q "SELECT 'quiz-reserved-delivery-metadata'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-reserved-delivery-metadata-preserve'" "$deferred_postdeploy_log"
 grep -q "SELECT 'quiz-reserved-delivery-validation-scope'" "$deferred_postdeploy_log"
 grep -q "SELECT 'hash-version-context'" "$deferred_postdeploy_log"
+grep -q "SELECT 'delivery-metadata-enforcement-restore'" "$deferred_postdeploy_log"
 jq -e -s \
   --arg delivery "SELECT 'delivery-metadata';" \
   --arg context "SELECT 'context';" \

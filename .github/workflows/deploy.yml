@@ -261,6 +261,10 @@ jobs:
       # old invocation never reaches the newly enforced RPC without its claim.
       - name: Drain previous storefront order requests
         run: sleep 305
+      - name: Verify exact-main deployment authority before postdeploy migrations
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: .github/scripts/current-main-deploy-guard.mjs
       - name: Apply migrations deferred until application deploy
         env:
           MIGRATION_PHASE: postdeploy

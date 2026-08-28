@@ -15,11 +15,13 @@ const STOREFRONT_ORDER_CONTEXT_TTL_SECONDS = 5 * 60;
  */
 export function createStorefrontOrderRpcClient({
   fallbackClient,
+  hasCanonicalDeliveryMetadata,
   merchantId,
   userId,
   now = new Date(),
 }: {
   fallbackClient: SupabaseClient;
+  hasCanonicalDeliveryMetadata: boolean;
   merchantId: string;
   userId: string | null;
   now?: Date;
@@ -37,9 +39,12 @@ export function createStorefrontOrderRpcClient({
       iat: issuedAt,
       role: 'authenticated',
       storefront_order_context: 'route',
-      storefront_order_hash_version: 2,
       storefront_order_merchant_id: normalizedMerchantId,
     };
+
+    if (hasCanonicalDeliveryMetadata) {
+      payload.storefront_order_hash_version = 2;
+    }
 
     if (userId) {
       payload.sub = userId;
