@@ -19,6 +19,9 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   '/api/attr': { maxRequests: 1000, windowMs: 60_000 },
   '/api/orders': { maxRequests: 10, windowMs: 60_000 },
   '/api/products': { maxRequests: 30, windowMs: 60_000 },
+  // Keep autocomplete traffic from consuming the generic API budget before
+  // the follow-up place-details request can complete.
+  '/api/places': { maxRequests: 60, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },
   '/api/storefront/negotiation-evidence': {
     maxRequests: 10,
