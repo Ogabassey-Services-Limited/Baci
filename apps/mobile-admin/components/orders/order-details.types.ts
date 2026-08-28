@@ -23,6 +23,7 @@ export interface OrderDetailsItem {
 export interface OrderDetailsRecord {
   amount_paid: number;
   balance: number;
+  cancelled_at?: string | null;
   created_at: string;
   currency?: string | null;
   customer_email: string;
@@ -66,9 +67,14 @@ export interface OrderDetailsRecord {
   total: number;
   updated_at: string;
   virtual_account?: {
+    assignment_customer_email_source?: string | null;
     account_name: string;
     account_number: string;
     bank_name: string;
+    assigned_at?: string | null;
+    created_at?: string | null;
+    expires_at?: string | null;
+    provider?: string | null;
   } | null;
 }
 

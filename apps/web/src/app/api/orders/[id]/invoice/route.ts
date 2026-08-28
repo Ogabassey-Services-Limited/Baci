@@ -21,6 +21,7 @@ import type {
   InvoiceLineItem,
   TaxSubtotal,
 } from '@/lib/invoice-generator';
+import { resolveInvoicePaymentAccount } from '@/lib/invoice-payment-account';
 import { deriveTaxSubtotalsFromInvoiceItems } from '@/lib/invoice-tax-subtotals';
 import { ORDER_COLUMNS } from '@/lib/order-queries';
 import {
@@ -59,12 +60,6 @@ interface TaxSubtotalRow {
   taxable_amount: number;
   tax_amount: number;
   exemption_reason: string | null;
-}
-
-interface PaymentAccountRow {
-  account_number: string;
-  bank_name: string | null;
-  account_name: string | null;
 }
 
 interface RegisteredAddress {
@@ -493,23 +488,18 @@ export async function GET(
       );
     }
 
-    const { data: paymentAccounts, error: paymentAccountError } = await supabase
-      .from('order_payment_accounts')
-      .select(
-        'account_number, bank_name, account_name, provider, created_at, expires_at'
-      )
-      .eq('order_id', orderId)
-      .eq('provider', 'paystack')
-      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-      .order('created_at', { ascending: false })
-      .limit(1);
+    const isPaidOrder = order.payment_status?.trim().toLowerCase() === 'paid';
+    const {
+      error: paymentAccountError,
+      transactionError,
+      paymentAccount,
+    } = await resolveInvoicePaymentAccount(supabase, orderId, isPaidOrder);
 
-    if (paymentAccountError) {
-      console.error(
-        'Error fetching order_payment_accounts for invoice:',
-        orderId,
-        paymentAccountError
-      );
+    if (paymentAccountError || transactionError) {
+      console.error('Error fetching invoice payment account data:', orderId, {
+        paymentAccountError,
+        transactionError,
+      });
       return NextResponse.json(
         {
           error: 'Failed to load invoice payment account',
@@ -518,10 +508,6 @@ export async function GET(
         { status: 500 }
       );
     }
-
-    const paymentAccount = (
-      Array.isArray(paymentAccounts) ? paymentAccounts[0] : null
-    ) as PaymentAccountRow | null;
 
     // Parse shipping address
     const shippingAddr = order.shipping_address as ShippingAddress | null;

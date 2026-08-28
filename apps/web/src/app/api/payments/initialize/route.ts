@@ -33,8 +33,8 @@ import {
   calculatePlatformFee as calculateKorapayFee,
   initializePayment as initializeKorapayPayment,
 } from '@/lib/korapay';
-import { logger } from '@/lib/logger';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
+import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
 import { redactPaymentLogValue } from '@/lib/payments/redact-payment-log-value';
 import { resolveChargeCurrency } from '@/lib/payments/resolve-charge-currency';
 import {
@@ -44,6 +44,7 @@ import {
 } from '@/lib/paystack';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient as createServerSupabaseClient } from '@/lib/supabase/server';
 
 // Types & Constants
 
@@ -1037,12 +1038,10 @@ export async function POST(request: NextRequest) {
     const clientRequestedCurrency =
       typeof rawBodyCurrency === 'string' ? rawBodyCurrency : undefined;
 
-    // Use the admin client throughout this route.
-    // This endpoint is called by the mobile storefront which authenticates via
-    // Bearer token (not cookies), so the cookie-based server client cannot
-    // establish a session. The admin client bypasses RLS, which is safe here
-    // because every data operation is scoped by validated order/merchant IDs
-    // (enforced by the SECURITY DEFINER RPC below).
+    // Use the admin client for the bearer-authenticated mobile storefront's
+    // order, merchant, and gateway-setting reads. The proof-bound DVA
+    // reservation below deliberately uses the request-scoped server client so
+    // the reservation itself never crosses a service-role boundary.
     const adminSupabase = createAdminClient();
 
     // Validate order context (order + email) before initiating payment
@@ -1424,37 +1423,18 @@ export async function POST(request: NextRequest) {
             // `assigned_at` is refreshed on retries so the webhook
             // window follows the current account assignment rather
             // than the row's first insert time.
-            const dvaAssignedAtMs = Date.now();
-            const dvaAssignedAt = new Date(dvaAssignedAtMs).toISOString();
-            const dvaExpiresAt = new Date(
-              dvaAssignedAtMs + 90 * 60 * 1000
-            ).toISOString();
-            const { error: dvaPersistError } = await adminSupabase
-              .from('order_payment_accounts')
-              .upsert(
-                {
-                  order_id: paymentData.order_id,
-                  account_number: dvaResult.account_number,
-                  bank_name: dvaResult.bank_name,
-                  account_name: dvaResult.account_name,
-                  provider: 'paystack',
-                  payable_amount: paymentData.amount,
-                  assigned_at: dvaAssignedAt,
-                  expires_at: dvaExpiresAt,
-                },
-                { onConflict: 'order_id,provider' }
-              );
-            if (dvaPersistError) {
-              // Don't fail the request — the customer can still pay; the
-              // webhook will just fall back to the agentic checkout-
-              // session path (if applicable) or 404 like it does today.
-              // B4 cron + reconciliation_review will surface the gap.
-              logger.warn({
-                message: 'Failed to persist Paystack DVA assignment',
+            const reservationSupabase = await createServerSupabaseClient();
+            const persistenceFailure = await persistPaystackDvaAssignment(
+              reservationSupabase,
+              {
+                accountName: dvaResult.account_name,
+                accountNumber: dvaResult.account_number,
+                bankName: dvaResult.bank_name,
+                customerEmail: paymentData.customer_email,
                 orderId: paymentData.order_id,
-                error: dvaPersistError,
-              });
-            }
+              }
+            );
+            if (persistenceFailure) return persistenceFailure;
 
             paymentResult = {
               authorization_url: '',

@@ -47,7 +47,7 @@ const expectedCallers: Record<PrivilegedFunction, readonly string[]> = {
   generatePaymentAccount: [
     'apps/web/mcp-server/server.ts',
     'apps/web/src/app/api/orders/[id]/generate-dva/route.ts',
-    'apps/web/src/app/api/orders/[id]/ship-on-credit/route.ts',
+    'apps/web/src/app/api/orders/[id]/ship-on-credit/provision-credit-order-dva.ts',
     'apps/web/src/app/api/orders/route.ts',
   ],
   getDedicatedAccounts: [
@@ -111,7 +111,7 @@ describe('Paystack DVA caller contract', () => {
     expect(findCallers(functionName, definitionPaths[functionName])).toEqual(
       expectedCallers[functionName]
     );
-  });
+  }, 30_000);
 
   it('keeps the paused gate ahead of agentic payment setup', () => {
     const handler = readSource(

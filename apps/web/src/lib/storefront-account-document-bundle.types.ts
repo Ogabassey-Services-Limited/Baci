@@ -114,12 +114,20 @@ export interface StorefrontAccountDocumentTransactionRow {
   created_at: string;
   description: string | null;
   metadata: JsonRecord | null;
+  gateway?: string | null;
+  status?: string | null;
+  transaction_type?: string | null;
 }
 
 export interface StorefrontAccountDocumentPaymentAccountRow {
   account_number: string;
+  assignment_customer_email_source?: string | null;
+  assigned_at?: string | null;
   bank_name: string | null;
   account_name: string | null;
+  created_at?: string | null;
+  expires_at?: string | null;
+  provider?: string | null;
 }
 
 export interface StorefrontAccountDocumentTaxSubtotalRow {

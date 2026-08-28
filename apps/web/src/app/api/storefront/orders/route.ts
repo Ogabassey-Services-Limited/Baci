@@ -7,6 +7,7 @@ import {
   normalizePaymentStatus,
   normalizeShippingStatus,
 } from '@/lib/storefront-account-document-data';
+import { resolveStorefrontOrderPaymentAccounts } from '@/lib/storefront-order-payment-accounts';
 import { storefrontAccountDocumentQuerySchema } from '@/schemas/storefront-account-document';
 
 interface JoinedProduct {
@@ -40,15 +41,7 @@ function normalizeImageUrl(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : null;
 }
 
-/**
- * Customer Orders API
- *
- * GET - Fetch orders for the authenticated customer
- *
- * Uses authenticateApiRequest to support both:
- * - Mobile apps sending Bearer tokens in the Authorization header
- * - Web browsers using cookie-based Supabase sessions
- */
+/** Customer orders for authenticated web and mobile customers. */
 
 export async function GET(request: NextRequest) {
   try {
@@ -143,12 +136,6 @@ export async function GET(request: NextRequest) {
               slug
             )
           )
-        ),
-        order_payment_accounts (
-          account_number,
-          bank_name,
-          account_name,
-          provider
         )
       `)
       .eq('customer_id', customer.id)
@@ -161,6 +148,19 @@ export async function GET(request: NextRequest) {
         { error: 'Failed to fetch orders' },
         { status: 500 }
       );
+    }
+
+    const { paymentAccountsByOrderId, paymentAccountError, transactionError } =
+      await resolveStorefrontOrderPaymentAccounts(supabase, orders ?? []);
+    if (paymentAccountError) {
+      console.error('Orders payment-account fetch error:', paymentAccountError);
+      return NextResponse.json(
+        { error: 'Failed to fetch payment accounts' },
+        { status: 500 }
+      );
+    }
+    if (transactionError) {
+      console.error('Orders transaction fetch error:', transactionError);
     }
 
     // Transform to expected format
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
         shipping_provider: order.shipping_provider,
         payment_method: order.payment_method,
         fulfillment_details: order.fulfillment_details,
-        virtual_account: order.order_payment_accounts?.[0] || null,
+        virtual_account: paymentAccountsByOrderId.get(order.id) ?? null,
         balance: Math.max(
           0,
           Number(order.total || 0) - Number(order.amount_paid || 0)

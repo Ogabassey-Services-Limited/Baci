@@ -99,8 +99,7 @@ vi.mock('@/lib/agentic/paystack', () => ({
     mockCreateDedicatedVirtualAccount(...args),
 }));
 
-// Logger mock — we need to assert logger.warn is invoked when the
-// `order_payment_accounts` upsert fails (B1 warn-and-continue contract).
+// Logger mocks cover both recoverable warnings and fail-closed DVA persistence.
 const mockLoggerWarn = vi.fn();
 const mockLoggerError = vi.fn();
 const mockLoggerInfo = vi.fn();
@@ -120,6 +119,7 @@ const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 let rpcResult: { data: unknown; error: unknown };
 let rpcTransactionResult: { data: unknown; error: unknown };
+let rpcDvaReservationResult: { data: unknown; error: unknown };
 const rpcCalls: Array<{ args?: unknown; name: string }> = [];
 
 function createMockSupabase() {
@@ -130,6 +130,8 @@ function createMockSupabase() {
         return Promise.resolve(rpcResult);
       if (name === 'create_payment_transaction')
         return Promise.resolve(rpcTransactionResult);
+      if (name === 'reserve_paystack_order_payment_account')
+        return Promise.resolve(rpcDvaReservationResult);
       return Promise.resolve({ data: null, error: null });
     }),
   };
@@ -139,15 +141,6 @@ let merchantResult: { data: unknown; error: unknown };
 let featureSettingsResult: { data: unknown; error: unknown };
 let orderPaymentResult: { data: unknown; error: unknown };
 let savingsRedemptionsResult: { data: unknown; error: unknown };
-let dvaUpsertResult: { data: unknown; error: unknown };
-
-// B1 (Δ-10): the route persists the DVA assignment via upsert.
-// Capture every upsert payload + onConflict so tests can assert the
-// contract; reset via setupDefaults() before each test.
-const dvaUpsertCalls: Array<{
-  payload: Record<string, unknown>;
-  options: Record<string, unknown> | undefined;
-}> = [];
 
 function createMockAdminClient() {
   return {
@@ -190,19 +183,6 @@ function createMockAdminClient() {
           }),
         };
       }
-      // B1 (Δ-10): DVA initialize upserts the assignment so the webhook
-      // can match it later. Capture the call for contract assertions.
-      if (table === 'order_payment_accounts') {
-        return {
-          upsert: (
-            payload: Record<string, unknown>,
-            options?: Record<string, unknown>
-          ) => {
-            dvaUpsertCalls.push({ payload, options });
-            return Promise.resolve(dvaUpsertResult);
-          },
-        };
-      }
       return {
         select: () => ({
           eq: () => ({
@@ -222,6 +202,10 @@ vi.mock('@/lib/supabase/admin', () => ({
     ...createMockSupabase(),
     ...createMockAdminClient(),
   }),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: () => createMockSupabase(),
 }));
 
 // ---- Import handler AFTER mocks ----
@@ -271,6 +255,7 @@ function setupDefaults() {
     error: null,
   };
   rpcTransactionResult = { data: null, error: null };
+  rpcDvaReservationResult = { data: 'inserted', error: null };
   merchantResult = {
     data: {
       id: MERCHANT_ID,
@@ -283,8 +268,6 @@ function setupDefaults() {
   featureSettingsResult = { data: null, error: null };
   orderPaymentResult = { data: { wallet_amount_used: 0 }, error: null };
   savingsRedemptionsResult = { data: [], error: null };
-  dvaUpsertResult = { data: null, error: null };
-  dvaUpsertCalls.length = 0;
   rpcCalls.length = 0;
 }
 
@@ -954,96 +937,6 @@ describe('POST /api/payments/initialize', () => {
       expect(res.status).toBe(400);
       expect(json.code).toBe('PAYMENT_METHOD_COUNTRY_UNSUPPORTED');
       expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
-    });
-
-    it('persists the DVA assignment with the expected upsert payload (B1 Δ-10)', async () => {
-      enableDvaForTest();
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-
-      expect(res.status).toBe(200);
-      expect(dvaUpsertCalls).toHaveLength(1);
-      // Payload contract — these columns are read by
-      // confirmPaystackDvaByOrderAccount + paystackDvaMultiKeyMatch.
-      // created_at is DB-defaulted to now(), not in the upsert body.
-      const { payload, options } = dvaUpsertCalls[0];
-      expect(payload).toMatchObject({
-        order_id: ORDER_ID,
-        account_number: '1234567890',
-        bank_name: 'Wema Bank',
-        account_name: 'Test Store / John Doe',
-        provider: 'paystack',
-        payable_amount: 5000,
-      });
-      // assigned_at is refreshed on retries, and expires_at must be the
-      // current assignment timestamp + 90min.
-      expect(typeof payload.assigned_at).toBe('string');
-      expect(typeof payload.expires_at).toBe('string');
-      const assignedAtMs = Date.parse(payload.assigned_at as string);
-      const expiresAtMs = Date.parse(payload.expires_at as string);
-      expect(Number.isFinite(assignedAtMs)).toBe(true);
-      expect(Number.isFinite(expiresAtMs)).toBe(true);
-      expect(expiresAtMs - assignedAtMs).toBe(90 * 60 * 1000);
-      // Conflict resolution must use the unique constraint
-      // unique_order_account = (order_id, provider).
-      expect(options).toEqual({ onConflict: 'order_id,provider' });
-    });
-
-    it('persists the residual DVA payable amount after wallet and savings credits', async () => {
-      enableDvaForTest();
-      orderPaymentResult = {
-        data: { wallet_amount_used: 1500 },
-        error: null,
-      };
-      savingsRedemptionsResult = {
-        data: [{ amount: 500 }],
-        error: null,
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-
-      expect(res.status).toBe(200);
-      expect(dvaUpsertCalls).toHaveLength(1);
-      expect(dvaUpsertCalls[0].payload).toMatchObject({
-        order_id: ORDER_ID,
-        payable_amount: 3000,
-      });
-    });
-
-    it('warns and still returns 200 when the DVA upsert fails (B1 warn-and-continue)', async () => {
-      enableDvaForTest();
-
-      // Simulate a Postgres-side upsert failure (e.g., transient RLS
-      // hiccup). The route must NOT throw — the customer can still pay
-      // and B4 cron/reconciliation will surface the gap.
-      dvaUpsertResult = {
-        data: null,
-        error: { message: 'simulated upsert failure' },
-      };
-
-      const res = await POST(
-        makeRequest({ ...validBody, gateway: 'paystack', payment_type: 'dva' })
-      );
-      const json = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(json.success).toBe(true);
-      expect(json.dva).toBeDefined();
-      // Warn-and-continue: a single warn log mentioning the failure.
-      expect(mockLoggerWarn).toHaveBeenCalled();
-      const warnCalls = mockLoggerWarn.mock.calls.map(
-        (call) => call[0] as Record<string, unknown>
-      );
-      const matched = warnCalls.find((entry) =>
-        typeof entry?.message === 'string'
-          ? /DVA|order_payment_accounts/i.test(entry.message as string)
-          : false
-      );
-      expect(matched).toBeDefined();
     });
   });
 

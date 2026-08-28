@@ -53,6 +53,7 @@ import { mergeReceiptItemsWithInvoiceMetadata } from '@/lib/invoice-receipt-item
 import { logger } from '@/lib/logger';
 import { dispatchOrderCreationNotifications } from '@/lib/order-notification-dispatch';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import { persistPaystackDvaAssignment } from '@/lib/payments/persist-paystack-dva-assignment';
 import { recordPreGatewayRedemption } from '@/lib/payments/record-pre-gateway-redemption';
 import { generatePaymentAccount } from '@/lib/paystack';
 import {
@@ -3250,9 +3251,6 @@ export async function POST(request: NextRequest) {
                       ? order.created_at
                       : new Date().toISOString(),
                 };
-                const invoiceDueDate =
-                  getImmediateInvoiceDueDate(invoiceTimingOrder);
-
                 // The customer can send display-only item names/prices, while
                 // the storefront order RPC persists canonical product/variant
                 // snapshots. Render invoice artifacts from those persisted
@@ -3293,26 +3291,26 @@ export async function POST(request: NextRequest) {
                   // through RLS, so the server-only admin client is scoped to
                   // this post-response side effect and order.id.
                   backgroundSupabase ??= createAdminClient();
-                  const dvaExpiresAt = invoiceDueDate.toISOString();
-                  const { error: insertError } = await backgroundSupabase
-                    .from('order_payment_accounts')
-                    .upsert(
-                      {
-                        order_id: order.id,
-                        account_number: dvaResult.data.account_number,
-                        bank_name: dvaResult.data.bank_name,
-                        account_name: dvaResult.data.account_name,
-                        provider: 'paystack',
-                        expires_at: dvaExpiresAt,
-                      },
-                      { onConflict: 'order_id,provider' }
-                    );
+                  const persistenceFailure = await persistPaystackDvaAssignment(
+                    backgroundSupabase,
+                    {
+                      accountName: dvaResult.data.account_name,
+                      accountNumber: dvaResult.data.account_number,
+                      bankName: dvaResult.data.bank_name,
+                      customerEmail:
+                        customer_email || `${order.id}@orders.usebaci.com`,
+                      expiresAt:
+                        getImmediateInvoiceDueDate(
+                          invoiceTimingOrder
+                        ).toISOString(),
+                      orderId: order.id,
+                    }
+                  );
 
-                  if (insertError) {
+                  if (persistenceFailure) {
                     logger.error({
                       message: 'Failed to store auto-generated invoice DVA',
                       orderId: order.id,
-                      error: insertError,
                     });
                   } else {
                     invoiceVirtualAccount = generatedVirtualAccount;

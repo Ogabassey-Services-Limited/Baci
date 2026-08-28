@@ -15855,6 +15855,27 @@ export type Database = {
         Args: { p_code_set_id: string; p_user_id: string };
         Returns: boolean;
       };
+      refresh_paystack_order_payable_amount: {
+        Args: { p_order_id: string };
+        Returns: number;
+      };
+      release_expired_paystack_order_account: {
+        Args: { p_order_id: string };
+        Returns: boolean;
+      };
+      reserve_paystack_order_payment_account: {
+        Args: {
+          p_account_name: string;
+          p_account_number: string;
+          p_assigned_at: string;
+          p_bank_name: string;
+          p_expires_at: string;
+          p_expected_customer_email: string;
+          p_order_id: string;
+          p_provisioning_proof: Json;
+        };
+        Returns: string;
+      };
       advance_petrock_eligibility_evidence: {
         Args: {
           p_check_kind: string;
@@ -17701,6 +17722,34 @@ export type Database = {
           provider: string;
           provider_rate_id: string;
           quote_request: Json;
+        }[];
+      };
+      get_customer_order_transactions: {
+        Args: { p_order_ids: string[] };
+        Returns: {
+          amount: number | null;
+          created_at: string;
+          description: string | null;
+          dva_account_number: string | null;
+          gateway: string | null;
+          id: string;
+          order_id: string;
+          status: string | null;
+          transaction_type: string | null;
+        }[];
+      };
+      get_customer_order_payment_accounts: {
+        Args: { p_order_ids: string[] };
+        Returns: {
+          account_name: string | null;
+          account_number: string;
+          assigned_at: string | null;
+          assignment_customer_email_source: string | null;
+          bank_name: string | null;
+          created_at: string;
+          expires_at: string | null;
+          order_id: string;
+          provider: string | null;
         }[];
       };
       get_credit_direct_settings: {
