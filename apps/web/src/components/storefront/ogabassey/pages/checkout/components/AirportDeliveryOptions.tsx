@@ -144,7 +144,10 @@ export function AirportDeliveryOptions({
             checked={
               selectedQuoteMatchesDeliveryMethod && selectedQuoteId === quote.id
             }
-            onChange={() => onSelectQuote(quote.id)}
+            onChange={() => {
+              onSelectAirportType('delivery');
+              onSelectQuote(quote.id);
+            }}
             className="size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
           />
           <div className="min-w-0 flex-1">

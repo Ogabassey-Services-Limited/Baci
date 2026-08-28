@@ -35,6 +35,7 @@ import {
 } from '@/lib/checkout/order-idempotency';
 import { buildLegacyOrderIdempotencyPayload } from '@/lib/checkout/order-idempotency-legacy';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
+import { persistReplayedDeliveryMetadata } from '@/lib/checkout/persist-replayed-delivery-metadata';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
 import {
@@ -2394,6 +2395,7 @@ export async function POST(request: NextRequest) {
     let checkoutRequestHash = checkoutRequestPayload
       ? hashOrderIdempotencyPayload(checkoutRequestPayload)
       : null;
+    let isLegacyIdempotencyReplay = false;
 
     // Orders created before delivery metadata was added have a canonical hash
     // that intentionally omitted delivery_method/airport_type. When a retry
@@ -2417,6 +2419,7 @@ export async function POST(request: NextRequest) {
           error: legacyProbeError,
         });
       } else if (isLegacyOrder === true) {
+        isLegacyIdempotencyReplay = true;
         checkoutRequestHash = hashOrderIdempotencyPayload(
           buildLegacyOrderIdempotencyPayload({
             ...body,
@@ -2727,7 +2730,7 @@ export async function POST(request: NextRequest) {
     const { data: orderCurrencyRow, error: orderCurrencyError } =
       await createAdminClient()
         .from('orders')
-        .select('currency, shipping_provider')
+        .select('currency, shipping_provider, delivery_method, airport_type')
         .eq('id', order.id)
         .maybeSingle();
     if (orderCurrencyError) {
@@ -2749,6 +2752,31 @@ export async function POST(request: NextRequest) {
       order !== null &&
       'idempotency_replayed' in order &&
       order.idempotency_replayed === true;
+
+    if (idempotencyReplayed && isLegacyIdempotencyReplay) {
+      const replayMetadataResult = await persistReplayedDeliveryMetadata({
+        adminClient: createAdminClient(),
+        airportType: canonicalAirportType,
+        currentAirportType: orderCurrencyRow?.airport_type,
+        currentDeliveryMethod: orderCurrencyRow?.delivery_method,
+        deliveryMethod: canonicalDeliveryMethod,
+        merchantId: merchant_id,
+        orderId: order.id,
+      });
+      if (replayMetadataResult.error) {
+        logger.error({
+          message:
+            'Failed to persist delivery metadata on legacy storefront order replay',
+          error: replayMetadataResult.error,
+          orderId: order.id,
+          merchantId: merchant_id,
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
+    }
 
     // Stamp the merchant-rate fulfillment provider post-create. Mirrors the
     // self-fulfill flow, which also writes orders.shipping_provider via an

@@ -90,12 +90,18 @@ describe('AirportDeliveryOptions', () => {
 
   it('renders and selects provider GoFaster quotes', async () => {
     const user = userEvent.setup();
+    const onSelectAirportType = vi.fn();
     const onSelectQuote = vi.fn();
-    renderAirportOptions({ airDeliveryQuotes: [airQuote], onSelectQuote });
+    renderAirportOptions({
+      airDeliveryQuotes: [airQuote],
+      onSelectAirportType,
+      onSelectQuote,
+    });
 
     expect(screen.getByText('GIGL Air Cargo')).toBeInTheDocument();
     await user.click(screen.getByRole('radio', { name: /gigl air cargo/i }));
 
+    expect(onSelectAirportType).toHaveBeenCalledWith('delivery');
     expect(onSelectQuote).toHaveBeenCalledWith('air-quote');
   });
 });

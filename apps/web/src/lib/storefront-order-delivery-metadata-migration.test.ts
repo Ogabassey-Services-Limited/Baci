@@ -31,6 +31,13 @@ const quizReservedOrderMigration = readFileSync(
   ),
   'utf8'
 );
+const quizReservedOrderValidationScopeMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828160200_limit_quiz_reserved_order_delivery_validation_to_redemption.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order delivery metadata migration contract', () => {
   it('persists a durable delivery discriminator with airport invariants', () => {
@@ -103,6 +110,21 @@ describe('storefront order delivery metadata migration contract', () => {
       "OLD.source = 'quiz_prize' AND OLD.payment_method = 'quiz_award'"
     );
     expect(quizReservedOrderMigration).toContain(
+      'validate_quiz_reserved_order_airport_pickup_location'
+    );
+  });
+
+  it('does not revalidate redeemed quiz orders during later fulfillment updates', () => {
+    expect(quizReservedOrderValidationScopeMigration).toContain(
+      "NEW.ad_tracking ? '__baci_delivery_method'"
+    );
+    expect(quizReservedOrderValidationScopeMigration).toContain(
+      "NEW.ad_tracking ? '__baci_airport_type'"
+    );
+    expect(quizReservedOrderValidationScopeMigration).toContain(
+      'validate_quiz_reserved_order_delivery_metadata'
+    );
+    expect(quizReservedOrderValidationScopeMigration).toContain(
       'validate_quiz_reserved_order_airport_pickup_location'
     );
   });

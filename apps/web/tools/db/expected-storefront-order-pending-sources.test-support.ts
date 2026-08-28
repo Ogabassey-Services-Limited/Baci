@@ -68,6 +68,11 @@ export const EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260828160200_limit_quiz_reserved_order_delivery_validation_to_redemption.sql',
+    sha256: '02d8c9c5f4eb0cdc83bc7d849cf3168cec43a99731f82646edac42f4bbef2fad',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260828170000_prepare_storefront_order_hash_version_context.sql',
     sha256: '59fe2125660db0085d6b1def95d56b6c8530bb99796ddc880fd7bbeb00343f28',
   },
