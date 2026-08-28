@@ -1,12 +1,38 @@
-import BaciPerformanceTrace from './index';
-import BaciPerformanceTraceModule from './src/BaciPerformanceTraceModule';
+const mockRequireOptionalNativeModule = jest.fn();
+
+jest.mock('expo', () => ({
+  requireOptionalNativeModule: (name: string) =>
+    mockRequireOptionalNativeModule(name),
+}));
 
 describe('baci-performance-trace public module', () => {
-  it('re-exports the optional native module contract', () => {
-    expect(BaciPerformanceTrace).toBe(BaciPerformanceTraceModule);
+  beforeEach(() => {
+    jest.resetModules();
+    mockRequireOptionalNativeModule.mockReset();
   });
 
-  it('exposes the unsupported-platform fallback when native tracing is absent', () => {
-    expect(BaciPerformanceTrace).toBeNull();
+  it('re-exports the installed optional native module', () => {
+    const nativeModule = {
+      beginAsyncSection: jest.fn(() => 12),
+      endAsyncSection: jest.fn(),
+    };
+    mockRequireOptionalNativeModule.mockReturnValue(nativeModule);
+
+    const loaded = (jest.requireActual('./index') as typeof import('./index'))
+      .default;
+
+    expect(mockRequireOptionalNativeModule).toHaveBeenCalledWith(
+      'BaciPerformanceTrace'
+    );
+    expect(loaded).toBe(nativeModule);
+  });
+
+  it('exports null when the optional native module is unavailable', () => {
+    mockRequireOptionalNativeModule.mockReturnValue(null);
+
+    const loaded = (jest.requireActual('./index') as typeof import('./index'))
+      .default;
+
+    expect(loaded).toBeNull();
   });
 });
