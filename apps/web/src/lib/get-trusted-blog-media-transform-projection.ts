@@ -1,4 +1,4 @@
-import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import { isTrustedBlogMediaTransformUrl } from '@/lib/is-trusted-blog-media-transform-url';
 
 const MIN_TRANSFORM_DIMENSION = 16;
 const MAX_TRANSFORM_DIMENSION = 3840;
@@ -26,27 +26,14 @@ export function getTrustedBlogMediaTransformProjection(url: string):
     }
   | undefined {
   try {
+    if (!isTrustedBlogMediaTransformUrl(url)) {
+      return undefined;
+    }
     const parsedUrl = new URL(url);
-    const trustedOrigins = [
-      process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN,
-      DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
-    ].flatMap((value) => {
-      if (!value) return [];
-      try {
-        return [new URL(value).origin];
-      } catch {
-        return [];
-      }
-    });
     const transformPath = parsedUrl.pathname.match(/^\/image\/([^/]+)\/(.+)$/u);
     const options = transformPath?.[1];
     const encodedSourcePath = transformPath?.[2];
-    if (
-      parsedUrl.protocol !== 'https:' ||
-      !trustedOrigins.includes(parsedUrl.origin) ||
-      !options ||
-      !encodedSourcePath
-    ) {
+    if (!options || !encodedSourcePath) {
       return undefined;
     }
     const sourcePath = decodeURIComponent(encodedSourcePath);

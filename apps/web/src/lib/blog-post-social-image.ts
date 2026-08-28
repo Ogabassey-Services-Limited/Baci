@@ -1,5 +1,6 @@
 import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
 import { getTrustedBlogMediaTransformProjection } from '@/lib/get-trusted-blog-media-transform-projection';
+import { isTrustedBlogMediaTransformUrl } from '@/lib/is-trusted-blog-media-transform-url';
 import { isTrustedImmutableBlogLandscapeVariantUrl } from '@/lib/is-trusted-immutable-blog-landscape-variant-url';
 import {
   buildOgabasseyCdnImageLoaderUrl,
@@ -97,6 +98,9 @@ function projectDirectImage(
       DEFAULT_IMAGE_QUALITY
     );
     const managedTransform = getTrustedBlogMediaTransformProjection(url);
+    if (isTrustedBlogMediaTransformUrl(url) && !managedTransform) {
+      return null;
+    }
     const transformedMimeType =
       managedTransform?.type ??
       (url !== sourceUrl && mimeType
@@ -119,6 +123,10 @@ function projectDirectImage(
       ...transformedDimensions,
       ...(transformedMimeType ? { type: transformedMimeType } : {}),
     };
+  }
+
+  if (isTrustedBlogMediaTransformUrl(sourceUrl) && !sourceTransform) {
+    return null;
   }
 
   if (sourceTransform) {
