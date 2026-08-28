@@ -556,14 +556,14 @@ describe('fetchAnalyticsCategoryData', () => {
     });
 
     const [url] = fetchMock.mock.calls[0] ?? [];
-    expect(String(url)).toContain('startDate=2026-08-01');
-    expect(String(url)).toContain('endDate=2026-08-02');
-    expect(String(url)).not.toContain('T00%3A00%3A00');
-    expect(String(url)).toContain(
-      `orderStart=${encodeURIComponent(localFrom.toISOString())}`
+    const requestUrl = new URL(String(url), 'http://localhost');
+    expect(requestUrl.searchParams.get('startDate')).toBe('2026-08-01');
+    expect(requestUrl.searchParams.get('endDate')).toBe('2026-08-02');
+    expect(requestUrl.searchParams.get('orderStart')).toBe(
+      localFrom.toISOString()
     );
-    expect(String(url)).toContain(
-      `orderEnd=${encodeURIComponent(expectedOrderEnd.toISOString())}`
+    expect(requestUrl.searchParams.get('orderEnd')).toBe(
+      expectedOrderEnd.toISOString()
     );
   });
 
