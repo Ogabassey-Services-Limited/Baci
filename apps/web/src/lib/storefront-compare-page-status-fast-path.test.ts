@@ -86,4 +86,24 @@ describe('storefront compare hard-status fast path', () => {
       ...Array.from({ length: 4 }, () => ({ kind: 'renderable-or-unknown' })),
     ]);
   });
+
+  it('fails open on a publication RPC error and releases the probe slot', async () => {
+    const rpcImpl = vi.fn().mockResolvedValue({
+      data: null,
+      error: { code: 'XX000', message: 'database unavailable' },
+    });
+
+    await expect(
+      resolve(buildOptions('storefront-error', rpcImpl))
+    ).resolves.toEqual({ kind: 'renderable-or-unknown' });
+    await expect(
+      resolve(buildOptions('storefront-error', rpcImpl))
+    ).resolves.toEqual({ kind: 'renderable-or-unknown' });
+
+    expect(rpcImpl).toHaveBeenCalledTimes(2);
+    expect(console.warn).toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'has-error' })
+    );
+  });
 });
