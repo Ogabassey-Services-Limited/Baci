@@ -143,6 +143,13 @@ test('rejects every web path declared by the deploy filter', async () => {
   }
 });
 
+test('rejects migration-only superseding deployments', async () => {
+  await assert.rejects(
+    verifySupersededFile('supabase/migrations/20260828180000_replay.sql'),
+    /superseded deployment SHA/
+  );
+});
+
 test('gates Vercel deployment configuration in deploy and CI filters', () => {
   const deployFilters = YAML.parse(
     readFileSync(new URL('../filters/deploy.yml', import.meta.url), 'utf8')

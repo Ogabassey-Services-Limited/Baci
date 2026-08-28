@@ -21,6 +21,7 @@ const WEB_PREFIXES = [
   'infra/cwv-runner/',
   'packages/shared/',
   'public/badges/',
+  'supabase/migrations/',
 ];
 const WEB_WORKFLOW_FILES = new Set([
   '.github/filters/deploy.yml',
