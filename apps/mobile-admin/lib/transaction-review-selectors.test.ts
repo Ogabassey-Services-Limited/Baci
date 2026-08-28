@@ -6,6 +6,7 @@ describe('transaction review selectors', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId;
 
     expect(selector).toContain('discount_amount');
+    expect(selector).toContain('discount_code_id');
     expect(selector).toContain('ad_tracking');
     expect(selector).not.toContain('order_items(id, line_id');
   });
@@ -14,6 +15,7 @@ describe('transaction review selectors', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId;
 
     expect(selector).toContain('discount_amount');
+    expect(selector).toContain('discount_code_id');
     expect(selector).not.toContain('ad_tracking');
     expect(selector).toContain('quiz_award_id');
     expect(selector).toContain('line_id');

@@ -261,7 +261,7 @@ describe('persisted transaction discount allocations', () => {
     expect(prices).toEqual([50, 50]);
   });
 
-  it('falls back proportionally when merchandise and VAT relief exceed a line total', () => {
+  it('preserves VAT semantics when invalid explicit allocations fall back', () => {
     const items = [
       { line_id: 1, price: 100, quantity: 1 },
       { line_id: 2, price: 100, quantity: 1 },
@@ -274,6 +274,7 @@ describe('persisted transaction discount allocations', () => {
       ],
     });
 
-    expect(prices).toEqual([0, 0]);
+    expect(prices[0]).toBeCloseTo(6.976744, 5);
+    expect(prices[1]).toBeCloseTo(6.976744, 5);
   });
 });
