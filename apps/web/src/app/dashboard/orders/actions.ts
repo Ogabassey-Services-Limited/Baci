@@ -5,13 +5,15 @@ import {
   AGENTIC_ORDER_SOURCE_FILTER,
   type AgenticOrderSourceFilter,
 } from '@/app/dashboard/orders/agentic-order-source';
+import {
+  mapOrderFinancialFields,
+  type OrderFinancialFields,
+} from '@/app/dashboard/orders/order-financials';
 import { loadOrderItemImageMap } from '@/app/dashboard/orders/order-item-images';
-import { parseOptionalOrderAmount } from '@/app/dashboard/orders/order-money';
 import type {
   PaymentStatus,
   ShippingStatus,
 } from '@/app/dashboard/orders/order-statuses';
-import { parseOrderTaxBasis } from '@/app/dashboard/orders/order-tax-basis';
 import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
@@ -48,17 +50,11 @@ export interface Transaction {
   created_at: string;
 }
 
-export interface Order {
+export interface Order extends OrderFinancialFields {
   id: string;
   orderNumber: string;
   customerName: string;
   total: number;
-  subtotal?: number;
-  shipping_fee?: number;
-  gift_wrapping_fee?: number;
-  tax_amount?: number;
-  tax_basis?: 'exclusive' | 'inclusive' | null;
-  discount_amount?: number;
   currency: string;
   shippingStatus: ShippingStatus;
   paymentStatus: PaymentStatus;
@@ -407,12 +403,7 @@ export async function getOrders(
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
-    subtotal: parseOptionalOrderAmount(order.subtotal),
-    shipping_fee: parseOptionalOrderAmount(order.shipping_fee),
-    gift_wrapping_fee: parseOptionalOrderAmount(order.gift_wrapping_fee),
-    tax_amount: parseOptionalOrderAmount(order.tax_amount),
-    tax_basis: parseOrderTaxBasis(order.tax_basis),
-    discount_amount: parseOptionalOrderAmount(order.discount_amount),
+    ...mapOrderFinancialFields(order),
     currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
@@ -683,12 +674,7 @@ export async function getOrder(
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
-    subtotal: parseOptionalOrderAmount(order.subtotal),
-    shipping_fee: parseOptionalOrderAmount(order.shipping_fee),
-    gift_wrapping_fee: parseOptionalOrderAmount(order.gift_wrapping_fee),
-    tax_amount: parseOptionalOrderAmount(order.tax_amount),
-    tax_basis: parseOrderTaxBasis(order.tax_basis),
-    discount_amount: parseOptionalOrderAmount(order.discount_amount),
+    ...mapOrderFinancialFields(order),
     currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,

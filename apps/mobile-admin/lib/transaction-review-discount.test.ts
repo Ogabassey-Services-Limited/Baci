@@ -73,6 +73,17 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([0, 200]);
   });
 
+  it('allocates residual discounts to merchandise when voucher metadata is unavailable', () => {
+    const items = [
+      { price: 100, quantity: 1, quiz_award_id: 'award-1' },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 120);
+
+    expect(prices).toEqual([0, 180]);
+  });
+
   it('applies a residual voucher discount after explicit merchandise allocations', () => {
     const items = [
       { line_id: 1, price: 100, quantity: 1, quiz_award_id: 'award-1' },

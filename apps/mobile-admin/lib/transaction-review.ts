@@ -1,9 +1,7 @@
+import { isAdminEditedTransactionDiscount } from './transaction-review-admin-discount-marker';
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import { getPersistedTransactionDiscountAmount } from './transaction-review-discount-amount';
-import {
-  isAdminEditedTransactionDiscount,
-  parseTransactionDiscountOptions,
-} from './transaction-review-discount-metadata';
+import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
 import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,
