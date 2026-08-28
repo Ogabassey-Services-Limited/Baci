@@ -119,6 +119,8 @@ describe('TikTok Ads sync route', () => {
         body: JSON.stringify({
           startDate: '2026-08-01',
           endDate: '2026-08-30',
+          syncWindowEndDate: '2026-08-31',
+          syncWindowStartDate: '2026-08-01',
         }),
         method: 'POST',
       })
@@ -136,6 +138,8 @@ describe('TikTok Ads sync route', () => {
         credentialSupabase: mockCredentialSupabase,
         spendSupabase: mockSpendSupabase,
         syncRunStartedAt: expect.any(String),
+        syncWindowEndDate: '2026-08-31',
+        syncWindowStartDate: '2026-08-01',
       })
     );
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(

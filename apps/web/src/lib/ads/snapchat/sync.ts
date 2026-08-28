@@ -90,6 +90,8 @@ export async function syncSnapchatAdsSpendForMerchant(
     startDate: string;
     syncRunId?: string;
     syncRunStartedAt?: string;
+    syncWindowEndDate?: string;
+    syncWindowStartDate?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -101,11 +103,15 @@ export async function syncSnapchatAdsSpendForMerchant(
       startDate: input.startDate,
       syncRunId: input.syncRunId,
       syncRunStartedAt: input.syncRunStartedAt,
+      syncWindowEndDate: input.syncWindowEndDate,
+      syncWindowStartDate: input.syncWindowStartDate,
     }).success
   )
     throw new SnapchatAdsSyncError('INVALID_DATE_RANGE');
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
+  const syncWindowStartDate = input.syncWindowStartDate ?? input.startDate;
+  const syncWindowEndDate = input.syncWindowEndDate ?? input.endDate;
   const config = getSnapchatAdsConfig();
   const read = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -160,6 +166,8 @@ export async function syncSnapchatAdsSpendForMerchant(
           providerCustomerId,
           syncRunId,
           syncRunStartedAt,
+          syncWindowEndDate,
+          syncWindowStartDate,
           supabase: input.supabase,
         }))
       )
@@ -245,6 +253,8 @@ export async function syncSnapchatAdsSpendForMerchant(
           provider: SNAPCHAT_ADS_PROVIDER,
           providerCustomerId: account.accountId,
           syncRunId,
+          syncWindowEndDate,
+          syncWindowStartDate,
           supabase: input.supabase,
         }))
       )

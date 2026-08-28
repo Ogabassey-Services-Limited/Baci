@@ -135,6 +135,8 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         p_provider: 'google_ads',
         p_provider_customer_id: '1234567890',
         p_sync_run_id: expect.any(String),
+        p_sync_window_end_date: '2026-08-21',
+        p_sync_window_start_date: '2026-08-20',
       }
     );
   });
@@ -296,6 +298,8 @@ describe('syncGoogleAdsSpendForMerchant', () => {
         p_provider: 'google_ads',
         p_provider_customer_id: '1234567890',
         p_sync_run_id: expect.any(String),
+        p_sync_window_end_date: '2026-08-21',
+        p_sync_window_start_date: '2026-08-20',
       }
     );
   });

@@ -12,6 +12,8 @@ export type SocialAdsReportingProvider =
 interface SocialAdsConnectionRow {
   account_timezone: string | null;
   last_synced_at: string | null;
+  last_synced_end_date?: string | null;
+  last_synced_start_date?: string | null;
   provider: string;
   provider_account_label: string | null;
   provider_customer_id: string | null;
@@ -179,10 +181,16 @@ export function buildSocialAdsAnalyticsSnapshot({
     const isConnected = connection?.status === 'active' && !tokenExpired;
     const needsAccountSelection =
       isConnected && !connection?.provider_customer_id;
-    // The connection marker does not prove that this requested date window
-    // was fetched. A populated window derives its timestamp from row fetches;
-    // an empty window remains unknown until window tracking exists.
-    const windowLastSyncedAt = deriveWindowLastSyncedAt(rows, null);
+    // A populated window derives its timestamp from row fetches. Empty
+    // windows need the exact completion range recorded by the final sync CAS;
+    // an unrelated connection-level marker must not make them appear fresh.
+    const completedWindowMatches =
+      connection?.last_synced_start_date === startDate &&
+      connection?.last_synced_end_date === endDate;
+    const windowLastSyncedAt = deriveWindowLastSyncedAt(
+      rows,
+      completedWindowMatches ? (connection?.last_synced_at ?? null) : null
+    );
     const freshness = !isConnected
       ? 'not_applicable'
       : !windowLastSyncedAt

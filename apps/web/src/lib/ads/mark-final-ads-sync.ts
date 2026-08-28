@@ -8,6 +8,8 @@ export async function markAdsSyncStarted(input: {
   providerCustomerId: string;
   syncRunId: string;
   syncRunStartedAt: string;
+  syncWindowEndDate: string;
+  syncWindowStartDate: string;
   supabase: SupabaseClient;
 }): Promise<boolean> {
   const result = await input.supabase.rpc(
@@ -18,6 +20,8 @@ export async function markAdsSyncStarted(input: {
       p_provider_customer_id: input.providerCustomerId,
       p_sync_run_id: input.syncRunId,
       p_sync_run_started_at: input.syncRunStartedAt,
+      p_sync_window_end_date: input.syncWindowEndDate,
+      p_sync_window_start_date: input.syncWindowStartDate,
     }
   );
   return !result.error && result.data === true;
@@ -29,6 +33,8 @@ export async function markFinalAdsSync(input: {
   provider: string;
   providerCustomerId: string;
   syncRunId: string;
+  syncWindowEndDate: string;
+  syncWindowStartDate: string;
   supabase: SupabaseClient;
 }): Promise<boolean> {
   if (input.finalChunk === false) return true;
@@ -39,6 +45,8 @@ export async function markFinalAdsSync(input: {
       p_provider: input.provider,
       p_provider_customer_id: input.providerCustomerId,
       p_sync_run_id: input.syncRunId,
+      p_sync_window_end_date: input.syncWindowEndDate,
+      p_sync_window_start_date: input.syncWindowStartDate,
     }
   );
   return !result.error && result.data === true;

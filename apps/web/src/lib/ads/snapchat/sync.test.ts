@@ -114,6 +114,8 @@ describe('Snapchat Ads sync', () => {
         p_provider: 'snapchat_ads',
         p_provider_customer_id: 'ad-1',
         p_sync_run_id: expect.any(String),
+        p_sync_window_end_date: '2026-08-20',
+        p_sync_window_start_date: '2026-08-20',
       }
     );
   });

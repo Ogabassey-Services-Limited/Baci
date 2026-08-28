@@ -70,6 +70,8 @@ describe('Meta Ads sync route', () => {
         body: JSON.stringify({
           endDate: '2026-08-20',
           startDate: '2026-08-20',
+          syncWindowEndDate: '2026-08-31',
+          syncWindowStartDate: '2026-08-01',
         }),
         method: 'POST',
       })
@@ -86,6 +88,8 @@ describe('Meta Ads sync route', () => {
       supabase: {},
       syncRunId: expect.any(String),
       syncRunStartedAt: expect.any(String),
+      syncWindowEndDate: '2026-08-31',
+      syncWindowStartDate: '2026-08-01',
     });
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant'

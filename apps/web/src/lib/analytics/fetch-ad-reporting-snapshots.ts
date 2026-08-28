@@ -146,7 +146,9 @@ export async function fetchAdReportingSnapshots({
 }: FetchAdReportingSnapshotsOptions) {
   const googleConnectionPromise = supabase
     .from('merchant_ad_connections')
-    .select('status, provider_customer_id, last_synced_at')
+    .select(
+      'status, provider_customer_id, last_synced_at, last_synced_start_date, last_synced_end_date'
+    )
     .eq('merchant_id', merchantId)
     .eq('provider', 'google_ads')
     .maybeSingle();
@@ -159,7 +161,7 @@ export async function fetchAdReportingSnapshots({
     supabase
       .from('merchant_ad_connections')
       .select(
-        'provider, status, provider_customer_id, provider_account_label, account_timezone, last_synced_at, token_expires_at'
+        'provider, status, provider_customer_id, provider_account_label, account_timezone, last_synced_at, last_synced_start_date, last_synced_end_date, token_expires_at'
       )
       .eq('merchant_id', merchantId)
       .in('provider', [...SOCIAL_ADS_REPORTING_PROVIDERS]),

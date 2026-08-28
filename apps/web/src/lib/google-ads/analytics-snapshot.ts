@@ -2,6 +2,8 @@ import { deriveWindowLastSyncedAt } from '@/lib/analytics/reporting-freshness';
 
 export interface GoogleAdsAnalyticsConnection {
   last_synced_at: string | null;
+  last_synced_end_date?: string | null;
+  last_synced_start_date?: string | null;
   provider_customer_id: string | null;
   status: string;
 }
@@ -110,7 +112,13 @@ export function buildGoogleAdsAnalyticsSnapshot(
       : [];
   const windowLastSyncedAt =
     startDate || endDate
-      ? deriveWindowLastSyncedAt(selectedRows, null)
+      ? deriveWindowLastSyncedAt(
+          selectedRows,
+          connection.last_synced_start_date === startDate &&
+            connection.last_synced_end_date === endDate
+            ? lastSyncedAt
+            : null
+        )
       : lastSyncedAt;
   const daily = selectedRows.map((row) => {
     const spendMicros = nonNegativeMicros(row.spend_micros);

@@ -119,6 +119,8 @@ export async function syncTikTokAdsSpendForMerchant(
     startDate: string;
     syncRunId?: string;
     syncRunStartedAt?: string;
+    syncWindowEndDate?: string;
+    syncWindowStartDate?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -129,11 +131,15 @@ export async function syncTikTokAdsSpendForMerchant(
       startDate: input.startDate,
       syncRunId: input.syncRunId,
       syncRunStartedAt: input.syncRunStartedAt,
+      syncWindowEndDate: input.syncWindowEndDate,
+      syncWindowStartDate: input.syncWindowStartDate,
     }).success
   )
     throw new TikTokAdsSyncError('INVALID_DATE_RANGE');
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
+  const syncWindowStartDate = input.syncWindowStartDate ?? input.startDate;
+  const syncWindowEndDate = input.syncWindowEndDate ?? input.endDate;
   const config = getTikTokAdsConfig();
   const { data, error } = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -174,6 +180,8 @@ export async function syncTikTokAdsSpendForMerchant(
           providerCustomerId,
           syncRunId,
           syncRunStartedAt,
+          syncWindowEndDate,
+          syncWindowStartDate,
           supabase: input.supabase,
         }))
       )
@@ -258,6 +266,8 @@ export async function syncTikTokAdsSpendForMerchant(
           provider: TIKTOK_ADS_PROVIDER,
           providerCustomerId: account.accountId,
           syncRunId,
+          syncWindowEndDate,
+          syncWindowStartDate,
           supabase: input.supabase,
         }))
       )

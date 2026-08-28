@@ -65,4 +65,23 @@ describe('TikTok Ads schemas', () => {
       }).success
     ).toBe(false);
   });
+
+  it('accepts a containing completion window and rejects an unrelated chunk', () => {
+    expect(
+      tiktokAdsSyncRequestSchema.safeParse({
+        endDate: '2026-08-21',
+        startDate: '2026-08-20',
+        syncWindowEndDate: '2026-08-31',
+        syncWindowStartDate: '2026-08-01',
+      }).success
+    ).toBe(true);
+    expect(
+      tiktokAdsSyncRequestSchema.safeParse({
+        endDate: '2026-08-21',
+        startDate: '2026-08-20',
+        syncWindowEndDate: '2026-08-19',
+        syncWindowStartDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+  });
 });

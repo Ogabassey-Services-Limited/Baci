@@ -100,6 +100,8 @@ describe('TikTok Ads sync', () => {
         p_provider: 'tiktok_ads',
         p_provider_customer_id: 'opaque-001',
         p_sync_run_id: expect.any(String),
+        p_sync_window_end_date: '2026-08-30',
+        p_sync_window_start_date: '2026-08-01',
       }
     );
   });

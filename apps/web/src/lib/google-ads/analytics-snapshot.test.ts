@@ -298,4 +298,52 @@ describe('buildGoogleAdsAnalyticsSnapshot', () => {
       lastSyncedAt: null,
     });
   });
+
+  it('reports an empty requested window fresh after its exact range completes', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-22T09:00:00.000Z',
+        last_synced_end_date: '2026-08-22',
+        last_synced_start_date: '2026-08-01',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [],
+      {
+        endDate: '2026-08-22',
+        now: new Date('2026-08-22T10:00:00.000Z'),
+        startDate: '2026-08-01',
+      }
+    );
+
+    expect(result).toMatchObject({
+      connected: true,
+      isStale: false,
+      lastSyncedAt: '2026-08-22T09:00:00.000Z',
+    });
+    expect(result?.daily).toBeUndefined();
+  });
+
+  it('does not reuse an empty-window marker for another requested range', () => {
+    const result = buildGoogleAdsAnalyticsSnapshot(
+      {
+        last_synced_at: '2026-08-22T09:00:00.000Z',
+        last_synced_end_date: '2026-08-22',
+        last_synced_start_date: '2026-08-01',
+        provider_customer_id: '1234567890',
+        status: 'active',
+      },
+      [],
+      {
+        endDate: '2026-08-23',
+        now: new Date('2026-08-22T10:00:00.000Z'),
+        startDate: '2026-08-01',
+      }
+    );
+
+    expect(result).toMatchObject({
+      isStale: false,
+      lastSyncedAt: null,
+    });
+  });
 });

@@ -57,6 +57,25 @@ describe('Google Ads schemas', () => {
     ).toBe(false);
   });
 
+  it('accepts a containing completion window and rejects an unrelated chunk', () => {
+    expect(
+      googleAdsSyncRequestSchema.safeParse({
+        endDate: '2026-08-21',
+        startDate: '2026-08-20',
+        syncWindowEndDate: '2026-08-31',
+        syncWindowStartDate: '2026-08-01',
+      }).success
+    ).toBe(true);
+    expect(
+      googleAdsSyncRequestSchema.safeParse({
+        endDate: '2026-08-21',
+        startDate: '2026-08-20',
+        syncWindowEndDate: '2026-08-19',
+        syncWindowStartDate: '2026-08-01',
+      }).success
+    ).toBe(false);
+  });
+
   it('bounds direct spend windows at the provider sync limit', () => {
     expect(
       googleAdsSpendQuerySchema.safeParse({

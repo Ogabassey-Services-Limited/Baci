@@ -42,6 +42,10 @@ const serverOwnedSyncRunMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260828010000_server_owned_ads_sync_runs.sql'
 );
+const syncWindowCompletionMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260828100000_ads_sync_window_completion.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -233,6 +237,33 @@ describe('provider-neutral ads storage migration', () => {
     );
     expect(sql).toContain(
       'grant execute on function public.get_merchant_ads_sync_run_started_at'
+    );
+  });
+
+  it('persists exact completed ranges so empty windows can report freshness', () => {
+    const sql = readFileSync(
+      syncWindowCompletionMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'add column if not exists last_synced_start_date pg_catalog.date'
+    );
+    expect(sql).toContain(
+      'add column if not exists last_synced_end_date pg_catalog.date'
+    );
+    expect(sql).toContain(
+      'merchant_ad_connections_last_synced_window_bounds_check'
+    );
+    expect(sql).toContain('p_sync_window_start_date pg_catalog.date');
+    expect(sql).toContain('p_sync_window_end_date pg_catalog.date');
+    expect(sql).toContain('last_synced_start_date = p_sync_window_start_date');
+    expect(sql).toContain('last_synced_end_date = p_sync_window_end_date');
+    expect(sql).toContain(
+      'revoke all on function public.mark_merchant_ads_connection_synced_if_current('
+    );
+    expect(sql).toContain(
+      'grant execute on function public.mark_merchant_ads_connection_synced_if_current('
     );
   });
 });

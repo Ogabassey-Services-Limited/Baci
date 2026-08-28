@@ -120,6 +120,8 @@ describe('POST /api/integrations/ads/google/sync', () => {
         body: JSON.stringify({
           endDate: '2026-08-21',
           startDate: '2026-08-20',
+          syncWindowEndDate: '2026-08-31',
+          syncWindowStartDate: '2026-08-01',
         }),
         headers: { 'content-type': 'application/json' },
         method: 'POST',
@@ -143,6 +145,8 @@ describe('POST /api/integrations/ads/google/sync', () => {
       supabase: {},
       syncRunId: expect.any(String),
       syncRunStartedAt: expect.any(String),
+      syncWindowEndDate: '2026-08-31',
+      syncWindowStartDate: '2026-08-01',
     });
     expect(mockInvalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant-1'

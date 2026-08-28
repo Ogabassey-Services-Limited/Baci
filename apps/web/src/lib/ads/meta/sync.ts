@@ -107,6 +107,8 @@ export async function syncMetaAdsSpendForMerchant(
     startDate: string;
     syncRunId?: string;
     syncRunStartedAt?: string;
+    syncWindowEndDate?: string;
+    syncWindowStartDate?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -117,12 +119,16 @@ export async function syncMetaAdsSpendForMerchant(
       startDate: input.startDate,
       syncRunId: input.syncRunId,
       syncRunStartedAt: input.syncRunStartedAt,
+      syncWindowEndDate: input.syncWindowEndDate,
+      syncWindowStartDate: input.syncWindowStartDate,
     }).success
   ) {
     throw new MetaAdsSyncError('INVALID_DATE_RANGE');
   }
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
   const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
+  const syncWindowStartDate = input.syncWindowStartDate ?? input.startDate;
+  const syncWindowEndDate = input.syncWindowEndDate ?? input.endDate;
   const config = getMetaAdsConfig();
   const { data: connections, error: connectionError } =
     await input.credentialSupabase.rpc('get_merchant_ads_connection_secret', {
@@ -166,6 +172,8 @@ export async function syncMetaAdsSpendForMerchant(
     startDate: input.startDate,
     syncRunId,
     syncRunStartedAt,
+    syncWindowEndDate,
+    syncWindowStartDate,
     supabase: input.supabase,
   });
   inFlightSyncs.set(syncKey, syncPromise);
@@ -188,6 +196,8 @@ async function syncSelectedMetaAdsAccount(input: {
   startDate: string;
   syncRunId: string;
   syncRunStartedAt: string;
+  syncWindowEndDate: string;
+  syncWindowStartDate: string;
   supabase: SupabaseClient;
 }): Promise<{ accountId: string; rowsWritten: number }> {
   let usageTelemetry: MetaAdsUsageTelemetry | null = null;
@@ -202,6 +212,8 @@ async function syncSelectedMetaAdsAccount(input: {
         providerCustomerId,
         syncRunId: input.syncRunId,
         syncRunStartedAt: input.syncRunStartedAt,
+        syncWindowEndDate: input.syncWindowEndDate,
+        syncWindowStartDate: input.syncWindowStartDate,
         supabase: input.supabase,
       }))
     )
@@ -276,6 +288,8 @@ async function syncSelectedMetaAdsAccount(input: {
         provider: META_ADS_PROVIDER,
         providerCustomerId: account.accountId,
         syncRunId: input.syncRunId,
+        syncWindowEndDate: input.syncWindowEndDate,
+        syncWindowStartDate: input.syncWindowStartDate,
         supabase: input.supabase,
       }))
     )
