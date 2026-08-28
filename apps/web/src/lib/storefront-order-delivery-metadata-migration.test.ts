@@ -10,6 +10,20 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const columnPreparationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828150000_prepare_storefront_order_delivery_columns.sql'
+  ),
+  'utf8'
+);
+const pickupLocationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828151000_enforce_storefront_airport_pickup_location.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order delivery metadata migration contract', () => {
   it('persists a durable delivery discriminator with airport invariants', () => {
@@ -21,6 +35,22 @@ describe('storefront order delivery metadata migration contract', () => {
     expect(migration).toContain('orders_airport_type_method_check');
     expect(migration).toContain(
       "airport_type IS NULL OR delivery_method = 'airport'"
+    );
+  });
+
+  it('installs delivery columns before the deferred enforcement migration', () => {
+    expect(columnPreparationMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS delivery_method text'
+    );
+    expect(columnPreparationMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS airport_type text'
+    );
+    expect(columnPreparationMigration).not.toContain('CREATE TRIGGER');
+    expect(pickupLocationMigration).toContain(
+      'Airport pickup location is required'
+    );
+    expect(pickupLocationMigration).toContain(
+      "pg_catalog.lower(v_city) = 'airport'"
     );
   });
 

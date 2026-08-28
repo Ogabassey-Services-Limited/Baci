@@ -28,6 +28,25 @@ export function validateAirportDeliveryAddress({
     normalizedCity === 'airport' && normalizedState === 'nigeria';
   const hasLegacyMarkerAddress =
     getLegacyAirportType(shippingAddress?.address) === 'delivery';
+  const hasConcretePickupLocation = Boolean(
+    shippingAddress?.city?.trim() &&
+      shippingAddress?.state?.trim() &&
+      !(normalizedCity === 'airport' && normalizedState === 'nigeria')
+  );
+
+  if (
+    deliveryMethod === 'airport' &&
+    airportType === 'pickup' &&
+    !selectedQuoteId &&
+    !shippingRateId &&
+    !hasConcretePickupLocation
+  ) {
+    throw new LocalAirportDeliveryValidationError(
+      'An airport pickup location is required',
+      'AIRPORT_PICKUP_LOCATION_REQUIRED',
+      400
+    );
+  }
 
   if (
     deliveryMethod !== 'airport' ||

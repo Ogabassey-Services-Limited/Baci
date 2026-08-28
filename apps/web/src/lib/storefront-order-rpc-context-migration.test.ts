@@ -103,6 +103,9 @@ describe('storefront order RPC context migration contract', () => {
     expect(deferredMigrationPolicy).toContain(
       '20260828110000_prepare_storefront_order_hash_stamping'
     );
+    expect(deferredMigrationPolicy).toContain(
+      '20260828151000_enforce_storefront_airport_pickup_location'
+    );
   });
 
   it('guards idempotent replay updates with the same route context', () => {

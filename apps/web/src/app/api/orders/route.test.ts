@@ -4507,6 +4507,44 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     });
   });
 
+  it('prioritizes an airport quote expiry over broad savings error mapping', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order_with_savings: {
+            data: null,
+            error: {
+              code: '22023',
+              message: 'The selected airport delivery quote has expired',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          delivery_method: 'airport',
+          airport_type: 'delivery',
+          shipping_fee: 35_000,
+          savings_amount: 500,
+          savings_goal_id: '123e4567-e89b-12d3-a456-426614174555',
+          use_savings_credit: true,
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'AIRPORT_QUOTE_EXPIRED',
+      details: 'The selected airport delivery quote has expired',
+    });
+  });
+
   it('logs known client order rejections as warnings instead of Vercel errors', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(

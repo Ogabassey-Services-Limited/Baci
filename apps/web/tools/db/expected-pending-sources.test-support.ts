@@ -268,4 +268,14 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260828130000_scope_storefront_order_replay_route_context.sql',
     sha256: '6d50cefa7621d3f1085375ae22954a877dc5bb93a17ca09e1f6baa065de01af3',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828150000_prepare_storefront_order_delivery_columns.sql',
+    sha256: '462c99543a414b594f43407f54a97cb8785e914709883b6434b1668396b09815',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828151000_enforce_storefront_airport_pickup_location.sql',
+    sha256: '6cf6464ce3e36a23b2fa6d6b206b1165c7c6fdf3927bbbc7558fa418d3c9da40',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

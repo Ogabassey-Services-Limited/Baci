@@ -42,4 +42,34 @@ describe('validateAirportDeliveryAddress', () => {
       expect.objectContaining({ code: 'AIRPORT_ADDRESS_REQUIRED' })
     );
   });
+
+  it('accepts fixed airport pickup with a concrete city and state', () => {
+    expect(() =>
+      validateAirportDeliveryAddress({
+        airportType: 'pickup',
+        deliveryMethod: 'airport',
+        shippingAddress: {
+          address: 'Airport Pickup',
+          city: 'Ikeja',
+          state: 'Lagos',
+        },
+      })
+    ).not.toThrow();
+  });
+
+  it('rejects fixed airport pickup without a concrete location', () => {
+    expect(() =>
+      validateAirportDeliveryAddress({
+        airportType: 'pickup',
+        deliveryMethod: 'airport',
+        shippingAddress: {
+          address: 'Airport Pickup',
+          city: 'Airport',
+          state: 'Nigeria',
+        },
+      })
+    ).toThrowError(
+      expect.objectContaining({ code: 'AIRPORT_PICKUP_LOCATION_REQUIRED' })
+    );
+  });
 });
