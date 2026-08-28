@@ -17,6 +17,7 @@ interface BuildTransactionDiscountAdTrackingInput {
   lineDiscounts?: Array<TransactionDiscountLineAllocation | null>;
   shouldApplyServerDerivedDiscount: boolean;
   transactionDiscountProof?: object;
+  transactionDiscountNonce?: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -34,6 +35,7 @@ export function buildTransactionDiscountAdTracking({
   geoPrivacy,
   lineDiscounts,
   shouldApplyServerDerivedDiscount,
+  transactionDiscountNonce,
   transactionDiscountProof,
 }: BuildTransactionDiscountAdTrackingInput): Record<string, unknown> | null {
   const source = isRecord(adTracking) ? adTracking : null;
@@ -67,6 +69,9 @@ export function buildTransactionDiscountAdTracking({
     shouldApplyServerDerivedDiscount && lineDiscounts
       ? {
           lineDiscounts,
+          ...(transactionDiscountNonce
+            ? { nonce: transactionDiscountNonce }
+            : {}),
           version: 3 as const,
           ...(transactionDiscountProof
             ? { proof: transactionDiscountProof }

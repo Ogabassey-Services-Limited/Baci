@@ -37,10 +37,12 @@ describe('buildTransactionDiscountAdTracking', () => {
               variantId: null,
             },
           ],
+          nonce: 'nonce-1',
           version: 3,
         },
         signature: 'signed-proof',
       },
+      transactionDiscountNonce: 'nonce-1',
     });
 
     expect(result).toEqual({
@@ -60,6 +62,7 @@ describe('buildTransactionDiscountAdTracking', () => {
             variantId: null,
           },
         ],
+        nonce: 'nonce-1',
         proof: {
           action: 'storefront_transaction_discount',
           payload: {
@@ -72,6 +75,7 @@ describe('buildTransactionDiscountAdTracking', () => {
                 variantId: null,
               },
             ],
+            nonce: 'nonce-1',
             version: 3,
           },
           signature: 'signed-proof',

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   appendReceiptFulfillmentDescription,
   formatCanonicalProductConditionLabel,
@@ -1834,15 +1835,18 @@ export async function POST(request: NextRequest) {
     let transactionDiscountProof:
       | ReturnType<typeof createQuizRpcServerProof>
       | undefined;
+    let transactionDiscountNonce: string | undefined;
     if (
       shouldApplyServerDerivedDiscount &&
       negotiationDiscount?.lineDiscounts
     ) {
       try {
+        transactionDiscountNonce = randomUUID();
         transactionDiscountProof = createQuizRpcServerProof({
           action: 'storefront_transaction_discount',
           payload: {
             lineDiscounts: negotiationDiscount.lineDiscounts,
+            nonce: transactionDiscountNonce,
             version: 3,
           },
           subjectId: merchant_id,
@@ -1876,6 +1880,7 @@ export async function POST(request: NextRequest) {
       lineDiscounts: negotiationDiscount?.lineDiscounts,
       shouldApplyServerDerivedDiscount,
       transactionDiscountProof,
+      transactionDiscountNonce,
     });
 
     const {

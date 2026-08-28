@@ -35,14 +35,35 @@ describe('POST /api/orders transaction discount metadata', () => {
                 variantId: null,
               },
             ],
+            nonce: expect.any(String),
             proof: expect.objectContaining({
               action: 'storefront_transaction_discount',
-              payload: expect.objectContaining({ version: 3 }),
+              payload: expect.objectContaining({
+                nonce: expect.any(String),
+                version: 3,
+              }),
             }),
             version: 3,
           },
         }),
       })
     );
+  });
+
+  it('uses distinct nonces for identical guest discount proofs', async () => {
+    await POST(createOrderRequest());
+    await POST(createOrderRequest());
+
+    const discountCalls = getLatestRpc().mock.calls.filter(
+      ([rpcName]) => rpcName === 'create_storefront_order'
+    );
+    const firstNonce =
+      discountCalls[0]?.[1]?.p_ad_tracking?.baci_transaction_discount?.nonce;
+    const secondNonce =
+      discountCalls[1]?.[1]?.p_ad_tracking?.baci_transaction_discount?.nonce;
+
+    expect(firstNonce).toEqual(expect.any(String));
+    expect(secondNonce).toEqual(expect.any(String));
+    expect(secondNonce).not.toBe(firstNonce);
   });
 });

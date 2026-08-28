@@ -242,29 +242,30 @@ export function resetOrderRouteMocks() {
     rejectionCode: null,
     totalDiscount: 21.5,
   });
-  mockCreateQuizRpcServerProof.mockReturnValue({
-    action: 'storefront_transaction_discount',
-    issued_at: '2026-08-28T00:00:00.000Z',
-    payload: {
-      lineDiscounts: [
-        {
-          lineId: 1,
-          merchandiseDiscount: 20,
-          productId: 'p-mac',
-          vatRelief: 1.5,
-          variantId: null,
-        },
-      ],
-      version: 3,
-    },
-    payload_hash: '0'.repeat(64),
-    proof_id: 'proof-id',
-    scope: 'quiz_phase1a',
-    signature: '0'.repeat(64),
-    subject_id: MERCHANT_ID,
-    user_id: 'guest',
-    version: 'quiz-rpc-proof:v1',
-  });
+  mockCreateQuizRpcServerProof.mockImplementation(
+    ({
+      action,
+      payload,
+      subjectId,
+      userId,
+    }: {
+      action: string;
+      payload: Record<string, unknown>;
+      subjectId: string;
+      userId: string;
+    }) => ({
+      action,
+      issued_at: '2026-08-28T00:00:00.000Z',
+      payload,
+      payload_hash: '0'.repeat(64),
+      proof_id: 'proof-id',
+      scope: 'quiz_phase1a',
+      signature: '0'.repeat(64),
+      subject_id: subjectId,
+      user_id: userId,
+      version: 'quiz-rpc-proof:v1',
+    })
+  );
   mockCreateAdminClient.mockReturnValue({
     from: vi.fn(() => ({
       select: vi.fn().mockReturnThis(),
