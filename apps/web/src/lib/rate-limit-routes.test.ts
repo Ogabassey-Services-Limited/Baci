@@ -40,9 +40,10 @@ describe('rate-limit route matching', () => {
       pattern: '/api/places',
       config: { maxRequests: 60, windowMs: 60_000 },
     });
-    expect(getRateLimitConfig('/api/places/details').config.maxRequests).toBe(
-      60
-    );
+    expect(getRateLimitConfig('/api/places/details')).toMatchObject({
+      pattern: '/api/places/details',
+      config: { maxRequests: 60, windowMs: 60_000 },
+    });
     expect(getRateLimitConfig('/api/places-other').config.maxRequests).toBe(50);
   });
 });

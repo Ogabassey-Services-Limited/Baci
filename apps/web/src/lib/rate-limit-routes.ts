@@ -22,6 +22,8 @@ const RATE_LIMITS: Record<string, RateLimitConfig> = {
   // Keep autocomplete traffic from consuming the generic API budget before
   // the follow-up place-details request can complete.
   '/api/places': { maxRequests: 60, windowMs: 60_000 },
+  // Keep a details lookup available even after a long autocomplete burst.
+  '/api/places/details': { maxRequests: 60, windowMs: 60_000 },
   '/api/storefront': { maxRequests: 100, windowMs: 60_000 },
   '/api/storefront/negotiation-evidence': {
     maxRequests: 10,
