@@ -86,7 +86,7 @@ describe('JustLaunchedCarousel', () => {
     expect(mockPush).toHaveBeenCalledWith('/product/samsung-galaxy-a27-5g');
   });
 
-  it('requests early resizing for oversized launch product images', () => {
+  it('bounds Android decoding and requests iOS early resizing for launch images', () => {
     mockUseProducts.mockReturnValue({
       products: [xiaomi],
       isLoading: false,
@@ -96,7 +96,14 @@ describe('JustLaunchedCarousel', () => {
     render(<JustLaunchedCarousel />);
 
     expect(mockImage).toHaveBeenCalledWith(
-      expect.objectContaining({ enforceEarlyResizing: true })
+      expect.objectContaining({
+        enforceEarlyResizing: true,
+        source: expect.objectContaining({
+          height: expect.any(Number),
+          uri: xiaomi.image,
+          width: expect.any(Number),
+        }),
+      })
     );
   });
 

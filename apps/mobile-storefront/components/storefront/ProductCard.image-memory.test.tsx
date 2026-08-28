@@ -51,7 +51,7 @@ describe('ProductCard image memory behavior', () => {
     jest.clearAllMocks();
   });
 
-  it('requests early resizing before displaying oversized product images', () => {
+  it('bounds Android decoding and requests iOS early resizing for oversized images', () => {
     render(<ProductCard product={product} />);
 
     expect(mockGridProductCard).toHaveBeenCalledWith(
@@ -59,6 +59,11 @@ describe('ProductCard image memory behavior', () => {
         imageProps: expect.objectContaining({
           allowDownscaling: true,
           enforceEarlyResizing: true,
+        }),
+        imageSource: expect.objectContaining({
+          height: expect.any(Number),
+          uri: product.image,
+          width: expect.any(Number),
         }),
       })
     );
