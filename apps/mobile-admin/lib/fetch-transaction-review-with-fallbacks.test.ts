@@ -9,6 +9,7 @@ vi.mock('./fetch-transaction-review-rows', () => ({
 }));
 
 import { fetchTransactionReviewWithFallbacks } from './fetch-transaction-review-with-fallbacks';
+import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
 
 const schemaCacheError = {
   code: 'PGRST204',
@@ -39,6 +40,61 @@ describe('fetchTransactionReviewWithFallbacks', () => {
         includeCancelledAt: true,
         includeTransactionDate: true,
       })
+    );
+  });
+
+  it('keeps cancellation filtering on discount-aware base fallbacks', async () => {
+    const rows = [{ id: 'legacy-cancellation-filter-order' }];
+    const genericSchemaCacheError = {
+      code: 'PGRST204',
+      message:
+        'Could not find a requested order_items field in the schema cache',
+    };
+    let attempt = 0;
+    mocks.fetchTransactionReviewRows.mockImplementation(
+      async ({ selectStatement }) => {
+        attempt += 1;
+        if (attempt === 1) {
+          return {
+            data: null,
+            error: {
+              code: 'PGRST204',
+              message:
+                "Could not find the 'line_id' column of 'order_items' in the schema cache",
+            },
+          };
+        }
+        if (
+          selectStatement ===
+          TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId
+        ) {
+          return { data: rows, error: null };
+        }
+        return { data: null, error: genericSchemaCacheError };
+      }
+    );
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    const noLineIdCall = mocks.fetchTransactionReviewRows.mock.calls.find(
+      ([options]) =>
+        options.selectStatement ===
+        TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId
+    );
+    const noVariantIdCall = mocks.fetchTransactionReviewRows.mock.calls.find(
+      ([options]) =>
+        options.selectStatement ===
+        TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId
+    );
+
+    expect(noLineIdCall?.[0]).toEqual(
+      expect.objectContaining({ includeCancelledAt: true })
+    );
+    expect(noVariantIdCall?.[0]).toEqual(
+      expect.objectContaining({ includeCancelledAt: true })
     );
   });
 

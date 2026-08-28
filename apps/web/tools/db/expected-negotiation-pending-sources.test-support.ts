@@ -52,6 +52,11 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828080000_persist_storefront_order_line_ordinals.sql',
-    sha256: 'e77ce564c0869c4883bc745463981bbc638b1d0aabd0d935fe773ca18b85de52',
+    sha256: 'd43ba477be7f6aef9084b7014651b0c58a000ccea2f93a7268736ef1fadd28eb',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260828100000_reject_unverified_transaction_discount_proofs.sql',
+    sha256: 'aa15f06646812df854179f19b38cfb121bca9c2c08b1b40914be78f8a989483d',
   },
 ];

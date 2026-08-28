@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTransactionDiscountLineKey } from './transaction-discount';
+import { buildTransactionDiscountLineKey } from './transaction-discount-line-key';
 
 describe('buildTransactionDiscountLineKey', () => {
   it('canonicalizes variant-attribute order for the same persisted line', () => {

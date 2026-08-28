@@ -134,11 +134,34 @@ BEGIN
 
   v_updated := pg_catalog.replace(
     v_definition,
-    $$  FROM tmp_storefront_order_items t;
+    $$  SELECT
+    COUNT(*) FILTER (WHERE t.product_id IS NULL OR t.product_name IS NULL) AS invalid_item_count,
+    COUNT(*) FILTER (WHERE t.quantity IS NULL OR t.quantity <= 0) AS invalid_quantity_count,
+    COUNT(*) FILTER (
+      WHERE t.variant_id IS NOT NULL AND t.variant_stock IS NULL
+    ) AS invalid_variant_count
+  INTO v_invalid_item_count, v_invalid_quantity_count, v_invalid_variant_count
+  FROM tmp_storefront_order_items t;
 
-  SELECT
-    COUNT(*) FILTER (WHERE t.product_id IS NULL OR t.product_name IS NULL)$$,
-    $$  FROM tmp_storefront_order_items t;
+  IF v_invalid_item_count > 0 THEN
+    RAISE EXCEPTION 'invalid_items';
+  END IF;
+
+  IF v_invalid_quantity_count > 0 THEN
+    RAISE EXCEPTION 'invalid_quantity';
+  END IF;
+
+  IF v_invalid_variant_count > 0 THEN
+    RAISE EXCEPTION 'invalid_variant';
+  END IF;$$,
+    $$  SELECT
+    COUNT(*) FILTER (WHERE t.product_id IS NULL OR t.product_name IS NULL) AS invalid_item_count,
+    COUNT(*) FILTER (WHERE t.quantity IS NULL OR t.quantity <= 0) AS invalid_quantity_count,
+    COUNT(*) FILTER (
+      WHERE t.variant_id IS NOT NULL AND t.variant_stock IS NULL
+    ) AS invalid_variant_count
+  INTO v_invalid_item_count, v_invalid_quantity_count, v_invalid_variant_count
+  FROM tmp_storefront_order_items t;
 
   IF EXISTS (
     SELECT 1
@@ -150,8 +173,17 @@ BEGIN
     RAISE EXCEPTION 'duplicate_line_ordinal';
   END IF;
 
-  SELECT
-    COUNT(*) FILTER (WHERE t.product_id IS NULL OR t.product_name IS NULL)$$
+  IF v_invalid_item_count > 0 THEN
+    RAISE EXCEPTION 'invalid_items';
+  END IF;
+
+  IF v_invalid_quantity_count > 0 THEN
+    RAISE EXCEPTION 'invalid_quantity';
+  END IF;
+
+  IF v_invalid_variant_count > 0 THEN
+    RAISE EXCEPTION 'invalid_variant';
+  END IF;$$
   );
   IF v_updated = v_definition THEN
     RAISE EXCEPTION 'storefront_order_item_ordinal_validation_patch_failed';

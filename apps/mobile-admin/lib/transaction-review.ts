@@ -1,4 +1,7 @@
-import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
+import {
+  getDiscountedTransactionUnitPrices,
+  getQuizVoucherDiscountAmount,
+} from './transaction-review-discount';
 import {
   getPersistedTransactionDiscountAmount,
   parseTransactionDiscountOptions,
@@ -108,9 +111,15 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const persistedDiscountOptions = parseTransactionDiscountOptions(
       order.ad_tracking
     );
+    const persistedDiscountAmount = getPersistedTransactionDiscountAmount(
+      persistedDiscountOptions
+    );
+    const voucherDiscountAmount = getQuizVoucherDiscountAmount(orderItems);
     const discountAmount =
       toFiniteNumberOrNull(order.discount_amount) ??
-      getPersistedTransactionDiscountAmount(persistedDiscountOptions) ??
+      (persistedDiscountAmount == null
+        ? voucherDiscountAmount || null
+        : persistedDiscountAmount + voucherDiscountAmount) ??
       0;
     const discountedUnitPrices = getDiscountedTransactionUnitPrices(
       orderItems,

@@ -62,9 +62,9 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([-100, 50]);
   });
 
-  it('keeps quiz voucher discounts on awarded lines', () => {
+  it('applies a full voucher discount to merchandise without discounting assurance', () => {
     const items = [
-      { price: 100, quantity: 1, quiz_award_id: 'award-1' },
+      { assurance_fee: 10, price: 100, quantity: 1, quiz_award_id: 'award-1' },
       { price: 200, quantity: 1 },
     ];
 
@@ -161,6 +161,24 @@ describe('getDiscountedTransactionUnitPrices', () => {
     const prices = getDiscountedTransactionUnitPrices(items, 12);
 
     expect(prices).toEqual([90]);
+  });
+
+  it('keeps assurance fees out of VAT-inclusive legacy discount allocation', () => {
+    const items = [
+      {
+        assurance_fee: 10,
+        price: 100,
+        quantity: 1,
+        vat_category_code: 'S',
+        vat_rate: 7.5,
+      },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 21.5, {
+      discountIncludesVat: true,
+    });
+
+    expect(prices).toEqual([80]);
   });
 
   it('ignores malformed persisted discount metadata', () => {

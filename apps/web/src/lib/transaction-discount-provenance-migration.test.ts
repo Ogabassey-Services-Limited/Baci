@@ -38,6 +38,13 @@ const replaySignatureBindingMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const proofRejectionMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828100000_reject_unverified_transaction_discount_proofs.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -113,6 +120,15 @@ describe('transaction discount provenance migration', () => {
     );
     expect(replaySignatureBindingMigrationSql).toMatch(
       /INSERT INTO private\.transaction_discount_proof_replay\s*\(\s*proof_id,\s*order_id,\s*merchant_id\s*\)\s*VALUES\s*\(\s*v_proof ->> 'signature',\s*NEW\.id,\s*NEW\.merchant_id\s*\)/i
+    );
+  });
+
+  it('fails closed when a version-three proof cannot be accepted', () => {
+    expect(proofRejectionMigrationSql).toMatch(
+      /v_metadata ->> 'version' = '3'[\s\S]*?v_metadata \? 'proof'[\s\S]*?RAISE EXCEPTION 'transaction_discount_proof_rejected'/i
+    );
+    expect(proofRejectionMigrationSql).toMatch(
+      /ON CONFLICT \(proof_id\) DO NOTHING[\s\S]*?GET DIAGNOSTICS v_inserted_count = ROW_COUNT/i
     );
   });
 });

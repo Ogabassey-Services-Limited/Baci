@@ -98,7 +98,7 @@ export async function fetchTransactionReviewWithFallbacks(
       'BaseNoLineId',
       legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId,
-      false,
+      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineIdNoTaxAmount,
@@ -119,7 +119,7 @@ export async function fetchTransactionReviewWithFallbacks(
       'BaseNoVariantId',
       legacyQuery,
       TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantId,
-      false,
+      true,
       {
         selectStatement:
           TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoVariantIdNoTaxAmount,

@@ -1,5 +1,6 @@
 import type { AdTrackingData } from '@/lib/ad-tracking-cookies';
 import type { AnalyticsPaidOrder } from './fetch-paid-orders';
+import { hasAdTrackingData } from './has-ad-tracking-data';
 
 export interface PlatformStats {
   name: string;
@@ -113,7 +114,7 @@ export function calculatePlatformStats(
   for (const order of orders) {
     const tracking = order.ad_tracking as AdTrackingData | null;
     const revenue = Number(order.total) || 0;
-    if (!tracking) continue;
+    if (!hasAdTrackingData(tracking)) continue;
 
     ordersWithTracking += 1;
     if (tracking.limitedDataUse) ordersWithLDU += 1;

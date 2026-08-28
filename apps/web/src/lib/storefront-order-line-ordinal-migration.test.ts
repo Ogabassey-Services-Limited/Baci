@@ -23,5 +23,14 @@ describe('storefront order line ordinal migration', () => {
     expect(migrationSql).toContain(
       'storefront_order_item_line_ordinal_select_patch_failed'
     );
+    expect(migrationSql).toContain(
+      'invalid_variant_count\n  INTO v_invalid_item_count, v_invalid_quantity_count, v_invalid_variant_count'
+    );
+    expect(migrationSql).toContain(
+      "IF v_invalid_variant_count > 0 THEN\n    RAISE EXCEPTION 'invalid_variant';\n  END IF;"
+    );
+    expect(migrationSql).toContain(
+      "IF v_invalid_item_count > 0 THEN\n    RAISE EXCEPTION 'invalid_items';"
+    );
   });
 });
