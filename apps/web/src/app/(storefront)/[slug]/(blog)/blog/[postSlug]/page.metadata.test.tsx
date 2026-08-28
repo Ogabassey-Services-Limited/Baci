@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   liveBlogPost,
-  mockBuildStoreUrl,
   mockConnection,
   mockDraftMode,
   mockGetBlogPostRedirect,
@@ -266,14 +265,15 @@ describe('storefront blog post metadata', () => {
     );
   });
 
-  it('uses the explicit social image route for OpenGraph and Twitter metadata', async () => {
-    mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
+  it('uses the cached landscape asset directly for OpenGraph and Twitter metadata', async () => {
     mockGetRequestScopedBlogPost.mockResolvedValue({
       ...liveBlogPost,
-      merchant: {
-        ...liveBlogPost.merchant,
-        custom_domain: null,
-        slug: 'ogabassey',
+      post: {
+        ...liveBlogPost.post,
+        featured_image_variants: {
+          landscape_16x9:
+            'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/apple-landscape_16x9.jpg',
+        },
       },
     });
 
@@ -284,14 +284,14 @@ describe('storefront blog post metadata', () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         alt: 'The Great 5K Stall — Ogabassey',
-        height: 630,
-        type: 'image/png',
-        url: 'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+        height: 675,
+        type: 'image/jpeg',
+        url: 'https://cdn.ogabassey.com/image/width=1200,quality=75,format=jpeg/core-assets/blog/apple-landscape_16x9.jpg',
         width: 1200,
       },
     ]);
     expect(metadata.twitter?.images).toEqual([
-      'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+      'https://cdn.ogabassey.com/image/width=1200,quality=75,format=jpeg/core-assets/blog/apple-landscape_16x9.jpg',
     ]);
   });
 });
