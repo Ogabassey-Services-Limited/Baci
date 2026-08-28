@@ -1,15 +1,18 @@
 import { INTERNAL_AUTH_HEADER } from '@/lib/internal-auth-header';
 import { parseCompareSlug } from '@/lib/storefront-compare/compare-slugs';
+import { storefrontComparePageStatusFastPath } from '@/lib/storefront-compare-page-status-fast-path';
+import {
+  isLoopbackOrigin,
+  storefrontInternalPreflight,
+} from '@/lib/storefront-internal-preflight';
+import { createStorefrontPreflightCircuitBreaker } from '@/lib/storefront-preflight-circuit-breaker';
+import type { StorefrontPreflightRpcImpl } from '@/lib/storefront-preflight-rpc';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
 import { internalComparePageStatusBodySchema } from '@/schemas/internal-slug-set-route';
-import { storefrontInternalPreflight } from './storefront-internal-preflight';
-import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-circuit-breaker';
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 const MAX_COMPARE_STATUS_COMPOSITE_LENGTH = 1_024;
-// Compare status is an optional hard-404 optimization. Bound concurrent
-// self-fetches so a crawler burst cannot turn the slow internal route into an
-// unbounded fan-out; admitted callers still retain the existing fail-open
+// Bound optional hard-status self-fetches; admitted callers retain fail-open
 // timeout and circuit-breaker semantics.
 const MAX_COMPARE_PAGE_STATUS_IN_FLIGHT = 8;
 const comparePageStatusBreaker = createStorefrontPreflightCircuitBreaker();
@@ -19,19 +22,14 @@ const comparePageStatusInFlight = new Map<
 >();
 
 interface ComparePageStatusOptions {
-  /** Public request origin; the transport resolves a trusted platform target. */
   origin: string;
-  /** Storefront slug or custom domain resolved by the proxy. */
   identifier: string;
-  /** Category segment from `/{category}/compare/{comparison}`. */
   categorySlug: string;
-  /** Composite product/brand comparison segment. */
   comparisonSlug: string;
-  /** Internal API secret; absent means the preflight is disabled. */
   secret: string | undefined;
-  /** Injectable for tests. */
   fetchImpl?: typeof fetch;
-  /** Tight upper bound for the internal status read. */
+  /** Injectable direct RPC transport. */
+  rpcImpl?: StorefrontPreflightRpcImpl;
   timeoutMs?: number;
 }
 
@@ -46,8 +44,7 @@ type ComparePageStatusFailOpenContext = {
 };
 
 function comparePageStatusRequestKey(url: string, secret: string): string {
-  // Keep the credential in the in-memory key so a rotated secret cannot share
-  // a pending response with the previous credential. The key is never logged.
+  // Keep rotated credentials from sharing a pending response; never log this key.
   return `${url}\u0000${secret}`;
 }
 
@@ -169,15 +166,7 @@ function skipForComparePageStatusConcurrency(
   return { kind: 'renderable-or-unknown' };
 }
 
-/**
- * Resolve a compare-pair hard-status verdict before PPR can flush the page.
- * The internal endpoint owns the data read and uses the same bounded inventory
- * + maintained-manifest policy as the page loader; this edge-side module only
- * authenticates the transport and maps an explicit positive absence.
- *
- * Every transport, schema, safety, draft, and degraded-resolver uncertainty
- * fails open. Only `{ present: false, hasError: false }` becomes `missing`.
- */
+/** Resolve a compare hard status; every uncertain or degraded result fails open. */
 async function resolveStorefrontComparePageStatus(
   opts: ComparePageStatusOptions
 ): Promise<StorefrontComparePageStatusResolution> {
@@ -197,9 +186,7 @@ async function resolveStorefrontComparePageStatus(
     return { kind: 'renderable-or-unknown' };
   }
 
-  // The composite route segment is intentionally not checked as one product
-  // slug. Validate its decoded halves instead, preserving the long-key form
-  // supported by the compare loader while still bounding cache inputs.
+  // Validate decoded halves while preserving long-key compare routes.
   if (opts.comparisonSlug.length > MAX_COMPARE_STATUS_COMPOSITE_LENGTH) {
     storefrontInternalPreflight.warnSkip({
       ...failOpenContext,
@@ -235,6 +222,23 @@ async function resolveStorefrontComparePageStatus(
     return { kind: 'renderable-or-unknown' };
   }
 
+  // Proxy is not a safe place for the resolver's slow inventory fetch. Keep
+  // deterministic hard-404s via bounded publication probes on public origins.
+  if (!isLoopbackOrigin(opts.origin)) {
+    const fastPathResolution =
+      await storefrontComparePageStatusFastPath.resolve({
+        origin: opts.origin,
+        identifier: opts.identifier,
+        categorySlug: opts.categorySlug,
+        comparisonIsValid: parsed !== null,
+        rpcImpl: opts.rpcImpl,
+        timeoutMs: opts.timeoutMs,
+      });
+    if (fastPathResolution) {
+      return fastPathResolution;
+    }
+  }
+
   const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
   if (!baseUrl) {
     storefrontInternalPreflight.warnFailOpen({
@@ -251,9 +255,7 @@ async function resolveStorefrontComparePageStatus(
   )}`;
   const fetchImpl = opts.fetchImpl ?? fetch;
 
-  // Do not join a probe that may be hanging after another request has opened
-  // the breaker. Fail open immediately while preserving coalescing while the
-  // transport is healthy.
+  // Do not join a hanging probe after the breaker opens.
   if (comparePageStatusBreaker.isOpen()) {
     return skipForComparePageStatusCircuit(failOpenContext);
   }
@@ -288,6 +290,7 @@ async function resolveStorefrontComparePageStatus(
 function resetStorefrontComparePageStatusForTests(): void {
   comparePageStatusInFlight.clear();
   comparePageStatusBreaker.reset();
+  storefrontComparePageStatusFastPath.resetForTests();
 }
 
 export const storefrontComparePageStatus = {
