@@ -26,7 +26,7 @@
     "baci-edge-pilot.usebaci.com"
   ],
   "routeTreeSha256": "747c9dceaff8319150b9a2fdd4014cd9816e8c4ff024c02a32318c293310b912",
-  "routingProxyInputSha256": "15d4f9177b00d0025db11f22141933097df909ab59b0480c1b769a5b7429d840",
+  "routingProxyInputSha256": "71cc4cb995d4831e6534f3cfecdbf95cbf3256e10b777ed24b0acf6c1ab7c4c5",
   "rows": [
     {
       "decision": "origin_dynamic",
