@@ -143,4 +143,39 @@ describe('fetchRichTransactionReviewRows', () => {
     expect(options.selectStatement).not.toContain('transaction_date');
     expect(options.selectStatement).toContain('order_item_unit_costs');
   });
+
+  it('composes missing variant ids with later rich-field omissions', async () => {
+    const rows = [{ id: 'variant-id-and-attributes-fallback-order' }];
+    mockFetchTransactionReviewRows
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_id' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: 'PGRST204',
+          message:
+            "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchRichTransactionReviewRows({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mockFetchTransactionReviewRows).toHaveBeenCalledTimes(3);
+    const selector = mockFetchTransactionReviewRows.mock.calls[2][0]
+      .selectStatement as string;
+    expect(selector).not.toContain('variant_id');
+    expect(selector).not.toContain('variant_attributes');
+    expect(selector).not.toContain('product_variants');
+    expect(selector).toContain('order_item_unit_costs');
+  });
 });

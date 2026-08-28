@@ -33,6 +33,31 @@ describe('fetchFullTransactionReviewRows', () => {
     ).toContain('order_item_unit_costs');
   });
 
+  it('reports missing variant ids to the rich fallback orchestrator', async () => {
+    const runQueryWithTaxFallback = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST204', message: 'variant_id unavailable' },
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 'order-variant-callback' }],
+        error: null,
+      });
+    const onMissingSchemaColumn = vi.fn();
+
+    await fetchFullTransactionReviewRows(
+      { merchantId: 'merchant-1' },
+      {
+        isMissingSchemaColumn,
+        onMissingSchemaColumn,
+        runQueryWithTaxFallback,
+      }
+    );
+
+    expect(onMissingSchemaColumn).toHaveBeenCalledWith('variant_id');
+  });
+
   it('composes line-id and variant-id omissions before losing cost snapshots', async () => {
     const runQueryWithTaxFallback = vi
       .fn()

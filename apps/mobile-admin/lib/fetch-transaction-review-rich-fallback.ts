@@ -3,6 +3,7 @@ import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-co
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
 import { runTransactionReviewQueryWithTaxFallback } from './run-transaction-review-query-with-tax-fallback';
+import { omitUnavailableTransactionReviewSchemaColumns } from './transaction-review-fallback-schema-columns';
 import type {
   TaxAmountFallback,
   TransactionReviewFallbackQuery,
@@ -73,30 +74,23 @@ export async function fetchRichTransactionReviewRows(
     taxAmountFallback?: TaxAmountFallback
   ) => {
     const omitUnavailableSchemaColumns = (selector: string) => {
-      let result = selector;
-      if (unavailableSchemaColumns.has('quiz_award_id')) {
-        result = withoutSchemaColumn(result, 'quiz_award_id');
-      }
-      if (unavailableSchemaColumns.has('ad_tracking')) {
-        result = withoutSchemaColumn(result, 'ad_tracking');
-      }
-      if (unavailableSchemaColumns.has('cancelled_at')) {
-        result = withoutSchemaColumn(result, 'cancelled_at');
-      }
+      let result = omitUnavailableTransactionReviewSchemaColumns(selector, {
+        adTrackingUnavailable: unavailableSchemaColumns.has('ad_tracking'),
+        cancelledAtUnavailable: unavailableSchemaColumns.has('cancelled_at'),
+        discountAmountUnavailable:
+          unavailableSchemaColumns.has('discount_amount'),
+        discountCodeUnavailable:
+          unavailableSchemaColumns.has('discount_code_id'),
+        quizAwardIdUnavailable: unavailableSchemaColumns.has('quiz_award_id'),
+        transactionDateUnavailable:
+          unavailableSchemaColumns.has('transaction_date'),
+        variantIdUnavailable: unavailableSchemaColumns.has('variant_id'),
+      });
       if (unavailableSchemaColumns.has('variant_attributes')) {
         result = withoutSchemaColumn(result, 'variant_attributes');
       }
       if (unavailableSchemaColumns.has('product_match_status')) {
         result = withoutSchemaColumn(result, 'product_match_status');
-      }
-      if (unavailableSchemaColumns.has('discount_code_id')) {
-        result = withoutSchemaColumn(result, 'discount_code_id');
-      }
-      if (unavailableSchemaColumns.has('discount_amount')) {
-        result = withoutSchemaColumn(result, 'discount_amount');
-      }
-      if (unavailableSchemaColumns.has('transaction_date')) {
-        result = withoutSchemaColumn(result, 'transaction_date');
       }
       return result;
     };
@@ -151,6 +145,14 @@ export async function fetchRichTransactionReviewRows(
       ) {
         markUnavailableSchemaColumn('variant_attributes');
         onMissingSchemaColumn?.('variant_attributes');
+        shouldRetry = true;
+      }
+      if (
+        !unavailableSchemaColumns.has('variant_id') &&
+        isMissingSchemaColumn(result.error, 'variant_id')
+      ) {
+        markUnavailableSchemaColumn('variant_id');
+        onMissingSchemaColumn?.('variant_id');
         shouldRetry = true;
       }
       if (
@@ -240,7 +242,6 @@ export async function fetchRichTransactionReviewRows(
       ));
     }
   }
-
   if (isMissingSchemaColumn(error, 'product_match_status')) {
     ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoProductMatchStatus',
@@ -283,7 +284,6 @@ export async function fetchRichTransactionReviewRows(
         stage: 'LegacyNoDiscountCodeNoTaxAmount',
       }
     ));
-
     if (isTransactionReviewSchemaCacheError(error)) {
       ({ data, error } = await runLegacyFallbackQuery(
         'LegacyNoAdjustmentsNoDiscountCode',

@@ -27,6 +27,7 @@ export async function fetchTransactionReviewWithFallbacks(
   let adTrackingUnavailable = false;
   let cancelledAtUnavailable = false;
   let transactionDateUnavailable = false;
+  let variantIdUnavailable = false;
   const markMissingSchemaColumn = (column: string) => {
     if (column === 'quiz_award_id') {
       quizAwardIdUnavailable = true;
@@ -46,6 +47,9 @@ export async function fetchTransactionReviewWithFallbacks(
     if (column === 'transaction_date') {
       transactionDateUnavailable = true;
     }
+    if (column === 'variant_id') {
+      variantIdUnavailable = true;
+    }
   };
   const getSchemaColumnAvailability =
     (): TransactionReviewSchemaColumnAvailability => ({
@@ -55,6 +59,7 @@ export async function fetchTransactionReviewWithFallbacks(
       discountCodeUnavailable,
       quizAwardIdUnavailable,
       transactionDateUnavailable,
+      variantIdUnavailable,
     });
   const omitUnavailableSchemaColumns = (selector: string) => {
     return omitUnavailableTransactionReviewSchemaColumns(
@@ -111,6 +116,13 @@ export async function fetchTransactionReviewWithFallbacks(
         isMissingSchemaColumn(result.error, 'transaction_date')
       ) {
         transactionDateUnavailable = true;
+        shouldRetry = true;
+      }
+      if (
+        !variantIdUnavailable &&
+        isMissingSchemaColumn(result.error, 'variant_id')
+      ) {
+        variantIdUnavailable = true;
         shouldRetry = true;
       }
       if (!shouldRetry) {
@@ -171,7 +183,6 @@ export async function fetchTransactionReviewWithFallbacks(
   let { data, error } = await fetchRichTransactionReviewRows(query, {
     onMissingSchemaColumn: markMissingSchemaColumn,
   });
-
   if (isMissingSchemaColumn(error, 'line_id')) {
     ({ data, error } = await runLegacyFallbackQuery(
       'FullNoLineId',
@@ -183,7 +194,6 @@ export async function fetchTransactionReviewWithFallbacks(
       }
     ));
   }
-
   if (isTransactionReviewSchemaCacheError(error)) {
     ({ data, error } = await runBaseFallbackQuery(
       'BaseWithDiscount',

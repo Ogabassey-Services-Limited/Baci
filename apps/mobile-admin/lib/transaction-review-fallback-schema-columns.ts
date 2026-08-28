@@ -5,10 +5,21 @@ export type TransactionReviewSchemaColumnAvailability = Readonly<{
   discountCodeUnavailable: boolean;
   quizAwardIdUnavailable: boolean;
   transactionDateUnavailable: boolean;
+  variantIdUnavailable: boolean;
 }>;
 
 function withoutSchemaColumn(selector: string, column: string) {
   return selector.replace(`, ${column}`, '');
+}
+
+function withoutVariantRelationship(selector: string) {
+  return withoutSchemaColumn(
+    selector.replace(
+      ', product_variants(cost_price, sku, attributes, condition)',
+      ''
+    ),
+    'variant_id'
+  );
 }
 
 export function omitUnavailableTransactionReviewSchemaColumns(
@@ -33,6 +44,9 @@ export function omitUnavailableTransactionReviewSchemaColumns(
   }
   if (availability.transactionDateUnavailable) {
     result = withoutSchemaColumn(result, 'transaction_date');
+  }
+  if (availability.variantIdUnavailable) {
+    result = withoutVariantRelationship(result);
   }
   return result;
 }

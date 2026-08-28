@@ -120,6 +120,9 @@ export async function fetchFullTransactionReviewRows(
     if (nextFlags.lineIdUnavailable && !flags.lineIdUnavailable) {
       onMissingSchemaColumn?.('line_id');
     }
+    if (nextFlags.variantIdUnavailable && !flags.variantIdUnavailable) {
+      onMissingSchemaColumn?.('variant_id');
+    }
     if (
       nextFlags.transactionDateUnavailable &&
       !flags.transactionDateUnavailable

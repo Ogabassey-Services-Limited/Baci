@@ -434,6 +434,38 @@ const serverSchema = z
     }
   })
   .superRefine((value, ctx) => {
+    const isGitHubActionsBuild =
+      process.env.GITHUB_ACTIONS === 'true' &&
+      Boolean(process.env.GITHUB_RUN_ID) &&
+      Boolean(process.env.GITHUB_REPOSITORY);
+    const isNonAgenticWorker = [
+      'ai-storefront-jobs',
+      'event-pipeline',
+      'petrock-reconciliation',
+      'quiz-finalization',
+    ].includes(process.env.BACI_WORKER_PROFILE ?? '');
+
+    // The default 1a quiz phase intentionally keeps prize flows fail-closed,
+    // but negotiated checkout still signs a database-verified provenance proof
+    // in a production web runtime. Do not let that route boot without the
+    // shared signing secret. Build-time CI and bounded workers do not serve
+    // negotiated checkout requests and are handled separately.
+    if (
+      value.NODE_ENV === 'production' &&
+      value.QUIZ_PHASE === '1a' &&
+      !isGitHubActionsBuild &&
+      !isNonAgenticWorker &&
+      !value.QUIZ_RPC_SERVER_SECRET
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'QUIZ_RPC_SERVER_SECRET is required in production for negotiated checkout proofs',
+        path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
     if (value.QUIZ_PHASE === 'production' && !value.QUIZ_DEVICE_HASH_PEPPER) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -11,6 +11,7 @@ const noUnavailableColumns: TransactionReviewSchemaColumnAvailability = {
   discountCodeUnavailable: false,
   quizAwardIdUnavailable: false,
   transactionDateUnavailable: false,
+  variantIdUnavailable: false,
 };
 
 describe('omitUnavailableTransactionReviewSchemaColumns', () => {
@@ -37,5 +38,17 @@ describe('omitUnavailableTransactionReviewSchemaColumns', () => {
         transactionDateUnavailable: true,
       })
     ).toBe('id, quiz_award_id, discount_code_id, cancelled_at');
+  });
+
+  it('removes the variant relationship when the variant id is unavailable', () => {
+    const selector =
+      'id, order_items(id, variant_id, product_variants(cost_price, sku, attributes, condition))';
+
+    expect(
+      omitUnavailableTransactionReviewSchemaColumns(selector, {
+        ...noUnavailableColumns,
+        variantIdUnavailable: true,
+      })
+    ).toBe('id, order_items(id)');
   });
 });
