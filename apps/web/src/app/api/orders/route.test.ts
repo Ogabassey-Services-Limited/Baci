@@ -19,6 +19,7 @@ const {
   mockGenerateReceiptBlob,
   mockResolveReceiptLogoDataUri,
   mockCreateAdminClient,
+  mockCreateQuizRpcServerProof,
   mockRevalidateProducts,
   mockRevalidateProductSlugs,
 } = vi.hoisted(() => ({
@@ -59,6 +60,30 @@ const {
     (): Promise<string | null> => Promise.resolve(null)
   ),
   mockCreateAdminClient: vi.fn(),
+  mockCreateQuizRpcServerProof: vi.fn(
+    ({
+      action,
+      payload,
+      subjectId,
+      userId,
+    }: {
+      action: string;
+      payload: Record<string, unknown>;
+      subjectId: string;
+      userId: string;
+    }) => ({
+      action,
+      issued_at: '2026-08-28T00:00:00.000Z',
+      payload,
+      payload_hash: 'a'.repeat(64),
+      proof_id: 'proof-test',
+      scope: 'quiz_phase1a',
+      signature: 'b'.repeat(64),
+      subject_id: subjectId,
+      user_id: userId,
+      version: 'quiz-rpc-proof:v1',
+    })
+  ),
   mockRevalidateProducts: vi.fn(),
   mockRevalidateProductSlugs: vi.fn(),
 }));
@@ -163,6 +188,10 @@ vi.mock('@/lib/checkout/storefront-order-rpc-client', () => ({
   createStorefrontOrderRpcClient: vi.fn(
     ({ fallbackClient }: { fallbackClient: unknown }) => fallbackClient
   ),
+}));
+
+vi.mock('@/lib/quiz-proof', () => ({
+  createQuizRpcServerProof: mockCreateQuizRpcServerProof,
 }));
 
 vi.mock('@/lib/shipping/providers/gigl', () => ({

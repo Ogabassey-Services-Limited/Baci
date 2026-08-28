@@ -76,6 +76,7 @@ describe('transaction review discount mapping', () => {
       order_number: 'ORD-LEGACY-NEGOTIATED',
       payment_method: 'card',
       source: 'online_store',
+      tax_amount: 7.5,
       total: 100,
     };
 

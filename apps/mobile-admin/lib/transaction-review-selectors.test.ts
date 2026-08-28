@@ -2,11 +2,40 @@ import { describe, expect, it } from 'vitest';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
 
 describe('transaction review selectors', () => {
+  it('retains discount and tax provenance in the base discount projection', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscount;
+
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('tax_amount');
+    expect(selector).toContain('ad_tracking');
+  });
+
+  it('keeps rich cost snapshots when discount-code metadata is unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoDiscountCode;
+
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('tax_amount');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
+  it('keeps the rich discount projection when tax provenance is unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoTaxAmount;
+
+    expect(selector).not.toContain('tax_amount');
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('ad_tracking');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('retains discount provenance in the line-id compatibility selector', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.baseWithDiscountNoLineId;
 
     expect(selector).toContain('discount_amount');
     expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('tax_amount');
     expect(selector).toContain('ad_tracking');
     expect(selector).not.toContain('order_items(id, line_id');
   });
@@ -16,6 +45,7 @@ describe('transaction review selectors', () => {
 
     expect(selector).toContain('discount_amount');
     expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('tax_amount');
     expect(selector).not.toContain('ad_tracking');
     expect(selector).toContain('quiz_award_id');
     expect(selector).toContain('line_id');

@@ -20,5 +20,5 @@ export const eventPipelineFrozenRoutes = {
   // dispatch changed in this feature. Keep its reviewed bytes squash-safe by
   // binding the final source to a content receipt instead of a PR-only commit.
   'apps/web/src/app/api/orders/route.ts':
-    'c5cc23722a7347482588bc9d71b1661ebfac6c6b7218743e4cc55f9ddcf498ae',
+    '389356ad8f42886fead8c48919bdaf0185ed9dc13b27d4230d9dc40f2fbab4ed',
 } as const;

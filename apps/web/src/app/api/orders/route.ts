@@ -1853,6 +1853,13 @@ export async function POST(request: NextRequest) {
           merchantId: merchant_id,
           message: 'Transaction discount provenance proof unavailable',
         });
+        return NextResponse.json(
+          {
+            code: 'TRANSACTION_DISCOUNT_PROOF_UNAVAILABLE',
+            error: 'Unable to create order right now. Please try again.',
+          },
+          { status: 503 }
+        );
       }
     }
 

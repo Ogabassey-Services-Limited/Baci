@@ -27,6 +27,7 @@ const baseOrder: TransactionReviewOrderRow = {
   order_number: 'ORD-LEGACY',
   payment_method: 'card',
   source: 'online_store',
+  tax_amount: 7.5,
   total: 100,
 };
 
@@ -44,6 +45,15 @@ describe('legacy transaction discount detection', () => {
     expect(
       isLegacyVatInclusiveNegotiationDiscount(
         { ...baseOrder, source: 'physical' },
+        baseOrder.order_items ?? []
+      )
+    ).toBe(false);
+  });
+
+  it('keeps the full merchandise discount for a legacy non-VAT order', () => {
+    expect(
+      isLegacyVatInclusiveNegotiationDiscount(
+        { ...baseOrder, tax_amount: 0 },
         baseOrder.order_items ?? []
       )
     ).toBe(false);

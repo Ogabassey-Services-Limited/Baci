@@ -26,6 +26,7 @@ export interface TransactionReviewOrderRow {
   ad_tracking?: unknown;
   discount_amount?: number | null;
   discount_code_id?: string | null;
+  tax_amount?: number | string | null;
   external_source?: string | null;
   source?: string | null;
   transaction_date?: string | null;

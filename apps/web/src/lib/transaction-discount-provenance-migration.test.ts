@@ -17,6 +17,13 @@ const hardenedMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const payloadBindingMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828040000_bind_transaction_discount_proof_payload.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -59,6 +66,18 @@ describe('transaction discount provenance migration', () => {
     );
     expect(hardenedMigrationSql).not.toContain(
       'app.transaction_discount_admin_edit'
+    );
+  });
+
+  it('recomputes the signed payload hash before accepting storefront metadata', () => {
+    expect(payloadBindingMigrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.canonical_jsonb\(p_value jsonb\)/i
+    );
+    expect(payloadBindingMigrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.transaction_discount_payload_hash\(p_payload jsonb\)/i
+    );
+    expect(payloadBindingMigrationSql).toMatch(
+      /v_proof ->> 'payload_hash'\s*=\s*private\.transaction_discount_payload_hash\(v_proof -> 'payload'\)/i
     );
   });
 });

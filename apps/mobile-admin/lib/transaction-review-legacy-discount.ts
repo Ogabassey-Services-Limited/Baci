@@ -39,6 +39,15 @@ export function isLegacyVatInclusiveNegotiationDiscount(
     return false;
   }
 
+  // Older non-VAT orders used the same source and capped discount shape, but
+  // their discount was a merchandise reduction rather than VAT-inclusive.
+  // Only apply the historical VAT relief interpretation when the persisted
+  // order proves that tax was actually charged.
+  const taxAmount = Math.max(0, toFiniteNumberOrNull(order.tax_amount) ?? 0);
+  if (taxAmount <= 0) {
+    return false;
+  }
+
   const maxNegotiationDiscount = orderItems.reduce((sum, item) => {
     const price = Math.max(0, toFiniteNumberOrNull(item.price) ?? 0);
     const quantity = Math.max(0, toFiniteNumberOrNull(item.quantity) ?? 1);

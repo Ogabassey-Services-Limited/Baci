@@ -6,12 +6,14 @@ const {
   mockComputeAgenticOrderTax,
   mockComputeOrderNegotiationDiscount,
   mockCreateAdminClient,
+  mockCreateQuizRpcServerProof,
   mockRecordPlatformOrderCreatedEvent,
 } = vi.hoisted(() => ({
   mockAuthenticateApiRequest: vi.fn(),
   mockComputeAgenticOrderTax: vi.fn(),
   mockComputeOrderNegotiationDiscount: vi.fn(),
   mockCreateAdminClient: vi.fn(),
+  mockCreateQuizRpcServerProof: vi.fn(),
   mockRecordPlatformOrderCreatedEvent: vi.fn(),
 }));
 
@@ -91,7 +93,9 @@ vi.mock('@/lib/quiz-compliance-gate', () => ({
   enforcePrizeProductionGuard: vi.fn(),
   QuizProductionNotApprovedError: class extends Error {},
 }));
-vi.mock('@/lib/quiz-proof', () => ({ createQuizRpcServerProof: vi.fn() }));
+vi.mock('@/lib/quiz-proof', () => ({
+  createQuizRpcServerProof: mockCreateQuizRpcServerProof,
+}));
 vi.mock('@/lib/quiz-voucher-token', () => ({
   verifyQuizVoucherToken: vi.fn(),
 }));
@@ -223,6 +227,29 @@ describe('POST /api/orders transaction discount metadata', () => {
       rejectionCode: null,
       totalDiscount: 21.5,
     });
+    mockCreateQuizRpcServerProof.mockReturnValue({
+      action: 'storefront_transaction_discount',
+      issued_at: '2026-08-28T00:00:00.000Z',
+      payload: {
+        lineDiscounts: [
+          {
+            lineId: 1,
+            merchandiseDiscount: 20,
+            productId: 'p-mac',
+            vatRelief: 1.5,
+            variantId: null,
+          },
+        ],
+        version: 3,
+      },
+      payload_hash: '0'.repeat(64),
+      proof_id: 'proof-id',
+      scope: 'quiz_phase1a',
+      signature: '0'.repeat(64),
+      subject_id: MERCHANT_ID,
+      user_id: 'guest',
+      version: 'quiz-rpc-proof:v1',
+    });
     mockCreateAdminClient.mockReturnValue({
       from: vi.fn(() => ({
         select: vi.fn().mockReturnThis(),
@@ -260,11 +287,30 @@ describe('POST /api/orders transaction discount metadata', () => {
                 variantId: null,
               },
             ],
+            proof: expect.objectContaining({
+              action: 'storefront_transaction_discount',
+              payload: expect.objectContaining({ version: 3 }),
+            }),
             version: 3,
           },
         }),
       })
     );
+  });
+
+  it('fails closed when transaction discount provenance signing is unavailable', async () => {
+    mockCreateQuizRpcServerProof.mockImplementation(() => {
+      throw new Error('missing_quiz_rpc_server_secret');
+    });
+
+    const response = await POST(createOrderRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toEqual({
+      code: 'TRANSACTION_DISCOUNT_PROOF_UNAVAILABLE',
+      error: 'Unable to create order right now. Please try again.',
+    });
+    expect(latestRpc).not.toHaveBeenCalled();
   });
 
   it('omits transaction discount metadata when no line allocations exist', async () => {

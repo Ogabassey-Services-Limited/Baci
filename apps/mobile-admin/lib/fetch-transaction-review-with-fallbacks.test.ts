@@ -69,6 +69,57 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     expect(selector).toContain('product_variants');
   });
 
+  it('uses the full cost-rich projection when discount code ids are unavailable', async () => {
+    const rows = [{ id: 'full-discount-code-fallback-order' }];
+    const discountCodeSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
+    expect(selector).not.toContain('discount_code_id');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+    expect(selector).toContain('cost_price');
+  });
+
+  it('keeps discount provenance when the tax amount column is unavailable', async () => {
+    const rows = [{ id: 'tax-column-fallback-order' }];
+    const taxAmountSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'tax_amount' column of 'orders' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: taxAmountSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const selector =
+      mocks.fetchTransactionReviewRows.mock.calls[1][0].selectStatement;
+    expect(selector).not.toContain('tax_amount');
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('discount_code_id');
+    expect(selector).toContain('ad_tracking');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('uses the older cost-rich projection when later schema fields are unavailable', async () => {
     const rows = [{ id: 'legacy-variant-attributes-order' }];
     const variantAttributesSchemaError = {
@@ -219,8 +270,14 @@ describe('fetchTransactionReviewWithFallbacks', () => {
       message:
         "Could not find the 'discount_code_id' column of 'orders' in the schema cache",
     };
+    const unitCostSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'order_item_unit_costs' relationship in the schema cache",
+    };
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: null, error: unitCostSchemaError })
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: rows, error: null });
@@ -230,18 +287,18 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(4);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
     ).toContain('order_item_unit_costs');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
     ).not.toContain('discount_code_id');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
     ).toContain('assurance_fee');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[3][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
     ).toContain('vat_rate');
   });
 
@@ -259,6 +316,7 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     };
     mocks.fetchTransactionReviewRows
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
+      .mockResolvedValueOnce({ data: null, error: assuranceSchemaError })
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: null, error: discountCodeSchemaError })
       .mockResolvedValueOnce({ data: null, error: assuranceSchemaError })
@@ -269,12 +327,12 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     });
 
     expect(result).toEqual({ data: rows, error: null });
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(5);
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(6);
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
     ).toContain('order_item_unit_costs');
     expect(
-      mocks.fetchTransactionReviewRows.mock.calls[4][0].selectStatement
+      mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
     ).not.toContain('assurance_fee');
   });
 });

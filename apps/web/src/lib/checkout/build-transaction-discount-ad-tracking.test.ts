@@ -27,7 +27,18 @@ describe('buildTransactionDiscountAdTracking', () => {
       shouldApplyServerDerivedDiscount: true,
       transactionDiscountProof: {
         action: 'storefront_transaction_discount',
-        payload: { lineDiscounts: [], version: 3 },
+        payload: {
+          lineDiscounts: [
+            {
+              lineId: 1,
+              merchandiseDiscount: 20,
+              productId: 'product-1',
+              vatRelief: 1.5,
+              variantId: null,
+            },
+          ],
+          version: 3,
+        },
         signature: 'signed-proof',
       },
     });
@@ -51,7 +62,18 @@ describe('buildTransactionDiscountAdTracking', () => {
         ],
         proof: {
           action: 'storefront_transaction_discount',
-          payload: { lineDiscounts: [], version: 3 },
+          payload: {
+            lineDiscounts: [
+              {
+                lineId: 1,
+                merchandiseDiscount: 20,
+                productId: 'product-1',
+                vatRelief: 1.5,
+                variantId: null,
+              },
+            ],
+            version: 3,
+          },
           signature: 'signed-proof',
         },
         version: 3,
