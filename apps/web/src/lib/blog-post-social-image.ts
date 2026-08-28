@@ -1,7 +1,5 @@
-import {
-  DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
-  DEFAULT_IMAGE_QUALITY,
-} from '@/config/cdn';
+import { DEFAULT_IMAGE_QUALITY } from '@/config/cdn';
+import { isTrustedImmutableBlogLandscapeVariantUrl } from '@/lib/is-trusted-immutable-blog-landscape-variant-url';
 import {
   buildOgabasseyCdnImageLoaderUrl,
   isOgabasseyCdnImageUrl,
@@ -10,13 +8,6 @@ import {
 
 const LANDSCAPE_DIMENSIONS = { width: 1200, height: 675 } as const;
 const FALLBACK_DIMENSIONS = { width: 1200, height: 630 } as const;
-const LANDSCAPE_VARIANT_PATH_PATTERN =
-  /(?:^|[-/])landscape_16x9\.(?:avif|jpe?g|png|webp)$/iu;
-const IMMUTABLE_BLOG_IMAGE_PATH_PREFIXES = [
-  '/core-assets/blog/',
-  '/media/',
-  '/storage/v1/object/public/media/',
-] as const;
 
 export type BlogPostSocialImage = {
   url: string;
@@ -66,41 +57,9 @@ function getImagePathname(url: string): string | undefined {
   }
 }
 
-function isTrustedImmutableLandscapeVariantUrl(raw: string): boolean {
-  try {
-    const url = new URL(raw);
-    const trustedOrigins = [
-      process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN,
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
-    ].flatMap((value) => {
-      if (!value) return [];
-      try {
-        return [new URL(value).origin];
-      } catch {
-        return [];
-      }
-    });
-    if (url.protocol !== 'https:' || !trustedOrigins.includes(url.origin)) {
-      return false;
-    }
-
-    const decodedPath = decodeURIComponent(url.pathname);
-    const sourcePath =
-      decodedPath.match(/^\/image\/[^/]+(\/.+)$/u)?.[1] ?? decodedPath;
-    return (
-      IMMUTABLE_BLOG_IMAGE_PATH_PREFIXES.some((prefix) =>
-        sourcePath.startsWith(prefix)
-      ) && LANDSCAPE_VARIANT_PATH_PATTERN.test(sourcePath)
-    );
-  } catch {
-    return false;
-  }
-}
-
 function getManagedTransformProjection(url: string):
   | {
-      type: `image/${string}`;
+      type?: `image/${string}`;
       width?: number;
     }
   | undefined {
@@ -125,9 +84,9 @@ function getManagedTransformProjection(url: string):
             : format === 'avif'
               ? 'image/avif'
               : undefined;
-    if (type) {
+    if (type || format === 'auto') {
       return {
-        type,
+        ...(type ? { type } : {}),
         ...(width !== undefined && width > 0 ? { width } : {}),
       };
     }
@@ -163,10 +122,8 @@ function projectDirectImage(
   sourceUrl: string,
   dimensions?: { width?: number; height?: number }
 ): BlogPostSocialImage | null {
+  const sourceTransform = getManagedTransformProjection(sourceUrl);
   const mimeType = getImageMimeType(sourceUrl);
-  if (!mimeType) {
-    return null;
-  }
   const isLandscape =
     dimensions?.width === LANDSCAPE_DIMENSIONS.width &&
     dimensions.height === LANDSCAPE_DIMENSIONS.height;
@@ -180,18 +137,17 @@ function projectDirectImage(
     const managedTransform = getManagedTransformProjection(url);
     const transformedMimeType =
       managedTransform?.type ??
-      (url !== sourceUrl
+      (url !== sourceUrl && mimeType
         ? (`image/${resolveOgabasseyCdnFallbackFormat(getImagePathname(sourceUrl) ?? '')}` as const)
         : mimeType);
-    if (transformedMimeType === 'image/avif') {
+    if (!transformedMimeType || transformedMimeType === 'image/avif') {
       return null;
     }
-    const transformedDimensions =
-      managedTransform && !isLandscape
-        ? getTransformedDimensions(dimensions, managedTransform.width)
-        : isLandscape
-          ? LANDSCAPE_DIMENSIONS
-          : dimensions;
+    const transformedDimensions = managedTransform
+      ? getTransformedDimensions(dimensions, managedTransform.width)
+      : isLandscape
+        ? LANDSCAPE_DIMENSIONS
+        : dimensions;
     return {
       url,
       ...transformedDimensions,
@@ -199,7 +155,23 @@ function projectDirectImage(
     };
   }
 
-  if (mimeType === 'image/avif') {
+  if (sourceTransform) {
+    if (!sourceTransform.type || sourceTransform.type === 'image/avif') {
+      return null;
+    }
+    const transformedDimensions = getTransformedDimensions(
+      dimensions,
+      sourceTransform.width
+    );
+    return {
+      url: sourceUrl,
+      ...(transformedDimensions ??
+        (isLandscape ? LANDSCAPE_DIMENSIONS : dimensions)),
+      type: sourceTransform.type,
+    };
+  }
+
+  if (!mimeType || mimeType === 'image/avif') {
     return null;
   }
 
@@ -246,7 +218,7 @@ export function getBlogPostSocialImage(
   const landscapeUrl = getAbsoluteHttpUrl(variants.landscape_16x9);
   const originalUrl = getAbsoluteHttpUrl(featuredImageUrl);
 
-  if (landscapeUrl && isTrustedImmutableLandscapeVariantUrl(landscapeUrl)) {
+  if (landscapeUrl && isTrustedImmutableBlogLandscapeVariantUrl(landscapeUrl)) {
     const directImage = projectDirectImage(landscapeUrl, LANDSCAPE_DIMENSIONS);
     if (directImage) {
       return directImage;

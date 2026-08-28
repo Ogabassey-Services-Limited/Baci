@@ -1,0 +1,101 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { getBlogPostSocialImage } from '@/lib/blog-post-social-image';
+
+const STORE_URL = 'https://ogabassey.com';
+const POST_SLUG = 'pixel-11-review';
+const ORIGINAL_BLOG_MEDIA_ORIGIN =
+  process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+
+afterEach(() => {
+  if (ORIGINAL_BLOG_MEDIA_ORIGIN === undefined) {
+    delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+    return;
+  }
+  process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = ORIGINAL_BLOG_MEDIA_ORIGIN;
+});
+
+describe('blog post social image transform projection', () => {
+  it('does not publish format=auto from a configured media origin', () => {
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, null, {
+      landscape_16x9:
+        'https://media.example.com/image/format=auto/core-assets/blog/pixel-11-landscape_16x9.jpg',
+    });
+
+    expect(image).toEqual({
+      url: 'https://ogabassey.com/blog/pixel-11-review/opengraph-image',
+      width: 1200,
+      height: 630,
+      type: 'image/png',
+    });
+  });
+
+  it('reports the rendered width of an already-transformed landscape variant', () => {
+    const transformedUrl =
+      'https://cdn.ogabassey.com/image/width=600,format=webp/media/merchant-1/blog/upload/landscape_16x9.webp';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, transformedUrl, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width: 600,
+      height: 338,
+      type: 'image/webp',
+    });
+  });
+
+  it('uses fixed format and width projections on a configured media origin', () => {
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = 'https://media.example.com';
+    const transformedUrl =
+      'https://media.example.com/image/width=600,format=webp/core-assets/blog/pixel-11-landscape_16x9.jpg';
+
+    const image = getBlogPostSocialImage(STORE_URL, POST_SLUG, null, {
+      landscape_16x9: transformedUrl,
+    });
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width: 600,
+      height: 338,
+      type: 'image/webp',
+    });
+  });
+
+  it('keeps an ordinary direct image whose path begins with image', () => {
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      'https://images.example.com/image/photo.jpg',
+      {}
+    );
+
+    expect(image).toEqual({
+      url: 'https://images.example.com/image/photo.jpg',
+      type: 'image/jpeg',
+    });
+  });
+
+  it('projects a fixed-format transform with an extensionless source path', () => {
+    const transformedUrl =
+      'https://media.example.com/image/width=600,format=webp/media/photo';
+
+    const image = getBlogPostSocialImage(
+      STORE_URL,
+      POST_SLUG,
+      transformedUrl,
+      {},
+      1200,
+      675
+    );
+
+    expect(image).toEqual({
+      url: transformedUrl,
+      width: 600,
+      height: 338,
+      type: 'image/webp',
+    });
+  });
+});
