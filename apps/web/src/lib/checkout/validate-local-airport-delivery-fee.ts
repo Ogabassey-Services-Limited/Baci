@@ -5,7 +5,10 @@ import {
   PickupOptions,
   parseGiglProviderRateId,
 } from '@/lib/shipping/providers/gigl.constants';
-import { getLocalAirportDeliveryFee } from './airport-delivery-fee';
+import {
+  getLegacyAirportType,
+  getLocalAirportDeliveryFee,
+} from './airport-delivery-fee';
 import { isAmbiguousMetadataFreeAirportFee } from './airport-delivery-fee-ambiguity';
 import { isConfirmedLocalAirportReplay } from './is-confirmed-local-airport-replay';
 import { LocalAirportDeliveryFeeMismatchError } from './local-airport-delivery-fee-mismatch-error';
@@ -181,6 +184,21 @@ export async function validateLocalAirportDeliveryFee({
   shippingRateId,
   supabase,
 }: ValidateLocalAirportDeliveryFeeInput): Promise<LocalAirportDeliveryFeeValidationResult> {
+  const legacyAirportType = getLegacyAirportType(shippingAddress?.address);
+  if (
+    legacyAirportType !== null &&
+    deliveryMethod !== undefined &&
+    (deliveryMethod !== 'airport' ||
+      (airportType !== undefined && airportType !== legacyAirportType) ||
+      (selectedQuoteId && legacyAirportType !== 'delivery'))
+  ) {
+    throw new LocalAirportDeliveryValidationError(
+      'Delivery metadata conflicts with the airport address',
+      'DELIVERY_METADATA_MISMATCH',
+      400
+    );
+  }
+
   if (deliveryMethod === 'airport' && shippingRateId) {
     throw new LocalAirportDeliveryValidationError(
       'Merchant shipping rates cannot be used for airport delivery',

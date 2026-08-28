@@ -10,7 +10,7 @@ interface LocalAirportDeliveryFeeInput {
   shippingRateId?: string | null;
 }
 
-function getLegacyAirportType(
+export function getLegacyAirportType(
   address: string | null | undefined
 ): AirportType | null {
   const normalized = address?.trim().toLowerCase();

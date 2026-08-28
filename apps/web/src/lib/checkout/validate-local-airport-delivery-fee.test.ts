@@ -161,6 +161,21 @@ describe('validateLocalAirportDeliveryFee', () => {
     });
   });
 
+  it('rejects non-airport metadata that contradicts a legacy airport address marker', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      deliveryMethod: 'door',
+      merchantId: MERCHANT_ID,
+      shippingAddress: { address: 'Airport Delivery' },
+      shippingFee: 0,
+      supabase: mockSupabase(null),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'DELIVERY_METADATA_MISMATCH',
+      status: 400,
+    });
+  });
+
   it('rejects a new metadata-free request at the legacy airport delivery fee', async () => {
     const promise = validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,
