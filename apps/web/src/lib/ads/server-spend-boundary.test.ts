@@ -1,0 +1,49 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const sourceRoot = resolve(process.cwd(), 'src');
+const authorizedImporters = [
+  'app/api/integrations/ads/google/sync/route.ts',
+  'app/api/integrations/ads/meta/sync/route.ts',
+  'app/api/integrations/ads/snapchat/sync/route.ts',
+  'app/api/integrations/ads/tiktok/sync/route.ts',
+];
+
+function productionTypeScriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) return productionTypeScriptFiles(path);
+    return /\.tsx?$/.test(entry.name) && !entry.name.includes('.test.')
+      ? [path]
+      : [];
+  });
+}
+
+describe('Ads spend service-role boundary', () => {
+  it('allows only the four authenticated sync routes to import the helper', () => {
+    const importers = productionTypeScriptFiles(sourceRoot)
+      .filter((path) =>
+        readFileSync(path, 'utf8').includes(
+          "from '@/lib/ads/server-spend-client'"
+        )
+      )
+      .map((path) => relative(sourceRoot, path));
+
+    expect(importers.sort()).toEqual(authorizedImporters.sort());
+  });
+
+  it.each([
+    ['google-ads/sync.ts', 'replace_google_ads_spend_daily'],
+    ['ads/meta/sync.ts', 'replace_merchant_ads_spend_daily_window'],
+    ['ads/snapchat/sync.ts', 'replace_merchant_ads_spend_daily_window'],
+    ['ads/tiktok/sync.ts', 'replace_merchant_ads_spend_daily_window'],
+  ])('limits %s to one privileged replacement call', (path, rpcName) => {
+    const source = readFileSync(resolve(sourceRoot, `lib/${path}`), 'utf8');
+
+    expect(source.match(/spendSupabase\.rpc/g)).toHaveLength(1);
+    expect(source).toMatch(
+      new RegExp(`spendSupabase\\.rpc\\(\\s*['"]${rpcName}['"]`)
+    );
+  });
+});

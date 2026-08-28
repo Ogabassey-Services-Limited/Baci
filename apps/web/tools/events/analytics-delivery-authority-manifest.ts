@@ -19,11 +19,11 @@ export const analyticsDeliveryAuthorityManifest = {
     'apps/web/src/lib/analytics/trusted-server-ad-platform-fanout.ts':
       '2f330fb4efcd9cbcbef7a524f43232572082908e4f73e27d72a8cbb8636380b5',
     'apps/web/src/lib/supabase/service.ts':
-      '13e10a25092e1a53c8f091b3576e804f6e1268f55d63393d2a2231ddc46cc5bc',
+      '71e29bc441be13550aaf436b2cf123825ed196072668772115aaf384b5fe6ef1',
   },
   callerScopedRouteHashes: {
     'apps/web/src/app/api/analytics/ads/route.ts':
-      'b714f0bedeed7bded973fbe743c74517622ea8e0069dfca35051752dc45571dd',
+      'dc74e421113d3447a816559282bcd0612c49d68d92403cafe5e9cb7001a35e50',
     'apps/web/src/app/api/analytics/facebook-capi/route.ts':
       'f41e1de587645b8fdb2af8af180eb581b2bfeecae688670d7b5c7a80088b7c32',
     'apps/web/src/app/api/analytics/ga4/route.ts':

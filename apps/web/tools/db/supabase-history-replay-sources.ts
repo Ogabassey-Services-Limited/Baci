@@ -4,6 +4,7 @@
 // byte-frozen and re-hashed by the manifest verifier; migrations are immutable.
 
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
+import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
 import { FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-follow-up-pending-sources';
 import { INVENTORY_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-inventory-pending-sources';
@@ -262,6 +263,7 @@ da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_
 const PENDING_SOURCES = [
   PENDING_SOURCES_HEAD,
   STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES,
+  ADS_PENDING_REPLAY_SOURCE_ROWS,
   ADMIN_PLATFORM_PENDING_SOURCES,
   EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS,
   FOLLOW_UP_PENDING_REPLAY_SOURCE_ROWS,
