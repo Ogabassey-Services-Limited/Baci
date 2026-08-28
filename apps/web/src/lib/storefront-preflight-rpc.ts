@@ -62,6 +62,12 @@ interface CallStorefrontPreflightRpcOptions {
   timeoutMs?: number;
   /** Injectable for tests. */
   rpcImpl?: StorefrontPreflightRpcImpl;
+  /**
+   * Some established identity RPCs legitimately return no row for unknown
+   * public identifiers. Treat that result as a designed fail-open instead of
+   * reporting a parse incident.
+   */
+  emptyResult?: 'unknown';
 }
 
 // 2s, not the route transport's old 800ms: the RPCs execute in ~20ms
@@ -84,6 +90,7 @@ const MEMO_MAX_ENTRIES = 512;
 const memo = new Map<string, { expires: number; row: unknown }>();
 // Suppress only timeout retries; real product-read failures remain retryable.
 const TIMEOUT_MEMO = Symbol('storefront-preflight-timeout');
+const EMPTY_RESULT_MEMO = Symbol('storefront-preflight-empty-result');
 const breaker = createStorefrontPreflightCircuitBreaker();
 
 let client: SupabaseClient | null = null;
@@ -165,7 +172,7 @@ export async function callStorefrontPreflightRpc(
 
   const key = memoKey(fn, args);
   const memoized = readMemo(key);
-  if (memoized === TIMEOUT_MEMO) return null;
+  if (memoized === TIMEOUT_MEMO || memoized === EMPTY_RESULT_MEMO) return null;
   if (memoized !== undefined) {
     return memoized;
   }
@@ -234,6 +241,14 @@ export async function callStorefrontPreflightRpc(
 
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
   if (row === null || row === undefined || typeof row !== 'object') {
+    if (
+      options.emptyResult === 'unknown' &&
+      Array.isArray(result.data) &&
+      result.data.length === 0
+    ) {
+      writeMemo(key, EMPTY_RESULT_MEMO);
+      return null;
+    }
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: 'parse',

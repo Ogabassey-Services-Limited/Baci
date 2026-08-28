@@ -1,9 +1,18 @@
 import { INTERNAL_AUTH_HEADER } from '@/lib/internal-auth-header';
 import { parseCompareSlug } from '@/lib/storefront-compare/compare-slugs';
 import { evaluateStorefrontSlugSafety } from '@/lib/storefront-slug-safety';
+import { STOREFRONT_SPECIAL_COLLECTION_SLUGS } from '@/lib/storefront-special-collection-slugs';
 import { internalComparePageStatusBodySchema } from '@/schemas/internal-slug-set-route';
+import {
+  STOREFRONT_AUTH_MERCHANT_RPC,
+  storefrontAuthMerchantRowSchema,
+} from '@/schemas/storefront-preflight-rpc';
 import { storefrontInternalPreflight } from './storefront-internal-preflight';
 import { createStorefrontPreflightCircuitBreaker } from './storefront-preflight-circuit-breaker';
+import {
+  callStorefrontPreflightRpc,
+  type StorefrontPreflightRpcImpl,
+} from './storefront-preflight-rpc';
 
 const DEFAULT_TIMEOUT_MS = 2_000;
 const MAX_COMPARE_STATUS_COMPOSITE_LENGTH = 1_024;
@@ -31,6 +40,8 @@ interface ComparePageStatusOptions {
   secret: string | undefined;
   /** Injectable for tests. */
   fetchImpl?: typeof fetch;
+  /** Injectable direct RPC transport for the production fast path. */
+  rpcImpl?: StorefrontPreflightRpcImpl;
   /** Tight upper bound for the internal status read. */
   timeoutMs?: number;
 }
@@ -81,6 +92,46 @@ function skipForComparePageStatusCircuit(
 
 function isRequestValidationError(response: Response): boolean {
   return response.status === 400;
+}
+
+async function isPublishedStorefrontForHardStatus(
+  opts: ComparePageStatusOptions,
+  failOpenContext: ComparePageStatusFailOpenContext
+): Promise<boolean> {
+  const row = await callStorefrontPreflightRpc(
+    STOREFRONT_AUTH_MERCHANT_RPC,
+    { p_identifier: opts.identifier },
+    {
+      failOpenContext,
+      rpcImpl: opts.rpcImpl,
+      timeoutMs: opts.timeoutMs,
+      // `resolve_storefront_auth_merchant` returns no row for an unknown
+      // identifier. That is expected junk traffic, not a malformed verdict.
+      emptyResult: 'unknown',
+    }
+  );
+  if (row === null) {
+    return false;
+  }
+
+  const parsed = storefrontAuthMerchantRowSchema.safeParse(row);
+  if (!parsed.success) {
+    storefrontInternalPreflight.warnFailOpen({
+      ...failOpenContext,
+      reason: 'parse',
+    });
+    return false;
+  }
+
+  if (!parsed.data.is_published) {
+    storefrontInternalPreflight.warnSkip({
+      ...failOpenContext,
+      reason: 'unknown-storefront',
+    });
+    return false;
+  }
+
+  return true;
 }
 
 async function resolveStorefrontComparePageStatusUncached(
@@ -239,11 +290,24 @@ async function resolveStorefrontComparePageStatus(
   // fetch. The compare resolver performs a bounded inventory read plus
   // maintained-manifest work, so the public-origin self-fetch can still spend
   // the full transport budget even when the internal route eventually returns
-  // 200. Keep the optional hard-404 optimization for loopback development,
-  // while production and custom-domain requests fail open before opening a
-  // second HTTP/RPC hop. The normal compare page remains the source of truth.
+  // 200. For production/custom-domain requests, retain hard 404s only for the
+  // resolver's two deterministic missing cases (a malformed comparison or a
+  // special collection category) after a cheap publication check. Valid
+  // comparisons fail open here; the normal compare page remains the source of
+  // truth for those routes. Loopback development keeps the full resolver path.
   if (!storefrontInternalPreflight.isLoopbackOrigin(opts.origin)) {
-    return { kind: 'renderable-or-unknown' };
+    const isDeterministicallyMissing =
+      parsed === null ||
+      STOREFRONT_SPECIAL_COLLECTION_SLUGS.includes(
+        opts.categorySlug as (typeof STOREFRONT_SPECIAL_COLLECTION_SLUGS)[number]
+      );
+    if (!isDeterministicallyMissing) {
+      return { kind: 'renderable-or-unknown' };
+    }
+
+    return (await isPublishedStorefrontForHardStatus(opts, failOpenContext))
+      ? { kind: 'missing' }
+      : { kind: 'renderable-or-unknown' };
   }
 
   const baseUrl = storefrontInternalPreflight.resolveBaseUrl(opts.origin);
