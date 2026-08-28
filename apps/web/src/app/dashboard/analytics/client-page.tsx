@@ -140,7 +140,8 @@ export default function AnalyticsClientPage() {
         exportAnalyticsAsCSV(
           analyticsData,
           date,
-          selectedContext.merchant?.business_name
+          selectedContext.merchant?.business_name,
+          effectiveCategory
         );
         toast({
           title: 'CSV Exported',
@@ -151,7 +152,8 @@ export default function AnalyticsClientPage() {
         exportAnalyticsAsPDF(
           analyticsData,
           date,
-          selectedContext.merchant?.business_name
+          selectedContext.merchant?.business_name,
+          effectiveCategory
         );
         toast({
           title: 'PDF Exported',
