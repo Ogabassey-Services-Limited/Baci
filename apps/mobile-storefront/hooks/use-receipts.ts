@@ -173,9 +173,7 @@ async function fetchReceiptDetail(
   );
   if (vaError) {
     log.warn('Failed to fetch virtual account:', vaError.message);
-    if (isPaidOrder) {
-      throw vaError;
-    }
+    throw vaError;
   }
   const virtualAccounts = mapCustomerPaymentAccountRpcRows(virtualAccountRows);
 

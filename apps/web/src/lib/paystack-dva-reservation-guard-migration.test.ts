@@ -58,6 +58,13 @@ const activePayableRefreshMigration = readFileSync(
   ),
   'utf8'
 );
+const legacyOverloadRevocationMigration = readFileSync(
+  join(
+    process.cwd(),
+    '../../supabase/migrations/20260828003000_revoke_legacy_paystack_dva_overloads.sql'
+  ),
+  'utf8'
+);
 
 describe('Paystack DVA reservation guard migrations', () => {
   it('requires a server-generated proof before exposing DVA reservation metadata', () => {
@@ -158,6 +165,15 @@ describe('Paystack DVA reservation guard migrations', () => {
       "account.expires_at,\n      account.assigned_at + interval '90 minutes',\n      account.created_at + interval '90 minutes'"
     );
     expect(activePayableRefreshMigration).toContain(') > pg_catalog.now();');
+  });
+
+  it('removes caller-controlled Paystack DVA overloads', () => {
+    expect(legacyOverloadRevocationMigration).toContain(
+      'DROP FUNCTION IF EXISTS public.refresh_paystack_order_payable_amount(\n  uuid, numeric\n);'
+    );
+    expect(legacyOverloadRevocationMigration).toContain(
+      'DROP FUNCTION IF EXISTS public.reserve_paystack_order_payment_account(\n  uuid, text, text, text, numeric, timestamptz, timestamptz\n);'
+    );
   });
 
   it('keeps each focused reservation migration below the module size limit', () => {
