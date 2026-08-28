@@ -16,6 +16,13 @@ const hashPreparationMigration = readFileSync(
   ),
   'utf8'
 );
+const replayContextMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828120000_enforce_storefront_order_replay_route_context.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order RPC context migration contract', () => {
   it('requires a signed merchant-bound route context for non-internal inserts', () => {
@@ -78,6 +85,16 @@ describe('storefront order RPC context migration contract', () => {
     );
     expect(hashPreparationMigration).not.toContain(
       'enforce_storefront_order_route_context'
+    );
+  });
+
+  it('guards idempotent replay updates with the same route context', () => {
+    expect(replayContextMigration).toContain('BEFORE UPDATE ON public.orders');
+    expect(replayContextMigration).toContain(
+      'OLD.checkout_idempotency_key IS NOT NULL'
+    );
+    expect(replayContextMigration).toContain(
+      'private.enforce_storefront_order_route_context()'
     );
   });
 });
