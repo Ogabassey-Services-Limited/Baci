@@ -43,6 +43,49 @@ function createParams(overrides: Partial<HandlerParams> = {}): HandlerParams {
 }
 
 describe('createCheckoutShippingHandlers', () => {
+  it('trusts a complete Google location without routing its city through the fallback list', () => {
+    const googleSuggestedCityRef = { current: null as string | null };
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+    const setDeliveryCoordinates = jest.fn();
+
+    createCheckoutShippingHandlers(
+      createParams({
+        googleSuggestedCityRef,
+        setDeliveryCoordinates,
+        setValue,
+        shippingStates: ['Katsina'],
+      })
+    ).handleDeliveryAddressSelect(
+      {
+        city: 'Katsina',
+        country: 'Nigeria',
+        formattedAddress:
+          'Muhammad Dikko Road, Katsina 820101, Katsina, Nigeria',
+        latitude: 13.0000953,
+        longitude: 7.6020902,
+        route: 'Muhammad Dikko Road',
+        state: 'Katsina',
+        streetNumber: '',
+        zip: '820101',
+      },
+      jest.fn()
+    );
+
+    expect(setValue).toHaveBeenCalledWith('city', 'Katsina', {
+      shouldValidate: true,
+    });
+    expect(setValue).toHaveBeenCalledWith('state', 'Katsina', {
+      shouldValidate: true,
+    });
+    expect(setDeliveryCoordinates).toHaveBeenCalledWith({
+      latitude: 13.0000953,
+      longitude: 7.6020902,
+    });
+    expect(googleSuggestedCityRef.current).toBeNull();
+  });
+
   it('restores Google coordinates when returning from pickup to road', () => {
     const coordinates = { latitude: 4.8156, longitude: 7.0498 };
     const savedDoorAddressRef = {
