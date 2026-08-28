@@ -1,11 +1,9 @@
-import {
-  fetchRichTransactionReviewRows,
-  isMissingSchemaColumn,
-  runBaseTransactionReviewQuery,
-  runLegacyTransactionReviewQuery,
-  type TransactionReviewFallbackQuery,
-} from './fetch-transaction-review-rich-fallback';
+import { fetchRichTransactionReviewRows } from './fetch-transaction-review-rich-fallback';
+import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-column';
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
+import { runBaseTransactionReviewQuery } from './run-base-transaction-review-query';
+import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
+import type { TransactionReviewFallbackQuery } from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
 
 type TaxAmountFallback = Readonly<{
@@ -21,6 +19,14 @@ function withoutDiscountCode(selector: string) {
   return selector.replace(', discount_code_id', '');
 }
 
+function withoutAdTracking(selector: string) {
+  return selector.replace(', ad_tracking', '');
+}
+
+function withoutCancelledAt(selector: string) {
+  return selector.replace(', cancelled_at', '');
+}
+
 /**
  * Reads transaction-review rows through selectors that tolerate schema-cache
  * drift while preserving the richest available discount and cost fields.
@@ -31,6 +37,8 @@ export async function fetchTransactionReviewWithFallbacks(
   const legacyQuery = query;
   let quizAwardIdUnavailable = false;
   let discountCodeUnavailable = false;
+  let adTrackingUnavailable = false;
+  let cancelledAtUnavailable = false;
   const markMissingSchemaColumn = (column: string) => {
     if (column === 'quiz_award_id') {
       quizAwardIdUnavailable = true;
@@ -38,14 +46,27 @@ export async function fetchTransactionReviewWithFallbacks(
     if (column === 'discount_code_id') {
       discountCodeUnavailable = true;
     }
+    if (column === 'ad_tracking') {
+      adTrackingUnavailable = true;
+    }
+    if (column === 'cancelled_at') {
+      cancelledAtUnavailable = true;
+    }
   };
   const omitUnavailableSchemaColumns = (selector: string) => {
-    const withoutQuiz = quizAwardIdUnavailable
+    let result = quizAwardIdUnavailable
       ? withoutQuizAwardId(selector)
       : selector;
-    return discountCodeUnavailable
-      ? withoutDiscountCode(withoutQuiz)
-      : withoutQuiz;
+    if (discountCodeUnavailable) {
+      result = withoutDiscountCode(result);
+    }
+    if (adTrackingUnavailable) {
+      result = withoutAdTracking(result);
+    }
+    if (cancelledAtUnavailable) {
+      result = withoutCancelledAt(result);
+    }
+    return result;
   };
   type TransactionReviewFallbackResult = Awaited<
     ReturnType<typeof runLegacyTransactionReviewQuery>
@@ -70,6 +91,20 @@ export async function fetchTransactionReviewWithFallbacks(
         discountCodeUnavailable = true;
         shouldRetry = true;
       }
+      if (
+        !adTrackingUnavailable &&
+        isMissingSchemaColumn(result.error, 'ad_tracking')
+      ) {
+        adTrackingUnavailable = true;
+        shouldRetry = true;
+      }
+      if (
+        !cancelledAtUnavailable &&
+        isMissingSchemaColumn(result.error, 'cancelled_at')
+      ) {
+        cancelledAtUnavailable = true;
+        shouldRetry = true;
+      }
       if (!shouldRetry) {
         return result;
       }
@@ -87,7 +122,7 @@ export async function fetchTransactionReviewWithFallbacks(
         stage,
         legacyQuery,
         omitUnavailableSchemaColumns(selectStatement),
-        includeCancelledAt,
+        includeCancelledAt && !cancelledAtUnavailable,
         taxAmountFallback
           ? {
               ...taxAmountFallback,
@@ -111,7 +146,7 @@ export async function fetchTransactionReviewWithFallbacks(
         stage,
         legacyQuery,
         omitUnavailableSchemaColumns(selectStatement),
-        includeCancelledAt,
+        includeCancelledAt && !cancelledAtUnavailable,
         taxAmountFallback
           ? {
               ...taxAmountFallback,

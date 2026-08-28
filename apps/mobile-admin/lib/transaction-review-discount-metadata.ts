@@ -2,7 +2,7 @@ import {
   TRANSACTION_DISCOUNT_METADATA_KEY,
   type TransactionDiscountLineAllocation,
 } from '@baci/shared/contracts';
-import { toPositiveInteger } from './transaction-review-discount-helpers';
+import { toPositiveInteger } from './transaction-review-positive-integer';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export interface TransactionDiscountOptions {

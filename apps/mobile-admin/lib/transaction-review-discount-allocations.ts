@@ -1,6 +1,6 @@
 import type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
-import { toPositiveInteger } from './transaction-review-discount-helpers';
 import { getPersistedLineKeyCandidates } from './transaction-review-discount-line-key';
+import { toPositiveInteger } from './transaction-review-positive-integer';
 
 export interface DiscountableTransactionItem {
   condition?: string | null;
@@ -30,8 +30,6 @@ export type ValidatedExplicitLineDiscounts =
       allocationsByIdentity: Map<string, TransactionDiscountLineAllocation>;
       mode: 'lineKey';
     };
-
-export { toPositiveInteger } from './transaction-review-discount-helpers';
 
 export function resolveTransactionDiscountAllocation(
   allocations: ValidatedExplicitLineDiscounts,

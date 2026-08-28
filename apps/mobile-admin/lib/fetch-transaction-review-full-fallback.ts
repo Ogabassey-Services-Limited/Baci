@@ -1,22 +1,15 @@
 import type {
+  TaxAmountFallback,
   TransactionReviewFallbackQuery,
   TransactionReviewQueryError,
-} from './fetch-transaction-review-rich-fallback';
-import type { fetchTransactionReviewRows } from './fetch-transaction-review-rows';
+  TransactionReviewQueryOptions,
+  TransactionReviewQueryResult,
+} from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
 
-type TransactionReviewQueryOptions = Parameters<
-  typeof fetchTransactionReviewRows
->[0];
-type TransactionReviewQueryResult = Awaited<
-  ReturnType<typeof fetchTransactionReviewRows>
->;
-type TaxAmountFallback = Readonly<{
-  selectStatement: string;
-  stage: string;
-}>;
-
 type FullFallbackFlags = Readonly<{
+  adTrackingUnavailable: boolean;
+  cancelledAtUnavailable: boolean;
   discountAmountUnavailable: boolean;
   discountCodeUnavailable: boolean;
   lineIdUnavailable: boolean;
@@ -24,13 +17,11 @@ type FullFallbackFlags = Readonly<{
   transactionDateUnavailable: boolean;
   variantIdUnavailable: boolean;
 }>;
-
 type FullFallbackProjection = Readonly<{
   selectStatement: string;
   selectStatementNoTaxAmount: string;
   stage: string;
 }>;
-
 interface FullFallbackDependencies {
   isMissingSchemaColumn: (
     error: TransactionReviewQueryError,
@@ -43,7 +34,6 @@ interface FullFallbackDependencies {
     taxAmountFallback: TaxAmountFallback
   ) => Promise<TransactionReviewQueryResult>;
 }
-
 function getFullFallbackProjection(
   flags: FullFallbackFlags
 ): FullFallbackProjection {
@@ -153,6 +143,16 @@ function applyMissingColumns(
     selectStatementNoTaxAmount = withoutQuizAwardId(selectStatementNoTaxAmount);
     stage = `${stage}NoQuizAwardId`;
   }
+  if (flags.adTrackingUnavailable) {
+    selectStatement = withoutAdTracking(selectStatement);
+    selectStatementNoTaxAmount = withoutAdTracking(selectStatementNoTaxAmount);
+    stage = `${stage}NoAdTracking`;
+  }
+  if (flags.cancelledAtUnavailable) {
+    selectStatement = withoutCancelledAt(selectStatement);
+    selectStatementNoTaxAmount = withoutCancelledAt(selectStatementNoTaxAmount);
+    stage = `${stage}NoCancelledAt`;
+  }
 
   return {
     selectStatement,
@@ -171,6 +171,14 @@ function withoutTransactionDate(selector: string) {
 
 function withoutQuizAwardId(selector: string) {
   return selector.replace(', quiz_award_id', '');
+}
+
+function withoutAdTracking(selector: string) {
+  return selector.replace(', ad_tracking', '');
+}
+
+function withoutCancelledAt(selector: string) {
+  return selector.replace(', cancelled_at', '');
 }
 
 export async function fetchFullTransactionReviewRows(
@@ -197,6 +205,8 @@ export async function fetchFullTransactionReviewRows(
     startDateIso,
   };
   let flags: FullFallbackFlags = {
+    adTrackingUnavailable: false,
+    cancelledAtUnavailable: false,
     discountAmountUnavailable: false,
     discountCodeUnavailable: false,
     lineIdUnavailable: false,
@@ -215,6 +225,7 @@ export async function fetchFullTransactionReviewRows(
       projection.stage,
       {
         ...baseOptions,
+        includeCancelledAt: !flags.cancelledAtUnavailable,
         includeTransactionDate: !flags.transactionDateUnavailable,
         selectStatement: projection.selectStatement,
       },
@@ -225,6 +236,12 @@ export async function fetchFullTransactionReviewRows(
     ));
 
     const nextFlags = {
+      adTrackingUnavailable:
+        flags.adTrackingUnavailable ||
+        isMissingSchemaColumn(error, 'ad_tracking'),
+      cancelledAtUnavailable:
+        flags.cancelledAtUnavailable ||
+        isMissingSchemaColumn(error, 'cancelled_at'),
       discountAmountUnavailable:
         flags.discountAmountUnavailable ||
         isMissingSchemaColumn(error, 'discount_amount'),
@@ -246,6 +263,12 @@ export async function fetchFullTransactionReviewRows(
     if (nextFlags.quizAwardIdUnavailable && !flags.quizAwardIdUnavailable) {
       onMissingSchemaColumn?.('quiz_award_id');
     }
+    if (nextFlags.adTrackingUnavailable && !flags.adTrackingUnavailable) {
+      onMissingSchemaColumn?.('ad_tracking');
+    }
+    if (nextFlags.cancelledAtUnavailable && !flags.cancelledAtUnavailable) {
+      onMissingSchemaColumn?.('cancelled_at');
+    }
     if (nextFlags.lineIdUnavailable && !flags.lineIdUnavailable) {
       onMissingSchemaColumn?.('line_id');
     }
@@ -256,6 +279,8 @@ export async function fetchFullTransactionReviewRows(
       onMissingSchemaColumn?.('transaction_date');
     }
     if (
+      nextFlags.adTrackingUnavailable === flags.adTrackingUnavailable &&
+      nextFlags.cancelledAtUnavailable === flags.cancelledAtUnavailable &&
       nextFlags.discountAmountUnavailable === flags.discountAmountUnavailable &&
       nextFlags.discountCodeUnavailable === flags.discountCodeUnavailable &&
       nextFlags.lineIdUnavailable === flags.lineIdUnavailable &&

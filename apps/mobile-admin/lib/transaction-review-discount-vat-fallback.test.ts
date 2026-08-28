@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mapTransactionOrderRows } from './transaction-review';
+import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 
 describe('transaction review discount VAT fallback', () => {
   it('preserves VAT relief when a compatibility fallback cannot match v3 line keys', () => {
@@ -53,5 +54,47 @@ describe('transaction review discount VAT fallback', () => {
       profit: 48,
       revenue: 98,
     });
+  });
+
+  it('preserves explicit merchandise totals across mixed VAT lines', () => {
+    const prices = getDiscountedTransactionUnitPrices(
+      [
+        {
+          condition: 'new',
+          line_id: 1,
+          price: 100,
+          product_id: 'product-standard',
+          quantity: 1,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+          variant_id: null,
+        },
+        {
+          condition: 'new',
+          line_id: 2,
+          price: 100,
+          product_id: 'product-zero-rated',
+          quantity: 1,
+          vat_category_code: 'Z',
+          vat_rate: 0,
+          variant_id: null,
+        },
+      ],
+      21.5,
+      {
+        lineDiscounts: [
+          {
+            lineId: 1,
+            lineKey: '["product-standard",null,"used",{}]',
+            merchandiseDiscount: 20,
+            productId: 'product-standard',
+            vatRelief: 1.5,
+            variantId: null,
+          },
+        ],
+      }
+    );
+
+    expect(prices).toEqual([90, 90]);
   });
 });

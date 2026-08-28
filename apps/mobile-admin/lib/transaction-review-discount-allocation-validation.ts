@@ -6,9 +6,9 @@ import type {
 import {
   DISCOUNT_TOLERANCE,
   getProductVariantIdentity,
-  toPositiveInteger,
 } from './transaction-review-discount-helpers';
 import { getValidatedLineKeyDiscounts } from './transaction-review-discount-line-key-allocations';
+import { toPositiveInteger } from './transaction-review-positive-integer';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
 export function getValidatedExplicitLineDiscounts(

@@ -68,56 +68,83 @@ export function getDiscountedTransactionUnitPrices(
     );
     let voucherDiscount = 0;
     let fallbackMerchandiseDiscount = 0;
-    if (!allocationsByLineId && voucherDiscountBasis > 0) {
-      const explicitMerchandiseDiscount = explicitLineDiscounts.reduce(
-        (sum, allocation) =>
-          sum +
-          Math.max(
-            0,
-            toFiniteNumberOrNull(allocation?.merchandiseDiscount) ?? 0
-          ),
-        0
+    const explicitMerchandiseDiscount = explicitLineDiscounts.reduce(
+      (sum, allocation) =>
+        sum +
+        Math.max(0, toFiniteNumberOrNull(allocation?.merchandiseDiscount) ?? 0),
+      0
+    );
+    const explicitVatRelief = explicitLineDiscounts.reduce(
+      (sum, allocation) =>
+        sum + Math.max(0, toFiniteNumberOrNull(allocation?.vatRelief) ?? 0),
+      0
+    );
+    const explicitDiscount = explicitMerchandiseDiscount + explicitVatRelief;
+    const hasUsableExplicitDiscount =
+      explicitDiscount > 0 && explicitDiscount <= normalizedDiscount + 0.01;
+    const hasAuthoritativeExplicitDiscount =
+      hasUsableExplicitDiscount &&
+      Math.abs(explicitDiscount - normalizedDiscount) <= 0.01;
+    const vatCategories = new Set(
+      items
+        .map((item) =>
+          typeof item.vat_category_code === 'string'
+            ? item.vat_category_code.trim().toUpperCase()
+            : null
+        )
+        .filter((category): category is string => category != null)
+    );
+    const preserveExplicitMerchandiseFallback =
+      hasAuthoritativeExplicitDiscount && vatCategories.size > 1;
+    if (
+      !allocationsByLineId &&
+      hasUsableExplicitDiscount &&
+      (voucherDiscountBasis > 0 || preserveExplicitMerchandiseFallback)
+    ) {
+      allocationsByLineId = getValidatedExplicitLineDiscounts(
+        items,
+        lineTotals,
+        explicitDiscount,
+        explicitLineDiscounts,
+        occurrenceOrdinals
       );
-      const explicitVatRelief = explicitLineDiscounts.reduce(
-        (sum, allocation) =>
-          sum + Math.max(0, toFiniteNumberOrNull(allocation?.vatRelief) ?? 0),
-        0
-      );
-      const explicitDiscount = explicitMerchandiseDiscount + explicitVatRelief;
-      if (explicitDiscount <= normalizedDiscount + 0.01) {
-        allocationsByLineId = getValidatedExplicitLineDiscounts(
-          items,
-          lineTotals,
-          explicitDiscount,
-          explicitLineDiscounts,
-          occurrenceOrdinals
-        );
-        if (allocationsByLineId) {
-          voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
-        } else {
-          // A compatibility selector may omit the identity fields needed to
-          // match v3 allocations. Preserve the server-authored merchandise
-          // total proportionally across non-voucher lines, then leave only the
-          // residual award amount for voucher lines.
-          fallbackMerchandiseDiscount = explicitMerchandiseDiscount;
-          voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
-        }
+      if (!allocationsByLineId) {
+        // Compatibility selectors can omit the identity fields needed to
+        // match v3 allocations. Preserve the server-authored merchandise
+        // total proportionally instead of redistributing VAT-inclusive gross
+        // discount across lines with different VAT categories.
+        fallbackMerchandiseDiscount = explicitMerchandiseDiscount;
+      } else if (voucherDiscountBasis > 0) {
+        voucherDiscount = Math.max(0, normalizedDiscount - explicitDiscount);
       }
+    }
+    if (!allocationsByLineId && voucherDiscountBasis > 0) {
+      voucherDiscount = hasUsableExplicitDiscount
+        ? Math.max(0, normalizedDiscount - explicitDiscount)
+        : normalizedDiscount;
     }
     if (!allocationsByLineId) {
       if (voucherDiscountBasis <= 0) {
-        const preservesVatRelief =
-          options?.discountIncludesVat === true ||
-          explicitLineDiscounts.some(
-            (allocation) => (allocation?.vatRelief ?? 0) > 0
+        if (!preserveExplicitMerchandiseFallback) {
+          const preservesVatRelief =
+            options?.discountIncludesVat === true ||
+            explicitLineDiscounts.some(
+              (allocation) => (allocation?.vatRelief ?? 0) > 0
+            );
+          return getDiscountedTransactionUnitPrices(
+            items,
+            normalizedDiscount,
+            preservesVatRelief ? { discountIncludesVat: true } : undefined
           );
-        return getDiscountedTransactionUnitPrices(
-          items,
-          normalizedDiscount,
-          preservesVatRelief ? { discountIncludesVat: true } : undefined
-        );
+        }
+        // There are no voucher lines to absorb any residual order discount;
+        // the explicit merchandise total is the only amount represented in
+        // item revenue. VAT relief remains outside merchandise prices.
+        voucherDiscount = 0;
       }
-      voucherDiscount = normalizedDiscount;
+      if (voucherDiscountBasis > 0 && explicitDiscount <= 0) {
+        voucherDiscount = normalizedDiscount;
+      }
     }
     const voucherDiscountRatio =
       voucherDiscountBasis > 0

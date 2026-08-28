@@ -1,136 +1,29 @@
 import { fetchFullTransactionReviewRows } from './fetch-transaction-review-full-fallback';
-import { fetchTransactionReviewRows } from './fetch-transaction-review-rows';
+import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-column';
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
+import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
+import { runTransactionReviewQueryWithTaxFallback } from './run-transaction-review-query-with-tax-fallback';
+import type {
+  TaxAmountFallback,
+  TransactionReviewFallbackQuery,
+  TransactionReviewFallbackStage,
+} from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
-
-export interface TransactionReviewFallbackQuery {
-  endDateFilter?: string;
-  endDateIso?: string;
-  merchantId: string;
-  startDateFilter?: string;
-  startDateIso?: string;
-}
-
-export type TransactionReviewQueryError = {
-  code?: string;
-  details?: string;
-  hint?: string;
-  message?: string;
-} | null;
-
-type TransactionReviewFallbackStage = string;
 
 type TransactionReviewFallbackCallbacks = Readonly<{
   onMissingSchemaColumn?: (column: string) => void;
-}>;
-
-function getTransactionReviewErrorText(error: TransactionReviewQueryError) {
-  return [error?.code, error?.message, error?.details, error?.hint]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
-}
-
-export function isMissingSchemaColumn(
-  error: TransactionReviewQueryError,
-  column: string
-) {
-  return (
-    getTransactionReviewErrorText(error).includes(column) &&
-    isTransactionReviewSchemaCacheError(error)
-  );
-}
-
-function warnTransactionReviewQueryError(
-  stage: TransactionReviewFallbackStage,
-  error: TransactionReviewQueryError
-) {
-  if (__DEV__ && error) {
-    console.warn('[TransactionReview] select failed', { error, stage });
-  }
-}
-
-type TransactionReviewQueryOptions = Parameters<
-  typeof fetchTransactionReviewRows
->[0];
-
-type TaxAmountFallback = Readonly<{
-  selectStatement: string;
-  stage: TransactionReviewFallbackStage;
 }>;
 
 function withoutQuizAwardId(selector: string) {
   return selector.replace(', quiz_award_id', '');
 }
 
-async function runTransactionReviewQuery(
-  stage: TransactionReviewFallbackStage,
-  options: TransactionReviewQueryOptions
-) {
-  const result = await fetchTransactionReviewRows(options);
-  warnTransactionReviewQueryError(stage, result.error);
-  return result;
+function withoutAdTracking(selector: string) {
+  return selector.replace(', ad_tracking', '');
 }
 
-async function runTransactionReviewQueryWithTaxFallback(
-  stage: TransactionReviewFallbackStage,
-  options: TransactionReviewQueryOptions,
-  taxAmountFallback: TaxAmountFallback
-) {
-  let result = await runTransactionReviewQuery(stage, options);
-  if (isMissingSchemaColumn(result.error, 'tax_amount')) {
-    result = await runTransactionReviewQuery(taxAmountFallback.stage, {
-      ...options,
-      selectStatement: taxAmountFallback.selectStatement,
-    });
-  }
-  return result;
-}
-
-export function runLegacyTransactionReviewQuery(
-  stage: TransactionReviewFallbackStage,
-  query: TransactionReviewFallbackQuery,
-  selectStatement: string,
-  includeCancelledAt: boolean,
-  taxAmountFallback?: TaxAmountFallback
-) {
-  const options = {
-    ...query,
-    includeCancelledAt,
-    includeTransactionDate: true,
-    selectStatement,
-  };
-  return taxAmountFallback
-    ? runTransactionReviewQueryWithTaxFallback(
-        stage,
-        options,
-        taxAmountFallback
-      )
-    : runTransactionReviewQuery(stage, options);
-}
-
-export function runBaseTransactionReviewQuery(
-  stage: TransactionReviewFallbackStage,
-  query: TransactionReviewFallbackQuery,
-  selectStatement: string,
-  includeCancelledAt: boolean,
-  taxAmountFallback?: TaxAmountFallback
-) {
-  const options = {
-    endDateIso: query.endDateIso,
-    includeCancelledAt,
-    includeTransactionDate: false,
-    merchantId: query.merchantId,
-    selectStatement,
-    startDateIso: query.startDateIso,
-  };
-  return taxAmountFallback
-    ? runTransactionReviewQueryWithTaxFallback(
-        stage,
-        options,
-        taxAmountFallback
-      )
-    : runTransactionReviewQuery(stage, options);
+function withoutCancelledAt(selector: string) {
+  return selector.replace(', cancelled_at', '');
 }
 
 /** Reads cost-rich transaction rows before compatibility/base fallbacks. */
@@ -152,6 +45,8 @@ export async function fetchRichTransactionReviewRows(
     startDateIso,
   };
   let quizAwardIdUnavailable = false;
+  let adTrackingUnavailable = false;
+  let cancelledAtUnavailable = false;
   let { data, error } = await fetchFullTransactionReviewRows(
     {
       endDateFilter,
@@ -166,6 +61,12 @@ export async function fetchRichTransactionReviewRows(
         if (column === 'quiz_award_id') {
           quizAwardIdUnavailable = true;
         }
+        if (column === 'ad_tracking') {
+          adTrackingUnavailable = true;
+        }
+        if (column === 'cancelled_at') {
+          cancelledAtUnavailable = true;
+        }
         onMissingSchemaColumn?.(column);
       },
       runQueryWithTaxFallback: runTransactionReviewQueryWithTaxFallback,
@@ -177,19 +78,30 @@ export async function fetchRichTransactionReviewRows(
     selectStatement: string,
     taxAmountFallback?: TaxAmountFallback
   ) => {
-    const omitUnavailableQuizAwardId = (selector: string) =>
-      quizAwardIdUnavailable ? withoutQuizAwardId(selector) : selector;
+    const omitUnavailableSchemaColumns = (selector: string) => {
+      let result = selector;
+      if (quizAwardIdUnavailable) {
+        result = withoutQuizAwardId(result);
+      }
+      if (adTrackingUnavailable) {
+        result = withoutAdTracking(result);
+      }
+      if (cancelledAtUnavailable) {
+        result = withoutCancelledAt(result);
+      }
+      return result;
+    };
 
     const runQuery = () =>
       runLegacyTransactionReviewQuery(
         stage,
         legacyQuery,
-        omitUnavailableQuizAwardId(selectStatement),
-        true,
+        omitUnavailableSchemaColumns(selectStatement),
+        !cancelledAtUnavailable,
         taxAmountFallback
           ? {
               ...taxAmountFallback,
-              selectStatement: omitUnavailableQuizAwardId(
+              selectStatement: omitUnavailableSchemaColumns(
                 taxAmountFallback.selectStatement
               ),
             }
@@ -197,18 +109,36 @@ export async function fetchRichTransactionReviewRows(
       );
 
     let result = await runQuery();
-    if (
-      !quizAwardIdUnavailable &&
-      isMissingSchemaColumn(result.error, 'quiz_award_id')
-    ) {
-      quizAwardIdUnavailable = true;
-      onMissingSchemaColumn?.('quiz_award_id');
+    while (true) {
+      let shouldRetry = false;
+      if (
+        !quizAwardIdUnavailable &&
+        isMissingSchemaColumn(result.error, 'quiz_award_id')
+      ) {
+        quizAwardIdUnavailable = true;
+        onMissingSchemaColumn?.('quiz_award_id');
+        shouldRetry = true;
+      }
+      if (
+        !adTrackingUnavailable &&
+        isMissingSchemaColumn(result.error, 'ad_tracking')
+      ) {
+        adTrackingUnavailable = true;
+        onMissingSchemaColumn?.('ad_tracking');
+        shouldRetry = true;
+      }
+      if (
+        !cancelledAtUnavailable &&
+        isMissingSchemaColumn(result.error, 'cancelled_at')
+      ) {
+        cancelledAtUnavailable = true;
+        onMissingSchemaColumn?.('cancelled_at');
+        shouldRetry = true;
+      }
+      if (!shouldRetry) {
+        break;
+      }
       result = await runQuery();
-    }
-
-    if (isMissingSchemaColumn(result.error, 'quiz_award_id')) {
-      quizAwardIdUnavailable = true;
-      onMissingSchemaColumn?.('quiz_award_id');
     }
     return result;
   };

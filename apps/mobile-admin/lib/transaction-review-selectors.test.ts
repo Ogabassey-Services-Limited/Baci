@@ -94,6 +94,24 @@ describe('transaction review selectors', () => {
     expect(selector).toContain('cost_price');
   });
 
+  it('keeps cost snapshots when cancellation filtering is unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoCancelledAt;
+
+    expect(selector).not.toContain('cancelled_at');
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('order_item_unit_costs');
+    expect(selector).toContain('product_variants');
+  });
+
+  it('keeps discount provenance when ad tracking is unavailable', () => {
+    const selector = TRANSACTION_REVIEW_SELECTORS.fullNoAdTracking;
+
+    expect(selector).not.toContain('ad_tracking');
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('tax_amount');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('keeps cost snapshots when variant ids are unavailable', () => {
     const selector = TRANSACTION_REVIEW_SELECTORS.fullNoVariantId;
 

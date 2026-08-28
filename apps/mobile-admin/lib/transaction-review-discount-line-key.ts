@@ -2,7 +2,7 @@ import {
   buildTransactionDiscountLineKey,
   buildTransactionDiscountLineOccurrenceKey,
 } from '@baci/shared/contracts';
-import { toPositiveInteger } from './transaction-review-discount-helpers';
+import { toPositiveInteger } from './transaction-review-positive-integer';
 
 interface PersistedLineKeyItem {
   condition?: string | null;

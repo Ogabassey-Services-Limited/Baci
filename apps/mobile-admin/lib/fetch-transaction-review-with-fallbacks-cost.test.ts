@@ -158,4 +158,29 @@ describe('fetchTransactionReviewWithFallbacks cost fallback', () => {
       mocks.fetchTransactionReviewRows.mock.calls[5][0].selectStatement
     ).not.toContain('assurance_fee');
   });
+
+  it('keeps per-unit costs when cancellation filtering is unavailable', async () => {
+    const rows = [{ id: 'cancelled-at-cost-order' }];
+    const cancelledAtSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'cancelled_at' column of 'orders' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows
+      .mockResolvedValueOnce({ data: null, error: cancelledAtSchemaError })
+      .mockResolvedValueOnce({ data: rows, error: null });
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    expect(mocks.fetchTransactionReviewRows).toHaveBeenCalledTimes(2);
+    const [options] = mocks.fetchTransactionReviewRows.mock.calls[1] ?? [];
+    expect(options).toEqual(
+      expect.objectContaining({ includeCancelledAt: false })
+    );
+    expect(options.selectStatement).not.toContain('cancelled_at');
+    expect(options.selectStatement).toContain('order_item_unit_costs');
+  });
 });

@@ -10,6 +10,10 @@ function withoutTransactionDate(selector: string) {
   return selector.replace(', transaction_date', '');
 }
 
+function withoutCancelledAt(selector: string) {
+  return selector.replace(', cancelled_at', '');
+}
+
 function withoutVariantId(selector: string) {
   return selector.replace(', variant_id', '');
 }
@@ -35,6 +39,10 @@ function withoutDiscountAmount(selector: string) {
 
 function withoutDiscountCode(selector: string) {
   return selector.replace(', discount_code_id', '');
+}
+
+function withoutAdTracking(selector: string) {
+  return selector.replace(', ad_tracking', '');
 }
 
 const transactionReviewSelectors = {
@@ -127,6 +135,14 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   fullNoTransactionDateNoTaxAmount: withoutTaxAmount(
     withoutTransactionDate(transactionReviewSelectors.full)
   ),
+  fullNoCancelledAt: withoutCancelledAt(transactionReviewSelectors.full),
+  fullNoCancelledAtNoTaxAmount: withoutTaxAmount(
+    withoutCancelledAt(transactionReviewSelectors.full)
+  ),
+  fullNoAdTracking: withoutAdTracking(transactionReviewSelectors.full),
+  fullNoAdTrackingNoTaxAmount: withoutTaxAmount(
+    withoutAdTracking(transactionReviewSelectors.full)
+  ),
   fullNoVariantId: withoutVariantRelationship(transactionReviewSelectors.full),
   fullNoVariantIdNoTaxAmount: withoutTaxAmount(
     withoutVariantRelationship(transactionReviewSelectors.full)
@@ -184,5 +200,9 @@ export const TRANSACTION_REVIEW_SELECTORS = {
   ),
   legacyCompatNoTaxAmount: withoutTaxAmount(
     transactionReviewSelectors.legacyCompat
+  ),
+  legacyNoCancelledAt: withoutCancelledAt(transactionReviewSelectors.legacy),
+  legacyNoCancelledAtNoTaxAmount: withoutTaxAmount(
+    withoutCancelledAt(transactionReviewSelectors.legacy)
   ),
 } as const;

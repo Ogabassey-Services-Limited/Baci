@@ -1,5 +1,3 @@
-import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
-
 export const DISCOUNT_TOLERANCE = 0.01;
 
 export function getProductVariantIdentity(
@@ -15,13 +13,4 @@ export function getProductVariantIdentity(
   }
 
   return JSON.stringify([productId, variantId ?? null]);
-}
-
-export function toPositiveInteger(value: unknown): number | null {
-  const numericValue = toFiniteNumberOrNull(value);
-  return numericValue != null &&
-    Number.isInteger(numericValue) &&
-    numericValue > 0
-    ? numericValue
-    : null;
 }

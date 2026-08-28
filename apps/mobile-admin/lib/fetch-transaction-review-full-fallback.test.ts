@@ -101,6 +101,65 @@ describe('fetchFullTransactionReviewRows', () => {
     ).toContain('order_item_unit_costs');
   });
 
+  it('retries the cost-rich projection without ad tracking', async () => {
+    const runQueryWithTaxFallback = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST204', message: 'ad_tracking unavailable' },
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 'order-ad-tracking' }],
+        error: null,
+      });
+
+    const result = await fetchFullTransactionReviewRows(
+      { merchantId: 'merchant-1' },
+      { isMissingSchemaColumn, runQueryWithTaxFallback }
+    );
+
+    expect(result).toEqual({
+      data: [{ id: 'order-ad-tracking' }],
+      error: null,
+    });
+    const selector =
+      runQueryWithTaxFallback.mock.calls[1]?.[1].selectStatement ?? '';
+    expect(selector).not.toContain('ad_tracking');
+    expect(selector).toContain('discount_amount');
+    expect(selector).toContain('tax_amount');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
+  it('retries the cost-rich projection without cancellation filtering', async () => {
+    const runQueryWithTaxFallback = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST204', message: 'cancelled_at unavailable' },
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 'order-cancelled-at' }],
+        error: null,
+      });
+
+    const result = await fetchFullTransactionReviewRows(
+      { merchantId: 'merchant-1' },
+      { isMissingSchemaColumn, runQueryWithTaxFallback }
+    );
+
+    expect(result).toEqual({
+      data: [{ id: 'order-cancelled-at' }],
+      error: null,
+    });
+    expect(runQueryWithTaxFallback.mock.calls[1]?.[1]).toEqual(
+      expect.objectContaining({ includeCancelledAt: false })
+    );
+    const selector =
+      runQueryWithTaxFallback.mock.calls[1]?.[1].selectStatement ?? '';
+    expect(selector).not.toContain('cancelled_at');
+    expect(selector).toContain('order_item_unit_costs');
+  });
+
   it('retries without the discount code id while keeping cost fields', async () => {
     const runQueryWithTaxFallback = vi
       .fn()
