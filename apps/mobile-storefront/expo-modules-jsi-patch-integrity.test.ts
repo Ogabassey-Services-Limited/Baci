@@ -27,9 +27,7 @@ const dateGuardPath = join(
 
 describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', () => {
   it('keeps the resolved Expo 57 package patched or on the upstream fix', () => {
-    // Storefront's Expo 57.0.7 graph is patched at 57.0.3. Expo 57.0.5
-    // contains the same Double.magnitude fix upstream and is hoisted by the
-    // mobile-admin graph, so both resolutions are safe in the workspace.
+    // Expo 57.0.15 resolves the upstream-fixed 57.0.5 package.
     const pkg = JSON.parse(readFileSync(jsiPackageJsonPath, 'utf8')) as {
       version?: string;
     };
@@ -48,7 +46,7 @@ describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', ()
     expect(source).not.toMatch(/\babs\s*\(/);
   });
 
-  it('keeps the storefront React Native 0.86.0 platform patch registered', () => {
+  it('keeps the storefront React Native 0.86.2 platform patch registered', () => {
     const workspaceConfig = readFileSync(
       join(__dirname, '../../pnpm-workspace.yaml'),
       'utf8'
@@ -59,10 +57,10 @@ describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', ()
     );
     const reactNativePatchPath = join(
       __dirname,
-      '../../patches/react-native@0.86.0.patch'
+      '../../patches/react-native@0.86.2.patch'
     );
     const reactNativePatchHash = lockfile.match(
-      /^ {2}react-native@0\.86\.0: ([a-f0-9]{64})$/m
+      /^ {2}react-native@0\.86\.2: ([a-f0-9]{64})$/m
     )?.[1];
     const storefrontImporterStart = lockfile.indexOf(
       '  apps/mobile-storefront:'
@@ -73,12 +71,12 @@ describe('bugfix: expo-modules-jsi Xcode 26.2 abs-ambiguity archive failure', ()
     );
 
     expect(workspaceConfig).toContain(
-      'react-native@0.86.0: patches/react-native@0.86.0.patch'
+      'react-native@0.86.2: patches/react-native@0.86.2.patch'
     );
     expect(reactNativePatchHash).toMatch(/^[a-f0-9]{64}$/);
     expect(
       lockfile.slice(storefrontImporterStart, storefrontImporterEnd)
-    ).toContain(`version: 0.86.0(patch_hash=${reactNativePatchHash})`);
+    ).toContain(`version: 0.86.2(patch_hash=${reactNativePatchHash})`);
     expect(existsSync(reactNativePatchPath)).toBe(true);
     expect(readFileSync(reactNativePatchPath, 'utf8')).toContain(
       'StatusBarModule.kt'
