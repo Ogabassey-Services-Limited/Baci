@@ -1,9 +1,12 @@
 import { AlertTriangle, RefreshCcw, Settings2 } from 'lucide-react';
+import { Children, Fragment, isValidElement, type ReactNode } from 'react';
+import { Responsive, WidthProvider } from 'react-grid-layout/legacy';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { renderAdsAnalyticsWidgets } from './ads-analytics-widgets';
 import { AnalyticsBusinessWidgets } from './analytics-business-widgets';
 import { AnalyticsDetailWidgetGroup } from './analytics-detail-widget-group';
+import { type Layouts, resolveCategoryLayouts } from './analytics-grid-layouts';
 import type {
   AnalyticsGridProps,
   AnalyticsSummary,
@@ -15,6 +18,23 @@ import { AnalyticsInventoryWidgets } from './analytics-inventory-widgets';
 import { AnalyticsSalesWidgets } from './analytics-sales-widgets';
 import { AnalyticsSegmentWidgets } from './analytics-segment-widgets';
 import { AnalyticsSummaryWidgets } from './analytics-summary-widgets';
+
+const ResponsiveGridLayout = WidthProvider(Responsive);
+
+function flattenGridChildren(node: ReactNode): ReactNode[] {
+  const children: ReactNode[] = [];
+  Children.forEach(node, (child) => {
+    if (
+      isValidElement<{ children?: ReactNode }>(child) &&
+      child.type === Fragment
+    ) {
+      children.push(...flattenGridChildren(child.props.children));
+    } else if (child !== null && child !== false) {
+      children.push(child);
+    }
+  });
+  return children;
+}
 
 interface AnalyticsGridViewModeProps
   extends Pick<
@@ -32,6 +52,7 @@ interface AnalyticsGridViewModeProps
   formatCurrency: CurrencyFormatter;
   formatPercent: PercentFormatter;
   isWidgetVisible: WidgetVisibility;
+  layouts?: Layouts;
   onEdit: () => void;
   summary: AnalyticsSummary;
 }
@@ -45,6 +66,7 @@ export function AnalyticsGridViewMode({
   formatCurrency,
   formatPercent,
   isWidgetVisible,
+  layouts,
   merchant,
   onAnalyticsRetry,
   onAdsReportingSynced,
@@ -52,6 +74,53 @@ export function AnalyticsGridViewMode({
   summary,
   syncWindow,
 }: AnalyticsGridViewModeProps) {
+  const effectiveLayouts = layouts ?? resolveCategoryLayouts(activeCategory);
+  const gridChildren = flattenGridChildren([
+    AnalyticsSummaryWidgets({
+      editMode: true,
+      formatCurrency,
+      formatPercent,
+      isWidgetVisible,
+      summary,
+    }),
+    AnalyticsBusinessWidgets({
+      data,
+      editMode: true,
+      formatCurrency,
+      isWidgetVisible,
+      summary,
+    }),
+    AnalyticsDetailWidgetGroup({
+      data,
+      formatCurrency,
+      isWidgetVisible,
+    }),
+    AnalyticsSalesWidgets({
+      data,
+      editMode: true,
+      formatCurrency,
+      isWidgetVisible,
+    }),
+    activeCategory === 'inventory'
+      ? AnalyticsInventoryWidgets({ data, isWidgetVisible })
+      : null,
+    activeCategory === 'segments'
+      ? AnalyticsSegmentWidgets({ data, formatCurrency, isWidgetVisible })
+      : null,
+    activeCategory === 'ads'
+      ? renderAdsAnalyticsWidgets({
+          adAnalytics: data.adAnalytics,
+          canManageIntegrations: canManageAdsIntegrations,
+          editMode: true,
+          formatCurrency,
+          isWidgetVisible,
+          merchantId: merchant?.id,
+          onAdsReportingSynced,
+          syncWindow,
+        })
+      : null,
+  ]);
+
   return (
     <div className="w-full max-w-full space-y-4 overflow-hidden">
       {categoryError && (
@@ -88,69 +157,21 @@ export function AnalyticsGridViewMode({
           </Button>
         )}
       </div>
-      <AnalyticsSummaryWidgets
-        formatCurrency={formatCurrency}
-        formatPercent={formatPercent}
-        isWidgetVisible={isWidgetVisible}
-        summary={summary}
-      />
-      <AnalyticsBusinessWidgets
-        data={data}
-        formatCurrency={formatCurrency}
-        isWidgetVisible={(id) =>
-          id === 'analytics-highlights' && isWidgetVisible(id)
-        }
-        summary={summary}
-      />
-      <AnalyticsSalesWidgets
-        data={data}
-        formatCurrency={formatCurrency}
-        isWidgetVisible={isWidgetVisible}
-        viewSection="charts"
-      />
-      <AnalyticsBusinessWidgets
-        data={data}
-        formatCurrency={formatCurrency}
-        isWidgetVisible={(id) =>
-          id === 'financial-summary' && isWidgetVisible(id)
-        }
-        summary={summary}
-      />
-      <AnalyticsDetailWidgetGroup
-        data={data}
-        formatCurrency={formatCurrency}
-        isWidgetVisible={isWidgetVisible}
-        viewMode
-      />
-      <AnalyticsSalesWidgets
-        data={data}
-        formatCurrency={formatCurrency}
-        isWidgetVisible={isWidgetVisible}
-        viewSection="lists"
-      />
-      {activeCategory === 'inventory' && (
-        <AnalyticsInventoryWidgets
-          data={data}
-          isWidgetVisible={isWidgetVisible}
-        />
-      )}
-      {activeCategory === 'segments' && (
-        <AnalyticsSegmentWidgets
-          data={data}
-          formatCurrency={formatCurrency}
-          isWidgetVisible={isWidgetVisible}
-        />
-      )}
-      {activeCategory === 'ads' &&
-        renderAdsAnalyticsWidgets({
-          adAnalytics: data.adAnalytics,
-          canManageIntegrations: canManageAdsIntegrations,
-          formatCurrency,
-          isWidgetVisible,
-          merchantId: merchant?.id,
-          onAdsReportingSynced,
-          syncWindow,
-        })}
+      <div className="w-full max-w-full overflow-hidden">
+        <ResponsiveGridLayout
+          breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+          className="layout w-full"
+          cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+          draggableHandle=".drag-handle"
+          isDraggable={false}
+          isResizable={false}
+          layouts={effectiveLayouts}
+          margin={[16, 16]}
+          rowHeight={150}
+        >
+          {gridChildren}
+        </ResponsiveGridLayout>
+      </div>
     </div>
   );
 }

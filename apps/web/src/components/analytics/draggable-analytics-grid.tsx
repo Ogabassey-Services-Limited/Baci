@@ -126,6 +126,7 @@ export function DraggableAnalyticsGrid({
         {insightsPanel}
         <AnalyticsGridViewMode
           {...sharedProps}
+          layouts={layouts}
           onEdit={() => setIsEditMode(true)}
         />
       </div>

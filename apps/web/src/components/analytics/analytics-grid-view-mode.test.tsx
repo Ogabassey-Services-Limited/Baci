@@ -1,7 +1,32 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { resolveCategoryLayouts } from './analytics-grid-layouts';
 import { AnalyticsGridViewMode } from './analytics-grid-view-mode';
 import { EMPTY_ANALYTICS_SUMMARY } from './analytics-summary-widgets';
+
+vi.mock('react-grid-layout/legacy', () => ({
+  Responsive: ({
+    children,
+    isDraggable,
+    isResizable,
+    layouts,
+  }: {
+    children: React.ReactNode;
+    isDraggable?: boolean;
+    isResizable?: boolean;
+    layouts?: unknown;
+  }) => (
+    <div
+      data-draggable={String(isDraggable)}
+      data-layouts={JSON.stringify(layouts)}
+      data-resizable={String(isResizable)}
+      data-testid="responsive-grid"
+    >
+      {children}
+    </div>
+  ),
+  WidthProvider: (component: unknown) => component,
+}));
 
 vi.mock('./ai-insights-panel', () => ({
   AIInsightsPanel: () => <div>Insights</div>,
@@ -37,6 +62,7 @@ const baseProps = {
   formatCurrency: String,
   formatPercent: String,
   isWidgetVisible: () => false,
+  layouts: resolveCategoryLayouts('overview'),
   merchant: null,
   onEdit: vi.fn(),
   summary: EMPTY_ANALYTICS_SUMMARY,
@@ -98,5 +124,31 @@ describe('AnalyticsGridViewMode', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry analytics' }));
     expect(onAnalyticsRetry).toHaveBeenCalledOnce();
+  });
+
+  it('applies saved layouts in normal view without enabling editing', () => {
+    const defaultLayouts = resolveCategoryLayouts('overview');
+    const savedLayouts = {
+      ...defaultLayouts,
+      lg: defaultLayouts.lg.map((item) =>
+        item.i === 'summary-revenue'
+          ? { ...item, h: 2, w: 6, x: 6, y: 4 }
+          : item
+      ),
+    };
+
+    render(
+      <AnalyticsGridViewMode
+        {...baseProps}
+        canCustomizeLayout={false}
+        isWidgetVisible={() => true}
+        layouts={savedLayouts}
+      />
+    );
+
+    const grid = screen.getByTestId('responsive-grid');
+    expect(grid).toHaveAttribute('data-draggable', 'false');
+    expect(grid).toHaveAttribute('data-resizable', 'false');
+    expect(grid).toHaveAttribute('data-layouts', JSON.stringify(savedLayouts));
   });
 });
