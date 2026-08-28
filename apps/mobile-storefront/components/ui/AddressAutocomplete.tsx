@@ -26,7 +26,9 @@ import { applyPlaceSelection } from './apply-place-selection';
 
 export type { PlaceDetails } from './AddressAutocomplete.types';
 
-const PREDICTIONS_DEBOUNCE_MS = 300;
+// Keep the field responsive while still coalescing rapid keystrokes before
+// paying for a network round trip to the Places proxy.
+const PREDICTIONS_DEBOUNCE_MS = 150;
 const MIN_QUERY_LENGTH = 2;
 // Re-measure while visible so the dropdown follows form scroll and resize.
 // Skip sub-pixel changes to avoid no-op host renders.

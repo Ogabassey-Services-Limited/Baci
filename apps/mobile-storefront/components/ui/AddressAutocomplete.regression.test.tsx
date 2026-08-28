@@ -83,6 +83,24 @@ describe('AddressAutocomplete regressions', () => {
     expect(screen.queryByLabelText('Loading address suggestions')).toBeNull();
   });
 
+  it('starts the prediction request within the responsive debounce window', async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ predictions: [] }),
+      text: async () => '',
+    } as Response);
+    renderField();
+    const input = screen.getByRole('combobox');
+    fireEvent(input, 'focus');
+    fireEvent.changeText(input, 'Allen');
+
+    await act(async () => {
+      jest.advanceTimersByTime(150);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('refreshes the portal when the anchor width changes in place', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
