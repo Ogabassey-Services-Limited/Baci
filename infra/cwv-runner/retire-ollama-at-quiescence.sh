@@ -101,8 +101,7 @@ quiesce_at_submissions() {
   [ "$(at_submission_state)" = "$at_expected" ] ||
     die 'at submission spool changed'
   if printf '%s\n' "$at_expected" | jq -e '.scheduler=="absent"' >/dev/null; then
-    assert_at_submissions_quiesced "$at_expected"
-    return
+    die 'absent at scheduler cannot be quiesced'
   fi
   at_create_bind_mount
   [ "$(at_submission_mount_state)" = rw ] ||

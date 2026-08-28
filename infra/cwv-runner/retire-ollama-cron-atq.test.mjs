@@ -139,10 +139,11 @@ test('accepts a fully absent at scheduler without weakening partial-state checks
     await rm(source.root, { recursive: true, force: true });
   }
 });
-test('treats a fully absent at scheduler as no-op apply quiescence', async () => {
-  const { stdout } = await execFileAsync('sh', [
-    '-c',
-    `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_cron_inventory_helper; load_at_quiescence_helper
+test('refuses destructive apply when an absent at scheduler cannot be kept quiesced', async () => {
+  await assert.rejects(
+    execFileAsync('sh', [
+      '-c',
+      `. "$1"; SCRIPT_DIR=$(dirname "$1"); load_cron_inventory_helper; load_at_quiescence_helper
 AT_JOB_DIR=/fixture/absent-atjobs
 cron_inventory_at_scheduler_absent() { :; }
 cron_inventory_require_empty_at_queue() { :; }
@@ -150,15 +151,16 @@ at_submission_mount_state() { printf '%s\\n' absent; }
 at_create_bind_mount() { return 91; }
 expected=$(at_submission_state)
 [ "$expected" = '{"scheduler":"absent"}' ]
-quiesce_at_submissions "$expected"
-assert_at_submissions_quiesced "$expected"
-printf '%s\\n' absent-scheduler-quiesced`,
-    'retire-ollama-absent-at-apply-test',
-    script.pathname,
-  ]);
-  assert.equal(stdout, 'absent-scheduler-quiesced\n');
+quiesce_at_submissions "$expected"`,
+      'retire-ollama-absent-at-apply-test',
+      script.pathname,
+    ]),
+    (error) =>
+      error.code === 65 &&
+      /absent at scheduler cannot be quiesced/.test(error.stderr)
+  );
 });
-test('production apply loads the cron inventory before checking an absent at scheduler', async () => {
+test('production apply loads cron inventory before refusing an absent at scheduler', async () => {
   const source = await fixture();
   const receiptDirectory = join(source.root, 'receipts');
   await Promise.all([
@@ -173,13 +175,14 @@ test('production apply loads the cron inventory before checking an absent at sch
     ),
   ]);
   try {
-    await execFileAsync(
-      'sh',
-      [
-        '-c',
-        `. "$1"; SCRIPT_DIR=$(dirname "$1")
+    await assert.rejects(
+      execFileAsync(
+        'sh',
+        [
+          '-c',
+          `. "$1"; SCRIPT_DIR=$(dirname "$1")
 RECEIPT_DIR=$2; RECEIPT=$3; INVENTORY=$4
-root() { :; }
+root() { :; }; init_temp_root() { :; }; cleanup_temp() { :; }
 canonical_receipt() { :; }; assert_approved_dependency_classes() { :; }; assert_zero_consumers() { :; }
 approved_dependency_sha() { printf 'approved\\n'; }; dependency_sha() { printf 'approved\\n'; }
 ensure_receipt_dir() { :; }; pending_for() { printf '%s.pending\\n' "$1"; }; publish_pending() { mv "$1" "$2"; }
@@ -191,22 +194,26 @@ install_crontab() { :; }; disable_unit() { :; }; remove_container() { :; }; dele
 load_at_quiescence_helper() { . "$SCRIPT_DIR/retire-ollama-at-quiescence.sh"; cron_mutation_state() { printf '[]\\n'; }; quiesce_cron_mutations() { :; }; assert_postcondition() { :; }; assert_scheduled_mutations_quiesced() { :; }; }
 apply
 `,
-        'retire-ollama-absent-at-production-apply-test',
-        script.pathname,
-        receiptDirectory,
-        join(source.root, 'receipt.json'),
-        join(source.root, 'inventory.json'),
-      ],
-      {
-        ...childIdentity,
-        env: {
-          ...process.env,
-          RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
-          RETIRE_OLLAMA_ATQ: join(source.root, 'absent-atq'),
-          RETIRE_OLLAMA_AT_ABSENCE_ROOT: source.root,
-          RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: '',
-        },
-      }
+          'retire-ollama-absent-at-production-apply-test',
+          script.pathname,
+          receiptDirectory,
+          join(source.root, 'receipt.json'),
+          join(source.root, 'inventory.json'),
+        ],
+        {
+          ...childIdentity,
+          env: {
+            ...process.env,
+            RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+            RETIRE_OLLAMA_ATQ: join(source.root, 'absent-atq'),
+            RETIRE_OLLAMA_AT_ABSENCE_ROOT: source.root,
+            RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: '',
+          },
+        }
+      ),
+      (error) =>
+        error.code === 65 &&
+        /absent at scheduler cannot be quiesced/.test(error.stderr)
     );
   } finally {
     await rm(source.root, { recursive: true, force: true });
