@@ -14,10 +14,20 @@ export function isTrustedImmutableBlogLandscapeVariantUrl(
 ): boolean {
   try {
     const url = new URL(raw);
-    const trustedOrigins = [
+    const transformerOrigins = [
       process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN,
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
       DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
+    ].flatMap((value) => {
+      if (!value) return [];
+      try {
+        return [new URL(value).origin];
+      } catch {
+        return [];
+      }
+    });
+    const trustedOrigins = [
+      ...transformerOrigins,
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
     ].flatMap((value) => {
       if (!value) return [];
       try {
@@ -32,7 +42,9 @@ export function isTrustedImmutableBlogLandscapeVariantUrl(
 
     const decodedPath = decodeURIComponent(url.pathname);
     const sourcePath =
-      decodedPath.match(/^\/image\/[^/]+(\/.+)$/u)?.[1] ?? decodedPath;
+      transformerOrigins.includes(url.origin)
+        ? (decodedPath.match(/^\/image\/[^/]+(\/.+)$/u)?.[1] ?? decodedPath)
+        : decodedPath;
     return (
       IMMUTABLE_BLOG_IMAGE_PATH_PREFIXES.some((prefix) =>
         sourcePath.startsWith(prefix)

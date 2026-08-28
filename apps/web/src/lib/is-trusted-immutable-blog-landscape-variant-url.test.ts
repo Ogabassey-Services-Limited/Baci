@@ -3,13 +3,19 @@ import { isTrustedImmutableBlogLandscapeVariantUrl } from '@/lib/is-trusted-immu
 
 const ORIGINAL_BLOG_MEDIA_ORIGIN =
   process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
+const ORIGINAL_SUPABASE_ORIGIN = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 afterEach(() => {
   if (ORIGINAL_BLOG_MEDIA_ORIGIN === undefined) {
     delete process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN;
-    return;
+  } else {
+    process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = ORIGINAL_BLOG_MEDIA_ORIGIN;
   }
-  process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN = ORIGINAL_BLOG_MEDIA_ORIGIN;
+  if (ORIGINAL_SUPABASE_ORIGIN === undefined) {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+  } else {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = ORIGINAL_SUPABASE_ORIGIN;
+  }
 });
 
 describe('isTrustedImmutableBlogLandscapeVariantUrl', () => {
@@ -29,6 +35,16 @@ describe('isTrustedImmutableBlogLandscapeVariantUrl', () => {
     );
 
     expect(result).toBe(true);
+  });
+
+  it('does not unwrap transform-shaped paths on a Supabase storage origin', () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://project.supabase.co';
+
+    const result = isTrustedImmutableBlogLandscapeVariantUrl(
+      'https://project.supabase.co/image/format=jpeg/storage/v1/object/public/media/merchant/blog/landscape_16x9.webp'
+    );
+
+    expect(result).toBe(false);
   });
 
   it('rejects landscape variants from an unconfigured origin', () => {
