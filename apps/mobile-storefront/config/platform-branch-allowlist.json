@@ -249,6 +249,10 @@
       "justification": "Reviewed web and Android notification channel handling."
     },
     {
+      "path": "lib/performance-trace.ts",
+      "justification": "Reviewed Android-only native system trace markers; iOS and web intentionally use the no-op fallback because the local trace module is Android-only."
+    },
+    {
       "path": "lib/storage.ts",
       "justification": "Reviewed web SSR guard that avoids browser-backed AsyncStorage access while retaining native startup hydration."
     },
