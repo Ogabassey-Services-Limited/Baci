@@ -89,13 +89,23 @@ export async function syncSnapchatAdsSpendForMerchant(
     spendSupabase: SupabaseClient;
     startDate: string;
     syncRunId?: string;
+    syncRunStartedAt?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
 ): Promise<{ accountId: string; rowsWritten: number }> {
-  if (!snapchatAdsSyncRequestSchema.safeParse(input).success)
+  if (
+    !snapchatAdsSyncRequestSchema.safeParse({
+      endDate: input.endDate,
+      finalChunk: input.finalChunk,
+      startDate: input.startDate,
+      syncRunId: input.syncRunId,
+      syncRunStartedAt: input.syncRunStartedAt,
+    }).success
+  )
     throw new SnapchatAdsSyncError('INVALID_DATE_RANGE');
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
   const config = getSnapchatAdsConfig();
   const read = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -108,6 +118,7 @@ export async function syncSnapchatAdsSpendForMerchant(
   let connection = read.data?.[0];
   if (!connection?.provider_customer_id || connection.status !== 'active')
     throw new SnapchatAdsSyncError('SNAPCHAT_ADS_ACCOUNT_NOT_SELECTED');
+  const providerCustomerId = connection.provider_customer_id;
   let token: string;
   try {
     const usableGrant = await getSnapchatAdsUsableGrant({
@@ -137,14 +148,26 @@ export async function syncSnapchatAdsSpendForMerchant(
       });
     throw new SnapchatAdsSyncError(codeOf(error));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
+  const key = `${input.merchantId}:${providerCustomerId}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
   const current = activeSyncs.get(key);
   if (current) return current;
   const work = (async () => {
     try {
+      if (
+        !(await markAdsSyncStarted({
+          merchantId: input.merchantId,
+          provider: SNAPCHAT_ADS_PROVIDER,
+          providerCustomerId,
+          syncRunId,
+          syncRunStartedAt,
+          supabase: input.supabase,
+        }))
+      )
+        throw new SnapchatAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
+
       const account = (
         await listSnapchatAdsAccounts({ accessToken: token }, fetchImpl)
-      ).find((item) => item.accountId === connection.provider_customer_id);
+      ).find((item) => item.accountId === providerCustomerId);
       if (!account)
         throw new SnapchatAdsSyncError('SNAPCHAT_ADS_ACCOUNT_NOT_ACCESSIBLE');
       const startDate = snapchatAdsTrailingStartDate(
@@ -201,16 +224,6 @@ export async function syncSnapchatAdsSpendForMerchant(
         spend_date: report.spendDate,
         spend_micros: report.spendMicros,
       }));
-      if (
-        !(await markAdsSyncStarted({
-          merchantId: input.merchantId,
-          provider: SNAPCHAT_ADS_PROVIDER,
-          providerCustomerId: account.accountId,
-          syncRunId,
-          supabase: input.supabase,
-        }))
-      )
-        throw new SnapchatAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {

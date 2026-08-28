@@ -397,13 +397,17 @@ describe('SocialAdsAccountControls', () => {
     );
     const firstPayload = JSON.parse(
       (fetchWithCsrf.mock.calls[0]?.[1] as { body: string }).body
-    ) as { syncRunId: string };
+    ) as { syncRunId: string; syncRunStartedAt: string };
     const secondPayload = JSON.parse(
       (fetchWithCsrf.mock.calls[1]?.[1] as { body: string }).body
-    ) as { syncRunId: string };
+    ) as { syncRunId: string; syncRunStartedAt: string };
     expect(firstPayload.syncRunId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     );
     expect(secondPayload.syncRunId).toBe(firstPayload.syncRunId);
+    expect(secondPayload.syncRunStartedAt).toBe(firstPayload.syncRunStartedAt);
+    expect(firstPayload.syncRunStartedAt).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    );
   });
 });

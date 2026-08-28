@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   }
   const syncRunId = parsed.data.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt =
+    parsed.data.syncRunStartedAt ?? new Date().toISOString();
   try {
     // Credential reads/refreshes are service-role-only. Construct the
     // dedicated client only after the request has passed auth, merchant, and
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
       spendSupabase: createAdsSpendServiceClient(),
       startDate: parsed.data.startDate,
       syncRunId,
+      syncRunStartedAt,
       supabase: auth.supabase,
     });
     if (parsed.data.finalChunk) {

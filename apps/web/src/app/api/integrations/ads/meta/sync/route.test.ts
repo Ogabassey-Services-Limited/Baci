@@ -85,6 +85,7 @@ describe('Meta Ads sync route', () => {
       startDate: '2026-08-20',
       supabase: {},
       syncRunId: expect.any(String),
+      syncRunStartedAt: expect.any(String),
     });
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant'

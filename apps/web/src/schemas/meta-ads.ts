@@ -50,8 +50,16 @@ export const metaAdsSyncRequestSchema = z
     finalChunk: z.boolean().default(true),
     startDate: z.string().date(),
     syncRunId: z.string().uuid().optional(),
+    syncRunStartedAt: z.iso.datetime({ offset: true }).optional(),
   })
   .superRefine((value, context) => {
+    if (value.syncRunId && !value.syncRunStartedAt) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'syncRunStartedAt is required when syncRunId is provided',
+        path: ['syncRunStartedAt'],
+      });
+    }
     validateDateOrder(value, context);
     if (value.startDate > value.endDate) return;
     const days = getInclusiveAdsDateRangeDays(value.startDate, value.endDate);

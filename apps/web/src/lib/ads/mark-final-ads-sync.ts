@@ -7,6 +7,7 @@ export async function markAdsSyncStarted(input: {
   provider: string;
   providerCustomerId: string;
   syncRunId: string;
+  syncRunStartedAt: string;
   supabase: SupabaseClient;
 }): Promise<boolean> {
   const result = await input.supabase.rpc(
@@ -16,6 +17,7 @@ export async function markAdsSyncStarted(input: {
       p_provider: input.provider,
       p_provider_customer_id: input.providerCustomerId,
       p_sync_run_id: input.syncRunId,
+      p_sync_run_started_at: input.syncRunStartedAt,
     }
   );
   return !result.error && result.data === true;

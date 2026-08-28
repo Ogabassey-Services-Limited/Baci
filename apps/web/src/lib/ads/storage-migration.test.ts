@@ -34,6 +34,10 @@ const syncReplacementFenceMigrationPath = path.resolve(
   process.cwd(),
   '../../supabase/migrations/20260827120100_fence_ads_spend_replacements.sql'
 );
+const syncRunStartOrderMigrationPath = path.resolve(
+  process.cwd(),
+  '../../supabase/migrations/20260827120200_order_ads_sync_run_starts.sql'
+);
 
 describe('provider-neutral ads storage migration', () => {
   it('extends the Google-only checks without replacing the Google migrations', () => {
@@ -181,5 +185,30 @@ describe('provider-neutral ads storage migration', () => {
       "raise exception 'google ads sync run changed during spend replacement'"
     );
     expect(sql).toContain('clear_merchant_ads_sync_run_on_identity_change');
+  });
+
+  it('rejects delayed older run starts while retaining the ordering floor across token rotation', () => {
+    const sql = readFileSync(
+      syncRunStartOrderMigrationPath,
+      'utf8'
+    ).toLowerCase();
+
+    expect(sql).toContain(
+      'add column if not exists sync_run_started_at pg_catalog.timestamptz'
+    );
+    expect(sql).toContain('p_sync_run_started_at > sync_run_started_at');
+    expect(sql).toContain('p_sync_run_started_at = sync_run_started_at');
+    expect(sql).toContain('sync_run_id is null and last_synced_at is null');
+    expect(sql).toContain("+ pg_catalog.interval '5 minutes'");
+    expect(sql).toContain('new.sync_run_id := null;');
+    expect(sql).toContain(
+      'new.access_token_ciphertext is distinct from old.access_token_ciphertext'
+    );
+    expect(sql).toContain(
+      'new.refresh_token_ciphertext is distinct from old.refresh_token_ciphertext'
+    );
+    expect(sql).toContain('set last_synced_at = pg_catalog.now(),');
+    expect(sql).toContain('sync_run_id = null');
+    expect(sql).toContain('and sync_run_id = p_sync_run_id');
   });
 });

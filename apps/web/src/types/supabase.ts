@@ -26,6 +26,7 @@ export type Database = {
           scopes: string[];
           status: string;
           sync_run_id: string | null;
+          sync_run_started_at: string | null;
           token_expires_at: string | null;
           updated_at: string;
         };
@@ -45,6 +46,7 @@ export type Database = {
           scopes?: string[];
           status?: string;
           sync_run_id?: string | null;
+          sync_run_started_at?: string | null;
           token_expires_at?: string | null;
           updated_at?: string;
         };
@@ -64,6 +66,7 @@ export type Database = {
           scopes?: string[];
           status?: string;
           sync_run_id?: string | null;
+          sync_run_started_at?: string | null;
           token_expires_at?: string | null;
           updated_at?: string;
         };
@@ -20588,6 +20591,7 @@ export type Database = {
           p_provider: string;
           p_provider_customer_id: string;
           p_sync_run_id: string;
+          p_sync_run_started_at: string;
         };
         Returns: boolean;
       };

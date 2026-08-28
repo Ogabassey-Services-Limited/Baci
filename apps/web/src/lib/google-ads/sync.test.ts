@@ -105,6 +105,14 @@ describe('syncGoogleAdsSpendForMerchant', () => {
       expect.anything()
     );
     expect(mockRpc).toHaveBeenCalledWith(
+      'mark_merchant_ads_connection_sync_started_if_current',
+      expect.objectContaining({
+        p_provider: 'google_ads',
+        p_sync_run_id: expect.any(String),
+        p_sync_run_started_at: expect.any(String),
+      })
+    );
+    expect(mockRpc).toHaveBeenCalledWith(
       'replace_google_ads_spend_daily',
       expect.objectContaining({
         p_merchant_id: 'merchant-1',

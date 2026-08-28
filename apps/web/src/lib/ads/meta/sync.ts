@@ -107,6 +107,7 @@ export async function syncMetaAdsSpendForMerchant(
     spendSupabase: SupabaseClient;
     startDate: string;
     syncRunId?: string;
+    syncRunStartedAt?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -116,11 +117,13 @@ export async function syncMetaAdsSpendForMerchant(
       endDate: input.endDate,
       startDate: input.startDate,
       syncRunId: input.syncRunId,
+      syncRunStartedAt: input.syncRunStartedAt,
     }).success
   ) {
     throw new MetaAdsSyncError('INVALID_DATE_RANGE');
   }
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
   const config = getMetaAdsConfig();
   const { data: connections, error: connectionError } =
     await input.credentialSupabase.rpc('get_merchant_ads_connection_secret', {
@@ -163,6 +166,7 @@ export async function syncMetaAdsSpendForMerchant(
     spendSupabase: input.spendSupabase,
     startDate: input.startDate,
     syncRunId,
+    syncRunStartedAt,
     supabase: input.supabase,
   });
   inFlightSyncs.set(syncKey, syncPromise);
@@ -184,10 +188,26 @@ async function syncSelectedMetaAdsAccount(input: {
   spendSupabase: SupabaseClient;
   startDate: string;
   syncRunId: string;
+  syncRunStartedAt: string;
   supabase: SupabaseClient;
 }): Promise<{ accountId: string; rowsWritten: number }> {
   let usageTelemetry: MetaAdsUsageTelemetry | null = null;
   try {
+    const providerCustomerId = input.connection.provider_customer_id;
+    if (!providerCustomerId)
+      throw new MetaAdsSyncError('META_ADS_ACCOUNT_NOT_SELECTED');
+    if (
+      !(await markAdsSyncStarted({
+        merchantId: input.merchantId,
+        provider: META_ADS_PROVIDER,
+        providerCustomerId,
+        syncRunId: input.syncRunId,
+        syncRunStartedAt: input.syncRunStartedAt,
+        supabase: input.supabase,
+      }))
+    )
+      throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
+
     const collectTelemetry = (telemetry: MetaAdsUsageTelemetry) => {
       usageTelemetry = telemetry;
     };
@@ -198,8 +218,7 @@ async function syncSelectedMetaAdsAccount(input: {
       collectTelemetry
     );
     const account = accounts.find(
-      (candidate) =>
-        candidate.accountId === input.connection.provider_customer_id
+      (candidate) => candidate.accountId === providerCustomerId
     );
     if (!account) throw new MetaAdsSyncError('META_ADS_ACCOUNT_NOT_ACCESSIBLE');
     const insights = await fetchMetaAdsDailyInsights(
@@ -240,16 +259,6 @@ async function syncSelectedMetaAdsAccount(input: {
       spend_amount_decimal: insight.spendAmountDecimal,
       spend_date: insight.dateStart,
     }));
-    if (
-      !(await markAdsSyncStarted({
-        merchantId: input.merchantId,
-        provider: META_ADS_PROVIDER,
-        providerCustomerId: account.accountId,
-        syncRunId: input.syncRunId,
-        supabase: input.supabase,
-      }))
-    )
-      throw new MetaAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
     const { data: rowsWritten, error: spendWriteError } =
       await input.spendSupabase.rpc('replace_merchant_ads_spend_daily_window', {
         p_end_date: input.endDate,

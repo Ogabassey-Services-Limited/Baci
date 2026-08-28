@@ -123,6 +123,7 @@ describe('Snapchat Ads sync route', () => {
       expect.objectContaining({
         credentialSupabase: mockCredentialSupabase,
         spendSupabase: mockSpendSupabase,
+        syncRunStartedAt: expect.any(String),
       })
     );
     expect(invalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(

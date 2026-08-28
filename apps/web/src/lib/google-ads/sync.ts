@@ -43,6 +43,7 @@ export async function syncGoogleAdsSpendForMerchant(
     spendSupabase: SupabaseClient;
     startDate: string;
     syncRunId?: string;
+    syncRunStartedAt?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -52,11 +53,13 @@ export async function syncGoogleAdsSpendForMerchant(
       endDate: input.endDate,
       startDate: input.startDate,
       syncRunId: input.syncRunId,
+      syncRunStartedAt: input.syncRunStartedAt,
     }).success
   ) {
     throw new GoogleAdsSyncError('INVALID_DATE_RANGE');
   }
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
   const oauthConfig = getGoogleAdsOAuthConfig();
   const reportingConfig = getGoogleAdsReportingConfig();
   const { data: connections, error: connectionError } =
@@ -120,6 +123,18 @@ export async function syncGoogleAdsSpendForMerchant(
     };
   }
 
+  if (
+    !(await markAdsSyncStarted({
+      merchantId: input.merchantId,
+      provider: 'google_ads',
+      providerCustomerId: customerId,
+      syncRunId,
+      syncRunStartedAt,
+      supabase: input.supabase,
+    }))
+  )
+    throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
+
   let rows: Awaited<ReturnType<typeof fetchGoogleAdsDailySpend>>;
   try {
     rows = await fetchGoogleAdsDailySpend(
@@ -156,16 +171,6 @@ export async function syncGoogleAdsSpendForMerchant(
     spend_date: row.date,
     spend_micros: row.spendMicros,
   }));
-  if (
-    !(await markAdsSyncStarted({
-      merchantId: input.merchantId,
-      provider: 'google_ads',
-      providerCustomerId: customerId,
-      syncRunId,
-      supabase: input.supabase,
-    }))
-  )
-    throw new GoogleAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
   const { error: replaceError } = await input.spendSupabase.rpc(
     'replace_google_ads_spend_daily',
     {

@@ -12,6 +12,7 @@ export function createMetaAdsSyncTestCall(rpc: SupabaseClient['rpc']) {
       merchantId: 'merchant',
       spendSupabase: { rpc } as SupabaseClient,
       startDate: dates?.startDate ?? '2026-08-20',
+      syncRunStartedAt: '2026-08-27T22:00:00.000Z',
       supabase: { rpc } as SupabaseClient,
     });
 }

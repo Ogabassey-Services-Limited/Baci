@@ -118,6 +118,7 @@ export async function syncTikTokAdsSpendForMerchant(
     spendSupabase: SupabaseClient;
     startDate: string;
     syncRunId?: string;
+    syncRunStartedAt?: string;
     supabase: SupabaseClient;
   },
   fetchImpl: typeof fetch = fetch
@@ -127,10 +128,12 @@ export async function syncTikTokAdsSpendForMerchant(
       endDate: input.endDate,
       startDate: input.startDate,
       syncRunId: input.syncRunId,
+      syncRunStartedAt: input.syncRunStartedAt,
     }).success
   )
     throw new TikTokAdsSyncError('INVALID_DATE_RANGE');
   const syncRunId = input.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt = input.syncRunStartedAt ?? new Date().toISOString();
   const config = getTikTokAdsConfig();
   const { data, error } = await input.credentialSupabase.rpc(
     'get_merchant_ads_connection_secret',
@@ -140,6 +143,7 @@ export async function syncTikTokAdsSpendForMerchant(
   const connection = data?.[0];
   if (!connection?.provider_customer_id || connection.status !== 'active')
     throw new TikTokAdsSyncError('TIKTOK_ADS_ACCOUNT_NOT_SELECTED');
+  const providerCustomerId = connection.provider_customer_id;
   let token: string;
   try {
     token = resolveTikTokAdsAccessToken(connection, config);
@@ -158,11 +162,23 @@ export async function syncTikTokAdsSpendForMerchant(
     }
     throw new TikTokAdsSyncError(errorCode(cause));
   }
-  const key = `${input.merchantId}:${connection.provider_customer_id}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
+  const key = `${input.merchantId}:${providerCustomerId}:${input.startDate}:${input.endDate}:${input.finalChunk !== false}:${syncRunId}`;
   const active = inFlightSyncs.get(key);
   if (active) return active;
   const work = (async () => {
     try {
+      if (
+        !(await markAdsSyncStarted({
+          merchantId: input.merchantId,
+          provider: TIKTOK_ADS_PROVIDER,
+          providerCustomerId,
+          syncRunId,
+          syncRunStartedAt,
+          supabase: input.supabase,
+        }))
+      )
+        throw new TikTokAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
+
       const accounts = await listTikTokAdsAccounts(
         {
           accessToken: token,
@@ -172,7 +188,7 @@ export async function syncTikTokAdsSpendForMerchant(
         fetchImpl
       );
       const account = accounts.find(
-        (item) => item.accountId === connection.provider_customer_id
+        (item) => item.accountId === providerCustomerId
       );
       if (!account)
         throw new TikTokAdsSyncError('TIKTOK_ADS_ACCOUNT_NOT_ACCESSIBLE');
@@ -221,16 +237,6 @@ export async function syncTikTokAdsSpendForMerchant(
         }));
         pendingRows.push(...rows);
       }
-      if (
-        !(await markAdsSyncStarted({
-          merchantId: input.merchantId,
-          provider: TIKTOK_ADS_PROVIDER,
-          providerCustomerId: account.accountId,
-          syncRunId,
-          supabase: input.supabase,
-        }))
-      )
-        throw new TikTokAdsSyncError('SYNC_STATUS_UPDATE_FAILED');
       const written = await input.spendSupabase.rpc(
         'replace_merchant_ads_spend_daily_window',
         {

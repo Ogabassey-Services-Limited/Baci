@@ -49,6 +49,8 @@ export async function POST(request: NextRequest) {
   if (!hasPermission(access, 'integrations', 'manage'))
     return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
   const syncRunId = parsed.data.syncRunId ?? crypto.randomUUID();
+  const syncRunStartedAt =
+    parsed.data.syncRunStartedAt ?? new Date().toISOString();
   const credentialSupabase = createAdsCredentialServiceClient();
   try {
     const result = await syncTikTokAdsSpendForMerchant({
@@ -57,6 +59,7 @@ export async function POST(request: NextRequest) {
       merchantId: access.merchantId,
       spendSupabase: createAdsSpendServiceClient(),
       syncRunId,
+      syncRunStartedAt,
       supabase: auth.supabase,
     });
     if (parsed.data.finalChunk) {

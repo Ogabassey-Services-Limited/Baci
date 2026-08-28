@@ -140,6 +140,7 @@ describe('POST /api/integrations/ads/google/sync', () => {
       startDate: '2026-08-20',
       supabase: {},
       syncRunId: expect.any(String),
+      syncRunStartedAt: expect.any(String),
     });
     expect(mockInvalidateAdsAnalyticsCache).toHaveBeenCalledExactlyOnceWith(
       'merchant-1'

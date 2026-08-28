@@ -246,4 +246,9 @@ export const RECENT_PENDING_SOURCES = [
       'supabase/migrations/20260827120100_fence_ads_spend_replacements.sql',
     sha256: 'bff3ca2da014926b884dca64fc6a3a7e28e9f611bce051d0e5380fc719943eed',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260827120200_order_ads_sync_run_starts.sql',
+    sha256: '635152373f9ef17c17dec27eee616fe1ea2235a2a0cf907a40642135419eb5fc',
+  },
 ];
