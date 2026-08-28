@@ -9,6 +9,13 @@ const migration = readFileSync(
   ),
   'utf8'
 );
+const hashPreparationMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260828110000_prepare_storefront_order_hash_stamping.sql'
+  ),
+  'utf8'
+);
 
 describe('storefront order RPC context migration contract', () => {
   it('requires a signed merchant-bound route context for non-internal inserts', () => {
@@ -50,5 +57,20 @@ describe('storefront order RPC context migration contract', () => {
     expect(migration).toContain('o.checkout_request_hash_version IS NULL');
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION');
     expect(migration).toContain('TO anon, authenticated');
+  });
+
+  it('prepares hash stamping before the postdeploy route-context migration', () => {
+    expect(hashPreparationMigration).toContain(
+      'ADD COLUMN IF NOT EXISTS checkout_request_hash_version smallint'
+    );
+    expect(hashPreparationMigration).toContain(
+      'NEW.checkout_request_hash_version := 2'
+    );
+    expect(hashPreparationMigration).toContain(
+      'CREATE OR REPLACE FUNCTION public.is_legacy_storefront_order_idempotency_key('
+    );
+    expect(hashPreparationMigration).not.toContain(
+      'enforce_storefront_order_route_context'
+    );
   });
 });

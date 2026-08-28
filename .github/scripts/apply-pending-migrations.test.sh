@@ -118,8 +118,10 @@ printf '%s\n' "SELECT 'context';" \
   >"$deferred_dir/20260828090000_harden_storefront_order_rpc_context_and_replays.sql"
 printf '%s\n' "SELECT 'quiz-context';" \
   >"$deferred_dir/20260828100000_allow_legacy_quiz_award_order_context.sql"
+printf '%s\n' "SELECT 'hash-stamping';" \
+  >"$deferred_dir/20260828110000_prepare_storefront_order_hash_stamping.sql"
 printf '%s\n' "SELECT 'ordinary';" \
-  >"$deferred_dir/20260828110000_ordinary_follow_up.sql"
+  >"$deferred_dir/20260828120000_ordinary_follow_up.sql"
 deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
 deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
 PATH="$fake_bin:$PATH" \
@@ -132,13 +134,15 @@ PATH="$fake_bin:$PATH" \
   bash "$applier" >"$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828090000' "$deferred_predeploy_output"
 grep -q 'deferred until postdeploy: 20260828100000' "$deferred_predeploy_output"
-grep -q 'applied:         20260828110000  ordinary_follow_up' "$deferred_predeploy_output"
-grep -q 'Migrations summary: 1 applied, 0 skipped, 2 deferred.' "$deferred_predeploy_output"
+grep -q 'applied:         20260828110000  prepare_storefront_order_hash_stamping' "$deferred_predeploy_output"
+grep -q 'applied:         20260828120000  ordinary_follow_up' "$deferred_predeploy_output"
+grep -q 'Migrations summary: 2 applied, 0 skipped, 2 deferred.' "$deferred_predeploy_output"
 if grep -q "SELECT 'context'" "$deferred_predeploy_log" || \
   grep -q "SELECT 'quiz-context'" "$deferred_predeploy_log"; then
   echo 'Predeploy phase must not send deferred migration SQL' >&2
   exit 1
 fi
+grep -q "SELECT 'hash-stamping'" "$deferred_predeploy_log"
 
 deferred_postdeploy_log="$fixture_root/deferred-postdeploy-queries.log"
 deferred_postdeploy_output="$fixture_root/deferred-postdeploy-output.log"

@@ -1,3 +1,4 @@
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logger } from '@/lib/logger';
 import {
@@ -11,6 +12,37 @@ import type { LocalAirportDeliveryFeeValidationResult } from './local-airport-de
 import { LocalAirportDeliveryValidationError } from './local-airport-delivery-validation-error';
 
 type AirportType = 'delivery' | 'pickup';
+
+// Before delivery metadata shipped, local airport delivery used ₦25,000.
+// A metadata-free request at that amount is ambiguous with a non-airport
+// merchant fee, so it must be rejected unless it is a confirmed idempotent
+// replay. The current pickup fee is also included because it remains a valid
+// fixed airport amount with no metadata discriminator.
+const LEGACY_AIRPORT_DELIVERY_FEE = 25_000;
+
+function isAmbiguousMetadataFreeAirportFee({
+  airportType,
+  deliveryMethod,
+  selectedQuoteId,
+  shippingFee,
+  shippingRateId,
+}: Pick<
+  ValidateLocalAirportDeliveryFeeInput,
+  | 'airportType'
+  | 'deliveryMethod'
+  | 'selectedQuoteId'
+  | 'shippingFee'
+  | 'shippingRateId'
+>) {
+  return (
+    deliveryMethod === undefined &&
+    airportType === undefined &&
+    !selectedQuoteId &&
+    !shippingRateId &&
+    (Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01 ||
+      Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.pickup) <= 0.01)
+  );
+}
 
 interface AirportQuoteRecord {
   expires_at?: unknown;
@@ -239,6 +271,36 @@ export async function validateLocalAirportDeliveryFee({
     shippingAddress,
     shippingRateId,
   });
+
+  if (
+    localAirportShippingFee === null &&
+    isAmbiguousMetadataFreeAirportFee({
+      airportType,
+      deliveryMethod,
+      selectedQuoteId,
+      shippingFee,
+      shippingRateId,
+    })
+  ) {
+    const isIdempotentLocalAirportReplay = await isConfirmedLocalAirportReplay({
+      merchantId,
+      requestIdempotencyKey,
+      supabase,
+    });
+    if (!isIdempotentLocalAirportReplay) {
+      throw new LocalAirportDeliveryValidationError(
+        'Delivery metadata is required for this checkout amount',
+        'DELIVERY_METADATA_REQUIRED',
+        400
+      );
+    }
+
+    return {
+      isIdempotentLocalAirportReplay: true,
+      localAirportShippingFee: null,
+    };
+  }
+
   const localAirportShippingFeeMismatch =
     localAirportShippingFee !== null &&
     Math.abs(shippingFee - localAirportShippingFee) > 0.01;

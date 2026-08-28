@@ -160,4 +160,32 @@ describe('validateLocalAirportDeliveryFee', () => {
       localAirportShippingFee: null,
     });
   });
+
+  it('rejects a new metadata-free request at the legacy airport delivery fee', async () => {
+    const promise = validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      shippingAddress: { address: '12 Airport Road' },
+      shippingFee: 25_000,
+      supabase: mockSupabase(null),
+    });
+
+    await expect(promise).rejects.toMatchObject({
+      code: 'DELIVERY_METADATA_REQUIRED',
+      status: 400,
+    });
+  });
+
+  it('allows a confirmed replay of a metadata-free legacy airport amount', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      requestIdempotencyKey: 'legacy-airport-retry-key',
+      shippingFee: 25_000,
+      supabase: mockSupabase(null, true),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: true,
+      localAirportShippingFee: null,
+    });
+  });
 });
