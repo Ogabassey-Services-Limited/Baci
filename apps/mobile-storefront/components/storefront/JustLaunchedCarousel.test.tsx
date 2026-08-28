@@ -4,23 +4,67 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 const mockPush = jest.fn();
 const mockUseProducts = jest.fn();
 const mockUsePinned = jest.fn();
-const mockImage = jest.fn(() => null);
-const mockUseWindowDimensions = jest.fn(() => ({
-  fontScale: 1,
-  height: 800,
-  scale: 2,
-  width: 400,
-}));
-
-jest.mock('expo-image', () => ({ Image: mockImage }));
+const mockImage = jest.fn();
+jest.mock('expo-image', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    Image: (props: Record<string, unknown>) => {
+      mockImage(props);
+      return React.createElement('Image', props);
+    },
+  };
+});
 jest.mock('react-native', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
   const actual =
     jest.requireActual<typeof import('react-native')>('react-native');
-  return {
-    ...actual,
-    PixelRatio: { ...actual.PixelRatio, get: () => 2 },
-    useWindowDimensions: () => mockUseWindowDimensions(),
-  };
+  const mocked = Object.defineProperties(
+    {},
+    Object.getOwnPropertyDescriptors(actual)
+  );
+  Object.defineProperties(mocked, {
+    FlatList: {
+      configurable: true,
+      value: ({
+        data,
+        keyExtractor,
+        renderItem,
+      }: {
+        data: unknown[];
+        keyExtractor: (item: unknown, index: number) => string;
+        renderItem: (info: { item: unknown }) => React.ReactNode;
+      }) =>
+        React.createElement(
+          React.Fragment,
+          null,
+          data.map((item, index) =>
+            React.createElement(
+              React.Fragment,
+              { key: keyExtractor(item, index) },
+              renderItem({ item })
+            )
+          )
+        ),
+    },
+    PixelRatio: { configurable: true, value: { get: () => 2 } },
+    Pressable: {
+      configurable: true,
+      value: ({
+        children,
+        ...props
+      }: React.ComponentProps<typeof actual.View>) =>
+        React.createElement(
+          actual.View,
+          { ...props, accessible: true },
+          children
+        ),
+    },
+    useWindowDimensions: {
+      configurable: true,
+      value: () => ({ fontScale: 1, height: 800, scale: 2, width: 400 }),
+    },
+  });
+  return mocked;
 });
 jest.mock('expo-router', () => ({
   router: { push: (path: string) => mockPush(path) },

@@ -4,22 +4,18 @@ import type { Product } from '@/types/product';
 import { ProductCard } from './ProductCard';
 import type GridProductCard from './product-card/GridProductCard';
 
-const mockUseWindowDimensions = jest.fn(() => ({
-  fontScale: 1,
-  height: 800,
-  scale: 2,
-  width: 400,
-}));
-
-jest.mock('react-native', () => {
-  const actual =
-    jest.requireActual<typeof import('react-native')>('react-native');
-  return {
-    ...actual,
-    PixelRatio: { ...actual.PixelRatio, get: () => 2 },
-    useWindowDimensions: () => mockUseWindowDimensions(),
-  };
+jest.mock('react-native/Libraries/Utilities/PixelRatio', () => {
+  const actual = jest.requireActual<{ default: object }>(
+    'react-native/Libraries/Utilities/PixelRatio'
+  );
+  const mocked = Object.create(actual.default);
+  Object.defineProperty(mocked, 'get', { value: () => 2 });
+  return { __esModule: true, default: mocked };
 });
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => ({ fontScale: 1, height: 800, scale: 2, width: 400 }),
+}));
 
 const mockGridProductCard = jest.fn(
   (_props: ComponentProps<typeof GridProductCard>) => null
