@@ -31,6 +31,13 @@ const replayBindingMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const replaySignatureBindingMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260828060000_bind_transaction_discount_replay_signature.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -97,6 +104,15 @@ describe('transaction discount provenance migration', () => {
     );
     expect(replayBindingMigrationSql).toMatch(
       /GET DIAGNOSTICS v_inserted_count = ROW_COUNT/i
+    );
+  });
+
+  it('keys replay consumption by the signed proof instead of proof_id', () => {
+    expect(replaySignatureBindingMigrationSql).toMatch(
+      /v_proof ->> 'proof_id'\s*=\s*pg_catalog\.left\(v_proof ->> 'signature',\s*24\)/i
+    );
+    expect(replaySignatureBindingMigrationSql).toMatch(
+      /INSERT INTO private\.transaction_discount_proof_replay\s*\(\s*proof_id,\s*order_id,\s*merchant_id\s*\)\s*VALUES\s*\(\s*v_proof ->> 'signature',\s*NEW\.id,\s*NEW\.merchant_id\s*\)/i
     );
   });
 });
