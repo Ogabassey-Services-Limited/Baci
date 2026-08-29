@@ -19,6 +19,67 @@ const dockerEnvironment = {
 };
 
 describe('remediation Docker workflow', () => {
+  it('does not create a worktree when the configured image is unavailable', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) => {
+      if (command === 'docker' && args[0] === 'image') {
+        calls.push([command, ...args]);
+        return {
+          status: 1,
+          stderr: 'Error response from daemon: pull access denied',
+          stdout: '',
+        };
+      }
+      return baseRunner(command, args, options);
+    };
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: dockerEnvironment,
+          runner,
+        }),
+      /configured BACI_CODEX_DOCKER_IMAGE is unavailable/
+    );
+    assert.equal(
+      calls.some((call) => call.join(' ').startsWith('git worktree add')),
+      false
+    );
+  });
+
+  it('removes a newly created worktree when the image disappears after preflight', () => {
+    const { calls, runner: baseRunner } = makeRunner();
+    const runner = (command, args, options) => {
+      if (command === 'docker' && args[0] === 'run') {
+        calls.push([command, ...args]);
+        return {
+          status: 1,
+          stderr: 'Unable to find image baci-codex-remediator:local locally',
+          stdout: '',
+        };
+      }
+      return baseRunner(command, args, options);
+    };
+
+    assert.throws(
+      () =>
+        runRemediationAutofix({
+          candidate,
+          env: {
+            ...dockerEnvironment,
+            BACI_REMEDIATION_RUN_ID: 'image-race-run',
+          },
+          runner,
+        }),
+      /Unable to find image/
+    );
+    assert.equal(
+      calls.some((call) => call.join(' ').includes('worktree remove --force')),
+      true
+    );
+  });
+
   it('runs Codex in a hardened Docker container', () => {
     const { calls, runner } = makeRunner({ statusOutput: '' });
     const result = runRemediationAutofix({

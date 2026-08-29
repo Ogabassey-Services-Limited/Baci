@@ -23,12 +23,17 @@ function browserModule(
 
 function externalBrowserAdapters() {
   let onUrl: ((event: { url: string }) => void) | undefined;
+  let resolveListenersReady: (() => void) | undefined;
+  const listenersReady = new Promise<void>((resolve) => {
+    resolveListenersReady = resolve;
+  });
   const removeUrl = jest.fn();
   const removeAppState = jest.fn();
   const linking = {
     addEventListener: jest.fn(
       (_event: 'url', listener: (event: { url: string }) => void) => {
         onUrl = listener;
+        resolveListenersReady?.();
         return { remove: removeUrl };
       }
     ),
@@ -41,6 +46,7 @@ function externalBrowserAdapters() {
     appState,
     emitUrl: (url: string) => onUrl?.({ url }),
     linking,
+    listenersReady,
     removeAppState,
     removeUrl,
   };
@@ -92,7 +98,7 @@ describe('openOAuthSession', () => {
       url: 'https://accounts.google.com/oauth',
       webBrowser,
     });
-    await Promise.resolve();
+    await adapters.listenersReady;
     adapters.emitUrl('ogabassey://auth?code=fallback-code');
 
     await expect(resultPromise).resolves.toEqual({
@@ -127,7 +133,7 @@ describe('openOAuthSession', () => {
       url: 'https://accounts.google.com/oauth',
       webBrowser,
     });
-    await Promise.resolve();
+    await adapters.listenersReady;
     adapters.emitUrl('ogabassey://auth?code=fallback-code');
 
     await expect(resultPromise).resolves.toEqual({
