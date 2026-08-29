@@ -88,25 +88,30 @@ describe('related blog products', () => {
   });
 
   it('normalizes live catalog prices without inventing missing values', () => {
-    expect(
-      normalizeRelatedBlogProducts([
-        {
-          id: 'product-1',
-          name: 'Phone',
-          slug: 'phone',
-          price: '250000.00',
-          compare_at_price: 275000,
-          categories: { slug: 'smartphones' },
-        },
-        {
-          id: 'product-2',
-          name: 'Unpriced item',
-          slug: 'unpriced-item',
-          price: null,
-          categories: { slug: 'accessories' },
-        },
-      ])
-    ).toEqual([
+    // Arrange
+    const products = [
+      {
+        id: 'product-1',
+        name: 'Phone',
+        slug: 'phone',
+        price: '250000.00',
+        compare_at_price: 275000,
+        categories: { slug: 'smartphones' },
+      },
+      {
+        id: 'product-2',
+        name: 'Unpriced item',
+        slug: 'unpriced-item',
+        price: null,
+        categories: { slug: 'accessories' },
+      },
+    ];
+
+    // Act
+    const normalizedProducts = normalizeRelatedBlogProducts(products);
+
+    // Assert
+    expect(normalizedProducts).toEqual([
       {
         id: 'product-1',
         name: 'Phone',
