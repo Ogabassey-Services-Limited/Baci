@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { SettingsSectionRow } from './SettingsSectionRow';
 
 describe('SettingsSectionRow', () => {
@@ -51,5 +51,44 @@ describe('SettingsSectionRow', () => {
     expect(screen.getByRole('link', { name: 'Open terms' })).toHaveStyle({
       borderBottomColor: '#D1D5DB',
     });
+  });
+
+  it('keeps trailing controls beside long setting copy', () => {
+    const rendered = render(
+      <SettingsSectionRow
+        accessibilityLabel="Open account settings"
+        accessibilityRole="button"
+        icon="information-circle-outline"
+        iconBackgroundColor="#E5E7EB"
+        iconColor="#111827"
+        label="A setting with a long label"
+        labelColor="#111827"
+        right={<Text>2.4.1</Text>}
+        subtitle="Additional setting details that should wrap without moving the value"
+        subtitleColor="#6B7280"
+      />
+    );
+
+    const renderedViews = rendered.UNSAFE_getAllByType(View);
+    const leftColumn = renderedViews.find((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.flex === 1 && style?.minWidth === 0;
+    });
+    const rightColumn = renderedViews.find((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.flexDirection === 'row' && style?.flexShrink === 0;
+    });
+
+    expect(leftColumn).toBeDefined();
+    expect(StyleSheet.flatten(leftColumn?.props.style)).toMatchObject({
+      flex: 1,
+      minWidth: 0,
+    });
+    expect(rightColumn).toBeDefined();
+    expect(StyleSheet.flatten(rightColumn?.props.style)).toMatchObject({
+      flexDirection: 'row',
+      flexShrink: 0,
+    });
+    expect(screen.getByText('2.4.1')).toBeOnTheScreen();
   });
 });
