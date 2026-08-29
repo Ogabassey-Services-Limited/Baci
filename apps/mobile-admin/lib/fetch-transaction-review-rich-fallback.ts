@@ -58,6 +58,11 @@ export async function fetchRichTransactionReviewRows(
   );
   if (isMissingSchemaColumn(error, 'variant_attributes')) {
     markUnavailableSchemaColumn('variant_attributes');
+    onMissingSchemaColumn?.('variant_attributes');
+  }
+  if (isMissingSchemaColumn(error, 'quiz_award_amount')) {
+    markUnavailableSchemaColumn('quiz_award_amount');
+    onMissingSchemaColumn?.('quiz_award_amount');
   }
   if (isMissingSchemaColumn(error, 'product_match_status')) {
     markUnavailableSchemaColumn('product_match_status');
@@ -111,6 +116,14 @@ export async function fetchRichTransactionReviewRows(
       ) {
         markUnavailableSchemaColumn('quiz_award_id');
         onMissingSchemaColumn?.('quiz_award_id');
+        shouldRetry = true;
+      }
+      if (
+        !unavailableSchemaColumns.has('quiz_award_amount') &&
+        isMissingSchemaColumn(result.error, 'quiz_award_amount')
+      ) {
+        markUnavailableSchemaColumn('quiz_award_amount');
+        onMissingSchemaColumn?.('quiz_award_amount');
         shouldRetry = true;
       }
       if (

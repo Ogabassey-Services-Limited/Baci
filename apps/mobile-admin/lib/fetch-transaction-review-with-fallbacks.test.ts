@@ -260,4 +260,40 @@ describe('fetchTransactionReviewWithFallbacks', () => {
     expect(selector).not.toContain('variant_attributes');
     expect(selector).toContain('order_item_unit_costs');
   });
+
+  it('carries variant-attribute drift into base fallbacks after rich fields fail', async () => {
+    const rows = [{ id: 'variant-attributes-and-supplier-fallback-order' }];
+    const variantAttributesSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'variant_attributes' column of 'order_items' in the schema cache",
+    };
+    const supplierNameSchemaError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'supplier_name' column of 'order_items' in the schema cache",
+    };
+    mocks.fetchTransactionReviewRows.mockImplementation(
+      async ({ selectStatement }) => {
+        if (selectStatement === TRANSACTION_REVIEW_SELECTORS.full) {
+          return { data: null, error: variantAttributesSchemaError };
+        }
+        if (selectStatement.includes('supplier_name')) {
+          return { data: null, error: supplierNameSchemaError };
+        }
+        return { data: rows, error: null };
+      }
+    );
+
+    const result = await fetchTransactionReviewWithFallbacks({
+      merchantId: 'merchant-1',
+    });
+
+    expect(result).toEqual({ data: rows, error: null });
+    const baseFallbackSelector =
+      mocks.fetchTransactionReviewRows.mock.calls.at(-1)?.[0].selectStatement;
+    expect(baseFallbackSelector).not.toContain('variant_attributes');
+    expect(baseFallbackSelector).toContain('ad_tracking');
+    expect(baseFallbackSelector).toContain('line_id');
+  });
 });

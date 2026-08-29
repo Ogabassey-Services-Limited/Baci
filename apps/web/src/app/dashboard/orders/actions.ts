@@ -5,10 +5,7 @@ import {
   AGENTIC_ORDER_SOURCE_FILTER,
   type AgenticOrderSourceFilter,
 } from '@/app/dashboard/orders/agentic-order-source';
-import {
-  mapOrderFinancialFields,
-  type OrderFinancialFields,
-} from '@/app/dashboard/orders/order-financials';
+import type { OrderFinancialFields } from '@/app/dashboard/orders/order-financials';
 import { loadOrderItemImageMap } from '@/app/dashboard/orders/order-item-images';
 import type {
   PaymentStatus,
@@ -34,6 +31,10 @@ import {
   GetOrdersInputSchema,
   ResendOrderConfirmationInputSchema,
 } from '@/schemas/dashboard-order-actions';
+import {
+  type DashboardOrderRecord,
+  mapDashboardOrderRecord,
+} from './order-record-mapper';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
@@ -105,47 +106,6 @@ interface OrderFilters {
   source?: AgenticOrderSourceFilter;
 }
 
-interface OrderItem {
-  id: string;
-  name?: string;
-  product_id?: string | null;
-  image_url?: string | null;
-  quantity: number;
-  price?: string | number;
-  variant_name?: string;
-  has_assurance?: boolean;
-}
-
-interface DashboardOrderRecord {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  total: string;
-  subtotal?: string | number | null;
-  shipping_fee?: string | number | null;
-  gift_wrapping_fee?: string | number | null;
-  tax_amount?: string | number | null;
-  tax_basis?: string | null;
-  discount_amount?: string | number | null;
-  currency?: string | null;
-  shipping_status: string;
-  payment_status: string;
-  payment_method: string | null;
-  created_at: string;
-  source: string;
-  tracking_number?: string;
-  shipping_provider?: string;
-  delivery_method?: string | null;
-  airport_type?: string | null;
-  shipping_rate_id?: string | null;
-  shipping_rate_name?: string | null;
-  shipping_pickup_details?: MerchantPickupAddress | null;
-  payment_reference?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  notes?: string;
-  order_items?: OrderItem[];
-}
 interface OrderConfirmationRecord {
   id: string;
   merchant_id: string;
@@ -256,14 +216,6 @@ function isActiveFilter<T extends string>(
   value: T | 'All' | undefined
 ): value is T {
   return Boolean(value && value !== 'All');
-}
-
-function formatStatus(status: string): string {
-  if (!status) return 'Pending';
-  return status
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 export async function getOrders(
@@ -393,41 +345,9 @@ export async function getOrders(
     )
   );
 
-  const realOrders = orders.map((order) => ({
-    id: order.id,
-    orderNumber: order.order_number,
-    customerName: formatPersonName(order.customer_name || 'Customer'),
-    total: Number.parseFloat(order.total),
-    ...mapOrderFinancialFields(order),
-    currency: order.currency || 'NGN',
-    shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
-    paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
-    paymentMethod: order.payment_method,
-    date: new Date(order.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    createdAt: new Date(order.created_at).getTime(),
-    source: order.source,
-    tracking_number: order.tracking_number,
-    shipping_provider: order.shipping_provider,
-    delivery_method: order.delivery_method,
-    airport_type: order.airport_type,
-    items: (order.order_items || []).map((item: OrderItem) => ({
-      id: item.id,
-      name: item.name || 'Unknown Product',
-      quantity: item.quantity,
-      price: Number.parseFloat(String(item.price || 0)),
-      image: item.image_url
-        ? item.image_url
-        : item.product_id
-          ? orderItemImageMap.get(item.product_id)
-          : undefined,
-      variant: item.variant_name || undefined,
-      hasAssurance: item.has_assurance || false,
-    })),
-  }));
+  const realOrders = orders.map((order) =>
+    mapDashboardOrderRecord(order, { orderItemImageMap })
+  );
 
   // Normalize Jumia Orders
   const normalizedJumiaOrders = jumiaOrders.map((jOrder) => {
@@ -664,57 +584,11 @@ export async function getOrder(
     .eq('order_id', order.id)
     .order('created_at', { ascending: false });
 
-  return {
-    id: order.id,
-    orderNumber: order.order_number,
-    customerName: formatPersonName(order.customer_name || 'Customer'),
-    total: Number.parseFloat(order.total),
-    ...mapOrderFinancialFields(order),
-    currency: order.currency || 'NGN',
-    shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
-    paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
-    paymentMethod: order.payment_method,
-    date: new Date(order.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    createdAt: new Date(order.created_at).getTime(),
-    source: order.source,
-    tracking_number: order.tracking_number,
-    shipping_provider: order.shipping_provider,
-    delivery_method: order.delivery_method,
-    airport_type: order.airport_type,
-    shipping_rate_id: order.shipping_rate_id ?? undefined,
-    shipping_rate_name: order.shipping_rate_name ?? undefined,
-    shipping_pickup_details: order.shipping_pickup_details ?? undefined,
-    payment_reference: order.payment_reference,
-    customer_email: order.customer_email,
-    customer_phone: order.customer_phone,
-    notes: order.notes,
-    items: (order.order_items || []).map((item: OrderItem) => ({
-      id: item.id,
-      name: item.name || 'Unknown Product',
-      quantity: item.quantity,
-      price: Number.parseFloat(String(item.price || 0)),
-      image: item.image_url
-        ? item.image_url
-        : item.product_id
-          ? orderItemImageMap.get(item.product_id)
-          : undefined,
-      variant: item.variant_name || undefined,
-      hasAssurance: item.has_assurance || false,
-    })),
-    transactions: (transactions || []).map((tx: Transaction) => ({
-      id: tx.id,
-      reference: tx.reference || tx.gateway_reference || '',
-      status: tx.status,
-      amount: tx.amount,
-      currency: tx.currency,
-      gateway: tx.gateway,
-      created_at: tx.created_at,
-    })),
-  };
+  return mapDashboardOrderRecord(order, {
+    includeDetails: true,
+    orderItemImageMap,
+    transactions: (transactions || []) as Transaction[],
+  });
 }
 
 export async function resendOrderConfirmation(

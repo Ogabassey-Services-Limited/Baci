@@ -11,6 +11,7 @@ const noUnavailableColumns: FullFallbackFlags = {
   discountCodeUnavailable: false,
   lineIdUnavailable: false,
   quizAwardIdUnavailable: false,
+  quizAwardAmountUnavailable: false,
   transactionDateUnavailable: false,
   variantIdUnavailable: false,
 };
@@ -37,17 +38,19 @@ describe('getFullFallbackProjection', () => {
       adTrackingUnavailable: true,
       cancelledAtUnavailable: true,
       lineIdUnavailable: true,
+      quizAwardAmountUnavailable: true,
       quizAwardIdUnavailable: true,
       transactionDateUnavailable: true,
     });
 
     expect(projection.stage).toBe(
-      'FullNoLineIdNoTransactionDateNoQuizAwardIdNoAdTrackingNoCancelledAt'
+      'FullNoLineIdNoTransactionDateNoQuizAwardIdNoQuizAwardAmountNoAdTrackingNoCancelledAt'
     );
     for (const column of [
       'line_id',
       'transaction_date',
       'quiz_award_id',
+      'quiz_award_amount',
       'ad_tracking',
       'cancelled_at',
     ]) {

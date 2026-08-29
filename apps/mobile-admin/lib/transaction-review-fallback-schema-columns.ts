@@ -6,11 +6,72 @@ export type TransactionReviewSchemaColumnAvailability = Readonly<{
   lineIdUnavailable: boolean;
   productMatchStatusUnavailable?: boolean;
   quizAwardIdUnavailable: boolean;
+  quizAwardAmountUnavailable?: boolean;
   transactionDateUnavailable: boolean;
   unitCostRelationshipUnavailable?: boolean;
   variantAttributesUnavailable?: boolean;
   variantIdUnavailable: boolean;
 }>;
+
+type SchemaColumnAvailabilityKey =
+  keyof TransactionReviewSchemaColumnAvailability;
+
+const schemaColumnAvailabilityKeys: Readonly<
+  Record<string, SchemaColumnAvailabilityKey>
+> = {
+  ad_tracking: 'adTrackingUnavailable',
+  cancelled_at: 'cancelledAtUnavailable',
+  discount_amount: 'discountAmountUnavailable',
+  discount_code_id: 'discountCodeUnavailable',
+  line_id: 'lineIdUnavailable',
+  product_match_status: 'productMatchStatusUnavailable',
+  quiz_award_amount: 'quizAwardAmountUnavailable',
+  quiz_award_id: 'quizAwardIdUnavailable',
+  transaction_date: 'transactionDateUnavailable',
+  order_item_unit_costs: 'unitCostRelationshipUnavailable',
+  variant_attributes: 'variantAttributesUnavailable',
+  variant_id: 'variantIdUnavailable',
+};
+
+/** Tracks schema drift discovered while walking transaction-review fallbacks. */
+export function createTransactionReviewSchemaColumnState() {
+  const availability: Record<SchemaColumnAvailabilityKey, boolean> = {
+    adTrackingUnavailable: false,
+    cancelledAtUnavailable: false,
+    discountAmountUnavailable: false,
+    discountCodeUnavailable: false,
+    lineIdUnavailable: false,
+    productMatchStatusUnavailable: false,
+    quizAwardAmountUnavailable: false,
+    quizAwardIdUnavailable: false,
+    transactionDateUnavailable: false,
+    unitCostRelationshipUnavailable: false,
+    variantAttributesUnavailable: false,
+    variantIdUnavailable: false,
+  };
+
+  const markMissingSchemaColumn = (column: string) => {
+    const key = schemaColumnAvailabilityKeys[column];
+    if (!key || availability[key]) return false;
+    availability[key] = true;
+    return true;
+  };
+
+  const getSchemaColumnAvailability =
+    (): TransactionReviewSchemaColumnAvailability => ({
+      ...availability,
+    });
+
+  return {
+    getSchemaColumnAvailability,
+    markMissingSchemaColumn,
+    omitUnavailableSchemaColumns: (selector: string) =>
+      omitUnavailableTransactionReviewSchemaColumns(
+        selector,
+        getSchemaColumnAvailability()
+      ),
+  };
+}
 
 type SchemaColumnAvailability =
   | TransactionReviewSchemaColumnAvailability
@@ -46,6 +107,9 @@ export function omitUnavailableTransactionReviewSchemaColumns(
   let result = selector;
   if (isUnavailable('quizAwardIdUnavailable', 'quiz_award_id')) {
     result = withoutSchemaColumn(result, 'quiz_award_id');
+  }
+  if (isUnavailable('quizAwardAmountUnavailable', 'quiz_award_amount')) {
+    result = withoutSchemaColumn(result, 'quiz_award_amount');
   }
   if (isUnavailable('discountCodeUnavailable', 'discount_code_id')) {
     result = withoutSchemaColumn(result, 'discount_code_id');

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createTransactionReviewSchemaColumnState,
   omitUnavailableTransactionReviewSchemaColumns,
   type TransactionReviewSchemaColumnAvailability,
 } from './transaction-review-fallback-schema-columns';
@@ -16,6 +17,17 @@ const noUnavailableColumns: TransactionReviewSchemaColumnAvailability = {
 };
 
 describe('omitUnavailableTransactionReviewSchemaColumns', () => {
+  it('tracks each missing column once for fallback retries', () => {
+    const state = createTransactionReviewSchemaColumnState();
+
+    expect(state.markMissingSchemaColumn('variant_attributes')).toBe(true);
+    expect(state.markMissingSchemaColumn('variant_attributes')).toBe(false);
+    expect(state.markMissingSchemaColumn('not_a_column')).toBe(false);
+    expect(
+      state.getSchemaColumnAvailability().variantAttributesUnavailable
+    ).toBe(true);
+  });
+
   it('returns a selector unchanged when every column is available', () => {
     const selector = 'id, discount_amount, ad_tracking';
 
@@ -29,13 +41,14 @@ describe('omitUnavailableTransactionReviewSchemaColumns', () => {
 
   it('removes only columns known to be unavailable', () => {
     const selector =
-      'id, quiz_award_id, discount_code_id, discount_amount, ad_tracking, cancelled_at, transaction_date';
+      'id, quiz_award_id, quiz_award_amount, discount_code_id, discount_amount, ad_tracking, cancelled_at, transaction_date';
 
     expect(
       omitUnavailableTransactionReviewSchemaColumns(selector, {
         ...noUnavailableColumns,
         adTrackingUnavailable: true,
         discountAmountUnavailable: true,
+        quizAwardAmountUnavailable: true,
         transactionDateUnavailable: true,
       })
     ).toBe('id, quiz_award_id, discount_code_id, cancelled_at');

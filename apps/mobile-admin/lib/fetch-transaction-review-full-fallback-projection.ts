@@ -7,6 +7,7 @@ export type FullFallbackFlags = Readonly<{
   discountCodeUnavailable: boolean;
   lineIdUnavailable: boolean;
   quizAwardIdUnavailable: boolean;
+  quizAwardAmountUnavailable: boolean;
   transactionDateUnavailable: boolean;
   variantIdUnavailable: boolean;
 }>;
@@ -27,6 +28,10 @@ function withoutTransactionDate(selector: string) {
 
 function withoutQuizAwardId(selector: string) {
   return selector.replace(', quiz_award_id', '');
+}
+
+function withoutQuizAwardAmount(selector: string) {
+  return selector.replace(', quiz_award_amount', '');
 }
 
 function withoutAdTracking(selector: string) {
@@ -61,6 +66,13 @@ function applyMissingColumns(
     selectStatement = withoutQuizAwardId(selectStatement);
     selectStatementNoTaxAmount = withoutQuizAwardId(selectStatementNoTaxAmount);
     stage = `${stage}NoQuizAwardId`;
+  }
+  if (flags.quizAwardAmountUnavailable) {
+    selectStatement = withoutQuizAwardAmount(selectStatement);
+    selectStatementNoTaxAmount = withoutQuizAwardAmount(
+      selectStatementNoTaxAmount
+    );
+    stage = `${stage}NoQuizAwardAmount`;
   }
   if (flags.adTrackingUnavailable) {
     selectStatement = withoutAdTracking(selectStatement);

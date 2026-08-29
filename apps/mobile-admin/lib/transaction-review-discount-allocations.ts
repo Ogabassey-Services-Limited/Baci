@@ -7,6 +7,7 @@ export interface DiscountableTransactionItem {
   line_id?: number | string | null;
   product_id?: string | null;
   quiz_award_id?: string | null;
+  quiz_award_amount?: number | string | null;
   variant_id?: string | null;
   variant_attributes?: Record<string, string> | null;
   price: number | string | null;

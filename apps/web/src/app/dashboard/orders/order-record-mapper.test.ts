@@ -6,6 +6,12 @@ const baseOrder = {
   order_number: '#1001',
   customer_name: 'Ada Lovelace',
   total: '35000',
+  subtotal: '30000',
+  shipping_fee: '1500',
+  gift_wrapping_fee: '500',
+  tax_amount: '3000',
+  tax_basis: 'inclusive',
+  discount_amount: '1000',
   currency: 'NGN',
   shipping_status: 'shipped',
   payment_status: 'paid',
@@ -84,6 +90,23 @@ describe('mapDashboardOrderRecord', () => {
         shipping_rate_name: 'Lagos pickup',
         payment_reference: 'pay-1',
         transactions: [expect.objectContaining({ reference: 'gateway-1' })],
+      })
+    );
+  });
+
+  it('maps persisted financial fields for dashboard order history', () => {
+    const result = mapDashboardOrderRecord(baseOrder, {
+      orderItemImageMap: new Map(),
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        subtotal: 30000,
+        shipping_fee: 1500,
+        gift_wrapping_fee: 500,
+        tax_amount: 3000,
+        tax_basis: 'inclusive',
+        discount_amount: 1000,
       })
     );
   });

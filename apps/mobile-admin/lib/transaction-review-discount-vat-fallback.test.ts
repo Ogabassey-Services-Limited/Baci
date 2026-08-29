@@ -120,4 +120,28 @@ describe('transaction review discount VAT fallback', () => {
 
     expect(prices).toEqual([9_800_000, 9_800_000]);
   });
+
+  it('allocates voucher residuals from the VAT-inclusive merchandise basis', () => {
+    const prices = getDiscountedTransactionUnitPrices(
+      [
+        {
+          price: 100,
+          quantity: 1,
+          quiz_award_id: 'award-1',
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+        {
+          price: 100,
+          quantity: 1,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
+      102.15,
+      { discountIncludesVat: true }
+    );
+
+    expect(prices).toEqual([0, 98]);
+  });
 });

@@ -22,4 +22,17 @@ describe('getQuizVoucherDiscountAmount', () => {
 
     expect(amount).toBe(0);
   });
+
+  it('uses the persisted award amount when the catalog price changes', () => {
+    const amount = getQuizVoucherDiscountAmount([
+      {
+        price: 120,
+        quantity: 1,
+        quiz_award_id: 'award-1',
+        quiz_award_amount: 100,
+      },
+    ]);
+
+    expect(amount).toBe(100);
+  });
 });

@@ -7919,6 +7919,7 @@ export type Database = {
           product_match_status: string;
           quantity: number;
           quiz_award_id: string | null;
+          quiz_award_amount: number | null;
           sellers_item_id: string | null;
           supplier_name: string | null;
           unit_code: string | null;
@@ -7948,6 +7949,7 @@ export type Database = {
           product_match_status?: string;
           quantity: number;
           quiz_award_id?: string | null;
+          quiz_award_amount?: number | null;
           sellers_item_id?: string | null;
           supplier_name?: string | null;
           unit_code?: string | null;
@@ -7977,6 +7979,7 @@ export type Database = {
           product_match_status?: string;
           quantity?: number;
           quiz_award_id?: string | null;
+          quiz_award_amount?: number | null;
           sellers_item_id?: string | null;
           supplier_name?: string | null;
           unit_code?: string | null;

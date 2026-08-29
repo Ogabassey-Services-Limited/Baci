@@ -15,6 +15,10 @@ export function getQuizVoucherDiscountAmount(
     const merchandiseTotal =
       Math.max(0, toFiniteNumberOrNull(item.price) ?? 0) *
       Math.max(0, toFiniteNumberOrNull(item.quantity) ?? 1);
-    return sum + merchandiseTotal;
+    const voucherAmount = toFiniteNumberOrNull(item.quiz_award_amount);
+    return (
+      sum +
+      Math.min(merchandiseTotal, Math.max(0, voucherAmount ?? merchandiseTotal))
+    );
   }, 0);
 }

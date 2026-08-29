@@ -222,11 +222,18 @@ export function getDiscountedTransactionUnitPrices(
       : 0;
   const residualDiscountBasis =
     voucherDiscountBasis > 0
-      ? lineTotals.reduce(
-          (sum, line, index) =>
-            sum + (voucherLineIndexes.has(index) ? 0 : line.total),
-          0
-        )
+      ? lineTotals.reduce((sum, line, index) => {
+          if (voucherLineIndexes.has(index)) return sum;
+          if (!discountIncludesVat) return sum + line.total;
+          const vatCategory = (
+            items[index]?.vat_category_code ?? 'S'
+          ).toUpperCase();
+          const vatRate =
+            vatCategory === 'S'
+              ? Math.max(0, toFiniteNumberOrNull(items[index]?.vat_rate) ?? 7.5)
+              : 0;
+          return sum + line.merchandiseTotal * (1 + vatRate / 100);
+        }, 0)
       : 0;
   const discountBasisForFallback =
     voucherDiscountBasis > 0

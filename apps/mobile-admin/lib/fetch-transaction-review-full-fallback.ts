@@ -53,6 +53,7 @@ export async function fetchFullTransactionReviewRows(
     discountCodeUnavailable: false,
     lineIdUnavailable: false,
     quizAwardIdUnavailable: false,
+    quizAwardAmountUnavailable: false,
     transactionDateUnavailable: false,
     variantIdUnavailable: false,
   };
@@ -95,6 +96,9 @@ export async function fetchFullTransactionReviewRows(
       quizAwardIdUnavailable:
         flags.quizAwardIdUnavailable ||
         isMissingSchemaColumn(error, 'quiz_award_id'),
+      quizAwardAmountUnavailable:
+        flags.quizAwardAmountUnavailable ||
+        isMissingSchemaColumn(error, 'quiz_award_amount'),
       transactionDateUnavailable:
         flags.transactionDateUnavailable ||
         isMissingSchemaColumn(error, 'transaction_date'),
@@ -104,6 +108,12 @@ export async function fetchFullTransactionReviewRows(
     };
     if (nextFlags.quizAwardIdUnavailable && !flags.quizAwardIdUnavailable) {
       onMissingSchemaColumn?.('quiz_award_id');
+    }
+    if (
+      nextFlags.quizAwardAmountUnavailable &&
+      !flags.quizAwardAmountUnavailable
+    ) {
+      onMissingSchemaColumn?.('quiz_award_amount');
     }
     if (nextFlags.adTrackingUnavailable && !flags.adTrackingUnavailable) {
       onMissingSchemaColumn?.('ad_tracking');
@@ -139,6 +149,8 @@ export async function fetchFullTransactionReviewRows(
       nextFlags.discountCodeUnavailable === flags.discountCodeUnavailable &&
       nextFlags.lineIdUnavailable === flags.lineIdUnavailable &&
       nextFlags.quizAwardIdUnavailable === flags.quizAwardIdUnavailable &&
+      nextFlags.quizAwardAmountUnavailable ===
+        flags.quizAwardAmountUnavailable &&
       nextFlags.transactionDateUnavailable ===
         flags.transactionDateUnavailable &&
       nextFlags.variantIdUnavailable === flags.variantIdUnavailable
