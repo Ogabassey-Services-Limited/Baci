@@ -1,6 +1,12 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { useRouter } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native';
 import type { QuizResult, QuizV2Result } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 import { QuizPrizeClaimPanel } from './QuizPrizeClaimPanel';
@@ -74,10 +80,10 @@ export function QuizResultsPanel({
       expectedUserId,
       lifecycle,
     });
-  const finishTime = formatFinishTime(
-    leaderboard?.currentPlayer?.submittedAt ??
-      leaderboard?.entries.find((entry) => entry.isCurrentCustomer)?.submittedAt
-  );
+  const currentPlayer =
+    leaderboard?.currentPlayer ??
+    leaderboard?.entries.find((entry) => entry.isCurrentCustomer);
+  const finishTime = formatFinishTime(currentPlayer?.submittedAt);
   if (lifecycle !== 'idle') {
     const title =
       v2Result?.availability === 'unavailable'
@@ -140,7 +146,28 @@ export function QuizResultsPanel({
               {formatCountdown(eventTimer.remainingSeconds)}
             </Text>
           ) : null}
-          {shouldLoadLeaderboard ? (
+          {lifecycle === 'pending_results' ? (
+            currentPlayer ? (
+              <View
+                accessibilityLabel={`Your score: ${currentPlayer.score} points`}
+                style={styles.scoreSummary}
+              >
+                <Text style={styles.scoreLabel}>Your score</Text>
+                <Text style={styles.scoreValue}>{currentPlayer.score}</Text>
+                <Text style={styles.scoreLabel}>points recorded</Text>
+              </View>
+            ) : leaderboardError ? (
+              <Text style={styles.eventMeta}>
+                Your score is recorded. Final results are still being prepared.
+              </Text>
+            ) : (
+              <ActivityIndicator
+                accessibilityLabel="Loading your score"
+                color={styles.finalStandingsTitle.color}
+              />
+            )
+          ) : null}
+          {lifecycle === 'final' && shouldLoadLeaderboard ? (
             <QuizResultsStandings
               leaderboard={leaderboard}
               leaderboardError={leaderboardError}

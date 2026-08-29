@@ -133,7 +133,7 @@ describe('QuizResultsPanel lifecycle', () => {
     });
   });
 
-  it('shows provisional standings immediately after the player finishes', async () => {
+  it('shows only the player score before final publication', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
@@ -169,8 +169,11 @@ describe('QuizResultsPanel lifecycle', () => {
       />
     );
     await act(async () => Promise.resolve());
-    expect(screen.getByText('Live standings')).toBeTruthy();
-    expect(screen.getByText(/Bassey/)).toBeTruthy();
+    expect(screen.getByText('Your score')).toBeTruthy();
+    expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.getByText('points recorded')).toBeTruthy();
+    expect(screen.queryByText('Live standings')).toBeNull();
+    expect(screen.queryByText(/Bassey/)).toBeNull();
   });
 
   it('offers another attempt while a multi-attempt event is still open', () => {
@@ -198,22 +201,20 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(onReturnToQuizList).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps live standings visible while final publication completes', async () => {
+  it('keeps the provisional score visible while final publication completes', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
-      currentPlayer: null,
-      entries: [
-        {
-          displayName: 'Bassey',
-          isCurrentCustomer: true,
-          rank: 1,
-          score: 8,
-          status: 'submitted',
-          submittedAt: new Date(0).toISOString(),
-          totalTimeSeconds: 42,
-        },
-      ],
+      currentPlayer: {
+        displayName: 'Bassey',
+        isCurrentCustomer: true,
+        rank: 1,
+        score: 8,
+        status: 'submitted',
+        submittedAt: new Date(0).toISOString(),
+        totalTimeSeconds: 42,
+      },
+      entries: [],
       participantCount: null,
       status: 'live',
     });
@@ -241,7 +242,10 @@ describe('QuizResultsPanel lifecycle', () => {
       jest.advanceTimersByTime(1_250);
       await Promise.resolve();
     });
-    expect(screen.getByText(/Bassey/)).toBeTruthy();
+    expect(screen.getByText('Your score')).toBeTruthy();
+    expect(screen.getByText('8')).toBeTruthy();
+    expect(screen.queryByText('Live standings')).toBeNull();
+    expect(screen.queryByText(/Bassey/)).toBeNull();
     expect(screen.queryByText(/Standings are reconnecting/)).toBeNull();
     expect(screen.queryByLabelText('Loading final standings')).toBeNull();
   });
