@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react-native';
 import { fetchQuizLeaderboard } from '@/services/quiz-leaderboard';
 import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
 import { fetchQuizParticipantCount } from '@/services/quiz-participant-count';
@@ -88,6 +94,18 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(screen.getByText('Claim your prize')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'View past quiz leaderboards' })
+    ).toBeTruthy();
+    const resultScroll = screen.getByTestId('quiz-results-scroll');
+    const actionsDock = screen.getByTestId('quiz-results-actions');
+    expect(
+      within(resultScroll).queryByRole('button', {
+        name: 'View past quiz leaderboards',
+      })
+    ).toBeNull();
+    expect(
+      within(actionsDock).getByRole('button', {
+        name: 'View past quiz leaderboards',
+      })
     ).toBeTruthy();
     fireEvent.press(
       screen.getByRole('button', { name: 'Return to quiz list' })

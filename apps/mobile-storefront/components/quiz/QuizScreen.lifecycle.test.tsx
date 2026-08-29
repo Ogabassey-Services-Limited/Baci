@@ -145,7 +145,7 @@ describe('QuizScreen result and universal-expiry lifecycle', () => {
     });
 
     expect(await screen.findByText('You placed #1')).toBeTruthy();
-    expect(screen.getByText('4')).toBeTruthy();
+    expect(screen.getByLabelText('Rank 1, ogafan, score 4')).toBeTruthy();
     await act(async () => {
       await Promise.resolve();
     });
