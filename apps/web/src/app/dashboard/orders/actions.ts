@@ -146,11 +146,6 @@ interface DashboardOrderRecord {
   notes?: string;
   order_items?: OrderItem[];
 }
-function parseOrderTaxBasis(
-  value: string | null | undefined
-): 'exclusive' | 'inclusive' | undefined {
-  return value === 'exclusive' || value === 'inclusive' ? value : undefined;
-}
 interface OrderConfirmationRecord {
   id: string;
   merchant_id: string;

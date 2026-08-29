@@ -51,8 +51,8 @@ import ConfirmInsuranceDialog, {
   type ConfirmOrderPayload,
 } from './confirm-insurance-dialog';
 import { summarizeInsuranceConfirmation } from './insurance-confirmation-summary';
-import { ShipmentDetailsCard } from './shipment-details-card';
 import { OrderPaymentSummary } from './OrderPaymentSummary';
+import { ShipmentDetailsCard } from './shipment-details-card';
 
 // Type definitions
 interface OrderDetailsClientPageProps {

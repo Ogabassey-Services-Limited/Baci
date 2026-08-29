@@ -38,7 +38,6 @@ import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiatio
 import { persistReplayedDeliveryMetadata } from '@/lib/checkout/persist-replayed-delivery-metadata';
 import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
 import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
-import { TRANSACTION_DISCOUNT_METADATA_KEY } from '@/lib/checkout/transaction-discount-metadata';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
