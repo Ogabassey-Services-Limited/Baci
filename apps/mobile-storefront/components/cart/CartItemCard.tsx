@@ -6,6 +6,7 @@ import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { resolveColorSwatchValue } from '@/lib/cart-display';
 import {
   getCartItemEffectivePrice,
@@ -82,9 +83,11 @@ export default function CartItemCard({
           accessibilityLabel={`Open product: ${item.name || item.slug || item.product_id}`}
         >
           <SafeImage
-            source={{
+            source={createSafeBoundedImageSource({
+              height: 64,
               uri: item.image_url || PLACEHOLDER_IMAGE_URL,
-            }}
+              width: 64,
+            })}
             style={styles.productImage}
             contentFit="contain"
           />
