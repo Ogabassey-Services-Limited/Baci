@@ -5,7 +5,7 @@ import type { CartItem } from '@/stores/cart-store';
 import CartItemCard from './CartItemCard';
 
 const mockPush = jest.fn();
-const mockSafeImage = jest.fn(() => null);
+const mockSafeImage = jest.fn((_props: unknown) => null);
 
 jest.mock('expo-router', () => ({
   router: {

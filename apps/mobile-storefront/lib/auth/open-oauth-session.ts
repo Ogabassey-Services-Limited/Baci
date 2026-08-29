@@ -3,6 +3,7 @@ import type {
   WebBrowserAuthSessionResult,
   WebBrowserCustomTabsResults,
 } from 'expo-web-browser';
+import { WebBrowserResultType } from 'expo-web-browser';
 import { AppState, Linking, Platform } from 'react-native';
 
 type UrlEvent = { url: string };
@@ -106,7 +107,7 @@ function openExternalAuthSession({
     );
     appStateSubscription = appState.addEventListener('change', (state) => {
       if (opened && state === 'active') {
-        settle({ type: 'cancel' });
+        settle({ type: WebBrowserResultType.CANCEL });
       }
     });
 
