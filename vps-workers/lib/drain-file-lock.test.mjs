@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
   renameSync,
   statSync,
+  unlinkSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -64,6 +66,54 @@ describe('drain file lock', () => {
       'recovered'
     );
     assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+  });
+
+  it('waits for an in-progress stale reclaim before entering the critical section', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    const markerPath = `${lockPath}.reclaim-${process.pid}-test`;
+    writeFileSync(lockPath, '99999999\n');
+    const oldTime = Date.now() - 120_000;
+    utimesSync(lockPath, oldTime / 1_000, oldTime / 1_000);
+    writeFileSync(markerPath, `${process.pid}\n`);
+
+    const markerCleanup = spawn(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        "import { unlinkSync } from 'node:fs'; setTimeout(() => { try { unlinkSync(process.env.BACI_RECLAIM_MARKER); } catch {} }, 150);",
+      ],
+      {
+        env: { ...process.env, BACI_RECLAIM_MARKER: markerPath },
+        stdio: 'ignore',
+      }
+    );
+    markerCleanup.unref();
+
+    assert.equal(
+      withDrainFileLock(lockPath, () => 'recovered'),
+      'recovered'
+    );
+    assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+  });
+
+  it('leaves the owned lock for a reclaim that starts during release', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    const markerPath = `${lockPath}.reclaim-${process.pid}-test`;
+
+    assert.equal(
+      withDrainFileLock(lockPath, () => {
+        writeFileSync(markerPath, `${process.pid}\n`);
+        return 'done';
+      }),
+      'done'
+    );
+    assert.equal(readFileSync(lockPath, 'utf8'), `${process.pid}\n`);
+
+    unlinkSync(markerPath);
+    unlinkSync(lockPath);
   });
 
   it('does not release a replacement lock owned by another generation', () => {

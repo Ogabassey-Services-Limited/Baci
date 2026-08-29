@@ -188,7 +188,9 @@ export function ProductCard({
     width: imageWidth,
   });
   const quickAddImageUrl = resolveCartItemImageUrl({
-    displayedImageUrl: imageSource.uri,
+    // Persist the source asset, not the card's cover-cropped display transform.
+    // Cart and order surfaces apply their own bounded dimensions.
+    displayedImageUrl: imageAttemptUri,
     variantImageUrl: defaultVariantSelection?.variant.image,
     variantImages: defaultVariantSelection?.variant.images,
     fallbackImageUrl: product.image,

@@ -16,7 +16,6 @@ import { basename, dirname, join } from 'node:path';
 const LOCK_RETRY_MS = 25;
 const LOCK_TIMEOUT_MS = 30_000;
 const STALE_LOCK_MS = 60_000;
-
 function readLockSnapshot(lockPath) {
   try {
     const before = statSync(lockPath);
@@ -39,10 +38,8 @@ function readLockSnapshot(lockPath) {
     return null;
   }
 }
-
 function lockSnapshotIsStale(snapshot) {
   const age = Date.now() - snapshot.stat.mtimeMs;
-
   if (Number.isSafeInteger(snapshot.owner) && snapshot.owner > 0) {
     try {
       process.kill(snapshot.owner, 0);
@@ -52,16 +49,71 @@ function lockSnapshotIsStale(snapshot) {
       if (error?.code === 'EPERM') return age >= STALE_LOCK_MS;
     }
   }
-
   return age >= STALE_LOCK_MS;
 }
-
 function sameLockIdentity(left, right) {
   return (
     left?.stat?.dev === right?.stat?.dev && left?.stat?.ino === right?.stat?.ino
   );
 }
+function listReclaimMarkers(lockPath) {
+  let entries;
+  try {
+    entries = readdirSync(dirname(lockPath), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
 
+  const prefix = `${basename(lockPath)}.reclaim-`;
+  return entries
+    .filter((entry) => entry.name.startsWith(prefix))
+    .map((entry) => join(dirname(lockPath), entry.name));
+}
+function removeReclaimMarker(markerPath, expected) {
+  const current = readLockSnapshot(markerPath);
+  if (!sameLockIdentity(current, expected)) return false;
+  try {
+    unlinkSync(markerPath);
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  return true;
+}
+function reclaimInProgress(lockPath) {
+  let active = false;
+  for (const markerPath of listReclaimMarkers(lockPath)) {
+    const marker = readLockSnapshot(markerPath);
+    if (!marker) {
+      try {
+        if (Date.now() - statSync(markerPath).mtimeMs < STALE_LOCK_MS) {
+          active = true;
+        } else {
+          unlinkSync(markerPath);
+        }
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
+      continue;
+    }
+    if (lockSnapshotIsStale(marker)) {
+      removeReclaimMarker(markerPath, marker);
+      continue;
+    }
+    active = true;
+  }
+  return active;
+}
+function createReclaimMarker(lockPath) {
+  const markerPath = `${lockPath}.reclaim-${process.pid}-${randomUUID()}`;
+  const descriptor = openSync(markerPath, 'wx', 0o600);
+  try {
+    writeSync(descriptor, `${process.pid}\n`);
+  } finally {
+    closeSync(descriptor);
+  }
+  return { markerPath, identity: { stat: statSync(markerPath) } };
+}
 function restoreClaimedLock(claimPath, lockPath, expected) {
   const claimed = readLockSnapshot(claimPath);
   if (!sameLockIdentity(claimed, expected)) return false;
@@ -95,7 +147,6 @@ function restoreClaimedLock(claimPath, lockPath, expected) {
   }
   return true;
 }
-
 function removeOwnedClaims(lockPath, identity) {
   let entries;
   try {
@@ -118,45 +169,78 @@ function removeOwnedClaims(lockPath, identity) {
     }
   }
 }
-
+function releaseDrainFileLock(lockPath, acquiredIdentity) {
+  let releaseError;
+  try {
+    const current = statSync(lockPath);
+    if (
+      current.dev === acquiredIdentity?.dev &&
+      current.ino === acquiredIdentity?.ino
+    ) {
+      // Let the reclaimer claim this inode while its marker is visible.
+      if (!reclaimInProgress(lockPath)) {
+        unlinkSync(lockPath);
+      }
+    }
+  } catch (error) {
+    if (error?.code === 'ENOENT') {
+      try {
+        removeOwnedClaims(lockPath, acquiredIdentity);
+      } catch (claimError) {
+        releaseError = claimError;
+      }
+    } else {
+      releaseError = error;
+    }
+  }
+  return releaseError;
+}
 function reclaimStaleLock(lockPath) {
   const observed = readLockSnapshot(lockPath);
   if (!observed || !lockSnapshotIsStale(observed)) return false;
 
-  const claimPath = `${lockPath}.stale-${process.pid}-${randomUUID()}`;
+  // Publish a marker before moving the canonical lock; contenders honor it.
+  if (reclaimInProgress(lockPath)) return false;
+  const marker = createReclaimMarker(lockPath);
   try {
-    // Rename claims the exact pathname instance that was inspected. A second
-    // contender can never unlink a replacement lock through this path.
-    renameSync(lockPath, claimPath);
-  } catch (error) {
-    if (error?.code === 'ENOENT') return false;
-    throw error;
-  }
+    const current = readLockSnapshot(lockPath);
+    if (!current) return true;
+    if (!sameLockIdentity(observed, current) || !lockSnapshotIsStale(current)) {
+      return false;
+    }
 
-  const claimed = readLockSnapshot(claimPath);
-  if (!claimed) return true;
-  if (!sameLockIdentity(observed, claimed)) {
-    // The pathname changed while it was being claimed. Never delete the
-    // replacement; restore it only while its generation is still present.
-    restoreClaimedLock(claimPath, lockPath, claimed);
-    return false;
+    const claimPath = `${lockPath}.stale-${process.pid}-${randomUUID()}`;
+    try {
+      renameSync(lockPath, claimPath);
+    } catch (error) {
+      if (error?.code === 'ENOENT') return true;
+      throw error;
+    }
+
+    const claimed = readLockSnapshot(claimPath);
+    if (!claimed) return true;
+    if (!sameLockIdentity(observed, claimed)) {
+      // Preserve a replacement generation if the pathname changed.
+      restoreClaimedLock(claimPath, lockPath, claimed);
+      return false;
+    }
+    if (!lockSnapshotIsStale(claimed)) {
+      restoreClaimedLock(claimPath, lockPath, claimed);
+      return false;
+    }
+    try {
+      unlinkSync(claimPath);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+    return true;
+  } finally {
+    removeReclaimMarker(marker.markerPath, marker.identity);
   }
-  if (!lockSnapshotIsStale(claimed)) {
-    restoreClaimedLock(claimPath, lockPath, claimed);
-    return false;
-  }
-  try {
-    unlinkSync(claimPath);
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  return true;
 }
-
 function waitForLock() {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, LOCK_RETRY_MS);
 }
-
 /** Serialize the short active-drain rotation and append critical section. */
 export function withDrainFileLock(lockPath, action) {
   mkdirSync(dirname(lockPath), { recursive: true });
@@ -165,6 +249,13 @@ export function withDrainFileLock(lockPath, action) {
   let acquiredIdentity;
 
   while (descriptor === undefined) {
+    if (reclaimInProgress(lockPath)) {
+      if (Date.now() >= deadline) {
+        throw new Error(`Timed out waiting for drain lock: ${lockPath}`);
+      }
+      waitForLock();
+      continue;
+    }
     try {
       descriptor = openSync(lockPath, 'wx', 0o600);
       writeSync(descriptor, `${process.pid}\n`);
@@ -183,6 +274,13 @@ export function withDrainFileLock(lockPath, action) {
       }
       waitForLock();
     }
+
+    if (descriptor !== undefined && reclaimInProgress(lockPath)) {
+      const releaseError = releaseDrainFileLock(lockPath, acquiredIdentity);
+      descriptor = undefined;
+      acquiredIdentity = undefined;
+      if (releaseError) throw releaseError;
+    }
   }
 
   let result;
@@ -193,26 +291,7 @@ export function withDrainFileLock(lockPath, action) {
     actionError = error;
   }
 
-  let releaseError;
-  try {
-    const current = statSync(lockPath);
-    if (
-      current.dev === acquiredIdentity?.dev &&
-      current.ino === acquiredIdentity?.ino
-    ) {
-      unlinkSync(lockPath);
-    }
-  } catch (error) {
-    if (error?.code === 'ENOENT') {
-      try {
-        removeOwnedClaims(lockPath, acquiredIdentity);
-      } catch (claimError) {
-        releaseError = claimError;
-      }
-    } else {
-      releaseError = error;
-    }
-  }
+  const releaseError = releaseDrainFileLock(lockPath, acquiredIdentity);
 
   if (actionError) throw actionError;
   if (releaseError) throw releaseError;

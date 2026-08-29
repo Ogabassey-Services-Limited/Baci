@@ -106,7 +106,7 @@ describe('ProductCard image memory behavior', () => {
     );
   });
 
-  it('persists the bounded URI when a managed AVIF product is quick-added', () => {
+  it('persists the original managed image when a product is quick-added', () => {
     render(
       <ProductCard
         product={{
@@ -121,8 +121,7 @@ describe('ProductCard image memory behavior', () => {
 
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        image_url:
-          'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+        image_url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
       })
     );
   });
