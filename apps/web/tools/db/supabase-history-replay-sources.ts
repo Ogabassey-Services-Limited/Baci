@@ -2,7 +2,6 @@
 // history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
 // so that module stays under the 300-line modularity gate. Each source row is
 // byte-frozen and re-hashed by the manifest verifier; migrations are immutable.
-
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
@@ -12,6 +11,7 @@ import { NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-repla
 import { PRODUCTION_MAPPINGS } from './supabase-history-replay-production-mappings';
 import { SEARCH_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-search-pending-sources';
 import { STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES } from './supabase-history-replay-storefront-cluster-guide-pending-sources';
+import { STOREFRONT_ORDER_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-storefront-order-pending-sources';
 
 const PIPELINE_SOURCES = `4f31649ba4c9c3d6b5eb4110dbb0d144237502642d61c0606e15a9b1ba39556b 20260712150001_domain_event_pipeline_tables.sql
 3a3018fcd2e0daea0dec918d953e1dadf314ea1f88698e336a72a97da8ddcd1c 20260712150050_eventing_internal_schema.sql
@@ -39,7 +39,6 @@ bfda81c357bff06435de481c993011652e173795d2497a5fde63e46c23102dca 20260714000100_
 619481d348cd55b38a5043f3ac003f39715887808328f96335ea4a2fa989e994 20260714000200_scope_public_event_ingress.sql
 c429a6a71fec0487645b47f312998a25f14ec2af4c2741ce3de6b7b36b9356cf 20260714000300_allow_tenant_verified_event_ingress_fallback.sql
 fbf3de3af3099d6624d3367bfd91d9bc49435487c78670e2efc202e2456a18d2 20260714000400_drop_legacy_event_ingress_rpc_overloads.sql`;
-
 const POST_REPLAY_SOURCES = `5399ac96de3f4efe97d21b08d4a222452de79e0c13881aa8eff6d9ba3fd4d436 20260718070000_credit_direct_missing_confirmation_review.sql
 fc2dd1bfc99177aa1c6a2d22ffde63afed76f91e8e765d6a294e3754049d9016 20260718070001_record_credit_direct_client_completion.sql
 23d3bffcd057ee322e2ceecb4c62b45406542028b9038ce0a5b0fa71f416142d 20260718070002_bound_credit_direct_pending_cleanup.sql
@@ -52,9 +51,8 @@ e8aab2aed87c3ae93090db6343ac125210d1fd90f80de1cff51772ef33b29750 20260718070005_
 1601b3893fead9b30f72214ce1ce5a91b0cbfea0dd0a6b18304791045cdbe0b2 20260718070009_scope_credit_direct_payment_audit_notes.sql
 2dbcca4189d7a656fa8504383a54d8ea55024cb76720572931818d4df878be9e 20260718070010_preserve_credit_direct_provider_reference.sql
 395cfdef9ec80858ce34b031df0b642e51b3ba4d5d81922a9687a58962e35c5e 20260718070011_require_credit_direct_guest_tracking_token.sql`;
-// PayPal/Korapay BYOK migrations added by this branch land in PENDING (newest
-// batch, not yet attested to POST_REPLAY). They are version-earlier than the
-// existing 20260721 cancellation batch, so they sort ahead of it here.
+// PayPal/Korapay BYOK migrations land in PENDING before the existing 20260721
+// cancellation batch because they are version-earlier and not yet attested.
 const PENDING_SOURCES_HEAD = `e8398b0b10a5e9d199707bcceb5835f865bfce85dd4732e9bc46fc4e13d16d29 20260721093205_harden_paid_order_completion_and_side_effect_retries.sql
 b36447107978f1612b0f158bbd3331f635bf8bd940ec0ff01545ecba765a753b 20260721093206_merchant_order_cancellation_audit.sql
 399dfc28247c2f3d3c720783eeb13c3376a1b207f7ea1095e66366e919f1e5ea 20260721093207_order_cancellation_side_effect_claims.sql
@@ -257,11 +255,10 @@ c3e73bdc49a901993f4422b89a6e88405681c36fcb068138f7a0ad46cc7c50e2 20260806000100_
 2e7b6ea5f55a5c6df81f20abc015ddf4d77699be6d74f2720713dd728e3d7933 20260808090000_exclude_reviewed_merchant_invoice_partial_captures.sql
 c5150a2929d4efcf71bbfdc051b3caf80beeea849b6c69a30b0df325968f3792 20260808093000_preserve_merchant_invoice_partial_capture_retirement.sql
 da62c84ff85648b528894dbcbb75fd344f1acfcd450e356e7018f114c6815490 20260823010000_public_shipping_sender_projection.sql
-2e59aa9417a7245388e5e2af82669dc7b8edbd20f1052fa29889ba4049b08d7b 20260825154500_persist_shipment_shipping_quote.sql
-`;
-
+`; // biome-ignore format: keep the manifest at the 300-line modularity limit
 const PENDING_SOURCES = [
   PENDING_SOURCES_HEAD,
+  STOREFRONT_ORDER_PENDING_REPLAY_SOURCE_ROWS,
   STOREFRONT_CLUSTER_GUIDE_PENDING_SOURCES,
   ADS_PENDING_REPLAY_SOURCE_ROWS,
   ADMIN_PLATFORM_PENDING_SOURCES,

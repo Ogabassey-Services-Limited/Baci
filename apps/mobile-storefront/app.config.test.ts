@@ -126,7 +126,7 @@ describe('Expo app config (Facebook SDK and merchant domain)', () => {
     expect(config.version).toBe('2.0.1');
     expect(config.runtimeVersion).toBe('2.0.1');
     expect(config.android).toMatchObject({
-      runtimeVersion: '2.0.1-android-sdk57',
+      runtimeVersion: '2.0.1-android-sdk57-rn0862',
       versionCode: 741,
     });
   });

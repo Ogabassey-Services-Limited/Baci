@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { storefrontPreflightRpcMemo } from '@/lib/storefront-preflight-rpc-memo';
 import { createPublicClient } from '@/lib/supabase/public';
 import { createAbortSignalTimeout } from './abort-signal-timeout';
 import type { StorefrontInternalPreflightSurface } from './storefront-internal-preflight';
@@ -62,6 +63,12 @@ interface CallStorefrontPreflightRpcOptions {
   timeoutMs?: number;
   /** Injectable for tests. */
   rpcImpl?: StorefrontPreflightRpcImpl;
+  /**
+   * Some established identity RPCs legitimately return no row for unknown
+   * public identifiers. Treat that result as a designed fail-open instead of
+   * reporting a parse incident.
+   */
+  emptyResult?: 'unknown';
 }
 
 // 2s, not the route transport's old 800ms: the RPCs execute in ~20ms
@@ -75,15 +82,7 @@ interface CallStorefrontPreflightRpcOptions {
 // extra budget is only ever spent on genuine tail events, converting lost
 // verdicts into slightly-slower correct ones.
 const DEFAULT_TIMEOUT_MS = 2_000;
-// One navigation's canonical + membership helpers call within ~100ms of each
-// other; 3s also absorbs a crawler re-hitting the same URL without letting a
-// verdict outlive the freshness the no-store route transport guaranteed.
-const MEMO_TTL_MS = 3_000;
-const MEMO_MAX_ENTRIES = 512;
-
-const memo = new Map<string, { expires: number; row: unknown }>();
-// Suppress only timeout retries; real product-read failures remain retryable.
-const TIMEOUT_MEMO = Symbol('storefront-preflight-timeout');
+// One navigation's helpers call within ~100ms; this short memo absorbs repeats.
 const breaker = createStorefrontPreflightCircuitBreaker();
 
 let client: SupabaseClient | null = null;
@@ -99,33 +98,6 @@ function getClient(): SupabaseClient {
 
 const defaultRpcImpl: StorefrontPreflightRpcImpl = (fn, args, signal) =>
   getClient().rpc(fn, args).abortSignal(signal);
-
-function memoKey(fn: string, args: Record<string, string>): string {
-  return JSON.stringify([
-    fn,
-    Object.keys(args)
-      .sort()
-      .map((key) => [key, args[key]]),
-  ]);
-}
-
-function readMemo(key: string): unknown | undefined {
-  const entry = memo.get(key);
-  if (!entry) return undefined;
-  if (entry.expires <= Date.now()) {
-    memo.delete(key);
-    return undefined;
-  }
-  return entry.row;
-}
-
-function writeMemo(key: string, row: unknown): void {
-  if (memo.size >= MEMO_MAX_ENTRIES) {
-    const oldest = memo.keys().next().value;
-    if (oldest !== undefined) memo.delete(oldest);
-  }
-  memo.set(key, { expires: Date.now() + MEMO_TTL_MS, row });
-}
 
 function isAbortLikeError(error: unknown): boolean {
   return (
@@ -163,9 +135,14 @@ export async function callStorefrontPreflightRpc(
 ): Promise<unknown | null> {
   const { failOpenContext } = options;
 
-  const key = memoKey(fn, args);
-  const memoized = readMemo(key);
-  if (memoized === TIMEOUT_MEMO) return null;
+  const key = storefrontPreflightRpcMemo.key(fn, args, options.emptyResult);
+  const memoized = storefrontPreflightRpcMemo.read(key);
+  if (
+    storefrontPreflightRpcMemo.isTimeout(memoized) ||
+    storefrontPreflightRpcMemo.isEmptyResult(memoized)
+  ) {
+    return null;
+  }
   if (memoized !== undefined) {
     return memoized;
   }
@@ -201,7 +178,9 @@ export async function callStorefrontPreflightRpc(
     result = await rpcImpl(fn, args, timeout.signal);
   } catch (error) {
     const reason = isAbortLikeError(error) ? 'timeout' : 'fetch-error';
-    if (reason === 'timeout') writeMemo(key, TIMEOUT_MEMO);
+    if (reason === 'timeout') {
+      storefrontPreflightRpcMemo.write(key, storefrontPreflightRpcMemo.timeout);
+    }
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
@@ -216,7 +195,9 @@ export async function callStorefrontPreflightRpc(
 
   if (result.error) {
     const reason = classifyRpcErrorReason(result.error);
-    if (reason === 'timeout') writeMemo(key, TIMEOUT_MEMO);
+    if (reason === 'timeout') {
+      storefrontPreflightRpcMemo.write(key, storefrontPreflightRpcMemo.timeout);
+    }
     breaker.recordFailure();
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
@@ -234,6 +215,17 @@ export async function callStorefrontPreflightRpc(
 
   const row = Array.isArray(result.data) ? result.data[0] : result.data;
   if (row === null || row === undefined || typeof row !== 'object') {
+    if (
+      options.emptyResult === 'unknown' &&
+      Array.isArray(result.data) &&
+      result.data.length === 0
+    ) {
+      storefrontPreflightRpcMemo.write(
+        key,
+        storefrontPreflightRpcMemo.emptyResult
+      );
+      return null;
+    }
     storefrontInternalPreflight.warnFailOpen({
       ...failOpenContext,
       reason: 'parse',
@@ -241,7 +233,7 @@ export async function callStorefrontPreflightRpc(
     return null;
   }
 
-  writeMemo(key, row);
+  storefrontPreflightRpcMemo.write(key, row);
   return row;
 }
 
@@ -289,7 +281,7 @@ export function gateStorefrontPreflightStatus(
 
 /** Test hook: clears the verdict memo, breaker state, and client singleton. */
 export function resetStorefrontPreflightRpcForTests(): void {
-  memo.clear();
+  storefrontPreflightRpcMemo.clear();
   breaker.reset();
   client = null;
 }

@@ -181,6 +181,24 @@ describe('callStorefrontPreflightRpc', () => {
     expectFailOpenReason(consoleWarnSpy, 'parse');
   });
 
+  it('treats an allowed empty rows array as an unknown storefront without a parse incident', async () => {
+    const rpcImpl = vi.fn().mockResolvedValue({ data: [], error: null });
+
+    const result = await callRpc(
+      'empty_unknown_fn',
+      { p_identifier: 'unknown.example' },
+      rpcImpl,
+      {},
+      { emptyResult: 'unknown' }
+    );
+
+    expect(result).toBeNull();
+    expect(consoleWarnSpy).not.toHaveBeenCalledWith(
+      '[storefront-internal-preflight] fail-open',
+      expect.objectContaining({ reason: 'parse' })
+    );
+  });
+
   it('fails open without invoking rpcImpl when VERCEL_ENV is a non-production preview', async () => {
     vi.stubEnv('VERCEL_ENV', 'preview');
     const rpcImpl = vi.fn();

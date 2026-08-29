@@ -83,8 +83,10 @@ export function createCheckoutShippingHandlers({
       const selectedAddress = place.formattedAddress || '';
       updateAddress(selectedAddress);
       setCommittedAddress(selectedAddress);
+      const hasGoogleCoordinates =
+        Number.isFinite(place.latitude) && Number.isFinite(place.longitude);
       setDeliveryCoordinates(
-        Number.isFinite(place.latitude) && Number.isFinite(place.longitude)
+        hasGoogleCoordinates
           ? {
               latitude: place.latitude as number,
               longitude: place.longitude as number,
@@ -94,16 +96,27 @@ export function createCheckoutShippingHandlers({
       const normalizedState = place.state
         ? normalizeStateName(place.state, shippingStates)
         : '';
+      const selectedCity = place.city?.trim() ?? '';
+      const hasCompleteGoogleLocation = Boolean(
+        hasGoogleCoordinates && normalizedState && selectedCity
+      );
 
-      if (place.city) {
-        const normalizedCity = place.city.trim().toLowerCase();
+      if (hasCompleteGoogleLocation) {
+        googleSuggestedCityRef.current = null;
+      } else if (selectedCity) {
+        const normalizedCity = selectedCity.toLowerCase();
         googleSuggestedCityRef.current =
           normalizedState && normalizedCity === normalizedState.toLowerCase()
             ? ''
-            : place.city;
+            : selectedCity;
+      } else {
+        googleSuggestedCityRef.current = normalizedState ? '' : null;
+        if (normalizedState) setShowCityPicker(true);
       }
 
-      setValue('city', '', { shouldValidate: false });
+      setValue('city', hasCompleteGoogleLocation ? selectedCity : '', {
+        shouldValidate: hasCompleteGoogleLocation,
+      });
       if (normalizedState) {
         setValue('state', normalizedState, { shouldValidate: true });
       }

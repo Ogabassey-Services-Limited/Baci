@@ -43,6 +43,93 @@ function createParams(overrides: Partial<HandlerParams> = {}): HandlerParams {
 }
 
 describe('createCheckoutShippingHandlers', () => {
+  it('trusts a complete Google location without routing its city through the fallback list', () => {
+    const googleSuggestedCityRef = { current: null as string | null };
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+    const setDeliveryCoordinates = jest.fn();
+
+    createCheckoutShippingHandlers(
+      createParams({
+        googleSuggestedCityRef,
+        setDeliveryCoordinates,
+        setValue,
+        shippingStates: ['Katsina'],
+      })
+    ).handleDeliveryAddressSelect(
+      {
+        city: 'Katsina',
+        country: 'Nigeria',
+        formattedAddress:
+          'Muhammad Dikko Road, Katsina 820101, Katsina, Nigeria',
+        latitude: 13.0000953,
+        longitude: 7.6020902,
+        route: 'Muhammad Dikko Road',
+        state: 'Katsina',
+        streetNumber: '',
+        zip: '820101',
+      },
+      jest.fn()
+    );
+
+    expect(setValue).toHaveBeenCalledWith('city', 'Katsina', {
+      shouldValidate: true,
+    });
+    expect(setValue).toHaveBeenCalledWith('state', 'Katsina', {
+      shouldValidate: true,
+    });
+    expect(setDeliveryCoordinates).toHaveBeenCalledWith({
+      latitude: 13.0000953,
+      longitude: 7.6020902,
+    });
+    expect(googleSuggestedCityRef.current).toBeNull();
+  });
+
+  it('replaces a stale Google city with the picker sentinel when state is known', () => {
+    const googleSuggestedCityRef = { current: 'Katsina' as string | null };
+
+    createCheckoutShippingHandlers(
+      createParams({ googleSuggestedCityRef })
+    ).handleDeliveryAddressSelect(
+      {
+        city: '',
+        country: 'Nigeria',
+        formattedAddress: 'Unnamed Road, Katsina, Nigeria',
+        latitude: 12.9908,
+        longitude: 7.6018,
+        route: 'Unnamed Road',
+        state: 'Katsina',
+        streetNumber: '',
+        zip: '',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBe('');
+  });
+
+  it('clears a stale Google city when the selected place has no state or city', () => {
+    const googleSuggestedCityRef = { current: 'Katsina' as string | null };
+
+    createCheckoutShippingHandlers(
+      createParams({ googleSuggestedCityRef })
+    ).handleDeliveryAddressSelect(
+      {
+        city: '',
+        country: 'Nigeria',
+        formattedAddress: 'Unnamed Road, Nigeria',
+        route: 'Unnamed Road',
+        state: '',
+        streetNumber: '',
+        zip: '',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBeNull();
+  });
+
   it('restores Google coordinates when returning from pickup to road', () => {
     const coordinates = { latitude: 4.8156, longitude: 7.0498 };
     const savedDoorAddressRef = {

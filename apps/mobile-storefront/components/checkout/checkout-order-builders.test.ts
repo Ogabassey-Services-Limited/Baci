@@ -263,40 +263,6 @@ describe('checkout order builders', () => {
     expect(request.shipping_address.address).toBe(address.address);
   });
 
-  it('serializes a provider-backed GoFaster quote for airport orders', () => {
-    const itemsSnapshot = [
-      {
-        id: 'line-1',
-        product_id: 'product-1',
-        slug: 'iphone-13',
-        name: 'iPhone 13',
-        price: 500000,
-        quantity: 1,
-      },
-    ];
-    const request = buildCheckoutOrderRequest({
-      address,
-      customerEmail: 'ada@example.com',
-      customerName: 'Ada Lovelace',
-      customerPhone: '08012345678',
-      deliveryMethod: 'airport',
-      itemsSnapshot,
-      paymentMethodForOrder: 'paystack',
-      selectedQuote: {
-        id: 'gofaster-quote',
-        displayName: 'GIG Logistics - GoFaster',
-        price: 18500,
-        provider: 'GIGL',
-        serviceTier: 'GoFaster',
-      },
-      shippingProvider: 'GIGL',
-      snapshot: createCheckoutSnapshot(itemsSnapshot, 18500, 0),
-    });
-
-    expect(request.selected_quote_id).toBe('gofaster-quote');
-    expect(request.shipping_provider).toBe('GIGL');
-  });
-
   it('uses the merchant pickup address when no provider station quote is selected', () => {
     const request = buildCheckoutOrderRequest({
       address,

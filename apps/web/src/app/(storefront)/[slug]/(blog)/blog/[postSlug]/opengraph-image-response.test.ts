@@ -1,3 +1,4 @@
+import { createElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockImageResponse, mockImageResponseArrayBuffer } = vi.hoisted(() => ({
@@ -34,16 +35,17 @@ describe('createBlogOgImageResponse', () => {
     );
   });
 
-  it('materializes ImageResponse output into a normal Response', async () => {
-    const response = await createBlogOgImageResponse(<div>Primary</div>, {
-      size,
-    });
+  it('materializes dynamic ImageResponse output as strict no-store', async () => {
+    const element = createElement('div', null, 'Primary');
+
+    const response = await createBlogOgImageResponse(element, { size });
 
     expect(mockImageResponse).toHaveBeenCalledWith(
-      <div>Primary</div>,
+      element,
       expect.objectContaining(size)
     );
     expect(response.headers.get('content-type')).toBe('image/png');
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
     await expect(response.arrayBuffer()).resolves.toHaveProperty(
       'byteLength',
       4
@@ -57,10 +59,12 @@ describe('createBlogOgImageResponse', () => {
     mockImageResponseArrayBuffer
       .mockRejectedValueOnce(new Error('primary failed'))
       .mockResolvedValueOnce(Uint8Array.from([1, 2, 3]).buffer);
+    const primaryElement = createElement('div', null, 'Primary');
+    const fallbackElement = createElement('div', null, 'Fallback');
 
-    const response = await createBlogOgImageResponse(<div>Primary</div>, {
+    const response = await createBlogOgImageResponse(primaryElement, {
       size,
-      fallback: { element: <div>Fallback</div>, noStore: true },
+      fallback: { element: fallbackElement },
     });
 
     expect(mockImageResponse).toHaveBeenCalledTimes(2);
@@ -75,13 +79,31 @@ describe('createBlogOgImageResponse', () => {
     );
   });
 
+  it('keeps a fallback response no-store when primary rendering fails', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    mockImageResponseArrayBuffer
+      .mockRejectedValueOnce(new Error('primary failed'))
+      .mockResolvedValueOnce(Uint8Array.from([1, 2, 3]).buffer);
+    const primaryElement = createElement('div', null, 'Primary');
+    const fallbackElement = createElement('div', null, 'Fallback');
+
+    const response = await createBlogOgImageResponse(primaryElement, {
+      size,
+      fallback: { element: fallbackElement },
+    });
+
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+  });
+
   it('returns an emergency PNG when all rendering attempts fail', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     mockImageResponseArrayBuffer.mockRejectedValue(new Error('satori failed'));
+    const primaryElement = createElement('div', null, 'Primary');
+    const fallbackElement = createElement('div', null, 'Fallback');
 
-    const response = await createBlogOgImageResponse(<div>Primary</div>, {
+    const response = await createBlogOgImageResponse(primaryElement, {
       size,
-      fallback: { element: <div>Fallback</div>, noStore: true },
+      fallback: { element: fallbackElement },
     });
 
     expect(response.headers.get('content-type')).toBe('image/png');

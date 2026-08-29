@@ -63,6 +63,15 @@ describe('order column constants', () => {
     expect(mobileAdminColumns).toContain('branch_id');
   });
 
+  it('includes delivery metadata in internal fulfillment projections', () => {
+    expect(webColumns).toEqual(
+      expect.arrayContaining(['delivery_method', 'airport_type'])
+    );
+    expect(mobileAdminColumns).toEqual(
+      expect.arrayContaining(['delivery_method', 'airport_type'])
+    );
+  });
+
   it('includes mobile admin order detail fields required by the app', () => {
     expect(mobileAdminColumns).toContain('amount_paid');
     expect(mobileAdminColumns).toContain('fulfillment_type');

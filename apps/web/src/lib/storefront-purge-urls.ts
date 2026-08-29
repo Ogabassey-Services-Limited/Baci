@@ -36,6 +36,9 @@ export function buildStorefrontBlogPurgeUrls(
       urls.add(`https://${hostname}/blog`);
       for (const slug of dedupedSlugs) {
         urls.add(`https://${hostname}/blog/${encodeURIComponent(slug)}`);
+        urls.add(
+          `https://${hostname}/blog/${encodeURIComponent(slug)}/opengraph-image`
+        );
       }
       // A post moving into or out of a category changes that category's
       // listing page (/blog/category/<slug>), which shares the same raised

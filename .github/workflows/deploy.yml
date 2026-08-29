@@ -75,9 +75,12 @@ jobs:
         run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
 
   # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
-  # Vercel deploy so application code never lands ahead of the schema it depends on. Closes
-  # the gap that let 12 Apr 2026 migrations sit unapplied on production for
-  # nearly a week.
+  # Vercel deploy so application code never lands ahead of the schema it depends on. Migrations
+  # that install enforcement requiring a new application claim are explicitly
+  # deferred by the applier until the matching revision is live (see the
+  # postdeploy step in deploy-production). Closes the gap that let 12 Apr 2026
+  # migrations sit unapplied on production for nearly a week without creating
+  # a migration-first checkout outage.
   #
   # Runs on every main-branch deploy (not just PRs that touch
   # supabase/migrations/**) because previous failed pushes can leave drift
@@ -105,6 +108,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Apply pending migrations via Management API
+        env:
+          MIGRATION_PHASE: predeploy
         run: .github/scripts/apply-pending-migrations.sh
 
   deploy-production:
@@ -113,7 +118,7 @@ jobs:
     # 'skipped' and 'failure', so a skipped migrations job (e.g. if its `if`
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
-    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (needs.cwv-runner-contracts.result == 'success' || needs.cwv-runner-contracts.result == 'skipped') && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true' || needs.changes.outputs.migrations == 'true')
     # Run production prebuilt deploys on GitHub-hosted runners while the VPS
     # provider is returning sustained CPU steal. This still uses a local
     # `vercel build --prod` followed by `vercel deploy --prebuilt --prod`, so
@@ -234,21 +239,17 @@ jobs:
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        # Backstop in case a deploy hangs past the script's per-attempt cap
-        # (deploy-with-retry.sh times out each `vercel deploy` and promotes the
-        # created deployment). Sized so the recovery budget -- one capped deploy
-        # (~20m) plus its promote retries (~5m) plus a fallback deploy (~20m) --
-        # fits, while still keeping a stuck deploy from holding the runner and the
-        # concurrency lock for the whole 150-minute job budget.
+        # Backstop for stuck deploys; the retry budget fits the 150-minute job timeout.
         timeout-minutes: 55
         env:
           DEPLOY_CURRENT_MAIN_GUARD: .github/scripts/current-main-deploy-guard.mjs
           GITHUB_TOKEN: ${{ github.token }}
-        # Stage without assigning production domains. deploy-with-retry.sh
-        # verifies this run still matches main immediately before every deploy
-        # attempt and every explicit promotion, so a superseded run cannot win
-        # the production alias race after main advances.
+        # Stage without production domains; deploy-with-retry verifies exact-main authority.
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --skip-domain --archive=tgz
+      - uses: ./.github/actions/postdeploy-migrations
+        with:
+          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase-project-ref: ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Purge and verify storefront release HTML
         run: node .github/scripts/storefront-release-coherence.mjs
       - name: Smoke test storefront blog

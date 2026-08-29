@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { storefrontComparePageStatus } from './storefront-compare-page-status';
 import { storefrontComparePageStatusTestHelpers } from './storefront-compare-page-status.test-helpers';
+import { resetStorefrontPreflightRpcForTests } from './storefront-preflight-rpc';
 
 const { buildOptions, jsonResponse } = storefrontComparePageStatusTestHelpers;
 const {
@@ -11,11 +12,13 @@ const {
 describe('resolveStorefrontComparePageStatus', () => {
   beforeEach(() => {
     resetStorefrontComparePageStatusForTests();
+    resetStorefrontPreflightRpcForTests();
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.spyOn(console, 'info').mockImplementation(() => undefined);
   });
 
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.restoreAllMocks();
   });
 

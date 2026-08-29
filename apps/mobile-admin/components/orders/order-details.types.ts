@@ -29,6 +29,7 @@ export interface OrderDetailsRecord {
   customer_email: string;
   customer_name: string;
   customer_phone: string | null;
+  delivery_method?: string | null;
   discount_amount: number;
   fulfillment_details?: OrderFulfillmentDetails | null;
   id: string;
@@ -51,6 +52,7 @@ export interface OrderDetailsRecord {
     | string
     | null;
   shipping_fee?: number | null;
+  airport_type?: string | null;
   shipping_provider?: string | null;
   shipping_status: ShippingStatus;
   source?: string | null;

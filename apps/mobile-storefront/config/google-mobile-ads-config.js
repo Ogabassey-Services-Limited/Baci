@@ -22,6 +22,20 @@ function requiredIdentifier(environment, key, pattern, disallowedValues) {
   return value;
 }
 
+function requiredBannerUnitKeys(environment) {
+  switch (environment.BACI_MOBILE_BUILD_PLATFORM?.trim()) {
+    case 'android':
+      return ['EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID'];
+    case 'ios':
+      return ['EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID'];
+    default:
+      return [
+        'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
+        'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
+      ];
+  }
+}
+
 function buildGoogleMobileAdsExpoPlugin(environment) {
   const environmentName =
     environment.EXPO_PUBLIC_ENV?.trim() ||
@@ -48,10 +62,7 @@ function buildGoogleMobileAdsExpoPlugin(environment) {
     : SAMPLE_IOS_APP_ID;
 
   if (isProduction && adsEnabled) {
-    for (const key of [
-      'EXPO_PUBLIC_QUIZ_ADMOB_ANDROID_BANNER_UNIT_ID',
-      'EXPO_PUBLIC_QUIZ_ADMOB_IOS_BANNER_UNIT_ID',
-    ]) {
+    for (const key of requiredBannerUnitKeys(environment)) {
       requiredIdentifier(
         environment,
         key,

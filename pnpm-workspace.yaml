@@ -316,22 +316,6 @@ patchedDependencies:
   "react-native-purchases@10.4.2": "patches/react-native-purchases@10.4.2.patch"
   "react-native-safe-area-context@5.8.0": "patches/react-native-safe-area-context@5.8.0.patch"
   "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch"
-  react-native@0.86.0: patches/react-native@0.86.0.patch
   react-native@0.86.2: patches/react-native@0.86.2.patch
-  # Xcode 26.2 (CI macos-26 image) cannot resolve `abs` in 57.0.3's Date
-  # guard at all — C++ interop pulls the C stdlib overloads into scope next
-  # to Swift's ("ambiguous use of 'abs'"), which has broken every iOS
-  # storefront release since #3139. Replaces the call with the
-  # `Double.magnitude` property (no overload set, semantically identical);
-  # 57.0.4 ships the identical file, so there is no upstream fix to bump to. Applies only to 57.0.3 (the storefront's
-  # transitive pin via expo@57.0.7); mobile-admin's 57.0.0 compiles fine and
-  # stays unpatched. No version override on purpose: 57.0.3 is held by the
-  # lockfile (expo-modules-core declares ~57.0.0), and pnpm fails install
-  # loudly on an orphaned patch if a re-resolution moves off 57.0.3 — re-key
-  # the patch to the new version then (57.0.4 is byte-identical here).
-  # Sparse or web-only worktrees that omit mobile packages should install via
-  # .github/scripts/pnpm-install-sparse-worktree.sh instead of relaxing this
-  # globally.
-  "expo-modules-jsi@57.0.3": "patches/expo-modules-jsi@57.0.3.patch"
   image-size@1.2.1: patches/image-size@1.2.1.patch
   "next@16.3.0": "patches/next@16.3.0.patch"

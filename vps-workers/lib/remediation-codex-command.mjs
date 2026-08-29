@@ -1,5 +1,5 @@
 import { existsSync, lstatSync, mkdirSync } from 'node:fs';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 
 export const REMEDIATION_VERIFY_COMMAND =
   'pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test';
@@ -22,6 +22,26 @@ function currentContainerIdentity() {
     gid: typeof process.getgid === 'function' ? process.getgid() : 1000,
     uid: typeof process.getuid === 'function' ? process.getuid() : 1000,
   };
+}
+
+function ensureRealDirectoryPath(root, destination) {
+  const relativePath = relative(root, destination);
+  const outsideRoot =
+    isAbsolute(relativePath) || relativePath.split(sep)[0] === '..';
+  if (outsideRoot) {
+    throw new Error('dependency mount path must stay inside the worktree');
+  }
+  let current = root;
+  for (const segment of ['', ...relativePath.split(sep).filter(Boolean)]) {
+    if (segment) current = join(current, segment);
+    if (existsSync(current)) {
+      if (!lstatSync(current).isDirectory()) {
+        throw new Error('dependency mount path must be a real directory');
+      }
+    } else {
+      mkdirSync(current);
+    }
+  }
 }
 
 function buildDockerRuntimeArgs({
@@ -70,6 +90,7 @@ function buildDockerRuntimeArgs({
 function addDependencyMounts({
   args,
   dependencyRoot,
+  prepareMountPoints = false,
   worktreeDir,
   destinationRoot = worktreeDir,
 }) {
@@ -81,9 +102,13 @@ function addDependencyMounts({
   ]) {
     const source = join(dependencyRoot, relativePath);
     if (existsSync(source)) {
+      const destination = join(destinationRoot, relativePath);
+      if (prepareMountPoints) {
+        ensureRealDirectoryPath(worktreeDir, destination);
+      }
       args.push(
         '--mount',
-        bindMount(source, join(destinationRoot, relativePath), {
+        bindMount(source, destination, {
           readonly: true,
         })
       );
@@ -163,6 +188,7 @@ export function buildRemediationCodexCommand({
   addDependencyMounts({
     args: dockerArgs,
     dependencyRoot,
+    prepareMountPoints: readOnly,
     worktreeDir,
   });
 
