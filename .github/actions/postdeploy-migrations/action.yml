@@ -1,0 +1,31 @@
+name: Drain storefront requests and apply postdeploy migrations
+description: Drain the previous Vercel revision, verify exact-main authority, and apply deferred migrations.
+
+inputs:
+  supabase-access-token:
+    description: Supabase Management API access token.
+    required: true
+  supabase-project-ref:
+    description: Supabase project reference.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # The previous Vercel revision has no route-level maxDuration export, so
+    # let its 300-second default window drain before installing the trigger.
+    - name: Drain previous storefront order requests
+      shell: bash
+      run: sleep 305
+    - name: Verify exact-main deployment authority before postdeploy migrations
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: .github/scripts/current-main-deploy-guard.mjs
+    - name: Apply migrations deferred until application deploy
+      shell: bash
+      env:
+        MIGRATION_PHASE: postdeploy
+        SUPABASE_ACCESS_TOKEN: ${{ inputs.supabase-access-token }}
+        SUPABASE_PROJECT_REF: ${{ inputs.supabase-project-ref }}
+      run: .github/scripts/apply-pending-migrations.sh

@@ -239,38 +239,17 @@ jobs:
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        # Backstop in case a deploy hangs past the script's per-attempt cap
-        # (deploy-with-retry.sh times out each `vercel deploy` and promotes the
-        # created deployment). Sized so the recovery budget -- one capped deploy
-        # (~20m) plus its promote retries (~5m) plus a fallback deploy (~20m) --
-        # fits, while still keeping a stuck deploy from holding the runner and the
-        # concurrency lock for the whole 150-minute job budget.
+        # Backstop for stuck deploys; the retry budget fits the 150-minute job timeout.
         timeout-minutes: 55
         env:
           DEPLOY_CURRENT_MAIN_GUARD: .github/scripts/current-main-deploy-guard.mjs
           GITHUB_TOKEN: ${{ github.token }}
-        # Stage without assigning production domains. deploy-with-retry.sh
-        # verifies this run still matches main immediately before every deploy
-        # attempt and every explicit promotion, so a superseded run cannot win
-        # the production alias race after main advances.
+        # Stage without production domains; deploy-with-retry verifies exact-main authority.
         run: .github/scripts/deploy-with-retry.sh .github/scripts/run-pinned-vercel.sh deploy --yes --prebuilt --prod --skip-domain --archive=tgz
-      # The previous Vercel revision has no route-level maxDuration export. Its
-      # Node.js invocation is therefore bounded by Vercel's 300-second default,
-      # not by the 60-second limit in the new revision. Let that full platform
-      # window drain before installing the signed route-context trigger, so an
-      # old invocation never reaches the newly enforced RPC without its claim.
-      - name: Drain previous storefront order requests
-        run: sleep 305
-      - name: Verify exact-main deployment authority before postdeploy migrations
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: .github/scripts/current-main-deploy-guard.mjs
-      - name: Apply migrations deferred until application deploy
-        env:
-          MIGRATION_PHASE: postdeploy
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
-        run: .github/scripts/apply-pending-migrations.sh
+      - uses: ./.github/actions/postdeploy-migrations
+        with:
+          supabase-access-token: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          supabase-project-ref: ${{ secrets.SUPABASE_PROJECT_REF }}
       - name: Purge and verify storefront release HTML
         run: node .github/scripts/storefront-release-coherence.mjs
       - name: Smoke test storefront blog

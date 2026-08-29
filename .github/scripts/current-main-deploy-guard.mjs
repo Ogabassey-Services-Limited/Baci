@@ -17,6 +17,7 @@ const ROOT_WEB_FILES = new Set([
 ]);
 const WEB_PREFIXES = [
   '.github/actions/pnpm-install-cached/',
+  '.github/actions/postdeploy-migrations/',
   'apps/web/',
   'infra/cwv-runner/',
   'packages/shared/',

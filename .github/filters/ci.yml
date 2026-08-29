@@ -55,6 +55,7 @@ mobile_storefront:
 quiz_db:
   - '.github/filters/ci.yml'
   - '.github/workflows/ci.yml'
+  - '.github/actions/postdeploy-migrations/**'
   - 'supabase/migrations/**'
   - '.github/scripts/deferred-production-migrations.sh'
   - '.github/scripts/deferred-production-migrations.test.sh'
@@ -76,6 +77,7 @@ quiz_db:
   - 'supabase/tests/storefront_cluster_guide_classifier_behavior.sql'
   - 'supabase/tests/search_products_not_archived_nulls.sql'
   - '.github/scripts/apply-pending-migrations.sh'
+  - '.github/scripts/apply-pending-migration.sh'
   - '.github/scripts/apply-pending-migrations.test.sh'
   - '.github/scripts/apply-pending-migrations-version-collision.test.sh'
   - '.github/scripts/historical-migration-repair-handler.sh'
@@ -111,6 +113,7 @@ deploy_scripts:
   - '.github/filters/ci.yml'
   - '.github/filters/deploy.yml'
   - '.github/workflows/ci.yml'
+  - '.github/actions/postdeploy-migrations/**'
   - 'vps-workers/**'
   - '.github/scripts/deploy-with-retry.sh'
   - '.github/scripts/deploy-with-retry-current-main.test.mjs'

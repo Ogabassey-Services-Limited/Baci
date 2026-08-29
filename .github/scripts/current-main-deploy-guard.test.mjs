@@ -199,6 +199,10 @@ test('production deploy is staged and binds the exact-main guard', () => {
     new URL('../workflows/deploy.yml', import.meta.url),
     'utf8'
   );
+  const postdeployAction = readFileSync(
+    new URL('../actions/postdeploy-migrations/action.yml', import.meta.url),
+    'utf8'
+  );
 
   assert.match(
     workflow,
@@ -223,13 +227,25 @@ test('production deploy is staged and binds the exact-main guard', () => {
       deployJob.indexOf('- uses: ./.github/actions/pnpm-install-cached'),
     'exact-main guard must run before dependency installation and build'
   );
-  const postdeployGuard = deployJob.indexOf(
-    '- name: Verify exact-main deployment authority before postdeploy migrations'
+  const postdeployActionStep = deployJob.indexOf(
+    '- uses: ./.github/actions/postdeploy-migrations'
   );
-  const drainStep = deployJob.indexOf(
+  assert.ok(postdeployActionStep >= 0, 'postdeploy action must exist');
+  assert.match(
+    deployJob.slice(postdeployActionStep),
+    /supabase-access-token: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/
+  );
+  assert.match(
+    deployJob.slice(postdeployActionStep),
+    /supabase-project-ref: \$\{\{ secrets\.SUPABASE_PROJECT_REF \}\}/
+  );
+  const drainStep = postdeployAction.indexOf(
     '- name: Drain previous storefront order requests'
   );
-  const postdeployMigrations = deployJob.indexOf(
+  const postdeployGuard = postdeployAction.indexOf(
+    '- name: Verify exact-main deployment authority before postdeploy migrations'
+  );
+  const postdeployMigrations = postdeployAction.indexOf(
     '- name: Apply migrations deferred until application deploy'
   );
   assert.ok(drainStep >= 0, 'drain step must exist');
@@ -241,7 +257,7 @@ test('production deploy is staged and binds the exact-main guard', () => {
     'postdeploy guard must run immediately before deferred migrations'
   );
   assert.doesNotMatch(
-    deployJob.slice(postdeployGuard, postdeployMigrations),
+    postdeployAction.slice(postdeployGuard, postdeployMigrations),
     /\n\s*-\s+(?:name|run|uses):/,
     'no workflow step may separate the postdeploy guard from deferred migrations'
   );
