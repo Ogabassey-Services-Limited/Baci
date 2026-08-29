@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { ModalSheet } from '@/components/ui/ModalSheet';
 import type Colors from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import type { Product } from '@/types/product';
 import { formatVariantAxisLabel } from '@/types/product';
@@ -185,7 +186,11 @@ export function WalletSavingsDeviceSwapModal({
                   {row.image ? (
                     <Image
                       accessibilityLabel={row.title}
-                      source={{ uri: row.image }}
+                      source={createSafeBoundedImageSource({
+                        height: 58,
+                        uri: row.image,
+                        width: 48,
+                      })}
                       style={styles.image}
                       contentFit="contain"
                       autoplay={false}

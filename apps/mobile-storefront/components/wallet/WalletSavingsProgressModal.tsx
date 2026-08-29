@@ -5,6 +5,7 @@ import { ModalSheet } from '@/components/ui/ModalSheet';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { walletSavingsProgressModalStyles as styles } from './wallet-savings-progress-modal.styles';
 
@@ -103,7 +104,11 @@ export function WalletSavingsProgressModal({
           {goal.product_image ? (
             <Image
               accessibilityLabel={goal.title}
-              source={{ uri: goal.product_image }}
+              source={createSafeBoundedImageSource({
+                height: 170,
+                uri: goal.product_image,
+                width: 100,
+              })}
               style={styles.deviceImage}
               contentFit="contain"
               autoplay={false}

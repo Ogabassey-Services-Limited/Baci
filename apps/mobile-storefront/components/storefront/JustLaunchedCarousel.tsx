@@ -20,7 +20,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { usePinnedLaunchProducts } from '@/hooks/use-pinned-launch-products';
 import { useProducts } from '@/hooks/use-products';
 import { useTheme } from '@/hooks/useTheme';
-import { createBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/product-normalization';
 import type { Product } from '@/types/product';
@@ -158,7 +158,7 @@ export function JustLaunchedCarousel() {
               enforceEarlyResizing
               autoplay={false}
               placeholder={{ blurhash: BLURHASH }}
-              source={createBoundedImageSource({
+              source={createSafeBoundedImageSource({
                 height: imageSourceHeight,
                 uri: imageUri,
                 width: imageSourceWidth,

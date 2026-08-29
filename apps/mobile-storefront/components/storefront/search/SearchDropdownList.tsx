@@ -4,6 +4,7 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { Category } from '@/hooks';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatPrice, type Product } from '@/types/product';
 import { searchDropdownStyles as styles } from './SearchDropdown.styles';
 
@@ -168,7 +169,11 @@ export function SearchDropdownList({
           accessibilityRole="button"
         >
           <SafeImage
-            source={{ uri: product.image }}
+            source={createSafeBoundedImageSource({
+              height: 44,
+              uri: product.image,
+              width: 44,
+            })}
             style={[styles.resultThumb, { backgroundColor: colors.muted }]}
             contentFit="cover"
             fallbackIconSize={20}

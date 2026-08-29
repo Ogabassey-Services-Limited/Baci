@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
 import { compareStyles as styles } from './compare.styles';
@@ -154,11 +155,13 @@ export function CompareView({
                   onPress={() => onOpenProduct(product)}
                 >
                   <Image
-                    source={{
+                    source={createSafeBoundedImageSource({
+                      height: 140 - SPACING.md * 2,
                       uri:
                         product.image ||
                         'https://placehold.co/400x400/1a1a1a/ffffff?text=P',
-                    }}
+                      width: 140 - SPACING.md * 2,
+                    })}
                     style={styles.productImage}
                     contentFit="cover"
                     placeholder={{ blurhash: BLURHASH_VARIANTS.default }}

@@ -2,6 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
 import type { TrackOrderData } from './TrackOrderScreen.types';
 import { formatTrackOrderPrice } from './track-order.helpers';
@@ -36,7 +37,11 @@ export function TrackOrderItemsCard({
         >
           {item.product_image ? (
             <Image
-              source={{ uri: item.product_image }}
+              source={createSafeBoundedImageSource({
+                height: 48,
+                uri: item.product_image,
+                width: 48,
+              })}
               style={styles.itemImage}
               contentFit="cover"
               autoplay={false}

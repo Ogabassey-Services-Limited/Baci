@@ -11,6 +11,7 @@ import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { SAVED_LIST_BOTTOM_PADDING } from '@/constants/saved-list-layout';
 import { useNetworkState } from '@/hooks/use-network-state';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { useSavedStore } from '@/stores/saved-store';
 
@@ -138,7 +139,11 @@ export default function SavedTabScreen() {
             accessibilityLabel={`View ${item.name}`}
           >
             <Image
-              source={{ uri: item.image }}
+              source={createSafeBoundedImageSource({
+                height: 80,
+                uri: item.image,
+                width: 80,
+              })}
               style={styles.productImage}
               contentFit="cover"
               autoplay={false}

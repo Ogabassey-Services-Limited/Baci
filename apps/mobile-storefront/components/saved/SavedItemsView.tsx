@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
 import { SPACING } from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import type { SavedItem } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 import { styles } from './saved-items.styles';
@@ -67,7 +68,11 @@ function SavedItemCard({
           style={[styles.imageContainer, { backgroundColor: colors.muted }]}
         >
           <Image
-            source={{ uri: item.image }}
+            source={createSafeBoundedImageSource({
+              height: 100,
+              uri: item.image,
+              width: 100,
+            })}
             style={styles.image}
             contentFit="cover"
             placeholder={{ blurhash: BLURHASH_VARIANTS.default }}

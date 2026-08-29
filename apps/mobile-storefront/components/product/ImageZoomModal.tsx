@@ -1,11 +1,18 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { SPACING } from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
 import { useImageZoom } from './hooks/useImageZoom';
 import styles from './ImageZoomModal.styles';
@@ -26,6 +33,7 @@ export function ImageZoomModal({
   onIndexChange,
 }: ImageZoomModalProps) {
   const insets = useSafeAreaInsets();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const { Gesture, GestureDetector } = getOptionalGestureHandlerRuntime();
 
@@ -72,7 +80,11 @@ export function ImageZoomModal({
     <Animated.View style={styles.imageWrapper}>
       <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
         <Image
-          source={{ uri: images[currentIndex] }}
+          source={createSafeBoundedImageSource({
+            height: screenHeight * 0.7,
+            uri: images[currentIndex],
+            width: screenWidth,
+          })}
           style={styles.image}
           contentFit="contain"
           autoplay={false}
@@ -205,7 +217,11 @@ export function ImageZoomModal({
                   accessibilityRole="button"
                 >
                   <Image
-                    source={{ uri: img }}
+                    source={createSafeBoundedImageSource({
+                      height: 56,
+                      uri: img,
+                      width: 56,
+                    })}
                     style={styles.thumbnailImage}
                     contentFit="cover"
                     autoplay={false}

@@ -84,6 +84,27 @@ describe('ProductCard image memory behavior', () => {
     );
   });
 
+  it('uses a static CDN fallback for managed AVIF catalog images', () => {
+    render(
+      <ProductCard
+        product={{
+          ...product,
+          image: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        }}
+      />
+    );
+
+    expect(mockGridProductCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageSource: {
+          height: 352,
+          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg/core-assets/products/phone.avif',
+          width: 352,
+        },
+      })
+    );
+  });
+
   it('bounds list image decoding to the fixed physical image size', () => {
     render(<ProductCard product={product} variant="list" />);
 

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import type { QuizEvent } from '@/services/quiz-types';
 import type { createQuizLobbyStyles } from './QuizLobby.styles';
 import {
@@ -104,7 +105,11 @@ export function QuizLobbyEventCard({
             onError={() => setImageFailed(true)}
             source={
               !imageFailed && event.prizeProduct?.imageUrl
-                ? { uri: event.prizeProduct.imageUrl }
+                ? createSafeBoundedImageSource({
+                    height: 150,
+                    uri: event.prizeProduct.imageUrl,
+                    width: 125,
+                  })
                 : coinsImage
             }
             style={styles.prizeImage}

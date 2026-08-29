@@ -13,7 +13,7 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
-import { createBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import {
   getProductCardImageAttempt,
@@ -177,13 +177,17 @@ export function ProductCard({
       : variant === 'editorial'
         ? screenWidth - 32
         : gridWidth;
-  const imageSource = createBoundedImageSource({
+  const imageAttemptUri = getProductCardImageAttempt(
+    imageCandidates,
+    imageAttempt
+  );
+  const imageSource = createSafeBoundedImageSource({
     height: variant === 'editorial' ? imageWidth / 0.8 : imageWidth,
-    uri: getProductCardImageAttempt(imageCandidates, imageAttempt),
+    uri: imageAttemptUri,
     width: imageWidth,
   });
   const quickAddImageUrl = resolveCartItemImageUrl({
-    displayedImageUrl: imageSource.uri,
+    displayedImageUrl: imageAttemptUri,
     variantImageUrl: defaultVariantSelection?.variant.image,
     variantImages: defaultVariantSelection?.variant.images,
     fallbackImageUrl: product.image,

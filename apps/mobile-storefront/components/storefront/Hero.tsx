@@ -1,8 +1,4 @@
-/**
- * Hero Carousel Component - Multi-Tenant Template System
- * Supports 'parallax', 'carousel', and 'standard' variants
- */
-
+/** Multi-tenant hero carousel with parallax, carousel, and standard variants. */
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Href, router } from 'expo-router';
@@ -20,12 +16,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { palette, RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
-
-type ThemeColors = ReturnType<typeof useTheme>['colors'];
-
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { CONFIG } from '@/lib/config';
 import { getTemplateConfig } from '@/lib/templates';
 import { ELITE_HEIGHT, getHeroStyles } from './Hero.styles';
+
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
 
 const CAROUSEL_HEIGHT = 450;
 const STANDARD_HEIGHT = 220;
@@ -56,6 +52,10 @@ const heroImageProps = {
   autoplay: false,
 };
 
+function getHeroImageSource(uri: string, width: number, height: number) {
+  return createSafeBoundedImageSource({ height, uri, width });
+}
+
 // --- SUB-COMPONENT: Elite Web-Alike Slide ---
 const EliteSlide = ({
   item,
@@ -70,6 +70,12 @@ const EliteSlide = ({
   isDark: boolean;
   styles: ReturnType<typeof getHeroStyles>;
 }) => {
+  const imageSource = getHeroImageSource(
+    item.image,
+    screenWidth * 0.5,
+    ELITE_HEIGHT
+  );
+
   return (
     <View style={[styles.eliteSlideContainer, { width: screenWidth }]}>
       <View style={styles.eliteCard}>
@@ -105,7 +111,7 @@ const EliteSlide = ({
 
           <View style={styles.eliteImageColumn}>
             <Image
-              source={{ uri: item.image }}
+              source={imageSource}
               style={styles.eliteProductImage}
               contentFit="contain"
               {...heroImageProps}
@@ -129,7 +135,7 @@ const FashionSlide = ({
 }) => (
   <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
     <Image
-      source={{ uri: item.image }}
+      source={getHeroImageSource(item.image, screenWidth, CAROUSEL_HEIGHT)}
       style={StyleSheet.absoluteFill}
       contentFit="cover"
       {...heroImageProps}
@@ -169,7 +175,7 @@ const StandardSlide = ({
     ]}
   >
     <Image
-      source={{ uri: item.image }}
+      source={getHeroImageSource(item.image, screenWidth, STANDARD_HEIGHT)}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
       contentFit="cover"
       {...heroImageProps}

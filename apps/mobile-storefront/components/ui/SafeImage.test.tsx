@@ -44,12 +44,14 @@ jest.mock('expo-image', () => {
       onLoadStart,
       autoplay,
       accessibilityLabel,
+      source,
       testID,
     }: {
       onError?: (error: { error: string }) => void;
       onLoadStart?: () => void;
       autoplay?: boolean;
       accessibilityLabel?: string;
+      source?: unknown;
       testID?: string;
     }) => {
       const viewProps = {
@@ -57,6 +59,7 @@ jest.mock('expo-image', () => {
         onError,
         onLoadStart,
         autoplay,
+        source,
         accessible: true,
         accessibilityRole: 'image',
         accessibilityLabel,
@@ -111,6 +114,25 @@ describe('SafeImage', () => {
     expect(
       screen.getByRole('image', { name: 'catalog image' }).props.autoplay
     ).toBe(false);
+  });
+
+  it('uses a static bounded fallback for managed AVIF catalog images', () => {
+    render(
+      <SafeImage
+        testID="product-image"
+        source={{
+          height: 120,
+          uri: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+          width: 100,
+        }}
+      />
+    );
+
+    expect(screen.getByTestId('product-image').props.source).toEqual({
+      height: 120,
+      uri: 'https://cdn.ogabassey.com/image/width=100,height=120,quality=75,format=jpeg/core-assets/products/phone.avif',
+      width: 100,
+    });
   });
 
   describe('bugfix: caller onLoadStart overwritten by SafeImage handler', () => {

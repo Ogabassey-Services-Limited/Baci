@@ -3,6 +3,7 @@ import { Image } from 'expo-image';
 import type React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND, SHADOWS } from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import type { ReceiptListItem } from '@/types/receipt';
 
 const PAYMENT_STATUS_CONFIG: Record<
@@ -84,7 +85,11 @@ export function ReceiptCard({
         <View style={[styles.thumb, { backgroundColor: `${BRAND.primary}12` }]}>
           {firstItem?.image_url ? (
             <Image
-              source={{ uri: firstItem.image_url }}
+              source={createSafeBoundedImageSource({
+                height: 52,
+                uri: firstItem.image_url,
+                width: 52,
+              })}
               style={styles.thumbImage}
               contentFit="contain"
               cachePolicy="memory-disk"
