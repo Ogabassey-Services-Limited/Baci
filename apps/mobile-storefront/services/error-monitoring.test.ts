@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockInit = jest.fn();
+const mockInstallMemoryWarningDiagnostics = jest.fn();
 
 jest.mock('@sentry/react-native', () => ({
   init: mockInit,
+}));
+
+jest.mock('@/lib/memory-warning-diagnostics', () => ({
+  installMemoryWarningDiagnostics: mockInstallMemoryWarningDiagnostics,
 }));
 
 describe('initializeErrorMonitoring', () => {
   beforeEach(() => {
     jest.resetModules();
     mockInit.mockClear();
+    mockInstallMemoryWarningDiagnostics.mockClear();
   });
 
   it('initializes native ANR and crash capture without collecting PII', () => {
@@ -39,6 +45,7 @@ describe('initializeErrorMonitoring', () => {
         tracesSampleRate: 0,
       })
     );
+    expect(mockInstallMemoryWarningDiagnostics).toHaveBeenCalledTimes(1);
     expect(mockInit.mock.calls[0]?.[0]).not.toHaveProperty(
       'autoInitializeNativeSdk'
     );

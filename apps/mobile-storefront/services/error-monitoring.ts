@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { installMemoryWarningDiagnostics } from '@/lib/memory-warning-diagnostics';
 
 let initialized = false;
 
@@ -31,6 +32,7 @@ export function initializeErrorMonitoring(
     sendDefaultPii: false,
     tracesSampleRate: 0,
   });
+  installMemoryWarningDiagnostics();
   initialized = true;
   return true;
 }
