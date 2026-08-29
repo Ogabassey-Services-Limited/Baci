@@ -53,6 +53,10 @@ jest.mock('@/stores/saved-store', () => ({
   useSavedStore: (selector: (state: { toggleSaved: jest.Mock }) => unknown) =>
     selector({ toggleSaved: jest.fn() }),
 }));
+jest.mock('./product-card-tracking', () => ({
+  trackCartAdd: jest.fn(),
+  trackWishlistAdd: jest.fn(),
+}));
 
 const product: Product = {
   id: 'product-1',
