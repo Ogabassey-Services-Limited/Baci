@@ -4,13 +4,14 @@ import {
   linkSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   renameSync,
   statSync,
   unlinkSync,
   writeSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 const LOCK_RETRY_MS = 25;
 const LOCK_TIMEOUT_MS = 30_000;
@@ -55,16 +56,66 @@ function lockSnapshotIsStale(snapshot) {
   return age >= STALE_LOCK_MS;
 }
 
-function restoreClaimedLock(claimPath, lockPath) {
+function sameLockIdentity(left, right) {
+  return (
+    left?.stat?.dev === right?.stat?.dev && left?.stat?.ino === right?.stat?.ino
+  );
+}
+
+function restoreClaimedLock(claimPath, lockPath, expected) {
+  const claimed = readLockSnapshot(claimPath);
+  if (!sameLockIdentity(claimed, expected)) return false;
+  try {
+    const current = statSync(lockPath);
+    if (
+      current.dev !== expected.stat.dev ||
+      current.ino !== expected.stat.ino
+    ) {
+      return false;
+    }
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  let linked = false;
   try {
     linkSync(claimPath, lockPath);
+    linked = true;
   } catch (error) {
     if (error?.code !== 'EEXIST') throw error;
+    const current = readLockSnapshot(lockPath);
+    if (!sameLockIdentity(current, expected)) return false;
+  }
+  if (!linked && !sameLockIdentity(readLockSnapshot(lockPath), expected)) {
+    return false;
   }
   try {
     unlinkSync(claimPath);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
+  }
+  return true;
+}
+
+function removeOwnedClaims(lockPath, identity) {
+  let entries;
+  try {
+    entries = readdirSync(dirname(lockPath), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  const claimPrefix = `${basename(lockPath)}.stale-`;
+  for (const entry of entries) {
+    if (!entry.name.startsWith(claimPrefix)) continue;
+    const claimPath = join(dirname(lockPath), entry.name);
+    try {
+      const claim = statSync(claimPath);
+      if (claim.dev === identity?.dev && claim.ino === identity?.ino) {
+        unlinkSync(claimPath);
+      }
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
   }
 }
 
@@ -83,8 +134,15 @@ function reclaimStaleLock(lockPath) {
   }
 
   const claimed = readLockSnapshot(claimPath);
-  if (claimed && !lockSnapshotIsStale(claimed)) {
-    restoreClaimedLock(claimPath, lockPath);
+  if (!claimed) return true;
+  if (!sameLockIdentity(observed, claimed)) {
+    // The pathname changed while it was being claimed. Never delete the
+    // replacement; restore it only while its generation is still present.
+    restoreClaimedLock(claimPath, lockPath, claimed);
+    return false;
+  }
+  if (!lockSnapshotIsStale(claimed)) {
+    restoreClaimedLock(claimPath, lockPath, claimed);
     return false;
   }
   try {
@@ -104,12 +162,14 @@ export function withDrainFileLock(lockPath, action) {
   mkdirSync(dirname(lockPath), { recursive: true });
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   let descriptor;
+  let acquiredIdentity;
 
   while (descriptor === undefined) {
     try {
       descriptor = openSync(lockPath, 'wx', 0o600);
       writeSync(descriptor, `${process.pid}\n`);
       closeSync(descriptor);
+      acquiredIdentity = statSync(lockPath);
     } catch (error) {
       if (descriptor !== undefined) closeSync(descriptor);
       descriptor = undefined;
@@ -135,9 +195,23 @@ export function withDrainFileLock(lockPath, action) {
 
   let releaseError;
   try {
-    unlinkSync(lockPath);
+    const current = statSync(lockPath);
+    if (
+      current.dev === acquiredIdentity?.dev &&
+      current.ino === acquiredIdentity?.ino
+    ) {
+      unlinkSync(lockPath);
+    }
   } catch (error) {
-    if (error?.code !== 'ENOENT') releaseError = error;
+    if (error?.code === 'ENOENT') {
+      try {
+        removeOwnedClaims(lockPath, acquiredIdentity);
+      } catch (claimError) {
+        releaseError = claimError;
+      }
+    } else {
+      releaseError = error;
+    }
   }
 
   if (actionError) throw actionError;

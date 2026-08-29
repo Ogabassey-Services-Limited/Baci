@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  renameSync,
   statSync,
   utimesSync,
   writeFileSync,
@@ -62,5 +64,18 @@ describe('drain file lock', () => {
       'recovered'
     );
     assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+  });
+
+  it('does not release a replacement lock owned by another generation', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    const replacementPath = join(directory, 'replacement.lock');
+
+    withDrainFileLock(lockPath, () => {
+      writeFileSync(replacementPath, 'replacement\n');
+      renameSync(replacementPath, lockPath);
+    });
+
+    assert.equal(readFileSync(lockPath, 'utf8'), 'replacement\n');
   });
 });
