@@ -62,6 +62,13 @@ const deployWorkflow = readFileSync(
   resolve(process.cwd(), '../../.github/workflows/deploy.yml'),
   'utf8'
 );
+const postdeployAction = readFileSync(
+  resolve(
+    process.cwd(),
+    '../../.github/actions/postdeploy-migrations/action.yml'
+  ),
+  'utf8'
+);
 const postdeployMigrationPolicy = deferredMigrationPolicy.slice(
   0,
   deferredMigrationPolicy.indexOf('# These migrations replace')
@@ -149,16 +156,19 @@ describe('storefront order RPC context migration contract', () => {
   });
 
   it('drains the previous route revision before postdeploy enforcement', () => {
-    const drainStep = deployWorkflow.indexOf(
+    const drainStep = postdeployAction.indexOf(
       '- name: Drain previous storefront order requests'
     );
-    const migrationStep = deployWorkflow.indexOf(
+    const migrationStep = postdeployAction.indexOf(
       '- name: Apply migrations deferred until application deploy'
     );
 
     expect(drainStep).toBeGreaterThanOrEqual(0);
-    expect(deployWorkflow).toContain('run: sleep 305');
-    expect(deployWorkflow).toContain("Vercel's 300-second default");
+    expect(postdeployAction).toContain('run: sleep 305');
+    expect(postdeployAction).toContain('300-second default');
+    expect(deployWorkflow).toContain(
+      'uses: ./.github/actions/postdeploy-migrations'
+    );
     expect(migrationStep).toBeGreaterThan(drainStep);
   });
 
