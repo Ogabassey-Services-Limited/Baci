@@ -143,6 +143,13 @@ test('rejects every web path declared by the deploy filter', async () => {
   }
 });
 
+test('rejects migration-only superseding deployments', async () => {
+  await assert.rejects(
+    verifySupersededFile('supabase/migrations/20260828180000_replay.sql'),
+    /superseded deployment SHA/
+  );
+});
+
 test('gates Vercel deployment configuration in deploy and CI filters', () => {
   const deployFilters = YAML.parse(
     readFileSync(new URL('../filters/deploy.yml', import.meta.url), 'utf8')
@@ -192,6 +199,10 @@ test('production deploy is staged and binds the exact-main guard', () => {
     new URL('../workflows/deploy.yml', import.meta.url),
     'utf8'
   );
+  const postdeployAction = readFileSync(
+    new URL('../actions/postdeploy-migrations/action.yml', import.meta.url),
+    'utf8'
+  );
 
   assert.match(
     workflow,
@@ -215,5 +226,39 @@ test('production deploy is staged and binds the exact-main guard', () => {
     prebuildGuard <
       deployJob.indexOf('- uses: ./.github/actions/pnpm-install-cached'),
     'exact-main guard must run before dependency installation and build'
+  );
+  const postdeployActionStep = deployJob.indexOf(
+    '- uses: ./.github/actions/postdeploy-migrations'
+  );
+  assert.ok(postdeployActionStep >= 0, 'postdeploy action must exist');
+  assert.match(
+    deployJob.slice(postdeployActionStep),
+    /supabase-access-token: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/
+  );
+  assert.match(
+    deployJob.slice(postdeployActionStep),
+    /supabase-project-ref: \$\{\{ secrets\.SUPABASE_PROJECT_REF \}\}/
+  );
+  const drainStep = postdeployAction.indexOf(
+    '- name: Drain previous storefront order requests'
+  );
+  const postdeployGuard = postdeployAction.indexOf(
+    '- name: Verify exact-main deployment authority before postdeploy migrations'
+  );
+  const postdeployMigrations = postdeployAction.indexOf(
+    '- name: Apply migrations deferred until application deploy'
+  );
+  assert.ok(drainStep >= 0, 'drain step must exist');
+  assert.ok(postdeployGuard >= 0, 'postdeploy guard must exist');
+  assert.ok(postdeployMigrations >= 0, 'deferred migrations step must exist');
+  assert.ok(postdeployGuard > drainStep, 'postdeploy guard must run after drain');
+  assert.ok(
+    postdeployGuard < postdeployMigrations,
+    'postdeploy guard must run immediately before deferred migrations'
+  );
+  assert.doesNotMatch(
+    postdeployAction.slice(postdeployGuard, postdeployMigrations),
+    /\n\s*-\s+(?:name|run|uses):/,
+    'no workflow step may separate the postdeploy guard from deferred migrations'
   );
 });

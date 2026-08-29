@@ -159,6 +159,12 @@ vi.mock('@/lib/quiz-compliance-gate', () => ({
   QuizProductionNotApprovedError: MockQuizProductionNotApprovedError,
 }));
 
+vi.mock('@/lib/checkout/storefront-order-rpc-client', () => ({
+  createStorefrontOrderRpcClient: vi.fn(
+    ({ fallbackClient }: { fallbackClient: unknown }) => fallbackClient
+  ),
+}));
+
 vi.mock('@/lib/shipping/providers/gigl', () => ({
   giglProvider: { getLocations: vi.fn().mockResolvedValue([]) },
 }));
@@ -193,6 +199,7 @@ interface RpcOverrides {
     data: unknown;
     error: unknown;
   };
+  has_storefront_order_idempotency_key?: { data: unknown; error: unknown };
   get_storefront_discount_code?: { data: unknown; error: unknown };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
   redeem_savings_for_order?: { data: unknown; error: unknown };
@@ -200,6 +207,10 @@ interface RpcOverrides {
   finalize_store_credit_order_payment?: { data: unknown; error: unknown };
   finalize_quiz_voucher_order_payment?: { data: unknown; error: unknown };
   get_checkout_shipping_quote?: { data: unknown; error: unknown };
+  persist_storefront_order_delivery_metadata?: {
+    data: unknown;
+    error: unknown;
+  };
 }
 
 function buildMockSupabase(
@@ -366,6 +377,7 @@ function buildMockSupabase(
       finalize_wallet_order_payment: { data: null, error: null },
       finalize_store_credit_order_payment: { data: null, error: null },
       finalize_quiz_voucher_order_payment: { data: true, error: null },
+      has_storefront_order_idempotency_key: { data: false, error: null },
       // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
       // now routes through this SECURITY DEFINER RPC.
       get_order_variant_overrides: { data: [], error: null },
@@ -373,6 +385,7 @@ function buildMockSupabase(
         data: opts.shippingQuote ? [opts.shippingQuote] : null,
         error: null,
       },
+      persist_storefront_order_delivery_metadata: { data: false, error: null },
     };
 
   if (!overrides.create_storefront_order_with_savings) {
@@ -2842,6 +2855,55 @@ describe('POST /api/orders — checkout idempotency', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
     expect(mockNotifyNewOrder).not.toHaveBeenCalled();
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
+  });
+
+  it('replays a metadata-free provider order after its quote was deleted', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        has_storefront_order_idempotency_key: { data: true, error: null },
+        get_checkout_shipping_quote: { data: null, error: null },
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'metadata-free-provider-retry' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_fee: 18_500,
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-idempotency-replayed')).toBe('true');
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(body.order.id).toBe(baseOrderRow.id);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'metadata-free-provider-retry',
+        p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
+        p_shipping_provider: 'GIGL',
+        p_shipping_fee: 18_500,
+      })
+    );
   });
 
   it('passes checkout idempotency params through the savings wrapper RPC', async () => {

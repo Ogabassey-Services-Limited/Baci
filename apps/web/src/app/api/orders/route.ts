@@ -25,13 +25,16 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
+import { prepareCheckoutIdempotencyReplay } from '@/lib/checkout/checkout-idempotency-replay';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
-import {
-  buildOrderIdempotencyPayload,
-  hashOrderIdempotencyPayload,
-} from '@/lib/checkout/order-idempotency';
+import { hasExistingMerchantRateOrder } from '@/lib/checkout/has-existing-merchant-rate-order';
+import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
+import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';
+import { persistReplayedDeliveryMetadata } from '@/lib/checkout/persist-replayed-delivery-metadata';
+import { createStorefrontOrderRpcClient } from '@/lib/checkout/storefront-order-rpc-client';
+import { validateLocalAirportDeliveryFee } from '@/lib/checkout/validate-local-airport-delivery-fee';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -956,6 +959,10 @@ function getQuizVoucherAwardEvent(row: unknown) {
   };
 }
 
+// Keep the old revision's maximum execution window explicit so deploys can
+// wait for every in-flight checkout before enabling the route-context trigger.
+export const maxDuration = 60;
+
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
   try {
@@ -1091,6 +1098,8 @@ export async function POST(request: NextRequest) {
       shipping_address,
       source,
       notes,
+      delivery_method,
+      airport_type,
       // Ad tracking data for offline conversions
       ad_tracking,
       // Wallet redemption
@@ -1603,6 +1612,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let localAirportShippingFee: number | null;
+    let isIdempotentLocalAirportReplay: boolean;
+    let isIdempotentOrderReplay = false;
+    let canonicalDeliveryMethod = delivery_method;
+    let canonicalAirportType = airport_type;
+    try {
+      const validationResult = await validateLocalAirportDeliveryFee({
+        airportType: airport_type,
+        deliveryMethod: delivery_method,
+        merchantId: merchant_id,
+        requestIdempotencyKey,
+        selectedQuoteId: body.selected_quote_id,
+        shippingAddress: shipping_address,
+        shippingFee: shippingFeeValue,
+        shippingProvider: body.shipping_provider,
+        shippingRateId: body.shipping_rate_id,
+        source,
+        supabase,
+      });
+      ({
+        isIdempotentLocalAirportReplay,
+        isIdempotentOrderReplay = false,
+        localAirportShippingFee,
+      } = validationResult);
+      canonicalDeliveryMethod =
+        validationResult.resolvedDeliveryMethod ?? delivery_method;
+      canonicalAirportType =
+        validationResult.resolvedAirportType ?? airport_type;
+    } catch (error) {
+      if (
+        error instanceof LocalAirportDeliveryFeeMismatchError ||
+        error instanceof LocalAirportDeliveryValidationError
+      ) {
+        return NextResponse.json(
+          { error: error.message, code: error.code },
+          { status: error.status }
+        );
+      }
+      throw error;
+    }
+
+    // A provider-backed airport quote is always airport delivery. Persist and
+    // hash that durable discriminator even when older clients omitted the
+    // redundant airport_type field, so equivalent retries cannot diverge on
+    // omitted versus explicit metadata.
+    if (canonicalDeliveryMethod === 'airport' && body.selected_quote_id) {
+      canonicalAirportType = 'delivery';
+    }
+
     if (discountAmountValue !== 0) {
       return NextResponse.json(
         {
@@ -1790,6 +1848,27 @@ export async function POST(request: NextRequest) {
           }
         : null;
 
+    const {
+      __baci_airport_type: _clientAirportType,
+      __baci_delivery_method: _clientDeliveryMethod,
+      ...adTrackingWithoutDeliveryMetadata
+    } = (adTrackingPayload ?? {}) as Record<string, unknown>;
+    const sanitizedAdTrackingPayload = adTrackingPayload
+      ? adTrackingWithoutDeliveryMetadata
+      : null;
+    const orderAdTrackingPayload =
+      canonicalDeliveryMethod || canonicalAirportType
+        ? {
+            ...(sanitizedAdTrackingPayload ?? {}),
+            ...(canonicalDeliveryMethod
+              ? { __baci_delivery_method: canonicalDeliveryMethod }
+              : {}),
+            ...(canonicalAirportType
+              ? { __baci_airport_type: canonicalAirportType }
+              : {}),
+          }
+        : sanitizedAdTrackingPayload;
+
     // Merchant-rate orders (shipping_rate_id present) take the existing
     // pickup/airport RPC bypass: shipping_provider null + selected_quote_id
     // null. Merchant rates are computed from config — never persisted in
@@ -1851,8 +1930,14 @@ export async function POST(request: NextRequest) {
         {
           items: quoteValidationItems,
           merchantId: body.merchant_id,
-          shippingFee: shippingFeeValue,
-          shippingProvider: resolvedShippingProvider,
+          shippingFee:
+            isIdempotentLocalAirportReplay || isIdempotentOrderReplay
+              ? undefined
+              : shippingFeeValue,
+          shippingProvider:
+            isIdempotentLocalAirportReplay || isIdempotentOrderReplay
+              ? null
+              : resolvedShippingProvider,
         }
       );
     } catch (error) {
@@ -2098,26 +2183,15 @@ export async function POST(request: NextRequest) {
     // still runs the full fail-closed verification below. Service-role read:
     // guest checkouts cannot pass orders RLS, and the lookup is scoped to the
     // validated merchant id + the caller's own idempotency key.
-    let isIdempotentMerchantRateReplay = false;
-    if (body.shipping_rate_id && requestIdempotencyKey) {
-      const { data: existingOrder, error: existingOrderError } =
-        await createAdminClient()
-          .from('orders')
-          .select('id')
-          .eq('merchant_id', merchant_id)
-          .eq('checkout_idempotency_key', requestIdempotencyKey)
-          .maybeSingle();
-      if (existingOrderError) {
-        logger.warn({
-          message:
-            'Idempotent merchant-rate order pre-check failed; running full rate verification',
-          merchantId: merchant_id,
-          error: existingOrderError,
-        });
-      } else if (existingOrder) {
-        isIdempotentMerchantRateReplay = true;
-      }
-    }
+    const isIdempotentMerchantRateReplay =
+      body.shipping_rate_id && requestIdempotencyKey
+        ? await hasExistingMerchantRateOrder({
+            adminSupabase: createAdminClient(),
+            merchantId: merchant_id,
+            requestIdempotencyKey,
+            shippingRateId: body.shipping_rate_id,
+          })
+        : false;
     if (body.shipping_rate_id && !isIdempotentMerchantRateReplay) {
       if (canonicalOrderSubtotal == null) {
         try {
@@ -2285,35 +2359,48 @@ export async function POST(request: NextRequest) {
 
     // The SERVER-verified amount wins for merchant-rate orders (it differs
     // from the client value by ≤ 0.01 — anything larger was rejected above,
-    // so the RPC's ±1 expected_total parity guard still passes). The
+    // so the RPC's ±1 expected_total parity guard still passes). The existing
+    // RPC signatures intentionally remain stable; delivery metadata is passed
+    // through reserved ad-tracking keys and persisted/enforced by the orders
+    // insert trigger, which strips those keys before storage.
     // idempotency hash below intentionally keeps the CLIENT value so retries
     // of the same request hash identically.
     const effectiveShippingFee =
-      verifiedMerchantShippingRate?.amount ?? shippingFeeValue;
+      verifiedMerchantShippingRate?.amount ??
+      (isIdempotentLocalAirportReplay ? null : localAirportShippingFee) ??
+      shippingFeeValue;
 
-    const checkoutRequestHash = requestIdempotencyKey
-      ? hashOrderIdempotencyPayload(
-          buildOrderIdempotencyPayload({
-            ...body,
-            shipping_address: shippingAddressForOrder,
-            // STABLE code identity, NOT the recomputed amount, so a merchant
-            // editing the code between a checkout and its retry can't trip
-            // checkout_idempotency_conflict before the wrapper's replay path.
-            discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
-            discount_code: requestedDiscountCode,
-            gift_wrapping_fee: giftWrappingFeeValue,
-            items: orderItemsPayload,
-            shipping_fee: shippingFeeValue,
-            // Merchant-rate orders null shipping_provider + selected_quote_id, so
-            // the rate id is the only field that distinguishes two same-priced
-            // merchant rates (same fee + address) on an Idempotency-Key reuse.
-            // Without it the RPC would replay the ORIGINAL order instead of
-            // returning checkout_idempotency_conflict.
-            shipping_rate_id: body.shipping_rate_id,
-            tax_amount: orderTaxAmount,
-          })
-        )
-      : null;
+    const { checkoutRequestHash, isLegacyIdempotencyReplay } =
+      await prepareCheckoutIdempotencyReplay({
+        canonicalAirportType,
+        canonicalDeliveryMethod,
+        merchantId: merchant_id,
+        payload: requestIdempotencyKey
+          ? {
+              ...body,
+              shipping_address: shippingAddressForOrder,
+              // STABLE code identity, NOT the recomputed amount, so a merchant
+              // editing the code between a checkout and its retry can't trip
+              // checkout_idempotency_conflict before the wrapper's replay path.
+              discount_amount: discountCodeId ? 0 : serverDerivedDiscountAmount,
+              discount_code: requestedDiscountCode,
+              delivery_method: canonicalDeliveryMethod,
+              gift_wrapping_fee: giftWrappingFeeValue,
+              airport_type: canonicalAirportType,
+              items: orderItemsPayload,
+              shipping_fee: shippingFeeValue,
+              // Merchant-rate orders null shipping_provider + selected_quote_id, so
+              // the rate id is the only field that distinguishes two same-priced
+              // merchant rates (same fee + address) on an Idempotency-Key reuse.
+              // Without it the RPC would replay the ORIGINAL order instead of
+              // returning checkout_idempotency_conflict.
+              shipping_rate_id: body.shipping_rate_id,
+              tax_amount: orderTaxAmount,
+            }
+          : null,
+        requestIdempotencyKey,
+        supabase,
+      });
 
     const savingsRedemptionIdempotencyKey = requestedSavingsRedemption
       ? getSavingsRedemptionIdempotencyKey({
@@ -2357,7 +2444,7 @@ export async function POST(request: NextRequest) {
       p_shipping_address: shippingAddressForOrder || null,
       p_source: source,
       p_notes: notes || null,
-      p_ad_tracking: adTrackingPayload,
+      p_ad_tracking: orderAdTrackingPayload,
       p_selected_quote_id: resolvedSelectedQuoteId,
       p_shipping_provider: resolvedShippingProvider,
       p_tracking_number: resolvedTrackingNumber || null,
@@ -2431,7 +2518,15 @@ export async function POST(request: NextRequest) {
         ? { ...orderRpcArgs, p_discount_code_id: discountCodeId }
         : orderRpcArgs;
 
-    const { data: orderRows, error: orderError } = await supabase.rpc(
+    const orderRpcClient = createStorefrontOrderRpcClient({
+      fallbackClient: supabase,
+      hasCanonicalDeliveryMetadata: Boolean(
+        canonicalDeliveryMethod || canonicalAirportType
+      ),
+      merchantId: merchant_id,
+      userId: resolvedUserId,
+    });
+    const { data: orderRows, error: orderError } = await orderRpcClient.rpc(
       orderCreateRpcName,
       orderCreateRpcArgs
     );
@@ -2445,6 +2540,24 @@ export async function POST(request: NextRequest) {
         typeof orderError?.message === 'string'
           ? orderError.message
           : code || 'Failed to create order';
+      const isAirportQuoteDatabaseRejection =
+        code === '22023' &&
+        (message === 'The selected airport delivery quote has expired' ||
+          message === 'Selected airport delivery quote is invalid or expired');
+      const airportQuoteErrorCode =
+        message === 'The selected airport delivery quote has expired'
+          ? 'AIRPORT_QUOTE_EXPIRED'
+          : 'AIRPORT_QUOTE_INVALID';
+      if (isAirportQuoteDatabaseRejection) {
+        return NextResponse.json(
+          {
+            error: 'Failed to create order',
+            details: message,
+            code: airportQuoteErrorCode,
+          },
+          { status: 400 }
+        );
+      }
       if (
         requestedSavingsRedemption &&
         (message.includes('savings_') || code === '22023' || code === '42501')
@@ -2546,7 +2659,8 @@ export async function POST(request: NextRequest) {
       // create_storefront_order should return { message, code } for client errors.
       const isClientError =
         (code ? clientErrorCodes.includes(code) : false) ||
-        clientErrorCodes.includes(message);
+        clientErrorCodes.includes(message) ||
+        isAirportQuoteDatabaseRejection;
       if (isClientError) {
         logger.warn({
           message: 'Storefront order rejected by client-side validation',
@@ -2556,7 +2670,13 @@ export async function POST(request: NextRequest) {
         logger.error({ message: 'Error creating order', error: orderError });
       }
       return NextResponse.json(
-        { error: 'Failed to create order', details: message },
+        {
+          error: 'Failed to create order',
+          details: message,
+          ...(isAirportQuoteDatabaseRejection
+            ? { code: airportQuoteErrorCode }
+            : {}),
+        },
         { status: isClientError ? 400 : 500 }
       );
     }
@@ -2599,6 +2719,28 @@ export async function POST(request: NextRequest) {
       order !== null &&
       'idempotency_replayed' in order &&
       order.idempotency_replayed === true;
+
+    if (idempotencyReplayed && isLegacyIdempotencyReplay) {
+      const replayMetadataResult = await persistReplayedDeliveryMetadata({
+        airportType: canonicalAirportType,
+        deliveryMethod: canonicalDeliveryMethod,
+        orderId: order.id,
+        rpcClient: orderRpcClient,
+      });
+      if (replayMetadataResult.error) {
+        logger.error({
+          message:
+            'Failed to persist delivery metadata on legacy storefront order replay',
+          error: replayMetadataResult.error,
+          orderId: order.id,
+          merchantId: merchant_id,
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
+    }
 
     // Stamp the merchant-rate fulfillment provider post-create. Mirrors the
     // self-fulfill flow, which also writes orders.shipping_provider via an

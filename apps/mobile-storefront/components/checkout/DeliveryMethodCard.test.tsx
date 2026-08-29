@@ -17,7 +17,7 @@ const baseProps = {
   selectedMethod: 'door' as const,
   onSelectMethod: jest.fn(),
   doorSubtitle: 'Delivered to your address',
-  airportFee: 25000,
+  airportFee: 35000,
   merchantPickupLocation: {
     address: '2 Olaide Tomori St, Ikeja, Lagos',
     city: 'Ikeja',
@@ -184,11 +184,11 @@ describe('DeliveryMethodCard', () => {
       />
     );
     expect(screen.getByText('Port Harcourt Airport Delivery')).toBeTruthy();
-    expect(screen.getByText('₦25,000')).toBeTruthy();
+    expect(screen.getByText('₦35,000')).toBeTruthy();
     expect(screen.getByText('By Air\nWithin 1–48 hours')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: /Select Port Harcourt Airport Delivery.*By Air.*Within 1–48 hours.*₦25,000/,
+        name: /Select Port Harcourt Airport Delivery.*By Air.*Within 1–48 hours.*₦35,000/,
       })
     ).toBeTruthy();
   });

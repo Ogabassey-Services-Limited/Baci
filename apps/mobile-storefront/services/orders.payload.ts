@@ -46,6 +46,8 @@ export function buildOrderPayload({
     payment_method: request.payment_method,
     selected_quote_id: request.selected_quote_id ?? null,
     shipping_provider: request.shipping_provider ?? null,
+    delivery_method: request.delivery_method,
+    airport_type: request.airport_type,
     payment_status: getInitialPaymentStatus(request.payment_method),
     shipping_status: 'pending',
     shipping_address: {

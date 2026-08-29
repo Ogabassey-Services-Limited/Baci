@@ -108,6 +108,7 @@ import { persistCreditDirectPopupReference } from './checkout/persist-credit-dir
 import { getCheckoutOrderErrorMessage } from './checkout/checkout-order-error-message';
 import { selectRejectedVoucherLines } from './checkout/select-rejected-voucher-lines';
 import { PaymentStep } from './checkout/components/PaymentStep';
+import { AirportDeliveryOptions } from './checkout/components/AirportDeliveryOptions';
 import {
   invalidatePendingQuoteRequests,
   loadCheckoutShippingQuotes,
@@ -1939,7 +1940,6 @@ export const CheckoutPage: React.FC = () => {
     } else if (deliveryMethod === 'airport') {
       const airportAddress = resolveAirportShippingAddress({
         airportType,
-        isProviderBacked: selectedQuoteMatchesDeliveryMethod,
         manualAddress: newAddressStreet,
         manualCity: newAddressCity,
         manualState: newAddressState,
@@ -2199,6 +2199,11 @@ export const CheckoutPage: React.FC = () => {
             shipping_status: 'pending',
             shipping_address: shippingAddressData,
             source: 'online_store',
+            delivery_method: deliveryMethod,
+            ...(deliveryMethod === 'airport' &&
+            !selectedQuoteMatchesDeliveryMethod
+              ? { airport_type: airportType }
+              : {}),
             shipping_provider: shippingProvider,
             // Merchant-rate orders: send the bare rate id and force the null
             // shipping_provider/selected_quote_id path (there is no persisted
@@ -3975,112 +3980,21 @@ export const CheckoutPage: React.FC = () => {
 
                         {/* Airport Options */}
                         {deliveryMethod === 'airport' && (
-                          <div className="mt-4 space-y-3 animate-in fade-in">
-                            <div className="flex items-start gap-3">
-                              <Plane size={20} className="text-store-background-text/50 mt-0.5" />
-                              <p className="text-sm text-store-background-text/60">
-                                Delivery to your doorstep is available. Choose delivery to your location or pickup at the airport.
-                              </p>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod
-                                  ? 'border-store-primary bg-store-primary/5'
-                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                                  }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="airportType"
-                                  value="delivery"
-                                  checked={
-                                    airportType === 'delivery' &&
-                                    !selectedQuoteMatchesDeliveryMethod
-                                  }
-                                  onChange={() => {
-                                    setAirportType('delivery');
-                                    setSelectedQuoteId('');
-                                  }}
-                                  className="sr-only"
-                                />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
-                                  }`}>
-                                  {airportType === 'delivery' && !selectedQuoteMatchesDeliveryMethod && (
-                                    <div className="size-2.5 rounded-full bg-store-primary" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-bold text-store-background-text text-sm">
-                                    {newAddressCity || newAddressState
-                                      ? `${newAddressCity || newAddressState} Airport Delivery`
-                                      : 'Airport Delivery'}
-                                  </p>
-                                  <p className="text-xs text-store-background-text/55 mt-0.5">Delivery to your doorstep</p>
-                                </div>
-                                <span className="font-bold text-store-background-text">₦25,000</span>
-                              </label>
-                              <label
-                                className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod
-                                  ? 'border-store-primary bg-store-primary/5'
-                                  : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                                  }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="airportType"
-                                  value="pickup"
-                                  checked={
-                                    airportType === 'pickup' &&
-                                    !selectedQuoteMatchesDeliveryMethod
-                                  }
-                                  onChange={() => {
-                                    setAirportType('pickup');
-                                    setSelectedQuoteId('');
-                                  }}
-                                  className="sr-only"
-                                />
-                                <div className={`size-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod ? 'border-store-primary' : 'border-gray-400'
-                                  }`}>
-                                  {airportType === 'pickup' && !selectedQuoteMatchesDeliveryMethod && (
-                                    <div className="size-2.5 rounded-full bg-store-primary" />
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="font-bold text-store-background-text text-sm">Airport Pickup</p>
-                                  <p className="text-xs text-store-background-text/55 mt-0.5">Collect at the airport</p>
-                                </div>
-                                <span className="font-bold text-store-background-text">₦20,000</span>
-                              </label>
-                            </div>
-                            {airDeliveryQuotes.map((quote) => (
-                              <label
-                                key={quote.id}
-                                className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border-2 p-4 transition-all focus-within:ring-2 focus-within:ring-store-primary focus-within:ring-offset-2 ${selectedQuoteId === quote.id
-                                  ? 'border-store-primary bg-store-primary/5'
-                                  : 'border-store-background-text/10 bg-store-background hover:border-store-primary/40'
-                                  }`}
-                              >
-                                <input
-                                  type="radio"
-                                  name="airportType"
-                                  checked={selectedQuoteId === quote.id}
-                                  onChange={() => setSelectedQuoteId(quote.id)}
-                                  className="size-4 border-store-background-text/25 text-store-primary focus:ring-store-primary"
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-bold text-store-background-text">
-                                    {quote.displayName}
-                                  </p>
-                                  <p className="mt-0.5 text-xs text-store-background-text/55">
-                                    GIG Logistics GoFaster (Air/Cargo)
-                                  </p>
-                                </div>
-                                <span className="shrink-0 text-sm font-bold text-store-background-text">
-                                  {formatAmountInCurrency(quote.price, quote.currency, AUTO_FRACTION_OPTIONS)}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
+                          <AirportDeliveryOptions
+                            airportType={airportType}
+                            city={newAddressCity}
+                            state={newAddressState}
+                            selectedQuoteId={selectedQuoteId}
+                            selectedQuoteMatchesDeliveryMethod={
+                              selectedQuoteMatchesDeliveryMethod
+                            }
+                            airDeliveryQuotes={airDeliveryQuotes}
+                            onSelectAirportType={(type) => {
+                              setAirportType(type);
+                              setSelectedQuoteId('');
+                            }}
+                            onSelectQuote={setSelectedQuoteId}
+                          />
                         )}
 
                         {/* Door Delivery - Quote Selector */}

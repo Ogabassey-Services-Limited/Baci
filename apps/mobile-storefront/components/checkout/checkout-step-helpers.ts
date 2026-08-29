@@ -1,3 +1,4 @@
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import {
   getPickupStationAddressText,
   getPickupStationLabel,
@@ -13,7 +14,7 @@ import type {
   ShippingQuoteDeliveryPreference,
 } from '@/components/checkout/types';
 
-export const AIRPORT_DELIVERY_FEE = 25000;
+export const AIRPORT_DELIVERY_FEE = AIRPORT_DELIVERY_FEES.delivery;
 export const AIRPORT_QUOTE_ID = 'airport-delivery';
 export const AIRPORT_DELIVERY_ESTIMATE = 'Within 1–48 hours';
 export const LAGOS_ROAD_DELIVERY_ESTIMATE = 'Within 1–24 hours';

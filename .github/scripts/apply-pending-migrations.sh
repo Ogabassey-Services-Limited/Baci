@@ -24,6 +24,11 @@
 #      CONCURRENTLY can run outside a transaction; their history row is written
 #      only after every statement succeeds.
 #
+# MIGRATION_PHASE=predeploy leaves the explicit postdeploy-only enforcement
+# list unapplied so the old application revision keeps working while the new
+# claim-minting revision is rolled out. MIGRATION_PHASE=postdeploy (or the
+# default `all`) applies those migrations normally.
+#
 # `statements` remains ARRAY[]::text[] because the CLI only consults version/name;
 # preserving SQL there would require fragile escaping of `$$` and single quotes.
 set -euo pipefail
@@ -34,6 +39,21 @@ if [ ! -d "$migrations_dir" ]; then
   echo "::error::supabase/migrations directory not found at $migrations_dir"
   exit 1
 fi
+
+if ! . "$script_dir/deferred-production-migrations.sh"; then
+  echo "::error::deferred production migration policy could not be loaded" >&2
+  exit 1
+fi
+
+migration_phase="${MIGRATION_PHASE:-all}"
+case "$migration_phase" in
+  all|predeploy|postdeploy)
+    ;;
+  *)
+    echo "::error::MIGRATION_PHASE must be all, predeploy, or postdeploy" >&2
+    exit 1
+    ;;
+esac
 
 if ! . "$script_dir/historical-migration-repair-handler.sh"; then
   echo "::error::historical migration repair handler could not be loaded" >&2
@@ -91,6 +111,9 @@ build_register_migration_query() {
      + "ARRAY[]::text[]);"'
 }
 
+. "$script_dir/apply-atomic-migration-group.sh"
+. "$script_dir/apply-pending-migration.sh"
+
 applied_versions_body="$(jq -n '{query: "SELECT version, name FROM supabase_migrations.schema_migrations ORDER BY version"}')"
 applied_versions_response="$(api_query <<<"$applied_versions_body")"
 applied_migrations="$(jq -r '.[] | [.version, .name] | @tsv' <<<"$applied_versions_response")"
@@ -113,11 +136,18 @@ sorted_files=("${files[@]}")
 
 applied_count=0
 skipped_count=0
+deferred_count=0
+atomic_group_skip_bases=''
 
 for file in "${sorted_files[@]}"; do
   base="$(basename "$file" .sql)"
   version="${base%%_*}"
   name="${base#*_}"
+
+  if [ -n "$atomic_group_skip_bases" ] && \
+    printf '%s\n' "$atomic_group_skip_bases" | grep -Fqx -- "$base"; then
+    continue
+  fi
 
   recorded_name="$(awk -F '\t' -v version="$version" '$1 == version { print $2; exit }' <<<"$applied_migrations")"
   if [ -n "$recorded_name" ]; then
@@ -158,6 +188,33 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
+  if [ "$migration_phase" = "predeploy" ] && is_postdeploy_migration "$base"; then
+    echo "⏸ deferred until postdeploy: $version  ${name}"
+    deferred_count=$((deferred_count + 1))
+    continue
+  fi
+
+  atomic_group_files=()
+  atomic_group_cursor="$base"
+  atomic_group_candidate_skip_bases=''
+  while next_base="$(atomic_migration_group_next_base "$atomic_group_cursor")"; do
+    next_file="$migrations_dir/${next_base}.sql"
+    if [ ! -f "$next_file" ] || \
+      [ -n "$(awk -F '\t' -v version="${next_base%%_*}" '$1 == version { print $2; exit }' <<<"$applied_migrations")" ]; then
+      atomic_group_files=()
+      atomic_group_candidate_skip_bases=''
+      break
+    fi
+    atomic_group_files+=("$next_file")
+    atomic_group_candidate_skip_bases="${atomic_group_candidate_skip_bases}${atomic_group_candidate_skip_bases:+$'\n'}${next_base}"
+    atomic_group_cursor="$next_base"
+  done
+  if [ "${#atomic_group_files[@]}" -gt 0 ]; then
+    apply_atomic_migration_group "$file" "${atomic_group_files[@]}" || exit 1
+    atomic_group_skip_bases="$atomic_group_candidate_skip_bases"
+    continue
+  fi
+
   if supersession_spec="$(historical_migration_repair_supersession_spec "$version" "$name")"; then
     if ! skip_superseded_historical_migration_repair "$version" "$name" "$supersession_spec"; then
       exit 1
@@ -172,79 +229,12 @@ for file in "${sorted_files[@]}"; do
     continue
   fi
 
-  echo "→ applying:        $version  ${name}"
-
-  if head -n 1 "$file" | grep -qx -- '-- disable-transaction'; then
-    echo "  non-transactional migration marker detected"
-
-    # CREATE INDEX CONCURRENTLY fails inside a multi-statement transaction
-    # payload. Keep these marker migrations idempotent; if a later statement
-    # fails, the history row is not written and the next deploy can resume.
-    statement_count=0
-    while IFS= read -r statement_json; do
-      statement_count=$((statement_count + 1))
-      body="$(jq -n --argjson query "$statement_json" '{query: $query}')"
-      api_query_payload "$body"
-    done < <(split_sql_statements "$file")
-
-    if [ "$statement_count" -eq 0 ]; then
-      echo "::error::non-transactional migration $file did not contain executable SQL"
-      exit 1
-    fi
-
-    body="$(jq -n \
-      --arg query "$(build_register_migration_query "$version" "$name")" \
-      '{query: $query}')"
-    api_query_payload "$body"
-    echo "✓ applied:         $version  ${name}"
-    applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-    applied_count=$((applied_count + 1))
-    continue
-  fi
-
-  # Strip comments before checking for statements that require the marker.
-  if sed 's/--.*//' "$file" | grep -qiE '\bconcurrently\b|\bvacuum\b|create[[:space:]]+database|drop[[:space:]]+database|reindex'; then
-    echo "::error::$file contains a non-transactional statement but is missing the '-- disable-transaction' first-line marker"
-    exit 1
-  fi
-
-  # The migration SQL goes in untouched (jq --rawfile reads it verbatim and
-  # JSON-encodes for transport). The INSERT registers the same version+name
-  # we parsed from the filename, so the row matches the file 1:1.
-  #
-  # The SQL and the registration INSERT are wrapped in a single explicit
-  # transaction so they are atomic: if any migration statement errors (e.g. a
-  # hot-table ALTER that cannot acquire its lock), the whole block rolls back
-  # and the schema_migrations row is never written — so the next deploy retries
-  # instead of skipping a never-applied migration forever. `lock_timeout` keeps
-  # a blocked DDL from queueing on a busy table; it fails fast and retries.
-  #
-  # Version and name must be SQL string literals (single-quoted), NOT JSON
-  # double-quoted (which Postgres parses as identifiers — `"20260428000000"`
-  # would error with `column "20260428000000" does not exist`). Wrap in
-  # single quotes and double any embedded single quote per SQL spec.
-  body="$(jq -n \
-    --rawfile sql "$file" \
-    --arg registration "$(build_register_migration_query "$version" "$name")" \
-    --arg prefix "BEGIN;
-SET LOCAL lock_timeout = '30s';
-" \
-    '{
-       query: (
-         $prefix
-         + $sql
-         + "\n"
-         + $registration
-         + "\nCOMMIT;"
-       )
-     }'
-  )"
-
-  api_query_payload "$body"
-  echo "✓ applied:         $version  ${name}"
-  applied_migrations="${applied_migrations}${applied_migrations:+$'\n'}${version}"$'\t'"${name}"
-  applied_count=$((applied_count + 1))
+  apply_pending_migration "$file" "$version" "$name" || exit 1
 done
 
 echo
-echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped."
+if [ "$deferred_count" -gt 0 ]; then
+  echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped, ${deferred_count} deferred."
+else
+  echo "Migrations summary: ${applied_count} applied, ${skipped_count} skipped."
+fi

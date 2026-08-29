@@ -17,17 +17,24 @@ const ROOT_WEB_FILES = new Set([
 ]);
 const WEB_PREFIXES = [
   '.github/actions/pnpm-install-cached/',
+  '.github/actions/postdeploy-migrations/',
   'apps/web/',
   'infra/cwv-runner/',
   'packages/shared/',
   'public/badges/',
+  'supabase/migrations/',
 ];
 const WEB_WORKFLOW_FILES = new Set([
   '.github/filters/deploy.yml',
   '.github/scripts/blog-smoke-check.mjs',
+  '.github/scripts/apply-atomic-migration-group.sh',
+  '.github/scripts/apply-pending-migration.sh',
+  '.github/scripts/apply-pending-migrations.sh',
   '.github/scripts/cloudflare-purge-cache.mjs',
   '.github/scripts/current-main-deploy-guard.mjs',
   '.github/scripts/deploy-with-retry.sh',
+  '.github/scripts/deferred-production-migrations.sh',
+  '.github/scripts/pending-postdeploy-migrations.sh',
   '.github/scripts/inject-prebuilt-env-secret.mjs',
   '.github/scripts/merge-static-union.sh',
   '.github/scripts/merge-static-union.test.sh',

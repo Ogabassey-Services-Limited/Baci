@@ -26,6 +26,10 @@ import {
   type AgenticOrderSourceFilter,
 } from './agentic-order-source';
 import { loadOrderItemImageMap } from './order-item-images';
+import {
+  type DashboardOrderRecord,
+  mapDashboardOrderRecord,
+} from './order-record-mapper';
 import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
@@ -57,6 +61,8 @@ export interface Order {
   source: string;
   tracking_number?: string;
   shipping_provider?: string;
+  delivery_method?: string | null;
+  airport_type?: string | null;
   shipping_rate_id?: string;
   shipping_rate_name?: string;
   /**
@@ -94,40 +100,6 @@ interface OrderFilters {
   shippingStatus?: ShippingStatus | 'All';
   search?: string;
   source?: AgenticOrderSourceFilter;
-}
-
-interface OrderItem {
-  id: string;
-  name?: string;
-  product_id?: string | null;
-  image_url?: string | null;
-  quantity: number;
-  price?: string | number;
-  variant_name?: string;
-  has_assurance?: boolean;
-}
-
-interface DashboardOrderRecord {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  total: string;
-  currency?: string | null;
-  shipping_status: string;
-  payment_status: string;
-  payment_method: string | null;
-  created_at: string;
-  source: string;
-  tracking_number?: string;
-  shipping_provider?: string;
-  shipping_rate_id?: string | null;
-  shipping_rate_name?: string | null;
-  shipping_pickup_details?: MerchantPickupAddress | null;
-  payment_reference?: string;
-  customer_email?: string;
-  customer_phone?: string;
-  notes?: string;
-  order_items?: OrderItem[];
 }
 
 interface OrderConfirmationRecord {
@@ -240,14 +212,6 @@ function isActiveFilter<T extends string>(
   value: T | 'All' | undefined
 ): value is T {
   return Boolean(value && value !== 'All');
-}
-
-function formatStatus(status: string): string {
-  if (!status) return 'Pending';
-  return status
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 export async function getOrders(
@@ -373,42 +337,13 @@ export async function getOrders(
   const orderItemImageMap = await loadOrderItemImageMap(
     supabase,
     orders.flatMap((order) =>
-      (order.order_items || []).map((item: OrderItem) => item.product_id)
+      (order.order_items || []).map((item) => item.product_id)
     )
   );
 
-  const realOrders = orders.map((order) => ({
-    id: order.id,
-    orderNumber: order.order_number,
-    customerName: formatPersonName(order.customer_name || 'Customer'),
-    total: Number.parseFloat(order.total),
-    currency: order.currency || 'NGN',
-    shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
-    paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
-    paymentMethod: order.payment_method,
-    date: new Date(order.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    createdAt: new Date(order.created_at).getTime(),
-    source: order.source,
-    tracking_number: order.tracking_number,
-    shipping_provider: order.shipping_provider,
-    items: (order.order_items || []).map((item: OrderItem) => ({
-      id: item.id,
-      name: item.name || 'Unknown Product',
-      quantity: item.quantity,
-      price: Number.parseFloat(String(item.price || 0)),
-      image: item.image_url
-        ? item.image_url
-        : item.product_id
-          ? orderItemImageMap.get(item.product_id)
-          : undefined,
-      variant: item.variant_name || undefined,
-      hasAssurance: item.has_assurance || false,
-    })),
-  }));
+  const realOrders = orders.map((order) =>
+    mapDashboardOrderRecord(order, { orderItemImageMap })
+  );
 
   // Normalize Jumia Orders
   const normalizedJumiaOrders = jumiaOrders.map((jOrder) => {
@@ -633,7 +568,7 @@ export async function getOrder(
 
   const orderItemImageMap = await loadOrderItemImageMap(
     supabase,
-    (order.order_items || []).map((item: OrderItem) => item.product_id)
+    (order.order_items || []).map((item) => item.product_id)
   );
 
   // Fetch transactions
@@ -645,54 +580,11 @@ export async function getOrder(
     .eq('order_id', order.id)
     .order('created_at', { ascending: false });
 
-  return {
-    id: order.id,
-    orderNumber: order.order_number,
-    customerName: formatPersonName(order.customer_name || 'Customer'),
-    total: Number.parseFloat(order.total),
-    currency: order.currency || 'NGN',
-    shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
-    paymentStatus: formatStatus(order.payment_status) as PaymentStatus,
-    paymentMethod: order.payment_method,
-    date: new Date(order.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }),
-    createdAt: new Date(order.created_at).getTime(),
-    source: order.source,
-    tracking_number: order.tracking_number,
-    shipping_provider: order.shipping_provider,
-    shipping_rate_id: order.shipping_rate_id ?? undefined,
-    shipping_rate_name: order.shipping_rate_name ?? undefined,
-    shipping_pickup_details: order.shipping_pickup_details ?? undefined,
-    payment_reference: order.payment_reference,
-    customer_email: order.customer_email,
-    customer_phone: order.customer_phone,
-    notes: order.notes,
-    items: (order.order_items || []).map((item: OrderItem) => ({
-      id: item.id,
-      name: item.name || 'Unknown Product',
-      quantity: item.quantity,
-      price: Number.parseFloat(String(item.price || 0)),
-      image: item.image_url
-        ? item.image_url
-        : item.product_id
-          ? orderItemImageMap.get(item.product_id)
-          : undefined,
-      variant: item.variant_name || undefined,
-      hasAssurance: item.has_assurance || false,
-    })),
-    transactions: (transactions || []).map((tx: Transaction) => ({
-      id: tx.id,
-      reference: tx.reference || tx.gateway_reference || '',
-      status: tx.status,
-      amount: tx.amount,
-      currency: tx.currency,
-      gateway: tx.gateway,
-      created_at: tx.created_at,
-    })),
-  };
+  return mapDashboardOrderRecord(order, {
+    includeDetails: true,
+    orderItemImageMap,
+    transactions: (transactions || []) as Transaction[],
+  });
 }
 
 export async function resendOrderConfirmation(

@@ -151,6 +151,10 @@ export function buildCheckoutOrderRequest({
     subtotal: snapshot.subtotal,
     shipping_fee: snapshot.deliveryFee,
     tax_amount: snapshot.taxAmount,
+    delivery_method: deliveryMethod,
+    ...(deliveryMethod === 'airport' && !isGiglGoFasterQuote(selectedQuote)
+      ? { airport_type: 'delivery' as const }
+      : {}),
     selected_quote_id:
       selectedQuote?.id != null &&
       ((deliveryMethod === 'door' &&
