@@ -24,6 +24,8 @@ interface QuizLobbyEventCardProps {
   isResume: boolean;
   isStarting: boolean;
   locale?: string;
+  onExpire?: () => void | Promise<void>;
+  onEnterWaitingRoom?: () => void;
   onOpenRules: (requiresAcceptance: boolean) => void;
   onResume: () => void;
   serverNow?: string;
@@ -35,6 +37,8 @@ export function QuizLobbyEventCard({
   isResume,
   isStarting,
   locale,
+  onExpire,
+  onEnterWaitingRoom,
   onOpenRules,
   onResume,
   serverNow,
@@ -46,21 +50,22 @@ export function QuizLobbyEventCard({
   const { hasEnded, remainingSeconds } = useQuizEventTimer({
     eventEndsAt: event.endsAt,
     isActive: event.status === 'active',
-    onExpire: () => undefined,
+    onExpire: () => {
+      void onExpire?.();
+    },
     shouldTick: event.status === 'active',
     serverClockOffsetMs: serverClock.offsetMs,
   });
   const deadlineHasEnded = Boolean(event.endsAt) && hasEnded;
   const effectiveStatus = deadlineHasEnded ? 'closed' : event.status;
   const isPlayable = effectiveStatus === 'open' || effectiveStatus === 'active';
+  const isScheduled = effectiveStatus === 'scheduled';
   const isClosed = ['closed', 'completed', 'cancelled', 'finalizing'].includes(
     effectiveStatus
   );
-  const buttonText = getEventStartButtonText(
-    effectiveStatus,
-    isStarting,
-    isResume
-  );
+  const buttonText = isScheduled
+    ? 'Enter waiting room'
+    : getEventStartButtonText(effectiveStatus, isStarting, isResume);
   const condition = event.prizeProduct?.condition?.replace('_', ' ');
 
   return (
@@ -137,7 +142,8 @@ export function QuizLobbyEventCard({
         </Text>
         <Text style={styles.timingDot}>•</Text>
         <Text style={styles.timingFact}>
-          Closes {formatQuizClock(event.endsAt, locale, event.timeZone)}
+          {isClosed ? 'Closed' : 'Closes'}{' '}
+          {formatQuizClock(event.endsAt, locale, event.timeZone)}
         </Text>
       </View>
 
@@ -147,9 +153,17 @@ export function QuizLobbyEventCard({
         <Pressable
           accessibilityLabel={`${buttonText} ${event.title}`}
           accessibilityRole="button"
-          accessibilityState={{ disabled: isStarting || !isPlayable }}
-          disabled={isStarting || !isPlayable}
-          onPress={isResume ? onResume : () => onOpenRules(true)}
+          accessibilityState={{
+            disabled: isStarting || (!isPlayable && !isScheduled),
+          }}
+          disabled={isStarting || (!isPlayable && !isScheduled)}
+          onPress={
+            isResume
+              ? onResume
+              : isScheduled
+                ? onEnterWaitingRoom
+                : () => onOpenRules(true)
+          }
           style={styles.primaryButton}
         >
           <Text

@@ -1,5 +1,5 @@
 import { QUIZ_DEFAULT_TIME_PER_QUESTION_SECONDS } from '@baci/shared/constants';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { QuizEvent } from '@/services/quiz-types';
@@ -8,13 +8,16 @@ import type { createQuizLobbyStyles } from './QuizLobby.styles';
 import { QuizLobbyEventCard } from './QuizLobbyEventCard';
 import { QuizMissionHero } from './QuizMissionHero';
 import { QuizRulesModal } from './QuizRulesModal';
+import { QuizWaitingRoom } from './QuizWaitingRoom';
 
 type QuizStyles = ReturnType<typeof createQuizLobbyStyles>;
 
 interface QuizEventsListProps {
   events: QuizEvent[];
+  fetchEvents?: () => Promise<QuizEvent[]>;
   isStarting: boolean;
   locale?: string;
+  onRefresh?: () => Promise<void>;
   onStart: (eventId: string, termsAccepted?: true) => void;
   resumeEventId?: string | null;
   serverNow?: string;
@@ -22,21 +25,50 @@ interface QuizEventsListProps {
 }
 
 type RulesState = {
+  action: 'start' | 'waiting';
   event: QuizEvent;
   requiresAcceptance: boolean;
 } | null;
 
 export function QuizEventsList({
   events,
+  fetchEvents,
   isStarting,
   locale,
+  onRefresh,
   onStart,
   resumeEventId,
   serverNow,
   styles,
 }: QuizEventsListProps) {
   const [rules, setRules] = useState<RulesState>(null);
+  const [waitingEvent, setWaitingEvent] = useState<QuizEvent | null>(null);
+  const [displayEvents, setDisplayEvents] = useState(events);
   const { colors, isDark } = useTheme();
+
+  useEffect(() => {
+    setDisplayEvents(events);
+  }, [events]);
+
+  if (waitingEvent) {
+    return (
+      <QuizWaitingRoom
+        event={waitingEvent}
+        locale={locale}
+        onExit={() => setWaitingEvent(null)}
+        onStart={(eventId, termsAccepted) => {
+          setWaitingEvent(null);
+          onStart(eventId, termsAccepted);
+        }}
+        refresh={async () => {
+          if (!fetchEvents) return displayEvents;
+          const latest = await fetchEvents();
+          setDisplayEvents(latest);
+          return latest;
+        }}
+      />
+    );
+  }
 
   return (
     <View style={styles.eventsList}>
@@ -54,7 +86,7 @@ export function QuizEventsList({
       <FlatList
         accessibilityLabel="Available quiz events"
         contentContainerStyle={styles.eventsListContent}
-        data={events}
+        data={displayEvents}
         extraData={`${isStarting}:${resumeEventId ?? ''}:${serverNow ?? ''}`}
         keyExtractor={(event) => event.id}
         ListEmptyComponent={
@@ -68,6 +100,8 @@ export function QuizEventsList({
           </View>
         }
         ListHeaderComponent={<QuizMissionHero />}
+        onRefresh={onRefresh}
+        refreshing={false}
         renderItem={({ item }) => (
           <QuizLobbyEventCard
             event={item}
@@ -75,9 +109,23 @@ export function QuizEventsList({
             isStarting={isStarting}
             locale={locale}
             onOpenRules={(requiresAcceptance) =>
-              setRules({ event: item, requiresAcceptance })
+              setRules({ action: 'start', event: item, requiresAcceptance })
             }
-            onResume={() => setRules({ event: item, requiresAcceptance: true })}
+            onEnterWaitingRoom={() =>
+              setRules({
+                action: 'waiting',
+                event: item,
+                requiresAcceptance: true,
+              })
+            }
+            onExpire={onRefresh}
+            onResume={() =>
+              setRules({
+                action: 'start',
+                event: item,
+                requiresAcceptance: true,
+              })
+            }
             serverNow={item.serverNow ?? serverNow}
             styles={styles}
           />
@@ -89,9 +137,12 @@ export function QuizEventsList({
           eventTitle={rules.event.title}
           onClose={() => setRules(null)}
           onConfirm={() => {
-            const eventId = rules.event.id;
             setRules(null);
-            onStart(eventId, true);
+            if (rules.action === 'waiting') {
+              setWaitingEvent(rules.event);
+            } else {
+              onStart(rules.event.id, true);
+            }
           }}
           requiresAcceptance={rules.requiresAcceptance}
           timePerQuestionSeconds={
