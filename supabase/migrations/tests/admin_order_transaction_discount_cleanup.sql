@@ -19,6 +19,12 @@ SELECT set_config(
   '00000000-0000-4000-8000-00000000c001',
   true
 );
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SELECT set_config(
+  'request.jwt.claim.sub',
+  '00000000-0000-4000-8000-00000000c001',
+  true
+);
 \ir admin_order_item_append/001_setup.sql
 
 DO $$
