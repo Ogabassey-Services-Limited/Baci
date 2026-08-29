@@ -6,6 +6,7 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
 import type { Customer } from '@/stores/auth-store';
 import type { CartItem } from '@/stores/cart-store';
+import { isCheckoutContactComplete } from './checkout-contact-readiness';
 import { isCheckoutAddressComplete } from './checkout-continue-readiness';
 import {
   CHECKOUT_API_BASE_URL,
@@ -87,17 +88,34 @@ export function useCheckoutAddressState({
     watchedPhone,
     watchedState,
   });
-  const hasContactIdentity = Boolean(
+  const hasInitialContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
+  const isContactComplete = isCheckoutContactComplete({
+    email: watchedEmail,
+    firstName: watchedFirstName,
+    lastName: watchedLastName,
+    phone: watchedPhone,
+  });
   const savedAddresses = useCheckoutSavedAddresses({
     customerId: customer?.id,
-    hasInitialContactIdentity: hasContactIdentity,
+    hasInitialContactIdentity,
     isAuthenticated,
     merchantId: CHECKOUT_MERCHANT_ID,
     setCommittedAddress: shipping.setCommittedAddress,
     setValue,
   });
+
+  useEffect(() => {
+    if (!isContactComplete) {
+      savedAddresses.setIsContactCollapsed(false);
+      return;
+    }
+
+    // Once contact details are valid, keep the completed section compact so
+    // the newly unlocked delivery form gets the user's attention.
+    savedAddresses.setIsContactCollapsed(true);
+  }, [isContactComplete, savedAddresses.setIsContactCollapsed]);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -151,7 +169,7 @@ export function useCheckoutAddressState({
     currentContactSummary,
     currentDeliverySummary,
     form,
-    hasContactIdentity,
+    hasContactIdentity: isContactComplete,
     isAddressComplete,
     openNewAddressEditor,
     saveDetails,

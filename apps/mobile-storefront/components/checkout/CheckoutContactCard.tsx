@@ -68,8 +68,7 @@ export function CheckoutContactCard({
   phone,
   saveDetails,
 }: CheckoutContactCardProps) {
-  const showCollapseAction =
-    isAuthenticated && (isCollapsed || hasContactIdentity);
+  const showCollapseAction = hasContactIdentity;
 
   return (
     <CollapsibleCheckoutCard
@@ -87,6 +86,7 @@ export function CheckoutContactCard({
           colors={colors}
           contactSummary={contactSummary}
           email={email}
+          isAuthenticated={isAuthenticated}
           phone={phone}
         />
       }
@@ -169,10 +169,11 @@ function ContactSummary({
   colors,
   contactSummary,
   email,
+  isAuthenticated,
   phone,
 }: Pick<
   CheckoutContactCardProps,
-  'colors' | 'contactSummary' | 'email' | 'phone'
+  'colors' | 'contactSummary' | 'email' | 'isAuthenticated' | 'phone'
 >) {
   return (
     <View
@@ -203,7 +204,7 @@ function ContactSummary({
           <Text
             style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
           >
-            Signed in
+            {isAuthenticated ? 'Signed in' : 'Contact details'}
           </Text>
           <Text style={[styles.summaryTitle, { color: colors.text }]}>
             {contactSummary || 'Contact details'}

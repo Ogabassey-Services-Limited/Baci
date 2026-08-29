@@ -185,6 +185,19 @@ describe('CheckoutContactCard', () => {
     expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
   });
 
+  it('uses a neutral summary label when a guest contact form is collapsed', () => {
+    render(
+      <CheckoutContactCardHarness
+        hasContactIdentity
+        isCollapsed
+        onToggleCollapsed={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText('Contact details')).toBeTruthy();
+    expect(screen.queryByText('Signed in')).toBeNull();
+  });
+
   it('shows the done action and hides guest save-details when an authenticated contact is expanded', () => {
     render(<CheckoutContactCardHarness hasContactIdentity isAuthenticated />);
 
