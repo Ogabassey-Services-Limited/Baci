@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
 import { SPACING } from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { SavedItem } from '@/stores/saved-store';
 import { formatPrice, getDiscountPercentage } from '@/types/product';
 import { styles } from './saved-items.styles';

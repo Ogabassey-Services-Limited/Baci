@@ -16,8 +16,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { palette, RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { CONFIG } from '@/lib/config';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { getTemplateConfig } from '@/lib/templates';
 import { ELITE_HEIGHT, getHeroStyles } from './Hero.styles';
 

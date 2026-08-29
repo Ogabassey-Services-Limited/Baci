@@ -14,7 +14,7 @@ import { ImageZoomModal } from '@/components/product/ImageZoomModal';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS } from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 
 type ColorsScheme = (typeof Colors)['light'];
 

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import coinsImage from '@/assets/quiz/png/Coins.png';
 import { useTheme } from '@/hooks/useTheme';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { QuizEvent } from '@/services/quiz-types';
 import type { createQuizLobbyStyles } from './QuizLobby.styles';
 import {

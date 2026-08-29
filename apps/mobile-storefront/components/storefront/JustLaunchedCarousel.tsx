@@ -20,9 +20,9 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { usePinnedLaunchProducts } from '@/hooks/use-pinned-launch-products';
 import { useProducts } from '@/hooks/use-products';
 import { useTheme } from '@/hooks/useTheme';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { PRODUCT_PLACEHOLDER_IMAGE } from '@/lib/product-normalization';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { Product } from '@/types/product';
 
 const SECTION_TITLE = 'Just Launched';

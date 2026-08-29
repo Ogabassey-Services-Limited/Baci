@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import type React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { BRAND, SHADOWS } from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { ReceiptListItem } from '@/types/receipt';
 
 const PAYMENT_STATUS_CONFIG: Record<

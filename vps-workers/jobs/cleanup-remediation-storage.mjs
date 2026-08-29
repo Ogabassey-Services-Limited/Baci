@@ -1,5 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -110,6 +117,7 @@ function cleanupOldDrainArtifacts({ logsDir, maxRotatedLogs }) {
 
 export function cleanupRemediationStorage({
   logsDir = 'logs',
+  drainDir = logsDir,
   maxLogBytes = DEFAULT_MAX_LOG_BYTES,
   maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
   maxDrainLogBytes = maxLogBytes,
@@ -143,24 +151,33 @@ export function cleanupRemediationStorage({
       if (
         !entry.isFile() ||
         entry.isSymbolicLink() ||
-        (!entry.name.endsWith('.log') && entry.name !== 'vercel-drain.jsonl')
+        !entry.name.endsWith('.log')
       ) {
         continue;
       }
       if (
         rotateFile(
           join(logsDir, entry.name),
-          entry.name === 'vercel-drain.jsonl'
-            ? normalizedMaxDrainLogBytes
-            : normalizedMaxLogBytes,
-          entry.name === 'vercel-drain.jsonl'
-            ? normalizedMaxDrainRotatedLogs
-            : normalizedMaxRotatedLogs
+          normalizedMaxLogBytes,
+          normalizedMaxRotatedLogs
         )
       ) {
         rotatedLogs += 1;
       }
     }
+  }
+  const drainPath = join(drainDir, 'vercel-drain.jsonl');
+  if (
+    rotateFile(
+      drainPath,
+      normalizedMaxDrainLogBytes,
+      normalizedMaxDrainRotatedLogs
+    )
+  ) {
+    // Keep the receiver's active path available even when no request arrives
+    // before the next remediator tick.
+    writeFileSync(drainPath, '', { flag: 'a', mode: 0o600 });
+    rotatedLogs += 1;
   }
   const worktrees =
     registeredWorktrees ?? listRegisteredWorktrees({ repoDir, runner });
@@ -185,8 +202,15 @@ export function runRemediationStorageCleanup({
   runner,
 } = {}) {
   const drainPath = env.VERCEL_ERROR_LOG_PATH || 'logs/vercel-drain.jsonl';
+  const repoDir = env.BACI_REPO_DIR;
+  const worktreeRoot =
+    env.BACI_REMEDIATION_WORKTREE_ROOT ||
+    (repoDir
+      ? join(dirname(repoDir), 'baci-remediation-worktrees')
+      : undefined);
   const result = cleanupRemediationStorage({
     logsDir: env.BACI_WORKER_LOG_DIR || dirname(drainPath),
+    drainDir: dirname(drainPath),
     maxLogBytes: readPositiveInt(
       env.BACI_WORKER_LOG_MAX_BYTES,
       DEFAULT_MAX_LOG_BYTES
@@ -211,9 +235,9 @@ export function runRemediationStorageCleanup({
       60 *
       60 *
       1_000,
-    repoDir: env.BACI_REPO_DIR,
+    repoDir,
     runner,
-    worktreeRoot: env.BACI_REMEDIATION_WORKTREE_ROOT,
+    worktreeRoot,
   });
   logger.log(
     JSON.stringify({ type: 'remediation_storage_cleanup', ...result })

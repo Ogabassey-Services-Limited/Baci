@@ -6,12 +6,12 @@ import { DEFAULT_ASSURANCE_RATE } from '@/constants/assurance';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { resolveColorSwatchValue } from '@/lib/cart-display';
 import {
   getCartItemEffectivePrice,
   hasActiveNegotiatedPrice,
 } from '@/lib/cart-pricing';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { CartItem } from '@/stores/cart-store';
 import AssuranceToggle from './AssuranceToggle';
 import CartQuantityInput from './CartQuantityInput';

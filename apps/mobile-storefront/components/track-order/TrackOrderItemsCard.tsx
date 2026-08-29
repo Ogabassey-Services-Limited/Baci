@@ -2,7 +2,7 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { trackOrderScreenStyles as styles } from './TrackOrderScreen.styles';
 import type { TrackOrderData } from './TrackOrderScreen.types';
 import { formatTrackOrderPrice } from './track-order.helpers';

@@ -101,10 +101,15 @@ function openExternalAuthSession({
     let settled = false;
     let appStateSubscription: UrlSubscription | undefined;
     let urlSubscription: UrlSubscription | undefined;
+    let cancellationTimer: ReturnType<typeof setTimeout> | undefined;
     let initialAppStateObserved =
       appState.currentState !== null && appState.currentState !== undefined;
 
     const cleanup = () => {
+      if (cancellationTimer !== undefined) {
+        clearTimeout(cancellationTimer);
+        cancellationTimer = undefined;
+      }
       urlSubscription?.remove();
       appStateSubscription?.remove();
     };
@@ -129,7 +134,13 @@ function openExternalAuthSession({
         return;
       }
       if (opened && state === 'active') {
-        settle({ type: WebBrowserResultType.CANCEL });
+        // Linking may deliver the redirect immediately after AppState returns
+        // to active; let that callback win before treating the session as a
+        // user cancellation.
+        cancellationTimer ??= setTimeout(() => {
+          cancellationTimer = undefined;
+          settle({ type: WebBrowserResultType.CANCEL });
+        }, 0);
       }
     });
 

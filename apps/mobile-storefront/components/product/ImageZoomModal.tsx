@@ -12,8 +12,8 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import { SPACING } from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { useImageZoom } from './hooks/useImageZoom';
 import styles from './ImageZoomModal.styles';
 

@@ -59,6 +59,7 @@ describe('initializeErrorMonitoring', () => {
 
     expect(initializeErrorMonitoring({})).toBe(false);
     expect(mockInit).not.toHaveBeenCalled();
+    expect(mockInstallMemoryWarningDiagnostics).toHaveBeenCalledTimes(1);
   });
 
   it('initializes from the bundled Expo public environment', () => {

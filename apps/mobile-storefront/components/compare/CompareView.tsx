@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
 import { compareStyles as styles } from './compare.styles';

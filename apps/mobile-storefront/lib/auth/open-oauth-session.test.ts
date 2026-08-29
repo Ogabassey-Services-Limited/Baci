@@ -24,10 +24,12 @@ function browserModule(
 function externalBrowserAdapters({
   currentState,
 }: {
-  currentState?: 'active' | null;
+  currentState?: 'active' | 'background' | null;
 } = {}) {
   let onUrl: ((event: { url: string }) => void) | undefined;
-  let onAppState: ((state: 'active' | string) => void) | undefined;
+  let onAppState:
+    | ((state: 'active' | 'background' | string) => void)
+    | undefined;
   let resolveListenersReady: (() => void) | undefined;
   const listenersReady = new Promise<void>((resolve) => {
     resolveListenersReady = resolve;
@@ -47,7 +49,10 @@ function externalBrowserAdapters({
   const appState = {
     currentState,
     addEventListener: jest.fn(
-      (_event: 'change', listener: (state: 'active' | string) => void) => {
+      (
+        _event: 'change',
+        listener: (state: 'active' | 'background' | string) => void
+      ) => {
         onAppState = listener;
         return { remove: removeAppState };
       }
@@ -55,7 +60,8 @@ function externalBrowserAdapters({
   };
   return {
     appState,
-    emitAppState: (state: 'active' | string) => onAppState?.(state),
+    emitAppState: (state: 'active' | 'background' | string) =>
+      onAppState?.(state),
     emitUrl: (url: string) => onUrl?.({ url }),
     linking,
     listenersReady,
@@ -240,6 +246,63 @@ describe('openOAuthSession', () => {
       url: 'ogabassey://auth?code=fallback-code',
     });
     expect(adapters.linking.openURL).toHaveBeenCalled();
+  });
+
+  it('accepts a redirect that arrives after launch resolution and AppState active', async () => {
+    const adapters = externalBrowserAdapters({ currentState: 'background' });
+    const webBrowser = browserModule({
+      getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+        browserPackages: [],
+        defaultBrowserPackage: undefined,
+        preferredBrowserPackage: undefined,
+        servicePackages: [],
+      }),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    await Promise.resolve();
+    adapters.emitAppState('active');
+    adapters.emitUrl('ogabassey://auth?code=after-active');
+
+    await expect(resultPromise).resolves.toEqual({
+      type: 'success',
+      url: 'ogabassey://auth?code=after-active',
+    });
+  });
+
+  it('cancels after returning active when no redirect arrives', async () => {
+    const adapters = externalBrowserAdapters({ currentState: 'background' });
+    const webBrowser = browserModule({
+      getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+        browserPackages: [],
+        defaultBrowserPackage: undefined,
+        preferredBrowserPackage: undefined,
+        servicePackages: [],
+      }),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    await Promise.resolve();
+    adapters.emitAppState('active');
+
+    await expect(resultPromise).resolves.toEqual({ type: 'cancel' });
+    expect(adapters.removeUrl).toHaveBeenCalled();
   });
 
   it('preserves the existing browser behavior on non-Android platforms', async () => {

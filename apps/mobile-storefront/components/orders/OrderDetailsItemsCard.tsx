@@ -2,8 +2,8 @@ import { formatOrderItemOptionLabel } from '@baci/shared/lib';
 import { Image } from 'expo-image';
 import { Text, TouchableOpacity, View } from 'react-native';
 import type Colors from '@/constants/Colors';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { orderDetailsScreenStyles as styles } from './OrderDetailsScreen.styles';
 import type { OrderItem } from './OrderDetailsScreen.types';
 

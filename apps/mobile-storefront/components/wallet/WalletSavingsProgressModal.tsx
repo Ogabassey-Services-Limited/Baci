@@ -5,8 +5,8 @@ import { ModalSheet } from '@/components/ui/ModalSheet';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { WalletActiveSavingsGoal } from '@/hooks/wallet-query';
-import { createSafeBoundedImageSource } from '@/lib/bounded-image-source';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { walletSavingsProgressModalStyles as styles } from './wallet-savings-progress-modal.styles';
 
 type WalletColors = (typeof Colors)['light'];

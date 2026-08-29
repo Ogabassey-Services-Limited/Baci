@@ -10,7 +10,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { cleanupRemediationStorage } from './cleanup-remediation-storage.mjs';
+import {
+  cleanupRemediationStorage,
+  runRemediationStorageCleanup,
+} from './cleanup-remediation-storage.mjs';
 
 describe('remediation storage cleanup', () => {
   it('rotates worker logs before they grow without bound', () => {
@@ -113,5 +116,86 @@ describe('remediation storage cleanup', () => {
       readFileSync(join(directory, 'vercel-drain.jsonl.2'), 'utf8'),
       'drain-old'
     );
+  });
+
+  it('rotates the drain in its own directory and prunes worker-log artifacts', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-split-storage-'));
+    const workerDirectory = join(root, 'worker-logs');
+    const drainDirectory = join(root, 'drain');
+    mkdirSync(workerDirectory);
+    mkdirSync(drainDirectory);
+    const drainPath = join(drainDirectory, 'vercel-drain.jsonl');
+    writeFileSync(join(workerDirectory, 'worker.log'), 'worker-new');
+    const oldArtifact = join(
+      workerDirectory,
+      'vercel-drain.quarantine-old.jsonl'
+    );
+    const newArtifact = join(
+      workerDirectory,
+      'vercel-drain.quarantine-new.jsonl'
+    );
+    const retainedArtifact = join(workerDirectory, 'vercel-drain.jsonl.3');
+    writeFileSync(oldArtifact, 'old');
+    writeFileSync(newArtifact, 'new');
+    writeFileSync(retainedArtifact, 'stale');
+    const now = Date.now();
+    utimesSync(oldArtifact, (now - 30_000) / 1_000, (now - 30_000) / 1_000);
+    utimesSync(newArtifact, now / 1_000, now / 1_000);
+    utimesSync(
+      retainedArtifact,
+      (now - 20_000) / 1_000,
+      (now - 20_000) / 1_000
+    );
+    writeFileSync(drainPath, 'drain-new');
+    writeFileSync(`${drainPath}.1`, 'drain-old');
+
+    const result = runRemediationStorageCleanup({
+      env: {
+        BACI_WORKER_LOG_DIR: workerDirectory,
+        BACI_WORKER_LOG_MAX_BYTES: '4',
+        BACI_WORKER_LOG_MAX_ROTATED_FILES: '1',
+        VERCEL_ERROR_LOG_MAX_BYTES: '4',
+        VERCEL_ERROR_LOG_MAX_ROTATED_FILES: '2',
+        VERCEL_ERROR_LOG_PATH: drainPath,
+      },
+      logger: { log: () => undefined },
+    });
+
+    assert.equal(result.rotatedLogs, 2);
+    assert.equal(result.prunedDrainArtifacts, 1);
+    assert.equal(readFileSync(`${drainPath}.1`, 'utf8'), 'drain-new');
+    assert.equal(readFileSync(`${drainPath}.2`, 'utf8'), 'drain-old');
+    assert.equal(readFileSync(drainPath, 'utf8'), '');
+    assert.equal(
+      readFileSync(join(workerDirectory, 'worker.log.1'), 'utf8'),
+      'worker-new'
+    );
+    assert.throws(() => statSync(oldArtifact));
+    assert.equal(statSync(newArtifact).isFile(), true);
+    assert.equal(statSync(retainedArtifact).isFile(), true);
+  });
+
+  it('uses the autofix worktree root default when no override is configured', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-default-worktree-root-'));
+    const repoDir = join(root, 'repo');
+    const worktreeRoot = join(root, 'baci-remediation-worktrees');
+    const orphanStore = join(worktreeRoot, 'orphan-run-pnpm-store');
+    mkdirSync(repoDir);
+    mkdirSync(orphanStore, { recursive: true });
+    const oldTime = Date.now() - 48 * 60 * 60 * 1_000;
+    utimesSync(orphanStore, oldTime / 1_000, oldTime / 1_000);
+
+    runRemediationStorageCleanup({
+      env: { BACI_REPO_DIR: repoDir },
+      logger: { log: () => undefined },
+      runner: () => ({
+        error: null,
+        status: 0,
+        stderr: '',
+        stdout: `worktree ${repoDir}\n`,
+      }),
+    });
+
+    assert.throws(() => statSync(orphanStore));
   });
 });
