@@ -25,12 +25,10 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
-import {
-  hasExistingMerchantRateOrder,
-  prepareCheckoutIdempotencyReplay,
-} from '@/lib/checkout/checkout-idempotency-replay';
+import { prepareCheckoutIdempotencyReplay } from '@/lib/checkout/checkout-idempotency-replay';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
+import { hasExistingMerchantRateOrder } from '@/lib/checkout/has-existing-merchant-rate-order';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
 import { computeOrderNegotiationDiscount } from '@/lib/checkout/order-negotiation-discount';

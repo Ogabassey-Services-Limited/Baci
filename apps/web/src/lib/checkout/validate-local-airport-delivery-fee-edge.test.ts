@@ -31,6 +31,28 @@ const validAirportAddress = {
 };
 
 describe('validateLocalAirportDeliveryFee edge cases', () => {
+  it('allows a confirmed replay with a synthetic airport marker before address validation', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      deliveryMethod: 'airport',
+      merchantId: MERCHANT_ID,
+      requestIdempotencyKey: 'airport-synthetic-retry',
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: {
+        address: 'Airport Delivery',
+        city: 'Airport',
+        state: 'Nigeria',
+      },
+      shippingFee: 18_500,
+      shippingProvider: 'GIGL',
+      supabase: mockSupabase(null, true),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: true,
+      localAirportShippingFee: null,
+    });
+  });
+
   it('allows a confirmed replay when the provider quote has been deleted', async () => {
     const result = await validateLocalAirportDeliveryFee({
       deliveryMethod: 'airport',

@@ -1,9 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import {
-  hasExistingMerchantRateOrder,
-  prepareCheckoutIdempotencyReplay,
-} from './checkout-idempotency-replay';
+import { prepareCheckoutIdempotencyReplay } from './checkout-idempotency-replay';
 import {
   buildOrderIdempotencyPayload,
   hashOrderIdempotencyPayload,
@@ -24,53 +21,6 @@ function rpcClient(data: unknown, error: unknown = null) {
     rpc: vi.fn().mockResolvedValue({ data, error }),
   } as unknown as SupabaseClient;
 }
-
-function adminClient(data: unknown, error: unknown = null) {
-  const maybeSingle = vi.fn().mockResolvedValue({ data, error });
-  const byKey = vi.fn().mockReturnValue({ maybeSingle });
-  const byMerchant = vi.fn().mockReturnValue({ eq: byKey });
-  const select = vi.fn().mockReturnValue({ eq: byMerchant });
-  const from = vi.fn().mockReturnValue({ select });
-
-  return {
-    client: { from } as unknown as SupabaseClient,
-    from,
-    select,
-    byMerchant,
-    byKey,
-    maybeSingle,
-  };
-}
-
-describe('hasExistingMerchantRateOrder', () => {
-  it('returns true when the merchant-scoped idempotency row exists', async () => {
-    const client = adminClient({ id: 'order-1' });
-
-    await expect(
-      hasExistingMerchantRateOrder({
-        adminSupabase: client.client,
-        merchantId: basePayload.merchant_id,
-        requestIdempotencyKey: 'checkout-1',
-        shippingRateId: 'rate-1',
-      })
-    ).resolves.toBe(true);
-    expect(client.from).toHaveBeenCalledWith('orders');
-    expect(client.select).toHaveBeenCalledWith('id');
-  });
-
-  it('falls back to current rate verification when the lookup fails', async () => {
-    const client = adminClient(null, new Error('database unavailable'));
-
-    await expect(
-      hasExistingMerchantRateOrder({
-        adminSupabase: client.client,
-        merchantId: basePayload.merchant_id,
-        requestIdempotencyKey: 'checkout-1',
-        shippingRateId: 'rate-1',
-      })
-    ).resolves.toBe(false);
-  });
-});
 
 describe('prepareCheckoutIdempotencyReplay', () => {
   it('uses the current hash when the legacy probe fails', async () => {

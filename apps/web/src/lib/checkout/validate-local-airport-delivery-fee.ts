@@ -156,6 +156,20 @@ export async function validateLocalAirportDeliveryFee({
     );
   }
 
+  // Resolve fixed-fee legacy markers before address validation. New requests
+  // still need a concrete destination, while confirmed replays may retain
+  // the synthetic marker used by older clients.
+  const legacyFixedAirportMetadata = resolveLegacyAirportDeliveryMetadata({
+    deliveryMethod,
+    legacyAirportType,
+    selectedQuoteId,
+    shippingRateId,
+  });
+  if (legacyFixedAirportMetadata) {
+    resolvedDeliveryMethod = legacyFixedAirportMetadata.resolvedDeliveryMethod;
+    resolvedAirportType = legacyFixedAirportMetadata.resolvedAirportType;
+  }
+
   // Provider-backed airport quotes cannot be relabeled as non-airport orders.
   if (selectedQuoteId && deliveryMethod !== 'airport') {
     const selectedQuoteIsAirport = await isSelectedAirportQuote({
@@ -204,15 +218,22 @@ export async function validateLocalAirportDeliveryFee({
       );
     }
 
-    validateAirportDeliveryAddress({
-      airportType: 'delivery',
-      deliveryMethod: 'airport',
-      selectedQuoteId,
-      shippingAddress,
-      shippingRateId,
+    const isConfirmedReplay = await isConfirmedLocalAirportReplay({
+      merchantId,
+      requestIdempotencyKey,
+      supabase,
     });
+    if (!isConfirmedReplay) {
+      validateAirportDeliveryAddress({
+        airportType: 'delivery',
+        deliveryMethod: 'airport',
+        selectedQuoteId,
+        shippingAddress,
+        shippingRateId,
+      });
+    }
 
-    const isIdempotentLocalAirportReplay = await validateSelectedAirportQuote({
+    const isQuoteReplay = await validateSelectedAirportQuote({
       merchantId,
       requestIdempotencyKey,
       selectedQuoteId,
@@ -222,18 +243,10 @@ export async function validateLocalAirportDeliveryFee({
     });
     return {
       ...resolvedDeliveryMetadata,
-      isIdempotentLocalAirportReplay,
+      isIdempotentLocalAirportReplay: isConfirmedReplay || isQuoteReplay,
       localAirportShippingFee: null,
     };
   }
-
-  validateAirportDeliveryAddress({
-    airportType: resolvedAirportType,
-    deliveryMethod: resolvedDeliveryMethod,
-    selectedQuoteId,
-    shippingAddress,
-    shippingRateId,
-  });
 
   const localAirportShippingFee = getLocalAirportDeliveryFee({
     airportType: resolvedAirportType,
@@ -242,13 +255,36 @@ export async function validateLocalAirportDeliveryFee({
     shippingAddress,
     shippingRateId,
   });
-  // Promote fixed legacy markers after validation so v2 retries hash like explicit clients.
-  const legacyFixedAirportMetadata = resolveLegacyAirportDeliveryMetadata({
-    deliveryMethod,
-    legacyAirportType,
-    selectedQuoteId,
-    shippingRateId,
-  });
+
+  const isConfirmedLegacyFixedReplay = legacyFixedAirportMetadata
+    ? await isConfirmedLocalAirportReplay({
+        merchantId,
+        requestIdempotencyKey,
+        supabase,
+      })
+    : false;
+  let isIdempotentLocalAirportReplay = isConfirmedLegacyFixedReplay;
+  if (legacyFixedAirportMetadata && !isIdempotentLocalAirportReplay) {
+    isIdempotentLocalAirportReplay = await validateLocalAirportFeeMismatch({
+      isLegacyMobileAirportDelivery,
+      localAirportShippingFee,
+      merchantId,
+      requestIdempotencyKey,
+      shippingFee,
+      supabase,
+    });
+  }
+
+  if (!isIdempotentLocalAirportReplay) {
+    validateAirportDeliveryAddress({
+      airportType: resolvedAirportType,
+      deliveryMethod: resolvedDeliveryMethod,
+      selectedQuoteId,
+      shippingAddress,
+      shippingRateId,
+    });
+  }
+
   if (
     localAirportShippingFee === null &&
     isAmbiguousMetadataFreeAirportFee({
@@ -259,12 +295,12 @@ export async function validateLocalAirportDeliveryFee({
       shippingRateId,
     })
   ) {
-    const isIdempotentLocalAirportReplay = await isConfirmedLocalAirportReplay({
+    const isAmbiguousMetadataReplay = await isConfirmedLocalAirportReplay({
       merchantId,
       requestIdempotencyKey,
       supabase,
     });
-    if (!isIdempotentLocalAirportReplay) {
+    if (!isAmbiguousMetadataReplay) {
       throw new LocalAirportDeliveryValidationError(
         'Delivery metadata is required for this checkout amount',
         'DELIVERY_METADATA_REQUIRED',
@@ -277,14 +313,16 @@ export async function validateLocalAirportDeliveryFee({
     };
   }
 
-  const isIdempotentLocalAirportReplay = await validateLocalAirportFeeMismatch({
-    isLegacyMobileAirportDelivery,
-    localAirportShippingFee,
-    merchantId,
-    requestIdempotencyKey,
-    shippingFee,
-    supabase,
-  });
+  if (localAirportShippingFee !== null && !legacyFixedAirportMetadata) {
+    isIdempotentLocalAirportReplay = await validateLocalAirportFeeMismatch({
+      isLegacyMobileAirportDelivery,
+      localAirportShippingFee,
+      merchantId,
+      requestIdempotencyKey,
+      shippingFee,
+      supabase,
+    });
+  }
 
   return {
     ...(legacyFixedAirportMetadata ?? resolvedDeliveryMetadata),

@@ -60,31 +60,29 @@ describe('validateLocalAirportDeliveryFee legacy compatibility', () => {
   it.each([
     {
       address: 'Airport Delivery',
-      airportType: 'delivery' as const,
+      code: 'AIRPORT_ADDRESS_REQUIRED',
       shippingFee: 35_000,
     },
     {
       address: 'Airport Pickup',
-      airportType: 'pickup' as const,
+      code: 'AIRPORT_PICKUP_LOCATION_REQUIRED',
       shippingFee: 20_000,
     },
-  ])('canonicalizes the $airportType legacy marker at the current fixed fee', async ({
+  ])('rejects a new marker-only legacy airport request', async ({
     address,
-    airportType,
+    code,
     shippingFee,
   }) => {
-    const result = await validateLocalAirportDeliveryFee({
+    const promise = validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,
       shippingAddress: { address },
       shippingFee,
       supabase: mockSupabase(),
     });
 
-    expect(result).toEqual({
-      isIdempotentLocalAirportReplay: false,
-      localAirportShippingFee: shippingFee,
-      resolvedDeliveryMethod: 'airport',
-      resolvedAirportType: airportType,
+    await expect(promise).rejects.toMatchObject({
+      code,
+      status: 400,
     });
   });
 
@@ -142,6 +140,23 @@ describe('validateLocalAirportDeliveryFee legacy compatibility', () => {
     expect(result).toEqual({
       isIdempotentLocalAirportReplay: true,
       localAirportShippingFee: null,
+    });
+  });
+
+  it('allows a confirmed replay of a synthetic legacy airport marker', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      requestIdempotencyKey: 'legacy-airport-marker-retry-key',
+      shippingAddress: { address: 'Airport Delivery' },
+      shippingFee: 25_000,
+      supabase: mockSupabase(true),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: true,
+      localAirportShippingFee: 35_000,
+      resolvedDeliveryMethod: 'airport',
+      resolvedAirportType: 'delivery',
     });
   });
 });
