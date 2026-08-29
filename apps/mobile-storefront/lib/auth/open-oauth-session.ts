@@ -2,8 +2,8 @@ import type {
   AuthSessionOpenOptions,
   WebBrowserAuthSessionResult,
   WebBrowserCustomTabsResults,
+  WebBrowserResultType,
 } from 'expo-web-browser';
-import { WebBrowserResultType } from 'expo-web-browser';
 import { AppState, Linking, Platform } from 'react-native';
 
 type UrlEvent = { url: string };
@@ -139,7 +139,7 @@ function openExternalAuthSession({
         // user cancellation.
         cancellationTimer ??= setTimeout(() => {
           cancellationTimer = undefined;
-          settle({ type: WebBrowserResultType.CANCEL });
+          settle({ type: 'cancel' as WebBrowserResultType });
         }, 0);
       }
     });

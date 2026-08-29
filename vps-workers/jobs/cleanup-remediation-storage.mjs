@@ -7,23 +7,54 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { withDrainFileLock } from '../lib/drain-file-lock.mjs';
 
 const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
 const DEFAULT_MAX_ROTATED_LOGS = 2;
 const DEFAULT_ORPHAN_STORE_RETENTION_MS = 24 * 60 * 60 * 1_000;
-const DRAIN_QUARANTINE_PATTERN =
-  /^vercel-drain\.quarantine-.*\.jsonl(?:\.gz)?$/;
-const DRAIN_ROTATION_PATTERN = /^vercel-drain\.jsonl\.(\d+)(?:\.gz)?$/;
 
 function readPositiveInt(value, fallback) {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function drainArtifactPatterns(drainPath) {
+  const drainName = basename(drainPath);
+  const drainStem = drainName.endsWith('.jsonl')
+    ? drainName.slice(0, -'.jsonl'.length)
+    : drainName;
+  return {
+    quarantine: new RegExp(
+      `^${escapeRegExp(drainStem)}\\.quarantine-.*\\.jsonl(?:\\.gz)?$`
+    ),
+    rotation: new RegExp(`^${escapeRegExp(drainName)}\\.(\\d+)(?:\\.gz)?$`),
+  };
+}
 
 function rotateFile(filePath, maxBytes, maxRotatedLogs) {
+  let entries;
+  try {
+    entries = readdirSync(dirname(filePath), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+    entries = [];
+  }
+  const rotationPattern = new RegExp(
+    `^${escapeRegExp(basename(filePath))}\\.(\\d+)(?:\\.gz)?$`
+  );
+  for (const entry of entries) {
+    if (!entry.isFile() || entry.isSymbolicLink()) continue;
+    const match = rotationPattern.exec(entry.name);
+    if (match && Number(match[1]) > maxRotatedLogs) {
+      rmSync(join(dirname(filePath), entry.name), { force: true });
+    }
+  }
+
   let size;
   try {
     size = statSync(filePath).size;
@@ -94,26 +125,25 @@ function cleanupOrphanedStores({
   return removed;
 }
 
-function cleanupOldDrainArtifacts({ logsDir, maxRotatedLogs }) {
-  if (!existsSync(logsDir)) return 0;
-  const artifacts = readdirSync(logsDir, { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isFile() &&
-        (DRAIN_QUARANTINE_PATTERN.test(entry.name) ||
-          DRAIN_ROTATION_PATTERN.test(entry.name))
-    )
-    .map((entry) => {
-      const path = join(logsDir, entry.name);
-      return { path, mtimeMs: statSync(path).mtimeMs };
-    })
-    .sort((left, right) => right.mtimeMs - left.mtimeMs);
-  let removed = 0;
-  for (const artifact of artifacts.slice(maxRotatedLogs)) {
-    rmSync(artifact.path, { force: true });
-    removed += 1;
-  }
-  return removed;
+function cleanupOldDrainArtifacts({ drainDir, drainPath, maxRotatedLogs }) {
+  const { quarantine, rotation } = drainArtifactPatterns(drainPath);
+  if (!existsSync(drainDir)) return 0;
+  const removeExcess = (pattern) => {
+    const artifacts = readdirSync(drainDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && pattern.test(entry.name))
+      .map((entry) => {
+        const path = join(drainDir, entry.name);
+        return { path, mtimeMs: statSync(path).mtimeMs };
+      })
+      .sort((left, right) => right.mtimeMs - left.mtimeMs);
+    let removed = 0;
+    for (const artifact of artifacts.slice(maxRotatedLogs)) {
+      rmSync(artifact.path, { force: true });
+      removed += 1;
+    }
+    return removed;
+  };
+  return removeExcess(rotation) + removeExcess(quarantine);
 }
 
 export function cleanupRemediationStorage({
@@ -184,7 +214,8 @@ export function cleanupRemediationStorage({
       rotatedLogs += 1;
     }
     prunedDrainArtifacts = cleanupOldDrainArtifacts({
-      logsDir: drainDir,
+      drainDir,
+      drainPath,
       maxRotatedLogs: normalizedMaxDrainRotatedLogs,
     });
   });

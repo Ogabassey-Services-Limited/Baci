@@ -41,6 +41,20 @@ describe('remediation storage cleanup', () => {
     assert.equal(statSync(join(directory, 'worker.log.2')).isFile(), true);
   });
 
+  it('removes worker rotations above the configured retention limit', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-worker-retention-'));
+    writeFileSync(join(directory, 'worker.log'), 'current');
+    writeFileSync(join(directory, 'worker.log.3'), 'orphaned');
+
+    cleanupRemediationStorage({
+      logsDir: directory,
+      maxRotatedLogs: 2,
+      registeredWorktrees: new Set(),
+    });
+
+    assert.throws(() => statSync(join(directory, 'worker.log.3')));
+  });
+
   it('removes only old orphaned pnpm stores outside registered worktrees', () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-worktrees-'));
     const worktreeRoot = join(root, 'worktrees');
@@ -84,7 +98,7 @@ describe('remediation storage cleanup', () => {
       registeredWorktrees: new Set(),
     });
 
-    assert.equal(result.prunedDrainArtifacts, 2);
+    assert.equal(result.prunedDrainArtifacts, 1);
     assert.equal(statSync(newArtifact).isFile(), true);
     assert.throws(() => statSync(oldArtifact));
     assert.throws(() => statSync(staleRotation));
@@ -170,7 +184,7 @@ describe('remediation storage cleanup', () => {
     });
 
     assert.equal(result.rotatedLogs, 2);
-    assert.equal(result.prunedDrainArtifacts, 1);
+    assert.equal(result.prunedDrainArtifacts, 0);
     assert.equal(readFileSync(`${drainPath}.1`, 'utf8'), 'drain-new');
     assert.equal(readFileSync(`${drainPath}.2`, 'utf8'), 'drain-old');
     assert.equal(readFileSync(drainPath, 'utf8'), '');
@@ -178,10 +192,54 @@ describe('remediation storage cleanup', () => {
       readFileSync(join(workerDirectory, 'worker.log.1'), 'utf8'),
       'worker-new'
     );
-    assert.throws(() => statSync(oldArtifact));
+    assert.equal(statSync(oldArtifact).isFile(), true);
     assert.equal(statSync(newArtifact).isFile(), true);
     assert.equal(statSync(retainedArtifact).isFile(), true);
     assert.equal(statSync(workerArtifact).isFile(), true);
+  });
+
+  it('derives custom drain artifact names and retains rotations separately', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-custom-drain-'));
+    const drainPath = join(directory, 'custom-drain.jsonl');
+    const rotationOne = `${drainPath}.1`;
+    const rotationTwo = `${drainPath}.2`;
+    const rotationThree = `${drainPath}.3`;
+    const oldQuarantine = join(directory, 'custom-drain.quarantine-old.jsonl');
+    const middleQuarantine = join(
+      directory,
+      'custom-drain.quarantine-middle.jsonl'
+    );
+    const newQuarantine = join(directory, 'custom-drain.quarantine-new.jsonl');
+    writeFileSync(drainPath, 'current');
+    writeFileSync(rotationOne, 'one');
+    writeFileSync(rotationTwo, 'two');
+    writeFileSync(rotationThree, 'three');
+    writeFileSync(oldQuarantine, 'old');
+    writeFileSync(middleQuarantine, 'middle');
+    writeFileSync(newQuarantine, 'new');
+    const now = Date.now();
+    utimesSync(oldQuarantine, (now - 30_000) / 1_000, (now - 30_000) / 1_000);
+    utimesSync(
+      middleQuarantine,
+      (now - 20_000) / 1_000,
+      (now - 20_000) / 1_000
+    );
+    utimesSync(newQuarantine, (now - 10_000) / 1_000, (now - 10_000) / 1_000);
+
+    const result = cleanupRemediationStorage({
+      drainDir: directory,
+      drainPath,
+      maxDrainRotatedLogs: 2,
+      registeredWorktrees: new Set(),
+    });
+
+    assert.equal(result.prunedDrainArtifacts, 1);
+    assert.equal(statSync(rotationOne).isFile(), true);
+    assert.equal(statSync(rotationTwo).isFile(), true);
+    assert.throws(() => statSync(rotationThree));
+    assert.throws(() => statSync(oldQuarantine));
+    assert.equal(statSync(middleQuarantine).isFile(), true);
+    assert.equal(statSync(newQuarantine).isFile(), true);
   });
 
   it('uses the autofix worktree root default when no override is configured', () => {

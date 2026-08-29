@@ -1,11 +1,33 @@
 import { Alert } from 'react-native';
-import { openOAuthSession } from '../lib/auth/open-oauth-session';
+import {
+  type OAuthBrowserModule,
+  openOAuthSession,
+} from '../lib/auth/open-oauth-session';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
 import { syncAuthenticatedState } from './auth-store-sync';
 
 const log = createLogger('AuthStore');
+
+function normalizeWebBrowserModule(
+  module: typeof import('expo-web-browser')
+): OAuthBrowserModule {
+  if (typeof module.openAuthSessionAsync === 'function') return module;
+
+  const defaultExport = (module as typeof module & { default?: unknown })
+    .default;
+  if (
+    defaultExport &&
+    typeof defaultExport === 'object' &&
+    typeof (defaultExport as { openAuthSessionAsync?: unknown })
+      .openAuthSessionAsync === 'function'
+  ) {
+    return defaultExport as OAuthBrowserModule;
+  }
+
+  throw new Error('expo-web-browser does not expose openAuthSessionAsync');
+}
 
 export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
   return {
@@ -18,7 +40,9 @@ export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
 
       try {
         set({ isLoading: true, error: null });
-        const WebBrowser = await import('expo-web-browser');
+        const WebBrowser = normalizeWebBrowserModule(
+          await import('expo-web-browser')
+        );
         const { makeRedirectUri } = await import('expo-auth-session');
         const QueryParams = await import('expo-auth-session/build/QueryParams');
         const redirectUrl = makeRedirectUri();

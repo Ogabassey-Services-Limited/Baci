@@ -37,4 +37,16 @@ describe('drain file lock', () => {
     );
     assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
   });
+
+  it('reclaims a fresh lock immediately when its recorded owner is gone', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    writeFileSync(lockPath, '99999999\n');
+
+    assert.equal(
+      withDrainFileLock(lockPath, () => 'recovered'),
+      'recovered'
+    );
+    assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+  });
 });

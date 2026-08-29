@@ -60,7 +60,6 @@ jest.mock('expo-auth-session/build/QueryParams', () => ({
 }));
 
 jest.mock('expo-web-browser', () => ({
-  __esModule: true,
   openAuthSessionAsync: mockOpenAuthSessionAsync,
 }));
 
@@ -198,7 +197,6 @@ jest.mock('../lib/push-token-storage');
 // Import the module under test AFTER all mocks are registered
 // ---------------------------------------------------------------------------
 
-import * as openOAuthSessionModule from '../lib/auth/open-oauth-session';
 import * as pushTokenStorage from '../lib/push-token-storage';
 import { supabase } from '../lib/supabase';
 import * as pushNotificationsService from '../services/push-notifications';
@@ -369,10 +367,6 @@ describe('useAuthStore', () => {
       },
     });
     mockOpenAuthSessionAsync.mockResolvedValue({
-      type: 'success',
-      url: 'ogabassey://auth?code=oauth-code',
-    });
-    jest.spyOn(openOAuthSessionModule, 'openOAuthSession').mockResolvedValue({
       type: 'success',
       url: 'ogabassey://auth?code=oauth-code',
     });
