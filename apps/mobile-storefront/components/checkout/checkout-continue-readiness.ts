@@ -13,3 +13,19 @@ export function isCheckoutAddressComplete(
 ): boolean {
   return ShippingAddressSchema.safeParse(fields).success;
 }
+
+export function isCheckoutAddressContinueReady({
+  hasFreshShippingQuote,
+  isAddressComplete,
+  isLoadingQuotes,
+  requiresShippingQuote,
+}: {
+  hasFreshShippingQuote: boolean;
+  isAddressComplete: boolean;
+  isLoadingQuotes: boolean;
+  requiresShippingQuote: boolean;
+}): boolean {
+  if (!isAddressComplete) return false;
+  if (!requiresShippingQuote) return true;
+  return !isLoadingQuotes && hasFreshShippingQuote;
+}

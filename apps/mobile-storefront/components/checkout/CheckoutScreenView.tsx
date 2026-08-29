@@ -25,6 +25,7 @@ import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempo
 import { useCartStore } from '@/stores/cart-store';
 import { CheckoutLocationPickerOverlays } from './CheckoutLocationPickerOverlays';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
+import { isCheckoutAddressContinueReady } from './checkout-continue-readiness';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
   CHECKOUT_MERCHANT_ID,
@@ -44,7 +45,6 @@ export function CheckoutScreenView() {
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
   const insets = useSafeAreaInsets();
-
   const { items, subtotal, clearCart } = useCartStore(
     useShallow((state) => ({
       items: state.items,
@@ -55,7 +55,6 @@ export function CheckoutScreenView() {
   const { customer, isAuthenticated, user } = useAuthStatus();
   const { data: merchant } = useMerchant();
   const merchantPickupLocation = getMerchantPickupLocation(merchant);
-
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [appliedDiscount, setAppliedDiscount] =
@@ -64,7 +63,6 @@ export function CheckoutScreenView() {
   const mobileCheckoutIdempotencyRef =
     useRef<MobileCheckoutIdempotencyState | null>(null);
   const animatedCtaArrowStyle = useCheckoutCtaAnimation(isProcessing);
-
   const addressState = useCheckoutAddressState({
     customer,
     isAuthenticated,
@@ -99,13 +97,11 @@ export function CheckoutScreenView() {
     setIsContactCollapsed,
     setIsDeliveryCollapsed,
   } = savedAddressState;
-
   const { handleBack } = useCheckoutNavigation({
     isOrderInFlight,
     setStep,
     step,
   });
-
   const assuranceFee = calculateCheckoutAssuranceFee(items);
   const paymentController = useCheckoutPaymentController({
     assuranceFee,
@@ -192,9 +188,7 @@ export function CheckoutScreenView() {
 
   return (
     <AddressSuggestionsProvider>
-      {/* headerShown: false lives in the stack REGISTRATION
-          (RootStackScreens.tsx) — setting it here applied a frame late and
-          made the screen mount low, then jump up on iOS. */}
+      {/* Header registration keeps the screen from jumping on iOS. */}
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <PatternedBackground
           backgroundColor={colors.background}
@@ -245,9 +239,15 @@ export function CheckoutScreenView() {
             canContinue={
               step !== 'address'
                 ? step !== 'payment' || selectedPayment !== null
-                : isAddressComplete &&
-                  !isLoadingQuotes &&
-                  !requiresShippingQuote
+                : isCheckoutAddressContinueReady({
+                    hasFreshShippingQuote:
+                      resolvedShippingQuoteContextKey ===
+                        currentShippingQuoteContextKey &&
+                      Boolean(selectedQuote),
+                    isAddressComplete,
+                    isLoadingQuotes,
+                    requiresShippingQuote,
+                  })
             }
             colors={colors}
             displayTotal={Math.max(

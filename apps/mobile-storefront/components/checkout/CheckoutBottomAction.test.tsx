@@ -1,5 +1,6 @@
 import { expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { BRAND } from '@/constants/Colors';
 import { CheckoutBottomAction } from './CheckoutBottomAction';
 
 const colors = {
@@ -75,6 +76,11 @@ it('keeps the address continue action disabled until the form and rate are ready
     name: /continue to payment/i,
   });
   expect(enabledButton.props.accessibilityState.disabled).toBe(false);
+  expect(enabledButton.props.style).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ backgroundColor: BRAND.primary }),
+    ])
+  );
   fireEvent.press(enabledButton);
   expect(onContinue).toHaveBeenCalledTimes(1);
 });
