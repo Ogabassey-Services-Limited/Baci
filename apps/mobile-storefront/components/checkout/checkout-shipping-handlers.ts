@@ -109,6 +109,9 @@ export function createCheckoutShippingHandlers({
           normalizedState && normalizedCity === normalizedState.toLowerCase()
             ? ''
             : selectedCity;
+      } else {
+        googleSuggestedCityRef.current = normalizedState ? '' : null;
+        if (normalizedState) setShowCityPicker(true);
       }
 
       setValue('city', hasCompleteGoogleLocation ? selectedCity : '', {

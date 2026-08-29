@@ -86,6 +86,50 @@ describe('createCheckoutShippingHandlers', () => {
     expect(googleSuggestedCityRef.current).toBeNull();
   });
 
+  it('replaces a stale Google city with the picker sentinel when state is known', () => {
+    const googleSuggestedCityRef = { current: 'Katsina' as string | null };
+
+    createCheckoutShippingHandlers(
+      createParams({ googleSuggestedCityRef })
+    ).handleDeliveryAddressSelect(
+      {
+        city: '',
+        country: 'Nigeria',
+        formattedAddress: 'Unnamed Road, Katsina, Nigeria',
+        latitude: 12.9908,
+        longitude: 7.6018,
+        route: 'Unnamed Road',
+        state: 'Katsina',
+        streetNumber: '',
+        zip: '',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBe('');
+  });
+
+  it('clears a stale Google city when the selected place has no state or city', () => {
+    const googleSuggestedCityRef = { current: 'Katsina' as string | null };
+
+    createCheckoutShippingHandlers(
+      createParams({ googleSuggestedCityRef })
+    ).handleDeliveryAddressSelect(
+      {
+        city: '',
+        country: 'Nigeria',
+        formattedAddress: 'Unnamed Road, Nigeria',
+        route: 'Unnamed Road',
+        state: '',
+        streetNumber: '',
+        zip: '',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBeNull();
+  });
+
   it('restores Google coordinates when returning from pickup to road', () => {
     const coordinates = { latitude: 4.8156, longitude: 7.0498 };
     const savedDoorAddressRef = {
