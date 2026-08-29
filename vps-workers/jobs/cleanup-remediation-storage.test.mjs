@@ -10,8 +10,8 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
-import { cleanupRemediationStorage } from './cleanup-remediation-storage.mjs';
-import { runRemediationStorageCleanup } from './cleanup-remediation-storage-entrypoint.mjs';
+import { runRemediationStorageCleanup } from './cleanup-remediation-storage.mjs';
+import { cleanupRemediationStorage } from './cleanup-remediation-storage-core.mjs';
 
 describe('remediation storage cleanup', () => {
   it('rotates worker logs before they grow without bound', () => {
