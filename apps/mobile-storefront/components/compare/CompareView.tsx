@@ -95,7 +95,6 @@ export function CompareView({
       </View>
     );
   }
-
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Stack.Screen

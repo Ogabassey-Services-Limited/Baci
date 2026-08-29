@@ -52,16 +52,13 @@ const heroImageProps = {
   autoplay: false,
 };
 
-function getHeroImageSource(
-  uri: string,
-  width: number,
-  height: number,
-  fit: 'inside' | 'cover' = 'inside'
-) {
-  return createSafeBoundedImageSource({ fit, height, uri, width });
+function getHeroImageSource(uri: string, width: number, height: number) {
+  return createSafeBoundedImageSource({ height, uri, width });
 }
 
-// --- SUB-COMPONENT: Elite Web-Alike Slide ---
+const getCoverHeroImageSource = (uri: string, width: number, height: number) =>
+  createSafeBoundedImageSource({ fit: 'cover', height, uri, width });
+
 const EliteSlide = ({
   item,
   screenWidth,
@@ -128,7 +125,6 @@ const EliteSlide = ({
   );
 };
 
-// --- SUB-COMPONENT: Fashion Carousel Slide ---
 const FashionSlide = ({
   item,
   screenWidth,
@@ -140,12 +136,7 @@ const FashionSlide = ({
 }) => (
   <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
     <Image
-      source={getHeroImageSource(
-        item.image,
-        screenWidth,
-        CAROUSEL_HEIGHT,
-        'cover'
-      )}
+      source={getCoverHeroImageSource(item.image, screenWidth, CAROUSEL_HEIGHT)}
       style={StyleSheet.absoluteFill}
       contentFit="cover"
       {...heroImageProps}
@@ -168,7 +159,6 @@ const FashionSlide = ({
   </View>
 );
 
-// --- SUB-COMPONENT: Standard Banner Slide ---
 const StandardSlide = ({
   item,
   screenWidth,
@@ -185,12 +175,7 @@ const StandardSlide = ({
     ]}
   >
     <Image
-      source={getHeroImageSource(
-        item.image,
-        screenWidth,
-        STANDARD_HEIGHT,
-        'cover'
-      )}
+      source={getCoverHeroImageSource(item.image, screenWidth, STANDARD_HEIGHT)}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
       contentFit="cover"
       {...heroImageProps}
