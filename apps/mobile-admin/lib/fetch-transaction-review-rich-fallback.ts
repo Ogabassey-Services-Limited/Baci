@@ -3,21 +3,18 @@ import { isMissingSchemaColumn } from './is-missing-transaction-review-schema-co
 import { isTransactionReviewSchemaCacheError } from './is-transaction-review-schema-cache-error';
 import { runLegacyTransactionReviewQuery } from './run-legacy-transaction-review-query';
 import { runTransactionReviewQueryWithTaxFallback } from './run-transaction-review-query-with-tax-fallback';
-import { omitUnavailableTransactionReviewSchemaColumns } from './transaction-review-fallback-schema-columns';
+import {
+  omitUnavailableTransactionReviewSchemaColumns,
+  type TransactionReviewFallbackCallbacks,
+  withoutTransactionReviewSchemaColumn,
+} from './transaction-review-fallback-schema-columns';
 import type {
   TaxAmountFallback,
   TransactionReviewFallbackQuery,
   TransactionReviewFallbackStage,
 } from './transaction-review-fallback-types';
 import { TRANSACTION_REVIEW_SELECTORS } from './transaction-review-selectors';
-
-type TransactionReviewFallbackCallbacks = Readonly<{
-  onMissingSchemaColumn?: (column: string) => void;
-}>;
-const withoutSchemaColumn = (selector: string, column: string) =>
-  selector.replace(`, ${column}`, '');
-
-/** Reads cost-rich transaction rows before compatibility/base fallbacks. */
+/** Reads cost-rich rows before compatibility/base fallbacks. */
 export async function fetchRichTransactionReviewRows(
   {
     endDateFilter,
@@ -39,23 +36,14 @@ export async function fetchRichTransactionReviewRows(
   const markUnavailableSchemaColumn = (column: string) => {
     unavailableSchemaColumns.add(column);
   };
-  let { data, error } = await fetchFullTransactionReviewRows(
-    {
-      endDateFilter,
-      endDateIso,
-      merchantId,
-      startDateFilter,
-      startDateIso,
+  let { data, error } = await fetchFullTransactionReviewRows(legacyQuery, {
+    isMissingSchemaColumn,
+    onMissingSchemaColumn: (column) => {
+      markUnavailableSchemaColumn(column);
+      onMissingSchemaColumn?.(column);
     },
-    {
-      isMissingSchemaColumn,
-      onMissingSchemaColumn: (column) => {
-        markUnavailableSchemaColumn(column);
-        onMissingSchemaColumn?.(column);
-      },
-      runQueryWithTaxFallback: runTransactionReviewQueryWithTaxFallback,
-    }
-  );
+    runQueryWithTaxFallback: runTransactionReviewQueryWithTaxFallback,
+  });
   if (isMissingSchemaColumn(error, 'variant_attributes')) {
     markUnavailableSchemaColumn('variant_attributes');
     onMissingSchemaColumn?.('variant_attributes');
@@ -218,10 +206,11 @@ export async function fetchRichTransactionReviewRows(
       : unavailableSchemaColumns.has('discount_code_id')
         ? TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoDiscountCode
         : TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributes;
-    const variantAttributesSelectorNoTaxAmount = withoutSchemaColumn(
-      variantAttributesSelector,
-      'tax_amount'
-    );
+    const variantAttributesSelectorNoTaxAmount =
+      withoutTransactionReviewSchemaColumn(
+        variantAttributesSelector,
+        'tax_amount'
+      );
     ({ data, error } = await runLegacyFallbackQuery(
       'LegacyNoVariantAttributes',
       variantAttributesSelector,
@@ -236,10 +225,11 @@ export async function fetchRichTransactionReviewRows(
       )
         ? TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoProductMatchStatusNoLaterFields
         : TRANSACTION_REVIEW_SELECTORS.legacyNoVariantAttributesNoLaterFields;
-      const noLaterFieldsSelectorNoTaxAmount = withoutSchemaColumn(
-        noLaterFieldsSelector,
-        'tax_amount'
-      );
+      const noLaterFieldsSelectorNoTaxAmount =
+        withoutTransactionReviewSchemaColumn(
+          noLaterFieldsSelector,
+          'tax_amount'
+        );
       ({ data, error } = await runLegacyFallbackQuery(
         'LegacyNoVariantAttributesNoLaterFields',
         noLaterFieldsSelector,

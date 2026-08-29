@@ -10,11 +10,7 @@ import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 export type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
 export type { DiscountableTransactionItem } from './transaction-review-discount-allocations';
 
-/**
- * Returns effective unit prices after applying an order-level merchandise
- * discount proportionally across its line items. Payment totals remain sourced
- * from the persisted order total; this only aligns item revenue and profit.
- */
+/** Returns effective unit prices after applying an order-level discount. */
 export function getDiscountedTransactionUnitPrices(
   items: DiscountableTransactionItem[],
   discountAmount: number | string | null | undefined,

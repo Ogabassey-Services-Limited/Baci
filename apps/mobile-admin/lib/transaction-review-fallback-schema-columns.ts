@@ -145,3 +145,11 @@ export function omitUnavailableTransactionReviewSchemaColumns(
   }
   return result;
 }
+export type TransactionReviewFallbackCallbacks = Readonly<{
+  onMissingSchemaColumn?: (column: string) => void;
+}>;
+
+export const withoutTransactionReviewSchemaColumn = (
+  selector: string,
+  column: string
+) => selector.replace(`, ${column}`, '');
