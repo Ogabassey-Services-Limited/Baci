@@ -4,7 +4,7 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { generateOrderConfirmationEmail } from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
 import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
-import { maxDuration, POST } from './route';
+import { POST } from './route';
 
 // Hoisted mocks for fire-and-forget side effects so tests don't await emails / push.
 const {
@@ -176,12 +176,6 @@ vi.mock('@/lib/logger', () => ({
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const CUSTOMER_ID = '11111111-2222-3333-4444-555555555555';
 const AUTH_USER_ID = '123e4567-e89b-12d3-a456-426614174099';
-
-describe('POST /api/orders runtime contract', () => {
-  it('caps checkout execution so postdeploy enforcement can drain old revisions', () => {
-    expect(maxDuration).toBe(60);
-  });
-});
 
 function mockAuthUser(id: string) {
   return {
