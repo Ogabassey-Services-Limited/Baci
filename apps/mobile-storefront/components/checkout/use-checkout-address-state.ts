@@ -6,6 +6,7 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
 import type { Customer } from '@/stores/auth-store';
 import type { CartItem } from '@/stores/cart-store';
+import { isCheckoutAddressComplete } from './checkout-continue-readiness';
 import {
   CHECKOUT_API_BASE_URL,
   CHECKOUT_MERCHANT_ID,
@@ -63,6 +64,15 @@ export function useCheckoutAddressState({
   const watchedFirstName = useWatch({ control, name: 'firstName' });
   const watchedLastName = useWatch({ control, name: 'lastName' });
   const watchedEmail = useWatch({ control, name: 'email' });
+  const isAddressComplete = isCheckoutAddressComplete({
+    email: watchedEmail,
+    firstName: watchedFirstName,
+    lastName: watchedLastName,
+    phone: watchedPhone,
+    address: watchedAddress,
+    city: watchedCity,
+    state: watchedState,
+  });
 
   const shipping = useCheckoutShipping({
     apiBaseUrl: CHECKOUT_API_BASE_URL,
@@ -142,6 +152,7 @@ export function useCheckoutAddressState({
     currentDeliverySummary,
     form,
     hasContactIdentity,
+    isAddressComplete,
     openNewAddressEditor,
     saveDetails,
     savedAddresses,

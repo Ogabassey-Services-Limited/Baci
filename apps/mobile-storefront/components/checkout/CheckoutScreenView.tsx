@@ -78,6 +78,7 @@ export function CheckoutScreenView() {
     saveDetails,
     savedAddresses: savedAddressState,
     shipping,
+    isAddressComplete,
     watchedCity,
     watchedState,
   } = addressState;
@@ -106,7 +107,6 @@ export function CheckoutScreenView() {
   });
 
   const assuranceFee = calculateCheckoutAssuranceFee(items);
-
   const paymentController = useCheckoutPaymentController({
     assuranceFee,
     customerId: customer?.id,
@@ -242,6 +242,13 @@ export function CheckoutScreenView() {
 
           <CheckoutBottomAction
             animatedCtaArrowStyle={animatedCtaArrowStyle}
+            canContinue={
+              step !== 'address'
+                ? step !== 'payment' || selectedPayment !== null
+                : isAddressComplete &&
+                  !isLoadingQuotes &&
+                  !requiresShippingQuote
+            }
             colors={colors}
             displayTotal={Math.max(
               0,
