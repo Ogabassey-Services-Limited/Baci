@@ -360,6 +360,23 @@ describe('deploy crontab', () => {
     );
   });
 
+  it('schedules bounded remediation storage cleanup', () => {
+    const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
+
+    assert.match(
+      deployScript,
+      /40 3\s+\* \* \* flock -n \$REMOTE_DIR\/locks\/cleanup-remediation-storage\.lock/
+    );
+    assert.match(
+      deployScript,
+      /\$NODE_BIN \$REMOTE_DIR\/jobs\/cleanup-remediation-storage\.mjs/
+    );
+    assert.match(
+      deployScript,
+      />> \$REMOTE_DIR\/logs\/cleanup-remediation-storage\.log 2>&1/
+    );
+  });
+
   it('schedules hourly cleanup for expired agentic request records', () => {
     const deployScript = readFileSync(join(workerRoot, 'deploy.sh'), 'utf8');
 

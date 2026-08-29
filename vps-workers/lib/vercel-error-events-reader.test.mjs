@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   openSync,
   rmSync,
+  writeFileSync,
   writeSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -82,6 +83,33 @@ describe('Vercel JSONL drain reader', () => {
       closeSync(descriptor);
 
       assert.deepEqual(readJsonlLogEvents(path), [JSON.parse(event)]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('includes recent records moved to a rotated drain file within the byte bound', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
+    const path = join(directory, 'drain.jsonl');
+    const rotatedPath = `${path}.1`;
+    try {
+      const olderEvent = JSON.stringify({
+        level: 'error',
+        message: 'Error: rotated event',
+        route: '/api/rotated',
+      });
+      const currentEvent = JSON.stringify({
+        level: 'error',
+        message: 'Error: current event',
+        route: '/api/current',
+      });
+      writeFileSync(rotatedPath, `${olderEvent}\n`);
+      writeFileSync(path, `${currentEvent}\n`);
+
+      assert.deepEqual(readJsonlLogEvents(path), [
+        JSON.parse(olderEvent),
+        JSON.parse(currentEvent),
+      ]);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }

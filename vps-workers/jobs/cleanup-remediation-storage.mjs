@@ -1,0 +1,211 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, renameSync, rmSync, statSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
+const DEFAULT_MAX_ROTATED_LOGS = 2;
+const DEFAULT_ORPHAN_STORE_RETENTION_MS = 24 * 60 * 60 * 1_000;
+const DRAIN_QUARANTINE_PATTERN =
+  /^vercel-drain\.quarantine-.*\.jsonl(?:\.gz)?$/;
+const DRAIN_ROTATION_PATTERN = /^vercel-drain\.jsonl\.(\d+)(?:\.gz)?$/;
+
+function readPositiveInt(value, fallback) {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function rotateFile(filePath, maxBytes, maxRotatedLogs) {
+  let size;
+  try {
+    size = statSync(filePath).size;
+  } catch (error) {
+    if (error?.code === 'ENOENT') return false;
+    throw error;
+  }
+  if (size <= maxBytes) return false;
+
+  for (let index = maxRotatedLogs; index >= 1; index -= 1) {
+    const source = index === 1 ? filePath : `${filePath}.${index - 1}`;
+    const destination = `${filePath}.${index}`;
+    try {
+      renameSync(source, destination);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+  return true;
+}
+
+function listRegisteredWorktrees({ repoDir, runner = spawnSync }) {
+  if (!repoDir) return null;
+  const result = runner(
+    'git',
+    ['-C', repoDir, 'worktree', 'list', '--porcelain'],
+    {
+      encoding: 'utf8',
+      shell: false,
+    }
+  );
+  if (result.error || result.status !== 0) return null;
+  return new Set(
+    (result.stdout || '')
+      .split(/\r?\n/)
+      .filter((line) => line.startsWith('worktree '))
+      .map((line) => resolve(line.slice('worktree '.length)))
+  );
+}
+
+function cleanupOrphanedStores({
+  now,
+  registeredWorktrees,
+  retentionMs,
+  worktreeRoot,
+}) {
+  if (!registeredWorktrees || !worktreeRoot) return 0;
+  const resolvedRoot = resolve(worktreeRoot);
+  const parent = dirname(resolvedRoot);
+  if (!existsSync(parent)) return 0;
+  let removed = 0;
+  for (const entry of readdirSync(parent, { withFileTypes: true })) {
+    if (!entry.name.endsWith('-pnpm-store')) continue;
+    const storePath = join(parent, entry.name);
+    if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+    const worktreeName = entry.name.slice(0, -'-pnpm-store'.length);
+    const worktreePath = join(resolvedRoot, worktreeName);
+    if (registeredWorktrees.has(resolve(worktreePath))) continue;
+    let age;
+    try {
+      age = now - statSync(storePath).mtimeMs;
+    } catch {
+      continue;
+    }
+    if (age < retentionMs) continue;
+    rmSync(storePath, { force: true, recursive: true });
+    removed += 1;
+  }
+  return removed;
+}
+
+function cleanupOldDrainArtifacts({ logsDir, maxRotatedLogs }) {
+  if (!existsSync(logsDir)) return 0;
+  const artifacts = readdirSync(logsDir, { withFileTypes: true })
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        (DRAIN_QUARANTINE_PATTERN.test(entry.name) ||
+          DRAIN_ROTATION_PATTERN.test(entry.name))
+    )
+    .map((entry) => {
+      const path = join(logsDir, entry.name);
+      return { path, mtimeMs: statSync(path).mtimeMs };
+    })
+    .sort((left, right) => right.mtimeMs - left.mtimeMs);
+  let removed = 0;
+  for (const artifact of artifacts.slice(maxRotatedLogs)) {
+    rmSync(artifact.path, { force: true });
+    removed += 1;
+  }
+  return removed;
+}
+
+export function cleanupRemediationStorage({
+  logsDir = 'logs',
+  maxLogBytes = DEFAULT_MAX_LOG_BYTES,
+  maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
+  now = Date.now(),
+  orphanStoreRetentionMs = DEFAULT_ORPHAN_STORE_RETENTION_MS,
+  registeredWorktrees,
+  repoDir,
+  runner,
+  worktreeRoot,
+} = {}) {
+  const normalizedMaxRotatedLogs = readPositiveInt(
+    maxRotatedLogs,
+    DEFAULT_MAX_ROTATED_LOGS
+  );
+  let rotatedLogs = 0;
+  if (existsSync(logsDir)) {
+    for (const entry of readdirSync(logsDir, { withFileTypes: true })) {
+      if (
+        !entry.isFile() ||
+        entry.isSymbolicLink() ||
+        (!entry.name.endsWith('.log') && entry.name !== 'vercel-drain.jsonl')
+      ) {
+        continue;
+      }
+      if (
+        rotateFile(
+          join(logsDir, entry.name),
+          readPositiveInt(maxLogBytes, DEFAULT_MAX_LOG_BYTES),
+          normalizedMaxRotatedLogs
+        )
+      ) {
+        rotatedLogs += 1;
+      }
+    }
+  }
+  const worktrees =
+    registeredWorktrees ?? listRegisteredWorktrees({ repoDir, runner });
+  return {
+    orphanedStores: cleanupOrphanedStores({
+      now,
+      registeredWorktrees: worktrees,
+      retentionMs: orphanStoreRetentionMs,
+      worktreeRoot,
+    }),
+    prunedDrainArtifacts: cleanupOldDrainArtifacts({
+      logsDir,
+      maxRotatedLogs: normalizedMaxRotatedLogs,
+    }),
+    rotatedLogs,
+  };
+}
+
+export function runRemediationStorageCleanup({
+  env = process.env,
+  logger = console,
+  runner,
+} = {}) {
+  const drainPath = env.VERCEL_ERROR_LOG_PATH || 'logs/vercel-drain.jsonl';
+  const result = cleanupRemediationStorage({
+    logsDir: env.BACI_WORKER_LOG_DIR || dirname(drainPath),
+    maxLogBytes: readPositiveInt(
+      env.BACI_WORKER_LOG_MAX_BYTES,
+      DEFAULT_MAX_LOG_BYTES
+    ),
+    maxRotatedLogs: readPositiveInt(
+      env.BACI_WORKER_LOG_MAX_ROTATED_FILES,
+      DEFAULT_MAX_ROTATED_LOGS
+    ),
+    orphanStoreRetentionMs:
+      readPositiveInt(
+        env.BACI_REMEDIATION_ORPHAN_STORE_RETENTION_HOURS,
+        DEFAULT_ORPHAN_STORE_RETENTION_MS / (60 * 60 * 1_000)
+      ) *
+      60 *
+      60 *
+      1_000,
+    repoDir: env.BACI_REPO_DIR,
+    runner,
+    worktreeRoot: env.BACI_REMEDIATION_WORKTREE_ROOT,
+  });
+  logger.log(
+    JSON.stringify({ type: 'remediation_storage_cleanup', ...result })
+  );
+  return result;
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  const { config } = await import('dotenv');
+  config({ path: new URL('../.env', import.meta.url) });
+  try {
+    runRemediationStorageCleanup();
+  } catch (error) {
+    console.error('[remediation-storage-cleanup] failed:', error);
+    process.exitCode = 1;
+  }
+}

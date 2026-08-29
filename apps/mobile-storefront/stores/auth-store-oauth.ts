@@ -1,4 +1,5 @@
 import { Alert } from 'react-native';
+import { openOAuthSession } from '../lib/auth/open-oauth-session';
 import { createLogger } from '../lib/logger';
 import { supabase } from '../lib/supabase';
 import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
@@ -35,11 +36,11 @@ export function createOAuthActions(set: AuthStoreSet, get: AuthStoreGet) {
           return { success: false, error: message };
         }
 
-        const result = await WebBrowser.openAuthSessionAsync(
-          data.url,
+        const result = await openOAuthSession({
           redirectUrl,
-          { showInRecents: true }
-        );
+          url: data.url,
+          webBrowser: WebBrowser,
+        });
         if (result.type !== 'success' || !result.url) {
           set({ isLoading: false });
           return result.type === 'cancel' || result.type === 'dismiss'

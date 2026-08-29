@@ -265,6 +265,10 @@
       "justification": "Reviewed iOS-only ATT dynamic import guard so web and Android do not evaluate the native tracking module."
     },
     {
+      "path": "lib/auth/open-oauth-session.ts",
+      "justification": "Reviewed Android Custom Tabs browser selection and external URL fallback for Android 10 OAuth launch failures."
+    },
+    {
       "path": "services/ad-tracking-runtime.ts",
       "justification": "Reviewed centralized web guard and iOS attribution API handling for ad tracking."
     },
