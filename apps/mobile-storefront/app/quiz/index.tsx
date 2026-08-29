@@ -1,6 +1,7 @@
 import Ionicons from '@react-native-vector-icons/ionicons';
 import { Stack, useRouter } from 'expo-router';
 import { Pressable } from 'react-native';
+import { QuizRouteBackButton } from '@/components/quiz/QuizRouteBackButton';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useTheme } from '@/hooks/useTheme';
@@ -13,6 +14,8 @@ export default function QuizRoute() {
       <Stack.Screen
         options={{
           title: 'SuperQuiz',
+          headerBackVisible: false,
+          headerLeft: () => <QuizRouteBackButton color={colors.text} />,
           headerRight: () => (
             <Pressable
               accessibilityLabel="View previous quiz leaderboards"
