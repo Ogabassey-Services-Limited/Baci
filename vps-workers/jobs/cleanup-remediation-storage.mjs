@@ -64,12 +64,11 @@ function cleanupOrphanedStores({
 }) {
   if (!registeredWorktrees || !worktreeRoot) return 0;
   const resolvedRoot = resolve(worktreeRoot);
-  const parent = dirname(resolvedRoot);
-  if (!existsSync(parent)) return 0;
+  if (!existsSync(resolvedRoot)) return 0;
   let removed = 0;
-  for (const entry of readdirSync(parent, { withFileTypes: true })) {
+  for (const entry of readdirSync(resolvedRoot, { withFileTypes: true })) {
     if (!entry.name.endsWith('-pnpm-store')) continue;
-    const storePath = join(parent, entry.name);
+    const storePath = join(resolvedRoot, entry.name);
     if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
     const worktreeName = entry.name.slice(0, -'-pnpm-store'.length);
     const worktreePath = join(resolvedRoot, worktreeName);
@@ -113,6 +112,8 @@ export function cleanupRemediationStorage({
   logsDir = 'logs',
   maxLogBytes = DEFAULT_MAX_LOG_BYTES,
   maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
+  maxDrainLogBytes = maxLogBytes,
+  maxDrainRotatedLogs = maxRotatedLogs,
   now = Date.now(),
   orphanStoreRetentionMs = DEFAULT_ORPHAN_STORE_RETENTION_MS,
   registeredWorktrees,
@@ -123,6 +124,18 @@ export function cleanupRemediationStorage({
   const normalizedMaxRotatedLogs = readPositiveInt(
     maxRotatedLogs,
     DEFAULT_MAX_ROTATED_LOGS
+  );
+  const normalizedMaxDrainRotatedLogs = readPositiveInt(
+    maxDrainRotatedLogs,
+    DEFAULT_MAX_ROTATED_LOGS
+  );
+  const normalizedMaxLogBytes = readPositiveInt(
+    maxLogBytes,
+    DEFAULT_MAX_LOG_BYTES
+  );
+  const normalizedMaxDrainLogBytes = readPositiveInt(
+    maxDrainLogBytes,
+    DEFAULT_MAX_LOG_BYTES
   );
   let rotatedLogs = 0;
   if (existsSync(logsDir)) {
@@ -137,8 +150,12 @@ export function cleanupRemediationStorage({
       if (
         rotateFile(
           join(logsDir, entry.name),
-          readPositiveInt(maxLogBytes, DEFAULT_MAX_LOG_BYTES),
-          normalizedMaxRotatedLogs
+          entry.name === 'vercel-drain.jsonl'
+            ? normalizedMaxDrainLogBytes
+            : normalizedMaxLogBytes,
+          entry.name === 'vercel-drain.jsonl'
+            ? normalizedMaxDrainRotatedLogs
+            : normalizedMaxRotatedLogs
         )
       ) {
         rotatedLogs += 1;
@@ -156,7 +173,7 @@ export function cleanupRemediationStorage({
     }),
     prunedDrainArtifacts: cleanupOldDrainArtifacts({
       logsDir,
-      maxRotatedLogs: normalizedMaxRotatedLogs,
+      maxRotatedLogs: normalizedMaxDrainRotatedLogs,
     }),
     rotatedLogs,
   };
@@ -176,6 +193,14 @@ export function runRemediationStorageCleanup({
     ),
     maxRotatedLogs: readPositiveInt(
       env.BACI_WORKER_LOG_MAX_ROTATED_FILES,
+      DEFAULT_MAX_ROTATED_LOGS
+    ),
+    maxDrainLogBytes: readPositiveInt(
+      env.VERCEL_ERROR_LOG_MAX_BYTES,
+      DEFAULT_MAX_LOG_BYTES
+    ),
+    maxDrainRotatedLogs: readPositiveInt(
+      env.VERCEL_ERROR_LOG_MAX_ROTATED_FILES,
       DEFAULT_MAX_ROTATED_LOGS
     ),
     orphanStoreRetentionMs:

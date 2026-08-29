@@ -1,4 +1,4 @@
-import { closeSync, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readSync, statSync } from 'node:fs';
 
 export const MAX_JSONL_READ_BYTES = 32 * 1024 * 1024;
 export const MAX_JSONL_ROTATED_FILES = 2;
@@ -58,7 +58,27 @@ function joinFileTails(chunks) {
   }, '');
 }
 
-function readDrainTail(path) {
+function fileSignatures(path, maxRotatedFiles) {
+  const signatures = [];
+  for (let index = 0; index <= maxRotatedFiles; index += 1) {
+    const filePath = index === 0 ? path : `${path}.${index}`;
+    try {
+      const stats = statSync(filePath);
+      signatures.push(
+        `${stats.dev}:${stats.ino}:${stats.size}:${stats.mtimeMs}`
+      );
+    } catch (error) {
+      if (error?.code === 'ENOENT') {
+        signatures.push(null);
+        break;
+      }
+      throw error;
+    }
+  }
+  return signatures;
+}
+
+function readDrainTailOnce(path, maxRotatedFiles) {
   let remainingBytes = MAX_JSONL_READ_BYTES;
   const chunks = [];
   const active = readFileTail(path, remainingBytes);
@@ -67,7 +87,7 @@ function readDrainTail(path) {
 
   for (
     let index = 1;
-    index <= MAX_JSONL_ROTATED_FILES && remainingBytes > 0;
+    index <= maxRotatedFiles && remainingBytes > 0;
     index += 1
   ) {
     const rotatedPath = `${path}.${index}`;
@@ -85,8 +105,32 @@ function readDrainTail(path) {
   return joinFileTails(chunks.map(({ content }) => content));
 }
 
-export function readJsonlLogEvents(path) {
-  const content = readDrainTail(path);
+function readDrainTail(path, maxRotatedFiles) {
+  let content = '';
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const before = fileSignatures(path, maxRotatedFiles);
+    content = readDrainTailOnce(path, maxRotatedFiles);
+    const after = fileSignatures(path, maxRotatedFiles);
+    if (
+      before.length === after.length &&
+      before.every((signature, index) => signature === after[index])
+    ) {
+      return content;
+    }
+  }
+  return content;
+}
+
+export function readJsonlLogEvents(
+  path,
+  { maxRotatedFiles = MAX_JSONL_ROTATED_FILES } = {}
+) {
+  const parsedLimit = Number(maxRotatedFiles);
+  const effectiveLimit =
+    Number.isSafeInteger(parsedLimit) && parsedLimit > 0
+      ? parsedLimit
+      : MAX_JSONL_ROTATED_FILES;
+  const content = readDrainTail(path, effectiveLimit);
   const events = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;

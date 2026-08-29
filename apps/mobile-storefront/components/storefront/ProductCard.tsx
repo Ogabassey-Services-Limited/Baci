@@ -187,7 +187,7 @@ export function ProductCard({
     width: imageWidth,
   });
   const quickAddImageUrl = resolveCartItemImageUrl({
-    displayedImageUrl: imageAttemptUri,
+    displayedImageUrl: imageSource.uri,
     variantImageUrl: defaultVariantSelection?.variant.image,
     variantImages: defaultVariantSelection?.variant.images,
     fallbackImageUrl: product.image,

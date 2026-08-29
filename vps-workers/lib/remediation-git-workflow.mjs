@@ -85,6 +85,7 @@ export function runRemediationAutofix({
   let worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
   const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
   const rootRemoteCommandOptions = { cwd: repoDir, env: gitEnv, runner };
+  const imageCheck = { env, options: rootCommandOptions, runner };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   const prReconciler = createRemediationDraftPrReconciler({
@@ -125,11 +126,6 @@ export function runRemediationAutofix({
         worktreeDir,
       };
     }
-    assertConfiguredDockerImageAvailable({
-      env,
-      options: rootCommandOptions,
-      runner,
-    });
     cleanupWorktreeOnCompletion = true;
     const retainedWorktreeDir = findRetainedRemediationWorktree({
       branch,
@@ -140,6 +136,7 @@ export function runRemediationAutofix({
     if (retainedWorktreeDir) {
       worktreeDir = retainedWorktreeDir;
     } else {
+      assertConfiguredDockerImageAvailable(imageCheck);
       runChecked(
         'git',
         ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
@@ -169,6 +166,9 @@ export function runRemediationAutofix({
         worktreeRemoteCommandOptions,
       });
     if (committedBranchResult) return committedBranchResult;
+    if (retainedWorktreeDir) {
+      assertConfiguredDockerImageAvailable(imageCheck);
+    }
     const guardedRunCodex = createGuardedCodexRunner({
       hasRetainedWorktree: Boolean(retainedWorktreeDir),
       onUnavailableImage: () => (cleanupCompletedWorktree = true),

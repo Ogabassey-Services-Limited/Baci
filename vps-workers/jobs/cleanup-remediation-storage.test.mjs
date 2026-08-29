@@ -41,8 +41,9 @@ describe('remediation storage cleanup', () => {
   it('removes only old orphaned pnpm stores outside registered worktrees', () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-worktrees-'));
     const worktreeRoot = join(root, 'worktrees');
-    const orphanStore = join(root, 'old-run-pnpm-store');
-    const retainedStore = join(root, 'retained-run-pnpm-store');
+    mkdirSync(worktreeRoot);
+    const orphanStore = join(worktreeRoot, 'old-run-pnpm-store');
+    const retainedStore = join(worktreeRoot, 'retained-run-pnpm-store');
     mkdirSync(orphanStore);
     mkdirSync(retainedStore);
     const oldTime = Date.now() - 48 * 60 * 60 * 1_000;
@@ -84,5 +85,33 @@ describe('remediation storage cleanup', () => {
     assert.equal(statSync(newArtifact).isFile(), true);
     assert.throws(() => statSync(oldArtifact));
     assert.throws(() => statSync(staleRotation));
+  });
+
+  it('keeps drain rotation retention independent from worker-log retention', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-retention-'));
+    writeFileSync(join(directory, 'worker.log'), 'new'.repeat(20));
+    writeFileSync(join(directory, 'worker.log.1'), 'older');
+    writeFileSync(join(directory, 'vercel-drain.jsonl'), 'drain-new'.repeat(4));
+    writeFileSync(join(directory, 'vercel-drain.jsonl.1'), 'drain-old');
+    writeFileSync(join(directory, 'vercel-drain.jsonl.2'), 'drain-oldest');
+
+    cleanupRemediationStorage({
+      logsDir: directory,
+      maxDrainLogBytes: 8,
+      maxDrainRotatedLogs: 2,
+      maxLogBytes: 8,
+      maxRotatedLogs: 1,
+      registeredWorktrees: new Set(),
+    });
+
+    assert.equal(
+      readFileSync(join(directory, 'worker.log.1'), 'utf8'),
+      'new'.repeat(20)
+    );
+    assert.throws(() => statSync(join(directory, 'worker.log.2')));
+    assert.equal(
+      readFileSync(join(directory, 'vercel-drain.jsonl.2'), 'utf8'),
+      'drain-old'
+    );
   });
 });

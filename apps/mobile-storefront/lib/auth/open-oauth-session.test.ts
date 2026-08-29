@@ -21,8 +21,13 @@ function browserModule(
   };
 }
 
-function externalBrowserAdapters() {
+function externalBrowserAdapters({
+  currentState,
+}: {
+  currentState?: 'active' | null;
+} = {}) {
   let onUrl: ((event: { url: string }) => void) | undefined;
+  let onAppState: ((state: 'active' | string) => void) | undefined;
   let resolveListenersReady: (() => void) | undefined;
   const listenersReady = new Promise<void>((resolve) => {
     resolveListenersReady = resolve;
@@ -40,10 +45,17 @@ function externalBrowserAdapters() {
     openURL: jest.fn().mockResolvedValue(undefined),
   };
   const appState = {
-    addEventListener: jest.fn(() => ({ remove: removeAppState })),
+    currentState,
+    addEventListener: jest.fn(
+      (_event: 'change', listener: (state: 'active' | string) => void) => {
+        onAppState = listener;
+        return { remove: removeAppState };
+      }
+    ),
   };
   return {
     appState,
+    emitAppState: (state: 'active' | string) => onAppState?.(state),
     emitUrl: (url: string) => onUrl?.({ url }),
     linking,
     listenersReady,
@@ -111,6 +123,93 @@ describe('openOAuthSession', () => {
     );
     expect(adapters.removeUrl).toHaveBeenCalled();
     expect(adapters.removeAppState).toHaveBeenCalled();
+  });
+
+  it('ignores colliding callbacks before accepting the configured redirect', async () => {
+    const adapters = externalBrowserAdapters();
+    const webBrowser = browserModule({
+      getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+        browserPackages: [],
+        defaultBrowserPackage: undefined,
+        preferredBrowserPackage: undefined,
+        servicePackages: [],
+      }),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    adapters.emitUrl('ogabassey://auth.evil?code=attacker');
+    adapters.emitUrl('ogabassey://auth?code=valid');
+
+    await expect(resultPromise).resolves.toEqual({
+      type: 'success',
+      url: 'ogabassey://auth?code=valid',
+    });
+  });
+
+  it('ignores the initial active snapshot when AppState was unavailable', async () => {
+    const adapters = externalBrowserAdapters({ currentState: null });
+    const webBrowser = browserModule({
+      getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+        browserPackages: [],
+        defaultBrowserPackage: undefined,
+        preferredBrowserPackage: undefined,
+        servicePackages: [],
+      }),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    adapters.emitAppState('active');
+    adapters.emitUrl('ogabassey://auth?code=initial-state-safe');
+
+    await expect(resultPromise).resolves.toEqual({
+      type: 'success',
+      url: 'ogabassey://auth?code=initial-state-safe',
+    });
+  });
+
+  it('ignores the initial active snapshot when AppState currentState is omitted', async () => {
+    const adapters = externalBrowserAdapters();
+    const webBrowser = browserModule({
+      getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+        browserPackages: [],
+        defaultBrowserPackage: undefined,
+        preferredBrowserPackage: undefined,
+        servicePackages: [],
+      }),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    adapters.emitAppState('active');
+    adapters.emitUrl('ogabassey://auth?code=omitted-state-safe');
+
+    await expect(resultPromise).resolves.toEqual({
+      type: 'success',
+      url: 'ogabassey://auth?code=omitted-state-safe',
+    });
   });
 
   it('falls back after an Android browser launch SecurityException', async () => {

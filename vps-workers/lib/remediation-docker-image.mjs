@@ -6,12 +6,21 @@ export function isDockerImageUnavailable(error) {
   );
 }
 
-export function assertDockerImageAvailable({ image, runner, options }) {
-  const dockerBin = options.env.DOCKER_BIN || 'docker';
-  const result = runner(dockerBin, ['image', 'inspect', '--', image], {
-    ...options,
-    shell: false,
-  });
+export function assertDockerImageAvailable({
+  dockerBin,
+  image,
+  runner,
+  options,
+}) {
+  const configuredDockerBin = dockerBin || options.env?.DOCKER_BIN || 'docker';
+  const result = runner(
+    configuredDockerBin,
+    ['image', 'inspect', '--', image],
+    {
+      ...options,
+      shell: false,
+    }
+  );
   if (result.error) throw redactCodexError(result.error);
   if (result.status !== 0) {
     throw new Error(
@@ -23,6 +32,7 @@ export function assertDockerImageAvailable({ image, runner, options }) {
 export function assertConfiguredDockerImageAvailable({ env, runner, options }) {
   if (!env.BACI_CODEX_DOCKER_IMAGE) return;
   assertDockerImageAvailable({
+    dockerBin: env.DOCKER_BIN,
     image: env.BACI_CODEX_DOCKER_IMAGE,
     options,
     runner,

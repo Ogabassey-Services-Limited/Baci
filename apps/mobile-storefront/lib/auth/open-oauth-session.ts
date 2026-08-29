@@ -28,10 +28,26 @@ interface LinkingAdapter {
 }
 
 interface AppStateAdapter {
+  currentState?: AppStateStatus | null;
   addEventListener: (
     event: 'change',
     listener: (state: AppStateStatus) => void
   ) => UrlSubscription;
+}
+
+function matchesRedirectUrl(callbackUrl: string, redirectUrl: string): boolean {
+  try {
+    const callback = new URL(callbackUrl);
+    const redirect = new URL(redirectUrl);
+    return (
+      callback.protocol === redirect.protocol &&
+      callback.hostname === redirect.hostname &&
+      callback.port === redirect.port &&
+      callback.pathname === redirect.pathname
+    );
+  } catch {
+    return false;
+  }
 }
 
 interface CustomTabsSelection {
@@ -85,6 +101,8 @@ function openExternalAuthSession({
     let settled = false;
     let appStateSubscription: UrlSubscription | undefined;
     let urlSubscription: UrlSubscription | undefined;
+    let initialAppStateObserved =
+      appState.currentState !== null && appState.currentState !== undefined;
 
     const cleanup = () => {
       urlSubscription?.remove();
@@ -100,12 +118,16 @@ function openExternalAuthSession({
     urlSubscription = linking.addEventListener(
       'url',
       ({ url: callbackUrl }) => {
-        if (callbackUrl.startsWith(redirectUrl)) {
+        if (matchesRedirectUrl(callbackUrl, redirectUrl)) {
           settle({ type: 'success', url: callbackUrl });
         }
       }
     );
     appStateSubscription = appState.addEventListener('change', (state) => {
+      if (!initialAppStateObserved) {
+        initialAppStateObserved = true;
+        return;
+      }
       if (opened && state === 'active') {
         settle({ type: WebBrowserResultType.CANCEL });
       }

@@ -22,6 +22,7 @@ const mockGridProductCard = jest.fn(
 );
 const mockEditorialProductCard = jest.fn((_props: unknown) => null);
 const mockListProductCard = jest.fn((_props: unknown) => null);
+const mockAddItem = jest.fn();
 
 jest.mock('./product-card/GridProductCard', () => ({
   __esModule: true,
@@ -45,7 +46,7 @@ jest.mock('@/components/useColorScheme', () => ({
 jest.mock('@/stores/cart-store', () => ({
   selectCartQuantities: () => new Map(),
   useCartStore: (selector: (state: { addItem: jest.Mock }) => unknown) =>
-    selector({ addItem: jest.fn() }),
+    selector({ addItem: mockAddItem }),
 }));
 jest.mock('@/stores/saved-store', () => ({
   selectSavedProductIds: () => new Set(),
@@ -101,6 +102,27 @@ describe('ProductCard image memory behavior', () => {
           uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg/core-assets/products/phone.avif',
           width: 352,
         },
+      })
+    );
+  });
+
+  it('persists the bounded URI when a managed AVIF product is quick-added', () => {
+    render(
+      <ProductCard
+        product={{
+          ...product,
+          image: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        }}
+      />
+    );
+
+    const gridProps = mockGridProductCard.mock.calls.at(-1)?.[0];
+    gridProps?.handleAddToCart();
+
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url:
+          'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg/core-assets/products/phone.avif',
       })
     );
   });

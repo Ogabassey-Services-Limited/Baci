@@ -169,11 +169,11 @@ function unwrapTransformPath(pathname: string) {
 }
 
 function toTransformDimension(value: number | undefined, key: string) {
-  if (!Number.isFinite(value)) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
     return undefined;
   }
 
-  const dimension = Math.round(value as number);
+  const dimension = Math.round(value);
   if (dimension < MIN_TRANSFORM_DIMENSION) {
     return undefined;
   }

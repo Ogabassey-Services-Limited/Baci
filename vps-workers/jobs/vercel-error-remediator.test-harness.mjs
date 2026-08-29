@@ -18,7 +18,12 @@ export function runVercelErrorRemediator({ candidateLoader, ...options } = {}) {
       if (!logPath) {
         throw new Error('VERCEL_ERROR_LOG_PATH is required');
       }
-      const rawEvents = readJsonlLogEvents(logPath);
+      const rawEvents = readJsonlLogEvents(logPath, {
+        maxRotatedFiles: readPositiveInt(
+          env.VERCEL_ERROR_LOG_MAX_ROTATED_FILES,
+          2
+        ),
+      });
       const groups = groupErrorEvents(rawEvents);
       return selectRemediationCandidates(groups, {
         minOccurrences: readPositiveInt(

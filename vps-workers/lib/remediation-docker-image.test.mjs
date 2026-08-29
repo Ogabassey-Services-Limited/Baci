@@ -42,6 +42,21 @@ describe('remediation Docker image guard', () => {
     );
   });
 
+  it('uses the configured Docker binary during image preflight', () => {
+    const calls = [];
+    assertDockerImageAvailable({
+      dockerBin: '/opt/bin/docker-wrapper',
+      image: 'baci-codex-remediator:sha',
+      options: { env: {} },
+      runner(command, args) {
+        calls.push({ args, command });
+        return { status: 0, stderr: '', stdout: '' };
+      },
+    });
+
+    assert.equal(calls[0].command, '/opt/bin/docker-wrapper');
+  });
+
   it('recognizes Docker image launch failures for cleanup', () => {
     assert.equal(
       isDockerImageUnavailable(

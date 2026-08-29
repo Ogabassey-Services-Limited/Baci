@@ -114,4 +114,29 @@ describe('Vercel JSONL drain reader', () => {
       rmSync(directory, { recursive: true, force: true });
     }
   });
+
+  it('reads every retained rotated drain configured by the receiver', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
+    const path = join(directory, 'drain.jsonl');
+    try {
+      const events = [1, 2, 3, 4].map((number) =>
+        JSON.stringify({
+          level: 'error',
+          message: `Error: retained event ${number}`,
+          route: `/api/retained/${number}`,
+        })
+      );
+      writeFileSync(`${path}.3`, `${events[0]}\n`);
+      writeFileSync(`${path}.2`, `${events[1]}\n`);
+      writeFileSync(`${path}.1`, `${events[2]}\n`);
+      writeFileSync(path, `${events[3]}\n`);
+
+      assert.deepEqual(
+        readJsonlLogEvents(path, { maxRotatedFiles: 3 }),
+        events.map((event) => JSON.parse(event))
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
 });
