@@ -5,6 +5,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const helper = new URL('./retire-ollama-container-mounts.sh', import.meta.url);
+const portableFileSizeStat = `stat() { for last do :; done; case "$*" in *'-c %s'*) if /usr/bin/stat --version >/dev/null 2>&1; then /usr/bin/stat -c '%s' "$last"; else /usr/bin/stat -f '%z' "$last"; fi;; *) /usr/bin/stat "$@";; esac; }`;
 
 test('accepts only canonical Docker socket source and destination paths', async () => {
   const script = `
@@ -135,6 +136,7 @@ if [ "$state_mode" = transition ]; then grep -Fx tmpfs-mount "$note_file" >/dev/
 test('reports bind-mounts when a bind mount changes during validation', async () => {
   const script = `
 . "$1"
+${portableFileSizeStat}
 temp_path() { mktemp; }
 bind_source=$(mktemp)
 bind_source=$(readlink -f -- "$bind_source")
@@ -155,6 +157,34 @@ grep -Fx bind-mounts "$note_file" >/dev/null || exit 1
     '-c',
     script,
     'container-mounts-bind-churn-test',
+    helper.pathname,
+  ]);
+});
+
+test('rejects an oversized single-file bind before snapshotting it', async () => {
+  const script = `
+. "$1"
+temp_path() { mktemp; }
+bind_source=$(mktemp)
+bind_source=$(readlink -f -- "$bind_source")
+container_mounts_snapshot() { printf '[{"Type":"bind","Source":"%s","Destination":"/tmp/bind-target"}]\\n' "$bind_source" >"$2"; }
+stat() { case "$*" in *'-c %s'*"$bind_source") printf '67108865\\n';; *) /usr/bin/stat "$@";; esac; }
+snapshot_marker=$(mktemp)
+consumer_matched_fingerprint() { : >"$snapshot_marker"; return 1; }
+docker() { case "$*" in *State.Running*) printf 'false\\n';; *) return 2;; esac; }
+CANONICAL_DOCKER_SOCKET=/run/docker.sock
+set +e
+container_bind_mount_consumers container-id
+status=$?
+set -e
+[ "$status" -eq 2 ] || exit 1
+[ ! -s "$snapshot_marker" ] || exit 2
+rm -f "$bind_source" "$snapshot_marker"
+`;
+  await execFileAsync('sh', [
+    '-c',
+    script,
+    'container-mounts-single-file-bound-test',
     helper.pathname,
   ]);
 });
@@ -186,6 +216,7 @@ rm -f "$note_file" "$state_marker"
 test('preserves outer mount snapshots across nested volume consumer globals', async () => {
   const script = `
 . "$1"
+${portableFileSizeStat}
 test_root=$(mktemp -d)
 temp_path() {
   temp_path_value=$(mktemp "$test_root/path.XXXXXX") || exit 2
@@ -224,6 +255,7 @@ test('keeps mount records isolated when a mount consumer reads stdin', async () 
   const script = `
 exec </dev/null
 . "$1"
+${portableFileSizeStat}
 test_root=$(mktemp -d)
 bind_source="$test_root/bind-source"
 consumed_file="$test_root/consumed"

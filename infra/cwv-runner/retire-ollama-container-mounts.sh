@@ -62,6 +62,7 @@ container_bind_mount_consumers() {
       tmpfs) mount_failure_phase=tmpfs-mount;;
       *) rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2;;
     esac
+    if [ "$mount_type" = bind ] && [ -f "$mount_first" ] && [ ! -L "$mount_first" ]; then mount_file_size=$(stat -c '%s' "$mount_first") || { rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2; }; case "$mount_file_size" in ''|*[!0-9]*) rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2;; esac; [ "$mount_file_size" -le 67108864 ] || { rm -f "$mount_mounts" "$mount_mounts_again" "$mount_paths" "$mount_socket_evidence"; return 2; }; fi
     case "$mount_type" in
       bind)
         if container_docker_socket_source_is_canonical "$mount_first" && container_docker_socket_destination_is_canonical "$mount_source"; then

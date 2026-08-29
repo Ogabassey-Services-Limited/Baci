@@ -45,6 +45,8 @@ running_container_pair() {
   cmp -s "$running_pair_first" "$running_pair_second" || return 2
 }
 
+running_container_lifecycle() { running_lifecycle=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '[{{json .State.StartedAt}},{{json .State.Pid}},{{json .RestartCount}}]' "$1") || return 2; printf '%s\n' "$running_lifecycle" | /usr/bin/jq -e 'type == "array" and length == 3 and (.[0]|type == "string" and length > 0) and (.[1]|type == "number" and floor == . and . > 0) and (.[2]|type == "number" and floor == . and . >= 0)' >/dev/null || return 2; printf '%s\n' "$running_lifecycle"; }
+
 container_mounts_snapshot() {
   mount_container_id=$1
   mount_output=$2
@@ -249,6 +251,7 @@ container_scan_bindings() {
   scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" state "$scan_status"; return 2; }
   case "$scan_state" in
     true)
+      scan_lifecycle=$(running_container_lifecycle "$scan_id") && scan_lifecycle_again=$(running_container_lifecycle "$scan_id") && [ "$scan_lifecycle" = "$scan_lifecycle_again" ] || { container_scan_note_failure "$scan_id" running-container 2; return 2; }
       scan_bound=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }) || return 2
       running_container_validate "$scan_id" "$scan_name" "$scan_line" || { scan_status=$?; container_scan_note_failure "$scan_id" running-container "$scan_status"; return "$scan_status"; }
       scan_bound_after=$(container_bind_mount_consumers "$scan_id" || { scan_status=$?; container_scan_note_failure "$scan_id" bind-mounts "$scan_status"; return "$scan_status"; }) || return 2
@@ -271,6 +274,7 @@ container_scan_bindings() {
   final_scan_state=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-state "$scan_status"; return 2; }
   final_scan_state_again=$(docker --host "unix://$CANONICAL_DOCKER_SOCKET" inspect -f '{{json .State.Running}}' "$scan_id") || { scan_status=$?; container_scan_note_failure "$scan_id" final-state "$scan_status"; return 2; }
   [ "$final_scan_state" = "$scan_state" ] && [ "$final_scan_state_again" = "$scan_state" ] || { container_scan_note_failure "$scan_id" final-state 2; return 2; }
+  if [ "$scan_state" = true ]; then final_scan_lifecycle=$(running_container_lifecycle "$scan_id") && final_scan_lifecycle_again=$(running_container_lifecycle "$scan_id") && [ "$final_scan_lifecycle" = "$final_scan_lifecycle_again" ] && [ "$final_scan_lifecycle" = "$scan_lifecycle" ] || { container_scan_note_failure "$scan_id" final-state 2; return 2; }; fi
   if [ "$scan_state" = true ]; then
     [ -z "$scan_bound" ] || printf '%s\n' "$scan_bound"
     if printf '%s' "$scan_line" | /usr/bin/grep -Eqi 'ollama|11434'; then
