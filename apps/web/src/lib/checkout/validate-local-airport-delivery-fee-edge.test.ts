@@ -71,6 +71,24 @@ describe('validateLocalAirportDeliveryFee edge cases', () => {
     });
   });
 
+  it('recovers a metadata-free provider replay after its quote has been deleted', async () => {
+    const result = await validateLocalAirportDeliveryFee({
+      merchantId: MERCHANT_ID,
+      requestIdempotencyKey: 'metadata-free-airport-retry',
+      selectedQuoteId: GOFASTER_QUOTE_ID,
+      shippingAddress: validAirportAddress,
+      shippingFee: 18_500,
+      shippingProvider: 'GIGL',
+      supabase: mockSupabase(null, true),
+    });
+
+    expect(result).toEqual({
+      isIdempotentLocalAirportReplay: false,
+      isIdempotentOrderReplay: true,
+      localAirportShippingFee: null,
+    });
+  });
+
   it('rejects a merchant rate combined with a derived airport quote', async () => {
     const promise = validateLocalAirportDeliveryFee({
       merchantId: MERCHANT_ID,

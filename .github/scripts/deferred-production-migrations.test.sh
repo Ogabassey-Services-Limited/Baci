@@ -160,9 +160,11 @@ grep -q "SELECT 'delivery-metadata-enforcement-restore'" "$deferred_postdeploy_l
 jq -e -s \
   --arg delivery "SELECT 'delivery-metadata';" \
   --arg context "SELECT 'context';" \
+  --arg hash "SELECT 'hash-stamping';" \
+  --arg hash_finalizer "SELECT 'hash-stamping-finalizer';" \
   --arg broad "SELECT 'replay-context';" \
   --arg scoped "SELECT 'replay-scope';" \
-  '[.[].query | select(contains($delivery) and contains($context))] | length == 1' \
+  '[.[].query | select(contains($delivery) and contains($context) and contains($hash) and contains($hash_finalizer))] | length == 1' \
   "$deferred_postdeploy_log" >/dev/null
 jq -e -s \
   --arg hash "SELECT 'hash-stamping';" \

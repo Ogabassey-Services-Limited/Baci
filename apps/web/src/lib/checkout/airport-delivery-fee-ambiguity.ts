@@ -1,7 +1,4 @@
-import {
-  AIRPORT_DELIVERY_FEES,
-  LEGACY_AIRPORT_DELIVERY_FEE,
-} from '@baci/shared/constants';
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 
 type AirportType = 'delivery' | 'pickup';
 
@@ -30,7 +27,7 @@ export function isAmbiguousMetadataFreeAirportFee({
     airportType === undefined &&
     !selectedQuoteId &&
     !shippingRateId &&
-    (Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01 ||
+    (Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.legacy) <= 0.01 ||
       Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.delivery) <= 0.01 ||
       Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.pickup) <= 0.01)
   );

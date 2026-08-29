@@ -1,4 +1,4 @@
-import { LEGACY_AIRPORT_DELIVERY_FEE } from '@baci/shared/constants';
+import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 
 type AirportType = 'delivery' | 'pickup';
@@ -34,6 +34,6 @@ export function isLegacyMobileAirportDeliveryRequest({
     getLegacyAirportType(address) === 'delivery' &&
     !selectedQuoteId &&
     !shippingRateId &&
-    Math.abs(shippingFee - LEGACY_AIRPORT_DELIVERY_FEE) <= 0.01
+    Math.abs(shippingFee - AIRPORT_DELIVERY_FEES.legacy) <= 0.01
   );
 }

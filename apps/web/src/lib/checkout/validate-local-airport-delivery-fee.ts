@@ -86,6 +86,20 @@ export async function validateLocalAirportDeliveryFee({
     resolvedAirportType = legacyFixedAirportMetadata.resolvedAirportType;
   }
 
+  // Older web clients omitted delivery metadata while sending a provider
+  // quote. Probe the merchant-scoped idempotency key before relying on the
+  // quote row for classification: cleanup may have removed the row before a
+  // retry arrives. This is replay evidence only; it never classifies a new
+  // fee-only request as airport delivery.
+  const isConfirmedMetadataFreeProviderReplay =
+    selectedQuoteId && deliveryMethod === undefined
+      ? await isConfirmedLocalAirportReplay({
+          merchantId,
+          requestIdempotencyKey,
+          supabase,
+        })
+      : false;
+
   // Provider-backed airport quotes cannot be relabeled as non-airport orders.
   if (selectedQuoteId && deliveryMethod !== 'airport') {
     const selectedQuoteIsAirport = await isSelectedAirportQuote({
@@ -105,6 +119,18 @@ export async function validateLocalAirportDeliveryFee({
           400
         );
       }
+    }
+
+    // A deleted quote cannot safely identify airport delivery (the same
+    // legacy shape was also used by ordinary carrier checkouts). Preserve the
+    // keyed replay without relabeling the order or inferring a fee. The order
+    // RPC's idempotency hash remains the authority for conflict detection.
+    if (deliveryMethod === undefined && isConfirmedMetadataFreeProviderReplay) {
+      return {
+        isIdempotentLocalAirportReplay: false,
+        isIdempotentOrderReplay: true,
+        localAirportShippingFee: null,
+      };
     }
   }
 

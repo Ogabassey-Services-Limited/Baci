@@ -1614,6 +1614,7 @@ export async function POST(request: NextRequest) {
 
     let localAirportShippingFee: number | null;
     let isIdempotentLocalAirportReplay: boolean;
+    let isIdempotentOrderReplay = false;
     let canonicalDeliveryMethod = delivery_method;
     let canonicalAirportType = airport_type;
     try {
@@ -1630,8 +1631,11 @@ export async function POST(request: NextRequest) {
         source,
         supabase,
       });
-      ({ isIdempotentLocalAirportReplay, localAirportShippingFee } =
-        validationResult);
+      ({
+        isIdempotentLocalAirportReplay,
+        isIdempotentOrderReplay = false,
+        localAirportShippingFee,
+      } = validationResult);
       canonicalDeliveryMethod =
         validationResult.resolvedDeliveryMethod ?? delivery_method;
       canonicalAirportType =
@@ -1926,12 +1930,14 @@ export async function POST(request: NextRequest) {
         {
           items: quoteValidationItems,
           merchantId: body.merchant_id,
-          shippingFee: isIdempotentLocalAirportReplay
-            ? undefined
-            : shippingFeeValue,
-          shippingProvider: isIdempotentLocalAirportReplay
-            ? null
-            : resolvedShippingProvider,
+          shippingFee:
+            isIdempotentLocalAirportReplay || isIdempotentOrderReplay
+              ? undefined
+              : shippingFeeValue,
+          shippingProvider:
+            isIdempotentLocalAirportReplay || isIdempotentOrderReplay
+              ? null
+              : resolvedShippingProvider,
         }
       );
     } catch (error) {

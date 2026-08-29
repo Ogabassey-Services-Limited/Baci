@@ -2857,6 +2857,55 @@ describe('POST /api/orders — checkout idempotency', () => {
     expect(mockNotifyPaymentReceived).not.toHaveBeenCalled();
   });
 
+  it('replays a metadata-free provider order after its quote was deleted', async () => {
+    const rpcSpy = vi.fn();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase({
+        has_storefront_order_idempotency_key: { data: true, error: null },
+        get_checkout_shipping_quote: { data: null, error: null },
+        create_storefront_order: {
+          data: [{ ...baseOrderRow, idempotency_replayed: true }],
+          error: null,
+        },
+      });
+      const originalRpc = sb.rpc;
+      sb.rpc = vi.fn((name: string, params?: unknown) => {
+        rpcSpy(name, params);
+        return originalRpc(name);
+      });
+      return sb;
+    }) as unknown as never);
+
+    const response = await POST(
+      new NextRequest('http://localhost/api/orders', {
+        method: 'POST',
+        headers: { 'Idempotency-Key': 'metadata-free-provider-retry' },
+        body: JSON.stringify({
+          ...baseOrderPayload,
+          shipping_fee: 18_500,
+          selected_quote_id: '11111111-1111-4111-8111-111111111111',
+          shipping_provider: 'GIGL',
+        }),
+      })
+    );
+    const body = await readJson(response);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-idempotency-replayed')).toBe('true');
+    expect(body.idempotency).toEqual({ replayed: true });
+    expect(body.order.id).toBe(baseOrderRow.id);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_checkout_idempotency_key: 'metadata-free-provider-retry',
+        p_selected_quote_id: '11111111-1111-4111-8111-111111111111',
+        p_shipping_provider: 'GIGL',
+        p_shipping_fee: 18_500,
+      })
+    );
+  });
+
   it('passes checkout idempotency params through the savings wrapper RPC', async () => {
     const rpcSpy = vi.fn();
     const supabaseMod = await import('@/lib/supabase/server');

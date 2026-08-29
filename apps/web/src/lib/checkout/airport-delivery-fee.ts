@@ -1,7 +1,7 @@
 import { AIRPORT_DELIVERY_FEES } from '@baci/shared/constants';
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
 
-type AirportType = keyof typeof AIRPORT_DELIVERY_FEES;
+type AirportType = Exclude<keyof typeof AIRPORT_DELIVERY_FEES, 'legacy'>;
 
 interface LocalAirportDeliveryFeeInput {
   airportType?: AirportType;
