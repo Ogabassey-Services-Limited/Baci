@@ -75,7 +75,7 @@ describe('event pipeline authority manifest', () => {
       'apps/web/src/app/api/platform/events/route.ts':
         'bb3b5ea163f7029bd8a90523ac7944c9e126b2aebc0ce673f82c4e0c48d00161',
       'apps/web/src/app/api/orders/route.ts':
-        '5a7b143f58327ac37481ffac1ed75ec52b3659d24eb76362fb14f5735dd52a4b',
+        '7a39b2776e5cc5aeed099b2909e0ec95e3485bdfbb01c4d65564ea1230b9dafc',
     });
     expect(manifest.trustedWrapperImporters).toEqual([
       'apps/web/src/app/api/analytics/conversion/route.ts',
