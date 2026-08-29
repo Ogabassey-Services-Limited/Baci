@@ -3,8 +3,8 @@ import { createHash } from 'node:crypto';
 export {
   MAX_JSONL_READ_BYTES,
   MAX_JSONL_ROTATED_FILES,
-  readJsonlLogEvents,
-} from './vercel-error-events-reader.mjs';
+} from './vercel-error-events-limits.mjs';
+export { readJsonlLogEvents } from './vercel-error-events-reader.mjs';
 
 const ERROR_LEVELS = new Set(['error', 'fatal', 'panic']);
 const ERROR_MESSAGE_RE =

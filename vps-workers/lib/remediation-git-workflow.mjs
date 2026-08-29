@@ -8,10 +8,8 @@ import {
   redactCodexOutput,
 } from './remediation-codex-output.mjs';
 import { resumeCommittedRemediationBranch } from './remediation-committed-branch-resume.mjs';
-import {
-  assertConfiguredDockerImageAvailable,
-  createGuardedCodexRunner,
-} from './remediation-docker-image.mjs';
+import { createGuardedCodexRunner } from './remediation-docker-codex-runner.mjs';
+import { assertConfiguredDockerImageAvailable } from './remediation-docker-image-preflight.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import { evaluateMergePolicy } from './remediation-policy.mjs';

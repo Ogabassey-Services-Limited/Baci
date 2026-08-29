@@ -1,15 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import {
-  assertDockerImageAvailable,
-  isDockerImageUnavailable,
-} from './remediation-docker-image.mjs';
+import { isDockerImageUnavailable } from './remediation-docker-image-availability.mjs';
+import { assertConfiguredDockerImageAvailable } from './remediation-docker-image-preflight.mjs';
 
 describe('remediation Docker image guard', () => {
   it('checks the configured image without invoking a shell', () => {
     const calls = [];
-    assertDockerImageAvailable({
-      image: 'baci-codex-remediator:sha',
+    assertConfiguredDockerImageAvailable({
+      env: {
+        BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:sha',
+        DOCKER_BIN: 'docker',
+      },
       options: { env: { DOCKER_BIN: 'docker' }, cwd: '/repo' },
       runner(command, args, options) {
         calls.push({ args, command, options });
@@ -29,8 +30,8 @@ describe('remediation Docker image guard', () => {
   it('blocks before worktree creation when the configured image is missing', () => {
     assert.throws(
       () =>
-        assertDockerImageAvailable({
-          image: 'baci-codex-remediator:sha',
+        assertConfiguredDockerImageAvailable({
+          env: { BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:sha' },
           options: { env: {} },
           runner: () => ({
             status: 1,
@@ -44,9 +45,11 @@ describe('remediation Docker image guard', () => {
 
   it('uses the configured Docker binary during image preflight', () => {
     const calls = [];
-    assertDockerImageAvailable({
-      dockerBin: '/opt/bin/docker-wrapper',
-      image: 'baci-codex-remediator:sha',
+    assertConfiguredDockerImageAvailable({
+      env: {
+        BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:sha',
+        DOCKER_BIN: '/opt/bin/docker-wrapper',
+      },
       options: { env: {} },
       runner(command, args) {
         calls.push({ args, command });

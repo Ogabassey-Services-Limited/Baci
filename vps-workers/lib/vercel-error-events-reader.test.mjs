@@ -15,7 +15,7 @@ import {
   MAX_JSONL_READ_BYTES,
   readJsonlLogEvents,
 } from './vercel-error-events.mjs';
-import { readDrainTail } from './vercel-error-events-reader.mjs';
+import { readDrainTail } from './vercel-error-events-tail.mjs';
 
 describe('Vercel JSONL drain reader', () => {
   it('reads recent events from a sparse drain beyond the string limit', () => {

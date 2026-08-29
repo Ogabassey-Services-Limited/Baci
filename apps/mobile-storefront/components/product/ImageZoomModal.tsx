@@ -16,6 +16,7 @@ import { getOptionalGestureHandlerRuntime } from '@/lib/optional-gesture-handler
 import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { useImageZoom } from './hooks/useImageZoom';
 import styles from './ImageZoomModal.styles';
+import { getImageZoomDecodeBounds } from './image-zoom-bounds';
 
 interface ImageZoomModalProps {
   visible: boolean;
@@ -69,6 +70,10 @@ export function ImageZoomModal({
     totalImages: images.length,
     gestureRuntime: { Gesture },
   });
+  const zoomDecodeBounds = getImageZoomDecodeBounds({
+    height: screenHeight * 0.7,
+    width: screenWidth,
+  });
 
   // Reset transforms and restore initial index each time the modal is shown
   const handleModalOpen = () => {
@@ -81,9 +86,8 @@ export function ImageZoomModal({
       <Animated.View style={[styles.imageContainer, animatedImageStyle]}>
         <Image
           source={createSafeBoundedImageSource({
-            height: screenHeight * 0.7,
+            ...zoomDecodeBounds,
             uri: images[currentIndex],
-            width: screenWidth,
           })}
           style={styles.image}
           contentFit="contain"

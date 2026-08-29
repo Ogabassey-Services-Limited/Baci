@@ -49,4 +49,18 @@ describe('drain file lock', () => {
     );
     assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
   });
+
+  it('reclaims an old lock even when its recorded PID was reused', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    writeFileSync(lockPath, `${process.pid}\n`);
+    const oldTime = Date.now() - 120_000;
+    utimesSync(lockPath, oldTime / 1_000, oldTime / 1_000);
+
+    assert.equal(
+      withDrainFileLock(lockPath, () => 'recovered'),
+      'recovered'
+    );
+    assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+  });
 });

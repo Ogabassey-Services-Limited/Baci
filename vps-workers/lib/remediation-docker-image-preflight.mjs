@@ -1,17 +1,6 @@
 import { redactCodexError } from './remediation-codex-output.mjs';
 
-export function isDockerImageUnavailable(error) {
-  return /(?:unable to find image|pull access denied|image .* not found|manifest unknown|repository does not exist)/i.test(
-    String(error?.message || error || '')
-  );
-}
-
-export function assertDockerImageAvailable({
-  dockerBin,
-  image,
-  runner,
-  options,
-}) {
+function assertDockerImageAvailable({ dockerBin, image, runner, options }) {
   const configuredDockerBin = dockerBin || options.env?.DOCKER_BIN || 'docker';
   const result = runner(
     configuredDockerBin,
@@ -37,21 +26,4 @@ export function assertConfiguredDockerImageAvailable({ env, runner, options }) {
     options,
     runner,
   });
-}
-
-export function createGuardedCodexRunner({
-  hasRetainedWorktree,
-  onUnavailableImage,
-  runCodex,
-}) {
-  return (command, args, options) => {
-    try {
-      return runCodex(command, args, options);
-    } catch (error) {
-      if (!hasRetainedWorktree && isDockerImageUnavailable(error)) {
-        onUnavailableImage();
-      }
-      throw error;
-    }
-  };
 }

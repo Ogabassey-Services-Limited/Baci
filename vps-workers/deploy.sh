@@ -58,7 +58,7 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 EOF
-ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-vercel-log-drain-receiver.service"
+ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-vercel-log-drain-receiver.service && systemctl --user restart baci-vercel-log-drain-receiver.service"
 
 echo "==> Installing AI storefront trigger user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-ai-storefront-trigger.service"
