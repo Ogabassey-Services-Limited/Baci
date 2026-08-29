@@ -156,6 +156,9 @@ describe('storefront order RPC context migration contract', () => {
   });
 
   it('drains the previous route revision before postdeploy enforcement', () => {
+    const preflightStep = postdeployAction.indexOf(
+      '- name: Check for pending deferred storefront migrations'
+    );
     const drainStep = postdeployAction.indexOf(
       '- name: Drain previous storefront order requests'
     );
@@ -163,9 +166,17 @@ describe('storefront order RPC context migration contract', () => {
       '- name: Apply migrations deferred until application deploy'
     );
 
+    expect(preflightStep).toBeGreaterThanOrEqual(0);
     expect(drainStep).toBeGreaterThanOrEqual(0);
+    expect(preflightStep).toBeLessThan(drainStep);
+    expect(postdeployAction).toContain(
+      '.github/scripts/pending-postdeploy-migrations.sh'
+    );
+    expect(postdeployAction).toContain(
+      "if: steps.pending-deferred-migrations.outputs.pending == 'true'"
+    );
     expect(postdeployAction).toContain('run: sleep 305');
-    expect(postdeployAction).toContain('300-second default');
+    expect(postdeployAction).toContain('300-second default window');
     expect(deployWorkflow).toContain(
       'uses: ./.github/actions/postdeploy-migrations'
     );

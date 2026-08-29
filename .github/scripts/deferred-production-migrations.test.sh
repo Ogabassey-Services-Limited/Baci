@@ -4,6 +4,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 applier="$script_dir/apply-pending-migrations.sh"
+pending_checker="$script_dir/pending-postdeploy-migrations.sh"
 fixture_root="$(mktemp -d)"
 trap 'rm -rf "$fixture_root"' EXIT
 
@@ -78,6 +79,48 @@ printf '%s\n' "SELECT 'hash-version-context';" \
   >"$deferred_dir/20260828170000_prepare_storefront_order_hash_version_context.sql"
 printf '%s\n' "SELECT 'delivery-metadata-enforcement-restore';" \
   >"$deferred_dir/20260828190000_restore_storefront_order_delivery_metadata_enforcement.sql"
+
+pending_output="$fixture_root/pending-output.log"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$fixture_root/pending-queries.log" \
+  FAKE_INITIAL_RESPONSE='[]' \
+  bash "$pending_checker" >"$pending_output"
+grep -qx 'true' "$pending_output"
+
+all_deferred_response="$(jq -nc '[
+  {version: "20260827140000", name: "enforce_storefront_order_delivery_metadata"},
+  {version: "20260828091000", name: "harden_storefront_order_rpc_context_and_replays"},
+  {version: "20260828101000", name: "allow_legacy_quiz_award_order_context"},
+  {version: "20260828110000", name: "prepare_storefront_order_hash_stamping"},
+  {version: "20260828110100", name: "finalize_storefront_order_hash_stamping"},
+  {version: "20260828120000", name: "enforce_storefront_order_replay_route_context"},
+  {version: "20260828130000", name: "scope_storefront_order_replay_route_context"},
+  {version: "20260828151000", name: "enforce_storefront_airport_pickup_location"},
+  {version: "20260828190000", name: "restore_storefront_order_delivery_metadata_enforcement"}
+]')"
+PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$fixture_root/complete-queries.log" \
+  FAKE_INITIAL_RESPONSE="$all_deferred_response" \
+  bash "$pending_checker" >"$fixture_root/complete-output.log"
+grep -qx 'false' "$fixture_root/complete-output.log"
+
+if PATH="$fake_bin:$PATH" \
+  MIGRATIONS_DIR="$deferred_dir" \
+  SUPABASE_ACCESS_TOKEN=test \
+  SUPABASE_PROJECT_REF=test \
+  FAKE_QUERY_LOG="$fixture_root/invalid-preflight-queries.log" \
+  FAKE_INITIAL_RESPONSE='{"error":"broken"}' \
+  bash "$pending_checker" >"$fixture_root/invalid-preflight-output.log" 2>&1; then
+  echo 'Expected an invalid migration preflight response to fail closed' >&2
+  exit 1
+fi
+grep -q 'invalid response' "$fixture_root/invalid-preflight-output.log"
 
 deferred_predeploy_log="$fixture_root/deferred-predeploy-queries.log"
 deferred_predeploy_output="$fixture_root/deferred-predeploy-output.log"
