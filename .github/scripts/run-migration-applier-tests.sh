@@ -39,6 +39,7 @@ node --test "$repo_root/supabase/tests/serialized_variant_inventory_concurrency_
 node --test "$repo_root/supabase/tests/serialized_variant_inventory_concurrency_contract_control_flow.test.mjs"
 node --test "$repo_root/supabase/tests/serialized_variant_inventory_concurrency_contract_zero_row.test.mjs"
 node --test "$repo_root/supabase/tests/serialized_variant_inventory_concurrency_contract.test.mjs"
+node --test "$repo_root/supabase/tests/serialized_variant_inventory_concurrency_fixture_functions.test.mjs"
 bash "$script_dir/apply-pending-migrations.test.sh"
 bash "$script_dir/deferred-production-migrations.test.sh"
 bash "$script_dir/apply-pending-migrations-version-collision.test.sh"
