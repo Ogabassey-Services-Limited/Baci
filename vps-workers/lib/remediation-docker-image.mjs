@@ -19,3 +19,29 @@ export function assertDockerImageAvailable({ image, runner, options }) {
     );
   }
 }
+
+export function assertConfiguredDockerImageAvailable({ env, runner, options }) {
+  if (!env.BACI_CODEX_DOCKER_IMAGE) return;
+  assertDockerImageAvailable({
+    image: env.BACI_CODEX_DOCKER_IMAGE,
+    options,
+    runner,
+  });
+}
+
+export function createGuardedCodexRunner({
+  hasRetainedWorktree,
+  onUnavailableImage,
+  runCodex,
+}) {
+  return (command, args, options) => {
+    try {
+      return runCodex(command, args, options);
+    } catch (error) {
+      if (!hasRetainedWorktree && isDockerImageUnavailable(error)) {
+        onUnavailableImage();
+      }
+      throw error;
+    }
+  };
+}

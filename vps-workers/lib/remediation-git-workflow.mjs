@@ -9,8 +9,8 @@ import {
 } from './remediation-codex-output.mjs';
 import { resumeCommittedRemediationBranch } from './remediation-committed-branch-resume.mjs';
 import {
-  assertDockerImageAvailable,
-  isDockerImageUnavailable,
+  assertConfiguredDockerImageAvailable,
+  createGuardedCodexRunner,
 } from './remediation-docker-image.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
@@ -125,13 +125,11 @@ export function runRemediationAutofix({
         worktreeDir,
       };
     }
-    if (env.BACI_CODEX_DOCKER_IMAGE) {
-      assertDockerImageAvailable({
-        image: env.BACI_CODEX_DOCKER_IMAGE,
-        options: rootCommandOptions,
-        runner,
-      });
-    }
+    assertConfiguredDockerImageAvailable({
+      env,
+      options: rootCommandOptions,
+      runner,
+    });
     cleanupWorktreeOnCompletion = true;
     const retainedWorktreeDir = findRetainedRemediationWorktree({
       branch,
@@ -171,19 +169,11 @@ export function runRemediationAutofix({
         worktreeRemoteCommandOptions,
       });
     if (committedBranchResult) return committedBranchResult;
-    const guardedRunCodex = (command, args, options) => {
-      try {
-        return runCodexChecked(command, args, options);
-      } catch (error) {
-        // If the image disappears after preflight, no remediation work was
-        // possible. Remove this newly-created retry directory instead of
-        // retaining an orphan that will consume disk on every tick.
-        if (!retainedWorktreeDir && isDockerImageUnavailable(error)) {
-          cleanupCompletedWorktree = true;
-        }
-        throw error;
-      }
-    };
+    const guardedRunCodex = createGuardedCodexRunner({
+      hasRetainedWorktree: Boolean(retainedWorktreeDir),
+      onUnavailableImage: () => (cleanupCompletedWorktree = true),
+      runCodex: runCodexChecked,
+    });
     const codexPhases = runRemediationCodexPhases({
       candidate,
       codexBin,
