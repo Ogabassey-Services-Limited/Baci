@@ -3,17 +3,14 @@ import { validateAirportDeliveryAddress } from '@/lib/checkout/airport-delivery-
 import { getLocalAirportDeliveryFee } from '@/lib/checkout/airport-delivery-fee';
 import { isAmbiguousMetadataFreeAirportFee } from '@/lib/checkout/airport-delivery-fee-ambiguity';
 import { getLegacyAirportType } from '@/lib/checkout/airport-delivery-legacy-marker';
-import { isEligibleAirportQuote } from '@/lib/checkout/airport-delivery-quote-validation';
 import { isConfirmedLocalAirportReplay } from '@/lib/checkout/is-confirmed-local-airport-replay';
 import { isLegacyMobileAirportDeliveryRequest } from '@/lib/checkout/is-legacy-mobile-airport-delivery';
 import { isSelectedAirportQuote } from '@/lib/checkout/is-selected-airport-quote';
-import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
 import type { LocalAirportDeliveryFeeValidationResult } from '@/lib/checkout/local-airport-delivery-fee-validation-result';
 import { LocalAirportDeliveryValidationError } from '@/lib/checkout/local-airport-delivery-validation-error';
-import { readAirportQuote } from '@/lib/checkout/read-airport-delivery-quote';
 import { resolveLegacyAirportDeliveryMetadata } from '@/lib/checkout/resolve-legacy-airport-delivery-metadata';
 import { validateLocalAirportFeeMismatch } from '@/lib/checkout/validate-local-airport-fee-mismatch';
-import { logger } from '@/lib/logger';
+import { validateSelectedAirportQuote } from '@/lib/checkout/validate-selected-airport-quote';
 
 type AirportType = 'delivery' | 'pickup';
 
@@ -33,87 +30,6 @@ interface ValidateLocalAirportDeliveryFeeInput {
   shippingRateId?: string | null;
   source?: string;
   supabase: SupabaseClient;
-}
-
-async function validateSelectedAirportQuote({
-  merchantId,
-  requestIdempotencyKey,
-  selectedQuoteId,
-  shippingFee,
-  shippingProvider,
-  supabase,
-}: Pick<
-  ValidateLocalAirportDeliveryFeeInput,
-  | 'merchantId'
-  | 'requestIdempotencyKey'
-  | 'selectedQuoteId'
-  | 'shippingFee'
-  | 'shippingProvider'
-  | 'supabase'
->): Promise<boolean> {
-  if (!selectedQuoteId) return false;
-
-  const { data, error } = await supabase.rpc('get_checkout_shipping_quote', {
-    p_merchant_id: merchantId,
-    p_quote_id: selectedQuoteId,
-  });
-  if (error) {
-    logger.error({
-      message: 'Unable to validate selected airport shipping quote',
-      merchantId,
-      selectedQuoteId,
-      error,
-    });
-    throw new LocalAirportDeliveryValidationError(
-      'Unable to validate the selected airport delivery quote',
-      'AIRPORT_QUOTE_LOOKUP_FAILED',
-      500
-    );
-  }
-
-  const isReplay = () =>
-    isConfirmedLocalAirportReplay({
-      merchantId,
-      requestIdempotencyKey,
-      supabase,
-    });
-  const quote = readAirportQuote(data);
-  if (!quote && (await isReplay())) return true;
-  if (!quote || !isEligibleAirportQuote(quote, shippingProvider)) {
-    throw new LocalAirportDeliveryValidationError(
-      'The selected airport delivery quote is not eligible for airport delivery',
-      'AIRPORT_QUOTE_INVALID',
-      400
-    );
-  }
-
-  const expiresAt =
-    typeof quote.expires_at === 'string'
-      ? Date.parse(quote.expires_at)
-      : Number.NaN;
-  if (Number.isFinite(expiresAt) && expiresAt <= Date.now()) {
-    const isIdempotentReplay = await isReplay();
-    if (isIdempotentReplay) return true;
-
-    throw new LocalAirportDeliveryValidationError(
-      'The selected airport delivery quote has expired',
-      'AIRPORT_QUOTE_EXPIRED',
-      400
-    );
-  }
-
-  const quotePrice = Number(quote.price);
-  if (
-    Number.isFinite(quotePrice) &&
-    Math.abs(shippingFee - quotePrice) > 0.01
-  ) {
-    const isIdempotentReplay = await isReplay();
-    if (isIdempotentReplay) return true;
-
-    throw new LocalAirportDeliveryFeeMismatchError(shippingFee, quotePrice);
-  }
-
-  return false;
 }
 
 /** Validate fixed-fee airport delivery and airport-backed provider quotes. */
