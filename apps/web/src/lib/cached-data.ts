@@ -2900,6 +2900,7 @@ async function getCachedBlogPostCore(
       logo_url: merchant.logo_url,
       custom_domain: merchant.custom_domain,
       country: merchant.country,
+      payout_currency: merchant.payout_currency,
       social_media: merchant.social_media,
     },
     post,

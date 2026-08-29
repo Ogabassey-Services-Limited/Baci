@@ -7,12 +7,12 @@ import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
+import type { RelatedBlogProduct } from '@/lib/related-blog-products';
 import { rewriteStorefrontContentHref } from '@/lib/storefront-content-link-rewriting';
 import { isDeadStorefrontContentHref } from '@/lib/storefront-content-link-targets';
-import { getStorefrontProductHref } from '@/lib/storefront-product-href';
+import { BlogRelatedProducts } from './BlogRelatedProducts';
 import { BlogVideoPanel } from './BlogVideoPanel';
 import { resolveContentLinks } from './blog-content-link-resolution';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
@@ -21,9 +21,11 @@ export interface BlogPostBodyProps {
   basePath: string;
   baseUrl: string;
   content: unknown;
+  countryCode?: string | null;
   locale?: string;
   merchantId?: string;
   merchantSlug: string;
+  payoutCurrency?: string | null;
   postUrl?: string;
   post: {
     author_bio?: string | null;
@@ -39,12 +41,7 @@ export interface BlogPostBodyProps {
     videoId: string;
     watchUrl: string;
   } | null;
-  relatedProducts?: Array<{
-    category_slug?: string | null;
-    id: string;
-    name: string;
-    slug?: string | null;
-  }>;
+  relatedProducts?: readonly RelatedBlogProduct[];
   relatedPosts: Array<{
     category?: string | null;
     featured_image_url?: string | null;
@@ -64,9 +61,11 @@ export async function BlogPostBody({
   basePath,
   baseUrl,
   content,
+  countryCode,
   locale,
   merchantId,
   merchantSlug,
+  payoutCurrency,
   post,
   postUrl,
   relatedProducts = EMPTY_RELATED_PRODUCTS,
@@ -267,37 +266,12 @@ export async function BlogPostBody({
         </section>
       )}
 
-      {safeRelatedProducts.length > 0 && (
-        <section aria-labelledby="related-products-heading" className="mt-10">
-          <h2 id="related-products-heading" className="mb-4 text-2xl font-bold">
-            Popular Products Mentioned
-          </h2>
-          <ul className="grid gap-3 md:grid-cols-2">
-            {safeRelatedProducts.map((product) => {
-              const href = getStorefrontProductHref(
-                {
-                  id: product.id,
-                  name: product.name,
-                  slug: product.slug,
-                  category_slug: product.category_slug ?? undefined,
-                },
-                basePath
-              );
-
-              return (
-                <li key={product.id}>
-                  <HoverPrefetchLink
-                    href={href}
-                    className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
-                  >
-                    {product.name}
-                  </HoverPrefetchLink>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
+      <BlogRelatedProducts
+        basePath={basePath}
+        countryCode={countryCode}
+        payoutCurrency={payoutCurrency}
+        products={safeRelatedProducts}
+      />
     </div>
   );
 }
