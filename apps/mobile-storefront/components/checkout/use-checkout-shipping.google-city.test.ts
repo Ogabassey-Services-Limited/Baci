@@ -111,6 +111,33 @@ describe('useCheckoutShipping Google city resolution', () => {
     );
   });
 
+  it('hides manual location pickers after a complete Google location is selected', async () => {
+    const updateAddress = jest.fn();
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+    await waitFor(() =>
+      expect(result.current.shippingStates).toEqual(['Lagos'])
+    );
+
+    act(() => {
+      result.current.handleDeliveryAddressSelect(
+        createPlace({ latitude: 6.6018, longitude: 3.3515 }),
+        updateAddress
+      );
+    });
+    rerender(
+      createParams({
+        watchedAddress: '1 Test Way, Ikeja',
+        watchedCity: 'Ikeja',
+        watchedState: 'Lagos',
+      })
+    );
+
+    expect(result.current.showLocationPickers).toBe(false);
+  });
+
   it('opens the city picker with a search seed when the suggested city has no match', async () => {
     const { rerender, result } = renderHook(
       (props: ShippingParams) => useCheckoutShipping(props),
@@ -133,6 +160,30 @@ describe('useCheckoutShipping Google city resolution', () => {
     expect(mockSetValue).not.toHaveBeenCalledWith('city', 'Magodo', {
       shouldValidate: true,
     });
+  });
+
+  it('opens the picker immediately when Google returns the state name as the city', async () => {
+    const { result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      {
+        initialProps: createParams({
+          watchedCity: 'Ikeja',
+          watchedState: 'Lagos',
+        }),
+      }
+    );
+    await waitFor(() =>
+      expect(result.current.shippingCities).toEqual(['Ikeja', 'Yaba'])
+    );
+
+    act(() => {
+      result.current.handleDeliveryAddressSelect(
+        createPlace({ city: 'Lagos' }),
+        jest.fn()
+      );
+    });
+
+    expect(result.current.showCityPicker).toBe(true);
   });
 
   it('opens the city picker when Google resolves the state without a city', async () => {

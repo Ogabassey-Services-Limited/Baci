@@ -142,4 +142,53 @@ describe('useCheckoutShipping airport switching', () => {
       expect.objectContaining({ id: 'air-quote', serviceTier: 'GoFaster' }),
     ]);
   });
+
+  it('keeps GIGL GoFaster air service available in Lagos', async () => {
+    mockFetchShippingQuotes.mockImplementation((args) => {
+      args.setShippingQuotes([
+        {
+          displayName: 'GIG Logistics - GoStandard',
+          id: 'road-quote',
+          price: 3500,
+          provider: 'GIGL',
+        },
+        {
+          displayName: 'GIG Logistics - GoFaster',
+          id: 'air-quote',
+          price: 3500,
+          provider: 'GIGL',
+          serviceTier: 'GoFaster',
+        },
+      ]);
+      args.setSelectedQuoteId('road-quote');
+      args.setResolvedShippingQuoteContextKey(args.quoteContextKey);
+      return Promise.resolve();
+    });
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+    const { result } = renderHook(() =>
+      useCheckoutShipping({
+        apiBaseUrl: 'https://api.example.com',
+        customer: null,
+        items,
+        setValue,
+        watchedAddress: '2 Olaide Tomori St, Ikeja, Lagos',
+        watchedCity: 'Ikeja',
+        watchedEmail: 'customer@example.com',
+        watchedFirstName: 'Ada',
+        watchedLastName: 'Lovelace',
+        watchedPhone: '08012345678',
+        watchedState: 'Lagos',
+      })
+    );
+
+    await waitFor(() =>
+      expect(result.current.selectedQuoteId).toBe('road-quote')
+    );
+    act(() => result.current.handleSelectDeliveryMethod('airport'));
+
+    expect(result.current.deliveryMethod).toBe('airport');
+    expect(result.current.selectedQuoteId).toBe('air-quote');
+  });
 });

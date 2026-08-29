@@ -113,6 +113,7 @@ export function CheckoutStepContent({
           addressState.savedAddresses.selectedSavedAddressId
         }
         shippingQuotes={addressState.shipping.shippingQuotes}
+        showLocationPickers={addressState.shipping.showLocationPickers}
         watchedCity={addressState.watchedCity}
         watchedEmail={addressState.watchedEmail}
         watchedState={addressState.watchedState}

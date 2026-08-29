@@ -13,6 +13,7 @@ import {
   getDeliveryMethodFee,
   getShippingProviderForMethod as getProvider,
   getQuotePreference,
+  isGiglGoFasterQuote,
   requiresQuote,
 } from '@/components/checkout/checkout-step-helpers';
 import type {
@@ -93,7 +94,8 @@ export function useCheckoutShipping({
   if (
     (deliveryMethod !== 'door' && !hasResolvedDeliveryLocation) ||
     (deliveryMethod === 'airport' &&
-      !isAirportDeliveryEligible(watchedState)) ||
+      !isAirportDeliveryEligible(watchedState) &&
+      !shippingQuotes.some(isGiglGoFasterQuote)) ||
     (deliveryMethod === 'pickup_station' && !canUsePickupStation)
   ) {
     setDeliveryMethod('door');
@@ -290,6 +292,8 @@ export function useCheckoutShipping({
     shippingCities,
     shippingQuotes,
     shippingStates,
+    showLocationPickers:
+      !activeDeliveryCoordinates || !watchedCity.trim() || !watchedState.trim(),
     showCityPicker,
     showStatePicker,
   };

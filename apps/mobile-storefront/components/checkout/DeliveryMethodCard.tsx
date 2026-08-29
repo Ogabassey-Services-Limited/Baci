@@ -39,6 +39,7 @@ interface DeliveryMethodCardProps {
   airportFee: number;
   deliveryCity?: string | null;
   deliveryState?: string | null;
+  hasGiglGoFasterQuote?: boolean;
   pickupStationQuote?: ShippingQuote;
   children?: ReactNode;
 }
@@ -53,6 +54,7 @@ export function DeliveryMethodCard({
   airportFee,
   deliveryCity,
   deliveryState,
+  hasGiglGoFasterQuote = false,
   pickupStationQuote,
   children,
 }: DeliveryMethodCardProps) {
@@ -66,7 +68,7 @@ export function DeliveryMethodCard({
       isProviderPickup: false,
     },
   ];
-  if (isAirportDeliveryEligible(deliveryState)) {
+  if (isAirportDeliveryEligible(deliveryState) || hasGiglGoFasterQuote) {
     options.push({
       id: 'airport',
       title: 'By Air',

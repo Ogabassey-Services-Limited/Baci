@@ -62,6 +62,7 @@ export function CheckoutAddressStepView({
   selectedSavedAddress,
   selectedSavedAddressId,
   shippingQuotes,
+  showLocationPickers,
   watchedCity,
   watchedEmail,
   watchedState,
@@ -144,6 +145,7 @@ export function CheckoutAddressStepView({
               isLoadingCities={isLoadingCities}
               isLoadingLocations={isLoadingLocations}
               isLoadingSavedAddresses={isLoadingSavedAddresses}
+              showLocationPickers={showLocationPickers}
               onAddressSelected={onAddressSelected}
               onAddressTextChanged={onAddressTextChanged}
               onOpenCityPicker={onOpenCityPicker}
@@ -177,6 +179,7 @@ export function CheckoutAddressStepView({
                   : 'Rates loaded after you enter your address'
               }
               airportFee={AIRPORT_DELIVERY_FEE}
+              hasGiglGoFasterQuote={airShippingQuotes.length > 0}
               pickupStationQuote={stationPickupQuote}
               merchantPickupLocation={merchantPickupLocation}
             >
@@ -213,7 +216,10 @@ export function CheckoutAddressStepView({
                   isLoadingQuotes={isLoadingQuotes}
                   shippingQuotes={
                     deliveryMethod === 'airport'
-                      ? [localAirportQuote, ...airShippingQuotes]
+                      ? [
+                          ...(localAirportQuote ? [localAirportQuote] : []),
+                          ...airShippingQuotes,
+                        ]
                       : doorShippingQuotes
                   }
                   stationPickupQuote={stationPickupQuote}

@@ -1,3 +1,4 @@
+import { isAirportDeliveryEligible } from '@baci/shared';
 import type { RefObject } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 import { normalizeStateName } from '@/components/checkout/checkout-shipping.helpers';
@@ -97,21 +98,34 @@ export function createCheckoutShippingHandlers({
         ? normalizeStateName(place.state, shippingStates)
         : '';
       const selectedCity = place.city?.trim() ?? '';
+      const isAmbiguousGoogleCity = Boolean(
+        normalizedState &&
+          selectedCity &&
+          normalizedState.toLowerCase() === selectedCity.toLowerCase()
+      );
       const hasCompleteGoogleLocation = Boolean(
-        hasGoogleCoordinates && normalizedState && selectedCity
+        hasGoogleCoordinates &&
+          normalizedState &&
+          selectedCity &&
+          !isAmbiguousGoogleCity
       );
 
       if (hasCompleteGoogleLocation) {
         googleSuggestedCityRef.current = null;
       } else if (selectedCity) {
-        const normalizedCity = selectedCity.toLowerCase();
-        googleSuggestedCityRef.current =
-          normalizedState && normalizedCity === normalizedState.toLowerCase()
-            ? ''
-            : selectedCity;
+        googleSuggestedCityRef.current = isAmbiguousGoogleCity
+          ? ''
+          : selectedCity;
+        if (isAmbiguousGoogleCity) {
+          setCitySearch('');
+          setShowCityPicker(true);
+        }
       } else {
         googleSuggestedCityRef.current = normalizedState ? '' : null;
-        if (normalizedState) setShowCityPicker(true);
+        if (normalizedState) {
+          setCitySearch('');
+          setShowCityPicker(true);
+        }
       }
 
       setValue('city', hasCompleteGoogleLocation ? selectedCity : '', {
@@ -177,10 +191,13 @@ export function createCheckoutShippingHandlers({
         const selectedQuote = shippingQuotes.find(
           (quote) => String(quote.id) === String(selectedQuoteId)
         );
+        const goFasterQuote = shippingQuotes.find(isGiglGoFasterQuote);
         setSelectedQuoteId(
           selectedQuote && isGiglGoFasterQuote(selectedQuote)
             ? String(selectedQuote.id)
-            : AIRPORT_QUOTE_ID
+            : !isAirportDeliveryEligible(watchedState) && goFasterQuote
+              ? String(goFasterQuote.id)
+              : AIRPORT_QUOTE_ID
         );
       } else if (method === 'door') {
         const selectedQuote = shippingQuotes.find(

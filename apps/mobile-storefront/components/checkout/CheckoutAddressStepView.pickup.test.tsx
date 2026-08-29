@@ -111,6 +111,7 @@ function createProps(
     isLoadingLocations: false,
     isLoadingQuotes: false,
     isLoadingSavedAddresses: false,
+    showLocationPickers: true,
     merchantPickupLocation,
     onAddressSelected: jest.fn() as AddressStepProps['onAddressSelected'],
     onAddressTextChanged: jest.fn() as AddressStepProps['onAddressTextChanged'],
@@ -191,6 +192,8 @@ describe('CheckoutAddressStepView pickup options', () => {
           deliveryMethod: 'airport',
           selectedQuote: goFasterQuote,
           selectedQuoteId: String(goFasterQuote.id),
+          watchedCity: 'Port Harcourt',
+          watchedState: 'Rivers',
           shippingQuotes: [
             doorQuote,
             goFasterQuote,

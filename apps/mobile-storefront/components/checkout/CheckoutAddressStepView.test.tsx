@@ -121,6 +121,7 @@ function createProps(
     isLoadingLocations: false,
     isLoadingQuotes: false,
     isLoadingSavedAddresses: false,
+    showLocationPickers: true,
     merchantPickupLocation: {
       address: '2 Olaide Tomori St, Ikeja, Lagos',
       city: 'Ikeja',
