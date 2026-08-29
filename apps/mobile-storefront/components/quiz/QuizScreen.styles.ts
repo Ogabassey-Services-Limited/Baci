@@ -225,9 +225,15 @@ export function createQuizStyles(colors: QuizThemeColors) {
       },
       finalStandingName: {
         color: colors.text,
-        flex: 1,
         fontSize: 14,
         fontWeight: '800',
+      },
+      finalStandingIdentity: { flex: 1, gap: 2 },
+      finalStandingTime: {
+        color: colors.textSecondary,
+        fontSize: 12,
+        fontVariant: ['tabular-nums'],
+        fontWeight: '600',
       },
       finalStandingScore: {
         color: colors.textSecondary,

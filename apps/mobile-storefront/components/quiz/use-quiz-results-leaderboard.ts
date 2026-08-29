@@ -5,7 +5,7 @@ import { fetchQuizLiveLeaderboard } from '@/services/quiz-live-leaderboard';
 import type { QuizLeaderboard } from '@/services/quiz-types';
 import type { QuizV2LifecycleStatus } from '@/stores/quiz-recovery-envelope';
 
-const FINAL_RETRY_INTERVAL_MS = 5_000;
+const FINAL_RETRY_INTERVAL_MS = 1_000;
 const LIVE_REFRESH_INTERVAL_MS = 5_000;
 
 interface UseQuizResultsLeaderboardInput {
@@ -31,7 +31,7 @@ export function useQuizResultsLeaderboard({
   const isLive = lifecycle === 'pending_results' && !eventHasEnded;
 
   useEffect(() => {
-    const eventKey = `${eventId ?? ''}:${expectedUserId ?? ''}:${isLive ? 'live' : 'final'}`;
+    const eventKey = `${eventId ?? ''}:${expectedUserId ?? ''}`;
     const eventChanged = previousEventKey.current !== eventKey;
     if (eventChanged) {
       previousEventKey.current = eventKey;

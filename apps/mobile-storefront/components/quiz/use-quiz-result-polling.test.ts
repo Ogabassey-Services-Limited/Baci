@@ -105,6 +105,37 @@ describe('useQuizResultPolling', () => {
     expect(fetchQuizResult).toHaveBeenCalledTimes(2);
   });
 
+  it('retries every second once the server availability time has passed', async () => {
+    const availableAt = new Date(Date.now()).toISOString();
+    jest.mocked(fetchQuizResult).mockResolvedValue({
+      attemptId: 'attempt-1',
+      availability: 'pending',
+      availableAt,
+    });
+
+    renderHook(() =>
+      useQuizResultPolling({
+        attemptId: 'attempt-1',
+        enabled: true,
+        expectedUserId: 'user-1',
+        onResult: jest.fn(),
+      })
+    );
+    await waitFor(() => expect(fetchQuizResult).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      jest.advanceTimersByTime(999);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      jest.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(fetchQuizResult).toHaveBeenCalledTimes(2);
+  });
+
   it('backs off after consecutive result request failures', async () => {
     jest.mocked(fetchQuizResult).mockRejectedValue(new Error('offline'));
 

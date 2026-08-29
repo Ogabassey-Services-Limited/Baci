@@ -82,9 +82,9 @@ describe('QuizResultsPanel lifecycle', () => {
       />
     );
 
-    expect(screen.getByText('8')).toBeTruthy();
     expect(screen.getByTestId('quiz-results-scroll')).toBeTruthy();
-    expect(screen.getByText(/points · 10 questions/)).toBeTruthy();
+    expect(screen.queryByText(/points · 10 questions/)).toBeNull();
+    expect(screen.queryByText('Your quiz attempt is closed.')).toBeNull();
     expect(screen.getByText('Claim your prize')).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'View past quiz leaderboards' })
@@ -198,7 +198,7 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(onReturnToQuizList).toHaveBeenCalledTimes(1);
   });
 
-  it('clears live standings when final publication begins', async () => {
+  it('keeps live standings visible while final publication completes', async () => {
     jest.useFakeTimers();
     jest.setSystemTime(0);
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
@@ -241,8 +241,8 @@ describe('QuizResultsPanel lifecycle', () => {
       jest.advanceTimersByTime(1_250);
       await Promise.resolve();
     });
-    expect(screen.queryByText(/Bassey/)).toBeNull();
-    expect(screen.getByText(/Standings are reconnecting/)).toBeTruthy();
+    expect(screen.getByText(/Bassey/)).toBeTruthy();
+    expect(screen.queryByText(/Standings are reconnecting/)).toBeNull();
     expect(screen.queryByLabelText('Loading final standings')).toBeNull();
   });
 
@@ -282,7 +282,7 @@ describe('QuizResultsPanel lifecycle', () => {
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      jest.advanceTimersByTime(5_000);
+      jest.advanceTimersByTime(1_000);
       await Promise.resolve();
     });
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(2);

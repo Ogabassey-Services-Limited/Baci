@@ -6,6 +6,7 @@ import { useQuizResultRealtimeWakeup } from './use-quiz-result-realtime-wakeup';
 
 export const QUIZ_RESULT_POLL_INTERVAL_MS = 5_000;
 export const QUIZ_RESULT_POLL_MAX_INTERVAL_MS = 30_000;
+export const QUIZ_RESULT_POST_DEADLINE_POLL_INTERVAL_MS = 1_000;
 
 function getPendingPollDelayMs(
   availableAt: string | null,
@@ -14,6 +15,9 @@ function getPendingPollDelayMs(
   const availableAtMs = availableAt ? Date.parse(availableAt) : Number.NaN;
   if (Number.isFinite(availableAtMs) && availableAtMs > nowMs) {
     return Math.min(availableAtMs - nowMs, QUIZ_RESULT_POLL_MAX_INTERVAL_MS);
+  }
+  if (Number.isFinite(availableAtMs)) {
+    return QUIZ_RESULT_POST_DEADLINE_POLL_INTERVAL_MS;
   }
   return QUIZ_RESULT_POLL_INTERVAL_MS;
 }

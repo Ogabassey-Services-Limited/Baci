@@ -68,7 +68,7 @@ describe('useQuizResultsLeaderboard', () => {
     await waitFor(() => expect(result.current.participantCount).toBe(3));
   });
 
-  it('clears live standings before a failed final request', async () => {
+  it('keeps live standings during a failed first final request', async () => {
     jest.mocked(fetchQuizLiveLeaderboard).mockResolvedValue({
       currentPlayer: null,
       entries: [],
@@ -97,8 +97,8 @@ describe('useQuizResultsLeaderboard', () => {
 
     await waitFor(() => {
       expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
-      expect(result.current.leaderboard).toBeNull();
-      expect(result.current.leaderboardError).toBe(true);
+      expect(result.current.leaderboard?.status).toBe('live');
+      expect(result.current.leaderboardError).toBe(false);
     });
   });
 
@@ -128,7 +128,7 @@ describe('useQuizResultsLeaderboard', () => {
     });
     expect(result.current.leaderboardError).toBe(true);
     await act(async () => {
-      jest.advanceTimersByTime(4_999);
+      jest.advanceTimersByTime(999);
       await Promise.resolve();
     });
     expect(fetchQuizLeaderboard).toHaveBeenCalledTimes(1);
