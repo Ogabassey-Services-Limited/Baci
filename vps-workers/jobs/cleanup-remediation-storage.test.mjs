@@ -118,7 +118,7 @@ describe('remediation storage cleanup', () => {
     );
   });
 
-  it('rotates the drain in its own directory and prunes worker-log artifacts', () => {
+  it('rotates and prunes drain artifacts in the drain directory', () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-split-storage-'));
     const workerDirectory = join(root, 'worker-logs');
     const drainDirectory = join(root, 'drain');
@@ -127,24 +127,32 @@ describe('remediation storage cleanup', () => {
     const drainPath = join(drainDirectory, 'vercel-drain.jsonl');
     writeFileSync(join(workerDirectory, 'worker.log'), 'worker-new');
     const oldArtifact = join(
-      workerDirectory,
+      drainDirectory,
       'vercel-drain.quarantine-old.jsonl'
     );
     const newArtifact = join(
-      workerDirectory,
+      drainDirectory,
       'vercel-drain.quarantine-new.jsonl'
     );
-    const retainedArtifact = join(workerDirectory, 'vercel-drain.jsonl.3');
+    const retainedArtifact = join(
+      drainDirectory,
+      'vercel-drain.quarantine-retained.jsonl'
+    );
+    const workerArtifact = join(
+      workerDirectory,
+      'vercel-drain.quarantine-worker.jsonl'
+    );
     writeFileSync(oldArtifact, 'old');
     writeFileSync(newArtifact, 'new');
     writeFileSync(retainedArtifact, 'stale');
+    writeFileSync(workerArtifact, 'worker');
     const now = Date.now();
     utimesSync(oldArtifact, (now - 30_000) / 1_000, (now - 30_000) / 1_000);
-    utimesSync(newArtifact, now / 1_000, now / 1_000);
+    utimesSync(newArtifact, (now + 20_000) / 1_000, (now + 20_000) / 1_000);
     utimesSync(
       retainedArtifact,
-      (now - 20_000) / 1_000,
-      (now - 20_000) / 1_000
+      (now + 10_000) / 1_000,
+      (now + 10_000) / 1_000
     );
     writeFileSync(drainPath, 'drain-new');
     writeFileSync(`${drainPath}.1`, 'drain-old');
@@ -155,7 +163,7 @@ describe('remediation storage cleanup', () => {
         BACI_WORKER_LOG_MAX_BYTES: '4',
         BACI_WORKER_LOG_MAX_ROTATED_FILES: '1',
         VERCEL_ERROR_LOG_MAX_BYTES: '4',
-        VERCEL_ERROR_LOG_MAX_ROTATED_FILES: '2',
+        VERCEL_ERROR_LOG_MAX_ROTATED_FILES: '4',
         VERCEL_ERROR_LOG_PATH: drainPath,
       },
       logger: { log: () => undefined },
@@ -173,6 +181,7 @@ describe('remediation storage cleanup', () => {
     assert.throws(() => statSync(oldArtifact));
     assert.equal(statSync(newArtifact).isFile(), true);
     assert.equal(statSync(retainedArtifact).isFile(), true);
+    assert.equal(statSync(workerArtifact).isFile(), true);
   });
 
   it('uses the autofix worktree root default when no override is configured', () => {

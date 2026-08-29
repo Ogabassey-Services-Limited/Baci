@@ -156,6 +156,7 @@ export function CompareView({
                 >
                   <Image
                     source={createSafeBoundedImageSource({
+                      fit: 'cover',
                       height: 140 - SPACING.md * 2,
                       uri:
                         product.image ||

@@ -9,6 +9,7 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { withDrainFileLock } from '../lib/drain-file-lock.mjs';
 
 const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
 const DEFAULT_MAX_ROTATED_LOGS = 2;
@@ -122,6 +123,7 @@ export function cleanupRemediationStorage({
   maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
   maxDrainLogBytes = maxLogBytes,
   maxDrainRotatedLogs = maxRotatedLogs,
+  drainPath: configuredDrainPath,
   now = Date.now(),
   orphanStoreRetentionMs = DEFAULT_ORPHAN_STORE_RETENTION_MS,
   registeredWorktrees,
@@ -166,19 +168,26 @@ export function cleanupRemediationStorage({
       }
     }
   }
-  const drainPath = join(drainDir, 'vercel-drain.jsonl');
-  if (
-    rotateFile(
-      drainPath,
-      normalizedMaxDrainLogBytes,
-      normalizedMaxDrainRotatedLogs
-    )
-  ) {
-    // Keep the receiver's active path available even when no request arrives
-    // before the next remediator tick.
-    writeFileSync(drainPath, '', { flag: 'a', mode: 0o600 });
-    rotatedLogs += 1;
-  }
+  const drainPath = configuredDrainPath || join(drainDir, 'vercel-drain.jsonl');
+  let prunedDrainArtifacts = 0;
+  withDrainFileLock(`${drainPath}.lock`, () => {
+    if (
+      rotateFile(
+        drainPath,
+        normalizedMaxDrainLogBytes,
+        normalizedMaxDrainRotatedLogs
+      )
+    ) {
+      // Keep the receiver's active path available even when no request arrives
+      // before the next remediator tick.
+      writeFileSync(drainPath, '', { flag: 'a', mode: 0o600 });
+      rotatedLogs += 1;
+    }
+    prunedDrainArtifacts = cleanupOldDrainArtifacts({
+      logsDir: drainDir,
+      maxRotatedLogs: normalizedMaxDrainRotatedLogs,
+    });
+  });
   const worktrees =
     registeredWorktrees ?? listRegisteredWorktrees({ repoDir, runner });
   return {
@@ -188,10 +197,7 @@ export function cleanupRemediationStorage({
       retentionMs: orphanStoreRetentionMs,
       worktreeRoot,
     }),
-    prunedDrainArtifacts: cleanupOldDrainArtifacts({
-      logsDir,
-      maxRotatedLogs: normalizedMaxDrainRotatedLogs,
-    }),
+    prunedDrainArtifacts,
     rotatedLogs,
   };
 }
@@ -211,6 +217,7 @@ export function runRemediationStorageCleanup({
   const result = cleanupRemediationStorage({
     logsDir: env.BACI_WORKER_LOG_DIR || dirname(drainPath),
     drainDir: dirname(drainPath),
+    drainPath,
     maxLogBytes: readPositiveInt(
       env.BACI_WORKER_LOG_MAX_BYTES,
       DEFAULT_MAX_LOG_BYTES

@@ -121,7 +121,9 @@ export function SafeImage({
 
   // Determine placeholder - use provided or default blurhash
   const effectivePlaceholder = placeholder || { blurhash: DEFAULT_BLURHASH };
-  const safeSource = resolveSafeImageSource(source);
+  const safeSource = resolveSafeImageSource(source, {
+    fit: contentFit === 'cover' ? 'cover' : 'inside',
+  });
 
   return (
     <Image

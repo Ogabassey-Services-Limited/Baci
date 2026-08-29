@@ -69,6 +69,7 @@ function SavedItemCard({
         >
           <Image
             source={createSafeBoundedImageSource({
+              fit: 'cover',
               height: 100,
               uri: item.image,
               width: 100,

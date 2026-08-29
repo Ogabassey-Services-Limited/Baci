@@ -140,6 +140,7 @@ export default function SavedTabScreen() {
           >
             <Image
               source={createSafeBoundedImageSource({
+                fit: 'cover',
                 height: 80,
                 uri: item.image,
                 width: 80,

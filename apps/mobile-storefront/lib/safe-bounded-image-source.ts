@@ -7,6 +7,7 @@ import { resolveSafeImageUri } from './safe-image-uri';
  */
 export function createSafeBoundedImageSource(options: {
   height: number;
+  fit?: 'inside' | 'cover';
   pixelRatio?: number;
   uri: string;
   width: number;
@@ -15,6 +16,9 @@ export function createSafeBoundedImageSource(options: {
 
   return {
     ...boundedSource,
-    uri: resolveSafeImageUri(boundedSource.uri, boundedSource),
+    uri: resolveSafeImageUri(boundedSource.uri, {
+      ...boundedSource,
+      ...(options.fit ? { fit: options.fit } : {}),
+    }),
   };
 }

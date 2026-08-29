@@ -1,5 +1,6 @@
 interface ImageDimensions {
   height?: number;
+  fit?: 'inside' | 'cover';
   width?: number;
 }
 
@@ -52,6 +53,7 @@ export function resolveSafeImageUri(
     toTransformDimension(dimensions.height, 'height'),
     `quality=${DEFAULT_TRANSFORM_QUALITY}`,
     `format=${/\.png$/i.test(sourcePath) ? 'png' : 'jpeg'}`,
+    dimensions.fit === 'cover' ? 'fit=cover' : undefined,
   ].filter((option): option is string => Boolean(option));
 
   return `${parsed.origin}${OGABASSEY_IMAGE_TRANSFORM_PREFIX}${options.join(',')}${sourcePath}${parsed.search}${parsed.hash}`;

@@ -78,10 +78,14 @@ function fileSignatures(path, maxRotatedFiles) {
   return signatures;
 }
 
-function readDrainTailOnce(path, maxRotatedFiles) {
+function readDrainTailOnce(
+  path,
+  maxRotatedFiles,
+  { readFileTailImpl = readFileTail } = {}
+) {
   let remainingBytes = MAX_JSONL_READ_BYTES;
   const chunks = [];
-  const active = readFileTail(path, remainingBytes);
+  const active = readFileTailImpl(path, remainingBytes);
   chunks.push({ path, ...active });
   remainingBytes -= active.bytesRead;
 
@@ -93,7 +97,7 @@ function readDrainTailOnce(path, maxRotatedFiles) {
     const rotatedPath = `${path}.${index}`;
     let rotated;
     try {
-      rotated = readFileTail(rotatedPath, remainingBytes);
+      rotated = readFileTailImpl(rotatedPath, remainingBytes);
     } catch (error) {
       if (error?.code === 'ENOENT') break;
       throw error;
@@ -105,12 +109,18 @@ function readDrainTailOnce(path, maxRotatedFiles) {
   return joinFileTails(chunks.map(({ content }) => content));
 }
 
-function readDrainTail(path, maxRotatedFiles) {
+export function readDrainTail(
+  path,
+  maxRotatedFiles,
+  { fileSignaturesImpl = fileSignatures, readFileTailImpl = readFileTail } = {}
+) {
   let content = '';
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const before = fileSignatures(path, maxRotatedFiles);
-    content = readDrainTailOnce(path, maxRotatedFiles);
-    const after = fileSignatures(path, maxRotatedFiles);
+    const before = fileSignaturesImpl(path, maxRotatedFiles);
+    content = readDrainTailOnce(path, maxRotatedFiles, {
+      readFileTailImpl,
+    });
+    const after = fileSignaturesImpl(path, maxRotatedFiles);
     if (
       before.length === after.length &&
       before.every((signature, index) => signature === after[index])
@@ -118,19 +128,19 @@ function readDrainTail(path, maxRotatedFiles) {
       return content;
     }
   }
-  return content;
+  throw new Error('Vercel drain changed while reading; retry later');
 }
 
 export function readJsonlLogEvents(
   path,
-  { maxRotatedFiles = MAX_JSONL_ROTATED_FILES } = {}
+  { maxRotatedFiles = MAX_JSONL_ROTATED_FILES, reader = readDrainTail } = {}
 ) {
   const parsedLimit = Number(maxRotatedFiles);
   const effectiveLimit =
     Number.isSafeInteger(parsedLimit) && parsedLimit > 0
       ? parsedLimit
       : MAX_JSONL_ROTATED_FILES;
-  const content = readDrainTail(path, effectiveLimit);
+  const content = reader(path, effectiveLimit);
   const events = [];
   for (const [index, line] of content.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;

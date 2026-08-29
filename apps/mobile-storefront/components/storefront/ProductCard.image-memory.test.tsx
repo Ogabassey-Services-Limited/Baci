@@ -99,7 +99,7 @@ describe('ProductCard image memory behavior', () => {
       expect.objectContaining({
         imageSource: {
           height: 352,
-          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg/core-assets/products/phone.avif',
+          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
           width: 352,
         },
       })
@@ -122,7 +122,7 @@ describe('ProductCard image memory behavior', () => {
     expect(mockAddItem).toHaveBeenCalledWith(
       expect.objectContaining({
         image_url:
-          'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg/core-assets/products/phone.avif',
+          'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
       })
     );
   });

@@ -8,6 +8,7 @@ import { appendFileSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { withDrainFileLock } from '../lib/drain-file-lock.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PATH = '/__baci/vercel-log-drain';
@@ -113,8 +114,10 @@ function appendDrainLines({ lines, logPath, maxLogBytes, maxRotatedLogs }) {
     return;
   }
   mkdirSync(dirname(logPath), { recursive: true });
-  rotateDrainLog({ logPath, maxLogBytes, maxRotatedLogs });
-  appendFileSync(logPath, `${lines.join('\n')}\n`, { mode: 0o600 });
+  withDrainFileLock(`${logPath}.lock`, () => {
+    rotateDrainLog({ logPath, maxLogBytes, maxRotatedLogs });
+    appendFileSync(logPath, `${lines.join('\n')}\n`, { mode: 0o600 });
+  });
 }
 
 async function readRequestBody(request, maxBytes) {

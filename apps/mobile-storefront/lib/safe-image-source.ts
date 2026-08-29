@@ -6,13 +6,16 @@ import { resolveSafeImageUri } from './safe-image-uri';
  * cache keys, and so on) intact while allowing catalog URIs to use the safe
  * CDN fallback.
  */
-export function resolveSafeImageSource<T>(source: T): T {
+export function resolveSafeImageSource<T>(
+  source: T,
+  { fit }: { fit?: 'inside' | 'cover' } = {}
+): T {
   if (Array.isArray(source)) {
-    return source.map((entry) => resolveSafeImageSource(entry)) as T;
+    return source.map((entry) => resolveSafeImageSource(entry, { fit })) as T;
   }
 
   if (typeof source === 'string') {
-    return resolveSafeImageUri(source) as T;
+    return resolveSafeImageUri(source, { fit }) as T;
   }
 
   if (!source || typeof source !== 'object') {
@@ -38,6 +41,7 @@ export function resolveSafeImageSource<T>(source: T): T {
         typeof sourceRecord.width === 'number'
           ? clampDecodeDimension(sourceRecord.width)
           : undefined,
+      ...(fit ? { fit } : {}),
     }),
     ...(typeof sourceRecord.width === 'number'
       ? { width: clampDecodeDimension(sourceRecord.width) }

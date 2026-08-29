@@ -38,6 +38,7 @@ export function TrackOrderItemsCard({
           {item.product_image ? (
             <Image
               source={createSafeBoundedImageSource({
+                fit: 'cover',
                 height: 48,
                 uri: item.product_image,
                 width: 48,

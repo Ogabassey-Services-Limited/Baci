@@ -218,6 +218,7 @@ export function ImageZoomModal({
                 >
                   <Image
                     source={createSafeBoundedImageSource({
+                      fit: 'cover',
                       height: 56,
                       uri: img,
                       width: 56,

@@ -170,6 +170,7 @@ export function SearchDropdownList({
         >
           <SafeImage
             source={createSafeBoundedImageSource({
+              fit: 'cover',
               height: 44,
               uri: product.image,
               width: 44,

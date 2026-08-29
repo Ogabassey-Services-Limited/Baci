@@ -45,6 +45,7 @@ export function OrderDetailsItemsCard({
           >
             <Image
               source={createSafeBoundedImageSource({
+                fit: 'cover',
                 height: 64,
                 uri: item.image_url || 'https://via.placeholder.com/80',
                 width: 64,

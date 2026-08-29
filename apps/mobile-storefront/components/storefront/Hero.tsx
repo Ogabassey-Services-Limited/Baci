@@ -52,8 +52,13 @@ const heroImageProps = {
   autoplay: false,
 };
 
-function getHeroImageSource(uri: string, width: number, height: number) {
-  return createSafeBoundedImageSource({ height, uri, width });
+function getHeroImageSource(
+  uri: string,
+  width: number,
+  height: number,
+  fit: 'inside' | 'cover' = 'inside'
+) {
+  return createSafeBoundedImageSource({ fit, height, uri, width });
 }
 
 // --- SUB-COMPONENT: Elite Web-Alike Slide ---
@@ -135,7 +140,12 @@ const FashionSlide = ({
 }) => (
   <View style={[styles.slide, { width: screenWidth, height: CAROUSEL_HEIGHT }]}>
     <Image
-      source={getHeroImageSource(item.image, screenWidth, CAROUSEL_HEIGHT)}
+      source={getHeroImageSource(
+        item.image,
+        screenWidth,
+        CAROUSEL_HEIGHT,
+        'cover'
+      )}
       style={StyleSheet.absoluteFill}
       contentFit="cover"
       {...heroImageProps}
@@ -175,7 +185,12 @@ const StandardSlide = ({
     ]}
   >
     <Image
-      source={getHeroImageSource(item.image, screenWidth, STANDARD_HEIGHT)}
+      source={getHeroImageSource(
+        item.image,
+        screenWidth,
+        STANDARD_HEIGHT,
+        'cover'
+      )}
       style={[StyleSheet.absoluteFill, { borderRadius: RADIUS.xl }]}
       contentFit="cover"
       {...heroImageProps}

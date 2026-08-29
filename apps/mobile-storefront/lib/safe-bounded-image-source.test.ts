@@ -15,4 +15,17 @@ describe('createSafeBoundedImageSource', () => {
       width: 240,
     });
   });
+
+  it('forwards cover fitting to managed CDN transforms', () => {
+    expect(
+      createSafeBoundedImageSource({
+        fit: 'cover',
+        height: 100,
+        uri: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        width: 120,
+      }).uri
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=240,height=200,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif'
+    );
+  });
 });

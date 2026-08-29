@@ -182,6 +182,7 @@ export function ProductCard({
     imageAttempt
   );
   const imageSource = createSafeBoundedImageSource({
+    fit: 'cover',
     height: variant === 'editorial' ? imageWidth / 0.8 : imageWidth,
     uri: imageAttemptUri,
     width: imageWidth,

@@ -26,4 +26,16 @@ describe('resolveSafeImageUri', () => {
       })
     ).toBe('https://images.example.com/products/phone.avif');
   });
+
+  it('preserves cover semantics in managed CDN transforms', () => {
+    expect(
+      resolveSafeImageUri('https://cdn.ogabassey.com/products/phone.avif', {
+        fit: 'cover',
+        height: 120,
+        width: 240,
+      })
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=240,height=120,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif'
+    );
+  });
 });

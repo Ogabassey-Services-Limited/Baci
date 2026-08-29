@@ -15,6 +15,7 @@ import {
   MAX_JSONL_READ_BYTES,
   readJsonlLogEvents,
 } from './vercel-error-events.mjs';
+import { readDrainTail } from './vercel-error-events-reader.mjs';
 
 describe('Vercel JSONL drain reader', () => {
   it('reads recent events from a sparse drain beyond the string limit', () => {
@@ -138,5 +139,23 @@ describe('Vercel JSONL drain reader', () => {
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
+  });
+
+  it('rejects a drain that changes during both bounded read attempts', () => {
+    let signatureRead = 0;
+    const signatures = () => {
+      signatureRead += 1;
+      return [`signature-${signatureRead}`];
+    };
+
+    assert.throws(
+      () =>
+        readDrainTail('ignored-drain.jsonl', 2, {
+          fileSignaturesImpl: signatures,
+          readFileTailImpl: () => ({ bytesRead: 0, content: '' }),
+        }),
+      /Vercel drain changed while reading; retry later/
+    );
+    assert.equal(signatureRead, 4);
   });
 });

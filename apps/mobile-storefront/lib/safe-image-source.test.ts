@@ -11,4 +11,15 @@ describe('resolveSafeImageSource', () => {
       width: 100,
     });
   });
+
+  it('adds cover fitting when normalizing a managed string source', () => {
+    expect(
+      resolveSafeImageSource(
+        'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        { fit: 'cover' }
+      )
+    ).toBe(
+      'https://cdn.ogabassey.com/image/quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif'
+    );
+  });
 });

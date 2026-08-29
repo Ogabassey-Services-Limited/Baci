@@ -56,6 +56,7 @@ export function ProductImageGallery({
         <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
           <Image
             source={createSafeBoundedImageSource({
+              fit: 'cover',
               height: headerHeight,
               uri: images[selectedImageIndex],
               width: screenWidth,
@@ -114,6 +115,7 @@ export function ProductImageGallery({
               >
                 <Image
                   source={createSafeBoundedImageSource({
+                    fit: 'cover',
                     height: 64,
                     uri: img,
                     width: 64,
