@@ -117,6 +117,11 @@ SENTRY_PROJECT=...
 SENTRY_URL=https://sentry.io/
 VERCEL_LOG_DRAIN_SECRET=...
 VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
+VERCEL_ERROR_LOG_MAX_BYTES=33554432
+VERCEL_ERROR_LOG_MAX_ROTATED_FILES=2
+BACI_WORKER_LOG_MAX_BYTES=33554432
+BACI_WORKER_LOG_MAX_ROTATED_FILES=2
+BACI_REMEDIATION_ORPHAN_STORE_RETENTION_HOURS=24
 IMPORT_JOB_RETENTION_DAYS=30
 ANALYTICS_LOW_VALUE_RETENTION="30 days"
 SUPABASE_CRON_LOG_RETENTION="14 days"
@@ -171,6 +176,11 @@ Variable purposes:
 - `BACI_SENTRY_REMEDIATION_MAX_PAGES`: Maximum Sentry issue pages inspected before failing closed. Each page requests Sentry's maximum 100 issues; default is `10` and the hard cap is `50`.
 - `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
 - `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
+- `VERCEL_ERROR_LOG_MAX_BYTES`: Maximum active Vercel drain size before rotation. Defaults to 32 MiB; one accepted request may temporarily exceed the bound by its payload size.
+- `VERCEL_ERROR_LOG_MAX_ROTATED_FILES`: Number of active drain rotations retained. Defaults to `2`.
+- `BACI_WORKER_LOG_MAX_BYTES`: Maximum size for each worker `.log` before the daily storage cleanup rotates it. Defaults to 32 MiB.
+- `BACI_WORKER_LOG_MAX_ROTATED_FILES`: Number of worker log rotations retained by the daily storage cleanup. Defaults to `2`.
+- `BACI_REMEDIATION_ORPHAN_STORE_RETENTION_HOURS`: Minimum age before an unregistered per-run pnpm store is removed. Defaults to `24` hours; cleanup fails closed if Git cannot enumerate registered worktrees.
 - `IMPORT_JOB_RETENTION_DAYS`: Days to keep terminal import job previews and migration CSVs before cleanup. Default is `30`.
 - `ANALYTICS_LOW_VALUE_RETENTION`: Retention interval for raw `page_view` and `search` analytics events. Default is `30 days`.
 - `SUPABASE_CRON_LOG_RETENTION`: Retention interval for `cron.job_run_details`. Default is `14 days`.

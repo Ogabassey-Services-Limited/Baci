@@ -8,6 +8,8 @@ import {
   redactCodexOutput,
 } from './remediation-codex-output.mjs';
 import { resumeCommittedRemediationBranch } from './remediation-committed-branch-resume.mjs';
+import { createGuardedCodexRunner } from './remediation-docker-codex-runner.mjs';
+import { assertConfiguredDockerImageAvailable } from './remediation-docker-image-preflight.mjs';
 import { createRemediationDraftPrReconciler } from './remediation-draft-pr-reconciliation.mjs';
 import { buildRemediationEnvironments } from './remediation-environments.mjs';
 import { evaluateMergePolicy } from './remediation-policy.mjs';
@@ -81,6 +83,7 @@ export function runRemediationAutofix({
   let worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
   const rootCommandOptions = { cwd: repoDir, env: childEnv, runner };
   const rootRemoteCommandOptions = { cwd: repoDir, env: gitEnv, runner };
+  const imageCheck = { env, options: rootCommandOptions, runner };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
   const prReconciler = createRemediationDraftPrReconciler({
@@ -131,6 +134,7 @@ export function runRemediationAutofix({
     if (retainedWorktreeDir) {
       worktreeDir = retainedWorktreeDir;
     } else {
+      assertConfiguredDockerImageAvailable(imageCheck);
       runChecked(
         'git',
         ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
@@ -160,6 +164,14 @@ export function runRemediationAutofix({
         worktreeRemoteCommandOptions,
       });
     if (committedBranchResult) return committedBranchResult;
+    if (retainedWorktreeDir) {
+      assertConfiguredDockerImageAvailable(imageCheck);
+    }
+    const guardedRunCodex = createGuardedCodexRunner({
+      hasRetainedWorktree: Boolean(retainedWorktreeDir),
+      onUnavailableImage: () => (cleanupCompletedWorktree = true),
+      runCodex: runCodexChecked,
+    });
     const codexPhases = runRemediationCodexPhases({
       candidate,
       codexBin,
@@ -167,7 +179,7 @@ export function runRemediationAutofix({
       prompt,
       repoDir,
       runner,
-      runCodex: runCodexChecked,
+      runCodex: guardedRunCodex,
       worktreeCommandOptions,
       worktreeDir,
     });

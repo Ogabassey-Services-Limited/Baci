@@ -13,6 +13,7 @@
     "cleanup-private-expense-receipts": "node jobs/cleanup-private-expense-receipts.mjs",
     "supabase-retention-cleanup": "node jobs/supabase-retention-cleanup.mjs",
     "cleanup-agentic-request-records": "node jobs/cleanup-agentic-request-records.mjs",
+    "cleanup-remediation-storage": "node jobs/cleanup-remediation-storage.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
     "sync-gigl-service-centres": "node jobs/sync-gigl-service-centres.mjs",
     "agentic-commerce-health": "node jobs/run-web-cron.mjs /api/cron/agentic-commerce-health",

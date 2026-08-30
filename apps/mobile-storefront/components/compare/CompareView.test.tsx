@@ -23,10 +23,12 @@ jest.mock('expo-image', () => {
     Image: ({
       autoplay,
       accessibilityLabel,
+      source,
       testID,
     }: {
       autoplay?: boolean;
       accessibilityLabel?: string;
+      source?: unknown;
       testID?: string;
     }) => {
       const viewProps = {
@@ -34,6 +36,7 @@ jest.mock('expo-image', () => {
         accessibilityLabel: accessibilityLabel ?? 'compare product image',
         accessibilityRole: 'image' as const,
         autoplay,
+        source,
       } as unknown as React.ComponentProps<typeof View>;
       return <View {...viewProps} />;
     },
@@ -171,6 +174,27 @@ describe('CompareView', () => {
       expect(screen.getByTestId('compare-product-image').props.autoplay).toBe(
         false
       );
+    });
+
+    it('bounds managed catalog images to the compare cell and static fallback', () => {
+      render(
+        <CompareView
+          {...createProps()}
+          products={[
+            {
+              ...phone,
+              image:
+                'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+            },
+          ]}
+        />
+      );
+
+      expect(screen.getByTestId('compare-product-image').props.source).toEqual({
+        height: 216,
+        uri: 'https://cdn.ogabassey.com/image/width=216,height=216,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+        width: 216,
+      });
     });
   });
 });

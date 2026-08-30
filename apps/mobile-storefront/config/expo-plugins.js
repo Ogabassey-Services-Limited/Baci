@@ -56,6 +56,11 @@ function createExpoPlugins({
           compileSdkVersion: 36,
           targetSdkVersion: 36,
           buildToolsVersion: '36.0.0',
+          // Compress native libraries in Play-generated splits. Some Android
+          // 11/Huawei installs report an incorrect nativeLibraryDir while
+          // using direct APK loading, so extracted libraries give SoLoader a
+          // reliable ABI-specific filesystem path for libc++_shared.so.
+          useLegacyPackaging: true,
           enableMinifyInReleaseBuilds: true,
           enableShrinkResourcesInReleaseBuilds: true,
           // AGP 9.1 enables this by default. Keep the same DEX compaction on

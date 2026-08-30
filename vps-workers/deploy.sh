@@ -58,7 +58,7 @@ RestartSec=5
 [Install]
 WantedBy=default.target
 EOF
-ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-vercel-log-drain-receiver.service"
+ssh "$VPS" "systemctl --user daemon-reload && systemctl --user enable --now baci-vercel-log-drain-receiver.service && systemctl --user restart baci-vercel-log-drain-receiver.service"
 
 echo "==> Installing AI storefront trigger user service"
 cat <<EOF | ssh "$VPS" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/baci-ai-storefront-trigger.service"
@@ -115,6 +115,7 @@ $CRON_BLOCK_START
 12 *   * * * flock -n $REMOTE_DIR/locks/cleanup-legacy-expense-receipts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-legacy-expense-receipts.mjs' >> $REMOTE_DIR/logs/cleanup-legacy-expense-receipts.log 2>&1
 18 *   * * * flock -n $REMOTE_DIR/locks/cleanup-private-expense-receipts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-private-expense-receipts.mjs' >> $REMOTE_DIR/logs/cleanup-private-expense-receipts.log 2>&1
 20 3   * * * flock -n $REMOTE_DIR/locks/supabase-retention-cleanup.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/supabase-retention-cleanup.mjs' >> $REMOTE_DIR/logs/supabase-retention-cleanup.log 2>&1
+40 3   * * * flock -n $REMOTE_DIR/locks/cleanup-remediation-storage.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-remediation-storage.mjs' >> $REMOTE_DIR/logs/cleanup-remediation-storage.log 2>&1
 0 5    * * * flock -n $REMOTE_DIR/locks/process-settlements.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/process-settlements' >> $REMOTE_DIR/logs/process-settlements.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/order-cancellation-side-effects.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/process-settlements?cancellationsOnly=true' >> $REMOTE_DIR/logs/order-cancellation-side-effects.log 2>&1
 */5 *  * * * flock -n $REMOTE_DIR/locks/reconcile-vtu-processing.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/reconcile-vtu-processing' >> $REMOTE_DIR/logs/reconcile-vtu-processing.log 2>&1
