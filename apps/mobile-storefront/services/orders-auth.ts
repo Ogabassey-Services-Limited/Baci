@@ -1,0 +1,72 @@
+import type { Session } from '@supabase/supabase-js';
+import { createLogger } from '@/lib/logger';
+
+const log = createLogger('Order');
+const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 5_000;
+
+type CheckoutAuth = {
+  refreshSession: () => Promise<{
+    data: { session: Session | null };
+    error: Error | null;
+  }>;
+};
+
+function refreshTimeout(timeoutMs: number): {
+  promise: Promise<never>;
+  timer: ReturnType<typeof setTimeout> | undefined;
+} {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const promise = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error('Checkout session refresh timed out')),
+      timeoutMs
+    );
+  });
+
+  return { promise, timer };
+}
+
+type CheckoutAuthResult = {
+  authorizationHeaders: Record<string, string>;
+  session: Session | null;
+};
+
+function checkoutAuthResult(session: Session | null): CheckoutAuthResult {
+  return {
+    authorizationHeaders: session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : {},
+    session,
+  };
+}
+
+export async function resolveCheckoutAuth(
+  auth: CheckoutAuth,
+  storedSession: Session | null,
+  timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS
+): Promise<CheckoutAuthResult> {
+  if (!storedSession) return checkoutAuthResult(null);
+
+  const timeout = refreshTimeout(timeoutMs);
+  try {
+    const { data, error } = await Promise.race([
+      auth.refreshSession(),
+      timeout.promise,
+    ]);
+    if (error || !data.session) {
+      log.warn('Unable to refresh checkout session; using stored session', {
+        error: error?.message ?? 'Refresh returned no session',
+      });
+      return checkoutAuthResult(storedSession);
+    }
+
+    return checkoutAuthResult(data.session);
+  } catch (error) {
+    log.warn('Unable to refresh checkout session; using stored session', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return checkoutAuthResult(storedSession);
+  } finally {
+    if (timeout.timer) clearTimeout(timeout.timer);
+  }
+}
