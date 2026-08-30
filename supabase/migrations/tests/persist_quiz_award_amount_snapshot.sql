@@ -12,16 +12,16 @@ BEGIN;
 
 DO $$
 DECLARE
-  v_merchant_id uuid := '00000000-0000-4000-8000-00000000a101';
-  v_customer_id uuid := '00000000-0000-4000-8000-00000000a102';
-  v_event_id uuid := '00000000-0000-4000-8000-00000000a103';
-  v_ordinary_attempt_id uuid := '00000000-0000-4000-8000-00000000a104';
-  v_reserved_attempt_id uuid := '00000000-0000-4000-8000-00000000a105';
-  v_order_id uuid := '00000000-0000-4000-8000-00000000a106';
-  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000a107';
-  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000a108';
-  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000a109';
-  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000a10a';
+  v_merchant_id uuid := '00000000-0000-4000-8000-00000000f901';
+  v_customer_id uuid := '00000000-0000-4000-8000-00000000f902';
+  v_event_id uuid := '00000000-0000-4000-8000-00000000f903';
+  v_ordinary_attempt_id uuid := '00000000-0000-4000-8000-00000000f904';
+  v_reserved_attempt_id uuid := '00000000-0000-4000-8000-00000000f905';
+  v_order_id uuid := '00000000-0000-4000-8000-00000000f906';
+  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000f907';
+  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000f908';
+  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000f909';
+  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000f90a';
 BEGIN
   -- Replay checks run as the database owner, but several quiz/order triggers
   -- still require a request identity. Use the fixture customer as the
@@ -40,16 +40,16 @@ BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_merchant_id,
-    'quiz-award-snapshot-test-a101@example.com',
+    'quiz-award-snapshot-test-f901@example.com',
     'Quiz Award Snapshot Test',
-    'quiz-award-snapshot-test-a101'
+    'quiz-award-snapshot-test-f901'
   );
 
   INSERT INTO public.customers (id, merchant_id, email, full_name)
   VALUES (
     v_customer_id,
     v_merchant_id,
-    'quiz-award-customer-a102@example.com',
+    'quiz-award-customer-f902@example.com',
     'Quiz Award Snapshot Customer'
   );
 
@@ -57,7 +57,7 @@ BEGIN
   VALUES (
     v_event_id,
     v_merchant_id,
-    'quiz-award-snapshot-test-a101',
+    'quiz-award-snapshot-test-f901',
     'Quiz Award Snapshot Test',
     'active'
   );
@@ -81,9 +81,9 @@ BEGIN
   ) VALUES (
     v_order_id,
     v_merchant_id,
-    'QUIZ-AWARD-SNAPSHOT-A106',
+    'QUIZ-AWARD-SNAPSHOT-F906',
     'Quiz Award Snapshot Customer',
-    'quiz-award-customer-a102@example.com',
+    'quiz-award-customer-f902@example.com',
     0,
     0,
     'paid',
@@ -183,10 +183,10 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 DECLARE
-  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000a107';
-  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000a108';
-  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000a109';
-  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000a10a';
+  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000f907';
+  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000f908';
+  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000f909';
+  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000f90a';
   v_award_id uuid;
   v_amount numeric;
 BEGIN
