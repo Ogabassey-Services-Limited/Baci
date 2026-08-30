@@ -130,6 +130,26 @@ describe('remediation storage cleanup', () => {
     );
   });
 
+  it('rotates a .log drain only inside the drain-specific path', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-log-drain-'));
+    const drainPath = join(directory, 'vercel-drain.log');
+    writeFileSync(drainPath, 'drain-new');
+
+    const result = runRemediationStorageCleanup({
+      env: {
+        BACI_WORKER_LOG_DIR: directory,
+        BACI_WORKER_LOG_MAX_BYTES: '4',
+        VERCEL_ERROR_LOG_MAX_BYTES: '4',
+        VERCEL_ERROR_LOG_PATH: drainPath,
+      },
+      logger: { log: () => undefined },
+    });
+
+    assert.equal(result.rotatedLogs, 1);
+    assert.equal(readFileSync(`${drainPath}.1`, 'utf8'), 'drain-new');
+    assert.equal(readFileSync(drainPath, 'utf8'), '');
+  });
+
   it('rotates and prunes drain artifacts in the drain directory', () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-split-storage-'));
     const workerDirectory = join(root, 'worker-logs');

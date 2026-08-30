@@ -176,6 +176,8 @@ export function cleanupRemediationStorage({
     maxDrainLogBytes,
     DEFAULT_MAX_LOG_BYTES
   );
+  const drainPath = configuredDrainPath || join(drainDir, 'vercel-drain.jsonl');
+  const resolvedDrainPath = resolve(drainPath);
   let rotatedLogs = 0;
   if (existsSync(logsDir)) {
     for (const entry of readdirSync(logsDir, { withFileTypes: true })) {
@@ -184,6 +186,9 @@ export function cleanupRemediationStorage({
         entry.isSymbolicLink() ||
         !entry.name.endsWith('.log')
       ) {
+        continue;
+      }
+      if (resolve(join(logsDir, entry.name)) === resolvedDrainPath) {
         continue;
       }
       if (
@@ -197,7 +202,6 @@ export function cleanupRemediationStorage({
       }
     }
   }
-  const drainPath = configuredDrainPath || join(drainDir, 'vercel-drain.jsonl');
   let prunedDrainArtifacts = 0;
   withDrainFileLock(`${drainPath}.lock`, () => {
     if (
