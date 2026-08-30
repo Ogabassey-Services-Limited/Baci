@@ -86,12 +86,30 @@ function listRegisteredWorktrees({ repoDir, runner = spawnSync }) {
     }
   );
   if (result.error || result.status !== 0) return null;
-  return new Set(
-    (result.stdout || '')
-      .split(/\r?\n/)
-      .filter((line) => line.startsWith('worktree '))
-      .map((line) => resolve(line.slice('worktree '.length)))
-  );
+  const registered = new Set();
+  let worktreePath;
+  let prunable = false;
+  const finishRecord = () => {
+    if (worktreePath && !prunable) {
+      registered.add(resolve(worktreePath));
+    }
+    worktreePath = undefined;
+    prunable = false;
+  };
+  for (const line of (result.stdout || '').split(/\r?\n/)) {
+    if (!line) {
+      finishRecord();
+      continue;
+    }
+    if (line.startsWith('worktree ')) {
+      finishRecord();
+      worktreePath = line.slice('worktree '.length);
+      continue;
+    }
+    if (line.startsWith('prunable')) prunable = true;
+  }
+  finishRecord();
+  return registered;
 }
 
 function cleanupOrphanedStores({

@@ -115,9 +115,14 @@ export function readDrainTail(
   let content = '';
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const before = fileSignaturesImpl(path, maxRotatedFiles);
-    content = readDrainTailOnce(path, maxRotatedFiles, {
-      readFileTailImpl,
-    });
+    try {
+      content = readDrainTailOnce(path, maxRotatedFiles, {
+        readFileTailImpl,
+      });
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
     const after = fileSignaturesImpl(path, maxRotatedFiles);
     if (
       before.length === after.length &&

@@ -158,4 +158,31 @@ describe('Vercel JSONL drain reader', () => {
     );
     assert.equal(signatureRead, 4);
   });
+
+  it('retries when the active drain disappears during a read', () => {
+    let reads = 0;
+    const event = JSON.stringify({
+      level: 'error',
+      message: 'Error: recovered after rotation',
+    });
+
+    const content = readDrainTail('ignored-drain.jsonl', 0, {
+      fileSignaturesImpl: () => ['stable'],
+      readFileTailImpl: () => {
+        reads += 1;
+        if (reads === 1) {
+          const error = new Error('active drain moved');
+          error.code = 'ENOENT';
+          throw error;
+        }
+        return {
+          bytesRead: Buffer.byteLength(`${event}\n`),
+          content: `${event}\n`,
+        };
+      },
+    });
+
+    assert.equal(content, `${event}\n`);
+    assert.equal(reads, 2);
+  });
 });

@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   statSync,
   utimesSync,
   writeFileSync,
@@ -282,5 +283,46 @@ describe('remediation storage cleanup', () => {
     });
 
     assert.throws(() => statSync(orphanStore));
+  });
+
+  it('does not retain stores for prunable git worktree records', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-prunable-worktree-'));
+    const repoDir = join(root, 'repo');
+    const worktreeRoot = join(root, 'worktrees');
+    const prunableWorktree = join(worktreeRoot, 'old-run');
+    const orphanStore = join(worktreeRoot, 'old-run-pnpm-store');
+    mkdirSync(repoDir);
+    mkdirSync(orphanStore, { recursive: true });
+    const oldTime = Date.now() - 48 * 60 * 60 * 1_000;
+    utimesSync(orphanStore, oldTime / 1_000, oldTime / 1_000);
+
+    try {
+      runRemediationStorageCleanup({
+        env: {
+          BACI_REPO_DIR: repoDir,
+          BACI_REMEDIATION_WORKTREE_ROOT: worktreeRoot,
+        },
+        logger: { log: () => undefined },
+        runner: () => ({
+          error: null,
+          status: 0,
+          stderr: '',
+          stdout: [
+            `worktree ${repoDir}`,
+            'HEAD main-head',
+            'branch refs/heads/main',
+            '',
+            `worktree ${prunableWorktree}`,
+            'HEAD old-head',
+            'prunable gitdir file points to non-existent location',
+            '',
+          ].join('\n'),
+        }),
+      });
+
+      assert.throws(() => statSync(orphanStore));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });
