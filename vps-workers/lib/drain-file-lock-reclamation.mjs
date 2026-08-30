@@ -212,10 +212,9 @@ export function createDrainFileLockReclaimer() {
         current.dev === acquiredIdentity?.dev &&
         current.ino === acquiredIdentity?.ino
       ) {
-        // Let the reclaimer claim this inode while its marker is visible.
-        if (!reclaimInProgress(lockPath)) {
-          unlinkSync(lockPath);
-        }
+        // Remove this verified generation even when a reclaimer marker is visible.
+        // The reclaimer will observe the missing canonical path and finish safely.
+        unlinkSync(lockPath);
       }
     } catch (error) {
       if (error?.code === 'ENOENT') {

@@ -99,7 +99,7 @@ describe('drain file lock', () => {
     assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
   });
 
-  it('leaves the owned lock for a reclaim that starts during release', () => {
+  it('removes the owned lock when a reclaim starts during release', () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
     const lockPath = join(directory, 'vercel-drain.jsonl.lock');
     const markerPath = `${lockPath}.reclaim-${process.pid}-test`;
@@ -111,10 +111,9 @@ describe('drain file lock', () => {
       }),
       'done'
     );
-    assert.equal(readFileSync(lockPath, 'utf8'), `${process.pid}\n`);
+    assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
 
     unlinkSync(markerPath);
-    unlinkSync(lockPath);
   });
 
   it('does not release a replacement lock owned by another generation', () => {
