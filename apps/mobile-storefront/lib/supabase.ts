@@ -140,6 +140,12 @@ function createMemoryAuthStorage() {
   };
 }
 
+export const supabaseAuthStorage = isServerRuntime
+  ? undefined
+  : isNativeRuntime
+    ? authSessionStorage
+    : (getBrowserSessionStorage() ?? createMemoryAuthStorage());
+
 const authOptions = isServerRuntime
   ? {
       autoRefreshToken: false,
@@ -149,11 +155,11 @@ const authOptions = isServerRuntime
   : isNativeRuntime
     ? {
         ...nonServerAuthOptions,
-        storage: authSessionStorage,
+        storage: supabaseAuthStorage,
       }
     : {
         ...nonServerAuthOptions,
-        storage: getBrowserSessionStorage() ?? createMemoryAuthStorage(),
+        storage: supabaseAuthStorage,
       };
 
 /**

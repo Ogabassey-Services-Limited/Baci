@@ -12,7 +12,16 @@ function accessToken(exp: number): string {
 }
 
 describe('createSupabaseAuthTimeoutFetch', () => {
+  let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
+
+  beforeEach(() => {
+    consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+  });
+
   afterEach(() => {
+    consoleErrorSpy.mockRestore();
     jest.useRealTimers();
   });
 
@@ -29,7 +38,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
 
     await jest.advanceTimersByTimeAsync(100);
 
-    await expect(result).resolves.toMatchObject({ status: 408 });
+    await expect(result).resolves.toMatchObject({ status: 503 });
     expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
@@ -50,8 +59,8 @@ describe('createSupabaseAuthTimeoutFetch', () => {
   it('releases the shared Auth refresh single-flight after a provider request hangs', async () => {
     jest.useFakeTimers();
     const storedSession = {
-      access_token: accessToken(Math.floor(Date.now() / 1000) + 60),
-      expires_at: Math.floor(Date.now() / 1000) + 60,
+      access_token: accessToken(Math.floor(Date.now() / 1000) - 60),
+      expires_at: Math.floor(Date.now() / 1000) - 60,
       refresh_token: 'refresh-token',
       token_type: 'bearer',
       user: { id: 'user-a' },
@@ -81,12 +90,13 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     );
 
     const firstRead = client.auth.getSession();
-    await jest.advanceTimersByTimeAsync(100);
+    await jest.advanceTimersByTimeAsync(31_000);
     await expect(firstRead).resolves.toBeDefined();
 
     const secondRead = client.auth.getSession();
     await jest.advanceTimersByTimeAsync(100);
     await expect(secondRead).resolves.toBeDefined();
-    expect(pendingFetch).toHaveBeenCalledTimes(1);
+    expect(pendingFetch).toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
   });
 });

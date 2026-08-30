@@ -74,6 +74,8 @@ jest.mock('@/lib/supabase', () => ({
       refreshSession: mockRefreshSession,
     },
   },
+  supabaseAuthStorage: {},
+  supabaseAuthStorageKey: 'auth-key',
 }));
 
 jest.mock('@/lib/api', () => ({
@@ -83,6 +85,13 @@ jest.mock('@/lib/api', () => ({
   RetryExhaustedError: class extends Error {},
   TimeoutError: class extends Error {},
   fetchWithRetry: mockFetchWithRetry,
+}));
+
+jest.mock('./orders-session', () => ({
+  getCheckoutStoredSession: async () => {
+    const { data } = await mockGetSession();
+    return data.session;
+  },
 }));
 
 describe('createOrder checkout auth fallback', () => {
@@ -98,16 +107,14 @@ describe('createOrder checkout auth fallback', () => {
         nativeSetTimeout(callback, delay === 5_000 ? 0 : delay, ...args)
       );
     const { createOrder } = require('./orders') as typeof import('./orders');
-    mockGetSession
-      .mockResolvedValueOnce({
-        data: {
-          session: {
-            access_token: 'stored-token',
-            user: { id: 'user-a' },
-          } as Session,
-        },
-      })
-      .mockImplementationOnce(() => new Promise<never>(() => undefined));
+    mockGetSession.mockResolvedValue({
+      data: {
+        session: {
+          access_token: 'stored-token',
+          user: { id: 'user-a' },
+        } as Session,
+      },
+    });
 
     const request: Parameters<typeof createOrder>[0] = {
       customer_email: 'buyer@example.com',
@@ -147,7 +154,7 @@ describe('createOrder checkout auth fallback', () => {
 
     expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5_000);
     expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockRefreshSession).toHaveBeenCalledTimes(1);
+    expect(mockRefreshSession).toHaveBeenCalledTimes(2);
     expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);
     const firstRequestHeaders = mockFetchWithRetry.mock.calls[0]?.[1]?.headers;
     expect(firstRequestHeaders).not.toHaveProperty('Authorization');

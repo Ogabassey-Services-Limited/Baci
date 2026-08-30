@@ -133,6 +133,8 @@ jest.mock('@/lib/supabase', () => ({
       getSession: mockSupabaseGetSession,
     },
   },
+  supabaseAuthStorage: {},
+  supabaseAuthStorageKey: 'auth-key',
 }));
 
 jest.mock('./orders-auth', () => ({
