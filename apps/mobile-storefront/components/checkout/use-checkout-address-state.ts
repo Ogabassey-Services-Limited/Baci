@@ -6,7 +6,10 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
 import type { Customer } from '@/stores/auth-store';
 import type { CartItem } from '@/stores/cart-store';
-import { isCheckoutContactComplete } from './checkout-contact-readiness';
+import {
+  areCheckoutContactFieldsSettled,
+  isCheckoutContactComplete,
+} from './checkout-contact-readiness';
 import { isCheckoutAddressComplete } from './checkout-continue-readiness';
 import {
   CHECKOUT_API_BASE_URL,
@@ -55,7 +58,13 @@ export function useCheckoutAddressState({
     mode: 'onBlur',
     shouldUnregister: false,
   });
-  const { control, getValues, reset, setValue } = form;
+  const {
+    control,
+    formState: { dirtyFields, touchedFields },
+    getValues,
+    reset,
+    setValue,
+  } = form;
   // useWatch instead of watch(): watch() returns interior-mutable values that
   // force React Compiler to skip memoizing this hook (incompatible-library).
   const watchedState = useWatch({ control, name: 'state' });
@@ -91,12 +100,14 @@ export function useCheckoutAddressState({
   const hasInitialContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
-  const isContactComplete = isCheckoutContactComplete({
-    email: watchedEmail,
-    firstName: watchedFirstName,
-    lastName: watchedLastName,
-    phone: watchedPhone,
-  });
+  const isContactComplete =
+    areCheckoutContactFieldsSettled({ dirtyFields, touchedFields }) &&
+    isCheckoutContactComplete({
+      email: watchedEmail,
+      firstName: watchedFirstName,
+      lastName: watchedLastName,
+      phone: watchedPhone,
+    });
   const savedAddresses = useCheckoutSavedAddresses({
     customerId: customer?.id,
     hasInitialContactIdentity,

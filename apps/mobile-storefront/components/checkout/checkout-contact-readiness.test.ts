@@ -1,4 +1,7 @@
-import { isCheckoutContactComplete } from './checkout-contact-readiness';
+import {
+  areCheckoutContactFieldsSettled,
+  isCheckoutContactComplete,
+} from './checkout-contact-readiness';
 
 describe('isCheckoutContactComplete', () => {
   it('accepts complete contact details', () => {
@@ -28,5 +31,31 @@ describe('isCheckoutContactComplete', () => {
         lastName: 'Doe',
       })
     ).toBe(false);
+  });
+});
+
+describe('areCheckoutContactFieldsSettled', () => {
+  it('does not unlock checkout while a valid email is still being edited', () => {
+    expect(
+      areCheckoutContactFieldsSettled({
+        dirtyFields: { email: true },
+        touchedFields: {},
+      })
+    ).toBe(false);
+    expect(
+      areCheckoutContactFieldsSettled({
+        dirtyFields: { email: true },
+        touchedFields: { email: true },
+      })
+    ).toBe(true);
+  });
+
+  it('treats pristine prefilled contact fields as settled', () => {
+    expect(
+      areCheckoutContactFieldsSettled({
+        dirtyFields: {},
+        touchedFields: {},
+      })
+    ).toBe(true);
   });
 });
