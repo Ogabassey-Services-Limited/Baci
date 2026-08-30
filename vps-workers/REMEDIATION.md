@@ -69,7 +69,8 @@ The read-only research phase also uses the checked-in
 `config/codex-readonly-seccomp.json` profile. It is based on the pinned Moby
 seccomp/v0.2.3 profile (source:
 <https://github.com/moby/profiles/tree/seccomp/v0.2.3/seccomp>) and adds only
-the namespace setup syscalls required by Codex's nested bubblewrap sandbox;
+`clone`, `clone3`, `mount`, `umount`, `umount2`, `unshare`, and `pivot_root`
+for Codex's nested bubblewrap sandbox;
 the outer container still drops all capabilities, enables
 `no-new-privileges`, and keeps the worktree and dependency mounts read-only.
 Do not replace this profile with `seccomp=unconfined`.

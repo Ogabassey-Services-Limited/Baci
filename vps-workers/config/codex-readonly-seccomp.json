@@ -879,11 +879,10 @@
         "umount",
         "umount2",
         "unshare",
-        "setns",
         "pivot_root"
       ],
       "action": "SCMP_ACT_ALLOW",
-      "comment": "Codex read-only research requires nested bubblewrap namespaces; the outer container remains capability-free and read-only."
+      "comment": "Codex read-only research requires clone, clone3, mount, umount, umount2, unshare, and pivot_root for nested bubblewrap namespaces; the outer container remains capability-free and read-only."
     }
   ]
 }

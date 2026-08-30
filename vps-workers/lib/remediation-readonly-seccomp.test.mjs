@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -15,6 +21,28 @@ describe('read-only Codex seccomp options', () => {
         '..',
         'config/codex-readonly-seccomp.json'
       )}`,
+    ]);
+  });
+
+  it('keeps the nested sandbox exception limited to required syscalls', () => {
+    const profilePath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      'config/codex-readonly-seccomp.json'
+    );
+    const profile = JSON.parse(readFileSync(profilePath, 'utf8'));
+    const rule = profile.syscalls.find((entry) =>
+      entry.comment?.startsWith('Codex read-only research requires')
+    );
+
+    assert.deepEqual(rule?.names, [
+      'clone',
+      'clone3',
+      'mount',
+      'umount',
+      'umount2',
+      'unshare',
+      'pivot_root',
     ]);
   });
 
