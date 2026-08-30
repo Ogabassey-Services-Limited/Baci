@@ -84,6 +84,22 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([0, 180]);
   });
 
+  it('uses the persisted award amount when calculating voucher residuals', () => {
+    const items = [
+      {
+        price: 120,
+        quantity: 1,
+        quiz_award_id: 'award-1',
+        quiz_award_amount: 100,
+      },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 120);
+
+    expect(prices).toEqual([20, 180]);
+  });
+
   it('applies a residual voucher discount after explicit merchandise allocations', () => {
     const items = [
       { line_id: 1, price: 100, quantity: 1, quiz_award_id: 'award-1' },
