@@ -38,14 +38,14 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
       upsertAttestation: vi.fn().mockResolvedValue(true),
     });
     seams.attestation.mockReturnValue({
-      environment: { CEREBRAS_API_KEY: 'secret' },
+      environment: { GOOGLE_GENAI_API_KEY: 'secret' },
       values: { BUILDER_AI_PROVIDER_BINDING_PEPPER: 'secret' },
     });
     seams.materialize.mockReturnValue({
-      providers: [{ name: 'cerebras:gemma-4-31b' }],
+      providers: [{ name: 'google:gemma-4-31b-it' }],
     });
     seams.smoke.mockResolvedValue([
-      { latencyMs: 1, provider: 'cerebras:gemma-4-31b', result: 'pass' },
+      { latencyMs: 1, provider: 'google:gemma-4-31b-it', result: 'pass' },
     ]);
   });
 
@@ -83,7 +83,7 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
   });
 
   it('allows list-delete, provider smoke, and persistence time within route headroom', () => {
-    expect(BUILDER_AI_ATTESTATION_MAX_WORK_MS).toBe(44_000);
+    expect(BUILDER_AI_ATTESTATION_MAX_WORK_MS).toBe(54_000);
     expect(maxDuration * 1000).toBeGreaterThan(
       BUILDER_AI_ATTESTATION_MAX_WORK_MS
     );
@@ -134,7 +134,7 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
         providers: [
           {
             latencyMs: 1,
-            provider: 'cerebras',
+            provider: 'google',
             result: 'pass',
           },
         ],
@@ -147,7 +147,7 @@ describe('POST /api/internal/builder-ai-attestation-smoke', () => {
   it('does not write tags after a smoke failure and redacts provider details', async () => {
     seams.bootstrap.mockResolvedValue({ phase: 'attest', runId });
     seams.smoke.mockResolvedValue([
-      { latencyMs: 1, provider: 'cerebras:gemma-4-31b', result: 'fail' },
+      { latencyMs: 1, provider: 'google:gemma-4-31b-it', result: 'fail' },
     ]);
     const response = await POST(
       new Request(

@@ -48,7 +48,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
         ? {
             kind: 'providers',
             providers: [
-              { name: 'cerebras:gemma-4-31b' },
+              { name: 'google:gemma-4-31b-it' },
               { name: 'groq:openai/gpt-oss-120b' },
             ],
           }
@@ -66,16 +66,16 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
   it('bounds provider materialization and each configured probe by the whole-smoke deadline', async () => {
     const dependencies = createDependencies();
     const wholeSmoke = new AbortController();
-    const cerebras = new AbortController();
+    const google = new AbortController();
     const groq = new AbortController();
     const openRouter = new AbortController();
     vi.mocked(dependencies.createDeadlineSignal)
       .mockReturnValueOnce(wholeSmoke.signal)
-      .mockReturnValueOnce(cerebras.signal)
+      .mockReturnValueOnce(google.signal)
       .mockReturnValueOnce(groq.signal)
       .mockReturnValueOnce(openRouter.signal);
     vi.mocked(dependencies.combineSignals)
-      .mockReturnValueOnce(cerebras.signal)
+      .mockReturnValueOnce(google.signal)
       .mockReturnValueOnce(groq.signal)
       .mockReturnValueOnce(openRouter.signal);
     const { verifyBuilderAiJsonTransport } = await loadSmokeModule();
@@ -87,7 +87,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
     );
     expect(dependencies.combineSignals).toHaveBeenNthCalledWith(1, [
       wholeSmoke.signal,
-      cerebras.signal,
+      google.signal,
     ]);
     expect(dependencies.combineSignals).toHaveBeenNthCalledWith(2, [
       wholeSmoke.signal,
@@ -98,7 +98,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
       openRouter.signal,
     ]);
     expect(vi.mocked(dependencies.runProvider).mock.calls.map(([, signal]) => signal)).toEqual([
-      cerebras.signal,
+      google.signal,
       groq.signal,
       openRouter.signal,
     ]);
@@ -138,7 +138,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
     await expect(completion).resolves.toBe(1);
   });
 
-  it('records a timed-out Cerebras probe and continues with Groq and OpenRouter', async () => {
+  it('records a timed-out Google probe and continues with Groq and OpenRouter', async () => {
     vi.useFakeTimers();
     const dependencies = createDependencies();
     vi.mocked(dependencies.createDeadlineSignal).mockImplementation(
@@ -162,7 +162,7 @@ describe('verifyBuilderAiJsonTransport deadlines', () => {
         ([provider]) => provider.name
       )
     ).toEqual([
-      'cerebras:gemma-4-31b',
+      'google:gemma-4-31b-it',
       'groq:openai/gpt-oss-120b',
       'openrouter:google/gemma-4-31b-it:free',
     ]);

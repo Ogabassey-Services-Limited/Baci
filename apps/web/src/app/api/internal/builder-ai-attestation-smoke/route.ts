@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 const CONTROL_PLANE_CALL_LIMIT_MS = 8_000;
 const MAX_CONTROL_PLANE_CALLS = 3;
-const PROVIDER_SMOKE_LIMIT_MS = 20_000;
+const PROVIDER_SMOKE_LIMIT_MS = 30_000;
 export const BUILDER_AI_ATTESTATION_MAX_WORK_MS =
   CONTROL_PLANE_CALL_LIMIT_MS * MAX_CONTROL_PLANE_CALLS +
   PROVIDER_SMOKE_LIMIT_MS;
@@ -40,10 +40,8 @@ function failure(
   );
 }
 
-function providerAlias(
-  name: string
-): 'cerebras' | 'groq' | 'openrouter' | null {
-  if (name.startsWith('cerebras:')) return 'cerebras';
+function providerAlias(name: string): 'google' | 'groq' | 'openrouter' | null {
+  if (name.startsWith('google:')) return 'google';
   if (name.startsWith('groq:')) return 'groq';
   if (name.startsWith('openrouter:')) return 'openrouter';
   return null;
