@@ -22,6 +22,7 @@ const mockGridProductCard = jest.fn(
 );
 const mockEditorialProductCard = jest.fn((_props: unknown) => null);
 const mockListProductCard = jest.fn((_props: unknown) => null);
+const mockAddItem = jest.fn();
 
 jest.mock('./product-card/GridProductCard', () => ({
   __esModule: true,
@@ -45,12 +46,16 @@ jest.mock('@/components/useColorScheme', () => ({
 jest.mock('@/stores/cart-store', () => ({
   selectCartQuantities: () => new Map(),
   useCartStore: (selector: (state: { addItem: jest.Mock }) => unknown) =>
-    selector({ addItem: jest.fn() }),
+    selector({ addItem: mockAddItem }),
 }));
 jest.mock('@/stores/saved-store', () => ({
   selectSavedProductIds: () => new Set(),
   useSavedStore: (selector: (state: { toggleSaved: jest.Mock }) => unknown) =>
     selector({ toggleSaved: jest.fn() }),
+}));
+jest.mock('./product-card-tracking', () => ({
+  trackCartAdd: jest.fn(),
+  trackWishlistAdd: jest.fn(),
 }));
 
 const product: Product = {
@@ -80,6 +85,47 @@ describe('ProductCard image memory behavior', () => {
           uri: product.image,
           width: 352,
         },
+      })
+    );
+  });
+
+  it('uses a static CDN fallback for managed AVIF catalog images', () => {
+    render(
+      <ProductCard
+        product={{
+          ...product,
+          image: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        }}
+      />
+    );
+
+    expect(mockGridProductCard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageSource: {
+          height: 352,
+          uri: 'https://cdn.ogabassey.com/image/width=352,height=352,quality=75,format=jpeg,fit=cover/core-assets/products/phone.avif',
+          width: 352,
+        },
+      })
+    );
+  });
+
+  it('persists the original managed image when a product is quick-added', () => {
+    render(
+      <ProductCard
+        product={{
+          ...product,
+          image: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+        }}
+      />
+    );
+
+    const gridProps = mockGridProductCard.mock.calls.at(-1)?.[0];
+    gridProps?.handleAddToCart();
+
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        image_url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
       })
     );
   });

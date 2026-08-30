@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
+import { resolveSafeImageSource } from '@/lib/safe-image-source';
 
 // Default blurhash for smooth loading placeholder
 const DEFAULT_BLURHASH = 'L6PZfSi_.AyE_3t7t7RjE1%MWBR*';
@@ -120,10 +121,13 @@ export function SafeImage({
 
   // Determine placeholder - use provided or default blurhash
   const effectivePlaceholder = placeholder || { blurhash: DEFAULT_BLURHASH };
+  const safeSource = resolveSafeImageSource(source, {
+    fit: contentFit === 'cover' ? 'cover' : 'inside',
+  });
 
   return (
     <Image
-      source={source}
+      source={safeSource}
       style={style}
       placeholder={effectivePlaceholder}
       transition={transition}

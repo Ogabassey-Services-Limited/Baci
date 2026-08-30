@@ -13,12 +13,12 @@ import {
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { SPRING_CONFIG } from '@/constants/Colors';
 import { useHaptics } from '@/hooks/use-haptics';
-import { createBoundedImageSource } from '@/lib/bounded-image-source';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 import {
   getProductCardImageAttempt,
   normalizeProductImages,
 } from '@/lib/product-normalization';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 import { selectCartQuantities, useCartStore } from '@/stores/cart-store';
 import { selectSavedProductIds, useSavedStore } from '@/stores/saved-store';
 import type { Product } from '@/types/product';
@@ -177,13 +177,20 @@ export function ProductCard({
       : variant === 'editorial'
         ? screenWidth - 32
         : gridWidth;
-  const imageSource = createBoundedImageSource({
+  const imageAttemptUri = getProductCardImageAttempt(
+    imageCandidates,
+    imageAttempt
+  );
+  const imageSource = createSafeBoundedImageSource({
+    fit: 'cover',
     height: variant === 'editorial' ? imageWidth / 0.8 : imageWidth,
-    uri: getProductCardImageAttempt(imageCandidates, imageAttempt),
+    uri: imageAttemptUri,
     width: imageWidth,
   });
   const quickAddImageUrl = resolveCartItemImageUrl({
-    displayedImageUrl: imageSource.uri,
+    // Persist the source asset, not the card's cover-cropped display transform.
+    // Cart and order surfaces apply their own bounded dimensions.
+    displayedImageUrl: imageAttemptUri,
     variantImageUrl: defaultVariantSelection?.variant.image,
     variantImages: defaultVariantSelection?.variant.images,
     fallbackImageUrl: product.image,

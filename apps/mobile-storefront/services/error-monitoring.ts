@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react-native';
+import { installMemoryWarningDiagnostics } from '@/lib/memory-warning-diagnostics';
 
 let initialized = false;
 
@@ -8,6 +9,8 @@ const bundledEnvironment = process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT;
 export function initializeErrorMonitoring(
   env?: Readonly<Record<string, string | undefined>>
 ): boolean {
+  installMemoryWarningDiagnostics();
+
   const dsn = (env?.EXPO_PUBLIC_SENTRY_DSN ?? bundledDsn)?.trim();
   if (!dsn || initialized) {
     return false;

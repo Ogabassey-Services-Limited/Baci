@@ -30,4 +30,19 @@ describe('createBoundedImageSource', () => {
       width: 1,
     });
   });
+
+  it('caps physical decode dimensions at the CDN safety limit', () => {
+    expect(
+      createBoundedImageSource({
+        height: 5000,
+        pixelRatio: 2,
+        uri: 'https://cdn.example.com/product.jpg',
+        width: 5000,
+      })
+    ).toEqual({
+      height: 3840,
+      uri: 'https://cdn.example.com/product.jpg',
+      width: 3840,
+    });
+  });
 });
