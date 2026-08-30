@@ -10,19 +10,26 @@
 
 BEGIN;
 
+CREATE TEMP TABLE pg_temp.quiz_award_snapshot_fixture (
+  ordinary_item_id uuid NOT NULL,
+  reserved_item_id uuid NOT NULL,
+  ordinary_award_id uuid NOT NULL,
+  reserved_award_id uuid NOT NULL
+) ON COMMIT DROP;
+
 DO $$
 DECLARE
   v_run_id text := txid_current()::text;
-  v_merchant_id uuid := '00000000-0000-4000-8000-00000000f901';
-  v_customer_id uuid := '00000000-0000-4000-8000-00000000f902';
-  v_event_id uuid := '00000000-0000-4000-8000-00000000f903';
-  v_ordinary_attempt_id uuid := '00000000-0000-4000-8000-00000000f904';
-  v_reserved_attempt_id uuid := '00000000-0000-4000-8000-00000000f905';
-  v_order_id uuid := '00000000-0000-4000-8000-00000000f906';
-  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000f907';
-  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000f908';
-  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000f909';
-  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000f90a';
+  v_merchant_id uuid := gen_random_uuid();
+  v_customer_id uuid := gen_random_uuid();
+  v_event_id uuid := gen_random_uuid();
+  v_ordinary_attempt_id uuid := gen_random_uuid();
+  v_reserved_attempt_id uuid := gen_random_uuid();
+  v_order_id uuid := gen_random_uuid();
+  v_ordinary_item_id uuid := gen_random_uuid();
+  v_reserved_item_id uuid := gen_random_uuid();
+  v_ordinary_award_id uuid := gen_random_uuid();
+  v_reserved_award_id uuid := gen_random_uuid();
 BEGIN
   -- Replay checks run as the database owner, but several quiz/order triggers
   -- still require a request identity. Use the fixture customer as the
@@ -84,7 +91,7 @@ BEGIN
     v_merchant_id,
     format('QUIZ-AWARD-SNAPSHOT-%s', v_run_id),
     'Quiz Award Snapshot Customer',
-    'quiz-award-customer-f902@example.com',
+    format('quiz-award-customer-%s@example.com', v_run_id),
     0,
     0,
     'paid',
@@ -175,6 +182,18 @@ BEGIN
     v_order_id,
     v_reserved_item_id
   );
+
+  INSERT INTO pg_temp.quiz_award_snapshot_fixture (
+    ordinary_item_id,
+    reserved_item_id,
+    ordinary_award_id,
+    reserved_award_id
+  ) VALUES (
+    v_ordinary_item_id,
+    v_reserved_item_id,
+    v_ordinary_award_id,
+    v_reserved_award_id
+  );
 END;
 $$ LANGUAGE plpgsql;
 
@@ -184,13 +203,17 @@ $$ LANGUAGE plpgsql;
 
 DO $$
 DECLARE
-  v_ordinary_item_id uuid := '00000000-0000-4000-8000-00000000f907';
-  v_reserved_item_id uuid := '00000000-0000-4000-8000-00000000f908';
-  v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000f909';
-  v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000f90a';
+  v_ordinary_item_id uuid;
+  v_reserved_item_id uuid;
+  v_ordinary_award_id uuid;
+  v_reserved_award_id uuid;
   v_award_id uuid;
   v_amount numeric;
 BEGIN
+  SELECT ordinary_item_id, reserved_item_id, ordinary_award_id, reserved_award_id
+  INTO v_ordinary_item_id, v_reserved_item_id, v_ordinary_award_id, v_reserved_award_id
+  FROM pg_temp.quiz_award_snapshot_fixture;
+
   -- Historical ordinary voucher rows are repaired from their award id.
   SELECT quiz_award_id, quiz_award_amount
   INTO v_award_id, v_amount
