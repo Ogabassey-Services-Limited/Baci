@@ -1,8 +1,17 @@
 import { jest } from '@jest/globals';
+import type { Session } from '@supabase/supabase-js';
 
 const mockGetUser = jest.fn(() => new Promise<never>(() => undefined));
+const mockGetSession =
+  jest.fn<() => Promise<{ data: { session: Session | null } }>>();
 const mockRefreshSession = jest.fn(() => new Promise<never>(() => undefined));
-const mockFetchWithRetry = jest.fn(async () => ({
+const mockFetchWithRetry = jest.fn<
+  (
+    url: string,
+    init: { headers: Record<string, string> },
+    options: unknown
+  ) => Promise<unknown>
+>(async () => ({
   json: async () => ({
     amountDueToGateway: 102_000,
     order: {
@@ -60,11 +69,7 @@ jest.mock('@/services/analytics', () => ({
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
-      getSession: jest.fn(async () => ({
-        data: {
-          session: { access_token: 'stored-token' },
-        },
-      })),
+      getSession: mockGetSession,
       getUser: mockGetUser,
       refreshSession: mockRefreshSession,
     },
@@ -93,6 +98,16 @@ describe('createOrder checkout auth fallback', () => {
         nativeSetTimeout(callback, delay === 5_000 ? 0 : delay, ...args)
       );
     const { createOrder } = require('./orders') as typeof import('./orders');
+    mockGetSession
+      .mockResolvedValueOnce({
+        data: {
+          session: {
+            access_token: 'stored-token',
+            user: { id: 'user-a' },
+          } as Session,
+        },
+      })
+      .mockImplementationOnce(() => new Promise<never>(() => undefined));
 
     const request: Parameters<typeof createOrder>[0] = {
       customer_email: 'buyer@example.com',
@@ -132,9 +147,10 @@ describe('createOrder checkout auth fallback', () => {
 
     expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5_000);
     expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockRefreshSession).toHaveBeenCalledTimes(2);
+    expect(mockRefreshSession).toHaveBeenCalledTimes(1);
     expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);
-    expect(mockFetchWithRetry).toHaveBeenLastCalledWith(
+    expect(mockFetchWithRetry).toHaveBeenNthCalledWith(
+      1,
       expect.stringMatching(/\/api\/orders$/),
       expect.objectContaining({
         headers: expect.objectContaining({
@@ -143,5 +159,7 @@ describe('createOrder checkout auth fallback', () => {
       }),
       expect.objectContaining({ maxRetries: 0, timeout: 30_000 })
     );
+    const secondRequestHeaders = mockFetchWithRetry.mock.calls[1]?.[1]?.headers;
+    expect(secondRequestHeaders).not.toHaveProperty('Authorization');
   });
 });

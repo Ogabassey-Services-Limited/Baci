@@ -19,7 +19,7 @@ import {
   CreateOrderRequestSchema,
   type OrderResponse,
 } from './orders.schemas';
-import { resolveCheckoutAuth } from './orders-auth';
+import { getCheckoutStoredSession, resolveCheckoutAuth } from './orders-auth';
 
 export { OrderError } from './orders.errors';
 export type {
@@ -71,9 +71,7 @@ export async function createOrder(
 
   // 3. Auth is optional because the storefront supports guest checkout.
   // When a valid session exists, forward it so the server can link the order.
-  const {
-    data: { session: storedSession },
-  } = await supabase.auth.getSession();
+  const storedSession = await getCheckoutStoredSession(supabase.auth);
   // A persisted token can still be accepted by Auth while the Data API no
   // longer has a compatible signing key for it. Refresh before the money/order
   // boundary so PostgREST receives a token minted by the active signing key.

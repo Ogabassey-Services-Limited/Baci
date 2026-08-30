@@ -7,12 +7,39 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('Order');
 const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 5_000;
 
+type CheckoutSessionAuth = {
+  getSession: () => Promise<{
+    data: { session: Session | null };
+  }>;
+};
+
 type CheckoutAuth = {
   refreshSession: () => Promise<{
     data: { session: Session | null };
     error: Error | null;
   }>;
 };
+
+export async function getCheckoutStoredSession(
+  auth: CheckoutSessionAuth,
+  timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS
+): Promise<Session | null> {
+  const timeout = refreshTimeout(timeoutMs);
+  try {
+    const { data } = await Promise.race([auth.getSession(), timeout.promise]);
+    return data.session;
+  } catch (error) {
+    log.warn(
+      'Unable to read checkout session within timeout; using guest checkout',
+      {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    );
+    return null;
+  } finally {
+    if (timeout.timer) clearTimeout(timeout.timer);
+  }
+}
 
 function refreshTimeout(timeoutMs: number): {
   promise: Promise<never>;
@@ -64,6 +91,13 @@ export async function resolveCheckoutAuth(
     if (isAuthRefreshDiscardedError(error)) {
       log.warn(
         'Checkout session refresh was discarded; omitting stale session'
+      );
+      return checkoutAuthResult(null, false);
+    }
+
+    if (data.session && storedSession.user.id !== data.session.user.id) {
+      log.warn(
+        'Checkout session identity changed during refresh; omitting authorization'
       );
       return checkoutAuthResult(null, false);
     }

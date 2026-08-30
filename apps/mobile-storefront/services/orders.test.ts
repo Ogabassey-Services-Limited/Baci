@@ -136,6 +136,10 @@ jest.mock('@/lib/supabase', () => ({
 }));
 
 jest.mock('./orders-auth', () => ({
+  getCheckoutStoredSession: async () => {
+    const { data } = await mockSupabaseGetSession();
+    return data.session;
+  },
   resolveCheckoutAuth: mockResolveCheckoutAuth,
 }));
 

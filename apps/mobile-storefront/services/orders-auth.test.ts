@@ -7,11 +7,14 @@ jest.mock('@/lib/logger', () => ({
   createLogger: () => ({ warn: mockWarn }),
 }));
 
-const { resolveCheckoutAuth } =
+const { getCheckoutStoredSession, resolveCheckoutAuth } =
   require('./orders-auth') as typeof import('./orders-auth');
 
 function session(accessToken: string): Session {
-  return { access_token: accessToken } as Session;
+  return {
+    access_token: accessToken,
+    user: { id: 'user-a' },
+  } as Session;
 }
 
 describe('resolveCheckoutAuth', () => {
@@ -102,6 +105,30 @@ describe('resolveCheckoutAuth', () => {
     );
   });
 
+  it('omits authorization when the refreshed session belongs to another account', async () => {
+    const refreshedSession = {
+      ...session('user-b-token'),
+      user: { id: 'user-b' },
+    } as Session;
+    const auth = {
+      refreshSession: jest.fn(async () => ({
+        data: { session: refreshedSession },
+        error: null,
+      })),
+    };
+
+    await expect(
+      resolveCheckoutAuth(auth, session('user-a-token'))
+    ).resolves.toEqual({
+      authorizationHeaders: {},
+      canValidateUser: false,
+      session: null,
+    });
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Checkout session identity changed during refresh; omitting authorization'
+    );
+  });
+
   it('warns and returns the stored session when refresh resolves without a session', async () => {
     const storedSession = session('stored-token');
     const auth = {
@@ -158,6 +185,28 @@ describe('resolveCheckoutAuth', () => {
     });
     expect(mockWarn).toHaveBeenCalledWith(
       'Unable to refresh checkout session; using stored session',
+      { error: 'Checkout session refresh timed out' }
+    );
+  });
+});
+
+describe('getCheckoutStoredSession', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('bounds a session read queued behind a pending refresh', async () => {
+    jest.useFakeTimers();
+    const result = getCheckoutStoredSession(
+      { getSession: jest.fn(() => new Promise<never>(() => undefined)) },
+      100
+    );
+
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(result).resolves.toBeNull();
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Unable to read checkout session within timeout; using guest checkout',
       { error: 'Checkout session refresh timed out' }
     );
   });
