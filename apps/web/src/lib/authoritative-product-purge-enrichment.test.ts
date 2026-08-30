@@ -63,7 +63,11 @@ describe('enrichProductPurgeEntries', () => {
     );
 
     expect(entries).toEqual([
-      { slug: 'iphone-15', categorySegment: 'smartphones' },
+      {
+        productId: 'prod-1',
+        slug: 'iphone-15',
+        categorySegment: 'smartphones',
+      },
     ]);
     // Authoritative slug + id are both busted (rename-safe).
     expect(resolvedSlugs).toEqual(['iphone-15', 'prod-1']);
@@ -92,8 +96,12 @@ describe('enrichProductPurgeEntries', () => {
     ]);
 
     expect(entries).toEqual([
-      { slug: 'iphone-15', categorySegment: 'smartphones' },
-      { slug: 'iphone-15', categorySegment: 'phones' },
+      {
+        productId: 'prod-1',
+        slug: 'iphone-15',
+        categorySegment: 'smartphones',
+      },
+      { productId: 'prod-1', slug: 'iphone-15', categorySegment: 'phones' },
     ]);
   });
 
@@ -107,7 +115,9 @@ describe('enrichProductPurgeEntries', () => {
     );
 
     expect(inSpy).not.toHaveBeenCalled();
-    expect(entries).toEqual([{ slug: 'buds-pro', categorySegment: 'audio' }]);
+    expect(entries).toEqual([
+      { productId: null, slug: 'buds-pro', categorySegment: 'audio' },
+    ]);
     expect(resolvedSlugs).toEqual(['buds-pro']);
   });
 
@@ -126,7 +136,9 @@ describe('enrichProductPurgeEntries', () => {
         [{ slug: 'buds-pro', id: 'prod-1', category: 'Audio' }]
       );
 
-      expect(entries).toEqual([{ slug: 'buds-pro', categorySegment: 'audio' }]);
+      expect(entries).toEqual([
+        { productId: 'prod-1', slug: 'buds-pro', categorySegment: 'audio' },
+      ]);
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Failed to resolve authoritative product rows'),
         expect.objectContaining({ merchantId: MERCHANT_ID })

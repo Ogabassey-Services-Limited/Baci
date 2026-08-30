@@ -63,7 +63,14 @@ describe('POST /api/products creation', () => {
     expect(response.status).toBe(201);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'test-product', categorySegment: 'electronics' }]
+      [
+        {
+          slug: 'test-product',
+          categorySegment: 'electronics',
+          productId: 'product-456',
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
   });
 
@@ -76,7 +83,14 @@ describe('POST /api/products creation', () => {
     expect(response.status).toBe(201);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: PRODUCT_ID, categorySegment: expect.anything() }]
+      [
+        {
+          slug: PRODUCT_ID,
+          categorySegment: expect.anything(),
+          productId: PRODUCT_ID,
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
   });
 
