@@ -9,7 +9,7 @@ const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..');
 describe('negotiation pending replay sources', () => {
   it('pins each pending negotiation replay source to its checked-in bytes', async () => {
     const rows = NEGOTIATION_PENDING_REPLAY_SOURCE_ROWS.split('\n');
-    expect(rows).toHaveLength(17);
+    expect(rows).toHaveLength(20);
 
     for (const row of rows) {
       const [sha256, filename, ...extra] = row.split(' ');

@@ -6,6 +6,7 @@ DECLARE
   v_foreign_award_id uuid := gen_random_uuid();
   v_order_item_id uuid;
   v_original_award_id uuid;
+  v_award_id uuid;
   v_amount numeric;
 BEGIN
   SELECT ordinary_item_id, ordinary_award_id
@@ -56,13 +57,14 @@ BEGIN
     quiz_award_amount = 999
   WHERE id = v_order_item_id;
 
-  SELECT quiz_award_amount
-  INTO v_amount
+  SELECT quiz_award_id, quiz_award_amount
+  INTO v_award_id, v_amount
   FROM public.order_items
   WHERE id = v_order_item_id;
-  IF v_amount IS NOT NULL THEN
+  IF v_award_id IS NOT NULL OR v_amount IS NOT NULL THEN
     RAISE EXCEPTION
-      'cross-tenant award amount was copied into an order item: %',
+      'cross-tenant award marker was copied into an order item: id %, amount %',
+      v_award_id,
       v_amount;
   END IF;
 

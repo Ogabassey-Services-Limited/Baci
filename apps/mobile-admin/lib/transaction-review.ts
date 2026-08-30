@@ -130,7 +130,9 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       isNetPricedMarketplaceOrder && !isAdminEditedDiscount
         ? 0
         : discountAmount,
-      persistedDiscountOptions ?? legacyDiscountOptions
+      persistedDiscountOptions ??
+        legacyDiscountOptions ??
+        (isAdminEditedDiscount ? { discountIncludesVat: false } : undefined)
     );
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {

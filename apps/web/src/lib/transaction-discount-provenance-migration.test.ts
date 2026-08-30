@@ -73,6 +73,20 @@ const replayCleanupMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const replayPayloadBindingMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260830160000_bind_transaction_discount_replay_payload.sql'
+  ),
+  'utf8'
+);
+const scopedQuizAwardRepairMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260830140000_repair_quiz_award_snapshot_scope.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -214,6 +228,15 @@ describe('transaction discount provenance migration', () => {
     );
   });
 
+  it('clears cross-merchant award ids instead of leaving voucher markers', () => {
+    expect(scopedQuizAwardRepairMigrationSql).toMatch(
+      /IF NOT FOUND THEN[\s\S]*?NEW\.quiz_award_id := NULL;[\s\S]*?NEW\.quiz_award_amount := NULL;/i
+    );
+    expect(scopedQuizAwardRepairMigrationSql).toMatch(
+      /SET quiz_award_id = NULL,[\s\S]*?quiz_award_amount = NULL/i
+    );
+  });
+
   it('cleans replay bindings on order deletion instead of in the row trigger', () => {
     const sanitizerStart = replayCleanupMigrationSql.indexOf(
       'CREATE OR REPLACE FUNCTION private.sanitize_storefront_transaction_discount_metadata()'
@@ -235,6 +258,24 @@ describe('transaction discount provenance migration', () => {
     );
     expect(replayCleanupMigrationSql).toMatch(
       /CREATE TRIGGER cleanup_transaction_discount_proof_replay_after_order_delete[\s\S]*?AFTER DELETE ON public\.orders/i
+    );
+  });
+
+  it('binds same-order replay acceptance to the authenticated payload hash', () => {
+    expect(replayPayloadBindingMigrationSql).toMatch(
+      /ADD COLUMN IF NOT EXISTS payload_hash text/i
+    );
+    expect(replayPayloadBindingMigrationSql).toMatch(
+      /replay\.payload_hash = v_payload_hash/i
+    );
+    expect(replayPayloadBindingMigrationSql).toMatch(
+      /INSERT INTO private\.transaction_discount_proof_replay(?: AS replay)?\s*\([\s\S]*?payload_hash[\s\S]*?v_payload_hash/i
+    );
+  });
+
+  it('preserves only unchanged legacy version-two markers', () => {
+    expect(replayPayloadBindingMigrationSql).toMatch(
+      /TG_OP = 'UPDATE'[\s\S]*?v_metadata ->> 'version' = '2'[\s\S]*?OLD\.ad_tracking -> 'baci_transaction_discount' = v_metadata/i
     );
   });
 });

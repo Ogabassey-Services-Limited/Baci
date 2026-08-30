@@ -161,4 +161,47 @@ describe('transaction review discount mapping', () => {
     expect(order.items[0]?.revenue).toBeCloseTo(97.85, 2);
     expect(order.items[0]?.profit).toBeCloseTo(47.85, 2);
   });
+
+  it('keeps assurance fees out of admin-edited discount allocation', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        ad_tracking: {
+          baci_transaction_discount: {
+            status: 'admin_edit',
+            version: 4,
+          },
+        },
+        created_at: '2026-08-30T12:30:00.000Z',
+        customer_email: null,
+        customer_name: 'Admin Edited Discount Customer',
+        customer_phone: null,
+        discount_amount: 20,
+        discount_code_id: null,
+        fulfillment_details: null,
+        id: 'order-admin-edited-discount',
+        order_items: [
+          {
+            assurance_fee: 10,
+            cost_price: 50,
+            fulfillment_data: null,
+            id: 'item-admin-edited-discount',
+            name: 'Admin Edited Product',
+            price: 100,
+            product_id: 'product-admin-edited-discount',
+            products: null,
+            quantity: 1,
+          },
+        ],
+        order_number: 'ORD-ADMIN-EDITED-DISCOUNT',
+        payment_method: 'card',
+        source: 'online_store',
+        total: 90,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      profit: 30,
+      revenue: 80,
+    });
+  });
 });

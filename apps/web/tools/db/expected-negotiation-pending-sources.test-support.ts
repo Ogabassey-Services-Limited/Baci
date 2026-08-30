@@ -74,4 +74,19 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
       'supabase/migrations/20260830130000_remove_transaction_discount_replay_row_cleanup.sql',
     sha256: '367970e4e6aa484bbb95029cf126ab34f37371f425350d02a59560b46df9d28a',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830140000_repair_quiz_award_snapshot_scope.sql',
+    sha256: 'def669f34daf1210b18f2d28a07f96d8136e7625e5f2c40af695b205b3281fcc',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830150000_bind_quiz_voucher_order_item_ordinal.sql',
+    sha256: 'a8e3d03d7960ebdbb802c3b0453e8ec4fe4bc1bfd9879487de1be229a42c9799',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830160000_bind_transaction_discount_replay_payload.sql',
+    sha256: 'c53020258387d9126a92f9691f8db2c0dc78373e7bece7ea1f7d305529b0f75f',
+  },
 ];

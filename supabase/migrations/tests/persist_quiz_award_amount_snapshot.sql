@@ -219,6 +219,9 @@ $$ LANGUAGE plpgsql;
 \ir ../20260830110000_preserve_quiz_award_amount_after_delete.sql
 \ir ../20260830120000_scope_quiz_award_snapshot_to_merchant.sql
 \ir ../20260830130000_remove_transaction_discount_replay_row_cleanup.sql
+\ir ../20260830140000_repair_quiz_award_snapshot_scope.sql
+\ir ../20260830150000_bind_quiz_voucher_order_item_ordinal.sql
+\ir ../20260830160000_bind_transaction_discount_replay_payload.sql
 
 DO $$
 DECLARE
