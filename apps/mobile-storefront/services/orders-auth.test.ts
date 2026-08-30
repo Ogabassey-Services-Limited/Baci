@@ -13,6 +13,7 @@ const { resolveCheckoutAuth } =
 function session(accessToken: string): Session {
   return {
     access_token: accessToken,
+    refresh_token: 'refresh-token',
     user: { id: 'user-a' },
   } as Session;
 }
@@ -61,6 +62,9 @@ describe('resolveCheckoutAuth', () => {
       session: refreshedSession,
     });
     expect(mockWarn).not.toHaveBeenCalled();
+    expect(auth.refreshSession).toHaveBeenCalledWith({
+      refresh_token: 'refresh-token',
+    });
   });
 
   it('omits stale authorization when refresh resolves with an error', async () => {

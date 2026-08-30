@@ -97,20 +97,17 @@ jest.mock('./orders-session', () => ({
 describe('createOrder checkout auth fallback', () => {
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   it('reaches the order request without queuing getUser behind a timed-out refresh', async () => {
-    const nativeSetTimeout = global.setTimeout;
-    const timeoutSpy = jest
-      .spyOn(global, 'setTimeout')
-      .mockImplementation((callback, delay, ...args) =>
-        nativeSetTimeout(callback, delay === 5_000 ? 0 : delay, ...args)
-      );
+    jest.useFakeTimers();
     const { createOrder } = require('./orders') as typeof import('./orders');
     mockGetSession.mockResolvedValue({
       data: {
         session: {
           access_token: 'stored-token',
+          refresh_token: 'refresh-token',
           user: { id: 'user-a' },
         } as Session,
       },
@@ -142,17 +139,18 @@ describe('createOrder checkout auth fallback', () => {
     };
 
     const firstResult = createOrder(request);
+    await jest.advanceTimersByTimeAsync(5_000);
 
     await expect(firstResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });
 
     const secondResult = createOrder(request);
+    await jest.advanceTimersByTimeAsync(5_000);
     await expect(secondResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });
 
-    expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5_000);
     expect(mockGetUser).not.toHaveBeenCalled();
     expect(mockRefreshSession).toHaveBeenCalledTimes(2);
     expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);

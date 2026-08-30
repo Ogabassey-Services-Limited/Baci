@@ -14,7 +14,7 @@ function authRefreshTimedOutResponse(): Response {
     }),
     {
       headers: { 'Content-Type': 'application/json' },
-      status: 503,
+      status: 408,
     }
   );
 }

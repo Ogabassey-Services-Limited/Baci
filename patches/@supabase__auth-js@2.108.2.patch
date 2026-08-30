@@ -1,0 +1,169 @@
+diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
+index 9af56f25432ca2cf0761049df156cf763ae77a48..2c566501b1e0c2e55d52bf4e3f67ec7da3aff998 100644
+--- a/dist/main/GoTrueClient.js
++++ b/dist/main/GoTrueClient.js
+@@ -3132,15 +3132,23 @@ class GoTrueClient {
+     }
+     async _refreshSession(currentSession) {
+         try {
++            if (currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token) {
++                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token);
++                if (error) {
++                    return this._returnResult({ data: { user: null, session: null }, error });
++                }
++                return this._returnResult({
++                    data: { user: (session === null || session === void 0 ? void 0 : session.user) || null, session: session || null },
++                    error: null,
++                });
++            }
+             return await this._useSession(async (result) => {
+                 var _a;
+-                if (!currentSession) {
+-                    const { data, error } = result;
+-                    if (error) {
+-                        throw error;
+-                    }
+-                    currentSession = (_a = data.session) !== null && _a !== void 0 ? _a : undefined;
++                const { data, error: sessionError } = result;
++                if (sessionError) {
++                    throw sessionError;
+                 }
++                currentSession = (_a = data.session) !== null && _a !== void 0 ? _a : undefined;
+                 if (!(currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token)) {
+                     throw new errors_1.AuthSessionMissingError();
+                 }
+@@ -3916,6 +3924,7 @@ class GoTrueClient {
+                 const nextBackOffInterval = 200 * Math.pow(2, attempt);
+                 return (error &&
+                     (0, errors_1.isAuthRetryableFetchError)(error) &&
++                    error.status !== 408 &&
+                     // retryable only if the request can be sent before the backoff overflows the tick duration
+                     Date.now() + nextBackOffInterval - startedAt < constants_1.AUTO_REFRESH_TICK_DURATION_MS);
+             });
+diff --git a/dist/main/lib/fetch.js b/dist/main/lib/fetch.js
+index 96c52a133ff2a0608e8afeb8b063625484ed926a..f8a9d6e13e3037373945a6f956c01480e8f76945 100644
+--- a/dist/main/lib/fetch.js
++++ b/dist/main/lib/fetch.js
+@@ -37,7 +37,7 @@ async function handleError(error) {
+     if (!(0, helpers_1.looksLikeFetchResponse)(error)) {
+         throw new errors_1.AuthRetryableFetchError(_getErrorMessage(error), 0);
+     }
+-    if (NETWORK_ERROR_CODES.includes(error.status)) {
++    if (error.status === 408 || NETWORK_ERROR_CODES.includes(error.status)) {
+         // status in 500...599 range - server had an error, request might be retryed.
+         throw new errors_1.AuthRetryableFetchError(_getErrorMessage(error), error.status);
+     }
+diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..f0c3c2a3232b032bbf95f52c23f79aaa79ec62d4 100644
+--- a/dist/module/GoTrueClient.js
++++ b/dist/module/GoTrueClient.js
+@@ -3129,15 +3129,23 @@ class GoTrueClient {
+     }
+     async _refreshSession(currentSession) {
+         try {
++            if (currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token) {
++                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token);
++                if (error) {
++                    return this._returnResult({ data: { user: null, session: null }, error });
++                }
++                return this._returnResult({
++                    data: { user: (session === null || session === void 0 ? void 0 : session.user) || null, session: session || null },
++                    error: null,
++                });
++            }
+             return await this._useSession(async (result) => {
+                 var _a;
+-                if (!currentSession) {
+-                    const { data, error } = result;
+-                    if (error) {
+-                        throw error;
+-                    }
+-                    currentSession = (_a = data.session) !== null && _a !== void 0 ? _a : undefined;
++                const { data, error: sessionError } = result;
++                if (sessionError) {
++                    throw sessionError;
+                 }
++                currentSession = (_a = data.session) !== null && _a !== void 0 ? _a : undefined;
+                 if (!(currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token)) {
+                     throw new AuthSessionMissingError();
+                 }
+@@ -3913,6 +3921,7 @@ class GoTrueClient {
+                 const nextBackOffInterval = 200 * Math.pow(2, attempt);
+                 return (error &&
+                     isAuthRetryableFetchError(error) &&
++                    error.status !== 408 &&
+                     // retryable only if the request can be sent before the backoff overflows the tick duration
+                     Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS);
+             });
+diff --git a/dist/module/lib/fetch.js b/dist/module/lib/fetch.js
+index 1e0b329acbdd79509a646b3251c327e5156249b1..fc4eb68612124fe17ea672b5648914f4799f2bce 100644
+--- a/dist/module/lib/fetch.js
++++ b/dist/module/lib/fetch.js
+@@ -27,7 +27,7 @@ export async function handleError(error) {
+     if (!looksLikeFetchResponse(error)) {
+         throw new AuthRetryableFetchError(_getErrorMessage(error), 0);
+     }
+-    if (NETWORK_ERROR_CODES.includes(error.status)) {
++    if (error.status === 408 || NETWORK_ERROR_CODES.includes(error.status)) {
+         // status in 500...599 range - server had an error, request might be retryed.
+         throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
+     }
+diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..10ec0aa612b0d58e24ea8189280d74c1cceb7f3d 100644
+--- a/src/GoTrueClient.ts
++++ b/src/GoTrueClient.ts
+@@ -3706,16 +3706,26 @@ export default class GoTrueClient {
+     refresh_token: string
+   }): Promise<AuthResponse> {
+     try {
+-      return await this._useSession(async (result) => {
+-        if (!currentSession) {
+-          const { data, error } = result
+-          if (error) {
+-            throw error
+-          }
++      if (currentSession?.refresh_token) {
++        const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token)
++        if (error) {
++          return this._returnResult({ data: { user: null, session: null }, error })
++        }
++
++        return this._returnResult({
++          data: { user: session?.user ?? null, session: session ?? null },
++          error: null,
++        })
++      }
+ 
+-          currentSession = data.session ?? undefined
++      return await this._useSession(async (result) => {
++        const { data, error: sessionError } = result
++        if (sessionError) {
++          throw sessionError
+         }
+ 
++        currentSession = data.session ?? undefined
++
+         if (!currentSession?.refresh_token) {
+           throw new AuthSessionMissingError()
+         }
+@@ -4651,6 +4661,7 @@ export default class GoTrueClient {
+           return (
+             error &&
+             isAuthRetryableFetchError(error) &&
++            error.status !== 408 &&
+             // retryable only if the request can be sent before the backoff overflows the tick duration
+             Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS
+           )
+diff --git a/src/lib/fetch.ts b/src/lib/fetch.ts
+index cdef4a8a5c0567eeafc69c2592f05952dd99c60e..deed48a3f13fb1508a72baa31a45afd15ede4b50 100644
+--- a/src/lib/fetch.ts
++++ b/src/lib/fetch.ts
+@@ -81,7 +81,7 @@ export async function handleError(error: unknown) {
+     throw new AuthRetryableFetchError(_getErrorMessage(error), 0)
+   }
+ 
+-  if (NETWORK_ERROR_CODES.includes(error.status)) {
++  if (error.status === 408 || NETWORK_ERROR_CODES.includes(error.status)) {
+     // status in 500...599 range - server had an error, request might be retryed.
+     throw new AuthRetryableFetchError(_getErrorMessage(error), error.status)
+   }

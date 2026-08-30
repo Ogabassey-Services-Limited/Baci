@@ -157,6 +157,7 @@ overrides:
 patchedDependencies:
   '@react-native-community/datetimepicker@9.1.0': d6eebfc80eac2c44c597c97dcf20c6dfa6c2311b8904802b6a846db637e19196
   '@react-native-google-signin/google-signin@16.1.2': 7cff21da1136367e024986a39ba517dbe07d3033fbe53b24d56ba0094505e5d3
+  '@supabase/auth-js@2.108.2': 10666e0a117124ecff8d983eae3931cf2336e1e0620dfd9f5b8cfd1f5ebe7639
   image-size@1.2.1: 586784fc0457bdee85ef9f507f8a22cd38a667ad32045923b493171e98c458a3
   lottie-react-native@7.3.8: cd9d83823cc2d1edf6ca8e47fb7c6bea5dd902b0b7188b2a6fb4302920e07cd7
   metro-runtime@0.84.4: 7f83ec93fe717bebba70d6301eac128b36bbb0b46d5db476fb5c43bac9daea6a
@@ -17985,7 +17986,7 @@ snapshots:
 
   '@standard-schema/utils@0.3.0': {}
 
-  '@supabase/auth-js@2.108.2':
+  '@supabase/auth-js@2.108.2(patch_hash=10666e0a117124ecff8d983eae3931cf2336e1e0620dfd9f5b8cfd1f5ebe7639)':
     dependencies:
       tslib: 2.8.1
 

@@ -8,7 +8,7 @@ const log = createLogger('Order');
 const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 5_000;
 
 type CheckoutAuth = {
-  refreshSession: () => Promise<{
+  refreshSession: (currentSession?: { refresh_token: string }) => Promise<{
     data: { session: Session | null };
     error: Error | null;
   }>;
@@ -58,7 +58,7 @@ export async function resolveCheckoutAuth(
   const timeout = refreshTimeout(timeoutMs);
   try {
     const { data, error } = await Promise.race([
-      auth.refreshSession(),
+      auth.refreshSession({ refresh_token: storedSession.refresh_token }),
       timeout.promise,
     ]);
     if (isAuthRefreshDiscardedError(error)) {

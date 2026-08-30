@@ -38,7 +38,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
 
     await jest.advanceTimersByTimeAsync(100);
 
-    await expect(result).resolves.toMatchObject({ status: 503 });
+    await expect(result).resolves.toMatchObject({ status: 408 });
     expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
@@ -90,7 +90,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     );
 
     const firstRead = client.auth.getSession();
-    await jest.advanceTimersByTimeAsync(31_000);
+    await jest.advanceTimersByTimeAsync(100);
     await expect(firstRead).resolves.toBeDefined();
 
     const secondRead = client.auth.getSession();
@@ -98,5 +98,51 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     await expect(secondRead).resolves.toBeDefined();
     expect(pendingFetch).toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
+  });
+
+  it('uses the explicitly supplied refresh token without rotating an expired stored session first', async () => {
+    const storedSession = {
+      access_token: accessToken(Math.floor(Date.now() / 1000) - 60),
+      expires_at: Math.floor(Date.now() / 1000) - 60,
+      refresh_token: 'stored-refresh-token',
+      token_type: 'bearer',
+      user: { id: 'user-a' },
+    } as Session;
+    const storage = {
+      getItem: jest.fn(async () => JSON.stringify(storedSession)),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>(async () =>
+      Response.json({
+        access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
+        expires_in: 3_600,
+        refresh_token: 'rotated-refresh-token',
+        token_type: 'bearer',
+        user: { id: 'user-a' },
+      })
+    );
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: true,
+          storage,
+        },
+        global: { fetch: fetchImpl },
+      }
+    );
+
+    await expect(
+      client.auth.refreshSession({ refresh_token: 'stored-refresh-token' })
+    ).resolves.toMatchObject({ data: { session: expect.any(Object) } });
+
+    const tokenRequests = fetchImpl.mock.calls.filter(([input]) =>
+      String(input).includes('/auth/v1/token')
+    );
+    expect(tokenRequests).toHaveLength(1);
   });
 });
