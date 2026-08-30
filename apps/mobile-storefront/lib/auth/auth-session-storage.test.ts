@@ -44,7 +44,7 @@ describe('auth session storage keys', () => {
 describe('authSessionStorage', () => {
   beforeEach(() => {
     mockSecureStore.deleteItemAsync.mockReset().mockResolvedValue(undefined);
-    mockSecureStore.getItemAsync.mockReset();
+    mockSecureStore.getItemAsync.mockReset().mockResolvedValue(null);
     mockSecureStore.setItemAsync.mockReset().mockResolvedValue(undefined);
     mockLoggerWarn.mockReset();
   });
@@ -123,11 +123,15 @@ describe('authSessionStorage', () => {
     mockSecureStore.deleteItemAsync.mockImplementation(
       () => new Promise<never>(() => undefined)
     );
+    if (operation !== 'read') {
+      mockSecureStore.getItemAsync.mockResolvedValue(null);
+    }
 
     const result = run();
     const rejection = expect(result).rejects.toThrow(
       `Supabase auth storage ${operation} timed out`
     );
+    await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
 
     await rejection;
@@ -147,6 +151,7 @@ describe('authSessionStorage', () => {
     const rejection = expect(stalledRead).rejects.toThrow(
       'Supabase auth storage read timed out'
     );
+    await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
     await rejection;
 
@@ -174,6 +179,7 @@ describe('authSessionStorage', () => {
     const rejection = expect(staleWrite).rejects.toThrow(
       'Supabase auth storage write timed out'
     );
+    await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
     await rejection;
 
@@ -201,7 +207,9 @@ describe('authSessionStorage', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error('correction unavailable'))
       .mockResolvedValueOnce(undefined);
-    mockSecureStore.getItemAsync.mockResolvedValue('replacement-session');
+    mockSecureStore.getItemAsync
+      .mockResolvedValueOnce(null)
+      .mockResolvedValue('replacement-session');
 
     const staleWrite = authSessionStorage.setItem(
       'retry-auth-key',
@@ -210,6 +218,7 @@ describe('authSessionStorage', () => {
     const rejection = expect(staleWrite).rejects.toThrow(
       'Supabase auth storage write timed out'
     );
+    await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
     await rejection;
     await authSessionStorage.setItem('retry-auth-key', 'replacement-session');
@@ -238,6 +247,7 @@ describe('authSessionStorage', () => {
     );
     mockSecureStore.deleteItemAsync
       .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
       .mockRejectedValue(new Error('delete correction unavailable'));
 
     const staleWrite = authSessionStorage.setItem(
@@ -247,6 +257,7 @@ describe('authSessionStorage', () => {
     const rejection = expect(staleWrite).rejects.toThrow(
       'Supabase auth storage write timed out'
     );
+    await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
     await rejection;
     await authSessionStorage.removeItem('delete-auth-key');
@@ -254,9 +265,109 @@ describe('authSessionStorage', () => {
     completeStaleWrite?.();
     await jest.advanceTimersByTimeAsync(0);
 
+    const storageReadsBeforeTombstoneCheck =
+      mockSecureStore.getItemAsync.mock.calls.length;
     await expect(
       authSessionStorage.getItem('delete-auth-key')
     ).resolves.toBeNull();
-    expect(mockSecureStore.getItemAsync).not.toHaveBeenCalled();
+    expect(mockSecureStore.getItemAsync).toHaveBeenCalledTimes(
+      storageReadsBeforeTombstoneCheck
+    );
+  });
+
+  it('restores the prior session when a timed-out current write later completes', async () => {
+    jest.useFakeTimers();
+    let storedValue: string | null = 'previous-session';
+    let completeTimedOutWrite: (() => void) | undefined;
+    mockSecureStore.getItemAsync.mockImplementation(async () => storedValue);
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        (_key, value) =>
+          new Promise<void>((resolve) => {
+            completeTimedOutWrite = () => {
+              storedValue = value;
+              resolve();
+            };
+          })
+      )
+      .mockImplementation(async (_key, value) => {
+        storedValue = value;
+      });
+
+    const timedOutWrite = authSessionStorage.setItem(
+      'abandoned-auth-key',
+      'unreported-session'
+    );
+    const rejection = expect(timedOutWrite).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(4_000);
+    await rejection;
+
+    completeTimedOutWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+
+    await expect(
+      authSessionStorage.getItem('abandoned-auth-key')
+    ).resolves.toBe('previous-session');
+    expect(storedValue).toBe('previous-session');
+  });
+
+  it('rolls back a failed interleaved write to the preceding session', async () => {
+    let storedValue: string | null = null;
+    let completeFirstWrite: (() => void) | undefined;
+    let markFirstWriteStarted: (() => void) | undefined;
+    const firstWriteStarted = new Promise<void>((resolve) => {
+      markFirstWriteStarted = resolve;
+    });
+    mockSecureStore.getItemAsync.mockImplementation(async () => storedValue);
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        (_key, value) =>
+          new Promise<void>((resolve) => {
+            markFirstWriteStarted?.();
+            completeFirstWrite = () => {
+              storedValue = value;
+              resolve();
+            };
+          })
+      )
+      .mockRejectedValueOnce(new Error('later write failed'));
+
+    const firstWrite = authSessionStorage.setItem(
+      'interleaved-auth-key',
+      'first-session'
+    );
+    const failedLaterWrite = authSessionStorage.setItem(
+      'interleaved-auth-key',
+      'failed-later-session'
+    );
+    await firstWriteStarted;
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+
+    completeFirstWrite?.();
+    await firstWrite;
+    await expect(failedLaterWrite).rejects.toThrow('later write failed');
+
+    await expect(
+      authSessionStorage.getItem('interleaved-auth-key')
+    ).resolves.toBe('first-session');
+    expect(storedValue).toBe('first-session');
+  });
+
+  it('does not mutate storage when the rollback baseline is unknown', async () => {
+    const snapshotError = new Error('rollback snapshot unavailable');
+    mockSecureStore.getItemAsync.mockRejectedValue(snapshotError);
+
+    await expect(
+      authSessionStorage.setItem('unknown-baseline-key', 'new-session')
+    ).rejects.toBe(snapshotError);
+    await expect(
+      authSessionStorage.removeItem('unknown-delete-baseline-key')
+    ).rejects.toBe(snapshotError);
+
+    expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+    expect(mockSecureStore.deleteItemAsync).not.toHaveBeenCalled();
   });
 });
