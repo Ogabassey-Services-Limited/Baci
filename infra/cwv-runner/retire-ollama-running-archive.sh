@@ -108,6 +108,7 @@ running_container_archive_group_start() {
     POSIX::getpgrp() == $$ and exit 2;
     my $session = POSIX::setsid();
     defined($session) && $session == $$ or exit 2;
+    (kill "STOP", $$) == 1 or exit 2;
     sysopen(STDOUT, $output, O_WRONLY | O_NOFOLLOW) or exit 2;
     my @output_stat = stat(STDOUT);
     @output_stat && -p _ or exit 2;
@@ -120,6 +121,7 @@ running_container_archive_group_start() {
   while [ "$running_start_attempt" -lt 100 ]; do
     running_start_pgid=$(/bin/ps -o pgid= -p "$running_start_pid" 2>/dev/null | /usr/bin/tr -d '[:space:]') || running_start_pgid=''
     if [ "$running_start_pgid" = "$running_start_pid" ]; then
+      /bin/kill -CONT "$running_start_pid" 2>/dev/null || { /bin/kill -KILL "$running_start_pid" 2>/dev/null || :; wait "$running_start_pid" 2>/dev/null || :; return 2; }
       RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
       return 0
     fi
@@ -127,7 +129,7 @@ running_container_archive_group_start() {
     running_start_attempt=$((running_start_attempt + 1))
     /bin/sleep 0.01
   done
-  /bin/kill -TERM "$running_start_pid" 2>/dev/null || :
+  /bin/kill -KILL "$running_start_pid" 2>/dev/null || :
   wait "$running_start_pid" 2>/dev/null || :
   return 2
 }

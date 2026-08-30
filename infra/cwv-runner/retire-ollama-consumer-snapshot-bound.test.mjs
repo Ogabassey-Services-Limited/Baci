@@ -30,7 +30,7 @@ test_marker=$6
 temp_path() { mktemp "$test_root/snapshot.XXXXXX"; }
 real_stat=$(command -v stat)
 stat() {
-  if [ "$1" = -c ] && [ "$2" = %d:%i:%f:%s:%u:%g:%a ] && [ "$3" = "$test_consumer" ]; then
+  if [ "$1" = -c ] && [ "$2" = %i:%d:%f:%s:%u:%g:%a ] && [ "$3" = "$test_consumer" ]; then
     count=$(/bin/cat "$test_counter") || return 2
     count=$((count + 1))
     printf '%s\\n' "$count" >"$test_counter" || return 2
