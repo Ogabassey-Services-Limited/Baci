@@ -183,5 +183,11 @@ describe('transaction discount provenance migration', () => {
     expect(proofRejectionMigrationSql).toMatch(
       /DELETE FROM private\.transaction_discount_proof_replay[\s\S]*?consumed_at < pg_catalog\.now\(\) - INTERVAL '1 day'/i
     );
+    expect(proofReplayAfterExpiryMigrationSql).toMatch(
+      /CREATE INDEX IF NOT EXISTS transaction_discount_proof_replay_order_id_idx[\s\S]*?\(order_id\)/i
+    );
+    expect(proofReplayAfterExpiryMigrationSql).toMatch(
+      /DELETE FROM private\.transaction_discount_proof_replay AS replay[\s\S]*?AND NOT EXISTS \([\s\S]*?FROM public\.orders AS order_row[\s\S]*?order_row\.id = replay\.order_id/i
+    );
   });
 });

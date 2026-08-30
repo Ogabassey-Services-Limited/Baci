@@ -1,14 +1,20 @@
 import type { DiscountableTransactionItem } from './transaction-review-discount-allocations';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
 
+export function isQuizVoucherLine(item: DiscountableTransactionItem) {
+  const awardId = item.quiz_award_id;
+  const awardAmount = toFiniteNumberOrNull(item.quiz_award_amount);
+  return (
+    (typeof awardId === 'string' && awardId.trim().length > 0) ||
+    (awardAmount != null && awardAmount > 0)
+  );
+}
+
 export function getQuizVoucherDiscountAmount(
   items: DiscountableTransactionItem[]
 ) {
   return items.reduce((sum, item) => {
-    if (
-      typeof item.quiz_award_id !== 'string' ||
-      item.quiz_award_id.trim().length === 0
-    ) {
+    if (!isQuizVoucherLine(item)) {
       return sum;
     }
 

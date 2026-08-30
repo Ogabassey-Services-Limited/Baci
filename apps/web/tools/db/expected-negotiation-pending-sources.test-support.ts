@@ -57,7 +57,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260830100000_accept_bound_transaction_discount_replays_after_expiry.sql',
-    sha256: '1adfbf3f14fd0b33389394df02a0d8c115ad1e6c4d59581e190ea4569f220d34',
+    sha256: 'bf4b23b708e35532e7f9caf6c173edee8c30f04c9840693e9453f91b8e685ae1',
   },
   {
     repositoryPath:

@@ -7,7 +7,10 @@ import { applyFallbackTransactionDiscount } from './transaction-review-discount-
 import type { TransactionDiscountOptions } from './transaction-review-discount-metadata';
 import { getPersistedLineKeyOccurrenceOrdinals } from './transaction-review-persisted-line-key-occurrences';
 import { toFiniteNumberOrNull } from './transaction-review-row-helpers';
-import { getQuizVoucherDiscountAmount } from './transaction-review-voucher-discount';
+import {
+  getQuizVoucherDiscountAmount,
+  isQuizVoucherLine,
+} from './transaction-review-voucher-discount';
 
 export type { TransactionDiscountLineAllocation } from '@baci/shared/contracts';
 export type { DiscountableTransactionItem } from './transaction-review-discount-allocations';
@@ -43,11 +46,7 @@ export function getDiscountedTransactionUnitPrices(
   }
 
   const voucherLineIndexes = new Set(
-    items.flatMap((item, index) =>
-      typeof item.quiz_award_id === 'string' && item.quiz_award_id.trim()
-        ? [index]
-        : []
-    )
+    items.flatMap((item, index) => (isQuizVoucherLine(item) ? [index] : []))
   );
   const voucherDiscountBasis = getQuizVoucherDiscountAmount(items);
 

@@ -100,6 +100,29 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([40, 200]);
   });
 
+  it('keeps a deleted award line discounted without redistributing it', () => {
+    const items = [
+      { price: 120, quantity: 1, quiz_award_id: null, quiz_award_amount: 100 },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 100);
+
+    expect(prices).toEqual([20, 200]);
+  });
+
+  it('keeps non-positive retained amounts eligible for merchandise discounts', () => {
+    const items = [
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: 0 },
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: -10 },
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: 50 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 70);
+
+    expect(prices).toEqual([90, 90, 50]);
+  });
+
   it('bounds voucher reductions by the persisted award amount', () => {
     const items = [
       {

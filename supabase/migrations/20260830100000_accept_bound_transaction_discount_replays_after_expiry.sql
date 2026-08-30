@@ -2,6 +2,9 @@
 -- updated after the proof's short validation window. The metadata remains
 -- bound to the original payload and order; only the expiry check is skipped
 -- for this exact same-order replay.
+CREATE INDEX IF NOT EXISTS transaction_discount_proof_replay_order_id_idx
+  ON private.transaction_discount_proof_replay (order_id);
+
 CREATE OR REPLACE FUNCTION private.sanitize_storefront_transaction_discount_metadata()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -14,8 +17,16 @@ DECLARE
   v_proof jsonb;
   v_inserted_count integer;
 BEGIN
-  DELETE FROM private.transaction_discount_proof_replay
-  WHERE consumed_at < pg_catalog.now() - INTERVAL '1 day';
+  -- Keep a proof binding for as long as its order exists. A later order
+  -- update may legitimately replay the marker long after the short proof
+  -- validation window; rows for deleted orders can still be reclaimed.
+  DELETE FROM private.transaction_discount_proof_replay AS replay
+  WHERE consumed_at < pg_catalog.now() - INTERVAL '1 day'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.orders AS order_row
+      WHERE order_row.id = replay.order_id
+    );
 
   IF pg_catalog.jsonb_typeof(v_tracking) <> 'object'
      OR NOT (v_tracking ? 'baci_transaction_discount') THEN

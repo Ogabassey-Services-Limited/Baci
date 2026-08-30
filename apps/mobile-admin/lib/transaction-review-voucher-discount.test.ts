@@ -35,4 +35,28 @@ describe('getQuizVoucherDiscountAmount', () => {
 
     expect(amount).toBe(100);
   });
+
+  it('uses a retained award amount after the award link is deleted', () => {
+    const amount = getQuizVoucherDiscountAmount([
+      {
+        price: 120,
+        quantity: 1,
+        quiz_award_id: null,
+        quiz_award_amount: 100,
+      },
+      { price: 200, quantity: 1 },
+    ]);
+
+    expect(amount).toBe(100);
+  });
+
+  it('ignores non-positive amount-only voucher markers', () => {
+    const amount = getQuizVoucherDiscountAmount([
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: 0 },
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: -10 },
+      { price: 100, quantity: 1, quiz_award_id: null, quiz_award_amount: 50 },
+    ]);
+
+    expect(amount).toBe(50);
+  });
 });
