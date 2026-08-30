@@ -27,34 +27,35 @@ describe('finalizeDueQuizEvents', () => {
     mocks.rpc.mockResolvedValue({ data: {}, error: null });
   });
 
-  it('always promotes, closes tests, terminalizes live attempts, and expires old awards', async () => {
+  it('processes the deadline-critical v2 lifecycle in one database transaction', async () => {
     mocks.rpc
-      .mockResolvedValueOnce({ data: 2, error: null })
       .mockResolvedValueOnce({
-        data: { testClosed: 3, zeroPlayerClosed: 1 },
-        error: null,
-      })
-      .mockResolvedValueOnce({
-        data: { liveTerminalized: 4, zeroPlayerClosed: 2 },
+        data: {
+          awarded: 0,
+          liveAwaitingGate: 4,
+          liveTerminalized: 4,
+          liveZeroPlayerClosed: 1,
+          scheduledPromoted: 2,
+          testClosed: 3,
+          testZeroPlayerClosed: 2,
+        },
         error: null,
       })
       .mockResolvedValueOnce({ data: { expired: 1, released: 1 }, error: null })
-      .mockResolvedValueOnce({ data: { liveAwaitingGate: 4 }, error: null });
+      .mockResolvedValueOnce({ data: {}, error: null });
 
     const result = await finalizeDueQuizEvents();
 
     expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
-      'promote_due_scheduled_quiz_events_service_v2',
-      'finalize_due_test_quiz_events_v2',
-      'terminalize_due_live_quiz_events_v2',
+      'process_due_quiz_deadlines_v2',
       'expire_unclaimed_ranked_quiz_awards_v2',
-      'finalize_due_live_quiz_events_v2',
       'close_due_product_quiz_events',
     ]);
     expect(result.body).toMatchObject({
       scheduledPromoted: 2,
       testClosed: 3,
-      zeroPlayerClosed: 3,
+      testZeroPlayerClosed: 2,
+      liveZeroPlayerClosed: 1,
       liveTerminalized: 4,
       liveAwaitingGate: 4,
       expired: 1,
@@ -64,12 +65,35 @@ describe('finalizeDueQuizEvents', () => {
     });
   });
 
+  it('reports isolated per-event deadline failures without losing batch counts', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: {
+          liveTerminalizationFailed: 2,
+          testClosed: 4,
+          testPublicationFailed: 1,
+        },
+        error: null,
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      failed: 3,
+      liveTerminalizationFailed: 2,
+      testClosed: 4,
+      testPublicationFailed: 1,
+    });
+  });
+
   it('passes both production gates to the live database finalizer', async () => {
     mocks.phase.mockReturnValue('production');
     mocks.approved.mockReturnValue(true);
     await finalizeDueQuizEvents();
     expect(mocks.rpc).toHaveBeenLastCalledWith('finalize_due_quiz_events');
-    expect(mocks.rpc).toHaveBeenCalledWith('finalize_due_live_quiz_events_v2', {
+    expect(mocks.rpc).toHaveBeenCalledWith('process_due_quiz_deadlines_v2', {
       p_production_approved: true,
       p_production_phase: true,
     });
@@ -92,16 +116,38 @@ describe('finalizeDueQuizEvents', () => {
       failed: 1,
     });
     expect(JSON.stringify(result.body)).not.toContain('customer@example.com');
-    expect(mocks.rpc).toHaveBeenCalledTimes(6);
+    expect(mocks.rpc).toHaveBeenCalledTimes(3);
     expect(logger.error).toHaveBeenCalledWith({
       code: 'P0001',
       error: '[REDACTED]',
       message: 'Quiz finalization RPC failed',
-      rpc: 'promote_due_scheduled_quiz_events_service_v2',
+      rpc: 'process_due_quiz_deadlines_v2',
     });
     const logged = JSON.stringify(vi.mocked(logger.error).mock.calls);
     expect(logged).not.toContain('customer@example.com');
     expect(logged).not.toContain('private-token');
     expect(logged).not.toContain('sk_live_secret');
+  });
+
+  it('falls back to the existing idempotent RPCs during migration rollout', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: 'PGRST202', details: '', hint: '', message: '' },
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(200);
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
+      'process_due_quiz_deadlines_v2',
+      'promote_due_scheduled_quiz_events_service_v2',
+      'finalize_due_test_quiz_events_v2',
+      'terminalize_due_live_quiz_events_v2',
+      'finalize_due_live_quiz_events_v2',
+      'expire_unclaimed_ranked_quiz_awards_v2',
+      'close_due_product_quiz_events',
+    ]);
   });
 });

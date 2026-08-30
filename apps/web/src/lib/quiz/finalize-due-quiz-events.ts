@@ -11,7 +11,11 @@ const COUNT_KEYS = [
   'scheduledPromoted',
   'testClosed',
   'zeroPlayerClosed',
+  'testZeroPlayerClosed',
+  'liveZeroPlayerClosed',
   'liveTerminalized',
+  'testPublicationFailed',
+  'liveTerminalizationFailed',
   'liveAwaitingGate',
   'awarded',
   'noWinner',
@@ -38,7 +42,13 @@ type FinalizationStep =
   | {
       args: Database['public']['Functions']['finalize_due_live_quiz_events_v2']['Args'];
       name: 'finalize_due_live_quiz_events_v2';
+    }
+  | {
+      args: Database['public']['Functions']['process_due_quiz_deadlines_v2']['Args'];
+      name: 'process_due_quiz_deadlines_v2';
     };
+
+const MISSING_RPC_CODES = new Set(['42883', 'PGRST202']);
 
 function emptySummary(): Summary {
   return Object.fromEntries(COUNT_KEYS.map((key) => [key, 0])) as Summary;
@@ -56,6 +66,34 @@ function addPayload(summary: Summary, payload: unknown) {
       summary[key] += value;
     }
   }
+  summary.failed +=
+    summaryValue(payload, 'testPublicationFailed') +
+    summaryValue(payload, 'liveTerminalizationFailed');
+}
+
+function summaryValue(payload: object, key: CountKey) {
+  const value = (payload as Record<string, unknown>)[key];
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : 0;
+}
+
+function addStepPayload(
+  summary: Summary,
+  step: FinalizationStep,
+  payload: unknown
+) {
+  if (step.name === 'promote_due_scheduled_quiz_events_service_v2') {
+    if (
+      typeof payload === 'number' &&
+      Number.isSafeInteger(payload) &&
+      payload >= 0
+    ) {
+      summary.scheduledPromoted += payload;
+    }
+    return;
+  }
+  addPayload(summary, payload);
 }
 
 function logRpcFailure(name: FinalizationStep['name'], error: PostgrestError) {
@@ -83,6 +121,8 @@ function runStep(client: QuizFinalizationClient, step: FinalizationStep) {
       return client.rpc('expire_unclaimed_ranked_quiz_awards_v2');
     case 'finalize_due_live_quiz_events_v2':
       return client.rpc('finalize_due_live_quiz_events_v2', step.args);
+    case 'process_due_quiz_deadlines_v2':
+      return client.rpc('process_due_quiz_deadlines_v2', step.args);
     case 'close_due_product_quiz_events':
       return client.rpc('close_due_product_quiz_events');
     case 'finalize_due_quiz_events':
@@ -96,25 +136,56 @@ export async function finalizeDueQuizEvents() {
   const phaseIsProduction = getQuizPhaseEnv() === 'production';
   const productionApproved = getQuizProductionApprovedEnv();
 
-  const steps: FinalizationStep[] = [
+  const deadlineArgs = {
+    p_production_approved: productionApproved,
+    p_production_phase: phaseIsProduction,
+  };
+  const deadlineStep: FinalizationStep = {
+    name: 'process_due_quiz_deadlines_v2',
+    args: deadlineArgs,
+  };
+  const legacyDeadlineSteps: FinalizationStep[] = [
     { name: 'promote_due_scheduled_quiz_events_service_v2' },
     { name: 'finalize_due_test_quiz_events_v2' },
     { name: 'terminalize_due_live_quiz_events_v2' },
-    { name: 'expire_unclaimed_ranked_quiz_awards_v2' },
     {
       name: 'finalize_due_live_quiz_events_v2',
-      args: {
-        p_production_approved: productionApproved,
-        p_production_phase: phaseIsProduction,
-      },
+      args: deadlineArgs,
     },
+  ];
+  const maintenanceSteps: FinalizationStep[] = [
+    { name: 'expire_unclaimed_ranked_quiz_awards_v2' },
     { name: 'close_due_product_quiz_events' },
   ];
   if (phaseIsProduction && productionApproved) {
-    steps.push({ name: 'finalize_due_quiz_events' });
+    maintenanceSteps.push({ name: 'finalize_due_quiz_events' });
   }
 
-  for (const step of steps) {
+  const deadlineResult = await runStep(client, deadlineStep);
+  if (
+    deadlineResult.error &&
+    MISSING_RPC_CODES.has(deadlineResult.error.code)
+  ) {
+    // Deployments can briefly run the newer worker before its migration has
+    // reached PostgREST. The old RPCs are idempotent, so retain them only as a
+    // rollout compatibility path instead of failing every deadline cycle.
+    for (const step of legacyDeadlineSteps) {
+      const { data, error } = await runStep(client, step);
+      if (error) {
+        logRpcFailure(step.name, error);
+        summary.failed += 1;
+        continue;
+      }
+      addStepPayload(summary, step, data);
+    }
+  } else if (deadlineResult.error) {
+    logRpcFailure(deadlineStep.name, deadlineResult.error);
+    summary.failed += 1;
+  } else {
+    addStepPayload(summary, deadlineStep, deadlineResult.data);
+  }
+
+  for (const step of maintenanceSteps) {
     const { data, error } = await runStep(client, step);
     if (error) {
       logRpcFailure(step.name, error);
@@ -124,13 +195,7 @@ export async function finalizeDueQuizEvents() {
       // expiry until the next worker run.
       continue;
     }
-    if (step.name === 'promote_due_scheduled_quiz_events_service_v2') {
-      if (typeof data === 'number' && Number.isSafeInteger(data) && data >= 0) {
-        summary.scheduledPromoted += data;
-      }
-    } else {
-      addPayload(summary, data);
-    }
+    addStepPayload(summary, step, data);
   }
 
   if (!phaseIsProduction || !productionApproved) {

@@ -19290,6 +19290,13 @@ export type Database = {
           total_amount: number;
         }[];
       };
+      process_due_quiz_deadlines_v2: {
+        Args: {
+          p_production_approved: boolean;
+          p_production_phase: boolean;
+        };
+        Returns: Json;
+      };
       product_autocomplete:
         | {
             Args: {
