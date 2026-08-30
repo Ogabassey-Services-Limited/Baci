@@ -149,16 +149,8 @@ describe('createOrder checkout auth fallback', () => {
     expect(mockGetUser).not.toHaveBeenCalled();
     expect(mockRefreshSession).toHaveBeenCalledTimes(1);
     expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);
-    expect(mockFetchWithRetry).toHaveBeenNthCalledWith(
-      1,
-      expect.stringMatching(/\/api\/orders$/),
-      expect.objectContaining({
-        headers: expect.objectContaining({
-          Authorization: 'Bearer stored-token',
-        }),
-      }),
-      expect.objectContaining({ maxRetries: 0, timeout: 30_000 })
-    );
+    const firstRequestHeaders = mockFetchWithRetry.mock.calls[0]?.[1]?.headers;
+    expect(firstRequestHeaders).not.toHaveProperty('Authorization');
     const secondRequestHeaders = mockFetchWithRetry.mock.calls[1]?.[1]?.headers;
     expect(secondRequestHeaders).not.toHaveProperty('Authorization');
   });

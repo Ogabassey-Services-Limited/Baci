@@ -7,7 +7,7 @@ jest.mock('@/lib/logger', () => ({
   createLogger: () => ({ warn: mockWarn }),
 }));
 
-const { getCheckoutStoredSession, resolveCheckoutAuth } =
+const { resolveCheckoutAuth } =
   require('./orders-auth') as typeof import('./orders-auth');
 
 function session(accessToken: string): Session {
@@ -63,7 +63,7 @@ describe('resolveCheckoutAuth', () => {
     expect(mockWarn).not.toHaveBeenCalled();
   });
 
-  it('warns and returns the stored session when refresh resolves with an error', async () => {
+  it('omits stale authorization when refresh resolves with an error', async () => {
     const storedSession = session('stored-token');
     const auth = {
       refreshSession: jest.fn(async () => ({
@@ -74,15 +74,13 @@ describe('resolveCheckoutAuth', () => {
 
     const result = await resolveCheckoutAuth(auth, storedSession);
 
-    expect(result.session).toBe(storedSession);
+    expect(result.session).toBeNull();
     expect(result.canValidateUser).toBe(false);
     expect(mockWarn).toHaveBeenCalledWith(
-      'Unable to refresh checkout session; using stored session',
+      'Unable to refresh checkout session; omitting authorization',
       { error: 'Refresh rejected' }
     );
-    expect(result.authorizationHeaders).toEqual({
-      Authorization: 'Bearer stored-token',
-    });
+    expect(result.authorizationHeaders).toEqual({});
   });
 
   it('does not reuse the stored session when a concurrent auth change discards the refresh', async () => {
@@ -129,7 +127,7 @@ describe('resolveCheckoutAuth', () => {
     );
   });
 
-  it('warns and returns the stored session when refresh resolves without a session', async () => {
+  it('omits stale authorization when refresh resolves without a session', async () => {
     const storedSession = session('stored-token');
     const auth = {
       refreshSession: jest.fn(async () => ({
@@ -139,17 +137,17 @@ describe('resolveCheckoutAuth', () => {
     };
 
     await expect(resolveCheckoutAuth(auth, storedSession)).resolves.toEqual({
-      authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      authorizationHeaders: {},
       canValidateUser: false,
-      session: storedSession,
+      session: null,
     });
     expect(mockWarn).toHaveBeenCalledWith(
-      'Unable to refresh checkout session; using stored session',
+      'Unable to refresh checkout session; omitting authorization',
       { error: 'Refresh returned no session' }
     );
   });
 
-  it('warns and returns the stored session when refresh rejects', async () => {
+  it('omits stale authorization when refresh rejects', async () => {
     const storedSession = session('stored-token');
     const auth = {
       refreshSession: jest.fn(async () => {
@@ -158,17 +156,17 @@ describe('resolveCheckoutAuth', () => {
     };
 
     await expect(resolveCheckoutAuth(auth, storedSession)).resolves.toEqual({
-      authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      authorizationHeaders: {},
       canValidateUser: false,
-      session: storedSession,
+      session: null,
     });
     expect(mockWarn).toHaveBeenCalledWith(
-      'Unable to refresh checkout session; using stored session',
+      'Unable to refresh checkout session; omitting authorization',
       { error: 'Auth refresh unavailable' }
     );
   });
 
-  it('bounds a pending refresh and falls back to the stored session', async () => {
+  it('bounds a pending refresh without reusing stale authorization', async () => {
     jest.useFakeTimers();
     const storedSession = session('stored-token');
     const auth = {
@@ -179,34 +177,12 @@ describe('resolveCheckoutAuth', () => {
     await jest.advanceTimersByTimeAsync(100);
 
     await expect(result).resolves.toEqual({
-      authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      authorizationHeaders: {},
       canValidateUser: false,
-      session: storedSession,
+      session: null,
     });
     expect(mockWarn).toHaveBeenCalledWith(
-      'Unable to refresh checkout session; using stored session',
-      { error: 'Checkout session refresh timed out' }
-    );
-  });
-});
-
-describe('getCheckoutStoredSession', () => {
-  afterEach(() => {
-    jest.useRealTimers();
-  });
-
-  it('bounds a session read queued behind a pending refresh', async () => {
-    jest.useFakeTimers();
-    const result = getCheckoutStoredSession(
-      { getSession: jest.fn(() => new Promise<never>(() => undefined)) },
-      100
-    );
-
-    await jest.advanceTimersByTimeAsync(100);
-
-    await expect(result).resolves.toBeNull();
-    expect(mockWarn).toHaveBeenCalledWith(
-      'Unable to read checkout session within timeout; using guest checkout',
+      'Unable to refresh checkout session; omitting authorization',
       { error: 'Checkout session refresh timed out' }
     );
   });

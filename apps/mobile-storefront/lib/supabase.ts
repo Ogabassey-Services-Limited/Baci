@@ -18,6 +18,7 @@ import {
   getDefaultSupabaseAuthStorageKey,
 } from './auth/auth-session-storage';
 import { createLogger } from './logger';
+import { createSupabaseAuthTimeoutFetch } from './supabase-auth-timeout-fetch';
 
 const log = createLogger('Supabase');
 
@@ -161,6 +162,7 @@ const authOptions = isServerRuntime
 const supabaseClient = hasSupabaseCredentials
   ? createClient(validSupabaseUrl, supabaseClientKey, {
       auth: authOptions,
+      global: { fetch: createSupabaseAuthTimeoutFetch(fetch) },
     })
   : createMissingCredentialsClient();
 

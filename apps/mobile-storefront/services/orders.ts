@@ -19,7 +19,8 @@ import {
   CreateOrderRequestSchema,
   type OrderResponse,
 } from './orders.schemas';
-import { getCheckoutStoredSession, resolveCheckoutAuth } from './orders-auth';
+import { resolveCheckoutAuth } from './orders-auth';
+import { getCheckoutStoredSession } from './orders-session';
 
 export { OrderError } from './orders.errors';
 export type {

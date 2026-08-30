@@ -7,39 +7,12 @@ import { createLogger } from '@/lib/logger';
 const log = createLogger('Order');
 const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 5_000;
 
-type CheckoutSessionAuth = {
-  getSession: () => Promise<{
-    data: { session: Session | null };
-  }>;
-};
-
 type CheckoutAuth = {
   refreshSession: () => Promise<{
     data: { session: Session | null };
     error: Error | null;
   }>;
 };
-
-export async function getCheckoutStoredSession(
-  auth: CheckoutSessionAuth,
-  timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS
-): Promise<Session | null> {
-  const timeout = refreshTimeout(timeoutMs);
-  try {
-    const { data } = await Promise.race([auth.getSession(), timeout.promise]);
-    return data.session;
-  } catch (error) {
-    log.warn(
-      'Unable to read checkout session within timeout; using guest checkout',
-      {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      }
-    );
-    return null;
-  } finally {
-    if (timeout.timer) clearTimeout(timeout.timer);
-  }
-}
 
 function refreshTimeout(timeoutMs: number): {
   promise: Promise<never>;
@@ -103,18 +76,18 @@ export async function resolveCheckoutAuth(
     }
 
     if (error || !data.session) {
-      log.warn('Unable to refresh checkout session; using stored session', {
+      log.warn('Unable to refresh checkout session; omitting authorization', {
         error: error?.message ?? 'Refresh returned no session',
       });
-      return checkoutAuthResult(storedSession, false);
+      return checkoutAuthResult(null, false);
     }
 
     return checkoutAuthResult(data.session, true);
   } catch (error) {
-    log.warn('Unable to refresh checkout session; using stored session', {
+    log.warn('Unable to refresh checkout session; omitting authorization', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return checkoutAuthResult(storedSession, false);
+    return checkoutAuthResult(null, false);
   } finally {
     if (timeout.timer) clearTimeout(timeout.timer);
   }
