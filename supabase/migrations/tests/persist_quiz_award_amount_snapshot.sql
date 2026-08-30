@@ -22,6 +22,7 @@ DECLARE
   v_run_id text := txid_current()::text;
   v_merchant_id uuid := gen_random_uuid();
   v_customer_id uuid := gen_random_uuid();
+  v_reserved_customer_id uuid := gen_random_uuid();
   v_event_id uuid := gen_random_uuid();
   v_ordinary_attempt_id uuid := gen_random_uuid();
   v_reserved_attempt_id uuid := gen_random_uuid();
@@ -30,6 +31,7 @@ DECLARE
   v_reserved_item_id uuid := gen_random_uuid();
   v_ordinary_award_id uuid := gen_random_uuid();
   v_reserved_award_id uuid := gen_random_uuid();
+  v_detail text;
 BEGIN
   -- Replay checks run as the database owner, but several quiz/order triggers
   -- still require a request identity. Use the fixture customer as the
@@ -41,7 +43,11 @@ BEGIN
   );
   PERFORM set_config(
     'request.jwt.claims',
-    pg_catalog.json_build_object('sub', v_customer_id::text)::text,
+    pg_catalog.json_build_object(
+      'sub', v_customer_id::text,
+      'storefront_order_context', 'route',
+      'storefront_order_merchant_id', v_merchant_id::text
+    )::text,
     true
   );
 
@@ -61,6 +67,14 @@ BEGIN
     'Quiz Award Snapshot Customer'
   );
 
+  INSERT INTO public.customers (id, merchant_id, email, full_name)
+  VALUES (
+    v_reserved_customer_id,
+    v_merchant_id,
+    format('quiz-award-reserved-customer-%s@example.com', v_run_id),
+    'Quiz Award Reserved Customer'
+  );
+
   INSERT INTO public.quiz_events (id, merchant_id, slug, title, status)
   VALUES (
     v_event_id,
@@ -73,7 +87,7 @@ BEGIN
   INSERT INTO public.quiz_attempts (id, event_id, customer_id, attempt_number)
   VALUES
     (v_ordinary_attempt_id, v_event_id, v_customer_id, 1),
-    (v_reserved_attempt_id, v_event_id, v_customer_id, 2);
+    (v_reserved_attempt_id, v_event_id, v_reserved_customer_id, 1);
 
   INSERT INTO public.orders (
     id,
@@ -169,7 +183,7 @@ BEGIN
     v_reserved_award_id,
     v_event_id,
     v_reserved_attempt_id,
-    v_customer_id,
+    v_reserved_customer_id,
     'store_credit',
     'claimed',
     475,
@@ -190,8 +204,9 @@ BEGIN
   );
 EXCEPTION
   WHEN unique_violation THEN
+    GET STACKED DIAGNOSTICS v_detail = PG_EXCEPTION_DETAIL;
     RAISE EXCEPTION 'quiz award snapshot fixture unique violation: %', SQLERRM
-      USING DETAIL = PG_EXCEPTION_DETAIL;
+      USING DETAIL = v_detail;
 END;
 $$ LANGUAGE plpgsql;
 
