@@ -23,6 +23,20 @@ DECLARE
   v_ordinary_award_id uuid := '00000000-0000-4000-8000-00000000a109';
   v_reserved_award_id uuid := '00000000-0000-4000-8000-00000000a10a';
 BEGIN
+  -- Replay checks run as the database owner, but several quiz/order triggers
+  -- still require a request identity. Use the fixture customer as the
+  -- authenticated subject so those existing guards are exercised normally.
+  PERFORM set_config(
+    'request.jwt.claim.sub',
+    v_customer_id::text,
+    true
+  );
+  PERFORM set_config(
+    'request.jwt.claims',
+    pg_catalog.json_build_object('sub', v_customer_id::text)::text,
+    true
+  );
+
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_merchant_id,
