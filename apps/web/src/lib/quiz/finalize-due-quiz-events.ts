@@ -17,6 +17,8 @@ const COUNT_KEYS = [
   'testPublicationFailed',
   'liveTerminalizationFailed',
   'scheduledPromotionFailed',
+  'testDeadlineClockFailed',
+  'liveDeadlineClockFailed',
   'deadlineClockFailed',
   'liveFinalizationFailed',
   'liveAwaitingGate',

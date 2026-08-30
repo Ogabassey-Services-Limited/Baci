@@ -11976,6 +11976,27 @@ export type Database = {
         };
         Relationships: [];
       };
+      quiz_runtime_control_v2: {
+        Row: {
+          production_approved: boolean;
+          production_phase: boolean;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          production_approved?: boolean;
+          production_phase?: boolean;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          production_approved?: boolean;
+          production_phase?: boolean;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       quiz_event_testers: {
         Row: {
           created_at: string;

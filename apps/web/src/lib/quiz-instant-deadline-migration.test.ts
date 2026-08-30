@@ -9,6 +9,27 @@ const migrations = readdirSync(migrationsDirectory)
 const sql = migrations
   .map((file) => readFileSync(resolve(migrationsDirectory, file), 'utf8'))
   .join('\n\n');
+const lockOrderSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830203900_quiz_instant_answer_submission_lock_order_v2.sql'
+  ),
+  'utf8'
+);
+const retryFairnessSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204400_quiz_instant_deadline_retry_fairness_v2.sql'
+  ),
+  'utf8'
+);
+const runtimeGateSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204500_quiz_instant_runtime_gate_and_stage_isolation_v2.sql'
+  ),
+  'utf8'
+);
 
 describe('instant quiz deadline publication migration', () => {
   it('adds an append-only migration for the instant deadline contract', () => {
@@ -34,6 +55,9 @@ describe('instant quiz deadline publication migration', () => {
     );
     expect(sql).toMatch(/event\.contract_version = 2/i);
     expect(sql).toMatch(/SET score = corrected\.score/i);
+    expect(lockOrderSql).toMatch(
+      /LOCK TABLE public\.quiz_attempt_answers IN ROW EXCLUSIVE MODE[\s\S]*?FOR UPDATE OF attempt/i
+    );
     expect(sql).toMatch(
       /LOCK TABLE public\.quiz_attempt_answers IN SHARE ROW EXCLUSIVE MODE[\s\S]*?UPDATE public\.quiz_attempts AS attempt[\s\S]*?SET score = corrected\.score/i
     );
@@ -91,6 +115,12 @@ describe('instant quiz deadline publication migration', () => {
     expect(sql).toMatch(
       /ORDER BY \(event\.finalization_state = 'blocked'\), event\.ends_at/i
     );
+    expect(retryFairnessSql).toMatch(
+      /test_result_publication_failed'\) NULLS FIRST/i
+    );
+    expect(retryFairnessSql).toMatch(
+      /live_attempt_terminalization_failed'\) NULLS FIRST/i
+    );
   });
 
   it('persists a throttled deadline-clock health signal', () => {
@@ -102,6 +132,23 @@ describe('instant quiz deadline publication migration', () => {
     );
     expect(sql).toMatch(/interval '30 seconds'/i);
     expect(sql).toContain("'SELECT private.run_quiz_deadline_clock_v2()'");
+  });
+
+  it('uses the persisted production gate and isolates deadline stages', () => {
+    expect(runtimeGateSql).toMatch(
+      /CREATE TABLE IF NOT EXISTS public\.quiz_runtime_control_v2/i
+    );
+    expect(runtimeGateSql).toMatch(
+      /FROM public\.quiz_runtime_control_v2 AS control/i
+    );
+    expect(runtimeGateSql).not.toMatch(
+      /process_due_quiz_deadlines_v2\(true, true\)/i
+    );
+    expect(runtimeGateSql).toContain("'testDeadlineClockFailed'");
+    expect(runtimeGateSql).toContain("'liveDeadlineClockFailed'");
+    expect(runtimeGateSql).toMatch(
+      /BEGIN[\s\S]*?finalize_due_test_quiz_events_clock_v2\(\)[\s\S]*?EXCEPTION WHEN OTHERS[\s\S]*?BEGIN[\s\S]*?terminalize_due_live_quiz_events_clock_v2\(\)[\s\S]*?EXCEPTION WHEN OTHERS/i
+    );
   });
 
   it('broadcasts only an empty private wakeup after publication commits', () => {

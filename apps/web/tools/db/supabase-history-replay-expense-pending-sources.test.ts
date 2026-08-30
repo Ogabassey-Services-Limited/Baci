@@ -21,10 +21,13 @@ describe('supabase history replay expense pending sources', () => {
     expect(quizRows.map((row) => row.split(' ')[1])).toEqual([
       '20260830193442_quiz_instant_deadline_publication_v2.sql',
       '20260830193732_quiz_instant_results_wakeup_v2.sql',
+      '20260830203900_quiz_instant_answer_submission_lock_order_v2.sql',
       '20260830204000_quiz_instant_score_serialization_repair_v2.sql',
       '20260830204100_quiz_instant_live_terminalization_hardening_v2.sql',
       '20260830204200_quiz_instant_live_publication_hardening_v2.sql',
       '20260830204300_quiz_instant_deadline_orchestration_health_v2.sql',
+      '20260830204400_quiz_instant_deadline_retry_fairness_v2.sql',
+      '20260830204500_quiz_instant_runtime_gate_and_stage_isolation_v2.sql',
     ]);
   });
 });

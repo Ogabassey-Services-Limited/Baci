@@ -134,9 +134,12 @@ $$;
 
 DO $$
 DECLARE
+  v_control_rls boolean;
   v_finalizer_definition text;
   v_health_rls boolean;
   v_process_definition text;
+  v_runner_definition text;
+  v_test_clock_definition text;
   v_terminalizer_definition text;
 BEGIN
   SELECT pg_catalog.pg_get_functiondef(
@@ -144,8 +147,21 @@ BEGIN
   ) INTO v_terminalizer_definition;
   IF pg_catalog.strpos(
     v_terminalizer_definition, 'attempts_terminalized_at IS NULL'
+  ) = 0 OR pg_catalog.strpos(
+    v_terminalizer_definition,
+    'live_attempt_terminalization_failed'') NULLS FIRST'
   ) = 0 THEN
     RAISE EXCEPTION 'terminalized live events remain in the clock queue';
+  END IF;
+
+  SELECT pg_catalog.pg_get_functiondef(
+    'private.finalize_due_test_quiz_events_clock_v2()'::regprocedure
+  ) INTO v_test_clock_definition;
+  IF pg_catalog.strpos(
+    v_test_clock_definition,
+    'test_result_publication_failed'') NULLS FIRST'
+  ) = 0 THEN
+    RAISE EXCEPTION 'failed test events can monopolize deadline batches';
   END IF;
 
   SELECT pg_catalog.pg_get_functiondef(
@@ -170,9 +186,22 @@ BEGIN
   ) = 0
     OR pg_catalog.strpos(v_process_definition, 'scheduledPromotionFailed') = 0
     OR pg_catalog.strpos(v_process_definition, 'deadlineClockFailed') = 0
+    OR pg_catalog.strpos(v_process_definition, 'testDeadlineClockFailed') = 0
+    OR pg_catalog.strpos(v_process_definition, 'liveDeadlineClockFailed') = 0
     OR pg_catalog.strpos(v_process_definition, 'liveFinalizationFailed') = 0
   THEN
     RAISE EXCEPTION 'deadline stages are not isolated and observable';
+  END IF;
+
+  SELECT pg_catalog.pg_get_functiondef(
+    'private.run_quiz_deadline_clock_v2()'::regprocedure
+  ) INTO v_runner_definition;
+  IF pg_catalog.strpos(v_runner_definition, 'quiz_runtime_control_v2') = 0
+    OR pg_catalog.strpos(
+      v_runner_definition, 'process_due_quiz_deadlines_v2(true, true)'
+    ) <> 0
+  THEN
+    RAISE EXCEPTION 'database clock bypasses the production approval gate';
   END IF;
 
   SELECT class.relrowsecurity
@@ -194,6 +223,24 @@ BEGIN
     'service_role', 'public.quiz_deadline_clock_health_v2', 'SELECT'
   ) THEN
     RAISE EXCEPTION 'deadline clock health table has unsafe ACLs';
+  END IF;
+
+  SELECT class.relrowsecurity
+  INTO v_control_rls
+  FROM pg_catalog.pg_class AS class
+  WHERE class.oid = 'public.quiz_runtime_control_v2'::regclass;
+  IF v_control_rls IS NOT TRUE
+    OR pg_catalog.has_table_privilege(
+      'authenticated', 'public.quiz_runtime_control_v2', 'SELECT'
+    )
+    OR pg_catalog.has_table_privilege(
+      'anon', 'public.quiz_runtime_control_v2', 'SELECT'
+    )
+    OR NOT pg_catalog.has_table_privilege(
+      'service_role', 'public.quiz_runtime_control_v2', 'SELECT'
+    )
+  THEN
+    RAISE EXCEPTION 'quiz runtime control has unsafe RLS or ACLs';
   END IF;
 END;
 $$;
