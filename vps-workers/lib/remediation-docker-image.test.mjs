@@ -63,10 +63,37 @@ describe('remediation Docker image guard', () => {
   it('recognizes Docker image launch failures for cleanup', () => {
     assert.equal(
       isDockerImageUnavailable(
-        new Error('Unable to find image baci-codex-remediator:sha locally')
+        new Error('Unable to find image baci-codex-remediator:sha locally'),
+        { args: ['run', 'baci-codex-remediator:sha'], command: 'docker' }
       ),
       true
     );
-    assert.equal(isDockerImageUnavailable(new Error('Codex timed out')), false);
+    assert.equal(
+      isDockerImageUnavailable(new Error('Codex timed out'), {
+        args: ['run', 'baci-codex-remediator:sha'],
+        command: 'docker',
+      }),
+      false
+    );
+  });
+
+  it('ignores repository output that only mentions a missing image asset', () => {
+    assert.equal(
+      isDockerImageUnavailable(
+        new Error('test failed: image asset not found'),
+        {
+          args: ['run', 'baci-codex-remediator:sha'],
+          command: 'docker',
+        }
+      ),
+      false
+    );
+    assert.equal(
+      isDockerImageUnavailable(
+        new Error('Unable to find image baci-codex-remediator:sha locally'),
+        { args: ['exec', 'baci-codex-remediator:sha'], command: 'docker' }
+      ),
+      false
+    );
   });
 });

@@ -247,6 +247,7 @@ export function withDrainFileLock(lockPath, action) {
   const deadline = Date.now() + LOCK_TIMEOUT_MS;
   let descriptor;
   let acquiredIdentity;
+  let createdIdentity;
 
   while (descriptor === undefined) {
     if (reclaimInProgress(lockPath)) {
@@ -258,12 +259,25 @@ export function withDrainFileLock(lockPath, action) {
     }
     try {
       descriptor = openSync(lockPath, 'wx', 0o600);
+      createdIdentity = statSync(lockPath);
       writeSync(descriptor, `${process.pid}\n`);
       closeSync(descriptor);
       acquiredIdentity = statSync(lockPath);
+      createdIdentity = undefined;
     } catch (error) {
-      if (descriptor !== undefined) closeSync(descriptor);
+      if (descriptor !== undefined) {
+        try {
+          closeSync(descriptor);
+        } catch {
+          // The write failure remains the useful error for this attempt.
+        }
+      }
       descriptor = undefined;
+      if (createdIdentity) {
+        const releaseError = releaseDrainFileLock(lockPath, createdIdentity);
+        createdIdentity = undefined;
+        if (releaseError) throw releaseError;
+      }
       if (error?.code !== 'EEXIST') throw error;
 
       if (reclaimStaleLock(lockPath)) {

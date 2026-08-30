@@ -1,4 +1,5 @@
 import { PixelRatio } from 'react-native';
+import { clampImageDecodeDimension } from './image-decode-dimensions';
 
 interface BoundedImageSourceOptions {
   height: number;
@@ -7,8 +8,6 @@ interface BoundedImageSourceOptions {
   width: number;
 }
 
-const MAX_DECODE_DIMENSION = 3840;
-
 export function createBoundedImageSource({
   height,
   pixelRatio = PixelRatio.get(),
@@ -16,16 +15,8 @@ export function createBoundedImageSource({
   width,
 }: BoundedImageSourceOptions) {
   return {
-    height: clampDecodeDimension(height * pixelRatio),
+    height: clampImageDecodeDimension(height * pixelRatio),
     uri,
-    width: clampDecodeDimension(width * pixelRatio),
+    width: clampImageDecodeDimension(width * pixelRatio),
   };
-}
-
-function clampDecodeDimension(value: number) {
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-
-  return Math.max(1, Math.min(MAX_DECODE_DIMENSION, Math.ceil(value)));
 }

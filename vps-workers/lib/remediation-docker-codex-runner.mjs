@@ -9,7 +9,10 @@ export function createGuardedCodexRunner({
     try {
       return runCodex(command, args, options);
     } catch (error) {
-      if (!hasRetainedWorktree && isDockerImageUnavailable(error)) {
+      if (
+        !hasRetainedWorktree &&
+        isDockerImageUnavailable(error, { args, command })
+      ) {
         onUnavailableImage();
       }
       throw error;

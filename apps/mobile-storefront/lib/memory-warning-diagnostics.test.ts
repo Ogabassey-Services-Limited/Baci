@@ -1,10 +1,7 @@
 import * as Sentry from '@sentry/react-native';
 import { AppState } from 'react-native';
 import { recordCrashBreadcrumb } from './crash-diagnostics';
-import {
-  installMemoryWarningDiagnostics,
-  resetMemoryWarningDiagnosticsForTest,
-} from './memory-warning-diagnostics';
+import { installMemoryWarningDiagnostics } from './memory-warning-diagnostics';
 
 const mockAddEventListener = jest.fn();
 const mockRemove = jest.fn();
@@ -23,9 +20,11 @@ describe('memory warning diagnostics', () => {
   const mockedImage = require('expo-image') as {
     Image: { clearMemoryCache: jest.Mock };
   };
+  let dispose: (() => void) | undefined;
 
   beforeEach(() => {
-    resetMemoryWarningDiagnosticsForTest();
+    dispose?.();
+    dispose = undefined;
     jest.clearAllMocks();
     Object.defineProperty(AppState, 'addEventListener', {
       configurable: true,
@@ -39,8 +38,13 @@ describe('memory warning diagnostics', () => {
     mockedImage.Image.clearMemoryCache.mockResolvedValue(true);
   });
 
+  afterEach(() => {
+    dispose?.();
+    dispose = undefined;
+  });
+
   it('releases decoded images and sends a bounded native breadcrumb', () => {
-    installMemoryWarningDiagnostics();
+    dispose = installMemoryWarningDiagnostics();
     installMemoryWarningDiagnostics();
 
     expect(mockAddEventListener).toHaveBeenCalledTimes(1);
@@ -66,7 +70,7 @@ describe('memory warning diagnostics', () => {
     mockedImage.Image.clearMemoryCache.mockImplementation(() => {
       throw new Error('native image module unavailable');
     });
-    installMemoryWarningDiagnostics();
+    dispose = installMemoryWarningDiagnostics();
     const listener = mockAddEventListener.mock.calls[0]?.[1] as () => void;
 
     expect(() => listener()).not.toThrow();
@@ -76,10 +80,11 @@ describe('memory warning diagnostics', () => {
     );
   });
 
-  it('removes the listener when reset for an isolated test process', () => {
-    installMemoryWarningDiagnostics();
+  it('removes the listener when its disposer is called', () => {
+    dispose = installMemoryWarningDiagnostics();
 
-    resetMemoryWarningDiagnosticsForTest();
+    dispose();
+    dispose = undefined;
 
     expect(mockRemove).toHaveBeenCalledTimes(1);
   });

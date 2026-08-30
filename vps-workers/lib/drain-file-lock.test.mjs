@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import {
+import fs, {
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -10,6 +10,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -127,5 +128,30 @@ describe('drain file lock', () => {
     });
 
     assert.equal(readFileSync(lockPath, 'utf8'), 'replacement\n');
+  });
+
+  it('removes a lock left behind when writing its owner fails', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    const originalWriteSync = fs.writeSync;
+    fs.writeSync = (...args) => {
+      if (args[1] === `${process.pid}\n`) {
+        const error = new Error('disk full');
+        error.code = 'ENOSPC';
+        throw error;
+      }
+      return originalWriteSync(...args);
+    };
+    syncBuiltinESMExports();
+
+    try {
+      assert.throws(() => withDrainFileLock(lockPath, () => 'unreachable'), {
+        code: 'ENOSPC',
+      });
+      assert.throws(() => statSync(lockPath), { code: 'ENOENT' });
+    } finally {
+      fs.writeSync = originalWriteSync;
+      syncBuiltinESMExports();
+    }
   });
 });

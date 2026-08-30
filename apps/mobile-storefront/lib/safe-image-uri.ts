@@ -1,3 +1,5 @@
+import { clampImageDecodeDimension } from './image-decode-dimensions';
+
 interface ImageDimensions {
   height?: number;
   fit?: 'inside' | 'cover';
@@ -10,7 +12,6 @@ const OGABASSEY_PRODUCT_PATH_PREFIX = '/core-assets/products/';
 const OGABASSEY_LEGACY_PRODUCT_PATH_PREFIX = '/products/';
 const TRANSFORMABLE_EXTENSION = /\.(avif|jpe?g|png|webp)$/i;
 const MIN_TRANSFORM_DIMENSION = 16;
-const MAX_DECODE_DIMENSION = 3840;
 const DEFAULT_TRANSFORM_QUALITY = 75;
 
 /**
@@ -98,5 +99,5 @@ function toTransformDimension(value: number | undefined, key: string) {
     return undefined;
   }
 
-  return `${key}=${Math.min(MAX_DECODE_DIMENSION, dimension)}`;
+  return `${key}=${clampImageDecodeDimension(dimension)}`;
 }

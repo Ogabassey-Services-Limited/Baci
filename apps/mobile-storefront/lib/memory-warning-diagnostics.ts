@@ -42,23 +42,29 @@ function handleMemoryWarning(): void {
  * and Sentry's native breadcrumb store. The listener is installed before the
  * React tree starts so a startup watchdog can retain the last warning.
  */
-export function installMemoryWarningDiagnostics(): void {
-  if (subscription) return;
+export function installMemoryWarningDiagnostics(): () => void {
+  if (subscription) return () => undefined;
 
+  let installedSubscription: MemoryWarningSubscription;
   try {
-    subscription = AppState.addEventListener(
+    installedSubscription = AppState.addEventListener(
       'memoryWarning',
       handleMemoryWarning
     );
+    subscription = installedSubscription;
   } catch {
     // Some non-native runtimes do not expose the memory-warning event.
     subscription = null;
+    return () => undefined;
   }
-}
 
-export function resetMemoryWarningDiagnosticsForTest(): void {
-  if (process.env.NODE_ENV !== 'test') return;
-  subscription?.remove();
-  subscription = null;
-  warningCount = 0;
+  return () => {
+    if (subscription !== installedSubscription) return;
+    try {
+      installedSubscription.remove();
+    } finally {
+      subscription = null;
+      warningCount = 0;
+    }
+  };
 }

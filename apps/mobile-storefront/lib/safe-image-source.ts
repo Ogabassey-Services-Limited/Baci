@@ -1,3 +1,4 @@
+import { clampImageDecodeDimension } from './image-decode-dimensions';
 import { resolveSafeImageUri } from './safe-image-uri';
 
 /**
@@ -30,29 +31,21 @@ export function resolveSafeImageSource<T>(
   return {
     ...sourceRecord,
     ...(typeof sourceRecord.height === 'number'
-      ? { height: clampDecodeDimension(sourceRecord.height) }
+      ? { height: clampImageDecodeDimension(sourceRecord.height) }
       : {}),
     uri: resolveSafeImageUri(sourceRecord.uri, {
       height:
         typeof sourceRecord.height === 'number'
-          ? clampDecodeDimension(sourceRecord.height)
+          ? clampImageDecodeDimension(sourceRecord.height)
           : undefined,
       width:
         typeof sourceRecord.width === 'number'
-          ? clampDecodeDimension(sourceRecord.width)
+          ? clampImageDecodeDimension(sourceRecord.width)
           : undefined,
       ...(fit ? { fit } : {}),
     }),
     ...(typeof sourceRecord.width === 'number'
-      ? { width: clampDecodeDimension(sourceRecord.width) }
+      ? { width: clampImageDecodeDimension(sourceRecord.width) }
       : {}),
   } as T;
-}
-
-function clampDecodeDimension(value: number) {
-  if (!Number.isFinite(value)) {
-    return 1;
-  }
-
-  return Math.max(1, Math.min(3840, Math.ceil(value)));
 }
