@@ -12,6 +12,7 @@ BEGIN;
 
 DO $$
 DECLARE
+  v_run_id text := txid_current()::text;
   v_merchant_id uuid := '00000000-0000-4000-8000-00000000f901';
   v_customer_id uuid := '00000000-0000-4000-8000-00000000f902';
   v_event_id uuid := '00000000-0000-4000-8000-00000000f903';
@@ -40,16 +41,16 @@ BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_merchant_id,
-    'quiz-award-snapshot-test-f901@example.com',
+    format('quiz-award-snapshot-test-%s@example.com', v_run_id),
     'Quiz Award Snapshot Test',
-    'quiz-award-snapshot-test-f901'
+    format('quiz-award-snapshot-test-%s', v_run_id)
   );
 
   INSERT INTO public.customers (id, merchant_id, email, full_name)
   VALUES (
     v_customer_id,
     v_merchant_id,
-    'quiz-award-customer-f902@example.com',
+    format('quiz-award-customer-%s@example.com', v_run_id),
     'Quiz Award Snapshot Customer'
   );
 
@@ -57,7 +58,7 @@ BEGIN
   VALUES (
     v_event_id,
     v_merchant_id,
-    'quiz-award-snapshot-test-f901',
+    format('quiz-award-snapshot-test-%s', v_run_id),
     'Quiz Award Snapshot Test',
     'active'
   );
@@ -81,7 +82,7 @@ BEGIN
   ) VALUES (
     v_order_id,
     v_merchant_id,
-    'QUIZ-AWARD-SNAPSHOT-F906',
+    format('QUIZ-AWARD-SNAPSHOT-%s', v_run_id),
     'Quiz Award Snapshot Customer',
     'quiz-award-customer-f902@example.com',
     0,
