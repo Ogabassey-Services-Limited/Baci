@@ -88,6 +88,29 @@ describe('finalizeDueQuizEvents', () => {
     });
   });
 
+  it('reports isolated orchestration failures returned by the database clock', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: {
+          deadlineClockFailed: 1,
+          liveFinalizationFailed: 1,
+          scheduledPromotionFailed: 1,
+        },
+        error: null,
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      deadlineClockFailed: 1,
+      failed: 3,
+      liveFinalizationFailed: 1,
+      scheduledPromotionFailed: 1,
+    });
+  });
+
   it('passes both production gates to the live database finalizer', async () => {
     mocks.phase.mockReturnValue('production');
     mocks.approved.mockReturnValue(true);
@@ -146,6 +169,24 @@ describe('finalizeDueQuizEvents', () => {
       'finalize_due_test_quiz_events_v2',
       'terminalize_due_live_quiz_events_v2',
       'finalize_due_live_quiz_events_v2',
+      'expire_unclaimed_ranked_quiz_awards_v2',
+      'close_due_product_quiz_events',
+    ]);
+  });
+
+  it('does not hide an internal undefined-function failure behind rollout fallback', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: '42883', details: '', hint: '', message: '' },
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(500);
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
+      'process_due_quiz_deadlines_v2',
       'expire_unclaimed_ranked_quiz_awards_v2',
       'close_due_product_quiz_events',
     ]);

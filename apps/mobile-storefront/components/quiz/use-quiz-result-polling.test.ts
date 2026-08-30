@@ -41,6 +41,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         onResult,
       })
@@ -84,6 +85,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         onResult: jest.fn(),
       })
@@ -110,6 +112,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         onResult: jest.fn(),
       })
@@ -160,6 +163,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         onResult: jest.fn(),
       })
@@ -211,6 +215,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         onResult: jest.fn(),
       })
@@ -262,6 +267,7 @@ describe('useQuizResultPolling', () => {
       useQuizResultPolling({
         attemptId: 'attempt-1',
         enabled: true,
+        eventId: null,
         expectedUserId: 'user-1',
         getCurrentUserId: () => currentUserId,
         onResult,

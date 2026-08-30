@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { fetchQuizResult } from '@/services/quiz-results';
 import type { QuizV2Result } from '@/services/quiz-types';
+import { useQuizResultRealtimeWakeup } from './use-quiz-result-realtime-wakeup';
 
 export const QUIZ_RESULT_POLL_INTERVAL_MS = 5_000;
 export const QUIZ_RESULT_POLL_MAX_INTERVAL_MS = 30_000;
@@ -28,18 +29,26 @@ function getFailedPollDelayMs(consecutiveFailures: number): number {
 export function useQuizResultPolling({
   attemptId,
   enabled,
+  eventId,
   expectedUserId,
   getCurrentUserId,
   onResult,
 }: {
   attemptId: string | null;
   enabled: boolean;
+  eventId: string | null;
   expectedUserId: string | null;
   getCurrentUserId?: () => string | null;
   onResult: (result: QuizV2Result) => void;
 }) {
   const currentUserIdRef = useRef(getCurrentUserId);
+  const pollNowRef = useRef<() => void>(() => undefined);
   currentUserIdRef.current = getCurrentUserId;
+  useQuizResultRealtimeWakeup({
+    enabled: enabled && Boolean(attemptId && expectedUserId),
+    eventId,
+    onWakeup: () => pollNowRef.current(),
+  });
 
   useEffect(() => {
     if (!enabled || !attemptId || !expectedUserId) return;
@@ -94,6 +103,16 @@ export function useQuizResultPolling({
         }
       }
     };
+    pollNowRef.current = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = undefined;
+      if (cancelled || !appIsActive) return;
+      if (inFlight) {
+        resumeAfterFlight = true;
+        return;
+      }
+      void poll();
+    };
 
     void poll();
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -111,6 +130,7 @@ export function useQuizResultPolling({
 
     return () => {
       cancelled = true;
+      pollNowRef.current = () => undefined;
       if (timeoutId) clearTimeout(timeoutId);
       subscription.remove();
     };

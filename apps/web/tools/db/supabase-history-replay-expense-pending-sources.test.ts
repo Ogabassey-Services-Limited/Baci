@@ -13,4 +13,18 @@ describe('supabase history replay expense pending sources', () => {
       '20260815230000_restore_legacy_receipt_storage_api_cleanup.sql'
     );
   });
+
+  it('registers the append-only instant quiz publication chain', () => {
+    const rows = EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS.split('\n');
+    const quizRows = rows.filter((row) => row.includes('quiz_instant_'));
+
+    expect(quizRows.map((row) => row.split(' ')[1])).toEqual([
+      '20260830193442_quiz_instant_deadline_publication_v2.sql',
+      '20260830193732_quiz_instant_results_wakeup_v2.sql',
+      '20260830204000_quiz_instant_score_serialization_repair_v2.sql',
+      '20260830204100_quiz_instant_live_terminalization_hardening_v2.sql',
+      '20260830204200_quiz_instant_live_publication_hardening_v2.sql',
+      '20260830204300_quiz_instant_deadline_orchestration_health_v2.sql',
+    ]);
+  });
 });

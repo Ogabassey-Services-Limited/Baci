@@ -11943,6 +11943,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      quiz_deadline_clock_health_v2: {
+        Row: {
+          consecutive_failures: number;
+          last_failure_at: string | null;
+          last_failure_count: number;
+          last_run_at: string;
+          last_success_at: string | null;
+          last_summary: Json;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          consecutive_failures?: number;
+          last_failure_at?: string | null;
+          last_failure_count?: number;
+          last_run_at: string;
+          last_success_at?: string | null;
+          last_summary?: Json;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          consecutive_failures?: number;
+          last_failure_at?: string | null;
+          last_failure_count?: number;
+          last_run_at?: string;
+          last_success_at?: string | null;
+          last_summary?: Json;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       quiz_event_testers: {
         Row: {
           created_at: string;

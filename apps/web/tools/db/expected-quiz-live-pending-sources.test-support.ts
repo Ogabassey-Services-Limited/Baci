@@ -99,4 +99,34 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260816090000_quiz_v2_prize_claim_expiry_projection.sql',
     sha256: '53ef46143a9115696e04eec69b71fcae0f5d7e41b1219e85c73f9aded32efe23',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830193442_quiz_instant_deadline_publication_v2.sql',
+    sha256: 'e799ba6b85b9bb13a24a2bba9b9eef0f9b0a094f474339237d33ca3af891620c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830193732_quiz_instant_results_wakeup_v2.sql',
+    sha256: 'fcb543a743d58fd80b0e576e065ce23cfa774b8cada7e8aa3b0a9a83f2bdaa44',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204000_quiz_instant_score_serialization_repair_v2.sql',
+    sha256: 'eb0462e03db8070a4d767d12c9ee8767d8d4613de3e1cf7148378b3f077e59e7',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204100_quiz_instant_live_terminalization_hardening_v2.sql',
+    sha256: 'b7ebc4a3b399c695c56a4315a8c0de9b85f53ffe4f9b8c6a4e3c70cb14cdf2a1',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204200_quiz_instant_live_publication_hardening_v2.sql',
+    sha256: 'effcfb29662b10aa90a7c481a381d8cdac252f1c159715222e04b4cea95bcd3c',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204300_quiz_instant_deadline_orchestration_health_v2.sql',
+    sha256: '889292e5dddbb80cd407bbbab8535cabdc83be8f30b92456d3a88e2f8d4f3b7a',
+  },
 ] as const;

@@ -16,6 +16,9 @@ const COUNT_KEYS = [
   'liveTerminalized',
   'testPublicationFailed',
   'liveTerminalizationFailed',
+  'scheduledPromotionFailed',
+  'deadlineClockFailed',
+  'liveFinalizationFailed',
   'liveAwaitingGate',
   'awarded',
   'noWinner',
@@ -48,7 +51,7 @@ type FinalizationStep =
       name: 'process_due_quiz_deadlines_v2';
     };
 
-const MISSING_RPC_CODES = new Set(['42883', 'PGRST202']);
+const MISSING_RPC_CODES = new Set(['PGRST202']);
 
 function emptySummary(): Summary {
   return Object.fromEntries(COUNT_KEYS.map((key) => [key, 0])) as Summary;
@@ -68,7 +71,10 @@ function addPayload(summary: Summary, payload: unknown) {
   }
   summary.failed +=
     summaryValue(payload, 'testPublicationFailed') +
-    summaryValue(payload, 'liveTerminalizationFailed');
+    summaryValue(payload, 'liveTerminalizationFailed') +
+    summaryValue(payload, 'scheduledPromotionFailed') +
+    summaryValue(payload, 'deadlineClockFailed') +
+    summaryValue(payload, 'liveFinalizationFailed');
 }
 
 function summaryValue(payload: object, key: CountKey) {

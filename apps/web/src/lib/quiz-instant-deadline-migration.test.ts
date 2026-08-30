@@ -34,6 +34,9 @@ describe('instant quiz deadline publication migration', () => {
     );
     expect(sql).toMatch(/event\.contract_version = 2/i);
     expect(sql).toMatch(/SET score = corrected\.score/i);
+    expect(sql).toMatch(
+      /LOCK TABLE public\.quiz_attempt_answers IN SHARE ROW EXCLUSIVE MODE[\s\S]*?UPDATE public\.quiz_attempts AS attempt[\s\S]*?SET score = corrected\.score/i
+    );
   });
 
   it('claims due deadlines inside Postgres and keeps the worker as a fallback', () => {
@@ -66,10 +69,39 @@ describe('instant quiz deadline publication migration', () => {
       /REVOKE ALL ON FUNCTION public\.finalize_due_test_quiz_events_v2\(\),[\s\S]*?TO service_role/i
     );
     expect(sql).toMatch(/cron\.schedule\([\s\S]*?'1 second'/i);
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.promote_due_scheduled_quiz_events_clock_v2\(\)/i
+    );
+    expect(sql).toMatch(/'scheduledPromotionFailed'/i);
+    expect(sql).toMatch(/'deadlineClockFailed'/i);
+    expect(sql).toMatch(/'liveFinalizationFailed'/i);
     expect(sql).toContain("'quiz-deadline-clock-v2-log-retention'");
     expect(sql).toMatch(
       /DELETE FROM cron\.job_run_details[\s\S]*?interval '2 days'/i
     );
+  });
+
+  it('publishes gated live results without re-terminalizing blocked events', () => {
+    expect(sql).toMatch(
+      /terminalize_due_live_quiz_events_clock_v2\(\)[\s\S]*?attempts_terminalized_at IS NULL/i
+    );
+    expect(sql).toMatch(
+      /finalize_due_live_quiz_events_v2\([\s\S]*?quiz_live_prize_regulatory_ready_v2[\s\S]*?materialize_quiz_event_results_v2/i
+    );
+    expect(sql).toMatch(
+      /ORDER BY \(event\.finalization_state = 'blocked'\), event\.ends_at/i
+    );
+  });
+
+  it('persists a throttled deadline-clock health signal', () => {
+    expect(sql).toMatch(
+      /CREATE TABLE IF NOT EXISTS public\.quiz_deadline_clock_health_v2/i
+    );
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.run_quiz_deadline_clock_v2\(\)/i
+    );
+    expect(sql).toMatch(/interval '30 seconds'/i);
+    expect(sql).toContain("'SELECT private.run_quiz_deadline_clock_v2()'");
   });
 
   it('broadcasts only an empty private wakeup after publication commits', () => {

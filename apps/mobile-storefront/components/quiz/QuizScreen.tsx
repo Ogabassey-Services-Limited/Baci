@@ -122,6 +122,7 @@ export function QuizScreen({
   useQuizResultPolling({
     attemptId: terminalContext?.attemptId ?? null,
     enabled: status === 'result' && v2LifecycleStatus === 'pending_results',
+    eventId: terminalContext?.eventId ?? v2Attempt?.eventId ?? null,
     expectedUserId: authUserId,
     getCurrentUserId: () => useAuthStore.getState().user?.id ?? null,
     onResult: setV2Result,
