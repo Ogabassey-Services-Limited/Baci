@@ -14,8 +14,15 @@ BEGIN
   JOIN pg_catalog.pg_namespace AS function_schema
     ON function_schema.oid = function_definition.pronamespace
   WHERE function_schema.nspname = 'private'
-    AND function_definition.proname = 'create_storefront_order'
+    AND function_definition.proname IN (
+      'create_storefront_order',
+      'create_storefront_order_unchecked'
+    )
     AND function_definition.pronargs = 24
+  ORDER BY CASE function_definition.proname
+    WHEN 'create_storefront_order_unchecked' THEN 0
+    ELSE 1
+  END
   LIMIT 1;
 
   IF v_function_oid IS NULL THEN

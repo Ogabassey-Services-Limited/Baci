@@ -295,6 +295,7 @@ jobs:
           --sql-check supabase/tests/storefront_cluster_guide_candidates_rpc.sql
           --sql-check supabase/tests/storefront_cluster_guide_classifier_behavior.sql
           --sql-check supabase/migrations/tests/admin_order_transaction_discount_cleanup.sql
+          --sql-check supabase/migrations/tests/persist_quiz_award_amount_snapshot.sql
           --sql-check supabase/tests/search_products_not_archived_nulls.sql
           --sql-check supabase/migrations/tests/public_shipping_sender_projection.sql
       - name: Run migration replay regression test
