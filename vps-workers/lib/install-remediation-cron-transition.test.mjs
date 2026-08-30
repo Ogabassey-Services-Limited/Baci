@@ -8,6 +8,7 @@ describe('remediation cron transition', () => {
 
     assert.equal(outcome.result.status, 0, outcome.result.stderr);
     assert.equal(outcome.locks.length, 4);
+    assert.equal(outcome.barrierFiles, true);
     assert.match(outcome.crontab, /error-remediator-global\.lock/);
   });
 
