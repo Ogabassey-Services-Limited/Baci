@@ -40,16 +40,16 @@ BEGIN
   INSERT INTO public.merchants (id, email, business_name, slug)
   VALUES (
     v_merchant_id,
-    'quiz-award-snapshot-test@example.com',
+    'quiz-award-snapshot-test-a101@example.com',
     'Quiz Award Snapshot Test',
-    'quiz-award-snapshot-test'
+    'quiz-award-snapshot-test-a101'
   );
 
   INSERT INTO public.customers (id, merchant_id, email, full_name)
   VALUES (
     v_customer_id,
     v_merchant_id,
-    'quiz-award-customer@example.com',
+    'quiz-award-customer-a102@example.com',
     'Quiz Award Snapshot Customer'
   );
 
@@ -57,7 +57,7 @@ BEGIN
   VALUES (
     v_event_id,
     v_merchant_id,
-    'quiz-award-snapshot-test',
+    'quiz-award-snapshot-test-a101',
     'Quiz Award Snapshot Test',
     'active'
   );
@@ -81,9 +81,9 @@ BEGIN
   ) VALUES (
     v_order_id,
     v_merchant_id,
-    'QUIZ-AWARD-SNAPSHOT-TEST',
+    'QUIZ-AWARD-SNAPSHOT-A106',
     'Quiz Award Snapshot Customer',
-    'quiz-award-customer@example.com',
+    'quiz-award-customer-a102@example.com',
     0,
     0,
     'paid',
