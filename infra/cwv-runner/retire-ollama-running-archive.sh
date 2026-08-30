@@ -102,13 +102,17 @@ running_container_archive_group_start() {
     container) set -- "$running_start_docker" --host "unix://$CANONICAL_DOCKER_SOCKET" container export "$running_start_id";;
     *) return 2;;
   esac
+  running_start_ready=$(temp_path) || return 2
+  exec 3>"$running_start_ready" || { rm -f "$running_start_ready"; return 2; }
   (
     exec /usr/bin/perl -MPOSIX -MFcntl=O_WRONLY,O_NOFOLLOW -e '
     my ($output, @command) = @ARGV;
     POSIX::getpgrp() == $$ and exit 2;
     my $session = POSIX::setsid();
     defined($session) && $session == $$ or exit 2;
-    (kill "STOP", $$) == 1 or exit 2;
+    open(my $ready, ">&=3") or exit 2;
+    syswrite($ready, "ready\n") == 6 or exit 2;
+    close($ready) or exit 2;
     sysopen(STDOUT, $output, O_WRONLY | O_NOFOLLOW) or exit 2;
     my @output_stat = stat(STDOUT);
     @output_stat && -p _ or exit 2;
@@ -117,20 +121,21 @@ running_container_archive_group_start() {
   ' "$running_start_output" "$@"
   ) 2>/dev/null &
   running_start_pid=$!
+  exec 3>&-
   running_start_attempt=0
   while [ "$running_start_attempt" -lt 100 ]; do
-    running_start_pgid=$(/bin/ps -o pgid= -p "$running_start_pid" 2>/dev/null | /usr/bin/tr -d '[:space:]') || running_start_pgid=''
-    if [ "$running_start_pgid" = "$running_start_pid" ]; then
-      /bin/kill -CONT "$running_start_pid" 2>/dev/null || { /bin/kill -KILL "$running_start_pid" 2>/dev/null || :; wait "$running_start_pid" 2>/dev/null || :; return 2; }
+    if [ -s "$running_start_ready" ] && [ "$(cat "$running_start_ready" 2>/dev/null)" = ready ]; then
+      rm -f "$running_start_ready"
       RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
       return 0
     fi
-    /bin/kill -0 "$running_start_pid" 2>/dev/null || { wait "$running_start_pid" 2>/dev/null || :; return 2; }
+    /bin/kill -0 "$running_start_pid" 2>/dev/null || { wait "$running_start_pid" 2>/dev/null || :; rm -f "$running_start_ready"; return 2; }
     running_start_attempt=$((running_start_attempt + 1))
     /bin/sleep 0.01
   done
   /bin/kill -KILL "$running_start_pid" 2>/dev/null || :
   wait "$running_start_pid" 2>/dev/null || :
+  rm -f "$running_start_ready"
   return 2
 }
 
