@@ -33,6 +33,7 @@ describe('resolveCheckoutAuth', () => {
 
     await expect(resolveCheckoutAuth(auth, null)).resolves.toEqual({
       authorizationHeaders: {},
+      canValidateUser: false,
       session: null,
     });
     expect(auth.refreshSession).not.toHaveBeenCalled();
@@ -53,6 +54,7 @@ describe('resolveCheckoutAuth', () => {
       authorizationHeaders: {
         Authorization: 'Bearer active-signing-key-token',
       },
+      canValidateUser: true,
       session: refreshedSession,
     });
     expect(mockWarn).not.toHaveBeenCalled();
@@ -70,6 +72,7 @@ describe('resolveCheckoutAuth', () => {
     const result = await resolveCheckoutAuth(auth, storedSession);
 
     expect(result.session).toBe(storedSession);
+    expect(result.canValidateUser).toBe(false);
     expect(mockWarn).toHaveBeenCalledWith(
       'Unable to refresh checkout session; using stored session',
       { error: 'Refresh rejected' }
@@ -90,6 +93,7 @@ describe('resolveCheckoutAuth', () => {
 
     await expect(resolveCheckoutAuth(auth, storedSession)).resolves.toEqual({
       authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      canValidateUser: false,
       session: storedSession,
     });
     expect(mockWarn).toHaveBeenCalledWith(
@@ -108,6 +112,7 @@ describe('resolveCheckoutAuth', () => {
 
     await expect(resolveCheckoutAuth(auth, storedSession)).resolves.toEqual({
       authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      canValidateUser: false,
       session: storedSession,
     });
     expect(mockWarn).toHaveBeenCalledWith(
@@ -128,6 +133,7 @@ describe('resolveCheckoutAuth', () => {
 
     await expect(result).resolves.toEqual({
       authorizationHeaders: { Authorization: 'Bearer stored-token' },
+      canValidateUser: false,
       session: storedSession,
     });
     expect(mockWarn).toHaveBeenCalledWith(

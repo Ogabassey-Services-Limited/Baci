@@ -28,14 +28,19 @@ function refreshTimeout(timeoutMs: number): {
 
 type CheckoutAuthResult = {
   authorizationHeaders: Record<string, string>;
+  canValidateUser: boolean;
   session: Session | null;
 };
 
-function checkoutAuthResult(session: Session | null): CheckoutAuthResult {
+function checkoutAuthResult(
+  session: Session | null,
+  canValidateUser: boolean
+): CheckoutAuthResult {
   return {
     authorizationHeaders: session?.access_token
       ? { Authorization: `Bearer ${session.access_token}` }
       : {},
+    canValidateUser,
     session,
   };
 }
@@ -45,7 +50,7 @@ export async function resolveCheckoutAuth(
   storedSession: Session | null,
   timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS
 ): Promise<CheckoutAuthResult> {
-  if (!storedSession) return checkoutAuthResult(null);
+  if (!storedSession) return checkoutAuthResult(null, false);
 
   const timeout = refreshTimeout(timeoutMs);
   try {
@@ -57,15 +62,15 @@ export async function resolveCheckoutAuth(
       log.warn('Unable to refresh checkout session; using stored session', {
         error: error?.message ?? 'Refresh returned no session',
       });
-      return checkoutAuthResult(storedSession);
+      return checkoutAuthResult(storedSession, false);
     }
 
-    return checkoutAuthResult(data.session);
+    return checkoutAuthResult(data.session, true);
   } catch (error) {
     log.warn('Unable to refresh checkout session; using stored session', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
-    return checkoutAuthResult(storedSession);
+    return checkoutAuthResult(storedSession, false);
   } finally {
     if (timeout.timer) clearTimeout(timeout.timer);
   }

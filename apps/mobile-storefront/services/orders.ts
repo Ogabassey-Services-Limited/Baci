@@ -82,9 +82,10 @@ export async function createOrder(
   const {
     data: { user },
     error: authError,
-  } = session?.access_token
-    ? await supabase.auth.getUser()
-    : { data: { user: null }, error: null };
+  } =
+    checkoutAuth.canValidateUser && session?.access_token
+      ? await supabase.auth.getUser()
+      : { data: { user: null }, error: null };
 
   const orderPayload = buildOrderPayload({
     merchantId: MERCHANT_ID,

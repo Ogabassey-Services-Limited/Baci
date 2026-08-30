@@ -34,6 +34,7 @@ const mockResolveCheckoutAuth = jest.fn(
     authorizationHeaders: storedSession?.access_token
       ? { Authorization: `Bearer ${storedSession.access_token}` }
       : {},
+    canValidateUser: Boolean(storedSession),
     session: storedSession,
   })
 );
