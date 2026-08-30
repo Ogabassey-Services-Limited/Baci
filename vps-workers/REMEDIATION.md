@@ -65,6 +65,15 @@ for push/PR recovery, but its dependency store is removed. Set
 `BACI_REMEDIATION_RETAIN_FAILED_WORKTREE=1` only for bounded debugging; even
 then, the dependency store is removed on terminal cleanup.
 
+The read-only research phase also uses the checked-in
+`config/codex-readonly-seccomp.json` profile. It is based on the pinned Moby
+seccomp/v0.2.3 profile (source:
+<https://github.com/moby/profiles/tree/seccomp/v0.2.3/seccomp>) and adds only
+the namespace setup syscalls required by Codex's nested bubblewrap sandbox;
+the outer container still drops all capabilities, enables
+`no-new-privileges`, and keeps the worktree and dependency mounts read-only.
+Do not replace this profile with `seccomp=unconfined`.
+
 `jobs/remediation-codex-canary.mjs` is a daily, Docker-only read-only check of
 the Codex toolchain. It shares the global remediation lock and writes its own
 `logs/remediation-codex-canary.log`. Set `BACI_REMEDIATION_CANARY_ENABLED=1`

@@ -1,9 +1,9 @@
 import { existsSync, lstatSync, mkdirSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { readOnlyDockerSecurityArgs } from './remediation-readonly-seccomp.mjs';
 
 export const REMEDIATION_VERIFY_COMMAND =
   'pnpm turbo lint && pnpm turbo typecheck && pnpm turbo test';
-
 function bindMount(source, destination, { readonly = false } = {}) {
   return `type=bind,src=${source},dst=${destination}${readonly ? ',readonly' : ''}`;
 }
@@ -158,7 +158,7 @@ export function buildRemediationCodexCommand({
     worktreeDir,
   });
   if (readOnly) {
-    dockerArgs.push('--read-only');
+    dockerArgs.push('--read-only', ...readOnlyDockerSecurityArgs(env));
   }
   dockerArgs.push(
     '--env',
