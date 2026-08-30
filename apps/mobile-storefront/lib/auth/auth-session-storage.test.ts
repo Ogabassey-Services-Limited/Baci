@@ -106,9 +106,12 @@ describe('authSessionStorage', () => {
   });
 
   it.each([
-    ['read', () => authSessionStorage.getItem('auth-key')],
-    ['write', () => authSessionStorage.setItem('auth-key', 'session-json')],
-    ['delete', () => authSessionStorage.removeItem('auth-key')],
+    ['read', () => authSessionStorage.getItem('stalled-read-key')],
+    [
+      'write',
+      () => authSessionStorage.setItem('stalled-write-key', 'session-json'),
+    ],
+    ['delete', () => authSessionStorage.removeItem('stalled-delete-key')],
   ])('bounds a stalled SecureStore %s operation', async (operation, run) => {
     jest.useFakeTimers();
     mockSecureStore.getItemAsync.mockImplementation(
@@ -137,17 +140,17 @@ describe('authSessionStorage', () => {
       .mockImplementationOnce(() => new Promise<never>(() => undefined))
       .mockResolvedValueOnce('current-session-json');
 
-    await expect(authSessionStorage.getItem('auth-key')).resolves.toBe(
+    await expect(authSessionStorage.getItem('read-recovery-key')).resolves.toBe(
       'captured-session-json'
     );
-    const stalledRead = authSessionStorage.getItem('auth-key');
+    const stalledRead = authSessionStorage.getItem('read-recovery-key');
     const rejection = expect(stalledRead).rejects.toThrow(
       'Supabase auth storage read timed out'
     );
     await jest.advanceTimersByTimeAsync(4_000);
     await rejection;
 
-    await expect(authSessionStorage.getItem('auth-key')).resolves.toBe(
+    await expect(authSessionStorage.getItem('read-recovery-key')).resolves.toBe(
       'current-session-json'
     );
   });
@@ -183,5 +186,77 @@ describe('authSessionStorage', () => {
       'replacement-session'
     );
     expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(3);
+  });
+
+  it('retries a failed correction before reading a stale replaced session', async () => {
+    jest.useFakeTimers();
+    let completeStaleWrite: (() => void) | undefined;
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            completeStaleWrite = resolve;
+          })
+      )
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('correction unavailable'))
+      .mockResolvedValueOnce(undefined);
+    mockSecureStore.getItemAsync.mockResolvedValue('replacement-session');
+
+    const staleWrite = authSessionStorage.setItem(
+      'retry-auth-key',
+      'previous-account-session'
+    );
+    const rejection = expect(staleWrite).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+    await rejection;
+    await authSessionStorage.setItem('retry-auth-key', 'replacement-session');
+
+    completeStaleWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+
+    await expect(authSessionStorage.getItem('retry-auth-key')).resolves.toBe(
+      'replacement-session'
+    );
+    expect(mockSecureStore.setItemAsync).toHaveBeenLastCalledWith(
+      'retry-auth-key',
+      'replacement-session'
+    );
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(4);
+  });
+
+  it('keeps a failed delete reconciliation unreadable after a stale write completes', async () => {
+    jest.useFakeTimers();
+    let completeStaleWrite: (() => void) | undefined;
+    mockSecureStore.setItemAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeStaleWrite = resolve;
+        })
+    );
+    mockSecureStore.deleteItemAsync
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValue(new Error('delete correction unavailable'));
+
+    const staleWrite = authSessionStorage.setItem(
+      'delete-auth-key',
+      'previous-account-session'
+    );
+    const rejection = expect(staleWrite).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+    await rejection;
+    await authSessionStorage.removeItem('delete-auth-key');
+
+    completeStaleWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+
+    await expect(
+      authSessionStorage.getItem('delete-auth-key')
+    ).resolves.toBeNull();
+    expect(mockSecureStore.getItemAsync).not.toHaveBeenCalled();
   });
 });

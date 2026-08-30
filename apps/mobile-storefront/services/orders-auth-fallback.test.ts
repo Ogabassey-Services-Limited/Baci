@@ -64,6 +64,29 @@ const orderRequest = {
   subtotal: 100_000,
 };
 
+function sessionFixture(
+  accessToken: string,
+  refreshToken: string,
+  userId = 'user-a'
+): Session {
+  return {
+    access_token: accessToken,
+    expires_at: 1_800_000_000,
+    expires_in: 3_600,
+    refresh_token: refreshToken,
+    token_type: 'bearer',
+    user: {
+      app_metadata: {},
+      aud: 'authenticated',
+      created_at: '2026-08-30T00:00:00Z',
+      id: userId,
+      role: 'authenticated',
+      updated_at: '2026-08-30T00:00:00Z',
+      user_metadata: {},
+    },
+  };
+}
+
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(async () => ({
     isConnected: true,
@@ -145,14 +168,10 @@ describe('createOrder checkout auth fallback', () => {
 
   it('reaches the order request without queuing getUser behind a timed-out refresh', async () => {
     jest.useFakeTimers();
-    const { createOrder } = require('./orders') as typeof import('./orders');
+    const { createOrder } = await import('./orders');
     mockGetSession.mockResolvedValue({
       data: {
-        session: {
-          access_token: 'stored-token',
-          refresh_token: 'refresh-token',
-          user: { id: 'user-a' },
-        } as Session,
+        session: sessionFixture('stored-token', 'refresh-token'),
       },
     });
 
@@ -179,17 +198,15 @@ describe('createOrder checkout auth fallback', () => {
   });
 
   it('uses a same-account session rotated after the checkout session read', async () => {
-    const { createOrder } = require('./orders') as typeof import('./orders');
-    const capturedSession = {
-      access_token: 'captured-token',
-      refresh_token: 'captured-refresh-token',
-      user: { id: 'user-a' },
-    } as Session;
-    const rotatedSession = {
-      access_token: 'rotated-token',
-      refresh_token: 'rotated-refresh-token',
-      user: { id: 'user-a' },
-    } as Session;
+    const { createOrder } = await import('./orders');
+    const capturedSession = sessionFixture(
+      'captured-token',
+      'captured-refresh-token'
+    );
+    const rotatedSession = sessionFixture(
+      'rotated-token',
+      'rotated-refresh-token'
+    );
     mockGetSession
       .mockResolvedValueOnce({ data: { session: capturedSession } })
       .mockResolvedValueOnce({ data: { session: rotatedSession } });
