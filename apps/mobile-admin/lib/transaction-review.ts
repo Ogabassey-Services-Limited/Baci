@@ -1,8 +1,4 @@
-import { isAdminEditedTransactionDiscount } from './transaction-review-admin-discount-marker';
-import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
-import { getPersistedTransactionDiscountAmount } from './transaction-review-discount-amount';
-import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
-import { getLegacyNegotiationDiscountOptions } from './transaction-review-legacy-discount';
+import { getTransactionReviewDiscountPricing } from './transaction-review-discount-pricing';
 import {
   buildFulfillmentUnitIndex,
   buildSearchText,
@@ -25,7 +21,6 @@ import type {
 } from './transaction-review-types';
 import { resolveTransactionReviewUnitRow } from './transaction-review-unit-row';
 import { resolveSplitUnitIndexes } from './transaction-review-units';
-import { getQuizVoucherDiscountAmount } from './transaction-review-voucher-discount';
 
 const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -103,37 +98,8 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const transactionDate = order.transaction_date ?? order.created_at;
     const orderDetailTokens = collectStrings(order.fulfillment_details);
     const orderItems = order.order_items ?? [];
-    const isNetPricedMarketplaceOrder =
-      order.external_source?.toLowerCase() === 'jumia';
-    const isAdminEditedDiscount = isAdminEditedTransactionDiscount(
-      order.ad_tracking
-    );
-    const persistedDiscountOptions = parseTransactionDiscountOptions(
-      order.ad_tracking
-    );
-    const persistedDiscountAmount = getPersistedTransactionDiscountAmount(
-      persistedDiscountOptions
-    );
-    const voucherDiscountAmount = getQuizVoucherDiscountAmount(orderItems);
-    const legacyDiscountOptions = getLegacyNegotiationDiscountOptions(
-      order,
-      orderItems
-    );
-    const discountAmount =
-      toFiniteNumberOrNull(order.discount_amount) ??
-      (persistedDiscountAmount == null
-        ? voucherDiscountAmount || null
-        : persistedDiscountAmount + voucherDiscountAmount) ??
-      0;
-    const discountedUnitPrices = getDiscountedTransactionUnitPrices(
-      orderItems,
-      isNetPricedMarketplaceOrder && !isAdminEditedDiscount
-        ? 0
-        : discountAmount,
-      persistedDiscountOptions ??
-        legacyDiscountOptions ??
-        (isAdminEditedDiscount ? { discountIncludesVat: false } : undefined)
-    );
+    const { discountAmount, discountedUnitPrices } =
+      getTransactionReviewDiscountPricing(order, orderItems);
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {
         const product = getJoinedProduct(item.products);
