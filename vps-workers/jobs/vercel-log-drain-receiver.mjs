@@ -9,13 +9,17 @@ import { createServer } from 'node:http';
 import { dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { withDrainFileLock } from '../lib/drain-file-lock.mjs';
+import {
+  DEFAULT_DRAIN_MAX_BYTES,
+  DEFAULT_DRAIN_MAX_ROTATED_FILES,
+} from '../lib/vercel-error-events-limits.mjs';
 
 const DEFAULT_HOST = '127.0.0.1';
 const DEFAULT_PATH = '/__baci/vercel-log-drain';
 const DEFAULT_PORT = 8787;
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
-export const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
-export const DEFAULT_MAX_ROTATED_LOGS = 2;
+export const DEFAULT_MAX_LOG_BYTES = DEFAULT_DRAIN_MAX_BYTES;
+export const DEFAULT_MAX_ROTATED_LOGS = DEFAULT_DRAIN_MAX_ROTATED_FILES;
 
 function readPositiveInt(value, fallback) {
   const parsed = Number(value);

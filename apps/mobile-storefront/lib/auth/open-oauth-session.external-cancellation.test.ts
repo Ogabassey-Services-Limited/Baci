@@ -99,6 +99,13 @@ describe('openOAuthSession external browser cancellation', () => {
     try {
       const adapters = externalBrowserAdapters({ currentState: 'background' });
       const webBrowser = browserModule();
+      let resolveOpenURL: (() => void) | undefined;
+      adapters.linking.openURL = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveOpenURL = resolve;
+          })
+      );
 
       const resultPromise = openOAuthSession({
         appState: adapters.appState,
@@ -109,8 +116,9 @@ describe('openOAuthSession external browser cancellation', () => {
         webBrowser,
       });
       await adapters.listenersReady;
-      await Promise.resolve();
       adapters.emitAppState('active');
+      resolveOpenURL?.();
+      await Promise.resolve();
       jest.advanceTimersByTime(250);
       adapters.emitUrl('ogabassey://auth?code=delayed-after-active');
 
@@ -118,6 +126,39 @@ describe('openOAuthSession external browser cancellation', () => {
         type: 'success',
         url: 'ogabassey://auth?code=delayed-after-active',
       });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('cancels when AppState active arrives before launch resolution without a redirect', async () => {
+    jest.useFakeTimers();
+    try {
+      const adapters = externalBrowserAdapters({ currentState: 'background' });
+      const webBrowser = browserModule();
+      let resolveOpenURL: (() => void) | undefined;
+      adapters.linking.openURL = jest.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveOpenURL = resolve;
+          })
+      );
+
+      const resultPromise = openOAuthSession({
+        appState: adapters.appState,
+        linking: adapters.linking,
+        platform: 'android',
+        redirectUrl: 'ogabassey://auth',
+        url: 'https://accounts.google.com/oauth',
+        webBrowser,
+      });
+      await adapters.listenersReady;
+      adapters.emitAppState('active');
+      resolveOpenURL?.();
+      await Promise.resolve();
+      jest.advanceTimersByTime(1_000);
+
+      await expect(resultPromise).resolves.toEqual({ type: 'cancel' });
     } finally {
       jest.useRealTimers();
     }

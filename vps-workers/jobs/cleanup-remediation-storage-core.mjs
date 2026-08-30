@@ -9,9 +9,11 @@ import {
 } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { withDrainFileLock } from '../lib/drain-file-lock.mjs';
+import {
+  DEFAULT_DRAIN_MAX_BYTES,
+  DEFAULT_DRAIN_MAX_ROTATED_FILES,
+} from '../lib/vercel-error-events-limits.mjs';
 
-const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
-const DEFAULT_MAX_ROTATED_LOGS = 2;
 const DEFAULT_ORPHAN_STORE_RETENTION_MS = 24 * 60 * 60 * 1_000;
 
 function readPositiveInt(value, fallback) {
@@ -166,8 +168,8 @@ function cleanupOldDrainArtifacts({ drainDir, drainPath, maxRotatedLogs }) {
 export function cleanupRemediationStorage({
   logsDir = 'logs',
   drainDir: configuredDrainDir,
-  maxLogBytes = DEFAULT_MAX_LOG_BYTES,
-  maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
+  maxLogBytes = DEFAULT_DRAIN_MAX_BYTES,
+  maxRotatedLogs = DEFAULT_DRAIN_MAX_ROTATED_FILES,
   maxDrainLogBytes = maxLogBytes,
   maxDrainRotatedLogs = maxRotatedLogs,
   drainPath: configuredDrainPath,
@@ -180,19 +182,19 @@ export function cleanupRemediationStorage({
 } = {}) {
   const normalizedMaxRotatedLogs = readPositiveInt(
     maxRotatedLogs,
-    DEFAULT_MAX_ROTATED_LOGS
+    DEFAULT_DRAIN_MAX_ROTATED_FILES
   );
   const normalizedMaxDrainRotatedLogs = readPositiveInt(
     maxDrainRotatedLogs,
-    DEFAULT_MAX_ROTATED_LOGS
+    DEFAULT_DRAIN_MAX_ROTATED_FILES
   );
   const normalizedMaxLogBytes = readPositiveInt(
     maxLogBytes,
-    DEFAULT_MAX_LOG_BYTES
+    DEFAULT_DRAIN_MAX_BYTES
   );
   const normalizedMaxDrainLogBytes = readPositiveInt(
     maxDrainLogBytes,
-    DEFAULT_MAX_LOG_BYTES
+    DEFAULT_DRAIN_MAX_BYTES
   );
   const drainPath =
     configuredDrainPath ||

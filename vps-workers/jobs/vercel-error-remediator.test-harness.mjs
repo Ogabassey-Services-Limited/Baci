@@ -1,6 +1,7 @@
 import { runRemediationWorker } from '../lib/remediation-worker.test-harness.mjs';
 import {
   groupErrorEvents,
+  MAX_JSONL_ROTATED_FILES,
   readJsonlLogEvents,
   selectRemediationCandidates,
 } from '../lib/vercel-error-events.mjs';
@@ -21,7 +22,7 @@ export function runVercelErrorRemediator({ candidateLoader, ...options } = {}) {
       const rawEvents = readJsonlLogEvents(logPath, {
         maxRotatedFiles: readPositiveInt(
           env.VERCEL_ERROR_LOG_MAX_ROTATED_FILES,
-          2
+          MAX_JSONL_ROTATED_FILES
         ),
       });
       const groups = groupErrorEvents(rawEvents);

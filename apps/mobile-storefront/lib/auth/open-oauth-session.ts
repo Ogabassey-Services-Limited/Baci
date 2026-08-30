@@ -104,6 +104,7 @@ function openExternalAuthSession({
     let appStateSubscription: UrlSubscription | undefined;
     let urlSubscription: UrlSubscription | undefined;
     let cancellationTimer: ReturnType<typeof setTimeout> | undefined;
+    let activeBeforeLaunchResolved = false;
     let initialAppStateObserved =
       appState.currentState !== null && appState.currentState !== undefined;
 
@@ -121,6 +122,13 @@ function openExternalAuthSession({
       cleanup();
       resolve(result);
     };
+    const scheduleCancellation = () => {
+      if (settled) return;
+      cancellationTimer ??= setTimeout(() => {
+        cancellationTimer = undefined;
+        settle({ type: 'cancel' as WebBrowserResultType });
+      }, EXTERNAL_REDIRECT_GRACE_MS);
+    };
 
     urlSubscription = linking.addEventListener(
       'url',
@@ -135,20 +143,22 @@ function openExternalAuthSession({
         initialAppStateObserved = true;
         return;
       }
-      if (opened && state === 'active') {
+      if (!opened) {
+        activeBeforeLaunchResolved = state === 'active';
+        return;
+      }
+      if (state === 'active') {
         // Linking may deliver the redirect immediately after AppState returns
         // to active; let that callback win before treating the session as a
         // user cancellation.
-        cancellationTimer ??= setTimeout(() => {
-          cancellationTimer = undefined;
-          settle({ type: 'cancel' as WebBrowserResultType });
-        }, EXTERNAL_REDIRECT_GRACE_MS);
+        scheduleCancellation();
       }
     });
 
     linking.openURL(url).then(
       () => {
         opened = true;
+        if (activeBeforeLaunchResolved) scheduleCancellation();
       },
       (error) => {
         cleanup();

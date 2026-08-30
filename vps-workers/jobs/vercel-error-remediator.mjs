@@ -9,6 +9,7 @@ import { runRemediationJobWithGlobalLock } from '../lib/remediation-global-lock.
 import { runRemediationWorker } from '../lib/remediation-worker.mjs';
 import {
   groupErrorEvents,
+  MAX_JSONL_ROTATED_FILES,
   readJsonlLogEvents,
   selectRemediationCandidates,
 } from '../lib/vercel-error-events.mjs';
@@ -32,7 +33,7 @@ export async function runVercelErrorRemediator({
       const rawEvents = readJsonlLogEvents(logPath, {
         maxRotatedFiles: readPositiveInt(
           env.VERCEL_ERROR_LOG_MAX_ROTATED_FILES,
-          2
+          MAX_JSONL_ROTATED_FILES
         ),
       });
       const groups = groupErrorEvents(rawEvents);

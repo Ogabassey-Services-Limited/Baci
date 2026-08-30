@@ -1,9 +1,11 @@
 import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import {
+  DEFAULT_DRAIN_MAX_BYTES,
+  DEFAULT_DRAIN_MAX_ROTATED_FILES,
+} from '../lib/vercel-error-events-limits.mjs';
 import { cleanupRemediationStorage } from './cleanup-remediation-storage-core.mjs';
 
-const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
-const DEFAULT_MAX_ROTATED_LOGS = 2;
 const DEFAULT_ORPHAN_STORE_RETENTION_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_WORKER_LOG_DIR = 'logs';
 
@@ -30,19 +32,19 @@ export function runRemediationStorageCleanup({
     drainPath,
     maxLogBytes: readPositiveInt(
       env.BACI_WORKER_LOG_MAX_BYTES,
-      DEFAULT_MAX_LOG_BYTES
+      DEFAULT_DRAIN_MAX_BYTES
     ),
     maxRotatedLogs: readPositiveInt(
       env.BACI_WORKER_LOG_MAX_ROTATED_FILES,
-      DEFAULT_MAX_ROTATED_LOGS
+      DEFAULT_DRAIN_MAX_ROTATED_FILES
     ),
     maxDrainLogBytes: readPositiveInt(
       env.VERCEL_ERROR_LOG_MAX_BYTES,
-      DEFAULT_MAX_LOG_BYTES
+      DEFAULT_DRAIN_MAX_BYTES
     ),
     maxDrainRotatedLogs: readPositiveInt(
       env.VERCEL_ERROR_LOG_MAX_ROTATED_FILES,
-      DEFAULT_MAX_ROTATED_LOGS
+      DEFAULT_DRAIN_MAX_ROTATED_FILES
     ),
     orphanStoreRetentionMs:
       readPositiveInt(
