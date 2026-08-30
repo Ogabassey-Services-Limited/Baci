@@ -66,7 +66,9 @@ export async function revalidateProductsReliable(
     }
     if (shouldPurge && merchantSlug && products) {
       const purgeEntries = buildInternalProductPurgeEntries(products);
-      scheduleStorefrontProductPurge(merchantSlug, purgeEntries);
+      scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+        merchantId,
+      });
     }
     return;
   } catch {

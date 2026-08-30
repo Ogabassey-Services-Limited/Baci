@@ -176,7 +176,9 @@ export async function POST(request: NextRequest) {
         if (merchantSlug) {
           // The shared scheduler switches to a bounded hostname purge above its
           // distinct-entry threshold, so it still evicts every affected PDP.
-          scheduleStorefrontProductPurge(merchantSlug, entries);
+          scheduleStorefrontProductPurge(merchantSlug, entries, {
+            merchantId,
+          });
         }
       } catch (purgeError) {
         console.error('Skipped Cloudflare product purge in cache/revalidate:', {

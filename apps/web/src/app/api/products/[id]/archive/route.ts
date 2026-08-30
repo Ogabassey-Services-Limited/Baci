@@ -132,18 +132,23 @@ export async function PATCH(
       .select('slug')
       .eq('id', merchantContext.merchantId)
       .single<{ slug: string | null }>();
-    scheduleStorefrontProductPurge(merchantRow?.slug, [
-      {
-        slug: purgeSlug,
-        categorySegment: resolveProductPurgeCategorySegmentForRow({
+    scheduleStorefrontProductPurge(
+      merchantRow?.slug,
+      [
+        {
+          productId: product.id,
           slug: purgeSlug,
-          name: product.name,
-          category: product.category,
-          categories: product.categories,
-          product_categories: product.product_categories,
-        }),
-      },
-    ]);
+          categorySegment: resolveProductPurgeCategorySegmentForRow({
+            slug: purgeSlug,
+            name: product.name,
+            category: product.category,
+            categories: product.categories,
+            product_categories: product.product_categories,
+          }),
+        },
+      ],
+      { merchantId: merchantContext.merchantId }
+    );
   } catch (purgeError) {
     console.warn('Skipped Cloudflare product purge after archive', {
       purgeError,

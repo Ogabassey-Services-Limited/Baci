@@ -107,6 +107,7 @@ export async function POST(request: NextRequest) {
         continue;
       }
       publicPurgeEntries.push({
+        productId: productRow.id,
         slug: purgeSlug,
         categorySegment: resolveProductPurgeCategorySegmentForRow(productRow),
       });
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
         );
         scheduleStorefrontProductPurge(
           merchantContext.merchantSlug,
-          publicPurgeEntries
+          publicPurgeEntries,
+          { merchantId }
         );
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk publish', {

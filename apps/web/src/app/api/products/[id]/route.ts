@@ -14,6 +14,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getProductBlogPostSlugs } from '@/lib/get-product-blog-post-slugs';
 import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
@@ -923,7 +924,11 @@ export async function PUT(
         ...immutableJoins,
       });
       const productPurgeEntries: StorefrontProductPurgeEntry[] = [
-        { slug: nextSlug, categorySegment: nextCategorySegment },
+        {
+          productId: id,
+          slug: nextSlug,
+          categorySegment: nextCategorySegment,
+        },
       ];
       const previousCategorySegment = resolveProductPurgeCategorySegmentForRow({
         slug: previousSlug,
@@ -941,6 +946,7 @@ export async function PUT(
         (previousCategorySegment ?? '') !== (nextCategorySegment ?? '')
       ) {
         productPurgeEntries.push({
+          productId: id,
           slug: previousSlug,
           categorySegment: previousCategorySegment,
         });
@@ -954,7 +960,8 @@ export async function PUT(
       );
       scheduleStorefrontProductPurge(
         merchantContext.merchantSlug,
-        productPurgeEntries
+        productPurgeEntries,
+        { merchantId }
       );
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after update', {
@@ -1034,6 +1041,25 @@ export async function DELETE(
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
+    let linkedBlogPostSlugs: string[] = [];
+    try {
+      linkedBlogPostSlugs = await getProductBlogPostSlugs(
+        supabase,
+        merchantId,
+        [id]
+      );
+    } catch (blogPurgeLookupError) {
+      // The product delete must remain independent of optional edge-purge
+      // enrichment. A failed lookup only means linked blog pages self-heal on
+      // their edge TTL.
+      console.warn(
+        'Failed to resolve linked blog posts before product delete',
+        {
+          blogPurgeLookupError,
+        }
+      );
+    }
+
     // Keep the delete itself lean — the purge inputs were pre-read above.
     const { error: deleteError } = await supabase
       .from('products')
@@ -1073,18 +1099,23 @@ export async function DELETE(
         // Bust the deleted slug's Next cache tag before the edge purge so a
         // post-purge MISS cannot serve a stale "product still exists" page.
         revalidateProductSlugs(merchantId, [purgeSlug]);
-        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
-          {
-            slug: purgeSlug,
-            categorySegment: resolveProductPurgeCategorySegmentForRow({
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          [
+            {
+              productId: id,
               slug: purgeSlug,
-              name: deletedProduct.name,
-              category: deletedProduct.category,
-              categories: deletedProduct.categories,
-              product_categories: deletedProduct.product_categories,
-            }),
-          },
-        ]);
+              categorySegment: resolveProductPurgeCategorySegmentForRow({
+                slug: purgeSlug,
+                name: deletedProduct.name,
+                category: deletedProduct.category,
+                categories: deletedProduct.categories,
+                product_categories: deletedProduct.product_categories,
+              }),
+            },
+          ],
+          { merchantId, blogPostSlugs: linkedBlogPostSlugs }
+        );
       } else {
         // The pre-read errored or came back null, yet the delete above
         // succeeded — the storefront still has the deleted product's page cached
@@ -1098,9 +1129,11 @@ export async function DELETE(
           { id, preReadError }
         );
         revalidateProductSlugs(merchantId, [id]);
-        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
-          { slug: id, categorySegment: null },
-        ]);
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          [{ productId: id, slug: id, categorySegment: null }],
+          { merchantId }
+        );
       }
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after delete', {

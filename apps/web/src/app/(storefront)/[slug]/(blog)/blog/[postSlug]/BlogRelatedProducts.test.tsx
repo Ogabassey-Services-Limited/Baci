@@ -38,6 +38,7 @@ describe('BlogRelatedProducts', () => {
     );
     expect(screen.getByText('₦950,000.00')).toBeInTheDocument();
     expect(screen.getByText('₦1,000,000.00')).toBeInTheDocument();
+    expect(screen.getByText('Original price:')).toBeInTheDocument();
     expect(
       screen.getByText(/prices below come from the live catalog/i)
     ).toBeInTheDocument();

@@ -46,6 +46,12 @@ vi.mock('@/lib/cache-revalidation', () => ({
     mockRevalidateProductSlugs(...args),
 }));
 
+const mockGetProductBlogPostSlugs = vi.fn().mockResolvedValue([]);
+vi.mock('@/lib/get-product-blog-post-slugs', () => ({
+  getProductBlogPostSlugs: (...args: unknown[]) =>
+    mockGetProductBlogPostSlugs(...args),
+}));
+
 const mockScheduleStorefrontProductPurge = vi.fn();
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
@@ -782,7 +788,14 @@ describe('PUT /api/products/[id]', () => {
       // purged — no spurious old-slug/old-category entry.
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: 'updated-product', categorySegment: 'smartphones' }]
+        [
+          {
+            productId: PRODUCT_ID,
+            slug: 'updated-product',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
       // The pre-update fetch must read the category_id join so the purge can
       // resolve the same join-driven canonical the storefront serves.
@@ -846,9 +859,18 @@ describe('PUT /api/products/[id]', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
         [
-          { slug: 'updated-product', categorySegment: 'smartphones' },
-          { slug: 'old-name', categorySegment: 'smartphones' },
-        ]
+          {
+            productId: PRODUCT_ID,
+            slug: 'updated-product',
+            categorySegment: 'smartphones',
+          },
+          {
+            productId: PRODUCT_ID,
+            slug: 'old-name',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -881,9 +903,14 @@ describe('PUT /api/products/[id]', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
         [
-          { slug: 'updated-product', categorySegment: 'smartphones' },
-          { slug: 'old-name', categorySegment: 'audio' },
-        ]
+          {
+            productId: PRODUCT_ID,
+            slug: 'updated-product',
+            categorySegment: 'smartphones',
+          },
+          { productId: PRODUCT_ID, slug: 'old-name', categorySegment: 'audio' },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -914,9 +941,14 @@ describe('PUT /api/products/[id]', () => {
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
         [
-          { slug: 'gadget', categorySegment: 'smartphones' },
-          { slug: 'gadget', categorySegment: 'audio' },
-        ]
+          {
+            productId: PRODUCT_ID,
+            slug: 'gadget',
+            categorySegment: 'smartphones',
+          },
+          { productId: PRODUCT_ID, slug: 'gadget', categorySegment: 'audio' },
+        ],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -948,7 +980,14 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+        [
+          {
+            productId: PRODUCT_ID,
+            slug: 'usb-c-cable',
+            categorySegment: 'accessories',
+          },
+        ],
+        { merchantId: MERCHANT_ID }
       );
       // The pre-update fetch must read the junction embed too.
       expect(productSelectArgs[0]).toContain(
@@ -980,7 +1019,8 @@ describe('PUT /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: PRODUCT_ID, categorySegment: null }]
+        [{ productId: PRODUCT_ID, slug: PRODUCT_ID, categorySegment: null }],
+        { merchantId: MERCHANT_ID }
       );
     });
 
@@ -1911,7 +1951,14 @@ describe('DELETE /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+        [
+          {
+            productId: PRODUCT_ID,
+            slug: 'iphone-15',
+            categorySegment: 'smartphones',
+          },
+        ],
+        { merchantId: MERCHANT_ID, blogPostSlugs: [] }
       );
       // The deleted slug's Next cache tag is busted BEFORE the edge purge so a
       // post-purge MISS cannot refill a stale "product exists" page.
@@ -1968,7 +2015,8 @@ describe('DELETE /api/products/[id]', () => {
         expect(res.status).toBe(200);
         expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
           'test-store',
-          [{ slug: PRODUCT_ID, categorySegment: null }]
+          [{ productId: PRODUCT_ID, slug: PRODUCT_ID, categorySegment: null }],
+          { merchantId: MERCHANT_ID }
         );
         expect(mockRevalidateProductSlugs).toHaveBeenCalledWith(MERCHANT_ID, [
           PRODUCT_ID,
@@ -2001,7 +2049,8 @@ describe('DELETE /api/products/[id]', () => {
         // `/products/<id>` are evicted even though the row is unknown.
         expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
           'test-store',
-          [{ slug: PRODUCT_ID, categorySegment: null }]
+          [{ productId: PRODUCT_ID, slug: PRODUCT_ID, categorySegment: null }],
+          { merchantId: MERCHANT_ID }
         );
         expect(consoleWarnSpy).toHaveBeenCalledWith(
           'Product purge pre-read missing after delete; scheduling id-based fallback purge',
@@ -2031,7 +2080,14 @@ describe('DELETE /api/products/[id]', () => {
       expect(res.status).toBe(200);
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: 'usb-c-cable', categorySegment: 'accessories' }]
+        [
+          {
+            productId: PRODUCT_ID,
+            slug: 'usb-c-cable',
+            categorySegment: 'accessories',
+          },
+        ],
+        { merchantId: MERCHANT_ID, blogPostSlugs: [] }
       );
       expect(
         productSelectArgs.some((arg) =>
@@ -2052,7 +2108,8 @@ describe('DELETE /api/products/[id]', () => {
 
       expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
         'test-store',
-        [{ slug: PRODUCT_ID, categorySegment: null }]
+        [{ productId: PRODUCT_ID, slug: PRODUCT_ID, categorySegment: null }],
+        { merchantId: MERCHANT_ID, blogPostSlugs: [] }
       );
     });
 

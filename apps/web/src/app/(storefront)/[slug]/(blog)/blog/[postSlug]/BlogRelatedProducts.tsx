@@ -48,6 +48,15 @@ export function BlogRelatedProducts({
         {products.map((product) => {
           const price = getCurrentPrice(product);
           const compareAtPrice = getCompareAtPrice(product, price);
+          const formattedCompareAtPrice =
+            compareAtPrice === null
+              ? null
+              : formatCurrency(
+                  compareAtPrice,
+                  countryCode,
+                  undefined,
+                  payoutCurrency
+                );
           const href = getStorefrontProductHref(
             { ...product, category_slug: product.category_slug ?? undefined },
             basePath
@@ -74,14 +83,10 @@ export function BlogRelatedProducts({
                       undefined,
                       payoutCurrency
                     )}
-                    {compareAtPrice !== null && (
+                    {formattedCompareAtPrice !== null && (
                       <span className="ml-2 text-xs font-normal text-muted-foreground line-through">
-                        {formatCurrency(
-                          compareAtPrice,
-                          countryCode,
-                          undefined,
-                          payoutCurrency
-                        )}
+                        <span className="sr-only">Original price: </span>
+                        {formattedCompareAtPrice}
                       </span>
                     )}
                   </span>

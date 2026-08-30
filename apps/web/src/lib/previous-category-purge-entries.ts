@@ -79,7 +79,7 @@ export function buildPreviousCategoryPurgeEntries(
     if (currentSegment === oldSegment) {
       continue;
     }
-    entries.push({ slug, categorySegment: oldSegment });
+    entries.push({ productId: id ?? null, slug, categorySegment: oldSegment });
   }
   return entries;
 }

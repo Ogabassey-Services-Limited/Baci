@@ -434,7 +434,14 @@ describe('POST /api/products/bulk-update', () => {
     expect(res.status).toBe(200);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'updated-product', categorySegment: 'electronics' }]
+      [
+        {
+          productId: 'product-1',
+          slug: 'updated-product',
+          categorySegment: 'electronics',
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
   });
 
@@ -465,7 +472,8 @@ describe('POST /api/products/bulk-update', () => {
 
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
-      [{ slug: 'legacy-id', categorySegment: null }]
+      [{ productId: 'legacy-id', slug: 'legacy-id', categorySegment: null }],
+      { merchantId: MERCHANT_ID }
     );
   });
 
@@ -497,9 +505,10 @@ describe('POST /api/products/bulk-update', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
       expect.arrayContaining([
-        { slug: 'slug-0', categorySegment: 'electronics' },
-        { slug: 'slug-50', categorySegment: 'electronics' },
-      ])
+        { productId: 'p-0', slug: 'slug-0', categorySegment: 'electronics' },
+        { productId: 'p-50', slug: 'slug-50', categorySegment: 'electronics' },
+      ]),
+      { merchantId: MERCHANT_ID }
     );
   });
 

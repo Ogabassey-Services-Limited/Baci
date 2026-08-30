@@ -25,16 +25,21 @@ export function scheduleNewProductCaches({
   revalidateProducts(merchantId, slug);
   try {
     const purgeSlug = slug.trim() || productId;
-    scheduleStorefrontProductPurge(merchantSlug, [
-      {
-        slug: purgeSlug,
-        categorySegment: resolveProductPurgeCategorySegment({
+    scheduleStorefrontProductPurge(
+      merchantSlug,
+      [
+        {
+          productId,
           slug: purgeSlug,
-          name,
-          category,
-        }),
-      },
-    ]);
+          categorySegment: resolveProductPurgeCategorySegment({
+            slug: purgeSlug,
+            name,
+            category,
+          }),
+        },
+      ],
+      { merchantId }
+    );
   } catch (purgeError) {
     console.warn('Skipped Cloudflare product purge after create', {
       purgeError,

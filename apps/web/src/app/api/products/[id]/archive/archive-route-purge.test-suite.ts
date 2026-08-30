@@ -34,7 +34,14 @@ export function defineArchiveRoutePurgeSuite({
     expect(response.status).toBe(200);
     expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'phone-ultra', categorySegment: 'smartphones' }]
+      [
+        {
+          productId: '123e4567-e89b-42d3-a456-426614174000',
+          slug: 'phone-ultra',
+          categorySegment: 'smartphones',
+        },
+      ],
+      { merchantId }
     );
   });
 
@@ -70,7 +77,14 @@ export function defineArchiveRoutePurgeSuite({
 
     expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'phone-ultra', categorySegment: 'smartphones' }]
+      [
+        {
+          productId: '123e4567-e89b-42d3-a456-426614174000',
+          slug: 'phone-ultra',
+          categorySegment: 'smartphones',
+        },
+      ],
+      { merchantId }
     );
   });
 
@@ -107,10 +121,12 @@ export function defineArchiveRoutePurgeSuite({
       'test-store',
       [
         {
+          productId: '123e4567-e89b-42d3-a456-426614174000',
           slug: '123e4567-e89b-42d3-a456-426614174000',
           categorySegment: null,
         },
-      ]
+      ],
+      { merchantId }
     );
   });
 
@@ -150,8 +166,16 @@ export function defineArchiveRoutePurgeSuite({
     const response = await PATCH(makeRequest(), makeContext());
 
     expect(response.status).toBe(200);
-    expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(null, [
-      { slug: 'phone-ultra', categorySegment: 'smartphones' },
-    ]);
+    expect(mocks.scheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      null,
+      [
+        {
+          productId: '123e4567-e89b-42d3-a456-426614174000',
+          slug: 'phone-ultra',
+          categorySegment: 'smartphones',
+        },
+      ],
+      { merchantId }
+    );
   });
 }

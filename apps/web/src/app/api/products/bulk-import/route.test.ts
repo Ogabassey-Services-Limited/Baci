@@ -305,7 +305,14 @@ describe('POST /api/products/bulk-import', () => {
     ]);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'product-a', categorySegment: 'electronics' }]
+      [
+        {
+          productId: 'created-product-1',
+          slug: 'product-a',
+          categorySegment: 'electronics',
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
     expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]
@@ -339,7 +346,14 @@ describe('POST /api/products/bulk-import', () => {
     ]);
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
-      [{ slug: 'created-product-1', categorySegment: null }]
+      [
+        {
+          productId: 'created-product-1',
+          slug: 'created-product-1',
+          categorySegment: null,
+        },
+      ],
+      { merchantId: MERCHANT_ID }
     );
   });
 

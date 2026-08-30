@@ -12,7 +12,11 @@ describe('buildInternalProductPurgeEntries', () => {
       new Map([['prod-1', 'iphone-15']])
     );
     expect(entries).toEqual([
-      { slug: 'iphone-15', categorySegment: 'smartphones' },
+      {
+        productId: 'prod-1',
+        slug: 'iphone-15',
+        categorySegment: 'smartphones',
+      },
     ]);
   });
 
@@ -22,7 +26,9 @@ describe('buildInternalProductPurgeEntries', () => {
       new Map([['prod-2', null]]),
       new Map()
     );
-    expect(entries).toEqual([{ slug: 'prod-2', categorySegment: null }]);
+    expect(entries).toEqual([
+      { productId: 'prod-2', slug: 'prod-2', categorySegment: null },
+    ]);
   });
 
   it('derives the category segment from the legacy text category', () => {
@@ -30,7 +36,9 @@ describe('buildInternalProductPurgeEntries', () => {
       buildInternalProductPurgeEntries([
         { slug: 'iphone-15', category: 'Smartphones' },
       ])
-    ).toEqual([{ slug: 'iphone-15', categorySegment: 'smartphones' }]);
+    ).toEqual([
+      { productId: null, slug: 'iphone-15', categorySegment: 'smartphones' },
+    ]);
   });
 
   it('prefers the resolved categorySlug over the legacy text', () => {
@@ -42,18 +50,22 @@ describe('buildInternalProductPurgeEntries', () => {
           categorySlug: 'gaming-laptops',
         },
       ])
-    ).toEqual([{ slug: 'rog-ally', categorySegment: 'gaming-laptops' }]);
+    ).toEqual([
+      { productId: null, slug: 'rog-ally', categorySegment: 'gaming-laptops' },
+    ]);
   });
 
   it('falls back to the id when the slug is missing (legacy null-slug rows)', () => {
     expect(
       buildInternalProductPurgeEntries([{ id: 'prod-123', category: 'Audio' }])
-    ).toEqual([{ slug: 'prod-123', categorySegment: 'audio' }]);
+    ).toEqual([
+      { productId: 'prod-123', slug: 'prod-123', categorySegment: 'audio' },
+    ]);
   });
 
   it('emits a null category segment for the /products/<slug> fallback', () => {
     expect(buildInternalProductPurgeEntries([{ slug: 'mystery-box' }])).toEqual(
-      [{ slug: 'mystery-box', categorySegment: null }]
+      [{ productId: null, slug: 'mystery-box', categorySegment: null }]
     );
   });
 
@@ -64,7 +76,7 @@ describe('buildInternalProductPurgeEntries', () => {
         { slug: '   ' },
         { slug: 'valid', category: 'Tablets' },
       ])
-    ).toEqual([{ slug: 'valid', categorySegment: 'tablets' }]);
+    ).toEqual([{ productId: null, slug: 'valid', categorySegment: 'tablets' }]);
   });
 
   it('returns an empty list for no products', () => {

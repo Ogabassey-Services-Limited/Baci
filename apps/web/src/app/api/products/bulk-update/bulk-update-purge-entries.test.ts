@@ -19,6 +19,7 @@ describe('getBulkPurgeEntries', () => {
       ])
     ).toEqual([
       {
+        productId: 'product-1',
         slug: 'rog-ally',
         categorySegment: 'gaming-laptops',
       },
@@ -38,6 +39,7 @@ describe('getBulkPurgeEntries', () => {
       ])
     ).toEqual([
       {
+        productId: 'legacy-product-1',
         slug: 'legacy-product-1',
         categorySegment: 'accessories',
       },
