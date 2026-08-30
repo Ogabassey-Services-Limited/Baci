@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import type { Session } from '@supabase/supabase-js';
+import { AuthRefreshDiscardedError, type Session } from '@supabase/supabase-js';
 
 const mockWarn = jest.fn();
 
@@ -80,6 +80,26 @@ describe('resolveCheckoutAuth', () => {
     expect(result.authorizationHeaders).toEqual({
       Authorization: 'Bearer stored-token',
     });
+  });
+
+  it('does not reuse the stored session when a concurrent auth change discards the refresh', async () => {
+    const auth = {
+      refreshSession: jest.fn(async () => ({
+        data: { session: null },
+        error: new AuthRefreshDiscardedError(),
+      })),
+    };
+
+    await expect(
+      resolveCheckoutAuth(auth, session('previous-account-token'))
+    ).resolves.toEqual({
+      authorizationHeaders: {},
+      canValidateUser: false,
+      session: null,
+    });
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Checkout session refresh was discarded; omitting stale session'
+    );
   });
 
   it('warns and returns the stored session when refresh resolves without a session', async () => {

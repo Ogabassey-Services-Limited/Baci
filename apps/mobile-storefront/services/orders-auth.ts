@@ -1,4 +1,7 @@
-import type { Session } from '@supabase/supabase-js';
+import {
+  isAuthRefreshDiscardedError,
+  type Session,
+} from '@supabase/supabase-js';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Order');
@@ -58,6 +61,13 @@ export async function resolveCheckoutAuth(
       auth.refreshSession(),
       timeout.promise,
     ]);
+    if (isAuthRefreshDiscardedError(error)) {
+      log.warn(
+        'Checkout session refresh was discarded; omitting stale session'
+      );
+      return checkoutAuthResult(null, false);
+    }
+
     if (error || !data.session) {
       log.warn('Unable to refresh checkout session; using stored session', {
         error: error?.message ?? 'Refresh returned no session',
