@@ -49,7 +49,16 @@ export function getLegacyNegotiationDiscountOptions(
   }
 
   const taxAmount = Math.max(0, toFiniteNumberOrNull(order.tax_amount) ?? 0);
-  const discountIncludesVat = taxAmount > 0;
+  const vatCategories = new Set(
+    orderItems.map(
+      (item) => item.vat_category_code?.trim().toUpperCase() || 'S'
+    )
+  );
+  // A pre-metadata order does not tell us which line supplied the negotiated
+  // discount's VAT component. Do not infer VAT relief from tax collected on a
+  // different category in a mixed-VAT order; the fallback must stay
+  // merchandise-only unless line-level provenance established the component.
+  const discountIncludesVat = taxAmount > 0 && vatCategories.size <= 1;
 
   const maxNegotiationDiscount = orderItems.reduce((sum, item) => {
     const price = Math.max(0, toFiniteNumberOrNull(item.price) ?? 0);

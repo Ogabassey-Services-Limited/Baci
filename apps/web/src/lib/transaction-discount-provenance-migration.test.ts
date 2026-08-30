@@ -66,6 +66,13 @@ const scopedQuizAwardSnapshotMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const replayCleanupMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260830130000_remove_transaction_discount_replay_row_cleanup.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -204,6 +211,30 @@ describe('transaction discount provenance migration', () => {
     );
     expect(scopedQuizAwardSnapshotMigrationSql).toMatch(
       /NEW\.quiz_award_amount := NULL;[\s\S]*?SELECT qa\.amount[\s\S]*?WHERE qa\.id = NEW\.quiz_award_id/i
+    );
+  });
+
+  it('cleans replay bindings on order deletion instead of in the row trigger', () => {
+    const sanitizerStart = replayCleanupMigrationSql.indexOf(
+      'CREATE OR REPLACE FUNCTION private.sanitize_storefront_transaction_discount_metadata()'
+    );
+    const sanitizerEnd = replayCleanupMigrationSql.indexOf(
+      'ALTER FUNCTION private.sanitize_storefront_transaction_discount_metadata()',
+      sanitizerStart
+    );
+    const sanitizerSql = replayCleanupMigrationSql.slice(
+      sanitizerStart,
+      sanitizerEnd
+    );
+
+    expect(sanitizerSql).not.toMatch(
+      /DELETE FROM private\.transaction_discount_proof_replay/i
+    );
+    expect(replayCleanupMigrationSql).toMatch(
+      /CREATE OR REPLACE FUNCTION private\.cleanup_transaction_discount_proof_replay_after_order_delete\(\)[\s\S]*?DELETE FROM private\.transaction_discount_proof_replay[\s\S]*?replay\.order_id = OLD\.id/i
+    );
+    expect(replayCleanupMigrationSql).toMatch(
+      /CREATE TRIGGER cleanup_transaction_discount_proof_replay_after_order_delete[\s\S]*?AFTER DELETE ON public\.orders/i
     );
   });
 });

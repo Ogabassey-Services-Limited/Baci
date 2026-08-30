@@ -218,6 +218,7 @@ $$ LANGUAGE plpgsql;
 \ir ../20260829090000_persist_quiz_award_amount_snapshot.sql
 \ir ../20260830110000_preserve_quiz_award_amount_after_delete.sql
 \ir ../20260830120000_scope_quiz_award_snapshot_to_merchant.sql
+\ir ../20260830130000_remove_transaction_discount_replay_row_cleanup.sql
 
 DO $$
 DECLARE
@@ -289,5 +290,6 @@ $$ LANGUAGE plpgsql;
 
 \ir persist_quiz_award_amount_snapshot_merchant_scope.sql
 \ir persist_quiz_award_amount_snapshot_delete_assertions.sql
+\ir transaction_discount_proof_replay_cleanup.sql
 
 ROLLBACK;

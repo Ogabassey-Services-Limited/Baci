@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
+import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
+import {
+  getLegacyNegotiationDiscountOptions,
+  isLegacyVatInclusiveNegotiationDiscount,
+} from './transaction-review-legacy-discount';
 import type { TransactionReviewOrderRow } from './transaction-review-types';
 
 const baseOrder: TransactionReviewOrderRow = {
@@ -101,5 +105,47 @@ describe('legacy transaction discount detection', () => {
     );
 
     expect(result).toBe(false);
+  });
+
+  it('uses a merchandise-only fallback when mixed VAT categories make relief ambiguous', () => {
+    const baseItem = baseOrder.order_items?.[0];
+    if (!baseItem) {
+      throw new Error('base order fixture is missing an item');
+    }
+
+    const order: TransactionReviewOrderRow = {
+      ...baseOrder,
+      discount_amount: 2,
+      order_items: [
+        {
+          ...baseItem,
+          id: 'item-zero-rated',
+          name: 'Zero-rated Product',
+          vat_category_code: 'Z',
+          vat_rate: 0,
+        },
+        {
+          ...baseItem,
+          id: 'item-standard-rated',
+          name: 'Standard-rated Product',
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
+    };
+
+    const options = getLegacyNegotiationDiscountOptions(
+      order,
+      order.order_items ?? []
+    );
+
+    expect(options).toEqual({ discountIncludesVat: false });
+    expect(
+      getDiscountedTransactionUnitPrices(
+        order.order_items ?? [],
+        order.discount_amount ?? 0,
+        options
+      )
+    ).toEqual([99, 99]);
   });
 });

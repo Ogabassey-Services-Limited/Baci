@@ -29,7 +29,8 @@ import {
 } from '@/lib/checkout/canonical-order-subtotal';
 import { prepareCheckoutIdempotencyReplay } from '@/lib/checkout/checkout-idempotency-replay';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
-import { createTransactionDiscountProof } from '@/lib/checkout/create-transaction-discount-proof';
+import type { createTransactionDiscountProof } from '@/lib/checkout/create-transaction-discount-proof';
+import { createTransactionDiscountProofForCheckout } from '@/lib/checkout/create-transaction-discount-proof-for-checkout';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import { hasExistingMerchantRateOrder } from '@/lib/checkout/has-existing-merchant-rate-order';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
@@ -1838,26 +1839,16 @@ export async function POST(request: NextRequest) {
       shouldApplyServerDerivedDiscount &&
       negotiationDiscount?.lineDiscounts
     ) {
-      try {
-        transactionDiscountProofResult = createTransactionDiscountProof({
+      const transactionDiscountProofOutcome =
+        createTransactionDiscountProofForCheckout({
           lineDiscounts: negotiationDiscount.lineDiscounts,
           merchantId: merchant_id,
           userId: resolvedUserId ?? 'guest',
         });
-      } catch (transactionDiscountProofError) {
-        logger.warn({
-          error: transactionDiscountProofError,
-          merchantId: merchant_id,
-          message: 'Transaction discount provenance proof unavailable',
-        });
-        return NextResponse.json(
-          {
-            code: 'TRANSACTION_DISCOUNT_PROOF_UNAVAILABLE',
-            error: 'Unable to create order right now. Please try again.',
-          },
-          { status: 503 }
-        );
+      if (!transactionDiscountProofOutcome.ok) {
+        return transactionDiscountProofOutcome.response;
       }
+      transactionDiscountProofResult = transactionDiscountProofOutcome.proof;
     }
 
     // Persist the server-derived line boundaries alongside the order. The
