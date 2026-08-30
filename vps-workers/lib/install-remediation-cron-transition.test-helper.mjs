@@ -38,7 +38,6 @@ const crontabSource = join(
   dirname(fileURLToPath(import.meta.url)),
   'remediation_cron_transition_crontab.py'
 );
-
 export function runTransition(scenario) {
   const directory = mkdtempSync(join(tmpdir(), 'baci-cron-transition-'));
   const binDirectory = join(directory, 'bin');
@@ -70,7 +69,6 @@ export function runTransition(scenario) {
         : '  BACI_REMEDIATION_GLOBAL_LOCK_PATH = "locks/custom-global.lock" # comment\n'
     );
   }
-  const rollbackReadErrorMarker = join(directory, 'rollback-read-error');
   writeStage(
     stageDirectory,
     globalLockSource,
@@ -105,13 +103,11 @@ bash -c "$1"
   );
   writeExecutable(join(binDirectory, 'flock'), flockStub());
   writeExecutable(join(binDirectory, 'crontab'), crontabStub());
-
   if (scenario === 'non-candidate-proc') {
     const vanished = join(procRoot, '5151');
     mkdirSync(vanished);
     writeFileSync(join(vanished, 'cmdline'), 'sleep\0');
   }
-
   let directProcess;
   let directProcessPid;
   let procEntry = '';
@@ -230,7 +226,7 @@ bash -c "$1"
           INITIAL_CRONTAB_READ: join(directory, 'initial-crontab-read'),
           CANONICAL_REMOTE_DIR: realpathSync(remoteDirectory),
           CRONTAB_MARKER: crontabMarker,
-          ROLLBACK_READ_ERROR_MARKER: rollbackReadErrorMarker,
+          ROLLBACK_READ_ERROR_MARKER: join(directory, 'rollback-read-error'),
           DIRECT_PROCESS_PID: directProcessPid ?? '',
           LOCK_MARKER: lockMarker,
           NODE_BIN:
@@ -284,6 +280,11 @@ bash -c "$1"
             'utf8'
           )
         : '',
+      barrierFiles:
+        existsSync(
+          join(remoteDirectory, 'lib/remediation-readonly-seccomp.mjs')
+        ) &&
+        existsSync(join(remoteDirectory, 'config/codex-readonly-seccomp.json')),
       result,
     };
   } finally {
@@ -294,7 +295,6 @@ bash -c "$1"
         // The drained child has already exited.
       }
     }
-    directProcess?.kill();
     rmSync(directory, { force: true, recursive: true });
   }
 }
