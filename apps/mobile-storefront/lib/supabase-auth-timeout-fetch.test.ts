@@ -11,6 +11,20 @@ function accessToken(exp: number): string {
   })}.signature`;
 }
 
+function pendingAbortAwareFetch(): jest.MockedFunction<typeof fetch> {
+  return jest.fn<typeof fetch>(
+    (_input, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        const abort = () => reject(new DOMException('Aborted', 'AbortError'));
+        if (init?.signal?.aborted) {
+          abort();
+          return;
+        }
+        init?.signal?.addEventListener('abort', abort, { once: true });
+      })
+  );
+}
+
 describe('createSupabaseAuthTimeoutFetch', () => {
   let consoleErrorSpy: ReturnType<typeof jest.spyOn>;
 
@@ -27,9 +41,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
 
   it('aborts and settles a pending auth refresh request at the client boundary', async () => {
     jest.useFakeTimers();
-    const fetchImpl = jest.fn<typeof fetch>(
-      () => new Promise<Response>(() => undefined)
-    );
+    const fetchImpl = pendingAbortAwareFetch();
     const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
     const result = timedFetch(
       'https://project.supabase.co/auth/v1/token?grant_type=refresh_token',
@@ -70,9 +82,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
       removeItem: jest.fn(async () => undefined),
       setItem: jest.fn(async () => undefined),
     };
-    const pendingFetch = jest.fn<typeof fetch>(
-      () => new Promise<Response>(() => undefined)
-    );
+    const pendingFetch = pendingAbortAwareFetch();
     const client = createClient(
       'https://project.supabase.co',
       'publishable-key',
@@ -144,5 +154,44 @@ describe('createSupabaseAuthTimeoutFetch', () => {
       String(input).includes('/auth/v1/token')
     );
     expect(tokenRequests).toHaveLength(1);
+  });
+
+  it('discards an explicit checkout refresh after auth storage switches accounts', async () => {
+    const accountBSession = {
+      access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
+      expires_at: Math.floor(Date.now() / 1000) + 3_600,
+      refresh_token: 'account-b-refresh-token',
+      token_type: 'bearer',
+      user: { id: 'user-b' },
+    } as Session;
+    const storage = {
+      getItem: jest.fn(async () => JSON.stringify(accountBSession)),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>();
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: {
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          persistSession: true,
+          storage,
+        },
+        global: { fetch: fetchImpl },
+      }
+    );
+
+    const result = await client.auth.refreshSession({
+      refresh_token: 'account-a-refresh-token',
+      require_storage_match: true,
+    });
+
+    expect(result.error?.name).toBe('AuthRefreshDiscardedError');
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(storage.setItem).not.toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalled();
   });
 });

@@ -33,8 +33,8 @@ export function createSupabaseAuthTimeoutFetch(
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<Response>((resolve) => {
       timer = setTimeout(() => {
-        controller.abort();
         resolve(authRefreshTimedOutResponse());
+        controller.abort();
       }, timeoutMs);
     });
     const request = fetchImpl(input, { ...init, signal: controller.signal });

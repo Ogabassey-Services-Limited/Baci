@@ -64,6 +64,7 @@ describe('resolveCheckoutAuth', () => {
     expect(mockWarn).not.toHaveBeenCalled();
     expect(auth.refreshSession).toHaveBeenCalledWith({
       refresh_token: 'refresh-token',
+      require_storage_match: true,
     });
   });
 
