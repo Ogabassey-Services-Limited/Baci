@@ -102,7 +102,8 @@ running_container_archive_group_start() {
     container) set -- "$running_start_docker" --host "unix://$CANONICAL_DOCKER_SOCKET" container export "$running_start_id";;
     *) return 2;;
   esac
-  /usr/bin/perl -MPOSIX -MFcntl=O_WRONLY,O_NOFOLLOW -e '
+  (
+    exec /usr/bin/perl -MPOSIX -MFcntl=O_WRONLY,O_NOFOLLOW -e '
     my ($output, @command) = @ARGV;
     POSIX::getpgrp() == $$ and exit 2;
     my $session = POSIX::setsid();
@@ -112,9 +113,23 @@ running_container_archive_group_start() {
     @output_stat && -p _ or exit 2;
     exec {$command[0]} @command;
     exit 2;
-  ' "$running_start_output" "$@" 2>/dev/null &
+  ' "$running_start_output" "$@"
+  ) 2>/dev/null &
   running_start_pid=$!
-  RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
+  running_start_attempt=0
+  while [ "$running_start_attempt" -lt 100 ]; do
+    running_start_pgid=$(/bin/ps -o pgid= -p "$running_start_pid" 2>/dev/null | /usr/bin/tr -d '[:space:]') || running_start_pgid=''
+    if [ "$running_start_pgid" = "$running_start_pid" ]; then
+      RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
+      return 0
+    fi
+    /bin/kill -0 "$running_start_pid" 2>/dev/null || { wait "$running_start_pid" 2>/dev/null || :; return 2; }
+    running_start_attempt=$((running_start_attempt + 1))
+    /bin/sleep 0.01
+  done
+  /bin/kill -TERM "$running_start_pid" 2>/dev/null || :
+  wait "$running_start_pid" 2>/dev/null || :
+  return 2
 }
 
 running_container_archive_command() {

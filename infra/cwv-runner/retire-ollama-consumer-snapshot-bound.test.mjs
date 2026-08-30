@@ -3,9 +3,9 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import test from 'node:test';
 
 const execFileAsync = promisify(execFile);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -30,11 +30,11 @@ test_marker=$6
 temp_path() { mktemp "$test_root/snapshot.XXXXXX"; }
 real_stat=$(command -v stat)
 stat() {
-  if [ "$1" = -c ] && [ "$2" = %s ] && [ "$3" = "$test_consumer" ]; then
+  if [ "$1" = -c ] && [ "$2" = %d:%i:%f:%s:%u:%g:%a ] && [ "$3" = "$test_consumer" ]; then
     count=$(/bin/cat "$test_counter") || return 2
     count=$((count + 1))
     printf '%s\\n' "$count" >"$test_counter" || return 2
-    [ "$count" -eq 1 ] && printf '24\\n' || printf '67108865\\n'
+    [ "$count" -eq 1 ] && printf '1:2:81a4:24:0:0:600\\n' || printf '1:2:81a4:67108865:0:0:600\\n'
     return
   fi
   "$real_stat" "$@"

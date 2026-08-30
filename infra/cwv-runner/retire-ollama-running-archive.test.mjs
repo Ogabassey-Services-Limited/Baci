@@ -24,7 +24,7 @@ async function runFixture(command, env = {}) {
       'sh',
       [
         '-c',
-        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; load_consumer_scanners; ${command}`,
+        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_temp_root_helper; temp_root_required_bytes() { printf '1\\n'; }; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; load_consumer_scanners; ${command}`,
         'running-archive-test',
         script.pathname,
         directory,
@@ -79,7 +79,7 @@ wait "$child"
       'sh',
       [
         '-c',
-        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; load_consumer_scanners; output=$(temp_path); fifo=$(temp_path); status=$(temp_path); running_container_now() { [ -s "$RETIRE_TEST_CHILD_PID" ] && printf '2\\n' || printf '0\\n'; }; if running_container_archive_save_bounded image "${'a'.repeat(64)}" "$output" "$fifo" "$status" 1; then exit 90; else archive_status=$?; fi; [ "$archive_status" -eq 2 ] || exit 91; child=$(cat "$RETIRE_TEST_CHILD_PID"); attempt=0; while [ "$attempt" -lt 20 ] && kill -0 "$child" 2>/dev/null; do attempt=$((attempt + 1)); /bin/sleep 0.05; done; if kill -0 "$child" 2>/dev/null; then kill -KILL "$child" 2>/dev/null || :; exit 92; fi; printf 'cleaned\\n'`,
+        `. "$1"; SCRIPT_DIR=$(dirname "$1"); RETIRE_OLLAMA_TMPDIR="$2"; load_temp_root_helper; temp_root_required_bytes() { printf '1\\n'; }; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; load_consumer_scanners; output=$(temp_path); fifo=$(temp_path); status=$(temp_path); running_container_now() { [ -s "$RETIRE_TEST_CHILD_PID" ] && printf '2\\n' || printf '0\\n'; }; if running_container_archive_save_bounded image "${'a'.repeat(64)}" "$output" "$fifo" "$status" 1; then exit 90; else archive_status=$?; fi; [ "$archive_status" -eq 2 ] || exit 91; child=$(cat "$RETIRE_TEST_CHILD_PID"); attempt=0; while [ "$attempt" -lt 20 ] && kill -0 "$child" 2>/dev/null; do attempt=$((attempt + 1)); /bin/sleep 0.05; done; if kill -0 "$child" 2>/dev/null; then kill -KILL "$child" 2>/dev/null || :; exit 92; fi; printf 'cleaned\\n'`,
         'running-archive-descendant-test',
         script.pathname,
         directory,
@@ -117,7 +117,7 @@ test('creates the archive worker process group before opening a blocking FIFO', 
   await writeFile(docker, '#!/bin/sh\nexit 91\n', { mode: 0o700 });
   try {
     const output = await runFixture(
-      `fifo="$2/archive.fifo"; /usr/bin/mkfifo "$fifo"; running_container_archive_group_start image "${'a'.repeat(64)}" "$fifo" || exit 90; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 91; process=$(/bin/ps -axo pid=,command= | /usr/bin/awk -v fifo="$fifo" '$0 ~ fifo && $0 ~ /perl -MPOSIX/ { print $1; exit }'); [ -n "$process" ] || exit 92; pgid=$(/bin/ps -o pgid= -p "$process" | /usr/bin/tr -d '[:space:]'); [ "$pgid" = "$process" ] || exit 93; /bin/cat "$fifo" >/dev/null & reader=$!; if wait "$worker"; then worker_status=0; else worker_status=$?; fi; wait "$reader" || exit 94; [ "$worker_status" -eq 91 ] || exit 95; bad="$2/not-a-fifo"; : >"$bad"; running_container_archive_group_start image "${'a'.repeat(64)}" "$bad" || exit 96; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 97; if wait "$worker"; then startup_status=0; else startup_status=$?; fi; [ "$startup_status" -eq 2 ] || exit 98; printf 'grouped\\n'`,
+      `fifo="$2/archive.fifo"; /usr/bin/mkfifo "$fifo"; running_container_archive_group_start image "${'a'.repeat(64)}" "$fifo" || exit 90; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 91; pgid=$(/bin/ps -o pgid= -p "$worker" | /usr/bin/tr -d '[:space:]'); [ "$pgid" = "$worker" ] || exit 93; /bin/cat "$fifo" >/dev/null & reader=$!; if wait "$worker"; then worker_status=0; else worker_status=$?; fi; wait "$reader" || exit 94; [ "$worker_status" -eq 91 ] || exit 95; bad="$2/not-a-fifo"; : >"$bad"; if running_container_archive_group_start image "${'a'.repeat(64)}" "$bad"; then worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 97; if wait "$worker"; then startup_status=0; else startup_status=$?; fi; else startup_status=$?; fi; [ "$startup_status" -eq 2 ] || exit 98; printf 'grouped\\n'`,
       { RETIRE_OLLAMA_TEST_BIN: bin }
     );
     assert.equal(output, 'grouped\n');
@@ -200,7 +200,7 @@ test('rejects missing or replaced archive FIFOs and closes a validated FIFO', as
   await symlink(replacement, replaced);
   try {
     const output = await runFixture(
-      `check_bad_fifo() { running_container_archive_group_start image "${'a'.repeat(64)}" "$1" || return 3; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || return 4; wait "$worker"; [ "$?" -eq 2 ]; }; check_bad_fifo "$RETIRE_TEST_MISSING" || exit 90; check_bad_fifo "$RETIRE_TEST_REPLACED" || exit 91; /bin/cat "$RETIRE_TEST_VALID" >"$RETIRE_TEST_CAPTURE" & reader=$!; running_container_archive_group_start image "${'a'.repeat(64)}" "$RETIRE_TEST_VALID" || exit 92; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 93; wait "$worker"; worker_status=$?; wait "$reader"; reader_status=$?; [ "$worker_status" -eq 0 ] && [ "$reader_status" -eq 0 ] || exit 94; printf '%s\\n' "$(cat "$RETIRE_TEST_CAPTURE")"`,
+      `check_bad_fifo() { if running_container_archive_group_start image "${'a'.repeat(64)}" "$1"; then worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || return 4; wait "$worker"; status=$?; else status=$?; fi; [ "$status" -eq 2 ]; }; check_bad_fifo "$RETIRE_TEST_MISSING" || exit 90; check_bad_fifo "$RETIRE_TEST_REPLACED" || exit 91; /bin/cat "$RETIRE_TEST_VALID" >"$RETIRE_TEST_CAPTURE" & reader=$!; running_container_archive_group_start image "${'a'.repeat(64)}" "$RETIRE_TEST_VALID" || exit 92; worker=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER") || exit 93; wait "$worker"; worker_status=$?; wait "$reader"; reader_status=$?; [ "$worker_status" -eq 0 ] && [ "$reader_status" -eq 0 ] || exit 94; printf '%s\\n' "$(cat "$RETIRE_TEST_CAPTURE")"`,
       {
         RETIRE_OLLAMA_TEST_BIN: bin,
         RETIRE_TEST_MISSING: missing,
