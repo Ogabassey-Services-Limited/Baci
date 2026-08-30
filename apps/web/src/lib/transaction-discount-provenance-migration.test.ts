@@ -59,6 +59,13 @@ const proofReplayAfterExpiryMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const scopedQuizAwardSnapshotMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260830120000_scope_quiz_award_snapshot_to_merchant.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -188,6 +195,15 @@ describe('transaction discount provenance migration', () => {
     );
     expect(proofReplayAfterExpiryMigrationSql).toMatch(
       /DELETE FROM private\.transaction_discount_proof_replay AS replay[\s\S]*?AND NOT EXISTS \([\s\S]*?FROM public\.orders AS order_row[\s\S]*?order_row\.id = replay\.order_id/i
+    );
+  });
+
+  it('scopes quiz award snapshots to the order merchant', () => {
+    expect(scopedQuizAwardSnapshotMigrationSql).toMatch(
+      /JOIN public\.quiz_events AS event_row[\s\S]*?JOIN public\.orders AS order_row[\s\S]*?event_row\.merchant_id = order_row\.merchant_id/i
+    );
+    expect(scopedQuizAwardSnapshotMigrationSql).toMatch(
+      /NEW\.quiz_award_amount := NULL;[\s\S]*?SELECT qa\.amount[\s\S]*?WHERE qa\.id = NEW\.quiz_award_id/i
     );
   });
 });

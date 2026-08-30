@@ -102,4 +102,19 @@ describe('transaction review discount metadata', () => {
       ).toBeUndefined();
     }
   });
+
+  it('ignores malformed persisted discount metadata', () => {
+    const malformedOptions = parseTransactionDiscountOptions({
+      baci_transaction_discount: {
+        lineDiscounts: [
+          { lineId: 1, merchandiseDiscount: 'not-a-number', vatRelief: 0 },
+        ],
+        version: 2,
+      },
+    });
+    const nullOptions = parseTransactionDiscountOptions(null);
+
+    expect(malformedOptions).toBeUndefined();
+    expect(nullOptions).toBeUndefined();
+  });
 });

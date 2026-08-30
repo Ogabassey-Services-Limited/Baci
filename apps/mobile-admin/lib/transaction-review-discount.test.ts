@@ -1,7 +1,6 @@
 import { buildTransactionDiscountLineOccurrenceKey } from '@baci/shared/contracts';
 import { describe, expect, it } from 'vitest';
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
-import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
 
 describe('getDiscountedTransactionUnitPrices', () => {
   it('allocates an order discount proportionally across merchandise lines', () => {
@@ -255,66 +254,5 @@ describe('getDiscountedTransactionUnitPrices', () => {
     });
 
     expect(prices).toEqual([80]);
-  });
-
-  it('ignores malformed persisted discount metadata', () => {
-    const malformedOptions = parseTransactionDiscountOptions({
-      baci_transaction_discount: {
-        lineDiscounts: [
-          { lineId: 1, merchandiseDiscount: 'not-a-number', vatRelief: 0 },
-        ],
-        version: 2,
-      },
-    });
-    const nullOptions = parseTransactionDiscountOptions(null);
-
-    expect(malformedOptions).toBeUndefined();
-    expect(nullOptions).toBeUndefined();
-  });
-
-  it('parses a valid version-3 server allocation', () => {
-    const adTracking = {
-      baci_transaction_discount: {
-        lineDiscounts: [
-          {
-            lineId: 1,
-            merchandiseDiscount: 20,
-            productId: 'product-1',
-            vatRelief: 1.5,
-            variantId: null,
-          },
-        ],
-        version: 3,
-      },
-    };
-
-    const parsed = parseTransactionDiscountOptions(adTracking);
-
-    expect(parsed).toEqual({
-      lineDiscounts: [
-        {
-          lineId: 1,
-          merchandiseDiscount: 20,
-          productId: 'product-1',
-          vatRelief: 1.5,
-          variantId: null,
-        },
-      ],
-    });
-  });
-
-  it('parses a valid legacy version-2 server allocation', () => {
-    const adTracking = {
-      baci_transaction_discount: {
-        lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
-        version: 2,
-      },
-    };
-
-    const parsed = parseTransactionDiscountOptions(adTracking);
-
-    expect(parsed).toEqual({
-      lineDiscounts: [{ lineId: 1, merchandiseDiscount: 20, vatRelief: 1.5 }],
-    });
   });
 });
