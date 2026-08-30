@@ -10,6 +10,8 @@ type UrlEvent = { url: string };
 type UrlSubscription = { remove: () => void };
 type AppStateStatus = 'active' | string;
 
+const EXTERNAL_REDIRECT_GRACE_MS = 1_000;
+
 export interface OAuthBrowserModule {
   openAuthSessionAsync: (
     url: string,
@@ -140,7 +142,7 @@ function openExternalAuthSession({
         cancellationTimer ??= setTimeout(() => {
           cancellationTimer = undefined;
           settle({ type: 'cancel' as WebBrowserResultType });
-        }, 0);
+        }, EXTERNAL_REDIRECT_GRACE_MS);
       }
     });
 

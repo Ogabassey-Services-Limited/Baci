@@ -250,6 +250,42 @@ describe('openOAuthSession external browser fallback', () => {
     });
   });
 
+  it('keeps the listener alive for a delayed redirect after AppState active', async () => {
+    jest.useFakeTimers();
+    try {
+      const adapters = externalBrowserAdapters({ currentState: 'background' });
+      const webBrowser = browserModule({
+        getCustomTabsSupportingBrowsersAsync: jest.fn().mockResolvedValue({
+          browserPackages: [],
+          defaultBrowserPackage: undefined,
+          preferredBrowserPackage: undefined,
+          servicePackages: [],
+        }),
+      });
+
+      const resultPromise = openOAuthSession({
+        appState: adapters.appState,
+        linking: adapters.linking,
+        platform: 'android',
+        redirectUrl: 'ogabassey://auth',
+        url: 'https://accounts.google.com/oauth',
+        webBrowser,
+      });
+      await adapters.listenersReady;
+      await Promise.resolve();
+      adapters.emitAppState('active');
+      jest.advanceTimersByTime(250);
+      adapters.emitUrl('ogabassey://auth?code=delayed-after-active');
+
+      await expect(resultPromise).resolves.toEqual({
+        type: 'success',
+        url: 'ogabassey://auth?code=delayed-after-active',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('cancels after returning active when no redirect arrives', async () => {
     const adapters = externalBrowserAdapters({ currentState: 'background' });
     const webBrowser = browserModule({
