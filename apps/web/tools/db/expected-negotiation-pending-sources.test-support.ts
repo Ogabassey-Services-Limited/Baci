@@ -89,4 +89,9 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
       'supabase/migrations/20260830160000_bind_transaction_discount_replay_payload.sql',
     sha256: 'c53020258387d9126a92f9691f8db2c0dc78373e7bece7ea1f7d305529b0f75f',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830170000_preserve_transaction_discount_marker_on_attribution_update.sql',
+    sha256: 'a762a5eb62aa820ce609cbcebe064375b7a75d1db9653c234a9ad6bfd1a77a8f',
+  },
 ];
