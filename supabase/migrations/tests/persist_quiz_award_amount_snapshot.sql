@@ -102,10 +102,8 @@ BEGIN
   -- Create rows with the shape seen before this migration. The migration is
   -- reapplied below so its own backfill statements, not a test copy, repair
   -- both historical paths.
-  ALTER TABLE public.order_items
-    DISABLE TRIGGER sync_order_item_quiz_award_snapshot;
-  ALTER TABLE public.quiz_awards
-    DISABLE TRIGGER sync_reserved_quiz_award_order_item;
+  ALTER TABLE public.order_items DISABLE TRIGGER USER;
+  ALTER TABLE public.quiz_awards DISABLE TRIGGER USER;
 
   INSERT INTO public.quiz_awards (
     id,
