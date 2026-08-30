@@ -18017,7 +18017,7 @@ snapshots:
 
   '@supabase/supabase-js@2.108.2':
     dependencies:
-      '@supabase/auth-js': 2.108.2
+      '@supabase/auth-js': 2.108.2(patch_hash=10666e0a117124ecff8d983eae3931cf2336e1e0620dfd9f5b8cfd1f5ebe7639)
       '@supabase/functions-js': 2.108.2
       '@supabase/postgrest-js': 2.108.2
       '@supabase/realtime-js': 2.108.2
