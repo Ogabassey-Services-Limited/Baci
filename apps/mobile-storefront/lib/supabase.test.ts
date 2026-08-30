@@ -1,5 +1,3 @@
-import Constants from 'expo-constants';
-
 const mockState = {
   authSessionStorage: {
     getItem: jest.fn(),
@@ -150,7 +148,6 @@ describe('storefront supabase client config', () => {
           autoRefreshToken: true,
           detectSessionInUrl: false,
           flowType: 'pkce',
-          lock: mockState.processLock,
           persistSession: true,
           storageKey: 'sb-expo-project-auth-token',
           storage: expect.objectContaining({
@@ -161,6 +158,8 @@ describe('storefront supabase client config', () => {
         }),
       })
     );
+    const nativeAuthOptions = mockState.createClient.mock.calls[0]?.[2]?.auth;
+    expect(nativeAuthOptions).not.toHaveProperty('lock');
     expect(mockState.registerAuthRefreshLifecycle).toHaveBeenCalledWith(
       mockState.createClient.mock.results[0]?.value.auth
     );

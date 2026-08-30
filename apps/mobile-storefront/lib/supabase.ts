@@ -4,12 +4,12 @@
  *
  * 2026 Best Practices:
  * - Publishable keys for public clients
- * - Native storage and process lock for iOS/Android
+ * - Native storage for iOS/Android
  * - Browser sessionStorage for Expo web
  * - Network connectivity checks before edge function calls
  */
 
-import { createClient, processLock } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
@@ -149,7 +149,6 @@ const authOptions = isServerRuntime
     ? {
         ...nonServerAuthOptions,
         storage: authSessionStorage,
-        lock: processLock,
       }
     : {
         ...nonServerAuthOptions,

@@ -94,7 +94,7 @@ describe('createOrder checkout auth fallback', () => {
       );
     const { createOrder } = require('./orders') as typeof import('./orders');
 
-    const result = createOrder({
+    const request: Parameters<typeof createOrder>[0] = {
       customer_email: 'buyer@example.com',
       customer_name: 'Buyer',
       customer_phone: '+2348012345678',
@@ -117,15 +117,24 @@ describe('createOrder checkout auth fallback', () => {
       shipping_fee: 2_000,
       source: 'mobile',
       subtotal: 100_000,
+    };
+
+    const firstResult = createOrder(request);
+
+    await expect(firstResult).resolves.toMatchObject({
+      order: { id: 'order-1' },
     });
 
-    await expect(result).resolves.toMatchObject({
+    const secondResult = createOrder(request);
+    await expect(secondResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });
 
     expect(timeoutSpy).toHaveBeenCalledWith(expect.any(Function), 5_000);
     expect(mockGetUser).not.toHaveBeenCalled();
-    expect(mockFetchWithRetry).toHaveBeenCalledWith(
+    expect(mockRefreshSession).toHaveBeenCalledTimes(2);
+    expect(mockFetchWithRetry).toHaveBeenCalledTimes(2);
+    expect(mockFetchWithRetry).toHaveBeenLastCalledWith(
       expect.stringMatching(/\/api\/orders$/),
       expect.objectContaining({
         headers: expect.objectContaining({
