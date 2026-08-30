@@ -87,16 +87,16 @@ describe('authSessionStorage', () => {
     );
   });
 
-  it('logs and continues when SecureStore rejects a session write', async () => {
+  it('rejects when SecureStore cannot persist rotated session credentials', async () => {
     const storageError = new Error('session payload too large');
     mockSecureStore.setItemAsync.mockRejectedValue(storageError);
 
     await expect(
       authSessionStorage.setItem('auth-key', 'session-json')
-    ).resolves.toBeUndefined();
+    ).rejects.toBe(storageError);
 
     expect(mockLoggerWarn).toHaveBeenCalledWith(
-      'Unable to persist Supabase auth session in SecureStore; continuing with the in-memory session.',
+      'Unable to persist Supabase auth session in SecureStore.',
       storageError
     );
   });

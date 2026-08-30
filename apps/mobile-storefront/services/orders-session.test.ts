@@ -55,4 +55,52 @@ describe('getCheckoutStoredSession', () => {
       )
     ).resolves.toBeNull();
   });
+
+  it.each([
+    ['malformed JSON', '{not-json'],
+    [
+      'a session without an access token',
+      JSON.stringify({
+        refresh_token: 'refresh-token',
+        user: { id: 'user-a' },
+      }),
+    ],
+    [
+      'a session without a refresh token',
+      JSON.stringify({
+        access_token: 'access-token',
+        user: { id: 'user-a' },
+      }),
+    ],
+    [
+      'a session without a user identity',
+      JSON.stringify({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+      }),
+    ],
+  ])('returns null for %s', async (_description, storedValue) => {
+    await expect(
+      getCheckoutStoredSession(
+        { getItem: jest.fn(async () => storedValue) },
+        'auth-key'
+      )
+    ).resolves.toBeNull();
+  });
+
+  it('returns null when the storage read rejects immediately', async () => {
+    const storageError = new Error('storage unavailable');
+
+    await expect(
+      getCheckoutStoredSession(
+        { getItem: jest.fn(async () => Promise.reject(storageError)) },
+        'auth-key'
+      )
+    ).resolves.toBeNull();
+
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Unable to read checkout session within timeout; using guest checkout',
+      { error: 'storage unavailable' }
+    );
+  });
 });

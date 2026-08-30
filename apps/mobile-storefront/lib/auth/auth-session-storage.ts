@@ -37,9 +37,10 @@ export const authSessionStorage: SupportedStorage = {
       await SecureStore.setItemAsync(key, value);
     } catch (error) {
       log.warn(
-        'Unable to persist Supabase auth session in SecureStore; continuing with the in-memory session.',
+        'Unable to persist Supabase auth session in SecureStore.',
         error
       );
+      throw error;
     }
   },
   removeItem: async (key: string) => {
