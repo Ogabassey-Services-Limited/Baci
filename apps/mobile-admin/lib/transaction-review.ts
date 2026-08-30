@@ -2,7 +2,7 @@ import { isAdminEditedTransactionDiscount } from './transaction-review-admin-dis
 import { getDiscountedTransactionUnitPrices } from './transaction-review-discount';
 import { getPersistedTransactionDiscountAmount } from './transaction-review-discount-amount';
 import { parseTransactionDiscountOptions } from './transaction-review-discount-metadata';
-import { isLegacyVatInclusiveNegotiationDiscount } from './transaction-review-legacy-discount';
+import { getLegacyNegotiationDiscountOptions } from './transaction-review-legacy-discount';
 import {
   buildFulfillmentUnitIndex,
   buildSearchText,
@@ -115,6 +115,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       persistedDiscountOptions
     );
     const voucherDiscountAmount = getQuizVoucherDiscountAmount(orderItems);
+    const legacyDiscountOptions = getLegacyNegotiationDiscountOptions(
+      order,
+      orderItems
+    );
     const discountAmount =
       toFiniteNumberOrNull(order.discount_amount) ??
       (persistedDiscountAmount == null
@@ -126,10 +130,7 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
       isNetPricedMarketplaceOrder && !isAdminEditedDiscount
         ? 0
         : discountAmount,
-      persistedDiscountOptions ??
-        (isLegacyVatInclusiveNegotiationDiscount(order, orderItems)
-          ? { discountIncludesVat: true }
-          : undefined)
+      persistedDiscountOptions ?? legacyDiscountOptions
     );
     const items = orderItems.flatMap<TransactionReviewItem>(
       (item, itemIndex) => {

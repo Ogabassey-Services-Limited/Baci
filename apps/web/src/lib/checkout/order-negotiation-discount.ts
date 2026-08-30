@@ -71,6 +71,17 @@ function applyPersistedLineOccurrenceKeys(
       variantId: item.variant_id ?? null,
     });
   });
+  const lineIdentityCounts = new Map<string, number>();
+  for (const { item } of indexedItems) {
+    if (!item.product_id) {
+      continue;
+    }
+    const identity = JSON.stringify([item.product_id, item.variant_id ?? null]);
+    lineIdentityCounts.set(
+      identity,
+      (lineIdentityCounts.get(identity) ?? 0) + 1
+    );
+  }
   const lineKeyCounts = new Map<string, number>();
   const occurrenceByLineId = new Map<number, number>();
   for (const lineKey of lineKeys) {
@@ -100,19 +111,28 @@ function applyPersistedLineOccurrenceKeys(
       }
       const itemIndex = allocation.lineId - 1;
       const lineKey = lineKeys[itemIndex];
-      if (lineKey == null || (lineKeyCounts.get(lineKey) ?? 0) < 2) {
+      const item = indexedItems[itemIndex]?.item;
+      const identity = item?.product_id
+        ? JSON.stringify([item.product_id, item.variant_id ?? null])
+        : null;
+      if (
+        lineKey == null ||
+        identity == null ||
+        (lineIdentityCounts.get(identity) ?? 0) < 2
+      ) {
         return allocation;
       }
       const occurrence = occurrenceByLineId.get(allocation.lineId);
-      return occurrence == null
-        ? allocation
-        : {
-            ...allocation,
-            lineKey: buildTransactionDiscountLineOccurrenceKey(
-              lineKey,
-              occurrence
-            ),
-          };
+      if (occurrence == null) {
+        return allocation;
+      }
+      return {
+        ...allocation,
+        lineKey:
+          (lineKeyCounts.get(lineKey) ?? 0) === 1
+            ? lineKey
+            : buildTransactionDiscountLineOccurrenceKey(lineKey, occurrence),
+      };
     }),
   };
 }

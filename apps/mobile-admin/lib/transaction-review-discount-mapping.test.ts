@@ -88,6 +88,44 @@ describe('transaction review discount mapping', () => {
     });
   });
 
+  it('does not discount assurance when mapping a legacy non-VAT negotiation', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-07-01T12:30:00.000Z',
+        customer_email: null,
+        customer_name: 'Legacy Non-VAT Customer',
+        customer_phone: null,
+        discount_amount: 2,
+        discount_code_id: null,
+        fulfillment_details: null,
+        id: 'order-legacy-non-vat',
+        order_items: [
+          {
+            assurance_fee: 10,
+            cost_price: 50,
+            fulfillment_data: null,
+            id: 'item-legacy-non-vat',
+            name: 'Legacy Non-VAT Product',
+            price: 100,
+            product_id: 'product-legacy-non-vat',
+            products: null,
+            quantity: 1,
+          },
+        ],
+        order_number: 'ORD-LEGACY-NON-VAT',
+        payment_method: 'card',
+        source: 'online_store',
+        tax_amount: 0,
+        total: 108,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      profit: 48,
+      revenue: 98,
+    });
+  });
+
   it('does not gross up a manual discount on a physical order', () => {
     const row = {
       created_at: '2026-07-01T12:30:00.000Z',

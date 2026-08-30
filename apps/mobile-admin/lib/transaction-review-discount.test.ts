@@ -206,6 +206,16 @@ describe('getDiscountedTransactionUnitPrices', () => {
     expect(prices).toEqual([90]);
   });
 
+  it('keeps assurance out of a recognized non-VAT legacy negotiation', () => {
+    const items = [{ assurance_fee: 10, price: 100, quantity: 1 }];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 2, {
+      discountIncludesVat: false,
+    });
+
+    expect(prices).toEqual([98]);
+  });
+
   it('keeps assurance fees out of VAT-inclusive legacy discount allocation', () => {
     const items = [
       {

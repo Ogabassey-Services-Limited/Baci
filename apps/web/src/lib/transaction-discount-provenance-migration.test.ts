@@ -52,6 +52,13 @@ const proofRejectionMigrationSql = readFileSync(
   ),
   'utf8'
 );
+const proofReplayAfterExpiryMigrationSql = readFileSync(
+  resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../supabase/migrations/20260830100000_accept_bound_transaction_discount_replays_after_expiry.sql'
+  ),
+  'utf8'
+);
 
 describe('transaction discount provenance migration', () => {
   it('accepts only proof-bound storefront metadata and strips forged markers', () => {
@@ -148,6 +155,25 @@ describe('transaction discount provenance migration', () => {
     expect(proofRejectionMigrationSql).toMatch(
       /replay\.order_id = NEW\.id[\s\S]*?replay\.merchant_id = NEW\.merchant_id/i
     );
+  });
+
+  it('accepts only an unchanged same-order replay before checking proof expiry', () => {
+    const sameOrderReplayIndex = proofReplayAfterExpiryMigrationSql.indexOf(
+      "replay.proof_id = v_proof ->> 'signature'"
+    );
+    const proofValidationIndex = proofReplayAfterExpiryMigrationSql.indexOf(
+      'IF public.quiz_route_proof_valid('
+    );
+
+    expect(proofReplayAfterExpiryMigrationSql).toMatch(
+      /v_proof ->> 'proof_id' = pg_catalog\.left\(v_proof ->> 'signature', 24\)/i
+    );
+    expect(proofReplayAfterExpiryMigrationSql).toMatch(
+      /v_proof -> 'payload' = \(v_metadata - 'proof'\)/i
+    );
+    expect(sameOrderReplayIndex).toBeGreaterThan(-1);
+    expect(proofValidationIndex).toBeGreaterThan(-1);
+    expect(sameOrderReplayIndex).toBeLessThan(proofValidationIndex);
   });
 
   it('keeps replay cleanup bounded and indexed by consumption time', () => {

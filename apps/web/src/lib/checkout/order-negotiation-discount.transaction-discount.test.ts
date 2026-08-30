@@ -11,8 +11,8 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-function buildSupabaseMock() {
-  const products = [
+function buildSupabaseMock(
+  products = [
     {
       brand: 'Apple',
       id: 'p-mac',
@@ -22,7 +22,8 @@ function buildSupabaseMock() {
       vat_category_code: 'S',
       vat_rate: 7.5,
     },
-  ];
+  ]
+) {
   const productsQuery = {
     select: () => productsQuery,
     eq: () => productsQuery,
@@ -198,5 +199,77 @@ describe('computeOrderNegotiationDiscount persisted line identity', () => {
       rejectionCode: null,
       totalDiscount: 43,
     });
+  });
+
+  it('persists a full key when a voucher shares identity with merchandise', async () => {
+    const result = await computeOrderNegotiationDiscount({
+      items: [
+        {
+          condition: 'used',
+          price: 0,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_attributes: { Color: 'Red' },
+          variant_id: null,
+          voucher_award_id: 'award-1',
+        },
+        {
+          condition: 'new',
+          price: 980,
+          product_id: 'p-mac',
+          quantity: 1,
+          variant_attributes: { Color: 'Blue' },
+          variant_id: null,
+        },
+        {
+          condition: 'new',
+          price: 1960,
+          product_id: 'p-other',
+          quantity: 1,
+          variant_attributes: {},
+          variant_id: null,
+        },
+      ],
+      merchantId: 'merchant-1',
+      supabase: buildSupabaseMock([
+        {
+          brand: 'Apple',
+          id: 'p-mac',
+          name: 'MacBook Air M1',
+          price: 1000,
+          condition: 'new',
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+        {
+          brand: 'Apple',
+          id: 'p-other',
+          name: 'iPad Mini',
+          price: 2000,
+          condition: 'new',
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ]) as never,
+      vatRegistered: true,
+    });
+
+    expect(result?.lineDiscounts?.[1]).toEqual(
+      expect.objectContaining({
+        lineKey: buildTransactionDiscountLineKey({
+          condition: 'new',
+          productId: 'p-mac',
+          variantAttributes: { Color: 'Blue' },
+          variantId: null,
+        }),
+      })
+    );
+    expect(result?.lineDiscounts?.[2]).toEqual(
+      expect.objectContaining({
+        lineId: 3,
+        merchandiseDiscount: 40,
+      })
+    );
+    expect(result?.lineDiscounts?.[2]).not.toHaveProperty('lineKey');
   });
 });

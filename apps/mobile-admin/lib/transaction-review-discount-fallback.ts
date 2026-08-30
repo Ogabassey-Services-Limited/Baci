@@ -19,6 +19,7 @@ export function applyFallbackTransactionDiscount(
   voucherDiscountBasis: number
 ) {
   const discountIncludesVat = options?.discountIncludesVat === true;
+  const merchandiseOnlyBasis = options?.discountIncludesVat === false;
   const residualDiscount =
     voucherDiscountBasis > 0
       ? Math.max(0, normalizedDiscount - voucherDiscountBasis)
@@ -27,7 +28,11 @@ export function applyFallbackTransactionDiscount(
     voucherDiscountBasis > 0
       ? lineTotals.reduce((sum, line, index) => {
           if (voucherLineIndexes.has(index)) return sum;
-          if (!discountIncludesVat) return sum + line.total;
+          if (!discountIncludesVat) {
+            return (
+              sum + (merchandiseOnlyBasis ? line.merchandiseTotal : line.total)
+            );
+          }
           const vatCategory = (
             items[index]?.vat_category_code ?? 'S'
           ).toUpperCase();
@@ -55,7 +60,11 @@ export function applyFallbackTransactionDiscount(
                 : 0;
             return sum + line.merchandiseTotal * (1 + vatRate / 100);
           }, 0)
-        : lineTotals.reduce((sum, line) => sum + line.total, 0);
+        : lineTotals.reduce(
+            (sum, line) =>
+              sum + (merchandiseOnlyBasis ? line.merchandiseTotal : line.total),
+            0
+          );
   const discountRatio = Math.min(
     1,
     normalizedDiscount / discountBasisForFallback
@@ -101,11 +110,13 @@ export function applyFallbackTransactionDiscount(
       voucherDiscountBasis > 0 ? residualDiscountRatio : discountRatio;
     const allocatedDiscount = discountIncludesVat
       ? line.merchandiseTotal * (1 + vatRate / 100) * lineDiscountRatio
-      : line.total * lineDiscountRatio;
+      : (merchandiseOnlyBasis ? line.merchandiseTotal : line.total) *
+        lineDiscountRatio;
     const taxExclusiveDiscount = allocatedDiscount / (1 + vatRate / 100);
-    const merchandiseDiscount = discountIncludesVat
-      ? taxExclusiveDiscount
-      : taxExclusiveDiscount * (line.merchandiseTotal / line.total);
+    const merchandiseDiscount =
+      discountIncludesVat || merchandiseOnlyBasis
+        ? taxExclusiveDiscount
+        : taxExclusiveDiscount * (line.merchandiseTotal / line.total);
 
     return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
   });
