@@ -11,6 +11,11 @@ type MockAuthSessionResponse = {
   error?: null;
 };
 
+type MockRefreshSessionResponse = {
+  data: { session: { access_token: string } | null };
+  error: Error | null;
+};
+
 type MockCreateOrderApiResponse = {
   order: {
     id: string;
@@ -29,6 +34,8 @@ const mockNetInfoFetch = jest.fn<() => Promise<{ isConnected: boolean }>>();
 const mockSupabaseGetUser = jest.fn<() => Promise<MockAuthUserResponse>>();
 const mockSupabaseGetSession =
   jest.fn<() => Promise<MockAuthSessionResponse>>();
+const mockSupabaseRefreshSession =
+  jest.fn<() => Promise<MockRefreshSessionResponse>>();
 const mockFetchJson = jest.fn<() => Promise<MockCreateOrderApiResponse>>();
 
 type MockFetchResponse = {
@@ -66,6 +73,10 @@ mockSupabaseGetUser.mockResolvedValue({
   error: null,
 });
 mockSupabaseGetSession.mockResolvedValue({
+  data: { session: { access_token: 'token-123' } },
+  error: null,
+});
+mockSupabaseRefreshSession.mockResolvedValue({
   data: { session: { access_token: 'token-123' } },
   error: null,
 });
@@ -122,6 +133,7 @@ jest.mock('@/lib/supabase', () => ({
     auth: {
       getUser: mockSupabaseGetUser,
       getSession: mockSupabaseGetSession,
+      refreshSession: mockSupabaseRefreshSession,
     },
   },
 }));
@@ -210,6 +222,14 @@ describe('createOrder — variant_attributes', () => {
     jest.clearAllMocks();
     mockFetchResponse.ok = true;
     mockFetchResponse.status = 200;
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: { access_token: 'token-123' } },
+      error: null,
+    });
+    mockSupabaseRefreshSession.mockResolvedValue({
+      data: { session: { access_token: 'token-123' } },
+      error: null,
+    });
     mockFetchJson.mockResolvedValue({
       order: {
         id: 'order-1',
@@ -605,6 +625,68 @@ describe('createOrder — variant_attributes', () => {
 
     const retryOptions = mockFetchWithRetry.mock.calls.at(-1)?.[2];
     expect(retryOptions?.maxRetries).toBe(0);
+  });
+
+  it('refreshes a persisted session before order creation so the Data API receives a current JWT', async () => {
+    const { createOrder } = require('./orders');
+    mockSupabaseGetSession.mockResolvedValueOnce({
+      data: { session: { access_token: 'stale-signing-key-token' } },
+      error: null,
+    });
+    mockSupabaseRefreshSession.mockResolvedValueOnce({
+      data: { session: { access_token: 'active-signing-key-token' } },
+      error: null,
+    });
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      subtotal: 5000,
+      shipping_fee: 500,
+      payment_method: 'credit_direct',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    expect(mockSupabaseRefreshSession).toHaveBeenCalledTimes(1);
+    expect(getLastFetchOptions().headers?.Authorization).toBe(
+      'Bearer active-signing-key-token'
+    );
+  });
+
+  it('still submits with the stored session when the checkout refresh request fails', async () => {
+    const { createOrder } = require('./orders');
+    mockSupabaseRefreshSession.mockRejectedValueOnce(
+      new Error('Auth refresh unavailable')
+    );
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      subtotal: 5000,
+      shipping_fee: 500,
+      payment_method: 'credit_direct',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    expect(getLastFetchOptions().headers?.Authorization).toBe(
+      'Bearer token-123'
+    );
   });
 
   it('surfaces known server validation details instead of the generic create-order error', async () => {

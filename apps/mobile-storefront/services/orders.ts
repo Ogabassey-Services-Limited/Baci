@@ -71,8 +71,25 @@ export async function createOrder(
   // 3. Auth is optional because the storefront supports guest checkout.
   // When a valid session exists, forward it so the server can link the order.
   const {
-    data: { session },
+    data: { session: storedSession },
   } = await supabase.auth.getSession();
+  // A persisted token can still be accepted by Auth while the Data API no
+  // longer has a compatible signing key for it. Refresh before the money/order
+  // boundary so PostgREST receives a token minted by the active signing key.
+  let session = storedSession;
+  if (storedSession) {
+    try {
+      const { data: refreshedAuth, error: refreshError } =
+        await supabase.auth.refreshSession();
+      if (!refreshError && refreshedAuth.session) {
+        session = refreshedAuth.session;
+      }
+    } catch (error) {
+      log.warn('Unable to refresh checkout session; using stored session', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
   const {
     data: { user },
     error: authError,
