@@ -219,4 +219,32 @@ describe('openOAuthSession external browser fallback', () => {
     });
     expect(adapters.linking.openURL).toHaveBeenCalled();
   });
+
+  it('falls back when Expo reports that the browser activity is unavailable', async () => {
+    const adapters = externalBrowserAdapters();
+    const webBrowser = browserModule({
+      openAuthSessionAsync: jest
+        .fn()
+        .mockRejectedValue(new Error('No matching browser activity found')),
+    });
+
+    const resultPromise = openOAuthSession({
+      appState: adapters.appState,
+      linking: adapters.linking,
+      platform: 'android',
+      redirectUrl: 'ogabassey://auth',
+      url: 'https://accounts.google.com/oauth',
+      webBrowser,
+    });
+    await adapters.listenersReady;
+    adapters.emitUrl('ogabassey://auth?code=activity-fallback');
+
+    await expect(resultPromise).resolves.toEqual({
+      type: 'success',
+      url: 'ogabassey://auth?code=activity-fallback',
+    });
+    expect(adapters.linking.openURL).toHaveBeenCalledWith(
+      'https://accounts.google.com/oauth'
+    );
+  });
 });

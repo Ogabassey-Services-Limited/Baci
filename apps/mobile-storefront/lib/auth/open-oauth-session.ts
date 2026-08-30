@@ -82,7 +82,7 @@ function isBrowserLaunchFailure(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const record = error as { name?: unknown; message?: unknown };
   const text = `${String(record.name || '')} ${String(record.message || '')}`;
-  return /activitynotfound|nomatchingactivity|securityexception|custom tabs/i.test(
+  return /activitynotfound|no matching browser activity found|nomatchingactivity|securityexception|custom tabs/i.test(
     text
   );
 }

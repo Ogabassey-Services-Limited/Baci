@@ -165,7 +165,7 @@ function cleanupOldDrainArtifacts({ drainDir, drainPath, maxRotatedLogs }) {
 
 export function cleanupRemediationStorage({
   logsDir = 'logs',
-  drainDir = logsDir,
+  drainDir: configuredDrainDir,
   maxLogBytes = DEFAULT_MAX_LOG_BYTES,
   maxRotatedLogs = DEFAULT_MAX_ROTATED_LOGS,
   maxDrainLogBytes = maxLogBytes,
@@ -194,7 +194,10 @@ export function cleanupRemediationStorage({
     maxDrainLogBytes,
     DEFAULT_MAX_LOG_BYTES
   );
-  const drainPath = configuredDrainPath || join(drainDir, 'vercel-drain.jsonl');
+  const drainPath =
+    configuredDrainPath ||
+    join(configuredDrainDir ?? logsDir, 'vercel-drain.jsonl');
+  const drainDir = configuredDrainDir ?? dirname(drainPath);
   const resolvedDrainPath = resolve(drainPath);
   let rotatedLogs = 0;
   if (existsSync(logsDir)) {

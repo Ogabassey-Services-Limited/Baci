@@ -172,4 +172,38 @@ describe('remediation storage cleanup', () => {
     assert.equal(statSync(middleQuarantine).isFile(), true);
     assert.equal(statSync(newQuarantine).isFile(), true);
   });
+
+  it('prunes custom drain artifacts beside a drain path without a directory override', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-derived-drain-dir-'));
+    const drainPath = join(directory, 'custom-drain.jsonl');
+    const staleRotation = `${drainPath}.3`;
+    const staleQuarantines = ['old', 'middle', 'new'].map((label) =>
+      join(directory, `custom-drain.quarantine-${label}.jsonl`)
+    );
+    writeFileSync(drainPath, 'current');
+    writeFileSync(staleRotation, 'stale');
+    for (const quarantinePath of staleQuarantines) {
+      writeFileSync(quarantinePath, 'stale');
+    }
+
+    const result = cleanupRemediationStorage({
+      drainPath,
+      maxDrainRotatedLogs: 2,
+      registeredWorktrees: new Set(),
+    });
+
+    assert.equal(result.prunedDrainArtifacts, 1);
+    assert.throws(() => statSync(staleRotation));
+    assert.equal(
+      staleQuarantines.filter((path) => {
+        try {
+          statSync(path);
+          return false;
+        } catch {
+          return true;
+        }
+      }).length,
+      1
+    );
+  });
 });

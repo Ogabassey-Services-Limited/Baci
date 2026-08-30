@@ -1,4 +1,5 @@
 import { closeSync, fstatSync, openSync, readSync, statSync } from 'node:fs';
+import { withDrainFileLock } from './drain-file-lock.mjs';
 import { MAX_JSONL_READ_BYTES } from './vercel-error-events-limits.mjs';
 
 function readFileTail(filePath, maxBytes) {
@@ -112,24 +113,26 @@ export function readDrainTail(
   maxRotatedFiles,
   { fileSignaturesImpl = fileSignatures, readFileTailImpl = readFileTail } = {}
 ) {
-  let content = '';
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const before = fileSignaturesImpl(path, maxRotatedFiles);
-    try {
-      content = readDrainTailOnce(path, maxRotatedFiles, {
-        readFileTailImpl,
-      });
-    } catch (error) {
-      if (error?.code === 'ENOENT') continue;
-      throw error;
+  return withDrainFileLock(`${path}.lock`, () => {
+    let content = '';
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const before = fileSignaturesImpl(path, maxRotatedFiles);
+      try {
+        content = readDrainTailOnce(path, maxRotatedFiles, {
+          readFileTailImpl,
+        });
+      } catch (error) {
+        if (error?.code === 'ENOENT') continue;
+        throw error;
+      }
+      const after = fileSignaturesImpl(path, maxRotatedFiles);
+      if (
+        before.length === after.length &&
+        before.every((signature, index) => signature === after[index])
+      ) {
+        return content;
+      }
     }
-    const after = fileSignaturesImpl(path, maxRotatedFiles);
-    if (
-      before.length === after.length &&
-      before.every((signature, index) => signature === after[index])
-    ) {
-      return content;
-    }
-  }
-  throw new Error('Vercel drain changed while reading; retry later');
+    throw new Error('Vercel drain changed while reading; retry later');
+  });
 }

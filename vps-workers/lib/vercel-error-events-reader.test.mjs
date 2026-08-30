@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   closeSync,
+  existsSync,
   ftruncateSync,
   mkdtempSync,
   openSync,
@@ -184,5 +185,27 @@ describe('Vercel JSONL drain reader', () => {
 
     assert.equal(content, `${event}\n`);
     assert.equal(reads, 2);
+  });
+
+  it('holds the receiver lock while reading active and rotated drains', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-vercel-events-'));
+    const path = join(directory, 'drain.jsonl');
+    writeFileSync(path, '{}\n');
+    let lockObserved = false;
+
+    try {
+      readDrainTail(path, 0, {
+        fileSignaturesImpl: () => ['stable'],
+        readFileTailImpl: () => {
+          lockObserved = existsSync(`${path}.lock`);
+          return { bytesRead: 3, content: '{}\n' };
+        },
+      });
+
+      assert.equal(lockObserved, true);
+      assert.equal(existsSync(`${path}.lock`), false);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

@@ -83,9 +83,10 @@ export function createDrainFileLockReclaimer() {
     return true;
   }
 
-  function reclaimInProgress(lockPath) {
+  function reclaimInProgress(lockPath, { ignoreMarkerPath } = {}) {
     let active = false;
     for (const markerPath of listReclaimMarkers(lockPath)) {
+      if (markerPath === ignoreMarkerPath) continue;
       const marker = readLockSnapshot(markerPath);
       if (!marker) {
         try {
@@ -238,6 +239,15 @@ export function createDrainFileLockReclaimer() {
     if (reclaimInProgress(lockPath)) return false;
     const marker = createReclaimMarker(lockPath);
     try {
+      // Unique markers avoid clobbering one another, but two reclaimers can
+      // still observe an empty marker set at the same time. If another marker
+      // appeared after ours, yield so no reclaimer moves the canonical lock
+      // while a contender is making the same decision.
+      if (
+        reclaimInProgress(lockPath, { ignoreMarkerPath: marker.markerPath })
+      ) {
+        return false;
+      }
       const current = readLockSnapshot(lockPath);
       if (!current) return true;
       if (

@@ -22,9 +22,28 @@ describe('remediation Docker image guard', () => {
       {
         args: ['image', 'inspect', '--', 'baci-codex-remediator:sha'],
         command: 'docker',
-        options: { cwd: '/repo', env: { DOCKER_BIN: 'docker' }, shell: false },
+        options: {
+          cwd: '/repo',
+          env: { DOCKER_BIN: 'docker' },
+          shell: false,
+          timeout: 30_000,
+        },
       },
     ]);
+  });
+
+  it('bounds image inspection when no timeout is supplied', () => {
+    const calls = [];
+    assertConfiguredDockerImageAvailable({
+      env: { BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:sha' },
+      options: { env: {}, cwd: '/repo' },
+      runner(command, args, options) {
+        calls.push({ args, command, options });
+        return { status: 0, stderr: '', stdout: '' };
+      },
+    });
+
+    assert.equal(calls[0].options.timeout, 30_000);
   });
 
   it('blocks before worktree creation when the configured image is missing', () => {
