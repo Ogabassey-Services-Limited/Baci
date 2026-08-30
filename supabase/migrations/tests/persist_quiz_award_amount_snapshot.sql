@@ -88,7 +88,7 @@ BEGIN
     0,
     'paid',
     'pending',
-    'quiz_prize'
+    'physical'
   );
 
   -- Create rows with the shape seen before this migration. The migration is
