@@ -124,6 +124,36 @@ describe('remediation storage cleanup entrypoint', () => {
     assert.throws(() => statSync(orphanStore));
   });
 
+  it('keeps worker-log cleanup in the default logs directory for custom drains', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-default-worker-logs-'));
+    const drainDirectory = join(root, 'drain');
+    const workerLog = join(root, 'logs', 'worker.log');
+    const drainPath = join(drainDirectory, 'custom-drain.jsonl');
+    mkdirSync(drainDirectory, { recursive: true });
+    mkdirSync(join(root, 'logs'), { recursive: true });
+    writeFileSync(workerLog, 'worker-new');
+    writeFileSync(drainPath, 'drain-new');
+
+    const previousCwd = process.cwd();
+    process.chdir(root);
+    try {
+      runRemediationStorageCleanup({
+        env: {
+          BACI_WORKER_LOG_MAX_BYTES: '4',
+          VERCEL_ERROR_LOG_MAX_BYTES: '4',
+          VERCEL_ERROR_LOG_PATH: drainPath,
+        },
+        logger: { log: () => undefined },
+      });
+
+      assert.equal(readFileSync(`${workerLog}.1`, 'utf8'), 'worker-new');
+      assert.equal(readFileSync(`${drainPath}.1`, 'utf8'), 'drain-new');
+    } finally {
+      process.chdir(previousCwd);
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it('does not retain stores for prunable git worktree records', () => {
     const root = mkdtempSync(join(tmpdir(), 'baci-prunable-worktree-'));
     const repoDir = join(root, 'repo');

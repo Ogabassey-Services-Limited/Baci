@@ -110,13 +110,40 @@ export function createDrainFileLockReclaimer() {
 
   function createReclaimMarker(lockPath) {
     const markerPath = `${lockPath}.reclaim-${process.pid}-${randomUUID()}`;
-    const descriptor = openSync(markerPath, 'wx', 0o600);
+    let descriptor;
+    let identity;
     try {
+      descriptor = openSync(markerPath, 'wx', 0o600);
+      identity = { stat: statSync(markerPath) };
       writeSync(descriptor, `${process.pid}\n`);
-    } finally {
       closeSync(descriptor);
+      descriptor = undefined;
+      return { markerPath, identity };
+    } catch (error) {
+      if (descriptor !== undefined) {
+        try {
+          closeSync(descriptor);
+        } catch {
+          // Preserve the marker creation error.
+        }
+      }
+      if (identity) {
+        try {
+          const current = statSync(markerPath);
+          if (
+            current.dev === identity.stat.dev &&
+            current.ino === identity.stat.ino
+          ) {
+            unlinkSync(markerPath);
+          }
+        } catch (cleanupError) {
+          if (cleanupError?.code !== 'ENOENT') {
+            // Preserve the marker creation error.
+          }
+        }
+      }
+      throw error;
     }
-    return { markerPath, identity: { stat: statSync(markerPath) } };
   }
 
   function restoreClaimedLock(claimPath, lockPath, expected) {

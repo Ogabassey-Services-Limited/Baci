@@ -5,6 +5,7 @@ import { cleanupRemediationStorage } from './cleanup-remediation-storage-core.mj
 const DEFAULT_MAX_LOG_BYTES = 32 * 1024 * 1024;
 const DEFAULT_MAX_ROTATED_LOGS = 2;
 const DEFAULT_ORPHAN_STORE_RETENTION_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_WORKER_LOG_DIR = 'logs';
 
 function readPositiveInt(value, fallback) {
   const parsed = Number(value);
@@ -24,7 +25,7 @@ export function runRemediationStorageCleanup({
       ? join(dirname(repoDir), 'baci-remediation-worktrees')
       : undefined);
   const result = cleanupRemediationStorage({
-    logsDir: env.BACI_WORKER_LOG_DIR || dirname(drainPath),
+    logsDir: env.BACI_WORKER_LOG_DIR || DEFAULT_WORKER_LOG_DIR,
     drainDir: dirname(drainPath),
     drainPath,
     maxLogBytes: readPositiveInt(

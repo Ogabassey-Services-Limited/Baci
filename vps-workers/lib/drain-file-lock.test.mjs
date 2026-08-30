@@ -154,4 +154,40 @@ describe('drain file lock', () => {
       syncBuiltinESMExports();
     }
   });
+
+  it('removes a reclaim marker when marker initialization fails', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-drain-lock-'));
+    const lockPath = join(directory, 'vercel-drain.jsonl.lock');
+    writeFileSync(lockPath, '99999999\n');
+    const oldTime = Date.now() - 120_000;
+    utimesSync(lockPath, oldTime / 1_000, oldTime / 1_000);
+
+    const originalWriteSync = fs.writeSync;
+    fs.writeSync = (...args) => {
+      if (args[1] === `${process.pid}\n`) {
+        const error = new Error('disk full');
+        error.code = 'ENOSPC';
+        throw error;
+      }
+      return originalWriteSync(...args);
+    };
+    syncBuiltinESMExports();
+
+    try {
+      assert.throws(() => withDrainFileLock(lockPath, () => 'unreachable'), {
+        code: 'ENOSPC',
+      });
+      assert.deepEqual(
+        fs
+          .readdirSync(directory)
+          .filter((name) =>
+            name.startsWith('vercel-drain.jsonl.lock.reclaim-')
+          ),
+        []
+      );
+    } finally {
+      fs.writeSync = originalWriteSync;
+      syncBuiltinESMExports();
+    }
+  });
 });
