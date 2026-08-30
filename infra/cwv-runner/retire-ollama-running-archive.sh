@@ -111,8 +111,11 @@ running_container_archive_group_start() {
     my $session = POSIX::setsid();
     defined($session) && $session == $$ or exit 2;
     open(my $ready, ">&=3") or exit 2;
+    my $released = 0;
+    $SIG{USR1} = sub { $released = 1 };
     syswrite($ready, "ready\n") == 6 or exit 2;
     close($ready) or exit 2;
+    sleep 1 until $released;
     sysopen(STDOUT, $output, O_WRONLY | O_NOFOLLOW) or exit 2;
     my @output_stat = stat(STDOUT);
     @output_stat && -p _ or exit 2;
@@ -124,7 +127,9 @@ running_container_archive_group_start() {
   exec 3>&-
   running_start_attempt=0
   while [ "$running_start_attempt" -lt 100 ]; do
-    if [ -s "$running_start_ready" ] && [ "$(cat "$running_start_ready" 2>/dev/null)" = ready ]; then
+    running_start_pgid=$(/bin/ps -o pgid= -p "$running_start_pid" 2>/dev/null | /usr/bin/tr -d '[:space:]') || running_start_pgid=''
+    if [ -s "$running_start_ready" ] && [ "$(cat "$running_start_ready" 2>/dev/null)" = ready ] && [ "$running_start_pgid" = "$running_start_pid" ]; then
+      /bin/kill -USR1 "$running_start_pid" 2>/dev/null || { /bin/kill -KILL "$running_start_pid" 2>/dev/null || :; wait "$running_start_pid" 2>/dev/null || :; rm -f "$running_start_ready"; return 2; }
       rm -f "$running_start_ready"
       RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
       return 0
