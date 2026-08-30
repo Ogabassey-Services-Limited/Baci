@@ -95,9 +95,9 @@ describe('getDiscountedTransactionUnitPrices', () => {
       { price: 200, quantity: 1 },
     ];
 
-    const prices = getDiscountedTransactionUnitPrices(items, 120);
+    const prices = getDiscountedTransactionUnitPrices(items, 80);
 
-    expect(prices).toEqual([20, 180]);
+    expect(prices).toEqual([24, 200]);
   });
 
   it('applies a residual voucher discount after explicit merchandise allocations', () => {
