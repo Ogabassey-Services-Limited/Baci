@@ -194,6 +194,10 @@ BEGIN
     v_ordinary_award_id,
     v_reserved_award_id
   );
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'quiz award snapshot fixture unique violation: %', SQLERRM
+      USING DETAIL = PG_EXCEPTION_DETAIL;
 END;
 $$ LANGUAGE plpgsql;
 
