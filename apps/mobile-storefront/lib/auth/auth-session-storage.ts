@@ -3,6 +3,27 @@ import * as SecureStore from 'expo-secure-store';
 import { createLogger } from '../logger';
 
 const log = createLogger('AuthSessionStorage');
+const AUTH_STORAGE_TIMEOUT_MS = 4_000;
+
+async function boundedStorageOperation<T>(
+  operation: Promise<T>,
+  operationName: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(new Error(`Supabase auth storage ${operationName} timed out`)),
+      AUTH_STORAGE_TIMEOUT_MS
+    );
+  });
+
+  try {
+    return await Promise.race([operation, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 function getSupabaseProjectRef(supabaseUrl: string): string {
   let host: string;
@@ -31,10 +52,14 @@ export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
 }
 
 export const authSessionStorage: SupportedStorage = {
-  getItem: async (key: string) => SecureStore.getItemAsync(key),
+  getItem: async (key: string) =>
+    boundedStorageOperation(SecureStore.getItemAsync(key), 'read'),
   setItem: async (key: string, value: string) => {
     try {
-      await SecureStore.setItemAsync(key, value);
+      await boundedStorageOperation(
+        SecureStore.setItemAsync(key, value),
+        'write'
+      );
     } catch (error) {
       log.warn(
         'Unable to persist Supabase auth session in SecureStore.',
@@ -44,6 +69,6 @@ export const authSessionStorage: SupportedStorage = {
     }
   },
   removeItem: async (key: string) => {
-    await SecureStore.deleteItemAsync(key);
+    await boundedStorageOperation(SecureStore.deleteItemAsync(key), 'delete');
   },
 };

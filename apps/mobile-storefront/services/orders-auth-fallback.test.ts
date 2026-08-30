@@ -1,10 +1,20 @@
 import { jest } from '@jest/globals';
-import type { Session } from '@supabase/supabase-js';
+import { AuthRefreshDiscardedError, type Session } from '@supabase/supabase-js';
 
-const mockGetUser = jest.fn(() => new Promise<never>(() => undefined));
+const mockGetUser = jest.fn<
+  () => Promise<{
+    data: { user: { id: string } | null };
+    error: Error | null;
+  }>
+>(() => new Promise<never>(() => undefined));
 const mockGetSession =
   jest.fn<() => Promise<{ data: { session: Session | null } }>>();
-const mockRefreshSession = jest.fn(() => new Promise<never>(() => undefined));
+const mockRefreshSession = jest.fn<
+  () => Promise<{
+    data: { session: Session | null };
+    error: Error | null;
+  }>
+>(() => new Promise<never>(() => undefined));
 const mockFetchWithRetry = jest.fn<
   (
     url: string,
@@ -28,6 +38,31 @@ const mockFetchWithRetry = jest.fn<
   ok: true,
   status: 200,
 }));
+
+const orderRequest = {
+  customer_email: 'buyer@example.com',
+  customer_name: 'Buyer',
+  customer_phone: '+2348012345678',
+  items: [
+    {
+      id: 'product-1',
+      name: 'Phone',
+      price: 100_000,
+      quantity: 1,
+    },
+  ],
+  payment_method: 'card' as const,
+  shipping_address: {
+    address: '1 Test Street',
+    city: 'Lagos',
+    firstName: 'Test',
+    lastName: 'Buyer',
+    state: 'Lagos',
+  },
+  shipping_fee: 2_000,
+  source: 'mobile' as const,
+  subtotal: 100_000,
+};
 
 jest.mock('@react-native-community/netinfo', () => ({
   fetch: jest.fn(async () => ({
@@ -95,6 +130,14 @@ jest.mock('./orders-session', () => ({
 }));
 
 describe('createOrder checkout auth fallback', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetUser.mockImplementation(() => new Promise<never>(() => undefined));
+    mockRefreshSession.mockImplementation(
+      () => new Promise<never>(() => undefined)
+    );
+  });
+
   afterEach(() => {
     jest.restoreAllMocks();
     jest.useRealTimers();
@@ -113,39 +156,14 @@ describe('createOrder checkout auth fallback', () => {
       },
     });
 
-    const request: Parameters<typeof createOrder>[0] = {
-      customer_email: 'buyer@example.com',
-      customer_name: 'Buyer',
-      customer_phone: '+2348012345678',
-      items: [
-        {
-          id: 'product-1',
-          name: 'Phone',
-          price: 100_000,
-          quantity: 1,
-        },
-      ],
-      payment_method: 'card',
-      shipping_address: {
-        address: '1 Test Street',
-        city: 'Lagos',
-        firstName: 'Test',
-        lastName: 'Buyer',
-        state: 'Lagos',
-      },
-      shipping_fee: 2_000,
-      source: 'mobile',
-      subtotal: 100_000,
-    };
-
-    const firstResult = createOrder(request);
+    const firstResult = createOrder(orderRequest);
     await jest.advanceTimersByTimeAsync(5_000);
 
     await expect(firstResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });
 
-    const secondResult = createOrder(request);
+    const secondResult = createOrder(orderRequest);
     await jest.advanceTimersByTimeAsync(5_000);
     await expect(secondResult).resolves.toMatchObject({
       order: { id: 'order-1' },
@@ -158,5 +176,38 @@ describe('createOrder checkout auth fallback', () => {
     expect(firstRequestHeaders).not.toHaveProperty('Authorization');
     const secondRequestHeaders = mockFetchWithRetry.mock.calls[1]?.[1]?.headers;
     expect(secondRequestHeaders).not.toHaveProperty('Authorization');
+  });
+
+  it('uses a same-account session rotated after the checkout session read', async () => {
+    const { createOrder } = require('./orders') as typeof import('./orders');
+    const capturedSession = {
+      access_token: 'captured-token',
+      refresh_token: 'captured-refresh-token',
+      user: { id: 'user-a' },
+    } as Session;
+    const rotatedSession = {
+      access_token: 'rotated-token',
+      refresh_token: 'rotated-refresh-token',
+      user: { id: 'user-a' },
+    } as Session;
+    mockGetSession
+      .mockResolvedValueOnce({ data: { session: capturedSession } })
+      .mockResolvedValueOnce({ data: { session: rotatedSession } });
+    mockRefreshSession.mockResolvedValue({
+      data: { session: null },
+      error: new AuthRefreshDiscardedError(),
+    });
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-a' } },
+      error: null,
+    });
+
+    await expect(createOrder(orderRequest)).resolves.toMatchObject({
+      order: { id: 'order-1' },
+    });
+
+    expect(mockFetchWithRetry.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer rotated-token',
+    });
   });
 });

@@ -54,6 +54,27 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
   });
 
+  it('returns a successful refresh response before the deadline without aborting it', async () => {
+    jest.useFakeTimers();
+    const response = Response.json({ access_token: 'fresh-token' });
+    let requestSignal: AbortSignal | undefined;
+    const fetchImpl = jest.fn<typeof fetch>(async (_input, init) => {
+      requestSignal = init?.signal ?? undefined;
+      return response;
+    });
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    await expect(
+      timedFetch(
+        'https://project.supabase.co/auth/v1/token?grant_type=refresh_token',
+        { method: 'POST' }
+      )
+    ).resolves.toBe(response);
+    await jest.advanceTimersByTimeAsync(100);
+
+    expect(requestSignal?.aborted).toBe(false);
+  });
+
   it('does not add a timeout to non-refresh Supabase requests', async () => {
     const response = new Response(null, { status: 204 });
     const fetchImpl = jest.fn<typeof fetch>(async () => response);

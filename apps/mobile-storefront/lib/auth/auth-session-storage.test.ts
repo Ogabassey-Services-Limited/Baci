@@ -49,6 +49,10 @@ describe('authSessionStorage', () => {
     mockLoggerWarn.mockReset();
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('stores native Supabase sessions in SecureStore', async () => {
     mockSecureStore.getItemAsync.mockResolvedValue('session-json');
 
@@ -98,6 +102,53 @@ describe('authSessionStorage', () => {
     expect(mockLoggerWarn).toHaveBeenCalledWith(
       'Unable to persist Supabase auth session in SecureStore.',
       storageError
+    );
+  });
+
+  it.each([
+    ['read', () => authSessionStorage.getItem('auth-key')],
+    ['write', () => authSessionStorage.setItem('auth-key', 'session-json')],
+    ['delete', () => authSessionStorage.removeItem('auth-key')],
+  ])('bounds a stalled SecureStore %s operation', async (operation, run) => {
+    jest.useFakeTimers();
+    mockSecureStore.getItemAsync.mockImplementation(
+      () => new Promise<never>(() => undefined)
+    );
+    mockSecureStore.setItemAsync.mockImplementation(
+      () => new Promise<never>(() => undefined)
+    );
+    mockSecureStore.deleteItemAsync.mockImplementation(
+      () => new Promise<never>(() => undefined)
+    );
+
+    const result = run();
+    const rejection = expect(result).rejects.toThrow(
+      `Supabase auth storage ${operation} timed out`
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+
+    await rejection;
+  });
+
+  it('allows a later storage read after a post-checkout read stalls', async () => {
+    jest.useFakeTimers();
+    mockSecureStore.getItemAsync
+      .mockResolvedValueOnce('captured-session-json')
+      .mockImplementationOnce(() => new Promise<never>(() => undefined))
+      .mockResolvedValueOnce('current-session-json');
+
+    await expect(authSessionStorage.getItem('auth-key')).resolves.toBe(
+      'captured-session-json'
+    );
+    const stalledRead = authSessionStorage.getItem('auth-key');
+    const rejection = expect(stalledRead).rejects.toThrow(
+      'Supabase auth storage read timed out'
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+    await rejection;
+
+    await expect(authSessionStorage.getItem('auth-key')).resolves.toBe(
+      'current-session-json'
     );
   });
 });

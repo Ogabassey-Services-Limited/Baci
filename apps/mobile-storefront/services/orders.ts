@@ -83,7 +83,12 @@ export async function createOrder(
   // A persisted token can still be accepted by Auth while the Data API no
   // longer has a compatible signing key for it. Refresh before the money/order
   // boundary so PostgREST receives a token minted by the active signing key.
-  const checkoutAuth = await resolveCheckoutAuth(supabase.auth, storedSession);
+  const checkoutAuth = await resolveCheckoutAuth(
+    supabase.auth,
+    storedSession,
+    undefined,
+    () => getCheckoutStoredSession(supabaseAuthStorage, supabaseAuthStorageKey)
+  );
   const { session } = checkoutAuth;
   const {
     data: { user },

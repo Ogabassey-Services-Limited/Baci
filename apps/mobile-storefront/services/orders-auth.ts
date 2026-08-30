@@ -54,7 +54,8 @@ function checkoutAuthResult(
 export async function resolveCheckoutAuth(
   auth: CheckoutAuth,
   storedSession: Session | null,
-  timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS
+  timeoutMs = CHECKOUT_SESSION_REFRESH_TIMEOUT_MS,
+  readCurrentSession?: () => Promise<Session | null>
 ): Promise<CheckoutAuthResult> {
   if (!storedSession) return checkoutAuthResult(null, false);
 
@@ -68,6 +69,14 @@ export async function resolveCheckoutAuth(
       timeout.promise,
     ]);
     if (isAuthRefreshDiscardedError(error)) {
+      const currentSession = await readCurrentSession?.();
+      if (currentSession?.user.id === storedSession.user.id) {
+        log.warn(
+          'Checkout session rotated during refresh; using the current session'
+        );
+        return checkoutAuthResult(currentSession, true);
+      }
+
       log.warn(
         'Checkout session refresh was discarded; omitting stale session'
       );

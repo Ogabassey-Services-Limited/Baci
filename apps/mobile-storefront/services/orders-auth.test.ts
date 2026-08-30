@@ -108,6 +108,37 @@ describe('resolveCheckoutAuth', () => {
     );
   });
 
+  it('uses a rotated current session when auto-refresh kept the same account', async () => {
+    const currentSession = {
+      ...session('rotated-access-token'),
+      refresh_token: 'rotated-refresh-token',
+    } as Session;
+    const auth = {
+      refreshSession: jest.fn(async () => ({
+        data: { session: null },
+        error: new AuthRefreshDiscardedError(),
+      })),
+    };
+
+    await expect(
+      resolveCheckoutAuth(
+        auth,
+        session('captured-access-token'),
+        undefined,
+        async () => currentSession
+      )
+    ).resolves.toEqual({
+      authorizationHeaders: {
+        Authorization: 'Bearer rotated-access-token',
+      },
+      canValidateUser: true,
+      session: currentSession,
+    });
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Checkout session rotated during refresh; using the current session'
+    );
+  });
+
   it('omits authorization when the refreshed session belongs to another account', async () => {
     const refreshedSession = {
       ...session('user-b-token'),
