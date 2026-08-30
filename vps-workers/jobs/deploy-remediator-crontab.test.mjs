@@ -103,5 +103,16 @@ describe('remediation deploy crontab', () => {
       CODEX_JOB_COUNT,
       'expected every remediation Codex job to receive the native Codex binary'
     );
+    assert.match(
+      deployScript,
+      /CODEX_READONLY_SECCOMP_PROFILE="\$REMOTE_DIR\/config\/codex-readonly-seccomp\.json"/
+    );
+    assert.equal(
+      deployScript.match(
+        /BACI_CODEX_READONLY_SECCOMP_PROFILE=\$CODEX_READONLY_SECCOMP_PROFILE/g
+      )?.length,
+      CODEX_JOB_COUNT,
+      'expected every remediation Codex job to receive the read-only seccomp profile'
+    );
   });
 });

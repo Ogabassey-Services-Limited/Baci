@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
@@ -157,6 +157,48 @@ describe('remediation Codex command', () => {
       ),
       true
     );
+  });
+
+  it('uses the configured seccomp profile only for read-only Docker commands', () => {
+    const root = mkdtempSync(join(tmpdir(), 'baci-codex-seccomp-'));
+    const profile = join(root, 'profile.json');
+    writeFileSync(profile, '{}');
+    try {
+      const result = buildRemediationCodexCommand({
+        codexBin: '/opt/host/codex',
+        env: {
+          BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+          BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+          BACI_CODEX_READONLY_SECCOMP_PROFILE: profile,
+          CODEX_HOME: '/home/worker/.codex',
+          HOME: '/home/worker',
+        },
+        prompt: 'Inspect safely.',
+        readOnly: true,
+        repoDir: '/repo',
+        worktreeDir: '/repo',
+      });
+
+      assert.equal(result.args.includes(`seccomp=${profile}`), true);
+
+      const writeResult = buildRemediationCodexCommand({
+        codexBin: '/opt/host/codex',
+        env: {
+          BACI_CODEX_CONTAINER_BIN: '/opt/host/codex-native',
+          BACI_CODEX_DOCKER_IMAGE: 'baci-codex-remediator:local',
+          BACI_CODEX_READONLY_SECCOMP_PROFILE: profile,
+          CODEX_HOME: '/home/worker/.codex',
+          HOME: '/home/worker',
+        },
+        prompt: 'Implement safely.',
+        repoDir: '/repo',
+        worktreeDir: '/worktree',
+      });
+
+      assert.equal(writeResult.args.includes(`seccomp=${profile}`), false);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('mounts native Codex resources when the pinned binary has siblings', () => {

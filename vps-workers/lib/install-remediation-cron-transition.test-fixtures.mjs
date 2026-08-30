@@ -150,8 +150,10 @@ export function writeStage(
 ) {
   const jobs = join(stageDirectory, 'jobs');
   const lib = join(stageDirectory, 'lib');
+  const config = join(stageDirectory, 'config');
   mkdirSync(jobs, { recursive: true });
   mkdirSync(lib, { recursive: true });
+  mkdirSync(config, { recursive: true });
   writeFileSync(
     join(lib, 'remediation-global-lock.mjs'),
     readFileSync(globalLockSource)
@@ -172,6 +174,8 @@ export function writeStage(
     join(lib, 'remediation-worker-factory.mjs'),
     'export const factoryLoaded = true;\n'
   );
+  writeFileSync(join(lib, 'remediation-readonly-seccomp.mjs'), 'export {};\n');
+  writeFileSync(join(config, 'codex-readonly-seccomp.json'), '{}\n');
   for (const name of [
     'vercel-error-remediator',
     'sentry-mobile-error-remediator',
