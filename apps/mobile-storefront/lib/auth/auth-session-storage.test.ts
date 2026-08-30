@@ -43,9 +43,9 @@ describe('auth session storage keys', () => {
 
 describe('authSessionStorage', () => {
   beforeEach(() => {
-    mockSecureStore.deleteItemAsync.mockReset();
+    mockSecureStore.deleteItemAsync.mockReset().mockResolvedValue(undefined);
     mockSecureStore.getItemAsync.mockReset();
-    mockSecureStore.setItemAsync.mockReset();
+    mockSecureStore.setItemAsync.mockReset().mockResolvedValue(undefined);
     mockLoggerWarn.mockReset();
   });
 
@@ -150,5 +150,38 @@ describe('authSessionStorage', () => {
     await expect(authSessionStorage.getItem('auth-key')).resolves.toBe(
       'current-session-json'
     );
+  });
+
+  it('restores a replacement session after a timed-out stale write completes', async () => {
+    jest.useFakeTimers();
+    let completeStaleWrite: (() => void) | undefined;
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            completeStaleWrite = resolve;
+          })
+      )
+      .mockResolvedValue(undefined);
+
+    const staleWrite = authSessionStorage.setItem(
+      'auth-key',
+      'previous-account-session'
+    );
+    const rejection = expect(staleWrite).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+    await rejection;
+
+    await authSessionStorage.setItem('auth-key', 'replacement-session');
+    completeStaleWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(mockSecureStore.setItemAsync).toHaveBeenLastCalledWith(
+      'auth-key',
+      'replacement-session'
+    );
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(3);
   });
 });
