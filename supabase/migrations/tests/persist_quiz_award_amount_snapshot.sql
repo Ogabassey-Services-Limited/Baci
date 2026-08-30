@@ -131,16 +131,14 @@ BEGIN
     name,
     price,
     quantity,
-    quiz_award_id,
-    quiz_award_amount
+    quiz_award_id
   ) VALUES (
     v_ordinary_item_id,
     v_order_id,
     'Ordinary quiz voucher item',
     500,
     1,
-    v_ordinary_award_id,
-    NULL
+    v_ordinary_award_id
   );
 
   INSERT INTO public.order_items (
@@ -149,15 +147,13 @@ BEGIN
     name,
     price,
     quantity,
-    quiz_award_id,
-    quiz_award_amount
+    quiz_award_id
   ) VALUES (
     v_reserved_item_id,
     v_order_id,
     'Reserved serialized quiz prize',
     0,
     1,
-    NULL,
     NULL
   );
 
