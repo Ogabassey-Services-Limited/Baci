@@ -3,6 +3,7 @@ import { EXPECTED_CATALOG_CACHE_PENDING_SOURCES } from './expected-catalog-cache
 import { EXPECTED_EXPENSE_PENDING_SOURCES } from './expected-expense-pending-sources.test-support';
 import { EXPECTED_GIGL_TRACKING_HARDENING_PENDING_SOURCES } from './expected-gigl-tracking-hardening-pending-sources.test-support';
 import { EXPECTED_GIGL_TRACKING_PENDING_SOURCES } from './expected-gigl-tracking-pending-sources.test-support';
+import { EXPECTED_INVENTORY_PENDING_SOURCES } from './expected-inventory-pending-sources.test-support';
 import { EXPECTED_MERCHANT_INVOICE_PENDING_SOURCES } from './expected-merchant-invoice-pending-sources.test-support';
 import { EXPECTED_PAYSTACK_PENDING_SOURCES } from './expected-paystack-pending-sources.test-support';
 import { AUDIT_PENDING_SOURCES } from './expected-pending-audit-sources.test-support';
@@ -233,6 +234,7 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_PAYSTACK_PENDING_SOURCES,
   ...ADMIN_PLATFORM_PENDING_SOURCES,
   ...EXPECTED_EXPENSE_PENDING_SOURCES,
+  ...EXPECTED_INVENTORY_PENDING_SOURCES,
   ...EXPECTED_PENDING_TAIL_SOURCES.late,
   ...EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES,
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));

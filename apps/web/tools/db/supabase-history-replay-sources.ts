@@ -1,4 +1,7 @@
-// Raw frozen replay-source data; update migration hashes in lockstep.
+// Raw frozen replay-source and production-mapping data for the Supabase
+// history-replay manifest, extracted from `supabase-history-replay-manifest.ts`
+// so that module stays under the 300-line modularity gate. Each source row is
+// byte-frozen and re-hashed by the manifest verifier; migrations are immutable.
 import { ADMIN_PLATFORM_PENDING_SOURCES } from './supabase-history-replay-admin-sources';
 import { ADS_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-ads-pending-sources';
 import { EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS } from './supabase-history-replay-expense-pending-sources';
