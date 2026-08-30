@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS private.transaction_discount_proof_replay (
   consumed_at timestamptz NOT NULL DEFAULT pg_catalog.now()
 );
 
+CREATE INDEX IF NOT EXISTS transaction_discount_proof_replay_consumed_at_idx
+  ON private.transaction_discount_proof_replay (consumed_at);
+
 ALTER TABLE private.transaction_discount_proof_replay ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON TABLE private.transaction_discount_proof_replay

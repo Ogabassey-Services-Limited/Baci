@@ -27,7 +27,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828050000_bind_transaction_discount_proof_replay.sql',
-    sha256: 'caa7e325192fa75c68b3b9e52b20bee9af0d8d35d5cd4033c0d0fefd4a5236bd',
+    sha256: '7a2772e9a0481329cfe038e8b1e85dbbca2d4abb33bbd53964f75f2d2ba23cd1',
   },
   {
     repositoryPath:
@@ -47,7 +47,7 @@ export const EXPECTED_NEGOTIATION_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260828200000_reject_unverified_transaction_discount_proofs.sql',
-    sha256: 'aa15f06646812df854179f19b38cfb121bca9c2c08b1b40914be78f8a989483d',
+    sha256: '9027974900e914b30a25615d8778768f35e12f373c66d0a2714929e7c4341622',
   },
   {
     repositoryPath:

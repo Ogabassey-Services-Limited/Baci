@@ -14,6 +14,9 @@ DECLARE
   v_proof jsonb;
   v_inserted_count integer;
 BEGIN
+  DELETE FROM private.transaction_discount_proof_replay
+  WHERE consumed_at < pg_catalog.now() - INTERVAL '1 day';
+
   IF pg_catalog.jsonb_typeof(v_tracking) <> 'object'
      OR NOT (v_tracking ? 'baci_transaction_discount') THEN
     RETURN NEW;
@@ -64,7 +67,13 @@ BEGIN
     )
     ON CONFLICT (proof_id) DO NOTHING;
     GET DIAGNOSTICS v_inserted_count = ROW_COUNT;
-    IF v_inserted_count = 1 THEN
+    IF v_inserted_count = 1 OR EXISTS (
+      SELECT 1
+      FROM private.transaction_discount_proof_replay AS replay
+      WHERE replay.proof_id = v_proof ->> 'signature'
+        AND replay.order_id = NEW.id
+        AND replay.merchant_id = NEW.merchant_id
+    ) THEN
       RETURN NEW;
     END IF;
   END IF;

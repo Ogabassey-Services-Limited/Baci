@@ -176,8 +176,16 @@ export function getDiscountedTransactionUnitPrices(
         line.quantity > 0 &&
         line.merchandiseTotal > 0
       ) {
+        const persistedVoucherAmount = Math.min(
+          line.merchandiseTotal,
+          Math.max(
+            0,
+            toFiniteNumberOrNull(item?.quiz_award_amount) ??
+              line.merchandiseTotal
+          )
+        );
         const merchandiseDiscount =
-          line.merchandiseTotal * voucherDiscountRatio;
+          persistedVoucherAmount * voucherDiscountRatio;
         return Math.max(0, unitPrice - merchandiseDiscount / line.quantity);
       }
       if (
@@ -267,9 +275,17 @@ export function getDiscountedTransactionUnitPrices(
     }
 
     if (voucherDiscountBasis > 0 && voucherLineIndexes.has(index)) {
+      const persistedVoucherAmount = Math.min(
+        line.merchandiseTotal,
+        Math.max(
+          0,
+          toFiniteNumberOrNull(items[index]?.quiz_award_amount) ??
+            line.merchandiseTotal
+        )
+      );
       return Math.max(
         0,
-        unitPrice - (line.merchandiseTotal * discountRatio) / line.quantity
+        unitPrice - (persistedVoucherAmount * discountRatio) / line.quantity
       );
     }
     if (voucherDiscountBasis > 0 && residualDiscountRatio <= 0) {

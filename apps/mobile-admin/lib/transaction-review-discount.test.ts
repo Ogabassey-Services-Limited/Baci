@@ -97,7 +97,23 @@ describe('getDiscountedTransactionUnitPrices', () => {
 
     const prices = getDiscountedTransactionUnitPrices(items, 80);
 
-    expect(prices).toEqual([24, 200]);
+    expect(prices).toEqual([40, 200]);
+  });
+
+  it('bounds voucher reductions by the persisted award amount', () => {
+    const items = [
+      {
+        price: 120,
+        quantity: 1,
+        quiz_award_id: 'award-1',
+        quiz_award_amount: 100,
+      },
+      { price: 200, quantity: 1 },
+    ];
+
+    const prices = getDiscountedTransactionUnitPrices(items, 100);
+
+    expect(prices).toEqual([20, 200]);
   });
 
   it('applies a residual voucher discount after explicit merchandise allocations', () => {

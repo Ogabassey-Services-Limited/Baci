@@ -145,5 +145,17 @@ describe('transaction discount provenance migration', () => {
     expect(proofRejectionMigrationSql).toMatch(
       /ON CONFLICT \(proof_id\) DO NOTHING[\s\S]*?GET DIAGNOSTICS v_inserted_count = ROW_COUNT/i
     );
+    expect(proofRejectionMigrationSql).toMatch(
+      /replay\.order_id = NEW\.id[\s\S]*?replay\.merchant_id = NEW\.merchant_id/i
+    );
+  });
+
+  it('keeps replay cleanup bounded and indexed by consumption time', () => {
+    expect(replayBindingMigrationSql).toMatch(
+      /CREATE INDEX IF NOT EXISTS transaction_discount_proof_replay_consumed_at_idx[\s\S]*?\(consumed_at\)/i
+    );
+    expect(proofRejectionMigrationSql).toMatch(
+      /DELETE FROM private\.transaction_discount_proof_replay[\s\S]*?consumed_at < pg_catalog\.now\(\) - INTERVAL '1 day'/i
+    );
   });
 });
