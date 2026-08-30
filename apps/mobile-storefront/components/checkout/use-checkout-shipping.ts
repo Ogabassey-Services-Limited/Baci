@@ -73,6 +73,7 @@ export function useCheckoutShipping({
   );
   const activeDeliveryCoordinates =
     watchedAddress === committedAddress ? deliveryCoordinates : null;
+  const hasEnteredDeliveryAddress = Boolean(watchedAddress.trim());
   const {
     canUsePickupStation,
     currentQuotePreference,
@@ -293,7 +294,10 @@ export function useCheckoutShipping({
     shippingQuotes,
     shippingStates,
     showLocationPickers:
-      !activeDeliveryCoordinates || !watchedCity.trim() || !watchedState.trim(),
+      hasEnteredDeliveryAddress &&
+      (!activeDeliveryCoordinates ||
+        !watchedCity.trim() ||
+        !watchedState.trim()),
     showCityPicker,
     showStatePicker,
   };

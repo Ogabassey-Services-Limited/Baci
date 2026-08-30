@@ -88,6 +88,19 @@ describe('useCheckoutShipping Google city resolution', () => {
     mockFetchShippingQuotes.mockResolvedValue(undefined);
   });
 
+  it('keeps manual location pickers hidden until an address is entered', () => {
+    const { rerender, result } = renderHook(
+      (props: ShippingParams) => useCheckoutShipping(props),
+      { initialProps: createParams() }
+    );
+
+    expect(result.current.showLocationPickers).toBe(false);
+
+    rerender(createParams({ watchedAddress: '12 Marina Road' }));
+
+    expect(result.current.showLocationPickers).toBe(true);
+  });
+
   it('applies a Google-suggested city once the matching city list loads', async () => {
     const updateAddress = jest.fn();
     const { rerender, result } = renderHook(
