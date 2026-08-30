@@ -2,12 +2,19 @@ import Ionicons from '@react-native-vector-icons/ionicons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import Animated, { type AnimatedStyle } from 'react-native-reanimated';
 import { ImageZoomModal } from '@/components/product/ImageZoomModal';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import type Colors from '@/constants/Colors';
 import { BRAND, RADIUS } from '@/constants/Colors';
+import { createSafeBoundedImageSource } from '@/lib/safe-bounded-image-source';
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -34,6 +41,8 @@ export function ProductImageGallery({
   colors,
   headerHeight,
 }: ProductImageGalleryProps) {
+  const { width: screenWidth } = useWindowDimensions();
+
   return (
     <>
       {/* Main Image */}
@@ -46,7 +55,12 @@ export function ProductImageGallery({
       >
         <Animated.View style={[styles.parallaxWrapper, imageAnimatedStyle]}>
           <Image
-            source={{ uri: images[selectedImageIndex] }}
+            source={createSafeBoundedImageSource({
+              fit: 'cover',
+              height: headerHeight,
+              uri: images[selectedImageIndex],
+              width: screenWidth,
+            })}
             style={styles.mainImage}
             contentFit="cover"
             transition={300}
@@ -100,7 +114,12 @@ export function ProductImageGallery({
                 accessibilityHint="Double tap to show this image in the main view"
               >
                 <Image
-                  source={{ uri: img }}
+                  source={createSafeBoundedImageSource({
+                    fit: 'cover',
+                    height: 64,
+                    uri: img,
+                    width: 64,
+                  })}
                   style={styles.thumbnailImage}
                   contentFit="cover"
                   placeholder={{ blurhash: BLURHASH_VARIANTS.default }}

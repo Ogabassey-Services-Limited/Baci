@@ -18,6 +18,7 @@ describe('createExpoPlugins', () => {
       android: {
         enableMinifyInReleaseBuilds: true,
         enableShrinkResourcesInReleaseBuilds: true,
+        useLegacyPackaging: true,
         extraProguardRules: expect.stringContaining('-repackageclasses'),
       },
     });
