@@ -160,18 +160,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         createPublicClient({
           clientInfo: 'internal-revalidate-products-purge',
         });
-      const { entries, resolvedSlugs } = await enrichProductPurgeEntries(
-        purgeClient,
-        merchantId,
-        products
-      );
+      const { entries, resolvedSlugs, blogPostSlugs } =
+        await enrichProductPurgeEntries(purgeClient, merchantId, products);
       // Bust the per-slug Next product-detail caches for every resolved slug
       // BEFORE scheduling the edge purge: the PDP snapshot is tagged per-slug
       // and is NOT invalidated by the slug-less revalidateProducts above, so a
       // Cloudflare MISS would otherwise refill from stale Next data until TTL.
       revalidateProductSlugs(merchantId, resolvedSlugs);
       if (authoritativeMerchantSlug && !purgeWholeStorefront) {
-        scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries);
+        if (blogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries, {
+            blogPostSlugs,
+          });
+        } else {
+          scheduleStorefrontProductPurge(authoritativeMerchantSlug, entries);
+        }
       }
     } catch (purgeError) {
       logger.error({

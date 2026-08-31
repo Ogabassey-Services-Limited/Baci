@@ -1,4 +1,5 @@
 import { getMerchantSafe } from '@/lib/cached-data';
+import { hydrateRelatedBlogProductAvailability } from '@/lib/hydrate-related-blog-product-availability';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
 import {
@@ -129,6 +130,11 @@ export async function getLiveBlogPost(
       ? []
       : normalizeRelatedBlogProducts(relatedProducts);
   }
+
+  normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
+    supabase,
+    normalizedRelatedProducts
+  );
 
   return {
     merchant: {

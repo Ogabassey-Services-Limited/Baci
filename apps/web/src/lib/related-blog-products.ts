@@ -1,8 +1,8 @@
 export const RELATED_BLOG_PRODUCTS_SELECT =
-  'id, name, slug, price, compare_at_price, stock, stock_quantity, manage_stock, categories:category_id!inner(slug)' as const;
+  'id, name, slug, price, compare_at_price, stock, stock_quantity, manage_stock, has_condition_offers, categories:category_id!inner(slug)' as const;
 
 export const RELATED_BLOG_PRODUCT_LINKS_SELECT =
-  'relationship, product:products!blog_post_products_product_id_fkey(id, name, slug, status, price, compare_at_price, stock, stock_quantity, manage_stock, categories:category_id(slug))' as const;
+  'relationship, product:products!blog_post_products_product_id_fkey(id, name, slug, status, price, compare_at_price, stock, stock_quantity, manage_stock, has_condition_offers, categories:category_id(slug))' as const;
 
 interface RelatedBlogProductCategory {
   slug: string | null;
@@ -10,6 +10,7 @@ interface RelatedBlogProductCategory {
 
 interface RelatedBlogProductRow {
   compare_at_price?: number | null;
+  has_condition_offers?: boolean | null;
   id: string;
   name: string;
   manage_stock?: boolean | null;
@@ -27,6 +28,7 @@ interface RelatedBlogProductLinkRow {
 
 export interface RelatedBlogProduct {
   compare_at_price?: number | null;
+  has_condition_offers?: boolean | null;
   id: string;
   name: string;
   manage_stock?: boolean | null;
@@ -34,6 +36,8 @@ export interface RelatedBlogProduct {
   slug: string;
   stock?: number | null;
   stock_quantity?: number | null;
+  /** True when an active condition offer has confirmed available stock. */
+  has_purchasable_condition_offer?: boolean;
   category_slug: string | null;
 }
 

@@ -10,6 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import { resolveProductPurgeCategorySegmentForRow } from '@/lib/storefront-product-purge-urls';
 import { archiveProductRequestSchema } from '@/schemas/archive-product';
@@ -132,7 +133,7 @@ export async function PATCH(
       .select('slug')
       .eq('id', merchantContext.merchantId)
       .single<{ slug: string | null }>();
-    scheduleStorefrontProductPurge(merchantRow?.slug, [
+    const purgeEntries = [
       {
         slug: purgeSlug,
         categorySegment: resolveProductPurgeCategorySegmentForRow({
@@ -143,7 +144,19 @@ export async function PATCH(
           product_categories: product.product_categories,
         }),
       },
-    ]);
+    ];
+    const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+      auth.supabase,
+      merchantContext.merchantId,
+      [product.id]
+    );
+    if (blogPostSlugs.length > 0) {
+      scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries, {
+        blogPostSlugs,
+      });
+    } else {
+      scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries);
+    }
   } catch (purgeError) {
     console.warn('Skipped Cloudflare product purge after archive', {
       purgeError,

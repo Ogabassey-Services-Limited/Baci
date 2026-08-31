@@ -15,6 +15,7 @@ import {
   type SpecialCollectionSlug,
 } from '@/lib/category-page-product-id-cache';
 import { hydrateAndSanitizePublicProducts } from '@/lib/hydrate-public-products';
+import { hydrateRelatedBlogProductAvailability } from '@/lib/hydrate-related-blog-product-availability';
 import { merchantFeatureSettingsDefaults } from '@/lib/merchant-feature-settings-defaults';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { getOrderedBlogPostProductLinks } from '@/lib/ordered-blog-post-product-links';
@@ -3008,6 +3009,11 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
 
     normalizedRelatedProducts = normalizeRelatedBlogProducts(relatedProducts);
   }
+
+  normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
+    supabase,
+    normalizedRelatedProducts
+  );
 
   return {
     relatedPosts: selectSemanticRelatedBlogPosts(

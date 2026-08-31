@@ -10,6 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   type ProductPurgeCategoryRow,
@@ -120,10 +121,23 @@ export async function POST(request: NextRequest) {
           merchantId,
           publicPurgeEntries.map((entry) => entry.slug)
         );
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          publicPurgeEntries
+        const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+          supabase,
+          merchantId,
+          (updatedProducts ?? []).map((product) => product.id)
         );
+        if (blogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            publicPurgeEntries,
+            { blogPostSlugs }
+          );
+        } else {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            publicPurgeEntries
+          );
+        }
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk publish', {
           purgeError,

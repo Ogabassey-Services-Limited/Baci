@@ -8,6 +8,11 @@ import {
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
 
+export interface StorefrontProductPurgeOptions {
+  /** Published blog posts whose related-product rail includes these products. */
+  blogPostSlugs?: readonly string[];
+}
+
 /**
  * Fire-and-forget Cloudflare eviction of a product's affected public URLs.
  *
@@ -26,7 +31,8 @@ import {
  */
 export function scheduleStorefrontProductPurge(
   identifier: string | null | undefined,
-  entries: readonly StorefrontProductPurgeEntry[]
+  entries: readonly StorefrontProductPurgeEntry[],
+  options: StorefrontProductPurgeOptions = {}
 ): void {
   try {
     const normalizedIdentifier = identifier?.trim();
@@ -44,7 +50,8 @@ export function scheduleStorefrontProductPurge(
 
     const urls = buildStorefrontProductPurgeUrls(
       [normalizedIdentifier],
-      entries
+      entries,
+      options.blogPostSlugs
     );
     if (urls.length === 0) {
       return;

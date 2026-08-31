@@ -14,6 +14,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import {
   getPrimaryProductImage,
   PRODUCT_IMAGE_LARGE_PLACEHOLDER_URL,
@@ -952,10 +953,23 @@ export async function PUT(
         merchantId,
         productPurgeEntries.map((entry) => entry.slug)
       );
-      scheduleStorefrontProductPurge(
-        merchantContext.merchantSlug,
-        productPurgeEntries
+      const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+        supabase,
+        merchantId,
+        [updatedProduct.id]
       );
+      if (blogPostSlugs.length > 0) {
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          productPurgeEntries,
+          { blogPostSlugs }
+        );
+      } else {
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          productPurgeEntries
+        );
+      }
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after update', {
         purgeError,
@@ -1034,6 +1048,15 @@ export async function DELETE(
       .eq('merchant_id', merchantId)
       .maybeSingle();
 
+    // Capture linked published articles BEFORE the delete cascades their
+    // relationship rows. The article document embeds this product's card, so
+    // those exact blog URLs must be evicted after the mutation succeeds.
+    const linkedBlogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+      supabase,
+      merchantId,
+      [id]
+    );
+
     // Keep the delete itself lean — the purge inputs were pre-read above.
     const { error: deleteError } = await supabase
       .from('products')
@@ -1073,7 +1096,7 @@ export async function DELETE(
         // Bust the deleted slug's Next cache tag before the edge purge so a
         // post-purge MISS cannot serve a stale "product still exists" page.
         revalidateProductSlugs(merchantId, [purgeSlug]);
-        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+        const purgeEntries: StorefrontProductPurgeEntry[] = [
           {
             slug: purgeSlug,
             categorySegment: resolveProductPurgeCategorySegmentForRow({
@@ -1084,7 +1107,21 @@ export async function DELETE(
               product_categories: deletedProduct.product_categories,
             }),
           },
-        ]);
+        ];
+        if (linkedBlogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            purgeEntries,
+            {
+              blogPostSlugs: linkedBlogPostSlugs,
+            }
+          );
+        } else {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            purgeEntries
+          );
+        }
       } else {
         // The pre-read errored or came back null, yet the delete above
         // succeeded — the storefront still has the deleted product's page cached

@@ -11,6 +11,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
@@ -114,10 +115,26 @@ export async function POST(request: NextRequest) {
         merchantId,
         purgeEntries.map((entry) => entry.slug)
       );
-      scheduleStorefrontProductPurge(
-        merchantContext.merchantSlug,
-        purgeEntries
+      const productIds = parseResult.data.changes
+        .map((change) => change.productId?.trim())
+        .filter((productId): productId is string => Boolean(productId));
+      const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+        supabase,
+        merchantId,
+        productIds
       );
+      if (blogPostSlugs.length > 0) {
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          purgeEntries,
+          { blogPostSlugs }
+        );
+      } else {
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          purgeEntries
+        );
+      }
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after bulk update', {
         purgeError,

@@ -78,6 +78,22 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
   });
 
+  it('includes linked blog documents in the URL purge', () => {
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { blogPostSlugs: ['iphone-guide'] }
+    );
+
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        'https://ogabassey.com/blog/iphone-guide',
+        'https://ogabassey.com/blog/iphone-guide/opengraph-image',
+        'https://www.ogabassey.com/blog/iphone-guide',
+      ])
+    );
+  });
+
   it('purges URLs instead of hostnames at the exact 50-entry threshold', () => {
     const entries = Array.from({ length: 50 }, (_, index) => ({
       slug: `product-${index}`,
