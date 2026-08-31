@@ -9,6 +9,13 @@ const migration = fs.readFileSync(
   ),
   'utf8'
 );
+const ttlMigration = fs.readFileSync(
+  path.resolve(
+    process.cwd(),
+    '../../supabase/migrations/20260831140000_extend_jumia_discovery_claim_ttl.sql'
+  ),
+  'utf8'
+);
 
 describe('Jumia discovery claim migration', () => {
   it('claims rotating credentials atomically and supports release', () => {
@@ -26,5 +33,11 @@ describe('Jumia discovery claim migration', () => {
       'INSERT INTO public.oauth_handoff_tickets AS ticket'
     );
     expect(migration).toContain('RETURNING ticket.id, ticket.expires_at');
+  });
+
+  it('extends the discovery expiry through the active claim window', () => {
+    expect(ttlMigration).toContain(
+      "expires_at = GREATEST(discovery.expires_at, now() + interval '2 minutes')"
+    );
   });
 });

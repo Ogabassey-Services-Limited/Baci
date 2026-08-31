@@ -109,9 +109,6 @@ export function getJumiaPriceOverrideError(
   mappings: Array<{ jumia_sku: string; jumia_price: number | null }>,
   overrides: { jumia_price?: number; jumia_prices?: Record<string, number> }
 ): string | null {
-  if (Object.hasOwn(overrides, 'jumia_price') && mappings.length > 1) {
-    return 'Use jumia_prices to set distinct prices for each Jumia variant';
-  }
   if (overrides.jumia_prices) {
     const knownSkus = new Set(mappings.map((mapping) => mapping.jumia_sku));
     const unknownSku = Object.keys(overrides.jumia_prices).find(

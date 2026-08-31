@@ -9,6 +9,7 @@ vi.mock('@/lib/jumia/feeds', () => ({
 }));
 
 import {
+  getJumiaPriceOverrideError,
   getJumiaProductUpdateReadinessErrors,
   pushPriceUpdates,
   pushStatusUpdates,
@@ -27,6 +28,20 @@ describe('getJumiaProductUpdateReadinessErrors', () => {
       'Status update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
       'Price update skipped: product has not been assigned a Jumia product ID yet (feed may still be processing)',
     ]);
+  });
+});
+
+describe('getJumiaPriceOverrideError', () => {
+  it('accepts one price override for every ready variant', () => {
+    expect(
+      getJumiaPriceOverrideError(
+        [
+          { jumia_sku: 'SKU-1', jumia_price: 1000 },
+          { jumia_sku: 'SKU-2', jumia_price: 1200 },
+        ],
+        { jumia_price: 1500 }
+      )
+    ).toBeNull();
   });
 });
 

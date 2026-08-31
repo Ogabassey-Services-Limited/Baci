@@ -152,6 +152,54 @@ describe('usePublishProductsDialog', () => {
     ]);
   });
 
+  it('keeps SKU-only search results visible after the server returns them', async () => {
+    const fetchMock = createFetchMock({
+      'mapped-product-ids': async () => ({
+        ok: true,
+        json: async () => ({ mappings: [] }),
+      }),
+      '/api/products': async () => ({
+        ok: true,
+        json: async () => ({
+          products: [
+            {
+              id: 'prod-1',
+              name: 'Wireless Controller',
+              sku: 'GAME-42',
+              price: 49.99,
+            },
+          ],
+        }),
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => result.current.setSearch('GAME-42'));
+
+    await waitFor(() => {
+      expect(result.current.filteredProducts).toEqual([
+        {
+          id: 'prod-1',
+          name: 'Wireless Controller',
+          sku: 'GAME-42',
+          price: 49.99,
+        },
+      ]);
+    });
+  });
+
   it('clears selected products that disappear when search results replace the list', async () => {
     let productRequestCount = 0;
     const fetchMock = vi.fn((url: string) => {

@@ -172,9 +172,13 @@ async function connect(args: {
   // Keep a resumable discovery record when the merchant selected only a
   // subset of the shops returned by discovery. The caller consumes it only
   // after the complete selection has been persisted.
+  const selectedShopKeys = new Set(args.selectedShopIds);
+  const remainingShopKeys = validated.shops
+    .filter((shop) => !isJumiaShopAlreadyConnected(shop, args.existingShopIds))
+    .map((shop) => shop.selectionKey ?? shop.id);
   response.headers.set(
     'x-jumia-discovery-complete',
-    new Set(args.selectedShopIds).size >= validated.shops.length
+    remainingShopKeys.every((shopKey) => selectedShopKeys.has(shopKey))
       ? 'true'
       : 'false'
   );

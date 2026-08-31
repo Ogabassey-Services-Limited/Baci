@@ -106,6 +106,34 @@ describe('Jumia Self Authorization handler', () => {
     });
   });
 
+  it('completes discovery when all unconnected shops are selected', async () => {
+    const validate = vi.fn().mockResolvedValue(validated);
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          authorization_id: 'authorization-id',
+          integration_id: 'integration-id',
+          shop_id: 'shop-1',
+          inserted: true,
+        },
+      ],
+      error: null,
+    });
+
+    const response = await jumiaSelfAuthorizationHandler.connect({
+      credentials,
+      encryptionKey: Buffer.alloc(32, 4).toString('base64'),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      existingShopIds: new Set(['shop-2']),
+      rpc,
+      selectedShopIds: ['shop-1'],
+      validate,
+      encrypt: vi.fn().mockReturnValue('opaque-ciphertext'),
+    });
+
+    expect(response.headers.get('x-jumia-discovery-complete')).toBe('true');
+  });
+
   it('classifies inserted shops by selection order when shop ids collide', async () => {
     const shops = [
       {

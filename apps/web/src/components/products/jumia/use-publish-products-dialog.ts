@@ -151,9 +151,15 @@ export function usePublishProductsDialog({
     return null;
   };
 
-  const filteredProducts = products.filter((product) =>
-    product.name.toLowerCase().includes(search.trim().toLowerCase())
-  );
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredProducts = products.filter((product) => {
+    if (!normalizedSearch) return true;
+    return [
+      product.name,
+      product.sku ?? '',
+      ...(product.variants ?? []).map((variant) => variant.sku ?? ''),
+    ].some((value) => value.toLowerCase().includes(normalizedSearch));
+  });
 
   const toggleProduct = (productId: string) => {
     const product = products.find((candidate) => candidate.id === productId);
