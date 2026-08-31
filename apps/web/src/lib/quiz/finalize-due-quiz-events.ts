@@ -21,6 +21,7 @@ const COUNT_KEYS = [
   'liveDeadlineClockFailed',
   'deadlineClockFailed',
   'liveFinalizationFailed',
+  'liveAwardRetryPending',
   'liveAwaitingGate',
   'awarded',
   'noWinner',
@@ -51,6 +52,10 @@ type FinalizationStep =
   | {
       args: Database['public']['Functions']['process_due_quiz_deadlines_v2']['Args'];
       name: 'process_due_quiz_deadlines_v2';
+    }
+  | {
+      args: Database['public']['Functions']['set_quiz_runtime_control_v2']['Args'];
+      name: 'set_quiz_runtime_control_v2';
     };
 
 const MISSING_RPC_CODES = new Set(['PGRST202']);
@@ -131,6 +136,8 @@ function runStep(client: QuizFinalizationClient, step: FinalizationStep) {
       return client.rpc('finalize_due_live_quiz_events_v2', step.args);
     case 'process_due_quiz_deadlines_v2':
       return client.rpc('process_due_quiz_deadlines_v2', step.args);
+    case 'set_quiz_runtime_control_v2':
+      return client.rpc('set_quiz_runtime_control_v2', step.args);
     case 'close_due_product_quiz_events':
       return client.rpc('close_due_product_quiz_events');
     case 'finalize_due_quiz_events':
@@ -152,6 +159,10 @@ export async function finalizeDueQuizEvents() {
     name: 'process_due_quiz_deadlines_v2',
     args: deadlineArgs,
   };
+  const runtimeGateStep: FinalizationStep = {
+    name: 'set_quiz_runtime_control_v2',
+    args: deadlineArgs,
+  };
   const legacyDeadlineSteps: FinalizationStep[] = [
     { name: 'promote_due_scheduled_quiz_events_service_v2' },
     { name: 'finalize_due_test_quiz_events_v2' },
@@ -169,28 +180,38 @@ export async function finalizeDueQuizEvents() {
     maintenanceSteps.push({ name: 'finalize_due_quiz_events' });
   }
 
-  const deadlineResult = await runStep(client, deadlineStep);
-  if (
-    deadlineResult.error &&
-    MISSING_RPC_CODES.has(deadlineResult.error.code)
-  ) {
-    // Deployments can briefly run the newer worker before its migration has
-    // reached PostgREST. The old RPCs are idempotent, so retain them only as a
-    // rollout compatibility path instead of failing every deadline cycle.
-    for (const step of legacyDeadlineSteps) {
-      const { data, error } = await runStep(client, step);
-      if (error) {
-        logRpcFailure(step.name, error);
-        summary.failed += 1;
-        continue;
-      }
-      addStepPayload(summary, step, data);
-    }
-  } else if (deadlineResult.error) {
-    logRpcFailure(deadlineStep.name, deadlineResult.error);
+  const runtimeGateResult = await runStep(client, runtimeGateStep);
+  const runtimeGateUsesLegacyTransaction = Boolean(
+    runtimeGateResult.error &&
+      MISSING_RPC_CODES.has(runtimeGateResult.error.code)
+  );
+  if (runtimeGateResult.error && !runtimeGateUsesLegacyTransaction) {
+    logRpcFailure(runtimeGateStep.name, runtimeGateResult.error);
     summary.failed += 1;
   } else {
-    addStepPayload(summary, deadlineStep, deadlineResult.data);
+    const deadlineResult = await runStep(client, deadlineStep);
+    if (
+      deadlineResult.error &&
+      MISSING_RPC_CODES.has(deadlineResult.error.code)
+    ) {
+      // Deployments can briefly run the newer worker before its migration has
+      // reached PostgREST. The old RPCs are idempotent, so retain them only as a
+      // rollout compatibility path instead of failing every deadline cycle.
+      for (const step of legacyDeadlineSteps) {
+        const { data, error } = await runStep(client, step);
+        if (error) {
+          logRpcFailure(step.name, error);
+          summary.failed += 1;
+          continue;
+        }
+        addStepPayload(summary, step, data);
+      }
+    } else if (deadlineResult.error) {
+      logRpcFailure(deadlineStep.name, deadlineResult.error);
+      summary.failed += 1;
+    } else {
+      addStepPayload(summary, deadlineStep, deadlineResult.data);
+    }
   }
 
   for (const step of maintenanceSteps) {

@@ -72,7 +72,6 @@ const liveGateBacklogSql = readFileSync(
   ),
   'utf8'
 );
-
 describe('instant quiz deadline publication migration', () => {
   it('adds an append-only migration for the instant deadline contract', () => {
     expect(migrations.length).toBeGreaterThan(0);

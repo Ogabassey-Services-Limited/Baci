@@ -101,6 +101,11 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260830193441_quiz_instant_test_publication_score_gate_v2.sql',
+    sha256: 'b66f717861766ea269fd3e5a1e76b2fa40d7c5c7d8617dad43c8f725f672840c',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260830193442_quiz_instant_deadline_publication_v2.sql',
     sha256: 'e799ba6b85b9bb13a24a2bba9b9eef0f9b0a094f474339237d33ca3af891620c',
   },
@@ -128,6 +133,11 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260830204000_quiz_instant_score_serialization_repair_v2.sql',
     sha256: 'eb0462e03db8070a4d767d12c9ee8767d8d4613de3e1cf7148378b3f077e59e7',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204001_quiz_instant_test_publication_score_gate_ready_v2.sql',
+    sha256: '3edaf5696452501879df450cc813e00afe75b977a6121224ddb0951f0afe46e2',
   },
   {
     repositoryPath:
@@ -173,5 +183,25 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260830204800_quiz_instant_live_gate_backlog_count_v2.sql',
     sha256: '7ae8618ae844fe455c1fde990dc48a83b64f17e11cbf2c3003d33095b7bab2a6',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
+    sha256: 'b156953d9d1d73cb85808489803c456ec5381de5b29e557d44cbc2f54e1a5901',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
+    sha256: '42bcbde0e41bf3c8588c463c6da7f3b6b8417465fea216d4b64e46d533697f02',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
+    sha256: 'fefe356d47e052ff8b51e27cd6e275f3c91e0441cc247d25dba0ed2d493c6485',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120300_quiz_instant_retry_health_aggregation_v2.sql',
+    sha256: 'b96a4b835974cf6727aa03165698bd07c5dbcf4c925113e56054f1f7f0aa6f40',
   },
 ] as const;

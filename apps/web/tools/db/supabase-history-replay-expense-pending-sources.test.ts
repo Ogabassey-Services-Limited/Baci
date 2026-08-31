@@ -19,12 +19,14 @@ describe('supabase history replay expense pending sources', () => {
     const quizRows = rows.filter((row) => row.includes('quiz_instant_'));
 
     expect(quizRows.map((row) => row.split(' ')[1])).toEqual([
+      '20260830193441_quiz_instant_test_publication_score_gate_v2.sql',
       '20260830193442_quiz_instant_deadline_publication_v2.sql',
       '20260830193732_quiz_instant_results_wakeup_v2.sql',
       '20260830203900_quiz_instant_answer_submission_lock_order_v2.sql',
       '20260830203950_quiz_instant_start_timeout_lock_order_v2.sql',
       '20260830203960_quiz_instant_resume_timeout_lock_order_v2.sql',
       '20260830204000_quiz_instant_score_serialization_repair_v2.sql',
+      '20260830204001_quiz_instant_test_publication_score_gate_ready_v2.sql',
       '20260830204100_quiz_instant_live_terminalization_hardening_v2.sql',
       '20260830204200_quiz_instant_live_publication_hardening_v2.sql',
       '20260830204250_quiz_instant_runtime_publication_interlock_v2.sql',
@@ -34,6 +36,10 @@ describe('supabase history replay expense pending sources', () => {
       '20260830204600_quiz_instant_runtime_gate_freshness_v2.sql',
       '20260830204700_quiz_instant_live_award_retry_backoff_v2.sql',
       '20260830204800_quiz_instant_live_gate_backlog_count_v2.sql',
+      '20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
+      '20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
+      '20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
+      '20260831120300_quiz_instant_retry_health_aggregation_v2.sql',
     ]);
   });
 });

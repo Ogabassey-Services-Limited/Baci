@@ -6,7 +6,11 @@ DECLARE
   v_finalizer_definition text;
   v_guard_definition text;
   v_health_rls boolean;
+  v_index_definition text;
+  v_index_valid boolean;
+  v_processor_definition text;
   v_runner_definition text;
+  v_setter_definition text;
   v_stage_definition text;
   v_test_clock_definition text;
   v_terminalizer_definition text;
@@ -26,11 +30,29 @@ BEGIN
   SELECT pg_catalog.pg_get_functiondef(
     'private.finalize_due_test_quiz_events_clock_v2()'::regprocedure
   ) INTO v_test_clock_definition;
+  IF v_test_clock_definition !~
+      'finalization_error_code IS DISTINCT FROM(.|\n)*test_result_publication_failed(.|\n)*updated_at <=(.|\n)*interval ''30 seconds'''
+    OR pg_catalog.strpos(
+      v_test_clock_definition,
+      'test_result_publication_failed'') NULLS FIRST'
+    ) = 0 THEN
+    RAISE EXCEPTION 'failed test events do not have a bounded retry interval';
+  END IF;
+
+  SELECT pg_catalog.pg_get_functiondef(
+    'public.set_quiz_runtime_control_v2(boolean,boolean)'::regprocedure
+  ) INTO v_setter_definition;
+  SELECT pg_catalog.pg_get_functiondef(
+    'public.process_due_quiz_deadlines_v2(boolean,boolean)'::regprocedure
+  ) INTO v_processor_definition;
   IF pg_catalog.strpos(
-    v_test_clock_definition,
-    'test_result_publication_failed'') NULLS FIRST'
+    v_setter_definition, 'INSERT INTO public.quiz_runtime_control_v2'
+  ) = 0 OR pg_catalog.strpos(
+    v_processor_definition, 'INSERT INTO public.quiz_runtime_control_v2'
+  ) <> 0 OR pg_catalog.strpos(
+    v_processor_definition, 'FROM public.quiz_runtime_control_v2 AS control'
   ) = 0 THEN
-    RAISE EXCEPTION 'failed test events can monopolize deadline batches';
+    RAISE EXCEPTION 'runtime gate is not committed before deadline processing';
   END IF;
 
   SELECT pg_catalog.pg_get_functiondef(
@@ -82,6 +104,9 @@ BEGIN
     ) = 0
     OR pg_catalog.strpos(v_runner_definition, '''runtimeGateFresh''') = 0
     OR pg_catalog.strpos(
+      v_runner_definition, '''liveAwardRetryPending'''
+    ) = 0
+    OR pg_catalog.strpos(
       v_runner_definition, 'process_due_quiz_deadlines_v2(true, true)'
     ) <> 0
   THEN
@@ -93,7 +118,9 @@ BEGIN
   ) INTO v_guard_definition;
   IF pg_catalog.strpos(v_guard_definition, 'quiz_runtime_control_v2') = 0
     OR pg_catalog.strpos(v_guard_definition, 'interval ''30 seconds''') = 0
-    OR NOT EXISTS (
+    OR pg_catalog.strpos(
+      v_guard_definition, 'baci.quiz_live_publication_batch_xid'
+    ) = 0 OR NOT EXISTS (
       SELECT 1 FROM pg_catalog.pg_trigger AS trigger
       WHERE trigger.tgname = 'guard_live_quiz_result_publication_v2'
         AND trigger.tgrelid = 'public.quiz_events'::regclass
@@ -101,6 +128,43 @@ BEGIN
     )
   THEN
     RAISE EXCEPTION 'live publication replay interlock is missing';
+  END IF;
+
+  SELECT
+    index_entry.indisvalid,
+    pg_catalog.pg_get_indexdef(index_entry.indexrelid)
+  INTO v_index_valid, v_index_definition
+  FROM pg_catalog.pg_index AS index_entry
+  JOIN pg_catalog.pg_class AS index_class
+    ON index_class.oid = index_entry.indexrelid
+  JOIN pg_catalog.pg_namespace AS namespace
+    ON namespace.oid = index_class.relnamespace
+  WHERE namespace.nspname = 'public'
+    AND index_class.relname = 'quiz_events_v2_live_unpublished_due_idx';
+  IF v_index_valid IS NOT TRUE
+    OR pg_catalog.strpos(v_index_definition, '(ends_at, updated_at)') = 0
+    OR pg_catalog.strpos(v_index_definition, 'contract_version = 2') = 0
+    OR pg_catalog.strpos(v_index_definition, 'mode = ''live''') = 0
+    OR pg_catalog.strpos(
+      v_index_definition, 'attempts_terminalized_at IS NOT NULL'
+    ) = 0
+    OR pg_catalog.strpos(
+      v_index_definition, 'results_published_at IS NULL'
+    ) = 0
+    OR pg_catalog.strpos(
+      v_index_definition, 'finalization_state = ANY'
+    ) = 0
+    OR pg_catalog.strpos(v_index_definition, '''pending''::text') = 0
+    OR pg_catalog.strpos(v_index_definition, '''blocked''::text') = 0 THEN
+    RAISE EXCEPTION 'live deadline backlog lacks its partial index';
+  END IF;
+
+  IF pg_catalog.strpos(
+    v_finalizer_definition, '''liveAwardRetryPending'''
+  ) = 0 OR pg_catalog.strpos(
+    v_finalizer_definition, 'interval ''30 seconds'''
+  ) = 0 THEN
+    RAISE EXCEPTION 'live award retry backoff is not reflected in health';
   END IF;
 
   SELECT class.relrowsecurity INTO v_health_rls
@@ -168,6 +232,30 @@ BEGIN
     END IF;
   END;
 
+END;
+$$;
+
+DO $$
+BEGIN
+  UPDATE public.quiz_runtime_control_v2
+  SET production_phase = false,
+      production_approved = false,
+      updated_at = pg_catalog.clock_timestamp()
+  WHERE singleton;
+  PERFORM pg_catalog.set_config(
+    'baci.quiz_live_publication_batch_xid', 'forged-batch', true
+  );
+
+  BEGIN
+    UPDATE public.quiz_events
+    SET results_published_at = pg_catalog.clock_timestamp()
+    WHERE id = '75000000-0000-4000-8000-000000000001';
+    RAISE EXCEPTION 'forged batch marker bypassed the closed runtime gate';
+  EXCEPTION WHEN SQLSTATE '55000' THEN
+    IF SQLERRM <> 'quiz_live_publication_runtime_gate_closed' THEN
+      RAISE;
+    END IF;
+  END;
 END;
 $$;
 

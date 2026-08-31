@@ -89,7 +89,10 @@ BEGIN
   END IF;
 
   v_summary := public.finalize_due_live_quiz_events_v2(true, true);
-  IF COALESCE((v_summary ->> 'failed')::integer, 0) <> 0 THEN
+  IF COALESCE(
+    (v_summary ->> 'liveAwardRetryPending')::integer, 0
+  ) <> 1 OR COALESCE((v_summary ->> 'failed')::integer, 0) <> 0
+    OR COALESCE((v_summary ->> 'liveAwaitingGate')::integer, 0) <> 1 THEN
     RAISE EXCEPTION 'live award retried inside its 30-second backoff';
   END IF;
 

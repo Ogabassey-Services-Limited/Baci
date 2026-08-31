@@ -19351,6 +19351,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_quiz_runtime_control_v2: {
+        Args: {
+          p_production_approved: boolean;
+          p_production_phase: boolean;
+        };
+        Returns: Json;
+      };
       product_autocomplete:
         | {
             Args: {
