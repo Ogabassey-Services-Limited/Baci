@@ -84,7 +84,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              clearQueryCachePreservingObservers(queryClient);
+              clearQueryCachePreservingObservers(queryClient, {
+                refetchAccountQueries: true,
+              });
 
               const cacheKeys = getClearableCacheStorageKeys(
                 await asyncStorage.getAllKeys()

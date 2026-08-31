@@ -88,7 +88,13 @@ describe('clearQueryCachePreservingObservers', () => {
 
   it('does not refetch mounted account queries during an identity transition', async () => {
     // Arrange
-    const accountQueryFn = jest.fn(() => Promise.resolve('account data'));
+    let resolveAccountRequest: ((value: string) => void) | undefined;
+    const accountQueryFn = jest.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveAccountRequest = resolve;
+        })
+    );
     const publicQueryFn = jest.fn(() => Promise.resolve('public data'));
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -117,8 +123,83 @@ describe('clearQueryCachePreservingObservers', () => {
     expect(publicQueryFn).toHaveBeenCalledTimes(2);
     expect(publicObserver.getCurrentResult().data).toBe('public data');
 
+    resolveAccountRequest?.('late account data');
+    await flushMicrotasks();
+    expect(accountObserver.getCurrentResult().data).toBeUndefined();
+
     unsubscribeAccount();
     unsubscribePublic();
+    queryClient.clear();
+  });
+
+  it('refetches mounted account queries for an explicit cache clear', async () => {
+    // Arrange
+    const queryFn = jest
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce('account data')
+      .mockResolvedValueOnce('fresh account data');
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+      },
+    });
+    const observer = new QueryObserver(queryClient, {
+      queryKey: ['wallet', 'user-a'],
+      queryFn,
+    });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await flushMicrotasks();
+
+    // Act
+    clearQueryCachePreservingObservers(queryClient, {
+      refetchAccountQueries: true,
+    });
+    await flushMicrotasks();
+
+    // Assert
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(observer.getCurrentResult().data).toBe('fresh account data');
+
+    unsubscribe();
+    queryClient.clear();
+  });
+
+  it('refetches public VTU billers while clearing saved cards', async () => {
+    // Arrange
+    const billersFn = jest
+      .fn<() => Promise<string>>()
+      .mockResolvedValueOnce('billers')
+      .mockResolvedValueOnce('fresh billers');
+    const cardsFn = jest.fn<() => Promise<string>>().mockResolvedValue('cards');
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+      },
+    });
+    const billersObserver = new QueryObserver(queryClient, {
+      queryKey: ['vtu', 'billers', 'airtime'],
+      queryFn: billersFn,
+    });
+    const cardsObserver = new QueryObserver(queryClient, {
+      queryKey: ['vtu-saved-cards', 'user-a'],
+      queryFn: cardsFn,
+    });
+    const unsubscribeBillers = billersObserver.subscribe(() => undefined);
+    const unsubscribeCards = cardsObserver.subscribe(() => undefined);
+    await flushMicrotasks();
+
+    // Act
+    clearQueryCachePreservingObservers(queryClient);
+    await flushMicrotasks();
+
+    // Assert
+    expect(billersFn).toHaveBeenCalledTimes(2);
+    expect(cardsFn).toHaveBeenCalledTimes(1);
+    expect(billersObserver.getCurrentResult().data).toBe('fresh billers');
+    expect(cardsObserver.getCurrentResult().data).toBeUndefined();
+
+    unsubscribeBillers();
+    unsubscribeCards();
     queryClient.clear();
   });
 });

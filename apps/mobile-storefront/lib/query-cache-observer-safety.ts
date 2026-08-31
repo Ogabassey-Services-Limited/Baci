@@ -10,10 +10,12 @@ const ACCOUNT_QUERY_PREFIXES = new Set([
   'vtu',
   'vtu-history',
   'wallet',
+  'vtu-saved-cards',
 ]);
 
 function isAccountScopedQuery(query: { queryKey: readonly unknown[] }) {
   const prefix = query.queryKey[0];
+  if (prefix === 'vtu') return query.queryKey[1] !== 'billers';
   return typeof prefix === 'string' && ACCOUNT_QUERY_PREFIXES.has(prefix);
 }
 
@@ -23,18 +25,26 @@ function isAccountScopedQuery(query: { queryKey: readonly unknown[] }) {
  * screen can then remain in a permanent pending state until it is remounted.
  */
 export function clearQueryCachePreservingObservers(
-  queryClient: QueryClient
+  queryClient: QueryClient,
+  options: { refetchAccountQueries?: boolean } = {}
 ): void {
   queryClient.removeQueries({ type: 'inactive' });
   queryClient.getMutationCache().clear();
 
   // Clear mounted account data without issuing a request under the old
   // identity. Public observers are reset below and may safely refetch.
-  for (const query of queryClient
+  const activeAccountQueries = queryClient
     .getQueryCache()
     .findAll({ type: 'active' })
-    .filter(isAccountScopedQuery)) {
+    .filter(isAccountScopedQuery);
+  for (const query of activeAccountQueries) {
     query.reset();
+  }
+
+  if (options.refetchAccountQueries) {
+    void queryClient
+      .resetQueries({ type: 'active', predicate: isAccountScopedQuery })
+      .catch(() => undefined);
   }
 
   // Reset active observers in place, then refetch enabled public queries. This
