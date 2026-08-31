@@ -9,77 +9,16 @@ import {
   JumiaFeedCreateResponseSchema,
   JumiaFeedDetailsResponseSchema,
 } from '@/schemas/jumia';
+import {
+  validatePositiveNumber,
+  validateRequiredString,
+  validateVariation,
+} from './feeds-validation';
+
+export { updatePrice } from './feeds-price';
+export { updateStatus } from './feeds-status';
 
 // ── Shared Helpers ──
-
-/**
- * Trims and validates that a required string field is non-empty.
- * Returns the trimmed value or throws with a contextual error.
- */
-function validateRequiredString(
-  value: string,
-  fieldName: string,
-  context: string
-): string {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    throw new Error(`${context}: each ${fieldName} must be a non-empty string`);
-  }
-  return trimmed;
-}
-
-/**
- * Validates that a numeric field is finite and positive (> 0).
- * Returns the value or throws with a contextual error.
- */
-function validatePositiveNumber(
-  value: number,
-  fieldName: string,
-  context: string
-): number {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new Error(`${context}: ${fieldName} must be a positive number`);
-  }
-  return value;
-}
-
-/**
- * Validates a product variation's numeric fields.
- * Throws if stock or globalPrice.value is negative.
- */
-function validateVariation(
-  variation: {
-    globalPrice: { value: number; currency?: string };
-    stock?: number;
-  },
-  index: number,
-  context: string
-): void {
-  if (
-    !Number.isFinite(variation.globalPrice.value) ||
-    variation.globalPrice.value < 0
-  ) {
-    throw new Error(
-      `${context}: variation[${index}].globalPrice.value must be >= 0`
-    );
-  }
-  if (
-    'currency' in variation.globalPrice &&
-    !variation.globalPrice.currency?.trim()
-  ) {
-    throw new Error(
-      `${context}: variation[${index}].globalPrice.currency must be a non-empty string`
-    );
-  }
-  if (
-    variation.stock != null &&
-    (!Number.isFinite(variation.stock) ||
-      !Number.isInteger(variation.stock) ||
-      variation.stock < 0)
-  ) {
-    throw new Error(`${context}: variation[${index}].stock must be >= 0`);
-  }
-}
 
 // ── Product Create ──
 
@@ -253,153 +192,6 @@ export async function updateStock(
     '/feeds/products/stock',
     JumiaFeedCreateResponseSchema,
     { products: trimmedUpdates }
-  );
-  return response.feedId;
-}
-
-// ── Price Update ──
-
-export async function updatePrice(
-  client: JumiaClient,
-  updates: Array<{
-    sellerSku: string;
-    id: string;
-    price: {
-      value: number;
-      currency: string;
-      salePrice?: {
-        value: number | null;
-        startAt: string | null;
-        endAt: string | null;
-      };
-    };
-    category?: { code: number };
-    businessClients?: Array<{
-      businessClientCode: string;
-      price: {
-        value: number;
-        currency: string;
-        salePrice?: {
-          value: number | null;
-          startAt: string | null;
-          endAt: string | null;
-        };
-      };
-    }>;
-  }>
-): Promise<string> {
-  if (!updates.length) {
-    throw new Error('updates must be a non-empty array');
-  }
-  const validatedUpdates = updates.map((item) => {
-    const sellerSku = validateRequiredString(
-      item.sellerSku,
-      'sellerSku',
-      'updatePrice'
-    );
-    const id = validateRequiredString(item.id, 'id', 'updatePrice');
-    if (!Number.isFinite(item.price.value) || item.price.value < 0) {
-      throw new Error(
-        `updatePrice: price.value must be a number >= 0 for sellerSku "${sellerSku}"`
-      );
-    }
-    if (!item.price.currency?.trim()) {
-      throw new Error(
-        `updatePrice: price.currency must be a non-empty string for sellerSku "${sellerSku}"`
-      );
-    }
-    if (
-      item.price.salePrice?.value != null &&
-      (!Number.isFinite(item.price.salePrice.value) ||
-        item.price.salePrice.value < 0)
-    ) {
-      throw new Error(
-        `updatePrice: salePrice.value must be a number >= 0 for sellerSku "${sellerSku}"`
-      );
-    }
-    // Validate salePrice date fields when present
-    if (item.price.salePrice?.startAt != null) {
-      if (Number.isNaN(Date.parse(item.price.salePrice.startAt))) {
-        throw new Error(
-          `updatePrice: salePrice.startAt must be a valid ISO date for sellerSku "${sellerSku}"`
-        );
-      }
-    }
-    if (item.price.salePrice?.endAt != null) {
-      if (Number.isNaN(Date.parse(item.price.salePrice.endAt))) {
-        throw new Error(
-          `updatePrice: salePrice.endAt must be a valid ISO date for sellerSku "${sellerSku}"`
-        );
-      }
-    }
-    if (
-      item.price.salePrice?.startAt != null &&
-      item.price.salePrice?.endAt != null
-    ) {
-      if (
-        new Date(item.price.salePrice.startAt) >
-        new Date(item.price.salePrice.endAt)
-      ) {
-        throw new Error(
-          `updatePrice: salePrice.startAt must be <= endAt for sellerSku "${sellerSku}"`
-        );
-      }
-    }
-    // Validate category.code when present
-    if (item.category?.code != null) {
-      if (!Number.isFinite(item.category.code) || item.category.code <= 0) {
-        throw new Error(
-          `updatePrice: category.code must be a positive number for sellerSku "${sellerSku}"`
-        );
-      }
-    }
-    return {
-      ...item,
-      sellerSku,
-      id,
-      price: { ...item.price, currency: item.price.currency.trim() },
-    };
-  });
-  const response = await client.request(
-    'POST',
-    '/feeds/products/price',
-    JumiaFeedCreateResponseSchema,
-    { products: validatedUpdates }
-  );
-  return response.feedId;
-}
-
-// ── Status Update ──
-
-export async function updateStatus(
-  client: JumiaClient,
-  updates: Array<{
-    sellerSku: string;
-    id: string;
-    status: 'active' | 'inactive' | 'deleted';
-    businessClients?: Array<{
-      businessClientCode: string;
-      status: 'active' | 'inactive' | 'deleted';
-    }>;
-  }>
-): Promise<string> {
-  if (!updates.length) {
-    throw new Error('updates must be a non-empty array');
-  }
-  const validatedUpdates = updates.map((item) => {
-    const sellerSku = validateRequiredString(
-      item.sellerSku,
-      'sellerSku',
-      'updateStatus'
-    );
-    const id = validateRequiredString(item.id, 'id', 'updateStatus');
-    return { ...item, sellerSku, id };
-  });
-  const response = await client.request(
-    'POST',
-    '/feeds/products/status',
-    JumiaFeedCreateResponseSchema,
-    { products: validatedUpdates }
   );
   return response.feedId;
 }

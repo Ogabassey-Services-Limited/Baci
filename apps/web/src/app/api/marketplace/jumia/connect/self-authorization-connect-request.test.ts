@@ -64,19 +64,29 @@ vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: mockCreateAdminClient,
 }));
 
-function buildSupabase(existing: unknown[] = []) {
+function buildSupabase(
+  existing: unknown[] = [],
+  authorizations: unknown[] = []
+) {
   return {
-    from: vi.fn().mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        eq: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: existing,
-              error: null,
-            }),
-          }),
-        }),
-      }),
+    from: vi.fn((table: string) => {
+      const rows = table === 'jumia_authorizations' ? authorizations : existing;
+      const query = {
+        eq: vi.fn(),
+      } as {
+        eq: ReturnType<typeof vi.fn>;
+      };
+      let eqCalls = 0;
+      const requiredEqCalls = table === 'jumia_authorizations' ? 2 : 3;
+      query.eq.mockImplementation(() => {
+        eqCalls += 1;
+        return eqCalls >= requiredEqCalls
+          ? Promise.resolve({ data: rows, error: null })
+          : query;
+      });
+      return {
+        select: vi.fn(() => query),
+      };
     }),
     rpc: vi.fn(),
   } as never;
@@ -168,6 +178,19 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
       '00000000-0000-4000-8000-000000000099'
     );
+    const supabase = buildSupabase(
+      [
+        {
+          shop_id: 'shop-1',
+          country_code: 'NG',
+          marketplace_key: 'NG-RETAIL',
+          connection_method: 'self_authorization',
+          jumia_authorization_id: 'auth-1',
+        },
+      ],
+      [{ id: 'auth-1' }]
+    ) as { rpc: ReturnType<typeof vi.fn> };
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
 
     const response = await handleJumiaSelfAuthorizationConnectRequest({
       body: {
@@ -178,7 +201,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       },
       encryptionKey: 'a'.repeat(44),
       merchantId: '00000000-0000-4000-8000-000000000001',
-      supabase: buildSupabase(),
+      supabase: supabase as never,
     });
 
     expect(response.status).toBe(502);
@@ -187,6 +210,77 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       discoveryId: '00000000-0000-4000-8000-000000000099',
       retryable: true,
     });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization_ordered',
+      expect.objectContaining({
+        p_credential_ciphertext: 'ciphertext',
+        p_token_expires_at: '2026-03-27T10:00:00.000Z',
+      })
+    );
+  });
+
+  it('persists rotated credentials to an existing self-authorization grant', async () => {
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementation(
+      async (_credentials, options) => {
+        await options?.onCredentialsRotated?.({
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+        });
+        return {
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+          shops: [],
+        };
+      }
+    );
+    vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValue(
+      'discovery-rotated'
+    );
+    const supabase = buildSupabase(
+      [
+        {
+          shop_id: 'shop-1',
+          country_code: 'NG',
+          marketplace_key: 'NG-RETAIL',
+          connection_method: 'self_authorization',
+          jumia_authorization_id: 'auth-1',
+        },
+      ],
+      [{ id: 'auth-1' }]
+    ) as { rpc: ReturnType<typeof vi.fn> };
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        operation: 'discover',
+        clientId: 'client-1',
+        refreshToken: 'refresh-1',
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: supabase as never,
+    });
+
+    expect(response.status).toBe(200);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization_ordered',
+      expect.objectContaining({
+        p_shop_ids: ['shop-1'],
+        p_business_client_codes: ['NG-RETAIL'],
+        p_token_expires_at: '2026-03-27T10:00:00.000Z',
+      })
+    );
   });
 
   it('resumes discovery with the credentials behind a recovery ID', async () => {

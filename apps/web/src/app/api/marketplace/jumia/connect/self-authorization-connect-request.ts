@@ -19,29 +19,14 @@ import type {
   jumiaSelfAuthorizationDiscoverySchema,
   jumiaSelfAuthorizationSelectionSchema,
 } from '@/schemas/jumia/self-authorization';
+import { persistJumiaSelfAuthorizationRotation } from './persist-jumia-self-authorization-rotation';
+import { releaseJumiaDiscoveryClaim } from './release-jumia-discovery-claim';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 
 type DiscoveryBody = z.infer<typeof jumiaSelfAuthorizationDiscoverySchema>;
 type SelectionBody = z.infer<typeof jumiaSelfAuthorizationSelectionSchema> & {
   connectionType: 'self_authorization';
 };
-async function releaseDiscoveryClaim(args: {
-  claimToken: string;
-  discoveryId: string;
-  merchantId: string;
-  supabase: SupabaseClient;
-}): Promise<void> {
-  try {
-    await releaseJumiaSelfAuthorizationDiscovery(args.supabase, args);
-  } catch (error) {
-    logger.warn({
-      message: 'Failed to release Jumia discovery claim',
-      error,
-      discovery_id: args.discoveryId,
-      merchant_id: args.merchantId,
-    });
-  }
-}
 async function loadExistingJumiaShopIds(
   supabase: SupabaseClient,
   merchantId: string
@@ -57,6 +42,7 @@ async function loadExistingJumiaShopIds(
   }
   return buildExistingJumiaShopIds(existing ?? []);
 }
+
 export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   body: DiscoveryBody | SelectionBody;
   encryptionKey: string;
@@ -115,22 +101,35 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       let validated: Awaited<ReturnType<typeof validateJumiaSelfAuthorization>>;
       try {
         validated = await validateJumiaSelfAuthorization(submittedCredentials, {
-          onCredentialsRotated: async ({ credentials }) => {
+          onCredentialsRotated: async ({
+            credentials,
+            accessTokenExpiresAt,
+            refreshTokenExpiresAt,
+          }) => {
+            const credentialCiphertext = jumiaAuthorizationCrypto.encrypt(
+              credentials,
+              encryptionKey,
+              jumiaAuthorizationCrypto.buildAuthorizationContext(
+                merchantId,
+                clientKeyHash
+              )
+            );
             discoveryId = await createJumiaSelfAuthorizationDiscovery(
               supabase,
               {
                 merchantId,
                 clientKeyHash,
-                credentialCiphertext: jumiaAuthorizationCrypto.encrypt(
-                  credentials,
-                  encryptionKey,
-                  jumiaAuthorizationCrypto.buildAuthorizationContext(
-                    merchantId,
-                    clientKeyHash
-                  )
-                ),
+                credentialCiphertext,
               }
             );
+            await persistJumiaSelfAuthorizationRotation({
+              supabase,
+              merchantId,
+              clientKeyHash,
+              credentialCiphertext,
+              accessTokenExpiresAt,
+              refreshTokenExpiresAt,
+            });
           },
         });
       } catch (error) {
@@ -244,7 +243,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         },
       });
       if (!response.ok) {
-        await releaseDiscoveryClaim({
+        await releaseJumiaDiscoveryClaim({
           discoveryId: body.discoveryId,
           merchantId,
           claimToken: discoveryClaim.claimToken,
@@ -280,7 +279,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       }
       return response;
     } catch (error) {
-      await releaseDiscoveryClaim({
+      await releaseJumiaDiscoveryClaim({
         discoveryId: body.discoveryId,
         merchantId,
         claimToken: discoveryClaim.claimToken,

@@ -255,6 +255,7 @@ describe('connectJumiaShops', () => {
   it('returns ok true on successful connection', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
+      headers: new Headers(),
       json: () => Promise.resolve({ connected: [{ id: 'shop-1' }] }),
     } as Response);
 
@@ -262,7 +263,7 @@ describe('connectJumiaShops', () => {
       'shop-1',
     ]);
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, discoveryComplete: true });
     expect(fetch).toHaveBeenCalledWith(
       '/api/marketplace/jumia/connect',
       expect.objectContaining({
@@ -275,6 +276,18 @@ describe('connectJumiaShops', () => {
         }),
       })
     );
+  });
+
+  it('preserves an incomplete discovery marker for partial connections', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      headers: new Headers([['x-jumia-discovery-complete', 'false']]),
+      json: () => Promise.resolve({ connected: [{ id: 'shop-1' }] }),
+    } as Response);
+
+    await expect(
+      connectJumiaShops('client-id', DISCOVERY_ID, ['shop-1'])
+    ).resolves.toEqual({ ok: true, discoveryComplete: false });
   });
 
   it('returns error from response body on failure', async () => {

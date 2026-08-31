@@ -29,6 +29,9 @@ describe('getJumiaOrderScope', () => {
       marketplaceKey: 'NG-main',
       shopId: 'shop-1',
     });
+    const query = (supabase.from as ReturnType<typeof vi.fn>).mock.results[0]
+      .value as { eq: ReturnType<typeof vi.fn> };
+    expect(query.eq).toHaveBeenCalledWith('platform', 'jumia');
   });
 
   it('uses the legacy marketplace key when the integration key is empty', async () => {

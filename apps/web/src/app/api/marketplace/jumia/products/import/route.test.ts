@@ -324,6 +324,12 @@ describe('Products Import POST', () => {
     mockForIntegration.mockResolvedValue({
       shopId: 'shop-ng',
       marketplaceKey: 'NG',
+      getShops: vi.fn().mockResolvedValue([
+        {
+          id: 'shop-ng',
+          businessClients: [{ status: 'active' }],
+        },
+      ]),
     });
     mockGetAllProducts.mockResolvedValue([
       {

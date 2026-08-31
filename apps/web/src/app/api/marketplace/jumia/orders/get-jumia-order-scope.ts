@@ -28,6 +28,7 @@ export async function getJumiaOrderScope(
     .select('shop_id, marketplace_key')
     .eq('id', integrationId)
     .eq('merchant_id', merchantId)
+    .eq('platform', 'jumia')
     .maybeSingle();
 
   if (error) return { kind: 'database_error', message: error.message };

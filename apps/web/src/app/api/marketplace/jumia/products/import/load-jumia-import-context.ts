@@ -15,7 +15,7 @@ type LoadJumiaImportContextResult =
   | {
       ok: false;
       error: string;
-      status: 403 | 404 | 500 | 502;
+      status: 403 | 404 | 409 | 500 | 502;
     };
 
 export async function loadJumiaImportContext({
@@ -51,6 +51,46 @@ export async function loadJumiaImportContext({
   }
 
   try {
+    const marketplaceKey = jumia.marketplaceKey?.trim();
+    const isMarketplaceScoped =
+      marketplaceKey &&
+      marketplaceKey !== 'oauth' &&
+      marketplaceKey !== 'default';
+    if (isMarketplaceScoped) {
+      if (typeof jumia.getShops !== 'function') {
+        return {
+          ok: false,
+          error: 'Unable to verify the Jumia marketplace scope',
+          status: 502,
+        };
+      }
+      let shops: Awaited<ReturnType<JumiaClient['getShops']>>;
+      try {
+        shops = await jumia.getShops();
+      } catch (err) {
+        logger.warn({
+          message: 'Unable to verify Jumia business-client catalog scope',
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+        return {
+          ok: false,
+          error: 'Unable to verify the Jumia marketplace scope',
+          status: 502,
+        };
+      }
+      const shop = shops.find((candidate) => candidate.id === jumia.shopId);
+      const activeClients = shop?.businessClients.filter(
+        (client) => client.status === 'active'
+      );
+      if (activeClients?.length !== 1) {
+        return {
+          ok: false,
+          error:
+            'Jumia catalog import is unavailable when a shop has multiple active marketplaces',
+          status: 409,
+        };
+      }
+    }
     const productQuery = {
       status: 'active' as const,
       ...(jumia.shopId === 'oauth' ? {} : { shopId: jumia.shopId }),

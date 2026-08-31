@@ -126,7 +126,15 @@ export function ConnectJumiaDialog({
     if (result.ok) {
       toast({ title: 'Jumia account connected successfully!' });
       onOpenChange(false);
-      resetManualForm();
+      if (result.discoveryComplete !== false) {
+        resetManualForm();
+      } else {
+        // The server keeps a resumable discovery when only part of the
+        // returned destinations was connected. Retain its opaque handle and
+        // client ID so the merchant can finish the selection later.
+        setRefreshToken('');
+        setSelectedShopIds(new Set());
+      }
       setShowManualForm(false);
       onConnected();
       return;

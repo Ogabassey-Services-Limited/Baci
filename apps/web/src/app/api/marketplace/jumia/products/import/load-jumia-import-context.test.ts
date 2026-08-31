@@ -58,4 +58,56 @@ describe('loadJumiaImportContext', () => {
       status: 502,
     });
   });
+
+  it('fails closed instead of importing an ambiguous multi-marketplace shop', async () => {
+    const jumia = {
+      shopId: 'shop-1',
+      marketplaceKey: 'NG-RETAIL',
+      getShops: vi.fn().mockResolvedValue([
+        {
+          id: 'shop-1',
+          businessClients: [
+            { status: 'active', code: 'NG-RETAIL' },
+            { status: 'active', code: 'NG-EXPRESS' },
+          ],
+        },
+      ]),
+    };
+
+    const result = await loadJumiaImportContext({
+      createJumiaClient: vi.fn().mockResolvedValue(jumia),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        'Jumia catalog import is unavailable when a shop has multiple active marketplaces',
+      status: 409,
+    });
+    expect(mockGetAllProducts).not.toHaveBeenCalled();
+  });
+
+  it('imports a marketplace-scoped shop when it has one active marketplace', async () => {
+    const jumia = {
+      shopId: 'shop-1',
+      marketplaceKey: 'NG-RETAIL',
+      getShops: vi.fn().mockResolvedValue([
+        {
+          id: 'shop-1',
+          businessClients: [{ status: 'active', code: 'NG-RETAIL' }],
+        },
+      ]),
+    };
+    mockGetAllProducts.mockResolvedValue([]);
+
+    const result = await loadJumiaImportContext({
+      createJumiaClient: vi.fn().mockResolvedValue(jumia),
+    });
+
+    expect(result).toEqual({ ok: true, jumia, jumiaProducts: [] });
+    expect(mockGetAllProducts).toHaveBeenCalledWith(jumia, {
+      status: 'active',
+      shopId: 'shop-1',
+    });
+  });
 });

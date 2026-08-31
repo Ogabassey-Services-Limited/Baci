@@ -152,7 +152,7 @@ export async function connectJumiaShops(
   clientId: string,
   discoveryId: string,
   selectedShopIds: string[]
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; discoveryComplete?: boolean }> {
   try {
     const response = await fetchWithCsrf('/api/marketplace/jumia/connect', {
       method: 'POST',
@@ -175,7 +175,11 @@ export async function connectJumiaShops(
           : 'Connection failed';
       return { ok: false, error: errorBody };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      discoveryComplete:
+        response.headers.get('x-jumia-discovery-complete') !== 'false',
+    };
   } catch {
     return { ok: false, error: 'Connection failed — please try again' };
   }
