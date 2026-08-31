@@ -22,6 +22,9 @@ describe('supabase history replay expense pending sources', () => {
       '20260830193440_quiz_instant_live_publication_score_gate_v2.sql',
       '20260830193441_quiz_instant_test_publication_score_gate_v2.sql',
       '20260830193442_quiz_instant_deadline_publication_v2.sql',
+      '20260830193443_quiz_instant_test_deadline_clock_v2.sql',
+      '20260830193444_quiz_instant_live_deadline_clock_v2.sql',
+      '20260830193445_quiz_instant_deadline_orchestration_v2.sql',
       '20260830193732_quiz_instant_results_wakeup_v2.sql',
       '20260830203900_quiz_instant_answer_submission_lock_order_v2.sql',
       '20260830203950_quiz_instant_start_timeout_lock_order_v2.sql',
@@ -45,17 +48,29 @@ describe('supabase history replay expense pending sources', () => {
       '20260831120400_quiz_instant_test_retry_health_v2.sql',
       '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql',
     ]);
-    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
-      '20260831120600_quiz_results_wakeup_player_access_v2.sql'
+    const appendedRepairFiles = [
+      '20260831120600_quiz_results_wakeup_player_access_v2.sql',
+      '20260831120700_quiz_test_publication_control_rls_v2.sql',
+      '20260831120800_quiz_cascade_score_consistency_v2.sql',
+      '20260831120900_quiz_runtime_gate_stale_health_v2.sql',
+      '20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql',
+    ];
+    const finalInstantRowIndex = rows.findIndex((row) =>
+      row.includes(
+        '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql'
+      )
     );
-    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
-      '20260831120700_quiz_test_publication_control_rls_v2.sql'
+    const appendedRepairIndices = appendedRepairFiles.map((file) =>
+      rows.findIndex((row) => row.includes(file))
     );
-    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
-      '20260831120800_quiz_cascade_score_consistency_v2.sql'
+
+    expect([finalInstantRowIndex, ...appendedRepairIndices]).toEqual(
+      [...[finalInstantRowIndex, ...appendedRepairIndices]].sort(
+        (left, right) => left - right
+      )
     );
-    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
-      '20260831120900_quiz_runtime_gate_stale_health_v2.sql'
-    );
+    expect(
+      appendedRepairIndices.every((index) => index > finalInstantRowIndex)
+    ).toBe(true);
   });
 });

@@ -101,13 +101,33 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260830193440_quiz_instant_live_publication_score_gate_v2.sql',
+    sha256: '0fd23e4e7536b2ca64ab8fefa2f8df348a3d6bd776ab1cb506727f165e432a37',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260830193441_quiz_instant_test_publication_score_gate_v2.sql',
     sha256: 'b66f717861766ea269fd3e5a1e76b2fa40d7c5c7d8617dad43c8f725f672840c',
   },
   {
     repositoryPath:
       'supabase/migrations/20260830193442_quiz_instant_deadline_publication_v2.sql',
-    sha256: 'e799ba6b85b9bb13a24a2bba9b9eef0f9b0a094f474339237d33ca3af891620c',
+    sha256: '514f8b05d600445cfde80e5b8ae98b9ef263412c746b11bf52837fa93bfb19a9',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830193443_quiz_instant_test_deadline_clock_v2.sql',
+    sha256: 'ec3adaaea53e2a2c3cae6432091616b3c2cca2265a97fb1d8e18823bf9143b48',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830193444_quiz_instant_live_deadline_clock_v2.sql',
+    sha256: 'af639cc56d4af24507057bc512f8d27708d1956e7e22c62c14e4b0419c7a20c0',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830193445_quiz_instant_deadline_orchestration_v2.sql',
+    sha256: '3939e270573331fc08da30f46e6cda026cbffa65e5b0b687a89b3fb9212c1daf',
   },
   {
     repositoryPath:
@@ -191,6 +211,21 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260831115997_quiz_test_publication_retry_index_v2.sql',
+    sha256: '272ab4d4db8e3775b7cea4d2b57cc19495cdcf727c6ad90d02979dbee5422916',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831115998_quiz_live_unpublished_due_index_v2.sql',
+    sha256: '59047169908e87bcfa15e837d3dee57be82bb96819ca7b3fc90e36720a14aebf',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831115999_quiz_live_terminal_retry_index_v2.sql',
+    sha256: '8692fe61052c8322c8f9ee15a193ab90899936f47cac9aad71b2d4e6735eb7a4',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
     sha256: 'b156953d9d1d73cb85808489803c456ec5381de5b29e557d44cbc2f54e1a5901',
   },
@@ -238,5 +273,10 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
     repositoryPath:
       'supabase/migrations/20260831120900_quiz_runtime_gate_stale_health_v2.sql',
     sha256: '0b2013f51b71450e18b50b51da059ef93d1816c381490eb5d19a016747ddbde9',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql',
+    sha256: '0d53e3402c106687e113ecd17d229558c3207819c58ff1ccc52ca8d03f76e07a',
   },
 ] as const;

@@ -38,6 +38,7 @@ const deadlineControlRepairSql = [
   '20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
   '20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
   '20260831120300_quiz_instant_retry_health_aggregation_v2.sql',
+  '20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql',
 ]
   .map(readMigration)
   .join('\n\n');
@@ -58,6 +59,9 @@ const cascadeScoreConsistencySql = readMigration(
 );
 const runtimeGateStaleHealthSql = readMigration(
   '20260831120900_quiz_runtime_gate_stale_health_v2.sql'
+);
+const serverClockRuntimeGateSql = readMigration(
+  '20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql'
 );
 
 describe('quiz deadline review repairs', () => {
@@ -149,6 +153,39 @@ describe('quiz deadline review repairs', () => {
     );
   });
 
+  it('pre-creates deadline indexes concurrently before transactional fallbacks', () => {
+    for (const [indexMigration, fallbackMigration] of [
+      [
+        '20260831115997_quiz_test_publication_retry_index_v2.sql',
+        '20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
+      ],
+      [
+        '20260831115998_quiz_live_unpublished_due_index_v2.sql',
+        '20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
+      ],
+      [
+        '20260831115999_quiz_live_terminal_retry_index_v2.sql',
+        '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql',
+      ],
+    ]) {
+      const sql = readMigration(indexMigration);
+      expect(sql).toMatch(/CREATE INDEX CONCURRENTLY IF NOT EXISTS/i);
+      expect(sql).not.toMatch(/\bBEGIN\b/i);
+      expect(migrations.indexOf(indexMigration)).toBeLessThan(
+        migrations.indexOf(fallbackMigration)
+      );
+    }
+  });
+
+  it('uses server transaction time instead of a caller-settable batch marker', () => {
+    expect(serverClockRuntimeGateSql).toContain(
+      'pg_catalog.transaction_timestamp()'
+    );
+    expect(serverClockRuntimeGateSql).not.toContain(
+      'baci.quiz_live_publication_batch_xid'
+    );
+  });
+
   it('separates the committed runtime gate from deadline processing', () => {
     expect(deadlineControlRepairSql).toMatch(
       /CREATE OR REPLACE FUNCTION public\.set_quiz_runtime_control_v2\(/i
@@ -232,6 +269,10 @@ describe('quiz deadline review repairs', () => {
   it('runs every deadline repair SQL proof in chronological replay CI', () => {
     for (const file of [
       'quiz_live_score_publication_gate_v2.sql',
+      'quiz_instant_deadline_publication_v2.sql',
+      'quiz_instant_deadline_runtime_gate_v2.sql',
+      'quiz_instant_live_award_retry_v2.sql',
+      'quiz_instant_score_repair_lock_order_v2.sql',
       'quiz_instant_retry_pending_health_v2.sql',
       'quiz_results_wakeup_player_access_v2.sql',
       'quiz_test_publication_control_rls_v2.sql',

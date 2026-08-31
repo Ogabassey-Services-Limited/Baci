@@ -39,6 +39,8 @@ SET LOCAL session_replication_role = origin;
 
 DO $$
 DECLARE
+  v_consecutive_failures integer;
+  v_failure_count integer;
   v_summary jsonb;
 BEGIN
   v_summary := private.finalize_due_test_quiz_events_clock_v2();
@@ -54,6 +56,16 @@ BEGIN
   ) <> 1 OR COALESCE((v_summary ->> 'liveTerminalized')::integer, 0) <> 0 THEN
     RAISE EXCEPTION 'live terminalization retried inside its backoff: %',
       v_summary;
+  END IF;
+
+  PERFORM private.run_quiz_deadline_clock_v2();
+  SELECT health.consecutive_failures, health.last_failure_count
+  INTO v_consecutive_failures, v_failure_count
+  FROM public.quiz_deadline_clock_health_v2 AS health
+  WHERE health.singleton;
+  IF COALESCE(v_consecutive_failures, 0) < 1
+    OR COALESCE(v_failure_count, 0) < 2 THEN
+    RAISE EXCEPTION 'retry-pending backlog is absent from clock health';
   END IF;
 
   UPDATE public.quiz_events
@@ -73,22 +85,6 @@ BEGIN
   IF COALESCE((v_summary ->> 'liveTerminalized')::integer, 0) <> 1 THEN
     RAISE EXCEPTION 'live terminalization did not resume after backoff: %',
       v_summary;
-  END IF;
-END;
-$$;
-
-DO $$
-DECLARE
-  v_definition text;
-BEGIN
-  SELECT pg_catalog.pg_get_functiondef(
-    'private.run_quiz_deadline_clock_v2()'::regprocedure
-  ) INTO v_definition;
-  IF pg_catalog.strpos(v_definition, '''testPublicationRetryPending''') = 0
-    OR pg_catalog.strpos(
-      v_definition, '''liveTerminalizationRetryPending'''
-    ) = 0 THEN
-    RAISE EXCEPTION 'retry-pending backlog is absent from clock health';
   END IF;
 END;
 $$;

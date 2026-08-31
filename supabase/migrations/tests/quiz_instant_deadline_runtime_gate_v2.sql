@@ -119,8 +119,11 @@ BEGIN
   IF pg_catalog.strpos(v_guard_definition, 'quiz_runtime_control_v2') = 0
     OR pg_catalog.strpos(v_guard_definition, 'interval ''30 seconds''') = 0
     OR pg_catalog.strpos(
+      v_guard_definition, 'transaction_timestamp()'
+    ) = 0
+    OR pg_catalog.strpos(
       v_guard_definition, 'baci.quiz_live_publication_batch_xid'
-    ) = 0 OR NOT EXISTS (
+    ) <> 0 OR NOT EXISTS (
       SELECT 1 FROM pg_catalog.pg_trigger AS trigger
       WHERE trigger.tgname = 'guard_live_quiz_result_publication_v2'
         AND trigger.tgrelid = 'public.quiz_events'::regclass
@@ -243,7 +246,9 @@ BEGIN
       updated_at = pg_catalog.clock_timestamp()
   WHERE singleton;
   PERFORM pg_catalog.set_config(
-    'baci.quiz_live_publication_batch_xid', 'forged-batch', true
+    'baci.quiz_live_publication_batch_xid',
+    pg_catalog.pg_current_xact_id()::text,
+    true
   );
 
   BEGIN

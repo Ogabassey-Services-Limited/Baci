@@ -82,6 +82,8 @@ function addPayload(summary: Summary, payload: unknown) {
     summaryValue(payload, 'testPublicationFailed') +
     summaryValue(payload, 'liveTerminalizationFailed') +
     summaryValue(payload, 'scheduledPromotionFailed') +
+    summaryValue(payload, 'testDeadlineClockFailed') +
+    summaryValue(payload, 'liveDeadlineClockFailed') +
     summaryValue(payload, 'deadlineClockFailed') +
     summaryValue(payload, 'liveFinalizationFailed') +
     summaryValue(payload, 'testPublicationRetryPending') +
@@ -202,11 +204,7 @@ export async function finalizeDueQuizEvents() {
   }
 
   const runtimeGateResult = await runStep(client, runtimeGateStep);
-  const runtimeGateUsesLegacyTransaction = Boolean(
-    runtimeGateResult.error &&
-      MISSING_RPC_CODES.has(runtimeGateResult.error.code)
-  );
-  if (runtimeGateResult.error && !runtimeGateUsesLegacyTransaction) {
+  if (runtimeGateResult.error) {
     logRpcFailure(runtimeGateStep.name, runtimeGateResult.error);
     summary.failed += 1;
   } else {

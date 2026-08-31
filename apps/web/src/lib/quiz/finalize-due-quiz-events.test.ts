@@ -97,8 +97,10 @@ describe('finalizeDueQuizEvents', () => {
       .mockResolvedValueOnce({
         data: {
           deadlineClockFailed: 1,
+          liveDeadlineClockFailed: 2,
           liveFinalizationFailed: 1,
           scheduledPromotionFailed: 1,
+          testDeadlineClockFailed: 3,
         },
         error: null,
       })
@@ -109,9 +111,11 @@ describe('finalizeDueQuizEvents', () => {
     expect(result.status).toBe(500);
     expect(result.body).toMatchObject({
       deadlineClockFailed: 1,
-      failed: 3,
+      failed: 8,
+      liveDeadlineClockFailed: 2,
       liveFinalizationFailed: 1,
       scheduledPromotionFailed: 1,
+      testDeadlineClockFailed: 3,
     });
   });
 
@@ -212,7 +216,7 @@ describe('finalizeDueQuizEvents', () => {
     expect(logged).not.toContain('sk_live_secret');
   });
 
-  it('falls back to the existing idempotent RPCs during migration rollout', async () => {
+  it('fails closed when the committed runtime-gate setter is unavailable during rollout', async () => {
     mocks.rpc
       .mockResolvedValueOnce({
         data: null,
@@ -222,10 +226,13 @@ describe('finalizeDueQuizEvents', () => {
 
     const result = await finalizeDueQuizEvents();
 
-    expect(result.status).toBe(200);
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      code: 'QUIZ_FINALIZATION_FAILED',
+      failed: 1,
+    });
     expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual([
       'set_quiz_runtime_control_v2',
-      'process_due_quiz_deadlines_v2',
       'expire_unclaimed_ranked_quiz_awards_v2',
       'close_due_product_quiz_events',
     ]);

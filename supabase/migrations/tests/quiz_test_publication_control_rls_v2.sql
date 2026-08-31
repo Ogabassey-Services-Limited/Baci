@@ -33,11 +33,15 @@ BEGIN
       'private.quiz_test_publication_control_v2 must remain deny-by-default';
   END IF;
 
-  IF has_table_privilege(
+  IF pg_catalog.has_table_privilege(
     'authenticated',
     'private.quiz_test_publication_control_v2',
     'SELECT'
-  ) OR has_table_privilege(
+  ) OR pg_catalog.has_table_privilege(
+    'anon',
+    'private.quiz_test_publication_control_v2',
+    'SELECT'
+  ) OR pg_catalog.has_table_privilege(
     'service_role',
     'private.quiz_test_publication_control_v2',
     'SELECT'

@@ -4,6 +4,9 @@ INSERT INTO auth.users(id, email)
 VALUES (
   '77000000-0000-4000-8000-000000000001',
   'quiz-wakeup-player@example.test'
+), (
+  '77000000-0000-4000-8000-000000000006',
+  'quiz-wakeup-other-player@example.test'
 );
 
 SET LOCAL session_replication_role = replica;
@@ -19,6 +22,11 @@ VALUES (
   '77000000-0000-4000-8000-000000000002',
   '77000000-0000-4000-8000-000000000001',
   'quiz-wakeup-player@example.test', 'wakeupplayer'
+), (
+  '77000000-0000-4000-8000-000000000007',
+  '77000000-0000-4000-8000-000000000002',
+  '77000000-0000-4000-8000-000000000006',
+  'quiz-wakeup-other-player@example.test', 'otherplayer'
 );
 INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
@@ -82,6 +90,50 @@ BEGIN
     'quiz-results:77000000-0000-4000-8000-000000000099'
   ) IS DISTINCT FROM false THEN
     RAISE EXCEPTION 'unowned result topic was authorized';
+  END IF;
+END;
+$$;
+
+RESET ROLE;
+
+SELECT pg_catalog.set_config(
+  'request.jwt.claim.sub',
+  '77000000-0000-4000-8000-000000000006', true
+);
+SELECT pg_catalog.set_config(
+  'request.jwt.claims',
+  '{"sub":"77000000-0000-4000-8000-000000000006","role":"authenticated"}',
+  true
+);
+SET LOCAL ROLE authenticated;
+
+DO $$
+BEGIN
+  IF public.can_receive_quiz_results_wakeup_v2(
+    'quiz-results:77000000-0000-4000-8000-000000000004'
+  ) IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'same-merchant non-owner received result wakeup';
+  END IF;
+END;
+$$;
+
+RESET ROLE;
+SELECT pg_catalog.set_config('request.jwt.claim.sub', '', true);
+SELECT pg_catalog.set_config(
+  'request.jwt.claims', '{"role":"anon"}', true
+);
+-- The production ACL denies anon before the function body. Grant only inside
+-- this rolled-back proof so the explicit auth.uid() IS NULL branch is tested.
+GRANT EXECUTE ON FUNCTION public.can_receive_quiz_results_wakeup_v2(text)
+  TO anon;
+SET LOCAL ROLE anon;
+
+DO $$
+BEGIN
+  IF public.can_receive_quiz_results_wakeup_v2(
+    'quiz-results:77000000-0000-4000-8000-000000000004'
+  ) IS DISTINCT FROM false THEN
+    RAISE EXCEPTION 'anonymous user received result wakeup';
   END IF;
 END;
 $$;
