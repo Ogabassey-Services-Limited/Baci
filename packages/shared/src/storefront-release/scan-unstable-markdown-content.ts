@@ -133,6 +133,12 @@ export function hasUnstableMarkdownContent(content: string): boolean {
     const destination = decodeHtmlAttributeEntities(match[1] ?? '');
     if (!destination || !isSafePublicReleaseUrl(destination)) return true;
   }
+  const bareAutolinkPattern =
+    /(?<![<\w])((?:https?:\/\/|mailto:|www\.)[^\s<>"']+)/giu;
+  for (const match of scannedContent.matchAll(bareAutolinkPattern)) {
+    const destination = decodeHtmlAttributeEntities(match[1] ?? '');
+    if (!destination || !isSafePublicReleaseUrl(destination)) return true;
+  }
   const markdown = scanMarkdownLinkSyntax(scannedContent);
   for (const inline of markdown.destinations) {
     const destination = decodeHtmlAttributeEntities(inline.destination);

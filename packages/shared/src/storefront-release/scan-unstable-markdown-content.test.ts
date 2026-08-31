@@ -25,4 +25,24 @@ describe('hasUnstableMarkdownContent', () => {
       )
     ).toBe(true);
   });
+
+  it('scans GFM bare autolinks outside code', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        'Visit https://example.test/export?token=secret for the file.'
+      )
+    ).toBe(true);
+  });
+
+  it('ignores bare autolinks inside indented code', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        [
+          '    Visit https://example.test/export?token=secret',
+          '',
+          'Done.',
+        ].join('\n')
+      )
+    ).toBe(false);
+  });
 });

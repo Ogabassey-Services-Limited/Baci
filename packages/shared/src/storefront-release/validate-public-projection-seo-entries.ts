@@ -1,0 +1,127 @@
+import type { RefinementCtx } from 'zod';
+
+interface SeoEntry {
+  path: string;
+}
+
+interface SeoProduct {
+  canonicalPath?: string | null;
+  categoryIds?: readonly string[];
+  id: string;
+  primaryCategoryId?: string | null;
+  slug: string;
+}
+
+interface SeoCategory {
+  id: string;
+  slug: string;
+}
+
+interface SeoBlogPost {
+  authorName: string;
+  category?: string | null;
+  slug: string;
+}
+
+interface SeoContentPage {
+  slug: string;
+}
+
+interface SeoPayload {
+  blogPosts?: readonly SeoBlogPost[];
+  categories?: readonly SeoCategory[];
+  contentPages?: readonly SeoContentPage[];
+  products: readonly SeoProduct[];
+  seoEntries?: readonly SeoEntry[];
+}
+
+const STATIC_SEO_PATHS = new Set([
+  '/',
+  '/about',
+  '/cart',
+  '/compare',
+  '/contact',
+  '/faq',
+  '/privacy',
+  '/privacy-policy',
+  '/products',
+  '/returns',
+  '/rewards',
+  '/shipping',
+  '/terms',
+  '/terms-and-conditions',
+  '/terms-of-service',
+  '/warranty',
+  '/blog',
+]);
+
+function toRouteSlug(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/^-+|-+$/gu, '');
+}
+
+function addIssue(context: RefinementCtx, index: number) {
+  context.addIssue({
+    code: 'custom',
+    message: 'SEO entry path does not resolve to a released storefront route',
+    path: ['seoEntries', index, 'path'],
+  });
+}
+
+/** Rejects SEO metadata paths that cannot be served by this public release. */
+export function validatePublicProjectionSeoEntries(
+  payload: SeoPayload,
+  context: RefinementCtx
+) {
+  const knownPaths = new Set(STATIC_SEO_PATHS);
+  for (const page of payload.contentPages ?? [])
+    knownPaths.add(`/${page.slug}`);
+  for (const category of payload.categories ?? [])
+    knownPaths.add(`/${category.slug}`);
+  const categoriesById = new Map(
+    (payload.categories ?? []).map((category) => [category.id, category.slug])
+  );
+  for (const [productIndex, product] of payload.products.entries()) {
+    knownPaths.add(`/products/${product.slug}`);
+    const referencedCategoryIds = new Set([
+      ...(product.categoryIds ?? []),
+      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+    ]);
+    if (product.canonicalPath) {
+      const [categorySlug] = product.canonicalPath.split('/').filter(Boolean);
+      if (
+        categorySlug &&
+        categorySlug !== 'products' &&
+        ![...categoriesById.entries()].some(
+          ([categoryId, slug]) =>
+            slug === categorySlug && referencedCategoryIds.has(categoryId)
+        )
+      )
+        context.addIssue({
+          code: 'custom',
+          message: 'Product canonical path must reference its category',
+          path: ['products', productIndex, 'canonicalPath'],
+        });
+      knownPaths.add(product.canonicalPath);
+    }
+    for (const categoryId of [
+      ...(product.categoryIds ?? []),
+      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+    ]) {
+      const categorySlug = categoriesById.get(categoryId);
+      if (categorySlug) knownPaths.add(`/${categorySlug}/${product.slug}`);
+    }
+  }
+  for (const post of payload.blogPosts ?? []) {
+    knownPaths.add(`/blog/${post.slug}`);
+    const categorySlug = post.category ? toRouteSlug(post.category) : '';
+    if (categorySlug) knownPaths.add(`/blog/category/${categorySlug}`);
+    const authorSlug = toRouteSlug(post.authorName);
+    if (authorSlug) knownPaths.add(`/blog/author/${authorSlug}`);
+  }
+  for (const [index, entry] of (payload.seoEntries ?? []).entries())
+    if (!knownPaths.has(entry.path)) addIssue(context, index);
+}

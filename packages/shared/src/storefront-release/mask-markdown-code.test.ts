@@ -21,4 +21,15 @@ describe('maskMarkdownCode', () => {
       ['       ', '          ', '           ', '          '].join('\n')
     );
   });
+
+  it('masks standard indented Markdown code blocks', () => {
+    const codeLine = '    [request](https://example.test/export?token=value)';
+    const masked = maskMarkdownCode(['before', codeLine, 'after'].join('\n'));
+
+    expect(masked.split('\n')).toEqual([
+      'before',
+      ' '.repeat(codeLine.length),
+      'after',
+    ]);
+  });
 });

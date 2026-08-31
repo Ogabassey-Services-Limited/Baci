@@ -2,7 +2,9 @@ import { z } from 'zod';
 import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
+import { compareCodePointStrings } from './compare-code-point-strings';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
+import { isValidPublicProductCanonicalPath } from './is-valid-public-product-canonical-path';
 import { StorefrontPublicProductColorGalleriesSchema } from './public-projection-product-color-galleries-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
@@ -14,7 +16,6 @@ const ProductConditionSchema = z
     (condition) =>
       normalizeCanonicalProductCondition(condition) as CanonicalProductCondition
   );
-
 const AvailableConditionsSchema = z
   .array(ProductConditionSchema)
   .max(3)
@@ -26,7 +27,6 @@ const AvailableConditionsSchema = z
       });
   })
   .transform((conditions) => [...conditions].sort());
-
 const VariantAttributesSchema = z
   .record(
     z
@@ -67,7 +67,7 @@ const VariantAttributesSchema = z
           ([key, value]) =>
             [normalizeProductSelectionParamKey(key), value] as const
         )
-        .sort(([left], [right]) => left.localeCompare(right))
+        .sort(([left], [right]) => compareCodePointStrings(left, right))
     )
   );
 
@@ -268,7 +268,7 @@ export const StorefrontPublicProductSchema = z
           ([key, value]) =>
             [normalizeProductSelectionParamKey(key), value] as const
         )
-        .sort(([left], [right]) => left.localeCompare(right));
+        .sort(([left], [right]) => compareCodePointStrings(left, right));
       if (new Set(attributes.map(([key]) => key)).size !== attributes.length)
         context.addIssue({
           code: 'custom',
@@ -289,4 +289,12 @@ export const StorefrontPublicProductSchema = z
         });
       variantSelections.add(selection);
     }
-  });
+  })
+  .refine(
+    ({ canonicalPath, slug }) =>
+      !canonicalPath || isValidPublicProductCanonicalPath(canonicalPath, slug),
+    {
+      message: 'Canonical path must resolve to this product PDP',
+      path: ['canonicalPath'],
+    }
+  );

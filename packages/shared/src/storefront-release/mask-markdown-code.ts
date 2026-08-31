@@ -13,9 +13,20 @@ export function maskMarkdownCode(content: string): string {
     if (lineStart) {
       let cursor = index;
       let spaces = 0;
+      while (content[cursor] === '\t') {
+        cursor += 1;
+        spaces += 4;
+      }
       while (spaces < 4 && content[cursor] === ' ') {
         cursor += 1;
         spaces += 1;
+      }
+      if (spaces >= 4) {
+        let lineEnd = content.indexOf('\n', index);
+        if (lineEnd === -1) lineEnd = length;
+        blankRange(chars, index, lineEnd);
+        index = lineEnd;
+        continue;
       }
       const fenceCharacter = content[cursor];
       if ((fenceCharacter === '`' || fenceCharacter === '~') && spaces <= 3) {

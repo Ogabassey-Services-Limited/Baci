@@ -101,6 +101,27 @@ describe('StorefrontPublicProductSchema fidelity', () => {
     ]);
   });
 
+  it('canonicalizes non-ASCII variant axes independently of host locale', () => {
+    const parsed = StorefrontPublicProductSchema.parse({
+      ...product,
+      variants: [
+        {
+          attributes: { z: 'last', ä: 'accented' },
+          available: true,
+          displayQuantityLimit: 1,
+          id: '123e4567-e89b-42d3-a456-426614174005',
+          name: 'Unicode axes',
+          priceMinor: 100_000,
+        },
+      ],
+    });
+
+    expect(Object.keys(parsed.variants?.[0]?.attributes ?? {})).toEqual([
+      'z',
+      'ä',
+    ]);
+  });
+
   it('rejects attribute aliases that collide after key normalization', () => {
     expect(
       StorefrontPublicProductSchema.safeParse({
@@ -124,6 +145,21 @@ describe('StorefrontPublicProductSchema fidelity', () => {
       StorefrontPublicProductSchema.safeParse({
         ...product,
         slug: 'compare',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects canonical paths for another route or product', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        canonicalPath: '/about',
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        canonicalPath: '/phones/another-product',
       }).success
     ).toBe(false);
   });

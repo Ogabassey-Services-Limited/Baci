@@ -11,6 +11,7 @@ import { StorefrontPublishedConfigSchema } from './storefront-published-config-s
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 import { validatePublicProjectionCategoryHierarchy } from './validate-public-projection-category-hierarchy';
 import { validatePublicProjectionIdentities } from './validate-public-projection-identities';
+import { validatePublicProjectionSeoEntries } from './validate-public-projection-seo-entries';
 
 const PublicMediaUrlSchema = z
   .string()
@@ -183,6 +184,7 @@ export const StorefrontPublicProjectionPayloadSchema = z
       payload.categories ?? [],
       context
     );
+    validatePublicProjectionSeoEntries(payload, context);
 
     const mediaIds = new Set<string>();
     for (const [index, media] of (payload.media ?? []).entries()) {
