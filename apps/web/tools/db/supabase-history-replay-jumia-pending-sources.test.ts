@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260827110100_recheck_jumia_oauth_self_authorization_conflicts.sql'
+      '20260827110101_recheck_jumia_oauth_self_authorization_conflicts.sql'
     );
   });
 });

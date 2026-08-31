@@ -140,7 +140,7 @@ describe('supabase-history-replay sources', () => {
         '3afab9495b805517ee42d7492a9666a608ffba11172321a3a810a0cb1c597780 20260823110000_harden_jumia_orphan_authorization_sweep.sql',
         '629f967ffa25a8f79c38387262007e184e6ccb99d9bf0ef40cf5e43940ca00fa 20260824230000_allow_jumia_view_credential_refresh.sql',
         '1cb9abb1ef1bd5b9026c44958c78ee8534be0fbc065076112d6f979ead65921e 20260824230100_lock_each_jumia_orphan_shop.sql',
-        'af3fa5a276348e8ec9ead71449beb1704a71a61adf6bd13e7a66542d5c2bfac2 20260825000000_restore_jumia_manage_credential_rotation.sql',
+        'af3fa5a276348e8ec9ead71449beb1704a71a61adf6bd13e7a66542d5c2bfac2 20260825000001_restore_jumia_manage_credential_rotation.sql',
         'f051891d4b3b48e8928e8e7ef0879ac97909ad3bbdfdd21a7d86169cfcd45852 20260825000100_serialize_jumia_disconnect_purge.sql',
         'bd59247310c087e6811ff611507b462588a63fcbb43250007e15cc4d72715293 20260825000200_scope_jumia_disconnect_purge_to_locked_shop.sql',
         '7d27621520df2f173b3382fca053d7f7d9ed57999317b6c2ff2e05bef5413c2a 20260825000300_claim_jumia_discovery_and_fix_handoff.sql',

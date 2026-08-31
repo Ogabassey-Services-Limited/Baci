@@ -12,7 +12,7 @@ describe('Jumia credential hardening migrations', () => {
     const sql = readFileSync(
       path.join(
         migrationsRoot,
-        '20260825000000_restore_jumia_manage_credential_rotation.sql'
+        '20260825000001_restore_jumia_manage_credential_rotation.sql'
       ),
       'utf8'
     );
@@ -25,7 +25,7 @@ describe('Jumia credential hardening migrations', () => {
     const sql = readFileSync(
       path.join(
         migrationsRoot,
-        '20260827110000_restore_jumia_manage_credential_rotation_after_view.sql'
+        '20260827110002_restore_jumia_manage_credential_rotation_after_view.sql'
       ),
       'utf8'
     );
@@ -44,7 +44,7 @@ describe('Jumia credential hardening migrations', () => {
     const sql = readFileSync(
       path.join(
         migrationsRoot,
-        '20260827110100_recheck_jumia_oauth_self_authorization_conflicts.sql'
+        '20260827110101_recheck_jumia_oauth_self_authorization_conflicts.sql'
       ),
       'utf8'
     );
