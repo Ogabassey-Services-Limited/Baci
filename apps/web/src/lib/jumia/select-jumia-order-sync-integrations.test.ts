@@ -25,7 +25,7 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
     expect(selected.map((row) => row.id)).toEqual(['enabled-second']);
   });
 
-  it('keeps one enabled integration per shop+country scope', () => {
+  it('keeps one enabled integration per shop+country+marketplace scope', () => {
     const selected = selectJumiaOrderSyncIntegrations([
       {
         id: 'enabled-first',
@@ -46,5 +46,30 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
     ]);
 
     expect(selected.map((row) => row.id)).toEqual(['enabled-first']);
+  });
+
+  it('keeps same-country business clients as separate sync scopes', () => {
+    const selected = selectJumiaOrderSyncIntegrations([
+      {
+        id: 'retail',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+      {
+        id: 'express',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-EXPRESS',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+    ]);
+
+    expect(selected.map((row) => row.id)).toEqual(['retail', 'express']);
   });
 });

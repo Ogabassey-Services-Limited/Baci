@@ -74,6 +74,7 @@ export {
   type JumiaReadyToShipResponse,
   JumiaReadyToShipResponseSchema,
 } from '@/schemas/jumia/fulfillment';
+export { jumiaMobileTicketSchema } from '@/schemas/jumia/mobile-ticket';
 export {
   type JumiaOrder,
   type JumiaOrderItem,

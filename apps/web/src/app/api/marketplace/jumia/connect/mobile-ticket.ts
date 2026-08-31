@@ -1,12 +1,10 @@
 import crypto from 'node:crypto';
 import { createJumiaMobileReturnUrl } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getConfiguredAppUrl, getJumiaClientId } from '@/env';
 import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { createAnonClient } from '@/lib/supabase/anon';
-
-const mobileTicketSchema = z.uuid();
+import { jumiaMobileTicketSchema } from '@/schemas/jumia/mobile-ticket';
 
 /** Redeem a one-time mobile OAuth ticket without disclosing merchant data. */
 export async function handleJumiaMobileTicket(
@@ -21,7 +19,7 @@ export async function handleJumiaMobileTicket(
   ) {
     return null;
   }
-  const parsedTicket = mobileTicketSchema.safeParse(ticket);
+  const parsedTicket = jumiaMobileTicketSchema.safeParse(ticket);
   if (!parsedTicket.success) {
     return NextResponse.redirect(
       createJumiaMobileReturnUrl({ error: 'invalid_ticket' })

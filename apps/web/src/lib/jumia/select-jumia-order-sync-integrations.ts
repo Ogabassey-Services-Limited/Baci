@@ -6,14 +6,15 @@ import {
 export function buildJumiaOrderSyncScope(
   integration: Pick<
     MarketplaceIntegrationRow,
-    'merchant_id' | 'shop_id' | 'country_code'
+    'merchant_id' | 'shop_id' | 'country_code' | 'marketplace_key'
   >
 ): string {
-  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}`;
+  const marketplaceKey = integration.marketplace_key?.trim() || 'default';
+  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}:${marketplaceKey}`;
 }
 
 /**
- * Pick one order-sync-enabled integration per merchant+shop+country scope.
+ * Pick one order-sync-enabled integration per merchant+shop+country+marketplace scope.
  * Disabled siblings must not claim the scope ahead of an enabled row.
  */
 export function selectJumiaOrderSyncIntegrations(

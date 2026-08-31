@@ -11,6 +11,9 @@ import {
 import type { ExportVariation } from './export-product-source';
 import { markAmbiguousJumiaExport } from './mark-ambiguous-jumia-export';
 
+const JUMIA_EXPORT_REJECTION_MESSAGE =
+  'Jumia product export was rejected by the marketplace. Review the product details and try again.';
+
 export async function submitJumiaExportFeed(args: {
   jumia: JumiaClient;
   supabase: SupabaseClient;
@@ -100,7 +103,6 @@ export async function submitJumiaExportFeed(args: {
       }
       logger.error({
         message: 'Jumia createProduct feed failed',
-        error: feedError,
         status: feedError.status,
       });
       return {
@@ -108,7 +110,7 @@ export async function submitJumiaExportFeed(args: {
         status: feedError.status,
         body: {
           error: definitiveRejection
-            ? `Jumia product export failed: ${feedError.message}`
+            ? JUMIA_EXPORT_REJECTION_MESSAGE
             : 'Jumia product submission outcome is unknown. Retry is blocked while Baci reconciles the reserved SKU to avoid a duplicate listing.',
         },
       };

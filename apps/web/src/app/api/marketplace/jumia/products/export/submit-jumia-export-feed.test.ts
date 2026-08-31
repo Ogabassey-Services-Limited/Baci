@@ -27,7 +27,10 @@ describe('submitJumiaExportFeed', () => {
     const { releaseJumiaExportReservation, finalizeJumiaExportReservation } =
       await import('./export-product-reservation');
     vi.mocked(createProduct).mockRejectedValue(
-      new JumiaApiError(400, 'invalid product')
+      new JumiaApiError(
+        400,
+        '{"listing":"private","message":"invalid product"}'
+      )
     );
     vi.mocked(releaseJumiaExportReservation).mockResolvedValue(true);
 
@@ -49,11 +52,20 @@ describe('submitJumiaExportFeed', () => {
       status: 400,
       body: {
         error:
-          'Jumia product export failed: Jumia API Error (400): invalid product',
+          'Jumia product export was rejected by the marketplace. Review the product details and try again.',
       },
     });
     expect(releaseJumiaExportReservation).toHaveBeenCalled();
     expect(finalizeJumiaExportReservation).not.toHaveBeenCalled();
+
+    const { logger } = await import('@/lib/logger');
+    expect(logger.error).toHaveBeenCalledWith({
+      message: 'Jumia createProduct feed failed',
+      status: 400,
+    });
+    expect(logger.error).not.toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.stringContaining('private') })
+    );
   });
 
   it('retains the reservation when Jumia may have accepted the create request', async () => {
