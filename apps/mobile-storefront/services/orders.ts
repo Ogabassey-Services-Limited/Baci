@@ -43,6 +43,31 @@ const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
+const CHECKOUT_USER_VALIDATION_TIMEOUT_MS = 4_000;
+
+async function validateCheckoutUser(accessToken: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{
+    data: { user: null };
+    error: Error;
+  }>((resolve) => {
+    timer = setTimeout(
+      () =>
+        resolve({
+          data: { user: null },
+          error: new Error('Checkout user validation timed out'),
+        }),
+      CHECKOUT_USER_VALIDATION_TIMEOUT_MS
+    );
+  });
+
+  try {
+    return await Promise.race([supabase.auth.getUser(accessToken), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function checkNetwork(): Promise<boolean> {
   const state = await NetInfo.fetch();
   return state.isConnected === true && state.isInternetReachable !== false;
@@ -95,7 +120,7 @@ export async function createOrder(
     error: authError,
   } =
     checkoutAuth.canValidateUser && session?.access_token
-      ? await supabase.auth.getUser(session.access_token)
+      ? await validateCheckoutUser(session.access_token)
       : { data: { user: null }, error: null };
 
   const orderPayload = buildOrderPayload({

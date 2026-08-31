@@ -199,6 +199,32 @@ describe('createOrder checkout auth fallback', () => {
     expect(secondRequestHeaders).not.toHaveProperty('Authorization');
   });
 
+  it('reaches the order request when refreshed-token user validation never settles', async () => {
+    jest.useFakeTimers();
+    const refreshedSession = sessionFixture(
+      'refreshed-token',
+      'refreshed-refresh-token'
+    );
+    mockGetSession.mockResolvedValue({
+      data: { session: sessionFixture('stored-token', 'refresh-token') },
+    });
+    mockRefreshSession.mockResolvedValue({
+      data: { session: refreshedSession },
+      error: null,
+    });
+
+    const result = createOrder(orderRequest);
+    await jest.advanceTimersByTimeAsync(4_000);
+
+    await expect(result).resolves.toMatchObject({
+      order: { id: 'order-1' },
+    });
+    expect(mockGetUser).toHaveBeenCalledWith('refreshed-token');
+    expect(mockFetchWithRetry.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer refreshed-token',
+    });
+  });
+
   it('uses a same-account session rotated after the checkout session read', async () => {
     const capturedSession = sessionFixture(
       'captured-token',
