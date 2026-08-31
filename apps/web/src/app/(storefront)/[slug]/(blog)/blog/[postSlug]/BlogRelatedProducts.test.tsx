@@ -164,6 +164,31 @@ describe('BlogRelatedProducts', () => {
     expect(link).not.toHaveTextContent('₦150,000');
   });
 
+  it('does not advertise a positive parent price when selection requires a variant', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        currencySource={{ country: 'NG', payout_currency: 'NGN' }}
+        products={[
+          {
+            id: 'product-positive-parent',
+            name: 'Galaxy S25',
+            price: 150000,
+            manage_stock: true,
+            stock: 5,
+            has_variants: true,
+            variants: [{ price_override: 175000, stock_quantity: 2 }],
+            slug: 'galaxy-s25',
+          },
+        ]}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /galaxy s25/i });
+    expect(link).toHaveTextContent('₦175,000');
+    expect(link).not.toHaveTextContent('₦150,000');
+  });
+
   it('renders the purchasable condition-offer price instead of the parent price', () => {
     render(
       <BlogRelatedProducts

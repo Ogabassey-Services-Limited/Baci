@@ -19,6 +19,7 @@ interface ProductPriceSeoOffer {
 export interface ProductPriceSeoProduct {
   name: string;
   slug?: string | null;
+  has_variants?: boolean | null;
   price?: number | null;
   base_price?: number | null;
   sale_price?: number | null;
@@ -87,7 +88,16 @@ export function getProductPriceRange(
 ): ProductPriceRange | null {
   const candidates: number[] = [];
 
-  if (hasAdvertisableStock(product, product.stock_quantity ?? product.stock)) {
+  const variants = (product.variants ?? []).filter(
+    (variant): variant is ProductPriceSeoVariant => Boolean(variant)
+  );
+  const hasSelectableVariants =
+    product.has_variants === true && variants.length > 0;
+
+  if (
+    !hasSelectableVariants &&
+    hasAdvertisableStock(product, product.stock_quantity ?? product.stock)
+  ) {
     addPriceCandidate(
       candidates,
       toFinitePrice(product.sale_price) ??
@@ -95,9 +105,6 @@ export function getProductPriceRange(
         product.base_price
     );
   }
-  const variants = (product.variants ?? []).filter(
-    (variant): variant is ProductPriceSeoVariant => Boolean(variant)
-  );
   if (variants.length === 0) {
     addPriceCandidate(candidates, product.min_variant_price);
     addPriceCandidate(candidates, product.max_variant_price);

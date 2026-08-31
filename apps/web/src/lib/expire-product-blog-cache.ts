@@ -1,4 +1,3 @@
-import { revalidateTag } from 'next/cache';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 
 /**
@@ -11,11 +10,4 @@ export function expireProductBlogCache(merchantId: string): void {
     expireImmediately: true,
     feedScope: 'none',
   });
-
-  try {
-    revalidateTag('blog-posts', { expire: 0 });
-  } catch {
-    // Standalone workers have no Next cache store; the edge purge remains
-    // best-effort and the normal cache TTL is the safe fallback there.
-  }
 }
