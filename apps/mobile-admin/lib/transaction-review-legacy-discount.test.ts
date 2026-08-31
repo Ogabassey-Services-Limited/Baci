@@ -148,4 +148,15 @@ describe('legacy transaction discount detection', () => {
       )
     ).toEqual([99, 99]);
   });
+
+  it('does not infer VAT relief when the compatibility fallback omits VAT categories', () => {
+    const options = getLegacyNegotiationDiscountOptions(
+      { ...baseOrder, discount_amount: 2 },
+      (baseOrder.order_items ?? []).map(
+        ({ vat_category_code, vat_rate, ...item }) => item
+      )
+    );
+
+    expect(options).toEqual({ discountIncludesVat: false });
+  });
 });
