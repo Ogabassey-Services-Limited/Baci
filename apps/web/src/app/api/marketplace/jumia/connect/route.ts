@@ -96,6 +96,10 @@ export async function GET(request: NextRequest) {
 
     // Handle OAuth Redirect Flow
     if (connectionType === 'oauth') {
+      if (!hasPermission(access, 'integrations', 'manage')) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const initiationContext = await jumiaOAuthInitiationDiagnostic.getContext(
         {
           apiUserId: auth.user.id,

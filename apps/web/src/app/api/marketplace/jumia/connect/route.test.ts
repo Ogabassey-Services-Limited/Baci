@@ -10,6 +10,11 @@ const mockUpsert = vi.fn();
 const mockSelect = vi.fn().mockReturnValue({ single: vi.fn() });
 const mockGetMerchant = vi.fn();
 const mockToUserAccess = vi.fn();
+const { mockHasPermission } = vi.hoisted(() => ({
+  mockHasPermission: vi.fn(
+    (_access: unknown, _resource: string, _action: string) => true
+  ),
+}));
 const mockAuthenticateApiRequest = vi.fn();
 const mockFeaturePlanTier = vi.fn(() => 'pro');
 const mockPurgeOrphanedAuthorization = vi.fn().mockResolvedValue(true);
@@ -135,7 +140,7 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
-  hasPermission: vi.fn().mockReturnValue(true),
+  hasPermission: mockHasPermission,
 }));
 
 vi.mock('@/lib/jumia/helpers', async () => {
@@ -308,6 +313,8 @@ function restoreEnv() {
 describe('Connect POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockReturnValue(true);
     process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     mockSelect.mockReturnValue({ single: vi.fn() });
@@ -561,6 +568,8 @@ describe('Connect POST', () => {
 describe('Connect GET', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockReturnValue(true);
     process.env.NEXT_PUBLIC_APP_URL = PUBLIC_APP_URL;
     process.env.JUMIA_CLIENT_ID = 'test-client-id';
     mockFeaturePlanTier.mockReturnValue('pro');
@@ -600,12 +609,23 @@ describe('Connect GET', () => {
   });
 
   it('returns 403 when permission is denied', async () => {
-    const { hasPermission } = await import('@/lib/api-auth');
-    (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+    mockHasPermission.mockReturnValueOnce(false);
 
     const res = await GET(makeGetRequest('?connectionType=oauth'));
 
     expect(res.status).toBe(403);
+    expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 before OAuth initiation when manage permission is missing', async () => {
+    mockHasPermission.mockImplementation(
+      (_access, _resource, action) => action === 'view'
+    );
+
+    const res = await GET(makeGetRequest('?connectionType=oauth'));
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({ error: 'Forbidden' });
     expect(mockGetJumiaAuthUrl).not.toHaveBeenCalled();
   });
 
@@ -759,6 +779,8 @@ describe('Connect GET', () => {
 describe('Connect DELETE', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHasPermission.mockReset();
+    mockHasPermission.mockReturnValue(true);
     mockPurgeOrphanedAuthorization.mockResolvedValue(true);
     setupAuth();
     mockAuthenticateApiRequest.mockResolvedValue({

@@ -8,6 +8,12 @@ const PUBLIC_CALLBACK_URL =
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantIdForApiUser = vi.fn();
+const mockGetUserAccess = vi.fn();
+const { mockHasPermission } = vi.hoisted(() => ({
+  mockHasPermission: vi.fn(
+    (_access: unknown, _resource: string, _action: string) => true
+  ),
+}));
 const mockGetMerchantFeatureAccess = vi.fn();
 const mockExchangeJumiaCode = vi.fn();
 const mockGetShops = vi.fn();
@@ -88,6 +94,8 @@ vi.mock('@/lib/api-auth', () => ({
     mockAuthenticateApiRequest(...args),
   getMerchantIdForApiUser: (...args: unknown[]) =>
     mockGetMerchantIdForApiUser(...args),
+  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
+  hasPermission: mockHasPermission,
 }));
 
 vi.mock('@/lib/jumia/helpers', async () => {
@@ -196,6 +204,15 @@ describe('Jumia callback route', () => {
     mockGetMerchantIdForApiUser.mockResolvedValue(
       '00000000-0000-4000-8000-000000000001'
     );
+    mockGetUserAccess.mockResolvedValue({
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      role: 'owner',
+      isOwner: true,
+      isStaff: false,
+      permissions: {},
+    });
+    mockHasPermission.mockReset();
+    mockHasPermission.mockReturnValue(true);
     mockGetMerchantFeatureAccess.mockResolvedValue({
       allowed: true,
       error: null,
@@ -437,6 +454,17 @@ describe('Jumia callback route', () => {
       'error=token_exchange_failed'
     );
     expect(mockExchangeJumiaCode).toHaveBeenCalledTimes(1);
+    expect(mockUpsert).not.toHaveBeenCalled();
+  });
+
+  it('redirects with forbidden before exchanging when manage permission is revoked', async () => {
+    mockHasPermission.mockReturnValueOnce(false);
+
+    const response = await GET(makeCallbackRequest());
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get('location')).toContain('error=forbidden');
+    expect(mockExchangeJumiaCode).not.toHaveBeenCalled();
     expect(mockUpsert).not.toHaveBeenCalled();
   });
 

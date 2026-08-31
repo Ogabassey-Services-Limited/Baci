@@ -7,6 +7,8 @@ import {
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
+  getUserAccess,
+  hasPermission,
 } from '@/lib/api-auth';
 import { getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { jumiaOAuthDiagnostic } from '@/lib/jumia/oauth-diagnostic';
@@ -201,6 +203,21 @@ export async function GET(request: NextRequest) {
         redirectUri: jumiaRedirectUri,
         requestUrl: request.url,
         variant,
+      });
+    }
+
+    const callbackAccess = await getUserAccess(auth.supabase);
+    if (
+      !callbackAccess ||
+      callbackAccess.merchantId !== merchantId ||
+      !hasPermission(callbackAccess, 'integrations', 'manage')
+    ) {
+      logger.error({
+        message: 'Jumia Callback Integration permission denied',
+        merchantId,
+      });
+      return jumiaOAuthCallbackRedirect.create(request, {
+        error: 'forbidden',
       });
     }
 
