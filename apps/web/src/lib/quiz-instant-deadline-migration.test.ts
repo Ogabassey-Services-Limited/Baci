@@ -30,6 +30,20 @@ const runtimeGateSql = readFileSync(
   ),
   'utf8'
 );
+const runtimeGateFreshnessSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204600_quiz_instant_runtime_gate_freshness_v2.sql'
+  ),
+  'utf8'
+);
+const liveAwardRetrySql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204700_quiz_instant_live_award_retry_backoff_v2.sql'
+  ),
+  'utf8'
+);
 
 describe('instant quiz deadline publication migration', () => {
   it('adds an append-only migration for the instant deadline contract', () => {
@@ -148,6 +162,31 @@ describe('instant quiz deadline publication migration', () => {
     expect(runtimeGateSql).toContain("'liveDeadlineClockFailed'");
     expect(runtimeGateSql).toMatch(
       /BEGIN[\s\S]*?finalize_due_test_quiz_events_clock_v2\(\)[\s\S]*?EXCEPTION WHEN OTHERS[\s\S]*?BEGIN[\s\S]*?terminalize_due_live_quiz_events_clock_v2\(\)[\s\S]*?EXCEPTION WHEN OTHERS/i
+    );
+  });
+
+  it('expires stale production approval before the database clock awards', () => {
+    expect(runtimeGateFreshnessSql).toMatch(
+      /control\.updated_at[\s\S]*?v_gate_updated_at/i
+    );
+    expect(runtimeGateFreshnessSql).toMatch(
+      /v_gate_updated_at > v_now - interval '30 seconds'/i
+    );
+    expect(runtimeGateFreshnessSql).toMatch(
+      /IF NOT v_gate_fresh THEN[\s\S]*?v_phase := false;[\s\S]*?v_approved := false;/i
+    );
+    expect(runtimeGateFreshnessSql).toContain("'runtimeGateFresh'");
+  });
+
+  it('backs off persistent live award failures and logs only transitions', () => {
+    expect(liveAwardRetrySql).toMatch(
+      /finalization_error_code IS DISTINCT FROM[\s\S]*?'live_award_transfer_failed'[\s\S]*?updated_at <=[\s\S]*?interval '30 seconds'/i
+    );
+    expect(liveAwardRetrySql).toMatch(
+      /v_should_log_failure :=[\s\S]*?IS DISTINCT FROM[\s\S]*?'live_award_transfer_failed'/i
+    );
+    expect(liveAwardRetrySql).toMatch(
+      /IF v_should_log_failure THEN[\s\S]*?INSERT INTO public\.leaderboard_refresh_log/i
     );
   });
 

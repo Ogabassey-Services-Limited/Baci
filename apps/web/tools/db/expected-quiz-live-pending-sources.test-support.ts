@@ -144,4 +144,14 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260830204500_quiz_instant_runtime_gate_and_stage_isolation_v2.sql',
     sha256: 'f8f657eb88cd1546a852df2f3fdd178aec7b9be3d7df5898cfa8b5dcf3aaec68',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204600_quiz_instant_runtime_gate_freshness_v2.sql',
+    sha256: '0278a1c3ea9b2254ef1c8a52f9f9083c2a7628ea80199652bae393622d7acf70',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830204700_quiz_instant_live_award_retry_backoff_v2.sql',
+    sha256: '396c4bebeb83699f680f92c6071fafc13763d80b1d5810050e03d234d55940d2',
+  },
 ] as const;

@@ -28,6 +28,8 @@ describe('supabase history replay expense pending sources', () => {
       '20260830204300_quiz_instant_deadline_orchestration_health_v2.sql',
       '20260830204400_quiz_instant_deadline_retry_fairness_v2.sql',
       '20260830204500_quiz_instant_runtime_gate_and_stage_isolation_v2.sql',
+      '20260830204600_quiz_instant_runtime_gate_freshness_v2.sql',
+      '20260830204700_quiz_instant_live_award_retry_backoff_v2.sql',
     ]);
   });
 });
