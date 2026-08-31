@@ -5,7 +5,9 @@ import {
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Order');
-const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 5_000;
+// The auth transport permits an immediate recovery attempt after its first
+// four-second deadline. Keep checkout bounded while allowing both attempts.
+const CHECKOUT_SESSION_REFRESH_TIMEOUT_MS = 9_000;
 
 type CheckoutAuth = {
   refreshSession: (currentSession?: {

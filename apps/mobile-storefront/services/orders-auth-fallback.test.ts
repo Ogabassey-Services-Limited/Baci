@@ -176,14 +176,14 @@ describe('createOrder checkout auth fallback', () => {
     });
 
     const firstResult = createOrder(orderRequest);
-    await jest.advanceTimersByTimeAsync(5_000);
+    await jest.advanceTimersByTimeAsync(9_000);
 
     await expect(firstResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });
 
     const secondResult = createOrder(orderRequest);
-    await jest.advanceTimersByTimeAsync(5_000);
+    await jest.advanceTimersByTimeAsync(9_000);
     await expect(secondResult).resolves.toMatchObject({
       order: { id: 'order-1' },
     });

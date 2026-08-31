@@ -222,4 +222,32 @@ describe('resolveCheckoutAuth', () => {
       { error: 'Checkout session refresh timed out' }
     );
   });
+
+  it('waits for a delayed transport recovery within the checkout deadline', async () => {
+    jest.useFakeTimers();
+    const recoveredSession = session('recovered-token');
+    const auth = {
+      refreshSession: jest.fn(
+        () =>
+          new Promise<{ data: { session: Session }; error: null }>(
+            (resolve) => {
+              setTimeout(
+                () =>
+                  resolve({ data: { session: recoveredSession }, error: null }),
+                7_000
+              );
+            }
+          )
+      ),
+    };
+    const result = resolveCheckoutAuth(auth, session('stored-token'));
+
+    await jest.advanceTimersByTimeAsync(7_000);
+
+    await expect(result).resolves.toMatchObject({
+      authorizationHeaders: { Authorization: 'Bearer recovered-token' },
+      canValidateUser: true,
+      session: recoveredSession,
+    });
+  });
 });
