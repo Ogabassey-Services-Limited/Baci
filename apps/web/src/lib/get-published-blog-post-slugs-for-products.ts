@@ -1,10 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { getBlogCategoryLookup } from './get-blog-category-lookup';
 
 const CATEGORY_FALLBACK_PAGE_SIZE = 256;
+const LINKED_POST_PAGE_SIZE = 256;
 
 interface LinkedBlogPostRow {
+  blog_post_id?: string | null;
+  id?: string | null;
   blog_posts?:
     | {
         published_at?: string | null;
@@ -50,58 +54,11 @@ function getPublishedBlogPostSlug(post: BlogPostFields | null | undefined) {
   return slug.length > 0 ? slug : null;
 }
 
-function buildCategoryCandidates(categorySlugs: readonly string[]) {
-  const candidates = new Set<string>();
-
-  for (const value of categorySlugs) {
-    const trimmed = value.trim();
-    if (!trimmed) continue;
-
-    const spaced = trimmed.replace(/[-_]+/gu, ' ');
-    const titleCased = spaced.replace(
-      /(^|\s)([a-z])/giu,
-      (_match, prefix: string, character: string) =>
-        `${prefix}${character.toUpperCase()}`
-    );
-
-    for (const candidate of [
-      trimmed,
-      trimmed.toLowerCase(),
-      spaced,
-      titleCased,
-    ]) {
-      if (candidate.length > 0) candidates.add(candidate);
-    }
-  }
-
-  return Array.from(candidates);
-}
-
-function buildCanonicalCategorySlugs(categorySlugs: readonly string[]) {
-  return Array.from(
-    new Set(
-      categorySlugs
-        .map((categorySlug) => normalizeStorefrontCategoryValue(categorySlug))
-        .filter((categorySlug): categorySlug is string => Boolean(categorySlug))
-    )
-  );
-}
-
-function buildCanonicalCategoryFilter(categorySlugs: readonly string[]) {
-  return buildCanonicalCategorySlugs(categorySlugs)
-    .map(
-      (categorySlug) => `category.ilike.*${categorySlug.split('-').join('*')}*`
-    )
-    .join(',');
-}
-
 function getCanonicalCategoryPostRows(
   rows: readonly CategoryBlogPostRow[],
-  categorySlugs: readonly string[]
+  canonicalCategorySlugs: readonly string[]
 ) {
-  const canonicalCategories = new Set(
-    buildCanonicalCategorySlugs(categorySlugs)
-  );
+  const canonicalCategories = new Set(canonicalCategorySlugs);
   return rows.filter((post) => {
     const category = normalizeStorefrontCategoryValue(post.category);
     return category !== null && canonicalCategories.has(category);
@@ -151,6 +108,41 @@ async function fetchCategoryFallbackRows(
   }
 }
 
+async function fetchLinkedBlogPostRows(
+  supabase: SupabaseClient,
+  merchantId: string,
+  productIds: readonly string[]
+) {
+  const rows: LinkedBlogPostRow[] = [];
+
+  for (let page = 0; ; page += 1) {
+    const { data, error } = await supabase
+      .from('blog_post_products')
+      .select('id, blog_post_id, blog_posts!inner(slug, status, published_at)')
+      .eq('merchant_id', merchantId)
+      .eq('blog_posts.status', 'published')
+      .not('blog_posts.published_at', 'is', null)
+      .in('product_id', productIds)
+      .order('blog_post_id', { ascending: true })
+      .order('id', { ascending: true })
+      .range(
+        page * LINKED_POST_PAGE_SIZE,
+        (page + 1) * LINKED_POST_PAGE_SIZE - 1
+      );
+
+    if (error) {
+      return { error, rows };
+    }
+
+    const pageRows = (data as unknown as LinkedBlogPostRow[]) ?? [];
+    rows.push(...pageRows);
+
+    if (pageRows.length < LINKED_POST_PAGE_SIZE) {
+      return { error: null, rows };
+    }
+  }
+}
+
 /**
  * Find published storefront blog posts whose related-product rail can be
  * affected by the changed products. Explicit product relationships are joined
@@ -174,8 +166,11 @@ export async function getPublishedBlogPostSlugsForProducts(
         .filter((productId) => productId.length > 0 && isValidUuid(productId))
     )
   );
-  const categoryCandidates = buildCategoryCandidates(categorySlugs);
-  const canonicalCategoryFilter = buildCanonicalCategoryFilter(categorySlugs);
+  const {
+    candidates: categoryCandidates,
+    canonicalFilter: canonicalCategoryFilter,
+    canonicalSlugs: canonicalCategorySlugs,
+  } = getBlogCategoryLookup(categorySlugs);
 
   if (
     !normalizedMerchantId ||
@@ -188,11 +183,11 @@ export async function getPublishedBlogPostSlugsForProducts(
 
   if (normalizedProductIds.length > 0) {
     try {
-      const { data, error } = await supabase
-        .from('blog_post_products')
-        .select('blog_posts!inner(slug, status, published_at)')
-        .eq('merchant_id', normalizedMerchantId)
-        .in('product_id', normalizedProductIds);
+      const { rows, error } = await fetchLinkedBlogPostRows(
+        supabase,
+        normalizedMerchantId,
+        normalizedProductIds
+      );
 
       if (error) {
         console.error(
@@ -200,10 +195,7 @@ export async function getPublishedBlogPostSlugsForProducts(
           { merchantId: normalizedMerchantId, error }
         );
       } else {
-        for (const row of (data as unknown as
-          | LinkedBlogPostRow[]
-          | null
-          | undefined) ?? []) {
+        for (const row of rows) {
           const slug = getPublishedBlogPostSlug(getBlogPostRow(row.blog_posts));
           if (slug) slugs.add(slug);
         }
@@ -257,7 +249,7 @@ export async function getPublishedBlogPostSlugsForProducts(
         } else {
           for (const post of getCanonicalCategoryPostRows(
             canonicalRows,
-            categorySlugs
+            canonicalCategorySlugs
           )) {
             const slug = getPublishedBlogPostSlug(post);
             if (slug) slugs.add(slug);

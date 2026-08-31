@@ -4,42 +4,16 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { getProductPriceRange } from '@/lib/storefront-product-price-seo';
-
-type RelatedProduct = {
-  category_slug?: string | null;
-  id: string;
-  name: string;
-  price?: number | null;
-  compare_at_price?: number | null;
-  has_condition_offers?: boolean | null;
-  has_variants?: boolean | null;
-  has_purchasable_condition_offer?: boolean;
-  has_purchasable_variant?: boolean;
-  manage_stock?: boolean | null;
-  offers?: Array<{
-    price?: number | null;
-    status?: string | null;
-    stock_quantity?: number | null;
-  }>;
-  min_variant_price?: number | null;
-  max_variant_price?: number | null;
-  stock?: number | null;
-  stock_quantity?: number | null;
-  slug: string;
-  variants?: Array<{
-    price_override?: number | null;
-    stock_quantity?: number | null;
-  }>;
-};
+import type { BlogRelatedProduct } from './blog-related-product';
 
 type BlogRelatedProductsProps = {
   basePath: string;
   currencySource?: { country?: string | null; payout_currency?: string | null };
-  products: RelatedProduct[];
+  products: BlogRelatedProduct[];
 };
 
 function formatRelatedProductPrice(
-  product: RelatedProduct,
+  product: BlogRelatedProduct,
   currencySource: BlogRelatedProductsProps['currencySource']
 ) {
   if (!currencySource) return null;
