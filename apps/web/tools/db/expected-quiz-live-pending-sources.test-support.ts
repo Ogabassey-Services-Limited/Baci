@@ -127,7 +127,7 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260830193445_quiz_instant_deadline_orchestration_v2.sql',
-    sha256: '3939e270573331fc08da30f46e6cda026cbffa65e5b0b687a89b3fb9212c1daf',
+    sha256: '7c73fbc733effcdb75e95d109fd0f9b6f18ec74f22fb19ab5877a905b4c81029',
   },
   {
     repositoryPath:

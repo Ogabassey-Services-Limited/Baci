@@ -72,33 +72,3 @@ GRANT EXECUTE ON FUNCTION public.process_due_quiz_deadlines_v2(boolean, boolean)
   TO service_role;
 
 COMMIT;
-
-DO $$
-BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname = 'cron'
-  ) THEN
-    IF EXISTS (
-      SELECT 1 FROM cron.job WHERE jobname = 'quiz-deadline-clock-v2'
-    ) THEN PERFORM cron.unschedule('quiz-deadline-clock-v2'); END IF;
-    PERFORM cron.schedule(
-      'quiz-deadline-clock-v2', '1 second',
-      'SELECT private.process_quiz_deadline_clock_v2()'
-    );
-    IF EXISTS (
-      SELECT 1 FROM cron.job
-      WHERE jobname = 'quiz-deadline-clock-v2-log-retention'
-    ) THEN
-      PERFORM cron.unschedule('quiz-deadline-clock-v2-log-retention');
-    END IF;
-    PERFORM cron.schedule(
-      'quiz-deadline-clock-v2-log-retention', '17 3 * * *',
-      $cleanup$
-        DELETE FROM cron.job_run_details
-        WHERE command = 'SELECT private.process_quiz_deadline_clock_v2()'
-          AND end_time < pg_catalog.clock_timestamp() - interval '2 days'
-      $cleanup$
-    );
-  END IF;
-END;
-$$;

@@ -55,6 +55,11 @@ describe('supabase history replay expense pending sources', () => {
       '20260831120900_quiz_runtime_gate_stale_health_v2.sql',
       '20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql',
     ];
+    const precreatedIndexFiles = [
+      '20260831115957_quiz_test_publication_retry_index_v2.sql',
+      '20260831115958_quiz_live_unpublished_due_index_v2.sql',
+      '20260831115959_quiz_live_terminal_retry_index_v2.sql',
+    ];
     const finalInstantRowIndex = rows.findIndex((row) =>
       row.includes(
         '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql'
@@ -63,6 +68,15 @@ describe('supabase history replay expense pending sources', () => {
     const appendedRepairIndices = appendedRepairFiles.map((file) =>
       rows.findIndex((row) => row.includes(file))
     );
+    const precreatedIndexIndices = precreatedIndexFiles.map((file) =>
+      rows.findIndex((row) => row.includes(file))
+    );
+
+    expect(precreatedIndexIndices.every((index) => index >= 0)).toBe(true);
+    expect(precreatedIndexIndices).toEqual(
+      [...precreatedIndexIndices].sort((left, right) => left - right)
+    );
+    expect(precreatedIndexIndices.at(-1)).toBeLessThan(finalInstantRowIndex);
 
     expect([finalInstantRowIndex, ...appendedRepairIndices]).toEqual(
       [...[finalInstantRowIndex, ...appendedRepairIndices]].sort(
