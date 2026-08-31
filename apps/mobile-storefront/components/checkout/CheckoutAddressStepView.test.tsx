@@ -131,6 +131,7 @@ function createProps(
     onAddressSelected: jest.fn() as AddressStepProps['onAddressSelected'],
     onAddressTextChanged: jest.fn() as AddressStepProps['onAddressTextChanged'],
     onChangeAccountPassword: jest.fn(),
+    onContactEmailSettled: jest.fn(),
     onOpenCityPicker: jest.fn(),
     onOpenNewAddressEditor: jest.fn(),
     onOpenStatePicker: jest.fn(),

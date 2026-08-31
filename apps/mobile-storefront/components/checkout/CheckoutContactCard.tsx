@@ -40,6 +40,7 @@ type CheckoutContactCardProps = {
   isCollapsed: boolean;
   isDark: boolean;
   onChangeAccountPassword: (value: string) => void;
+  onContactEmailSettled?: () => void;
   onToggleCollapsed: () => void;
   onToggleSaveDetails: () => void;
   phone?: string;
@@ -63,6 +64,7 @@ export function CheckoutContactCard({
   isCollapsed,
   isDark,
   onChangeAccountPassword,
+  onContactEmailSettled,
   onToggleCollapsed,
   onToggleSaveDetails,
   phone,
@@ -148,6 +150,9 @@ export function CheckoutContactCard({
           label=""
           name="email"
           placeholder="john@example.com"
+          onBlur={onContactEmailSettled}
+          onSubmitEditing={onContactEmailSettled}
+          returnKeyType="done"
           transformText={stripEmailWhitespace}
         />
 

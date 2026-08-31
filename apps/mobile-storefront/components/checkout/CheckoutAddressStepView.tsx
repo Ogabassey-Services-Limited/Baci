@@ -42,6 +42,7 @@ export function CheckoutAddressStepView({
   onAddressSelected,
   onAddressTextChanged,
   onChangeAccountPassword,
+  onContactEmailSettled,
   onOpenCityPicker,
   onOpenNewAddressEditor,
   onOpenStatePicker,
@@ -122,6 +123,7 @@ export function CheckoutAddressStepView({
         isCollapsed={isContactCollapsed}
         isDark={isDark}
         onChangeAccountPassword={onChangeAccountPassword}
+        onContactEmailSettled={onContactEmailSettled}
         onToggleCollapsed={onToggleContactCollapsed}
         onToggleSaveDetails={onToggleSaveDetails}
         phone={phone}

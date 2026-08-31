@@ -71,6 +71,7 @@ export function CheckoutStepContent({
           addressState.shipping.handleDeliveryAddressTextChange
         }
         onChangeAccountPassword={addressState.setAccountPassword}
+        onContactEmailSettled={addressState.settleContactEmail}
         onOpenCityPicker={() => addressState.shipping.setShowCityPicker(true)}
         onOpenNewAddressEditor={addressState.openNewAddressEditor}
         onOpenStatePicker={() => addressState.shipping.setShowStatePicker(true)}

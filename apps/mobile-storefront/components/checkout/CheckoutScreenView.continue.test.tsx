@@ -83,15 +83,28 @@ describe('CheckoutScreenView address continuation', () => {
 
     renderCheckoutScreen();
     fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
+    fireEvent(screen.getByPlaceholderText('E.g. John'), 'blur');
     fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
+    fireEvent(screen.getByPlaceholderText('E.g. Doe'), 'blur');
     fireEvent.changeText(
       screen.getByPlaceholderText('e.g. 08012345678'),
       '08031234567'
     );
+    fireEvent(screen.getByPlaceholderText('e.g. 08012345678'), 'blur');
     fireEvent.changeText(
       screen.getByPlaceholderText('john@example.com'),
       'ada@example.com'
     );
+    expect(
+      screen.queryByPlaceholderText('Start typing your address…')
+    ).toBeNull();
+    fireEvent(screen.getByPlaceholderText('john@example.com'), 'blur');
+
+    await waitFor(() => {
+      expect(
+        screen.getByPlaceholderText('Start typing your address…')
+      ).toBeTruthy();
+    });
     fireEvent.changeText(
       screen.getByPlaceholderText('Start typing your address…'),
       'No. 5 Example Plaza'

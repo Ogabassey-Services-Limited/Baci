@@ -6,10 +6,7 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
 import type { Customer } from '@/stores/auth-store';
 import type { CartItem } from '@/stores/cart-store';
-import {
-  areCheckoutContactFieldsSettled,
-  isCheckoutContactComplete,
-} from './checkout-contact-readiness';
+import { isCheckoutContactComplete } from './checkout-contact-readiness';
 import { isCheckoutAddressComplete } from './checkout-continue-readiness';
 import {
   CHECKOUT_API_BASE_URL,
@@ -42,6 +39,7 @@ export function useCheckoutAddressState({
   const checkoutFirstName = checkoutIdentity.firstName;
   const checkoutLastName = checkoutIdentity.lastName;
   const checkoutPhone = checkoutIdentity.phone;
+  const [settledContactEmail, setSettledContactEmail] = useState(checkoutEmail);
 
   const form = useForm<ShippingAddressInput>({
     resolver: shippingAddressResolver,
@@ -58,13 +56,7 @@ export function useCheckoutAddressState({
     mode: 'onBlur',
     shouldUnregister: false,
   });
-  const {
-    control,
-    formState: { dirtyFields, touchedFields },
-    getValues,
-    reset,
-    setValue,
-  } = form;
+  const { control, getValues, reset, setValue } = form;
   // useWatch instead of watch(): watch() returns interior-mutable values that
   // force React Compiler to skip memoizing this hook (incompatible-library).
   const watchedState = useWatch({ control, name: 'state' });
@@ -100,8 +92,11 @@ export function useCheckoutAddressState({
   const hasInitialContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
+  const isCurrentEmailSettled =
+    watchedEmail === settledContactEmail ||
+    (hasInitialContactIdentity && watchedEmail === checkoutEmail);
   const isContactComplete =
-    areCheckoutContactFieldsSettled({ dirtyFields, touchedFields }) &&
+    isCurrentEmailSettled &&
     isCheckoutContactComplete({
       email: watchedEmail,
       firstName: watchedFirstName,
@@ -174,6 +169,9 @@ export function useCheckoutAddressState({
     }
     savedAddresses.openNewAddressEditor();
   };
+  const settleContactEmail = () => {
+    setSettledContactEmail(getValues('email'));
+  };
 
   return {
     accountPassword,
@@ -185,6 +183,7 @@ export function useCheckoutAddressState({
     openNewAddressEditor,
     saveDetails,
     savedAddresses,
+    settleContactEmail,
     setAccountPassword,
     setSaveDetails,
     shipping,

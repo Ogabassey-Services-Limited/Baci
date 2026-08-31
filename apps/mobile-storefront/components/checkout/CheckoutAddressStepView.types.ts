@@ -34,6 +34,7 @@ export interface CheckoutAddressStepViewProps {
   onAddressSelected: CheckoutDeliveryCardProps['onAddressSelected'];
   onAddressTextChanged: CheckoutDeliveryCardProps['onAddressTextChanged'];
   onChangeAccountPassword: (value: string) => void;
+  onContactEmailSettled: () => void;
   onOpenCityPicker: () => void;
   onOpenNewAddressEditor: () => void;
   onOpenStatePicker: () => void;
