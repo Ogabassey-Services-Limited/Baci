@@ -19,6 +19,10 @@ function authRefreshTimedOutResponse(): Response {
   );
 }
 
+function isAmbiguousRefreshResponse(response: Response): boolean {
+  return response.status >= 500 && response.status <= 599;
+}
+
 async function fetchBufferedBeforeDeadline(
   fetchImpl: typeof fetch,
   input: RequestInfo | URL,
@@ -57,22 +61,38 @@ export function createSupabaseAuthTimeoutFetch(
       return fetchImpl(input, init);
     }
 
-    const firstResponse = await fetchBufferedBeforeDeadline(
-      fetchImpl,
-      input,
-      init,
-      timeoutMs
-    );
-    if (firstResponse) return firstResponse;
+    let firstResponse: Response | null = null;
+    try {
+      firstResponse = await fetchBufferedBeforeDeadline(
+        fetchImpl,
+        input,
+        init,
+        timeoutMs
+      );
+    } catch {
+      // A rejected request or body can still follow a provider-side token
+      // rotation, so recover once under the same bounded deadline.
+    }
+    if (firstResponse && !isAmbiguousRefreshResponse(firstResponse)) {
+      return firstResponse;
+    }
 
     // A timed-out refresh may already have rotated the one-time token remotely.
     // Retry immediately while Supabase's refresh-token reuse window is open.
-    const recoveryResponse = await fetchBufferedBeforeDeadline(
-      fetchImpl,
-      input,
-      init,
-      timeoutMs
-    );
-    return recoveryResponse ?? authRefreshTimedOutResponse();
+    try {
+      const recoveryResponse = await fetchBufferedBeforeDeadline(
+        fetchImpl,
+        input,
+        init,
+        timeoutMs
+      );
+      if (recoveryResponse && !isAmbiguousRefreshResponse(recoveryResponse)) {
+        return recoveryResponse;
+      }
+    } catch {
+      // Normalize a second ambiguous failure so Auth does not start its own
+      // long retry loop while holding the process lock.
+    }
+    return authRefreshTimedOutResponse();
   };
 }

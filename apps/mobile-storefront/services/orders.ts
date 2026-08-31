@@ -95,7 +95,7 @@ export async function createOrder(
     error: authError,
   } =
     checkoutAuth.canValidateUser && session?.access_token
-      ? await supabase.auth.getUser()
+      ? await supabase.auth.getUser(session.access_token)
       : { data: { user: null }, error: null };
 
   const orderPayload = buildOrderPayload({

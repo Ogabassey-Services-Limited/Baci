@@ -26,7 +26,8 @@ type MockCreateOrderApiResponse = {
 };
 
 const mockNetInfoFetch = jest.fn<() => Promise<{ isConnected: boolean }>>();
-const mockSupabaseGetUser = jest.fn<() => Promise<MockAuthUserResponse>>();
+const mockSupabaseGetUser =
+  jest.fn<(jwt?: string) => Promise<MockAuthUserResponse>>();
 const mockSupabaseGetSession =
   jest.fn<() => Promise<MockAuthSessionResponse>>();
 const mockResolveCheckoutAuth = jest.fn(

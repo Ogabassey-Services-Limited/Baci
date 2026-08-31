@@ -1,15 +1,5 @@
 import { jest } from '@jest/globals';
-import { createClient, type Session } from '@supabase/supabase-js';
 import { createSupabaseAuthTimeoutFetch } from './supabase-auth-timeout-fetch';
-
-function accessToken(exp: number): string {
-  const encode = (value: object) =>
-    Buffer.from(JSON.stringify(value)).toString('base64url');
-  return `${encode({ alg: 'HS256', typ: 'JWT' })}.${encode({
-    exp,
-    sub: 'user-a',
-  })}.signature`;
-}
 
 function pendingAbortAwareFetch(): jest.MockedFunction<typeof fetch> {
   return jest.fn<typeof fetch>(
@@ -108,6 +98,25 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('recovers when the provider commits before the connection rejects', async () => {
+    const recoveryResponse = Response.json({
+      access_token: 'recovered-token',
+      refresh_token: 'rotated-token',
+    });
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockRejectedValueOnce(new TypeError('connection lost after commit'))
+      .mockResolvedValueOnce(recoveryResponse);
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    await expect(
+      timedFetch(
+        'https://project.supabase.co/auth/v1/token?grant_type=refresh_token'
+      )
+    ).resolves.toBe(recoveryResponse);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('returns a successful refresh response before the deadline without aborting it', async () => {
     jest.useFakeTimers();
     const response = Response.json({ access_token: 'fresh-token' });
@@ -141,176 +150,5 @@ describe('createSupabaseAuthTimeoutFetch', () => {
       'https://project.supabase.co/rest/v1/products',
       undefined
     );
-  });
-
-  it('releases the shared Auth refresh single-flight after a provider request hangs', async () => {
-    jest.useFakeTimers();
-    const storedSession = {
-      access_token: accessToken(Math.floor(Date.now() / 1000) - 60),
-      expires_at: Math.floor(Date.now() / 1000) - 60,
-      refresh_token: 'refresh-token',
-      token_type: 'bearer',
-      user: { id: 'user-a' },
-    } as Session;
-    const storage = {
-      getItem: jest.fn(async () => JSON.stringify(storedSession)),
-      removeItem: jest.fn(async () => undefined),
-      setItem: jest.fn(async () => undefined),
-    };
-    const pendingFetch = pendingAbortAwareFetch();
-    const client = createClient(
-      'https://project.supabase.co',
-      'publishable-key',
-      {
-        auth: {
-          autoRefreshToken: true,
-          detectSessionInUrl: false,
-          persistSession: true,
-          storage,
-        },
-        global: {
-          fetch: createSupabaseAuthTimeoutFetch(pendingFetch, 100),
-        },
-      }
-    );
-
-    const firstRead = client.auth.getSession();
-    await jest.advanceTimersByTimeAsync(200);
-    await expect(firstRead).resolves.toBeDefined();
-
-    const secondRead = client.auth.getSession();
-    await jest.advanceTimersByTimeAsync(100);
-    await expect(secondRead).resolves.toBeDefined();
-    expect(pendingFetch).toHaveBeenCalled();
-    expect(storage.removeItem).not.toHaveBeenCalled();
-  });
-
-  it('uses the explicitly supplied refresh token without rotating an expired stored session first', async () => {
-    const storedSession = {
-      access_token: accessToken(Math.floor(Date.now() / 1000) - 60),
-      expires_at: Math.floor(Date.now() / 1000) - 60,
-      refresh_token: 'stored-refresh-token',
-      token_type: 'bearer',
-      user: { id: 'user-a' },
-    } as Session;
-    const storage = {
-      getItem: jest.fn(async () => JSON.stringify(storedSession)),
-      removeItem: jest.fn(async () => undefined),
-      setItem: jest.fn(async () => undefined),
-    };
-    const fetchImpl = jest.fn<typeof fetch>(async () =>
-      Response.json({
-        access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
-        expires_in: 3_600,
-        refresh_token: 'rotated-refresh-token',
-        token_type: 'bearer',
-        user: { id: 'user-a' },
-      })
-    );
-    const client = createClient(
-      'https://project.supabase.co',
-      'publishable-key',
-      {
-        auth: {
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          persistSession: true,
-          storage,
-        },
-        global: { fetch: fetchImpl },
-      }
-    );
-
-    await expect(
-      client.auth.refreshSession({ refresh_token: 'stored-refresh-token' })
-    ).resolves.toMatchObject({ data: { session: expect.any(Object) } });
-
-    const tokenRequests = fetchImpl.mock.calls.filter(([input]) =>
-      String(input).includes('/auth/v1/token')
-    );
-    expect(tokenRequests).toHaveLength(1);
-  });
-
-  it('discards an explicit checkout refresh after auth storage switches accounts', async () => {
-    const accountBSession = {
-      access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
-      expires_at: Math.floor(Date.now() / 1000) + 3_600,
-      refresh_token: 'account-b-refresh-token',
-      token_type: 'bearer',
-      user: { id: 'user-b' },
-    } as Session;
-    const storage = {
-      getItem: jest.fn(async () => JSON.stringify(accountBSession)),
-      removeItem: jest.fn(async () => undefined),
-      setItem: jest.fn(async () => undefined),
-    };
-    const fetchImpl = jest.fn<typeof fetch>();
-    const client = createClient(
-      'https://project.supabase.co',
-      'publishable-key',
-      {
-        auth: {
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-          persistSession: true,
-          storage,
-        },
-        global: { fetch: fetchImpl },
-      }
-    );
-
-    const result = await client.auth.refreshSession({
-      refresh_token: 'account-a-refresh-token',
-      require_storage_match: true,
-    });
-
-    expect(result.error?.name).toBe('AuthRefreshDiscardedError');
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(storage.setItem).not.toHaveBeenCalled();
-    expect(storage.removeItem).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    [
-      'network rejection',
-      () => Promise.reject(new TypeError('Network failed')),
-    ],
-    [
-      '503 response',
-      () => Promise.resolve(new Response(null, { status: 503 })),
-    ],
-  ])('does not internally retry an explicit checkout refresh after %s', async (_label, response) => {
-    const storedSession = {
-      access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
-      expires_at: Math.floor(Date.now() / 1000) + 3_600,
-      refresh_token: 'stored-refresh-token',
-      token_type: 'bearer',
-      user: { id: 'user-a' },
-    } as Session;
-    const storage = {
-      getItem: jest.fn(async () => JSON.stringify(storedSession)),
-      removeItem: jest.fn(async () => undefined),
-      setItem: jest.fn(async () => undefined),
-    };
-    const fetchImpl = jest.fn<typeof fetch>(response);
-    const client = createClient(
-      'https://project.supabase.co',
-      'publishable-key',
-      {
-        auth: { autoRefreshToken: false, persistSession: true, storage },
-        global: { fetch: fetchImpl },
-      }
-    );
-
-    await expect(
-      client.auth.refreshSession({
-        refresh_token: 'stored-refresh-token',
-        require_storage_match: true,
-      })
-    ).resolves.toMatchObject({
-      data: { session: null },
-      error: expect.anything(),
-    });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 });

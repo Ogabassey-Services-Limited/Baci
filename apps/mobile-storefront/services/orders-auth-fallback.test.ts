@@ -2,7 +2,7 @@ import { jest } from '@jest/globals';
 import { AuthRefreshDiscardedError, type Session } from '@supabase/supabase-js';
 
 const mockGetUser = jest.fn<
-  () => Promise<{
+  (jwt?: string) => Promise<{
     data: { user: { id: string } | null };
     error: Error | null;
   }>
@@ -18,7 +18,7 @@ const mockRefreshSession = jest.fn<
 const mockFetchWithRetry = jest.fn<
   (
     url: string,
-    init: { headers: Record<string, string> },
+    init: { body: string; headers: Record<string, string> },
     options: unknown
   ) => Promise<unknown>
 >(async () => ({
@@ -226,5 +226,39 @@ describe('createOrder checkout auth fallback', () => {
     expect(mockFetchWithRetry.mock.calls[0]?.[1]?.headers).toMatchObject({
       Authorization: 'Bearer rotated-token',
     });
+    expect(mockGetUser).toHaveBeenCalledWith('rotated-token');
+  });
+
+  it('validates the captured checkout bearer when auth storage switches accounts', async () => {
+    const { createOrder } = await import('./orders');
+    const accountASession = sessionFixture(
+      'account-a-token',
+      'account-a-refresh-token',
+      'user-a'
+    );
+    mockGetSession.mockResolvedValue({ data: { session: accountASession } });
+    mockRefreshSession.mockResolvedValue({
+      data: { session: accountASession },
+      error: null,
+    });
+    mockGetUser.mockImplementation(async (jwt) => ({
+      data: { user: { id: jwt ? 'user-a' : 'user-b' } },
+      error: null,
+    }));
+
+    await expect(createOrder(orderRequest)).resolves.toMatchObject({
+      order: { id: 'order-1' },
+    });
+
+    expect(mockGetUser).toHaveBeenCalledWith('account-a-token');
+    expect(mockFetchWithRetry.mock.calls[0]?.[1]?.headers).toMatchObject({
+      Authorization: 'Bearer account-a-token',
+    });
+    expect(
+      JSON.parse(mockFetchWithRetry.mock.calls[0]?.[1]?.body ?? '{}') as Record<
+        string,
+        unknown
+      >
+    ).toMatchObject({ user_id: 'user-a' });
   });
 });
