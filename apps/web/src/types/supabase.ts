@@ -4981,6 +4981,7 @@ export type Database = {
           jumia_order_id: string;
           jumia_order_number: string | null;
           jumia_shop_id: string;
+          marketplace_key: string;
           merchant_id: string;
           notification_sent: boolean;
           shipping_address: Json | null;
@@ -5000,6 +5001,7 @@ export type Database = {
           jumia_order_id: string;
           jumia_order_number?: string | null;
           jumia_shop_id: string;
+          marketplace_key?: string;
           merchant_id: string;
           notification_sent?: boolean;
           shipping_address?: Json | null;
@@ -5019,6 +5021,7 @@ export type Database = {
           jumia_order_id?: string;
           jumia_order_number?: string | null;
           jumia_shop_id?: string;
+          marketplace_key?: string;
           merchant_id?: string;
           notification_sent?: boolean;
           shipping_address?: Json | null;

@@ -78,7 +78,10 @@ describe('Jumia orders GET', () => {
     const integrationQuery = {
       eq: vi.fn(),
       maybeSingle: vi.fn().mockResolvedValue({
-        data: { shop_id: 'jumia-shop-123' },
+        data: {
+          marketplace_key: 'NG-main',
+          shop_id: 'jumia-shop-123',
+        },
         error: null,
       }),
     };
@@ -112,11 +115,12 @@ describe('Jumia orders GET', () => {
     );
 
     expect(response.status).toBe(200);
-    expect(integrationSelect).toHaveBeenCalledWith('shop_id');
+    expect(integrationSelect).toHaveBeenCalledWith('shop_id, marketplace_key');
     expect(integrationQuery.eq).toHaveBeenCalledWith('id', INTEGRATION_ID);
     expect(orderQuery.eq).toHaveBeenCalledWith(
       'jumia_shop_id',
       'jumia-shop-123'
     );
+    expect(orderQuery.eq).toHaveBeenCalledWith('marketplace_key', 'NG-main');
   });
 });

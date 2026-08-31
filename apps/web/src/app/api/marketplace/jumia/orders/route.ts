@@ -25,6 +25,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { getJumiaOrderScope } from './get-jumia-order-scope';
 
 /** Deduplicate customer name formatting from Jumia shipping address */
 function getCustomerName(
@@ -105,35 +106,34 @@ export async function GET(request: NextRequest) {
 
     const { limit, offset, status, integrationId } = queryParsed.data;
 
-    // If integrationId is provided, look up the shop ID to scope orders
-    let jumiaShopId: string | undefined;
+    // If integrationId is provided, resolve the provider and marketplace IDs
+    // used to scope cached orders.
+    let orderScope: Awaited<ReturnType<typeof getJumiaOrderScope>> | undefined;
     if (integrationId) {
-      const { data: integration, error: integrationError } = await supabase
-        .from('marketplace_integrations')
-        .select('shop_id')
-        .eq('id', integrationId)
-        .eq('merchant_id', merchantId)
-        .maybeSingle();
+      orderScope = await getJumiaOrderScope(
+        supabase,
+        merchantId,
+        integrationId
+      );
 
-      if (integrationError) {
+      if (orderScope.kind === 'database_error') {
         return NextResponse.json(
-          { error: integrationError.message },
+          { error: orderScope.message },
           { status: 500 }
         );
       }
-      if (!integration) {
+      if (orderScope.kind === 'not_found') {
         return NextResponse.json(
           { error: 'Integration not found' },
           { status: 404 }
         );
       }
-      if (!integration.shop_id || typeof integration.shop_id !== 'string') {
+      if (orderScope.kind === 'invalid_shop') {
         return NextResponse.json(
           { error: 'Integration is missing a Jumia shop ID' },
           { status: 400 }
         );
       }
-      jumiaShopId = integration.shop_id;
     }
 
     let query = supabase
@@ -145,8 +145,10 @@ export async function GET(request: NextRequest) {
       .order('synced_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (jumiaShopId) {
-      query = query.eq('jumia_shop_id', jumiaShopId);
+    if (orderScope?.kind === 'ok') {
+      query = query
+        .eq('jumia_shop_id', orderScope.shopId)
+        .eq('marketplace_key', orderScope.marketplaceKey);
     }
 
     if (status) {
@@ -356,6 +358,7 @@ export async function POST(request: NextRequest) {
         jumia_order_id: order.id,
         jumia_order_number: String(order.number),
         jumia_shop_id: jumiaClient.shopId,
+        marketplace_key: jumiaClient.marketplaceKey,
         status: order.status,
         customer_name: sanitizedCustomerName,
         customer_phone: sanitizeText(customerPhone, 50),

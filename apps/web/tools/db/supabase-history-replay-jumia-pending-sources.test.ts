@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260831100000_harden_jumia_product_mappings_staff_writes.sql'
+      '20260831110000_jumia_order_marketplace_scope.sql'
     );
   });
 });

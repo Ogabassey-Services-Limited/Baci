@@ -17,6 +17,7 @@ const integration: MarketplaceIntegrationRow = {
   merchant_id: 'merchant-1',
   shop_id: 'shop-1',
   last_sync_at: null,
+  marketplace_key: 'NG-main',
   sync_config: { orders: true },
 };
 
@@ -203,6 +204,7 @@ describe('Jumia order sync mappers', () => {
 
     expect(cacheRow.notification_sent).toBe(true);
     expect(cacheRow.baci_order_id).toBe('baci-order-id');
+    expect(cacheRow.marketplace_key).toBe('NG-main');
     expect(cacheRow.items).toHaveLength(1);
     expect(orderItems[0]).toMatchObject({
       order_id: 'baci-order-id',

@@ -160,6 +160,7 @@ export function buildJumiaCacheRow(
     jumia_order_id: order.id,
     jumia_order_number: sanitizeText(order.number, 120),
     jumia_shop_id: integration.shop_id || JUMIA_DEFAULT_SHOP_ID,
+    marketplace_key: integration.marketplace_key?.trim() || 'default',
     status: sanitizeText(order.status, 80),
     customer_name: getCustomerName(order),
     customer_phone: '',
