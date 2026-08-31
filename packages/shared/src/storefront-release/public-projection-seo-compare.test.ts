@@ -61,6 +61,34 @@ describe('public projection compare route eligibility', () => {
     ).toBe(false);
   });
 
+  it('uses active direct-child inventory for a parent brand comparison', () => {
+    const parent = { id: 'category-parent', slug: 'smartphones' };
+    const child = {
+      id: 'category-child',
+      parentId: parent.id,
+      slug: 'android-phones',
+    };
+    const childProducts = [
+      ...Array.from({ length: 3 }, (_, index) =>
+        product(`alpha-child-${index}`, 'Alpha', index)
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        product(`beta-child-${index}`, 'Beta', index)
+      ),
+    ].map((entry) => ({ ...entry, categoryIds: [child.id] }));
+
+    expect(
+      hasEligiblePublicProjectionComparePath(
+        '/smartphones/compare/alpha-vs-beta',
+        new Map([
+          [parent.slug, parent],
+          [child.slug, child],
+        ]),
+        childProducts
+      )
+    ).toBe(true);
+  });
+
   it('ignores product comparisons outside the newest origin inventory window', () => {
     const newestProducts = Array.from({ length: 600 }, (_, index) => ({
       ...product(`newest-${index}`, '', index),
@@ -87,6 +115,23 @@ describe('public projection compare route eligibility', () => {
         categories,
         [...newestProducts, ...olderPair],
         { maintainedComparePaths: new Set([path]) }
+      )
+    ).toBe(false);
+  });
+
+  it('rejects an overflow comparison inventory without complete timestamps', () => {
+    const products = Array.from({ length: 601 }, (_, index) => ({
+      ...product(`product-${index}`, 'Other', index),
+      categoryIds: [category.id],
+      createdAt: index === 600 ? undefined : '2026-08-31T00:00:00Z',
+      id: `product-${String(index).padStart(3, '0')}`,
+    }));
+
+    expect(
+      hasEligiblePublicProjectionComparePath(
+        '/smartphones/compare/alpha-vs-beta',
+        categories,
+        products
       )
     ).toBe(false);
   });

@@ -35,4 +35,12 @@ describe('collectPublicProjectionReleaseAssetUrls', () => {
       )
     ).toEqual(new Set());
   });
+
+  it('collects entity-encoded release asset references before ownership checks', () => {
+    expect(
+      collectPublicProjectionReleaseAssetUrls(
+        `<img src="&#47;release-assets/${'c'.repeat(64)}.png">`
+      )
+    ).toEqual(new Set([`/release-assets/${'c'.repeat(64)}.png`]));
+  });
 });

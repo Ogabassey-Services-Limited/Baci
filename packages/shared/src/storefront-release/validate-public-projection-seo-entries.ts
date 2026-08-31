@@ -1,11 +1,13 @@
 import type { RefinementCtx } from 'zod';
 import { addPublicProjectionSeoPolicyPaths } from './add-public-projection-seo-policy-paths';
+import { buildPublicProjectionCategoryScopes } from './build-public-projection-category-scopes';
 import {
   getPublicProjectionBlogSeoPaths,
   isPublicProjectionBlogPost,
 } from './get-public-projection-blog-seo-paths';
 import { hasEligiblePublicProjectionCategoryCompareHub } from './has-eligible-public-projection-category-compare-hub';
 import { hasEligiblePublicProjectionCompareHub } from './has-eligible-public-projection-compare-hub';
+import { validatePublicProjectionInventoryTimestamps } from './validate-public-projection-inventory-timestamps';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 import { validatePublicProjectionSeoEntryGuards } from './validate-public-projection-seo-entry-guards';
 
@@ -120,6 +122,11 @@ export function validatePublicProjectionSeoEntries(
   payload: SeoPayload,
   context: RefinementCtx
 ) {
+  validatePublicProjectionInventoryTimestamps(
+    payload.categories ?? [],
+    payload.products,
+    context
+  );
   const knownPaths = new Set(STATIC_SEO_PATHS);
   addPublicProjectionSeoPolicyPaths(knownPaths, payload.policies);
   if (payload.policies?.warrantyPolicy?.summary.trim())
@@ -145,24 +152,14 @@ export function validatePublicProjectionSeoEntries(
     knownPaths.add(`/${category.slug}`);
     knownPaths.add(`/${category.slug}/compare`);
   }
+  const categoryScopes = buildPublicProjectionCategoryScopes(
+    payload.categories ?? [],
+    payload.products
+  );
   const categoryHasProducts = new Map(
-    (payload.categories ?? []).map((category) => [
-      category.id,
-      payload.products.some((product) => {
-        const categoryIds = new Set([
-          ...(product.categoryIds ?? []),
-          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-        ]);
-        return (
-          categoryIds.has(category.id) ||
-          (payload.categories ?? []).some(
-            (child) =>
-              child.parentId === category.id &&
-              (child.status === undefined || child.status === 'active') &&
-              categoryIds.has(child.id)
-          )
-        );
-      }),
+    [...categoryScopes].map(([categoryId, scope]) => [
+      categoryId,
+      scope.hasProducts,
     ])
   );
   const categoriesById = new Map(

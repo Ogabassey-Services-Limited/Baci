@@ -1,3 +1,5 @@
+import { decodeHtmlEntities } from './decode-html-entities';
+
 const RELEASE_ASSET_URL_PATTERN =
   /\/release-assets\/[a-f0-9]{64}\.(?:avif|gif|jpe?g|png|svg|webp)(?![a-z0-9._-])/gu;
 
@@ -15,7 +17,12 @@ export function collectPublicProjectionReleaseAssetUrls(
   while (pending.length > 0) {
     const current = pending.pop();
     if (typeof current === 'string') {
-      for (const match of current.matchAll(RELEASE_ASSET_URL_PATTERN)) {
+      // The HTML safety scanner validates decoded attribute values. Mirror
+      // that normalization here so entity-encoded release paths cannot evade
+      // the media ownership check.
+      for (const match of decodeHtmlEntities(current).matchAll(
+        RELEASE_ASSET_URL_PATTERN
+      )) {
         const url = match[0];
         if (url) urls.add(url);
       }

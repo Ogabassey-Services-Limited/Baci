@@ -10,23 +10,35 @@ interface SeoProduct {
 
 interface SeoCategory {
   id: string;
+  parentId?: string | null;
   slug: string;
+  status?: string;
 }
 
 interface CompareOptions {
+  brandCategoryScopeIds?: ReadonlySet<string>;
   maintainedComparePaths?: ReadonlySet<string>;
+  productInventoryLimit?: number;
 }
 
 const COMPARE_DELIMITER = '-vs-';
 const COMPARE_ESCAPE_PREFIX = '~';
 const COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT = 600;
 
+function isValidTimestamp(value: string | undefined): boolean {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
 function compareCreatedAtDescending(
   left: string | undefined,
   right: string | undefined
 ): number {
-  const leftTimestamp = left ? Date.parse(left) : Number.NEGATIVE_INFINITY;
-  const rightTimestamp = right ? Date.parse(right) : Number.NEGATIVE_INFINITY;
+  const leftTimestamp = isValidTimestamp(left)
+    ? Date.parse(left as string)
+    : Number.NEGATIVE_INFINITY;
+  const rightTimestamp = isValidTimestamp(right)
+    ? Date.parse(right as string)
+    : Number.NEGATIVE_INFINITY;
   return rightTimestamp - leftTimestamp;
 }
 
@@ -103,6 +115,47 @@ function categoryProducts(
   );
 }
 
+function categoryScopeIds(
+  category: SeoCategory,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>
+): ReadonlySet<string> {
+  return new Set([
+    category.id,
+    ...[...categoriesBySlug.values()]
+      .filter(
+        (candidate) =>
+          candidate.parentId === category.id &&
+          (candidate.status === undefined || candidate.status === 'active')
+      )
+      .map((candidate) => candidate.id),
+  ]);
+}
+
+function productsInCategoryScope(
+  scopeIds: ReadonlySet<string>,
+  products: readonly SeoProduct[]
+): readonly SeoProduct[] {
+  return products.filter((product) =>
+    [
+      ...(product.categoryIds ?? []),
+      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+    ].some((categoryId) => scopeIds.has(categoryId))
+  );
+}
+
+function orderProducts(
+  products: readonly SeoProduct[],
+  limit: number
+): readonly SeoProduct[] {
+  return [...products]
+    .sort(
+      (left, right) =>
+        compareCreatedAtDescending(left.createdAt, right.createdAt) ||
+        (left.id ?? '').localeCompare(right.id ?? '')
+    )
+    .slice(0, limit);
+}
+
 function haveDifferentComparableSpecs(left: SeoProduct, right: SeoProduct) {
   const leftSpecs = left.productKeySpecs ?? {};
   const rightSpecs = right.productKeySpecs ?? {};
@@ -162,13 +215,20 @@ export function hasEligiblePublicProjectionComparePath(
   )
     return false;
 
-  const scopedProducts = [...categoryProducts(category, products)]
-    .sort(
-      (left, right) =>
-        compareCreatedAtDescending(left.createdAt, right.createdAt) ||
-        (left.id ?? '').localeCompare(right.id ?? '')
+  const productInventoryLimit =
+    options.productInventoryLimit ?? COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT;
+  const exactCategoryProducts = categoryProducts(category, products);
+  if (
+    exactCategoryProducts.length > productInventoryLimit &&
+    !exactCategoryProducts.every((product) =>
+      isValidTimestamp(product.createdAt)
     )
-    .slice(0, COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT);
+  )
+    return false;
+  const scopedProducts = orderProducts(
+    exactCategoryProducts,
+    productInventoryLimit
+  );
   const leftProduct = scopedProducts.find(
     (product) => product.slug === parsed.left
   );
@@ -182,5 +242,18 @@ export function hasEligiblePublicProjectionComparePath(
     );
   }
   if (leftProduct || rightProduct) return false;
-  return hasEligibleBrandCompare(scopedProducts, parsed.canonicalSlug);
+  const brandProducts = productsInCategoryScope(
+    options.brandCategoryScopeIds ??
+      categoryScopeIds(category, categoriesBySlug),
+    products
+  );
+  if (
+    brandProducts.length > productInventoryLimit &&
+    !brandProducts.every((product) => isValidTimestamp(product.createdAt))
+  )
+    return false;
+  return hasEligibleBrandCompare(
+    orderProducts(brandProducts, productInventoryLimit),
+    parsed.canonicalSlug
+  );
 }

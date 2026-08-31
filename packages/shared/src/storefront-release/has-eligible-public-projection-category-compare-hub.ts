@@ -10,12 +10,17 @@ interface SeoCategory {
 interface SeoProduct {
   available: boolean;
   categoryIds?: readonly string[];
+  brand?: string | null;
+  createdAt?: string;
+  id?: string;
   name: string;
   priceMinor: number;
   productKeySpecs?: Readonly<Record<string, unknown>> | null;
   primaryCategoryId?: string | null;
   slug: string;
 }
+
+const CATEGORY_COMPARE_HUB_PRODUCT_LIMIT = 300;
 
 /** Checks whether a category has a maintained, eligible comparison link. */
 export function hasEligiblePublicProjectionCategoryCompareHub(
@@ -43,12 +48,22 @@ export function hasEligiblePublicProjectionCategoryCompareHub(
   ]);
   return [...maintainedComparePaths].some((path) => {
     const categoryMatch = /^\/([^/]+)\/compare\//u.exec(path);
+    const matchedCategory = categoryMatch?.[1]
+      ? categoriesBySlug.get(categoryMatch[1])
+      : undefined;
     return (
       categoryMatch?.[1] !== undefined &&
       eligibleCategorySlugs.has(categoryMatch[1]) &&
+      matchedCategory !== undefined &&
       hasEligibleCommercialSupportPath(path, categoriesBySlug, products, {
         currency,
         maintainedComparePaths,
+        productInventoryLimit: CATEGORY_COMPARE_HUB_PRODUCT_LIMIT,
+        // The hub builds links independently for the requested category and
+        // each direct child. Brand candidates must therefore use the same
+        // exact-category group rather than the compare page's broader
+        // parent-plus-children scope.
+        brandCategoryScopeIds: new Set([matchedCategory.id]),
       })
     );
   });

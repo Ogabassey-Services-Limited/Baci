@@ -84,4 +84,34 @@ describe('hasEligiblePublicProjectionCategoryCompareHub', () => {
       )
     ).toBe(false);
   });
+
+  it('does not use comparison products beyond the hub inventory limit', () => {
+    const categories = new Map([[parent.slug, parent]]);
+    const newestProducts = Array.from({ length: 300 }, (_, index) => ({
+      available: true,
+      categoryIds: [parent.id],
+      createdAt: `2026-08-${String(31 - Math.floor(index / 24)).padStart(2, '0')}T${String(23 - (index % 24)).padStart(2, '0')}:00:00Z`,
+      id: `newest-${String(index).padStart(3, '0')}`,
+      name: `Newest ${index}`,
+      priceMinor: 100_000,
+      productKeySpecs: { camera: 1, storage: 1, screen: 1 },
+      slug: `newest-${index}`,
+    }));
+    const overflowPair = products.map((product, index) => ({
+      ...product,
+      categoryIds: [parent.id],
+      createdAt: '2026-01-01T00:00:00Z',
+      id: `overflow-${index}`,
+    }));
+
+    expect(
+      hasEligiblePublicProjectionCategoryCompareHub(
+        parent.slug,
+        categories,
+        [...newestProducts, ...overflowPair],
+        new Set(['/phones/compare/phone-a-vs-phone-b']),
+        'NGN'
+      )
+    ).toBe(false);
+  });
 });

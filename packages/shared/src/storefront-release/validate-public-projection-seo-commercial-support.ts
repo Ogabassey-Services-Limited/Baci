@@ -130,12 +130,20 @@ function getBrandAuthorityProducts(
     (product) =>
       !brandAliases || matchesBrandQueryValue(product.brand, brandAliases)
   );
-  if (!categoryProducts.every((product) => product.updatedAt))
-    return categoryProducts.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
+  if (categoryProducts.length <= BRAND_AUTHORITY_PRODUCT_LIMIT)
+    return categoryProducts;
+  if (
+    !categoryProducts.every(
+      (product) =>
+        typeof product.updatedAt === 'string' &&
+        Number.isFinite(Date.parse(product.updatedAt))
+    )
+  )
+    return [];
   return [...categoryProducts]
     .sort(
       (left, right) =>
-        (right.updatedAt ?? '').localeCompare(left.updatedAt ?? '') ||
+        Date.parse(right.updatedAt ?? '') - Date.parse(left.updatedAt ?? '') ||
         (left.id ?? '').localeCompare(right.id ?? '')
     )
     .slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
@@ -216,8 +224,10 @@ export function hasEligibleCommercialSupportPath(
   categoriesBySlug: ReadonlyMap<string, SeoCategory>,
   products: readonly SeoProduct[],
   options: {
+    brandCategoryScopeIds?: ReadonlySet<string>;
     currency?: string;
     maintainedComparePaths?: ReadonlySet<string>;
+    productInventoryLimit?: number;
   } = {}
 ) {
   const segments = path.split('/').filter(Boolean);
@@ -277,6 +287,10 @@ export function hasEligibleCommercialSupportPath(
     path,
     categoriesBySlug,
     products,
-    { maintainedComparePaths: options.maintainedComparePaths }
+    {
+      brandCategoryScopeIds: options.brandCategoryScopeIds,
+      maintainedComparePaths: options.maintainedComparePaths,
+      productInventoryLimit: options.productInventoryLimit,
+    }
   );
 }
