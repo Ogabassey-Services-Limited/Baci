@@ -49,5 +49,11 @@ describe('supabase history replay expense pending sources', () => {
     expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
       '20260831120700_quiz_test_publication_control_rls_v2.sql'
     );
+    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260831120800_quiz_cascade_score_consistency_v2.sql'
+    );
+    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260831120900_quiz_runtime_gate_stale_health_v2.sql'
+    );
   });
 });

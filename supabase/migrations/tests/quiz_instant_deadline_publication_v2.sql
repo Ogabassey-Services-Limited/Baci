@@ -129,6 +129,10 @@ BEGIN
     'authenticated', 'public.finalize_due_test_quiz_events_v2()', 'EXECUTE'
   ) OR pg_catalog.has_function_privilege(
     'authenticated', 'public.terminalize_due_live_quiz_events_v2()', 'EXECUTE'
+  ) OR pg_catalog.has_function_privilege(
+    'anon', 'public.finalize_due_test_quiz_events_v2()', 'EXECUTE'
+  ) OR pg_catalog.has_function_privilege(
+    'anon', 'public.terminalize_due_live_quiz_events_v2()', 'EXECUTE'
   ) OR NOT pg_catalog.has_function_privilege(
     'service_role', 'public.finalize_due_test_quiz_events_v2()', 'EXECUTE'
   ) OR NOT pg_catalog.has_function_privilege(

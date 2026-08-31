@@ -54,6 +54,7 @@ $$;
 DO $$
 DECLARE
   v_failure_logs integer;
+  v_gate_rows integer;
   v_summary jsonb;
 BEGIN
   v_summary := public.finalize_due_live_quiz_events_v2(false, false);
@@ -74,6 +75,10 @@ BEGIN
       production_approved = true,
       updated_at = pg_catalog.clock_timestamp()
   WHERE singleton;
+  GET DIAGNOSTICS v_gate_rows = ROW_COUNT;
+  IF v_gate_rows <> 1 THEN
+    RAISE EXCEPTION 'quiz_runtime_control_v2 singleton row is missing';
+  END IF;
 
   v_summary := public.finalize_due_live_quiz_events_v2(true, true);
   IF COALESCE((v_summary ->> 'failed')::integer, 0) <> 1 THEN

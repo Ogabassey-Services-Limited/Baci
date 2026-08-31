@@ -36,6 +36,12 @@ const wakeupAccessSql = readMigration(
 const testPublicationControlRlsSql = readMigration(
   '20260831120700_quiz_test_publication_control_rls_v2.sql'
 );
+const cascadeScoreConsistencySql = readMigration(
+  '20260831120800_quiz_cascade_score_consistency_v2.sql'
+);
+const runtimeGateStaleHealthSql = readMigration(
+  '20260831120900_quiz_runtime_gate_stale_health_v2.sql'
+);
 
 describe('quiz deadline review repairs', () => {
   it('keeps test publication closed until serialized score repair completes', () => {
@@ -167,10 +173,28 @@ describe('quiz deadline review repairs', () => {
       'quiz_instant_retry_pending_health_v2.sql',
       'quiz_results_wakeup_player_access_v2.sql',
       'quiz_test_publication_control_rls_v2.sql',
+      'quiz_cascade_score_consistency_v2.sql',
+      'quiz_runtime_gate_stale_health_v2.sql',
     ]) {
       expect(ciWorkflow).toContain(
         `--sql-check supabase/migrations/tests/${file}`
       );
     }
+  });
+
+  it('subtracts accepted scores before device-integrity question cascades', () => {
+    expect(cascadeScoreConsistencySql).toMatch(
+      /BEFORE DELETE ON public\.quiz_attempt_questions/i
+    );
+    expect(cascadeScoreConsistencySql).toMatch(
+      /sum\(answer\.score_delta\)[\s\S]*?GREATEST\(score - v_score_delta, 0\)/i
+    );
+  });
+
+  it('marks a stale runtime gate as degraded clock health', () => {
+    expect(runtimeGateStaleHealthSql).toMatch(
+      /CASE WHEN v_gate_fresh THEN 0 ELSE 1 END[\s\S]*?IF v_failed > 0/i
+    );
+    expect(runtimeGateStaleHealthSql).toContain("'runtimeGateFresh'");
   });
 });

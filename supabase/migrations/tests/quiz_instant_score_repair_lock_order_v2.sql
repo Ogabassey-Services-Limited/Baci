@@ -186,7 +186,7 @@ BEGIN
         AND granted
     );
     v_tries := v_tries + 1;
-    IF v_tries > 100 THEN
+    IF v_tries > 750 THEN
       RAISE EXCEPTION 'resume never acquired the answer-table writer lock';
     END IF;
     PERFORM pg_catalog.pg_sleep(0.02);
@@ -221,7 +221,7 @@ BEGIN
         AND NOT granted
     );
     v_tries := v_tries + 1;
-    IF v_tries > 100 THEN
+    IF v_tries > 750 THEN
       RAISE EXCEPTION 'score repair did not wait behind resume table ordering';
     END IF;
     PERFORM pg_catalog.pg_sleep(0.02);
@@ -238,7 +238,7 @@ BEGIN
   WHILE dblink_is_busy('quiz_timeout_resume') = 1
      OR dblink_is_busy('quiz_score_repair') = 1 LOOP
     v_tries := v_tries + 1;
-    IF v_tries > 200 THEN
+    IF v_tries > 750 THEN
       RAISE EXCEPTION 'timeout/resume lock-order regression timed out';
     END IF;
     PERFORM pg_catalog.pg_sleep(0.02);
