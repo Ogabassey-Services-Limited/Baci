@@ -5,7 +5,6 @@ import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
-  loadJumiaSelfAuthorizationDiscovery,
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
@@ -284,9 +283,10 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   });
 
   it('resumes discovery with the credentials behind a recovery ID', async () => {
-    vi.mocked(loadJumiaSelfAuthorizationDiscovery).mockResolvedValue(
-      'ciphertext'
-    );
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValue({
+      claimToken: 'claim-1',
+      credentialCiphertext: 'ciphertext',
+    });
     vi.mocked(validateJumiaSelfAuthorization).mockResolvedValue({
       credentials: {
         clientId: 'client-1',
@@ -314,6 +314,13 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     expect(validateJumiaSelfAuthorization).toHaveBeenCalledWith(
       expect.objectContaining({ refreshToken: 'refresh-1' }),
       expect.any(Object)
+    );
+    expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        claimToken: 'claim-1',
+      })
     );
   });
 
@@ -416,6 +423,8 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
             refreshToken: 'refresh-2',
             accessToken: 'access-2',
           },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
         });
         return NextResponse.json(
           { error: 'Shop discovery failed' },
@@ -423,6 +432,20 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
         );
       }
     );
+
+    const supabase = buildSupabase(
+      [
+        {
+          shop_id: 'shop-1',
+          country_code: 'NG',
+          marketplace_key: 'NG-RETAIL',
+          connection_method: 'self_authorization',
+          jumia_authorization_id: 'auth-1',
+        },
+      ],
+      [{ id: 'auth-1' }]
+    ) as { rpc: ReturnType<typeof vi.fn> };
+    supabase.rpc.mockResolvedValue({ data: [], error: null });
 
     const response = await handleJumiaSelfAuthorizationConnectRequest({
       body: {
@@ -433,7 +456,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       },
       encryptionKey: 'a'.repeat(44),
       merchantId: '00000000-0000-4000-8000-000000000001',
-      supabase: buildSupabase(),
+      supabase: supabase as never,
     });
 
     expect(response.status).toBe(502);
@@ -442,6 +465,14 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       expect.objectContaining({
         claimToken: '00000000-0000-4000-8000-000000000088',
         credentialCiphertext: 'ciphertext',
+      })
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'persist_jumia_self_authorization_ordered',
+      expect.objectContaining({
+        p_credential_ciphertext: 'ciphertext',
+        p_token_expires_at: '2026-03-27T10:00:00.000Z',
+        p_refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
       })
     );
     expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();

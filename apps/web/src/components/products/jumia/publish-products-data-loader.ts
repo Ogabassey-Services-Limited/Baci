@@ -5,10 +5,15 @@ import {
   publishProductsPageSchema,
 } from '@/schemas/jumia/publish-products';
 
-export async function loadMappedProductIds(
+export type JumiaProductMappingState = {
+  sellerSku: string;
+  syncStatus: string;
+};
+
+export async function loadMappedProductMappings(
   integrationId: string,
   signal: AbortSignal
-): Promise<Set<string>> {
+): Promise<Map<string, JumiaProductMappingState[]>> {
   const response = await fetch(
     `/api/marketplace/jumia/products/mapped-product-ids?integrationId=${integrationId}`,
     { signal }
@@ -20,16 +25,40 @@ export async function loadMappedProductIds(
   if (
     typeof payload !== 'object' ||
     payload === null ||
-    !('productIds' in payload) ||
-    !Array.isArray(payload.productIds)
+    !('mappings' in payload) ||
+    !Array.isArray(payload.mappings)
   ) {
     throw new Error('Failed to load mapped Jumia products');
   }
-  return new Set(
-    payload.productIds.filter(
-      (productId): productId is string => typeof productId === 'string'
-    )
-  );
+
+  const mappedProducts = new Map<string, JumiaProductMappingState[]>();
+  for (const mapping of payload.mappings) {
+    if (
+      typeof mapping !== 'object' ||
+      mapping === null ||
+      !('productId' in mapping) ||
+      typeof mapping.productId !== 'string' ||
+      !mapping.productId.trim() ||
+      !('sellerSku' in mapping) ||
+      typeof mapping.sellerSku !== 'string' ||
+      !mapping.sellerSku.trim() ||
+      !('syncStatus' in mapping) ||
+      typeof mapping.syncStatus !== 'string' ||
+      !mapping.syncStatus.trim()
+    ) {
+      throw new Error('Failed to load mapped Jumia products');
+    }
+
+    const productId = mapping.productId.trim();
+    const mappings = mappedProducts.get(productId) ?? [];
+    mappings.push({
+      sellerSku: mapping.sellerSku.trim(),
+      syncStatus: mapping.syncStatus,
+    });
+    mappedProducts.set(productId, mappings);
+  }
+
+  return mappedProducts;
 }
 
 export async function loadPublishProducts(

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  loadMappedProductIds,
+  loadMappedProductMappings,
   loadPublishProducts,
 } from './publish-products-data-loader';
 
-describe('loadMappedProductIds', () => {
+describe('loadMappedProductMappings', () => {
   it('throws when the mapped-product lookup fails', async () => {
     vi.stubGlobal(
       'fetch',
@@ -15,7 +15,7 @@ describe('loadMappedProductIds', () => {
     );
 
     await expect(
-      loadMappedProductIds('integration-1', new AbortController().signal)
+      loadMappedProductMappings('integration-1', new AbortController().signal)
     ).rejects.toThrow('Failed to load mapped Jumia products');
   });
 
@@ -29,8 +29,45 @@ describe('loadMappedProductIds', () => {
     );
 
     await expect(
-      loadMappedProductIds('integration-1', new AbortController().signal)
+      loadMappedProductMappings('integration-1', new AbortController().signal)
     ).rejects.toThrow('Failed to load mapped Jumia products');
+  });
+
+  it('returns mapping state grouped by product and seller SKU', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mappings: [
+            {
+              productId: 'product-1',
+              sellerSku: 'SKU-1',
+              syncStatus: 'synced',
+            },
+            {
+              productId: 'product-1',
+              sellerSku: 'SKU-2',
+              syncStatus: 'error',
+            },
+          ],
+        }),
+      })
+    );
+
+    await expect(
+      loadMappedProductMappings('integration-1', new AbortController().signal)
+    ).resolves.toEqual(
+      new Map([
+        [
+          'product-1',
+          [
+            { sellerSku: 'SKU-1', syncStatus: 'synced' },
+            { sellerSku: 'SKU-2', syncStatus: 'error' },
+          ],
+        ],
+      ])
+    );
   });
 });
 

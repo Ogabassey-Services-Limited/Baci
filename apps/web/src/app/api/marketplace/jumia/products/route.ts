@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { getUserAccess, hasPermission } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
 import { JumiaApiError } from '@/lib/jumia/helpers';
 import {
@@ -32,6 +33,11 @@ export async function GET(request: Request) {
     );
   }
 
+  const access = await getUserAccess(supabase);
+  if (!access || !hasPermission(access, 'integrations', 'manage')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { productId, integrationId } = parsed.data;
 
   try {
@@ -39,6 +45,7 @@ export async function GET(request: Request) {
       .from('products')
       .select('merchant_id')
       .eq('id', productId)
+      .eq('merchant_id', access.merchantId)
       .single();
 
     if (productError || !product) {

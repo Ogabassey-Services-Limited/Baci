@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getCurrencyCode } from '@/lib/currency';
 import type { PublishProduct } from '@/schemas/jumia/publish-products';
+import type { JumiaProductMappingState } from './publish-products-data-loader';
 import {
-  loadMappedProductIds,
+  loadMappedProductMappings,
   loadPublishProducts,
 } from './publish-products-data-loader';
+import { isJumiaProductFullyMapped } from './publish-products-mapping';
 import { getJumiaPublishBlockReason } from './publish-products-payload';
 import { submitJumiaProducts } from './submit-jumia-products';
 
@@ -44,9 +46,9 @@ export function usePublishProductsDialog({
   const [mappedProductsLoadError, setMappedProductsLoadError] = useState<
     string | null
   >(null);
-  const [mappedProductIds, setMappedProductIds] = useState<Set<string>>(
-    new Set()
-  );
+  const [mappedProducts, setMappedProducts] = useState<
+    Map<string, JumiaProductMappingState[]>
+  >(new Map());
 
   useEffect(() => {
     if (!open) return;
@@ -57,6 +59,15 @@ export function usePublishProductsDialog({
     loadPublishProducts(search.trim() || undefined, controller.signal)
       .then((loadedProducts) => {
         setProducts(loadedProducts);
+        setSelectedIds((current) => {
+          const availableIds = new Set(
+            loadedProducts.map((product) => product.id)
+          );
+          const next = new Set(
+            [...current].filter((productId) => availableIds.has(productId))
+          );
+          return next.size === current.size ? current : next;
+        });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -83,9 +94,9 @@ export function usePublishProductsDialog({
     const controller = new AbortController();
     setMappedProductsLoading(true);
     setMappedProductsLoadError(null);
-    loadMappedProductIds(integrationId, controller.signal)
-      .then((mappedIds) => {
-        setMappedProductIds(mappedIds);
+    loadMappedProductMappings(integrationId, controller.signal)
+      .then((mappings) => {
+        setMappedProducts(mappings);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -112,7 +123,7 @@ export function usePublishProductsDialog({
   const loadError = productsLoadError ?? mappedProductsLoadError;
 
   const getPublishBlockReason = (product: PublishProduct): string | null => {
-    if (mappedProductIds.has(product.id)) {
+    if (isJumiaProductFullyMapped(product, mappedProducts.get(product.id))) {
       return 'Already published to this Jumia integration.';
     }
     const productReason = getJumiaPublishBlockReason(product);

@@ -45,7 +45,7 @@ describe('PublishProductsDialog', () => {
         if (url.includes('mapped-product-ids')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ productIds: [] }),
+            json: async () => ({ mappings: [] }),
           });
         }
         return Promise.resolve({
@@ -113,7 +113,11 @@ describe('PublishProductsDialog', () => {
         if (url.includes('mapped-product-ids')) {
           return Promise.resolve({
             ok: true,
-            json: async () => ({ productIds: ['p1'] }),
+            json: async () => ({
+              mappings: [
+                { productId: 'p1', sellerSku: 'SKU-1', syncStatus: 'synced' },
+              ],
+            }),
           });
         }
         return Promise.resolve({

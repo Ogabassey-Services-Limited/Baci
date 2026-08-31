@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
+const mockGetUserAccess = vi.fn();
+const mockHasPermission = vi.fn();
 const mockProductSingle = vi.fn();
 const mockMappingsOrder = vi.fn();
 const mockForIntegration = vi.fn();
@@ -10,12 +12,13 @@ const mockSupabase = {
   auth: { getUser: mockGetUser },
   from: vi.fn((table: string) => {
     if (table === 'products') {
+      const productQuery = {
+        eq: vi.fn(),
+        single: mockProductSingle,
+      };
+      productQuery.eq.mockReturnValue(productQuery);
       return {
-        select: () => ({
-          eq: () => ({
-            single: mockProductSingle,
-          }),
-        }),
+        select: () => productQuery,
       };
     }
 
@@ -42,6 +45,10 @@ const mockSupabase = {
 vi.mock('next/headers', () => ({ cookies: vi.fn().mockResolvedValue({}) }));
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
+}));
+vi.mock('@/lib/api-auth', () => ({
+  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
+  hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 vi.mock('@/lib/jumia/client', () => ({
   JumiaClient: {
@@ -75,6 +82,14 @@ describe('GET /api/marketplace/jumia/products', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+    mockGetUserAccess.mockResolvedValue({
+      merchantId: MERCHANT_ID,
+      role: 'owner',
+      isOwner: true,
+      isStaff: false,
+      permissions: {},
+    });
+    mockHasPermission.mockReturnValue(true);
     mockProductSingle.mockResolvedValue({
       data: { merchant_id: MERCHANT_ID },
       error: null,
@@ -98,6 +113,17 @@ describe('GET /api/marketplace/jumia/products', () => {
   it('returns 400 when integrationId is missing for authenticated callers', async () => {
     const response = await GET(makeRequest({ productId: PRODUCT_ID }));
     expect(response.status).toBe(400);
+  });
+
+  it('returns 403 before product lookup when integrations view is missing', async () => {
+    mockHasPermission.mockReturnValueOnce(false);
+
+    const response = await GET(
+      makeRequest({ productId: PRODUCT_ID, integrationId: INTEGRATION_ID })
+    );
+
+    expect(response.status).toBe(403);
+    expect(mockProductSingle).not.toHaveBeenCalled();
   });
 
   it('returns 404 when integration lookup fails with JumiaApiError 404', async () => {

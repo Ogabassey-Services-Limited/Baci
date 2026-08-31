@@ -10,11 +10,15 @@ import type { JumiaSelfAuthorizationCredentials } from '@/schemas/jumia/self-aut
 type Validate = (
   credentials: JumiaSelfAuthorizationCredentials,
   options?: {
-    onCredentialsRotated?: (args: {
-      credentials: ValidatedSelfAuthorization['credentials'];
-    }) => Promise<void>;
+    onCredentialsRotated?: CredentialsRotatedHandler;
   }
 ) => Promise<ValidatedSelfAuthorization>;
+
+type CredentialsRotatedHandler = (args: {
+  credentials: ValidatedSelfAuthorization['credentials'];
+  accessTokenExpiresAt: ValidatedSelfAuthorization['accessTokenExpiresAt'];
+  refreshTokenExpiresAt: ValidatedSelfAuthorization['refreshTokenExpiresAt'];
+}) => Promise<void>;
 
 type Rpc = (
   name: string,
@@ -63,9 +67,7 @@ async function connect(args: {
   rpc: Rpc;
   selectedShopIds: string[];
   validate: Validate;
-  onCredentialsRotated?: (args: {
-    credentials: ValidatedSelfAuthorization['credentials'];
-  }) => Promise<void>;
+  onCredentialsRotated?: CredentialsRotatedHandler;
   encrypt: (
     credentials: ValidatedSelfAuthorization['credentials'],
     encryptionKey: string,

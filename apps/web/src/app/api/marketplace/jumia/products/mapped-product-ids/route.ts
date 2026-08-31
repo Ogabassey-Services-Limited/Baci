@@ -68,16 +68,19 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const mappedProducts: Array<{ product_id: string | null }> = [];
+  const mappedProducts: Array<{
+    product_id: string | null;
+    jumia_sku: string | null;
+    sync_status: string | null;
+  }> = [];
   let cursor: string | undefined;
   for (;;) {
     let query = auth.supabase
       .from('jumia_product_mappings')
-      .select('id, product_id')
+      .select('id, product_id, jumia_sku, sync_status')
       .eq('merchant_id', merchantId)
       .eq('jumia_shop_id', integration.shop_id)
-      .eq('marketplace_key', integration.marketplace_key ?? 'default')
-      .neq('sync_status', 'error');
+      .eq('marketplace_key', integration.marketplace_key ?? 'default');
     if (cursor) query = query.gt('id', cursor);
     const { data, error } = await query
       .order('id', { ascending: true })
@@ -93,6 +96,8 @@ export async function GET(request: NextRequest) {
     const page = (data ?? []) as Array<{
       id: string;
       product_id: string | null;
+      jumia_sku: string | null;
+      sync_status: string | null;
     }>;
     mappedProducts.push(...page);
     if (page.length < MAPPED_PRODUCTS_PAGE_SIZE) {
@@ -103,8 +108,24 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    productIds: Array.from(
-      new Set(mappedProducts.map((row) => row.product_id).filter(Boolean))
-    ),
+    mappings: mappedProducts.flatMap((row) => {
+      if (
+        typeof row.product_id !== 'string' ||
+        !row.product_id.trim() ||
+        typeof row.jumia_sku !== 'string' ||
+        !row.jumia_sku.trim() ||
+        typeof row.sync_status !== 'string' ||
+        !row.sync_status.trim()
+      ) {
+        return [];
+      }
+      return [
+        {
+          productId: row.product_id,
+          sellerSku: row.jumia_sku,
+          syncStatus: row.sync_status,
+        },
+      ];
+    }),
   });
 }

@@ -37,7 +37,7 @@ describe('usePublishProductsDialog', () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       'page=1': async () => ({
         ok: true,
@@ -87,7 +87,7 @@ describe('usePublishProductsDialog', () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       '/api/products': async () => ({
         ok: false,
@@ -116,7 +116,7 @@ describe('usePublishProductsDialog', () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       '/api/products': async () => ({
         ok: true,
@@ -152,11 +152,78 @@ describe('usePublishProductsDialog', () => {
     ]);
   });
 
+  it('clears selected products that disappear when search results replace the list', async () => {
+    let productRequestCount = 0;
+    const fetchMock = vi.fn((url: string) => {
+      if (url.includes('mapped-product-ids')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({ mappings: [] }),
+        });
+      }
+      productRequestCount += 1;
+      const products =
+        productRequestCount === 1
+          ? [
+              {
+                id: 'prod-1',
+                name: 'Phone',
+                price: 10,
+                sku: 'PHONE-1',
+                image: 'https://example.com/phone.png',
+              },
+            ]
+          : [
+              {
+                id: 'prod-2',
+                name: 'Tablet',
+                price: 20,
+                sku: 'TABLET-1',
+                image: 'https://example.com/tablet.png',
+              },
+            ];
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ products }),
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    act(() => result.current.toggleProduct('prod-1'));
+    expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
+
+    act(() => result.current.setSearch('Tablet'));
+
+    await waitFor(() => {
+      expect(result.current.products).toEqual([
+        {
+          id: 'prod-2',
+          name: 'Tablet',
+          price: 20,
+          sku: 'TABLET-1',
+          image: 'https://example.com/tablet.png',
+        },
+      ]);
+    });
+    expect(result.current.selectedIds).toEqual(new Set());
+  });
+
   it('retains products from a single page when pagination metadata is missing', async () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       '/api/products': async () => ({
         ok: true,
@@ -189,7 +256,7 @@ describe('usePublishProductsDialog', () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       '/api/products': async () => ({
         ok: true,
@@ -248,7 +315,7 @@ describe('usePublishProductsDialog', () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({
         ok: true,
-        json: async () => ({ productIds: [] }),
+        json: async () => ({ mappings: [] }),
       }),
       '/api/products': async () => ({
         ok: true,
@@ -307,5 +374,65 @@ describe('usePublishProductsDialog', () => {
       expect.objectContaining({ title: 'SKU required' })
     );
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('keeps a partially mapped variant product retryable', async () => {
+    const fetchMock = createFetchMock({
+      'mapped-product-ids': async () => ({
+        ok: true,
+        json: async () => ({
+          mappings: [
+            {
+              productId: 'prod-1',
+              sellerSku: 'PHONE-BLACK',
+              syncStatus: 'synced',
+            },
+            {
+              productId: 'prod-1',
+              sellerSku: 'PHONE-WHITE',
+              syncStatus: 'error',
+            },
+          ],
+        }),
+      }),
+      '/api/products': async () => ({
+        ok: true,
+        json: async () => ({
+          products: [
+            {
+              id: 'prod-1',
+              name: 'Phone',
+              price: 100,
+              image: 'https://cdn.example.com/phone.jpg',
+              category: 'Phones',
+              brand: 'Acme',
+              variants: [
+                { sku: 'PHONE-BLACK', stock_quantity: 2 },
+                { sku: 'PHONE-WHITE', stock_quantity: 3 },
+              ],
+            },
+          ],
+        }),
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    const [firstProduct] = result.current.products;
+    if (!firstProduct) throw new Error('Expected a loaded product');
+    expect(result.current.getPublishBlockReason(firstProduct)).toBe(null);
+    act(() => result.current.toggleProduct('prod-1'));
+    expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
   });
 });

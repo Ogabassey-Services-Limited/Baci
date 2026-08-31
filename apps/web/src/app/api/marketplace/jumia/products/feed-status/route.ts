@@ -224,6 +224,22 @@ export async function POST(request: NextRequest) {
         else failed++;
       }
 
+      const unmatchedMappings = mappingsForFeed.filter(
+        (mapping) => !processedMappingIds.has(mapping.id)
+      );
+      if (
+        unmatchedMappings.length > 0 &&
+        (isAcceptedFeedStatus(feed.status) || isFailedFeedStatus(feed.status))
+      ) {
+        const marked = await jumiaFeedReconciliation.markMappingsAsFeedError(
+          auth.supabase,
+          merchantId,
+          unmatchedMappings,
+          'Jumia completed this product feed without returning this item; manual resolution is required'
+        );
+        failed += marked;
+      }
+
       const { error: cursorError } = await auth.supabase
         .from('jumia_product_mappings')
         .update({ last_synced_at: new Date().toISOString() })

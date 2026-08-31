@@ -393,9 +393,20 @@ describe('Jumia feed status route', () => {
 
     const response = await POST(request());
     expect(response.status).toBe(200);
-    expect((await response.json()).updated).toBe(0);
+    await expect(response.json()).resolves.toMatchObject({
+      updated: 0,
+      failed: 2,
+      pending: 0,
+    });
     expect(update).not.toHaveBeenCalledWith(
       expect.objectContaining({ sync_status: 'synced' })
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sync_status: 'error',
+        sync_error:
+          'Jumia completed this product feed without returning this item; manual resolution is required',
+      })
     );
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({ last_synced_at: expect.any(String) })

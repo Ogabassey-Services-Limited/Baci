@@ -26,9 +26,21 @@ vi.mock('@/lib/merchant-feature-gates', () => ({
 
 import { GET } from './route';
 
+type MappingRow = {
+  product_id: string | null;
+  jumia_sku: string | null;
+  sync_status: string | null;
+};
+
 function createSupabaseMock(
-  mappedPages: Array<Array<{ product_id: string | null }>> = [
-    [{ product_id: 'product-1' }],
+  mappedPages: MappingRow[][] = [
+    [
+      {
+        product_id: 'product-1',
+        jumia_sku: 'SKU-1',
+        sync_status: 'synced',
+      },
+    ],
   ],
   integrationResponse: {
     data: { shop_id: string; marketplace_key: string } | null;
@@ -77,10 +89,8 @@ function createSupabaseMock(
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
-                  neq: vi.fn().mockReturnValue({
-                    gt,
-                    order,
-                  }),
+                  gt,
+                  order,
                 }),
               }),
             }),
@@ -182,19 +192,29 @@ describe('Jumia mapped product ids GET', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      productIds: ['product-1'],
+      mappings: [
+        { productId: 'product-1', sellerSku: 'SKU-1', syncStatus: 'synced' },
+      ],
     });
   });
 
   it('loads mapped product ids across response pages', async () => {
     const firstPage = Array.from({ length: 500 }, (_, index) => ({
       product_id: `product-${index}`,
+      jumia_sku: `SKU-${index}`,
+      sync_status: 'synced',
     }));
     mocks.authenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1' },
       supabase: createSupabaseMock([
         firstPage,
-        [{ product_id: 'product-500' }],
+        [
+          {
+            product_id: 'product-500',
+            jumia_sku: 'SKU-500',
+            sync_status: 'synced',
+          },
+        ],
       ]),
     });
 
@@ -206,7 +226,51 @@ describe('Jumia mapped product ids GET', () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
-      productIds: [...firstPage.map((row) => row.product_id), 'product-500'],
+      mappings: [
+        ...firstPage.map((row) => ({
+          productId: row.product_id,
+          sellerSku: row.jumia_sku,
+          syncStatus: row.sync_status,
+        })),
+        {
+          productId: 'product-500',
+          sellerSku: 'SKU-500',
+          syncStatus: 'synced',
+        },
+      ],
     });
+  });
+
+  it('returns error mappings so failed variants remain retryable', async () => {
+    mocks.authenticateApiRequest.mockResolvedValueOnce({
+      user: { id: 'user-1' },
+      supabase: createSupabaseMock([
+        [
+          {
+            product_id: 'product-1',
+            jumia_sku: 'SKU-1',
+            sync_status: 'synced',
+          },
+          {
+            product_id: 'product-1',
+            jumia_sku: 'SKU-2',
+            sync_status: 'error',
+          },
+        ],
+      ]),
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/marketplace/jumia/products/mapped-product-ids?integrationId=00000000-0000-4000-8000-000000000099'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.mappings).toEqual([
+      { productId: 'product-1', sellerSku: 'SKU-1', syncStatus: 'synced' },
+      { productId: 'product-1', sellerSku: 'SKU-2', syncStatus: 'error' },
+    ]);
   });
 });

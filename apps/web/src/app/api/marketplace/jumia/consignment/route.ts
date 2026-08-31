@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
     }
 
     const access = toUserAccess(merchantContext);
-    if (!hasPermission(access, 'integrations', 'view')) {
+    if (!hasPermission(access, 'integrations', 'manage')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

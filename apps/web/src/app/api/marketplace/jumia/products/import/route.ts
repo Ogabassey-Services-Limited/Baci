@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
   authenticateApiRequest,
-  getMerchantIdForApiUser,
+  getUserAccess,
+  hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
@@ -53,12 +54,17 @@ export async function POST(req: NextRequest) {
     }
     const { integrationId, merchantId: requestedMerchantId } = parsed.data;
 
-    const merchantId = await getMerchantIdForApiUser(auth.supabase);
-    if (!merchantId) {
+    const access = await getUserAccess(auth.supabase);
+    if (!access) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
       );
+    }
+    const merchantId = access.merchantId;
+
+    if (!hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     if (requestedMerchantId && requestedMerchantId !== merchantId) {

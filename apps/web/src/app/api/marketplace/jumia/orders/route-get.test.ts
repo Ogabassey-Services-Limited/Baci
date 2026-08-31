@@ -89,10 +89,12 @@ describe('Jumia orders GET', () => {
 
     const orderQuery = {
       eq: vi.fn(),
+      in: vi.fn(),
       order: vi.fn(),
       range: vi.fn(),
     };
     orderQuery.eq.mockReturnValue(orderQuery);
+    orderQuery.in.mockReturnValue(orderQuery);
     orderQuery.order.mockReturnValue(orderQuery);
     orderQuery.range.mockReturnValue(orderQuery);
 
@@ -121,6 +123,9 @@ describe('Jumia orders GET', () => {
       'jumia_shop_id',
       'jumia-shop-123'
     );
-    expect(orderQuery.eq).toHaveBeenCalledWith('marketplace_key', 'NG-main');
+    expect(orderQuery.in).toHaveBeenCalledWith('marketplace_key', [
+      'NG-main',
+      'default',
+    ]);
   });
 });
