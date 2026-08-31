@@ -48,7 +48,7 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
     expect(selected.map((row) => row.id)).toEqual(['enabled-first']);
   });
 
-  it('keeps same-country business clients as separate sync scopes', () => {
+  it('deduplicates same-grant business clients the Orders API cannot scope', () => {
     const selected = selectJumiaOrderSyncIntegrations([
       {
         id: 'retail',
@@ -56,6 +56,7 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
         shop_id: 'shop-1',
         country_code: 'NG',
         marketplace_key: 'NG-RETAIL',
+        jumia_authorization_id: 'authorization-1',
         last_sync_at: null,
         sync_config: { orders: true },
       },
@@ -65,12 +66,13 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
         shop_id: 'shop-1',
         country_code: 'NG',
         marketplace_key: 'NG-EXPRESS',
+        jumia_authorization_id: 'authorization-1',
         last_sync_at: null,
         sync_config: { orders: true },
       },
     ]);
 
-    expect(selected.map((row) => row.id)).toEqual(['retail', 'express']);
+    expect(selected.map((row) => row.id)).toEqual(['retail']);
   });
 
   it('keeps integrations backed by distinct self-authorization grants separate', () => {

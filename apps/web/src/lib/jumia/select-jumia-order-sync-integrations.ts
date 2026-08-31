@@ -13,13 +13,16 @@ export function buildJumiaOrderSyncScope(
     | 'jumia_authorization_id'
   >
 ): string {
-  const marketplaceKey = integration.marketplace_key?.trim() || 'default';
   const authorizationId = integration.jumia_authorization_id?.trim() || 'oauth';
-  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}:${marketplaceKey}:${authorizationId}`;
+  // Jumia's Orders endpoint can filter by shop and country, but has no
+  // business-client parameter. Integrations sharing the same authorization
+  // grant therefore receive the same provider order set; run one sync for
+  // that provider scope rather than fetching and processing it repeatedly.
+  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}:${authorizationId}`;
 }
 
 /**
- * Pick one order-sync-enabled integration per merchant+shop+country+marketplace scope.
+ * Pick one order-sync-enabled integration per merchant+shop+country+grant scope.
  * Disabled siblings must not claim the scope ahead of an enabled row.
  */
 export function selectJumiaOrderSyncIntegrations(

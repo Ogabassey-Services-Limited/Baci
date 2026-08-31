@@ -14,6 +14,25 @@ import { markAmbiguousJumiaExport } from './mark-ambiguous-jumia-export';
 const JUMIA_EXPORT_REJECTION_MESSAGE =
   'Jumia product export was rejected by the marketplace. Review the product details and try again.';
 
+async function releaseUnscopedReservation(args: {
+  supabase: SupabaseClient;
+  merchantId: string;
+  productId: string;
+  shopId: string;
+  marketplaceKey: string;
+  exportVariations: ExportVariation[];
+}) {
+  const released = await releaseJumiaExportReservation(args.supabase, args);
+  if (!released) {
+    logger.error({
+      message:
+        'Failed to release Jumia export reservation for an unscoped marketplace',
+      merchant_id: args.merchantId,
+      product_id: args.productId,
+    });
+  }
+}
+
 export async function submitJumiaExportFeed(args: {
   jumia: JumiaClient;
   supabase: SupabaseClient;
@@ -42,38 +61,65 @@ export async function submitJumiaExportFeed(args: {
   } = args;
 
   // The product-creation feed accepts a shopId but does not expose the
-  // businessClients selector supported by price/status feeds. Never submit a
-  // selected multi-marketplace integration without a provider-supported
-  // scope, because Jumia could create the listing in the wrong marketplace.
-  const normalizedMarketplaceKey = marketplaceKey.trim();
+  // businessClients selector supported by price/status feeds. A single active
+  // marketplace is therefore safe (the shop has no other destination), while
+  // a shared shop must fail closed rather than creating a listing elsewhere.
+  const normalizedMarketplaceKey =
+    typeof marketplaceKey === 'string' ? marketplaceKey.trim() : '';
   const hasUnrepresentableMarketplaceScope =
     normalizedMarketplaceKey !== '' &&
     normalizedMarketplaceKey !== 'default' &&
     normalizedMarketplaceKey !== 'oauth';
   if (hasUnrepresentableMarketplaceScope) {
-    const released = await releaseJumiaExportReservation(supabase, {
-      merchantId,
-      productId,
-      shopId,
-      marketplaceKey,
-      exportVariations,
-    });
-    if (!released) {
+    const { data: activeIntegrations, error: scopeError } = await supabase
+      .from('marketplace_integrations')
+      .select('id')
+      .eq('merchant_id', merchantId)
+      .eq('platform', 'jumia')
+      .eq('shop_id', shopId)
+      .eq('is_active', true);
+    if (scopeError) {
       logger.error({
-        message:
-          'Failed to release Jumia export reservation for an unscoped marketplace',
-        merchant_id: merchantId,
-        product_id: productId,
+        message: 'Failed to verify Jumia product-feed marketplace scope',
+        error: scopeError,
       });
+      await releaseUnscopedReservation({
+        supabase,
+        merchantId,
+        productId,
+        shopId,
+        marketplaceKey,
+        exportVariations,
+      });
+      return {
+        ok: false,
+        status: 500,
+        body: {
+          error: 'Unable to verify the selected Jumia marketplace. Try again.',
+        },
+      };
     }
-    return {
-      ok: false,
-      status: 400,
-      body: {
-        error:
-          'Jumia product creation cannot target a selected marketplace because the provider create-feed contract has no business-client selector. Use a single-marketplace integration or wait for provider support.',
-      },
-    };
+    if ((activeIntegrations ?? []).length === 1) {
+      // This shop has one active destination, so shopId identifies it
+      // unambiguously despite the create-feed API lacking a selector.
+    } else {
+      await releaseUnscopedReservation({
+        supabase,
+        merchantId,
+        productId,
+        shopId,
+        marketplaceKey,
+        exportVariations,
+      });
+      return {
+        ok: false,
+        status: 400,
+        body: {
+          error:
+            'Jumia product creation cannot target a selected marketplace because the provider create-feed contract has no business-client selector. Use a single-marketplace integration or wait for provider support.',
+        },
+      };
+    }
   }
 
   let feedId: string;
