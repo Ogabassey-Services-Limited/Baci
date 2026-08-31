@@ -10,6 +10,9 @@ const ciWorkflow = readFileSync(
 const migrations = readdirSync(migrationsDirectory).sort();
 const readMigration = (file: string) =>
   readFileSync(resolve(migrationsDirectory, file), 'utf8');
+const liveScorePublicationGateSql = readMigration(
+  '20260830193440_quiz_instant_live_publication_score_gate_v2.sql'
+);
 const scorePublicationGateSql = readMigration(
   '20260830193441_quiz_instant_test_publication_score_gate_v2.sql'
 );
@@ -47,6 +50,26 @@ const runtimeGateStaleHealthSql = readMigration(
 );
 
 describe('quiz deadline review repairs', () => {
+  it('blocks live publication before the first score repair can run', () => {
+    const earlyGate =
+      '20260830193440_quiz_instant_live_publication_score_gate_v2.sql';
+    const firstRepair =
+      '20260830193442_quiz_instant_deadline_publication_v2.sql';
+    expect(liveScorePublicationGateSql).toMatch(
+      /BEFORE UPDATE OF results_published_at ON public\.quiz_events/i
+    );
+    expect(liveScorePublicationGateSql).toMatch(
+      /NEW\.mode <> 'live'[\s\S]*?quiz_live_score_publication_not_ready/i
+    );
+    expect(liveScorePublicationGateSql).toMatch(
+      /ALTER TABLE private\.quiz_test_publication_control_v2[\s\S]*?ENABLE ROW LEVEL SECURITY/i
+    );
+    expect(liveScorePublicationGateSql).not.toMatch(/CREATE POLICY/i);
+    expect(migrations.indexOf(earlyGate)).toBeLessThan(
+      migrations.indexOf(firstRepair)
+    );
+  });
+
   it('keeps test publication closed until serialized score repair completes', () => {
     const indexOfMigration = (file: string) => {
       const index = migrations.indexOf(file);
@@ -191,6 +214,7 @@ describe('quiz deadline review repairs', () => {
 
   it('runs every deadline repair SQL proof in chronological replay CI', () => {
     for (const file of [
+      'quiz_live_score_publication_gate_v2.sql',
       'quiz_instant_retry_pending_health_v2.sql',
       'quiz_results_wakeup_player_access_v2.sql',
       'quiz_test_publication_control_rls_v2.sql',

@@ -1,6 +1,12 @@
 BEGIN;
 
 SET LOCAL session_replication_role = replica;
+INSERT INTO public.customers(id, merchant_id, email, username)
+VALUES (
+  '78000000-0000-4000-8000-000000000004',
+  '78000000-0000-4000-8000-000000000002',
+  'cascade-score-proof@example.test', 'cascadeproof'
+);
 INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
   mode, contract_version, rules_version, question_count,
