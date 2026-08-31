@@ -61,7 +61,7 @@ export function BlogRelatedProducts({
             <li key={product.id}>
               <HoverPrefetchLink
                 href={href as Route}
-                className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                className="block rounded-xl border border-border px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
               >
                 <span className="flex items-center justify-between gap-3">
                   <span>{product.name}</span>

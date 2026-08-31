@@ -22,6 +22,7 @@ const {
   mockCreateQuizRpcServerProof,
   mockRevalidateProducts,
   mockRevalidateProductSlugs,
+  mockScheduleOrderProductBlogPurge,
 } = vi.hoisted(() => ({
   MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
     code = 'quiz_production_not_approved' as const;
@@ -86,11 +87,16 @@ const {
   ),
   mockRevalidateProducts: vi.fn(),
   mockRevalidateProductSlugs: vi.fn(),
+  mockScheduleOrderProductBlogPurge: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: mockRevalidateProducts,
   revalidateProductSlugs: mockRevalidateProductSlugs,
+}));
+
+vi.mock('@/lib/schedule-order-product-blog-purge', () => ({
+  scheduleOrderProductBlogPurge: mockScheduleOrderProductBlogPurge,
 }));
 
 vi.mock('@/lib/paystack', () => ({
@@ -3183,6 +3189,13 @@ describe('POST /api/orders — product cache revalidation after order creation',
 
     expect(response.status).toBe(201);
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        merchantSlug: 'test-merchant',
+        productIds: ['p-1'],
+      })
+    );
   });
 
   it('resolves the touched product slugs and revalidates their per-slug PDP caches', async () => {

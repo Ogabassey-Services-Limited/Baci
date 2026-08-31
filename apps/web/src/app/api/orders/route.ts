@@ -80,6 +80,7 @@ import {
 } from '@/lib/receipt-pdf-generator';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { scheduleOrderProductBlogPurge } from '@/lib/schedule-order-product-blog-purge';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   getMerchantShippingRates,
@@ -3025,6 +3026,13 @@ export async function POST(request: NextRequest) {
               revalidateProductRows.map((row) => row.slug)
             );
           }
+
+          await scheduleOrderProductBlogPurge({
+            merchantId: merchant_id,
+            merchantSlug: merchant.slug,
+            productIds: revalidateProductIds,
+            supabase,
+          });
         }
       } catch (revalidateError) {
         logger.error({
