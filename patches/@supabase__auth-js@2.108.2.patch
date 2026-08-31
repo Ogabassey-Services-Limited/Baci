@@ -1,5 +1,5 @@
 diff --git a/dist/main/GoTrueClient.d.ts b/dist/main/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..235c496d247bc2fc02dd9379a66057e45a90c9f9 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..e6f7a4d2bae8ad040660ab08bc9625994bd5a186 100644
 --- a/dist/main/GoTrueClient.d.ts
 +++ b/dist/main/GoTrueClient.d.ts
 @@ -1936,9 +1936,11 @@ export default class GoTrueClient {
@@ -15,7 +15,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..235c496d247bc2fc02dd9379a66057e4
      /**
       * Gets the session data from a URL string
 diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
-index 9af56f25432ca2cf0761049df156cf763ae77a48..d946c6ab21172571bf672ee46000b7662e86fc05 100644
+index 9af56f25432ca2cf0761049df156cf763ae77a48..6a60fdacd5cb979418baa208d7632c1e34e3836f 100644
 --- a/dist/main/GoTrueClient.js
 +++ b/dist/main/GoTrueClient.js
 @@ -3132,15 +3132,23 @@ class GoTrueClient {
@@ -48,15 +48,25 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..d946c6ab21172571bf672ee46000b766
                  if (!(currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token)) {
                      throw new errors_1.AuthSessionMissingError();
                  }
-@@ -3916,6 +3924,7 @@ class GoTrueClient {
+@@ -3893,7 +3901,7 @@ class GoTrueClient {
+      * Generates a new JWT.
+      * @param refreshToken A valid refresh token that was returned on login.
+      */
+-    async _refreshAccessToken(refreshToken) {
++    async _refreshAccessToken(refreshToken, allowRetry = true) {
+         // Refresh tokens are long-lived bearer credentials; do NOT include any
+         // fragment of the token in the debug tag, even when `debug: true` is
+         // enabled (logs may be forwarded to third-party services).
+@@ -3916,6 +3924,8 @@ class GoTrueClient {
                  const nextBackOffInterval = 200 * Math.pow(2, attempt);
                  return (error &&
                      (0, errors_1.isAuthRetryableFetchError)(error) &&
++                    allowRetry &&
 +                    error.status !== 408 &&
                      // retryable only if the request can be sent before the backoff overflows the tick duration
                      Date.now() + nextBackOffInterval - startedAt < constants_1.AUTO_REFRESH_TICK_DURATION_MS);
              });
-@@ -4054,7 +4063,7 @@ class GoTrueClient {
+@@ -4054,7 +4064,7 @@ class GoTrueClient {
              this._debug(debugName, 'end');
          }
      }
@@ -65,10 +75,11 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..d946c6ab21172571bf672ee46000b766
          var _a, _b;
          if (!refreshToken) {
              throw new errors_1.AuthSessionMissingError();
-@@ -4098,6 +4107,14 @@ class GoTrueClient {
+@@ -4098,7 +4108,15 @@ class GoTrueClient {
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
              const storedAtStart = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
+-            const { data, error } = await this._refreshAccessToken(refreshToken);
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
 +                    data: null,
@@ -77,11 +88,12 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..d946c6ab21172571bf672ee46000b766
 +                this.refreshingDeferred.resolve(discarded);
 +                return discarded;
 +            }
-             const { data, error } = await this._refreshAccessToken(refreshToken);
++            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch);
              if (error)
                  throw error;
+             if (!data.session)
 diff --git a/dist/main/lib/fetch.js b/dist/main/lib/fetch.js
-index 96c52a133ff2a0608e8afeb8b063625484ed926a..f8a9d6e13e3037373945a6f956c01480e8f76945 100644
+index 96c52a133ff2a0608e8afeb8b063625484ed926a..91d77386191d28fe0758178b9e361d9a40631bb6 100644
 --- a/dist/main/lib/fetch.js
 +++ b/dist/main/lib/fetch.js
 @@ -37,7 +37,7 @@ async function handleError(error) {
@@ -94,7 +106,7 @@ index 96c52a133ff2a0608e8afeb8b063625484ed926a..f8a9d6e13e3037373945a6f956c01480
          throw new errors_1.AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/dist/module/GoTrueClient.d.ts b/dist/module/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..235c496d247bc2fc02dd9379a66057e45a90c9f9 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..e6f7a4d2bae8ad040660ab08bc9625994bd5a186 100644
 --- a/dist/module/GoTrueClient.d.ts
 +++ b/dist/module/GoTrueClient.d.ts
 @@ -1936,9 +1936,11 @@ export default class GoTrueClient {
@@ -110,7 +122,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..235c496d247bc2fc02dd9379a66057e4
      /**
       * Gets the session data from a URL string
 diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
-index 2ec11102fe38c88918cc7abc0d0e2f100938759a..6c2d1fd24d2480087a5516414639c207ce869db5 100644
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..a659bbdc11f0c8abb8526dd2ad42859bcc77e1ce 100644
 --- a/dist/module/GoTrueClient.js
 +++ b/dist/module/GoTrueClient.js
 @@ -3129,15 +3129,23 @@ class GoTrueClient {
@@ -143,15 +155,25 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..6c2d1fd24d2480087a5516414639c207
                  if (!(currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token)) {
                      throw new AuthSessionMissingError();
                  }
-@@ -3913,6 +3921,7 @@ class GoTrueClient {
+@@ -3890,7 +3898,7 @@ class GoTrueClient {
+      * Generates a new JWT.
+      * @param refreshToken A valid refresh token that was returned on login.
+      */
+-    async _refreshAccessToken(refreshToken) {
++    async _refreshAccessToken(refreshToken, allowRetry = true) {
+         // Refresh tokens are long-lived bearer credentials; do NOT include any
+         // fragment of the token in the debug tag, even when `debug: true` is
+         // enabled (logs may be forwarded to third-party services).
+@@ -3913,6 +3921,8 @@ class GoTrueClient {
                  const nextBackOffInterval = 200 * Math.pow(2, attempt);
                  return (error &&
                      isAuthRetryableFetchError(error) &&
++                    allowRetry &&
 +                    error.status !== 408 &&
                      // retryable only if the request can be sent before the backoff overflows the tick duration
                      Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS);
              });
-@@ -4051,7 +4060,7 @@ class GoTrueClient {
+@@ -4051,7 +4061,7 @@ class GoTrueClient {
              this._debug(debugName, 'end');
          }
      }
@@ -160,10 +182,11 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..6c2d1fd24d2480087a5516414639c207
          var _a, _b;
          if (!refreshToken) {
              throw new AuthSessionMissingError();
-@@ -4095,6 +4104,14 @@ class GoTrueClient {
+@@ -4095,7 +4105,15 @@ class GoTrueClient {
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
              const storedAtStart = (await getItemAsync(this.storage, this.storageKey));
+-            const { data, error } = await this._refreshAccessToken(refreshToken);
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
 +                    data: null,
@@ -172,11 +195,12 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..6c2d1fd24d2480087a5516414639c207
 +                this.refreshingDeferred.resolve(discarded);
 +                return discarded;
 +            }
-             const { data, error } = await this._refreshAccessToken(refreshToken);
++            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch);
              if (error)
                  throw error;
+             if (!data.session)
 diff --git a/dist/module/lib/fetch.js b/dist/module/lib/fetch.js
-index 1e0b329acbdd79509a646b3251c327e5156249b1..fc4eb68612124fe17ea672b5648914f4799f2bce 100644
+index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f842042e2f741 100644
 --- a/dist/module/lib/fetch.js
 +++ b/dist/module/lib/fetch.js
 @@ -27,7 +27,7 @@ export async function handleError(error) {
@@ -189,7 +213,7 @@ index 1e0b329acbdd79509a646b3251c327e5156249b1..fc4eb68612124fe17ea672b5648914f4
          throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
-index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..6dd3a8e6262f6105451d91bff5252702b7c5d276 100644
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f50a69cb87 100644
 --- a/src/GoTrueClient.ts
 +++ b/src/GoTrueClient.ts
 @@ -3689,7 +3689,10 @@ export default class GoTrueClient {
@@ -244,15 +268,28 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..6dd3a8e6262f6105451d91bff5252702
          if (!currentSession?.refresh_token) {
            throw new AuthSessionMissingError()
          }
-@@ -4651,6 +4668,7 @@ export default class GoTrueClient {
+@@ -4621,7 +4638,10 @@ export default class GoTrueClient {
+    * Generates a new JWT.
+    * @param refreshToken A valid refresh token that was returned on login.
+    */
+-  private async _refreshAccessToken(refreshToken: string): Promise<AuthResponse> {
++  private async _refreshAccessToken(
++    refreshToken: string,
++    allowRetry = true
++  ): Promise<AuthResponse> {
+     // Refresh tokens are long-lived bearer credentials; do NOT include any
+     // fragment of the token in the debug tag, even when `debug: true` is
+     // enabled (logs may be forwarded to third-party services).
+@@ -4651,6 +4671,8 @@ export default class GoTrueClient {
            return (
              error &&
              isAuthRetryableFetchError(error) &&
++            allowRetry &&
 +            error.status !== 408 &&
              // retryable only if the request can be sent before the backoff overflows the tick duration
              Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS
            )
-@@ -4830,7 +4848,10 @@ export default class GoTrueClient {
+@@ -4830,7 +4852,10 @@ export default class GoTrueClient {
      }
    }
 
@@ -264,10 +301,11 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..6dd3a8e6262f6105451d91bff5252702
      if (!refreshToken) {
        throw new AuthSessionMissingError()
      }
-@@ -4882,6 +4903,15 @@ export default class GoTrueClient {
+@@ -4882,7 +4907,19 @@ export default class GoTrueClient {
        // snapshots*, not when the input token disagrees with what's stored.
        const storedAtStart = (await getItemAsync(this.storage, this.storageKey)) as Session | null
 
+-      const { data, error } = await this._refreshAccessToken(refreshToken)
 +      if (requireStorageMatch && storedAtStart?.refresh_token !== refreshToken) {
 +        const discarded: CallRefreshTokenResult = {
 +          data: null,
@@ -277,9 +315,13 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..6dd3a8e6262f6105451d91bff5252702
 +        return discarded
 +      }
 +
-       const { data, error } = await this._refreshAccessToken(refreshToken)
++      const { data, error } = await this._refreshAccessToken(
++        refreshToken,
++        !requireStorageMatch
++      )
        if (error) throw error
        if (!data.session) throw new AuthSessionMissingError()
+
 diff --git a/src/lib/fetch.ts b/src/lib/fetch.ts
 index cdef4a8a5c0567eeafc69c2592f05952dd99c60e..deed48a3f13fb1508a72baa31a45afd15ede4b50 100644
 --- a/src/lib/fetch.ts
@@ -287,7 +329,7 @@ index cdef4a8a5c0567eeafc69c2592f05952dd99c60e..deed48a3f13fb1508a72baa31a45afd1
 @@ -81,7 +81,7 @@ export async function handleError(error: unknown) {
      throw new AuthRetryableFetchError(_getErrorMessage(error), 0)
    }
- 
+
 -  if (NETWORK_ERROR_CODES.includes(error.status)) {
 +  if (error.status === 408 || NETWORK_ERROR_CODES.includes(error.status)) {
      // status in 500...599 range - server had an error, request might be retryed.

@@ -269,4 +269,48 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(storage.setItem).not.toHaveBeenCalled();
     expect(storage.removeItem).not.toHaveBeenCalled();
   });
+
+  it.each([
+    [
+      'network rejection',
+      () => Promise.reject(new TypeError('Network failed')),
+    ],
+    [
+      '503 response',
+      () => Promise.resolve(new Response(null, { status: 503 })),
+    ],
+  ])('does not internally retry an explicit checkout refresh after %s', async (_label, response) => {
+    const storedSession = {
+      access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
+      expires_at: Math.floor(Date.now() / 1000) + 3_600,
+      refresh_token: 'stored-refresh-token',
+      token_type: 'bearer',
+      user: { id: 'user-a' },
+    } as Session;
+    const storage = {
+      getItem: jest.fn(async () => JSON.stringify(storedSession)),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>(response);
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: { autoRefreshToken: false, persistSession: true, storage },
+        global: { fetch: fetchImpl },
+      }
+    );
+
+    await expect(
+      client.auth.refreshSession({
+        refresh_token: 'stored-refresh-token',
+        require_storage_match: true,
+      })
+    ).resolves.toMatchObject({
+      data: { session: null },
+      error: expect.anything(),
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
