@@ -3,14 +3,16 @@ BEGIN;
 SET LOCAL session_replication_role = replica;
 INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
-  mode, contract_version, rules_version
+  mode, contract_version, rules_version, question_count,
+  time_per_question_seconds, maximum_play_seconds, live_window_seconds,
+  max_attempts, time_zone
 ) VALUES (
   '78000000-0000-4000-8000-000000000001',
   '78000000-0000-4000-8000-000000000002',
   'cascade-score-proof', 'Cascade score proof', 'active',
   pg_catalog.clock_timestamp() - interval '1 minute',
   pg_catalog.clock_timestamp() + interval '1 minute',
-  'test', 2, 'instant-v2'
+  'test', 2, 'instant-v2', 1, 5, 5, 360, 1, 'Africa/Lagos'
 );
 INSERT INTO public.quiz_attempts(
   id, event_id, customer_id, status, attempt_number, score,
