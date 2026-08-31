@@ -159,7 +159,7 @@ describe('storefront supabase client config', () => {
       })
     );
     const nativeAuthOptions = mockState.createClient.mock.calls[0]?.[2]?.auth;
-    expect(nativeAuthOptions).not.toHaveProperty('lock');
+    expect(nativeAuthOptions.lock).toBe(mockState.processLock);
     expect(mockState.registerAuthRefreshLifecycle).toHaveBeenCalledWith(
       mockState.createClient.mock.results[0]?.value.auth
     );

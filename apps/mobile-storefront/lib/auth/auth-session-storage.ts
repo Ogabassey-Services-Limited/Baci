@@ -149,6 +149,11 @@ async function readAuthStorageItem(key: string): Promise<string | null> {
 }
 
 async function captureRollbackBaseline(key: string): Promise<string | null> {
+  const logicalIntent = storageIntents.get(key);
+  if (logicalIntent) {
+    return logicalIntent.type === 'delete' ? null : logicalIntent.value;
+  }
+
   try {
     return await boundedStorageOperation(
       SecureStore.getItemAsync(key),
