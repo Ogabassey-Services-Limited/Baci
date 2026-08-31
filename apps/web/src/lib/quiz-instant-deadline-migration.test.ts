@@ -16,6 +16,20 @@ const lockOrderSql = readFileSync(
   ),
   'utf8'
 );
+const startTimeoutLockOrderSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830203950_quiz_instant_start_timeout_lock_order_v2.sql'
+  ),
+  'utf8'
+);
+const resumeTimeoutLockOrderSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830203960_quiz_instant_resume_timeout_lock_order_v2.sql'
+  ),
+  'utf8'
+);
 const retryFairnessSql = readFileSync(
   resolve(
     migrationsDirectory,
@@ -75,6 +89,23 @@ describe('instant quiz deadline publication migration', () => {
     expect(sql).toMatch(
       /LOCK TABLE public\.quiz_attempt_answers IN SHARE ROW EXCLUSIVE MODE[\s\S]*?UPDATE public\.quiz_attempts AS attempt[\s\S]*?SET score = corrected\.score/i
     );
+  });
+
+  it('orders every timeout answer writer before the one-time score repair', () => {
+    expect(startTimeoutLockOrderSql).toMatch(
+      /quiz_route_proof_valid[\s\S]*?LOCK TABLE public\.quiz_attempt_answers IN ROW EXCLUSIVE MODE[\s\S]*?SELECT event\.[\s\S]*?FOR UPDATE/i
+    );
+    expect(resumeTimeoutLockOrderSql).toMatch(
+      /quiz_auth_required[\s\S]*?LOCK TABLE public\.quiz_attempt_answers IN ROW EXCLUSIVE MODE[\s\S]*?FOR UPDATE/i
+    );
+    expect(
+      [lockOrderSql, startTimeoutLockOrderSql, resumeTimeoutLockOrderSql].every(
+        (source) =>
+          source.indexOf(
+            'LOCK TABLE public.quiz_attempt_answers IN ROW EXCLUSIVE MODE'
+          ) < source.indexOf('FOR UPDATE')
+      )
+    ).toBe(true);
   });
 
   it('claims due deadlines inside Postgres and keeps the worker as a fallback', () => {

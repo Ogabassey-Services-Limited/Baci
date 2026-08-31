@@ -22,6 +22,8 @@ describe('supabase history replay expense pending sources', () => {
       '20260830193442_quiz_instant_deadline_publication_v2.sql',
       '20260830193732_quiz_instant_results_wakeup_v2.sql',
       '20260830203900_quiz_instant_answer_submission_lock_order_v2.sql',
+      '20260830203950_quiz_instant_start_timeout_lock_order_v2.sql',
+      '20260830203960_quiz_instant_resume_timeout_lock_order_v2.sql',
       '20260830204000_quiz_instant_score_serialization_repair_v2.sql',
       '20260830204100_quiz_instant_live_terminalization_hardening_v2.sql',
       '20260830204200_quiz_instant_live_publication_hardening_v2.sql',

@@ -116,6 +116,16 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260830203950_quiz_instant_start_timeout_lock_order_v2.sql',
+    sha256: '6fb1ca717f210b035c5299a41c594c968e788508291ebac35719d889f7bd0c73',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260830203960_quiz_instant_resume_timeout_lock_order_v2.sql',
+    sha256: 'cabc9e5522f2cada7ee9811e2a1a2aa089de8f9b7101d995c7f8f9103e0ba049',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260830204000_quiz_instant_score_serialization_repair_v2.sql',
     sha256: 'eb0462e03db8070a4d767d12c9ee8767d8d4613de3e1cf7148378b3f077e59e7',
   },
