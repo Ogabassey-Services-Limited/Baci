@@ -33,9 +33,22 @@ function scanMarkdownReferenceDefinitions(
   content: string
 ): MarkdownReferenceDefinition[] {
   const definitions: MarkdownReferenceDefinition[] = [];
-  const definitionStartPattern = /^\s{0,3}\[/gmu;
+  const recognizedDefinitionLineStarts = new Set<number>();
+  const definitionStartPattern = /^[ \t]{0,3}\[/gmu;
   for (const match of content.matchAll(definitionStartPattern)) {
-    const openingBracket = (match.index ?? 0) + match[0].length - 1;
+    const lineStart = match.index ?? 0;
+    if (lineStart > 0) {
+      const previousLineEnd = lineStart - 1;
+      const previousLineStart =
+        content.lastIndexOf('\n', previousLineEnd - 1) + 1;
+      const previousLine = content.slice(previousLineStart, previousLineEnd);
+      if (
+        previousLine.trim().length > 0 &&
+        !recognizedDefinitionLineStarts.has(previousLineStart)
+      )
+        continue;
+    }
+    const openingBracket = lineStart + match[0].length - 1;
     const lineEnd = content.indexOf('\n', openingBracket + 1);
     const boundary = lineEnd === -1 ? content.length : lineEnd;
     const closingBracket = findBracketClose(
@@ -67,11 +80,13 @@ function scanMarkdownReferenceDefinitions(
           continuationBoundary
         );
     }
-    if (destination)
+    if (destination) {
       definitions.push({
         destination,
         label: content.slice(openingBracket + 1, closingBracket),
       });
+      recognizedDefinitionLineStarts.add(lineStart);
+    }
   }
   return definitions;
 }
@@ -121,7 +136,11 @@ function normalizeMarkdownReferenceLabel(label: string): string {
 
 function isEscaped(content: string, index: number): boolean {
   let backslashCount = 0;
-  for (let cursor = index - 1; cursor >= 0 && content[cursor] === '\\'; cursor -= 1)
+  for (
+    let cursor = index - 1;
+    cursor >= 0 && content[cursor] === '\\';
+    cursor -= 1
+  )
     backslashCount += 1;
   return backslashCount % 2 === 1;
 }

@@ -84,6 +84,14 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('does not treat a reference definition inside the preceding paragraph as an image', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '![diagram][ref]\n[ref]: https://cdn.example.test/a.png'
+      )
+    ).toBe(false);
+  });
+
   it('decodes structural named entities before validating destinations', () => {
     expect(hasUnstableMarkdownContent('[admin](/foo&sol;..&sol;admin)')).toBe(
       true

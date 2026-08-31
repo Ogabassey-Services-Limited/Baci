@@ -49,6 +49,14 @@ describe('public projection SEO integrity', () => {
           { indexable: true, path: '/pages/rewards', title: 'Rewards' },
         ],
       }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [
+          { indexable: false, path: '/pages/rewards', title: 'Rewards' },
+        ],
+      }).success
     ).toBe(true);
     expect(
       StorefrontPublicProjectionPayloadSchema.safeParse({
@@ -239,6 +247,24 @@ describe('public projection SEO integrity', () => {
           },
         ],
         products: compareProducts,
+        seoEntries: [{ indexable: true, path: '/compare', title: 'Compare' }],
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: categoryId,
+            name: 'Phones',
+            slug: 'phones',
+            status: 'active',
+          },
+        ],
+        products: compareProducts.map((compareProduct) => ({
+          ...compareProduct,
+          available: false,
+        })),
         seoEntries: [{ indexable: true, path: '/compare', title: 'Compare' }],
       }).success
     ).toBe(true);

@@ -48,6 +48,12 @@ describe('maskMarkdownCode', () => {
     expect(masked.split('\n')[2]).toBe(' '.repeat(codeLine.length));
   });
 
+  it('masks indented code inside blockquotes', () => {
+    const markdown = '>     [request](https://example.test/export?token=value)';
+
+    expect(maskMarkdownCode(markdown)).toBe(' '.repeat(markdown.length));
+  });
+
   it('does not mask an image after an inline delimiter with a mismatched run', () => {
     const markdown = '` ![x](https://cdn.example.test/a.png) ``';
 

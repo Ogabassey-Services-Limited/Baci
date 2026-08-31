@@ -16,7 +16,7 @@ interface SeoCategory {
 
 const BRAND_AUTHORITY_RULES = [
   { aliases: ['samsung'], key: 'samsung', minimumProducts: 5 },
-  { aliases: ['google', 'google-pixel'], key: 'google', minimumProducts: 5 },
+  { aliases: ['google'], key: 'google', minimumProducts: 5 },
   { aliases: ['infinix'], key: 'infinix', minimumProducts: 5 },
   { aliases: ['tecno'], key: 'tecno', minimumProducts: 5 },
   { aliases: ['itel'], key: 'itel', minimumProducts: 5 },
@@ -67,15 +67,15 @@ function toRouteSlug(value: string): string {
 
 function getCategoryProducts(
   categoryId: string,
-  products: readonly SeoProduct[]
+  products: readonly SeoProduct[],
+  options: { requireAvailability?: boolean } = {}
 ) {
-  return products.filter(
-    (product) =>
-      product.available &&
-      [
-        ...(product.categoryIds ?? []),
-        ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-      ].includes(categoryId)
+  return products.filter((product) =>
+    (!options.requireAvailability || product.available) &&
+    [
+      ...(product.categoryIds ?? []),
+      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+    ].includes(categoryId)
   );
 }
 
@@ -95,8 +95,9 @@ function parseCompareKey(key: string): string | null {
   try {
     return new TextDecoder().decode(
       new Uint8Array(
-        encodedBytes.match(/.{2}/gu)?.map((pair) => Number.parseInt(pair, 16)) ??
-          []
+        encodedBytes
+          .match(/.{2}/gu)
+          ?.map((pair) => Number.parseInt(pair, 16)) ?? []
       )
     );
   } catch {
@@ -104,14 +105,32 @@ function parseCompareKey(key: string): string | null {
   }
 }
 
-function parseCompareSlug(slug: string):
-  | Readonly<{ left: string; right: string }>
-  | null {
+function encodeCompareKey(key: string): string {
+  if (
+    !key.includes(COMPARE_DELIMITER) &&
+    !key.startsWith(COMPARE_ESCAPE_PREFIX)
+  )
+    return key;
+  const bytes = new TextEncoder().encode(key);
+  return `${COMPARE_ESCAPE_PREFIX}${Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('')}`;
+}
+
+function buildCanonicalCompareSlug(left: string, right: string): string {
+  return [left, right].sort().map(encodeCompareKey).join(COMPARE_DELIMITER);
+}
+
+function parseCompareSlug(
+  slug: string
+): Readonly<{ canonicalSlug: string; left: string; right: string }> | null {
   const [leftPart, rightPart, ...rest] = slug.split(COMPARE_DELIMITER);
   if (!leftPart || !rightPart || rest.length > 0) return null;
   const left = parseCompareKey(leftPart);
   const right = parseCompareKey(rightPart);
-  return left && right ? { left, right } : null;
+  return left && right
+    ? { canonicalSlug: buildCanonicalCompareSlug(left, right), left, right }
+    : null;
 }
 
 function hasEligibleBrand(
@@ -125,7 +144,9 @@ function hasEligibleBrand(
   const rule = getBrandRule(brandSlug);
   if (!category || !rule) return false;
   return (
-    getCategoryProducts(category.id, products).filter((product) =>
+    getCategoryProducts(category.id, products, {
+      requireAvailability: true,
+    }).filter((product) =>
       rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
     ).length >= rule.minimumProducts
   );
@@ -144,8 +165,7 @@ function hasEligiblePriceBand(
   if (!category || !rule) return false;
 
   const bandProducts = getCategoryProducts(category.id, products).filter(
-    (product) =>
-      product.priceMinor <= rule.ceiling * MINOR_UNITS_PER_MAJOR_UNIT
+    (product) => product.priceMinor <= rule.ceiling * MINOR_UNITS_PER_MAJOR_UNIT
   );
   const brandKeys = new Set(
     bandProducts
@@ -209,7 +229,9 @@ export function hasEligibleCommercialSupportPath(
     )
       return false;
     return (
-      getCategoryProducts(category.id, products).filter(
+      getCategoryProducts(category.id, products, {
+        requireAvailability: true,
+      }).filter(
         (product) =>
           getBrandRule(brandSlug)?.aliases.some(
             (alias) => alias === toRouteSlug(product.brand ?? '')
@@ -229,7 +251,14 @@ export function hasEligibleCommercialSupportPath(
   const parsedCompare = parseCompareSlug(segments[2] ?? '');
   const left = parsedCompare?.left;
   const right = parsedCompare?.right;
-  if (!category || !left || !right || left === right) return false;
+  if (
+    !category ||
+    !left ||
+    !right ||
+    left === right ||
+    parsedCompare?.canonicalSlug !== segments[2]
+  )
+    return false;
   const categoryProducts = getCategoryProducts(category.id, products);
   const productSlugs = new Set(categoryProducts.map((product) => product.slug));
   if (productSlugs.has(left) && productSlugs.has(right)) {

@@ -96,10 +96,26 @@ describe('hasUnstableBlogContentMedia', () => {
     ).toBe(true);
   });
 
+  it('fails closed for malformed TipTap mark records', () => {
+    for (const marks of [
+      [null],
+      [{ type: '' }],
+      [{ attrs: [], type: 'link' }],
+      'link',
+    ])
+      expect(
+        hasUnstableBlogContentMedia(
+          JSON.stringify({ marks, text: 'Marked', type: 'text' })
+        )
+      ).toBe(true);
+  });
+
   it('fails closed when TipTap node count exceeds the release bound', () => {
     const nodes = Array.from({ length: 10_001 }, () => ({ type: 'text' }));
     expect(
-      hasUnstableBlogContentMedia(JSON.stringify({ content: nodes, type: 'doc' }))
+      hasUnstableBlogContentMedia(
+        JSON.stringify({ content: nodes, type: 'doc' })
+      )
     ).toBe(true);
   });
 

@@ -4,9 +4,9 @@ import { StorefrontPublicProductSelectionFieldsSchema } from './public-projectio
 describe('StorefrontPublicProductSelectionFieldsSchema', () => {
   it('preserves parent selection metadata for incomplete variant rows', () => {
     const fields = {
-      attributeAxes: ['Platform', 'storage'],
+      attributeAxes: ['platform', 'storage'],
       storageOptions: ['128GB', '256GB'],
-      variantAttributes: { Platform: ['Android', 'iOS'], storage: ['256GB'] },
+      variantAttributes: { platform: ['Android', 'iOS'], storage: ['256GB'] },
     } as const;
 
     expect(StorefrontPublicProductSelectionFieldsSchema.parse(fields)).toEqual(
@@ -23,6 +23,32 @@ describe('StorefrontPublicProductSelectionFieldsSchema', () => {
     expect(
       StorefrontPublicProductSelectionFieldsSchema.safeParse({
         storageOptions: Array.from({ length: 65 }, (_, index) => `${index}`),
+      }).success
+    ).toBe(false);
+  });
+
+  it('canonicalizes parent axes and rejects reserved or colliding names', () => {
+    const parsed = StorefrontPublicProductSelectionFieldsSchema.parse({
+      attributeAxes: ['Storage-size', 'Color'],
+      variantAttributes: {
+        Color: ['Red'],
+        'storage-size': ['128GB'],
+      },
+    });
+
+    expect(parsed.attributeAxes).toEqual(['storage_size', 'color']);
+    expect(parsed.variantAttributes).toEqual({
+      color: ['Red'],
+      storage_size: ['128GB'],
+    });
+    expect(
+      StorefrontPublicProductSelectionFieldsSchema.safeParse({
+        attributeAxes: ['Color', 'color'],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProductSelectionFieldsSchema.safeParse({
+        variantAttributes: { condition: ['new'] },
       }).success
     ).toBe(false);
   });

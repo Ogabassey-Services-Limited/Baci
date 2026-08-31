@@ -26,7 +26,7 @@ describe('StorefrontPublicProductSchema fidelity', () => {
         storage_gb: 256,
         recommended_for: ['gaming', 'photography'],
       },
-      attributeAxes: ['Platform', 'storage'],
+      attributeAxes: ['platform', 'storage'],
       storageOptions: ['128GB', '256GB'],
       sku: 'SKU-001',
       specifications: [
@@ -35,7 +35,7 @@ describe('StorefrontPublicProductSchema fidelity', () => {
           items: [{ label: 'Size', value: '6.7 inches' }],
         },
       ],
-      variantAttributes: { Platform: ['Android', 'iOS'], storage: ['256GB'] },
+      variantAttributes: { platform: ['Android', 'iOS'], storage: ['256GB'] },
     };
 
     expect(StorefrontPublicProductSchema.parse(value)).toEqual(value);

@@ -37,6 +37,16 @@ describe('hasEligibleCommercialSupportPath', () => {
     ).toBe(true);
   });
 
+  it('requires in-stock projected products for brand routes', () => {
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/samsung',
+        new Map([[category.slug, category]]),
+        products.map((product) => ({ ...product, available: false }))
+      )
+    ).toBe(false);
+  });
+
   it('accepts a comparison only when both projected products resolve', () => {
     expect(
       hasEligibleCommercialSupportPath(
@@ -52,6 +62,13 @@ describe('hasEligibleCommercialSupportPath', () => {
         products
       )
     ).toBe(false);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
+        new Map([[category.slug, category]]),
+        products.map((product) => ({ ...product, available: false }))
+      )
+    ).toBe(true);
   });
 
   it('accepts curated price bands only with enough affordable products and brands', () => {
@@ -77,6 +94,13 @@ describe('hasEligibleCommercialSupportPath', () => {
         priceBandProducts.slice(0, 5)
       )
     ).toBe(false);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        priceBandProducts.map((product) => ({ ...product, available: false }))
+      )
+    ).toBe(true);
   });
 
   it('compares curated price bands in minor units', () => {
@@ -125,6 +149,36 @@ describe('hasEligibleCommercialSupportPath', () => {
         [...xiaomiProducts, ...xiaomiProducts]
       )
     ).toBe(true);
+
+    const googlePixelProducts = products.map((product) => ({
+      ...product,
+      brand: 'Google Pixel',
+    }));
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/google',
+        categories,
+        googlePixelProducts
+      )
+    ).toBe(false);
+  });
+
+  it('requires the canonical ordering and escaping of compare slugs', () => {
+    const categories = new Map([[category.slug, category]]);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/compare/galaxy-s21-vs-galaxy-s20',
+        categories,
+        products
+      )
+    ).toBe(false);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/compare/~67616c6178792d733230-vs-galaxy-s21',
+        categories,
+        products
+      )
+    ).toBe(false);
   });
 
   it('decodes escaped compare product keys before resolving products', () => {

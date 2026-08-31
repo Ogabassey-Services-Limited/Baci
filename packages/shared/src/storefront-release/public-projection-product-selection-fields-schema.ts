@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
+import { compareCodePointStrings } from './compare-code-point-strings';
 
 const SelectionAxisSchema = z
   .string()
@@ -13,22 +15,52 @@ const SelectionOptionSchema = z
 const ParentVariantAttributesSchema = z
   .record(SelectionAxisSchema, z.array(SelectionOptionSchema).max(64))
   .superRefine((attributes, context) => {
+    const normalizedKeys = Object.keys(attributes).map(
+      normalizeProductSelectionParamKey
+    );
     if (Object.keys(attributes).length > 32)
       context.addIssue({
         code: 'custom',
         message: 'Product variant attributes must contain at most 32 axes',
       });
-  });
+    if (normalizedKeys.some((key) => key === 'condition'))
+      context.addIssue({
+        code: 'custom',
+        message: 'Product variant condition must use the typed condition field',
+      });
+    if (new Set(normalizedKeys).size !== normalizedKeys.length)
+      context.addIssue({
+        code: 'custom',
+        message: 'Product variant attribute axes must be canonically unique',
+      });
+  })
+  .transform((attributes) =>
+    Object.fromEntries(
+      Object.entries(attributes)
+        .map(
+          ([key, value]) =>
+            [normalizeProductSelectionParamKey(key), value] as const
+        )
+        .sort(([left], [right]) => compareCodePointStrings(left, right))
+    )
+  );
 const SelectionAxesSchema = z
   .array(SelectionAxisSchema)
   .max(32)
   .superRefine((axes, context) => {
-    if (new Set(axes).size !== axes.length)
+    const normalizedAxes = axes.map(normalizeProductSelectionParamKey);
+    if (normalizedAxes.some((axis) => axis === 'condition'))
       context.addIssue({
         code: 'custom',
-        message: 'Product attribute axes must be unique',
+        message: 'Product condition must use the typed condition field',
       });
-  });
+    if (new Set(normalizedAxes).size !== normalizedAxes.length)
+      context.addIssue({
+        code: 'custom',
+        message: 'Product attribute axes must be canonically unique',
+      });
+  })
+  .transform((axes) => axes.map(normalizeProductSelectionParamKey));
 
 /** Bounded parent selection metadata used when variant rows are incomplete. */
 export const StorefrontPublicProductSelectionFieldsSchema = z.strictObject({

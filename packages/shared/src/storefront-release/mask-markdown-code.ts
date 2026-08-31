@@ -3,6 +3,42 @@ function blankRange(chars: string[], start: number, end: number): void {
     if (chars[index] !== '\n' && chars[index] !== '\r') chars[index] = ' ';
 }
 
+function readMarkdownLineIndent(
+  content: string,
+  lineStart: number,
+  lineEnd: number
+): { cursor: number; spaces: number } {
+  let cursor = lineStart;
+  // A blockquote marker is part of the Markdown container, not indentation.
+  // Consume nested markers before measuring code indentation so quoted code is
+  // masked just like an unquoted four-space code block.
+  while (true) {
+    let probe = cursor;
+    let prefixSpaces = 0;
+    while (probe < lineEnd && content[probe] === '\t') {
+      probe += 1;
+      prefixSpaces += 4;
+    }
+    while (probe < lineEnd && content[probe] === ' ') {
+      probe += 1;
+      prefixSpaces += 1;
+    }
+    if (prefixSpaces > 3 || content[probe] !== '>') break;
+    cursor = probe + 1;
+    if (content[cursor] === ' ') cursor += 1;
+  }
+  let spaces = 0;
+  while (cursor < lineEnd && content[cursor] === '\t') {
+    cursor += 1;
+    spaces += 4;
+  }
+  while (cursor < lineEnd && content[cursor] === ' ') {
+    cursor += 1;
+    spaces += 1;
+  }
+  return { cursor, spaces };
+}
+
 /** Replaces fenced and inline Markdown code with spaces while preserving lines. */
 export function maskMarkdownCode(content: string): string {
   const chars = content.split('');
@@ -15,16 +51,11 @@ export function maskMarkdownCode(content: string): string {
     if (lineStart) {
       let lineEnd = content.indexOf('\n', index);
       if (lineEnd === -1) lineEnd = length;
-      let cursor = index;
-      let spaces = 0;
-      while (content[cursor] === '\t') {
-        cursor += 1;
-        spaces += 4;
-      }
-      while (content[cursor] === ' ') {
-        cursor += 1;
-        spaces += 1;
-      }
+      const { cursor, spaces } = readMarkdownLineIndent(
+        content,
+        index,
+        lineEnd
+      );
       const lineText = content.slice(cursor, lineEnd);
       const isBlankLine = lineText.trim().length === 0;
       const listMarkerMatch = /^(?:[-+*]|\d+[.)])(?:[ \t]+|$)/u.exec(lineText);

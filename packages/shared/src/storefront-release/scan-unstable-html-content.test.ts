@@ -40,4 +40,12 @@ describe('hasUnstableHtmlContent', () => {
       hasUnstableHtmlContent('<a href="/foo&sol;..&sol;admin">Admin</a>')
     ).toBe(true);
   });
+
+  it('fails closed when a NUL could hide a URL attribute separator', () => {
+    expect(
+      hasUnstableHtmlContent(
+        '<img/\0/src="https://cdn.example.test/image.png">'
+      )
+    ).toBe(true);
+  });
 });

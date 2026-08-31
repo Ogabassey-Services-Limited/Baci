@@ -18,6 +18,7 @@ function hasUnstableLegacyContent(content: string): boolean {
 
 const MAX_TIPTAP_DOCUMENT_DEPTH = 64;
 const MAX_TIPTAP_DOCUMENT_NODES = 10_000;
+const MAX_TIPTAP_MARKS = 32;
 
 function isTipTapNode(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value) || typeof value.type !== 'string' || !value.type)
@@ -25,6 +26,25 @@ function isTipTapNode(value: unknown): value is Record<string, unknown> {
   if ('content' in value && !Array.isArray(value.content)) return false;
   if ('text' in value && typeof value.text !== 'string') return false;
   return true;
+}
+
+function isTipTapMark(value: unknown): value is Record<string, unknown> {
+  if (
+    !isRecord(value) ||
+    typeof value.type !== 'string' ||
+    value.type.trim().length === 0 ||
+    value.type.length > 64
+  )
+    return false;
+  return !('attrs' in value) || isRecord(value.attrs);
+}
+
+function isTipTapMarks(value: unknown): value is readonly unknown[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_TIPTAP_MARKS &&
+    value.every(isTipTapMark)
+  );
 }
 
 /** Detects media-bearing TipTap attributes that are unsafe for a release. */
@@ -46,7 +66,9 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
     depth: number;
     expectsTipTapNodes: boolean;
     value: unknown;
-  }> = [{ depth: 0, expectsTipTapNodes: document.type === 'doc', value: document }];
+  }> = [
+    { depth: 0, expectsTipTapNodes: document.type === 'doc', value: document },
+  ];
   let visitedNodes = 0;
   while (pending.length > 0) {
     const entry = pending.pop();
@@ -74,6 +96,7 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
     }
     if (!isRecord(current)) continue;
     if (entry.expectsTipTapNodes && !isTipTapNode(current)) return true;
+    if ('marks' in current && !isTipTapMarks(current.marks)) return true;
     for (const [key, value] of Object.entries(current)) {
       if (
         (key === 'src' || key === 'image') &&

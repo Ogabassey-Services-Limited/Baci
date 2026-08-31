@@ -126,7 +126,6 @@ function hasEligibleCompareHub(
   for (const category of categories) {
     const categoryProducts = products.filter(
       (product) =>
-        product.available &&
         [
           ...(product.categoryIds ?? []),
           ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
@@ -159,7 +158,9 @@ export function validatePublicProjectionSeoEntries(
   if (payload.policies?.warrantyPolicy?.summary.trim())
     knownPaths.add('/warranty');
   for (const page of payload.contentPages ?? [])
-    knownPaths.add(page.slug === 'rewards' ? '/pages/rewards' : `/${page.slug}`);
+    knownPaths.add(
+      page.slug === 'rewards' ? '/pages/rewards' : `/${page.slug}`
+    );
   for (const category of payload.categories ?? [])
     knownPaths.add(`/${category.slug}`);
   const categoriesById = new Map(
@@ -227,6 +228,12 @@ export function validatePublicProjectionSeoEntries(
       context.addIssue({
         code: 'custom',
         message: 'Private cart routes must not be indexable',
+        path: ['seoEntries', index, 'indexable'],
+      });
+    if (entry.path === '/pages/rewards' && entry.indexable)
+      context.addIssue({
+        code: 'custom',
+        message: 'Private rewards routes must not be indexable',
         path: ['seoEntries', index, 'indexable'],
       });
     if (

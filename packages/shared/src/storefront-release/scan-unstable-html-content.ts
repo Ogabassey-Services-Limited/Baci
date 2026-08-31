@@ -113,6 +113,10 @@ function inspectTag(content: string, start: number, end: number): boolean {
 
 /** Scans HTML tags using quote-aware start-tag parsing. */
 export function hasUnstableHtmlContent(content: string): boolean {
+  // NUL is not valid HTML source and can make malformed attribute names hide
+  // a URL-bearing attribute from the bounded tag scanner. Fail closed before
+  // attempting to interpret the surrounding tag structure.
+  if (content.includes('\0')) return true;
   for (let index = 0; index < content.length; index += 1) {
     if (content[index] !== '<') continue;
     if (content.startsWith('<!--', index)) {
