@@ -75,7 +75,12 @@ async function fetchBufferedBeforeDeadline(
   });
   const request = fetchImpl(input, { ...init, signal: controller.signal }).then(
     async (response) => {
-      await response.clone().arrayBuffer();
+      const bufferedResponse = response.clone();
+      if (response.ok) {
+        await bufferedResponse.json();
+      } else {
+        await bufferedResponse.arrayBuffer();
+      }
       return response;
     }
   );
