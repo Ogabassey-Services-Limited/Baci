@@ -75,13 +75,23 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
     apply.once('error', reject);
     apply.once('close', resolve);
   });
+  let applyStderr = '';
+  apply.stderr.setEncoding('utf8');
+  apply.stderr.on('data', (chunk) => {
+    applyStderr += chunk;
+  });
 
   try {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
+    for (let attempt = 0; attempt < 500; attempt += 1) {
       try {
         await readFile(ready);
         break;
       } catch {
+        if (apply.exitCode !== null || apply.signalCode !== null) {
+          throw new Error(
+            `apply lock fixture exited before ready: ${applyStderr}`
+          );
+        }
         await new Promise((resolve) => setTimeout(resolve, 20));
       }
     }
