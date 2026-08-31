@@ -3,6 +3,7 @@ interface SeoProduct {
   brand?: string | null;
   categoryIds?: readonly string[];
   name: string;
+  priceMinor: number;
   primaryCategoryId?: string | null;
   productKeySpecs?: Readonly<Record<string, unknown>> | null;
   slug: string;
@@ -42,6 +43,16 @@ const MODEL_FAMILY_RULES = [
   { brand: 'xiaomi', family: 'xiaomi-t', pattern: /^(?:xiaomi )?[0-9]+t/i },
   { brand: 'oppo', family: 'a-series', pattern: /^(?:oppo\s+)?a(?=\s|\d)/i },
 ] as const;
+
+const PRICE_BAND_RULES = [
+  { category: 'smartphones', slug: 'under-500k', ceiling: 500_000 },
+  { category: 'smartphones', slug: 'under-1m', ceiling: 1_000_000 },
+  { category: 'laptops', slug: 'under-1m', ceiling: 1_000_000 },
+  { category: 'smart-tvs', slug: 'under-2m', ceiling: 2_000_000 },
+] as const;
+
+const MIN_PRICE_BAND_PRODUCTS = 6;
+const MIN_PRICE_BAND_BRANDS = 3;
 
 function toRouteSlug(value: string): string {
   return value
@@ -85,6 +96,32 @@ function hasEligibleBrand(
     getCategoryProducts(category.id, products).filter((product) =>
       rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
     ).length >= rule.minimumProducts
+  );
+}
+
+function hasEligiblePriceBand(
+  categorySlug: string,
+  priceBandSlug: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>,
+  products: readonly SeoProduct[]
+) {
+  const category = categoriesBySlug.get(categorySlug);
+  const rule = PRICE_BAND_RULES.find(
+    (entry) => entry.category === categorySlug && entry.slug === priceBandSlug
+  );
+  if (!category || !rule) return false;
+
+  const bandProducts = getCategoryProducts(category.id, products).filter(
+    (product) => product.priceMinor <= rule.ceiling
+  );
+  const brandKeys = new Set(
+    bandProducts
+      .map((product) => toRouteSlug(product.brand ?? ''))
+      .filter(Boolean)
+  );
+  return (
+    bandProducts.length >= MIN_PRICE_BAND_PRODUCTS &&
+    brandKeys.size >= MIN_PRICE_BAND_BRANDS
   );
 }
 
@@ -147,6 +184,13 @@ export function hasEligibleCommercialSupportPath(
       ).length >= 3
     );
   }
+  if (segments.length === 3 && segments[1] === 'best-under')
+    return hasEligiblePriceBand(
+      segments[0] ?? '',
+      segments[2] ?? '',
+      categoriesBySlug,
+      products
+    );
   if (segments.length !== 3 || segments[1] !== 'compare') return false;
   const category = categoriesBySlug.get(segments[0] ?? '');
   const [left, right] = (segments[2] ?? '').split('-vs-');

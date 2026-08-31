@@ -8,6 +8,7 @@ export function maskMarkdownCode(content: string): string {
   const chars = content.split('');
   const length = content.length;
   let activeListIndent: number | null = null;
+  let activeListCodeIndent: number | null = null;
   let index = 0;
   while (index < length) {
     const lineStart = index === 0 || content[index - 1] === '\n';
@@ -20,22 +21,29 @@ export function maskMarkdownCode(content: string): string {
         cursor += 1;
         spaces += 4;
       }
-      while (spaces < 4 && content[cursor] === ' ') {
+      while (content[cursor] === ' ') {
         cursor += 1;
         spaces += 1;
       }
       const lineText = content.slice(cursor, lineEnd);
       const isBlankLine = lineText.trim().length === 0;
-      const isListMarker = /^(?:[-+*]|\d+[.)])(?:\s|$)/u.test(lineText);
-      if (isListMarker && spaces < 4) activeListIndent = spaces;
-      else if (
+      const listMarkerMatch = /^(?:[-+*]|\d+[.)])(?:[ \t]+|$)/u.exec(lineText);
+      const isListMarker = listMarkerMatch !== null;
+      if (isListMarker && spaces < 4) {
+        activeListIndent = spaces;
+        activeListCodeIndent = spaces + (listMarkerMatch?.[0].length ?? 0) + 4;
+      } else if (
         !isBlankLine &&
         (activeListIndent === null || spaces <= activeListIndent)
-      )
+      ) {
         activeListIndent = null;
+        activeListCodeIndent = null;
+      }
       const isListContinuation =
         activeListIndent !== null && spaces > activeListIndent;
-      if (spaces >= 4 && !isListContinuation) {
+      const isNestedListCode =
+        activeListCodeIndent !== null && spaces >= activeListCodeIndent;
+      if ((spaces >= 4 && !isListContinuation) || isNestedListCode) {
         blankRange(chars, index, lineEnd);
         index = lineEnd;
         continue;
@@ -96,9 +104,17 @@ export function maskMarkdownCode(content: string): string {
     }
     let runLength = 1;
     while (content[index + runLength] === '`') runLength += 1;
-    let close = content.indexOf('`'.repeat(runLength), index + runLength);
-    while (close !== -1 && close > 0 && content[close - 1] === '\\')
-      close = content.indexOf('`'.repeat(runLength), close + runLength);
+    const delimiter = '`'.repeat(runLength);
+    let close = content.indexOf(delimiter, index + runLength);
+    while (close !== -1) {
+      const preceding = content[close - 1];
+      const following = content[close + runLength];
+      if (preceding === '\\' || preceding === '`' || following === '`') {
+        close = content.indexOf(delimiter, close + runLength);
+        continue;
+      }
+      break;
+    }
     if (close !== -1) {
       blankRange(chars, index, close + runLength);
       index = close + runLength;

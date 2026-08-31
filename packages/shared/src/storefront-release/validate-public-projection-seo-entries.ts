@@ -13,6 +13,8 @@ interface SeoProduct {
   id: string;
   name: string;
   brand?: string | null;
+  priceMinor: number;
+  productKeySpecs?: Readonly<Record<string, unknown>> | null;
   primaryCategoryId?: string | null;
   slug: string;
 }
@@ -36,6 +38,7 @@ interface SeoPayload {
   blogPosts?: readonly SeoBlogPost[];
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
+  featureFlags?: readonly { enabled: boolean; key: string }[];
   policies?: {
     privacy?: string;
     returns?: string;
@@ -60,6 +63,15 @@ const STATIC_SEO_PATHS = new Set([
   '/rewards',
   '/blog',
 ]);
+
+function hasEnabledFeature(
+  featureFlags: SeoPayload['featureFlags'],
+  key: string
+) {
+  return (
+    featureFlags?.some((flag) => flag.key === key && flag.enabled) ?? false
+  );
+}
 
 function toRouteSlug(value: string): string {
   return value
@@ -94,6 +106,52 @@ function addPolicyPaths(
     knownPaths.add('/returns');
   if (policies?.shipping?.trim() || policies?.shippingPolicy)
     knownPaths.add('/shipping');
+}
+
+function haveDifferentComparableSpecs(left: SeoProduct, right: SeoProduct) {
+  const leftSpecs = left.productKeySpecs ?? {};
+  const rightSpecs = right.productKeySpecs ?? {};
+  const sharedKeys = Object.keys(leftSpecs).filter((key) => key in rightSpecs);
+  return sharedKeys.filter((key) => {
+    const leftValue = leftSpecs[key];
+    const rightValue = rightSpecs[key];
+    if (Array.isArray(leftValue) && Array.isArray(rightValue))
+      return (
+        JSON.stringify([...leftValue].map(String).sort()) !==
+        JSON.stringify([...rightValue].map(String).sort())
+      );
+    return leftValue !== rightValue;
+  }).length;
+}
+
+function hasEligibleCompareHub(
+  categories: readonly SeoCategory[],
+  products: readonly SeoProduct[]
+) {
+  for (const category of categories) {
+    const categoryProducts = products.filter(
+      (product) =>
+        product.available &&
+        [
+          ...(product.categoryIds ?? []),
+          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+        ].includes(category.id)
+    );
+    for (let leftIndex = 0; leftIndex < categoryProducts.length; leftIndex += 1)
+      for (
+        let rightIndex = leftIndex + 1;
+        rightIndex < categoryProducts.length;
+        rightIndex += 1
+      )
+        if (
+          haveDifferentComparableSpecs(
+            categoryProducts[leftIndex],
+            categoryProducts[rightIndex]
+          ) >= 3
+        )
+          return true;
+  }
+  return false;
 }
 
 /** Rejects SEO metadata paths that cannot be served by this public release. */
@@ -153,6 +211,10 @@ export function validatePublicProjectionSeoEntries(
     const authorSlug = toRouteSlug(post.authorName);
     if (authorSlug) knownPaths.add(`/blog/author/${authorSlug}`);
   }
+  const compareHubEligible = hasEligibleCompareHub(
+    payload.categories ?? [],
+    payload.products
+  );
   for (const [index, entry] of (payload.seoEntries ?? []).entries()) {
     if (
       !knownPaths.has(entry.path) &&
@@ -169,6 +231,22 @@ export function validatePublicProjectionSeoEntries(
       context.addIssue({
         code: 'custom',
         message: 'Private cart routes must not be indexable',
+        path: ['seoEntries', index, 'indexable'],
+      });
+    if (
+      entry.path === '/blog' &&
+      entry.indexable &&
+      !hasEnabledFeature(payload.featureFlags, 'blog_enabled')
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Blog SEO requires the blog feature to be enabled',
+        path: ['seoEntries', index, 'indexable'],
+      });
+    if (entry.path === '/compare' && entry.indexable && !compareHubEligible)
+      context.addIssue({
+        code: 'custom',
+        message: 'Compare SEO requires an eligible projected comparison pair',
         path: ['seoEntries', index, 'indexable'],
       });
   }

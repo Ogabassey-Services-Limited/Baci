@@ -7,6 +7,7 @@ const products = Array.from({ length: 5 }, (_, index) => ({
   brand: 'Samsung',
   categoryIds: [category.id],
   name: `Samsung Galaxy S${index + 20}`,
+  priceMinor: 100_000 + index,
   primaryCategoryId: null,
   productKeySpecs: {
     camera_mp: 12 + index,
@@ -49,6 +50,31 @@ describe('hasEligibleCommercialSupportPath', () => {
         '/smartphones/compare/galaxy-s20-vs-missing',
         new Map([[category.slug, category]]),
         products
+      )
+    ).toBe(false);
+  });
+
+  it('accepts curated price bands only with enough affordable products and brands', () => {
+    const categories = new Map([[category.slug, category]]);
+    const priceBandProducts = Array.from({ length: 6 }, (_, index) => ({
+      ...products[index % products.length],
+      brand: ['Samsung', 'Apple', 'Google'][index % 3],
+      priceMinor: 400_000 + index,
+      slug: `price-band-${index}`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        priceBandProducts
+      )
+    ).toBe(true);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        priceBandProducts.slice(0, 5)
       )
     ).toBe(false);
   });

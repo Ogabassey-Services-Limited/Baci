@@ -131,7 +131,17 @@ function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
     }
     const openingBracket = image ? index + 1 : index;
     const closingBracket = findBracketClose(content, openingBracket + 1);
-    if (closingBracket === -1) break;
+    if (closingBracket === -1) {
+      // An unmatched link label must not swallow a later image token. Markdown
+      // images are independent candidates, so resume scanning at the next one
+      // rather than treating its closing bracket as the outer label's close.
+      const nextImage = content.indexOf('![', openingBracket + 1);
+      if (nextImage !== -1) {
+        index = nextImage;
+        continue;
+      }
+      break;
+    }
     const label = content.slice(openingBracket + 1, closingBracket);
     const suffix = content[closingBracket + 1];
     if (image && suffix !== '(') {

@@ -34,6 +34,14 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('does not let an unmatched link label consume a later image token', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '[ broken\n![x](https://cdn.example.test/a.png)'
+      )
+    ).toBe(true);
+  });
+
   it('scans GFM bare autolinks outside code', () => {
     expect(
       hasUnstableMarkdownContent(

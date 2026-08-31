@@ -40,4 +40,17 @@ describe('maskMarkdownCode', () => {
       '![x](https://cdn.example.test/a.png)'
     );
   });
+
+  it('masks code blocks nested deeply inside list items', () => {
+    const codeLine = '        ![x](https://cdn.example.test/a.png)';
+    const masked = maskMarkdownCode(`- item\n\n${codeLine}`);
+
+    expect(masked.split('\n')[2]).toBe(' '.repeat(codeLine.length));
+  });
+
+  it('does not mask an image after an inline delimiter with a mismatched run', () => {
+    const markdown = '` ![x](https://cdn.example.test/a.png) ``';
+
+    expect(maskMarkdownCode(markdown)).toBe(markdown);
+  });
 });

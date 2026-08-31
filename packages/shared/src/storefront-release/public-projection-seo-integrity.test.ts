@@ -158,4 +158,72 @@ describe('public projection SEO integrity', () => {
       }).success
     ).toBe(true);
   });
+
+  it('requires the blog feature for an indexable blog landing page', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: true, path: '/blog', title: 'Blog' }],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        featureFlags: [{ enabled: true, key: 'blog_enabled' }],
+        seoEntries: [{ indexable: true, path: '/blog', title: 'Blog' }],
+      }).success
+    ).toBe(true);
+  });
+
+  it('requires an eligible product pair for an indexable compare landing page', () => {
+    const categoryId = '123e4567-e89b-42d3-a456-426614174190';
+    const compareProducts = [
+      {
+        ...product,
+        categoryIds: [categoryId],
+        id: '123e4567-e89b-42d3-a456-426614174191',
+        name: 'Phone One',
+        productKeySpecs: {
+          camera_mp: 12,
+          display_inches: 6,
+          storage_gb: 128,
+        },
+        slug: 'phone-one',
+      },
+      {
+        ...product,
+        categoryIds: [categoryId],
+        id: '123e4567-e89b-42d3-a456-426614174192',
+        name: 'Phone Two',
+        productKeySpecs: {
+          camera_mp: 50,
+          display_inches: 6.7,
+          storage_gb: 256,
+        },
+        slug: 'phone-two',
+      },
+    ];
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: true, path: '/compare', title: 'Compare' }],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: categoryId,
+            name: 'Phones',
+            slug: 'phones',
+            status: 'active',
+          },
+        ],
+        products: compareProducts,
+        seoEntries: [{ indexable: true, path: '/compare', title: 'Compare' }],
+      }).success
+    ).toBe(true);
+  });
 });
