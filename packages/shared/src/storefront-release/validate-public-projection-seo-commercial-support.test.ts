@@ -186,6 +186,36 @@ describe('hasEligibleCommercialSupportPath', () => {
     ).toBe(true);
   });
 
+  it('filters unavailable authority products before the bounded window', () => {
+    const unavailableNewest = Array.from({ length: 46 }, (_, index) => ({
+      ...products[0],
+      available: false,
+      id: `unavailable-newest-${index}`,
+      slug: `unavailable-newest-${index}`,
+      updatedAt: `2026-08-31T00:00:${String(index).padStart(2, '0')}Z`,
+    }));
+    const availableWindow = Array.from({ length: 2 }, (_, index) => ({
+      ...products[index],
+      id: `available-window-${index}`,
+      slug: `available-window-${index}`,
+      updatedAt: `2026-08-30T00:00:0${index}Z`,
+    }));
+    const olderAvailable = Array.from({ length: 3 }, (_, index) => ({
+      ...products[index % products.length],
+      id: `available-older-${index}`,
+      slug: `available-older-${index}`,
+      updatedAt: `2026-08-29T00:00:0${index}Z`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/samsung',
+        new Map([[category.slug, category]]),
+        [...unavailableNewest, ...availableWindow, ...olderAvailable]
+      )
+    ).toBe(true);
+  });
+
   it('requires canonical brand route keys instead of aliases', () => {
     const categories = new Map([[category.slug, category]]);
     const xiaomiProducts = products.map((product) => ({

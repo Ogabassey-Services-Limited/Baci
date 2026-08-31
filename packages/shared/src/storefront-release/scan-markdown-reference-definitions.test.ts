@@ -20,4 +20,13 @@ describe('scanMarkdownReferenceDefinitions', () => {
       { destination: 'https://cdn.example/indented.png', label: 'r' },
     ]);
   });
+
+  it.each([
+    '<!--\ncomment\n-->\n[hero]: https://cdn.example/hero.png',
+    '<script>\nwindow.example = true;\n</script>\n[hero]: https://cdn.example/hero.png',
+  ])('accepts definitions after a multiline HTML block closes', (content) => {
+    expect(scanMarkdownReferenceDefinitions(content)).toEqual([
+      { destination: 'https://cdn.example/hero.png', label: 'hero' },
+    ]);
+  });
 });

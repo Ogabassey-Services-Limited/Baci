@@ -2,6 +2,7 @@ import { hasEligibleCommercialSupportPath } from './validate-public-projection-s
 
 interface SeoCategory {
   id: string;
+  parentId?: string | null;
   slug: string;
 }
 
@@ -23,14 +24,34 @@ export function hasEligiblePublicProjectionCategoryCompareHub(
   maintainedComparePaths: ReadonlySet<string>,
   currency: string
 ): boolean {
-  return [...maintainedComparePaths].some(
-    (path) =>
-      path.startsWith(`/${categorySlug}/compare/`) &&
-      hasEligibleCommercialSupportPath(
-        path,
-        categoriesBySlug,
-        products,
-        { currency, maintainedComparePaths }
+  const category = categoriesBySlug.get(categorySlug);
+  if (!category) return false;
+  const descendantIds = new Set([category.id]);
+  const eligibleCategorySlugs = new Set([categorySlug]);
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (const candidate of categoriesBySlug.values()) {
+      if (
+        !candidate.parentId ||
+        !descendantIds.has(candidate.parentId) ||
+        descendantIds.has(candidate.id)
       )
-  );
+        continue;
+      descendantIds.add(candidate.id);
+      eligibleCategorySlugs.add(candidate.slug);
+      expanded = true;
+    }
+  }
+  return [...maintainedComparePaths].some((path) => {
+    const categoryMatch = /^\/([^/]+)\/compare\//u.exec(path);
+    return (
+      categoryMatch?.[1] !== undefined &&
+      eligibleCategorySlugs.has(categoryMatch[1]) &&
+      hasEligibleCommercialSupportPath(path, categoriesBySlug, products, {
+        currency,
+        maintainedComparePaths,
+      })
+    );
+  });
 }

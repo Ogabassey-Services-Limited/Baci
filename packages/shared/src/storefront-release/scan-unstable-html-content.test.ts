@@ -67,4 +67,11 @@ describe('hasUnstableHtmlContent', () => {
       hasUnstableHtmlContent('<img x/src="https://cdn.example.test/image.png">')
     ).toBe(true);
   });
+
+  it.each([
+    '<img = src="https://cdn.example.test/image.png">',
+    '<img x" src="https://cdn.example.test/image.png">',
+  ])('fails closed on malformed HTML attribute prefixes', (content) => {
+    expect(hasUnstableHtmlContent(content)).toBe(true);
+  });
 });

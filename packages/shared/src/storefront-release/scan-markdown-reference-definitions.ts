@@ -98,7 +98,9 @@ function isMarkdownBlockBoundary(line: string): boolean {
     /^#{1,6}(?:[ \t]|$)/u.test(content) ||
     /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/u.test(content) ||
     /^=+[ \t]*$/u.test(trimmed) ||
-    /^<!--[\s\S]*-->$/u.test(trimmed)
+    /^<!--[\s\S]*-->$/u.test(trimmed) ||
+    /^-->$/u.test(trimmed) ||
+    /^<\/[A-Za-z][A-Za-z0-9:-]*[ \t]*>$/u.test(trimmed)
   );
 }
 

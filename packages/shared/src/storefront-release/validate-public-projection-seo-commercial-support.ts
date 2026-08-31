@@ -87,7 +87,9 @@ function getBrandAuthorityProducts(
   products: readonly SeoProduct[],
   brandAliases?: readonly string[]
 ) {
-  const categoryProducts = getCategoryProducts(categoryId, products).filter(
+  const categoryProducts = getCategoryProducts(categoryId, products, {
+    requireAvailability: true,
+  }).filter(
     (product) =>
       !brandAliases ||
       brandAliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))

@@ -97,6 +97,7 @@ function inspectTag(content: string, start: number, end: number): boolean {
     const nameStart = cursor;
     while (!/[\s=/>]/u.test(content[cursor] ?? '')) cursor += 1;
     const name = content.slice(nameStart, cursor).toLowerCase();
+    if (!name || /["'<>]/u.test(name)) return true;
     if (URL_ATTRIBUTE_NAMES.has(name)) {
       if (seenUrlAttributes.has(name)) return true;
       seenUrlAttributes.add(name);
@@ -124,9 +125,7 @@ function inspectTag(content: string, start: number, end: number): boolean {
           : [value];
     }
   );
-  if (
-    mediaValues.some((value) => !value || !isStablePublicMediaUrl(value))
-  )
+  if (mediaValues.some((value) => !value || !isStablePublicMediaUrl(value)))
     return true;
   const href = attributes.get('href');
   return tagName === 'a' && href !== undefined && !isSafePublicReleaseUrl(href);
@@ -148,7 +147,7 @@ export function hasUnstableHtmlContent(content: string): boolean {
     }
     if (readTagName(content, index) === null) continue;
     const end = findTagEnd(content, index);
-    if (end === -1) break;
+    if (end === -1) return true;
     if (inspectTag(content, index, end)) return true;
     index = end;
   }

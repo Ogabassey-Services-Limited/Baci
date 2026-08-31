@@ -84,6 +84,43 @@ describe('validatePublicProjectionSeoEntries', () => {
     );
   });
 
+  it('accepts a parent compare hub with an eligible child-category link', () => {
+    const parent = { id: 'category-parent', slug: 'smartphones' };
+    const child = {
+      id: 'category-child',
+      parentId: parent.id,
+      slug: 'android-phones',
+    };
+    const childProducts = products.map((product) => ({
+      ...product,
+      categoryIds: [child.id],
+    }));
+    const messages: string[] = [];
+
+    validatePublicProjectionSeoEntries(
+      {
+        categories: [parent, child],
+        maintainedComparePaths: ['/android-phones/compare/phone-a-vs-phone-b'],
+        merchant: {
+          currency: 'NGN',
+          hostname: 'pilot-store.usebaci.com',
+          slug: 'pilot-store',
+        },
+        products: childProducts,
+        seoEntries: [{ indexable: true, path: '/smartphones/compare' }],
+      },
+      {
+        addIssue(issue: { message?: string }) {
+          messages.push(issue.message ?? '');
+        },
+      } as Parameters<typeof validatePublicProjectionSeoEntries>[1]
+    );
+
+    expect(messages).not.toContain(
+      'Category compare SEO requires an eligible projected comparison link'
+    );
+  });
+
   it('applies the origin category and product discovery bounds', () => {
     const categories = [
       ...Array.from({ length: 80 }, (_, index) => ({

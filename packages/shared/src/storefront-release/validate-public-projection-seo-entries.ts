@@ -30,6 +30,7 @@ interface SeoProduct {
 
 interface SeoCategory {
   id: string;
+  parentId?: string | null;
   slug: string;
 }
 
