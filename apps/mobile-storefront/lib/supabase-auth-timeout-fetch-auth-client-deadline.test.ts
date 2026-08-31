@@ -84,7 +84,11 @@ describe('Supabase Auth client checkout deadlines', () => {
     const calls: string[] = [];
     let finishCleanup: (() => void) | undefined;
     const storage = {
-      getItem: jest.fn(async () => JSON.stringify(storedSession)),
+      getItem: jest.fn(async (key: string) =>
+        key.endsWith('-code-verifier')
+          ? JSON.stringify('verifier')
+          : JSON.stringify(storedSession)
+      ),
       removeItem: jest.fn((key: string) => {
         calls.push(`remove:${key}`);
         return new Promise<void>((resolve) => {
