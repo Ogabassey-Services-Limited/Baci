@@ -128,6 +128,7 @@ describe('OgabasseyPdpSemanticSections', () => {
     expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
+      'ogabassey',
       'prod-1',
       'lenovo-legion',
       'Lenovo Legion',
@@ -245,6 +246,7 @@ describe('OgabasseyPdpSemanticSections', () => {
     expect(mockGetCachedProductSeoLinkData).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
+      'ogabassey',
       'prod-1',
       'legacy-item-42',
       'Lenovo Legion 5 Pro',

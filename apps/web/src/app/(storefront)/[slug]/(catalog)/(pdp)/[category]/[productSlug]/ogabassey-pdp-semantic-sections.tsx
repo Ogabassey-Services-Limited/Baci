@@ -38,6 +38,7 @@ export async function OgabasseyPdpSemanticSections({
   merchant,
   product,
   productComparePathPrefix,
+  storeSlug,
   storeUrl,
 }: OgabasseyPdpSemanticSectionsProps) {
   // Strict, cache-isolated fetch: throws on a transient inventory failure so a
@@ -52,6 +53,7 @@ export async function OgabasseyPdpSemanticSections({
     seoLinkData = await getCachedProductSeoLinkData(
       merchant.id,
       categorySlug,
+      storeSlug,
       String(product.id || ''),
       product.slug || String(product.id || ''),
       product.name,
