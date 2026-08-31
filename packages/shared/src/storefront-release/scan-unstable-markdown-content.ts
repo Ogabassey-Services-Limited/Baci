@@ -29,10 +29,45 @@ interface MarkdownReferenceDefinition {
   label: string;
 }
 
+function readMarkdownBlockPrefix(line: string): {
+  blockquoteDepth: number;
+  cursor: number;
+} {
+  let cursor = 0;
+  let leadingSpaces = 0;
+  while (
+    cursor < line.length &&
+    leadingSpaces < 3 &&
+    /[ \t]/u.test(line[cursor] ?? '')
+  ) {
+    cursor += 1;
+    leadingSpaces += 1;
+  }
+  let blockquoteDepth = 0;
+  while (line[cursor] === '>') {
+    cursor += 1;
+    blockquoteDepth += 1;
+    if (line[cursor] === ' ') cursor += 1;
+    let quoteIndent = 0;
+    while (
+      cursor < line.length &&
+      quoteIndent < 3 &&
+      /[ \t]/u.test(line[cursor] ?? '')
+    ) {
+      cursor += 1;
+      quoteIndent += 1;
+    }
+  }
+  return { blockquoteDepth, cursor };
+}
+
 function isMarkdownBlockBoundary(line: string): boolean {
+  const { cursor } = readMarkdownBlockPrefix(line);
+  const content = line.slice(cursor);
   return (
-    /^ {0,3}#{1,6}(?:[ \t]|$)/u.test(line) ||
-    /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/u.test(line)
+    content.trim().length === 0 ||
+    /^#{1,6}(?:[ \t]|$)/u.test(content) ||
+    /^(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/u.test(content)
   );
 }
 
@@ -41,31 +76,48 @@ function scanMarkdownReferenceDefinitions(
 ): MarkdownReferenceDefinition[] {
   const definitions: MarkdownReferenceDefinition[] = [];
   const recognizedDefinitionLineStarts = new Set<number>();
-  const definitionStartPattern = /^[ \t]{0,3}\[/gmu;
-  for (const match of content.matchAll(definitionStartPattern)) {
-    const lineStart = match.index ?? 0;
+  let lineStart = 0;
+  while (lineStart <= content.length) {
+    const lineEnd = content.indexOf('\n', lineStart);
+    const boundary = lineEnd === -1 ? content.length : lineEnd;
+    const line = content.slice(lineStart, boundary);
+    const blockPrefix = readMarkdownBlockPrefix(line);
+    const openingBracket = lineStart + blockPrefix.cursor;
+    if (content[openingBracket] !== '[') {
+      if (lineEnd === -1) break;
+      lineStart = lineEnd + 1;
+      continue;
+    }
     if (lineStart > 0) {
       const previousLineEnd = lineStart - 1;
       const previousLineStart =
         content.lastIndexOf('\n', previousLineEnd - 1) + 1;
       const previousLine = content.slice(previousLineStart, previousLineEnd);
       if (
-        previousLine.trim().length > 0 &&
+        !isMarkdownBlockBoundary(previousLine) &&
         !recognizedDefinitionLineStarts.has(previousLineStart) &&
-        !isMarkdownBlockBoundary(previousLine)
-      )
+        previousLine.trim().length > 0
+      ) {
+        if (lineEnd === -1) break;
+        lineStart = lineEnd + 1;
         continue;
+      }
     }
-    const openingBracket = lineStart + match[0].length - 1;
-    const lineEnd = content.indexOf('\n', openingBracket + 1);
-    const boundary = lineEnd === -1 ? content.length : lineEnd;
     const closingBracket = findBracketClose(
       content,
       openingBracket + 1,
       boundary
     );
-    if (closingBracket === -1 || closingBracket >= boundary) continue;
-    if (content[closingBracket + 1] !== ':') continue;
+    if (closingBracket === -1 || closingBracket >= boundary) {
+      if (lineEnd === -1) break;
+      lineStart = lineEnd + 1;
+      continue;
+    }
+    if (content[closingBracket + 1] !== ':') {
+      if (lineEnd === -1) break;
+      lineStart = lineEnd + 1;
+      continue;
+    }
     let cursor = closingBracket + 2;
     while (cursor < boundary && /[ \t\r]/u.test(content[cursor] ?? ''))
       cursor += 1;
@@ -95,6 +147,8 @@ function scanMarkdownReferenceDefinitions(
       });
       recognizedDefinitionLineStarts.add(lineStart);
     }
+    if (lineEnd === -1) break;
+    lineStart = lineEnd + 1;
   }
   return definitions;
 }
@@ -221,6 +275,12 @@ function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
       }
       index = closingBracket + 1;
       continue;
+    }
+    if (!image) {
+      const nestedSyntax = scanMarkdownLinkSyntax(label);
+      destinations.push(...nestedSyntax.destinations);
+      for (const referenceLabel of nestedSyntax.imageReferenceLabels)
+        imageReferenceLabels.add(referenceLabel);
     }
     let cursor = closingBracket + 2;
     while (/\s/u.test(content[cursor] ?? '')) cursor += 1;

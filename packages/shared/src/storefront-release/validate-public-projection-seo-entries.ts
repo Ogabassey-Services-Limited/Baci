@@ -4,6 +4,7 @@ import {
   isPublicProjectionBlogPost,
 } from './get-public-projection-blog-seo-paths';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
+import { validatePublicProjectionSeoEntryGuards } from './validate-public-projection-seo-entry-guards';
 
 interface SeoEntry {
   indexable: boolean;
@@ -168,6 +169,17 @@ export function validatePublicProjectionSeoEntries(
     );
   for (const category of payload.categories ?? [])
     knownPaths.add(`/${category.slug}`);
+  const categoryHasProducts = new Map(
+    (payload.categories ?? []).map((category) => [
+      category.id,
+      payload.products.some((product) =>
+        [
+          ...(product.categoryIds ?? []),
+          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+        ].includes(category.id)
+      ),
+    ])
+  );
   const categoriesById = new Map(
     (payload.categories ?? []).map((category) => [category.id, category.slug])
   );
@@ -233,12 +245,14 @@ export function validatePublicProjectionSeoEntries(
       addIssue(context, index);
       continue;
     }
-    if (entry.path === '/cart' && entry.indexable)
-      context.addIssue({
-        code: 'custom',
-        message: 'Private cart routes must not be indexable',
-        path: ['seoEntries', index, 'indexable'],
-      });
+    validatePublicProjectionSeoEntryGuards({
+      categoriesBySlug,
+      categoryHasProducts,
+      context,
+      entry,
+      index,
+      products: payload.products,
+    });
     if (entry.path === '/pages/rewards' && entry.indexable)
       context.addIssue({
         code: 'custom',

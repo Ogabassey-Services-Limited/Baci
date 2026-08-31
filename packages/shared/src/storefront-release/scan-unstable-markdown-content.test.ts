@@ -50,6 +50,14 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('rescans images nested in a balanced direct-link label', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '[![x](https://cdn.example.test/a.png)](/safe)'
+      )
+    ).toBe(true);
+  });
+
   it('treats an escaped image marker as an ordinary safe link', () => {
     expect(
       hasUnstableMarkdownContent('\\![x](https://example.test/a.png)')
@@ -101,6 +109,14 @@ describe('hasUnstableMarkdownContent', () => {
     expect(
       hasUnstableMarkdownContent(
         '![diagram][break-ref]\n---\n[break-ref]: https://example.test/image.png?token=secret'
+      )
+    ).toBe(true);
+  });
+
+  it('scans reference definitions inside blockquotes', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '> ![diagram][quoted-ref]\n>\n> [quoted-ref]: https://cdn.example.test/image.png'
       )
     ).toBe(true);
   });
