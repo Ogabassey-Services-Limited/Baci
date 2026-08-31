@@ -72,6 +72,13 @@ const liveGateBacklogSql = readFileSync(
   ),
   'utf8'
 );
+const resultWakeupPlayerAccessSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260831120600_quiz_results_wakeup_player_access_v2.sql'
+  ),
+  'utf8'
+);
 describe('instant quiz deadline publication migration', () => {
   it('adds an append-only migration for the instant deadline contract', () => {
     expect(migrations.length).toBeGreaterThan(0);
@@ -264,5 +271,14 @@ describe('instant quiz deadline publication migration', () => {
       /pg_catalog\.substring\(realtime\.topic\(\) FROM 14\)/i
     );
     expect(sql).toMatch(/quiz results topics reject client sends/i);
+    expect(resultWakeupPlayerAccessSql).toMatch(
+      /can_receive_quiz_results_wakeup_v2\(realtime\.topic\(\)\)/i
+    );
+    expect(resultWakeupPlayerAccessSql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.can_receive_quiz_results_wakeup_v2\(text\)[\s\S]*?FROM PUBLIC, anon, service_role/i
+    );
+    expect(resultWakeupPlayerAccessSql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.can_receive_quiz_results_wakeup_v2\(text\)[\s\S]*?TO authenticated/i
+    );
   });
 });

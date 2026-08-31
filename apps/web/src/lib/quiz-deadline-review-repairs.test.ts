@@ -20,6 +20,15 @@ const deadlineControlRepairSql = [
 ]
   .map(readMigration)
   .join('\n\n');
+const retryPendingHealthSql = [
+  '20260831120400_quiz_instant_test_retry_health_v2.sql',
+  '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql',
+]
+  .map(readMigration)
+  .join('\n\n');
+const wakeupAccessSql = readMigration(
+  '20260831120600_quiz_results_wakeup_player_access_v2.sql'
+);
 
 describe('quiz deadline review repairs', () => {
   it('keeps test publication closed until serialized score repair completes', () => {
@@ -97,6 +106,45 @@ describe('quiz deadline review repairs', () => {
     expect(deadlineControlRepairSql).toContain("'liveAwardRetryPending'");
     expect(deadlineControlRepairSql).toMatch(
       /v_failed :=[\s\S]*?liveAwardRetryPending/i
+    );
+  });
+
+  it('keeps backed-off publication and terminalization failures degraded', () => {
+    expect(retryPendingHealthSql).toMatch(
+      /'testPublicationRetryPending', v_retry_waiting/i
+    );
+    expect(retryPendingHealthSql).toMatch(
+      /'liveTerminalizationRetryPending', v_retry_waiting/i
+    );
+    expect(retryPendingHealthSql).toMatch(
+      /v_failed :=[\s\S]*?testPublicationRetryPending[\s\S]*?liveTerminalizationRetryPending/i
+    );
+  });
+
+  it('backs off poison live terminalization retries and preserves fresh-first order', () => {
+    expect(retryPendingHealthSql).toMatch(
+      /live_attempt_terminalization_failed'[\s\S]*?updated_at <=[\s\S]*?interval '30 seconds'/i
+    );
+    expect(retryPendingHealthSql).toMatch(
+      /ORDER BY[\s\S]*?live_attempt_terminalization_failed'\) NULLS FIRST/i
+    );
+    expect(retryPendingHealthSql).toMatch(
+      /v_should_log_failure :=[\s\S]*?UPDATE public\.quiz_events[\s\S]*?updated_at = pg_catalog\.clock_timestamp\(\)[\s\S]*?WHERE id = v_event\.id;/i
+    );
+  });
+
+  it('authorizes player wakeups without relying on quiz event RLS', () => {
+    expect(wakeupAccessSql).toMatch(
+      /FUNCTION public\.can_receive_quiz_results_wakeup_v2\([\s\S]*?SECURITY DEFINER/i
+    );
+    expect(wakeupAccessSql).toMatch(
+      /quiz_attempts AS attempt[\s\S]*?customer\.user_id = v_user_id/i
+    );
+    expect(wakeupAccessSql).toMatch(
+      /CREATE POLICY "authorized players receive quiz results wakeups"[\s\S]*?can_receive_quiz_results_wakeup_v2\(realtime\.topic\(\)\)/i
+    );
+    expect(wakeupAccessSql).not.toMatch(
+      /CREATE POLICY[\s\S]*?SELECT 1[\s\S]*?FROM public\.quiz_events/i
     );
   });
 });

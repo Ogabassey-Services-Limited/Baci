@@ -40,6 +40,11 @@ describe('supabase history replay expense pending sources', () => {
       '20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
       '20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
       '20260831120300_quiz_instant_retry_health_aggregation_v2.sql',
+      '20260831120400_quiz_instant_test_retry_health_v2.sql',
+      '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql',
     ]);
+    expect(EXPENSE_QUIZ_PAYSTACK_PENDING_REPLAY_SOURCE_ROWS).toContain(
+      '20260831120600_quiz_results_wakeup_player_access_v2.sql'
+    );
   });
 });
