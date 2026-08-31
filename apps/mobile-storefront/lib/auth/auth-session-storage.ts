@@ -1,6 +1,7 @@
 import type { SupportedStorage } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { createLogger } from '../logger';
+import { remainingAuthStorageTimeout } from './auth-storage-deadline';
 
 const log = createLogger('AuthSessionStorage');
 const AUTH_STORAGE_TIMEOUT_MS = 4_000;
@@ -26,7 +27,6 @@ type StorageRollbackBaseline = {
 };
 const storageIntents = new Map<string, StorageIntent>();
 const storageMutationQueues = new Map<string, Promise<void>>();
-
 async function runSerializedStorageMutation<T>(
   key: string,
   mutation: () => Promise<T>
@@ -107,6 +107,7 @@ async function boundedStorageOperation<T>(
   operationName: string,
   timeoutMs = AUTH_STORAGE_TIMEOUT_MS
 ): Promise<T> {
+  const boundedTimeoutMs = remainingAuthStorageTimeout(timeoutMs);
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(
@@ -116,7 +117,7 @@ async function boundedStorageOperation<T>(
             `Supabase auth storage ${operationName} timed out`
           )
         ),
-      timeoutMs
+      boundedTimeoutMs
     );
   });
 

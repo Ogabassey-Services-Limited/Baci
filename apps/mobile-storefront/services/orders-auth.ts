@@ -2,6 +2,7 @@ import {
   isAuthRefreshDiscardedError,
   type Session,
 } from '@supabase/supabase-js';
+import { runWithAuthStorageDeadline } from '@/lib/auth/auth-storage-deadline';
 import { createLogger } from '@/lib/logger';
 
 const log = createLogger('Order');
@@ -61,15 +62,17 @@ export async function resolveCheckoutAuth(
 ): Promise<CheckoutAuthResult> {
   if (!storedSession) return checkoutAuthResult(null, false);
 
-  const timeout = refreshTimeout(timeoutMs);
-  try {
-    const { data, error } = await Promise.race([
+  const refresh = runWithAuthStorageDeadline(
+    () =>
       auth.refreshSession({
         refresh_token: storedSession.refresh_token,
         require_storage_match: true,
       }),
-      timeout.promise,
-    ]);
+    timeoutMs
+  );
+  const timeout = refreshTimeout(timeoutMs);
+  try {
+    const { data, error } = await Promise.race([refresh, timeout.promise]);
     if (isAuthRefreshDiscardedError(error)) {
       const currentSession = await readCurrentSession?.();
       if (currentSession?.user.id === storedSession.user.id) {
