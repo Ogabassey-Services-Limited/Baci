@@ -1,11 +1,9 @@
 import type { SupportedStorage } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { createLogger } from '../logger';
-import { remainingAuthStorageTimeout } from './auth-storage-deadline';
+import { authStorageTimeout } from './auth-storage-timeout';
 
 const log = createLogger('AuthSessionStorage');
-const AUTH_STORAGE_TIMEOUT_MS = 4_000;
-class AuthStorageTimeoutError extends Error {}
 type StorageIntent =
   | {
       operation?: Promise<void>;
@@ -25,14 +23,27 @@ type StorageRollbackBaseline = {
   pending: boolean;
   value: string | null;
 };
+type DeadlineAwareStorage = SupportedStorage & {
+  getItem: (key: string, deadline?: number) => Promise<string | null>;
+  removeItem: (key: string, deadline?: number) => Promise<void>;
+  setItem: (key: string, value: string, deadline?: number) => Promise<void>;
+};
 const storageIntents = new Map<string, StorageIntent>();
 const storageMutationQueues = new Map<string, Promise<void>>();
 async function runSerializedStorageMutation<T>(
   key: string,
-  mutation: () => Promise<T>
+  mutation: () => Promise<T>,
+  deadline?: number
 ): Promise<T> {
   const previousMutation = storageMutationQueues.get(key) ?? Promise.resolve();
-  const result = previousMutation.catch(() => undefined).then(mutation);
+  const result = authStorageTimeout
+    .run(
+      previousMutation.catch(() => undefined),
+      'mutation queue',
+      authStorageTimeout.defaultMs,
+      deadline
+    )
+    .then(mutation);
   const queueTail = result.then(
     () => undefined,
     () => undefined
@@ -68,7 +79,7 @@ async function reconcileLatestStorageIntent(key: string): Promise<void> {
     intent.operation = operation;
     fenceLateMutation(key, intent, operation);
     try {
-      await boundedStorageOperation(operation, 'reconciliation');
+      await authStorageTimeout.run(operation, 'reconciliation');
     } catch (error) {
       if (storageIntents.get(key)?.revision === intent.revision) {
         intent.operation = undefined;
@@ -102,32 +113,6 @@ function fenceLateMutation(
   );
 }
 
-async function boundedStorageOperation<T>(
-  operation: Promise<T>,
-  operationName: string,
-  timeoutMs = AUTH_STORAGE_TIMEOUT_MS
-): Promise<T> {
-  const boundedTimeoutMs = remainingAuthStorageTimeout(timeoutMs);
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () =>
-        reject(
-          new AuthStorageTimeoutError(
-            `Supabase auth storage ${operationName} timed out`
-          )
-        ),
-      boundedTimeoutMs
-    );
-  });
-
-  try {
-    return await Promise.race([operation, timeout]);
-  } finally {
-    if (timer) clearTimeout(timer);
-  }
-}
-
 function restorePreviousStorageIntent(
   key: string,
   baseline: StorageRollbackBaseline,
@@ -142,13 +127,9 @@ function restorePreviousStorageIntent(
   intent.pending = baseline.pending || needsReconciliation;
   if (intent.pending) void reconcileLatestStorageIntent(key);
 }
-function remainingStorageTimeout(deadline: number): number {
-  return Math.max(0, deadline - Date.now());
-}
-
 async function readAuthStorageItem(
   key: string,
-  deadline = Date.now() + AUTH_STORAGE_TIMEOUT_MS
+  deadline = Date.now() + authStorageTimeout.defaultMs
 ): Promise<string | null> {
   const intent = storageIntents.get(key);
   if (intent?.pending) {
@@ -158,10 +139,10 @@ async function readAuthStorageItem(
     }
     if (intent.operation) {
       try {
-        await boundedStorageOperation(
+        await authStorageTimeout.run(
           intent.operation,
           'pending mutation',
-          remainingStorageTimeout(deadline)
+          authStorageTimeout.remaining(deadline)
         );
       } catch {
         return null;
@@ -171,32 +152,31 @@ async function readAuthStorageItem(
     if (!latestIntent?.pending) {
       return readAuthStorageItem(key, deadline);
     }
-    await boundedStorageOperation(
+    await authStorageTimeout.run(
       reconcileLatestStorageIntent(key),
       'reconciliation',
-      remainingStorageTimeout(deadline)
+      authStorageTimeout.remaining(deadline)
     );
     if (storageIntents.get(key)?.pending) return null;
   }
 
   const revisionBeforeRead = storageIntents.get(key)?.revision;
-  const value = await boundedStorageOperation(
+  const value = await authStorageTimeout.run(
     SecureStore.getItemAsync(key),
     'read',
-    remainingStorageTimeout(deadline)
+    authStorageTimeout.remaining(deadline)
   );
   const intentAfterRead = storageIntents.get(key);
-  if (
-    intentAfterRead?.pending ||
-    intentAfterRead?.revision !== revisionBeforeRead
-  ) {
-    return null;
+  if (intentAfterRead?.pending) return null;
+  if (intentAfterRead?.revision !== revisionBeforeRead) {
+    return readAuthStorageItem(key, deadline);
   }
   return value;
 }
 
 async function captureRollbackBaseline(
-  key: string
+  key: string,
+  deadline?: number
 ): Promise<StorageRollbackBaseline> {
   const logicalIntent = storageIntents.get(key);
   if (logicalIntent) {
@@ -207,9 +187,11 @@ async function captureRollbackBaseline(
   }
 
   try {
-    const value = await boundedStorageOperation(
+    const value = await authStorageTimeout.run(
       SecureStore.getItemAsync(key),
-      'rollback snapshot'
+      'rollback snapshot',
+      authStorageTimeout.defaultMs,
+      deadline
     );
     return { pending: false, value };
   } catch (error) {
@@ -244,57 +226,75 @@ export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
   return `sb-${projectRef}-auth-token`;
 }
 
-export const authSessionStorage: SupportedStorage = {
-  getItem: async (key: string) => {
+export const authSessionStorage: DeadlineAwareStorage = {
+  getItem: async (key: string, deadline?: number) => {
     try {
-      return await readAuthStorageItem(key);
+      return await readAuthStorageItem(key, deadline);
     } catch (error) {
       log.warn('Unable to read the Supabase auth session state.', error);
       return null;
     }
   },
-  setItem: (key: string, value: string) =>
-    runSerializedStorageMutation(key, async () => {
-      const baseline = await captureRollbackBaseline(key);
-      const intent = nextStorageIntent(key, { type: 'set', value });
-      const operation = SecureStore.setItemAsync(key, value);
-      intent.operation = operation;
-      fenceLateMutation(key, intent, operation);
-      try {
-        await boundedStorageOperation(operation, 'write');
-      } catch (error) {
-        if (storageIntents.get(key)?.revision === intent.revision) {
-          restorePreviousStorageIntent(
-            key,
-            baseline,
-            error instanceof AuthStorageTimeoutError
+  setItem: (key: string, value: string, deadline?: number) =>
+    runSerializedStorageMutation(
+      key,
+      async () => {
+        const baseline = await captureRollbackBaseline(key, deadline);
+        const intent = nextStorageIntent(key, { type: 'set', value });
+        const operation = SecureStore.setItemAsync(key, value);
+        intent.operation = operation;
+        fenceLateMutation(key, intent, operation);
+        try {
+          await authStorageTimeout.run(
+            operation,
+            'write',
+            authStorageTimeout.defaultMs,
+            deadline
           );
-        }
-        log.warn(
-          'Unable to persist Supabase auth session in SecureStore.',
-          error
-        );
-        throw error;
-      }
-    }),
-  removeItem: (key: string) =>
-    runSerializedStorageMutation(key, async () => {
-      const baseline = await captureRollbackBaseline(key);
-      const intent = nextStorageIntent(key, { type: 'delete' });
-      const operation = SecureStore.deleteItemAsync(key);
-      intent.operation = operation;
-      fenceLateMutation(key, intent, operation);
-      try {
-        await boundedStorageOperation(operation, 'delete');
-      } catch (error) {
-        if (storageIntents.get(key)?.revision === intent.revision) {
-          restorePreviousStorageIntent(
-            key,
-            baseline,
-            error instanceof AuthStorageTimeoutError
+        } catch (error) {
+          if (storageIntents.get(key)?.revision === intent.revision) {
+            restorePreviousStorageIntent(
+              key,
+              baseline,
+              authStorageTimeout.isTimeout(error)
+            );
+          }
+          log.warn(
+            'Unable to persist Supabase auth session in SecureStore.',
+            error
           );
+          throw error;
         }
-        throw error;
-      }
-    }),
+      },
+      deadline
+    ),
+  removeItem: (key: string, deadline?: number) =>
+    runSerializedStorageMutation(
+      key,
+      async () => {
+        const baseline = await captureRollbackBaseline(key, deadline);
+        const intent = nextStorageIntent(key, { type: 'delete' });
+        const operation = SecureStore.deleteItemAsync(key);
+        intent.operation = operation;
+        fenceLateMutation(key, intent, operation);
+        try {
+          await authStorageTimeout.run(
+            operation,
+            'delete',
+            authStorageTimeout.defaultMs,
+            deadline
+          );
+        } catch (error) {
+          if (storageIntents.get(key)?.revision === intent.revision) {
+            restorePreviousStorageIntent(
+              key,
+              baseline,
+              authStorageTimeout.isTimeout(error)
+            );
+          }
+          throw error;
+        }
+      },
+      deadline
+    ),
 };

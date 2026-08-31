@@ -150,4 +150,41 @@ describe('Supabase Auth client refresh boundaries', () => {
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it('bypasses a transient refresh failure cache for an explicit checkout retry', async () => {
+    const storage = storageFor(session('stored-refresh-token'));
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
+          expires_in: 3_600,
+          refresh_token: 'rotated-refresh-token',
+          token_type: 'bearer',
+          user: { id: 'user-a' },
+        })
+      );
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: { autoRefreshToken: false, persistSession: true, storage },
+        global: { fetch: fetchImpl },
+      }
+    );
+
+    await client.auth.refreshSession({
+      refresh_token: 'stored-refresh-token',
+      require_storage_match: true,
+    });
+    const retry = await client.auth.refreshSession({
+      bypass_failure_cache: true,
+      refresh_token: 'stored-refresh-token',
+      require_storage_match: true,
+    });
+
+    expect(retry.data.session?.refresh_token).toBe('rotated-refresh-token');
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
 });

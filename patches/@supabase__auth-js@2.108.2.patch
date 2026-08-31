@@ -1,21 +1,25 @@
 diff --git a/dist/main/GoTrueClient.d.ts b/dist/main/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..e6f7a4d2bae8ad040660ab08bc9625994bd5a186 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811defcb30ca3e 100644
 --- a/dist/main/GoTrueClient.d.ts
 +++ b/dist/main/GoTrueClient.d.ts
-@@ -1936,9 +1936,11 @@ export default class GoTrueClient {
+@@ -1936,9 +1936,15 @@ export default class GoTrueClient {
       */
      refreshSession(currentSession?: {
          refresh_token: string;
++        bypass_failure_cache?: boolean;
 +        require_storage_match?: boolean;
++        storage_deadline_at?: number;
      }): Promise<AuthResponse>;
      protected _refreshSession(currentSession?: {
          refresh_token: string;
++        bypass_failure_cache?: boolean;
 +        require_storage_match?: boolean;
++        storage_deadline_at?: number;
      }): Promise<AuthResponse>;
      /**
       * Gets the session data from a URL string
 diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
-index 9af56f25432ca2cf0761049df156cf763ae77a48..6a60fdacd5cb979418baa208d7632c1e34e3836f 100644
+index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e2d942671 100644
 --- a/dist/main/GoTrueClient.js
 +++ b/dist/main/GoTrueClient.js
 @@ -3132,15 +3132,23 @@ class GoTrueClient {
@@ -23,7 +27,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..6a60fdacd5cb979418baa208d7632c1e
      async _refreshSession(currentSession) {
          try {
 +            if (currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token) {
-+                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token, currentSession.require_storage_match === true);
++                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token, currentSession.require_storage_match === true, currentSession.storage_deadline_at, currentSession.bypass_failure_cache === true);
 +                if (error) {
 +                    return this._returnResult({ data: { user: null, session: null }, error });
 +                }
@@ -71,15 +75,41 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..6a60fdacd5cb979418baa208d7632c1e
          }
      }
 -    async _callRefreshToken(refreshToken) {
-+    async _callRefreshToken(refreshToken, requireStorageMatch = false) {
++    async _callRefreshToken(refreshToken, requireStorageMatch = false, storageDeadlineAt, bypassFailureCache = false) {
          var _a, _b;
          if (!refreshToken) {
              throw new errors_1.AuthSessionMissingError();
-@@ -4098,7 +4108,15 @@ class GoTrueClient {
+@@ -4074,7 +4084,8 @@ class GoTrueClient {
+         // Token-keyed so callers with a fresh refresh token (rotation pickup
+         // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
+         // multi-account switch) bypass the cache and attempt a real refresh.
+-        if (this.lastRefreshFailure &&
++        if (!bypassFailureCache &&
++            this.lastRefreshFailure &&
+             this.lastRefreshFailure.refreshToken === refreshToken &&
+             Date.now() < this.lastRefreshFailure.expiresAt) {
+             this._debug('#_callRefreshToken()', 'returning cached failure (cooldown active)');
+@@ -4084,6 +4095,13 @@ class GoTrueClient {
+         // fragment of the token in the debug tag, even when `debug: true` is
+         // enabled (logs may be forwarded to third-party services).
+         const debugName = `#_callRefreshToken()`;
++        const storage = storageDeadlineAt === undefined
++            ? this.storage
++            : {
++                getItem: (key) => this.storage.getItem(key, storageDeadlineAt),
++                removeItem: (key) => this.storage.removeItem(key, storageDeadlineAt),
++                setItem: (key, value) => this.storage.setItem(key, value, storageDeadlineAt),
++            };
+         this._debug(debugName, 'begin');
+         try {
+             this.refreshingDeferred = new helpers_1.Deferred();
+@@ -4097,13 +4115,21 @@ class GoTrueClient {
+             // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
-             const storedAtStart = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
+-            const storedAtStart = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
 -            const { data, error } = await this._refreshAccessToken(refreshToken);
++            const storedAtStart = (await (0, helpers_1.getItemAsync)(storage, this.storageKey));
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
 +                    data: null,
@@ -92,6 +122,66 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..6a60fdacd5cb979418baa208d7632c1e
              if (error)
                  throw error;
              if (!data.session)
+                 throw new errors_1.AuthSessionMissingError();
+-            const storedAfter = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
++            const storedAfter = (await (0, helpers_1.getItemAsync)(storage, this.storageKey));
+             const storageChangedUnderUs = storedAtStart !== null &&
+                 (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
+             if (storageChangedUnderUs) {
+@@ -4129,10 +4155,10 @@ class GoTrueClient {
+             // (do NOT call `_removeSession` — that would emit a duplicate
+             // SIGNED_OUT for the concurrent signOut that already fired one).
+             const epochBeforeSave = this._sessionRemovalEpoch;
+-            await this._saveSession(data.session);
++            await this._saveSession(data.session, storage);
+             if (this._sessionRemovalEpoch !== epochBeforeSave) {
+                 this._debug(debugName, 'commit guard (post-save): _removeSession ran during _saveSession, undoing write');
+-                await (0, helpers_1.removeItemAsync)(this.storage, this.storageKey);
++                await (0, helpers_1.removeItemAsync)(storage, this.storageKey);
+                 if (this.userStorage) {
+                     await (0, helpers_1.removeItemAsync)(this.userStorage, this.storageKey + '-user');
+                 }
+@@ -4166,7 +4192,7 @@ class GoTrueClient {
+                     // rejected — the session is genuinely dead. `__loadSession`
+                     // mirrors this distinction on the read path so callers see the
+                     // preserved session instead of `session: null`.
+-                    const storedNow = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
++                    const storedNow = (await (0, helpers_1.getItemAsync)(storage, this.storageKey));
+                     const accessTokenStillValid = !!((storedNow === null || storedNow === void 0 ? void 0 : storedNow.expires_at) && storedNow.expires_at * 1000 > Date.now());
+                     if (accessTokenStillValid) {
+                         this._debug(debugName, 'proactive refresh failed, access token still valid — preserving session');
+@@ -4228,12 +4254,12 @@ class GoTrueClient {
+      * set currentSession and currentUser
+      * process to _startAutoRefreshToken if possible
+      */
+-    async _saveSession(session) {
++    async _saveSession(session, storage = this.storage) {
+         this._debug('#_saveSession()', session);
+         // _saveSession is always called whenever a new session has been acquired
+         // so we can safely suppress the warning returned by future getSession calls
+         this.suppressGetSessionWarning = true;
+-        await (0, helpers_1.removeItemAsync)(this.storage, `${this.storageKey}-code-verifier`);
++        await (0, helpers_1.removeItemAsync)(storage, `${this.storageKey}-code-verifier`);
+         // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
+         const sessionToProcess = Object.assign({}, session);
+         const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
+@@ -4255,14 +4281,14 @@ class GoTrueClient {
+             const mainSessionData = Object.assign({}, sessionToProcess);
+             delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
+             const clonedMainSessionData = (0, helpers_1.deepClone)(mainSessionData);
+-            await (0, helpers_1.setItemAsync)(this.storage, this.storageKey, clonedMainSessionData);
++            await (0, helpers_1.setItemAsync)(storage, this.storageKey, clonedMainSessionData);
+         }
+         else {
+             // No userStorage is configured.
+             // In this case, session.user should ideally not be a proxy.
+             // If it were, structuredClone would fail. This implies an issue elsewhere if user is a proxy here
+             const clonedSession = (0, helpers_1.deepClone)(sessionToProcess); // sessionToProcess still has its original user property
+-            await (0, helpers_1.setItemAsync)(this.storage, this.storageKey, clonedSession);
++            await (0, helpers_1.setItemAsync)(storage, this.storageKey, clonedSession);
+         }
+     }
+     async _removeSession() {
 diff --git a/dist/main/lib/fetch.js b/dist/main/lib/fetch.js
 index 96c52a133ff2a0608e8afeb8b063625484ed926a..91d77386191d28fe0758178b9e361d9a40631bb6 100644
 --- a/dist/main/lib/fetch.js
@@ -106,23 +196,27 @@ index 96c52a133ff2a0608e8afeb8b063625484ed926a..91d77386191d28fe0758178b9e361d9a
          throw new errors_1.AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/dist/module/GoTrueClient.d.ts b/dist/module/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..e6f7a4d2bae8ad040660ab08bc9625994bd5a186 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811defcb30ca3e 100644
 --- a/dist/module/GoTrueClient.d.ts
 +++ b/dist/module/GoTrueClient.d.ts
-@@ -1936,9 +1936,11 @@ export default class GoTrueClient {
+@@ -1936,9 +1936,15 @@ export default class GoTrueClient {
       */
      refreshSession(currentSession?: {
          refresh_token: string;
++        bypass_failure_cache?: boolean;
 +        require_storage_match?: boolean;
++        storage_deadline_at?: number;
      }): Promise<AuthResponse>;
      protected _refreshSession(currentSession?: {
          refresh_token: string;
++        bypass_failure_cache?: boolean;
 +        require_storage_match?: boolean;
++        storage_deadline_at?: number;
      }): Promise<AuthResponse>;
      /**
       * Gets the session data from a URL string
 diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
-index 2ec11102fe38c88918cc7abc0d0e2f100938759a..a659bbdc11f0c8abb8526dd2ad42859bcc77e1ce 100644
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897a379cede 100644
 --- a/dist/module/GoTrueClient.js
 +++ b/dist/module/GoTrueClient.js
 @@ -3129,15 +3129,23 @@ class GoTrueClient {
@@ -130,7 +224,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..a659bbdc11f0c8abb8526dd2ad42859b
      async _refreshSession(currentSession) {
          try {
 +            if (currentSession === null || currentSession === void 0 ? void 0 : currentSession.refresh_token) {
-+                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token, currentSession.require_storage_match === true);
++                const { data: session, error } = await this._callRefreshToken(currentSession.refresh_token, currentSession.require_storage_match === true, currentSession.storage_deadline_at, currentSession.bypass_failure_cache === true);
 +                if (error) {
 +                    return this._returnResult({ data: { user: null, session: null }, error });
 +                }
@@ -178,15 +272,41 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..a659bbdc11f0c8abb8526dd2ad42859b
          }
      }
 -    async _callRefreshToken(refreshToken) {
-+    async _callRefreshToken(refreshToken, requireStorageMatch = false) {
++    async _callRefreshToken(refreshToken, requireStorageMatch = false, storageDeadlineAt, bypassFailureCache = false) {
          var _a, _b;
          if (!refreshToken) {
              throw new AuthSessionMissingError();
-@@ -4095,7 +4105,15 @@ class GoTrueClient {
+@@ -4071,7 +4081,8 @@ class GoTrueClient {
+         // Token-keyed so callers with a fresh refresh token (rotation pickup
+         // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
+         // multi-account switch) bypass the cache and attempt a real refresh.
+-        if (this.lastRefreshFailure &&
++        if (!bypassFailureCache &&
++            this.lastRefreshFailure &&
+             this.lastRefreshFailure.refreshToken === refreshToken &&
+             Date.now() < this.lastRefreshFailure.expiresAt) {
+             this._debug('#_callRefreshToken()', 'returning cached failure (cooldown active)');
+@@ -4081,6 +4092,13 @@ class GoTrueClient {
+         // fragment of the token in the debug tag, even when `debug: true` is
+         // enabled (logs may be forwarded to third-party services).
+         const debugName = `#_callRefreshToken()`;
++        const storage = storageDeadlineAt === undefined
++            ? this.storage
++            : {
++                getItem: (key) => this.storage.getItem(key, storageDeadlineAt),
++                removeItem: (key) => this.storage.removeItem(key, storageDeadlineAt),
++                setItem: (key, value) => this.storage.setItem(key, value, storageDeadlineAt),
++            };
+         this._debug(debugName, 'begin');
+         try {
+             this.refreshingDeferred = new Deferred();
+@@ -4094,13 +4112,21 @@ class GoTrueClient {
+             // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
-             const storedAtStart = (await getItemAsync(this.storage, this.storageKey));
+-            const storedAtStart = (await getItemAsync(this.storage, this.storageKey));
 -            const { data, error } = await this._refreshAccessToken(refreshToken);
++            const storedAtStart = (await getItemAsync(storage, this.storageKey));
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
 +                    data: null,
@@ -199,6 +319,66 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..a659bbdc11f0c8abb8526dd2ad42859b
              if (error)
                  throw error;
              if (!data.session)
+                 throw new AuthSessionMissingError();
+-            const storedAfter = (await getItemAsync(this.storage, this.storageKey));
++            const storedAfter = (await getItemAsync(storage, this.storageKey));
+             const storageChangedUnderUs = storedAtStart !== null &&
+                 (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
+             if (storageChangedUnderUs) {
+@@ -4126,10 +4152,10 @@ class GoTrueClient {
+             // (do NOT call `_removeSession` — that would emit a duplicate
+             // SIGNED_OUT for the concurrent signOut that already fired one).
+             const epochBeforeSave = this._sessionRemovalEpoch;
+-            await this._saveSession(data.session);
++            await this._saveSession(data.session, storage);
+             if (this._sessionRemovalEpoch !== epochBeforeSave) {
+                 this._debug(debugName, 'commit guard (post-save): _removeSession ran during _saveSession, undoing write');
+-                await removeItemAsync(this.storage, this.storageKey);
++                await removeItemAsync(storage, this.storageKey);
+                 if (this.userStorage) {
+                     await removeItemAsync(this.userStorage, this.storageKey + '-user');
+                 }
+@@ -4163,7 +4189,7 @@ class GoTrueClient {
+                     // rejected — the session is genuinely dead. `__loadSession`
+                     // mirrors this distinction on the read path so callers see the
+                     // preserved session instead of `session: null`.
+-                    const storedNow = (await getItemAsync(this.storage, this.storageKey));
++                    const storedNow = (await getItemAsync(storage, this.storageKey));
+                     const accessTokenStillValid = !!((storedNow === null || storedNow === void 0 ? void 0 : storedNow.expires_at) && storedNow.expires_at * 1000 > Date.now());
+                     if (accessTokenStillValid) {
+                         this._debug(debugName, 'proactive refresh failed, access token still valid — preserving session');
+@@ -4225,12 +4251,12 @@ class GoTrueClient {
+      * set currentSession and currentUser
+      * process to _startAutoRefreshToken if possible
+      */
+-    async _saveSession(session) {
++    async _saveSession(session, storage = this.storage) {
+         this._debug('#_saveSession()', session);
+         // _saveSession is always called whenever a new session has been acquired
+         // so we can safely suppress the warning returned by future getSession calls
+         this.suppressGetSessionWarning = true;
+-        await removeItemAsync(this.storage, `${this.storageKey}-code-verifier`);
++        await removeItemAsync(storage, `${this.storageKey}-code-verifier`);
+         // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
+         const sessionToProcess = Object.assign({}, session);
+         const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
+@@ -4252,14 +4278,14 @@ class GoTrueClient {
+             const mainSessionData = Object.assign({}, sessionToProcess);
+             delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
+             const clonedMainSessionData = deepClone(mainSessionData);
+-            await setItemAsync(this.storage, this.storageKey, clonedMainSessionData);
++            await setItemAsync(storage, this.storageKey, clonedMainSessionData);
+         }
+         else {
+             // No userStorage is configured.
+             // In this case, session.user should ideally not be a proxy.
+             // If it were, structuredClone would fail. This implies an issue elsewhere if user is a proxy here
+             const clonedSession = deepClone(sessionToProcess); // sessionToProcess still has its original user property
+-            await setItemAsync(this.storage, this.storageKey, clonedSession);
++            await setItemAsync(storage, this.storageKey, clonedSession);
+         }
+     }
+     async _removeSession() {
 diff --git a/dist/module/lib/fetch.js b/dist/module/lib/fetch.js
 index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f842042e2f741 100644
 --- a/dist/module/lib/fetch.js
@@ -213,26 +393,30 @@ index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f8420
          throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
-index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f50a69cb87 100644
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb25c762a71 100644
 --- a/src/GoTrueClient.ts
 +++ b/src/GoTrueClient.ts
-@@ -3689,7 +3689,10 @@ export default class GoTrueClient {
+@@ -3689,7 +3689,12 @@ export default class GoTrueClient {
     * const { session, user } = data
     * ```
     */
 -  async refreshSession(currentSession?: { refresh_token: string }): Promise<AuthResponse> {
 +  async refreshSession(currentSession?: {
 +    refresh_token: string
++    bypass_failure_cache?: boolean
 +    require_storage_match?: boolean
++    storage_deadline_at?: number
 +  }): Promise<AuthResponse> {
      await this.initializePromise
 
      if (this.lock != null) {
-@@ -3704,18 +3707,32 @@ export default class GoTrueClient {
+@@ -3704,18 +3709,36 @@ export default class GoTrueClient {
 
    protected async _refreshSession(currentSession?: {
      refresh_token: string
++    bypass_failure_cache?: boolean
 +    require_storage_match?: boolean
++    storage_deadline_at?: number
    }): Promise<AuthResponse> {
      try {
 -      return await this._useSession(async (result) => {
@@ -244,19 +428,21 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f5
 +      if (currentSession?.refresh_token) {
 +        const { data: session, error } = await this._callRefreshToken(
 +          currentSession.refresh_token,
-+          currentSession.require_storage_match === true
++          currentSession.require_storage_match === true,
++          currentSession.storage_deadline_at,
++          currentSession.bypass_failure_cache === true
 +        )
 +        if (error) {
 +          return this._returnResult({ data: { user: null, session: null }, error })
 +        }
-+
+
+-          currentSession = data.session ?? undefined
 +        return this._returnResult({
 +          data: { user: session?.user ?? null, session: session ?? null },
 +          error: null,
 +        })
 +      }
-
--          currentSession = data.session ?? undefined
++
 +      return await this._useSession(async (result) => {
 +        const { data, error: sessionError } = result
 +        if (sessionError) {
@@ -268,7 +454,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f5
          if (!currentSession?.refresh_token) {
            throw new AuthSessionMissingError()
          }
-@@ -4621,7 +4638,10 @@ export default class GoTrueClient {
+@@ -4621,7 +4644,10 @@ export default class GoTrueClient {
     * Generates a new JWT.
     * @param refreshToken A valid refresh token that was returned on login.
     */
@@ -280,7 +466,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f5
      // Refresh tokens are long-lived bearer credentials; do NOT include any
      // fragment of the token in the debug tag, even when `debug: true` is
      // enabled (logs may be forwarded to third-party services).
-@@ -4651,6 +4671,8 @@ export default class GoTrueClient {
+@@ -4651,6 +4677,8 @@ export default class GoTrueClient {
            return (
              error &&
              isAuthRetryableFetchError(error) &&
@@ -289,23 +475,70 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f5
              // retryable only if the request can be sent before the backoff overflows the tick duration
              Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS
            )
-@@ -4830,7 +4852,10 @@ export default class GoTrueClient {
+@@ -4830,7 +4858,12 @@ export default class GoTrueClient {
      }
    }
 
 -  private async _callRefreshToken(refreshToken: string): Promise<CallRefreshTokenResult> {
 +  private async _callRefreshToken(
 +    refreshToken: string,
-+    requireStorageMatch = false
++    requireStorageMatch = false,
++    storageDeadlineAt?: number,
++    bypassFailureCache = false
 +  ): Promise<CallRefreshTokenResult> {
      if (!refreshToken) {
        throw new AuthSessionMissingError()
      }
-@@ -4882,7 +4907,19 @@ export default class GoTrueClient {
-       // snapshots*, not when the input token disagrees with what's stored.
-       const storedAtStart = (await getItemAsync(this.storage, this.storageKey)) as Session | null
+@@ -4852,6 +4885,7 @@ export default class GoTrueClient {
+     // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
+     // multi-account switch) bypass the cache and attempt a real refresh.
+     if (
++      !bypassFailureCache &&
+       this.lastRefreshFailure &&
+       this.lastRefreshFailure.refreshToken === refreshToken &&
+       Date.now() < this.lastRefreshFailure.expiresAt
+@@ -4865,6 +4899,34 @@ export default class GoTrueClient {
+     // enabled (logs may be forwarded to third-party services).
+     const debugName = `#_callRefreshToken()`
 
--      const { data, error } = await this._refreshAccessToken(refreshToken)
++    const storage =
++      storageDeadlineAt === undefined
++        ? this.storage
++        : {
++            getItem: (key: string) =>
++              (
++                this.storage.getItem as (
++                  key: string,
++                  deadline?: number
++                ) => ReturnType<SupportedStorage['getItem']>
++              )(key, storageDeadlineAt),
++            removeItem: (key: string) =>
++              (
++                this.storage.removeItem as (
++                  key: string,
++                  deadline?: number
++                ) => ReturnType<SupportedStorage['removeItem']>
++              )(key, storageDeadlineAt),
++            setItem: (key: string, value: string) =>
++              (
++                this.storage.setItem as (
++                  key: string,
++                  value: string,
++                  deadline?: number
++                ) => ReturnType<SupportedStorage['setItem']>
++              )(key, value, storageDeadlineAt),
++          }
++
+     this._debug(debugName, 'begin')
+
+     try {
+@@ -4880,13 +4942,25 @@ export default class GoTrueClient {
+       // refresh_token differs from the one they're hydrating; in both
+       // cases the guard fires only when storage was *modified between
+       // snapshots*, not when the input token disagrees with what's stored.
+-      const storedAtStart = (await getItemAsync(this.storage, this.storageKey)) as Session | null
++      const storedAtStart = (await getItemAsync(storage, this.storageKey)) as Session | null
++
 +      if (requireStorageMatch && storedAtStart?.refresh_token !== refreshToken) {
 +        const discarded: CallRefreshTokenResult = {
 +          data: null,
@@ -314,13 +547,76 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..3bbf75cc1039b2ff5b9030c6d97079f5
 +        this.refreshingDeferred.resolve(discarded)
 +        return discarded
 +      }
-+
+
+-      const { data, error } = await this._refreshAccessToken(refreshToken)
 +      const { data, error } = await this._refreshAccessToken(
 +        refreshToken,
 +        !requireStorageMatch
 +      )
        if (error) throw error
        if (!data.session) throw new AuthSessionMissingError()
+
+-      const storedAfter = (await getItemAsync(this.storage, this.storageKey)) as Session | null
++      const storedAfter = (await getItemAsync(storage, this.storageKey)) as Session | null
+       const storageChangedUnderUs =
+         storedAtStart !== null &&
+         (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token)
+@@ -4920,14 +4994,14 @@ export default class GoTrueClient {
+       // SIGNED_OUT for the concurrent signOut that already fired one).
+       const epochBeforeSave = this._sessionRemovalEpoch
+
+-      await this._saveSession(data.session)
++      await this._saveSession(data.session, storage)
+
+       if (this._sessionRemovalEpoch !== epochBeforeSave) {
+         this._debug(
+           debugName,
+           'commit guard (post-save): _removeSession ran during _saveSession, undoing write'
+         )
+-        await removeItemAsync(this.storage, this.storageKey)
++        await removeItemAsync(storage, this.storageKey)
+         if (this.userStorage) {
+           await removeItemAsync(this.userStorage, this.storageKey + '-user')
+         }
+@@ -4967,7 +5041,7 @@ export default class GoTrueClient {
+           // rejected — the session is genuinely dead. `__loadSession`
+           // mirrors this distinction on the read path so callers see the
+           // preserved session instead of `session: null`.
+-          const storedNow = (await getItemAsync(this.storage, this.storageKey)) as Session | null
++          const storedNow = (await getItemAsync(storage, this.storageKey)) as Session | null
+           const accessTokenStillValid = !!(
+             storedNow?.expires_at && storedNow.expires_at * 1000 > Date.now()
+           )
+@@ -5046,12 +5120,12 @@ export default class GoTrueClient {
+    * set currentSession and currentUser
+    * process to _startAutoRefreshToken if possible
+    */
+-  private async _saveSession(session: Session) {
++  private async _saveSession(session: Session, storage = this.storage) {
+     this._debug('#_saveSession()', session)
+     // _saveSession is always called whenever a new session has been acquired
+     // so we can safely suppress the warning returned by future getSession calls
+     this.suppressGetSessionWarning = true
+-    await removeItemAsync(this.storage, `${this.storageKey}-code-verifier`)
++    await removeItemAsync(storage, `${this.storageKey}-code-verifier`)
+     // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
+     const sessionToProcess = { ...session }
+
+@@ -5076,13 +5150,13 @@ export default class GoTrueClient {
+       delete mainSessionData.user // Remove user (real or proxy) before cloning for main storage
+
+       const clonedMainSessionData = deepClone(mainSessionData)
+-      await setItemAsync(this.storage, this.storageKey, clonedMainSessionData)
++      await setItemAsync(storage, this.storageKey, clonedMainSessionData)
+     } else {
+       // No userStorage is configured.
+       // In this case, session.user should ideally not be a proxy.
+       // If it were, structuredClone would fail. This implies an issue elsewhere if user is a proxy here
+       const clonedSession = deepClone(sessionToProcess) // sessionToProcess still has its original user property
+-      await setItemAsync(this.storage, this.storageKey, clonedSession)
++      await setItemAsync(storage, this.storageKey, clonedSession)
+     }
+   }
 
 diff --git a/src/lib/fetch.ts b/src/lib/fetch.ts
 index cdef4a8a5c0567eeafc69c2592f05952dd99c60e..deed48a3f13fb1508a72baa31a45afd15ede4b50 100644
