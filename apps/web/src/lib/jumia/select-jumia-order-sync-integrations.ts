@@ -28,20 +28,37 @@ export function buildJumiaOrderSyncScope(
 export function selectJumiaOrderSyncIntegrations(
   integrations: readonly MarketplaceIntegrationRow[]
 ): MarketplaceIntegrationRow[] {
-  const selected: MarketplaceIntegrationRow[] = [];
-  const claimedScopes = new Set<string>();
+  const scoped = new Map<string, MarketplaceIntegrationRow[]>();
 
   for (const integration of integrations) {
     if (!readOrderSyncEnabled(integration.sync_config)) {
       continue;
     }
     const orderScope = buildJumiaOrderSyncScope(integration);
-    if (claimedScopes.has(orderScope)) {
-      continue;
-    }
-    claimedScopes.add(orderScope);
-    selected.push(integration);
+    const candidates = scoped.get(orderScope);
+    if (candidates) candidates.push(integration);
+    else scoped.set(orderScope, [integration]);
   }
 
-  return selected;
+  return [...scoped.values()].map((candidates) => {
+    // Database result order is not a stable choice when several marketplace
+    // rows share one provider scope. Pick a deterministic cursor owner and
+    // mark the scope so its cache rows are stored independently of that row's
+    // marketplace key.
+    const marketplaceKeys = new Set(
+      candidates.map((candidate) => candidate.marketplace_key?.trim() || '')
+    );
+    const [selected] =
+      marketplaceKeys.size > 1
+        ? [...candidates].sort((left, right) => {
+            const keyComparison = (
+              left.marketplace_key?.trim() || ''
+            ).localeCompare(right.marketplace_key?.trim() || '');
+            return keyComparison || left.id.localeCompare(right.id);
+          })
+        : candidates;
+    return candidates.length > 1
+      ? { ...selected, orderSyncScope: 'shared' as const }
+      : selected;
+  });
 }

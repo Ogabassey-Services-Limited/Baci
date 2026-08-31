@@ -215,6 +215,18 @@ describe('Jumia order sync mappers', () => {
     });
   });
 
+  it('stores shared provider-scope orders under a neutral marketplace key', () => {
+    const cacheRow = buildJumiaCacheRow(
+      { ...integration, orderSyncScope: 'shared' },
+      order,
+      null,
+      undefined,
+      'baci-order-id'
+    );
+
+    expect(cacheRow.marketplace_key).toBe('default');
+  });
+
   it('preserves zero paid prices for fully discounted Jumia items', () => {
     const orderItems = buildOrderItems('baci-order-id', [
       { ...item, paidPrice: 0 },

@@ -48,7 +48,7 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
     expect(selected.map((row) => row.id)).toEqual(['enabled-first']);
   });
 
-  it('deduplicates same-grant business clients the Orders API cannot scope', () => {
+  it('uses a deterministic owner and neutral cache scope for same-grant business clients', () => {
     const selected = selectJumiaOrderSyncIntegrations([
       {
         id: 'retail',
@@ -72,7 +72,38 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
       },
     ]);
 
-    expect(selected.map((row) => row.id)).toEqual(['retail']);
+    expect(selected.map((row) => row.id)).toEqual(['express']);
+    expect(selected[0]?.orderSyncScope).toBe('shared');
+  });
+
+  it('does not change the shared-scope owner when the database order changes', () => {
+    const rows = [
+      {
+        id: 'retail',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        jumia_authorization_id: 'authorization-1',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+      {
+        id: 'express',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-EXPRESS',
+        jumia_authorization_id: 'authorization-1',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+    ];
+
+    const selected = selectJumiaOrderSyncIntegrations([...rows].reverse());
+
+    expect(selected.map((row) => row.id)).toEqual(['express']);
+    expect(selected[0]?.orderSyncScope).toBe('shared');
   });
 
   it('keeps integrations backed by distinct self-authorization grants separate', () => {

@@ -16,6 +16,14 @@ const callbackFlow = `${callbackRoot}/callback-flow.ts`;
 const callbackHandler = `${callbackRoot}/handler.ts`;
 const callbackRuntime = `${callbackRoot}/runtime.ts`;
 const callbackRuntimeImpl = `${callbackRoot}/runtime-impl.ts`;
+const connectRoot = 'apps/web/src/app/api/marketplace/jumia/connect';
+const connectRoute = `${connectRoot}/route.ts`;
+const connectPost = `${connectRoot}/post.ts`;
+const selfAuthorizationConnectRequest = `${connectRoot}/self-authorization-connect-request.ts`;
+const validateSelfAuthorizationForConnect = `${connectRoot}/validate-jumia-self-authorization-for-connect.ts`;
+const claimResumedAuthorization = `${connectRoot}/claim-jumia-resumed-authorization.ts`;
+const consignmentStockRoute =
+  'apps/web/src/app/api/marketplace/jumia/consignment/get-jumia-consignment-stock.ts';
 
 const clientCredentialSuffixes = [
   [client, envPath],
@@ -168,6 +176,59 @@ export const eventPipelineJumiaCredentialPaths = [
   [tokenRotation, jumiaHelpers, envPath],
   [tokenRotation, refreshLease, envPath],
   [refreshLease, envPath],
+  [claimResumedAuthorization, refreshLease, envPath],
+  [
+    validateSelfAuthorizationForConnect,
+    claimResumedAuthorization,
+    refreshLease,
+    envPath,
+  ],
+  [
+    selfAuthorizationConnectRequest,
+    validateSelfAuthorizationForConnect,
+    claimResumedAuthorization,
+    refreshLease,
+    envPath,
+  ],
+  [
+    connectPost,
+    selfAuthorizationConnectRequest,
+    validateSelfAuthorizationForConnect,
+    claimResumedAuthorization,
+    refreshLease,
+    envPath,
+  ],
+  [
+    connectRoute,
+    connectPost,
+    selfAuthorizationConnectRequest,
+    validateSelfAuthorizationForConnect,
+    claimResumedAuthorization,
+    refreshLease,
+    envPath,
+  ],
+  [consignmentStockRoute, client, envPath],
+  [consignmentStockRoute, client, clientConfig, envPath],
+  [consignmentStockRoute, client, tokenPersistence, envPath],
+  [consignmentStockRoute, client, tokenPersistence, jumiaHelpers, envPath],
+  [consignmentStockRoute, client, tokenPersistence, refreshLease, envPath],
+  [consignmentStockRoute, client, tokenPersistence, tokenRotation, envPath],
+  [
+    consignmentStockRoute,
+    client,
+    tokenPersistence,
+    tokenRotation,
+    jumiaHelpers,
+    envPath,
+  ],
+  [
+    consignmentStockRoute,
+    client,
+    tokenPersistence,
+    tokenRotation,
+    refreshLease,
+    envPath,
+  ],
   ...withPrefix(
     ['apps/web/src/lib/jumia/order-sync.ts'],
     clientCredentialSuffixes

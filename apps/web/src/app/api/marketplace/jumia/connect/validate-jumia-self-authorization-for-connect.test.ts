@@ -120,4 +120,38 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
     expect(persistRotatedJumiaCredentials).not.toHaveBeenCalled();
     expect(onCredentialsRotated).toHaveBeenCalledWith('leased-ciphertext');
   });
+
+  it('claims the existing authorization before initial rediscovery validation', async () => {
+    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue({
+      credentials: { clientId: 'client-1', refreshToken: 'fresh-refresh' },
+      authorizationId: 'auth-1',
+      authorizationRotationVersion: 4,
+      leaseToken: 'lease-2',
+    });
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
+      async (submitted) => {
+        expect(submitted).toEqual({
+          clientId: 'client-1',
+          refreshToken: 'fresh-refresh',
+        });
+        return validated;
+      }
+    );
+
+    await validateJumiaSelfAuthorizationForConnect({
+      clientKeyHash: 'hash-1',
+      encryptionKey: 'key',
+      merchantId: 'merchant-1',
+      onCredentialsRotated: vi.fn(),
+      submittedCredentials: credentials,
+      supabase: {} as never,
+    });
+
+    expect(claimJumiaResumedAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientKeyHash: 'hash-1',
+        merchantId: 'merchant-1',
+      })
+    );
+  });
 });

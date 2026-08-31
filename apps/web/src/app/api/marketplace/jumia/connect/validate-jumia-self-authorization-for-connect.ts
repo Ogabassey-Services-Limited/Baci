@@ -18,16 +18,14 @@ export async function validateJumiaSelfAuthorizationForConnect(args: {
   submittedCredentials: JumiaSelfAuthorizationCredentials;
   supabase: SupabaseClient;
 }): Promise<ValidatedSelfAuthorization> {
-  const resumedAuthorizationLease = args.discoveryId
-    ? await claimJumiaResumedAuthorization({
-        clientKeyHash: args.clientKeyHash,
-        encryptionKey: args.encryptionKey,
-        merchantId: args.merchantId,
-        supabase: args.supabase,
-      })
-    : null;
+  const authorizationLease = await claimJumiaResumedAuthorization({
+    clientKeyHash: args.clientKeyHash,
+    encryptionKey: args.encryptionKey,
+    merchantId: args.merchantId,
+    supabase: args.supabase,
+  });
   const submittedCredentials =
-    resumedAuthorizationLease?.credentials ?? args.submittedCredentials;
+    authorizationLease?.credentials ?? args.submittedCredentials;
 
   return validateJumiaSelfAuthorization(submittedCredentials, {
     onCredentialsRotated: async ({
@@ -35,16 +33,16 @@ export async function validateJumiaSelfAuthorizationForConnect(args: {
       accessTokenExpiresAt,
       refreshTokenExpiresAt,
     }) => {
-      const credentialCiphertext = resumedAuthorizationLease
+      const credentialCiphertext = authorizationLease
         ? await persistRotatedJumiaCredentialsWithLease({
-            authorizationId: resumedAuthorizationLease.authorizationId,
+            authorizationId: authorizationLease.authorizationId,
             authorizationRotationVersion:
-              resumedAuthorizationLease.authorizationRotationVersion,
+              authorizationLease.authorizationRotationVersion,
             clientKeyHash: args.clientKeyHash,
             credentials,
             encryptionKey: args.encryptionKey,
             merchantId: args.merchantId,
-            refreshLeaseToken: resumedAuthorizationLease.leaseToken,
+            refreshLeaseToken: authorizationLease.leaseToken,
             refreshTokenExpiresAt,
             supabase: args.supabase,
             accessTokenExpiresAt,
