@@ -37,6 +37,13 @@ const retryFairnessSql = readFileSync(
   ),
   'utf8'
 );
+const runtimePublicationInterlockSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204250_quiz_instant_runtime_publication_interlock_v2.sql'
+  ),
+  'utf8'
+);
 const runtimeGateSql = readFileSync(
   resolve(
     migrationsDirectory,
@@ -55,6 +62,13 @@ const liveAwardRetrySql = readFileSync(
   resolve(
     migrationsDirectory,
     '20260830204700_quiz_instant_live_award_retry_backoff_v2.sql'
+  ),
+  'utf8'
+);
+const liveGateBacklogSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    '20260830204800_quiz_instant_live_gate_backlog_count_v2.sql'
   ),
   'utf8'
 );
@@ -180,6 +194,12 @@ describe('instant quiz deadline publication migration', () => {
   });
 
   it('uses the persisted production gate and isolates deadline stages', () => {
+    expect(runtimePublicationInterlockSql).toMatch(
+      /BEFORE UPDATE OF results_published_at ON public\.quiz_events/i
+    );
+    expect(runtimePublicationInterlockSql).toMatch(
+      /production_phase IS TRUE[\s\S]*?production_approved IS TRUE[\s\S]*?interval '30 seconds'/i
+    );
     expect(runtimeGateSql).toMatch(
       /CREATE TABLE IF NOT EXISTS public\.quiz_runtime_control_v2/i
     );
@@ -218,6 +238,9 @@ describe('instant quiz deadline publication migration', () => {
     );
     expect(liveAwardRetrySql).toMatch(
       /IF v_should_log_failure THEN[\s\S]*?INSERT INTO public\.leaderboard_refresh_log/i
+    );
+    expect(liveGateBacklogSql).toMatch(
+      /SELECT pg_catalog\.count\(\*\)::integer[\s\S]*?INTO v_blocked[\s\S]*?liveAwaitingGate', v_blocked/i
     );
   });
 
