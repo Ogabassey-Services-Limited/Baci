@@ -160,7 +160,11 @@ describe('quiz deadline review repairs', () => {
     ]) {
       const sql = readMigration(indexMigration);
       expect(sql.startsWith('-- disable-transaction\n')).toBe(true);
+      expect(sql).toMatch(/DROP INDEX CONCURRENTLY IF EXISTS/i);
       expect(sql).toMatch(/CREATE INDEX CONCURRENTLY IF NOT EXISTS/i);
+      expect(sql.indexOf('DROP INDEX CONCURRENTLY')).toBeLessThan(
+        sql.indexOf('CREATE INDEX CONCURRENTLY')
+      );
       expect(sql).not.toMatch(/\bBEGIN\b/i);
       expect(migrations.indexOf(indexMigration)).toBeLessThan(
         migrations.indexOf(fallbackMigration)

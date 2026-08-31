@@ -1,5 +1,8 @@
 -- disable-transaction
 -- Pre-create the live terminalization retry index without blocking writes.
+DROP INDEX CONCURRENTLY IF EXISTS
+  public.quiz_events_v2_live_terminal_retry_idx;
+
 CREATE INDEX CONCURRENTLY IF NOT EXISTS
   quiz_events_v2_live_terminal_retry_idx
   ON public.quiz_events(updated_at, ends_at)
