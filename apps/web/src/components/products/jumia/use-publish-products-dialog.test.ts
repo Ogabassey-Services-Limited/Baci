@@ -483,4 +483,75 @@ describe('usePublishProductsDialog', () => {
     act(() => result.current.toggleProduct('prod-1'));
     expect(result.current.selectedIds).toEqual(new Set(['prod-1']));
   });
+
+  it('reports an accepted 207 export as reconciliation pending', async () => {
+    mockToast.mockClear();
+    mockFetchWithCsrf.mockReset();
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 207,
+      json: async () => ({
+        success: false,
+        partial: true,
+        feedId: 'feed-1',
+      }),
+    });
+    vi.stubGlobal(
+      'fetch',
+      createFetchMock({
+        'mapped-product-ids': async () => ({
+          ok: true,
+          json: async () => ({ mappings: [] }),
+        }),
+        '/api/products': async () => ({
+          ok: true,
+          json: async () => ({
+            products: [
+              {
+                id: 'prod-1',
+                name: 'Phone',
+                sku: 'PHONE-1',
+                price: 100,
+                image: 'https://cdn.example.com/phone.jpg',
+                category: 'Phones',
+                brand: 'Acme',
+              },
+            ],
+          }),
+        }),
+      })
+    );
+    const onOpenChange = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange,
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+    act(() => {
+      result.current.setCategoryCode(42);
+      result.current.setBrand({ code: 1, name: 'Generic' });
+    });
+    act(() => result.current.toggleProduct('prod-1'));
+    act(() => result.current.submit());
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Products submitted to Jumia',
+          description: expect.stringContaining('reconciliation is pending'),
+        })
+      );
+    });
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Submission failed' })
+    );
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

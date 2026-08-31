@@ -48,4 +48,30 @@ describe('isJumiaProductFullyMapped', () => {
       )
     ).toBe(true);
   });
+
+  it('keeps a mapped variant blocked after its local SKU changes', () => {
+    expect(
+      isJumiaProductFullyMapped(
+        {
+          ...product,
+          variants: [
+            { id: 'variant-black', sku: 'PHONE-BLACK-NEW' },
+            { id: 'variant-white', sku: 'PHONE-WHITE-NEW' },
+          ],
+        },
+        [
+          {
+            variantId: 'variant-black',
+            sellerSku: 'PHONE-BLACK-OLD',
+            syncStatus: 'synced',
+          },
+          {
+            variantId: 'variant-white',
+            sellerSku: 'PHONE-WHITE-OLD',
+            syncStatus: 'pending',
+          },
+        ]
+      )
+    ).toBe(true);
+  });
 });

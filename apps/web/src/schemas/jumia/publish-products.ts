@@ -25,6 +25,7 @@ export const publishProductSchema = z.object({
   variants: z
     .array(
       z.object({
+        id: z.string().trim().min(1).optional(),
         sku: z.string().nullable().optional(),
         price_override: z.number().nullable().optional(),
         stock_quantity: z.number().optional(),

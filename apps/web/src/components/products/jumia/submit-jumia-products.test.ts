@@ -53,4 +53,38 @@ describe('submitJumiaProducts', () => {
       { ok: false, body: { error: 'Failed to submit product to Jumia' } },
     ]);
   });
+
+  it('treats an accepted 207 export as partial success', async () => {
+    mockFetchWithCsrf.mockResolvedValue({
+      ok: true,
+      status: 207,
+      json: async () => ({
+        success: false,
+        partial: true,
+        feedId: 'feed-1',
+        error: 'Mapping reconciliation is pending',
+      }),
+    });
+
+    await expect(
+      submitJumiaProducts({
+        products: [product],
+        integrationId: 'integration-1',
+        categoryCode: 42,
+        brand: { code: 7, name: 'Acme' },
+        marketplaceCurrency: 'NGN',
+      })
+    ).resolves.toEqual([
+      {
+        ok: true,
+        partial: true,
+        body: {
+          success: false,
+          partial: true,
+          feedId: 'feed-1',
+          error: 'Mapping reconciliation is pending',
+        },
+      },
+    ]);
+  });
 });

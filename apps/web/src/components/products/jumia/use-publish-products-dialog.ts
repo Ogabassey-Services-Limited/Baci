@@ -242,11 +242,15 @@ export function usePublishProductsDialog({
     })
       .then((results) => {
         const succeeded = results.filter((result) => result.ok).length;
+        const partial = results.filter((result) => result.partial).length;
         const failed = results.length - succeeded;
         if (succeeded > 0) {
           toast({
             title: 'Products submitted to Jumia',
-            description: `${succeeded} product${succeeded === 1 ? '' : 's'} is pending Jumia approval.${failed ? ` ${failed} failed.` : ''}`,
+            description:
+              partial > 0
+                ? `${succeeded} product${succeeded === 1 ? '' : 's'} was accepted by Jumia; local mapping reconciliation is pending.${failed ? ` ${failed} failed.` : ''}`
+                : `${succeeded} product${succeeded === 1 ? '' : 's'} is pending Jumia approval.${failed ? ` ${failed} failed.` : ''}`,
           });
           onOpenChange(false);
         } else {

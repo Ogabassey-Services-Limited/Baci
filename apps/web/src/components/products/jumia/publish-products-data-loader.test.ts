@@ -69,9 +69,94 @@ describe('loadMappedProductMappings', () => {
       ])
     );
   });
+
+  it('preserves variant identity alongside the seller SKU', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mappings: [
+            {
+              productId: 'product-1',
+              variantId: 'variant-1',
+              sellerSku: 'SKU-1',
+              syncStatus: 'synced',
+            },
+          ],
+        }),
+      })
+    );
+
+    await expect(
+      loadMappedProductMappings('integration-1', new AbortController().signal)
+    ).resolves.toEqual(
+      new Map([
+        [
+          'product-1',
+          [
+            {
+              variantId: 'variant-1',
+              sellerSku: 'SKU-1',
+              syncStatus: 'synced',
+            },
+          ],
+        ],
+      ])
+    );
+  });
+
+  it('rejects malformed variant identity values', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          mappings: [
+            {
+              productId: 'product-1',
+              variantId: 7,
+              sellerSku: 'SKU-1',
+              syncStatus: 'synced',
+            },
+          ],
+        }),
+      })
+    );
+
+    await expect(
+      loadMappedProductMappings('integration-1', new AbortController().signal)
+    ).rejects.toThrow('Failed to load mapped Jumia products');
+  });
 });
 
 describe('loadPublishProducts', () => {
+  it('preserves variant ids from the products API', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          products: [
+            {
+              id: 'product-1',
+              name: 'Phone',
+              price: 100,
+              variants: [{ id: 'variant-1', sku: 'PHONE-BLACK' }],
+            },
+          ],
+        }),
+      })
+    );
+
+    const products = await loadPublishProducts(
+      undefined,
+      new AbortController().signal
+    );
+
+    expect(products[0]?.variants?.[0]?.id).toBe('variant-1');
+  });
+
   it('stops at the maximum product page bound', async () => {
     const fetchMock = vi.fn((url: string) => {
       const page = Number(

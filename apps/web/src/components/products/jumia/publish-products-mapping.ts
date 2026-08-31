@@ -1,39 +1,61 @@
 import type { PublishProduct } from '@/schemas/jumia/publish-products';
 import type { JumiaProductMappingState } from './publish-products-data-loader';
 
-function getSellableProductSkus(product: PublishProduct): string[] {
-  const variantSkus = (product.variants ?? [])
+type SellableProductVariant = {
+  id?: string;
+  sku: string;
+};
+
+function getSellableProductVariants(
+  product: PublishProduct
+): SellableProductVariant[] {
+  const variants = (product.variants ?? [])
     .filter(
       (variant) =>
         variant.is_inventory_anchor !== true &&
         typeof variant.sku === 'string' &&
         variant.sku.trim()
     )
-    .map((variant) => variant.sku?.trim() ?? '');
+    .map((variant) => ({
+      id: variant.id,
+      sku: variant.sku?.trim() ?? '',
+    }));
 
-  if (variantSkus.length > 0) {
-    return Array.from(new Set(variantSkus));
+  if (variants.length > 0) {
+    return variants.filter(
+      (variant, index, all) =>
+        all.findIndex((candidate) =>
+          candidate.id && variant.id
+            ? candidate.id === variant.id
+            : candidate.sku === variant.sku
+        ) === index
+    );
   }
 
-  return product.sku?.trim() ? [product.sku.trim()] : [];
+  return product.sku?.trim() ? [{ sku: product.sku.trim() }] : [];
 }
 
 export function isJumiaProductFullyMapped(
   product: PublishProduct,
   mappings: readonly JumiaProductMappingState[] | undefined
 ): boolean {
-  const sellerSkus = getSellableProductSkus(product);
+  const sellableVariants = getSellableProductVariants(product);
   if (!mappings || mappings.length === 0) {
     return false;
   }
 
-  const mappedSkus = new Set(
-    mappings
-      .filter((mapping) => mapping.syncStatus !== 'error')
-      .map((mapping) => mapping.sellerSku)
+  const successfulMappings = mappings.filter(
+    (mapping) => mapping.syncStatus !== 'error'
   );
-  if (sellerSkus.length === 0) {
-    return mappedSkus.size > 0;
+  if (sellableVariants.length === 0) {
+    return successfulMappings.length > 0;
   }
-  return sellerSkus.every((sellerSku) => mappedSkus.has(sellerSku));
+  return sellableVariants.every((variant) =>
+    successfulMappings.some(
+      (mapping) =>
+        (variant.id && mapping.variantId === variant.id) ||
+        ((!mapping.variantId || !variant.id) &&
+          mapping.sellerSku === variant.sku)
+    )
+  );
 }

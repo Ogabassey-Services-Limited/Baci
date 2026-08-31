@@ -27,6 +27,7 @@ vi.mock('@/lib/merchant-feature-gates', () => ({
 import { GET } from './route';
 
 type MappingRow = {
+  variant_id?: string | null;
   product_id: string | null;
   jumia_sku: string | null;
   sync_status: string | null;
@@ -55,6 +56,7 @@ function createSupabaseMock(
     Promise.resolve({
       data: (mappedPages[mappedPageIndex++] ?? []).map((row, index) => ({
         id: `${mappedPageIndex}-${index}`,
+        variant_id: null,
         ...row,
       })),
       error: null,
@@ -193,7 +195,45 @@ describe('Jumia mapped product ids GET', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       mappings: [
-        { productId: 'product-1', sellerSku: 'SKU-1', syncStatus: 'synced' },
+        {
+          productId: 'product-1',
+          variantId: null,
+          sellerSku: 'SKU-1',
+          syncStatus: 'synced',
+        },
+      ],
+    });
+  });
+
+  it('returns variant identity for mapped variant products', async () => {
+    mocks.authenticateApiRequest.mockResolvedValueOnce({
+      user: { id: 'user-1' },
+      supabase: createSupabaseMock([
+        [
+          {
+            variant_id: 'variant-1',
+            product_id: 'product-1',
+            jumia_sku: 'SKU-1',
+            sync_status: 'synced',
+          },
+        ],
+      ]),
+    });
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/marketplace/jumia/products/mapped-product-ids?integrationId=00000000-0000-4000-8000-000000000099'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      mappings: [
+        {
+          productId: 'product-1',
+          variantId: 'variant-1',
+          sellerSku: 'SKU-1',
+          syncStatus: 'synced',
+        },
       ],
     });
   });
@@ -229,11 +269,13 @@ describe('Jumia mapped product ids GET', () => {
       mappings: [
         ...firstPage.map((row) => ({
           productId: row.product_id,
+          variantId: null,
           sellerSku: row.jumia_sku,
           syncStatus: row.sync_status,
         })),
         {
           productId: 'product-500',
+          variantId: null,
           sellerSku: 'SKU-500',
           syncStatus: 'synced',
         },
@@ -269,8 +311,18 @@ describe('Jumia mapped product ids GET', () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.mappings).toEqual([
-      { productId: 'product-1', sellerSku: 'SKU-1', syncStatus: 'synced' },
-      { productId: 'product-1', sellerSku: 'SKU-2', syncStatus: 'error' },
+      {
+        productId: 'product-1',
+        variantId: null,
+        sellerSku: 'SKU-1',
+        syncStatus: 'synced',
+      },
+      {
+        productId: 'product-1',
+        variantId: null,
+        sellerSku: 'SKU-2',
+        syncStatus: 'error',
+      },
     ]);
   });
 });

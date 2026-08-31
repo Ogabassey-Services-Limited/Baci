@@ -6,6 +6,7 @@ const PUBLISH_CONCURRENCY = 3;
 
 export type JumiaPublishSubmissionResult = {
   ok: boolean;
+  partial?: boolean;
   body: Record<string, unknown>;
 };
 
@@ -39,8 +40,11 @@ export async function submitJumiaProducts(args: {
       typeof rawBody === 'object' && rawBody !== null
         ? (rawBody as Record<string, unknown>)
         : {};
+    const status = response.status ?? 200;
+    const partial = status === 207 && body.partial === true;
     return {
-      ok: response.ok && (response.status ?? 200) < 207,
+      ok: response.ok && status >= 200 && status < 300,
+      ...(partial ? { partial: true } : {}),
       body,
     };
   };

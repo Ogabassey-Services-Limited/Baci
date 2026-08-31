@@ -1,6 +1,6 @@
--- The preceding Jumia country migration was authored against a shared
--- marketplace constraint. Scope the Jumia country list to Jumia rows so
--- non-Jumia integrations retain the countries supported by their providers.
+-- Reassert the Jumia country list on Jumia rows so non-Jumia integrations
+-- retain the countries supported by their providers. This is idempotent for
+-- histories where the preceding migration already applied the scoped form.
 ALTER TABLE public.marketplace_integrations
   DROP CONSTRAINT IF EXISTS marketplace_integrations_country_code_check;
 

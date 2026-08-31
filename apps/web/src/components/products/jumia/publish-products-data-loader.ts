@@ -6,6 +6,7 @@ import {
 } from '@/schemas/jumia/publish-products';
 
 export type JumiaProductMappingState = {
+  variantId?: string | null;
   sellerSku: string;
   syncStatus: string;
 };
@@ -50,11 +51,28 @@ export async function loadMappedProductMappings(
     }
 
     const productId = mapping.productId.trim();
+    let variantId: string | null | undefined;
+    if ('variantId' in mapping) {
+      if (mapping.variantId !== null && typeof mapping.variantId !== 'string') {
+        throw new Error('Failed to load mapped Jumia products');
+      }
+      variantId =
+        typeof mapping.variantId === 'string'
+          ? mapping.variantId.trim()
+          : mapping.variantId;
+      if (typeof variantId === 'string' && !variantId) {
+        throw new Error('Failed to load mapped Jumia products');
+      }
+    }
     const mappings = mappedProducts.get(productId) ?? [];
-    mappings.push({
+    const mappingState: JumiaProductMappingState = {
       sellerSku: mapping.sellerSku.trim(),
       syncStatus: mapping.syncStatus,
-    });
+    };
+    if ('variantId' in mapping) {
+      mappingState.variantId = variantId;
+    }
+    mappings.push(mappingState);
     mappedProducts.set(productId, mappings);
   }
 

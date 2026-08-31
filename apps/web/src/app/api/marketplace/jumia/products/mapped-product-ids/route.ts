@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
   }
 
   const mappedProducts: Array<{
+    variant_id: string | null;
     product_id: string | null;
     jumia_sku: string | null;
     sync_status: string | null;
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
   for (;;) {
     let query = auth.supabase
       .from('jumia_product_mappings')
-      .select('id, product_id, jumia_sku, sync_status')
+      .select('id, product_id, variant_id, jumia_sku, sync_status')
       .eq('merchant_id', merchantId)
       .eq('jumia_shop_id', integration.shop_id)
       .eq('marketplace_key', integration.marketplace_key ?? 'default');
@@ -95,6 +96,7 @@ export async function GET(request: NextRequest) {
 
     const page = (data ?? []) as Array<{
       id: string;
+      variant_id: string | null;
       product_id: string | null;
       jumia_sku: string | null;
       sync_status: string | null;
@@ -122,6 +124,7 @@ export async function GET(request: NextRequest) {
       return [
         {
           productId: row.product_id,
+          variantId: row.variant_id,
           sellerSku: row.jumia_sku,
           syncStatus: row.sync_status,
         },
