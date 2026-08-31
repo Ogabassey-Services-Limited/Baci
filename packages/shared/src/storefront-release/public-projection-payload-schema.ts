@@ -96,6 +96,13 @@ export const StorefrontPublicProjectionPayloadSchema = z
   })
   .superRefine((payload, context) => {
     validatePublicProjectionIdentities(payload, context);
+    for (const [productIndex, product] of payload.products.entries())
+      if (product.currency !== payload.merchant.currency)
+        context.addIssue({
+          code: 'custom',
+          message: 'Product currency must match merchant currency',
+          path: ['products', productIndex, 'currency'],
+        });
     if (
       (payload.blogPosts?.length ?? 0) > 0 &&
       !payload.featureFlags?.some(

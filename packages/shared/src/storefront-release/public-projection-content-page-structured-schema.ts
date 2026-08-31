@@ -1,6 +1,17 @@
 import { z } from 'zod';
+import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+
+const richText = (max: number) =>
+  z
+    .string()
+    .max(max)
+    .refine(
+      (value) => !hasUnstableBlogContentMedia(value),
+      'Structured rich text links and media must be release-safe'
+    );
+const requiredRichText = (max: number) => richText(max).min(1);
 
 const PublicMediaUrlSchema = z
   .string()
@@ -13,15 +24,15 @@ const PublicUrlSchema = z
 const PersonSchema = z.strictObject({
   name: z.string().trim().min(1).max(160),
   role: z.string().trim().min(1).max(160).optional(),
-  bio: z.string().max(10_000).optional(),
+  bio: richText(10_000).optional(),
   imageUrl: PublicMediaUrlSchema.optional(),
 });
 
 const AboutContentSchema = z.strictObject({
   kind: z.literal('about'),
-  story: z.string().max(30_000).optional(),
-  mission: z.string().max(10_000).optional(),
-  vision: z.string().max(10_000).optional(),
+  story: richText(30_000).optional(),
+  mission: richText(10_000).optional(),
+  vision: richText(10_000).optional(),
   values: z.array(z.string().trim().min(1).max(1_000)).max(32).optional(),
   founder: PersonSchema.optional(),
   team: z.array(PersonSchema).max(100).optional(),
@@ -30,7 +41,7 @@ const AboutContentSchema = z.strictObject({
       z.strictObject({
         year: z.number().int().min(1_000).max(9_999),
         title: z.string().trim().min(1).max(240),
-        description: z.string().max(5_000).optional(),
+        description: richText(5_000).optional(),
       })
     )
     .max(100)
@@ -56,7 +67,7 @@ const FaqContentSchema = z.strictObject({
       z.strictObject({
         id: z.string().trim().min(1).max(160).optional(),
         question: z.string().trim().min(1).max(1_000),
-        answer: z.string().min(1).max(10_000),
+        answer: requiredRichText(10_000),
         category: z.string().trim().min(1).max(160).optional(),
       })
     )

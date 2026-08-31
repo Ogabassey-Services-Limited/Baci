@@ -95,4 +95,24 @@ describe('StorefrontPublicProjectionPayloadSchema fidelity', () => {
       }).contentPages
     ).toEqual(pages);
   });
+
+  it('rejects products whose currency differs from the merchant currency', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        products: [
+          {
+            available: true,
+            currency: 'USD',
+            displayQuantityLimit: null,
+            id: '123e4567-e89b-42d3-a456-426614174173',
+            name: 'Dollar phone',
+            priceMinor: 100,
+            slug: 'dollar-phone',
+            status: 'active',
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

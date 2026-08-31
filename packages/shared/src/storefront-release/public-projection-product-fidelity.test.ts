@@ -115,4 +115,13 @@ describe('StorefrontPublicProductSchema fidelity', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects product slugs owned by category-level static routes', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        slug: 'compare',
+      }).success
+    ).toBe(false);
+  });
 });

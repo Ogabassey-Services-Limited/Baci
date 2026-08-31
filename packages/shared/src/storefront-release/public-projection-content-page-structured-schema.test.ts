@@ -32,4 +32,25 @@ describe('StorefrontPublicContentPageStructuredSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects mutable media embedded in structured rich text', () => {
+    expect(
+      StorefrontPublicContentPageStructuredSchema.safeParse({
+        kind: 'about',
+        story: '<img src="https://cdn.example/image.png?token=secret">',
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicContentPageStructuredSchema.safeParse({
+        items: [
+          {
+            answer:
+              '<a href="https://example.test/export?token=secret">Download</a>',
+            question: 'Where is the file?',
+          },
+        ],
+        kind: 'faq',
+      }).success
+    ).toBe(false);
+  });
 });
