@@ -237,4 +237,9 @@ export const EXPECTED_PENDING_SOURCES = [
   ...EXPECTED_NEGOTIATION_PENDING_SOURCES,
   ...EXPECTED_PENDING_TAIL_SOURCES.late,
   ...EXPECTED_STOREFRONT_ORDER_PENDING_SOURCES,
+  {
+    repositoryPath:
+      'supabase/migrations/20260831153000_optimize_storefront_pdp_semantic_reads.sql',
+    sha256: 'a402b932c082f876b44feb1cd98ef4d879641a0a5e075b52a05fb0a9b7df43dc',
+  },
 ].sort((a, b) => a.repositoryPath.localeCompare(b.repositoryPath));
