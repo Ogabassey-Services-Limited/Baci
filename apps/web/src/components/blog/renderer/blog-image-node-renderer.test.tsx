@@ -32,6 +32,28 @@ describe('BlogImageNodeRenderer', () => {
     expect(screen.getByRole('img', { name: 'A photo' })).toBeInTheDocument();
   });
 
+  it('renders content-addressed release assets through next/image', () => {
+    mockIsLegacy.mockReturnValue(false);
+    mockIsTrusted.mockReturnValue(false);
+
+    render(
+      <BlogImageNodeRenderer
+        node={{
+          type: 'image',
+          attrs: {
+            src: `/release-assets/${'a'.repeat(64)}.png`,
+            alt: 'Release asset',
+          },
+        }}
+        nodePath="0.1"
+      />
+    );
+
+    expect(
+      screen.getByRole('img', { name: 'Release asset' })
+    ).toBeInTheDocument();
+  });
+
   it('renders nothing for nodes without a valid http src', () => {
     const { container } = render(
       <BlogImageNodeRenderer

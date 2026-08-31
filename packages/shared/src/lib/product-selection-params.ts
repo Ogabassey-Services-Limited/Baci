@@ -1,3 +1,4 @@
+import { normalizeProductSelectionParamKey } from './normalize-product-selection-param-key';
 import { normalizeCanonicalProductCondition } from './product-condition';
 import type {
   ProductDefaultVariantLike,
@@ -50,19 +51,6 @@ export interface VariantSelectionParamResolution<
     variantId?: string;
   };
   type: VariantSelectionParamResolutionType;
-}
-
-export function normalizeProductSelectionParamKey(
-  value: string | null | undefined
-) {
-  if (typeof value !== 'string') {
-    return '';
-  }
-
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, '_');
 }
 
 function normalizeParamValue(value: SearchParamValue) {

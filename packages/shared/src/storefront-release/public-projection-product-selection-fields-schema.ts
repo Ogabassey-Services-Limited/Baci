@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { normalizeProductSelectionParamKey } from '../lib/product-selection-params';
+import { normalizeProductSelectionParamKey } from '../lib/normalize-product-selection-param-key';
 import { compareCodePointStrings } from './compare-code-point-strings';
 
 const SelectionAxisSchema = z
