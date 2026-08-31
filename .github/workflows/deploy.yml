@@ -62,17 +62,20 @@ jobs:
   vps-drain-readiness:
     if: github.ref == 'refs/heads/main'
     runs-on: baci-deploy
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
+          path: .readiness-checkout
           persist-credentials: false
+          sparse-checkout: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
+          sparse-checkout-cone-mode: false
       - name: Verify production cache-invalidation drain installation
         env:
           VPS_WORKER_REMOTE_DIR: ${{ vars.VPS_WORKER_REMOTE_DIR || '/home/bassey/baci-workers' }}
-        run: vps-workers/bin/verify-cache-invalidation-drain-installed.sh
+        run: .readiness-checkout/vps-workers/bin/verify-cache-invalidation-drain-installed.sh
 
   # Apply any pending Supabase migrations AFTER drain readiness and BEFORE the
   # Vercel deploy so application code never lands ahead of the schema it depends on. Migrations

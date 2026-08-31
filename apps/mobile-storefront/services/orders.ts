@@ -5,7 +5,11 @@ import { DEFAULT_TIMEOUT, fetchWithRetry } from '@/lib/api';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 import { createLogger } from '@/lib/logger';
 import { offlineQueue } from '@/lib/offline-queue';
-import { supabase } from '@/lib/supabase';
+import {
+  supabase,
+  supabaseAuthStorage,
+  supabaseAuthStorageKey,
+} from '@/lib/supabase';
 import { trackEvent } from '@/services/analytics';
 import {
   mapCreateOrderException,
@@ -19,6 +23,8 @@ import {
   CreateOrderRequestSchema,
   type OrderResponse,
 } from './orders.schemas';
+import { resolveCheckoutAuth } from './orders-auth';
+import { getCheckoutStoredSession } from './orders-session';
 
 export { OrderError } from './orders.errors';
 export type {
@@ -36,6 +42,31 @@ const API_URL = resolveApiBaseUrl(
 const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
+
+const CHECKOUT_USER_VALIDATION_TIMEOUT_MS = 4_000;
+
+async function validateCheckoutUser(accessToken: string) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{
+    data: { user: null };
+    error: Error;
+  }>((resolve) => {
+    timer = setTimeout(
+      () =>
+        resolve({
+          data: { user: null },
+          error: new Error('Checkout user validation timed out'),
+        }),
+      CHECKOUT_USER_VALIDATION_TIMEOUT_MS
+    );
+  });
+
+  try {
+    return await Promise.race([supabase.auth.getUser(accessToken), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 async function checkNetwork(): Promise<boolean> {
   const state = await NetInfo.fetch();
@@ -70,15 +101,27 @@ export async function createOrder(
 
   // 3. Auth is optional because the storefront supports guest checkout.
   // When a valid session exists, forward it so the server can link the order.
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const storedSession = await getCheckoutStoredSession(
+    supabaseAuthStorage,
+    supabaseAuthStorageKey
+  );
+  // A persisted token can still be accepted by Auth while the Data API no
+  // longer has a compatible signing key for it. Refresh before the money/order
+  // boundary so PostgREST receives a token minted by the active signing key.
+  const checkoutAuth = await resolveCheckoutAuth(
+    supabase.auth,
+    storedSession,
+    undefined,
+    () => getCheckoutStoredSession(supabaseAuthStorage, supabaseAuthStorageKey)
+  );
+  const { session } = checkoutAuth;
   const {
     data: { user },
     error: authError,
-  } = session?.access_token
-    ? await supabase.auth.getUser()
-    : { data: { user: null }, error: null };
+  } =
+    checkoutAuth.canValidateUser && session?.access_token
+      ? await validateCheckoutUser(session.access_token)
+      : { data: { user: null }, error: null };
 
   const orderPayload = buildOrderPayload({
     merchantId: MERCHANT_ID,
@@ -108,9 +151,7 @@ export async function createOrder(
         headers: {
           'Content-Type': 'application/json',
           'Idempotency-Key': idempotencyKey,
-          ...(session?.access_token && {
-            Authorization: `Bearer ${session.access_token}`,
-          }),
+          ...checkoutAuth.authorizationHeaders,
         },
         body: JSON.stringify(orderPayload),
       },
