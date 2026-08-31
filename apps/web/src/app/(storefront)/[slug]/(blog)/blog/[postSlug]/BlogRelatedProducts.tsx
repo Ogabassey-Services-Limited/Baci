@@ -47,7 +47,7 @@ export function BlogRelatedProducts({
             {
               id: product.id,
               name: product.name,
-              slug: product.slug,
+              slug: product.slug ?? undefined,
               category_slug: product.category_slug ?? undefined,
             },
             basePath
