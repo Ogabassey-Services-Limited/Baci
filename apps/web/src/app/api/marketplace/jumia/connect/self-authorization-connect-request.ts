@@ -22,6 +22,7 @@ import { loadExistingJumiaShopIds } from './load-existing-jumia-shop-ids';
 import { persistRotatedJumiaCredentials } from './persist-rotated-jumia-credentials';
 import { releaseJumiaDiscoveryClaim } from './release-jumia-discovery-claim';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
+import { validateJumiaSelfAuthorizationForConnect } from './validate-jumia-self-authorization-for-connect';
 
 type DiscoveryBody = z.infer<typeof jumiaSelfAuthorizationDiscoverySchema>;
 type SelectionBody = z.infer<typeof jumiaSelfAuthorizationSelectionSchema> & {
@@ -79,21 +80,12 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       }
       let validated: Awaited<ReturnType<typeof validateJumiaSelfAuthorization>>;
       try {
-        validated = await validateJumiaSelfAuthorization(submittedCredentials, {
-          onCredentialsRotated: async ({
-            credentials,
-            accessTokenExpiresAt,
-            refreshTokenExpiresAt,
-          }) => {
-            const credentialCiphertext = await persistRotatedJumiaCredentials({
-              credentials,
-              encryptionKey,
-              supabase,
-              merchantId,
-              clientKeyHash,
-              accessTokenExpiresAt,
-              refreshTokenExpiresAt,
-            });
+        validated = await validateJumiaSelfAuthorizationForConnect({
+          clientKeyHash,
+          discoveryId: body.discoveryId,
+          encryptionKey,
+          merchantId,
+          onCredentialsRotated: async (credentialCiphertext) => {
             if (discoveryClaim) {
               await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
                 discoveryId: body.discoveryId ?? '',
@@ -112,6 +104,8 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
               );
             }
           },
+          submittedCredentials,
+          supabase,
         });
       } catch (error) {
         if (discoveryId) {
