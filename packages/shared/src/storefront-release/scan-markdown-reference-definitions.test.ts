@@ -21,6 +21,14 @@ describe('scanMarkdownReferenceDefinitions', () => {
     ]);
   });
 
+  it('accepts a two-space continuation recognized by Marked', () => {
+    expect(
+      scanMarkdownReferenceDefinitions(
+        '[r]:\n  https://cdn.shopify.com/a.png\n![x][r]'
+      )
+    ).toEqual([{ destination: 'https://cdn.shopify.com/a.png', label: 'r' }]);
+  });
+
   it.each([
     '<!--\ncomment\n-->\n[hero]: https://cdn.example/hero.png',
     '<script>\nwindow.example = true;\n</script>\n[hero]: https://cdn.example/hero.png',

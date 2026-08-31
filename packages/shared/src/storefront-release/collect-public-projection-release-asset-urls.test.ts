@@ -27,4 +27,12 @@ describe('collectPublicProjectionReleaseAssetUrls', () => {
       new Set([firstAsset])
     );
   });
+
+  it('does not collect a release-asset prefix from a suffixed filename', () => {
+    expect(
+      collectPublicProjectionReleaseAssetUrls(
+        `https://cdn.shopify.com${firstAsset}.bak`
+      )
+    ).toEqual(new Set());
+  });
 });

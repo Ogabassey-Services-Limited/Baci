@@ -33,6 +33,7 @@ interface SeoCategory {
   id: string;
   parentId?: string | null;
   slug: string;
+  status?: string;
 }
 
 interface SeoBlogPost {
@@ -147,12 +148,21 @@ export function validatePublicProjectionSeoEntries(
   const categoryHasProducts = new Map(
     (payload.categories ?? []).map((category) => [
       category.id,
-      payload.products.some((product) =>
-        [
+      payload.products.some((product) => {
+        const categoryIds = new Set([
           ...(product.categoryIds ?? []),
           ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-        ].includes(category.id)
-      ),
+        ]);
+        return (
+          categoryIds.has(category.id) ||
+          (payload.categories ?? []).some(
+            (child) =>
+              child.parentId === category.id &&
+              (child.status === undefined || child.status === 'active') &&
+              categoryIds.has(child.id)
+          )
+        );
+      }),
     ])
   );
   const categoriesById = new Map(

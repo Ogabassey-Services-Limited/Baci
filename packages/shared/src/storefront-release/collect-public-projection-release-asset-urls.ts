@@ -1,5 +1,5 @@
 const RELEASE_ASSET_URL_PATTERN =
-  /\/release-assets\/[a-f0-9]{64}\.(?:avif|gif|jpe?g|png|svg|webp)/gu;
+  /\/release-assets\/[a-f0-9]{64}\.(?:avif|gif|jpe?g|png|svg|webp)(?![a-z0-9._-])/gu;
 
 function isObject(value: unknown): value is object {
   return typeof value === 'object' && value !== null;

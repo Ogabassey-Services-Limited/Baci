@@ -83,6 +83,15 @@ describe('hasUnstableBlogContentMedia', () => {
     ).toBe(true);
   });
 
+  it('ignores Markdown-looking media inside inert HTML blocks', () => {
+    for (const content of [
+      '<!-- ![Image](https://cdn.example/image.png) -->',
+      '<!--\n![Image](https://cdn.example/image.png)\n-->',
+      '<pre>![Image](https://cdn.example/image.png)</pre>',
+    ])
+      expect(hasUnstableBlogContentMedia(content)).toBe(false);
+  });
+
   it('rejects signed responsive image candidates in persisted HTML', () => {
     const stable = `/release-assets/${'c'.repeat(64)}.webp`;
     expect(

@@ -48,19 +48,15 @@ function readMarkdownBlockPrefix(line: string): { cursor: number } {
 
 function readReferenceContinuationStart(line: string): number | null {
   let cursor = 0;
-  let leadingSpaces = 0;
   while (
     cursor < line.length &&
-    leadingSpaces < 3 &&
+    cursor < 3 &&
     /[ \t]/u.test(line[cursor] ?? '')
   ) {
     cursor += 1;
-    leadingSpaces += 1;
   }
 
-  let hasBlockquote = false;
   while (line[cursor] === '>') {
-    hasBlockquote = true;
     cursor += 1;
     if (line[cursor] === ' ') cursor += 1;
     const optionalNestedPrefixStart = cursor;
@@ -79,14 +75,12 @@ function readReferenceContinuationStart(line: string): number | null {
     }
   }
 
-  const indentationStart = cursor;
   while (cursor < line.length && /[ \t]/u.test(line[cursor] ?? '')) cursor += 1;
-  const indentation = cursor - indentationStart;
-  return indentation >= 1 &&
-    indentation <= 4 &&
-    (hasBlockquote || leadingSpaces >= 3)
-    ? cursor
-    : null;
+  // Marked accepts a continuation destination after any amount of optional
+  // whitespace (including no indentation). Keep the cursor at the first
+  // destination byte so definitions such as `[label]:\n  https://...` and
+  // tab/space variants are not silently omitted from the safety scan.
+  return cursor < line.length ? cursor : null;
 }
 
 function isMarkdownBlockBoundary(line: string): boolean {

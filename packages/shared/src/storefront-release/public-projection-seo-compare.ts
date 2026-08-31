@@ -1,6 +1,8 @@
 interface SeoProduct {
   brand?: string | null;
   categoryIds?: readonly string[];
+  createdAt?: string;
+  id?: string;
   primaryCategoryId?: string | null;
   productKeySpecs?: Readonly<Record<string, unknown>> | null;
   slug: string;
@@ -17,6 +19,16 @@ interface CompareOptions {
 
 const COMPARE_DELIMITER = '-vs-';
 const COMPARE_ESCAPE_PREFIX = '~';
+const COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT = 600;
+
+function compareCreatedAtDescending(
+  left: string | undefined,
+  right: string | undefined
+): number {
+  const leftTimestamp = left ? Date.parse(left) : Number.NEGATIVE_INFINITY;
+  const rightTimestamp = right ? Date.parse(right) : Number.NEGATIVE_INFINITY;
+  return rightTimestamp - leftTimestamp;
+}
 
 function generateSlug(value: string): string {
   return value
@@ -150,7 +162,13 @@ export function hasEligiblePublicProjectionComparePath(
   )
     return false;
 
-  const scopedProducts = categoryProducts(category, products);
+  const scopedProducts = [...categoryProducts(category, products)]
+    .sort(
+      (left, right) =>
+        compareCreatedAtDescending(left.createdAt, right.createdAt) ||
+        (left.id ?? '').localeCompare(right.id ?? '')
+    )
+    .slice(0, COMPARE_CATEGORY_INVENTORY_PRODUCT_LIMIT);
   const leftProduct = scopedProducts.find(
     (product) => product.slug === parsed.left
   );

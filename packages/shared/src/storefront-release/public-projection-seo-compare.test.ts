@@ -60,4 +60,34 @@ describe('public projection compare route eligibility', () => {
       )
     ).toBe(false);
   });
+
+  it('ignores product comparisons outside the newest origin inventory window', () => {
+    const newestProducts = Array.from({ length: 600 }, (_, index) => ({
+      ...product(`newest-${index}`, '', index),
+      createdAt: `2026-08-${String(31 - Math.floor(index / 24)).padStart(2, '0')}T${String(23 - (index % 24)).padStart(2, '0')}:00:00Z`,
+      id: `newest-${String(index).padStart(3, '0')}`,
+    }));
+    const olderPair = [
+      {
+        ...product('phone-a', 'A', 1),
+        createdAt: '2026-01-01T00:00:00Z',
+        id: 'older-a',
+      },
+      {
+        ...product('phone-b', 'B', 2),
+        createdAt: '2026-01-01T00:00:00Z',
+        id: 'older-b',
+      },
+    ];
+    const path = '/smartphones/compare/phone-a-vs-phone-b';
+
+    expect(
+      hasEligiblePublicProjectionComparePath(
+        path,
+        categories,
+        [...newestProducts, ...olderPair],
+        { maintainedComparePaths: new Set([path]) }
+      )
+    ).toBe(false);
+  });
 });

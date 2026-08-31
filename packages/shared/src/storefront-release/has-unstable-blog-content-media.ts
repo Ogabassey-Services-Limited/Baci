@@ -1,6 +1,7 @@
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { maskMarkdownCode } from './mask-markdown-code';
+import { maskMarkdownHtmlBlocks } from './mask-markdown-html-blocks';
 import { hasUnstableHtmlContent } from './scan-unstable-html-content';
 import { hasUnstableMarkdownContent } from './scan-unstable-markdown-content';
 
@@ -12,7 +13,7 @@ function hasUnstableLegacyContent(content: string): boolean {
   const scannedContent = maskMarkdownCode(content);
   return (
     hasUnstableHtmlContent(scannedContent) ||
-    hasUnstableMarkdownContent(scannedContent)
+    hasUnstableMarkdownContent(maskMarkdownHtmlBlocks(scannedContent))
   );
 }
 
