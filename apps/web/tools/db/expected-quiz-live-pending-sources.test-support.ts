@@ -131,6 +131,11 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
   },
   {
     repositoryPath:
+      'supabase/migrations/20260830203999_quiz_instant_score_repair_quiescence_gate_v2.sql',
+    sha256: 'e82fa31972d729118f9d620958bb43a0fa4c47ac70f3fa179409fe3d196aba7e',
+  },
+  {
+    repositoryPath:
       'supabase/migrations/20260830204000_quiz_instant_score_serialization_repair_v2.sql',
     sha256: 'eb0462e03db8070a4d767d12c9ee8767d8d4613de3e1cf7148378b3f077e59e7',
   },

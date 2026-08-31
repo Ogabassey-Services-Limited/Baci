@@ -16,6 +16,9 @@ const scorePublicationGateSql = readMigration(
 const scorePublicationReadySql = readMigration(
   '20260830204001_quiz_instant_test_publication_score_gate_ready_v2.sql'
 );
+const scoreRepairQuiescenceSql = readMigration(
+  '20260830203999_quiz_instant_score_repair_quiescence_gate_v2.sql'
+);
 const deadlineControlRepairSql = [
   '20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
   '20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
@@ -75,6 +78,24 @@ describe('quiz deadline review repairs', () => {
     ).toBeLessThan(
       indexOfMigration(
         '20260830204001_quiz_instant_test_publication_score_gate_ready_v2.sql'
+      )
+    );
+  });
+
+  it('refuses serialized score repair while a v2 quiz can accept answers', () => {
+    expect(scoreRepairQuiescenceSql).toMatch(
+      /status = 'active'[\s\S]*?status = 'scheduled'[\s\S]*?starts_at <= pg_catalog\.clock_timestamp\(\)[\s\S]*?ends_at > pg_catalog\.clock_timestamp\(\)/i
+    );
+    expect(scoreRepairQuiescenceSql).toContain(
+      'quiz_score_repair_requires_quiescent_v2_events'
+    );
+    expect(
+      migrations.indexOf(
+        '20260830203999_quiz_instant_score_repair_quiescence_gate_v2.sql'
+      )
+    ).toBeLessThan(
+      migrations.indexOf(
+        '20260830204000_quiz_instant_score_serialization_repair_v2.sql'
       )
     );
   });
@@ -175,6 +196,7 @@ describe('quiz deadline review repairs', () => {
       'quiz_test_publication_control_rls_v2.sql',
       'quiz_cascade_score_consistency_v2.sql',
       'quiz_runtime_gate_stale_health_v2.sql',
+      'quiz_score_repair_quiescence_gate_v2.sql',
     ]) {
       expect(ciWorkflow).toContain(
         `--sql-check supabase/migrations/tests/${file}`

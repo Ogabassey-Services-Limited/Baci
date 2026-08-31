@@ -306,6 +306,7 @@ jobs:
           --sql-check supabase/migrations/tests/quiz_test_publication_control_rls_v2.sql
           --sql-check supabase/migrations/tests/quiz_cascade_score_consistency_v2.sql
           --sql-check supabase/migrations/tests/quiz_runtime_gate_stale_health_v2.sql
+          --sql-check supabase/migrations/tests/quiz_score_repair_quiescence_gate_v2.sql
           --sql-check supabase/migrations/tests/public_shipping_sender_projection.sql
       - name: Run migration replay regression test
         run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
