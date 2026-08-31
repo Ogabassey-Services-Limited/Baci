@@ -97,6 +97,7 @@ describe('Jumia Self Authorization handler', () => {
         p_country_codes: ['NG'],
         p_marketplace_labels: ['Jumia Nigeria'],
         p_business_client_codes: ['NG-1'],
+        p_expected_rotation_version: null,
       }
     );
     expect(response.headers.get('x-jumia-discovery-complete')).toBe('false');

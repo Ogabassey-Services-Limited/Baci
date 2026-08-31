@@ -67,6 +67,14 @@ function createMarketplaceIntegrationsBuilder() {
   };
 }
 
+function createJumiaAuthorizationsBuilder() {
+  const secondEq = vi.fn().mockResolvedValue({ data: [], error: null });
+  const firstEq = vi.fn(() => ({ eq: secondEq }));
+  return {
+    select: vi.fn(() => ({ eq: firstEq })),
+  };
+}
+
 function createUpsertBuilder() {
   return {
     upsert: (...args: unknown[]) => {
@@ -113,6 +121,9 @@ const mockSupabase = {
     }
     if (table === 'marketplace_integrations') {
       return createMarketplaceIntegrationsBuilder();
+    }
+    if (table === 'jumia_authorizations') {
+      return createJumiaAuthorizationsBuilder();
     }
     return createUpsertBuilder();
   }),

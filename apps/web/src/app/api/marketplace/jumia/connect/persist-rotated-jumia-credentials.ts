@@ -7,6 +7,11 @@ type RotatedCredentials = JumiaSelfAuthorizationCredentials & {
   accessToken: string;
 };
 
+export type PersistedRotatedJumiaCredentials = {
+  credentialCiphertext: string;
+  expectedRotationVersion?: number;
+};
+
 export async function persistRotatedJumiaCredentials(args: {
   credentials: RotatedCredentials;
   encryptionKey: string;
@@ -15,7 +20,7 @@ export async function persistRotatedJumiaCredentials(args: {
   clientKeyHash: string;
   accessTokenExpiresAt: string;
   refreshTokenExpiresAt: string;
-}): Promise<string> {
+}): Promise<PersistedRotatedJumiaCredentials> {
   const credentialCiphertext = jumiaAuthorizationCrypto.encrypt(
     args.credentials,
     args.encryptionKey,
@@ -24,7 +29,7 @@ export async function persistRotatedJumiaCredentials(args: {
       args.clientKeyHash
     )
   );
-  await persistJumiaSelfAuthorizationRotation({
+  const expectedRotationVersion = await persistJumiaSelfAuthorizationRotation({
     supabase: args.supabase,
     merchantId: args.merchantId,
     clientKeyHash: args.clientKeyHash,
@@ -32,5 +37,5 @@ export async function persistRotatedJumiaCredentials(args: {
     accessTokenExpiresAt: args.accessTokenExpiresAt,
     refreshTokenExpiresAt: args.refreshTokenExpiresAt,
   });
-  return credentialCiphertext;
+  return { credentialCiphertext, expectedRotationVersion };
 }

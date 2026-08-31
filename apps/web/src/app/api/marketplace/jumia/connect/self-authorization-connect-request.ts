@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server';
 import type { z } from 'zod';
 import { jumiaAuthorizationCrypto } from '@/lib/jumia/authorization-crypto';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
-import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import {
   claimJumiaSelfAuthorizationDiscovery,
   consumeJumiaSelfAuthorizationDiscovery,
@@ -19,7 +18,6 @@ import type {
 } from '@/schemas/jumia/self-authorization';
 import { claimJumiaDiscoveryCredentials } from './claim-jumia-discovery-credentials';
 import { loadExistingJumiaShopIds } from './load-existing-jumia-shop-ids';
-import { persistRotatedJumiaCredentials } from './persist-rotated-jumia-credentials';
 import { releaseJumiaDiscoveryClaim } from './release-jumia-discovery-claim';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 import { validateJumiaSelfAuthorizationForConnect } from './validate-jumia-self-authorization-for-connect';
@@ -78,14 +76,16 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       if (!submittedCredentials) {
         return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
       }
-      let validated: Awaited<ReturnType<typeof validateJumiaSelfAuthorization>>;
+      let validated: Awaited<
+        ReturnType<typeof validateJumiaSelfAuthorizationForConnect>
+      >;
       try {
         validated = await validateJumiaSelfAuthorizationForConnect({
           clientKeyHash,
           discoveryId: body.discoveryId,
           encryptionKey,
           merchantId,
-          onCredentialsRotated: async (credentialCiphertext) => {
+          onCredentialsRotated: async ({ credentialCiphertext }) => {
             if (discoveryClaim) {
               await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
                 discoveryId: body.discoveryId ?? '',
@@ -202,6 +202,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         clientKeyHash
       )
     );
+    const expectedRotationVersionRef: { current?: number } = {};
     try {
       const response = await jumiaSelfAuthorizationHandler.connect({
         credentials: {
@@ -213,29 +214,29 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         existingShopIds,
         rpc: async (name, rpcArgs) => supabase.rpc(name, rpcArgs),
         selectedShopIds: body.selectedShopIds,
-        validate: validateJumiaSelfAuthorization,
-        encrypt: jumiaAuthorizationCrypto.encrypt,
-        onCredentialsRotated: async ({
-          credentials,
-          accessTokenExpiresAt,
-          refreshTokenExpiresAt,
-        }) => {
-          const credentialCiphertext = await persistRotatedJumiaCredentials({
-            credentials,
-            encryptionKey,
-            supabase,
-            merchantId,
+        validate: (credentials) =>
+          validateJumiaSelfAuthorizationForConnect({
             clientKeyHash,
-            accessTokenExpiresAt,
-            refreshTokenExpiresAt,
-          });
-          await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
             discoveryId: body.discoveryId,
+            encryptionKey,
             merchantId,
-            claimToken: discoveryClaim.claimToken,
-            credentialCiphertext,
-          });
-        },
+            onCredentialsRotated: async ({
+              credentialCiphertext,
+              expectedRotationVersion,
+            }) => {
+              expectedRotationVersionRef.current = expectedRotationVersion;
+              await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
+                discoveryId: body.discoveryId,
+                merchantId,
+                claimToken: discoveryClaim.claimToken,
+                credentialCiphertext,
+              });
+            },
+            submittedCredentials: credentials,
+            supabase,
+          }),
+        encrypt: jumiaAuthorizationCrypto.encrypt,
+        expectedRotationVersionRef,
       });
       if (!response.ok) {
         await releaseJumiaDiscoveryClaim({

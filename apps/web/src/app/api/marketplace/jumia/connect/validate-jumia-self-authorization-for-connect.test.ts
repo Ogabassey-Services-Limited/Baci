@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { releaseJumiaAuthorizationRefreshLease } from '@/lib/jumia/jumia-authorization-refresh-lease';
 import { validateJumiaSelfAuthorization } from '@/lib/jumia/self-authorization';
 import { claimJumiaResumedAuthorization } from './claim-jumia-resumed-authorization';
 import { persistRotatedJumiaCredentials } from './persist-rotated-jumia-credentials';
@@ -13,6 +14,9 @@ vi.mock('./persist-rotated-jumia-credentials', () => ({
 }));
 vi.mock('./persist-rotated-jumia-credentials-with-lease', () => ({
   persistRotatedJumiaCredentialsWithLease: vi.fn(),
+}));
+vi.mock('@/lib/jumia/jumia-authorization-refresh-lease', () => ({
+  releaseJumiaAuthorizationRefreshLease: vi.fn(),
 }));
 vi.mock('@/lib/jumia/self-authorization', () => ({
   validateJumiaSelfAuthorization: vi.fn(),
@@ -33,12 +37,14 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(validateJumiaSelfAuthorization).mockResolvedValue(validated);
-    vi.mocked(persistRotatedJumiaCredentials).mockResolvedValue(
-      'ordinary-ciphertext'
-    );
-    vi.mocked(persistRotatedJumiaCredentialsWithLease).mockResolvedValue(
-      'leased-ciphertext'
-    );
+    vi.mocked(persistRotatedJumiaCredentials).mockResolvedValue({
+      credentialCiphertext: 'ordinary-ciphertext',
+      expectedRotationVersion: 2,
+    });
+    vi.mocked(persistRotatedJumiaCredentialsWithLease).mockResolvedValue({
+      credentialCiphertext: 'leased-ciphertext',
+      expectedRotationVersion: 3,
+    });
     vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue(null);
   });
 
@@ -66,7 +72,10 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
 
     expect(persistRotatedJumiaCredentials).toHaveBeenCalled();
     expect(persistRotatedJumiaCredentialsWithLease).not.toHaveBeenCalled();
-    expect(onCredentialsRotated).toHaveBeenCalledWith('ordinary-ciphertext');
+    expect(onCredentialsRotated).toHaveBeenCalledWith({
+      credentialCiphertext: 'ordinary-ciphertext',
+      expectedRotationVersion: 2,
+    });
   });
 
   it('uses the lease-protected credentials and persistence when resuming', async () => {
@@ -118,7 +127,10 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
       })
     );
     expect(persistRotatedJumiaCredentials).not.toHaveBeenCalled();
-    expect(onCredentialsRotated).toHaveBeenCalledWith('leased-ciphertext');
+    expect(onCredentialsRotated).toHaveBeenCalledWith({
+      credentialCiphertext: 'leased-ciphertext',
+      expectedRotationVersion: 3,
+    });
   });
 
   it('claims the existing authorization before initial rediscovery validation', async () => {
@@ -153,5 +165,34 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
         merchantId: 'merchant-1',
       })
     );
+  });
+
+  it('releases a resumed refresh lease when validation fails before rotation', async () => {
+    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue({
+      credentials: { clientId: 'client-1', refreshToken: 'fresh-refresh' },
+      authorizationId: 'auth-1',
+      authorizationRotationVersion: 3,
+      leaseToken: 'lease-1',
+    });
+    const failure = new Error('Jumia rejected the refresh token');
+    vi.mocked(validateJumiaSelfAuthorization).mockRejectedValueOnce(failure);
+
+    await expect(
+      validateJumiaSelfAuthorizationForConnect({
+        clientKeyHash: 'hash-1',
+        encryptionKey: 'key',
+        merchantId: 'merchant-1',
+        onCredentialsRotated: vi.fn(),
+        submittedCredentials: credentials,
+        supabase: {} as never,
+      })
+    ).rejects.toBe(failure);
+
+    expect(releaseJumiaAuthorizationRefreshLease).toHaveBeenCalledWith({
+      authorizationId: 'auth-1',
+      merchantId: 'merchant-1',
+      leaseToken: 'lease-1',
+      supabase: {},
+    });
   });
 });

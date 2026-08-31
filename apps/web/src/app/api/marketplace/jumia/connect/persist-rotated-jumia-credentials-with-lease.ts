@@ -6,6 +6,11 @@ type RotatedCredentials = JumiaSelfAuthorizationCredentials & {
   accessToken: string;
 };
 
+export type PersistedLeasedRotatedJumiaCredentials = {
+  credentialCiphertext: string;
+  expectedRotationVersion: number;
+};
+
 export async function persistRotatedJumiaCredentialsWithLease(args: {
   authorizationId: string;
   authorizationRotationVersion: number;
@@ -17,7 +22,7 @@ export async function persistRotatedJumiaCredentialsWithLease(args: {
   refreshTokenExpiresAt: string;
   supabase: SupabaseClient;
   accessTokenExpiresAt: string;
-}): Promise<string> {
+}): Promise<PersistedLeasedRotatedJumiaCredentials> {
   const credentialCiphertext = jumiaAuthorizationCrypto.encrypt(
     args.credentials,
     args.encryptionKey,
@@ -26,7 +31,7 @@ export async function persistRotatedJumiaCredentialsWithLease(args: {
       args.clientKeyHash
     )
   );
-  const { error } = await args.supabase.rpc(
+  const { data, error } = await args.supabase.rpc(
     'rotate_jumia_authorization_credentials',
     {
       p_authorization_id: args.authorizationId,
@@ -40,5 +45,11 @@ export async function persistRotatedJumiaCredentialsWithLease(args: {
   if (error) {
     throw new Error('Failed to persist rotated Jumia authorization');
   }
-  return credentialCiphertext;
+  if (typeof data !== 'number') {
+    throw new Error('Failed to persist rotated Jumia authorization');
+  }
+  return {
+    credentialCiphertext,
+    expectedRotationVersion: args.authorizationRotationVersion,
+  };
 }

@@ -40,6 +40,7 @@ describe('persistRotatedJumiaCredentials', () => {
     });
     mockPersist.mockImplementationOnce(async () => {
       events.push('persist');
+      return 7;
     });
 
     const result = await persistRotatedJumiaCredentials({
@@ -52,7 +53,10 @@ describe('persistRotatedJumiaCredentials', () => {
       refreshTokenExpiresAt: '2026-09-30T12:00:00.000Z',
     });
 
-    expect(result).toBe('ciphertext');
+    expect(result).toEqual({
+      credentialCiphertext: 'ciphertext',
+      expectedRotationVersion: 7,
+    });
     expect(events).toEqual(['encrypt', 'persist']);
     expect(mockPersist).toHaveBeenCalledWith(
       expect.objectContaining({

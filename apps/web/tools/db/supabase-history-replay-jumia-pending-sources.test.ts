@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260831150000_serialize_jumia_disconnect_cleanup.sql'
+      '20260831160100_release_jumia_authorization_refresh_lease.sql'
     );
   });
 });

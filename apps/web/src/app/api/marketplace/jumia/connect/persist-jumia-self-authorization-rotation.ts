@@ -7,11 +7,11 @@ export async function persistJumiaSelfAuthorizationRotation(args: {
   credentialCiphertext: string;
   accessTokenExpiresAt: string;
   refreshTokenExpiresAt: string;
-}): Promise<void> {
+}): Promise<number | undefined> {
   const { data: authorizations, error: authorizationError } =
     await args.supabase
       .from('jumia_authorizations')
-      .select('id')
+      .select('id, rotation_version')
       .eq('merchant_id', args.merchantId)
       .eq('client_key_hash', args.clientKeyHash);
   if (authorizationError) {
@@ -20,13 +20,33 @@ export async function persistJumiaSelfAuthorizationRotation(args: {
 
   const matchingAuthorizationIds = new Set(
     (authorizations ?? [])
-      .map((authorization) => authorization.id)
+      .map((authorization) => {
+        if (
+          typeof authorization !== 'object' ||
+          authorization === null ||
+          !('id' in authorization)
+        ) {
+          return undefined;
+        }
+        return authorization.id;
+      })
       .filter(
         (id): id is string => typeof id === 'string' && id.trim().length > 0
       )
   );
-  if (matchingAuthorizationIds.size !== 1) return;
-  const [authorizationId] = matchingAuthorizationIds;
+  if (matchingAuthorizationIds.size !== 1) return undefined;
+  const authorization = (authorizations ?? []).find(
+    (row): row is { id: string; rotation_version: number } =>
+      typeof row === 'object' &&
+      row !== null &&
+      'id' in row &&
+      typeof row.id === 'string' &&
+      matchingAuthorizationIds.has(row.id) &&
+      'rotation_version' in row &&
+      typeof row.rotation_version === 'number'
+  );
+  if (!authorization) return undefined;
+  const authorizationId = authorization.id;
 
   const { data, error } = await args.supabase
     .from('marketplace_integrations')
@@ -49,7 +69,7 @@ export async function persistJumiaSelfAuthorizationRotation(args: {
       typeof row.marketplace_key === 'string' &&
       row.marketplace_key.trim()
   );
-  if (existingSelfAuthorizations.length === 0) return;
+  if (existingSelfAuthorizations.length === 0) return undefined;
 
   const { error: rotationError } = await args.supabase.rpc(
     'persist_jumia_self_authorization_ordered',
@@ -70,9 +90,11 @@ export async function persistJumiaSelfAuthorizationRotation(args: {
       p_business_client_codes: existingSelfAuthorizations.map((row) =>
         row.marketplace_key.trim()
       ),
+      p_expected_rotation_version: authorization.rotation_version,
     }
   );
   if (rotationError) {
     throw new Error('Failed to persist rotated Jumia authorization');
   }
+  return authorization.rotation_version;
 }

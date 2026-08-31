@@ -72,6 +72,30 @@ export async function claimJumiaAuthorizationRefreshLease(
   );
 }
 
+export async function releaseJumiaAuthorizationRefreshLease(args: {
+  authorizationId: string;
+  merchantId: string;
+  leaseToken: string;
+  supabase: SupabaseClient;
+}): Promise<boolean> {
+  const { data, error } = await args.supabase.rpc(
+    'release_jumia_authorization_refresh_lease',
+    {
+      p_authorization_id: args.authorizationId,
+      p_merchant_id: args.merchantId,
+      p_refresh_lease_token: args.leaseToken,
+    }
+  );
+  if (error) {
+    throw new JumiaApiError(
+      500,
+      'Failed to release Jumia authorization refresh lease',
+      error
+    );
+  }
+  return data === true;
+}
+
 export async function reloadSharedAuthorizationCredentials(
   state: JumiaAuthorizationRefreshState,
   supabase: SupabaseClient

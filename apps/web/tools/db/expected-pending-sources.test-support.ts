@@ -372,6 +372,16 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260831150000_serialize_jumia_disconnect_cleanup.sql',
     sha256: 'fae80eda1c7a26735f6de22006ce42c7b0094a2eee7793c68554b7bca2a2bb7c',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831160000_preserve_jumia_rotation_during_shop_persistence.sql',
+    sha256: '3145585b6010eca986e80b10e1a3836f38ef56c1e80553d678f9f10eb3e82a9a',
+  },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831160100_release_jumia_authorization_refresh_lease.sql',
+    sha256: '24e445f3836d390f19b908a1f5ef2b189a9539d018f94eff6114631702867122',
+  },
 ]
   .sort((left, right) =>
     left.repositoryPath.localeCompare(right.repositoryPath)

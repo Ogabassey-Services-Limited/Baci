@@ -27,6 +27,7 @@ import {
   acquireJumiaAuthorizationRefreshLease,
   claimJumiaAuthorizationRefreshLease,
   REFRESH_LEASE_BUSY_RETRIES,
+  releaseJumiaAuthorizationRefreshLease,
 } from './jumia-authorization-refresh-lease';
 
 const refreshState = {
@@ -176,5 +177,29 @@ describe('acquireJumiaAuthorizationRefreshLease', () => {
       status: 403,
       message: expect.stringContaining('integrations.manage'),
     });
+  });
+});
+
+describe('releaseJumiaAuthorizationRefreshLease', () => {
+  it('releases only the matching lease token', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+
+    await expect(
+      releaseJumiaAuthorizationRefreshLease({
+        authorizationId: 'auth-1',
+        merchantId: 'merchant-1',
+        leaseToken: 'lease-1',
+        supabase: { rpc } as never,
+      })
+    ).resolves.toBe(true);
+
+    expect(rpc).toHaveBeenCalledWith(
+      'release_jumia_authorization_refresh_lease',
+      {
+        p_authorization_id: 'auth-1',
+        p_merchant_id: 'merchant-1',
+        p_refresh_lease_token: 'lease-1',
+      }
+    );
   });
 });

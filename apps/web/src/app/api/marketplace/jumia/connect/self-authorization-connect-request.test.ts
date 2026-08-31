@@ -193,7 +193,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
           jumia_authorization_id: 'auth-1',
         },
       ],
-      [{ id: 'auth-1' }]
+      [{ id: 'auth-1', rotation_version: 1 }]
     ) as { rpc: ReturnType<typeof vi.fn> };
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
@@ -261,7 +261,7 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
           jumia_authorization_id: 'auth-1',
         },
       ],
-      [{ id: 'auth-1' }]
+      [{ id: 'auth-1', rotation_version: 1 }]
     ) as { rpc: ReturnType<typeof vi.fn> };
     supabase.rpc.mockResolvedValue({ data: [], error: null });
 
@@ -421,9 +421,18 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       claimToken: '00000000-0000-4000-8000-000000000088',
       credentialCiphertext: 'ciphertext',
     });
-    vi.mocked(jumiaSelfAuthorizationHandler.connect).mockImplementationOnce(
-      async (args) => {
-        await args.onCredentialsRotated?.({
+    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue({
+      credentials: {
+        clientId: 'client-1',
+        refreshToken: 'refresh-1',
+      },
+      authorizationId: 'auth-1',
+      authorizationRotationVersion: 1,
+      leaseToken: 'lease-1',
+    });
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
+      async (_credentials, options) => {
+        await options?.onCredentialsRotated?.({
           credentials: {
             clientId: 'client-1',
             refreshToken: 'refresh-2',
@@ -431,6 +440,24 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
           },
           accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
           refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+        });
+        return {
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'refresh-2',
+            accessToken: 'access-2',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+          shops: [],
+        };
+      }
+    );
+    vi.mocked(jumiaSelfAuthorizationHandler.connect).mockImplementationOnce(
+      async (args) => {
+        await args.validate({
+          clientId: 'client-1',
+          refreshToken: 'refresh-1',
         });
         return NextResponse.json(
           { error: 'Shop discovery failed' },
@@ -449,9 +476,14 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
           jumia_authorization_id: 'auth-1',
         },
       ],
-      [{ id: 'auth-1' }]
+      [{ id: 'auth-1', rotation_version: 1 }]
     ) as { rpc: ReturnType<typeof vi.fn> };
-    supabase.rpc.mockResolvedValue({ data: [], error: null });
+    supabase.rpc.mockImplementation((name: string) =>
+      Promise.resolve({
+        data: name === 'rotate_jumia_authorization_credentials' ? 2 : [],
+        error: null,
+      })
+    );
 
     const response = await handleJumiaSelfAuthorizationConnectRequest({
       body: {
@@ -474,11 +506,11 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
       })
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
-      'persist_jumia_self_authorization_ordered',
+      'rotate_jumia_authorization_credentials',
       expect.objectContaining({
-        p_credential_ciphertext: 'ciphertext',
-        p_token_expires_at: '2026-03-27T10:00:00.000Z',
-        p_refresh_token_expires_at: '2026-04-27T10:00:00.000Z',
+        p_authorization_id: 'auth-1',
+        p_expected_rotation_version: 1,
+        p_refresh_lease_token: 'lease-1',
       })
     );
     expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();

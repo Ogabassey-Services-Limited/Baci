@@ -68,6 +68,7 @@ async function connect(args: {
   selectedShopIds: string[];
   validate: Validate;
   onCredentialsRotated?: CredentialsRotatedHandler;
+  expectedRotationVersionRef?: { current?: number };
   encrypt: (
     credentials: ValidatedSelfAuthorization['credentials'],
     encryptionKey: string,
@@ -128,6 +129,8 @@ async function connect(args: {
       p_business_client_codes: shopsToPersist.map(
         (shop) => shop.businessClientCode ?? shop.marketplace
       ),
+      p_expected_rotation_version:
+        args.expectedRotationVersionRef?.current ?? null,
     }
   );
 

@@ -41,7 +41,7 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
 
   it('persists rotated credentials for integrations sharing one authorization grant', async () => {
     const supabase = buildSupabase({
-      authorizations: [{ id: 'authorization-1' }],
+      authorizations: [{ id: 'authorization-1', rotation_version: 4 }],
       integrations: [
         {
           shop_id: 'shop-1',
@@ -53,10 +53,12 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
       ],
     }) as { rpc: ReturnType<typeof vi.fn> };
 
-    await persistJumiaSelfAuthorizationRotation({
-      ...baseArgs,
-      supabase: supabase as never,
-    });
+    await expect(
+      persistJumiaSelfAuthorizationRotation({
+        ...baseArgs,
+        supabase: supabase as never,
+      })
+    ).resolves.toBe(4);
 
     expect(supabase.rpc).toHaveBeenCalledWith(
       'persist_jumia_self_authorization_ordered',
@@ -64,6 +66,7 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
         p_client_key_hash: 'hash-1',
         p_shop_ids: ['shop-1'],
         p_business_client_codes: ['NG-RETAIL'],
+        p_expected_rotation_version: 4,
       })
     );
   });
@@ -84,7 +87,10 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
 
   it('skips persistence when the authorization lookup is ambiguous', async () => {
     const supabase = buildSupabase({
-      authorizations: [{ id: 'authorization-1' }, { id: 'authorization-2' }],
+      authorizations: [
+        { id: 'authorization-1', rotation_version: 1 },
+        { id: 'authorization-2', rotation_version: 1 },
+      ],
     }) as { rpc: ReturnType<typeof vi.fn> };
 
     await persistJumiaSelfAuthorizationRotation({
@@ -97,7 +103,7 @@ describe('persistJumiaSelfAuthorizationRotation', () => {
 
   it('throws when the existing integration scope cannot be loaded', async () => {
     const supabase = buildSupabase({
-      authorizations: [{ id: 'authorization-1' }],
+      authorizations: [{ id: 'authorization-1', rotation_version: 1 }],
       integrationError: new Error('temporary failure'),
     });
 

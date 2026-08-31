@@ -42,7 +42,10 @@ describe('persistRotatedJumiaCredentialsWithLease', () => {
       accessTokenExpiresAt: '2026-08-31T13:00:00.000Z',
     });
 
-    expect(result).toBe('ciphertext');
+    expect(result).toEqual({
+      credentialCiphertext: 'ciphertext',
+      expectedRotationVersion: 1,
+    });
     expect(rpc).toHaveBeenCalledWith(
       'rotate_jumia_authorization_credentials',
       expect.objectContaining({
