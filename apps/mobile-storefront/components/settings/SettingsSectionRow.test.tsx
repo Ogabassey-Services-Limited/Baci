@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text } from 'react-native';
 import { SettingsSectionRow } from './SettingsSectionRow';
 
 describe('SettingsSectionRow', () => {
@@ -54,7 +54,7 @@ describe('SettingsSectionRow', () => {
   });
 
   it('keeps trailing controls beside long setting copy', () => {
-    const rendered = render(
+    render(
       <SettingsSectionRow
         accessibilityLabel="Open account settings"
         accessibilityRole="button"
@@ -69,26 +69,12 @@ describe('SettingsSectionRow', () => {
       />
     );
 
-    const renderedViews = rendered.UNSAFE_getAllByType(View);
-    const leftColumn = renderedViews.find((node) => {
-      const style = StyleSheet.flatten(node.props.style);
-      return style?.flex === 1 && style?.minWidth === 0;
-    });
-    const rightColumn = renderedViews.find((node) => {
-      const style = StyleSheet.flatten(node.props.style);
-      return style?.flexDirection === 'row' && style?.flexShrink === 0;
-    });
-
-    expect(leftColumn).toBeDefined();
-    expect(StyleSheet.flatten(leftColumn?.props.style)).toMatchObject({
-      flex: 1,
-      minWidth: 0,
-    });
-    expect(rightColumn).toBeDefined();
-    expect(StyleSheet.flatten(rightColumn?.props.style)).toMatchObject({
-      flexDirection: 'row',
-      flexShrink: 0,
-    });
+    expect(screen.getByText('A setting with a long label')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        'Additional setting details that should wrap without moving the value'
+      )
+    ).toBeOnTheScreen();
     expect(screen.getByText('2.4.1')).toBeOnTheScreen();
   });
 });

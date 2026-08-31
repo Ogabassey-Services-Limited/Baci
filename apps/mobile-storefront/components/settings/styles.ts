@@ -95,6 +95,7 @@ export const styles = StyleSheet.create({
     width: SETTINGS_ICON_SIZE,
     height: SETTINGS_ICON_SIZE,
     borderRadius: SETTINGS_ICON_RADIUS,
+    marginRight: SPACING.sm,
     justifyContent: 'center',
     alignItems: 'center',
   },
