@@ -13,6 +13,18 @@ describe('shouldShowCheckoutLocationPickers', () => {
     ).toBe(false);
   });
 
+  it('shows manual location fields for pickup before a street address exists', () => {
+    expect(
+      shouldShowCheckoutLocationPickers({
+        address: '',
+        city: '',
+        hasCoordinates: false,
+        isPickupStation: true,
+        state: '',
+      })
+    ).toBe(true);
+  });
+
   it('hides manual location fields for a complete Google location', () => {
     expect(
       shouldShowCheckoutLocationPickers({

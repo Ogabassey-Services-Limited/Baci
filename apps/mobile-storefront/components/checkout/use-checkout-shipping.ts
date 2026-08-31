@@ -45,6 +45,7 @@ export function useCheckoutShipping({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
   const [shippingStates, setShippingStates] = useState<string[]>([]);
   const [shippingCities, setShippingCities] = useState<string[]>([]);
+  const [shippingCitiesState, setShippingCitiesState] = useState('');
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [resolvedQuoteKey, setResolvedQuoteKey] = useState('');
@@ -171,6 +172,7 @@ export function useCheckoutShipping({
   ) {
     setPrevCityRequest({ apiBaseUrl, watchedState });
     setShippingCities([]);
+    setShippingCitiesState('');
     setIsLoadingCities(Boolean(watchedState));
     if (!watchedState) resetQuotes();
   }
@@ -195,7 +197,10 @@ export function useCheckoutShipping({
     const controller = new AbortController();
     loadShippingCities({
       apiBaseUrl,
-      onCitiesLoaded: (cities) => applyGoogleSuggestedCity(cities),
+      onCitiesLoaded: (cities) => {
+        setShippingCitiesState(watchedState);
+        applyGoogleSuggestedCity(cities);
+      },
       setIsLoadingCities,
       setShippingCities,
       signal: controller.signal,
@@ -259,6 +264,7 @@ export function useCheckoutShipping({
     shippingQuoteAbortRef,
     shippingStates,
     shippingCities,
+    shippingCitiesState,
     stationPickupQuote,
     watchedAddress,
     watchedCity,
@@ -292,6 +298,7 @@ export function useCheckoutShipping({
       address: watchedAddress,
       city: watchedCity,
       hasCoordinates: Boolean(activeDeliveryCoordinates),
+      isPickupStation: deliveryMethod === 'pickup_station',
       state: watchedState,
     }),
     showCityPicker,
