@@ -1,6 +1,14 @@
 BEGIN;
 
 SET LOCAL session_replication_role = replica;
+INSERT INTO public.merchants(
+  id, user_id, email, business_name, slug
+) VALUES (
+  '76000000-0000-4000-8000-000000000002',
+  '76000000-0000-4000-8000-000000000004',
+  'retry-pending-proof@example.com',
+  'Retry pending proof', 'retry-pending-proof'
+);
 INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
   live_window_seconds, compliance_verified, mode, contract_version,
