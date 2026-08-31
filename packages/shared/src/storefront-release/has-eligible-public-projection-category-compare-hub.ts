@@ -4,6 +4,7 @@ interface SeoCategory {
   id: string;
   parentId?: string | null;
   slug: string;
+  status?: string;
 }
 
 interface SeoProduct {
@@ -33,7 +34,11 @@ export function hasEligiblePublicProjectionCategoryCompareHub(
   const eligibleCategorySlugs = new Set([
     categorySlug,
     ...[...categoriesBySlug.values()]
-      .filter((candidate) => candidate.parentId === category.id)
+      .filter(
+        (candidate) =>
+          candidate.parentId === category.id &&
+          (candidate.status === undefined || candidate.status === 'active')
+      )
       .map((candidate) => candidate.slug),
   ]);
   return [...maintainedComparePaths].some((path) => {
