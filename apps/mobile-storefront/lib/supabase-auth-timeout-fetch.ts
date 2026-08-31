@@ -1,4 +1,5 @@
 const AUTH_REFRESH_TIMEOUT_MS = 4_000;
+const CHECKOUT_DEADLINE_HEADER = 'x-baci-checkout-auth-deadline';
 
 function requestUrl(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input;
@@ -21,6 +22,37 @@ function authRefreshTimedOutResponse(): Response {
 
 function isAmbiguousRefreshResponse(response: Response): boolean {
   return response.status >= 500 && response.status <= 599;
+}
+
+function checkoutDeadline(
+  input: RequestInfo | URL,
+  init: RequestInit | undefined
+): { deadline?: number; init: RequestInit | undefined } {
+  const headers = new Headers(
+    init?.headers ??
+      (typeof Request !== 'undefined' && input instanceof Request
+        ? input.headers
+        : undefined)
+  );
+  const rawDeadline = headers.get(CHECKOUT_DEADLINE_HEADER);
+  if (rawDeadline === null) return { init };
+
+  headers.delete(CHECKOUT_DEADLINE_HEADER);
+  const parsedDeadline = Number(rawDeadline);
+  return {
+    deadline: Number.isFinite(parsedDeadline) ? parsedDeadline : undefined,
+    init: { ...init, headers },
+  };
+}
+
+function attemptTimeout(timeoutMs: number, deadline?: number): number {
+  return Math.max(
+    0,
+    Math.min(
+      timeoutMs,
+      deadline === undefined ? timeoutMs : deadline - Date.now()
+    )
+  );
 }
 
 async function fetchBufferedBeforeDeadline(
@@ -111,12 +143,18 @@ export function createSupabaseAuthTimeoutFetch(
       return fetchImpl(input, init);
     }
 
+    const checkoutRequest = checkoutDeadline(input, init);
     const callerSignal =
-      init?.signal ??
+      checkoutRequest.init?.signal ??
       (typeof Request !== 'undefined' && input instanceof Request
         ? input.signal
         : undefined);
-    const attempts = prepareRefreshAttempts(input, init);
+    const attempts = prepareRefreshAttempts(input, checkoutRequest.init);
+    const firstAttemptTimeout = attemptTimeout(
+      timeoutMs,
+      checkoutRequest.deadline
+    );
+    if (firstAttemptTimeout === 0) return authRefreshTimedOutResponse();
 
     let firstResponse: Response | null = null;
     try {
@@ -124,7 +162,7 @@ export function createSupabaseAuthTimeoutFetch(
         fetchImpl,
         attempts.firstInput,
         { ...attempts.firstInit, signal: callerSignal },
-        timeoutMs
+        firstAttemptTimeout
       );
     } catch (error) {
       if (callerSignal?.aborted || !attempts.canRecover) throw error;
@@ -137,7 +175,12 @@ export function createSupabaseAuthTimeoutFetch(
     if (callerSignal?.aborted) {
       throw callerSignal.reason ?? new DOMException('Aborted', 'AbortError');
     }
-    if (!attempts.canRecover) return authRefreshTimedOutResponse();
+    if (
+      !attempts.canRecover ||
+      attemptTimeout(timeoutMs, checkoutRequest.deadline) === 0
+    ) {
+      return authRefreshTimedOutResponse();
+    }
 
     // A timed-out refresh may already have rotated the one-time token remotely.
     // Retry immediately while Supabase's refresh-token reuse window is open.
@@ -146,7 +189,7 @@ export function createSupabaseAuthTimeoutFetch(
         fetchImpl,
         attempts.recoveryInput,
         { ...attempts.recoveryInit, signal: callerSignal },
-        timeoutMs
+        attemptTimeout(timeoutMs, checkoutRequest.deadline)
       );
       if (recoveryResponse && !isAmbiguousRefreshResponse(recoveryResponse)) {
         return recoveryResponse;

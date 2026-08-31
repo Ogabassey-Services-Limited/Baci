@@ -1,5 +1,5 @@
 diff --git a/dist/main/GoTrueClient.d.ts b/dist/main/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811defcb30ca3e 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739aa34aad2 100644
 --- a/dist/main/GoTrueClient.d.ts
 +++ b/dist/main/GoTrueClient.d.ts
 @@ -1936,9 +1936,15 @@ export default class GoTrueClient {
@@ -19,7 +19,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811def
      /**
       * Gets the session data from a URL string
 diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
-index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e2d942671 100644
+index 9af56f25432ca2cf0761049df156cf763ae77a48..2abb53f22958f2c1665f039e2dcedb4303efc2a3 100644
 --- a/dist/main/GoTrueClient.js
 +++ b/dist/main/GoTrueClient.js
 @@ -3132,15 +3132,23 @@ class GoTrueClient {
@@ -57,11 +57,21 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
       * @param refreshToken A valid refresh token that was returned on login.
       */
 -    async _refreshAccessToken(refreshToken) {
-+    async _refreshAccessToken(refreshToken, allowRetry = true) {
++    async _refreshAccessToken(refreshToken, allowRetry = true, checkoutDeadlineAt) {
          // Refresh tokens are long-lived bearer credentials; do NOT include any
          // fragment of the token in the debug tag, even when `debug: true` is
          // enabled (logs may be forwarded to third-party services).
-@@ -3916,6 +3924,8 @@ class GoTrueClient {
+@@ -3909,13 +3917,17 @@ class GoTrueClient {
+                 this._debug(debugName, 'refreshing attempt', attempt);
+                 return await (0, fetch_1._request)(this.fetch, 'POST', `${this.url}/token?grant_type=refresh_token`, {
+                     body: { refresh_token: refreshToken },
+-                    headers: this.headers,
++                    headers: Object.assign(Object.assign({}, this.headers), (checkoutDeadlineAt === undefined
++                        ? {}
++                        : { 'x-baci-checkout-auth-deadline': String(checkoutDeadlineAt) })),
+                     xform: fetch_1._sessionResponse,
+                 });
+             }, (attempt, error) => {
                  const nextBackOffInterval = 200 * Math.pow(2, attempt);
                  return (error &&
                      (0, errors_1.isAuthRetryableFetchError)(error) &&
@@ -70,7 +80,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
                      // retryable only if the request can be sent before the backoff overflows the tick duration
                      Date.now() + nextBackOffInterval - startedAt < constants_1.AUTO_REFRESH_TICK_DURATION_MS);
              });
-@@ -4054,7 +4064,7 @@ class GoTrueClient {
+@@ -4054,7 +4066,7 @@ class GoTrueClient {
              this._debug(debugName, 'end');
          }
      }
@@ -79,7 +89,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
          var _a, _b;
          if (!refreshToken) {
              throw new errors_1.AuthSessionMissingError();
-@@ -4074,7 +4084,8 @@ class GoTrueClient {
+@@ -4074,7 +4086,8 @@ class GoTrueClient {
          // Token-keyed so callers with a fresh refresh token (rotation pickup
          // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
          // multi-account switch) bypass the cache and attempt a real refresh.
@@ -89,7 +99,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
              this.lastRefreshFailure.refreshToken === refreshToken &&
              Date.now() < this.lastRefreshFailure.expiresAt) {
              this._debug('#_callRefreshToken()', 'returning cached failure (cooldown active)');
-@@ -4084,6 +4095,13 @@ class GoTrueClient {
+@@ -4084,6 +4097,13 @@ class GoTrueClient {
          // fragment of the token in the debug tag, even when `debug: true` is
          // enabled (logs may be forwarded to third-party services).
          const debugName = `#_callRefreshToken()`;
@@ -103,7 +113,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
          this._debug(debugName, 'begin');
          try {
              this.refreshingDeferred = new helpers_1.Deferred();
-@@ -4097,13 +4115,21 @@ class GoTrueClient {
+@@ -4097,13 +4117,21 @@ class GoTrueClient {
              // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
@@ -118,7 +128,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
 +                this.refreshingDeferred.resolve(discarded);
 +                return discarded;
 +            }
-+            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch);
++            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch, storageDeadlineAt);
              if (error)
                  throw error;
              if (!data.session)
@@ -128,7 +138,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
              const storageChangedUnderUs = storedAtStart !== null &&
                  (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
              if (storageChangedUnderUs) {
-@@ -4129,10 +4155,10 @@ class GoTrueClient {
+@@ -4129,10 +4157,10 @@ class GoTrueClient {
              // (do NOT call `_removeSession` — that would emit a duplicate
              // SIGNED_OUT for the concurrent signOut that already fired one).
              const epochBeforeSave = this._sessionRemovalEpoch;
@@ -141,7 +151,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
                  if (this.userStorage) {
                      await (0, helpers_1.removeItemAsync)(this.userStorage, this.storageKey + '-user');
                  }
-@@ -4166,7 +4192,7 @@ class GoTrueClient {
+@@ -4166,7 +4194,7 @@ class GoTrueClient {
                      // rejected — the session is genuinely dead. `__loadSession`
                      // mirrors this distinction on the read path so callers see the
                      // preserved session instead of `session: null`.
@@ -150,7 +160,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
                      const accessTokenStillValid = !!((storedNow === null || storedNow === void 0 ? void 0 : storedNow.expires_at) && storedNow.expires_at * 1000 > Date.now());
                      if (accessTokenStillValid) {
                          this._debug(debugName, 'proactive refresh failed, access token still valid — preserving session');
-@@ -4228,12 +4254,12 @@ class GoTrueClient {
+@@ -4228,12 +4256,12 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -165,7 +175,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..aaa15d9da6d3fdfcdcd17846a2e3d58e
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4255,14 +4281,14 @@ class GoTrueClient {
+@@ -4255,14 +4283,14 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = (0, helpers_1.deepClone)(mainSessionData);
@@ -196,7 +206,7 @@ index 96c52a133ff2a0608e8afeb8b063625484ed926a..91d77386191d28fe0758178b9e361d9a
          throw new errors_1.AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/dist/module/GoTrueClient.d.ts b/dist/module/GoTrueClient.d.ts
-index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811defcb30ca3e 100644
+index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739aa34aad2 100644
 --- a/dist/module/GoTrueClient.d.ts
 +++ b/dist/module/GoTrueClient.d.ts
 @@ -1936,9 +1936,15 @@ export default class GoTrueClient {
@@ -216,7 +226,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..5b004b8464d778839b4b7c9906811def
      /**
       * Gets the session data from a URL string
 diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
-index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897a379cede 100644
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..53ebbaf0368d3979ead957a71d8408688f71bde4 100644
 --- a/dist/module/GoTrueClient.js
 +++ b/dist/module/GoTrueClient.js
 @@ -3129,15 +3129,23 @@ class GoTrueClient {
@@ -254,11 +264,21 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
       * @param refreshToken A valid refresh token that was returned on login.
       */
 -    async _refreshAccessToken(refreshToken) {
-+    async _refreshAccessToken(refreshToken, allowRetry = true) {
++    async _refreshAccessToken(refreshToken, allowRetry = true, checkoutDeadlineAt) {
          // Refresh tokens are long-lived bearer credentials; do NOT include any
          // fragment of the token in the debug tag, even when `debug: true` is
          // enabled (logs may be forwarded to third-party services).
-@@ -3913,6 +3921,8 @@ class GoTrueClient {
+@@ -3906,13 +3914,17 @@ class GoTrueClient {
+                 this._debug(debugName, 'refreshing attempt', attempt);
+                 return await _request(this.fetch, 'POST', `${this.url}/token?grant_type=refresh_token`, {
+                     body: { refresh_token: refreshToken },
+-                    headers: this.headers,
++                    headers: Object.assign(Object.assign({}, this.headers), (checkoutDeadlineAt === undefined
++                        ? {}
++                        : { 'x-baci-checkout-auth-deadline': String(checkoutDeadlineAt) })),
+                     xform: _sessionResponse,
+                 });
+             }, (attempt, error) => {
                  const nextBackOffInterval = 200 * Math.pow(2, attempt);
                  return (error &&
                      isAuthRetryableFetchError(error) &&
@@ -267,7 +287,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
                      // retryable only if the request can be sent before the backoff overflows the tick duration
                      Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS);
              });
-@@ -4051,7 +4061,7 @@ class GoTrueClient {
+@@ -4051,7 +4063,7 @@ class GoTrueClient {
              this._debug(debugName, 'end');
          }
      }
@@ -276,7 +296,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
          var _a, _b;
          if (!refreshToken) {
              throw new AuthSessionMissingError();
-@@ -4071,7 +4081,8 @@ class GoTrueClient {
+@@ -4071,7 +4083,8 @@ class GoTrueClient {
          // Token-keyed so callers with a fresh refresh token (rotation pickup
          // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
          // multi-account switch) bypass the cache and attempt a real refresh.
@@ -286,7 +306,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
              this.lastRefreshFailure.refreshToken === refreshToken &&
              Date.now() < this.lastRefreshFailure.expiresAt) {
              this._debug('#_callRefreshToken()', 'returning cached failure (cooldown active)');
-@@ -4081,6 +4092,13 @@ class GoTrueClient {
+@@ -4081,6 +4094,13 @@ class GoTrueClient {
          // fragment of the token in the debug tag, even when `debug: true` is
          // enabled (logs may be forwarded to third-party services).
          const debugName = `#_callRefreshToken()`;
@@ -300,7 +320,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
          this._debug(debugName, 'begin');
          try {
              this.refreshingDeferred = new Deferred();
-@@ -4094,13 +4112,21 @@ class GoTrueClient {
+@@ -4094,13 +4114,21 @@ class GoTrueClient {
              // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
@@ -315,7 +335,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
 +                this.refreshingDeferred.resolve(discarded);
 +                return discarded;
 +            }
-+            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch);
++            const { data, error } = await this._refreshAccessToken(refreshToken, !requireStorageMatch, storageDeadlineAt);
              if (error)
                  throw error;
              if (!data.session)
@@ -325,7 +345,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
              const storageChangedUnderUs = storedAtStart !== null &&
                  (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
              if (storageChangedUnderUs) {
-@@ -4126,10 +4152,10 @@ class GoTrueClient {
+@@ -4126,10 +4154,10 @@ class GoTrueClient {
              // (do NOT call `_removeSession` — that would emit a duplicate
              // SIGNED_OUT for the concurrent signOut that already fired one).
              const epochBeforeSave = this._sessionRemovalEpoch;
@@ -338,7 +358,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
                  if (this.userStorage) {
                      await removeItemAsync(this.userStorage, this.storageKey + '-user');
                  }
-@@ -4163,7 +4189,7 @@ class GoTrueClient {
+@@ -4163,7 +4191,7 @@ class GoTrueClient {
                      // rejected — the session is genuinely dead. `__loadSession`
                      // mirrors this distinction on the read path so callers see the
                      // preserved session instead of `session: null`.
@@ -347,7 +367,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
                      const accessTokenStillValid = !!((storedNow === null || storedNow === void 0 ? void 0 : storedNow.expires_at) && storedNow.expires_at * 1000 > Date.now());
                      if (accessTokenStillValid) {
                          this._debug(debugName, 'proactive refresh failed, access token still valid — preserving session');
-@@ -4225,12 +4251,12 @@ class GoTrueClient {
+@@ -4225,12 +4253,12 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -362,7 +382,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..38653c91c25d38545a478dd683c7f897
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4252,14 +4278,14 @@ class GoTrueClient {
+@@ -4252,14 +4280,14 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = deepClone(mainSessionData);
@@ -393,7 +413,7 @@ index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f8420
          throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
-index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb25c762a71 100644
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..015f459da6a351e15601803809ff3e1265f55453 100644
 --- a/src/GoTrueClient.ts
 +++ b/src/GoTrueClient.ts
 @@ -3689,7 +3689,12 @@ export default class GoTrueClient {
@@ -435,14 +455,14 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
 +        if (error) {
 +          return this._returnResult({ data: { user: null, session: null }, error })
 +        }
-
--          currentSession = data.session ?? undefined
++
 +        return this._returnResult({
 +          data: { user: session?.user ?? null, session: session ?? null },
 +          error: null,
 +        })
 +      }
-+
+
+-          currentSession = data.session ?? undefined
 +      return await this._useSession(async (result) => {
 +        const { data, error: sessionError } = result
 +        if (sessionError) {
@@ -454,19 +474,34 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
          if (!currentSession?.refresh_token) {
            throw new AuthSessionMissingError()
          }
-@@ -4621,7 +4644,10 @@ export default class GoTrueClient {
+@@ -4621,7 +4644,11 @@ export default class GoTrueClient {
     * Generates a new JWT.
     * @param refreshToken A valid refresh token that was returned on login.
     */
 -  private async _refreshAccessToken(refreshToken: string): Promise<AuthResponse> {
 +  private async _refreshAccessToken(
 +    refreshToken: string,
-+    allowRetry = true
++    allowRetry = true,
++    checkoutDeadlineAt?: number
 +  ): Promise<AuthResponse> {
      // Refresh tokens are long-lived bearer credentials; do NOT include any
      // fragment of the token in the debug tag, even when `debug: true` is
      // enabled (logs may be forwarded to third-party services).
-@@ -4651,6 +4677,8 @@ export default class GoTrueClient {
+@@ -4642,7 +4669,12 @@ export default class GoTrueClient {
+
+           return await _request(this.fetch, 'POST', `${this.url}/token?grant_type=refresh_token`, {
+             body: { refresh_token: refreshToken },
+-            headers: this.headers,
++            headers: {
++              ...this.headers,
++              ...(checkoutDeadlineAt === undefined
++                ? {}
++                : { 'x-baci-checkout-auth-deadline': String(checkoutDeadlineAt) }),
++            },
+             xform: _sessionResponse,
+           })
+         },
+@@ -4651,6 +4683,8 @@ export default class GoTrueClient {
            return (
              error &&
              isAuthRetryableFetchError(error) &&
@@ -475,7 +510,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
              // retryable only if the request can be sent before the backoff overflows the tick duration
              Date.now() + nextBackOffInterval - startedAt < AUTO_REFRESH_TICK_DURATION_MS
            )
-@@ -4830,7 +4858,12 @@ export default class GoTrueClient {
+@@ -4830,7 +4864,12 @@ export default class GoTrueClient {
      }
    }
 
@@ -489,7 +524,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
      if (!refreshToken) {
        throw new AuthSessionMissingError()
      }
-@@ -4852,6 +4885,7 @@ export default class GoTrueClient {
+@@ -4852,6 +4891,7 @@ export default class GoTrueClient {
      // from another tab, explicit `setSession`/`refreshSession({ refresh_token })`,
      // multi-account switch) bypass the cache and attempt a real refresh.
      if (
@@ -497,7 +532,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
        this.lastRefreshFailure &&
        this.lastRefreshFailure.refreshToken === refreshToken &&
        Date.now() < this.lastRefreshFailure.expiresAt
-@@ -4865,6 +4899,34 @@ export default class GoTrueClient {
+@@ -4865,6 +4905,34 @@ export default class GoTrueClient {
      // enabled (logs may be forwarded to third-party services).
      const debugName = `#_callRefreshToken()`
 
@@ -532,13 +567,14 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
      this._debug(debugName, 'begin')
 
      try {
-@@ -4880,13 +4942,25 @@ export default class GoTrueClient {
+@@ -4880,13 +4948,26 @@ export default class GoTrueClient {
        // refresh_token differs from the one they're hydrating; in both
        // cases the guard fires only when storage was *modified between
        // snapshots*, not when the input token disagrees with what's stored.
 -      const storedAtStart = (await getItemAsync(this.storage, this.storageKey)) as Session | null
 +      const storedAtStart = (await getItemAsync(storage, this.storageKey)) as Session | null
-+
+
+-      const { data, error } = await this._refreshAccessToken(refreshToken)
 +      if (requireStorageMatch && storedAtStart?.refresh_token !== refreshToken) {
 +        const discarded: CallRefreshTokenResult = {
 +          data: null,
@@ -547,11 +583,11 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
 +        this.refreshingDeferred.resolve(discarded)
 +        return discarded
 +      }
-
--      const { data, error } = await this._refreshAccessToken(refreshToken)
++
 +      const { data, error } = await this._refreshAccessToken(
 +        refreshToken,
-+        !requireStorageMatch
++        !requireStorageMatch,
++        storageDeadlineAt
 +      )
        if (error) throw error
        if (!data.session) throw new AuthSessionMissingError()
@@ -561,7 +597,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
        const storageChangedUnderUs =
          storedAtStart !== null &&
          (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token)
-@@ -4920,14 +4994,14 @@ export default class GoTrueClient {
+@@ -4920,14 +5001,14 @@ export default class GoTrueClient {
        // SIGNED_OUT for the concurrent signOut that already fired one).
        const epochBeforeSave = this._sessionRemovalEpoch
 
@@ -578,7 +614,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
          if (this.userStorage) {
            await removeItemAsync(this.userStorage, this.storageKey + '-user')
          }
-@@ -4967,7 +5041,7 @@ export default class GoTrueClient {
+@@ -4967,7 +5048,7 @@ export default class GoTrueClient {
            // rejected — the session is genuinely dead. `__loadSession`
            // mirrors this distinction on the read path so callers see the
            // preserved session instead of `session: null`.
@@ -587,7 +623,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
            const accessTokenStillValid = !!(
              storedNow?.expires_at && storedNow.expires_at * 1000 > Date.now()
            )
-@@ -5046,12 +5120,12 @@ export default class GoTrueClient {
+@@ -5046,12 +5127,12 @@ export default class GoTrueClient {
     * set currentSession and currentUser
     * process to _startAutoRefreshToken if possible
     */
@@ -602,7 +638,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..58449e7a25dce897f974dfcb5f784cb2
      // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
      const sessionToProcess = { ...session }
 
-@@ -5076,13 +5150,13 @@ export default class GoTrueClient {
+@@ -5076,13 +5157,13 @@ export default class GoTrueClient {
        delete mainSessionData.user // Remove user (real or proxy) before cloning for main storage
 
        const clonedMainSessionData = deepClone(mainSessionData)

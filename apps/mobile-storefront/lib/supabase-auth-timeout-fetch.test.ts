@@ -117,6 +117,31 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('clamps both transport attempts to the checkout auth deadline', async () => {
+    jest.useFakeTimers();
+    const fetchImpl = pendingAbortAwareFetch();
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+    const result = timedFetch(
+      'https://project.supabase.co/auth/v1/token?grant_type=refresh_token',
+      {
+        headers: {
+          'x-baci-checkout-auth-deadline': String(Date.now() + 70),
+        },
+        method: 'POST',
+      }
+    );
+
+    await jest.advanceTimersByTimeAsync(70);
+
+    await expect(result).resolves.toMatchObject({ status: 408 });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(
+      new Headers(fetchImpl.mock.calls[0]?.[1]?.headers).has(
+        'x-baci-checkout-auth-deadline'
+      )
+    ).toBe(false);
+  });
+
   it('preserves caller cancellation without starting recovery', async () => {
     const caller = new AbortController();
     const fetchImpl = pendingAbortAwareFetch();

@@ -187,4 +187,56 @@ describe('Supabase Auth client refresh boundaries', () => {
     expect(retry.data.session?.refresh_token).toBe('rotated-refresh-token');
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
+
+  it('shares the checkout deadline across storage and refresh transport delays', async () => {
+    jest.useFakeTimers();
+    const storedSession = session('stored-refresh-token');
+    const storage = {
+      getItem: jest
+        .fn<() => Promise<string>>()
+        .mockImplementationOnce(
+          () =>
+            new Promise<string>((resolve) => {
+              setTimeout(() => resolve(JSON.stringify(storedSession)), 30);
+            })
+        )
+        .mockResolvedValue(JSON.stringify(storedSession)),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>(
+      (_input, init) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener(
+            'abort',
+            () => reject(new DOMException('Aborted', 'AbortError')),
+            { once: true }
+          );
+        })
+    );
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: { autoRefreshToken: false, persistSession: true, storage },
+        global: { fetch: createSupabaseAuthTimeoutFetch(fetchImpl, 100) },
+      }
+    );
+
+    const refresh = client.auth.refreshSession({
+      bypass_failure_cache: true,
+      refresh_token: 'stored-refresh-token',
+      require_storage_match: true,
+      storage_deadline_at: Date.now() + 100,
+    });
+    await jest.advanceTimersByTimeAsync(30);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await jest.advanceTimersByTimeAsync(70);
+
+    await expect(refresh).resolves.toMatchObject({
+      data: { session: null },
+      error: expect.anything(),
+    });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
 });
