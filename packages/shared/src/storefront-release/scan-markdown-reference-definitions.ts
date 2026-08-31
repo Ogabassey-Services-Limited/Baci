@@ -43,6 +43,16 @@ function readMarkdownBlockPrefix(line: string): { cursor: number } {
       quoteIndent += 1;
     }
   }
+  // Reference definitions can be nested inside list containers. Marked
+  // strips the list marker before parsing the definition label, so mirror
+  // that container prefix here without treating horizontal rules as lists.
+  while (cursor < line.length) {
+    const listMarker = /^(?:[-+*]|\d+[.)])(?:[ \t]+|$)/u.exec(
+      line.slice(cursor)
+    );
+    if (!listMarker) break;
+    cursor += listMarker[0].length;
+  }
   return { cursor };
 }
 
@@ -94,6 +104,8 @@ function isMarkdownBlockBoundary(line: string): boolean {
     /^=+[ \t]*$/u.test(trimmed) ||
     /^<!--[\s\S]*-->$/u.test(trimmed) ||
     /^-->$/u.test(trimmed) ||
+    /^<\?[^\n]*\?>$/u.test(trimmed) ||
+    /^<![A-Za-z][\s\S]*>$/u.test(trimmed) ||
     /^<\/[A-Za-z][A-Za-z0-9:-]*[ \t]*>$/u.test(trimmed)
   );
 }

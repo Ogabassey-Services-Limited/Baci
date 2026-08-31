@@ -65,7 +65,9 @@ function toRouteSlug(value: string): string {
   return value
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
+    .replace(/\s+/gu, '-')
+    .replace(/[^\w-]+/gu, '')
+    .replace(/--+/gu, '-')
     .replace(/^-+|-+$/gu, '');
 }
 

@@ -138,6 +138,24 @@ describe('hasEligibleCommercialSupportPath', () => {
     ).toBe(false);
   });
 
+  it('uses origin slug normalization for price-band brand counts', () => {
+    const categories = new Map([[category.slug, category]]);
+    const bandProducts = Array.from({ length: 6 }, (_, index) => ({
+      ...products[index % products.length],
+      brand: ['A.B', 'AB', 'C'][index % 3],
+      priceMinor: 400_000 + index,
+      slug: `normalized-brand-band-${index}`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        bandProducts
+      )
+    ).toBe(false);
+  });
+
   it('uses the merchant currency exponent for price-band ceilings', () => {
     const categories = new Map([[category.slug, category]]);
     const productsAtCeiling = Array.from({ length: 6 }, (_, index) => ({

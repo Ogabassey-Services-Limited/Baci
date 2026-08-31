@@ -37,4 +37,24 @@ describe('scanMarkdownReferenceDefinitions', () => {
       { destination: 'https://cdn.example/hero.png', label: 'hero' },
     ]);
   });
+
+  it('accepts definitions nested under list markers', () => {
+    expect(
+      scanMarkdownReferenceDefinitions(
+        '![x][r]\n\n- [r]: https://cdn.example/list.png'
+      )
+    ).toEqual([{ destination: 'https://cdn.example/list.png', label: 'r' }]);
+  });
+
+  it.each([
+    '<?xml version="1.0"?>\n[hero]: https://cdn.example/pi.png',
+    '<!DOCTYPE html>\n[hero]: https://cdn.example/doctype.png',
+  ])('accepts definitions after declaration HTML blocks', (content) => {
+    expect(scanMarkdownReferenceDefinitions(content)).toEqual([
+      {
+        destination: expect.stringContaining('https://cdn.example/'),
+        label: 'hero',
+      },
+    ]);
+  });
 });

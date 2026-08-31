@@ -32,10 +32,10 @@ export function buildPublicProjectionCategoryScopes(
 
   const productIndexesByCategory = new Map<string, Set<number>>();
   for (const [productIndex, product] of products.entries()) {
-    const categoryIds = new Set([
-      ...(product.categoryIds ?? []),
-      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-    ]);
+    // Category catalogue inventory comes from the product_categories
+    // junction. primaryCategoryId is only a canonical-PDP hint and must not
+    // make a category appear populated when it has no junction membership.
+    const categoryIds = new Set(product.categoryIds ?? []);
     for (const categoryId of categoryIds) {
       const productIndexes =
         productIndexesByCategory.get(categoryId) ?? new Set<number>();

@@ -13,11 +13,13 @@ describe('buildPublicProjectionCategoryScopes', () => {
         status: 'inactive',
       },
       { id: 'grandchild', parentId: 'child', slug: 'foldables' },
+      { id: 'primary-only', slug: 'primary-only' },
     ];
 
     const scopes = buildPublicProjectionCategoryScopes(categories, [
       { categoryIds: ['child'] },
       { categoryIds: ['grandchild'] },
+      { primaryCategoryId: 'primary-only' },
     ]);
 
     expect(scopes.get('parent')).toEqual({
@@ -26,6 +28,10 @@ describe('buildPublicProjectionCategoryScopes', () => {
     });
     expect(scopes.get('inactive')).toEqual({
       categoryIds: new Set(['inactive']),
+      hasProducts: false,
+    });
+    expect(scopes.get('primary-only')).toEqual({
+      categoryIds: new Set(['primary-only']),
       hasProducts: false,
     });
   });

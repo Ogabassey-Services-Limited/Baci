@@ -97,6 +97,10 @@ export function maskMarkdownCode(content: string): string {
         (fenceCharacter === '`' || fenceCharacter === '~') &&
         (spaces <= 3 || isListContinuation)
       ) {
+        const openingListIndent =
+          activeListIndent !== null && (isListMarker || isListContinuation)
+            ? activeListIndent
+            : null;
         let runLength = 0;
         while (content[cursor + runLength] === fenceCharacter) runLength += 1;
         if (runLength >= 3) {
@@ -133,13 +137,26 @@ export function maskMarkdownCode(content: string): string {
                 break;
               }
             }
-            if (
+            const closesFence =
               candidateIndent.blockquoteDepth === blockquoteDepth &&
               candidateSpaces <= (isListContinuation ? spaces : 3) &&
               candidateRun >= runLength &&
-              restIsWhitespace
-            ) {
+              restIsWhitespace;
+            const containerEnded =
+              candidateIndent.blockquoteDepth < blockquoteDepth ||
+              (openingListIndent !== null &&
+                candidateIndent.blockquoteDepth === blockquoteDepth &&
+                candidateSpaces <= openingListIndent &&
+                !isBlankLine);
+            if (closesFence) {
               close = candidateCursor + candidateRun;
+              break;
+            }
+            if (containerEnded) {
+              // An unclosed fence cannot consume content after its Markdown
+              // blockquote/list container ends; leave that following content
+              // visible to the media scanner.
+              close = candidate;
               break;
             }
             search = content.indexOf('\n', candidateContentEnd);

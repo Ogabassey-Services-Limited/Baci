@@ -69,6 +69,30 @@ describe('maskMarkdownCode', () => {
     expect(masked).toContain('![x](https://example.test/x.png)');
   });
 
+  it('stops an unclosed blockquote fence when the quote container ends', () => {
+    const markdown = [
+      '> ```html',
+      '> <img src="https://example.test/x">',
+      '![x](https://cdn.example.test/live.png)',
+    ].join('\n');
+
+    const masked = maskMarkdownCode(markdown);
+
+    expect(masked).toContain('![x](https://cdn.example.test/live.png)');
+  });
+
+  it('stops an unclosed list fence when the list item container ends', () => {
+    const markdown = [
+      '- ```html',
+      '  <img src="https://example.test/x">',
+      '![x](https://cdn.example.test/live.png)',
+    ].join('\n');
+
+    const masked = maskMarkdownCode(markdown);
+
+    expect(masked).toContain('![x](https://cdn.example.test/live.png)');
+  });
+
   it('does not mask an image after an inline delimiter with a mismatched run', () => {
     const markdown = '` ![x](https://cdn.example.test/a.png) ``';
 
