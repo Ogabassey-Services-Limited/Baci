@@ -36,6 +36,32 @@ describe('hasUnstableBlogContentMedia', () => {
     ).toBe(true);
   });
 
+  it('rejects unstable TipTap poster and srcset media values', () => {
+    for (const attrs of [
+      { poster: 'https://cdn.example/poster.png?token=secret' },
+      {
+        srcset:
+          '/release-assets/' +
+          'a'.repeat(64) +
+          '.png 1x, https://cdn.example/image.png?token=secret 2x',
+      },
+    ])
+      expect(
+        hasUnstableBlogContentMedia(JSON.stringify({ attrs, type: 'video' }))
+      ).toBe(true);
+  });
+
+  it('rejects unstable equivalent TipTap image URL keys', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        JSON.stringify({
+          attrs: { image_url: 'https://cdn.example/image.png?token=secret' },
+          type: 'image',
+        })
+      )
+    ).toBe(true);
+  });
+
   it('rejects signed image sources in persisted HTML content', () => {
     expect(
       hasUnstableBlogContentMedia(

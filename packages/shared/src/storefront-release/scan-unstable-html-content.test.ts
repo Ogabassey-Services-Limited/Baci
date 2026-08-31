@@ -27,6 +27,19 @@ describe('hasUnstableHtmlContent', () => {
     ).toBe(true);
   });
 
+  it('rejects unstable media attributes on non-image HTML elements', () => {
+    const cases = [
+      '<video poster="https://cdn.example/poster.png?token=secret">',
+      '<audio src="https://cdn.example/audio.mp3?token=secret">',
+      '<iframe src="https://cdn.example/embed?token=secret">',
+      '<embed src="https://cdn.example/file.svg?token=secret">',
+      '<object data="https://cdn.example/file.svg?token=secret">',
+      '<track src="https://cdn.example/captions.vtt?token=secret">',
+    ];
+    for (const content of cases)
+      expect(hasUnstableHtmlContent(content)).toBe(true);
+  });
+
   it('continues scanning after literal less-than characters', () => {
     expect(
       hasUnstableHtmlContent(

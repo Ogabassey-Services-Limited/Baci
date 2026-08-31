@@ -62,4 +62,17 @@ describe('preview render projection', () => {
       },
     ]);
   });
+
+  it('rejects noncanonical release asset paths', () => {
+    expect(
+      previewRenderProjection.isAssetSource(
+        '/release-assets/' + 'A'.repeat(64) + '.WEBP'
+      )
+    ).toBe(false);
+    expect(
+      previewRenderProjection.isAssetSource(
+        '/release-assets/' + 'a'.repeat(63) + '.webp'
+      )
+    ).toBe(false);
+  });
 });

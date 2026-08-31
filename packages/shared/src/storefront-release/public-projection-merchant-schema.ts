@@ -1,19 +1,39 @@
 import { z } from 'zod';
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 
+function isAbsoluteHttpsUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname.length > 0 &&
+      parsed.username.length === 0 &&
+      parsed.password.length === 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 const PublicContactUrlSchema = z
   .string()
   .max(2_048)
-  .refine(isSafePublicReleaseUrl, 'Expected a query-free public contact URL');
+  .refine(
+    (value) => isAbsoluteHttpsUrl(value) && isSafePublicReleaseUrl(value),
+    'Expected an absolute HTTPS query-free public contact URL'
+  );
+const BusinessHoursDaySchema = z.string().trim().min(1).max(100).optional();
 const BusinessHoursSchema = z.strictObject({
-  monday: z.string().trim().min(1).max(100).optional(),
-  tuesday: z.string().trim().min(1).max(100).optional(),
-  wednesday: z.string().trim().min(1).max(100).optional(),
-  thursday: z.string().trim().min(1).max(100).optional(),
-  friday: z.string().trim().min(1).max(100).optional(),
-  saturday: z.string().trim().min(1).max(100).optional(),
-  sunday: z.string().trim().min(1).max(100).optional(),
+  monday: BusinessHoursDaySchema,
+  tuesday: BusinessHoursDaySchema,
+  wednesday: BusinessHoursDaySchema,
+  thursday: BusinessHoursDaySchema,
+  friday: BusinessHoursDaySchema,
+  saturday: BusinessHoursDaySchema,
+  sunday: BusinessHoursDaySchema,
 });
+const AnalyticsIdSchema = (pattern: RegExp) =>
+  z.string().min(1).max(128).regex(pattern).nullable().optional();
 const SocialLinksSchema = z.strictObject({
   facebook: PublicContactUrlSchema.optional(),
   instagram: PublicContactUrlSchema.optional(),
@@ -85,43 +105,13 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
   socialLinks: SocialLinksSchema.optional(),
   analytics: z
     .strictObject({
-      googleAnalyticsId: z
-        .string()
-        .min(1)
-        .max(128)
-        .regex(/^G-[A-Z0-9]{4,32}$/i)
-        .nullable()
-        .optional(),
-      facebookPixelId: z
-        .string()
-        .min(1)
-        .max(128)
-        .regex(/^\d{15,16}$/)
-        .nullable()
-        .optional(),
-      tiktokPixelId: z
-        .string()
-        .min(1)
-        .max(128)
-        .regex(/^C[A-Z0-9]{5,31}$/i)
-        .nullable()
-        .optional(),
-      snapchatPixelId: z
-        .string()
-        .min(1)
-        .max(128)
-        .regex(
-          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        )
-        .nullable()
-        .optional(),
-      twitterPixelId: z
-        .string()
-        .min(1)
-        .max(128)
-        .regex(/^o[A-Z0-9]+$/i)
-        .nullable()
-        .optional(),
+      googleAnalyticsId: AnalyticsIdSchema(/^G-[A-Z0-9]{4,32}$/i),
+      facebookPixelId: AnalyticsIdSchema(/^\d{15,16}$/),
+      tiktokPixelId: AnalyticsIdSchema(/^C[A-Z0-9]{5,31}$/i),
+      snapchatPixelId: AnalyticsIdSchema(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      ),
+      twitterPixelId: AnalyticsIdSchema(/^o[A-Z0-9]+$/i),
       googleStoreWidget: z
         .strictObject({
           enabled: z.boolean(),

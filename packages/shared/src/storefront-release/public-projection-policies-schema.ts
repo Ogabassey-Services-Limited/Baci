@@ -4,15 +4,9 @@ import {
   TRUST_PROFILE_RETURN_METHODS,
   TRUST_PROFILE_SHIPPING_FEE_TYPES,
 } from '../contracts/merchant-trust-profile';
-import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
+import { releaseSafeText } from './release-safe-text-schema';
 
-const PolicyBodySchema = z
-  .string()
-  .max(500_000)
-  .refine(
-    (body) => !hasUnstableBlogContentMedia(body),
-    'Policy links and media must be release-safe'
-  );
+const PolicyBodySchema = releaseSafeText(500_000, 'Policy');
 
 const PolicyDaysSchema = z.number().int().nonnegative().max(3_650);
 const PolicyRegionSchema = z.string().trim().min(1).max(100);

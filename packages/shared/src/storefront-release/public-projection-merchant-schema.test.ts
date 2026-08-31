@@ -60,6 +60,31 @@ describe('StorefrontPublicMerchantSchema', () => {
       ).toBe(false);
   });
 
+  it('rejects unknown merchant fields', () => {
+    expect(
+      StorefrontPublicMerchantSchema.safeParse({
+        ...validMerchant,
+        internalNotes: 'private',
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects noncanonical social-link URLs', () => {
+    for (const twitter of [
+      '/contact',
+      '#support',
+      '//x.com/store',
+      'http://x.com/store',
+      'https://x.com/store?utm=1',
+    ])
+      expect(
+        StorefrontPublicMerchantSchema.safeParse({
+          ...validMerchant,
+          socialLinks: { twitter },
+        }).success
+      ).toBe(false);
+  });
+
   it('preserves bounded public browser analytics identifiers', () => {
     const merchant = {
       ...validMerchant,

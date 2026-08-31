@@ -2,8 +2,27 @@ import { decodeHtmlEntities } from './decode-html-entities';
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
-const URL_ATTRIBUTE_NAMES = new Set(['href', 'src', 'srcset']);
-const INSPECTABLE_TAG_NAMES = new Set(['a', 'img', 'source']);
+const URL_ATTRIBUTE_NAMES = new Set([
+  'data',
+  'href',
+  'poster',
+  'src',
+  'srcset',
+]);
+const MEDIA_ATTRIBUTES_BY_TAG: Record<string, readonly string[]> = {
+  audio: ['src'],
+  embed: ['src'],
+  iframe: ['src'],
+  img: ['src', 'srcset'],
+  object: ['data'],
+  source: ['src', 'srcset'],
+  track: ['src'],
+  video: ['poster', 'src', 'srcset'],
+};
+const INSPECTABLE_TAG_NAMES = new Set([
+  'a',
+  ...Object.keys(MEDIA_ATTRIBUTES_BY_TAG),
+]);
 
 function findTagEnd(content: string, start: number): number {
   let quote: '"' | "'" | null = null;
@@ -95,20 +114,17 @@ function inspectTag(content: string, start: number, end: number): boolean {
     attributes.set(name, decodeHtmlEntities(parsed.value));
     cursor = parsed.next;
   }
-  const mediaValues = ['src', 'srcset']
-    .filter(
-      (name) => tagName === 'img' || tagName === 'source' || name === 'src'
-    )
-    .flatMap((name) => {
+  const mediaValues = (MEDIA_ATTRIBUTES_BY_TAG[tagName] ?? []).flatMap(
+    (name) => {
       const value = attributes.get(name);
       return value === undefined
         ? []
         : name === 'srcset'
           ? splitSrcset(value)
           : [value];
-    });
+    }
+  );
   if (
-    (tagName === 'img' || tagName === 'source') &&
     mediaValues.some((value) => !value || !isStablePublicMediaUrl(value))
   )
     return true;

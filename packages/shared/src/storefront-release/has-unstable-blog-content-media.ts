@@ -19,6 +19,13 @@ function hasUnstableLegacyContent(content: string): boolean {
 const MAX_TIPTAP_DOCUMENT_DEPTH = 64;
 const MAX_TIPTAP_DOCUMENT_NODES = 10_000;
 const MAX_TIPTAP_MARKS = 32;
+const TIPTAP_MEDIA_KEYS = new Set(['image', 'poster', 'src', 'srcset']);
+const TIPTAP_MEDIA_KEY_PATTERN =
+  /^(?:image|src)(?:[-_]?(?:path|source|url))$/iu;
+
+function isTipTapMediaKey(key: string): boolean {
+  return TIPTAP_MEDIA_KEYS.has(key) || TIPTAP_MEDIA_KEY_PATTERN.test(key);
+}
 
 function isTipTapNode(value: unknown): value is Record<string, unknown> {
   if (!isRecord(value) || typeof value.type !== 'string' || !value.type)
@@ -45,6 +52,12 @@ function isTipTapMarks(value: unknown): value is readonly unknown[] {
     value.length <= MAX_TIPTAP_MARKS &&
     value.every(isTipTapMark)
   );
+}
+
+function splitSrcset(value: string): string[] {
+  return value
+    .split(',')
+    .map((candidate) => candidate.trim().split(/\s+/u)[0] ?? '');
 }
 
 /** Detects media-bearing TipTap attributes that are unsafe for a release. */
@@ -98,8 +111,18 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
     if (entry.expectsTipTapNodes && !isTipTapNode(current)) return true;
     if ('marks' in current && !isTipTapMarks(current.marks)) return true;
     for (const [key, value] of Object.entries(current)) {
-      if (key === 'src' || key === 'image') {
-        if (typeof value !== 'string' || !isStablePublicMediaUrl(value))
+      if (isTipTapMediaKey(key)) {
+        const mediaValues =
+          key === 'srcset' && typeof value === 'string'
+            ? splitSrcset(value)
+            : [value];
+        if (
+          mediaValues.some(
+            (mediaValue) =>
+              typeof mediaValue !== 'string' ||
+              !isStablePublicMediaUrl(mediaValue)
+          )
+        )
           return true;
       }
       if (

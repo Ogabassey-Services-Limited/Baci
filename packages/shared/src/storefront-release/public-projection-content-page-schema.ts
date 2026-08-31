@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { StorefrontPublicContentPageStructuredSchema } from './public-projection-content-page-structured-schema';
+import { releaseSafeText } from './release-safe-text-schema';
 
 const PUBLISHED_CONTENT_PAGE_SLUGS = new Set([
   'about',
@@ -16,6 +16,7 @@ const PUBLISHED_CONTENT_PAGE_SLUGS = new Set([
   'terms-of-service',
   'warranty',
 ]);
+const ReleaseSafeContentBodySchema = releaseSafeText(500_000, 'Content page');
 
 /** Published public content page with release-safe Markdown URLs. */
 export const StorefrontPublicContentPageSchema = z
@@ -39,7 +40,7 @@ export const StorefrontPublicContentPageSchema = z
   .superRefine((page, context) => {
     if (
       page.format === 'sanitized_markdown' &&
-      hasUnstableBlogContentMedia(page.body)
+      !ReleaseSafeContentBodySchema.safeParse(page.body).success
     )
       context.addIssue({
         code: 'custom',

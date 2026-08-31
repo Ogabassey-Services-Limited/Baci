@@ -137,7 +137,10 @@ describe('StorefrontPublicProjectionPayloadSchema review regressions', () => {
   });
 
   it.each([
-    ['ID', { id: '123e4567-e89b-42d3-a456-426614174130', slug: 'phones' }],
+    [
+      'ID',
+      { id: '123e4567-e89b-42d3-a456-426614174130', slug: 'other-phones' },
+    ],
     ['slug', { id: '123e4567-e89b-42d3-a456-426614174131', slug: 'phones' }],
   ])('rejects a duplicate category %s', (_label, duplicateCategory) => {
     expect(

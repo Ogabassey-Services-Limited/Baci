@@ -3,13 +3,13 @@ import { normalizeProductSelectionParamKey } from '../lib/normalize-product-sele
 import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { compareCodePointStrings } from './compare-code-point-strings';
-import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { isValidPublicProductCanonicalPath } from './is-valid-public-product-canonical-path';
 import { StorefrontPublicProductColorGalleriesSchema } from './public-projection-product-color-galleries-schema';
 import { StorefrontPublicProductSelectionFieldsSchema } from './public-projection-product-selection-fields-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 import { StorefrontPublicProductSubschemas } from './public-projection-product-subschemas';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
+import { releaseSafeText } from './release-safe-text-schema';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 
 const {
@@ -38,13 +38,7 @@ export const StorefrontPublicProductSchema = z
     sku: z.string().trim().min(1).max(128).nullable().optional(),
     mpn: z.string().trim().min(1).max(128).nullable().optional(),
     gtin: z.string().trim().min(1).max(14).nullable().optional(),
-    description: z
-      .string()
-      .max(100_000)
-      .refine(
-        (value) => !hasUnstableBlogContentMedia(value),
-        'Product description links and media must be release-safe'
-      )
+    description: releaseSafeText(100_000, 'Product description')
       .nullable()
       .optional(),
     currency: z
