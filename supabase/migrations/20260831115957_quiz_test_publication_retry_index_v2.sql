@@ -1,3 +1,4 @@
+-- disable-transaction
 -- Pre-create the test retry index without blocking quiz event writes.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS
   quiz_events_v2_test_publication_retry_idx

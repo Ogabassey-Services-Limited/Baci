@@ -1,3 +1,4 @@
+-- disable-transaction
 -- Pre-create the live terminalization retry index without blocking writes.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS
   quiz_events_v2_live_terminal_retry_idx

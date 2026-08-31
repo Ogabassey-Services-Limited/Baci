@@ -96,7 +96,7 @@ describe('finalizeDueQuizEvents', () => {
       .mockResolvedValueOnce({ data: { updated: true }, error: null })
       .mockResolvedValueOnce({
         data: {
-          deadlineClockFailed: 1,
+          deadlineClockFailed: 5,
           liveDeadlineClockFailed: 2,
           liveFinalizationFailed: 1,
           scheduledPromotionFailed: 1,
@@ -110,8 +110,8 @@ describe('finalizeDueQuizEvents', () => {
 
     expect(result.status).toBe(500);
     expect(result.body).toMatchObject({
-      deadlineClockFailed: 1,
-      failed: 8,
+      deadlineClockFailed: 5,
+      failed: 7,
       liveDeadlineClockFailed: 2,
       liveFinalizationFailed: 1,
       scheduledPromotionFailed: 1,

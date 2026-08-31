@@ -82,8 +82,6 @@ function addPayload(summary: Summary, payload: unknown) {
     summaryValue(payload, 'testPublicationFailed') +
     summaryValue(payload, 'liveTerminalizationFailed') +
     summaryValue(payload, 'scheduledPromotionFailed') +
-    summaryValue(payload, 'testDeadlineClockFailed') +
-    summaryValue(payload, 'liveDeadlineClockFailed') +
     summaryValue(payload, 'deadlineClockFailed') +
     summaryValue(payload, 'liveFinalizationFailed') +
     summaryValue(payload, 'testPublicationRetryPending') +

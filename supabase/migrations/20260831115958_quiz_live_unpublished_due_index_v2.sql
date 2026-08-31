@@ -1,3 +1,4 @@
+-- disable-transaction
 -- Pre-create the live publication backlog index without blocking writes.
 CREATE INDEX CONCURRENTLY IF NOT EXISTS
   quiz_events_v2_live_unpublished_due_idx

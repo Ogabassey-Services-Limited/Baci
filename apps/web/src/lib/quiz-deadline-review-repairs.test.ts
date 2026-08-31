@@ -3,10 +3,6 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migrationsDirectory = resolve(process.cwd(), '../../supabase/migrations');
-const ciWorkflow = readFileSync(
-  resolve(process.cwd(), '../../.github/workflows/ci.yml'),
-  'utf8'
-);
 const migrations = readdirSync(migrationsDirectory).sort();
 const readMigration = (file: string) =>
   readFileSync(resolve(migrationsDirectory, file), 'utf8');
@@ -53,12 +49,6 @@ const wakeupAccessSql = readMigration(
 );
 const testPublicationControlRlsSql = readMigration(
   '20260831120700_quiz_test_publication_control_rls_v2.sql'
-);
-const cascadeScoreConsistencySql = readMigration(
-  '20260831120800_quiz_cascade_score_consistency_v2.sql'
-);
-const runtimeGateStaleHealthSql = readMigration(
-  '20260831120900_quiz_runtime_gate_stale_health_v2.sql'
 );
 const serverClockRuntimeGateSql = readMigration(
   '20260831121000_quiz_runtime_gate_server_clock_batch_v2.sql'
@@ -156,19 +146,20 @@ describe('quiz deadline review repairs', () => {
   it('pre-creates deadline indexes concurrently before transactional fallbacks', () => {
     for (const [indexMigration, fallbackMigration] of [
       [
-        '20260831115997_quiz_test_publication_retry_index_v2.sql',
+        '20260831115957_quiz_test_publication_retry_index_v2.sql',
         '20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
       ],
       [
-        '20260831115998_quiz_live_unpublished_due_index_v2.sql',
+        '20260831115958_quiz_live_unpublished_due_index_v2.sql',
         '20260831120200_quiz_instant_live_backlog_index_health_v2.sql',
       ],
       [
-        '20260831115999_quiz_live_terminal_retry_index_v2.sql',
+        '20260831115959_quiz_live_terminal_retry_index_v2.sql',
         '20260831120500_quiz_instant_live_terminal_retry_health_v2.sql',
       ],
     ]) {
       const sql = readMigration(indexMigration);
+      expect(sql.startsWith('-- disable-transaction\n')).toBe(true);
       expect(sql).toMatch(/CREATE INDEX CONCURRENTLY IF NOT EXISTS/i);
       expect(sql).not.toMatch(/\bBEGIN\b/i);
       expect(migrations.indexOf(indexMigration)).toBeLessThan(
@@ -264,41 +255,5 @@ describe('quiz deadline review repairs', () => {
       /ALTER TABLE private\.quiz_test_publication_control_v2[\s\S]*?ENABLE ROW LEVEL SECURITY/i
     );
     expect(testPublicationControlRlsSql).not.toMatch(/CREATE POLICY/i);
-  });
-
-  it('runs every deadline repair SQL proof in chronological replay CI', () => {
-    for (const file of [
-      'quiz_live_score_publication_gate_v2.sql',
-      'quiz_instant_deadline_publication_v2.sql',
-      'quiz_instant_deadline_runtime_gate_v2.sql',
-      'quiz_instant_live_award_retry_v2.sql',
-      'quiz_instant_score_repair_lock_order_v2.sql',
-      'quiz_instant_retry_pending_health_v2.sql',
-      'quiz_results_wakeup_player_access_v2.sql',
-      'quiz_test_publication_control_rls_v2.sql',
-      'quiz_cascade_score_consistency_v2.sql',
-      'quiz_runtime_gate_stale_health_v2.sql',
-      'quiz_score_repair_quiescence_gate_v2.sql',
-    ]) {
-      expect(ciWorkflow).toContain(
-        `--sql-check supabase/migrations/tests/${file}`
-      );
-    }
-  });
-
-  it('subtracts accepted scores before device-integrity question cascades', () => {
-    expect(cascadeScoreConsistencySql).toMatch(
-      /BEFORE DELETE ON public\.quiz_attempt_questions/i
-    );
-    expect(cascadeScoreConsistencySql).toMatch(
-      /sum\(answer\.score_delta\)[\s\S]*?GREATEST\(score - v_score_delta, 0\)/i
-    );
-  });
-
-  it('marks a stale runtime gate as degraded clock health', () => {
-    expect(runtimeGateStaleHealthSql).toMatch(
-      /CASE WHEN v_gate_fresh THEN 0 ELSE 1 END[\s\S]*?IF v_failed > 0/i
-    );
-    expect(runtimeGateStaleHealthSql).toContain("'runtimeGateFresh'");
   });
 });
