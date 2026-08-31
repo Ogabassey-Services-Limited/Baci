@@ -1,8 +1,13 @@
 import { logger } from '@/lib/logger';
 
-type AbortableQuery<T> = PromiseLike<T> & {
+export type AbortableQuery<T> = PromiseLike<T> & {
   abortSignal?: (signal: AbortSignal) => PromiseLike<T>;
 };
+
+export interface StorefrontPdpSemanticRpcOptions {
+  deadlineMs: number;
+  traceThresholdMs: number;
+}
 
 type BoundaryTrace = {
   elapsedMs: number;
@@ -53,7 +58,7 @@ function createAbortDeadlinePromise(signal: AbortSignal) {
 /** Runs one bounded PDP semantic RPC and traces only slow/failed boundaries. */
 export async function runStorefrontPdpSemanticRpc<T>(
   query: AbortableQuery<T>,
-  options: { deadlineMs: number; traceThresholdMs: number }
+  options: StorefrontPdpSemanticRpcOptions
 ) {
   const timeoutSignal = AbortSignal.timeout(options.deadlineMs);
   const boundedQuery =
