@@ -127,7 +127,7 @@ describe('quiz deadline review repairs', () => {
       'quiz_score_repair_requires_quiescent_v2_events'
     );
     expect(scoreRepairQuiescenceProofSql).toMatch(
-      /rules_version, live_window_seconds[\s\S]*?'instant-v2', 120[\s\S]*?SET ends_at = starts_at \+ interval '30 seconds',\s*live_window_seconds = 30/i
+      /INSERT INTO public\.merchants\([\s\S]*?'79000000-0000-4000-8000-000000000002'[\s\S]*?INSERT INTO public\.quiz_events\([\s\S]*?rules_version, live_window_seconds[\s\S]*?'instant-v2', 120[\s\S]*?SET ends_at = starts_at \+ interval '30 seconds',\s*live_window_seconds = 30/i
     );
     expect(
       migrations.indexOf(

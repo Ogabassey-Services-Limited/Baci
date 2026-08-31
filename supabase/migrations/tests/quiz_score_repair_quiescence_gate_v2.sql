@@ -1,6 +1,14 @@
 BEGIN;
 
 SET LOCAL session_replication_role = replica;
+INSERT INTO public.merchants(
+  id, user_id, email, business_name, slug
+) VALUES (
+  '79000000-0000-4000-8000-000000000002',
+  '79000000-0000-4000-8000-000000000003',
+  'score-repair-quiescence-proof@example.com',
+  'Score repair quiescence proof', 'score-repair-quiescence-proof'
+);
 INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
   mode, contract_version, rules_version, live_window_seconds
