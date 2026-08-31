@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { JumiaClient } from '@/lib/jumia/client';
+import type { JumiaClient } from '@/lib/jumia/client';
 import { getJumiaOrderQueryFilters } from '@/lib/jumia/order-query-filters';
 import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
-import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
+import type { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import {
   formatJumiaOrderTimestamp,
@@ -14,9 +14,9 @@ import {
   getJumiaNotificationAttemptKey,
   markJumiaNotificationSent,
 } from './order-sync-notifications';
-import {
+import type {
+  buildExistingJumiaCacheEntry,
   buildSyncedJumiaCacheRow,
-  buildExistingJumiaCacheEntry as cacheEntry,
   loadExistingCanonicalOrders,
   loadExistingJumiaOrders,
   notifySyncedJumiaOrder,
@@ -36,6 +36,22 @@ export type SyncUpdatePayload = Partial<{ last_sync_at: string }> & {
   sync_error: string | null;
 };
 
+export type SyncJumiaOrderIntegrationDependencies = Readonly<{
+  createClient: (
+    supabase: SupabaseClient,
+    merchantId: string,
+    integrationId: string
+  ) => Promise<JumiaClient>;
+  getAllOrders: typeof getAllOrders;
+  getOrderItems: typeof getOrderItems;
+  buildExistingJumiaCacheEntry: typeof buildExistingJumiaCacheEntry;
+  buildSyncedJumiaCacheRow: typeof buildSyncedJumiaCacheRow;
+  loadExistingCanonicalOrders: typeof loadExistingCanonicalOrders;
+  loadExistingJumiaOrders: typeof loadExistingJumiaOrders;
+  notifySyncedJumiaOrder: typeof notifySyncedJumiaOrder;
+  upsertCanonicalOrder: typeof upsertCanonicalOrder;
+}>;
+
 export class JumiaSyncCursorUpdateError extends Error {
   constructor(
     message: string,
@@ -50,11 +66,12 @@ export class JumiaSyncCursorUpdateError extends Error {
 export async function syncJumiaOrderIntegration(
   supabase: SupabaseClient,
   integration: MarketplaceIntegrationRow,
-  result: JumiaOrderSyncResult
+  result: JumiaOrderSyncResult,
+  dependencies: SyncJumiaOrderIntegrationDependencies
 ) {
   if (!readOrderSyncEnabled(integration.sync_config)) return;
 
-  const client = await JumiaClient.forIntegration(
+  const client = await dependencies.createClient(
     supabase,
     integration.merchant_id,
     integration.id
@@ -65,7 +82,7 @@ export async function syncJumiaOrderIntegration(
   let earliestFailedSyncMs: number | null = null;
   const attemptedNotificationKeys = new Set<string>();
   const syncStartedAt = formatJumiaOrderTimestamp(new Date());
-  const orders = await getAllOrders(client, {
+  const orders = await dependencies.getAllOrders(client, {
     updatedAfter: getJumiaSyncLowerBound(integration.last_sync_at),
     updatedBefore: syncStartedAt,
     size: 100,
@@ -76,12 +93,12 @@ export async function syncJumiaOrderIntegration(
     }),
   });
 
-  const existingJumiaOrders = await loadExistingJumiaOrders(
+  const existingJumiaOrders = await dependencies.loadExistingJumiaOrders(
     supabase,
     integration.merchant_id,
     orders.map((order) => order.id)
   );
-  const canonicalOrders = await loadExistingCanonicalOrders(
+  const canonicalOrders = await dependencies.loadExistingCanonicalOrders(
     supabase,
     integration.merchant_id,
     orders.map((order) => order.id)
@@ -101,9 +118,9 @@ export async function syncJumiaOrderIntegration(
         // Jumia API pages from sending duplicate pushes in the same run.
         existingJumia?.notification_sent !== true &&
         !attemptedNotificationKeys.has(notificationKey);
-      const items = (await getOrderItems(client, order.id)).items;
+      const items = (await dependencies.getOrderItems(client, order.id)).items;
 
-      const canonicalOrder = await upsertCanonicalOrder(
+      const canonicalOrder = await dependencies.upsertCanonicalOrder(
         supabase,
         integration,
         order,
@@ -112,7 +129,7 @@ export async function syncJumiaOrderIntegration(
       );
       canonicalOrders.set(order.id, canonicalOrder);
 
-      const cacheRow = buildSyncedJumiaCacheRow(
+      const cacheRow = dependencies.buildSyncedJumiaCacheRow(
         integration,
         order,
         items,
@@ -127,7 +144,11 @@ export async function syncJumiaOrderIntegration(
       }
       existingJumiaOrders.set(
         order.id,
-        cacheEntry(order.id, cacheRow.notification_sent, canonicalOrder.id)
+        dependencies.buildExistingJumiaCacheEntry(
+          order.id,
+          cacheRow.notification_sent,
+          canonicalOrder.id
+        )
       );
 
       if (existingCanonical) result.canonicalUpdated += 1;
@@ -135,7 +156,7 @@ export async function syncJumiaOrderIntegration(
 
       if (shouldNotify) {
         attemptedNotificationKeys.add(notificationKey);
-        const rawNotificationResult = await notifySyncedJumiaOrder(
+        const rawNotificationResult = await dependencies.notifySyncedJumiaOrder(
           integration.merchant_id,
           order,
           canonicalOrder.id
@@ -160,7 +181,11 @@ export async function syncJumiaOrderIntegration(
           // pages in this run from rebuilding a stale cache row as unnotified.
           existingJumiaOrders.set(
             order.id,
-            cacheEntry(order.id, true, canonicalOrder.id)
+            dependencies.buildExistingJumiaCacheEntry(
+              order.id,
+              true,
+              canonicalOrder.id
+            )
           );
           const notificationUpdateError = await markJumiaNotificationSent(
             supabase,

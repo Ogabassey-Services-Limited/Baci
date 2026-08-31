@@ -1,17 +1,44 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { JumiaClient } from '@/lib/jumia/client';
 import type { JumiaOrderSyncResult } from '@/lib/jumia/order-sync-result';
+import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 import { logger } from '@/lib/logger';
 import {
   JUMIA_EXTERNAL_SOURCE,
   type MarketplaceIntegrationRow,
 } from './order-sync-mappers';
+import {
+  buildExistingJumiaCacheEntry,
+  buildSyncedJumiaCacheRow,
+  loadExistingCanonicalOrders,
+  loadExistingJumiaOrders,
+  notifySyncedJumiaOrder,
+  upsertCanonicalOrder,
+} from './order-sync-operations';
 import { selectJumiaOrderSyncIntegrations } from './select-jumia-order-sync-integrations';
 import {
   JumiaSyncCursorUpdateError,
+  type SyncJumiaOrderIntegrationDependencies,
   syncJumiaOrderIntegration,
 } from './sync-jumia-order-integration';
 
 const JUMIA_ORDER_SYNC_ROUTE = 'jumia/order-sync';
+
+const syncJumiaOrderIntegrationDependencies = {
+  createClient: (
+    supabase: SupabaseClient,
+    merchantId: string,
+    integrationId: string
+  ) => JumiaClient.forIntegration(supabase, merchantId, integrationId),
+  getAllOrders,
+  getOrderItems,
+  buildExistingJumiaCacheEntry,
+  buildSyncedJumiaCacheRow,
+  loadExistingCanonicalOrders,
+  loadExistingJumiaOrders,
+  notifySyncedJumiaOrder,
+  upsertCanonicalOrder,
+} satisfies SyncJumiaOrderIntegrationDependencies;
 
 export async function syncJumiaOrdersForActiveIntegrations(
   supabase: SupabaseClient
@@ -32,7 +59,6 @@ export async function syncJumiaOrdersForActiveIntegrations(
       'id, merchant_id, shop_id, country_code, marketplace_key, connection_method, jumia_authorization_id, last_sync_at, sync_config'
     )
     .eq('platform', JUMIA_EXTERNAL_SOURCE)
-    .neq('connection_method', 'self_authorization')
     .eq('is_active', true);
 
   if (error)
@@ -43,7 +69,12 @@ export async function syncJumiaOrdersForActiveIntegrations(
 
   for (const integration of selectJumiaOrderSyncIntegrations(integrations)) {
     try {
-      await syncJumiaOrderIntegration(supabase, integration, result);
+      await syncJumiaOrderIntegration(
+        supabase,
+        integration,
+        result,
+        syncJumiaOrderIntegrationDependencies
+      );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       result.errors.push(`${integration.merchant_id}: ${message}`);

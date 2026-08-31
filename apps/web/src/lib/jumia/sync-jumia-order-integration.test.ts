@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getAllOrders } from '@/lib/jumia/orders';
+import type { JumiaClient } from '@/lib/jumia/client';
+import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
 
 const mocks = vi.hoisted(() => ({
   forIntegration: vi.fn(),
@@ -26,7 +27,44 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-import { syncJumiaOrderIntegration } from './sync-jumia-order-integration';
+vi.mock('./order-sync-operations', () => ({
+  buildExistingJumiaCacheEntry: vi.fn(),
+  buildSyncedJumiaCacheRow: vi.fn(),
+  loadExistingCanonicalOrders: vi.fn(),
+  loadExistingJumiaOrders: vi.fn(),
+  notifySyncedJumiaOrder: vi.fn(),
+  upsertCanonicalOrder: vi.fn(),
+}));
+
+import {
+  buildExistingJumiaCacheEntry,
+  buildSyncedJumiaCacheRow,
+  loadExistingCanonicalOrders,
+  loadExistingJumiaOrders,
+  notifySyncedJumiaOrder,
+  upsertCanonicalOrder,
+} from './order-sync-operations';
+import {
+  type SyncJumiaOrderIntegrationDependencies,
+  syncJumiaOrderIntegration,
+} from './sync-jumia-order-integration';
+
+const dependencies = {
+  createClient: (supabase, merchantId, integrationId) =>
+    mocks.forIntegration(
+      supabase,
+      merchantId,
+      integrationId
+    ) as Promise<JumiaClient>,
+  getAllOrders,
+  getOrderItems,
+  buildExistingJumiaCacheEntry,
+  buildSyncedJumiaCacheRow,
+  loadExistingCanonicalOrders,
+  loadExistingJumiaOrders,
+  notifySyncedJumiaOrder,
+  upsertCanonicalOrder,
+} satisfies SyncJumiaOrderIntegrationDependencies;
 
 const result = {
   integrations: 1,
@@ -61,7 +99,8 @@ describe('syncJumiaOrderIntegration', () => {
       syncJumiaOrderIntegration(
         {} as SupabaseClient,
         disabledIntegration,
-        result
+        result,
+        dependencies
       )
     ).resolves.toBeUndefined();
 
@@ -78,7 +117,8 @@ describe('syncJumiaOrderIntegration', () => {
       syncJumiaOrderIntegration(
         {} as SupabaseClient,
         integration,
-        structuredClone(result)
+        structuredClone(result),
+        dependencies
       )
     ).rejects.toThrow('provider unavailable');
   });
