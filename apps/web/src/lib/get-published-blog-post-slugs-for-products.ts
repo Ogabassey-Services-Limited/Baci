@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { isValidUuid } from '@/lib/sanitize-core';
 
-const MAX_CATEGORY_FALLBACK_BLOG_POSTS = 256;
+const CATEGORY_FALLBACK_PAGE_SIZE = 256;
 
 interface LinkedBlogPostRow {
   blog_posts?:
@@ -108,14 +108,57 @@ function getCanonicalCategoryPostRows(
   });
 }
 
+type CategoryFallbackQuery = 'exact' | 'canonical';
+
+async function fetchCategoryFallbackRows(
+  supabase: SupabaseClient,
+  merchantId: string,
+  categoryCandidates: readonly string[],
+  canonicalCategoryFilter: string,
+  queryKind: CategoryFallbackQuery
+) {
+  const rows: CategoryBlogPostRow[] = [];
+
+  for (let page = 0; ; page += 1) {
+    let query = supabase
+      .from('blog_posts')
+      .select('slug, status, published_at, category')
+      .eq('merchant_id', merchantId)
+      .eq('status', 'published');
+
+    query =
+      queryKind === 'exact'
+        ? query.in('category', Array.from(categoryCandidates))
+        : query.or(canonicalCategoryFilter);
+
+    const { data, error } = await query
+      .order('published_at', { ascending: false })
+      .range(
+        page * CATEGORY_FALLBACK_PAGE_SIZE,
+        (page + 1) * CATEGORY_FALLBACK_PAGE_SIZE - 1
+      );
+
+    if (error) {
+      return { error, rows };
+    }
+
+    const pageRows = (data as unknown as CategoryBlogPostRow[]) ?? [];
+    rows.push(...pageRows);
+
+    if (pageRows.length < CATEGORY_FALLBACK_PAGE_SIZE) {
+      return { error: null, rows };
+    }
+  }
+}
+
 /**
  * Find published storefront blog posts whose related-product rail can be
  * affected by the changed products. Explicit product relationships are joined
- * with a bounded category fallback for legacy posts that derive their rail from
- * the product category instead of `blog_post_products`. Results are deduplicated
- * before callers evict their edge-cached article URLs. Any read failure is
- * fail-open because cache expiry remains safe and a product mutation must not
- * fail on best-effort CDN invalidation.
+ * with a paginated category fallback for legacy posts that derive their rail
+ * from the product category instead of `blog_post_products`. Results are
+ * deduplicated before callers evict their edge-cached article URLs. Any read
+ * failure is fail-open because cache expiry remains safe and a product
+ * mutation must not fail on best-effort CDN invalidation.
  */
 export async function getPublishedBlogPostSlugsForProducts(
   supabase: SupabaseClient,
@@ -175,14 +218,14 @@ export async function getPublishedBlogPostSlugsForProducts(
 
   if (categoryCandidates.length > 0) {
     try {
-      const { data: exactData, error: exactError } = await supabase
-        .from('blog_posts')
-        .select('slug, status, published_at, category')
-        .eq('merchant_id', normalizedMerchantId)
-        .eq('status', 'published')
-        .in('category', categoryCandidates)
-        .order('published_at', { ascending: false })
-        .limit(MAX_CATEGORY_FALLBACK_BLOG_POSTS);
+      const { rows: exactRows, error: exactError } =
+        await fetchCategoryFallbackRows(
+          supabase,
+          normalizedMerchantId,
+          categoryCandidates,
+          canonicalCategoryFilter,
+          'exact'
+        );
 
       if (exactError) {
         console.error(
@@ -190,24 +233,21 @@ export async function getPublishedBlogPostSlugsForProducts(
           { merchantId: normalizedMerchantId, error: exactError }
         );
       } else {
-        for (const post of (exactData as unknown as
-          | CategoryBlogPostRow[]
-          | null
-          | undefined) ?? []) {
+        for (const post of exactRows) {
           const slug = getPublishedBlogPostSlug(post);
           if (slug) slugs.add(slug);
         }
       }
 
       if (canonicalCategoryFilter.length > 0) {
-        const { data: canonicalData, error: canonicalError } = await supabase
-          .from('blog_posts')
-          .select('slug, status, published_at, category')
-          .eq('merchant_id', normalizedMerchantId)
-          .eq('status', 'published')
-          .or(canonicalCategoryFilter)
-          .order('published_at', { ascending: false })
-          .limit(MAX_CATEGORY_FALLBACK_BLOG_POSTS);
+        const { rows: canonicalRows, error: canonicalError } =
+          await fetchCategoryFallbackRows(
+            supabase,
+            normalizedMerchantId,
+            categoryCandidates,
+            canonicalCategoryFilter,
+            'canonical'
+          );
 
         if (canonicalError) {
           console.error(
@@ -215,14 +255,10 @@ export async function getPublishedBlogPostSlugsForProducts(
             { merchantId: normalizedMerchantId, error: canonicalError }
           );
         } else {
-          const canonicalRows = getCanonicalCategoryPostRows(
-            (canonicalData as unknown as
-              | CategoryBlogPostRow[]
-              | null
-              | undefined) ?? [],
+          for (const post of getCanonicalCategoryPostRows(
+            canonicalRows,
             categorySlugs
-          );
-          for (const post of canonicalRows) {
+          )) {
             const slug = getPublishedBlogPostSlug(post);
             if (slug) slugs.add(slug);
           }

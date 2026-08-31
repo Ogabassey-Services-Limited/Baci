@@ -9,8 +9,12 @@ function makeSupabase(
   const inSpy = vi.fn();
   const categoryInSpy = vi.fn();
   const categoryOrSpy = vi.fn();
-  const categoryLimitSpy = vi.fn();
+  const categoryRangeSpy = vi.fn();
   let categoryQuery: 'exact' | 'canonical' = 'exact';
+  const categoryPages = {
+    exact: [] as Array<{ data: unknown; error: unknown }>,
+    canonical: [] as Array<{ data: unknown; error: unknown }>,
+  };
   const productBuilder = {
     eq: vi.fn(() => productBuilder),
     in: vi.fn((column: string, values: string[]) => {
@@ -30,10 +34,17 @@ function makeSupabase(
       categoryQuery = 'canonical';
       return categoryBuilder;
     }),
-    limit: vi.fn((value: number) => {
-      categoryLimitSpy(value);
+    range: vi.fn((from: number, to: number) => {
+      categoryRangeSpy(from, to);
+      const page = Math.floor(from / 256);
+      const configuredPages = categoryPages[categoryQuery];
       return Promise.resolve(
-        categoryQuery === 'canonical' ? canonicalCategoryResult : categoryResult
+        configuredPages[page] ??
+          (page === 0
+            ? categoryQuery === 'canonical'
+              ? canonicalCategoryResult
+              : categoryResult
+            : { data: [], error: null })
       );
     }),
     order: vi.fn(() => categoryBuilder),
@@ -45,7 +56,14 @@ function makeSupabase(
       ),
     })),
   };
-  return { categoryInSpy, categoryLimitSpy, categoryOrSpy, inSpy, supabase };
+  return {
+    categoryInSpy,
+    categoryPages,
+    categoryRangeSpy,
+    categoryOrSpy,
+    inSpy,
+    supabase,
+  };
 }
 
 describe('getPublishedBlogPostSlugsForProducts', () => {
@@ -135,7 +153,7 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
   });
 
   it('includes published category-fallback posts and deduplicates linked slugs', async () => {
-    const { categoryInSpy, categoryLimitSpy, inSpy, supabase } = makeSupabase(
+    const { categoryInSpy, categoryRangeSpy, inSpy, supabase } = makeSupabase(
       {
         data: [
           {
@@ -188,7 +206,7 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
       'smartphones',
       'Smartphones',
     ]);
-    expect(categoryLimitSpy).toHaveBeenCalledWith(256);
+    expect(categoryRangeSpy).toHaveBeenCalledWith(0, 255);
   });
 
   it('preserves apostrophes when building category fallback candidates', async () => {
@@ -239,5 +257,41 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
 
     expect(result).toEqual(['product-news-guide']);
     expect(categoryOrSpy).toHaveBeenCalledWith('category.ilike.*product*news*');
+  });
+
+  it('paginates category fallback posts beyond one page', async () => {
+    const firstPage = Array.from({ length: 256 }, (_, index) => ({
+      slug: index === 0 ? 'newest-fallback' : `fallback-${index}`,
+      status: 'published',
+      published_at: `2026-08-${String(31 - (index % 28)).padStart(2, '0')}`,
+      category: 'smartphones',
+    }));
+    const { categoryPages, categoryRangeSpy, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: firstPage, error: null },
+      { data: [], error: null }
+    );
+    categoryPages.exact[1] = {
+      data: [
+        {
+          slug: 'oldest-fallback',
+          status: 'published',
+          published_at: '2025-01-01',
+          category: 'smartphones',
+        },
+      ],
+      error: null,
+    };
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      [],
+      ['smartphones']
+    );
+
+    expect(result).toContain('newest-fallback');
+    expect(result).toContain('oldest-fallback');
+    expect(categoryRangeSpy).toHaveBeenCalledWith(256, 511);
   });
 });
