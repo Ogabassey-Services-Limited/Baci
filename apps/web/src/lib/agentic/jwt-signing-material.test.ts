@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   getSupabaseAgenticJwtPrivateJwk: vi.fn(),
   getSupabaseAnonKey: vi.fn(() => 'anon-key'),
+  getSupabaseLegacyAnonJwt: vi.fn<() => string | undefined>(() => undefined),
   getSupabaseJwtSecret: vi.fn(() => 'legacy-test-secret'),
   loggerWarn: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock('@/env', () => ({
   getSupabaseAgenticJwtPrivateJwk: () =>
     mocks.getSupabaseAgenticJwtPrivateJwk(),
   getSupabaseAnonKey: () => mocks.getSupabaseAnonKey(),
+  getSupabaseLegacyAnonJwt: () => mocks.getSupabaseLegacyAnonJwt(),
   getSupabaseJwtSecret: () => mocks.getSupabaseJwtSecret(),
 }));
 
@@ -33,6 +35,7 @@ describe('agentic JWT signing material', () => {
     vi.stubEnv('NODE_ENV', 'test');
     mocks.getSupabaseAgenticJwtPrivateJwk.mockReturnValue(undefined);
     mocks.getSupabaseAnonKey.mockReturnValue('anon-key');
+    mocks.getSupabaseLegacyAnonJwt.mockReturnValue(undefined);
     mocks.getSupabaseJwtSecret.mockReturnValue('legacy-test-secret');
   });
 
@@ -132,6 +135,23 @@ describe('agentic JWT signing material', () => {
     vi.stubEnv('NODE_ENV', 'production');
     mocks.getSupabaseJwtSecret.mockReturnValue('actual-legacy-secret');
     mocks.getSupabaseAnonKey.mockReturnValue(
+      createHs256Jwt('actual-legacy-secret')
+    );
+    const { getAgenticJwtSigningMaterial } = await import(
+      '@/lib/agentic/jwt-signing-material'
+    );
+
+    expect(getAgenticJwtSigningMaterial()).toEqual({
+      secret: 'actual-legacy-secret',
+      type: 'legacy-secret',
+    });
+  });
+
+  it('verifies a legacy secret against a separate legacy anon JWT when the public key is opaque', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    mocks.getSupabaseJwtSecret.mockReturnValue('actual-legacy-secret');
+    mocks.getSupabaseAnonKey.mockReturnValue('sb_publishable_opaque-key');
+    mocks.getSupabaseLegacyAnonJwt.mockReturnValue(
       createHs256Jwt('actual-legacy-secret')
     );
     const { getAgenticJwtSigningMaterial } = await import(

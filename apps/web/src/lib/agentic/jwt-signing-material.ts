@@ -8,6 +8,7 @@ import {
   getSupabaseAgenticJwtPrivateJwk,
   getSupabaseAnonKey,
   getSupabaseJwtSecret,
+  getSupabaseLegacyAnonJwt,
 } from '@/env';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -132,9 +133,13 @@ function isProductionRuntime(): boolean {
  * it, otherwise the generated capability will be rejected as PGRST301.
  */
 function isLegacySupabaseJwtSecret(secret: string): boolean {
+  if (typeof secret !== 'string' || secret.length === 0) {
+    return false;
+  }
+
   let anonKey: string;
   try {
-    anonKey = getSupabaseAnonKey().trim();
+    anonKey = (getSupabaseLegacyAnonJwt() ?? getSupabaseAnonKey()).trim();
   } catch {
     return false;
   }
