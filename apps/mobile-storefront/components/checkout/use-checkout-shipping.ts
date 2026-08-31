@@ -94,7 +94,9 @@ export function useCheckoutShipping({
     (deliveryMethod !== 'door' && !hasResolvedDeliveryLocation) ||
     (deliveryMethod === 'airport' &&
       !isAirportDeliveryEligible(watchedState) &&
-      !shippingQuotes.some(isGiglGoFasterQuote)) ||
+      !isGiglGoFasterQuote(
+        findSelectedQuote(shippingQuotes, selectedQuoteId)
+      )) ||
     (deliveryMethod === 'pickup_station' && !canUsePickupStation)
   ) {
     setDeliveryMethod('door');
@@ -256,6 +258,7 @@ export function useCheckoutShipping({
     quoteSelection: { selectedQuoteId, shippingQuotes },
     shippingQuoteAbortRef,
     shippingStates,
+    shippingCities,
     stationPickupQuote,
     watchedAddress,
     watchedCity,

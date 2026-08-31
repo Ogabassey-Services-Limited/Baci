@@ -57,9 +57,7 @@ describe('PhoneInput', () => {
       '+2349169449282'
     );
 
-    expect(screen.getByLabelText('Phone number').props.value).toBe(
-      '9169449282'
-    );
+    expect(screen.getByDisplayValue('9169449282')).toBeTruthy();
   });
 
   it('normalizes a pasted Nigerian local number to the same national value', () => {
@@ -67,8 +65,17 @@ describe('PhoneInput', () => {
 
     fireEvent.changeText(screen.getByLabelText('Phone number'), '09169449282');
 
-    expect(screen.getByLabelText('Phone number').props.value).toBe(
-      '9169449282'
+    expect(screen.getByDisplayValue('9169449282')).toBeTruthy();
+  });
+
+  it('preserves all digits when a formatted Nigerian number is pasted', () => {
+    renderControlledPhoneInput();
+
+    fireEvent.changeText(
+      screen.getByLabelText('Phone number'),
+      '+234 916 944 9282'
     );
+
+    expect(screen.getByDisplayValue('9169449282')).toBeTruthy();
   });
 });

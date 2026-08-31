@@ -25,13 +25,13 @@ import type { MobileCheckoutIdempotencyState } from '@/lib/checkout-order-idempo
 import { useCartStore } from '@/stores/cart-store';
 import { CheckoutLocationPickerOverlays } from './CheckoutLocationPickerOverlays';
 import { checkoutScreenViewStyles as styles } from './CheckoutScreenView.styles';
-import { isCheckoutAddressContinueReady } from './checkout-continue-readiness';
 import { calculateCheckoutAssuranceFee } from './checkout-order-builders';
 import {
   CHECKOUT_MERCHANT_ID,
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
 import { type AppliedDiscount, DiscountCodeInput } from './DiscountCodeInput';
+import { isCheckoutAddressContinueReady } from './is-checkout-address-continue-ready';
 import { getMerchantPickupLocation } from './merchant-pickup-location';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
@@ -185,7 +185,6 @@ export function CheckoutScreenView() {
     setValue,
     step,
   });
-
   return (
     <AddressSuggestionsProvider>
       {/* Header registration keeps the screen from jumping on iOS. */}
@@ -194,7 +193,6 @@ export function CheckoutScreenView() {
           backgroundColor={colors.background}
           isDark={isDark}
         />
-
         <CheckoutHeader colors={colors} onBack={handleBack} />
 
         <AppKeyboardContainer
@@ -244,8 +242,10 @@ export function CheckoutScreenView() {
                       resolvedShippingQuoteContextKey ===
                         currentShippingQuoteContextKey &&
                       Boolean(selectedQuote),
+                    hasContactIdentity: addressState.hasContactIdentity,
                     isAddressComplete,
                     isLoadingQuotes,
+                    isPickupStation: deliveryMethod === 'pickup_station',
                     requiresShippingQuote,
                   })
             }

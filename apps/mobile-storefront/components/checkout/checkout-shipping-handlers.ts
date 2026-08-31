@@ -43,6 +43,7 @@ interface CreateCheckoutShippingHandlersParams {
   };
   shippingQuoteAbortRef: RefObject<AbortController | null>;
   shippingStates: string[];
+  shippingCities?: string[];
   watchedAddress: string;
   watchedCity: string;
   watchedState: string;
@@ -71,6 +72,7 @@ export function createCheckoutShippingHandlers({
   quoteSelection: { selectedQuoteId, shippingQuotes },
   shippingQuoteAbortRef,
   shippingStates,
+  shippingCities = [],
   watchedAddress,
   watchedCity,
   watchedState,
@@ -101,7 +103,10 @@ export function createCheckoutShippingHandlers({
       const isAmbiguousGoogleCity = Boolean(
         normalizedState &&
           selectedCity &&
-          normalizedState.toLowerCase() === selectedCity.toLowerCase()
+          normalizedState.toLowerCase() === selectedCity.toLowerCase() &&
+          !shippingCities.some(
+            (city) => city.toLowerCase() === selectedCity.toLowerCase()
+          )
       );
       const hasCompleteGoogleLocation = Boolean(
         hasGoogleCoordinates &&

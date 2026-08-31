@@ -174,7 +174,9 @@ export function PhoneInput({
           // Allow a complete Nigerian number to be pasted; handlePhoneChange
           // canonicalizes it back to the ten-digit national value.
           maxLength={
-            selectedCountry.code === 'NG' ? 16 : selectedCountry.maxLength || 15
+            selectedCountry.code === 'NG'
+              ? undefined
+              : selectedCountry.maxLength || 15
           }
           returnKeyType={returnKeyType}
           {...props}

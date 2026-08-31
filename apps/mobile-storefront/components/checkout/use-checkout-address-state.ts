@@ -32,6 +32,7 @@ export function useCheckoutAddressState({
   user,
 }: UseCheckoutAddressStateParams) {
   const hasTrackedStart = useRef(false);
+  const wasContactComplete = useRef(false);
   const [saveDetails, setSaveDetails] = useState(false);
   const [accountPassword, setAccountPassword] = useState('');
   const checkoutIdentity = deriveCheckoutIdentity({ customer, user });
@@ -115,12 +116,14 @@ export function useCheckoutAddressState({
   useEffect(() => {
     if (!isContactComplete) {
       savedAddresses.setIsContactCollapsed(false);
+      wasContactComplete.current = false;
       return;
     }
 
-    // Once contact details are valid, keep the completed section compact so
-    // the newly unlocked delivery form gets the user's attention.
-    savedAddresses.setIsContactCollapsed(true);
+    if (!wasContactComplete.current) {
+      savedAddresses.setIsContactCollapsed(true);
+    }
+    wasContactComplete.current = true;
   }, [isContactComplete, savedAddresses.setIsContactCollapsed]);
 
   useEffect(() => {

@@ -1,8 +1,6 @@
 import { expect, it } from '@jest/globals';
-import {
-  isCheckoutAddressComplete,
-  isCheckoutAddressContinueReady,
-} from './checkout-continue-readiness';
+import { isCheckoutAddressComplete } from './checkout-continue-readiness';
+import { isCheckoutAddressContinueReady } from './is-checkout-address-continue-ready';
 
 const completeAddress = {
   email: 'customer@example.com',
@@ -27,6 +25,7 @@ it('keeps the address action unavailable until every required field is valid', (
 it('enables Continue when a required road quote is selected and current', () => {
   expect(
     isCheckoutAddressContinueReady({
+      hasContactIdentity: true,
       hasFreshShippingQuote: true,
       isAddressComplete: true,
       isLoadingQuotes: false,
@@ -38,6 +37,7 @@ it('enables Continue when a required road quote is selected and current', () => 
 it('keeps Continue available for free merchant pickup while provider quotes load', () => {
   expect(
     isCheckoutAddressContinueReady({
+      hasContactIdentity: true,
       hasFreshShippingQuote: false,
       isAddressComplete: true,
       isLoadingQuotes: true,
@@ -48,6 +48,7 @@ it('keeps Continue available for free merchant pickup while provider quotes load
 
 it('keeps Continue disabled while a required quote is loading or missing', () => {
   const baseState = {
+    hasContactIdentity: true,
     hasFreshShippingQuote: false,
     isAddressComplete: true,
     requiresShippingQuote: true,
