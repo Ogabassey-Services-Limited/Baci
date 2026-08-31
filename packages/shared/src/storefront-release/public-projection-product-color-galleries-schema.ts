@@ -12,7 +12,7 @@ export const StorefrontPublicProductColorGalleriesSchema = z
   .superRefine((galleries, context) => {
     const colors = new Set<string>();
     for (const [index, gallery] of galleries.entries()) {
-      const normalized = gallery.color.toLocaleLowerCase();
+      const normalized = gallery.color.normalize('NFKC').toLowerCase();
       if (colors.has(normalized))
         context.addIssue({
           code: 'custom',

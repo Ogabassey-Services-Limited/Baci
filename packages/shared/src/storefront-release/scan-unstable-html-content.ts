@@ -1,22 +1,9 @@
+import { decodeHtmlEntities } from './decode-html-entities';
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
 const URL_ATTRIBUTE_NAMES = new Set(['href', 'src', 'srcset']);
 const INSPECTABLE_TAG_NAMES = new Set(['a', 'img', 'source']);
-
-function decodeHtmlAttributeEntities(value: string): string {
-  return value
-    .replace(/&#x([0-9a-f]+);?/giu, (_match, digits: string) => {
-      const codePoint = Number.parseInt(digits, 16);
-      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '\ufffd';
-    })
-    .replace(/&#([0-9]+);?/gu, (_match, digits: string) => {
-      const codePoint = Number.parseInt(digits, 10);
-      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '\ufffd';
-    })
-    .replace(/&quest;/giu, '?')
-    .replace(/&amp;/giu, '&');
-}
 
 function findTagEnd(content: string, start: number): number {
   let quote: '"' | "'" | null = null;
@@ -100,7 +87,7 @@ function inspectTag(content: string, start: number, end: number): boolean {
       while (cursor < end && !/\s/u.test(content[cursor] ?? '')) cursor += 1;
       continue;
     }
-    attributes.set(name, decodeHtmlAttributeEntities(parsed.value));
+    attributes.set(name, decodeHtmlEntities(parsed.value));
     cursor = parsed.next;
   }
   const mediaValues = ['src', 'srcset']

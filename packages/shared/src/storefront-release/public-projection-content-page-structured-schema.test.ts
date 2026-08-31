@@ -18,10 +18,36 @@ describe('StorefrontPublicContentPageStructuredSchema', () => {
     expect(StorefrontPublicContentPageStructuredSchema.parse(faq)).toEqual(faq);
   });
 
+  it('preserves template and trust fields used by released About pages', () => {
+    const about = {
+      founded_year: 2018,
+      headline: 'Tech for everyone',
+      image_url: `/release-assets/${'a'.repeat(64)}.png`,
+      kind: 'about',
+      social_proof: {
+        customers_served: 15_000,
+        products_sold: 40_000,
+        rating: 4.8,
+        review_count: 320,
+        years_in_business: 7,
+      },
+    } as const;
+
+    expect(StorefrontPublicContentPageStructuredSchema.parse(about)).toEqual(
+      about
+    );
+  });
+
   it('rejects signed media URLs and unbounded FAQ answers', () => {
     expect(
       StorefrontPublicContentPageStructuredSchema.safeParse({
         galleryUrls: ['https://cdn.example/image.png?token=secret'],
+        kind: 'about',
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicContentPageStructuredSchema.safeParse({
+        image_url: 'https://cdn.example/image.png?token=secret',
         kind: 'about',
       }).success
     ).toBe(false);

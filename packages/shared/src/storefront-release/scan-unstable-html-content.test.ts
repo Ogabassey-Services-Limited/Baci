@@ -34,4 +34,10 @@ describe('hasUnstableHtmlContent', () => {
       )
     ).toBe(true);
   });
+
+  it('decodes named structural entities before validating hrefs', () => {
+    expect(
+      hasUnstableHtmlContent('<a href="/foo&sol;..&sol;admin">Admin</a>')
+    ).toBe(true);
+  });
 });

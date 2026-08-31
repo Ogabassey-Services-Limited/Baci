@@ -1,6 +1,7 @@
 import type { RefinementCtx } from 'zod';
 
 interface SeoEntry {
+  indexable: boolean;
   path: string;
 }
 
@@ -31,6 +32,9 @@ interface SeoPayload {
   blogPosts?: readonly SeoBlogPost[];
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
+  policies?: {
+    warrantyPolicy?: { summary: string };
+  };
   products: readonly SeoProduct[];
   seoEntries?: readonly SeoEntry[];
 }
@@ -51,7 +55,6 @@ const STATIC_SEO_PATHS = new Set([
   '/terms',
   '/terms-and-conditions',
   '/terms-of-service',
-  '/warranty',
   '/blog',
 ]);
 
@@ -77,6 +80,8 @@ export function validatePublicProjectionSeoEntries(
   context: RefinementCtx
 ) {
   const knownPaths = new Set(STATIC_SEO_PATHS);
+  if (payload.policies?.warrantyPolicy?.summary.trim())
+    knownPaths.add('/warranty');
   for (const page of payload.contentPages ?? [])
     knownPaths.add(`/${page.slug}`);
   for (const category of payload.categories ?? [])
@@ -122,6 +127,16 @@ export function validatePublicProjectionSeoEntries(
     const authorSlug = toRouteSlug(post.authorName);
     if (authorSlug) knownPaths.add(`/blog/author/${authorSlug}`);
   }
-  for (const [index, entry] of (payload.seoEntries ?? []).entries())
-    if (!knownPaths.has(entry.path)) addIssue(context, index);
+  for (const [index, entry] of (payload.seoEntries ?? []).entries()) {
+    if (!knownPaths.has(entry.path)) {
+      addIssue(context, index);
+      continue;
+    }
+    if (entry.path === '/cart' && entry.indexable)
+      context.addIssue({
+        code: 'custom',
+        message: 'Private cart routes must not be indexable',
+        path: ['seoEntries', index, 'indexable'],
+      });
+  }
 }

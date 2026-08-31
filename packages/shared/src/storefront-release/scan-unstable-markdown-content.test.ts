@@ -10,6 +10,14 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('scans escaped brackets in reference definitions', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '![foo\\]bar]\n\n[foo\\]bar]: https://cdn.example.test/a.png'
+      )
+    ).toBe(true);
+  });
+
   it('ignores links inside inline code and fenced code blocks', () => {
     expect(
       hasUnstableMarkdownContent(
@@ -44,5 +52,19 @@ describe('hasUnstableMarkdownContent', () => {
         ].join('\n')
       )
     ).toBe(false);
+  });
+
+  it('does not mask live links nested in list continuations', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '- item\n\n    ![x](https://cdn.example.test/a.png)'
+      )
+    ).toBe(true);
+  });
+
+  it('decodes structural named entities before validating destinations', () => {
+    expect(hasUnstableMarkdownContent('[admin](/foo&sol;..&sol;admin)')).toBe(
+      true
+    );
   });
 });

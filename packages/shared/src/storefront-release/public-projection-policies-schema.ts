@@ -56,6 +56,13 @@ const ShippingPolicySchema = z
         path: ['transitDaysMin'],
       });
   });
+const WarrantyPolicySchema = z.strictObject({
+  summary: PolicyBodySchema.refine(
+    (summary) => summary.trim().length > 0,
+    'Warranty policy summary must not be empty'
+  ),
+  localRoute: z.literal('/warranty'),
+});
 
 /** Optional public merchant policy bodies embedded in a storefront release. */
 export const StorefrontPublicPoliciesSchema = z.strictObject({
@@ -65,4 +72,5 @@ export const StorefrontPublicPoliciesSchema = z.strictObject({
   shipping: PolicyBodySchema.optional(),
   returnPolicy: ReturnPolicySchema.optional(),
   shippingPolicy: ShippingPolicySchema.optional(),
+  warrantyPolicy: WarrantyPolicySchema.optional(),
 });

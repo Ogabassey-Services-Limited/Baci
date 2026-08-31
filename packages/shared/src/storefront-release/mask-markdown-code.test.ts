@@ -32,4 +32,12 @@ describe('maskMarkdownCode', () => {
       'after',
     ]);
   });
+
+  it('keeps four-space list continuations as live Markdown', () => {
+    const markdown = '- item\n\n    ![x](https://cdn.example.test/a.png)';
+
+    expect(maskMarkdownCode(markdown)).toContain(
+      '![x](https://cdn.example.test/a.png)'
+    );
+  });
 });

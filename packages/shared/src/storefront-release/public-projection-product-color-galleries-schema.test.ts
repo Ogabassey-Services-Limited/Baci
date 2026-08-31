@@ -28,4 +28,19 @@ describe('StorefrontPublicProductColorGalleriesSchema', () => {
       ]).success
     ).toBe(false);
   });
+
+  it('uses locale-independent color identity normalization', () => {
+    expect(
+      StorefrontPublicProductColorGalleriesSchema.safeParse([
+        {
+          color: 'I',
+          mediaIds: ['123e4567-e89b-42d3-a456-426614174090'],
+        },
+        {
+          color: 'i',
+          mediaIds: ['123e4567-e89b-42d3-a456-426614174091'],
+        },
+      ]).success
+    ).toBe(false);
+  });
 });

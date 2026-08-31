@@ -1,20 +1,7 @@
+import { decodeHtmlEntities } from './decode-html-entities';
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { maskMarkdownCode } from './mask-markdown-code';
-
-function decodeHtmlAttributeEntities(value: string): string {
-  return value
-    .replace(/&#x([0-9a-f]+);?/giu, (_match, digits: string) => {
-      const codePoint = Number.parseInt(digits, 16);
-      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '\ufffd';
-    })
-    .replace(/&#([0-9]+);?/gu, (_match, digits: string) => {
-      const codePoint = Number.parseInt(digits, 10);
-      return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : '\ufffd';
-    })
-    .replace(/&quest;/giu, '?')
-    .replace(/&amp;/giu, '&');
-}
 
 function findBracketClose(content: string, start: number): number {
   let depth = 0;
@@ -31,6 +18,47 @@ function findBracketClose(content: string, start: number): number {
     }
   }
   return -1;
+}
+
+interface MarkdownReferenceDefinition {
+  destination: string;
+  label: string;
+}
+
+function scanMarkdownReferenceDefinitions(
+  content: string
+): MarkdownReferenceDefinition[] {
+  const definitions: MarkdownReferenceDefinition[] = [];
+  const definitionStartPattern = /^\s{0,3}\[/gmu;
+  for (const match of content.matchAll(definitionStartPattern)) {
+    const openingBracket = (match.index ?? 0) + match[0].length - 1;
+    const lineEnd = content.indexOf('\n', openingBracket + 1);
+    const boundary = lineEnd === -1 ? content.length : lineEnd;
+    const closingBracket = findBracketClose(content, openingBracket + 1);
+    if (closingBracket === -1 || closingBracket >= boundary) continue;
+    if (content[closingBracket + 1] !== ':') continue;
+    let cursor = closingBracket + 2;
+    while (cursor < boundary && /[ \t]/u.test(content[cursor] ?? ''))
+      cursor += 1;
+    if (cursor >= boundary) continue;
+    let destination = '';
+    if (content[cursor] === '<') {
+      const angleEnd = findAngleClose(content, cursor + 1);
+      if (angleEnd === -1 || angleEnd >= boundary) continue;
+      destination = content.slice(cursor + 1, angleEnd);
+    } else {
+      const destinationStart = cursor;
+      while (cursor < boundary && !/[ \t]/u.test(content[cursor] ?? ''))
+        cursor += 1;
+      destination = content.slice(destinationStart, cursor);
+    }
+    if (destination)
+      definitions.push({
+        destination,
+        label: content.slice(openingBracket + 1, closingBracket),
+      });
+  }
+  return definitions;
 }
 
 function findAngleClose(content: string, start: number): number {
@@ -130,28 +158,26 @@ export function hasUnstableMarkdownContent(content: string): boolean {
   const scannedContent = maskMarkdownCode(content);
   const autolinkPattern = /<((?:https?:\/\/|mailto:)[^<>\r\n]+)>/giu;
   for (const match of scannedContent.matchAll(autolinkPattern)) {
-    const destination = decodeHtmlAttributeEntities(match[1] ?? '');
+    const destination = decodeHtmlEntities(match[1] ?? '');
     if (!destination || !isSafePublicReleaseUrl(destination)) return true;
   }
   const bareAutolinkPattern =
     /(?<![<\w])((?:https?:\/\/|mailto:|www\.)[^\s<>"']+)/giu;
   for (const match of scannedContent.matchAll(bareAutolinkPattern)) {
-    const destination = decodeHtmlAttributeEntities(match[1] ?? '');
+    const destination = decodeHtmlEntities(match[1] ?? '');
     if (!destination || !isSafePublicReleaseUrl(destination)) return true;
   }
   const markdown = scanMarkdownLinkSyntax(scannedContent);
   for (const inline of markdown.destinations) {
-    const destination = decodeHtmlAttributeEntities(inline.destination);
+    const destination = decodeHtmlEntities(inline.destination);
     const safe = inline.image
       ? isStablePublicMediaUrl(destination)
       : isSafePublicReleaseUrl(destination);
     if (!destination || !safe) return true;
   }
-  const referenceDestinationPattern =
-    /^\s{0,3}\[([^\]\r\n]+)\]:\s*(?:<([^>\r\n]+)>|([^\s]+))/gmu;
-  for (const match of scannedContent.matchAll(referenceDestinationPattern)) {
-    const label = normalizeMarkdownReferenceLabel(match[1] ?? '');
-    const destination = decodeHtmlAttributeEntities(match[2] ?? match[3] ?? '');
+  for (const definition of scanMarkdownReferenceDefinitions(scannedContent)) {
+    const label = normalizeMarkdownReferenceLabel(definition.label);
+    const destination = decodeHtmlEntities(definition.destination);
     const safe = markdown.imageReferenceLabels.has(label)
       ? isStablePublicMediaUrl(destination)
       : isSafePublicReleaseUrl(destination);

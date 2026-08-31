@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { compareCodePointStrings } from './compare-code-point-strings';
 
 const ProductSpecificationItemSchema = z.strictObject({
   label: z.string().trim().min(1).max(160),
@@ -41,7 +42,9 @@ const ProductKeySpecsSchema = z
   })
   .transform((specs) =>
     Object.fromEntries(
-      Object.entries(specs).sort(([left], [right]) => left.localeCompare(right))
+      Object.entries(specs).sort(([left], [right]) =>
+        compareCodePointStrings(left, right)
+      )
     )
   );
 

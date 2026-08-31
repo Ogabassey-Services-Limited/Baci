@@ -7,10 +7,13 @@ function blankRange(chars: string[], start: number, end: number): void {
 export function maskMarkdownCode(content: string): string {
   const chars = content.split('');
   const length = content.length;
+  let activeListIndent: number | null = null;
   let index = 0;
   while (index < length) {
     const lineStart = index === 0 || content[index - 1] === '\n';
     if (lineStart) {
+      let lineEnd = content.indexOf('\n', index);
+      if (lineEnd === -1) lineEnd = length;
       let cursor = index;
       let spaces = 0;
       while (content[cursor] === '\t') {
@@ -21,15 +24,27 @@ export function maskMarkdownCode(content: string): string {
         cursor += 1;
         spaces += 1;
       }
-      if (spaces >= 4) {
-        let lineEnd = content.indexOf('\n', index);
-        if (lineEnd === -1) lineEnd = length;
+      const lineText = content.slice(cursor, lineEnd);
+      const isBlankLine = lineText.trim().length === 0;
+      const isListMarker = /^(?:[-+*]|\d+[.)])(?:\s|$)/u.test(lineText);
+      if (isListMarker && spaces < 4) activeListIndent = spaces;
+      else if (
+        !isBlankLine &&
+        (activeListIndent === null || spaces <= activeListIndent)
+      )
+        activeListIndent = null;
+      const isListContinuation =
+        activeListIndent !== null && spaces > activeListIndent;
+      if (spaces >= 4 && !isListContinuation) {
         blankRange(chars, index, lineEnd);
         index = lineEnd;
         continue;
       }
       const fenceCharacter = content[cursor];
-      if ((fenceCharacter === '`' || fenceCharacter === '~') && spaces <= 3) {
+      if (
+        (fenceCharacter === '`' || fenceCharacter === '~') &&
+        (spaces <= 3 || isListContinuation)
+      ) {
         let runLength = 0;
         while (content[cursor + runLength] === fenceCharacter) runLength += 1;
         if (runLength >= 3) {
@@ -60,7 +75,7 @@ export function maskMarkdownCode(content: string): string {
               }
             }
             if (
-              candidateSpaces <= 3 &&
+              candidateSpaces <= (isListContinuation ? spaces : 3) &&
               candidateRun >= runLength &&
               restIsWhitespace
             ) {

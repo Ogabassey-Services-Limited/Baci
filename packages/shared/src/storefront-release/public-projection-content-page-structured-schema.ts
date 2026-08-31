@@ -27,9 +27,22 @@ const PersonSchema = z.strictObject({
   bio: richText(10_000).optional(),
   imageUrl: PublicMediaUrlSchema.optional(),
 });
+const SocialProofSchema = z.strictObject({
+  customers_served: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(1_000_000_000)
+    .optional(),
+  years_in_business: z.number().int().nonnegative().max(1_000).optional(),
+  products_sold: z.number().int().nonnegative().max(1_000_000_000).optional(),
+  rating: z.number().min(0).max(5).optional(),
+  review_count: z.number().int().nonnegative().max(1_000_000_000).optional(),
+});
 
 const AboutContentSchema = z.strictObject({
   kind: z.literal('about'),
+  headline: z.string().trim().min(1).max(240).optional(),
   story: richText(30_000).optional(),
   mission: richText(10_000).optional(),
   vision: richText(10_000).optional(),
@@ -58,6 +71,9 @@ const AboutContentSchema = z.strictObject({
     .optional(),
   galleryUrls: z.array(PublicMediaUrlSchema).max(64).optional(),
   videoUrl: PublicUrlSchema.optional(),
+  image_url: PublicMediaUrlSchema.nullable().optional(),
+  founded_year: z.number().int().min(1_000).max(9_999).nullable().optional(),
+  social_proof: SocialProofSchema.nullable().optional(),
 });
 
 const FaqContentSchema = z.strictObject({

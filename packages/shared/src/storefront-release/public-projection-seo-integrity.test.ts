@@ -56,4 +56,41 @@ describe('public projection SEO integrity', () => {
       }).success
     ).toBe(false);
   });
+
+  it('does not admit warranty SEO without a publishable warranty policy', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: true, path: '/warranty', title: 'Warranty' }],
+      }).success
+    ).toBe(false);
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        policies: {
+          warrantyPolicy: {
+            localRoute: '/warranty',
+            summary: 'Manufacturer warranty applies.',
+          },
+        },
+        seoEntries: [{ indexable: true, path: '/warranty', title: 'Warranty' }],
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects indexable cart SEO entries', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: true, path: '/cart', title: 'Cart' }],
+      }).success
+    ).toBe(false);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: false, path: '/cart', title: 'Cart' }],
+      }).success
+    ).toBe(true);
+  });
 });
