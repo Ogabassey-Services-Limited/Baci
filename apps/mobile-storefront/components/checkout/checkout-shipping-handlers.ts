@@ -44,7 +44,6 @@ interface CreateCheckoutShippingHandlersParams {
   shippingQuoteAbortRef: RefObject<AbortController | null>;
   shippingStates: string[];
   shippingCities?: string[];
-  shippingCitiesState?: string;
   watchedAddress: string;
   watchedCity: string;
   watchedState: string;
@@ -74,7 +73,6 @@ export function createCheckoutShippingHandlers({
   shippingQuoteAbortRef,
   shippingStates,
   shippingCities = [],
-  shippingCitiesState = '',
   watchedAddress,
   watchedCity,
   watchedState,
@@ -106,7 +104,6 @@ export function createCheckoutShippingHandlers({
         normalizedState &&
           selectedCity &&
           normalizedState.toLowerCase() === selectedCity.toLowerCase() &&
-          shippingCitiesState.toLowerCase() === normalizedState.toLowerCase() &&
           shippingCities.length > 0 &&
           !shippingCities.some(
             (city) => city.toLowerCase() === selectedCity.toLowerCase()
