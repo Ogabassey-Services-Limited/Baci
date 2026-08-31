@@ -14,7 +14,7 @@ describe('hasUnstableHtmlContent', () => {
     const media = `/release-assets/${'a'.repeat(64)}.png`;
     expect(
       hasUnstableHtmlContent(
-        `<p><a href="https://example.test/about">About</a></p><img src="${media}">`
+        `<p><a href="https://example.com/about">About</a></p><img src="${media}">`
       )
     ).toBe(false);
   });

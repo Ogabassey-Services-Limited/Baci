@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
+import { STOREFRONT_RELEASE_RESERVED_BLOG_SLUGS } from './reserved-blog-slugs';
 
 const SlugSchema = z
   .string()
   .min(1)
   .max(160)
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-  .refine((slug) => slug !== 'author' && slug !== 'category', {
+  .refine((slug) => !STOREFRONT_RELEASE_RESERVED_BLOG_SLUGS.has(slug), {
     message: 'Blog slug is reserved by a static blog route',
   });
 const OptionalMediaUrlSchema = z

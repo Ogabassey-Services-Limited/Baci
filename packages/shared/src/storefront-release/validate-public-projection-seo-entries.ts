@@ -75,6 +75,8 @@ const STATIC_SEO_PATHS = new Set([
   '/pages/rewards',
   '/blog',
 ]);
+const COMPARE_HUB_CATEGORY_SCAN_LIMIT = 80;
+const COMPARE_HUB_PRODUCTS_PER_CATEGORY_LIMIT = 80;
 
 function hasEnabledFeature(
   featureFlags: SeoPayload['featureFlags'],
@@ -113,13 +115,15 @@ function hasEligibleCompareHub(
   categories: readonly SeoCategory[],
   products: readonly SeoProduct[]
 ) {
-  for (const category of categories) {
-    const categoryProducts = products.filter((product) =>
-      [
-        ...(product.categoryIds ?? []),
-        ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-      ].includes(category.id)
-    );
+  for (const category of categories.slice(0, COMPARE_HUB_CATEGORY_SCAN_LIMIT)) {
+    const categoryProducts = products
+      .filter((product) =>
+        [
+          ...(product.categoryIds ?? []),
+          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+        ].includes(category.id)
+      )
+      .slice(0, COMPARE_HUB_PRODUCTS_PER_CATEGORY_LIMIT);
     for (let leftIndex = 0; leftIndex < categoryProducts.length; leftIndex += 1)
       for (
         let rightIndex = leftIndex + 1;

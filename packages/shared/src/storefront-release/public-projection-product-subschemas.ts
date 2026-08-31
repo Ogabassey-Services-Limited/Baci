@@ -1,15 +1,21 @@
 import { z } from 'zod';
 import { normalizeProductSelectionParamKey } from '../lib/normalize-product-selection-param-key';
-import type { CanonicalProductCondition } from '../lib/product-condition';
 import { normalizeCanonicalProductCondition } from '../lib/product-condition';
 import { compareCodePointStrings } from './compare-code-point-strings';
 
 const ProductConditionSchema = z
   .enum(['new', 'used', 'open_box', 'refurbished'])
-  .transform(
-    (condition) =>
-      normalizeCanonicalProductCondition(condition) as CanonicalProductCondition
-  );
+  .transform((condition, context) => {
+    const normalized = normalizeCanonicalProductCondition(condition);
+    if (!normalized) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Product condition must use a canonical value',
+      });
+      return z.NEVER;
+    }
+    return normalized;
+  });
 
 const AvailableConditionsSchema = z
   .array(ProductConditionSchema)

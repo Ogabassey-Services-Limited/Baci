@@ -46,6 +46,49 @@ function readMarkdownBlockPrefix(line: string): { cursor: number } {
   return { cursor };
 }
 
+function readReferenceContinuationStart(line: string): number | null {
+  let cursor = 0;
+  let leadingSpaces = 0;
+  while (
+    cursor < line.length &&
+    leadingSpaces < 3 &&
+    /[ \t]/u.test(line[cursor] ?? '')
+  ) {
+    cursor += 1;
+    leadingSpaces += 1;
+  }
+
+  let hasBlockquote = false;
+  while (line[cursor] === '>') {
+    hasBlockquote = true;
+    cursor += 1;
+    if (line[cursor] === ' ') cursor += 1;
+    const optionalNestedPrefixStart = cursor;
+    let nestedPrefixSpaces = 0;
+    while (
+      cursor < line.length &&
+      nestedPrefixSpaces < 3 &&
+      /[ \t]/u.test(line[cursor] ?? '')
+    ) {
+      cursor += 1;
+      nestedPrefixSpaces += 1;
+    }
+    if (line[cursor] !== '>') {
+      cursor = optionalNestedPrefixStart;
+      break;
+    }
+  }
+
+  const indentationStart = cursor;
+  while (cursor < line.length && /[ \t]/u.test(line[cursor] ?? '')) cursor += 1;
+  const indentation = cursor - indentationStart;
+  return indentation >= 1 &&
+    indentation <= 4 &&
+    (hasBlockquote || leadingSpaces >= 3)
+    ? cursor
+    : null;
+}
+
 function isMarkdownBlockBoundary(line: string): boolean {
   const { cursor } = readMarkdownBlockPrefix(line);
   const content = line.slice(cursor);
@@ -159,10 +202,12 @@ export function scanMarkdownReferenceDefinitions(
         continuationStart,
         continuationBoundary
       );
-      if (/^[ \t]{1,3}\S/u.test(continuation))
+      const continuationContentStart =
+        readReferenceContinuationStart(continuation);
+      if (continuationContentStart !== null)
         destination = parseReferenceDestination(
           content,
-          continuationStart + (continuation.match(/^[ \t]*/u)?.[0].length ?? 0),
+          continuationStart + continuationContentStart,
           continuationBoundary
         );
     }

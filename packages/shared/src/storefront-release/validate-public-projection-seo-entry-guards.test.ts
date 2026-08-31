@@ -97,4 +97,24 @@ describe('validatePublicProjectionSeoEntryGuards', () => {
       })
     ).toEqual([]);
   });
+
+  it('rejects category aliases when the product canonical path is categoryless', () => {
+    expect(
+      issueMessages({
+        categoriesBySlug: new Map([
+          ['smartphones', { id: 'category-smartphones' }],
+        ]),
+        categoryHasProducts: new Map(),
+        entry: { indexable: true, path: '/smartphones/phone' },
+        index: 0,
+        products: [
+          {
+            canonicalPath: '/products/phone',
+            primaryCategoryId: 'category-smartphones',
+            slug: 'phone',
+          },
+        ],
+      })
+    ).toContain('Noncanonical product category aliases must not be indexable');
+  });
 });

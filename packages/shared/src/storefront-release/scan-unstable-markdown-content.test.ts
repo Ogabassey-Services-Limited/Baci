@@ -60,7 +60,7 @@ describe('hasUnstableMarkdownContent', () => {
 
   it('treats an escaped image marker as an ordinary safe link', () => {
     expect(
-      hasUnstableMarkdownContent('\\![x](https://example.test/a.png)')
+      hasUnstableMarkdownContent('\\![x](https://example.com/a.png)')
     ).toBe(false);
   });
 
@@ -95,7 +95,7 @@ describe('hasUnstableMarkdownContent', () => {
   it('does not treat a reference definition inside the preceding paragraph as an image', () => {
     expect(
       hasUnstableMarkdownContent(
-        '![diagram][ref]\n[ref]: https://cdn.example.test/a.png'
+        '![diagram][ref]\n[ref]: https://cdn.example.com/a.png'
       )
     ).toBe(false);
   });

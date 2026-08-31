@@ -104,15 +104,23 @@ function isPrivateHostname(hostname: string): boolean {
     .toLowerCase()
     .replace(/^\[|\]$/g, '')
     .replace(/\.+$/u, '');
+  const reservedSpecialUseSuffixes = [
+    '.alt',
+    '.example',
+    '.invalid',
+    '.internal',
+    '.lan',
+    '.local',
+    '.localhost',
+    '.onion',
+    '.test',
+  ];
   return (
     (!normalized.includes('.') && !normalized.includes(':')) ||
-    normalized === 'localhost' ||
-    normalized.endsWith('.localhost') ||
-    normalized.endsWith('.local') ||
-    normalized.endsWith('.internal') ||
-    normalized.endsWith('.lan') ||
     normalized === 'home.arpa' ||
     normalized.endsWith('.home.arpa') ||
+    normalized === 'localhost' ||
+    reservedSpecialUseSuffixes.some((suffix) => normalized.endsWith(suffix)) ||
     isNonPublicIpv6(normalized) ||
     isNonPublicIpv4(normalized)
   );

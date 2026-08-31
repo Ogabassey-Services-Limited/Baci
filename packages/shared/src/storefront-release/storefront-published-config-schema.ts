@@ -28,6 +28,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function hasCircularStructure(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const active = new WeakSet<object>();
+  const visited = new WeakSet<object>();
+  const pending: Array<{ value: object; exiting: boolean }> = [
+    { exiting: false, value },
+  ];
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    if (current.exiting) {
+      active.delete(current.value);
+      continue;
+    }
+    if (active.has(current.value)) return true;
+    if (visited.has(current.value)) continue;
+    visited.add(current.value);
+    active.add(current.value);
+    pending.push({ exiting: true, value: current.value });
+    const entries = Array.isArray(current.value)
+      ? current.value
+      : Object.values(current.value);
+    for (const entry of entries)
+      if (typeof entry === 'object' && entry !== null)
+        pending.push({ exiting: false, value: entry });
+  }
+  return false;
+}
+
 function hasPublishedRoot(value: unknown): boolean {
   if (!isRecord(value) || !isRecord(value.props)) return false;
   const title = value.props.title;
@@ -57,13 +86,15 @@ function containsRefusedComponent(value: unknown): boolean {
 
 function hasUnstableMediaProperty(value: unknown): boolean {
   const pending = [value];
+  const visited = new WeakSet<object>();
   while (pending.length > 0) {
     const current = pending.pop();
     if (Array.isArray(current)) {
       for (const entry of current) pending.push(entry);
       continue;
     }
-    if (!isRecord(current)) continue;
+    if (!isRecord(current) || visited.has(current)) continue;
+    visited.add(current);
     for (const [key, entry] of Object.entries(current)) {
       if (
         MEDIA_PROPERTY_NAMES.has(key) &&
@@ -79,6 +110,7 @@ function hasUnstableMediaProperty(value: unknown): boolean {
 
 function hasUnstableNavigationProperty(value: unknown): boolean {
   const pending: Array<{ parentKey?: string; value: unknown }> = [{ value }];
+  const visited = new WeakSet<object>();
   while (pending.length > 0) {
     const current = pending.pop();
     if (!current) continue;
@@ -87,7 +119,8 @@ function hasUnstableNavigationProperty(value: unknown): boolean {
         pending.push({ parentKey: current.parentKey, value: entry });
       continue;
     }
-    if (!isRecord(current.value)) continue;
+    if (!isRecord(current.value) || visited.has(current.value)) continue;
+    visited.add(current.value);
     for (const [key, entry] of Object.entries(current.value)) {
       if (
         typeof entry === 'string' &&
@@ -104,13 +137,15 @@ function hasUnstableNavigationProperty(value: unknown): boolean {
 
 function hasOversizedCarousel(value: unknown): boolean {
   const pending = [value];
+  const visited = new WeakSet<object>();
   while (pending.length > 0) {
     const current = pending.pop();
     if (Array.isArray(current)) {
       for (const entry of current) pending.push(entry);
       continue;
     }
-    if (!isRecord(current)) continue;
+    if (!isRecord(current) || visited.has(current)) continue;
+    visited.add(current);
     if (
       current.type === 'HeroCarousel' &&
       isRecord(current.props) &&
@@ -127,6 +162,13 @@ function hasOversizedCarousel(value: unknown): boolean {
 export const StorefrontPublishedConfigSchema = z
   .unknown()
   .superRefine((value, context) => {
+    if (hasCircularStructure(value)) {
+      context.addIssue({
+        code: 'custom',
+        message: 'Published Puck configuration must not contain cycles',
+      });
+      return;
+    }
     if (!builderPreviewCandidateConfigSchema.safeParse(value).success)
       context.addIssue({
         code: 'custom',

@@ -84,16 +84,17 @@ export function validatePublicProjectionSeoEntryGuards({
     const categoryPdpProduct = products.find(
       (product) => product.slug === categoryPdpMatch[2]
     );
-    if (
-      categoryPdpCategory &&
-      categoryPdpProduct &&
-      ((categoryPdpProduct.canonicalPath &&
-        !categoryPdpProduct.canonicalPath.startsWith('/products/') &&
-        categoryPdpProduct.canonicalPath !== entry.path) ||
+    const canonicalCategoryPath =
+      categoryPdpProduct?.canonicalPath &&
+      !categoryPdpProduct.canonicalPath.startsWith('/products/')
+        ? categoryPdpProduct.canonicalPath
+        : null;
+    const isCanonicalCategoryPath =
+      categoryPdpProduct !== undefined &&
+      (canonicalCategoryPath === entry.path ||
         (!categoryPdpProduct.canonicalPath &&
-          categoryPdpProduct.primaryCategoryId &&
-          categoryPdpProduct.primaryCategoryId !== categoryPdpCategory.id))
-    )
+          categoryPdpProduct.primaryCategoryId === categoryPdpCategory?.id));
+    if (categoryPdpCategory && categoryPdpProduct && !isCanonicalCategoryPath)
       addIssue(
         context,
         index,

@@ -9,4 +9,15 @@ describe('scanMarkdownReferenceDefinitions', () => {
       )
     ).toEqual([{ destination: 'https://cdn.example/hero.png', label: 'hero' }]);
   });
+
+  it('accepts blockquote and four-space continuation lines', () => {
+    expect(
+      scanMarkdownReferenceDefinitions(
+        '> [quoted]:\n>   https://cdn.example/quoted.png\n\n[r]:\n    https://cdn.example/indented.png'
+      )
+    ).toEqual([
+      { destination: 'https://cdn.example/quoted.png', label: 'quoted' },
+      { destination: 'https://cdn.example/indented.png', label: 'r' },
+    ]);
+  });
 });

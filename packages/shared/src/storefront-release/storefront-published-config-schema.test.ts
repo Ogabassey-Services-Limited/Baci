@@ -126,12 +126,8 @@ describe('StorefrontPublishedConfigSchema', () => {
       root: { props: { title: 'Home' } },
     };
 
-    expect(() =>
-      StorefrontPublishedConfigSchema.safeParse(config)
-    ).not.toThrow();
-    expect(StorefrontPublishedConfigSchema.safeParse(config).success).toBe(
-      false
-    );
+    const result = StorefrontPublishedConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
   });
 
   it('returns a validation failure for many zone collections without throwing', () => {
@@ -144,12 +140,8 @@ describe('StorefrontPublishedConfigSchema', () => {
       zones,
     };
 
-    expect(() =>
-      StorefrontPublishedConfigSchema.safeParse(config)
-    ).not.toThrow();
-    expect(StorefrontPublishedConfigSchema.safeParse(config).success).toBe(
-      false
-    );
+    const result = StorefrontPublishedConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
   });
 
   it('rejects mismatched duplicate root titles', () => {
@@ -174,5 +166,16 @@ describe('StorefrontPublishedConfigSchema', () => {
         },
       }).success
     ).toBe(false);
+  });
+
+  it('rejects cyclic configurations without overflowing the call stack', () => {
+    const config: Record<string, unknown> = {
+      content: [],
+      root: { props: { title: 'Home' } },
+    };
+    config.loop = config;
+
+    const result = StorefrontPublishedConfigSchema.safeParse(config);
+    expect(result.success).toBe(false);
   });
 });
