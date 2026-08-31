@@ -11,4 +11,14 @@ describe('maskMarkdownCode', () => {
     expect(masked).toMatch(/\n\s+\n\s+\n\s+\n/);
     expect(masked.endsWith('after')).toBe(true);
   });
+
+  it('masks every line in an unclosed fenced block', () => {
+    const masked = maskMarkdownCode(
+      ['```text', 'first line', 'second line', 'third line'].join('\n')
+    );
+
+    expect(masked).toBe(
+      ['       ', '          ', '           ', '          '].join('\n')
+    );
+  });
 });

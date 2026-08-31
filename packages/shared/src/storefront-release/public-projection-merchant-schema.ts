@@ -42,6 +42,10 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
       'Expected a canonical lowercase hostname'
     )
     .refine(
+      (hostname) => !hostname.endsWith('.'),
+      'Expected a hostname without a trailing dot'
+    )
+    .refine(
       (hostname) => isSafePublicReleaseUrl(`https://${hostname}`),
       'Expected a public publication hostname'
     ),

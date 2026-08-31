@@ -16,7 +16,10 @@ describe('StorefrontPublicProductSchema fidelity', () => {
   it('preserves bounded simple identifiers and structured specifications', () => {
     const value = {
       ...product,
+      canonicalPath: '/phones/phone',
+      gtin: '1234567890123',
       mpn: 'MPN-001',
+      primaryCategoryId: '123e4567-e89b-42d3-a456-426614174099',
       productKeySpecs: {
         chipset: 'Snapdragon 8',
         has_5g: true,

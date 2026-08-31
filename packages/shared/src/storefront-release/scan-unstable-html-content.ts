@@ -1,6 +1,9 @@
 import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 
+const URL_ATTRIBUTE_NAMES = new Set(['href', 'src', 'srcset']);
+const INSPECTABLE_TAG_NAMES = new Set(['a', 'img', 'source']);
+
 function decodeHtmlAttributeEntities(value: string): string {
   return value
     .replace(/&#x([0-9a-f]+);?/giu, (_match, digits: string) => {
@@ -57,7 +60,10 @@ function splitSrcset(value: string): string[] {
     .map((candidate) => candidate.trim().split(/\s+/u)[0] ?? '');
 }
 
-function inspectTag(content: string, start: number, end: number): boolean {
+function readTagName(
+  content: string,
+  start: number
+): { name: string; next: number } | null {
   let cursor = start + 1;
   while (/\s/u.test(content[cursor] ?? '')) cursor += 1;
   if (
@@ -65,19 +71,30 @@ function inspectTag(content: string, start: number, end: number): boolean {
     content[cursor] === '!' ||
     content[cursor] === '?'
   )
-    return false;
+    return null;
   const tagStart = cursor;
   while (/[A-Za-z0-9:-]/u.test(content[cursor] ?? '')) cursor += 1;
-  const tagName = content.slice(tagStart, cursor).toLowerCase();
-  if (tagName !== 'img' && tagName !== 'source' && tagName !== 'a')
-    return false;
+  const name = content.slice(tagStart, cursor).toLowerCase();
+  return INSPECTABLE_TAG_NAMES.has(name) ? { name, next: cursor } : null;
+}
+
+function inspectTag(content: string, start: number, end: number): boolean {
+  const tag = readTagName(content, start);
+  if (tag === null) return false;
+  const tagName = tag.name;
+  let cursor = tag.next;
   const attributes = new Map<string, string>();
+  const seenUrlAttributes = new Set<string>();
   while (cursor < end) {
     while (/\s|\//u.test(content[cursor] ?? '')) cursor += 1;
     if (cursor >= end) break;
     const nameStart = cursor;
     while (!/[\s=/>]/u.test(content[cursor] ?? '')) cursor += 1;
     const name = content.slice(nameStart, cursor).toLowerCase();
+    if (URL_ATTRIBUTE_NAMES.has(name)) {
+      if (seenUrlAttributes.has(name)) return true;
+      seenUrlAttributes.add(name);
+    }
     const parsed = readAttributeValue(content, cursor, end);
     if (parsed === null) {
       while (cursor < end && !/\s/u.test(content[cursor] ?? '')) cursor += 1;
@@ -116,6 +133,7 @@ export function hasUnstableHtmlContent(content: string): boolean {
       index = commentEnd === -1 ? content.length : commentEnd + 2;
       continue;
     }
+    if (readTagName(content, index) === null) continue;
     const end = findTagEnd(content, index);
     if (end === -1) break;
     if (inspectTag(content, index, end)) return true;

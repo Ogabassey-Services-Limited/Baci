@@ -33,6 +33,7 @@ describe('StorefrontPublicMerchantSchema', () => {
   it('rejects noncanonical hostnames and localization values', () => {
     for (const merchant of [
       { ...validMerchant, hostname: 'Pilot-Store.usebaci.com' },
+      { ...validMerchant, hostname: 'pilot-store.usebaci.com.' },
       { ...validMerchant, currency: 'ngn' },
       { ...validMerchant, country: 'ng' },
       { ...validMerchant, locale: 'EN-ng' },

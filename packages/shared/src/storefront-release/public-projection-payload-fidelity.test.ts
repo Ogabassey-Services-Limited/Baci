@@ -64,6 +64,29 @@ describe('StorefrontPublicProjectionPayloadSchema fidelity', () => {
     ).toEqual(category);
   });
 
+  it('rejects unstable media in category FAQ answers', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: '123e4567-e89b-42d3-a456-426614174174',
+            name: 'Phones',
+            seoFaq: [
+              {
+                answer:
+                  '<img src="https://cdn.example/image.png?token=secret">',
+                question: 'Which phones do you stock?',
+              },
+            ],
+            slug: 'phones',
+            status: 'active',
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
   it('preserves route-matched About and FAQ structured content', () => {
     const pages = [
       {

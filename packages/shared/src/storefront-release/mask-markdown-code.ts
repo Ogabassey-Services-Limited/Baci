@@ -35,13 +35,23 @@ export function maskMarkdownCode(content: string): string {
             let candidateRun = 0;
             while (content[candidateCursor + candidateRun] === fenceCharacter)
               candidateRun += 1;
-            const rest =
-              content.slice(candidateCursor + candidateRun).split('\n')[0] ??
-              '';
+            let lineEnd = candidateCursor + candidateRun;
+            while (lineEnd < length && content[lineEnd] !== '\n') lineEnd += 1;
+            let restIsWhitespace = true;
+            for (
+              let restCursor = candidateCursor + candidateRun;
+              restCursor < lineEnd;
+              restCursor += 1
+            ) {
+              if (!/\s/u.test(content[restCursor] ?? '')) {
+                restIsWhitespace = false;
+                break;
+              }
+            }
             if (
               candidateSpaces <= 3 &&
               candidateRun >= runLength &&
-              /^\s*$/u.test(rest)
+              restIsWhitespace
             ) {
               close = candidateCursor + candidateRun;
               break;

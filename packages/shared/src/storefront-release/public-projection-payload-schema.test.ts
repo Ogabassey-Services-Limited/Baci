@@ -272,4 +272,25 @@ describe('StorefrontPublicProjectionPayloadSchema', () => {
       }).success
     ).toBe(true);
   });
+
+  it('requires a product primary category reference to resolve', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        products: [
+          {
+            available: true,
+            currency: 'NGN',
+            displayQuantityLimit: null,
+            id: '123e4567-e89b-42d3-a456-426614174060',
+            name: 'Phone',
+            primaryCategoryId: '123e4567-e89b-42d3-a456-426614174061',
+            priceMinor: 100_000,
+            slug: 'phone',
+            status: 'active',
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
 });

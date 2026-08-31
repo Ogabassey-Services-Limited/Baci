@@ -6,6 +6,7 @@ import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { StorefrontPublicProductColorGalleriesSchema } from './public-projection-product-color-galleries-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
+import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 
 const ProductConditionSchema = z
   .enum(['new', 'used', 'open_box', 'refurbished'])
@@ -121,6 +122,7 @@ export const StorefrontPublicProductSchema = z
     brand: z.string().trim().min(1).max(160).nullable().optional(),
     sku: z.string().trim().min(1).max(128).nullable().optional(),
     mpn: z.string().trim().min(1).max(128).nullable().optional(),
+    gtin: z.string().trim().min(1).max(14).nullable().optional(),
     description: z
       .string()
       .max(100_000)
@@ -156,6 +158,8 @@ export const StorefrontPublicProductSchema = z
       .max(Number.MAX_SAFE_INTEGER)
       .optional(),
     categoryIds: z.array(z.uuid()).max(64).optional(),
+    primaryCategoryId: z.uuid().nullable().optional(),
+    canonicalPath: StorefrontSeoPathSchema.nullable().optional(),
     mediaIds: z.array(z.uuid()).max(64).optional(),
     colorGalleries: StorefrontPublicProductColorGalleriesSchema.optional(),
     createdAt: z.iso.datetime({ offset: true }).optional(),

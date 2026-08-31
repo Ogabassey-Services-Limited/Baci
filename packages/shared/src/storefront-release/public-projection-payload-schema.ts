@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { StorefrontPublicContentPageSchema } from './public-projection-content-page-schema';
 import { StorefrontPublicMerchantSchema } from './public-projection-merchant-schema';
@@ -26,7 +27,14 @@ const SlugSchema = z
   .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 const CategorySeoFaqSchema = z.strictObject({
   question: z.string().trim().min(1).max(500),
-  answer: z.string().min(1).max(5_000),
+  answer: z
+    .string()
+    .min(1)
+    .max(5_000)
+    .refine(
+      (answer) => !hasUnstableBlogContentMedia(answer),
+      'Category FAQ answers links and media must be release-safe'
+    ),
 });
 const CategorySchema = z.strictObject({
   id: z.uuid(),
@@ -150,6 +158,17 @@ export const StorefrontPublicProjectionPayloadSchema = z
               'Category reference does not resolve to payload.categories',
             path: ['products', productIndex, 'categoryIds', categoryIndex],
           });
+    for (const [productIndex, product] of payload.products.entries())
+      if (
+        product.primaryCategoryId &&
+        !categoryIds.has(product.primaryCategoryId)
+      )
+        context.addIssue({
+          code: 'custom',
+          message:
+            'Primary category reference does not resolve to payload.categories',
+          path: ['products', productIndex, 'primaryCategoryId'],
+        });
     for (const [categoryIndex, category] of (
       payload.categories ?? []
     ).entries())

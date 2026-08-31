@@ -18,4 +18,20 @@ describe('hasUnstableHtmlContent', () => {
       )
     ).toBe(false);
   });
+
+  it('rejects duplicate URL attributes even when the later value is safe', () => {
+    expect(
+      hasUnstableHtmlContent(
+        '<img src="https://cdn.example/image.png?token=secret" src="/release-assets/image.png">'
+      )
+    ).toBe(true);
+  });
+
+  it('continues scanning after literal less-than characters', () => {
+    expect(
+      hasUnstableHtmlContent(
+        '2 < 3 <img src="https://cdn.example/image.png?token=secret">'
+      )
+    ).toBe(true);
+  });
 });
