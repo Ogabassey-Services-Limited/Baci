@@ -10,8 +10,8 @@ INSERT INTO public.quiz_events(
   '78000000-0000-4000-8000-000000000001',
   '78000000-0000-4000-8000-000000000002',
   'cascade-score-proof', 'Cascade score proof', 'active',
-  pg_catalog.clock_timestamp() - interval '1 minute',
-  pg_catalog.clock_timestamp() + interval '1 minute',
+  pg_catalog.transaction_timestamp() - interval '1 minute',
+  pg_catalog.transaction_timestamp() + interval '5 minutes',
   'test', 2, 'instant-v2', 1, 5, 5, 360, 1, 'Africa/Lagos'
 );
 INSERT INTO public.quiz_attempts(
