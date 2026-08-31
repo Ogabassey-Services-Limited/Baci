@@ -54,8 +54,12 @@ describe('hydrateRelatedBlogProductAvailability', () => {
   it('does not read offers for products that are not currently unavailable', async () => {
     const rpc = vi.fn();
     const products = [
-      product({ stock_quantity: 3 }),
-      product({ id: 'product-2', manage_stock: false }),
+      product({ stock_quantity: 3, has_condition_offers: false }),
+      product({
+        id: 'product-2',
+        manage_stock: false,
+        has_condition_offers: false,
+      }),
       product({ id: 'product-3', has_condition_offers: false }),
     ];
 
@@ -66,6 +70,22 @@ describe('hydrateRelatedBlogProductAvailability', () => {
 
     expect(rpc).not.toHaveBeenCalled();
     expect(result).toEqual(products);
+  });
+
+  it('keeps the current purchasable offer price for the related rail', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ price: '175000', stock_quantity: '2' }],
+      error: null,
+    });
+
+    const result = await hydrateRelatedBlogProductAvailability(
+      { rpc } as never,
+      [product({ price: 150000 })]
+    );
+
+    expect(result[0]?.offers).toEqual([
+      { price: 175000, status: 'active', stock_quantity: 2 },
+    ]);
   });
 
   it('fails open when the offer lookup errors', async () => {
@@ -115,6 +135,34 @@ describe('hydrateRelatedBlogProductAvailability', () => {
     expect(rpc).toHaveBeenCalledWith('get_storefront_product_variants', {
       p_product_ids: [VARIANT_PRODUCT_ID],
     });
+  });
+
+  it('keeps a purchasable variant price for the related rail', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [
+        {
+          product_id: VARIANT_PRODUCT_ID,
+          price_override: '175000',
+          stock_quantity: 2,
+        },
+      ],
+      error: null,
+    });
+    const variantProduct = product({
+      id: VARIANT_PRODUCT_ID,
+      price: 150000,
+      has_condition_offers: false,
+      has_variants: true,
+    });
+
+    const result = await hydrateRelatedBlogProductAvailability(
+      { rpc } as never,
+      [variantProduct]
+    );
+
+    expect(result[0]?.variants).toEqual([
+      { price_override: 175000, stock_quantity: 2 },
+    ]);
   });
 
   it('marks a managed product unavailable when every public variant is empty', async () => {

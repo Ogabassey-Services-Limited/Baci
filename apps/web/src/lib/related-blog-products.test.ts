@@ -12,7 +12,7 @@ describe('related blog products', () => {
       'categories:category_id!inner(slug)'
     );
     expect(RELATED_BLOG_PRODUCTS_SELECT).toContain(
-      'price, compare_at_price, stock, stock_quantity, manage_stock'
+      'price, compare_at_price, min_variant_price, max_variant_price, stock, stock_quantity, manage_stock'
     );
     expect(RELATED_BLOG_PRODUCTS_SELECT).toContain('has_condition_offers');
     expect(RELATED_BLOG_PRODUCTS_SELECT).toContain('has_variants');
@@ -20,7 +20,7 @@ describe('related blog products', () => {
       'products!blog_post_products_product_id_fkey'
     );
     expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain(
-      'price, compare_at_price, stock, stock_quantity, manage_stock'
+      'price, compare_at_price, min_variant_price, max_variant_price, stock, stock_quantity, manage_stock'
     );
     expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain('has_condition_offers');
     expect(RELATED_BLOG_PRODUCT_LINKS_SELECT).toContain('has_variants');

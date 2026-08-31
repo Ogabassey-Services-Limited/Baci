@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockRevalidateProducts = vi.fn();
 const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
+const mockEnrichProductPurgeEntries = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
@@ -12,6 +13,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/authoritative-product-purge-enrichment', () => ({
+  enrichProductPurgeEntries: (...args: unknown[]) =>
+    mockEnrichProductPurgeEntries(...args),
 }));
 vi.mock('@/env', () => ({
   getAppUrl: () => 'https://app.usebaci.com',
@@ -152,6 +157,37 @@ describe('revalidateProductsReliable', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'ogabassey',
       [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+  });
+
+  it('forwards enriched linked blog slugs on the in-process purge path', async () => {
+    mockRevalidateProducts.mockReturnValue(undefined);
+    mockEnrichProductPurgeEntries.mockResolvedValue({
+      entries: [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      resolvedSlugs: ['iphone-15'],
+      blogPostSlugs: ['iphone-15-buying-guide'],
+    });
+    const supabase = { from: vi.fn() };
+    const products = [{ id: 'product-id', slug: 'iphone-15' }];
+
+    await revalidateProductsReliable('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products,
+      supabase: supabase as never,
+    });
+
+    expect(mockEnrichProductPurgeEntries).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      products
+    );
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'iphone-15',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { blogPostSlugs: ['iphone-15-buying-guide'] }
     );
   });
 

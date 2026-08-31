@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { isValidUuid } from '@/lib/sanitize-core';
 
 const MAX_CATEGORY_FALLBACK_BLOG_POSTS = 256;
@@ -76,6 +77,37 @@ function buildCategoryCandidates(categorySlugs: readonly string[]) {
   return Array.from(candidates);
 }
 
+function buildCanonicalCategorySlugs(categorySlugs: readonly string[]) {
+  return Array.from(
+    new Set(
+      categorySlugs
+        .map((categorySlug) => normalizeStorefrontCategoryValue(categorySlug))
+        .filter((categorySlug): categorySlug is string => Boolean(categorySlug))
+    )
+  );
+}
+
+function buildCanonicalCategoryFilter(categorySlugs: readonly string[]) {
+  return buildCanonicalCategorySlugs(categorySlugs)
+    .map(
+      (categorySlug) => `category.ilike.*${categorySlug.split('-').join('*')}*`
+    )
+    .join(',');
+}
+
+function getCanonicalCategoryPostRows(
+  rows: readonly CategoryBlogPostRow[],
+  categorySlugs: readonly string[]
+) {
+  const canonicalCategories = new Set(
+    buildCanonicalCategorySlugs(categorySlugs)
+  );
+  return rows.filter((post) => {
+    const category = normalizeStorefrontCategoryValue(post.category);
+    return category !== null && canonicalCategories.has(category);
+  });
+}
+
 /**
  * Find published storefront blog posts whose related-product rail can be
  * affected by the changed products. Explicit product relationships are joined
@@ -100,6 +132,7 @@ export async function getPublishedBlogPostSlugsForProducts(
     )
   );
   const categoryCandidates = buildCategoryCandidates(categorySlugs);
+  const canonicalCategoryFilter = buildCanonicalCategoryFilter(categorySlugs);
 
   if (
     !normalizedMerchantId ||
@@ -142,7 +175,7 @@ export async function getPublishedBlogPostSlugsForProducts(
 
   if (categoryCandidates.length > 0) {
     try {
-      const { data, error } = await supabase
+      const { data: exactData, error: exactError } = await supabase
         .from('blog_posts')
         .select('slug, status, published_at, category')
         .eq('merchant_id', normalizedMerchantId)
@@ -151,18 +184,48 @@ export async function getPublishedBlogPostSlugsForProducts(
         .order('published_at', { ascending: false })
         .limit(MAX_CATEGORY_FALLBACK_BLOG_POSTS);
 
-      if (error) {
+      if (exactError) {
         console.error(
           'Failed to resolve category-fallback blog posts for product purge (continuing without category article purge):',
-          { merchantId: normalizedMerchantId, error }
+          { merchantId: normalizedMerchantId, error: exactError }
         );
       } else {
-        for (const post of (data as unknown as
+        for (const post of (exactData as unknown as
           | CategoryBlogPostRow[]
           | null
           | undefined) ?? []) {
           const slug = getPublishedBlogPostSlug(post);
           if (slug) slugs.add(slug);
+        }
+      }
+
+      if (canonicalCategoryFilter.length > 0) {
+        const { data: canonicalData, error: canonicalError } = await supabase
+          .from('blog_posts')
+          .select('slug, status, published_at, category')
+          .eq('merchant_id', normalizedMerchantId)
+          .eq('status', 'published')
+          .or(canonicalCategoryFilter)
+          .order('published_at', { ascending: false })
+          .limit(MAX_CATEGORY_FALLBACK_BLOG_POSTS);
+
+        if (canonicalError) {
+          console.error(
+            'Failed to resolve canonical category-fallback blog posts for product purge (continuing without canonical category article purge):',
+            { merchantId: normalizedMerchantId, error: canonicalError }
+          );
+        } else {
+          const canonicalRows = getCanonicalCategoryPostRows(
+            (canonicalData as unknown as
+              | CategoryBlogPostRow[]
+              | null
+              | undefined) ?? [],
+            categorySlugs
+          );
+          for (const post of canonicalRows) {
+            const slug = getPublishedBlogPostSlug(post);
+            if (slug) slugs.add(slug);
+          }
         }
       }
     } catch (error) {

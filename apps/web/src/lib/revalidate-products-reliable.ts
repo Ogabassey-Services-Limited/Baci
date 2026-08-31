@@ -1,4 +1,6 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getAppUrl, getInternalApiSecret } from '@/env';
+import { enrichProductPurgeEntries } from '@/lib/authoritative-product-purge-enrichment';
 import {
   revalidateProductSlugs,
   revalidateProducts,
@@ -28,6 +30,8 @@ interface RevalidateProductsReliableOptions {
   merchantSlug?: string;
   /** Products whose public URLs should also be evicted from Cloudflare. */
   products?: readonly InternalRevalidateProductEntry[];
+  /** Optional merchant-scoped client for linked blog purge enrichment. */
+  supabase?: SupabaseClient;
 }
 
 /**
@@ -50,7 +54,7 @@ export async function revalidateProductsReliable(
   merchantId: string,
   options: RevalidateProductsReliableOptions = {}
 ): Promise<void> {
-  const { merchantSlug, products } = options;
+  const { merchantSlug, products, supabase } = options;
   const shouldPurge = Boolean(merchantSlug && products && products.length > 0);
 
   try {
@@ -62,11 +66,44 @@ export async function revalidateProductsReliable(
     // products-carrying call, decoupled from the merchant-slug-gated Cloudflare
     // purge (a failed slug lookup must not skip the Next-layer bust).
     if (products && products.length > 0) {
-      revalidateProductSlugs(merchantId, collectResolvedProductSlugs(products));
-    }
-    if (shouldPurge && merchantSlug && products) {
-      const purgeEntries = buildInternalProductPurgeEntries(products);
-      scheduleStorefrontProductPurge(merchantSlug, purgeEntries);
+      let resolvedSlugs = collectResolvedProductSlugs(products);
+      let purgeEntries = buildInternalProductPurgeEntries(products);
+      let blogPostSlugs: string[] = [];
+
+      if (supabase) {
+        try {
+          const enriched = await enrichProductPurgeEntries(
+            supabase,
+            merchantId,
+            products
+          );
+          resolvedSlugs = enriched.resolvedSlugs;
+          purgeEntries = enriched.entries;
+          blogPostSlugs = enriched.blogPostSlugs;
+        } catch (error) {
+          console.warn(
+            'Failed to enrich in-process product purge (continuing with caller hints)',
+            { merchantId, error }
+          );
+        }
+      }
+
+      revalidateProductSlugs(merchantId, resolvedSlugs);
+
+      if (shouldPurge && merchantSlug) {
+        if (blogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
+            blogPostSlugs,
+          });
+        } else {
+          scheduleStorefrontProductPurge(merchantSlug, purgeEntries);
+        }
+      }
+    } else if (shouldPurge && merchantSlug && products) {
+      scheduleStorefrontProductPurge(
+        merchantSlug,
+        buildInternalProductPurgeEntries(products)
+      );
     }
     return;
   } catch {

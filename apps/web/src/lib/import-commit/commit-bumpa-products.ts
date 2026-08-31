@@ -259,7 +259,7 @@ export async function commitBumpaProducts({
         await revalidateProductsReliable(
           merchantId,
           merchantSlug && purgeProducts.length > 0
-            ? { merchantSlug, products: purgeProducts }
+            ? { merchantSlug, products: purgeProducts, supabase }
             : undefined
         );
       } catch (error) {

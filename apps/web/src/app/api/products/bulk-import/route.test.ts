@@ -73,6 +73,11 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
+  generateSlug: (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, ''),
   generateProductSlug: (name: string) =>
     mockGenerateProductSlug(name) as string,
   getProductUrl: (product: {

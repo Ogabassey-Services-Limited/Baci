@@ -87,6 +87,7 @@ export async function POST(request: NextRequest) {
     // Product purge targets accumulated across the whole batch so the raised
     // storefront edge TTL never serves a stale listing/PDP after a bulk edit.
     const purgeEntries: StorefrontProductPurgeEntry[] = [];
+    const resolvedProductIds: string[] = [];
     const results = await processBulkUpdateChanges({
       changes: parseResult.data.changes,
       currency,
@@ -96,6 +97,9 @@ export async function POST(request: NextRequest) {
         for (const entry of entries) {
           purgeEntries.push(entry);
         }
+      },
+      onResolvedProductIds: (productIds) => {
+        resolvedProductIds.push(...productIds);
       },
       supabase,
     });
@@ -116,12 +120,15 @@ export async function POST(request: NextRequest) {
         merchantId,
         purgeEntries.map((entry) => entry.slug)
       );
-      const productIds = parseResult.data.changes
+      const requestedProductIds = parseResult.data.changes
         .map((change) => change.productId?.trim())
         .filter(
           (productId): productId is string =>
             typeof productId === 'string' && isValidUuid(productId)
         );
+      const productIds = Array.from(
+        new Set([...requestedProductIds, ...resolvedProductIds])
+      ).filter(isValidUuid);
       const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
         supabase,
         merchantId,

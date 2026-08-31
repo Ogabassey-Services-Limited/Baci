@@ -1,15 +1,43 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getEffectiveStock } from '@/lib/product-stock';
-import type { RelatedBlogProduct } from '@/lib/related-blog-products';
+import type {
+  RelatedBlogProduct,
+  RelatedBlogProductOffer,
+  RelatedBlogProductVariant,
+} from '@/lib/related-blog-products';
 import { isValidUuid } from '@/lib/sanitize-core';
 
 interface OfferStockRow {
+  compare_at_price?: number | string | null;
+  price?: number | string | null;
+  status?: string | null;
   stock_quantity?: number | string | null;
 }
 
 interface VariantStockRow {
+  price_override?: number | string | null;
   product_id?: string | null;
   stock_quantity?: number | string | null;
+}
+
+interface AvailabilityResolution {
+  available?: boolean;
+  offers?: RelatedBlogProductOffer[];
+  variants?: RelatedBlogProductVariant[];
+}
+
+type AvailabilityPair = readonly [string, AvailabilityResolution | undefined];
+
+function toFinitePrice(value: unknown): number | null {
+  const price =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim().length > 0
+        ? Number(value)
+        : null;
+  return typeof price === 'number' && Number.isFinite(price) && price >= 0
+    ? price
+    : null;
 }
 
 function isOfferStockRow(value: unknown): value is OfferStockRow {
@@ -21,6 +49,26 @@ function hasStockedOffer(data: unknown): boolean {
     Array.isArray(data) &&
     data.some((offer) => isOfferStockRow(offer) && getEffectiveStock(offer) > 0)
   );
+}
+
+function normalizeOfferRows(data: unknown): RelatedBlogProductOffer[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((offer) => {
+    if (!isOfferStockRow(offer)) return [];
+    const price = toFinitePrice(offer.price);
+    const compareAtPrice = toFinitePrice(offer.compare_at_price);
+    return [
+      {
+        ...(price !== null ? { price } : {}),
+        ...(compareAtPrice !== null
+          ? { compare_at_price: compareAtPrice }
+          : {}),
+        status: offer.status ?? 'active',
+        stock_quantity: toFinitePrice(offer.stock_quantity),
+      },
+    ];
+  });
 }
 
 function isVariantStockRow(value: unknown): value is VariantStockRow {
@@ -39,65 +87,84 @@ function hasStockedVariant(data: unknown, productId: string): boolean {
   );
 }
 
+function normalizeVariantRows(
+  data: unknown,
+  product: RelatedBlogProduct
+): RelatedBlogProductVariant[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((variant) => {
+    if (!isVariantStockRow(variant) || variant.product_id !== product.id) {
+      return [];
+    }
+    const priceOverride = toFinitePrice(variant.price_override);
+    const parentPrice = toFinitePrice(product.price);
+    return [
+      {
+        ...(priceOverride !== null
+          ? { price_override: priceOverride }
+          : parentPrice !== null
+            ? { price_override: parentPrice }
+            : {}),
+        stock_quantity: toFinitePrice(variant.stock_quantity),
+      },
+    ];
+  });
+}
+
 /**
- * Resolve alternate-condition availability for related blog products whose
- * primary stock is empty. `product_offers` is intentionally staff-only, so
- * the public `get_product_offers` SECURITY DEFINER RPC is the supported read
- * path for this small, bounded rail. Errors stay fail-open: an unknown offer
- * state must not claim a product is unavailable when the PDP may still have a
- * purchasable condition.
+ * Resolve alternate-condition and SKU-variant availability and prices for
+ * related blog products. The public SECURITY DEFINER RPCs are the supported
+ * read path for this small, bounded rail. Errors stay fail-open: an unknown
+ * alternate state must not claim a product is unavailable.
  */
 export async function hydrateRelatedBlogProductAvailability(
   supabase: Pick<SupabaseClient, 'rpc'>,
   products: readonly RelatedBlogProduct[]
 ): Promise<RelatedBlogProduct[]> {
-  const candidates = products.filter(
-    (product) =>
-      product.has_condition_offers === true &&
-      product.manage_stock === true &&
-      getEffectiveStock(product) <= 0
+  const offerCandidates = products.filter(
+    (product) => product.has_condition_offers === true
   );
   const variantCandidates = products.filter(
-    (product) =>
-      product.has_variants === true &&
-      product.manage_stock === true &&
-      getEffectiveStock(product) <= 0 &&
-      isValidUuid(product.id)
+    (product) => product.has_variants === true && isValidUuid(product.id)
   );
 
-  if (candidates.length === 0 && variantCandidates.length === 0) {
+  if (offerCandidates.length === 0 && variantCandidates.length === 0) {
     return [...products];
   }
 
-  const [offerAvailability, variantAvailability] = await Promise.all([
-    Promise.all(
-      candidates.map(async (product) => {
-        try {
-          const { data, error } = await supabase.rpc('get_product_offers', {
-            p_product_id: product.id,
-          });
+  const offerAvailabilityPromise: Promise<AvailabilityPair[]> = Promise.all(
+    offerCandidates.map(async (product) => {
+      try {
+        const { data, error } = await supabase.rpc('get_product_offers', {
+          p_product_id: product.id,
+        });
 
-          if (error) {
-            console.warn(
-              'Related blog product offer availability unavailable',
-              {
-                productId: product.id,
-                error,
-              }
-            );
-            return [product.id, undefined] as const;
-          }
-
-          return [product.id, hasStockedOffer(data)] as const;
-        } catch (error) {
+        if (error) {
           console.warn('Related blog product offer availability unavailable', {
             productId: product.id,
             error,
           });
           return [product.id, undefined] as const;
         }
-      })
-    ),
+
+        return [
+          product.id,
+          {
+            available: hasStockedOffer(data),
+            offers: normalizeOfferRows(data),
+          },
+        ] as const;
+      } catch (error) {
+        console.warn('Related blog product offer availability unavailable', {
+          productId: product.id,
+          error,
+        });
+        return [product.id, undefined] as const;
+      }
+    })
+  );
+  const variantAvailabilityPromise: Promise<AvailabilityPair[]> =
     variantCandidates.length > 0
       ? (async () => {
           try {
@@ -116,14 +183,21 @@ export async function hydrateRelatedBlogProductAvailability(
                   error,
                 }
               );
-              return variantCandidates.map(
-                (product) => [product.id, undefined] as const
-              );
+              return variantCandidates.map<AvailabilityPair>((product) => [
+                product.id,
+                undefined,
+              ]);
             }
 
             return variantCandidates.map(
               (product) =>
-                [product.id, hasStockedVariant(data, product.id)] as const
+                [
+                  product.id,
+                  {
+                    available: hasStockedVariant(data, product.id),
+                    variants: normalizeVariantRows(data, product),
+                  },
+                ] satisfies AvailabilityPair
             );
           } catch (error) {
             console.warn(
@@ -133,26 +207,34 @@ export async function hydrateRelatedBlogProductAvailability(
                 error,
               }
             );
-            return variantCandidates.map(
-              (product) => [product.id, undefined] as const
-            );
+            return variantCandidates.map<AvailabilityPair>((product) => [
+              product.id,
+              undefined,
+            ]);
           }
         })()
-      : Promise.resolve([] as Array<readonly [string, boolean | undefined]>),
+      : Promise.resolve([] as AvailabilityPair[]);
+  const [offerAvailability, variantAvailability] = await Promise.all([
+    offerAvailabilityPromise,
+    variantAvailabilityPromise,
   ]);
 
   const offerAvailabilityById = new Map(offerAvailability);
   const variantAvailabilityById = new Map(variantAvailability);
   return products.map((product) => {
-    const offerAvailable = offerAvailabilityById.get(product.id);
-    const variantAvailable = variantAvailabilityById.get(product.id);
+    const offerResolution = offerAvailabilityById.get(product.id);
+    const variantResolution = variantAvailabilityById.get(product.id);
     return {
       ...product,
-      ...(offerAvailable !== undefined
-        ? { has_purchasable_condition_offer: offerAvailable }
+      ...(offerResolution?.available !== undefined
+        ? { has_purchasable_condition_offer: offerResolution.available }
         : {}),
-      ...(variantAvailable !== undefined
-        ? { has_purchasable_variant: variantAvailable }
+      ...(offerResolution?.offers ? { offers: offerResolution.offers } : {}),
+      ...(variantResolution?.available !== undefined
+        ? { has_purchasable_variant: variantResolution.available }
+        : {}),
+      ...(variantResolution?.variants
+        ? { variants: variantResolution.variants }
         : {}),
     };
   });

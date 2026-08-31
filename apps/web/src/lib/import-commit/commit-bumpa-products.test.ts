@@ -170,6 +170,7 @@ describe('commitBumpaProducts', () => {
         { slug: 'imported-phone', id: 'existing-product', category: 'Phones' },
         { slug: 'fresh-phone-2', category: 'Phones' },
       ],
+      supabase,
     });
   });
 
@@ -218,6 +219,7 @@ describe('commitBumpaProducts', () => {
     expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
       merchantSlug: 'ogabassey',
       products: [{ slug: 'imported-phone', category: 'Phones' }],
+      supabase,
     });
     expect(consoleSpy).toHaveBeenCalled();
     // Restore so the suppressed console.error doesn't leak into later tests
@@ -332,6 +334,7 @@ describe('commitBumpaProducts', () => {
     expect(mockRevalidateProductsReliable).toHaveBeenCalledWith('merchant-1', {
       merchantSlug: 'ogabassey',
       products: [{ slug: 'phone-one', category: 'Phones' }],
+      supabase,
     });
   });
 

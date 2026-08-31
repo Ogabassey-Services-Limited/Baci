@@ -3,11 +3,14 @@ import { getPublishedBlogPostSlugsForProducts } from './get-published-blog-post-
 
 function makeSupabase(
   result: { data: unknown; error: unknown },
-  categoryResult: { data: unknown; error: unknown } = { data: [], error: null }
+  categoryResult: { data: unknown; error: unknown } = { data: [], error: null },
+  canonicalCategoryResult: { data: unknown; error: unknown } = categoryResult
 ) {
   const inSpy = vi.fn();
   const categoryInSpy = vi.fn();
+  const categoryOrSpy = vi.fn();
   const categoryLimitSpy = vi.fn();
+  let categoryQuery: 'exact' | 'canonical' = 'exact';
   const productBuilder = {
     eq: vi.fn(() => productBuilder),
     in: vi.fn((column: string, values: string[]) => {
@@ -19,11 +22,19 @@ function makeSupabase(
     eq: vi.fn(() => categoryBuilder),
     in: vi.fn((column: string, values: string[]) => {
       categoryInSpy(column, values);
+      categoryQuery = 'exact';
+      return categoryBuilder;
+    }),
+    or: vi.fn((filter: string) => {
+      categoryOrSpy(filter);
+      categoryQuery = 'canonical';
       return categoryBuilder;
     }),
     limit: vi.fn((value: number) => {
       categoryLimitSpy(value);
-      return Promise.resolve(categoryResult);
+      return Promise.resolve(
+        categoryQuery === 'canonical' ? canonicalCategoryResult : categoryResult
+      );
     }),
     order: vi.fn(() => categoryBuilder),
   };
@@ -34,7 +45,7 @@ function makeSupabase(
       ),
     })),
   };
-  return { categoryInSpy, categoryLimitSpy, inSpy, supabase };
+  return { categoryInSpy, categoryLimitSpy, categoryOrSpy, inSpy, supabase };
 }
 
 describe('getPublishedBlogPostSlugsForProducts', () => {
@@ -200,5 +211,33 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
       "women's fashion",
       "Women's Fashion",
     ]);
+  });
+
+  it('matches punctuation-bearing categories through canonical normalization', async () => {
+    const { categoryOrSpy, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            slug: 'product-news-guide',
+            status: 'published',
+            published_at: '2026-08-03',
+            category: 'Product & News!',
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      [],
+      ['product-news']
+    );
+
+    expect(result).toEqual(['product-news-guide']);
+    expect(categoryOrSpy).toHaveBeenCalledWith('category.ilike.*product*news*');
   });
 });

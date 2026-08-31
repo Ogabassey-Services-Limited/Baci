@@ -3,6 +3,7 @@ import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
+import { getProductPriceRange } from '@/lib/storefront-product-price-seo';
 
 type RelatedProduct = {
   category_slug?: string | null;
@@ -15,9 +16,20 @@ type RelatedProduct = {
   has_purchasable_condition_offer?: boolean;
   has_purchasable_variant?: boolean;
   manage_stock?: boolean | null;
+  offers?: Array<{
+    price?: number | null;
+    status?: string | null;
+    stock_quantity?: number | null;
+  }>;
+  min_variant_price?: number | null;
+  max_variant_price?: number | null;
   stock?: number | null;
   stock_quantity?: number | null;
   slug: string;
+  variants?: Array<{
+    price_override?: number | null;
+    stock_quantity?: number | null;
+  }>;
 };
 
 type BlogRelatedProductsProps = {
@@ -25,6 +37,25 @@ type BlogRelatedProductsProps = {
   currencySource?: { country?: string | null; payout_currency?: string | null };
   products: RelatedProduct[];
 };
+
+function formatRelatedProductPrice(
+  product: RelatedProduct,
+  currencySource: BlogRelatedProductsProps['currencySource']
+) {
+  if (!currencySource) return null;
+
+  const range = getProductPriceRange(product);
+  if (range) {
+    const min = formatMerchantCurrency(range.min, currencySource);
+    return range.hasRange
+      ? `${min} - ${formatMerchantCurrency(range.max, currencySource)}`
+      : min;
+  }
+
+  return typeof product.price === 'number' && Number.isFinite(product.price)
+    ? formatMerchantCurrency(product.price, currencySource)
+    : null;
+}
 
 export function BlogRelatedProducts({
   basePath,
@@ -47,6 +78,10 @@ export function BlogRelatedProducts({
             },
             basePath
           );
+          const formattedPrice = formatRelatedProductPrice(
+            product,
+            currencySource
+          );
 
           return (
             <li key={product.id}>
@@ -56,11 +91,9 @@ export function BlogRelatedProducts({
               >
                 <span className="flex items-center justify-between gap-3">
                   <span>{product.name}</span>
-                  {typeof product.price === 'number' &&
-                  Number.isFinite(product.price) &&
-                  currencySource ? (
+                  {formattedPrice ? (
                     <span className="text-muted-foreground text-xs">
-                      {formatMerchantCurrency(product.price, currencySource)}
+                      {formattedPrice}
                     </span>
                   ) : null}
                 </span>

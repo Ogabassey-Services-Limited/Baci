@@ -117,4 +117,31 @@ describe('BlogRelatedProducts', () => {
 
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
+
+  it('renders the purchasable variant price instead of the stale parent price', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        currencySource={{ country: 'NG', payout_currency: 'NGN' }}
+        products={[
+          {
+            id: 'product-6',
+            name: 'iPad 10 Wi-Fi + Cellular',
+            price: 150000,
+            manage_stock: true,
+            stock: 0,
+            has_variants: true,
+            variants: [{ price_override: 175000, stock_quantity: 2 }],
+            slug: 'ipad-10',
+          },
+        ]}
+      />
+    );
+
+    const link = screen.getByRole('link', {
+      name: /ipad 10 wi-fi \+ cellular/i,
+    });
+    expect(link).toHaveTextContent('₦175,000');
+    expect(link).not.toHaveTextContent('₦150,000');
+  });
 });
