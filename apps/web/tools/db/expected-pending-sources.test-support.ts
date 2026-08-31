@@ -334,7 +334,7 @@ export const EXPECTED_PENDING_SOURCES = [
   },
   {
     repositoryPath:
-      'supabase/migrations/20260827110002_restore_jumia_manage_credential_rotation_after_view.sql',
+      'supabase/migrations/20260827110003_restore_jumia_manage_credential_rotation_after_view.sql',
     sha256: 'a60ebbb878c90266d34bc83d6596fbcbff4f07d1f31f10db5e59a0e3de447081',
   },
   {

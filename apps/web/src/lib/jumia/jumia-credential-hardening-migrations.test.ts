@@ -25,7 +25,7 @@ describe('Jumia credential hardening migrations', () => {
     const sql = readFileSync(
       path.join(
         migrationsRoot,
-        '20260827110002_restore_jumia_manage_credential_rotation_after_view.sql'
+        '20260827110003_restore_jumia_manage_credential_rotation_after_view.sql'
       ),
       'utf8'
     );
