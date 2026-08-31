@@ -20,15 +20,13 @@ import type {
 import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
 import { applyCheckoutGoogleCitySuggestion } from './apply-checkout-google-city-suggestion';
 import { createCheckoutShippingHandlers } from './checkout-shipping-handlers';
-import {
-  loadShippingCities,
-  loadShippingStates,
-} from './checkout-shipping-loaders';
+import { loadShippingStates } from './checkout-shipping-loaders';
 import { getCheckoutLocationPickerVisibility } from './get-checkout-location-picker-visibility';
 import type {
   SavedDoorAddress,
   UseCheckoutShippingParams,
 } from './use-checkout-shipping.types';
+import { useCheckoutShippingCitiesEffect } from './use-checkout-shipping-cities-effect';
 export function useCheckoutShipping({
   apiBaseUrl,
   customer,
@@ -192,22 +190,16 @@ export function useCheckoutShipping({
       setShippingStates,
     });
   }, [apiBaseUrl]);
-  useEffect(() => {
-    if (!watchedState) return;
-    const controller = new AbortController();
-    loadShippingCities({
-      apiBaseUrl,
-      onCitiesLoaded: (cities) => {
-        shippingCitiesStateRef.current = watchedState;
-        applyGoogleSuggestedCity(cities);
-      },
-      setIsLoadingCities,
-      setShippingCities,
-      signal: controller.signal,
-      state: watchedState,
-    });
-    return () => controller.abort();
-  }, [apiBaseUrl, watchedState]);
+  useCheckoutShippingCitiesEffect({
+    apiBaseUrl,
+    onCitiesLoaded: (cities) => {
+      shippingCitiesStateRef.current = watchedState;
+      applyGoogleSuggestedCity(cities);
+    },
+    setIsLoadingCities,
+    setShippingCities,
+    state: watchedState,
+  });
   useEffect(() => {
     shippingQuoteAbortRef.current?.abort();
     if (
