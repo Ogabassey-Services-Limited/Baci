@@ -47,4 +47,42 @@ describe('clearQueryCachePreservingObservers', () => {
     unsubscribe();
     queryClient.clear();
   });
+
+  it('surfaces a rejected guest refetch while removing inactive account data', async () => {
+    // Arrange: the second invocation is the refetch performed after logout.
+    let resolveFirstRequest: ((value: string) => void) | undefined;
+    const queryFn = jest.fn(() => {
+      if (queryFn.mock.calls.length === 1) {
+        return new Promise<string>((resolve) => {
+          resolveFirstRequest = resolve;
+        });
+      }
+      return Promise.reject(new Error('guest request failed'));
+    });
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+      },
+    });
+    queryClient.setQueryData(['private'], 'stale account data');
+    const observer = new QueryObserver(queryClient, {
+      queryKey: ['public-home'],
+      queryFn,
+    });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await flushMicrotasks();
+
+    // Act
+    clearQueryCachePreservingObservers(queryClient);
+    await flushMicrotasks();
+
+    // Assert
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(observer.getCurrentResult().isError).toBe(true);
+    expect(queryClient.getQueryData(['private'])).toBeUndefined();
+
+    resolveFirstRequest?.('stale account data');
+    unsubscribe();
+    queryClient.clear();
+  });
 });

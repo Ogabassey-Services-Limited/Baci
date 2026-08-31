@@ -71,6 +71,11 @@ describe('SettingsSectionRow', () => {
       </View>
     );
 
+    const row = screen.getByRole('button', { name: 'Open account settings' });
+    expect(row).toHaveStyle({
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    });
     expect(screen.getByText('A setting with a long label')).toBeOnTheScreen();
     expect(
       screen.getByText(
