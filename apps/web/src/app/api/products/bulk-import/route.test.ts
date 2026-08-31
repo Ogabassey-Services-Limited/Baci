@@ -24,6 +24,12 @@ vi.mock('@/lib/storefront-product-purge', () => ({
     mockScheduleStorefrontProductPurge(...args),
 }));
 
+const mockScheduleProductBlogPurgeAfterResponse = vi.fn();
+vi.mock('@/lib/schedule-product-blog-purge-after-response', () => ({
+  scheduleProductBlogPurgeAfterResponse: (...args: unknown[]) =>
+    mockScheduleProductBlogPurgeAfterResponse(...args),
+}));
+
 const mockGenerateProductSlug = vi.hoisted(() =>
   vi.fn((name: string) => name.toLowerCase().replace(/\s+/g, '-'))
 );
@@ -311,6 +317,14 @@ describe('POST /api/products/bulk-import', () => {
     expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
       'test-store',
       [{ slug: 'product-a', categorySegment: 'electronics' }]
+    );
+    expect(mockScheduleProductBlogPurgeAfterResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        merchantSlug: 'test-store',
+        productIds: ['created-product-1'],
+        skipWhenNoLinkedPosts: true,
+      })
     );
     expect(mockRevalidateProductSlugs.mock.invocationCallOrder[0]).toBeLessThan(
       mockScheduleStorefrontProductPurge.mock.invocationCallOrder[0]

@@ -163,4 +163,56 @@ describe('BlogRelatedProducts', () => {
     expect(link).toHaveTextContent('₦175,000');
     expect(link).not.toHaveTextContent('₦150,000');
   });
+
+  it('renders the purchasable condition-offer price instead of the parent price', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        currencySource={{ country: 'NG', payout_currency: 'NGN' }}
+        products={[
+          {
+            id: 'product-7',
+            name: 'iPhone 16 Used',
+            price: 150000,
+            manage_stock: true,
+            stock: 0,
+            has_condition_offers: true,
+            has_purchasable_condition_offer: true,
+            offers: [{ price: 125000, stock_quantity: 1 }],
+            slug: 'iphone-16-used',
+          },
+        ]}
+      />
+    );
+
+    const link = screen.getByRole('link', {
+      name: /iphone 16 used/i,
+    });
+    expect(link).toHaveTextContent('₦125,000');
+    expect(link).not.toHaveTextContent('₦150,000');
+  });
+
+  it('does not advertise an out-of-stock nullable parent price beside a stocked child', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        currencySource={{ country: 'NG', payout_currency: 'NGN' }}
+        products={[
+          {
+            id: 'product-null-parent',
+            name: 'iPad 10',
+            price: 150000,
+            manage_stock: null,
+            stock: 0,
+            variants: [{ price_override: 175000, stock_quantity: 2 }],
+            slug: 'ipad-10',
+          },
+        ]}
+      />
+    );
+
+    const link = screen.getByRole('link', { name: /iPad 10/i });
+    expect(link).toHaveTextContent('₦175,000');
+    expect(link).not.toHaveTextContent('₦150,000');
+  });
 });

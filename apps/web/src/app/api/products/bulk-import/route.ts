@@ -10,7 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
+import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { generateProductSlug } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
@@ -233,26 +233,21 @@ export async function POST(request: NextRequest) {
           merchantId,
           publicPurgeEntries.map((entry) => entry.slug)
         );
-        const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+        scheduleStorefrontProductPurge(
+          merchantContext.merchantSlug,
+          publicPurgeEntries
+        );
+        scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
-          publicPurgeProductIds,
-          publicPurgeEntries
-            .map((entry) => entry.categorySegment)
-            .filter((segment): segment is string => Boolean(segment))
-        );
-        if (blogPostSlugs.length > 0) {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            publicPurgeEntries,
-            { blogPostSlugs }
-          );
-        } else {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            publicPurgeEntries
-          );
-        }
+          merchantSlug: merchantContext.merchantSlug,
+          productIds: publicPurgeProductIds,
+          entries: publicPurgeEntries,
+          categorySlugs: publicPurgeEntries.map(
+            (entry) => entry.categorySegment
+          ),
+          skipWhenNoLinkedPosts: true,
+        });
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk import', {
           purgeError,

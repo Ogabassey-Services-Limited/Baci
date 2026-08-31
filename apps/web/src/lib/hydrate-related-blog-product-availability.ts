@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { hydrateRelatedBlogProductSerializedInventory } from '@/lib/hydrate-related-blog-product-serialized-inventory';
+import { mergeRelatedBlogProductSerializedInventory } from '@/lib/merge-related-blog-product-serialized-inventory';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type {
   RelatedBlogProduct,
@@ -13,25 +15,25 @@ interface OfferStockRow {
   status?: string | null;
   stock_quantity?: number | string | null;
 }
-
 interface VariantStockRow {
+  id?: string | null;
+  inventory_tracking_policy?: string | null;
   price_override?: number | string | null;
   product_id?: string | null;
   stock_quantity?: number | string | null;
 }
-
 interface AvailabilityResolution {
   available?: boolean;
   offers?: RelatedBlogProductOffer[];
   variants?: RelatedBlogProductVariant[];
 }
-
 type AvailabilityPair = readonly [string, AvailabilityResolution | undefined];
 type HydrateRelatedBlogProductAvailabilityOptions = {
+  /** Merchant UUID used to resolve serialized inventory through the canonical public path. */
+  merchantId?: string;
   /** Throw after an RPC error so a cache scope cannot persist a degraded rail. */
   throwOnError?: boolean;
 };
-
 function toFinitePrice(value: unknown): number | null {
   const price =
     typeof value === 'number'
@@ -43,18 +45,15 @@ function toFinitePrice(value: unknown): number | null {
     ? price
     : null;
 }
-
 function isOfferStockRow(value: unknown): value is OfferStockRow {
   return typeof value === 'object' && value !== null;
 }
-
 function hasStockedOffer(data: unknown): boolean {
   return (
     Array.isArray(data) &&
     data.some((offer) => isOfferStockRow(offer) && getEffectiveStock(offer) > 0)
   );
 }
-
 function normalizeOfferRows(data: unknown): RelatedBlogProductOffer[] {
   if (!Array.isArray(data)) return [];
 
@@ -74,7 +73,6 @@ function normalizeOfferRows(data: unknown): RelatedBlogProductOffer[] {
     ];
   });
 }
-
 function isVariantStockRow(value: unknown): value is VariantStockRow {
   return typeof value === 'object' && value !== null;
 }
@@ -105,6 +103,10 @@ function normalizeVariantRows(
     const parentPrice = toFinitePrice(product.price);
     return [
       {
+        ...(variant.id ? { id: variant.id } : {}),
+        ...(variant.inventory_tracking_policy
+          ? { inventory_tracking_policy: variant.inventory_tracking_policy }
+          : {}),
         ...(priceOverride !== null
           ? { price_override: priceOverride }
           : parentPrice !== null
@@ -129,31 +131,31 @@ function needsAlternateAvailability(product: RelatedBlogProduct): boolean {
   );
 }
 
-/**
- * Resolve alternate-condition and SKU-variant availability and prices for
- * related blog products. The public SECURITY DEFINER RPCs are the supported
- * read path for this small, bounded rail. Errors stay fail-open: an unknown
- * alternate state must not claim a product is unavailable.
- */
 export async function hydrateRelatedBlogProductAvailability(
-  supabase: Pick<SupabaseClient, 'rpc'>,
+  supabase: SupabaseClient,
   products: readonly RelatedBlogProduct[],
   options: HydrateRelatedBlogProductAvailabilityOptions = {}
 ): Promise<RelatedBlogProduct[]> {
   const availabilityErrors: unknown[] = [];
   const offerCandidates = products.filter(
-    (product) =>
-      needsAlternateAvailability(product) &&
-      product.has_condition_offers === true
+    (product) => product.has_condition_offers === true
+  );
+  const canResolveSerializedInventory = Boolean(
+    options.merchantId && products.some((product) => isValidUuid(product.id))
   );
   const variantCandidates = products.filter(
     (product) =>
-      needsAlternateAvailability(product) &&
       product.has_variants === true &&
-      isValidUuid(product.id)
+      isValidUuid(product.id) &&
+      (needsAlternateAvailability(product) || canResolveSerializedInventory)
   );
 
-  if (offerCandidates.length === 0 && variantCandidates.length === 0) {
+  const merchantId = options.merchantId;
+  if (
+    offerCandidates.length === 0 &&
+    variantCandidates.length === 0 &&
+    !canResolveSerializedInventory
+  ) {
     return [...products];
   }
 
@@ -247,13 +249,9 @@ export async function hydrateRelatedBlogProductAvailability(
     variantAvailabilityPromise,
   ]);
 
-  if (options.throwOnError && availabilityErrors.length > 0) {
-    throw availabilityErrors[0];
-  }
-
   const offerAvailabilityById = new Map(offerAvailability);
   const variantAvailabilityById = new Map(variantAvailability);
-  return products.map((product) => {
+  let resolvedProducts = products.map((product) => {
     const offerResolution = offerAvailabilityById.get(product.id);
     const variantResolution = variantAvailabilityById.get(product.id);
     return {
@@ -270,4 +268,31 @@ export async function hydrateRelatedBlogProductAvailability(
         : {}),
     };
   });
+
+  if (canResolveSerializedInventory && merchantId) {
+    try {
+      const serializedProducts =
+        await hydrateRelatedBlogProductSerializedInventory(
+          supabase,
+          merchantId,
+          resolvedProducts.filter((product) => isValidUuid(product.id))
+        );
+      resolvedProducts = mergeRelatedBlogProductSerializedInventory(
+        resolvedProducts,
+        serializedProducts
+      );
+    } catch (error) {
+      availabilityErrors.push(error);
+      console.warn('Related blog product serialized availability unavailable', {
+        merchantId,
+        error,
+      });
+    }
+  }
+
+  if (options.throwOnError && availabilityErrors.length > 0) {
+    throw availabilityErrors[0];
+  }
+
+  return resolvedProducts;
 }

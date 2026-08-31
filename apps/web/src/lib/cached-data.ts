@@ -3013,7 +3013,7 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
   normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
     supabase,
     normalizedRelatedProducts,
-    { throwOnError: true }
+    { merchantId: merchant.id, throwOnError: true }
   );
 
   return {

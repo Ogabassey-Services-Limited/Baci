@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { enrichProductPurgeEntries } from '@/lib/authoritative-product-purge-enrichment';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 
 interface ScheduleOrderProductBlogPurgeInput {
@@ -75,6 +76,7 @@ export async function scheduleOrderProductBlogPurge({
       return;
     }
 
+    expireProductBlogCache(merchantId);
     scheduleStorefrontProductPurge(merchantSlug, entries, {
       blogPostSlugs,
     });

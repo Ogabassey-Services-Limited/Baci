@@ -133,7 +133,8 @@ export async function getLiveBlogPost(
 
   normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
     supabase,
-    normalizedRelatedProducts
+    normalizedRelatedProducts,
+    { merchantId: merchant.id }
   );
 
   return {

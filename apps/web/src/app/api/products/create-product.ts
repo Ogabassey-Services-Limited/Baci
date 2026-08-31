@@ -5,7 +5,6 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
-import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import {
   getSkuMatrixValidationError,
   inferProductVariantModel,
@@ -22,6 +21,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { createProductSchema, formatZodErrors } from '@/schemas/products';
 import { buildProductImagesInput } from './build-product-images-input';
+import { scheduleNewProductBlogPurgeAfterResponse } from './schedule-new-product-blog-purge-after-response';
 import { scheduleNewProductCaches } from './schedule-new-product-caches';
 
 const EMBEDDING_GENERATION_TIMEOUT_MS = 10_000;
@@ -269,15 +269,6 @@ export async function createProduct(request: NextRequest) {
         )
         .finally(() => clearTimeout(embeddingTimeout));
     }
-    const blogPostSlugs =
-      body.status === 'active'
-        ? await getPublishedBlogPostSlugsForProducts(
-            supabase,
-            merchantId,
-            [product.id],
-            body.category ? [body.category] : []
-          )
-        : [];
     scheduleNewProductCaches({
       merchantId,
       merchantSlug: merchantContext.merchantSlug,
@@ -286,7 +277,16 @@ export async function createProduct(request: NextRequest) {
       name: body.name,
       category: body.category,
       images: resolvedImages,
-      blogPostSlugs,
+    });
+    scheduleNewProductBlogPurgeAfterResponse({
+      category: body.category,
+      merchantId,
+      merchantSlug: merchantContext.merchantSlug,
+      name: body.name,
+      productId: product.id,
+      slug,
+      status: body.status,
+      supabase,
     });
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

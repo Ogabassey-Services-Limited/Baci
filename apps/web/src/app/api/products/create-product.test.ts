@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getMerchantForApiRequest: vi.fn(),
   getProductEmbeddingText: vi.fn(),
   getUser: vi.fn(),
+  scheduleNewProductBlogPurgeAfterResponse: vi.fn(),
   scheduleNewProductCaches: vi.fn(),
 }));
 
@@ -56,6 +57,11 @@ vi.mock('@/lib/product-variant-model', () => ({
 
 vi.mock('./build-product-images-input', () => ({
   buildProductImagesInput: () => [],
+}));
+
+vi.mock('./schedule-new-product-blog-purge-after-response', () => ({
+  scheduleNewProductBlogPurgeAfterResponse:
+    mocks.scheduleNewProductBlogPurgeAfterResponse,
 }));
 
 vi.mock('./schedule-new-product-caches', () => ({

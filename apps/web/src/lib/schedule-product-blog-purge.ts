@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { expireProductBlogCache } from '@/lib/expire-product-blog-cache';
 import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
@@ -12,6 +13,8 @@ export interface ScheduleProductBlogPurgeInput {
   categorySlugs?: readonly (string | null | undefined)[];
   /** Pass pre-delete results because the relationship rows may have cascaded. */
   blogPostSlugs?: readonly string[];
+  /** Keep the immediate product purge, but skip a second purge when no blog is linked. */
+  skipWhenNoLinkedPosts?: boolean;
 }
 
 function normalizeBlogPostSlugs(slugs: readonly string[]) {
@@ -39,12 +42,16 @@ export async function scheduleProductBlogPurge({
   entries,
   categorySlugs,
   blogPostSlugs,
+  skipWhenNoLinkedPosts = false,
 }: ScheduleProductBlogPurgeInput): Promise<void> {
   try {
     const normalizedMerchantSlug = merchantSlug?.trim();
     if (!normalizedMerchantSlug || entries.length === 0) {
       return;
     }
+
+    // Invalidate the Next data before the outer CDN purge can trigger a refill.
+    expireProductBlogCache(merchantId);
 
     const linkedSlugs = normalizeBlogPostSlugs(
       blogPostSlugs === undefined
@@ -65,7 +72,7 @@ export async function scheduleProductBlogPurge({
       scheduleStorefrontProductPurge(normalizedMerchantSlug, entries, {
         blogPostSlugs: linkedSlugs,
       });
-    } else {
+    } else if (!skipWhenNoLinkedPosts) {
       scheduleStorefrontProductPurge(normalizedMerchantSlug, entries);
     }
   } catch (error) {

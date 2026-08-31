@@ -72,8 +72,8 @@ describe('hydrateRelatedBlogProductAvailability', () => {
     expect(result).toEqual(products);
   });
 
-  it('does not perform alternate lookups while primary stock is positive', async () => {
-    const rpc = vi.fn();
+  it('hydrates condition offers while primary stock is positive', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: [], error: null });
     const stockedVariantProduct = product({
       stock: 3,
       stock_quantity: 3,
@@ -87,8 +87,38 @@ describe('hydrateRelatedBlogProductAvailability', () => {
       [stockedVariantProduct]
     );
 
-    expect(rpc).not.toHaveBeenCalled();
-    expect(result).toEqual([stockedVariantProduct]);
+    expect(rpc).toHaveBeenCalledWith('get_product_offers', {
+      p_product_id: VARIANT_PRODUCT_ID,
+    });
+    expect(result[0]).toMatchObject({
+      ...stockedVariantProduct,
+      has_purchasable_condition_offer: false,
+      offers: [],
+    });
+  });
+
+  it('hydrates condition-offer prices even while the parent stock is positive', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ price: 175000, stock_quantity: 2 }],
+      error: null,
+    });
+    const stockedProduct = product({
+      stock: 3,
+      stock_quantity: 3,
+      price: 150000,
+    });
+
+    const result = await hydrateRelatedBlogProductAvailability(
+      { rpc } as never,
+      [stockedProduct]
+    );
+
+    expect(result[0]?.offers).toEqual([
+      { price: 175000, status: 'active', stock_quantity: 2 },
+    ]);
+    expect(rpc).toHaveBeenCalledWith('get_product_offers', {
+      p_product_id: 'product-1',
+    });
   });
 
   it('keeps the current purchasable offer price for the related rail', async () => {
@@ -123,112 +153,6 @@ describe('hydrateRelatedBlogProductAvailability', () => {
       );
 
       expect(result[0]?.has_purchasable_condition_offer).toBeUndefined();
-      expect(warnSpy).toHaveBeenCalled();
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-
-  it('keeps a managed product available when a public variant has stock', async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: [
-        {
-          product_id: VARIANT_PRODUCT_ID,
-          stock_quantity: 3,
-        },
-      ],
-      error: null,
-    });
-    const variantProduct = product({
-      id: VARIANT_PRODUCT_ID,
-      has_condition_offers: false,
-      has_variants: true,
-    });
-
-    const result = await hydrateRelatedBlogProductAvailability(
-      { rpc } as never,
-      [variantProduct]
-    );
-
-    expect(result[0]?.has_purchasable_variant).toBe(true);
-    expect(rpc).toHaveBeenCalledWith('get_storefront_product_variants', {
-      p_product_ids: [VARIANT_PRODUCT_ID],
-    });
-  });
-
-  it('keeps a purchasable variant price for the related rail', async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: [
-        {
-          product_id: VARIANT_PRODUCT_ID,
-          price_override: '175000',
-          stock_quantity: 2,
-        },
-      ],
-      error: null,
-    });
-    const variantProduct = product({
-      id: VARIANT_PRODUCT_ID,
-      price: 150000,
-      has_condition_offers: false,
-      has_variants: true,
-    });
-
-    const result = await hydrateRelatedBlogProductAvailability(
-      { rpc } as never,
-      [variantProduct]
-    );
-
-    expect(result[0]?.variants).toEqual([
-      { price_override: 175000, stock_quantity: 2 },
-    ]);
-  });
-
-  it('marks a managed product unavailable when every public variant is empty', async () => {
-    const rpc = vi.fn().mockResolvedValue({
-      data: [
-        {
-          product_id: VARIANT_PRODUCT_ID,
-          stock_quantity: 0,
-        },
-      ],
-      error: null,
-    });
-    const variantProduct = product({
-      id: VARIANT_PRODUCT_ID,
-      has_condition_offers: false,
-      has_variants: true,
-    });
-
-    const result = await hydrateRelatedBlogProductAvailability(
-      { rpc } as never,
-      [variantProduct]
-    );
-
-    expect(result[0]?.has_purchasable_variant).toBe(false);
-  });
-
-  it('fails open when the public variant lookup errors', async () => {
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-    const rpc = vi.fn().mockResolvedValue({
-      data: null,
-      error: { message: 'timeout' },
-    });
-    const variantProduct = product({
-      id: VARIANT_PRODUCT_ID,
-      has_condition_offers: false,
-      has_variants: true,
-    });
-
-    try {
-      const result = await hydrateRelatedBlogProductAvailability(
-        { rpc } as never,
-        [variantProduct]
-      );
-
-      expect(result[0]?.has_purchasable_variant).toBeUndefined();
       expect(warnSpy).toHaveBeenCalled();
     } finally {
       warnSpy.mockRestore();

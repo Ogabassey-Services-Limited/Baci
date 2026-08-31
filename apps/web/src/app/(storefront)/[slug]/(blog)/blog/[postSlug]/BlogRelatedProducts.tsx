@@ -18,7 +18,15 @@ function formatRelatedProductPrice(
 ) {
   if (!currencySource) return null;
 
-  const range = getProductPriceRange(product);
+  // Availability hydration treats a nullable legacy manage_stock value as
+  // managed (the safe PDP default). Match that contract when calculating the
+  // advertised range so an out-of-stock parent price cannot leak into a rail
+  // that is only purchasable through a stocked child.
+  const priceProduct =
+    product.manage_stock === null
+      ? { ...product, manage_stock: true as const }
+      : product;
+  const range = getProductPriceRange(priceProduct);
   if (range) {
     const min = formatMerchantCurrency(range.min, currencySource);
     return range.hasRange

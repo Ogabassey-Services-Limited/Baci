@@ -5,6 +5,8 @@ export const RELATED_BLOG_PRODUCT_LINKS_SELECT =
   'relationship, product:products!blog_post_products_product_id_fkey(id, name, slug, status, price, compare_at_price, min_variant_price, max_variant_price, stock, stock_quantity, manage_stock, has_condition_offers, has_variants, categories:category_id(slug))' as const;
 
 export interface RelatedBlogProductVariant {
+  id?: string;
+  inventory_tracking_policy?: string | null;
   price_override?: number | null;
   stock_quantity?: number | null;
 }
@@ -59,6 +61,7 @@ export interface RelatedBlogProduct {
   has_purchasable_condition_offer?: boolean;
   /** True when a public product variant has confirmed available stock. */
   has_purchasable_variant?: boolean;
+  inventory_tracking_policy?: string | null;
   variants?: RelatedBlogProductVariant[];
   category_slug: string | null;
 }
