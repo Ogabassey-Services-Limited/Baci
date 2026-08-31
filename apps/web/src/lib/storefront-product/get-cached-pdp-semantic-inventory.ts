@@ -1,7 +1,7 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import { getCachedCompareCategoryShell } from '@/lib/storefront-compare/get-cached-compare-category-shell';
-import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
+import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
+import { getCachedCompareCategoryShell } from '@/lib/storefront-compare/get-cached-compare-category-shell';
 import {
   getProductSeoSelect,
   mergeProductCandidates,
