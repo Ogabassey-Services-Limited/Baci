@@ -46,7 +46,9 @@ export interface BlogPostBodyProps {
     price?: number | null;
     compare_at_price?: number | null;
     has_condition_offers?: boolean | null;
+    has_variants?: boolean | null;
     has_purchasable_condition_offer?: boolean;
+    has_purchasable_variant?: boolean;
     manage_stock?: boolean | null;
     stock?: number | null;
     stock_quantity?: number | null;

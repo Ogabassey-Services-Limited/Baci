@@ -12,6 +12,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
+import { isValidUuid } from '@/lib/sanitize-core';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import type { StorefrontProductPurgeEntry } from '@/lib/storefront-product-purge-urls';
 import { createClient } from '@/lib/supabase/server';
@@ -117,11 +118,17 @@ export async function POST(request: NextRequest) {
       );
       const productIds = parseResult.data.changes
         .map((change) => change.productId?.trim())
-        .filter((productId): productId is string => Boolean(productId));
+        .filter(
+          (productId): productId is string =>
+            typeof productId === 'string' && isValidUuid(productId)
+        );
       const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
         supabase,
         merchantId,
-        productIds
+        productIds,
+        purgeEntries
+          .map((entry) => entry.categorySegment)
+          .filter((segment): segment is string => Boolean(segment))
       );
       if (blogPostSlugs.length > 0) {
         scheduleStorefrontProductPurge(

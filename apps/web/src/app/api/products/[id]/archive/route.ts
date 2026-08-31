@@ -148,7 +148,10 @@ export async function PATCH(
     const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
       auth.supabase,
       merchantContext.merchantId,
-      [product.id]
+      [product.id],
+      [purgeEntries[0]?.categorySegment].filter((segment): segment is string =>
+        Boolean(segment)
+      )
     );
     if (blogPostSlugs.length > 0) {
       scheduleStorefrontProductPurge(merchantRow?.slug, purgeEntries, {

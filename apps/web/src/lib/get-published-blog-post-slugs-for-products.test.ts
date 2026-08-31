@@ -1,21 +1,40 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getPublishedBlogPostSlugsForProducts } from './get-published-blog-post-slugs-for-products';
 
-function makeSupabase(result: { data: unknown; error: unknown }) {
+function makeSupabase(
+  result: { data: unknown; error: unknown },
+  categoryResult: { data: unknown; error: unknown } = { data: [], error: null }
+) {
   const inSpy = vi.fn();
-  const builder = {
-    eq: vi.fn(() => builder),
+  const categoryInSpy = vi.fn();
+  const categoryLimitSpy = vi.fn();
+  const productBuilder = {
+    eq: vi.fn(() => productBuilder),
     in: vi.fn((column: string, values: string[]) => {
       inSpy(column, values);
       return Promise.resolve(result);
     }),
   };
+  const categoryBuilder = {
+    eq: vi.fn(() => categoryBuilder),
+    in: vi.fn((column: string, values: string[]) => {
+      categoryInSpy(column, values);
+      return categoryBuilder;
+    }),
+    limit: vi.fn((value: number) => {
+      categoryLimitSpy(value);
+      return Promise.resolve(categoryResult);
+    }),
+    order: vi.fn(() => categoryBuilder),
+  };
   const supabase = {
-    from: vi.fn(() => ({
-      select: vi.fn(() => builder),
+    from: vi.fn((table: string) => ({
+      select: vi.fn(() =>
+        table === 'blog_posts' ? categoryBuilder : productBuilder
+      ),
     })),
   };
-  return { inSpy, supabase };
+  return { categoryInSpy, categoryLimitSpy, inSpy, supabase };
 }
 
 describe('getPublishedBlogPostSlugsForProducts', () => {
@@ -59,13 +78,18 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
     const result = await getPublishedBlogPostSlugsForProducts(
       supabase as never,
       ' merchant-1 ',
-      ['product-1', 'product-1', ' product-2 ']
+      [
+        '123e4567-e89b-12d3-a456-426614174000',
+        '123e4567-e89b-12d3-a456-426614174000',
+        ' 123e4567-e89b-12d3-a456-426614174001 ',
+        'sku-2',
+      ]
     );
 
     expect(result).toEqual(['phone-guide']);
     expect(inSpy).toHaveBeenCalledWith('product_id', [
-      'product-1',
-      'product-2',
+      '123e4567-e89b-12d3-a456-426614174000',
+      '123e4567-e89b-12d3-a456-426614174001',
     ]);
   });
 
@@ -90,12 +114,69 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
     try {
       await expect(
         getPublishedBlogPostSlugsForProducts(supabase as never, 'merchant-1', [
-          'product-1',
+          '123e4567-e89b-12d3-a456-426614174000',
         ])
       ).resolves.toEqual([]);
       expect(consoleSpy).toHaveBeenCalled();
     } finally {
       consoleSpy.mockRestore();
     }
+  });
+
+  it('includes published category-fallback posts and deduplicates linked slugs', async () => {
+    const { categoryInSpy, categoryLimitSpy, inSpy, supabase } = makeSupabase(
+      {
+        data: [
+          {
+            blog_posts: {
+              slug: 'linked-guide',
+              status: 'published',
+              published_at: '2026-08-01',
+            },
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            slug: 'linked-guide',
+            status: 'published',
+            published_at: '2026-08-01',
+            category: 'Smartphones',
+          },
+          {
+            slug: 'fallback-guide',
+            status: 'published',
+            published_at: '2026-08-02',
+            category: 'smartphones',
+          },
+          {
+            slug: 'draft-fallback',
+            status: 'draft',
+            published_at: null,
+            category: 'smartphones',
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      ['123e4567-e89b-12d3-a456-426614174000'],
+      ['smartphones']
+    );
+
+    expect(result).toEqual(['linked-guide', 'fallback-guide']);
+    expect(inSpy).toHaveBeenCalledWith('product_id', [
+      '123e4567-e89b-12d3-a456-426614174000',
+    ]);
+    expect(categoryInSpy).toHaveBeenCalledWith('category', [
+      'smartphones',
+      'Smartphones',
+    ]);
+    expect(categoryLimitSpy).toHaveBeenCalledWith(256);
   });
 });

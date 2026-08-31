@@ -142,11 +142,14 @@ export async function enrichProductPurgeEntries(
   ];
 
   const blogPostSlugs =
-    idsToResolve.length > 0
+    idsToResolve.length > 0 || entries.length > 0
       ? await getPublishedBlogPostSlugsForProducts(
           supabase,
           merchantId,
-          idsToResolve
+          idsToResolve,
+          entries
+            .map((entry) => entry.categorySegment)
+            .filter((segment): segment is string => Boolean(segment))
         )
       : [];
 

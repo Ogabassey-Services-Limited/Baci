@@ -10,6 +10,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import { generateProductSlug } from '@/lib/seo-utils';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
@@ -134,6 +135,7 @@ export async function POST(request: NextRequest) {
     let failedCount = 0;
     const errors: string[] = [];
     const publicPurgeEntries: StorefrontProductPurgeEntry[] = [];
+    const publicPurgeProductIds: string[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
@@ -197,6 +199,9 @@ export async function POST(request: NextRequest) {
           // product listings that can now include them.
           const purgeSlug = productData.slug.trim() || insertedProduct?.id;
           if (productData.status === 'active' && purgeSlug) {
+            if (insertedProduct?.id) {
+              publicPurgeProductIds.push(insertedProduct.id);
+            }
             publicPurgeEntries.push({
               slug: purgeSlug,
               categorySegment: resolveProductPurgeCategorySegment({
@@ -228,10 +233,26 @@ export async function POST(request: NextRequest) {
           merchantId,
           publicPurgeEntries.map((entry) => entry.slug)
         );
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
+        const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+          supabase,
+          merchantId,
+          publicPurgeProductIds,
           publicPurgeEntries
+            .map((entry) => entry.categorySegment)
+            .filter((segment): segment is string => Boolean(segment))
         );
+        if (blogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            publicPurgeEntries,
+            { blogPostSlugs }
+          );
+        } else {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            publicPurgeEntries
+          );
+        }
       } catch (purgeError) {
         console.warn('Skipped Cloudflare product purge after bulk import', {
           purgeError,

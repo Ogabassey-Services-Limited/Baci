@@ -5,6 +5,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { deriveProductVariantWriteProjections } from '@/lib/derive-product-variant-projections';
 import { getProductEmbeddingText } from '@/lib/embeddings';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
+import { getPublishedBlogPostSlugsForProducts } from '@/lib/get-published-blog-post-slugs-for-products';
 import {
   getSkuMatrixValidationError,
   inferProductVariantModel,
@@ -268,6 +269,15 @@ export async function createProduct(request: NextRequest) {
         )
         .finally(() => clearTimeout(embeddingTimeout));
     }
+    const blogPostSlugs =
+      body.status === 'active'
+        ? await getPublishedBlogPostSlugsForProducts(
+            supabase,
+            merchantId,
+            [product.id],
+            body.category ? [body.category] : []
+          )
+        : [];
     scheduleNewProductCaches({
       merchantId,
       merchantSlug: merchantContext.merchantSlug,
@@ -276,6 +286,7 @@ export async function createProduct(request: NextRequest) {
       name: body.name,
       category: body.category,
       images: resolvedImages,
+      blogPostSlugs,
     });
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {

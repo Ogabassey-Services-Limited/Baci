@@ -124,7 +124,10 @@ export async function POST(request: NextRequest) {
         const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
           supabase,
           merchantId,
-          (updatedProducts ?? []).map((product) => product.id)
+          (updatedProducts ?? []).map((product) => product.id),
+          publicPurgeEntries
+            .map((entry) => entry.categorySegment)
+            .filter((segment): segment is string => Boolean(segment))
         );
         if (blogPostSlugs.length > 0) {
           scheduleStorefrontProductPurge(

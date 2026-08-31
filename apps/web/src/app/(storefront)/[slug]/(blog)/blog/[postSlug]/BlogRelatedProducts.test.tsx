@@ -96,4 +96,25 @@ describe('BlogRelatedProducts', () => {
 
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
+
+  it('does not show unavailable when a stocked product variant can be purchased', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-5',
+            name: 'iPad 10 Wi-Fi + Cellular',
+            slug: 'ipad-10',
+            manage_stock: true,
+            stock: 0,
+            has_variants: true,
+            has_purchasable_variant: true,
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
+  });
 });

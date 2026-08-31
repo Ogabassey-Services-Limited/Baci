@@ -956,7 +956,10 @@ export async function PUT(
       const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
         supabase,
         merchantId,
-        [updatedProduct.id]
+        [updatedProduct.id],
+        productPurgeEntries
+          .map((entry) => entry.categorySegment)
+          .filter((segment): segment is string => Boolean(segment))
       );
       if (blogPostSlugs.length > 0) {
         scheduleStorefrontProductPurge(
@@ -1054,7 +1057,20 @@ export async function DELETE(
     const linkedBlogPostSlugs = await getPublishedBlogPostSlugsForProducts(
       supabase,
       merchantId,
-      [id]
+      [id],
+      productToDelete
+        ? [
+            resolveProductPurgeCategorySegmentForRow(
+              productToDelete as {
+                slug?: string | null;
+                name?: string | null;
+                category?: string | null;
+                categories?: unknown;
+                product_categories?: unknown;
+              }
+            ),
+          ].filter((segment): segment is string => Boolean(segment))
+        : []
     );
 
     // Keep the delete itself lean — the purge inputs were pre-read above.
@@ -1135,9 +1151,17 @@ export async function DELETE(
           { id, preReadError }
         );
         revalidateProductSlugs(merchantId, [id]);
-        scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
-          { slug: id, categorySegment: null },
-        ]);
+        if (linkedBlogPostSlugs.length > 0) {
+          scheduleStorefrontProductPurge(
+            merchantContext.merchantSlug,
+            [{ slug: id, categorySegment: null }],
+            { blogPostSlugs: linkedBlogPostSlugs }
+          );
+        } else {
+          scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
+            { slug: id, categorySegment: null },
+          ]);
+        }
       }
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after delete', {

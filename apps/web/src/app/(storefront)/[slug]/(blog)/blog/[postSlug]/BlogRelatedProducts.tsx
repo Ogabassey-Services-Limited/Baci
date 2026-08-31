@@ -11,7 +11,9 @@ type RelatedProduct = {
   price?: number | null;
   compare_at_price?: number | null;
   has_condition_offers?: boolean | null;
+  has_variants?: boolean | null;
   has_purchasable_condition_offer?: boolean;
+  has_purchasable_variant?: boolean;
   manage_stock?: boolean | null;
   stock?: number | null;
   stock_quantity?: number | null;
@@ -66,8 +68,11 @@ export function BlogRelatedProducts({
               {product.manage_stock &&
               getEffectiveStock(product) === 0 &&
               product.has_purchasable_condition_offer !== true &&
+              product.has_purchasable_variant !== true &&
               (!product.has_condition_offers ||
-                product.has_purchasable_condition_offer === false) ? (
+                product.has_purchasable_condition_offer === false) &&
+              (!product.has_variants ||
+                product.has_purchasable_variant === false) ? (
                 <span className="mt-1 block px-4 text-xs text-muted-foreground">
                   Currently unavailable
                 </span>
