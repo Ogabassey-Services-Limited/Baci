@@ -63,7 +63,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
     'sh',
     [
       '-c',
-      `. "$1"; root() { :; }; retirement_prepare() { retirement_lock; }; apply() { : >"$2"; while [ ! -e "$3" ]; do sleep 0.05; done; }; main --apply`,
+      `. "$1"; READY=$2; RELEASE=$3; root() { :; }; retirement_prepare() { retirement_lock; }; apply() { : >"$READY"; while [ ! -e "$RELEASE" ]; do sleep 0.05; done; }; main --apply`,
       `${script.pathname}.source`,
       script.pathname,
       ready,
@@ -101,7 +101,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
         'sh',
         [
           '-c',
-          `. "$1"; root() { :; }; retirement_prepare() { retirement_lock; }; scan() { : >"$2"; }; main --scan`,
+          `. "$1"; SCAN_MARKER=$2; root() { :; }; retirement_prepare() { retirement_lock; }; scan() { : >"$SCAN_MARKER"; }; main --scan`,
           `${script.pathname}.source`,
           script.pathname,
           scanMarker,
