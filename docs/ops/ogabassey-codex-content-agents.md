@@ -61,6 +61,34 @@ Product-support and comparison drafts can include `target_product_ids`. The VPS
 publisher writes those IDs to `public.blog_post_products` after inserting the
 draft. BlogSnippet reads that table first, then falls back to semantic matching.
 
+### Live commerce data contract
+
+The product rail is the live commerce surface. It reads the linked product's
+current price, sale price, stock quantity, and managed-stock state from the
+catalog when the article is rendered; product cache invalidation is keyed by
+the merchant's `products-{merchant_id}` tag. The price or availability written
+inside an article body is an editorial snapshot, not a promise that the value
+will remain current.
+
+Agents must therefore:
+
+- emit `target_product_ids` for every product the draft presents as a product
+  recommendation or comparison target;
+- describe body prices as checked at the supplied catalog-sync/publication
+  time and link readers to the live product card for the current offer;
+- never invent a price or availability value when the candidate does not
+  provide one; and
+- leave stock decisions to the storefront rail, which applies the shared
+  managed/unmanaged inventory rules and shows an unavailable state when a
+  managed product reaches effective stock zero.
+
+The retired ADK compatibility path (`agents/content_writer.yaml` and
+`agents/save_tool.py`) is not a production commercial lane because its
+`save_draft` contract predates explicit product-link persistence. Use
+`scripts/run_codex_content_agent.sh` for product-support and comparison work;
+do not re-enable the legacy cron without first giving it the same target-ID
+and live-rail contract.
+
 Deployment order:
 
 1. Deploy the Baci migration that creates `public.blog_post_products`.
