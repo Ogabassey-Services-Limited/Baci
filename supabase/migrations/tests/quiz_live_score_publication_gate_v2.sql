@@ -11,14 +11,16 @@ INSERT INTO public.quiz_events(
   id, merchant_id, slug, title, status, starts_at, ends_at,
   mode, contract_version, rules_version, question_count,
   time_per_question_seconds, maximum_play_seconds, live_window_seconds,
-  max_attempts, time_zone
+  max_attempts, time_zone, compliance_verified, regulatory_basis,
+  regulatory_jurisdiction, regulatory_evidence_ref
 ) VALUES (
   '79000000-0000-4000-8000-000000000001',
   '79000000-0000-4000-8000-000000000002',
   'live-score-gate-proof', 'Live score gate proof', 'active',
   pg_catalog.transaction_timestamp() - interval '2 minutes',
   pg_catalog.transaction_timestamp() - interval '1 minute',
-  'live', 2, 'instant-v2', 1, 5, 5, 60, 1, 'Africa/Lagos'
+  'live', 2, 'instant-v2', 1, 5, 5, 60, 1, 'Africa/Lagos', true,
+  'free_skill_competition', 'Nigeria', 'automated migration replay evidence'
 );
 SET LOCAL session_replication_role = origin;
 

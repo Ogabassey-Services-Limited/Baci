@@ -13,6 +13,10 @@ const readMigration = (file: string) =>
 const liveScorePublicationGateSql = readMigration(
   '20260830193440_quiz_instant_live_publication_score_gate_v2.sql'
 );
+const liveScorePublicationGateProofSql = readFileSync(
+  resolve(migrationsDirectory, 'tests/quiz_live_score_publication_gate_v2.sql'),
+  'utf8'
+);
 const scorePublicationGateSql = readMigration(
   '20260830193441_quiz_instant_test_publication_score_gate_v2.sql'
 );
@@ -65,6 +69,9 @@ describe('quiz deadline review repairs', () => {
       /ALTER TABLE private\.quiz_test_publication_control_v2[\s\S]*?ENABLE ROW LEVEL SECURITY/i
     );
     expect(liveScorePublicationGateSql).not.toMatch(/CREATE POLICY/i);
+    expect(liveScorePublicationGateProofSql).toMatch(
+      /INSERT INTO public\.quiz_events\([\s\S]*?compliance_verified, regulatory_basis,\s*regulatory_jurisdiction, regulatory_evidence_ref[\s\S]*?VALUES \([\s\S]*?'Africa\/Lagos', true,\s*'free_skill_competition', 'Nigeria', 'automated migration replay evidence'/i
+    );
     expect(migrations.indexOf(earlyGate)).toBeLessThan(
       migrations.indexOf(firstRepair)
     );
