@@ -8,6 +8,7 @@ import {
   releaseJumiaSelfAuthorizationDiscovery,
   updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
+import { claimJumiaResumedAuthorization } from './claim-jumia-resumed-authorization';
 import { handleJumiaSelfAuthorizationConnectRequest } from './self-authorization-connect-request';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 
@@ -17,6 +18,10 @@ const { mockCreateAdminClient } = vi.hoisted(() => ({
 
 vi.mock('@/lib/jumia/self-authorization', () => ({
   validateJumiaSelfAuthorization: vi.fn(),
+}));
+
+vi.mock('./claim-jumia-resumed-authorization', () => ({
+  claimJumiaResumedAuthorization: vi.fn(),
 }));
 
 vi.mock('@/lib/jumia/self-authorization-discovery-store', () => ({
@@ -94,6 +99,7 @@ function buildSupabase(
 describe('handleJumiaSelfAuthorizationConnectRequest', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue(null);
   });
 
   it('returns 400 when a selection request is missing discoveryId', async () => {
