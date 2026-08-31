@@ -179,6 +179,7 @@ const serverSchema = z
       .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
     RECOVERY_CODE_PEPPER: recoveryCodePepperSchema,
     SUPABASE_JWT_SECRET: optionalTrimmedStringSchema,
+    SUPABASE_LEGACY_ANON_JWT: optionalTrimmedStringSchema,
     SUPABASE_AGENTIC_JWT_PRIVATE_JWK: supabaseAgenticJwtPrivateJwkStringSchema,
 
     // Blog
@@ -602,6 +603,7 @@ const getEnv = () => {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
         RECOVERY_CODE_PEPPER: process.env.RECOVERY_CODE_PEPPER,
         SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+        SUPABASE_LEGACY_ANON_JWT: process.env.SUPABASE_LEGACY_ANON_JWT,
         SUPABASE_AGENTIC_JWT_PRIVATE_JWK:
           process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
@@ -895,6 +897,17 @@ export const getSupabaseJwtSecret = (): string => {
   );
   if (!jwtSecret) throw new Error('SUPABASE_JWT_SECRET is not defined');
   return jwtSecret;
+};
+
+export const getSupabaseLegacyAnonJwt = (): string | undefined => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'SUPABASE_LEGACY_ANON_JWT cannot be accessed on the client'
+    );
+  const legacyAnonJwt = trimSecret(
+    process.env.SUPABASE_LEGACY_ANON_JWT ?? env?.SUPABASE_LEGACY_ANON_JWT
+  );
+  return legacyAnonJwt || undefined;
 };
 
 export const getSupabaseAgenticJwtPrivateJwk = (): string | undefined => {
