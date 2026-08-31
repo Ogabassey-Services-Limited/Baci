@@ -33,6 +33,7 @@ function fillCheckoutContact() {
     screen.getByPlaceholderText('john@example.com'),
     'ada@example.com'
   );
+  fireEvent(screen.getByPlaceholderText('john@example.com'), 'blur');
 }
 
 function fillLagosDeliveryAddress() {

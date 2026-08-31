@@ -1,9 +1,6 @@
 import { isAirportDeliveryEligible } from '@baci/shared';
 import { useEffect, useEffectEvent, useRef, useState } from 'react';
-import {
-  fetchShippingQuotes,
-  resolveGoogleCitySuggestionAction,
-} from '@/components/checkout/checkout-shipping.helpers';
+import { fetchShippingQuotes } from '@/components/checkout/checkout-shipping.helpers';
 import {
   getDefaultPickupQuoteId,
   getShippingQuoteMode,
@@ -21,11 +18,13 @@ import type {
   ShippingQuote,
 } from '@/components/checkout/types';
 import { buildShippingQuoteContextKey } from '@/lib/shipping-quotes';
+import { applyCheckoutGoogleCitySuggestion } from './apply-checkout-google-city-suggestion';
 import { createCheckoutShippingHandlers } from './checkout-shipping-handlers';
 import {
   loadShippingCities,
   loadShippingStates,
 } from './checkout-shipping-loaders';
+import { shouldShowCheckoutLocationPickers } from './should-show-checkout-location-pickers';
 import type {
   SavedDoorAddress,
   UseCheckoutShippingParams,
@@ -73,7 +72,6 @@ export function useCheckoutShipping({
   );
   const activeDeliveryCoordinates =
     watchedAddress === committedAddress ? deliveryCoordinates : null;
-  const hasEnteredDeliveryAddress = Boolean(watchedAddress.trim());
   const {
     canUsePickupStation,
     currentQuotePreference,
@@ -150,22 +148,16 @@ export function useCheckoutShipping({
     }
   );
   const applyGoogleSuggestedCity = useEffectEvent((cities: string[]) => {
-    const action = resolveGoogleCitySuggestionAction(
+    applyCheckoutGoogleCitySuggestion({
       cities,
-      googleSuggestedCityRef.current
-    );
-    if (action.type === 'none') return;
-    googleSuggestedCityRef.current = null;
-    if (action.type === 'openPicker') {
-      setShowCityPicker(true);
-      return;
-    }
-    if (action.type === 'selectCity') {
-      setValue('city', action.city, { shouldValidate: true });
-    } else {
-      setCitySearch(action.city);
-      setShowCityPicker(true);
-    }
+      onClearSuggestion: () => {
+        googleSuggestedCityRef.current = null;
+      },
+      onOpenPicker: () => setShowCityPicker(true),
+      onSearchCity: setCitySearch,
+      onSelectCity: (city) => setValue('city', city, { shouldValidate: true }),
+      suggestedCity: googleSuggestedCityRef.current,
+    });
   });
   const [prevCityRequest, setPrevCityRequest] = useState(() => ({
     apiBaseUrl,
@@ -211,7 +203,7 @@ export function useCheckoutShipping({
   }, [apiBaseUrl, watchedState]);
   // biome-ignore lint/correctness/useExhaustiveDependencies(items): cart item identity changes must re-request quotes (pre-refactor behavior).
   useEffect(() => {
-    if (shippingQuoteAbortRef.current) shippingQuoteAbortRef.current.abort();
+    shippingQuoteAbortRef.current?.abort();
     if (
       (!usesDoorQuotes && !usesPickupQuotes) ||
       !watchedState ||
@@ -293,11 +285,12 @@ export function useCheckoutShipping({
     shippingCities,
     shippingQuotes,
     shippingStates,
-    showLocationPickers:
-      hasEnteredDeliveryAddress &&
-      (!activeDeliveryCoordinates ||
-        !watchedCity.trim() ||
-        !watchedState.trim()),
+    showLocationPickers: shouldShowCheckoutLocationPickers({
+      address: watchedAddress,
+      city: watchedCity,
+      hasCoordinates: Boolean(activeDeliveryCoordinates),
+      state: watchedState,
+    }),
     showCityPicker,
     showStatePicker,
   };
