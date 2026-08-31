@@ -1,8 +1,6 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import {
-  getCachedCategoryPageShellData,
-  getPublicSupabaseClient,
-} from '@/lib/cached-data';
+import { getCachedCompareCategoryShell } from '@/lib/storefront-compare/get-cached-compare-category-shell';
+import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import { getCategoryPageDataCacheTag } from '@/lib/category-page-cache-tags';
 import {
   getProductSeoSelect,
@@ -71,7 +69,7 @@ async function getCachedPdpSemanticInventoryForSafeCategory(
     // Unit tests do not run with Next cacheComponents enabled.
   }
 
-  const shell = await getCachedCategoryPageShellData(
+  const shell = await getCachedCompareCategoryShell(
     merchantId,
     categorySlug,
     storeSlug
