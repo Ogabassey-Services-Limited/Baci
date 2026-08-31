@@ -116,7 +116,6 @@ export function useCheckoutAddressState({
   useEffect(() => {
     if (!isContactComplete) {
       savedAddresses.setIsContactCollapsed(false);
-      wasContactComplete.current = false;
       return;
     }
 
