@@ -5,6 +5,7 @@ import {
   isPublicProjectionBlogPost,
 } from './get-public-projection-blog-seo-paths';
 import { hasEligiblePublicProjectionCategoryCompareHub } from './has-eligible-public-projection-category-compare-hub';
+import { hasEligiblePublicProjectionCompareHub } from './has-eligible-public-projection-compare-hub';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 import { validatePublicProjectionSeoEntryGuards } from './validate-public-projection-seo-entry-guards';
 
@@ -42,6 +43,7 @@ interface SeoBlogPost {
 }
 
 interface SeoContentPage {
+  body?: string;
   slug: string;
 }
 
@@ -50,7 +52,12 @@ interface SeoPayload {
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
   featureFlags?: readonly { enabled: boolean; key: string }[];
-  merchant: { currency: string; hostname: string; slug: string };
+  merchant: {
+    currency: string;
+    hostname: string;
+    slug: string;
+    template?: { id: string };
+  };
   policies?: {
     privacy?: string;
     returns?: string;
@@ -76,9 +83,6 @@ const STATIC_SEO_PATHS = new Set([
   '/pages/rewards',
   '/blog',
 ]);
-const COMPARE_HUB_CATEGORY_SCAN_LIMIT = 80;
-const COMPARE_HUB_PRODUCTS_PER_CATEGORY_LIMIT = 80;
-
 function hasEnabledFeature(
   featureFlags: SeoPayload['featureFlags'],
   key: string
@@ -96,50 +100,18 @@ function addIssue(context: RefinementCtx, index: number) {
   });
 }
 
-function haveDifferentComparableSpecs(left: SeoProduct, right: SeoProduct) {
-  const leftSpecs = left.productKeySpecs ?? {};
-  const rightSpecs = right.productKeySpecs ?? {};
-  const sharedKeys = Object.keys(leftSpecs).filter((key) => key in rightSpecs);
-  return sharedKeys.filter((key) => {
-    const leftValue = leftSpecs[key];
-    const rightValue = rightSpecs[key];
-    if (Array.isArray(leftValue) && Array.isArray(rightValue))
-      return (
-        JSON.stringify([...leftValue].map(String).sort()) !==
-        JSON.stringify([...rightValue].map(String).sort())
-      );
-    return leftValue !== rightValue;
-  }).length;
-}
+const CONTENT_BACKED_POLICY_SLUGS = new Set([
+  'privacy',
+  'privacy-policy',
+  'terms',
+  'terms-and-conditions',
+  'terms-of-service',
+]);
 
-function hasEligibleCompareHub(
-  categories: readonly SeoCategory[],
-  products: readonly SeoProduct[]
-) {
-  for (const category of categories.slice(0, COMPARE_HUB_CATEGORY_SCAN_LIMIT)) {
-    const categoryProducts = products
-      .filter((product) =>
-        [
-          ...(product.categoryIds ?? []),
-          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-        ].includes(category.id)
-      )
-      .slice(0, COMPARE_HUB_PRODUCTS_PER_CATEGORY_LIMIT);
-    for (let leftIndex = 0; leftIndex < categoryProducts.length; leftIndex += 1)
-      for (
-        let rightIndex = leftIndex + 1;
-        rightIndex < categoryProducts.length;
-        rightIndex += 1
-      )
-        if (
-          haveDifferentComparableSpecs(
-            categoryProducts[leftIndex],
-            categoryProducts[rightIndex]
-          ) >= 3
-        )
-          return true;
-  }
-  return false;
+function hasTemplatePolicyPage(templateId: string | undefined): boolean {
+  return Boolean(
+    templateId && templateId !== 'default' && templateId !== 'puck'
+  );
 }
 
 /** Rejects SEO metadata paths that cannot be served by this public release. */
@@ -151,10 +123,23 @@ export function validatePublicProjectionSeoEntries(
   addPublicProjectionSeoPolicyPaths(knownPaths, payload.policies);
   if (payload.policies?.warrantyPolicy?.summary.trim())
     knownPaths.add('/warranty');
-  for (const page of payload.contentPages ?? [])
+  for (const page of payload.contentPages ?? []) {
+    // The live warranty route is policy-backed; contentPages cannot create it.
+    if (
+      page.slug === 'warranty' &&
+      !payload.policies?.warrantyPolicy?.summary.trim()
+    )
+      continue;
+    if (
+      CONTENT_BACKED_POLICY_SLUGS.has(page.slug) &&
+      !page.body?.trim() &&
+      !hasTemplatePolicyPage(payload.merchant.template?.id)
+    )
+      continue;
     knownPaths.add(
       page.slug === 'rewards' ? '/pages/rewards' : `/${page.slug}`
     );
+  }
   for (const category of payload.categories ?? []) {
     knownPaths.add(`/${category.slug}`);
     knownPaths.add(`/${category.slug}/compare`);
@@ -215,7 +200,7 @@ export function validatePublicProjectionSeoEntries(
     payload.merchant
   ))
     knownPaths.add(path);
-  const compareHubEligible = hasEligibleCompareHub(
+  const compareHubEligible = hasEligiblePublicProjectionCompareHub(
     payload.categories ?? [],
     payload.products
   );

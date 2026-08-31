@@ -67,6 +67,15 @@ function toRouteSlug(value: string): string {
     .replace(/^-+|-+$/gu, '');
 }
 
+function matchesBrandQueryValue(
+  brand: string | null | undefined,
+  aliases: readonly string[]
+): boolean {
+  if (brand === undefined || brand === null) return false;
+  const normalizedBrand = brand.toLowerCase();
+  return aliases.some((alias) => normalizedBrand === alias.toLowerCase());
+}
+
 function getCategoryProducts(
   categoryId: string,
   products: readonly SeoProduct[],
@@ -91,8 +100,7 @@ function getBrandAuthorityProducts(
     requireAvailability: true,
   }).filter(
     (product) =>
-      !brandAliases ||
-      brandAliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
+      !brandAliases || matchesBrandQueryValue(product.brand, brandAliases)
   );
   if (!categoryProducts.every((product) => product.updatedAt))
     return categoryProducts.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
@@ -135,8 +143,7 @@ function hasEligibleBrand(
   return (
     getBrandAuthorityProducts(category.id, products, rule.aliases).filter(
       (product) =>
-        product.available &&
-        rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
+        product.available && matchesBrandQueryValue(product.brand, rule.aliases)
     ).length >= rule.minimumProducts
   );
 }
@@ -215,8 +222,9 @@ export function hasEligibleCommercialSupportPath(
       ).filter(
         (product) =>
           product.available &&
-          getBrandRule(brandSlug)?.aliases.some(
-            (alias) => alias === toRouteSlug(product.brand ?? '')
+          matchesBrandQueryValue(
+            product.brand,
+            getBrandRule(brandSlug)?.aliases ?? []
           ) &&
           family.pattern.test(product.name.trim())
       ).length >= 3

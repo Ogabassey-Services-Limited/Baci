@@ -121,6 +121,109 @@ describe('validatePublicProjectionSeoEntries', () => {
     );
   });
 
+  it('does not accept a parent compare hub from a grandchild-only link', () => {
+    const parent = { id: 'category-parent', slug: 'smartphones' };
+    const child = {
+      id: 'category-child',
+      parentId: parent.id,
+      slug: 'android-phones',
+    };
+    const grandchild = {
+      id: 'category-grandchild',
+      parentId: child.id,
+      slug: 'android-foldables',
+    };
+    const grandchildProducts = products.map((product) => ({
+      ...product,
+      categoryIds: [grandchild.id],
+    }));
+    const messages: string[] = [];
+
+    validatePublicProjectionSeoEntries(
+      {
+        categories: [parent, child, grandchild],
+        maintainedComparePaths: [
+          '/android-foldables/compare/phone-a-vs-phone-b',
+        ],
+        merchant: {
+          currency: 'NGN',
+          hostname: 'pilot-store.usebaci.com',
+          slug: 'pilot-store',
+        },
+        products: grandchildProducts,
+        seoEntries: [{ indexable: true, path: '/smartphones/compare' }],
+      },
+      {
+        addIssue(issue: { message?: string }) {
+          messages.push(issue.message ?? '');
+        },
+      } as Parameters<typeof validatePublicProjectionSeoEntries>[1]
+    );
+
+    expect(messages).toContain(
+      'Category compare SEO requires an eligible projected comparison link'
+    );
+  });
+
+  it('does not release empty default policy content pages', () => {
+    const messages: string[] = [];
+
+    validatePublicProjectionSeoEntries(
+      {
+        categories,
+        contentPages: [
+          { body: '', slug: 'privacy' },
+          { body: '   ', slug: 'terms' },
+        ],
+        merchant: {
+          currency: 'NGN',
+          hostname: 'pilot-store.usebaci.com',
+          slug: 'pilot-store',
+          template: { id: 'default' },
+        },
+        products,
+        seoEntries: [
+          { indexable: true, path: '/privacy' },
+          { indexable: true, path: '/terms' },
+        ],
+      },
+      {
+        addIssue(issue: { message?: string }) {
+          messages.push(issue.message ?? '');
+        },
+      } as Parameters<typeof validatePublicProjectionSeoEntries>[1]
+    );
+
+    expect(messages).toHaveLength(2);
+  });
+
+  it('does not treat a content page as a publishable warranty route', () => {
+    const messages: string[] = [];
+
+    validatePublicProjectionSeoEntries(
+      {
+        categories,
+        contentPages: [{ body: 'Warranty details', slug: 'warranty' }],
+        merchant: {
+          currency: 'NGN',
+          hostname: 'pilot-store.usebaci.com',
+          slug: 'pilot-store',
+        },
+        products,
+        seoEntries: [{ indexable: true, path: '/warranty' }],
+      },
+      {
+        addIssue(issue: { message?: string }) {
+          messages.push(issue.message ?? '');
+        },
+      } as Parameters<typeof validatePublicProjectionSeoEntries>[1]
+    );
+
+    expect(messages).toContain(
+      'SEO entry path does not resolve to a released storefront route'
+    );
+  });
+
   it('applies the origin category and product discovery bounds', () => {
     const categories = [
       ...Array.from({ length: 80 }, (_, index) => ({

@@ -26,23 +26,16 @@ export function hasEligiblePublicProjectionCategoryCompareHub(
 ): boolean {
   const category = categoriesBySlug.get(categorySlug);
   if (!category) return false;
-  const descendantIds = new Set([category.id]);
-  const eligibleCategorySlugs = new Set([categorySlug]);
-  let expanded = true;
-  while (expanded) {
-    expanded = false;
-    for (const candidate of categoriesBySlug.values()) {
-      if (
-        !candidate.parentId ||
-        !descendantIds.has(candidate.parentId) ||
-        descendantIds.has(candidate.id)
-      )
-        continue;
-      descendantIds.add(candidate.id);
-      eligibleCategorySlugs.add(candidate.slug);
-      expanded = true;
-    }
-  }
+  // The origin hub loads the requested category and its direct active
+  // children, not the entire descendant tree. Keep the projection eligibility
+  // test aligned so a grandchild-only compare pair cannot make the parent
+  // route look publishable when the live hub would still be thin.
+  const eligibleCategorySlugs = new Set([
+    categorySlug,
+    ...[...categoriesBySlug.values()]
+      .filter((candidate) => candidate.parentId === category.id)
+      .map((candidate) => candidate.slug),
+  ]);
   return [...maintainedComparePaths].some((path) => {
     const categoryMatch = /^\/([^/]+)\/compare\//u.exec(path);
     return (
