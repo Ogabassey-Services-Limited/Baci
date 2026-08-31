@@ -57,8 +57,10 @@ function buildCategoryCandidates(categorySlugs: readonly string[]) {
     if (!trimmed) continue;
 
     const spaced = trimmed.replace(/[-_]+/gu, ' ');
-    const titleCased = spaced.replace(/\b\w/gu, (character) =>
-      character.toUpperCase()
+    const titleCased = spaced.replace(
+      /(^|\s)([a-z])/giu,
+      (_match, prefix: string, character: string) =>
+        `${prefix}${character.toUpperCase()}`
     );
 
     for (const candidate of [

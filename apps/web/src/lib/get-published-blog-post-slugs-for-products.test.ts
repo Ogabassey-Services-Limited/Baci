@@ -179,4 +179,26 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
     ]);
     expect(categoryLimitSpy).toHaveBeenCalledWith(256);
   });
+
+  it('preserves apostrophes when building category fallback candidates', async () => {
+    const { categoryInSpy, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: [], error: null }
+    );
+
+    await expect(
+      getPublishedBlogPostSlugsForProducts(
+        supabase as never,
+        'merchant-1',
+        [],
+        ["women's-fashion"]
+      )
+    ).resolves.toEqual([]);
+
+    expect(categoryInSpy).toHaveBeenCalledWith('category', [
+      "women's-fashion",
+      "women's fashion",
+      "Women's Fashion",
+    ]);
+  });
 });
