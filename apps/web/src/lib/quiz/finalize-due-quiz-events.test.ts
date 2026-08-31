@@ -115,6 +115,30 @@ describe('finalizeDueQuizEvents', () => {
     });
   });
 
+  it('keeps every backed-off deadline queue degraded in the direct worker', async () => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { updated: true }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          liveAwardRetryPending: 3,
+          liveTerminalizationRetryPending: 2,
+          testPublicationRetryPending: 1,
+        },
+        error: null,
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      failed: 6,
+      liveAwardRetryPending: 3,
+      liveTerminalizationRetryPending: 2,
+      testPublicationRetryPending: 1,
+    });
+  });
+
   it('passes both production gates to the live database finalizer', async () => {
     mocks.phase.mockReturnValue('production');
     mocks.approved.mockReturnValue(true);

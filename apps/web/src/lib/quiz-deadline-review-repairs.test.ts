@@ -3,6 +3,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migrationsDirectory = resolve(process.cwd(), '../../supabase/migrations');
+const ciWorkflow = readFileSync(
+  resolve(process.cwd(), '../../.github/workflows/ci.yml'),
+  'utf8'
+);
 const migrations = readdirSync(migrationsDirectory).sort();
 const readMigration = (file: string) =>
   readFileSync(resolve(migrationsDirectory, file), 'utf8');
@@ -156,5 +160,17 @@ describe('quiz deadline review repairs', () => {
       /ALTER TABLE private\.quiz_test_publication_control_v2[\s\S]*?ENABLE ROW LEVEL SECURITY/i
     );
     expect(testPublicationControlRlsSql).not.toMatch(/CREATE POLICY/i);
+  });
+
+  it('runs every deadline repair SQL proof in chronological replay CI', () => {
+    for (const file of [
+      'quiz_instant_retry_pending_health_v2.sql',
+      'quiz_results_wakeup_player_access_v2.sql',
+      'quiz_test_publication_control_rls_v2.sql',
+    ]) {
+      expect(ciWorkflow).toContain(
+        `--sql-check supabase/migrations/tests/${file}`
+      );
+    }
   });
 });

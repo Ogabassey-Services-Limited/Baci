@@ -21,6 +21,8 @@ const COUNT_KEYS = [
   'liveDeadlineClockFailed',
   'deadlineClockFailed',
   'liveFinalizationFailed',
+  'testPublicationRetryPending',
+  'liveTerminalizationRetryPending',
   'liveAwardRetryPending',
   'liveAwaitingGate',
   'awarded',
@@ -81,7 +83,10 @@ function addPayload(summary: Summary, payload: unknown) {
     summaryValue(payload, 'liveTerminalizationFailed') +
     summaryValue(payload, 'scheduledPromotionFailed') +
     summaryValue(payload, 'deadlineClockFailed') +
-    summaryValue(payload, 'liveFinalizationFailed');
+    summaryValue(payload, 'liveFinalizationFailed') +
+    summaryValue(payload, 'testPublicationRetryPending') +
+    summaryValue(payload, 'liveTerminalizationRetryPending') +
+    summaryValue(payload, 'liveAwardRetryPending');
 }
 
 function summaryValue(payload: object, key: CountKey) {
