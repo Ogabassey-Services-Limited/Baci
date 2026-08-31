@@ -53,6 +53,9 @@ const PRICE_BAND_RULES = [
 
 const MIN_PRICE_BAND_PRODUCTS = 6;
 const MIN_PRICE_BAND_BRANDS = 3;
+const MINOR_UNITS_PER_MAJOR_UNIT = 100;
+const COMPARE_DELIMITER = '-vs-';
+const COMPARE_ESCAPE_PREFIX = '~';
 
 function toRouteSlug(value: string): string {
   return value
@@ -77,9 +80,38 @@ function getCategoryProducts(
 }
 
 function getBrandRule(brandSlug: string) {
-  return BRAND_AUTHORITY_RULES.find(({ aliases }) =>
-    aliases.some((alias) => alias === brandSlug)
-  );
+  return BRAND_AUTHORITY_RULES.find(({ key }) => key === brandSlug);
+}
+
+function parseCompareKey(key: string): string | null {
+  if (!key.startsWith(COMPARE_ESCAPE_PREFIX)) return key;
+  const encodedBytes = key.slice(COMPARE_ESCAPE_PREFIX.length);
+  if (
+    encodedBytes.length === 0 ||
+    encodedBytes.length % 2 !== 0 ||
+    /[^0-9a-f]/iu.test(encodedBytes)
+  )
+    return null;
+  try {
+    return new TextDecoder().decode(
+      new Uint8Array(
+        encodedBytes.match(/.{2}/gu)?.map((pair) => Number.parseInt(pair, 16)) ??
+          []
+      )
+    );
+  } catch {
+    return null;
+  }
+}
+
+function parseCompareSlug(slug: string):
+  | Readonly<{ left: string; right: string }>
+  | null {
+  const [leftPart, rightPart, ...rest] = slug.split(COMPARE_DELIMITER);
+  if (!leftPart || !rightPart || rest.length > 0) return null;
+  const left = parseCompareKey(leftPart);
+  const right = parseCompareKey(rightPart);
+  return left && right ? { left, right } : null;
 }
 
 function hasEligibleBrand(
@@ -112,7 +144,8 @@ function hasEligiblePriceBand(
   if (!category || !rule) return false;
 
   const bandProducts = getCategoryProducts(category.id, products).filter(
-    (product) => product.priceMinor <= rule.ceiling
+    (product) =>
+      product.priceMinor <= rule.ceiling * MINOR_UNITS_PER_MAJOR_UNIT
   );
   const brandKeys = new Set(
     bandProducts
@@ -193,7 +226,9 @@ export function hasEligibleCommercialSupportPath(
     );
   if (segments.length !== 3 || segments[1] !== 'compare') return false;
   const category = categoriesBySlug.get(segments[0] ?? '');
-  const [left, right] = (segments[2] ?? '').split('-vs-');
+  const parsedCompare = parseCompareSlug(segments[2] ?? '');
+  const left = parsedCompare?.left;
+  const right = parsedCompare?.right;
   if (!category || !left || !right || left === right) return false;
   const categoryProducts = getCategoryProducts(category.id, products);
   const productSlugs = new Set(categoryProducts.map((product) => product.slug));

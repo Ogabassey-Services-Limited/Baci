@@ -42,6 +42,20 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('rescans images nested in a balanced non-link label', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '[broken ![x](https://cdn.example.test/a.png)]'
+      )
+    ).toBe(true);
+  });
+
+  it('treats an escaped image marker as an ordinary safe link', () => {
+    expect(
+      hasUnstableMarkdownContent('\\![x](https://example.test/a.png)')
+    ).toBe(false);
+  });
+
   it('scans GFM bare autolinks outside code', () => {
     expect(
       hasUnstableMarkdownContent(

@@ -119,12 +119,35 @@ function normalizeMarkdownReferenceLabel(label: string): string {
   return label.trim().replace(/\s+/gu, ' ').toLowerCase();
 }
 
+function isEscaped(content: string, index: number): boolean {
+  let backslashCount = 0;
+  for (let cursor = index - 1; cursor >= 0 && content[cursor] === '\\'; cursor -= 1)
+    backslashCount += 1;
+  return backslashCount % 2 === 1;
+}
+
+function findNextImageToken(
+  content: string,
+  start: number,
+  boundary = content.length
+): number {
+  let cursor = content.indexOf('![', start);
+  while (cursor !== -1 && cursor < boundary) {
+    if (!isEscaped(content, cursor)) return cursor;
+    cursor = content.indexOf('![', cursor + 2);
+  }
+  return -1;
+}
+
 function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
   const destinations: { destination: string; image: boolean }[] = [];
   const imageReferenceLabels = new Set<string>();
   let index = 0;
   while (index < content.length) {
-    const image = content[index] === '!' && content[index + 1] === '[';
+    const image =
+      content[index] === '!' &&
+      content[index + 1] === '[' &&
+      !isEscaped(content, index);
     if (!image && content[index] !== '[') {
       index += 1;
       continue;
@@ -135,7 +158,7 @@ function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
       // An unmatched link label must not swallow a later image token. Markdown
       // images are independent candidates, so resume scanning at the next one
       // rather than treating its closing bracket as the outer label's close.
-      const nextImage = content.indexOf('![', openingBracket + 1);
+      const nextImage = findNextImageToken(content, openingBracket + 1);
       if (nextImage !== -1) {
         index = nextImage;
         continue;
@@ -160,6 +183,15 @@ function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
       continue;
     }
     if (suffix !== '(') {
+      const nestedImage = findNextImageToken(
+        content,
+        openingBracket + 1,
+        closingBracket
+      );
+      if (nestedImage !== -1) {
+        index = nestedImage;
+        continue;
+      }
       index = closingBracket + 1;
       continue;
     }

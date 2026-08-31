@@ -1,4 +1,5 @@
 import type { RefinementCtx } from 'zod';
+import { getPublicProjectionBlogSeoPaths } from './get-public-projection-blog-seo-paths';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 
 interface SeoEntry {
@@ -28,6 +29,7 @@ interface SeoBlogPost {
   authorName: string;
   category?: string | null;
   slug: string;
+  title: string;
 }
 
 interface SeoContentPage {
@@ -39,6 +41,7 @@ interface SeoPayload {
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
   featureFlags?: readonly { enabled: boolean; key: string }[];
+  merchant: { hostname: string; slug: string };
   policies?: {
     privacy?: string;
     returns?: string;
@@ -60,7 +63,7 @@ const STATIC_SEO_PATHS = new Set([
   '/contact',
   '/faq',
   '/products',
-  '/rewards',
+  '/pages/rewards',
   '/blog',
 ]);
 
@@ -71,14 +74,6 @@ function hasEnabledFeature(
   return (
     featureFlags?.some((flag) => flag.key === key && flag.enabled) ?? false
   );
-}
-
-function toRouteSlug(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
-    .replace(/^-+|-+$/gu, '');
 }
 
 function addIssue(context: RefinementCtx, index: number) {
@@ -164,7 +159,7 @@ export function validatePublicProjectionSeoEntries(
   if (payload.policies?.warrantyPolicy?.summary.trim())
     knownPaths.add('/warranty');
   for (const page of payload.contentPages ?? [])
-    knownPaths.add(`/${page.slug}`);
+    knownPaths.add(page.slug === 'rewards' ? '/pages/rewards' : `/${page.slug}`);
   for (const category of payload.categories ?? [])
     knownPaths.add(`/${category.slug}`);
   const categoriesById = new Map(
@@ -206,11 +201,12 @@ export function validatePublicProjectionSeoEntries(
   }
   for (const post of payload.blogPosts ?? []) {
     knownPaths.add(`/blog/${post.slug}`);
-    const categorySlug = post.category ? toRouteSlug(post.category) : '';
-    if (categorySlug) knownPaths.add(`/blog/category/${categorySlug}`);
-    const authorSlug = toRouteSlug(post.authorName);
-    if (authorSlug) knownPaths.add(`/blog/author/${authorSlug}`);
   }
+  for (const path of getPublicProjectionBlogSeoPaths(
+    payload.blogPosts ?? [],
+    payload.merchant
+  ))
+    knownPaths.add(path);
   const compareHubEligible = hasEligibleCompareHub(
     payload.categories ?? [],
     payload.products

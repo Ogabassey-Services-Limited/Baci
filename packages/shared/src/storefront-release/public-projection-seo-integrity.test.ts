@@ -41,6 +41,23 @@ describe('public projection SEO integrity', () => {
     ).toBe(false);
   });
 
+  it('uses the routed pages/rewards path instead of the obsolete root path', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [
+          { indexable: true, path: '/pages/rewards', title: 'Rewards' },
+        ],
+      }).success
+    ).toBe(true);
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [{ indexable: true, path: '/rewards', title: 'Rewards' }],
+      }).success
+    ).toBe(false);
+  });
+
   it('admits inventory-qualified commercial-support routes', () => {
     const categoryId = '123e4567-e89b-42d3-a456-426614174180';
     const products = Array.from({ length: 5 }, (_, index) => ({

@@ -78,4 +78,76 @@ describe('hasEligibleCommercialSupportPath', () => {
       )
     ).toBe(false);
   });
+
+  it('compares curated price bands in minor units', () => {
+    const categories = new Map([[category.slug, category]]);
+    const bandProducts = Array.from({ length: 6 }, (_, index) => ({
+      ...products[index % products.length],
+      brand: ['Samsung', 'Apple', 'Google'][index % 3],
+      priceMinor: 49_999_999,
+      slug: `minor-band-${index}`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        bandProducts
+      )
+    ).toBe(true);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        bandProducts.map((product) => ({ ...product, priceMinor: 50_000_001 }))
+      )
+    ).toBe(false);
+  });
+
+  it('requires canonical brand route keys instead of aliases', () => {
+    const categories = new Map([[category.slug, category]]);
+    const xiaomiProducts = products.map((product) => ({
+      ...product,
+      brand: 'Redmi',
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/redmi',
+        categories,
+        xiaomiProducts
+      )
+    ).toBe(false);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/xiaomi',
+        categories,
+        [...xiaomiProducts, ...xiaomiProducts]
+      )
+    ).toBe(true);
+  });
+
+  it('decodes escaped compare product keys before resolving products', () => {
+    const categories = new Map([[category.slug, category]]);
+    const compareProducts = [
+      {
+        ...products[0],
+        productKeySpecs: { camera: 12, storage: 128, screen: 6 },
+        slug: 'iphone-15-vs-pro',
+      },
+      {
+        ...products[1],
+        productKeySpecs: { camera: 48, storage: 256, screen: 6.7 },
+        slug: 'pixel-9',
+      },
+    ];
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/compare/~6970686f6e652d31352d76732d70726f-vs-pixel-9',
+        categories,
+        compareProducts
+      )
+    ).toBe(true);
+  });
 });

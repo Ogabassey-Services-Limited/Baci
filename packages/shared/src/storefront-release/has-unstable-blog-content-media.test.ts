@@ -88,6 +88,14 @@ describe('hasUnstableBlogContentMedia', () => {
     expect(hasUnstableBlogContentMedia(JSON.stringify(nested))).toBe(true);
   });
 
+  it('fails closed when a TipTap content array contains a null node', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        JSON.stringify({ content: [null], type: 'doc' })
+      )
+    ).toBe(true);
+  });
+
   it('fails closed when TipTap node count exceeds the release bound', () => {
     const nodes = Array.from({ length: 10_001 }, () => ({ type: 'text' }));
     expect(
