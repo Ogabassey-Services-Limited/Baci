@@ -67,10 +67,7 @@ export function SettingsSectionRow({
         <View style={styles.rowText}>
           <Text style={[styles.rowLabel, { color: labelColor }]}>{label}</Text>
           {subtitle ? (
-            <Text
-              numberOfLines={2}
-              style={[styles.rowSub, { color: computedSubtitleColor }]}
-            >
+            <Text style={[styles.rowSub, { color: computedSubtitleColor }]}>
               {subtitle}
             </Text>
           ) : null}
