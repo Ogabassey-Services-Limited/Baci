@@ -162,6 +162,70 @@ describe('auth session storage rollback', () => {
     expect(storedValue).toBeNull();
   });
 
+  it('preserves pending rollback reconciliation after a later write fails', async () => {
+    jest.useFakeTimers();
+    let storedValue: string | null = null;
+    let completeTimedOutWrite: (() => void) | undefined;
+    const deleteRepairs: Array<{
+      reject: (error: Error) => void;
+      resolve: () => void;
+    }> = [];
+    mockSecureStore.getItemAsync.mockImplementation(async () => storedValue);
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        (_key, value) =>
+          new Promise<void>((resolve) => {
+            completeTimedOutWrite = () => {
+              storedValue = value;
+              resolve();
+            };
+          })
+      )
+      .mockRejectedValueOnce(new Error('replacement write failed'));
+    mockSecureStore.deleteItemAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          deleteRepairs.push({
+            reject,
+            resolve: () => {
+              storedValue = null;
+              resolve();
+            },
+          });
+        })
+    );
+
+    const staleWrite = authSessionStorage.setItem(
+      'pending-rollback-key',
+      'stale-session'
+    );
+    const timeout = expect(staleWrite).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(4_000);
+    await timeout;
+    deleteRepairs[0]?.reject(new Error('first correction failed'));
+    await jest.advanceTimersByTimeAsync(0);
+
+    completeTimedOutWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+    deleteRepairs[1]?.reject(new Error('late correction failed'));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(storedValue).toBe('stale-session');
+
+    await expect(
+      authSessionStorage.setItem('pending-rollback-key', 'replacement-session')
+    ).rejects.toThrow('replacement write failed');
+    expect(deleteRepairs).toHaveLength(3);
+    deleteRepairs[2]?.resolve();
+    await jest.advanceTimersByTimeAsync(0);
+
+    await expect(
+      authSessionStorage.getItem('pending-rollback-key')
+    ).resolves.toBeNull();
+    expect(storedValue).toBeNull();
+  });
+
   it('does not duplicate a primary write when storage is read concurrently', async () => {
     const storedValue: string | null = 'previous-session';
     let rejectPrimaryWrite: ((error: Error) => void) | undefined;

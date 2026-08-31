@@ -152,6 +152,9 @@ jest.mock('./orders-session', () => ({
   },
 }));
 
+const { createOrder } =
+  jest.requireActual<typeof import('./orders')>('./orders');
+
 describe('createOrder checkout auth fallback', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -168,7 +171,6 @@ describe('createOrder checkout auth fallback', () => {
 
   it('reaches the order request without queuing getUser behind a timed-out refresh', async () => {
     jest.useFakeTimers();
-    const { createOrder } = await import('./orders');
     mockGetSession.mockResolvedValue({
       data: {
         session: sessionFixture('stored-token', 'refresh-token'),
@@ -198,7 +200,6 @@ describe('createOrder checkout auth fallback', () => {
   });
 
   it('uses a same-account session rotated after the checkout session read', async () => {
-    const { createOrder } = await import('./orders');
     const capturedSession = sessionFixture(
       'captured-token',
       'captured-refresh-token'
@@ -230,7 +231,6 @@ describe('createOrder checkout auth fallback', () => {
   });
 
   it('validates the captured checkout bearer when auth storage switches accounts', async () => {
-    const { createOrder } = await import('./orders');
     const accountASession = sessionFixture(
       'account-a-token',
       'account-a-refresh-token',

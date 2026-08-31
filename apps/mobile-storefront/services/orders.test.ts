@@ -26,19 +26,9 @@ type MockCreateOrderApiResponse = {
 };
 
 const mockNetInfoFetch = jest.fn<() => Promise<{ isConnected: boolean }>>();
-const mockSupabaseGetUser =
-  jest.fn<(jwt?: string) => Promise<MockAuthUserResponse>>();
+const mockSupabaseGetUser = jest.fn<() => Promise<MockAuthUserResponse>>();
 const mockSupabaseGetSession =
   jest.fn<() => Promise<MockAuthSessionResponse>>();
-const mockResolveCheckoutAuth = jest.fn(
-  async (_auth: unknown, storedSession: { access_token: string } | null) => ({
-    authorizationHeaders: storedSession?.access_token
-      ? { Authorization: `Bearer ${storedSession.access_token}` }
-      : {},
-    canValidateUser: Boolean(storedSession),
-    session: storedSession,
-  })
-);
 const mockFetchJson = jest.fn<() => Promise<MockCreateOrderApiResponse>>();
 
 type MockFetchResponse = {
@@ -134,19 +124,6 @@ jest.mock('@/lib/supabase', () => ({
       getSession: mockSupabaseGetSession,
     },
   },
-  supabaseAuthStorage: {},
-  supabaseAuthStorageKey: 'auth-key',
-}));
-
-jest.mock('./orders-auth', () => ({
-  resolveCheckoutAuth: mockResolveCheckoutAuth,
-}));
-
-jest.mock('./orders-session', () => ({
-  getCheckoutStoredSession: async () => {
-    const { data } = await mockSupabaseGetSession();
-    return data.session;
-  },
 }));
 
 jest.mock('@/lib/api', () => ({
@@ -233,10 +210,6 @@ describe('createOrder — variant_attributes', () => {
     jest.clearAllMocks();
     mockFetchResponse.ok = true;
     mockFetchResponse.status = 200;
-    mockSupabaseGetSession.mockResolvedValue({
-      data: { session: { access_token: 'token-123' } },
-      error: null,
-    });
     mockFetchJson.mockResolvedValue({
       order: {
         id: 'order-1',

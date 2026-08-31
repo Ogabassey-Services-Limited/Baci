@@ -20,6 +20,10 @@ type StorageIntent =
       value: string;
     };
 type StorageIntentInput = { type: 'delete' } | { type: 'set'; value: string };
+type StorageRollbackBaseline = {
+  pending: boolean;
+  value: string | null;
+};
 const storageIntents = new Map<string, StorageIntent>();
 const storageMutationQueues = new Map<string, Promise<void>>();
 
@@ -126,17 +130,17 @@ async function boundedStorageOperation<T>(
 
 function restorePreviousStorageIntent(
   key: string,
-  previousValue: string | null,
+  baseline: StorageRollbackBaseline,
   needsReconciliation: boolean
 ): void {
   const intent = nextStorageIntent(
     key,
-    previousValue === null
+    baseline.value === null
       ? { type: 'delete' }
-      : { type: 'set', value: previousValue }
+      : { type: 'set', value: baseline.value }
   );
-  intent.pending = needsReconciliation;
-  if (needsReconciliation) void reconcileLatestStorageIntent(key);
+  intent.pending = baseline.pending || needsReconciliation;
+  if (intent.pending) void reconcileLatestStorageIntent(key);
 }
 
 async function readAuthStorageItem(key: string): Promise<string | null> {
@@ -176,17 +180,23 @@ async function readAuthStorageItem(key: string): Promise<string | null> {
   return value;
 }
 
-async function captureRollbackBaseline(key: string): Promise<string | null> {
+async function captureRollbackBaseline(
+  key: string
+): Promise<StorageRollbackBaseline> {
   const logicalIntent = storageIntents.get(key);
   if (logicalIntent) {
-    return logicalIntent.type === 'delete' ? null : logicalIntent.value;
+    return {
+      pending: logicalIntent.pending,
+      value: logicalIntent.type === 'delete' ? null : logicalIntent.value,
+    };
   }
 
   try {
-    return await boundedStorageOperation(
+    const value = await boundedStorageOperation(
       SecureStore.getItemAsync(key),
       'rollback snapshot'
     );
+    return { pending: false, value };
   } catch (error) {
     log.warn('Unable to capture the Supabase auth rollback baseline.', error);
     throw error;
@@ -223,7 +233,7 @@ export const authSessionStorage: SupportedStorage = {
   getItem: readAuthStorageItem,
   setItem: (key: string, value: string) =>
     runSerializedStorageMutation(key, async () => {
-      const previousValue = await captureRollbackBaseline(key);
+      const baseline = await captureRollbackBaseline(key);
       const intent = nextStorageIntent(key, { type: 'set', value });
       const operation = SecureStore.setItemAsync(key, value);
       intent.operation = operation;
@@ -234,7 +244,7 @@ export const authSessionStorage: SupportedStorage = {
         if (storageIntents.get(key)?.revision === intent.revision) {
           restorePreviousStorageIntent(
             key,
-            previousValue,
+            baseline,
             error instanceof AuthStorageTimeoutError
           );
         }
@@ -247,7 +257,7 @@ export const authSessionStorage: SupportedStorage = {
     }),
   removeItem: (key: string) =>
     runSerializedStorageMutation(key, async () => {
-      const previousValue = await captureRollbackBaseline(key);
+      const baseline = await captureRollbackBaseline(key);
       const intent = nextStorageIntent(key, { type: 'delete' });
       const operation = SecureStore.deleteItemAsync(key);
       intent.operation = operation;
@@ -258,7 +268,7 @@ export const authSessionStorage: SupportedStorage = {
         if (storageIntents.get(key)?.revision === intent.revision) {
           restorePreviousStorageIntent(
             key,
-            previousValue,
+            baseline,
             error instanceof AuthStorageTimeoutError
           );
         }
