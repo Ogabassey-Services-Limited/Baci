@@ -4,8 +4,6 @@ import {
 } from '../lib/account-deletion';
 import { createLogger } from '../lib/logger';
 import { getStoredPushToken } from '../lib/push-token-storage';
-import { clearQueryCachePreservingObservers } from '../lib/query-cache-observer-safety';
-import { queryClient } from '../lib/query-client';
 import { supabase } from '../lib/supabase';
 import type { AuthStoreGet, AuthStoreSet } from './auth-store.types';
 import { createDateOfBirthAction } from './auth-store-account-date-of-birth';
@@ -42,7 +40,6 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           isInitialized: true,
           _initializationInProgress: false,
         });
-        clearQueryCachePreservingObservers(queryClient);
       } catch (error) {
         log.error('Sign out error:', error);
         set({ isLoading: false });
@@ -73,7 +70,6 @@ export function createAccountActions(set: AuthStoreSet, get: AuthStoreGet) {
           isInitialized: true,
           _initializationInProgress: false,
         });
-        clearQueryCachePreservingObservers(queryClient);
         return { success: true, usedApple };
       } catch (error) {
         const message =

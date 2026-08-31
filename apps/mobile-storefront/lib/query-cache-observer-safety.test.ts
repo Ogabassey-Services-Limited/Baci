@@ -85,4 +85,40 @@ describe('clearQueryCachePreservingObservers', () => {
     unsubscribe();
     queryClient.clear();
   });
+
+  it('does not refetch mounted account queries during an identity transition', async () => {
+    // Arrange
+    const accountQueryFn = jest.fn(() => Promise.resolve('account data'));
+    const publicQueryFn = jest.fn(() => Promise.resolve('public data'));
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false, gcTime: Number.POSITIVE_INFINITY },
+      },
+    });
+    const accountObserver = new QueryObserver(queryClient, {
+      queryKey: ['wallet', 'user-a'],
+      queryFn: accountQueryFn,
+    });
+    const publicObserver = new QueryObserver(queryClient, {
+      queryKey: ['public-home'],
+      queryFn: publicQueryFn,
+    });
+    const unsubscribeAccount = accountObserver.subscribe(() => undefined);
+    const unsubscribePublic = publicObserver.subscribe(() => undefined);
+    await flushMicrotasks();
+
+    // Act
+    clearQueryCachePreservingObservers(queryClient);
+    await flushMicrotasks();
+
+    // Assert
+    expect(accountQueryFn).toHaveBeenCalledTimes(1);
+    expect(accountObserver.getCurrentResult().data).toBeUndefined();
+    expect(publicQueryFn).toHaveBeenCalledTimes(2);
+    expect(publicObserver.getCurrentResult().data).toBe('public data');
+
+    unsubscribeAccount();
+    unsubscribePublic();
+    queryClient.clear();
+  });
 });
