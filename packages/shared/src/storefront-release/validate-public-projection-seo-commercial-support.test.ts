@@ -52,7 +52,12 @@ describe('hasEligibleCommercialSupportPath', () => {
       hasEligibleCommercialSupportPath(
         '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
         new Map([[category.slug, category]]),
-        products
+        products,
+        {
+          maintainedComparePaths: new Set([
+            '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
+          ]),
+        }
       )
     ).toBe(true);
     expect(
@@ -66,7 +71,12 @@ describe('hasEligibleCommercialSupportPath', () => {
       hasEligibleCommercialSupportPath(
         '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
         new Map([[category.slug, category]]),
-        products.map((product) => ({ ...product, available: false }))
+        products.map((product) => ({ ...product, available: false })),
+        {
+          maintainedComparePaths: new Set([
+            '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
+          ]),
+        }
       )
     ).toBe(true);
   });
@@ -124,6 +134,54 @@ describe('hasEligibleCommercialSupportPath', () => {
         '/smartphones/best-under/under-500k',
         categories,
         bandProducts.map((product) => ({ ...product, priceMinor: 50_000_001 }))
+      )
+    ).toBe(false);
+  });
+
+  it('uses the merchant currency exponent for price-band ceilings', () => {
+    const categories = new Map([[category.slug, category]]);
+    const productsAtCeiling = Array.from({ length: 6 }, (_, index) => ({
+      ...products[index % products.length],
+      brand: ['Samsung', 'Apple', 'Google'][index % 3],
+      priceMinor: 500_001,
+      slug: `currency-band-${index}`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        productsAtCeiling,
+        { currency: 'JPY' }
+      )
+    ).toBe(false);
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/best-under/under-500k',
+        categories,
+        productsAtCeiling,
+        { currency: 'NGN' }
+      )
+    ).toBe(true);
+  });
+
+  it('limits brand authority counts to the bounded newest inventory window', () => {
+    const outsideWindow = Array.from({ length: 5 }, (_, index) => ({
+      ...products[0],
+      brand: 'Samsung',
+      slug: `outside-window-${index}`,
+    }));
+    const newestWindow = Array.from({ length: 48 }, (_, index) => ({
+      ...products[0],
+      brand: 'Other',
+      slug: `newest-window-${index}`,
+    }));
+
+    expect(
+      hasEligibleCommercialSupportPath(
+        '/smartphones/brands/samsung',
+        new Map([[category.slug, category]]),
+        [...newestWindow, ...outsideWindow]
       )
     ).toBe(false);
   });
@@ -200,7 +258,12 @@ describe('hasEligibleCommercialSupportPath', () => {
       hasEligibleCommercialSupportPath(
         '/smartphones/compare/~6970686f6e652d31352d76732d70726f-vs-pixel-9',
         categories,
-        compareProducts
+        compareProducts,
+        {
+          maintainedComparePaths: new Set([
+            '/smartphones/compare/~6970686f6e652d31352d76732d70726f-vs-pixel-9',
+          ]),
+        }
       )
     ).toBe(true);
   });

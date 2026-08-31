@@ -163,6 +163,7 @@ export const StorefrontPublicProductSchema = z
     mediaIds: z.array(z.uuid()).max(64).optional(),
     colorGalleries: StorefrontPublicProductColorGalleriesSchema.optional(),
     createdAt: z.iso.datetime({ offset: true }).optional(),
+    updatedAt: z.iso.datetime({ offset: true }).optional(),
     variants: z.array(ProductVariantSchema).max(250).optional(),
     hasConditionOffers: z.boolean().optional(),
     conditionOffers: z.array(ProductConditionOfferSchema).max(16).optional(),

@@ -1,5 +1,8 @@
 import type { RefinementCtx } from 'zod';
-import { getPublicProjectionBlogSeoPaths } from './get-public-projection-blog-seo-paths';
+import {
+  getPublicProjectionBlogSeoPaths,
+  isPublicProjectionBlogPost,
+} from './get-public-projection-blog-seo-paths';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 
 interface SeoEntry {
@@ -11,6 +14,7 @@ interface SeoProduct {
   available: boolean;
   canonicalPath?: string | null;
   categoryIds?: readonly string[];
+  createdAt?: string;
   id: string;
   name: string;
   brand?: string | null;
@@ -18,6 +22,7 @@ interface SeoProduct {
   productKeySpecs?: Readonly<Record<string, unknown>> | null;
   primaryCategoryId?: string | null;
   slug: string;
+  updatedAt?: string;
 }
 
 interface SeoCategory {
@@ -41,7 +46,7 @@ interface SeoPayload {
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
   featureFlags?: readonly { enabled: boolean; key: string }[];
-  merchant: { hostname: string; slug: string };
+  merchant: { currency: string; hostname: string; slug: string };
   policies?: {
     privacy?: string;
     returns?: string;
@@ -52,6 +57,7 @@ interface SeoPayload {
     warrantyPolicy?: { summary: string };
   };
   products: readonly SeoProduct[];
+  maintainedComparePaths?: readonly string[];
   seoEntries?: readonly SeoEntry[];
 }
 
@@ -124,12 +130,11 @@ function hasEligibleCompareHub(
   products: readonly SeoProduct[]
 ) {
   for (const category of categories) {
-    const categoryProducts = products.filter(
-      (product) =>
-        [
-          ...(product.categoryIds ?? []),
-          ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-        ].includes(category.id)
+    const categoryProducts = products.filter((product) =>
+      [
+        ...(product.categoryIds ?? []),
+        ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+      ].includes(category.id)
     );
     for (let leftIndex = 0; leftIndex < categoryProducts.length; leftIndex += 1)
       for (
@@ -200,9 +205,9 @@ export function validatePublicProjectionSeoEntries(
       if (categorySlug) knownPaths.add(`/${categorySlug}/${product.slug}`);
     }
   }
-  for (const post of payload.blogPosts ?? []) {
-    knownPaths.add(`/blog/${post.slug}`);
-  }
+  for (const post of payload.blogPosts ?? [])
+    if (isPublicProjectionBlogPost(post)) knownPaths.add(`/blog/${post.slug}`);
+  const maintainedComparePaths = new Set(payload.maintainedComparePaths ?? []);
   for (const path of getPublicProjectionBlogSeoPaths(
     payload.blogPosts ?? [],
     payload.merchant
@@ -218,7 +223,11 @@ export function validatePublicProjectionSeoEntries(
       !hasEligibleCommercialSupportPath(
         entry.path,
         categoriesBySlug,
-        payload.products
+        payload.products,
+        {
+          currency: payload.merchant.currency,
+          maintainedComparePaths,
+        }
       )
     ) {
       addIssue(context, index);

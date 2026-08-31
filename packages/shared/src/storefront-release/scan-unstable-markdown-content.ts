@@ -29,6 +29,13 @@ interface MarkdownReferenceDefinition {
   label: string;
 }
 
+function isMarkdownBlockBoundary(line: string): boolean {
+  return (
+    /^ {0,3}#{1,6}(?:[ \t]|$)/u.test(line) ||
+    /^ {0,3}(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$/u.test(line)
+  );
+}
+
 function scanMarkdownReferenceDefinitions(
   content: string
 ): MarkdownReferenceDefinition[] {
@@ -44,7 +51,8 @@ function scanMarkdownReferenceDefinitions(
       const previousLine = content.slice(previousLineStart, previousLineEnd);
       if (
         previousLine.trim().length > 0 &&
-        !recognizedDefinitionLineStarts.has(previousLineStart)
+        !recognizedDefinitionLineStarts.has(previousLineStart) &&
+        !isMarkdownBlockBoundary(previousLine)
       )
         continue;
     }
@@ -242,11 +250,10 @@ function scanMarkdownLinkSyntax(content: string): MarkdownLinkSyntax {
       } else if (/\s/u.test(character) && depth === 0) break;
       cursor += 1;
     }
-    if (cursor > start)
-      destinations.push({
-        destination: content.slice(start, cursor),
-        image,
-      });
+    destinations.push({
+      destination: content.slice(start, cursor),
+      image,
+    });
     index = Math.max(cursor + 1, closingBracket + 1);
   }
   return { destinations, imageReferenceLabels };

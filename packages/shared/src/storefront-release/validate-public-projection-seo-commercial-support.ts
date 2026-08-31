@@ -1,12 +1,16 @@
+import { hasEligiblePublicProjectionComparePath } from './public-projection-seo-compare';
+
 interface SeoProduct {
   available: boolean;
   brand?: string | null;
   categoryIds?: readonly string[];
+  id?: string;
   name: string;
   priceMinor: number;
   primaryCategoryId?: string | null;
   productKeySpecs?: Readonly<Record<string, unknown>> | null;
   slug: string;
+  updatedAt?: string;
 }
 
 interface SeoCategory {
@@ -53,9 +57,7 @@ const PRICE_BAND_RULES = [
 
 const MIN_PRICE_BAND_PRODUCTS = 6;
 const MIN_PRICE_BAND_BRANDS = 3;
-const MINOR_UNITS_PER_MAJOR_UNIT = 100;
-const COMPARE_DELIMITER = '-vs-';
-const COMPARE_ESCAPE_PREFIX = '~';
+const BRAND_AUTHORITY_PRODUCT_LIMIT = 48;
 
 function toRouteSlug(value: string): string {
   return value
@@ -70,67 +72,47 @@ function getCategoryProducts(
   products: readonly SeoProduct[],
   options: { requireAvailability?: boolean } = {}
 ) {
-  return products.filter((product) =>
-    (!options.requireAvailability || product.available) &&
-    [
-      ...(product.categoryIds ?? []),
-      ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
-    ].includes(categoryId)
+  return products.filter(
+    (product) =>
+      (!options.requireAvailability || product.available) &&
+      [
+        ...(product.categoryIds ?? []),
+        ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+      ].includes(categoryId)
   );
+}
+
+function getBrandAuthorityProducts(
+  categoryId: string,
+  products: readonly SeoProduct[]
+) {
+  const categoryProducts = getCategoryProducts(categoryId, products);
+  if (!categoryProducts.every((product) => product.updatedAt))
+    return categoryProducts.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
+  return [...categoryProducts]
+    .sort(
+      (left, right) =>
+        (right.updatedAt ?? '').localeCompare(left.updatedAt ?? '') ||
+        (left.id ?? '').localeCompare(right.id ?? '')
+    )
+    .slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
 }
 
 function getBrandRule(brandSlug: string) {
   return BRAND_AUTHORITY_RULES.find(({ key }) => key === brandSlug);
 }
 
-function parseCompareKey(key: string): string | null {
-  if (!key.startsWith(COMPARE_ESCAPE_PREFIX)) return key;
-  const encodedBytes = key.slice(COMPARE_ESCAPE_PREFIX.length);
-  if (
-    encodedBytes.length === 0 ||
-    encodedBytes.length % 2 !== 0 ||
-    /[^0-9a-f]/iu.test(encodedBytes)
-  )
-    return null;
+function getMinorUnitsPerMajorUnit(currency: string): number | null {
   try {
-    return new TextDecoder().decode(
-      new Uint8Array(
-        encodedBytes
-          .match(/.{2}/gu)
-          ?.map((pair) => Number.parseInt(pair, 16)) ?? []
-      )
-    );
+    const fractionDigits =
+      new Intl.NumberFormat('en-US', {
+        currency: currency.toUpperCase(),
+        style: 'currency',
+      }).resolvedOptions().maximumFractionDigits ?? 2;
+    return 10 ** fractionDigits;
   } catch {
     return null;
   }
-}
-
-function encodeCompareKey(key: string): string {
-  if (
-    !key.includes(COMPARE_DELIMITER) &&
-    !key.startsWith(COMPARE_ESCAPE_PREFIX)
-  )
-    return key;
-  const bytes = new TextEncoder().encode(key);
-  return `${COMPARE_ESCAPE_PREFIX}${Array.from(bytes, (byte) =>
-    byte.toString(16).padStart(2, '0')
-  ).join('')}`;
-}
-
-function buildCanonicalCompareSlug(left: string, right: string): string {
-  return [left, right].sort().map(encodeCompareKey).join(COMPARE_DELIMITER);
-}
-
-function parseCompareSlug(
-  slug: string
-): Readonly<{ canonicalSlug: string; left: string; right: string }> | null {
-  const [leftPart, rightPart, ...rest] = slug.split(COMPARE_DELIMITER);
-  if (!leftPart || !rightPart || rest.length > 0) return null;
-  const left = parseCompareKey(leftPart);
-  const right = parseCompareKey(rightPart);
-  return left && right
-    ? { canonicalSlug: buildCanonicalCompareSlug(left, right), left, right }
-    : null;
 }
 
 function hasEligibleBrand(
@@ -144,10 +126,10 @@ function hasEligibleBrand(
   const rule = getBrandRule(brandSlug);
   if (!category || !rule) return false;
   return (
-    getCategoryProducts(category.id, products, {
-      requireAvailability: true,
-    }).filter((product) =>
-      rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
+    getBrandAuthorityProducts(category.id, products).filter(
+      (product) =>
+        product.available &&
+        rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
     ).length >= rule.minimumProducts
   );
 }
@@ -156,16 +138,18 @@ function hasEligiblePriceBand(
   categorySlug: string,
   priceBandSlug: string,
   categoriesBySlug: ReadonlyMap<string, SeoCategory>,
-  products: readonly SeoProduct[]
+  products: readonly SeoProduct[],
+  currency: string
 ) {
   const category = categoriesBySlug.get(categorySlug);
   const rule = PRICE_BAND_RULES.find(
     (entry) => entry.category === categorySlug && entry.slug === priceBandSlug
   );
-  if (!category || !rule) return false;
+  const minorUnitsPerMajorUnit = getMinorUnitsPerMajorUnit(currency);
+  if (!category || !rule || minorUnitsPerMajorUnit === null) return false;
 
   const bandProducts = getCategoryProducts(category.id, products).filter(
-    (product) => product.priceMinor <= rule.ceiling * MINOR_UNITS_PER_MAJOR_UNIT
+    (product) => product.priceMinor <= rule.ceiling * minorUnitsPerMajorUnit
   );
   const brandKeys = new Set(
     bandProducts
@@ -178,27 +162,15 @@ function hasEligiblePriceBand(
   );
 }
 
-function haveDifferentComparableSpecs(left: SeoProduct, right: SeoProduct) {
-  const leftSpecs = left.productKeySpecs ?? {};
-  const rightSpecs = right.productKeySpecs ?? {};
-  const sharedKeys = Object.keys(leftSpecs).filter((key) => key in rightSpecs);
-  return sharedKeys.filter((key) => {
-    const leftValue = leftSpecs[key];
-    const rightValue = rightSpecs[key];
-    if (Array.isArray(leftValue) && Array.isArray(rightValue))
-      return (
-        JSON.stringify([...leftValue].map(String).sort()) !==
-        JSON.stringify([...rightValue].map(String).sort())
-      );
-    return leftValue !== rightValue;
-  }).length;
-}
-
 /** Checks that a commercial-support SEO URL has enough projected inventory. */
 export function hasEligibleCommercialSupportPath(
   path: string,
   categoriesBySlug: ReadonlyMap<string, SeoCategory>,
-  products: readonly SeoProduct[]
+  products: readonly SeoProduct[],
+  options: {
+    currency?: string;
+    maintainedComparePaths?: ReadonlySet<string>;
+  } = {}
 ) {
   const segments = path.split('/').filter(Boolean);
   if (segments.length === 3 && segments[1] === 'brands')
@@ -229,13 +201,13 @@ export function hasEligibleCommercialSupportPath(
     )
       return false;
     return (
-      getCategoryProducts(category.id, products, {
-        requireAvailability: true,
-      }).filter(
+      getBrandAuthorityProducts(category.id, products).filter(
         (product) =>
+          product.available &&
           getBrandRule(brandSlug)?.aliases.some(
             (alias) => alias === toRouteSlug(product.brand ?? '')
-          ) && family.pattern.test(product.name.trim())
+          ) &&
+          family.pattern.test(product.name.trim())
       ).length >= 3
     );
   }
@@ -244,42 +216,14 @@ export function hasEligibleCommercialSupportPath(
       segments[0] ?? '',
       segments[2] ?? '',
       categoriesBySlug,
-      products
+      products,
+      options.currency ?? 'NGN'
     );
   if (segments.length !== 3 || segments[1] !== 'compare') return false;
-  const category = categoriesBySlug.get(segments[0] ?? '');
-  const parsedCompare = parseCompareSlug(segments[2] ?? '');
-  const left = parsedCompare?.left;
-  const right = parsedCompare?.right;
-  if (
-    !category ||
-    !left ||
-    !right ||
-    left === right ||
-    parsedCompare?.canonicalSlug !== segments[2]
-  )
-    return false;
-  const categoryProducts = getCategoryProducts(category.id, products);
-  const productSlugs = new Set(categoryProducts.map((product) => product.slug));
-  if (productSlugs.has(left) && productSlugs.has(right)) {
-    const leftProduct = categoryProducts.find(
-      (product) => product.slug === left
-    );
-    const rightProduct = categoryProducts.find(
-      (product) => product.slug === right
-    );
-    return Boolean(
-      leftProduct &&
-        rightProduct &&
-        haveDifferentComparableSpecs(leftProduct, rightProduct) >= 3
-    );
-  }
-  if (segments[0] !== 'smartphones' || left === right) return false;
-  const leftCount = categoryProducts.filter(
-    (product) => toRouteSlug(product.brand ?? '') === left
-  ).length;
-  const rightCount = categoryProducts.filter(
-    (product) => toRouteSlug(product.brand ?? '') === right
-  ).length;
-  return leftCount >= 3 && rightCount >= 3;
+  return hasEligiblePublicProjectionComparePath(
+    path,
+    categoriesBySlug,
+    products,
+    { maintainedComparePaths: options.maintainedComparePaths }
+  );
 }

@@ -7,8 +7,9 @@ function readMarkdownLineIndent(
   content: string,
   lineStart: number,
   lineEnd: number
-): { cursor: number; spaces: number } {
+): { blockquoteDepth: number; cursor: number; spaces: number } {
   let cursor = lineStart;
+  let blockquoteDepth = 0;
   // A blockquote marker is part of the Markdown container, not indentation.
   // Consume nested markers before measuring code indentation so quoted code is
   // masked just like an unquoted four-space code block.
@@ -25,6 +26,7 @@ function readMarkdownLineIndent(
     }
     if (prefixSpaces > 3 || content[probe] !== '>') break;
     cursor = probe + 1;
+    blockquoteDepth += 1;
     if (content[cursor] === ' ') cursor += 1;
   }
   let spaces = 0;
@@ -36,7 +38,7 @@ function readMarkdownLineIndent(
     cursor += 1;
     spaces += 1;
   }
-  return { cursor, spaces };
+  return { blockquoteDepth, cursor, spaces };
 }
 
 /** Replaces fenced and inline Markdown code with spaces while preserving lines. */
@@ -51,7 +53,7 @@ export function maskMarkdownCode(content: string): string {
     if (lineStart) {
       let lineEnd = content.indexOf('\n', index);
       if (lineEnd === -1) lineEnd = length;
-      const { cursor, spaces } = readMarkdownLineIndent(
+      const { blockquoteDepth, cursor, spaces } = readMarkdownLineIndent(
         content,
         index,
         lineEnd
@@ -91,21 +93,28 @@ export function maskMarkdownCode(content: string): string {
           let search = content.indexOf('\n', cursor + runLength);
           while (search !== -1 && search + 1 < length) {
             const candidate = search + 1;
-            let candidateCursor = candidate;
-            let candidateSpaces = 0;
-            while (candidateSpaces < 4 && content[candidateCursor] === ' ') {
-              candidateCursor += 1;
-              candidateSpaces += 1;
-            }
+            let candidateLineEnd = content.indexOf('\n', candidate);
+            if (candidateLineEnd === -1) candidateLineEnd = length;
+            const candidateIndent = readMarkdownLineIndent(
+              content,
+              candidate,
+              candidateLineEnd
+            );
+            const candidateCursor = candidateIndent.cursor;
+            const candidateSpaces = candidateIndent.spaces;
             let candidateRun = 0;
             while (content[candidateCursor + candidateRun] === fenceCharacter)
               candidateRun += 1;
-            let lineEnd = candidateCursor + candidateRun;
-            while (lineEnd < length && content[lineEnd] !== '\n') lineEnd += 1;
+            let candidateContentEnd = candidateCursor + candidateRun;
+            while (
+              candidateContentEnd < length &&
+              content[candidateContentEnd] !== '\n'
+            )
+              candidateContentEnd += 1;
             let restIsWhitespace = true;
             for (
               let restCursor = candidateCursor + candidateRun;
-              restCursor < lineEnd;
+              restCursor < candidateContentEnd;
               restCursor += 1
             ) {
               if (!/\s/u.test(content[restCursor] ?? '')) {
@@ -114,6 +123,7 @@ export function maskMarkdownCode(content: string): string {
               }
             }
             if (
+              candidateIndent.blockquoteDepth === blockquoteDepth &&
               candidateSpaces <= (isListContinuation ? spaces : 3) &&
               candidateRun >= runLength &&
               restIsWhitespace
@@ -121,7 +131,7 @@ export function maskMarkdownCode(content: string): string {
               close = candidateCursor + candidateRun;
               break;
             }
-            search = content.indexOf('\n', candidateCursor + candidateRun);
+            search = content.indexOf('\n', candidateContentEnd);
           }
           blankRange(chars, index, close === -1 ? length : close);
           index = close === -1 ? length : close;
@@ -140,7 +150,7 @@ export function maskMarkdownCode(content: string): string {
     while (close !== -1) {
       const preceding = content[close - 1];
       const following = content[close + runLength];
-      if (preceding === '\\' || preceding === '`' || following === '`') {
+      if (preceding === '`' || following === '`') {
         close = content.indexOf(delimiter, close + runLength);
         continue;
       }

@@ -32,7 +32,10 @@ function generateStorefrontSlug(value: string): string {
     .replace(/-+$/, '');
 }
 
-function isPublicPost(post: { slug: string; title: string }): boolean {
+export function isPublicProjectionBlogPost(post: {
+  slug: string;
+  title: string;
+}): boolean {
   const title = post.title.trim().toLowerCase();
   const slug = post.slug.trim().toLowerCase();
   return (
@@ -61,7 +64,7 @@ export function getPublicProjectionBlogSeoPaths(
   const categoryPostCounts = new Map<string, number>();
 
   for (const post of posts) {
-    if (!isPublicPost(post)) continue;
+    if (!isPublicProjectionBlogPost(post)) continue;
     const category = post.category?.trim() ?? '';
     const categorySlug = generateStorefrontSlug(category);
     if (

@@ -54,9 +54,32 @@ describe('maskMarkdownCode', () => {
     expect(maskMarkdownCode(markdown)).toBe(' '.repeat(markdown.length));
   });
 
+  it('masks fenced code whose closing fence is inside the same blockquote', () => {
+    const markdown = [
+      '> ```html',
+      '> <img src="https://example.test/x">',
+      '> ```',
+      '',
+      '![x](https://example.test/x.png)',
+    ].join('\n');
+
+    const masked = maskMarkdownCode(markdown);
+
+    expect(masked).not.toContain('<img src="https://example.test/x">');
+    expect(masked).toContain('![x](https://example.test/x.png)');
+  });
+
   it('does not mask an image after an inline delimiter with a mismatched run', () => {
     const markdown = '` ![x](https://cdn.example.test/a.png) ``';
 
     expect(maskMarkdownCode(markdown)).toBe(markdown);
+  });
+
+  it('closes an inline code span after a backslash inside the span', () => {
+    const markdown = '`path\\\\file` ![x](https://example.test/x.png)';
+
+    expect(maskMarkdownCode(markdown)).toContain(
+      '![x](https://example.test/x.png)'
+    );
   });
 });

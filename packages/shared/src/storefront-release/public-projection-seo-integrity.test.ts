@@ -98,6 +98,9 @@ describe('public projection SEO integrity', () => {
           },
         ],
         products,
+        maintainedComparePaths: [
+          '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
+        ],
         seoEntries: [
           {
             indexable: true,
@@ -125,6 +128,33 @@ describe('public projection SEO integrity', () => {
         ...validPayload,
         seoEntries: [
           { indexable: true, path: '/phones/retired-phone', title: 'Stale' },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('does not release suppressed blog-post SEO paths', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        featureFlags: [{ enabled: true, key: 'blog_enabled' }],
+        blogPosts: [
+          {
+            authorName: 'Author',
+            content: 'Internal test post',
+            id: '123e4567-e89b-42d3-a456-426614174171',
+            publishedAt: '2026-08-30T00:00:00+00:00',
+            slug: 'agent-integration-working-notes',
+            status: 'published',
+            title: 'Useful internal notes',
+          },
+        ],
+        seoEntries: [
+          {
+            indexable: true,
+            path: '/blog/agent-integration-working-notes',
+            title: 'Internal notes',
+          },
         ],
       }).success
     ).toBe(false);

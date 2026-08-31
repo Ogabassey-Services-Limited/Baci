@@ -92,6 +92,23 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(false);
   });
 
+  it('scans reference definitions after headings and thematic breaks', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '![diagram][heading-ref]\n# Heading\n[heading-ref]: https://example.test/image.png?token=secret'
+      )
+    ).toBe(true);
+    expect(
+      hasUnstableMarkdownContent(
+        '![diagram][break-ref]\n---\n[break-ref]: https://example.test/image.png?token=secret'
+      )
+    ).toBe(true);
+  });
+
+  it('rejects empty inline image destinations', () => {
+    expect(hasUnstableMarkdownContent('![diagram]()')).toBe(true);
+  });
+
   it('decodes structural named entities before validating destinations', () => {
     expect(hasUnstableMarkdownContent('[admin](/foo&sol;..&sol;admin)')).toBe(
       true

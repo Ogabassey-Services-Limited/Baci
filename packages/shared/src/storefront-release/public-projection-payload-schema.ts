@@ -89,6 +89,10 @@ export const StorefrontPublicProjectionPayloadSchema = z
     blogPosts: z.array(StorefrontBlogPostSchema).max(10_000).optional(),
     policies: StorefrontPublicPoliciesSchema.optional(),
     seoEntries: z.array(SeoEntrySchema).max(20_000).optional(),
+    maintainedComparePaths: z
+      .array(StorefrontSeoPathSchema)
+      .max(20_000)
+      .optional(),
     featureFlags: z
       .array(
         z.strictObject({

@@ -36,12 +36,13 @@ const ParentVariantAttributesSchema = z
   })
   .transform((attributes) =>
     Object.fromEntries(
-      Object.entries(attributes)
-        .map(
-          ([key, value]) =>
-            [normalizeProductSelectionParamKey(key), value] as const
-        )
-        .sort(([left], [right]) => compareCodePointStrings(left, right))
+      Object.entries(attributes).sort(
+        ([left], [right]) =>
+          compareCodePointStrings(
+            normalizeProductSelectionParamKey(left),
+            normalizeProductSelectionParamKey(right)
+          ) || compareCodePointStrings(left, right)
+      )
     )
   );
 const SelectionAxesSchema = z

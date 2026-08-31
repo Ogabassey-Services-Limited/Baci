@@ -38,8 +38,8 @@ describe('StorefrontPublicProductSelectionFieldsSchema', () => {
 
     expect(parsed.attributeAxes).toEqual(['storage_size', 'color']);
     expect(parsed.variantAttributes).toEqual({
-      color: ['Red'],
-      storage_size: ['128GB'],
+      Color: ['Red'],
+      'storage-size': ['128GB'],
     });
     expect(
       StorefrontPublicProductSelectionFieldsSchema.safeParse({
