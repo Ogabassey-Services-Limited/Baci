@@ -38,7 +38,7 @@ describe('eventPipelineGovernedPaths', () => {
 
   it('pins the authority-byte baseline to a reachable landing ancestor', () => {
     const root = eventPipelineGovernedPaths.repoRoot();
-    const reviewedSha = 'c0dd4d90ffcc3c1faa4f495f288f4b5f6c8e7eba';
+    const reviewedSha = 'cc3557aa5556db17131b0b66f72087e10794791b';
 
     expect(eventPipelineGovernedPaths.authorityByteBaseSha).toBe(reviewedSha);
     expect(
