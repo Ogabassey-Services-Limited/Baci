@@ -15,6 +15,18 @@ const OptionalMediaUrlSchema = z
   .refine(isStablePublicMediaUrl, 'Expected a stable public media URL')
   .nullable()
   .optional();
+const FeaturedImageVariantsSchema = z.strictObject({
+  landscape_16x9: OptionalMediaUrlSchema,
+  standard_4x3: OptionalMediaUrlSchema,
+  square_1x1: OptionalMediaUrlSchema,
+});
+const OptionalImageDimensionSchema = z
+  .number()
+  .int()
+  .positive()
+  .max(20_000)
+  .nullable()
+  .optional();
 
 /** Bounded public fields required by storefront blog listing and post routes. */
 export const StorefrontBlogPostSchema = z
@@ -26,6 +38,9 @@ export const StorefrontBlogPostSchema = z
     excerpt: z.string().max(2_000).nullable().optional(),
     featuredImageUrl: OptionalMediaUrlSchema,
     featuredImageAlt: z.string().max(500).nullable().optional(),
+    featuredImageVariants: FeaturedImageVariantsSchema.nullable().optional(),
+    featuredImageWidth: OptionalImageDimensionSchema,
+    featuredImageHeight: OptionalImageDimensionSchema,
     authorName: z.string().trim().min(1).max(160),
     authorTitle: z.string().max(160).nullable().optional(),
     authorImageUrl: OptionalMediaUrlSchema,

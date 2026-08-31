@@ -1,4 +1,5 @@
 import type { RefinementCtx } from 'zod';
+import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 
 interface SeoEntry {
   indexable: boolean;
@@ -6,9 +7,12 @@ interface SeoEntry {
 }
 
 interface SeoProduct {
+  available: boolean;
   canonicalPath?: string | null;
   categoryIds?: readonly string[];
   id: string;
+  name: string;
+  brand?: string | null;
   primaryCategoryId?: string | null;
   slug: string;
 }
@@ -33,6 +37,12 @@ interface SeoPayload {
   categories?: readonly SeoCategory[];
   contentPages?: readonly SeoContentPage[];
   policies?: {
+    privacy?: string;
+    returns?: string;
+    shipping?: string;
+    terms?: string;
+    returnPolicy?: { localRoute: '/returns'; summary?: string };
+    shippingPolicy?: { localRoute: '/shipping'; summary?: string };
     warrantyPolicy?: { summary: string };
   };
   products: readonly SeoProduct[];
@@ -46,15 +56,8 @@ const STATIC_SEO_PATHS = new Set([
   '/compare',
   '/contact',
   '/faq',
-  '/privacy',
-  '/privacy-policy',
   '/products',
-  '/returns',
   '/rewards',
-  '/shipping',
-  '/terms',
-  '/terms-and-conditions',
-  '/terms-of-service',
   '/blog',
 ]);
 
@@ -74,12 +77,32 @@ function addIssue(context: RefinementCtx, index: number) {
   });
 }
 
+function addPolicyPaths(
+  knownPaths: Set<string>,
+  policies: SeoPayload['policies']
+) {
+  if (policies?.privacy?.trim()) {
+    knownPaths.add('/privacy');
+    knownPaths.add('/privacy-policy');
+  }
+  if (policies?.terms?.trim()) {
+    knownPaths.add('/terms');
+    knownPaths.add('/terms-and-conditions');
+    knownPaths.add('/terms-of-service');
+  }
+  if (policies?.returns?.trim() || policies?.returnPolicy)
+    knownPaths.add('/returns');
+  if (policies?.shipping?.trim() || policies?.shippingPolicy)
+    knownPaths.add('/shipping');
+}
+
 /** Rejects SEO metadata paths that cannot be served by this public release. */
 export function validatePublicProjectionSeoEntries(
   payload: SeoPayload,
   context: RefinementCtx
 ) {
   const knownPaths = new Set(STATIC_SEO_PATHS);
+  addPolicyPaths(knownPaths, payload.policies);
   if (payload.policies?.warrantyPolicy?.summary.trim())
     knownPaths.add('/warranty');
   for (const page of payload.contentPages ?? [])
@@ -88,6 +111,9 @@ export function validatePublicProjectionSeoEntries(
     knownPaths.add(`/${category.slug}`);
   const categoriesById = new Map(
     (payload.categories ?? []).map((category) => [category.id, category.slug])
+  );
+  const categoriesBySlug = new Map(
+    (payload.categories ?? []).map((category) => [category.slug, category])
   );
   for (const [productIndex, product] of payload.products.entries()) {
     knownPaths.add(`/products/${product.slug}`);
@@ -128,7 +154,14 @@ export function validatePublicProjectionSeoEntries(
     if (authorSlug) knownPaths.add(`/blog/author/${authorSlug}`);
   }
   for (const [index, entry] of (payload.seoEntries ?? []).entries()) {
-    if (!knownPaths.has(entry.path)) {
+    if (
+      !knownPaths.has(entry.path) &&
+      !hasEligibleCommercialSupportPath(
+        entry.path,
+        categoriesBySlug,
+        payload.products
+      )
+    ) {
       addIssue(context, index);
       continue;
     }

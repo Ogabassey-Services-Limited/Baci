@@ -38,6 +38,14 @@ describe('hasUnstableBlogContentMedia', () => {
     ).toBe(false);
   });
 
+  it('fails closed for malformed HTML comments before unsafe media', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '<!--> <img src="https://cdn.example.test/image.png">'
+      )
+    ).toBe(true);
+  });
+
   it('rejects signed responsive image candidates in persisted HTML', () => {
     const stable = `/release-assets/${'c'.repeat(64)}.webp`;
     expect(
@@ -72,6 +80,21 @@ describe('hasUnstableBlogContentMedia', () => {
     ).toBe(true);
   });
 
+  it('fails closed for deeply nested TipTap documents', () => {
+    let nested: unknown = { type: 'paragraph' };
+    for (let index = 0; index < 70; index += 1)
+      nested = { content: [nested], type: 'doc' };
+
+    expect(hasUnstableBlogContentMedia(JSON.stringify(nested))).toBe(true);
+  });
+
+  it('fails closed when TipTap node count exceeds the release bound', () => {
+    const nodes = Array.from({ length: 10_001 }, () => ({ type: 'text' }));
+    expect(
+      hasUnstableBlogContentMedia(JSON.stringify({ content: nodes, type: 'doc' }))
+    ).toBe(true);
+  });
+
   it.each([
     '&#x3f;',
     '&#63;',
@@ -101,6 +124,14 @@ describe('hasUnstableBlogContentMedia', () => {
       '![Product]\n\n[Product]: https://cdn.example.test/hero.png',
     ])
       expect(hasUnstableBlogContentMedia(content)).toBe(true);
+  });
+
+  it('scans multiline Markdown reference destinations', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        '![Hero][hero]\n\n[hero]:\n  https://cdn.example.test/hero.png'
+      )
+    ).toBe(true);
   });
 
   it('normalizes whitespace in Markdown image reference labels', () => {

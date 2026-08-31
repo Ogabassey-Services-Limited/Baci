@@ -29,6 +29,71 @@ const product = {
 } as const;
 
 describe('public projection SEO integrity', () => {
+  it('does not admit optional policy routes without projected policy content', () => {
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        seoEntries: [
+          { indexable: true, path: '/privacy', title: 'Privacy' },
+          { indexable: true, path: '/terms', title: 'Terms' },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
+  it('admits inventory-qualified commercial-support routes', () => {
+    const categoryId = '123e4567-e89b-42d3-a456-426614174180';
+    const products = Array.from({ length: 5 }, (_, index) => ({
+      available: true,
+      brand: 'Samsung',
+      categoryIds: [categoryId],
+      currency: 'NGN',
+      displayQuantityLimit: null,
+      id: `123e4567-e89b-42d3-a456-42661417418${index}`,
+      name: `Samsung Galaxy S${index + 20}`,
+      priceMinor: 100_000 + index,
+      productKeySpecs: {
+        camera_mp: 12 + index,
+        display_inches: 6 + index / 10,
+        storage_gb: 128 + index * 128,
+      },
+      slug: `galaxy-s${index + 20}`,
+      status: 'active' as const,
+    }));
+
+    expect(
+      StorefrontPublicProjectionPayloadSchema.safeParse({
+        ...validPayload,
+        categories: [
+          {
+            id: categoryId,
+            name: 'Smartphones',
+            slug: 'smartphones',
+            status: 'active',
+          },
+        ],
+        products,
+        seoEntries: [
+          {
+            indexable: true,
+            path: '/smartphones/brands/samsung',
+            title: 'Samsung',
+          },
+          {
+            indexable: true,
+            path: '/smartphones/brands/samsung/families/galaxy-s',
+            title: 'Galaxy S',
+          },
+          {
+            indexable: true,
+            path: '/smartphones/compare/galaxy-s20-vs-galaxy-s21',
+            title: 'Compare phones',
+          },
+        ],
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects SEO entries that do not resolve to released identities', () => {
     expect(
       StorefrontPublicProjectionPayloadSchema.safeParse({

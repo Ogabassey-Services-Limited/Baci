@@ -6,6 +6,7 @@ import { compareCodePointStrings } from './compare-code-point-strings';
 import { hasUnstableBlogContentMedia } from './has-unstable-blog-content-media';
 import { isValidPublicProductCanonicalPath } from './is-valid-public-product-canonical-path';
 import { StorefrontPublicProductColorGalleriesSchema } from './public-projection-product-color-galleries-schema';
+import { StorefrontPublicProductSelectionFieldsSchema } from './public-projection-product-selection-fields-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
@@ -70,7 +71,6 @@ const VariantAttributesSchema = z
         .sort(([left], [right]) => compareCodePointStrings(left, right))
     )
   );
-
 const OptionalCompareAtPriceSchema = z
   .number()
   .int()
@@ -78,7 +78,6 @@ const OptionalCompareAtPriceSchema = z
   .max(Number.MAX_SAFE_INTEGER)
   .nullable()
   .optional();
-
 const ProductVariantSchema = z.strictObject({
   id: z.uuid(),
   name: z.string().trim().min(1).max(160),
@@ -143,6 +142,7 @@ export const StorefrontPublicProductSchema = z
     status: z.literal('active'),
     condition: ProductConditionSchema.nullable().optional(),
     availableConditions: AvailableConditionsSchema.optional(),
+    ...StorefrontPublicProductSelectionFieldsSchema.shape,
     ...StorefrontPublicProductSpecificationFieldsSchema.shape,
     rating: z.number().min(0).max(5).nullable().optional(),
     reviewCount: z

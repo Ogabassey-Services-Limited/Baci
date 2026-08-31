@@ -29,6 +29,7 @@ export const STOREFRONT_RELEASE_RESERVED_CATEGORY_SLUGS = new Set([
   'new-arrivals',
   'on-sale',
   'onboarding',
+  'opengraph-image',
   'order-success',
   'orders',
   'pages',

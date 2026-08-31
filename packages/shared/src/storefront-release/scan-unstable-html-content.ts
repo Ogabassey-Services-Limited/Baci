@@ -117,7 +117,8 @@ export function hasUnstableHtmlContent(content: string): boolean {
     if (content[index] !== '<') continue;
     if (content.startsWith('<!--', index)) {
       const commentEnd = content.indexOf('-->', index + 4);
-      index = commentEnd === -1 ? content.length : commentEnd + 2;
+      if (commentEnd === -1) return true;
+      index = commentEnd + 2;
       continue;
     }
     if (readTagName(content, index) === null) continue;

@@ -3,9 +3,13 @@ import { isSafePublicReleaseUrl } from './is-safe-public-release-url';
 import { isStablePublicMediaUrl } from './is-stable-public-media-url';
 import { maskMarkdownCode } from './mask-markdown-code';
 
-function findBracketClose(content: string, start: number): number {
+function findBracketClose(
+  content: string,
+  start: number,
+  boundary = content.length
+): number {
   let depth = 0;
-  for (let index = start; index < content.length; index += 1) {
+  for (let index = start; index < boundary; index += 1) {
     const character = content[index];
     if (character === '\\') {
       index += 1;
@@ -34,23 +38,34 @@ function scanMarkdownReferenceDefinitions(
     const openingBracket = (match.index ?? 0) + match[0].length - 1;
     const lineEnd = content.indexOf('\n', openingBracket + 1);
     const boundary = lineEnd === -1 ? content.length : lineEnd;
-    const closingBracket = findBracketClose(content, openingBracket + 1);
+    const closingBracket = findBracketClose(
+      content,
+      openingBracket + 1,
+      boundary
+    );
     if (closingBracket === -1 || closingBracket >= boundary) continue;
     if (content[closingBracket + 1] !== ':') continue;
     let cursor = closingBracket + 2;
-    while (cursor < boundary && /[ \t]/u.test(content[cursor] ?? ''))
+    while (cursor < boundary && /[ \t\r]/u.test(content[cursor] ?? ''))
       cursor += 1;
-    if (cursor >= boundary) continue;
     let destination = '';
-    if (content[cursor] === '<') {
-      const angleEnd = findAngleClose(content, cursor + 1);
-      if (angleEnd === -1 || angleEnd >= boundary) continue;
-      destination = content.slice(cursor + 1, angleEnd);
-    } else {
-      const destinationStart = cursor;
-      while (cursor < boundary && !/[ \t]/u.test(content[cursor] ?? ''))
-        cursor += 1;
-      destination = content.slice(destinationStart, cursor);
+    if (cursor < boundary)
+      destination = parseReferenceDestination(content, cursor, boundary);
+    if (!destination && cursor >= boundary && lineEnd !== -1) {
+      const continuationStart = lineEnd + 1;
+      const continuationEnd = content.indexOf('\n', continuationStart);
+      const continuationBoundary =
+        continuationEnd === -1 ? content.length : continuationEnd;
+      const continuation = content.slice(
+        continuationStart,
+        continuationBoundary
+      );
+      if (/^[ \t]{1,3}\S/u.test(continuation))
+        destination = parseReferenceDestination(
+          content,
+          continuationStart + (continuation.match(/^[ \t]*/u)?.[0].length ?? 0),
+          continuationBoundary
+        );
     }
     if (destination)
       definitions.push({
@@ -61,8 +76,31 @@ function scanMarkdownReferenceDefinitions(
   return definitions;
 }
 
-function findAngleClose(content: string, start: number): number {
-  for (let index = start; index < content.length; index += 1) {
+function parseReferenceDestination(
+  content: string,
+  start: number,
+  boundary: number
+): string {
+  let cursor = start;
+  while (cursor < boundary && /[ \t\r]/u.test(content[cursor] ?? ''))
+    cursor += 1;
+  if (cursor >= boundary) return '';
+  if (content[cursor] === '<') {
+    const angleEnd = findAngleClose(content, cursor + 1, boundary);
+    return angleEnd === -1 ? '' : content.slice(cursor + 1, angleEnd);
+  }
+  const destinationStart = cursor;
+  while (cursor < boundary && !/[ \t\r]/u.test(content[cursor] ?? ''))
+    cursor += 1;
+  return content.slice(destinationStart, cursor);
+}
+
+function findAngleClose(
+  content: string,
+  start: number,
+  boundary = content.length
+): number {
+  for (let index = start; index < boundary; index += 1) {
     if (content[index] === '\\') {
       index += 1;
       continue;

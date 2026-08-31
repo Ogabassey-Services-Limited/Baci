@@ -31,6 +31,7 @@ const EXPECTED_RESERVED_SLUGS = [
   'new-arrivals',
   'on-sale',
   'onboarding',
+  'opengraph-image',
   'order-success',
   'orders',
   'pages',

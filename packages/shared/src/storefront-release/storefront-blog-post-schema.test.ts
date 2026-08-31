@@ -7,6 +7,13 @@ const blogPost = {
   content: 'Published guide content',
   excerpt: 'A short listing summary.',
   featuredImageUrl: `/release-assets/${'a'.repeat(64)}.png`,
+  featuredImageVariants: {
+    landscape_16x9: `/release-assets/${'b'.repeat(64)}.webp`,
+    standard_4x3: `/release-assets/${'c'.repeat(64)}.webp`,
+    square_1x1: `/release-assets/${'d'.repeat(64)}.webp`,
+  },
+  featuredImageWidth: 1200,
+  featuredImageHeight: 675,
   id: '123e4567-e89b-42d3-a456-426614174070',
   publishedAt: '2026-08-25T14:00:00+01:00',
   seoDescription: 'Compare the best phones.',
