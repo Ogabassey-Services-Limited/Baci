@@ -20,6 +20,8 @@ import {
   revalidateProductSlugs,
   revalidateProducts,
 } from '@/lib/cache-revalidation';
+import { addStorefrontOrderLineOrdinals } from '@/lib/checkout/add-storefront-order-line-ordinals';
+import { buildTransactionDiscountAdTracking } from '@/lib/checkout/build-transaction-discount-ad-tracking';
 import {
   CanonicalOrderSubtotalLoadError,
   computeCanonicalOrderSubtotal,
@@ -27,6 +29,8 @@ import {
 } from '@/lib/checkout/canonical-order-subtotal';
 import { prepareCheckoutIdempotencyReplay } from '@/lib/checkout/checkout-idempotency-replay';
 import { DEFAULT_ASSURANCE_RATE } from '@/lib/checkout/constants';
+import type { createTransactionDiscountProof } from '@/lib/checkout/create-transaction-discount-proof';
+import { createTransactionDiscountProofForCheckout } from '@/lib/checkout/create-transaction-discount-proof-for-checkout';
 import { computeDiscountAmountForSubtotal } from '@/lib/checkout/discount-amount';
 import { hasExistingMerchantRateOrder } from '@/lib/checkout/has-existing-merchant-rate-order';
 import { LocalAirportDeliveryFeeMismatchError } from '@/lib/checkout/local-airport-delivery-fee-mismatch-error';
@@ -1828,25 +1832,39 @@ export async function POST(request: NextRequest) {
       ? (negotiationDiscount?.totalDiscount ?? 0)
       : 0;
 
-    const adTrackingPayload = ad_tracking
-      ? {
-          ...ad_tracking,
-          userIp: clientIp || ad_tracking.userIp,
-          userAgent: clientUserAgent || ad_tracking.userAgent,
-          limitedDataUse:
-            geoPrivacy.shouldApplyLDU || ad_tracking.limitedDataUse,
-          geoCountry: geoPrivacy.country,
-          geoRegion: geoPrivacy.region,
-        }
-      : clientIp || clientUserAgent || geoPrivacy.shouldApplyLDU
-        ? {
-            userIp: clientIp,
-            userAgent: clientUserAgent,
-            limitedDataUse: geoPrivacy.shouldApplyLDU,
-            geoCountry: geoPrivacy.country,
-            geoRegion: geoPrivacy.region,
-          }
-        : null;
+    let transactionDiscountProofResult:
+      | ReturnType<typeof createTransactionDiscountProof>
+      | undefined;
+    if (
+      shouldApplyServerDerivedDiscount &&
+      negotiationDiscount?.lineDiscounts
+    ) {
+      const transactionDiscountProofOutcome =
+        createTransactionDiscountProofForCheckout({
+          lineDiscounts: negotiationDiscount.lineDiscounts,
+          merchantId: merchant_id,
+          userId: resolvedUserId ?? 'guest',
+        });
+      if (!transactionDiscountProofOutcome.ok) {
+        return transactionDiscountProofOutcome.response;
+      }
+      transactionDiscountProofResult = transactionDiscountProofOutcome.proof;
+    }
+
+    // Persist the server-derived line boundaries alongside the order. The
+    // order RPC already stores ad-tracking JSON for guest checkouts, so this
+    // avoids inferring VAT provenance from a mutable source/channel value while
+    // keeping the transaction review read-only.
+    const adTrackingPayload = buildTransactionDiscountAdTracking({
+      adTracking: ad_tracking,
+      clientIp,
+      clientUserAgent,
+      geoPrivacy,
+      lineDiscounts: negotiationDiscount?.lineDiscounts,
+      shouldApplyServerDerivedDiscount,
+      transactionDiscountProof: transactionDiscountProofResult?.proof,
+      transactionDiscountNonce: transactionDiscountProofResult?.nonce,
+    });
 
     const {
       __baci_airport_type: _clientAirportType,
@@ -2427,12 +2445,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const orderItemsRpcPayload =
+      addStorefrontOrderLineOrdinals(orderItemsPayload);
+
     const orderRpcArgs = {
       p_merchant_id: merchant_id,
       p_customer_email: customer_email,
       p_customer_name: customer_name,
       p_customer_phone: customer_phone || null,
-      p_items: orderItemsPayload,
+      p_items: orderItemsRpcPayload,
       p_shipping_fee: effectiveShippingFee,
       p_discount_amount: discountCodeId
         ? discountCodeAmount

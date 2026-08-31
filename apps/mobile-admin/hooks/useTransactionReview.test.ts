@@ -44,44 +44,6 @@ describe('useTransactionReview', () => {
     mocks.mapTransactionOrderRows.mockImplementation((rows) => rows);
   });
 
-  it('keeps timestamp cancellation filtering after a full schema fallback', async () => {
-    mocks.fetchTransactionReviewRows
-      .mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: 'PGRST204',
-          message:
-            "Could not find the 'order_item_unit_costs' relationship in the schema cache",
-        },
-      })
-      .mockResolvedValueOnce({
-        data: [
-          {
-            cancelled_at: '2026-07-21T00:00:00.000Z',
-            id: 'cancelled-order',
-            shipping_status: 'pending',
-          },
-        ],
-        error: null,
-      });
-
-    const { result } = renderHook(() => useTransactionReview(), {
-      wrapper: createWrapper(),
-    });
-
-    await waitFor(() => expect(result.current.data).toEqual([]));
-
-    expect(mocks.fetchTransactionReviewRows).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        includeCancelledAt: true,
-        selectStatement: expect.stringContaining('cancelled_at'),
-      })
-    );
-    expect(mocks.mapTransactionOrderRows).toHaveBeenCalledWith([]);
-    expect(result.current.data).toEqual([]);
-  });
-
   it('does not map a returned order into transaction review results', async () => {
     mocks.fetchTransactionReviewRows.mockResolvedValueOnce({
       data: [

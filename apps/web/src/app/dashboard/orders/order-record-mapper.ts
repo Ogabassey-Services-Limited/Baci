@@ -1,5 +1,6 @@
 import { formatPersonName } from '@/lib/format-person-name';
 import type { MerchantPickupAddress } from '@/lib/shipping/merchant-rates/types';
+import { mapOrderFinancialFields } from './order-financials';
 import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 interface DashboardOrderItem {
@@ -18,6 +19,12 @@ export interface DashboardOrderRecord {
   order_number: string;
   customer_name: string;
   total: string;
+  subtotal?: string | number | null;
+  shipping_fee?: string | number | null;
+  gift_wrapping_fee?: string | number | null;
+  tax_amount?: string | number | null;
+  tax_basis?: string | null;
+  discount_amount?: string | number | null;
   currency?: string | null;
   shipping_status: string;
   payment_status: string;
@@ -77,6 +84,7 @@ export function mapDashboardOrderRecord(
     orderNumber: order.order_number,
     customerName: formatPersonName(order.customer_name || 'Customer'),
     total: Number.parseFloat(order.total),
+    ...mapOrderFinancialFields(order),
     currency: order.currency || 'NGN',
     shippingStatus: formatStatus(order.shipping_status) as ShippingStatus,
     paymentStatus: formatStatus(order.payment_status) as PaymentStatus,

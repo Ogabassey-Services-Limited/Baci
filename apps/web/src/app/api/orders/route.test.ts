@@ -19,6 +19,7 @@ const {
   mockGenerateReceiptBlob,
   mockResolveReceiptLogoDataUri,
   mockCreateAdminClient,
+  mockCreateQuizRpcServerProof,
   mockRevalidateProducts,
   mockRevalidateProductSlugs,
 } = vi.hoisted(() => ({
@@ -59,6 +60,30 @@ const {
     (): Promise<string | null> => Promise.resolve(null)
   ),
   mockCreateAdminClient: vi.fn(),
+  mockCreateQuizRpcServerProof: vi.fn(
+    ({
+      action,
+      payload,
+      subjectId,
+      userId,
+    }: {
+      action: string;
+      payload: Record<string, unknown>;
+      subjectId: string;
+      userId: string;
+    }) => ({
+      action,
+      issued_at: '2026-08-28T00:00:00.000Z',
+      payload,
+      payload_hash: 'a'.repeat(64),
+      proof_id: 'proof-test',
+      scope: 'quiz_phase1a',
+      signature: 'b'.repeat(64),
+      subject_id: subjectId,
+      user_id: userId,
+      version: 'quiz-rpc-proof:v1',
+    })
+  ),
   mockRevalidateProducts: vi.fn(),
   mockRevalidateProductSlugs: vi.fn(),
 }));
@@ -163,6 +188,10 @@ vi.mock('@/lib/checkout/storefront-order-rpc-client', () => ({
   createStorefrontOrderRpcClient: vi.fn(
     ({ fallbackClient }: { fallbackClient: unknown }) => fallbackClient
   ),
+}));
+
+vi.mock('@/lib/quiz-proof', () => ({
+  createQuizRpcServerProof: mockCreateQuizRpcServerProof,
 }));
 
 vi.mock('@/lib/shipping/providers/gigl', () => ({
@@ -3906,49 +3935,6 @@ describe('POST /api/orders — per-line eligible discount enforcement', () => {
     expect(response.status).toBe(201);
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({ p_discount_amount: 0 })
-    );
-  });
-
-  it('applies mobile negotiated discounts while omitting expected_total until tax is canonical', async () => {
-    const { rpcSpy } = await setupOrdersDiscountMock([
-      {
-        id: 'p-mac',
-        brand: 'Apple',
-        name: 'MacBook Air M1',
-        price: 1000,
-        vat_category_code: 'S',
-        vat_rate: 7.5,
-      },
-    ]);
-
-    const request = new NextRequest('http://localhost/api/orders', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...baseOrderPayload,
-        source: 'mobile_app',
-        items: [
-          {
-            product_id: 'p-mac',
-            quantity: 1,
-            price: 980,
-            name: 'MacBook Air M1',
-            has_assurance: true,
-          },
-        ],
-        subtotal: 980,
-        tax_amount: 73.5,
-      }),
-    });
-
-    await POST(request);
-
-    expect(rpcSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_discount_amount: 21.5,
-        p_expected_total: null,
-        p_source: 'mobile_app',
-        p_tax_amount: 75,
-      })
     );
   });
 

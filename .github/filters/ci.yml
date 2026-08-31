@@ -173,6 +173,7 @@ web:
   - '.github/scripts/tools-worker-typecheck-contract.test.mjs'
   - '.github/scripts/web-build-timeout-contract.test.mjs'
   - '.github/scripts/web-test-checkout-contract.test.mjs'
+  - '.github/scripts/quiz-production-approval-workflow.test.mjs'
   - '.github/scripts/resolve-ci-test-plan.test.mjs'
   - '.github/workflows/ci.yml'
   - 'package.json'

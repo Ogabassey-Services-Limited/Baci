@@ -117,4 +117,30 @@ describe('calculatePlatformStats', () => {
     expect(result.platformStats.tiktok.conversions).toBe(0);
     expect(result.platformStats.ga4.conversions).toBe(0);
   });
+
+  it('does not count discount provenance without attribution as tracked', () => {
+    const result = calculatePlatformStats(
+      [
+        {
+          ad_tracking: {
+            baci_transaction_discount: {
+              lineDiscounts: [],
+              version: 3,
+            },
+          },
+          created_at: '2026-08-01T00:00:00.000Z',
+          id: 'order-discount-only',
+          payment_status: 'paid',
+          total: 90,
+        },
+      ],
+      configuredMerchant
+    );
+
+    expect(result.details).toEqual({
+      ordersWithClickIds: 0,
+      ordersWithLDU: 0,
+      ordersWithTracking: 0,
+    });
+  });
 });

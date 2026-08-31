@@ -1,5 +1,16 @@
 'use server';
 
+import {
+  AGENTIC_ORDER_SOURCE,
+  AGENTIC_ORDER_SOURCE_FILTER,
+  type AgenticOrderSourceFilter,
+} from '@/app/dashboard/orders/agentic-order-source';
+import type { OrderFinancialFields } from '@/app/dashboard/orders/order-financials';
+import { loadOrderItemImageMap } from '@/app/dashboard/orders/order-item-images';
+import type {
+  PaymentStatus,
+  ShippingStatus,
+} from '@/app/dashboard/orders/order-statuses';
 import type { StaffAccess } from '@/hooks/merchant';
 import {
   generateOrderConfirmationEmail,
@@ -21,16 +32,9 @@ import {
   ResendOrderConfirmationInputSchema,
 } from '@/schemas/dashboard-order-actions';
 import {
-  AGENTIC_ORDER_SOURCE,
-  AGENTIC_ORDER_SOURCE_FILTER,
-  type AgenticOrderSourceFilter,
-} from './agentic-order-source';
-import { loadOrderItemImageMap } from './order-item-images';
-import {
   type DashboardOrderRecord,
   mapDashboardOrderRecord,
 } from './order-record-mapper';
-import type { PaymentStatus, ShippingStatus } from './order-statuses';
 
 export type { PaymentStatus, ShippingStatus } from './order-statuses';
 
@@ -47,7 +51,7 @@ export interface Transaction {
   created_at: string;
 }
 
-export interface Order {
+export interface Order extends OrderFinancialFields {
   id: string;
   orderNumber: string;
   customerName: string;

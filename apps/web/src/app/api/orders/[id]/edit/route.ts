@@ -152,10 +152,13 @@ export async function PATCH(
     );
   }
 
-  const { data, error } = await supabase.rpc('update_admin_order', {
-    p_order_id: paramsResult.data.id,
-    p_payload: parsed.data,
-  });
+  const { data, error } = await supabase.rpc(
+    'update_admin_order_with_transaction_discount_metadata',
+    {
+      p_order_id: paramsResult.data.id,
+      p_payload: parsed.data,
+    }
+  );
 
   if (error) {
     return mapOrderEditError(error);

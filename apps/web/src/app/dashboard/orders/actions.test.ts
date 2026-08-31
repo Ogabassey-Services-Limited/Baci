@@ -85,6 +85,10 @@ const mockOrder: {
   source: string;
   subtotal: string;
   shipping_fee: string;
+  gift_wrapping_fee: string;
+  tax_amount: string;
+  tax_basis: string;
+  discount_amount: string;
   total: string;
   currency?: string | null;
   delivery_method?: string | null;
@@ -111,7 +115,11 @@ const mockOrder: {
   source: 'whatsapp',
   subtotal: '10000',
   shipping_fee: '1500',
-  total: '11500',
+  gift_wrapping_fee: '0',
+  tax_amount: '0',
+  tax_basis: 'exclusive',
+  discount_amount: '1000',
+  total: '10500',
   currency: 'NGN',
   shipping_address: {
     address: '123 Test St',
@@ -337,7 +345,7 @@ describe('resendOrderConfirmation', () => {
         orderNumber: '#ORD-001',
         customerName: 'John Doe',
         merchantName: 'TestShop',
-        total: 11500,
+        total: 10500,
         currency: 'NGN',
       })
     );

@@ -3,6 +3,7 @@ import z from 'zod';
 import { DEFAULT_ROOT_DOMAIN } from '@/lib/default-root-domain';
 import { normalizeEnvBoolean } from '@/lib/env-boolean';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
+import { isNegotiatedCheckoutProofSecretMissing } from '@/lib/quiz/negotiated-checkout-proof-env';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
 /**
@@ -429,6 +430,16 @@ const serverSchema = z
         code: z.ZodIssueCode.custom,
         message:
           'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
+        path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
+  })
+  .superRefine((value, ctx) => {
+    if (isNegotiatedCheckoutProofSecretMissing(value)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'QUIZ_RPC_SERVER_SECRET is required in production for negotiated checkout proofs',
         path: ['QUIZ_RPC_SERVER_SECRET'],
       });
     }
