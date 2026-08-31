@@ -76,6 +76,25 @@ describe('BlogRelatedProducts', () => {
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
 
+  it('treats null managed-stock values as managed when effective stock is zero', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-null-managed-stock',
+            name: 'Legacy phone',
+            manage_stock: null,
+            stock: 0,
+            slug: 'legacy-phone',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
+  });
+
   it('does not show unavailable when a stocked condition offer can be purchased', () => {
     render(
       <BlogRelatedProducts

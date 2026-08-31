@@ -8,7 +8,9 @@ const mocks = vi.hoisted(() => ({
   revalidateDashboard: vi.fn(),
   revalidateProductSlugs: vi.fn(),
   revalidateProducts: vi.fn(),
-  scheduleOrderProductBlogPurge: vi.fn().mockResolvedValue(undefined),
+  scheduleOrderProductBlogPurgeAfterResponse: vi
+    .fn()
+    .mockResolvedValue(undefined),
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -22,8 +24,9 @@ vi.mock('@/lib/product-cache-revalidation', () => ({
     revalidateProducts: mocks.revalidateProducts,
   },
 }));
-vi.mock('@/lib/schedule-order-product-blog-purge', () => ({
-  scheduleOrderProductBlogPurge: mocks.scheduleOrderProductBlogPurge,
+vi.mock('@/lib/schedule-order-product-blog-purge-after-response', () => ({
+  scheduleOrderProductBlogPurgeAfterResponse:
+    mocks.scheduleOrderProductBlogPurgeAfterResponse,
 }));
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: mocks.checkCsrfProtection,
@@ -121,7 +124,9 @@ describe('POST /api/orders/[id]/cancelled', () => {
     expect(mocks.revalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
       'phone',
     ]);
-    expect(mocks.scheduleOrderProductBlogPurge).toHaveBeenCalledWith(
+    expect(
+      mocks.scheduleOrderProductBlogPurgeAfterResponse
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         merchantId: 'merchant-1',
         productIds: ['product-1'],

@@ -95,8 +95,8 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateProductSlugs: mockRevalidateProductSlugs,
 }));
 
-vi.mock('@/lib/schedule-order-product-blog-purge', () => ({
-  scheduleOrderProductBlogPurge: mockScheduleOrderProductBlogPurge,
+vi.mock('@/lib/schedule-order-product-blog-purge-after-response', () => ({
+  scheduleOrderProductBlogPurgeAfterResponse: mockScheduleOrderProductBlogPurge,
 }));
 
 vi.mock('@/lib/paystack', () => ({

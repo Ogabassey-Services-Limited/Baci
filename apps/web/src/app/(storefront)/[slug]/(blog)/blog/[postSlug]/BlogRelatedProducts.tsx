@@ -31,6 +31,24 @@ function formatRelatedProductPrice(
     : null;
 }
 
+function isRelatedProductUnavailable(product: BlogRelatedProduct) {
+  const hasInventorySignal =
+    product.manage_stock !== undefined ||
+    product.stock !== undefined ||
+    product.stock_quantity !== undefined;
+
+  return (
+    product.manage_stock !== false &&
+    hasInventorySignal &&
+    getEffectiveStock(product) === 0 &&
+    product.has_purchasable_condition_offer !== true &&
+    product.has_purchasable_variant !== true &&
+    (!product.has_condition_offers ||
+      product.has_purchasable_condition_offer === false) &&
+    (!product.has_variants || product.has_purchasable_variant === false)
+  );
+}
+
 export function BlogRelatedProducts({
   basePath,
   currencySource,
@@ -72,14 +90,7 @@ export function BlogRelatedProducts({
                   ) : null}
                 </span>
               </HoverPrefetchLink>
-              {product.manage_stock &&
-              getEffectiveStock(product) === 0 &&
-              product.has_purchasable_condition_offer !== true &&
-              product.has_purchasable_variant !== true &&
-              (!product.has_condition_offers ||
-                product.has_purchasable_condition_offer === false) &&
-              (!product.has_variants ||
-                product.has_purchasable_variant === false) ? (
+              {isRelatedProductUnavailable(product) ? (
                 <span className="mt-1 block px-4 text-xs text-muted-foreground">
                   Currently unavailable
                 </span>

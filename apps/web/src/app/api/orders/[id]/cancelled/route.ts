@@ -6,7 +6,7 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
-import { scheduleOrderProductBlogPurge } from '@/lib/schedule-order-product-blog-purge';
+import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { merchantOrderCancellationSchema } from '@/schemas/orders';
 
 /**
@@ -127,7 +127,7 @@ export async function POST(
             merchantId,
             trackedProducts.map((product) => product.slug)
           );
-          await scheduleOrderProductBlogPurge({
+          scheduleOrderProductBlogPurgeAfterResponse({
             merchantId,
             productIds: trackedProducts.map((product) => product.id),
             supabase,

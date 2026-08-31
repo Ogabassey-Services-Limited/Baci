@@ -49,6 +49,11 @@ export function getBlogCategoryLookup(
     };
 
     addPattern(words);
+    // A category label may contain more than one punctuation boundary (for
+    // example "Women's & Children's Fashion"). A wildcard between every
+    // character keeps one bounded PostgREST pattern that can match those
+    // separators; the caller still canonicalizes and verifies returned rows.
+    addPattern(words.map((word) => word.split('').join('*')));
     words.forEach((word, wordIndex) => {
       for (let splitIndex = 1; splitIndex < word.length; splitIndex += 1) {
         const splitWords = [...words];

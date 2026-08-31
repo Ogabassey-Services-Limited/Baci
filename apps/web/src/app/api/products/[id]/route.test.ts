@@ -52,6 +52,12 @@ vi.mock('@/lib/storefront-product-purge', () => ({
     mockScheduleStorefrontProductPurge(...args),
 }));
 
+const mockGetPublishedBlogPostSlugsForProducts = vi.fn().mockResolvedValue([]);
+vi.mock('@/lib/get-published-blog-post-slugs-for-products', () => ({
+  getPublishedBlogPostSlugsForProducts: (...args: unknown[]) =>
+    mockGetPublishedBlogPostSlugsForProducts(...args),
+}));
+
 const mockPrewarmOgabasseyImageTransforms = vi
   .fn()
   .mockResolvedValue(undefined);

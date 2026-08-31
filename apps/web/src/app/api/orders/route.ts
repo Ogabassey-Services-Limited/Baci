@@ -80,7 +80,7 @@ import {
 } from '@/lib/receipt-pdf-generator';
 import { resolveMerchantCurrencyConfig } from '@/lib/resolve-merchant-currency';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { scheduleOrderProductBlogPurge } from '@/lib/schedule-order-product-blog-purge';
+import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { toInternationalQuoteValidationItemsFromOrder } from '@/lib/shipping/international-shipment-items';
 import {
   getMerchantShippingRates,
@@ -3027,7 +3027,10 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          await scheduleOrderProductBlogPurge({
+          // Article enrichment can require several paginated reads. Keep it
+          // on the request's post-response queue so checkout latency remains
+          // bounded by the order RPC and the existing PDP cache invalidation.
+          scheduleOrderProductBlogPurgeAfterResponse({
             merchantId: merchant_id,
             merchantSlug: merchant.slug,
             productIds: revalidateProductIds,

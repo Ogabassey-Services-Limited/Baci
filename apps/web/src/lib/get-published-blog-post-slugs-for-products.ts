@@ -90,6 +90,9 @@ async function fetchCategoryFallbackRows(
 
     const { data, error } = await query
       .order('published_at', { ascending: false })
+      // Keep page boundaries stable when bulk-published posts share the same
+      // timestamp (a common outcome of imports and scheduled releases).
+      .order('slug', { ascending: true })
       .range(
         page * CATEGORY_FALLBACK_PAGE_SIZE,
         (page + 1) * CATEGORY_FALLBACK_PAGE_SIZE - 1

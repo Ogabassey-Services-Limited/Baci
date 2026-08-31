@@ -34,6 +34,7 @@ import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
+import { scheduleProductBlogPurge } from '@/lib/schedule-product-blog-purge';
 import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
 import {
   generateMetaDescription,
@@ -41,7 +42,6 @@ import {
   generateProductSlug,
   generateSlug,
 } from '@/lib/seo-utils';
-import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
 import {
   resolveProductPurgeCategorySegmentForRow,
   type StorefrontProductPurgeEntry,
@@ -953,26 +953,16 @@ export async function PUT(
         merchantId,
         productPurgeEntries.map((entry) => entry.slug)
       );
-      const blogPostSlugs = await getPublishedBlogPostSlugsForProducts(
+      await scheduleProductBlogPurge({
         supabase,
         merchantId,
-        [updatedProduct.id],
-        productPurgeEntries
-          .map((entry) => entry.categorySegment)
-          .filter((segment): segment is string => Boolean(segment))
-      );
-      if (blogPostSlugs.length > 0) {
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          productPurgeEntries,
-          { blogPostSlugs }
-        );
-      } else {
-        scheduleStorefrontProductPurge(
-          merchantContext.merchantSlug,
-          productPurgeEntries
-        );
-      }
+        merchantSlug: merchantContext.merchantSlug,
+        productIds: [updatedProduct.id],
+        entries: productPurgeEntries,
+        categorySlugs: productPurgeEntries.map(
+          (entry) => entry.categorySegment
+        ),
+      });
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after update', {
         purgeError,
@@ -1124,20 +1114,14 @@ export async function DELETE(
             }),
           },
         ];
-        if (linkedBlogPostSlugs.length > 0) {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            purgeEntries,
-            {
-              blogPostSlugs: linkedBlogPostSlugs,
-            }
-          );
-        } else {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            purgeEntries
-          );
-        }
+        await scheduleProductBlogPurge({
+          supabase,
+          merchantId,
+          merchantSlug: merchantContext.merchantSlug,
+          productIds: [id],
+          entries: purgeEntries,
+          blogPostSlugs: linkedBlogPostSlugs,
+        });
       } else {
         // The pre-read errored or came back null, yet the delete above
         // succeeded — the storefront still has the deleted product's page cached
@@ -1151,17 +1135,14 @@ export async function DELETE(
           { id, preReadError }
         );
         revalidateProductSlugs(merchantId, [id]);
-        if (linkedBlogPostSlugs.length > 0) {
-          scheduleStorefrontProductPurge(
-            merchantContext.merchantSlug,
-            [{ slug: id, categorySegment: null }],
-            { blogPostSlugs: linkedBlogPostSlugs }
-          );
-        } else {
-          scheduleStorefrontProductPurge(merchantContext.merchantSlug, [
-            { slug: id, categorySegment: null },
-          ]);
-        }
+        await scheduleProductBlogPurge({
+          supabase,
+          merchantId,
+          merchantSlug: merchantContext.merchantSlug,
+          productIds: [id],
+          entries: [{ slug: id, categorySegment: null }],
+          blogPostSlugs: linkedBlogPostSlugs,
+        });
       }
     } catch (purgeError) {
       console.warn('Skipped Cloudflare product purge after delete', {

@@ -226,4 +226,72 @@ describe('getPublishedBlogPostSlugsForProducts', () => {
       'category.ilike.*women*s*fashion*'
     );
   });
+
+  it('matches canonical categories across multiple punctuation boundaries', async () => {
+    const { categoryOrSpy, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: [], error: null },
+      {
+        data: [
+          {
+            slug: 'womens-childrens-fashion-guide',
+            status: 'published',
+            published_at: '2026-08-05',
+            category: "Women's & Children's Fashion",
+          },
+        ],
+        error: null,
+      }
+    );
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      [],
+      ['womens-childrens-fashion']
+    );
+
+    expect(result).toEqual(['womens-childrens-fashion-guide']);
+    expect(categoryOrSpy.mock.calls[0]?.[0]).toContain(
+      'category.ilike.*w*o*m*e*n*s*c*h*i*l*d*r*e*n*s*f*a*s*h*i*o*n*'
+    );
+  });
+
+  it('keeps category pagination deterministic when timestamps tie', async () => {
+    const { categoryPages, supabase } = makeSupabase(
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null }
+    );
+    const publishedAt = '2026-08-06T00:00:00.000Z';
+    categoryPages.exact[0] = {
+      data: Array.from({ length: 256 }, (_, index) => ({
+        slug: `tied-guide-${index}`,
+        status: 'published',
+        published_at: publishedAt,
+        category: 'smartphones',
+      })),
+      error: null,
+    };
+    categoryPages.exact[1] = {
+      data: [
+        {
+          slug: 'tied-guide-256',
+          status: 'published',
+          published_at: publishedAt,
+          category: 'smartphones',
+        },
+      ],
+      error: null,
+    };
+
+    const result = await getPublishedBlogPostSlugsForProducts(
+      supabase as never,
+      'merchant-1',
+      [],
+      ['smartphones']
+    );
+
+    expect(result).toContain('tied-guide-256');
+  });
 });
