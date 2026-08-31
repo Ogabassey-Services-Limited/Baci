@@ -47,6 +47,7 @@ export interface BlogPostBodyProps {
     compare_at_price?: number | null;
     manage_stock?: boolean | null;
     stock?: number | null;
+    stock_quantity?: number | null;
     slug?: string | null;
   }>;
   relatedPosts: Array<{

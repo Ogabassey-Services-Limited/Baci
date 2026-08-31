@@ -184,6 +184,7 @@ async function renderBlogPostContent({
           baseUrl={baseUrl}
           currencySource={{
             country: merchant.country,
+            payout_currency: merchant.payout_currency,
           }}
           content={content}
           locale={locale}

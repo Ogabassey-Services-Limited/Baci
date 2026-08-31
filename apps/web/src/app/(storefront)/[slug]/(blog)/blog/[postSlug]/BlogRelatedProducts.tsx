@@ -11,6 +11,7 @@ type RelatedProduct = {
   compare_at_price?: number | null;
   manage_stock?: boolean | null;
   stock?: number | null;
+  stock_quantity?: number | null;
   slug: string;
 };
 
@@ -59,7 +60,8 @@ export function BlogRelatedProducts({
                   ) : null}
                 </span>
               </HoverPrefetchLink>
-              {product.manage_stock && product.stock === 0 ? (
+              {product.manage_stock &&
+              (product.stock ?? product.stock_quantity) === 0 ? (
                 <span className="mt-1 block px-4 text-xs text-muted-foreground">
                   Currently unavailable
                 </span>
