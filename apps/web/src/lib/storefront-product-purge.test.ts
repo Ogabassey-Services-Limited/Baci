@@ -107,6 +107,45 @@ describe('scheduleStorefrontProductPurge', () => {
     expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
   });
 
+  it('uses a hostname purge when related article URLs exceed the bounded target count', () => {
+    vi.mocked(buildStorefrontProductPurgeUrls).mockReturnValueOnce(
+      Array.from(
+        { length: 301 },
+        (_, index) => `https://ogabassey.com/${index}`
+      )
+    );
+
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { blogPostSlugs: ['large-guide-set'] }
+    );
+
+    expect(mockPurgeCloudflareUrls).not.toHaveBeenCalled();
+    expect(mockPurgeCloudflareHostnamesConfirmed).toHaveBeenCalledWith([
+      'ogabassey.com',
+      'www.ogabassey.com',
+    ]);
+  });
+
+  it('keeps URL purges at the exact bounded target count', () => {
+    vi.mocked(buildStorefrontProductPurgeUrls).mockReturnValueOnce(
+      Array.from(
+        { length: 300 },
+        (_, index) => `https://ogabassey.com/${index}`
+      )
+    );
+
+    scheduleStorefrontProductPurge(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
+      { blogPostSlugs: ['large-guide-set'] }
+    );
+
+    expect(mockPurgeCloudflareUrls).toHaveBeenCalledTimes(1);
+    expect(mockPurgeCloudflareHostnamesConfirmed).not.toHaveBeenCalled();
+  });
+
   it('does not schedule a purge for a missing identifier', () => {
     scheduleStorefrontProductPurge(undefined, [{ slug: 'iphone-15' }]);
     scheduleStorefrontProductPurge('   ', [{ slug: 'iphone-15' }]);

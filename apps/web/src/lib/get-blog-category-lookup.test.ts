@@ -19,4 +19,19 @@ describe('getBlogCategoryLookup', () => {
     );
     expect(lookup.canonicalFilter).toContain('category.ilike.*product*news*');
   });
+
+  it('splits high-cardinality canonical filters into bounded query groups', () => {
+    const categories = Array.from(
+      { length: 80 },
+      (_, index) => `category-${index}-with-a-long-descriptor`
+    );
+
+    const lookup = getBlogCategoryLookup(categories);
+
+    expect(lookup.canonicalFilters.length).toBeGreaterThan(1);
+    expect(
+      lookup.canonicalFilters.every((filter) => filter.length <= 2500)
+    ).toBe(true);
+    expect(lookup.canonicalFilter).toBe(lookup.canonicalFilters.join(','));
+  });
 });

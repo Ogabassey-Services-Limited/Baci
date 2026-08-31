@@ -12,6 +12,12 @@ import { resolveStorefrontProductPurgeCategorySlug } from './storefront-product-
 // product-purge caller; compare `countDistinctProductPurgeEntries`.
 export const PURGE_WHOLE_STOREFRONT_THRESHOLD = 50;
 
+// Cloudflare accepts at most 30 URL targets per request on non-Enterprise
+// plans. Keep post-response invalidation bounded to ten batches; if product
+// and related-article targets exceed this count, callers should use the
+// hostname-wide purge instead of starting an unbounded tail of requests.
+export const PURGE_WHOLE_STOREFRONT_URL_THRESHOLD = 300;
+
 /**
  * One product's purge target: its slug plus the canonical category segment of
  * its PDP (e.g. `smartphones`), or null when the product resolves to the

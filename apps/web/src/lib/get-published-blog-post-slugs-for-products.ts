@@ -71,44 +71,50 @@ async function fetchCategoryFallbackRows(
   supabase: SupabaseClient,
   merchantId: string,
   categoryCandidates: readonly string[],
-  canonicalCategoryFilter: string,
+  canonicalCategoryFilters: readonly string[],
   queryKind: CategoryFallbackQuery
 ) {
   const rows: CategoryBlogPostRow[] = [];
 
-  for (let page = 0; ; page += 1) {
-    let query = supabase
-      .from('blog_posts')
-      .select('slug, status, published_at, category')
-      .eq('merchant_id', merchantId)
-      .eq('status', 'published');
+  const filters =
+    queryKind === 'exact' ? [''] : Array.from(canonicalCategoryFilters);
+  for (const filter of filters) {
+    for (let page = 0; ; page += 1) {
+      let query = supabase
+        .from('blog_posts')
+        .select('slug, status, published_at, category')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'published');
 
-    query =
-      queryKind === 'exact'
-        ? query.in('category', Array.from(categoryCandidates))
-        : query.or(canonicalCategoryFilter);
+      query =
+        queryKind === 'exact'
+          ? query.in('category', Array.from(categoryCandidates))
+          : query.or(filter);
 
-    const { data, error } = await query
-      .order('published_at', { ascending: false })
-      // Keep page boundaries stable when bulk-published posts share the same
-      // timestamp (a common outcome of imports and scheduled releases).
-      .order('slug', { ascending: true })
-      .range(
-        page * CATEGORY_FALLBACK_PAGE_SIZE,
-        (page + 1) * CATEGORY_FALLBACK_PAGE_SIZE - 1
-      );
+      const { data, error } = await query
+        .order('published_at', { ascending: false })
+        // Keep page boundaries stable when bulk-published posts share the same
+        // timestamp (a common outcome of imports and scheduled releases).
+        .order('slug', { ascending: true })
+        .range(
+          page * CATEGORY_FALLBACK_PAGE_SIZE,
+          (page + 1) * CATEGORY_FALLBACK_PAGE_SIZE - 1
+        );
 
-    if (error) {
-      return { error, rows };
-    }
+      if (error) {
+        return { error, rows };
+      }
 
-    const pageRows = (data as unknown as CategoryBlogPostRow[]) ?? [];
-    rows.push(...pageRows);
+      const pageRows = (data as unknown as CategoryBlogPostRow[]) ?? [];
+      rows.push(...pageRows);
 
-    if (pageRows.length < CATEGORY_FALLBACK_PAGE_SIZE) {
-      return { error: null, rows };
+      if (pageRows.length < CATEGORY_FALLBACK_PAGE_SIZE) {
+        break;
+      }
     }
   }
+
+  return { error: null, rows };
 }
 
 async function fetchLinkedBlogPostRows(
@@ -171,7 +177,7 @@ export async function getPublishedBlogPostSlugsForProducts(
   );
   const {
     candidates: categoryCandidates,
-    canonicalFilter: canonicalCategoryFilter,
+    canonicalFilters: canonicalCategoryFilters,
     canonicalSlugs: canonicalCategorySlugs,
   } = getBlogCategoryLookup(categorySlugs);
 
@@ -218,7 +224,7 @@ export async function getPublishedBlogPostSlugsForProducts(
           supabase,
           normalizedMerchantId,
           categoryCandidates,
-          canonicalCategoryFilter,
+          [],
           'exact'
         );
 
@@ -234,13 +240,13 @@ export async function getPublishedBlogPostSlugsForProducts(
         }
       }
 
-      if (canonicalCategoryFilter.length > 0) {
+      if (canonicalCategoryFilters.length > 0) {
         const { rows: canonicalRows, error: canonicalError } =
           await fetchCategoryFallbackRows(
             supabase,
             normalizedMerchantId,
             categoryCandidates,
-            canonicalCategoryFilter,
+            canonicalCategoryFilters,
             'canonical'
           );
 

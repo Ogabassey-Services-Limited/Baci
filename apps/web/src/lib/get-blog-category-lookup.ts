@@ -3,7 +3,36 @@ import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-cat
 export interface BlogCategoryLookup {
   candidates: string[];
   canonicalFilter: string;
+  /** Bounded `.or(...)` groups safe to send as separate PostgREST requests. */
+  canonicalFilters: string[];
   canonicalSlugs: string[];
+}
+
+const MAX_CANONICAL_FILTER_LENGTH = 2500;
+
+function chunkCanonicalFilters(patterns: readonly string[]) {
+  const filters: string[] = [];
+  let current: string[] = [];
+  let currentLength = 0;
+
+  for (const pattern of patterns) {
+    const nextLength =
+      currentLength + pattern.length + (current.length > 0 ? 1 : 0);
+    if (current.length > 0 && nextLength > MAX_CANONICAL_FILTER_LENGTH) {
+      filters.push(current.join(','));
+      current = [];
+      currentLength = 0;
+    }
+
+    current.push(pattern);
+    currentLength += pattern.length + (current.length > 1 ? 1 : 0);
+  }
+
+  if (current.length > 0) {
+    filters.push(current.join(','));
+  }
+
+  return filters;
 }
 
 export function getBlogCategoryLookup(
@@ -65,9 +94,12 @@ export function getBlogCategoryLookup(
     });
   }
 
+  const canonicalFilters = chunkCanonicalFilters(Array.from(patterns));
+
   return {
     candidates: Array.from(candidates),
-    canonicalFilter: Array.from(patterns).join(','),
+    canonicalFilter: canonicalFilters.join(','),
+    canonicalFilters,
     canonicalSlugs,
   };
 }

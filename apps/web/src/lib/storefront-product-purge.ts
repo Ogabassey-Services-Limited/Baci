@@ -5,6 +5,7 @@ import {
   buildStorefrontProductPurgeUrls,
   countDistinctProductPurgeEntries,
   PURGE_WHOLE_STOREFRONT_THRESHOLD,
+  PURGE_WHOLE_STOREFRONT_URL_THRESHOLD,
   type StorefrontProductPurgeEntry,
 } from '@/lib/storefront-product-purge-urls';
 
@@ -54,6 +55,16 @@ export function scheduleStorefrontProductPurge(
       options.blogPostSlugs
     );
     if (urls.length === 0) {
+      return;
+    }
+
+    // Related articles add two URLs each (the article and its generated social
+    // image), so a single product can otherwise fan out into hundreds of
+    // sequential Cloudflare requests. Bound the total target count, not only
+    // the number of changed products, and use the existing hostname-wide
+    // fallback when the post-response work would be too large.
+    if (urls.length > PURGE_WHOLE_STOREFRONT_URL_THRESHOLD) {
+      scheduleStorefrontHostnamePurge(normalizedIdentifier);
       return;
     }
 

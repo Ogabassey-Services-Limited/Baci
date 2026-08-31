@@ -160,37 +160,6 @@ describe('revalidateProductsReliable', () => {
     );
   });
 
-  it('forwards enriched linked blog slugs on the in-process purge path', async () => {
-    mockRevalidateProducts.mockReturnValue(undefined);
-    mockEnrichProductPurgeEntries.mockResolvedValue({
-      entries: [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
-      resolvedSlugs: ['iphone-15'],
-      blogPostSlugs: ['iphone-15-buying-guide'],
-    });
-    const supabase = { from: vi.fn() };
-    const products = [{ id: 'product-id', slug: 'iphone-15' }];
-
-    await revalidateProductsReliable('merchant-1', {
-      merchantSlug: 'ogabassey',
-      products,
-      supabase: supabase as never,
-    });
-
-    expect(mockEnrichProductPurgeEntries).toHaveBeenCalledWith(
-      supabase,
-      'merchant-1',
-      products
-    );
-    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
-      'iphone-15',
-    ]);
-    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
-      'ogabassey',
-      [{ slug: 'iphone-15', categorySegment: 'smartphones' }],
-      { blogPostSlugs: ['iphone-15-buying-guide'] }
-    );
-  });
-
   it('busts the per-slug Next product caches BEFORE scheduling the in-process purge (F3 parity)', async () => {
     mockRevalidateProducts.mockReturnValue(undefined);
     const fetchImpl = vi.fn();

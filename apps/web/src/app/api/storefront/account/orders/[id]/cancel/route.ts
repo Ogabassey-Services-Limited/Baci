@@ -4,7 +4,9 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { sendOrderCancellationEmail } from '@/lib/order-cancellation-email';
+import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { checkRateLimit } from '@/lib/rate-limiter';
+import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 import { storefrontOrderCancellationSchema } from '@/schemas/storefront-order-cancellation';
 
 const orderIdSchema = z.uuid();
@@ -112,6 +114,106 @@ export async function POST(
   }
 
   const didCancel = data === true;
+
+  // The customer cancellation RPC restocks managed inventory, but it cannot
+  // invalidate the storefront's Next/Cloudflare caches. Resolve the owning
+  // merchant and order products after the atomic transition, then queue the
+  // same best-effort purge flow used by checkout and merchant cancellation.
+  // This stays after the RPC so an idempotent retry (data === false) does not
+  // churn product or article caches a second time.
+  if (didCancel) {
+    try {
+      const { data: cancelledOrder, error: cancelledOrderError } =
+        await auth.supabase
+          .from('orders')
+          .select('merchant_id, order_items(product_id)')
+          .eq('id', id)
+          .maybeSingle();
+      if (cancelledOrderError || !cancelledOrder) {
+        throw cancelledOrderError ?? new Error('Cancelled order not found');
+      }
+
+      const typedOrder = cancelledOrder as unknown as {
+        merchant_id?: string | null;
+        order_items?: unknown;
+      };
+      const productIds = Array.from(
+        new Set(
+          (Array.isArray(typedOrder.order_items) ? typedOrder.order_items : [])
+            .map((item) =>
+              typeof item === 'object' && item !== null && 'product_id' in item
+                ? (item as { product_id?: unknown }).product_id
+                : null
+            )
+            .filter(
+              (productId): productId is string =>
+                typeof productId === 'string' && productId.trim().length > 0
+            )
+            .map((productId) => productId.trim())
+        )
+      );
+      const merchantId = typedOrder.merchant_id?.trim();
+      if (merchantId && productIds.length > 0) {
+        try {
+          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+            feedScope: 'merchant',
+          });
+        } catch (productCacheError) {
+          // The article purge below is independent of Next tag invalidation;
+          // keep queueing it even if a cache API is unavailable in this scope.
+          logger.error({
+            message:
+              'Failed to revalidate product caches after customer cancellation',
+            orderId: id,
+            merchantId,
+            error: productCacheError,
+          });
+        }
+
+        // Per-slug PDP tags are narrower than the merchant-wide product tag.
+        // A read failure must not suppress the article purge, so keep this
+        // optional enrichment fail-open and queue all known product IDs below.
+        try {
+          const { data: productRows, error: productRowsError } =
+            await auth.supabase
+              .from('products')
+              .select('id, slug')
+              .eq('merchant_id', merchantId)
+              .in('id', productIds);
+          if (productRowsError) throw productRowsError;
+          const slugs = (productRows ?? [])
+            .map((row) => (row as { slug?: string | null }).slug)
+            .filter((slug): slug is string => Boolean(slug?.trim()))
+            .map((slug) => slug.trim());
+          if (slugs.length > 0) {
+            productCacheRevalidation.revalidateProductSlugs(merchantId, slugs);
+          }
+        } catch (productRowsError) {
+          logger.error({
+            message:
+              'Failed to resolve product slugs after customer cancellation',
+            orderId: id,
+            merchantId,
+            error: productRowsError,
+          });
+        }
+
+        scheduleOrderProductBlogPurgeAfterResponse({
+          merchantId,
+          productIds,
+          supabase: auth.supabase,
+        });
+      }
+    } catch (cacheError) {
+      // Cancellation is already committed. Cache invalidation remains
+      // best-effort; the product/article TTLs self-heal if this read fails.
+      logger.error({
+        message: 'Failed to queue product caches after customer cancellation',
+        orderId: id,
+        error: cacheError,
+      });
+    }
+  }
 
   // 5. Best-effort cancellation email. The order is already cancelled, so an
   // email failure must NOT fail the request.
