@@ -19,6 +19,7 @@ describe('supabase history replay expense pending sources', () => {
     const quizRows = rows.filter((row) => row.includes('quiz_instant_'));
 
     expect(quizRows.map((row) => row.split(' ')[1])).toEqual([
+      '20260830193440_quiz_instant_live_publication_score_gate_v2.sql',
       '20260830193441_quiz_instant_test_publication_score_gate_v2.sql',
       '20260830193442_quiz_instant_deadline_publication_v2.sql',
       '20260830193732_quiz_instant_results_wakeup_v2.sql',
