@@ -27,6 +27,10 @@ interface AvailabilityResolution {
 }
 
 type AvailabilityPair = readonly [string, AvailabilityResolution | undefined];
+type HydrateRelatedBlogProductAvailabilityOptions = {
+  /** Throw after an RPC error so a cache scope cannot persist a degraded rail. */
+  throwOnError?: boolean;
+};
 
 function toFinitePrice(value: unknown): number | null {
   const price =
@@ -112,6 +116,19 @@ function normalizeVariantRows(
   });
 }
 
+function needsAlternateAvailability(product: RelatedBlogProduct): boolean {
+  const hasInventorySignal =
+    product.manage_stock !== undefined ||
+    product.stock !== undefined ||
+    product.stock_quantity !== undefined;
+
+  return (
+    product.manage_stock !== false &&
+    hasInventorySignal &&
+    getEffectiveStock(product) === 0
+  );
+}
+
 /**
  * Resolve alternate-condition and SKU-variant availability and prices for
  * related blog products. The public SECURITY DEFINER RPCs are the supported
@@ -120,13 +137,20 @@ function normalizeVariantRows(
  */
 export async function hydrateRelatedBlogProductAvailability(
   supabase: Pick<SupabaseClient, 'rpc'>,
-  products: readonly RelatedBlogProduct[]
+  products: readonly RelatedBlogProduct[],
+  options: HydrateRelatedBlogProductAvailabilityOptions = {}
 ): Promise<RelatedBlogProduct[]> {
+  const availabilityErrors: unknown[] = [];
   const offerCandidates = products.filter(
-    (product) => product.has_condition_offers === true
+    (product) =>
+      needsAlternateAvailability(product) &&
+      product.has_condition_offers === true
   );
   const variantCandidates = products.filter(
-    (product) => product.has_variants === true && isValidUuid(product.id)
+    (product) =>
+      needsAlternateAvailability(product) &&
+      product.has_variants === true &&
+      isValidUuid(product.id)
   );
 
   if (offerCandidates.length === 0 && variantCandidates.length === 0) {
@@ -141,6 +165,7 @@ export async function hydrateRelatedBlogProductAvailability(
         });
 
         if (error) {
+          availabilityErrors.push(error);
           console.warn('Related blog product offer availability unavailable', {
             productId: product.id,
             error,
@@ -156,6 +181,7 @@ export async function hydrateRelatedBlogProductAvailability(
           },
         ] as const;
       } catch (error) {
+        availabilityErrors.push(error);
         console.warn('Related blog product offer availability unavailable', {
           productId: product.id,
           error,
@@ -176,6 +202,7 @@ export async function hydrateRelatedBlogProductAvailability(
             );
 
             if (error) {
+              availabilityErrors.push(error);
               console.warn(
                 'Related blog product variant availability unavailable',
                 {
@@ -200,6 +227,7 @@ export async function hydrateRelatedBlogProductAvailability(
                 ] satisfies AvailabilityPair
             );
           } catch (error) {
+            availabilityErrors.push(error);
             console.warn(
               'Related blog product variant availability unavailable',
               {
@@ -218,6 +246,10 @@ export async function hydrateRelatedBlogProductAvailability(
     offerAvailabilityPromise,
     variantAvailabilityPromise,
   ]);
+
+  if (options.throwOnError && availabilityErrors.length > 0) {
+    throw availabilityErrors[0];
+  }
 
   const offerAvailabilityById = new Map(offerAvailability);
   const variantAvailabilityById = new Map(variantAvailability);

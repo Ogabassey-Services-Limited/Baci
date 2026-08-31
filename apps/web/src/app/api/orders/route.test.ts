@@ -3262,6 +3262,13 @@ describe('POST /api/orders — product cache revalidation after order creation',
     expect(response.status).toBe(201);
     expect(mockRevalidateProducts).toHaveBeenCalledExactlyOnceWith(MERCHANT_ID);
     expect(mockRevalidateProductSlugs).not.toHaveBeenCalled();
+    expect(mockScheduleOrderProductBlogPurge).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: MERCHANT_ID,
+        merchantSlug: 'test-merchant',
+        productIds: ['p-1'],
+      })
+    );
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Failed to resolve product slugs for PDP cache revalidation',

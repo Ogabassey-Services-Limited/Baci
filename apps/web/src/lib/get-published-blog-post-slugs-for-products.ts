@@ -5,6 +5,10 @@ import { getBlogCategoryLookup } from './get-blog-category-lookup';
 
 const CATEGORY_FALLBACK_PAGE_SIZE = 256;
 const LINKED_POST_PAGE_SIZE = 256;
+// Keep the PostgREST `.in(...)` URL bounded even when a bulk import carries
+// the full 1,000-entry revalidation contract. The relationship query still
+// paginates every chunk, so this only limits request size—not coverage.
+const LINKED_PRODUCT_ID_CHUNK_SIZE = 100;
 
 interface LinkedBlogPostRow {
   blog_post_id?: string | null;
@@ -123,33 +127,49 @@ async function fetchLinkedBlogPostRows(
   productIds: readonly string[]
 ) {
   const rows: LinkedBlogPostRow[] = [];
+  let firstError: unknown = null;
 
-  for (let page = 0; ; page += 1) {
-    const { data, error } = await supabase
-      .from('blog_post_products')
-      .select('id, blog_post_id, blog_posts!inner(slug, status, published_at)')
-      .eq('merchant_id', merchantId)
-      .eq('blog_posts.status', 'published')
-      .not('blog_posts.published_at', 'is', null)
-      .in('product_id', productIds)
-      .order('blog_post_id', { ascending: true })
-      .order('id', { ascending: true })
-      .range(
-        page * LINKED_POST_PAGE_SIZE,
-        (page + 1) * LINKED_POST_PAGE_SIZE - 1
-      );
+  for (
+    let chunkStart = 0;
+    chunkStart < productIds.length;
+    chunkStart += LINKED_PRODUCT_ID_CHUNK_SIZE
+  ) {
+    const productIdChunk = productIds.slice(
+      chunkStart,
+      chunkStart + LINKED_PRODUCT_ID_CHUNK_SIZE
+    );
+    for (let page = 0; ; page += 1) {
+      const { data, error } = await supabase
+        .from('blog_post_products')
+        .select(
+          'id, blog_post_id, blog_posts!inner(slug, status, published_at)'
+        )
+        .eq('merchant_id', merchantId)
+        .eq('blog_posts.status', 'published')
+        .not('blog_posts.published_at', 'is', null)
+        .in('product_id', productIdChunk)
+        .order('blog_post_id', { ascending: true })
+        .order('id', { ascending: true })
+        .range(
+          page * LINKED_POST_PAGE_SIZE,
+          (page + 1) * LINKED_POST_PAGE_SIZE - 1
+        );
 
-    if (error) {
-      return { error, rows };
-    }
+      if (error) {
+        firstError ??= error;
+        break;
+      }
 
-    const pageRows = (data as unknown as LinkedBlogPostRow[]) ?? [];
-    rows.push(...pageRows);
+      const pageRows = (data as unknown as LinkedBlogPostRow[]) ?? [];
+      rows.push(...pageRows);
 
-    if (pageRows.length < LINKED_POST_PAGE_SIZE) {
-      return { error: null, rows };
+      if (pageRows.length < LINKED_POST_PAGE_SIZE) {
+        break;
+      }
     }
   }
+
+  return { error: firstError, rows };
 }
 
 /**
@@ -203,11 +223,10 @@ export async function getPublishedBlogPostSlugsForProducts(
           'Failed to resolve published blog posts for product purge (continuing without article purge):',
           { merchantId: normalizedMerchantId, error }
         );
-      } else {
-        for (const row of rows) {
-          const slug = getPublishedBlogPostSlug(getBlogPostRow(row.blog_posts));
-          if (slug) slugs.add(slug);
-        }
+      }
+      for (const row of rows) {
+        const slug = getPublishedBlogPostSlug(getBlogPostRow(row.blog_posts));
+        if (slug) slugs.add(slug);
       }
     } catch (error) {
       console.error(

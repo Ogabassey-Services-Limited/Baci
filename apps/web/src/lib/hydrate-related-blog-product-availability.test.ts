@@ -72,6 +72,25 @@ describe('hydrateRelatedBlogProductAvailability', () => {
     expect(result).toEqual(products);
   });
 
+  it('does not perform alternate lookups while primary stock is positive', async () => {
+    const rpc = vi.fn();
+    const stockedVariantProduct = product({
+      stock: 3,
+      stock_quantity: 3,
+      has_condition_offers: true,
+      has_variants: true,
+      id: VARIANT_PRODUCT_ID,
+    });
+
+    const result = await hydrateRelatedBlogProductAvailability(
+      { rpc } as never,
+      [stockedVariantProduct]
+    );
+
+    expect(rpc).not.toHaveBeenCalled();
+    expect(result).toEqual([stockedVariantProduct]);
+  });
+
   it('keeps the current purchasable offer price for the related rail', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [{ price: '175000', stock_quantity: '2' }],
@@ -214,5 +233,16 @@ describe('hydrateRelatedBlogProductAvailability', () => {
     } finally {
       warnSpy.mockRestore();
     }
+  });
+
+  it('surfaces alternate lookup failures when the caller cannot cache degraded data', async () => {
+    const lookupError = { message: 'transient timeout' };
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: lookupError });
+
+    await expect(
+      hydrateRelatedBlogProductAvailability({ rpc } as never, [product()], {
+        throwOnError: true,
+      })
+    ).rejects.toEqual(lookupError);
   });
 });

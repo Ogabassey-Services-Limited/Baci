@@ -31,6 +31,7 @@ import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency
 import { logger } from '@/lib/logger';
 import { productCacheRevalidation } from '@/lib/product-cache-revalidation';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+import { scheduleOrderProductBlogPurgeAfterResponse } from '@/lib/schedule-order-product-blog-purge-after-response';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
 
@@ -197,7 +198,9 @@ export async function finalizeAgenticCheckoutPayment({
 
     // create_storefront_order decrements only products with manage_stock=true.
     // Resolve that policy before cache work so unlimited-inventory sales cause
-    // no catalog or feed churn.
+    // no catalog or feed churn. Queue article enrichment independently of the
+    // PDP slug lookup: the shared helper resolves its own authoritative rows
+    // and must still run when this optional lookup is unavailable.
     try {
       const productIds = Array.from(
         new Set(
@@ -209,37 +212,55 @@ export async function finalizeAgenticCheckoutPayment({
         )
       );
       if (productIds.length > 0) {
-        const { data: productsForRevalidate, error: slugLookupError } =
-          await supabase
-            .from('products')
-            .select('slug, manage_stock')
-            .in('id', productIds)
-            .eq('merchant_id', merchantId)
-            .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
-        if (slugLookupError) {
-          productCacheRevalidation.revalidateProducts(merchantId, undefined, {
-            feedScope: 'merchant',
-          });
+        scheduleOrderProductBlogPurgeAfterResponse({
+          merchantId,
+          productIds,
+          supabase,
+        });
+        try {
+          const { data: productsForRevalidate, error: slugLookupError } =
+            await supabase
+              .from('products')
+              .select('slug, manage_stock')
+              .in('id', productIds)
+              .eq('merchant_id', merchantId)
+              .returns<Array<{ manage_stock: boolean | null; slug: string }>>();
+          if (slugLookupError) {
+            productCacheRevalidation.revalidateProducts(merchantId, undefined, {
+              feedScope: 'merchant',
+            });
+            logger.error({
+              error: sanitizeForLog(slugLookupError),
+              message:
+                'Failed to load product slugs for PDP cache revalidation',
+              sessionId: sanitizeForLog(sessionId),
+            });
+          } else {
+            const trackedProducts = (productsForRevalidate ?? []).filter(
+              (product) => product.manage_stock === true
+            );
+            if (trackedProducts.length > 0) {
+              productCacheRevalidation.revalidateProducts(
+                merchantId,
+                undefined,
+                {
+                  feedScope: 'merchant',
+                }
+              );
+              productCacheRevalidation.revalidateProductSlugs(
+                merchantId,
+                trackedProducts.map((product) => product.slug)
+              );
+            } else {
+              productCacheRevalidation.revalidateDashboard(merchantId);
+            }
+          }
+        } catch (slugLookupError) {
           logger.error({
             error: sanitizeForLog(slugLookupError),
             message: 'Failed to load product slugs for PDP cache revalidation',
             sessionId: sanitizeForLog(sessionId),
           });
-        } else {
-          const trackedProducts = (productsForRevalidate ?? []).filter(
-            (product) => product.manage_stock === true
-          );
-          if (trackedProducts.length > 0) {
-            productCacheRevalidation.revalidateProducts(merchantId, undefined, {
-              feedScope: 'merchant',
-            });
-            productCacheRevalidation.revalidateProductSlugs(
-              merchantId,
-              trackedProducts.map((product) => product.slug)
-            );
-          } else {
-            productCacheRevalidation.revalidateDashboard(merchantId);
-          }
         }
       }
     } catch (revalidateError) {

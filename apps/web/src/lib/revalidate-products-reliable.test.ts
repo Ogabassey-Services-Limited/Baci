@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockRevalidateProducts = vi.fn();
 const mockRevalidateProductSlugs = vi.fn();
 const mockScheduleStorefrontProductPurge = vi.fn();
+const mockScheduleStorefrontHostnamePurge = vi.fn();
 const mockEnrichProductPurgeEntries = vi.fn();
 
 vi.mock('@/lib/cache-revalidation', () => ({
@@ -13,6 +14,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
 vi.mock('@/lib/storefront-product-purge', () => ({
   scheduleStorefrontProductPurge: (...args: unknown[]) =>
     mockScheduleStorefrontProductPurge(...args),
+}));
+vi.mock('@/lib/storefront-product-purge-hostnames', () => ({
+  scheduleStorefrontHostnamePurge: (...args: unknown[]) =>
+    mockScheduleStorefrontHostnamePurge(...args),
 }));
 vi.mock('@/lib/authoritative-product-purge-enrichment', () => ({
   enrichProductPurgeEntries: (...args: unknown[]) =>
@@ -206,52 +211,6 @@ describe('revalidateProductsReliable', () => {
         { slug: 'product-0', categorySegment: 'smartphones' },
         { slug: 'product-50', categorySegment: 'smartphones' },
       ])
-    );
-  });
-
-  it('forwards merchantSlug + products in the HTTP fallback body', async () => {
-    mockRevalidateProducts.mockImplementation(() => {
-      throw new Error('no store');
-    });
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
-    const products = [{ slug: 'iphone-15', category: 'Smartphones' }];
-
-    await revalidateProductsReliable('merchant-1', {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      merchantSlug: 'ogabassey',
-      products,
-    });
-
-    const [, init] = fetchImpl.mock.calls[0];
-    expect((init as RequestInit).body).toBe(
-      JSON.stringify({
-        merchantId: 'merchant-1',
-        merchantSlug: 'ogabassey',
-        products,
-      })
-    );
-    // The HTTP route schedules the purge, not the in-process helper.
-    expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
-  });
-
-  it('forwards products WITHOUT merchantSlug in the HTTP fallback body', async () => {
-    mockRevalidateProducts.mockImplementation(() => {
-      throw new Error('no store');
-    });
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
-    const products = [{ slug: 'iphone-15', category: 'Smartphones' }];
-
-    // Merchant-slug lookup failed upstream: the fallback must still forward the
-    // product entries so the internal route can bust the per-slug Next caches
-    // (the route gates only the Cloudflare purge on merchantSlug).
-    await revalidateProductsReliable('merchant-1', {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      products,
-    });
-
-    const [, init] = fetchImpl.mock.calls[0];
-    expect((init as RequestInit).body).toBe(
-      JSON.stringify({ merchantId: 'merchant-1', products })
     );
   });
 

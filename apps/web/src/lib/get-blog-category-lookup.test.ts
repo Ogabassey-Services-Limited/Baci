@@ -34,4 +34,13 @@ describe('getBlogCategoryLookup', () => {
     ).toBe(true);
     expect(lookup.canonicalFilter).toBe(lookup.canonicalFilters.join(','));
   });
+
+  it('bounds an individual character-wildcard filter for an oversized slug', () => {
+    const lookup = getBlogCategoryLookup([`category-${'x'.repeat(3000)}`]);
+
+    expect(lookup.canonicalFilters.length).toBeGreaterThan(0);
+    expect(
+      lookup.canonicalFilters.every((filter) => filter.length <= 2500)
+    ).toBe(true);
+  });
 });

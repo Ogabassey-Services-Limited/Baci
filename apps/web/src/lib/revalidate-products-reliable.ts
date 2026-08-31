@@ -10,6 +10,7 @@ import {
   collectResolvedProductSlugs,
 } from '@/lib/internal-product-purge-entries';
 import { scheduleStorefrontProductPurge } from '@/lib/storefront-product-purge';
+import { scheduleStorefrontHostnamePurge } from '@/lib/storefront-product-purge-hostnames';
 import type { InternalRevalidateProductEntry } from '@/schemas/internal-revalidate-products-route';
 
 interface RevalidateProductsReliableOptions {
@@ -32,6 +33,8 @@ interface RevalidateProductsReliableOptions {
   products?: readonly InternalRevalidateProductEntry[];
   /** Optional merchant-scoped client for linked blog purge enrichment. */
   supabase?: SupabaseClient;
+  /** Evict every public storefront document for structural/high-cardinality changes. */
+  purgeWholeStorefront?: boolean;
 }
 
 /**
@@ -54,8 +57,10 @@ export async function revalidateProductsReliable(
   merchantId: string,
   options: RevalidateProductsReliableOptions = {}
 ): Promise<void> {
-  const { merchantSlug, products, supabase } = options;
-  const shouldPurge = Boolean(merchantSlug && products && products.length > 0);
+  const { merchantSlug, products, supabase, purgeWholeStorefront } = options;
+  const shouldPurgeProducts = Boolean(
+    merchantSlug && !purgeWholeStorefront && products && products.length > 0
+  );
 
   try {
     revalidateProducts(merchantId);
@@ -90,7 +95,7 @@ export async function revalidateProductsReliable(
 
       revalidateProductSlugs(merchantId, resolvedSlugs);
 
-      if (shouldPurge && merchantSlug) {
+      if (shouldPurgeProducts && merchantSlug) {
         if (blogPostSlugs.length > 0) {
           scheduleStorefrontProductPurge(merchantSlug, purgeEntries, {
             blogPostSlugs,
@@ -99,11 +104,10 @@ export async function revalidateProductsReliable(
           scheduleStorefrontProductPurge(merchantSlug, purgeEntries);
         }
       }
-    } else if (shouldPurge && merchantSlug && products) {
-      scheduleStorefrontProductPurge(
-        merchantSlug,
-        buildInternalProductPurgeEntries(products)
-      );
+    }
+
+    if (purgeWholeStorefront && merchantSlug) {
+      scheduleStorefrontHostnamePurge(merchantSlug);
     }
     return;
   } catch {
@@ -143,6 +147,7 @@ export async function revalidateProductsReliable(
           merchantId,
           ...(merchantSlug ? { merchantSlug } : {}),
           ...(products && products.length > 0 ? { products } : {}),
+          ...(purgeWholeStorefront ? { purgeWholeStorefront: true } : {}),
         }),
         signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
       }

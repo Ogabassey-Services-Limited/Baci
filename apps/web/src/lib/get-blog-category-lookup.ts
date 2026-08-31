@@ -9,6 +9,12 @@ export interface BlogCategoryLookup {
 }
 
 const MAX_CANONICAL_FILTER_LENGTH = 2500;
+const CANONICAL_FILTER_PREFIX = 'category.ilike.*';
+const CANONICAL_FILTER_SUFFIX = '*';
+const MAX_CANONICAL_PATTERN_BODY_LENGTH =
+  MAX_CANONICAL_FILTER_LENGTH -
+  CANONICAL_FILTER_PREFIX.length -
+  CANONICAL_FILTER_SUFFIX.length;
 
 function chunkCanonicalFilters(patterns: readonly string[]) {
   const filters: string[] = [];
@@ -74,7 +80,18 @@ export function getBlogCategoryLookup(
     if (words.length === 0) continue;
 
     const addPattern = (parts: readonly string[]) => {
-      patterns.add(`category.ilike.*${parts.join('*')}*`);
+      const body = parts.join('*');
+      // A single character-expanded word can exceed the PostgREST query
+      // budget before `chunkCanonicalFilters` gets a chance to split it.
+      // Keep a bounded prefix and let the canonical row check below reject
+      // false positives; this preserves matching for ordinary labels while
+      // preventing an oversized `.or(...)` value from dropping the purge.
+      const boundedBody = body.slice(0, MAX_CANONICAL_PATTERN_BODY_LENGTH);
+      if (boundedBody.length > 0) {
+        patterns.add(
+          `${CANONICAL_FILTER_PREFIX}${boundedBody}${CANONICAL_FILTER_SUFFIX}`
+        );
+      }
     };
 
     addPattern(words);

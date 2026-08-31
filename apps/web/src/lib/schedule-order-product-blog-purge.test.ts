@@ -125,6 +125,35 @@ describe('scheduleOrderProductBlogPurge', () => {
     }
   });
 
+  it('fails open when product enrichment rejects', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    try {
+      const { supabase } = makeSupabase({});
+      mockEnrichProductPurgeEntries.mockRejectedValue(
+        new Error('enrichment timeout')
+      );
+
+      await expect(
+        scheduleOrderProductBlogPurge({
+          merchantId: 'merchant-1',
+          merchantSlug: 'ogabassey',
+          productIds: ['product-1'],
+          supabase: supabase as never,
+        })
+      ).resolves.toBeUndefined();
+
+      expect(mockScheduleStorefrontProductPurge).not.toHaveBeenCalled();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Skipped order-related blog purge after enrichment failed',
+        expect.objectContaining({ merchantId: 'merchant-1' })
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
   it('skips empty product batches without querying or scheduling', async () => {
     const { supabase, maybeSingle } = makeSupabase({});
 

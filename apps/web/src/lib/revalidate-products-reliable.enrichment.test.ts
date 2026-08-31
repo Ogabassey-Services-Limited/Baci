@@ -60,4 +60,26 @@ describe('revalidateProductsReliable enrichment path', () => {
       { blogPostSlugs: ['iphone-15-buying-guide'] }
     );
   });
+
+  it('keeps caller-provided purge hints when enrichment rejects', async () => {
+    const supabase = { from: vi.fn() };
+    const products = [{ slug: 'iphone-15', category: 'Smartphones' }];
+    mockEnrichProductPurgeEntries.mockRejectedValue(
+      new Error('enrichment timeout')
+    );
+
+    await revalidateProductsReliable('merchant-1', {
+      merchantSlug: 'ogabassey',
+      products,
+      supabase: supabase as never,
+    });
+
+    expect(mockRevalidateProductSlugs).toHaveBeenCalledWith('merchant-1', [
+      'iphone-15',
+    ]);
+    expect(mockScheduleStorefrontProductPurge).toHaveBeenCalledWith(
+      'ogabassey',
+      [{ slug: 'iphone-15', categorySegment: 'smartphones' }]
+    );
+  });
 });

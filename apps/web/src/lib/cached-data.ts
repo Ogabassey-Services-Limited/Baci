@@ -3012,7 +3012,8 @@ async function getCachedBlogPostEnrichment(core: CachedBlogPostCore) {
 
   normalizedRelatedProducts = await hydrateRelatedBlogProductAvailability(
     supabase,
-    normalizedRelatedProducts
+    normalizedRelatedProducts,
+    { throwOnError: true }
   );
 
   return {

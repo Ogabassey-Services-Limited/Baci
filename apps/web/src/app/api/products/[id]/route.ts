@@ -34,7 +34,7 @@ import type { Product, ProductVariant } from '@/lib/products';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { sanitizeSchemaMarkup } from '@/lib/sanitize-json-ld';
-import { scheduleProductBlogPurge } from '@/lib/schedule-product-blog-purge';
+import { scheduleProductBlogPurgeAfterResponse } from '@/lib/schedule-product-blog-purge-after-response';
 import { scheduleProductImageTransformsPrewarm } from '@/lib/schedule-product-image-prewarm';
 import {
   generateMetaDescription,
@@ -953,7 +953,7 @@ export async function PUT(
         merchantId,
         productPurgeEntries.map((entry) => entry.slug)
       );
-      await scheduleProductBlogPurge({
+      scheduleProductBlogPurgeAfterResponse({
         supabase,
         merchantId,
         merchantSlug: merchantContext.merchantSlug,
@@ -1035,7 +1035,7 @@ export async function DELETE(
     const { data: productToDelete, error: preReadError } = await supabase
       .from('products')
       .select(
-        'slug, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
+        'id, slug, name, category, categories:category_id(slug, is_active), product_categories(category_id, categories(slug, is_active))'
       )
       .eq('id', id)
       .eq('merchant_id', merchantId)
@@ -1050,15 +1050,19 @@ export async function DELETE(
       [id],
       productToDelete
         ? [
-            resolveProductPurgeCategorySegmentForRow(
-              productToDelete as {
+            resolveProductPurgeCategorySegmentForRow({
+              ...(productToDelete as {
+                id?: string | null;
                 slug?: string | null;
                 name?: string | null;
                 category?: string | null;
                 categories?: unknown;
                 product_categories?: unknown;
-              }
-            ),
+              }),
+              // The route parameter is still authoritative if a legacy
+              // projection omits the primary key from the pre-read row.
+              id,
+            }),
           ].filter((segment): segment is string => Boolean(segment))
         : []
     );
@@ -1088,6 +1092,7 @@ export async function DELETE(
     // schedule the same way revalidateBlogPosts does.
     try {
       const deletedProduct = productToDelete as {
+        id?: string | null;
         slug?: string | null;
         name?: string | null;
         category?: string | null;
@@ -1114,7 +1119,7 @@ export async function DELETE(
             }),
           },
         ];
-        await scheduleProductBlogPurge({
+        scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
           merchantSlug: merchantContext.merchantSlug,
@@ -1135,7 +1140,7 @@ export async function DELETE(
           { id, preReadError }
         );
         revalidateProductSlugs(merchantId, [id]);
-        await scheduleProductBlogPurge({
+        scheduleProductBlogPurgeAfterResponse({
           supabase,
           merchantId,
           merchantSlug: merchantContext.merchantSlug,
