@@ -14,20 +14,26 @@ export async function createJumiaSelfAuthorizationDiscovery(
     credentialCiphertext: string;
   }
 ): Promise<string> {
-  const { data, error } = await supabase.rpc(
-    'create_jumia_self_authorization_discovery',
-    {
-      p_merchant_id: args.merchantId,
-      p_client_key_hash: args.clientKeyHash,
-      p_credential_ciphertext: args.credentialCiphertext,
-    }
-  );
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await supabase.rpc(
+      'create_jumia_self_authorization_discovery',
+      {
+        p_merchant_id: args.merchantId,
+        p_client_key_hash: args.clientKeyHash,
+        p_credential_ciphertext: args.credentialCiphertext,
+      }
+    );
 
-  if (error || !data) {
-    throw new Error('Failed to persist Jumia self-authorization discovery');
+    if (!error && typeof data === 'string' && data.length > 0) {
+      return data;
+    }
+    lastError = error;
   }
 
-  return data;
+  throw new Error('Failed to persist Jumia self-authorization discovery', {
+    cause: lastError,
+  });
 }
 
 export async function loadJumiaSelfAuthorizationDiscovery(

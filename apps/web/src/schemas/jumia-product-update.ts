@@ -34,6 +34,9 @@ export const jumiaProductUpdateSchema = z.object({
   overrides: z
     .object({
       jumia_price: z.number().positive().optional(),
+      jumia_prices: z
+        .record(z.string().trim().min(1), z.number().positive())
+        .optional(),
       jumia_sale_price: z.number().positive().nullable().optional(),
       jumia_sale_start: saleDateSchema,
       jumia_sale_end: saleDateSchema,
@@ -56,6 +59,16 @@ export const jumiaProductUpdateSchema = z.object({
           new Date(overrides.jumia_sale_end),
       {
         error: 'jumia_sale_start must be before jumia_sale_end',
+      }
+    )
+    .refine(
+      (overrides) =>
+        !(
+          Object.hasOwn(overrides, 'jumia_price') &&
+          Object.hasOwn(overrides, 'jumia_prices')
+        ),
+      {
+        error: 'Provide either jumia_price or jumia_prices, not both',
       }
     ),
 });

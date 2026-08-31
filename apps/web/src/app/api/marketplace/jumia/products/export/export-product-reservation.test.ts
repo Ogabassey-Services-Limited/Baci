@@ -9,13 +9,26 @@ import {
 function buildSupabase(
   options: {
     existingMapping?: { id: string } | null;
+    existingMappings?: Array<{
+      jumia_sku: string;
+      sync_status: string;
+    }>;
     insertError?: { code: string } | null;
     deleteError?: { message: string } | null;
     productError?: { message: string } | null;
   } = {}
 ) {
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: options.existingMapping ?? null,
+  const mappingQuery = {
+    eq: vi.fn(),
+    in: vi.fn(),
+  };
+  mappingQuery.eq.mockReturnValue(mappingQuery);
+  mappingQuery.in.mockResolvedValue({
+    data:
+      options.existingMappings ??
+      (options.existingMapping
+        ? [{ jumia_sku: 'SKU-1', sync_status: 'synced' }]
+        : []),
     error: null,
   });
   const insert = vi.fn().mockResolvedValue({
@@ -50,11 +63,7 @@ function buildSupabase(
     }
 
     return {
-      select: vi.fn(() => ({
-        eq: vi.fn().mockReturnThis(),
-        neq: vi.fn().mockReturnThis(),
-        limit: vi.fn(() => ({ maybeSingle })),
-      })),
+      select: vi.fn(() => mappingQuery),
       insert,
       delete: del,
     };
@@ -103,6 +112,7 @@ describe('reserveJumiaExportMappings', () => {
       ok: true,
       productId: 'product-1',
       variantIdsBySku: new Map([['SKU-1', 'variant-1']]),
+      exportVariations: baseArgs.exportVariations,
     });
     expect(insert).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -150,6 +160,33 @@ describe('reserveJumiaExportMappings', () => {
         'This product export is already in progress or mapped for this integration.',
       code: 'jumia_mapping_exists',
     });
+  });
+
+  it('retries only variants whose previous export was rejected', async () => {
+    const { from, insert } = buildSupabase({
+      existingMappings: [{ jumia_sku: 'SKU-1', sync_status: 'synced' }],
+    });
+
+    const result = await reserveJumiaExportMappings({
+      ...baseArgs,
+      exportVariations: [
+        { sellerSku: 'SKU-1', price: 1500, currency: 'NGN' },
+        { sellerSku: 'SKU-2', price: 1600, currency: 'NGN' },
+      ],
+      variantIdsBySku: new Map([
+        ['SKU-1', 'variant-1'],
+        ['SKU-2', 'variant-2'],
+      ]),
+      supabase: { from } as never,
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      exportVariations: [{ sellerSku: 'SKU-2', price: 1600, currency: 'NGN' }],
+    });
+    expect(insert).toHaveBeenCalledWith([
+      expect.objectContaining({ jumia_sku: 'SKU-2', sync_status: 'pending' }),
+    ]);
   });
 
   it('returns a server failure when the linked-product lookup fails', async () => {

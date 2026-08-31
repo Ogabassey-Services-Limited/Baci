@@ -14,6 +14,17 @@ describe('resolveJumiaLabelUrl', () => {
     );
   });
 
+  it('rejects provider-controlled non-PDF data URLs', () => {
+    expect(resolveJumiaLabelUrl('data:text/html;base64,PGh0bWw+')).toBeNull();
+    expect(resolveJumiaLabelUrl('data:application/pdf,not-base64')).toBeNull();
+  });
+
+  it('preserves valid PDF data URLs', () => {
+    expect(resolveJumiaLabelUrl('data:application/pdf;base64,UERG')).toBe(
+      'data:application/pdf;base64,UERG'
+    );
+  });
+
   it('rejects non-base64 non-URL labels', () => {
     expect(resolveJumiaLabelUrl('not a label!!!')).toBeNull();
     expect(resolveJumiaLabelUrl(undefined)).toBeNull();

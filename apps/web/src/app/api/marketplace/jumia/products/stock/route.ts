@@ -23,15 +23,10 @@ import { updateStock } from '@/lib/jumia/feeds';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { getEffectiveStock } from '@/lib/product-stock';
 import { createClient } from '@/lib/supabase/server';
-
-interface ProductMapping {
-  id: string;
-  product_id: string;
-  variant_id: string | null;
-  jumia_seller_sku: string | null;
-  jumia_product_id: string | null;
-  baci_stock_at_last_sync: number | null;
-}
+import {
+  getPushReadyJumiaStockMappings,
+  loadJumiaStockMappings,
+} from './load-jumia-stock-mappings';
 
 export async function POST(request: NextRequest) {
   try {
@@ -101,7 +96,6 @@ export async function POST(request: NextRequest) {
       return featureGateResponse;
     }
 
-    // Load Jumia client (validates integration ownership + active status)
     let jumiaClient: JumiaClient;
     try {
       jumiaClient = await JumiaClient.forIntegration(
@@ -116,16 +110,14 @@ export async function POST(request: NextRequest) {
       throw clientError;
     }
 
-    // Fetch synced product mappings for this shop
-    const { data: mappings, error: mappingsError } = await supabase
-      .from('jumia_product_mappings')
-      .select(
-        'id, product_id, variant_id, jumia_seller_sku, jumia_product_id, baci_stock_at_last_sync'
-      )
-      .eq('merchant_id', merchantId)
-      .eq('jumia_shop_id', jumiaClient.shopId)
-      .eq('marketplace_key', jumiaClient.marketplaceKey)
-      .eq('sync_status', 'synced');
+    const { mappings, error: mappingsError } = await loadJumiaStockMappings(
+      supabase,
+      {
+        merchantId,
+        shopId: jumiaClient.shopId,
+        marketplaceKey: jumiaClient.marketplaceKey,
+      }
+    );
 
     if (mappingsError) {
       console.error(
@@ -147,17 +139,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Filter to push-ready mappings (must have seller SKU and product ID)
-    const pushReady: ProductMapping[] = [];
-    let skipped = 0;
-
-    for (const m of mappings) {
-      if (!m.jumia_seller_sku?.trim() || !m.jumia_product_id?.trim()) {
-        skipped++;
-        continue;
-      }
-      pushReady.push(m as ProductMapping);
-    }
+    const { pushReady, skipped: initialSkipped } =
+      getPushReadyJumiaStockMappings(mappings);
+    let skipped = initialSkipped;
 
     if (pushReady.length === 0) {
       return NextResponse.json({
@@ -168,7 +152,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Batch-resolve stock: collect IDs and query in bulk
     const variantIds = Array.from(
       new Set(
         pushReady.flatMap((mapping) =>
@@ -184,7 +167,6 @@ export async function POST(request: NextRequest) {
     const productStockMap = new Map<string, number>();
     let fetchErrors = 0;
 
-    // Fetch variant stock in batch
     if (variantIds.length > 0) {
       const { data: variants, error: variantsError } = await supabase
         .from('product_variants')
@@ -206,7 +188,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch product stock in batch
     if (productOnlyIds.length > 0) {
       const { data: products, error: productsError } = await supabase
         .from('products')
@@ -225,7 +206,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build updates for changed stock only
     const stockUpdates: Array<{
       mappingId: string;
       sellerSku: string;
@@ -243,7 +223,6 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
-      // Only push if stock has actually changed
       if (stock === mapping.baci_stock_at_last_sync) {
         continue;
       }
@@ -270,7 +249,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Push stock to Jumia
     const feedId = await updateStock(
       jumiaClient,
       stockUpdates.map(({ sellerSku, id, stock }) => ({
@@ -280,7 +258,6 @@ export async function POST(request: NextRequest) {
       }))
     );
 
-    // Update tracking columns on all pushed mappings (batched upsert)
     const now = new Date().toISOString();
     let trackingFailures = 0;
 

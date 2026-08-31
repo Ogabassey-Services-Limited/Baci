@@ -41,6 +41,41 @@ export async function submitJumiaExportFeed(args: {
     exportVariations,
   } = args;
 
+  // The product-creation feed accepts a shopId but does not expose the
+  // businessClients selector supported by price/status feeds. Never submit a
+  // selected multi-marketplace integration without a provider-supported
+  // scope, because Jumia could create the listing in the wrong marketplace.
+  const normalizedMarketplaceKey = marketplaceKey.trim();
+  const hasUnrepresentableMarketplaceScope =
+    normalizedMarketplaceKey !== '' &&
+    normalizedMarketplaceKey !== 'default' &&
+    normalizedMarketplaceKey !== 'oauth';
+  if (hasUnrepresentableMarketplaceScope) {
+    const released = await releaseJumiaExportReservation(supabase, {
+      merchantId,
+      productId,
+      shopId,
+      marketplaceKey,
+      exportVariations,
+    });
+    if (!released) {
+      logger.error({
+        message:
+          'Failed to release Jumia export reservation for an unscoped marketplace',
+        merchant_id: merchantId,
+        product_id: productId,
+      });
+    }
+    return {
+      ok: false,
+      status: 400,
+      body: {
+        error:
+          'Jumia product creation cannot target a selected marketplace because the provider create-feed contract has no business-client selector. Use a single-marketplace integration or wait for provider support.',
+      },
+    };
+  }
+
   let feedId: string;
   try {
     feedId = await createProduct(jumia, shopId, [

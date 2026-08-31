@@ -2,19 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { fetchWithCsrf } from '@/lib/api-client';
 import { getCurrencyCode } from '@/lib/currency';
 import type { PublishProduct } from '@/schemas/jumia/publish-products';
 import {
   loadMappedProductIds,
   loadPublishProducts,
 } from './publish-products-data-loader';
-import {
-  buildJumiaPublishPayload,
-  getJumiaPublishBlockReason,
-} from './publish-products-payload';
+import { getJumiaPublishBlockReason } from './publish-products-payload';
+import { submitJumiaProducts } from './submit-jumia-products';
 
-const PUBLISH_CONCURRENCY = 3;
 const MIXED_PRODUCT_METADATA_REASON =
   'Select products with the same category and brand as the first selected product.';
 
@@ -39,9 +35,15 @@ export function usePublishProductsDialog({
   const [brand, setBrand] = useState<{ code: number; name: string } | null>(
     null
   );
-  const [loading, setLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [mappedProductsLoading, setMappedProductsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [productsLoadError, setProductsLoadError] = useState<string | null>(
+    null
+  );
+  const [mappedProductsLoadError, setMappedProductsLoadError] = useState<
+    string | null
+  >(null);
   const [mappedProductIds, setMappedProductIds] = useState<Set<string>>(
     new Set()
   );
@@ -50,27 +52,54 @@ export function usePublishProductsDialog({
     if (!open) return;
 
     const controller = new AbortController();
-    setLoading(true);
-    setLoadError(null);
-    Promise.all([
-      loadPublishProducts(undefined, controller.signal),
-      loadMappedProductIds(integrationId, controller.signal),
-    ])
-      .then(([loadedProducts, mappedIds]) => {
+    setProductsLoading(true);
+    setProductsLoadError(null);
+    loadPublishProducts(search.trim() || undefined, controller.signal)
+      .then((loadedProducts) => {
         setProducts(loadedProducts);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        setProductsLoadError(
+          error instanceof Error ? error.message : 'Failed to load products'
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setProductsLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [open, search]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const controller = new AbortController();
+    setMappedProductsLoading(true);
+    setMappedProductsLoadError(null);
+    loadMappedProductIds(integrationId, controller.signal)
+      .then((mappedIds) => {
         setMappedProductIds(mappedIds);
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
-        setLoadError(
-          error instanceof Error ? error.message : 'Failed to load products'
+        setMappedProductsLoadError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to load mapped Jumia products'
         );
       })
       .finally(() => {
         if (!controller.signal.aborted) {
-          setLoading(false);
+          setMappedProductsLoading(false);
         }
       });
 
@@ -78,6 +107,9 @@ export function usePublishProductsDialog({
       controller.abort();
     };
   }, [open, integrationId]);
+
+  const loading = productsLoading || mappedProductsLoading;
+  const loadError = productsLoadError ?? mappedProductsLoadError;
 
   const getPublishBlockReason = (product: PublishProduct): string | null => {
     if (mappedProductIds.has(product.id)) {
@@ -184,52 +216,13 @@ export function usePublishProductsDialog({
 
     setSubmitting(true);
     const marketplaceCurrency = getCurrencyCode(countryCode);
-    const submitProduct = async (product: PublishProduct) => {
-      const response = await fetchWithCsrf(
-        '/api/marketplace/jumia/products/export',
-        {
-          method: 'POST',
-          body: JSON.stringify(
-            buildJumiaPublishPayload(
-              product,
-              integrationId,
-              categoryCode,
-              brand,
-              marketplaceCurrency
-            )
-          ),
-        }
-      );
-      return {
-        ok: response.ok && (response.status ?? 200) < 207,
-        body: await response.json().catch(() => ({})),
-      };
-    };
-
-    (async () => {
-      const results = [];
-      for (
-        let index = 0;
-        index < selected.length;
-        index += PUBLISH_CONCURRENCY
-      ) {
-        const batch = selected.slice(index, index + PUBLISH_CONCURRENCY);
-        const batchResults = await Promise.all(
-          batch.map(async (product) => {
-            try {
-              return await submitProduct(product);
-            } catch {
-              return {
-                ok: false,
-                body: { error: 'Failed to submit product to Jumia' },
-              };
-            }
-          })
-        );
-        results.push(...batchResults);
-      }
-      return results;
-    })()
+    submitJumiaProducts({
+      products: selected,
+      integrationId,
+      categoryCode,
+      brand,
+      marketplaceCurrency,
+    })
       .then((results) => {
         const succeeded = results.filter((result) => result.ok).length;
         const failed = results.length - succeeded;

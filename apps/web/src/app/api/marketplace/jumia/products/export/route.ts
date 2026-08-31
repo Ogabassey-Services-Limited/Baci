@@ -10,11 +10,12 @@ import { JumiaApiError } from '@/lib/jumia/helpers';
 import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { jumiaExportProductSchema } from '@/schemas/jumia/export-product';
-import { reserveJumiaExportMappings } from './export-product-reservation';
 import {
   loadJumiaMarketplaceCurrency,
-  resolveAuthorizedExportProduct,
-} from './export-product-source';
+  validateJumiaMarketplaceCurrencyForMerchant,
+} from './export-product-currency';
+import { reserveJumiaExportMappings } from './export-product-reservation';
+import { resolveAuthorizedExportProduct } from './export-product-source';
 import { submitJumiaExportFeed } from './submit-jumia-export-feed';
 
 export async function POST(req: NextRequest) {
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
       productId,
       brand,
       category,
+      variations: requestedVariations,
     } = parsed.data;
 
     const merchantId = await getMerchantIdForApiUser(auth.supabase);
@@ -89,6 +91,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const merchantCurrencyResult =
+      await validateJumiaMarketplaceCurrencyForMerchant(
+        supabase,
+        merchantId,
+        currencyResult.currency
+      );
+    if (!merchantCurrencyResult.ok) {
+      return NextResponse.json(
+        { error: merchantCurrencyResult.error },
+        { status: merchantCurrencyResult.status }
+      );
+    }
+
     const resolved = await resolveAuthorizedExportProduct(
       supabase,
       merchantId,
@@ -106,10 +121,22 @@ export async function POST(req: NextRequest) {
       name: exportName,
       description: exportDescription,
       images: exportImages,
-      variations: exportVariations,
+      variations: resolvedVariations,
       productId: linkedProductId,
       variantIdsBySku,
     } = resolved.product;
+    // Prices, stock, and SKU identity come from the merchant-owned product;
+    // only the validated catalog attributes are accepted from the request.
+    const requestedAttributesBySku = new Map(
+      requestedVariations.map((variation) => [
+        variation.sellerSku,
+        variation.attributes,
+      ])
+    );
+    const exportVariations = resolvedVariations.map((variation) => ({
+      ...variation,
+      attributes: requestedAttributesBySku.get(variation.sellerSku),
+    }));
 
     let jumia: JumiaClient;
     try {
@@ -182,13 +209,13 @@ export async function POST(req: NextRequest) {
       exportImages,
       brand,
       category,
-      exportVariations,
+      exportVariations: reservation.exportVariations,
     });
     if (!submitted.ok) {
       return NextResponse.json(submitted.body, { status: submitted.status });
     }
 
-    const primarySku = exportVariations[0]?.sellerSku ?? '';
+    const primarySku = reservation.exportVariations[0]?.sellerSku ?? '';
 
     return NextResponse.json({
       success: true,

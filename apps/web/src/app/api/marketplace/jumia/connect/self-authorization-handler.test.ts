@@ -99,6 +99,7 @@ describe('Jumia Self Authorization handler', () => {
         p_business_client_codes: ['NG-1'],
       }
     );
+    expect(response.headers.get('x-jumia-discovery-complete')).toBe('false');
     await expect(response.json()).resolves.toEqual({
       connected: [{ id: 'shop-1', name: 'Shop One' }],
       alreadyConnected: [],
@@ -168,6 +169,7 @@ describe('Jumia Self Authorization handler', () => {
         p_business_client_codes: ['GH-1', 'NG-1'],
       })
     );
+    expect(response.headers.get('x-jumia-discovery-complete')).toBe('true');
   });
 
   it('persists rotated credentials when every selected shop is already connected', async () => {

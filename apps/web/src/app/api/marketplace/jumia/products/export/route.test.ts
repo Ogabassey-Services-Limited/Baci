@@ -68,11 +68,24 @@ const {
           }),
         };
       }
+      if (table === 'merchants') {
+        const chain = {
+          eq: vi.fn(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { payout_currency: 'NGN' },
+            error: null,
+          }),
+        };
+        chain.eq.mockReturnValue(chain);
+        return { select: () => chain };
+      }
       if (table === 'products') {
         return {
-          select: () => ({
-            eq: () => ({ eq: () => ({ maybeSingle: mockMaybeSingle }) }),
-          }),
+          select: () => {
+            const chain = { eq: vi.fn(), maybeSingle: mockMaybeSingle };
+            chain.eq.mockReturnValue(chain);
+            return chain;
+          },
         };
       }
       if (table === 'jumia_product_mappings') {
@@ -172,6 +185,7 @@ const STORED_PRODUCT = {
   stock: 3,
   images: [{ url: 'https://cdn.example.com/stored.jpg' }],
   has_variants: false,
+  status: 'active',
 };
 
 const VALID_BODY = {
@@ -212,6 +226,13 @@ import { POST } from './route';
 describe('Products Export POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRequireMerchantFeatureAccess.mockReset();
+    mockMaybeSingle.mockReset();
+    mockVariantsResult.mockReset();
+    mockInsert.mockReset();
+    mockMappingIn.mockReset();
+    mockForIntegration.mockReset();
+    mockCreateProduct.mockReset();
     mockRequireMerchantFeatureAccess.mockResolvedValue(null);
     mockOwnedProductResolution();
     mockInsert.mockResolvedValue({ error: null });
@@ -363,7 +384,10 @@ describe('Products Export POST', () => {
   });
 
   it('uses stored product data when productId is provided', async () => {
-    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop1',
+      marketplaceKey: 'default',
+    });
     mockCreateProduct.mockResolvedValue('feed-abc');
 
     const res = await POST(makePostRequest(VALID_BODY));
@@ -387,7 +411,10 @@ describe('Products Export POST', () => {
   });
 
   it('returns 200 on successful feed creation', async () => {
-    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop1',
+      marketplaceKey: 'default',
+    });
     mockCreateProduct.mockResolvedValue('feed-abc');
     const res = await POST(makePostRequest(VALID_BODY));
     expect(res.status).toBe(200);
@@ -406,7 +433,10 @@ describe('Products Export POST', () => {
   });
 
   it('returns 502 when createProduct fails with an ambiguous transport error', async () => {
-    mockForIntegration.mockResolvedValue({ shopId: 'shop1' });
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop1',
+      marketplaceKey: 'default',
+    });
     mockCreateProduct.mockRejectedValue(new Error('Feed creation failed'));
     const res = await POST(makePostRequest(VALID_BODY));
     expect(res.status).toBe(502);
@@ -417,6 +447,7 @@ describe('Products Export POST', () => {
   it('returns 207 when mapping finalize fails after Jumia accepts the feed', async () => {
     mockCreateProduct.mockResolvedValue('feed-abc');
     mockMappingIn
+      .mockResolvedValueOnce({ data: [], error: null })
       .mockResolvedValueOnce({ error: { message: 'update fail' } })
       .mockResolvedValueOnce({ error: { message: 'update fail' } })
       .mockResolvedValueOnce({ data: [{ id: 'mapping-0' }], error: null });
@@ -430,7 +461,9 @@ describe('Products Export POST', () => {
 
   it('reports when an accepted feed cannot be recorded for reconciliation', async () => {
     mockCreateProduct.mockResolvedValue('feed-abc');
-    mockMappingIn.mockResolvedValue({ error: { message: 'update fail' } });
+    mockMappingIn
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValue({ error: { message: 'update fail' } });
 
     const res = await POST(makePostRequest(VALID_BODY));
 
@@ -472,5 +505,35 @@ describe('Products Export POST', () => {
         }),
       ])
     );
+  });
+
+  it('preserves validated variation attributes while ignoring client prices', async () => {
+    mockCreateProduct.mockResolvedValue('feed-attributes');
+    const body = {
+      ...VALID_BODY,
+      variations: [
+        {
+          sellerSku: 'SKU-1',
+          price: 1,
+          currency: 'NGN',
+          attributes: [{ id: 'color', value: 'Blue' }],
+        },
+      ],
+    };
+
+    const res = await POST(makePostRequest(body));
+
+    expect(res.status).toBe(200);
+    expect(mockCreateProduct).toHaveBeenCalledWith(expect.anything(), 'shop1', [
+      expect.objectContaining({
+        variations: [
+          expect.objectContaining({
+            sellerSku: 'SKU-1',
+            globalPrice: { value: 5000, currency: 'NGN' },
+            attributes: [{ id: 'color', value: 'Blue' }],
+          }),
+        ],
+      }),
+    ]);
   });
 });

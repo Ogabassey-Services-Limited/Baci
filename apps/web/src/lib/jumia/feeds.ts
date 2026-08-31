@@ -274,7 +274,18 @@ export async function updatePrice(
       };
     };
     category?: { code: number };
-    businessClients?: Array<{ code: string }>;
+    businessClients?: Array<{
+      businessClientCode: string;
+      price: {
+        value: number;
+        currency: string;
+        salePrice?: {
+          value: number | null;
+          startAt: string | null;
+          endAt: string | null;
+        };
+      };
+    }>;
   }>
 ): Promise<string> {
   if (!updates.length) {
@@ -366,7 +377,10 @@ export async function updateStatus(
     sellerSku: string;
     id: string;
     status: 'active' | 'inactive' | 'deleted';
-    businessClients?: Array<{ code: string }>;
+    businessClients?: Array<{
+      businessClientCode: string;
+      status: 'active' | 'inactive' | 'deleted';
+    }>;
   }>
 ): Promise<string> {
   if (!updates.length) {

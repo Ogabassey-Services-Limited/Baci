@@ -32,10 +32,13 @@ async function resolveLinkedProductId(
   return { productId: existingProduct?.id ?? null, error };
 }
 
-export async function reserveJumiaExportMappings(
-  args: ReserveArgs
-): Promise<
-  | { ok: true; productId: string; variantIdsBySku: Map<string, string> }
+export async function reserveJumiaExportMappings(args: ReserveArgs): Promise<
+  | {
+      ok: true;
+      productId: string;
+      variantIdsBySku: Map<string, string>;
+      exportVariations: ExportVariation[];
+    }
   | { ok: false; status: number; error: string; code: string }
 > {
   const primarySku = args.exportVariations[0]?.sellerSku;
@@ -72,16 +75,17 @@ export async function reserveJumiaExportMappings(
     };
   }
 
-  const { data: blockingMapping, error: blockingError } = await args.supabase
+  const requestedSkus = args.exportVariations.map(
+    (variation) => variation.sellerSku
+  );
+  const { data: existingMappings, error: blockingError } = await args.supabase
     .from('jumia_product_mappings')
-    .select('id')
+    .select('jumia_sku, sync_status')
     .eq('merchant_id', args.merchantId)
     .eq('product_id', productId)
     .eq('jumia_shop_id', args.shopId)
     .eq('marketplace_key', args.marketplaceKey)
-    .neq('sync_status', 'error')
-    .limit(1)
-    .maybeSingle();
+    .in('jumia_sku', requestedSkus);
 
   if (blockingError) {
     return {
@@ -92,7 +96,16 @@ export async function reserveJumiaExportMappings(
     };
   }
 
-  if (blockingMapping) {
+  const blockedSkus = new Set(
+    (existingMappings ?? [])
+      .filter((mapping) => mapping.sync_status !== 'error')
+      .map((mapping) => mapping.jumia_sku)
+  );
+  const exportVariations = args.exportVariations.filter(
+    (variation) => !blockedSkus.has(variation.sellerSku)
+  );
+
+  if (exportVariations.length === 0) {
     return {
       ok: false,
       status: 409,
@@ -123,7 +136,7 @@ export async function reserveJumiaExportMappings(
     };
   }
 
-  const mappingRows = args.exportVariations.map((variation) => ({
+  const mappingRows = exportVariations.map((variation) => ({
     merchant_id: args.merchantId,
     product_id: productId,
     variant_id: variantIdsBySku.get(variation.sellerSku) ?? null,
@@ -159,7 +172,7 @@ export async function reserveJumiaExportMappings(
     };
   }
 
-  return { ok: true, productId, variantIdsBySku };
+  return { ok: true, productId, variantIdsBySku, exportVariations };
 }
 
 export async function finalizeJumiaExportReservation(

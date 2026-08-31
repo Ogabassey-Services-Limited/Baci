@@ -75,7 +75,7 @@ vi.mock('./jumia-product-update-feeds', async () => {
   };
 });
 vi.mock(
-  '@/app/api/marketplace/jumia/products/export/export-product-source',
+  '@/app/api/marketplace/jumia/products/export/export-product-currency',
   () => ({
     loadJumiaMarketplaceCurrency: vi.fn(),
   })
@@ -215,7 +215,7 @@ describe('POST /api/marketplace/jumia/products/update', () => {
 
   it('returns before updating mappings when marketplace currency loading fails for price updates', async () => {
     const { loadJumiaMarketplaceCurrency } = await import(
-      '@/app/api/marketplace/jumia/products/export/export-product-source'
+      '@/app/api/marketplace/jumia/products/export/export-product-currency'
     );
     vi.mocked(loadJumiaMarketplaceCurrency).mockResolvedValueOnce({
       ok: false,

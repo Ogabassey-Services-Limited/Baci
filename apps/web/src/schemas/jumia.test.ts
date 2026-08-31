@@ -1176,6 +1176,21 @@ describe('Jumia Vendor API Schemas', () => {
       expect(result.success).toBe(true);
     });
 
+    it('parses rejected feed items without a provider product id', () => {
+      const result = JumiaFeedDetailsResponseSchema.safeParse({
+        ...validFeedDetailsResponse,
+        feedItems: [
+          {
+            ...validFeedDetailsResponse.feedItems[0],
+            status: 'FAILED',
+            productSid: undefined,
+          },
+        ],
+      });
+
+      expect(result.success).toBe(true);
+    });
+
     it('rejects feed details missing feedSid', () => {
       const { feedSid: _, ...noFeedSid } = validFeedDetailsResponse;
       const result = JumiaFeedDetailsResponseSchema.safeParse(noFeedSid);

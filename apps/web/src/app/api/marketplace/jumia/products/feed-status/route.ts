@@ -184,22 +184,27 @@ export async function POST(request: NextRequest) {
         const rejected = isFailedFeedStatus(item.status);
         if (!accepted && !rejected) continue;
 
-        const update = accepted
-          ? {
-              sync_status: 'synced',
-              jumia_product_id: item.productSid,
-              jumia_seller_sku: item.sellerSKU,
-              sync_error: null,
-              last_synced_at: new Date().toISOString(),
-            }
-          : {
-              sync_status: 'error',
-              sync_error:
-                item.errorMessage ??
-                item.errors?.globalMessages?.join('; ') ??
-                'Jumia rejected this product',
-              last_synced_at: new Date().toISOString(),
-            };
+        const acceptedWithoutProductId = accepted && !item.productSid;
+
+        const update =
+          accepted && !acceptedWithoutProductId
+            ? {
+                sync_status: 'synced',
+                jumia_product_id: item.productSid,
+                jumia_seller_sku: item.sellerSKU,
+                sync_error: null,
+                last_synced_at: new Date().toISOString(),
+              }
+            : {
+                sync_status: 'error',
+                sync_error:
+                  (acceptedWithoutProductId
+                    ? 'Jumia accepted this product feed without a product ID'
+                    : item.errorMessage) ??
+                  item.errors?.globalMessages?.join('; ') ??
+                  'Jumia rejected this product',
+                last_synced_at: new Date().toISOString(),
+              };
         const { error: updateError } = await auth.supabase
           .from('jumia_product_mappings')
           .update(update)
@@ -210,9 +215,12 @@ export async function POST(request: NextRequest) {
             message: 'Failed to reconcile Jumia feed item',
             error: updateError,
           });
-          continue;
+          return NextResponse.json(
+            { error: 'Failed to reconcile Jumia feed item' },
+            { status: 500 }
+          );
         }
-        if (accepted) updated++;
+        if (accepted && !acceptedWithoutProductId) updated++;
         else failed++;
       }
 

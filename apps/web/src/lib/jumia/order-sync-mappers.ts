@@ -32,6 +32,8 @@ export interface MarketplaceIntegrationRow {
   sync_config: unknown;
   country_code?: string | null;
   marketplace_key?: string | null;
+  connection_method?: string | null;
+  jumia_authorization_id?: string | null;
 }
 
 export interface ExistingJumiaOrderRow {

@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { resolveJumiaMarketplaceCurrency } from '@/lib/jumia/jumia-marketplace-currency';
 import { sanitizeText, stripHtmlTags } from '@/lib/sanitize-core';
 
 export type ExportVariation = {
@@ -29,6 +28,7 @@ type ProductRow = {
   stock: number | null;
   images: unknown;
   has_variants: boolean | null;
+  status?: string | null;
 };
 
 type VariantRow = {
@@ -67,44 +67,6 @@ export function parseExportProductImages(
     parsed.push({ url, primary: parsed.length === 0 });
   }
   return parsed;
-}
-
-export async function loadJumiaMarketplaceCurrency(
-  supabase: SupabaseClient,
-  merchantId: string,
-  integrationId: string
-): Promise<
-  { ok: true; currency: string } | { ok: false; status: number; error: string }
-> {
-  const { data, error } = await supabase
-    .from('marketplace_integrations')
-    .select('country_code')
-    .eq('id', integrationId)
-    .eq('merchant_id', merchantId)
-    .eq('platform', 'jumia')
-    .maybeSingle();
-
-  if (error) {
-    return {
-      ok: false,
-      status: 500,
-      error: 'Failed to load Jumia integration currency',
-    };
-  }
-
-  const currency = resolveJumiaMarketplaceCurrency(data?.country_code);
-  if (!currency.ok) {
-    return {
-      ok: false,
-      status: 400,
-      error: currency.error,
-    };
-  }
-
-  return {
-    ok: true,
-    currency: currency.currency,
-  };
 }
 
 function isPositiveFinitePrice(value: number): boolean {
@@ -221,10 +183,11 @@ export async function resolveAuthorizedExportProduct(
   const { data: product, error: productError } = await supabase
     .from('products')
     .select(
-      'id, name, description, price, sku, stock_quantity, stock, images, has_variants'
+      'id, name, description, price, sku, stock_quantity, stock, images, has_variants, status'
     )
     .eq('merchant_id', merchantId)
     .eq('id', productId)
+    .eq('status', 'active')
     .maybeSingle();
 
   if (productError) {

@@ -352,6 +352,11 @@ export const EXPECTED_PENDING_SOURCES = [
       'supabase/migrations/20260831110000_jumia_order_marketplace_scope.sql',
     sha256: 'fe85882e631fc3c2c865be239f7fe17f2c2691f7f6ac00eaec097e170816c0ae',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120000_align_jumia_marketplace_country_constraint.sql',
+    sha256: '500e65df65bb0791c47deef0713175d8edbf07cc4f0b78fe813d91f423711324',
+  },
 ]
   .sort((left, right) =>
     left.repositoryPath.localeCompare(right.repositoryPath)

@@ -154,23 +154,29 @@ async function connect(args: {
     id: shop.id,
     name: shop.name,
   });
-  return noStore(
-    NextResponse.json({
-      connected: shopsToConnect
-        .filter((shop) =>
-          insertedSelectionKeys.has(shop.selectionKey ?? shop.id)
+  const response = NextResponse.json({
+    connected: shopsToConnect
+      .filter((shop) => insertedSelectionKeys.has(shop.selectionKey ?? shop.id))
+      .map(resultShape),
+    alreadyConnected: [
+      ...skippedShops.map(resultShape),
+      ...shopsToConnect
+        .filter(
+          (shop) => !insertedSelectionKeys.has(shop.selectionKey ?? shop.id)
         )
         .map(resultShape),
-      alreadyConnected: [
-        ...skippedShops.map(resultShape),
-        ...shopsToConnect
-          .filter(
-            (shop) => !insertedSelectionKeys.has(shop.selectionKey ?? shop.id)
-          )
-          .map(resultShape),
-      ],
-    })
+    ],
+  });
+  // Keep a resumable discovery record when the merchant selected only a
+  // subset of the shops returned by discovery. The caller consumes it only
+  // after the complete selection has been persisted.
+  response.headers.set(
+    'x-jumia-discovery-complete',
+    new Set(args.selectedShopIds).size >= validated.shops.length
+      ? 'true'
+      : 'false'
   );
+  return noStore(response);
 }
 
 export const jumiaSelfAuthorizationHandler = { discover, connect };

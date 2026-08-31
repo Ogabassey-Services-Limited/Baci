@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  loadJumiaMarketplaceCurrency,
   parseExportProductImages,
   resolveAuthorizedExportProduct,
 } from './export-product-source';
@@ -44,77 +43,6 @@ describe('parseExportProductImages', () => {
   });
 });
 
-describe('loadJumiaMarketplaceCurrency', () => {
-  function createCurrencySupabase(result: {
-    data: { country_code?: string } | null;
-    error: unknown;
-  }) {
-    return {
-      from: vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({
-                maybeSingle: vi.fn().mockResolvedValue(result),
-              }),
-            }),
-          }),
-        }),
-      }),
-    };
-  }
-
-  it('derives currency from the integration marketplace country', async () => {
-    const supabase = createCurrencySupabase({
-      data: { country_code: 'GH' },
-      error: null,
-    });
-
-    await expect(
-      loadJumiaMarketplaceCurrency(
-        supabase as never,
-        'merchant-1',
-        'integration-1'
-      )
-    ).resolves.toEqual({ ok: true, currency: 'GHS' });
-  });
-
-  it('rejects a missing marketplace country code instead of defaulting to NGN', async () => {
-    const supabase = createCurrencySupabase({ data: {}, error: null });
-
-    await expect(
-      loadJumiaMarketplaceCurrency(
-        supabase as never,
-        'merchant-1',
-        'integration-1'
-      )
-    ).resolves.toEqual({
-      ok: false,
-      status: 400,
-      error: 'Jumia integration is missing a marketplace country code',
-    });
-  });
-
-  it('propagates integration lookup errors instead of falling back to NGN', async () => {
-    const supabase = createCurrencySupabase({
-      data: null,
-      error: { message: 'DB down' },
-    });
-
-    await expect(
-      loadJumiaMarketplaceCurrency(
-        supabase as never,
-        'merchant-1',
-        'integration-1'
-      )
-    ).resolves.toEqual({
-      ok: false,
-      status: 500,
-      error: 'Failed to load Jumia integration currency',
-    });
-  });
-});
-
 function createProductSupabase(handlers: {
   product?: Record<string, unknown> | null;
   productError?: unknown;
@@ -132,13 +60,9 @@ function createProductSupabase(handlers: {
   return {
     from: vi.fn((table: string) => {
       if (table === 'products') {
-        return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              eq: vi.fn().mockReturnValue({ maybeSingle }),
-            }),
-          }),
-        };
+        const chain = { eq: vi.fn(), maybeSingle };
+        chain.eq.mockReturnValue(chain);
+        return { select: vi.fn().mockReturnValue(chain) };
       }
       if (table === 'product_variants') {
         return {

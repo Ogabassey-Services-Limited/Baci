@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
+  getUserAccess,
+  hasPermission,
 } from '@/lib/api-auth';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { jumiaMappedProductQuerySchema } from '@/schemas/jumia-mapped-product-query';
@@ -27,6 +29,11 @@ export async function GET(request: NextRequest) {
   const merchantId = await getMerchantIdForApiUser(auth.supabase);
   if (!merchantId) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  const access = await getUserAccess(auth.supabase);
+  if (!access || !hasPermission(access, 'integrations', 'view')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const featureGateResponse = await requireMerchantFeatureAccess(

@@ -97,7 +97,8 @@ describe('pushStatusUpdates', () => {
     expect(mockUpdateStatus).not.toHaveBeenCalled();
   });
 
-  it('rejects partial status updates when only some variants are ready', async () => {
+  it('updates the variants that are ready when another variant is still pending', async () => {
+    mockUpdateStatus.mockResolvedValue('feed-status-partial');
     const feedIds: string[] = [];
     const feedErrors: string[] = [];
 
@@ -120,9 +121,42 @@ describe('pushStatusUpdates', () => {
       feedErrors
     );
 
-    expect(feedIds).toEqual([]);
-    expect(feedErrors[0]).toContain('Status update rejected');
-    expect(mockUpdateStatus).not.toHaveBeenCalled();
+    expect(feedIds).toEqual(['feed-status-partial']);
+    expect(feedErrors).toEqual([]);
+    expect(mockUpdateStatus).toHaveBeenCalledWith(expect.anything(), [
+      { id: 'JUMIA-1', sellerSku: 'SKU-1', status: 'active' },
+    ]);
+  });
+
+  it('uses the documented business-client status shape for selected marketplaces', async () => {
+    mockUpdateStatus.mockResolvedValue('feed-status-client');
+    const feedIds: string[] = [];
+    const feedErrors: string[] = [];
+
+    await pushStatusUpdates(
+      { shopId: 'shop-1', marketplaceKey: 'NG-RETAIL' } as never,
+      [
+        {
+          id: 'map-1',
+          jumia_product_id: 'JUMIA-1',
+          jumia_sku: 'SKU-1',
+        } as never,
+      ],
+      true,
+      feedIds,
+      feedErrors
+    );
+
+    expect(mockUpdateStatus).toHaveBeenCalledWith(expect.anything(), [
+      {
+        id: 'JUMIA-1',
+        sellerSku: 'SKU-1',
+        status: 'active',
+        businessClients: [
+          { businessClientCode: 'NG-RETAIL', status: 'active' },
+        ],
+      },
+    ]);
   });
 
   it('records a successful status feed id', async () => {
@@ -181,7 +215,8 @@ describe('pushPriceUpdates', () => {
     expect(mockUpdatePrice).not.toHaveBeenCalled();
   });
 
-  it('rejects partial price updates when only some variants are ready', async () => {
+  it('updates the variants that are ready when another variant is still pending', async () => {
+    mockUpdatePrice.mockResolvedValue('feed-price-partial');
     const feedIds: string[] = [];
     const feedErrors: string[] = [];
 
@@ -213,9 +248,15 @@ describe('pushPriceUpdates', () => {
       feedErrors
     );
 
-    expect(feedIds).toEqual([]);
-    expect(feedErrors[0]).toContain('Price update rejected');
-    expect(mockUpdatePrice).not.toHaveBeenCalled();
+    expect(feedIds).toEqual(['feed-price-partial']);
+    expect(feedErrors).toEqual([]);
+    expect(mockUpdatePrice).toHaveBeenCalledWith(expect.anything(), [
+      expect.objectContaining({
+        id: 'JUMIA-1',
+        sellerSku: 'SKU-1',
+        price: expect.objectContaining({ value: 1500, currency: 'NGN' }),
+      }),
+    ]);
   });
 
   it('submits price feeds with the resolved marketplace currency', async () => {
@@ -246,6 +287,64 @@ describe('pushPriceUpdates', () => {
     expect(mockUpdatePrice).toHaveBeenCalledWith(expect.anything(), [
       expect.objectContaining({
         price: expect.objectContaining({ currency: 'GHS', value: 1500 }),
+      }),
+    ]);
+  });
+
+  it('uses per-variant prices and scopes feeds to a selected business client', async () => {
+    mockUpdatePrice.mockResolvedValue('feed-price-variants');
+    const feedIds: string[] = [];
+    const feedErrors: string[] = [];
+
+    await pushPriceUpdates(
+      { shopId: 'shop-1', marketplaceKey: 'NG-RETAIL' } as never,
+      [
+        {
+          id: 'map-1',
+          jumia_product_id: 'JUMIA-1',
+          jumia_sku: 'SKU-1',
+          jumia_price: 1000,
+          jumia_sale_price: null,
+          jumia_sale_start: null,
+          jumia_sale_end: null,
+        } as never,
+        {
+          id: 'map-2',
+          jumia_product_id: 'JUMIA-2',
+          jumia_sku: 'SKU-2',
+          jumia_price: 1200,
+          jumia_sale_price: null,
+          jumia_sale_start: null,
+          jumia_sale_end: null,
+        } as never,
+      ],
+      { jumia_prices: { 'SKU-1': 1100, 'SKU-2': 1300 } },
+      'NGN',
+      feedIds,
+      feedErrors
+    );
+
+    expect(feedIds).toEqual(['feed-price-variants']);
+    expect(mockUpdatePrice).toHaveBeenCalledWith(expect.anything(), [
+      expect.objectContaining({
+        sellerSku: 'SKU-1',
+        price: expect.objectContaining({ value: 1100 }),
+        businessClients: [
+          {
+            businessClientCode: 'NG-RETAIL',
+            price: expect.objectContaining({ value: 1100, currency: 'NGN' }),
+          },
+        ],
+      }),
+      expect.objectContaining({
+        sellerSku: 'SKU-2',
+        price: expect.objectContaining({ value: 1300 }),
+        businessClients: [
+          {
+            businessClientCode: 'NG-RETAIL',
+            price: expect.objectContaining({ value: 1300, currency: 'NGN' }),
+          },
+        ],
       }),
     ]);
   });

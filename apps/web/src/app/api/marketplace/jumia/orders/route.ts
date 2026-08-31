@@ -1,8 +1,3 @@
-/**
- * Jumia Orders API Route
- * Fetch and sync Jumia orders for the merchant
- */
-
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -25,163 +20,10 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { sanitizeText } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
-import { getJumiaOrderScope } from './get-jumia-order-scope';
+import { getCachedJumiaOrders } from './get-cached-jumia-orders';
 
-/** Deduplicate customer name formatting from Jumia shipping address */
-function getCustomerName(
-  shippingAddress: { firstName?: string; lastName?: string } | undefined
-): string {
-  if (!shippingAddress) return 'Unknown Customer';
-  return (
-    `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim() ||
-    'Unknown Customer'
-  );
-}
+export const GET = getCachedJumiaOrders;
 
-/**
- * GET: Fetch cached Jumia orders from our database
- */
-export async function GET(request: NextRequest) {
-  try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
-    if (!merchantContext) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    const access = toUserAccess(merchantContext);
-    if (!hasPermission(access, 'integrations', 'view')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    const merchantId = merchantContext.merchantId;
-    const featureGateResponse = await requireMerchantFeatureAccess(
-      supabase,
-      merchantId,
-      'marketplace_sync'
-    );
-    if (featureGateResponse) {
-      return featureGateResponse;
-    }
-
-    const { searchParams } = new URL(request.url);
-
-    const GetQuerySchema = z.object({
-      limit: z.coerce.number().int().min(1).max(1000).prefault(50),
-      offset: z.coerce.number().int().min(0).prefault(0),
-      status: z.string().min(1).optional(),
-      integrationId: z.uuid().optional(),
-    });
-
-    const queryParsed = GetQuerySchema.safeParse({
-      limit: searchParams.get('limit') ?? undefined,
-      offset: searchParams.get('offset') ?? undefined,
-      status: searchParams.get('status') || undefined,
-      integrationId: searchParams.get('integrationId') || undefined,
-    });
-
-    if (!queryParsed.success) {
-      return NextResponse.json(
-        {
-          error: 'Invalid query parameters',
-          code: 'invalid_query_parameters',
-        },
-        { status: 400 }
-      );
-    }
-
-    const { limit, offset, status, integrationId } = queryParsed.data;
-
-    // If integrationId is provided, resolve the provider and marketplace IDs
-    // used to scope cached orders.
-    let orderScope: Awaited<ReturnType<typeof getJumiaOrderScope>> | undefined;
-    if (integrationId) {
-      orderScope = await getJumiaOrderScope(
-        supabase,
-        merchantId,
-        integrationId
-      );
-
-      if (orderScope.kind === 'database_error') {
-        return NextResponse.json(
-          { error: orderScope.message },
-          { status: 500 }
-        );
-      }
-      if (orderScope.kind === 'not_found') {
-        return NextResponse.json(
-          { error: 'Integration not found' },
-          { status: 404 }
-        );
-      }
-      if (orderScope.kind === 'invalid_shop') {
-        return NextResponse.json(
-          { error: 'Integration is missing a Jumia shop ID' },
-          { status: 400 }
-        );
-      }
-    }
-
-    let query = supabase
-      .from('jumia_orders')
-      .select(
-        'id, merchant_id, jumia_order_id, jumia_order_number, jumia_shop_id, status, customer_name, customer_phone, shipping_address, items, total_amount, currency, created_at_jumia, synced_at, updated_at, baci_order_id, notification_sent'
-      )
-      .eq('merchant_id', merchantId)
-      .order('synced_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (orderScope?.kind === 'ok') {
-      query = query
-        .eq('jumia_shop_id', orderScope.shopId)
-        .eq('marketplace_key', orderScope.marketplaceKey);
-    }
-
-    if (status) {
-      query = query.eq('status', status);
-    }
-
-    const { data: orders, error: ordersError } = await query;
-
-    if (ordersError) {
-      console.error('[Jumia Orders] Database error:', ordersError);
-      return NextResponse.json(
-        { error: 'Failed to fetch orders' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      orders: orders || [],
-      count: orders?.length || 0,
-    });
-  } catch (error) {
-    console.error('[Jumia Orders] Error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-/**
- * POST: Sync orders from Jumia (manual trigger)
- * Requires integrationId query param to specify which shop to sync.
- */
 export async function POST(request: NextRequest) {
   try {
     const { valid, response } = await checkCsrfProtection(request);
@@ -282,7 +124,10 @@ export async function POST(request: NextRequest) {
     let newOrdersCount = 0;
 
     for (const order of jumiaOrders) {
-      const customerName = getCustomerName(order.shippingAddress);
+      const customerName = order.shippingAddress
+        ? `${order.shippingAddress.firstName || ''} ${order.shippingAddress.lastName || ''}`.trim() ||
+          'Unknown Customer'
+        : 'Unknown Customer';
 
       const { data: existingOrder, error: existingOrderError } = await supabase
         .from('jumia_orders')
@@ -302,7 +147,6 @@ export async function POST(request: NextRequest) {
 
       const isNewOrder = !existingOrder;
 
-      // Fetch order items from Jumia for richer data
       let itemsFetched = false;
       let orderItems: Array<{
         id: string;
@@ -332,14 +176,12 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Extract phone from shipping address if available (Jumia may include it as an extra field)
       const shippingAddr = order.shippingAddress as
         | (Record<string, unknown> & { phone?: string })
         | undefined;
       const customerPhone =
         typeof shippingAddr?.phone === 'string' ? shippingAddr.phone : '';
 
-      // Sanitize external Jumia fields before DB storage
       const sanitizedCustomerName = sanitizeText(customerName, 200);
       const sanitizedShippingAddress = order.shippingAddress
         ? Object.fromEntries(
@@ -351,8 +193,6 @@ export async function POST(request: NextRequest) {
             ])
           )
         : {};
-      // Build upsert payload — only include items when successfully fetched
-      // to avoid overwriting previously stored items with an empty array
       const upsertPayload: Record<string, unknown> = {
         merchant_id: merchantId,
         jumia_order_id: order.id,

@@ -68,6 +68,27 @@ describe('jumia self-authorization discovery store', () => {
     );
   });
 
+  it('retries discovery persistence after a transient RPC failure', async () => {
+    mockRpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: new Error('temporary outage'),
+      })
+      .mockResolvedValueOnce({
+        data: '00000000-0000-4000-8000-000000000099',
+        error: null,
+      });
+
+    await expect(
+      createJumiaSelfAuthorizationDiscovery(mockSupabase, {
+        merchantId: 'merchant-1',
+        clientKeyHash: 'a'.repeat(64),
+        credentialCiphertext: 'ciphertext',
+      })
+    ).resolves.toBe('00000000-0000-4000-8000-000000000099');
+    expect(mockRpc).toHaveBeenCalledTimes(2);
+  });
+
   it('consumes a matching discovery record once through the authenticated RPC', async () => {
     mockRpc.mockResolvedValueOnce({
       data: 'ciphertext',

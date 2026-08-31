@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { flattenError } from 'zod';
-import { loadJumiaMarketplaceCurrency } from '@/app/api/marketplace/jumia/products/export/export-product-source';
+import { loadJumiaMarketplaceCurrency } from '@/app/api/marketplace/jumia/products/export/export-product-currency';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
 import { JumiaApiError } from '@/lib/jumia/helpers';
@@ -11,6 +11,7 @@ import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 import { jumiaProductUpdateSchema } from '@/schemas/jumia-product-update';
 import {
+  getJumiaPriceOverrideError,
   getJumiaProductUpdateReadiness,
   hasJumiaPriceOverrides,
   pushPriceUpdates,
@@ -129,6 +130,9 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
+    const readyMappings = mappings.filter(
+      (mapping) => mapping.jumia_product_id
+    );
     const needsPriceUpdate = hasJumiaPriceOverrides(overrides);
     const readiness = getJumiaProductUpdateReadiness(
       mappings,
@@ -140,6 +144,13 @@ export async function POST(request: NextRequest) {
         { success: false, feedIds: [], ...readiness },
         { status: 409 }
       );
+    }
+    const priceOverrideError = getJumiaPriceOverrideError(
+      readyMappings,
+      overrides
+    );
+    if (priceOverrideError) {
+      return NextResponse.json({ error: priceOverrideError }, { status: 400 });
     }
     let marketplaceCurrency: string | undefined;
     if (needsPriceUpdate) {
@@ -174,7 +185,7 @@ export async function POST(request: NextRequest) {
     if (Object.hasOwn(overrides, 'jumia_sale_end')) {
       mappingUpdate.jumia_sale_end = overrides.jumia_sale_end;
     }
-    const mappingIds = mappings.map((mapping) => mapping.id);
+    const mappingIds = readyMappings.map((mapping) => mapping.id);
     const { error: updateError } = await supabase
       .from('jumia_product_mappings')
       .update(mappingUpdate)
@@ -190,6 +201,28 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update local mapping' },
         { status: 500 }
       );
+    }
+
+    if (overrides.jumia_prices) {
+      for (const mapping of readyMappings) {
+        const price = overrides.jumia_prices[mapping.jumia_sku];
+        if (price == null) continue;
+        const { error: priceUpdateError } = await supabase
+          .from('jumia_product_mappings')
+          .update({ jumia_price: price, updated_at: new Date().toISOString() })
+          .eq('id', mapping.id)
+          .eq('merchant_id', merchantId);
+        if (priceUpdateError) {
+          logger.error({
+            message: 'Local per-variant price update failed',
+            error: priceUpdateError,
+          });
+          return NextResponse.json(
+            { error: 'Failed to update local mapping' },
+            { status: 500 }
+          );
+        }
+      }
     }
 
     const feedIds: string[] = [];

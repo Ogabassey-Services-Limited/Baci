@@ -72,4 +72,31 @@ describe('bugfix: disabled sibling claims order-sync scope', () => {
 
     expect(selected.map((row) => row.id)).toEqual(['retail', 'express']);
   });
+
+  it('keeps integrations backed by distinct self-authorization grants separate', () => {
+    const selected = selectJumiaOrderSyncIntegrations([
+      {
+        id: 'grant-a',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        jumia_authorization_id: 'authorization-a',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+      {
+        id: 'grant-b',
+        merchant_id: 'merchant-1',
+        shop_id: 'shop-1',
+        country_code: 'NG',
+        marketplace_key: 'NG-RETAIL',
+        jumia_authorization_id: 'authorization-b',
+        last_sync_at: null,
+        sync_config: { orders: true },
+      },
+    ]);
+
+    expect(selected.map((row) => row.id)).toEqual(['grant-a', 'grant-b']);
+  });
 });

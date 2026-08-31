@@ -40,7 +40,7 @@ describe('submitJumiaExportFeed', () => {
       merchantId: 'merchant-1',
       productId: 'product-1',
       shopId: 'shop-1',
-      marketplaceKey: 'Jumia Nigeria',
+      marketplaceKey: 'default',
       exportName: 'Phone',
       brand: { code: 1, name: 'Generic' },
       category: { code: 2 },
@@ -86,7 +86,7 @@ describe('submitJumiaExportFeed', () => {
       merchantId: 'merchant-1',
       productId: 'product-1',
       shopId: 'shop-1',
-      marketplaceKey: 'Jumia Nigeria',
+      marketplaceKey: 'default',
       exportName: 'Phone',
       brand: { code: 1, name: 'Generic' },
       category: { code: 2 },
@@ -124,7 +124,7 @@ describe('submitJumiaExportFeed', () => {
       merchantId: 'merchant-1',
       productId: 'product-1',
       shopId: 'shop-1',
-      marketplaceKey: 'Jumia Nigeria',
+      marketplaceKey: 'default',
       exportName: 'Phone',
       brand: { code: 1, name: 'Generic' },
       category: { code: 2 },
@@ -142,5 +142,37 @@ describe('submitJumiaExportFeed', () => {
     expect(markAmbiguousJumiaExport).toHaveBeenCalled();
     expect(releaseJumiaExportReservation).not.toHaveBeenCalled();
     expect(finalizeJumiaExportReservation).not.toHaveBeenCalled();
+  });
+
+  it('rejects selected marketplace exports when create feeds cannot scope a business client', async () => {
+    const { createProduct } = await import('@/lib/jumia/feeds');
+    const { releaseJumiaExportReservation } = await import(
+      './export-product-reservation'
+    );
+    vi.mocked(releaseJumiaExportReservation).mockResolvedValue(true);
+
+    const result = await submitJumiaExportFeed({
+      jumia: {} as never,
+      supabase: {} as never,
+      merchantId: 'merchant-1',
+      productId: 'product-1',
+      shopId: 'shop-1',
+      marketplaceKey: 'jumia-ng',
+      exportName: 'Phone',
+      brand: { code: 1, name: 'Generic' },
+      category: { code: 2 },
+      exportVariations: [{ sellerSku: 'SKU-1', price: 100, currency: 'NGN' }],
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      body: {
+        error:
+          'Jumia product creation cannot target a selected marketplace because the provider create-feed contract has no business-client selector. Use a single-marketplace integration or wait for provider support.',
+      },
+    });
+    expect(createProduct).not.toHaveBeenCalled();
+    expect(releaseJumiaExportReservation).toHaveBeenCalled();
   });
 });

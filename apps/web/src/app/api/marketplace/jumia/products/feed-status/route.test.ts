@@ -237,6 +237,111 @@ describe('Jumia feed status route', () => {
     );
   });
 
+  it('marks an accepted item without a product id as failed', async () => {
+    const update = vi.fn();
+    mocks.from.mockReturnValue({
+      update: mappingUpdate(update),
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-1',
+          last_feed_id: 'feed-1',
+          jumia_seller_sku: 'SKU-1',
+          last_synced_at: null,
+        },
+      ],
+      error: null,
+    });
+    mocks.feed.mockResolvedValue({
+      feedSid: 'feed-1',
+      status: 'COMPLETED',
+      feedType: 'ProductCreate',
+      feedSource: 'API',
+      total: 1,
+      completed: 1,
+      failed: 0,
+      createdBy: { sid: 'sid', name: 'API', email: 'api@example.com' },
+      feedItems: [
+        {
+          status: 'SUCCESS',
+          sellerSKU: 'SKU-1',
+          createdAt: '2026-08-12T10:00:00Z',
+          updatedAt: '2026-08-12T10:00:00Z',
+        },
+      ],
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      updated: 0,
+      failed: 1,
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sync_status: 'error',
+        sync_error: 'Jumia accepted this product feed without a product ID',
+      })
+    );
+  });
+
+  it('returns 500 when an individual feed mapping update fails', async () => {
+    const update = vi.fn();
+    mocks.from.mockReturnValue({
+      update: (...args: unknown[]) => {
+        update(...args);
+        const resolved = Promise.resolve({
+          error: { message: 'write failed' },
+        });
+        const builder = Object.assign(resolved, { eq: vi.fn() });
+        builder.eq.mockReturnValue(builder);
+        return builder;
+      },
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-1',
+          last_feed_id: 'feed-1',
+          jumia_seller_sku: 'SKU-1',
+          last_synced_at: null,
+        },
+      ],
+      error: null,
+    });
+    mocks.feed.mockResolvedValue({
+      feedSid: 'feed-1',
+      status: 'COMPLETED',
+      feedType: 'ProductCreate',
+      feedSource: 'API',
+      total: 1,
+      completed: 1,
+      failed: 0,
+      createdBy: { sid: 'sid', name: 'API', email: 'api@example.com' },
+      feedItems: [
+        {
+          status: 'SUCCESS',
+          productSid: 'JUMIA-1',
+          sellerSKU: 'SKU-1',
+          createdAt: '2026-08-12T10:00:00Z',
+          updatedAt: '2026-08-12T10:00:00Z',
+        },
+      ],
+    });
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to reconcile Jumia feed item',
+    });
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({ sync_status: 'synced' })
+    );
+  });
+
   it('does not reuse a null-SKU fallback when multiple feed items exist', async () => {
     const update = vi.fn();
     mocks.from.mockReturnValue({

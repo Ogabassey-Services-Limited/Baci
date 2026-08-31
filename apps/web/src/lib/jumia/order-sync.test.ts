@@ -64,6 +64,10 @@ describe('syncJumiaOrdersForActiveIntegrations', () => {
       errors: [],
     });
     expect(mocks.forIntegration).not.toHaveBeenCalled();
+    expect(marketplaceQuery.neq).toHaveBeenCalledWith(
+      'connection_method',
+      'self_authorization'
+    );
   });
 
   it('notifies when an existing Jumia cache row was never linked to a Baci order', async () => {

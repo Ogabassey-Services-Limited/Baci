@@ -112,6 +112,46 @@ describe('usePublishProductsDialog', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('sends the search term to the products API instead of filtering only the preload', async () => {
+    const fetchMock = createFetchMock({
+      'mapped-product-ids': async () => ({
+        ok: true,
+        json: async () => ({ productIds: [] }),
+      }),
+      '/api/products': async () => ({
+        ok: true,
+        json: async () => ({
+          products: [{ id: 'prod-1', name: 'Legacy Phone', price: 10 }],
+        }),
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { result } = renderHook(() =>
+      usePublishProductsDialog({
+        integrationId: 'integration-1',
+        open: true,
+        onOpenChange: vi.fn(),
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    act(() => result.current.setSearch('Legacy Phone'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/products?status=active&limit=100&page=1&search=Legacy+Phone',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+    });
+    expect(result.current.filteredProducts).toEqual([
+      { id: 'prod-1', name: 'Legacy Phone', price: 10 },
+    ]);
+  });
+
   it('retains products from a single page when pagination metadata is missing', async () => {
     const fetchMock = createFetchMock({
       'mapped-product-ids': async () => ({

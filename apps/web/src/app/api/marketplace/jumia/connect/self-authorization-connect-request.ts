@@ -25,7 +25,6 @@ type DiscoveryBody = z.infer<typeof jumiaSelfAuthorizationDiscoverySchema>;
 type SelectionBody = z.infer<typeof jumiaSelfAuthorizationSelectionSchema> & {
   connectionType: 'self_authorization';
 };
-
 async function releaseDiscoveryClaim(args: {
   claimToken: string;
   discoveryId: string;
@@ -43,7 +42,6 @@ async function releaseDiscoveryClaim(args: {
     });
   }
 }
-
 async function loadExistingJumiaShopIds(
   supabase: SupabaseClient,
   merchantId: string
@@ -59,7 +57,6 @@ async function loadExistingJumiaShopIds(
   }
   return buildExistingJumiaShopIds(existing ?? []);
 }
-
 export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   body: DiscoveryBody | SelectionBody;
   encryptionKey: string;
@@ -67,7 +64,6 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
   supabase: SupabaseClient;
 }): Promise<NextResponse> {
   const { body, encryptionKey, merchantId, supabase } = args;
-
   try {
     if ('operation' in body) {
       let existingShopIds: Set<string>;
@@ -177,7 +173,6 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         validate: async () => validated,
       });
     }
-
     if (!('discoveryId' in body)) {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
@@ -258,12 +253,22 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         return response;
       }
       try {
-        await consumeJumiaSelfAuthorizationDiscovery(supabase, {
-          discoveryId: body.discoveryId,
-          merchantId,
-          clientKeyHash,
-          claimToken: discoveryClaim.claimToken,
-        });
+        const discoveryComplete =
+          response.headers.get('x-jumia-discovery-complete') !== 'false';
+        if (discoveryComplete) {
+          await consumeJumiaSelfAuthorizationDiscovery(supabase, {
+            discoveryId: body.discoveryId,
+            merchantId,
+            clientKeyHash,
+            claimToken: discoveryClaim.claimToken,
+          });
+        } else {
+          await releaseJumiaSelfAuthorizationDiscovery(supabase, {
+            discoveryId: body.discoveryId,
+            merchantId,
+            claimToken: discoveryClaim.claimToken,
+          });
+        }
       } catch (cleanupError) {
         logger.warn({
           message:

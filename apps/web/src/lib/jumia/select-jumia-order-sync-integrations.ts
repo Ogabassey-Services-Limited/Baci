@@ -6,11 +6,16 @@ import {
 export function buildJumiaOrderSyncScope(
   integration: Pick<
     MarketplaceIntegrationRow,
-    'merchant_id' | 'shop_id' | 'country_code' | 'marketplace_key'
+    | 'merchant_id'
+    | 'shop_id'
+    | 'country_code'
+    | 'marketplace_key'
+    | 'jumia_authorization_id'
   >
 ): string {
   const marketplaceKey = integration.marketplace_key?.trim() || 'default';
-  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}:${marketplaceKey}`;
+  const authorizationId = integration.jumia_authorization_id?.trim() || 'oauth';
+  return `${integration.merchant_id}:${integration.shop_id ?? 'oauth'}:${integration.country_code ?? ''}:${marketplaceKey}:${authorizationId}`;
 }
 
 /**
