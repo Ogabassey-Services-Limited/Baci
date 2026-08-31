@@ -21,6 +21,7 @@ stat() {
   for last do :; done
   case "$*" in
     *'-c %F'*) [ -d "$last" ] && printf 'directory\\n' || printf 'regular file\\n' ;;
+    *'-c %d:%i:%f:%s:%u:%g:%a'*) printf '1:2:81a4:10:0:0:600\\n' ;;
     *'-c %d'*) printf '1\\n' ;;
     *'-c %s'*) wc -c <"$last" | tr -d ' ' ;;
     *) printf '1:2:81a4:10:0:0:600\\n' ;;

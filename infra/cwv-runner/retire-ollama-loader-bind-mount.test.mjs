@@ -20,7 +20,7 @@ const unprivilegedExecution =
 const containerId = '0123456789abcdef'.repeat(4);
 const reviewedContainerId = 'f'.repeat(64);
 const scannerHarness =
-  'RETIRE_OLLAMA_TEST_FSTYPE=apfs; stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; sha256sum() { /usr/bin/shasum -a 256 "$@"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all';
+  'RETIRE_OLLAMA_TEST_FSTYPE=apfs; stat() { for last do :; done; case "$*" in *"-c %F"*) [ -d "$last" ] && printf "directory\\n" || printf "regular file\\n" ;; *"-c %d:%i:%f:%s:%u:%g:%a"*) printf "1:2:81a4:10:501:20:644\\n" ;; *"-c %d"*) printf "1\\n" ;; *"-c %s"*) wc -c <"$last" | tr -d " " ;; *) printf "1:2:81a4:10:501:20:644\\n" ;; esac; }; findmnt() { printf "/ fixture apfs ro\\n"; }; sha256sum() { /usr/bin/shasum -a 256 "$@"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all';
 test('refuses a consumer-scanner override from a privileged invocation', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-ollama-loader-root-'));
   const override = join(directory, 'override.sh');

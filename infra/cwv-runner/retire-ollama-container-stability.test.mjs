@@ -96,6 +96,7 @@ case "$*" in
   *'{{.Id}}'*) printf '${containerId} /generic-api /bin/true [] ["DOCKER_SOCK=/run/docker.sock"] "" {} null [] {} {} {} [] "bridge"\n' ;;
   *'{{.Name}}'*) printf '/generic-api\n' ;;
   *'{{json .State.Running}}'*) if [ -e '${runningState}' ]; then printf 'true\n'; else printf 'false\n'; fi ;;
+  *'[{{json .State.StartedAt}},{{json .State.Pid}},{{json .RestartCount}}]'*) printf '["2026-01-01T00:00:00Z",123,0]\n' ;;
   *'{{json .Config.Env}}'*) printf '["DOCKER_SOCK=/run/docker.sock"]\n' ;;
   *'{{json .Config.WorkingDir}}'*) printf '""\n' ;;
   *'{{json .Mounts}}'*) count=$(cat '${mountState}' 2>/dev/null || printf 0); count=$((count + 1)); printf '%s' "$count" >'${mountState}'; if [ $((count % 2)) -eq 1 ]; then printf '%s\n' "$mounts_a"; else printf '%s\n' "$mounts_b"; fi ;;

@@ -20,7 +20,7 @@ const containerId =
   '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 const unprivileged = process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
 const prelude =
-  'stat() { printf "1:2:81a4:10:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
+  'stat() { for last do :; done; case "$*" in *"-c %F"*) [ -d "$last" ] && printf "directory\\n" || printf "regular file\\n" ;; *"-c %d:%i:%f:%s:%u:%g:%a"*) printf "1:2:81a4:10:501:20:644\\n" ;; *"-c %d"*) printf "1\\n" ;; *"-c %s"*) wc -c <"$last" | tr -d " " ;; *) printf "1:2:81a4:10:501:20:644\\n" ;; esac; }; findmnt() { printf "/ fixture apfs ro\\n"; }; ';
 
 function assertBoundPair(output, definition, target) {
   const fields = output.trim().split('|');
