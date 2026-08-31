@@ -139,6 +139,31 @@ describe('finalizeDueQuizEvents', () => {
     });
   });
 
+  it.each([
+    'runtimeGateMatches',
+    'runtimeGateFresh',
+  ] as const)('fails the worker when the database reports %s as false', async (rejectedGate) => {
+    mocks.rpc
+      .mockResolvedValueOnce({ data: { updated: true }, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          runtimeGateFresh: true,
+          runtimeGateMatches: true,
+          [rejectedGate]: false,
+        },
+        error: null,
+      })
+      .mockResolvedValue({ data: {}, error: null });
+
+    const result = await finalizeDueQuizEvents();
+
+    expect(result.status).toBe(500);
+    expect(result.body).toMatchObject({
+      code: 'QUIZ_FINALIZATION_FAILED',
+      failed: 1,
+    });
+  });
+
   it('passes both production gates to the live database finalizer', async () => {
     mocks.phase.mockReturnValue('production');
     mocks.approved.mockReturnValue(true);

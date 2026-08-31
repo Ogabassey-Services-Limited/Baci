@@ -96,6 +96,16 @@ function summaryValue(payload: object, key: CountKey) {
     : 0;
 }
 
+function runtimeGateRejected(payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return false;
+  }
+  const result = payload as Record<string, unknown>;
+  return (
+    result.runtimeGateMatches === false || result.runtimeGateFresh === false
+  );
+}
+
 function addStepPayload(
   summary: Summary,
   step: FinalizationStep,
@@ -110,6 +120,12 @@ function addStepPayload(
       summary.scheduledPromoted += payload;
     }
     return;
+  }
+  if (
+    step.name === 'process_due_quiz_deadlines_v2' &&
+    runtimeGateRejected(payload)
+  ) {
+    summary.failed += 1;
   }
   addPayload(summary, payload);
 }
