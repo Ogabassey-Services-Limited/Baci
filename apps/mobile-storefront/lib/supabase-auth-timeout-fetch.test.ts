@@ -117,6 +117,48 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('preserves caller cancellation without starting recovery', async () => {
+    const caller = new AbortController();
+    const fetchImpl = pendingAbortAwareFetch();
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    const result = timedFetch(
+      'https://project.supabase.co/auth/v1/token?grant_type=refresh_token',
+      { method: 'POST', signal: caller.signal }
+    );
+    caller.abort(new DOMException('Checkout canceled', 'AbortError'));
+
+    await expect(result).rejects.toMatchObject({ name: 'AbortError' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+  });
+
+  it('clones a POST Request body before retrying refresh recovery', async () => {
+    const requestBodies: string[] = [];
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockImplementation(async (input) => {
+        if (input instanceof Request) requestBodies.push(await input.text());
+        return requestBodies.length === 1
+          ? new Response(null, { status: 503 })
+          : Response.json({ access_token: 'recovered-token' });
+      });
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+    const request = new Request(
+      'https://project.supabase.co/auth/v1/token?grant_type=refresh_token',
+      {
+        body: JSON.stringify({ refresh_token: 'opaque-token' }),
+        method: 'POST',
+      }
+    );
+
+    await expect(timedFetch(request)).resolves.toMatchObject({ status: 200 });
+    expect(requestBodies).toEqual([
+      JSON.stringify({ refresh_token: 'opaque-token' }),
+      JSON.stringify({ refresh_token: 'opaque-token' }),
+    ]);
+  });
+
   it('returns a successful refresh response before the deadline without aborting it', async () => {
     jest.useFakeTimers();
     const response = Response.json({ access_token: 'fresh-token' });

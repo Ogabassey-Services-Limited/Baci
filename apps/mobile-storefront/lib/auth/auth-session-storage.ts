@@ -106,7 +106,8 @@ function fenceLateMutation(
 
 async function boundedStorageOperation<T>(
   operation: Promise<T>,
-  operationName: string
+  operationName: string,
+  timeoutMs = AUTH_STORAGE_TIMEOUT_MS
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
@@ -117,7 +118,7 @@ async function boundedStorageOperation<T>(
             `Supabase auth storage ${operationName} timed out`
           )
         ),
-      AUTH_STORAGE_TIMEOUT_MS
+      timeoutMs
     );
   });
 
@@ -143,7 +144,14 @@ function restorePreviousStorageIntent(
   if (intent.pending) void reconcileLatestStorageIntent(key);
 }
 
-async function readAuthStorageItem(key: string): Promise<string | null> {
+function remainingStorageTimeout(deadline: number): number {
+  return Math.max(0, deadline - Date.now());
+}
+
+async function readAuthStorageItem(
+  key: string,
+  deadline = Date.now() + AUTH_STORAGE_TIMEOUT_MS
+): Promise<string | null> {
   const intent = storageIntents.get(key);
   if (intent?.pending) {
     if (intent.type === 'delete') {
@@ -152,23 +160,32 @@ async function readAuthStorageItem(key: string): Promise<string | null> {
     }
     if (intent.operation) {
       try {
-        await boundedStorageOperation(intent.operation, 'pending mutation');
+        await boundedStorageOperation(
+          intent.operation,
+          'pending mutation',
+          remainingStorageTimeout(deadline)
+        );
       } catch {
         return null;
       }
     }
     const latestIntent = storageIntents.get(key);
     if (!latestIntent?.pending) {
-      return readAuthStorageItem(key);
+      return readAuthStorageItem(key, deadline);
     }
-    await reconcileLatestStorageIntent(key);
+    await boundedStorageOperation(
+      reconcileLatestStorageIntent(key),
+      'reconciliation',
+      remainingStorageTimeout(deadline)
+    );
     if (storageIntents.get(key)?.pending) return null;
   }
 
   const revisionBeforeRead = storageIntents.get(key)?.revision;
   const value = await boundedStorageOperation(
     SecureStore.getItemAsync(key),
-    'read'
+    'read',
+    remainingStorageTimeout(deadline)
   );
   const intentAfterRead = storageIntents.get(key);
   if (
@@ -230,7 +247,14 @@ export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
 }
 
 export const authSessionStorage: SupportedStorage = {
-  getItem: readAuthStorageItem,
+  getItem: async (key: string) => {
+    try {
+      return await readAuthStorageItem(key);
+    } catch (error) {
+      log.warn('Unable to read the Supabase auth session state.', error);
+      return null;
+    }
+  },
   setItem: (key: string, value: string) =>
     runSerializedStorageMutation(key, async () => {
       const baseline = await captureRollbackBaseline(key);

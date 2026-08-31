@@ -78,12 +78,14 @@ describe('authSessionStorage', () => {
     expect(mockSecureStore.getItemAsync).toHaveBeenCalledWith('auth-key');
   });
 
-  it('propagates read and delete errors from the underlying storage adapter', async () => {
+  it('fails open on read errors while propagating delete errors', async () => {
     const storageError = new Error('storage unavailable');
     mockSecureStore.getItemAsync.mockRejectedValue(storageError);
     mockSecureStore.deleteItemAsync.mockRejectedValue(storageError);
 
-    await expect(authSessionStorage.getItem('auth-key')).rejects.toBe(
+    await expect(authSessionStorage.getItem('auth-key')).resolves.toBeNull();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Unable to read the Supabase auth session state.',
       storageError
     );
     await expect(authSessionStorage.removeItem('auth-key')).rejects.toBe(
@@ -105,8 +107,25 @@ describe('authSessionStorage', () => {
     );
   });
 
+  it('returns null when a SecureStore read exceeds the shared deadline', async () => {
+    jest.useFakeTimers();
+    mockSecureStore.getItemAsync.mockImplementation(
+      () => new Promise<never>(() => undefined)
+    );
+
+    const result = authSessionStorage.getItem('stalled-read-key');
+    await jest.advanceTimersByTimeAsync(4_000);
+
+    await expect(result).resolves.toBeNull();
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Unable to read the Supabase auth session state.',
+      expect.objectContaining({
+        message: 'Supabase auth storage read timed out',
+      })
+    );
+  });
+
   it.each([
-    ['read', () => authSessionStorage.getItem('stalled-read-key')],
     [
       'write',
       () => authSessionStorage.setItem('stalled-write-key', 'session-json'),
@@ -123,9 +142,7 @@ describe('authSessionStorage', () => {
     mockSecureStore.deleteItemAsync.mockImplementation(
       () => new Promise<never>(() => undefined)
     );
-    if (operation !== 'read') {
-      mockSecureStore.getItemAsync.mockResolvedValue(null);
-    }
+    mockSecureStore.getItemAsync.mockResolvedValue(null);
 
     const result = run();
     const rejection = expect(result).rejects.toThrow(
@@ -148,12 +165,9 @@ describe('authSessionStorage', () => {
       'captured-session-json'
     );
     const stalledRead = authSessionStorage.getItem('read-recovery-key');
-    const rejection = expect(stalledRead).rejects.toThrow(
-      'Supabase auth storage read timed out'
-    );
     await jest.advanceTimersByTimeAsync(0);
     await jest.advanceTimersByTimeAsync(4_000);
-    await rejection;
+    await expect(stalledRead).resolves.toBeNull();
 
     await expect(authSessionStorage.getItem('read-recovery-key')).resolves.toBe(
       'current-session-json'
