@@ -165,7 +165,7 @@ describe('hasEligibleCommercialSupportPath', () => {
     ).toBe(true);
   });
 
-  it('limits brand authority counts to the bounded newest inventory window', () => {
+  it('filters brand authority before applying the bounded inventory window', () => {
     const outsideWindow = Array.from({ length: 5 }, (_, index) => ({
       ...products[0],
       brand: 'Samsung',
@@ -183,7 +183,7 @@ describe('hasEligibleCommercialSupportPath', () => {
         new Map([[category.slug, category]]),
         [...newestWindow, ...outsideWindow]
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it('requires canonical brand route keys instead of aliases', () => {

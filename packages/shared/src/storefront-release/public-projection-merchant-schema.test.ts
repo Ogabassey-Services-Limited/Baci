@@ -64,11 +64,11 @@ describe('StorefrontPublicMerchantSchema', () => {
     const merchant = {
       ...validMerchant,
       analytics: {
-        facebookPixelId: '1234567890',
+        facebookPixelId: '123456789012345',
         googleAnalyticsId: 'G-ABC123',
-        snapchatPixelId: 'abcd-1234',
+        snapchatPixelId: 'abc12345-6789-def0-1234-567890abcdef',
         tiktokPixelId: 'CTABC123',
-        twitterPixelId: 'tw-123',
+        twitterPixelId: 'o1234',
         googleStoreWidget: {
           enabled: true,
           merchantCenterId: '112524323',
@@ -76,6 +76,22 @@ describe('StorefrontPublicMerchantSchema', () => {
       },
     };
     expect(StorefrontPublicMerchantSchema.parse(merchant)).toEqual(merchant);
+  });
+
+  it('rejects provider identifiers with the wrong provider format', () => {
+    for (const analytics of [
+      { googleAnalyticsId: 'UA-12345-1' },
+      { facebookPixelId: '1234567890' },
+      { tiktokPixelId: 'pixel-123' },
+      { snapchatPixelId: 'snap-123' },
+      { twitterPixelId: 'tw-123' },
+    ])
+      expect(
+        StorefrontPublicMerchantSchema.safeParse({
+          ...validMerchant,
+          analytics,
+        }).success
+      ).toBe(false);
   });
 
   it('rejects malformed Google Store widget configuration', () => {

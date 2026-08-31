@@ -1,8 +1,10 @@
 import type { RefinementCtx } from 'zod';
+import { addPublicProjectionSeoPolicyPaths } from './add-public-projection-seo-policy-paths';
 import {
   getPublicProjectionBlogSeoPaths,
   isPublicProjectionBlogPost,
 } from './get-public-projection-blog-seo-paths';
+import { hasEligiblePublicProjectionCategoryCompareHub } from './has-eligible-public-projection-category-compare-hub';
 import { hasEligibleCommercialSupportPath } from './validate-public-projection-seo-commercial-support';
 import { validatePublicProjectionSeoEntryGuards } from './validate-public-projection-seo-entry-guards';
 
@@ -91,25 +93,6 @@ function addIssue(context: RefinementCtx, index: number) {
   });
 }
 
-function addPolicyPaths(
-  knownPaths: Set<string>,
-  policies: SeoPayload['policies']
-) {
-  if (policies?.privacy?.trim()) {
-    knownPaths.add('/privacy');
-    knownPaths.add('/privacy-policy');
-  }
-  if (policies?.terms?.trim()) {
-    knownPaths.add('/terms');
-    knownPaths.add('/terms-and-conditions');
-    knownPaths.add('/terms-of-service');
-  }
-  if (policies?.returns?.trim() || policies?.returnPolicy)
-    knownPaths.add('/returns');
-  if (policies?.shipping?.trim() || policies?.shippingPolicy)
-    knownPaths.add('/shipping');
-}
-
 function haveDifferentComparableSpecs(left: SeoProduct, right: SeoProduct) {
   const leftSpecs = left.productKeySpecs ?? {};
   const rightSpecs = right.productKeySpecs ?? {};
@@ -160,15 +143,17 @@ export function validatePublicProjectionSeoEntries(
   context: RefinementCtx
 ) {
   const knownPaths = new Set(STATIC_SEO_PATHS);
-  addPolicyPaths(knownPaths, payload.policies);
+  addPublicProjectionSeoPolicyPaths(knownPaths, payload.policies);
   if (payload.policies?.warrantyPolicy?.summary.trim())
     knownPaths.add('/warranty');
   for (const page of payload.contentPages ?? [])
     knownPaths.add(
       page.slug === 'rewards' ? '/pages/rewards' : `/${page.slug}`
     );
-  for (const category of payload.categories ?? [])
+  for (const category of payload.categories ?? []) {
     knownPaths.add(`/${category.slug}`);
+    knownPaths.add(`/${category.slug}/compare`);
+  }
   const categoryHasProducts = new Map(
     (payload.categories ?? []).map((category) => [
       category.id,
@@ -273,6 +258,24 @@ export function validatePublicProjectionSeoEntries(
       context.addIssue({
         code: 'custom',
         message: 'Compare SEO requires an eligible projected comparison pair',
+        path: ['seoEntries', index, 'indexable'],
+      });
+    const categoryCompareMatch = /^\/([^/]+)\/compare$/u.exec(entry.path);
+    if (
+      categoryCompareMatch?.[1] &&
+      entry.indexable &&
+      !hasEligiblePublicProjectionCategoryCompareHub(
+        categoryCompareMatch[1],
+        categoriesBySlug,
+        payload.products,
+        maintainedComparePaths,
+        payload.merchant.currency
+      )
+    )
+      context.addIssue({
+        code: 'custom',
+        message:
+          'Category compare SEO requires an eligible projected comparison link',
         path: ['seoEntries', index, 'indexable'],
       });
   }

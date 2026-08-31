@@ -113,6 +113,19 @@ describe('hasUnstableMarkdownContent', () => {
     ).toBe(true);
   });
 
+  it('scans reference definitions after HTML comments and setext headings', () => {
+    expect(
+      hasUnstableMarkdownContent(
+        '<!-- comment -->\n[html-ref]: https://example.test/image.png?token=secret'
+      )
+    ).toBe(true);
+    expect(
+      hasUnstableMarkdownContent(
+        'Heading\n===\n[setext-ref]: https://example.test/image.png?token=secret'
+      )
+    ).toBe(true);
+  });
+
   it('scans reference definitions inside blockquotes', () => {
     expect(
       hasUnstableMarkdownContent(

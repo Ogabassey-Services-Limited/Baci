@@ -11,6 +11,7 @@ import { StorefrontPublishedConfigSchema } from './storefront-published-config-s
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 import { validatePublicProjectionCategoryHierarchy } from './validate-public-projection-category-hierarchy';
 import { validatePublicProjectionIdentities } from './validate-public-projection-identities';
+import { validatePublicProjectionMediaOwnership } from './validate-public-projection-media-ownership';
 import { validatePublicProjectionSeoEntries } from './validate-public-projection-seo-entries';
 
 const PublicMediaUrlSchema = z
@@ -283,6 +284,13 @@ export const StorefrontPublicProjectionPayloadSchema = z
           message: 'Media reference does not resolve to payload.media',
           path,
         });
+
+    const { media: _media, ...releaseContent } = payload;
+    validatePublicProjectionMediaOwnership(
+      releaseContent,
+      payload.media,
+      context
+    );
   });
 export type StorefrontPublicProjectionPayload = z.infer<
   typeof StorefrontPublicProjectionPayloadSchema

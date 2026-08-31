@@ -77,4 +77,27 @@ export function validatePublicProjectionSeoEntryGuards({
       index,
       'Legacy product alias routes must not be indexable'
     );
+
+  const categoryPdpMatch = /^\/([^/]+)\/([^/]+)$/u.exec(entry.path);
+  if (categoryPdpMatch?.[1] && categoryPdpMatch[2] && entry.indexable) {
+    const categoryPdpCategory = categoriesBySlug.get(categoryPdpMatch[1]);
+    const categoryPdpProduct = products.find(
+      (product) => product.slug === categoryPdpMatch[2]
+    );
+    if (
+      categoryPdpCategory &&
+      categoryPdpProduct &&
+      ((categoryPdpProduct.canonicalPath &&
+        !categoryPdpProduct.canonicalPath.startsWith('/products/') &&
+        categoryPdpProduct.canonicalPath !== entry.path) ||
+        (!categoryPdpProduct.canonicalPath &&
+          categoryPdpProduct.primaryCategoryId &&
+          categoryPdpProduct.primaryCategoryId !== categoryPdpCategory.id))
+    )
+      addIssue(
+        context,
+        index,
+        'Noncanonical product category aliases must not be indexable'
+      );
+  }
 }

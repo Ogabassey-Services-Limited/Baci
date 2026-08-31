@@ -84,7 +84,12 @@ function inspectTag(content: string, start: number, end: number): boolean {
     }
     const parsed = readAttributeValue(content, cursor, end);
     if (parsed === null) {
-      while (cursor < end && !/\s/u.test(content[cursor] ?? '')) cursor += 1;
+      if (content[cursor] === '/') {
+        cursor += 1;
+        continue;
+      }
+      while (cursor < end && !/[\s/>]/u.test(content[cursor] ?? ''))
+        cursor += 1;
       continue;
     }
     attributes.set(name, decodeHtmlEntities(parsed.value));

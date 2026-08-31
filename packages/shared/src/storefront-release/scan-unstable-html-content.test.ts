@@ -48,4 +48,10 @@ describe('hasUnstableHtmlContent', () => {
       )
     ).toBe(true);
   });
+
+  it('resumes attribute scanning after slash-separated names', () => {
+    expect(
+      hasUnstableHtmlContent('<img x/src="https://cdn.example.test/image.png">')
+    ).toBe(true);
+  });
 });

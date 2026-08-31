@@ -98,12 +98,10 @@ export function hasUnstableBlogContentMedia(content: string): boolean {
     if (entry.expectsTipTapNodes && !isTipTapNode(current)) return true;
     if ('marks' in current && !isTipTapMarks(current.marks)) return true;
     for (const [key, value] of Object.entries(current)) {
-      if (
-        (key === 'src' || key === 'image') &&
-        typeof value === 'string' &&
-        !isStablePublicMediaUrl(value)
-      )
-        return true;
+      if (key === 'src' || key === 'image') {
+        if (typeof value !== 'string' || !isStablePublicMediaUrl(value))
+          return true;
+      }
       if (
         key === 'href' &&
         typeof value === 'string' &&

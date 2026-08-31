@@ -25,6 +25,17 @@ describe('hasUnstableBlogContentMedia', () => {
     expect(hasUnstableBlogContentMedia('Published guide content')).toBe(false);
   });
 
+  it('fails closed when a TipTap image source is not a string', () => {
+    expect(
+      hasUnstableBlogContentMedia(
+        JSON.stringify({
+          attrs: { src: ['https://cdn.example/image.png'] },
+          type: 'image',
+        })
+      )
+    ).toBe(true);
+  });
+
   it('rejects signed image sources in persisted HTML content', () => {
     expect(
       hasUnstableBlogContentMedia(

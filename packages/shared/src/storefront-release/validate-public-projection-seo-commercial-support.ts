@@ -84,9 +84,14 @@ function getCategoryProducts(
 
 function getBrandAuthorityProducts(
   categoryId: string,
-  products: readonly SeoProduct[]
+  products: readonly SeoProduct[],
+  brandAliases?: readonly string[]
 ) {
-  const categoryProducts = getCategoryProducts(categoryId, products);
+  const categoryProducts = getCategoryProducts(categoryId, products).filter(
+    (product) =>
+      !brandAliases ||
+      brandAliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
+  );
   if (!categoryProducts.every((product) => product.updatedAt))
     return categoryProducts.slice(0, BRAND_AUTHORITY_PRODUCT_LIMIT);
   return [...categoryProducts]
@@ -126,7 +131,7 @@ function hasEligibleBrand(
   const rule = getBrandRule(brandSlug);
   if (!category || !rule) return false;
   return (
-    getBrandAuthorityProducts(category.id, products).filter(
+    getBrandAuthorityProducts(category.id, products, rule.aliases).filter(
       (product) =>
         product.available &&
         rule.aliases.some((alias) => alias === toRouteSlug(product.brand ?? ''))
@@ -201,7 +206,11 @@ export function hasEligibleCommercialSupportPath(
     )
       return false;
     return (
-      getBrandAuthorityProducts(category.id, products).filter(
+      getBrandAuthorityProducts(
+        category.id,
+        products,
+        getBrandRule(brandSlug)?.aliases
+      ).filter(
         (product) =>
           product.available &&
           getBrandRule(brandSlug)?.aliases.some(

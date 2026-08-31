@@ -63,4 +63,38 @@ describe('validatePublicProjectionSeoEntryGuards', () => {
       })
     ).toContain('Legacy product alias routes must not be indexable');
   });
+
+  it('rejects indexable secondary-category product aliases', () => {
+    const products = [
+      {
+        canonicalPath: '/smartphones/phone',
+        categoryIds: ['category-smartphones', 'category-sale'],
+        primaryCategoryId: 'category-smartphones',
+        slug: 'phone',
+      },
+    ];
+    const categoriesBySlug = new Map([
+      ['smartphones', { id: 'category-smartphones' }],
+      ['sale', { id: 'category-sale' }],
+    ]);
+
+    expect(
+      issueMessages({
+        categoriesBySlug,
+        categoryHasProducts: new Map(),
+        entry: { indexable: true, path: '/sale/phone' },
+        index: 0,
+        products,
+      })
+    ).toContain('Noncanonical product category aliases must not be indexable');
+    expect(
+      issueMessages({
+        categoriesBySlug,
+        categoryHasProducts: new Map(),
+        entry: { indexable: true, path: '/smartphones/phone' },
+        index: 0,
+        products,
+      })
+    ).toEqual([]);
+  });
 });

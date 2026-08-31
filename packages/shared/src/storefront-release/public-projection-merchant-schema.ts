@@ -89,35 +89,37 @@ export const StorefrontPublicMerchantSchema = z.strictObject({
         .string()
         .min(1)
         .max(128)
-        .regex(/^[\w.-]+$/)
+        .regex(/^G-[A-Z0-9]{4,32}$/i)
         .nullable()
         .optional(),
       facebookPixelId: z
         .string()
         .min(1)
         .max(128)
-        .regex(/^[\w.-]+$/)
+        .regex(/^\d{15,16}$/)
         .nullable()
         .optional(),
       tiktokPixelId: z
         .string()
         .min(1)
         .max(128)
-        .regex(/^[\w.-]+$/)
+        .regex(/^C[A-Z0-9]{5,31}$/i)
         .nullable()
         .optional(),
       snapchatPixelId: z
         .string()
         .min(1)
         .max(128)
-        .regex(/^[\w.-]+$/)
+        .regex(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        )
         .nullable()
         .optional(),
       twitterPixelId: z
         .string()
         .min(1)
         .max(128)
-        .regex(/^[\w.-]+$/)
+        .regex(/^o[A-Z0-9]+$/i)
         .nullable()
         .optional(),
       googleStoreWidget: z
