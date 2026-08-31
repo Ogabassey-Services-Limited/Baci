@@ -46,7 +46,6 @@ async function runSerializedStorageMutation<T>(
     }
   }
 }
-
 function nextStorageIntent(
   key: string,
   intent: StorageIntentInput
@@ -83,7 +82,6 @@ async function reconcileLatestStorageIntent(key: string): Promise<void> {
     if (storageIntents.get(key)?.revision === intent.revision) return;
   }
 }
-
 function fenceLateMutation(
   key: string,
   intent: StorageIntent,
@@ -143,7 +141,6 @@ function restorePreviousStorageIntent(
   intent.pending = baseline.pending || needsReconciliation;
   if (intent.pending) void reconcileLatestStorageIntent(key);
 }
-
 function remainingStorageTimeout(deadline: number): number {
   return Math.max(0, deadline - Date.now());
 }
