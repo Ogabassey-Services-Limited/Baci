@@ -48,10 +48,64 @@ describe('createSupabaseAuthTimeoutFetch', () => {
       { method: 'POST' }
     );
 
-    await jest.advanceTimersByTimeAsync(100);
+    await jest.advanceTimersByTimeAsync(200);
 
     await expect(result).resolves.toMatchObject({ status: 408 });
     expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps the deadline active until the refresh response body is readable', async () => {
+    jest.useFakeTimers();
+    let releaseRecovery: (() => void) | undefined;
+    const stalledBody = new ReadableStream<Uint8Array>({
+      start() {
+        // Leave the response body open after headers have arrived.
+      },
+    });
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(stalledBody, { status: 200 }))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            releaseRecovery = () =>
+              resolve(Response.json({ access_token: 'recovered-token' }));
+          })
+      );
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    const result = timedFetch(
+      'https://project.supabase.co/auth/v1/token?grant_type=refresh_token'
+    );
+    await jest.advanceTimersByTimeAsync(100);
+    releaseRecovery?.();
+
+    await expect(result).resolves.toMatchObject({ status: 200 });
+    expect(fetchImpl.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it('recovers immediately when a provider commits before delaying its response', async () => {
+    jest.useFakeTimers();
+    const committedRequest = pendingAbortAwareFetch();
+    const recoveryResponse = Response.json({
+      access_token: 'recovered-token',
+      refresh_token: 'rotated-token',
+    });
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockImplementationOnce(committedRequest)
+      .mockResolvedValueOnce(recoveryResponse);
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    const result = timedFetch(
+      'https://project.supabase.co/auth/v1/token?grant_type=refresh_token'
+    );
+    await jest.advanceTimersByTimeAsync(100);
+
+    await expect(result).resolves.toBe(recoveryResponse);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
   it('returns a successful refresh response before the deadline without aborting it', async () => {
@@ -70,7 +124,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
         { method: 'POST' }
       )
     ).resolves.toBe(response);
-    await jest.advanceTimersByTimeAsync(100);
+    await jest.advanceTimersByTimeAsync(200);
 
     expect(requestSignal?.aborted).toBe(false);
   });
@@ -121,7 +175,7 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     );
 
     const firstRead = client.auth.getSession();
-    await jest.advanceTimersByTimeAsync(100);
+    await jest.advanceTimersByTimeAsync(200);
     await expect(firstRead).resolves.toBeDefined();
 
     const secondRead = client.auth.getSession();

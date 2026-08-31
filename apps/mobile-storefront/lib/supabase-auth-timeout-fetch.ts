@@ -19,6 +19,34 @@ function authRefreshTimedOutResponse(): Response {
   );
 }
 
+async function fetchBufferedBeforeDeadline(
+  fetchImpl: typeof fetch,
+  input: RequestInfo | URL,
+  init: RequestInit | undefined,
+  timeoutMs: number
+): Promise<Response | null> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(null);
+    }, timeoutMs);
+  });
+  const request = fetchImpl(input, { ...init, signal: controller.signal }).then(
+    async (response) => {
+      await response.clone().arrayBuffer();
+      return response;
+    }
+  );
+
+  try {
+    return await Promise.race([request, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function createSupabaseAuthTimeoutFetch(
   fetchImpl: typeof fetch,
   timeoutMs = AUTH_REFRESH_TIMEOUT_MS
@@ -29,20 +57,22 @@ export function createSupabaseAuthTimeoutFetch(
       return fetchImpl(input, init);
     }
 
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<Response>((resolve) => {
-      timer = setTimeout(() => {
-        resolve(authRefreshTimedOutResponse());
-        controller.abort();
-      }, timeoutMs);
-    });
-    const request = fetchImpl(input, { ...init, signal: controller.signal });
+    const firstResponse = await fetchBufferedBeforeDeadline(
+      fetchImpl,
+      input,
+      init,
+      timeoutMs
+    );
+    if (firstResponse) return firstResponse;
 
-    try {
-      return await Promise.race([request, timeout]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
+    // A timed-out refresh may already have rotated the one-time token remotely.
+    // Retry immediately while Supabase's refresh-token reuse window is open.
+    const recoveryResponse = await fetchBufferedBeforeDeadline(
+      fetchImpl,
+      input,
+      init,
+      timeoutMs
+    );
+    return recoveryResponse ?? authRefreshTimedOutResponse();
   };
 }

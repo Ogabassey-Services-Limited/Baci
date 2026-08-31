@@ -162,6 +162,35 @@ describe('auth session storage rollback', () => {
     expect(storedValue).toBeNull();
   });
 
+  it('does not duplicate a primary write when storage is read concurrently', async () => {
+    const storedValue: string | null = 'previous-session';
+    let rejectPrimaryWrite: ((error: Error) => void) | undefined;
+    mockSecureStore.getItemAsync.mockImplementation(async () => storedValue);
+    mockSecureStore.setItemAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectPrimaryWrite = reject;
+        })
+    );
+
+    const primaryWrite = authSessionStorage.setItem(
+      'concurrent-read-key',
+      'unreported-session'
+    );
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const concurrentRead = authSessionStorage.getItem('concurrent-read-key');
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+    rejectPrimaryWrite?.(new Error('primary write failed'));
+    await expect(primaryWrite).rejects.toThrow('primary write failed');
+    await expect(concurrentRead).resolves.toBeNull();
+    await expect(
+      authSessionStorage.getItem('concurrent-read-key')
+    ).resolves.toBe('previous-session');
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+  });
+
   it('does not mutate storage when the rollback baseline is unknown', async () => {
     const snapshotError = new Error('rollback snapshot unavailable');
     mockSecureStore.getItemAsync.mockRejectedValue(snapshotError);

@@ -6,8 +6,19 @@ const log = createLogger('AuthSessionStorage');
 const AUTH_STORAGE_TIMEOUT_MS = 4_000;
 class AuthStorageTimeoutError extends Error {}
 type StorageIntent =
-  | { pending: boolean; revision: number; type: 'delete' }
-  | { pending: boolean; revision: number; type: 'set'; value: string };
+  | {
+      operation?: Promise<void>;
+      pending: boolean;
+      revision: number;
+      type: 'delete';
+    }
+  | {
+      operation?: Promise<void>;
+      pending: boolean;
+      revision: number;
+      type: 'set';
+      value: string;
+    };
 type StorageIntentInput = { type: 'delete' } | { type: 'set'; value: string };
 const storageIntents = new Map<string, StorageIntent>();
 const storageMutationQueues = new Map<string, Promise<void>>();
@@ -47,13 +58,18 @@ async function reconcileLatestStorageIntent(key: string): Promise<void> {
     const intent = storageIntents.get(key);
     if (!intent?.pending) return;
     const operation =
-      intent.type === 'set'
+      intent.operation ??
+      (intent.type === 'set'
         ? SecureStore.setItemAsync(key, intent.value)
-        : SecureStore.deleteItemAsync(key);
+        : SecureStore.deleteItemAsync(key));
+    intent.operation = operation;
     fenceLateMutation(key, intent, operation);
     try {
       await boundedStorageOperation(operation, 'reconciliation');
     } catch (error) {
+      if (storageIntents.get(key)?.revision === intent.revision) {
+        intent.operation = undefined;
+      }
       log.warn(
         'Unable to reconcile the latest Supabase auth session state.',
         error
@@ -74,6 +90,7 @@ function fenceLateMutation(
       const currentIntent = storageIntents.get(key);
       if (currentIntent?.revision === intent.revision) {
         currentIntent.pending = false;
+        currentIntent.operation = undefined;
       } else if (currentIntent) {
         currentIntent.pending = true;
         void reconcileLatestStorageIntent(key);
@@ -128,6 +145,17 @@ async function readAuthStorageItem(key: string): Promise<string | null> {
     if (intent.type === 'delete') {
       void reconcileLatestStorageIntent(key);
       return null;
+    }
+    if (intent.operation) {
+      try {
+        await boundedStorageOperation(intent.operation, 'pending mutation');
+      } catch {
+        return null;
+      }
+    }
+    const latestIntent = storageIntents.get(key);
+    if (!latestIntent?.pending) {
+      return readAuthStorageItem(key);
     }
     await reconcileLatestStorageIntent(key);
     if (storageIntents.get(key)?.pending) return null;
@@ -198,6 +226,7 @@ export const authSessionStorage: SupportedStorage = {
       const previousValue = await captureRollbackBaseline(key);
       const intent = nextStorageIntent(key, { type: 'set', value });
       const operation = SecureStore.setItemAsync(key, value);
+      intent.operation = operation;
       fenceLateMutation(key, intent, operation);
       try {
         await boundedStorageOperation(operation, 'write');
@@ -221,6 +250,7 @@ export const authSessionStorage: SupportedStorage = {
       const previousValue = await captureRollbackBaseline(key);
       const intent = nextStorageIntent(key, { type: 'delete' });
       const operation = SecureStore.deleteItemAsync(key);
+      intent.operation = operation;
       fenceLateMutation(key, intent, operation);
       try {
         await boundedStorageOperation(operation, 'delete');
