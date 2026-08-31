@@ -18,7 +18,7 @@ describe('Jumia pending replay source rows', () => {
     expect(new Set(rows).size).toBe(rows.length);
     expect(versions).toEqual([...versions].sort());
     expect(rows.at(-1)).toContain(
-      '20260831120000_align_jumia_marketplace_country_constraint.sql'
+      '20260831130000_scope_jumia_marketplace_country_constraint.sql'
     );
   });
 });

@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import type { JumiaDiscoveredShop } from './use-jumia-integrations';
 
 export function getJumiaShopSelectionId(shop: JumiaDiscoveredShop): string {
@@ -65,12 +64,13 @@ export function ConnectJumiaManualForm({
 
       <div className="space-y-2">
         <Label htmlFor="refreshToken">Refresh Token</Label>
-        <Textarea
+        <Input
           id="refreshToken"
+          type="password"
+          autoComplete="new-password"
           value={refreshToken}
           onChange={(event) => onRefreshTokenChange(event.target.value)}
           placeholder="Paste your token..."
-          rows={2}
           className="font-mono text-sm"
         />
       </div>

@@ -39,7 +39,7 @@ describe('fulfillment v7 contracts', () => {
       }).success
     ).toBe(true);
   });
-  it('uses print orderItemIds and accepts base64 or HTTP(S) URL labels', () => {
+  it('uses print orderItemIds and accepts base64, PDF data, or HTTP(S) labels', () => {
     expect(
       JumiaPrintLabelsResponseSchema.safeParse({
         success: {
@@ -64,6 +64,21 @@ describe('fulfillment v7 contracts', () => {
               trackingNumber: 'TRACK-1',
               countryCode: 'NG',
               label: 'https://labels.jumia.com/x',
+            },
+          ],
+          total: 1,
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      JumiaPrintLabelsResponseSchema.safeParse({
+        success: {
+          labels: [
+            {
+              orderItemIds: ['ITEM-1'],
+              trackingNumber: 'TRACK-1',
+              countryCode: 'NG',
+              label: 'data:application/pdf;base64,UERG',
             },
           ],
           total: 1,

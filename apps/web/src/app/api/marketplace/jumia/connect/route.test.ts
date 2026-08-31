@@ -338,6 +338,7 @@ describe('Connect POST', () => {
   });
 
   it('returns 403 on CSRF failure', async () => {
+    setupAuth();
     const { checkCsrfProtection } = await import('@/lib/csrf');
     (checkCsrfProtection as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       valid: false,

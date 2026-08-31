@@ -1,12 +1,23 @@
 import { NextRequest } from 'next/server';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockCheckCsrfProtection } = vi.hoisted(() => ({
+const { mockCheckCsrfProtection, mockGetUser } = vi.hoisted(() => ({
   mockCheckCsrfProtection: vi.fn(),
+  mockGetUser: vi.fn(),
 }));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: (...args: unknown[]) => mockCheckCsrfProtection(...args),
+}));
+
+vi.mock('next/headers', () => ({
+  cookies: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: vi.fn(() => ({
+    auth: { getUser: mockGetUser },
+  })),
 }));
 
 import { createJumiaConnectPost } from './post';
@@ -25,7 +36,11 @@ describe('createJumiaConnectPost', () => {
     expect(getEncryptionKey).not.toHaveBeenCalled();
   });
 
-  it('returns the CSRF failure before reading credentials', async () => {
+  it('authenticates before CSRF and does not read credentials on CSRF failure', async () => {
+    mockGetUser.mockResolvedValueOnce({
+      data: { user: { id: 'merchant-1' } },
+      error: null,
+    });
     mockCheckCsrfProtection.mockResolvedValueOnce({ valid: false });
     const getAppUrl = vi.fn();
     const getClientId = vi.fn();
@@ -50,5 +65,9 @@ describe('createJumiaConnectPost', () => {
     expect(getAppUrl).not.toHaveBeenCalled();
     expect(getClientId).not.toHaveBeenCalled();
     expect(getEncryptionKey).not.toHaveBeenCalled();
+    expect(mockGetUser).toHaveBeenCalledTimes(1);
+    expect(mockGetUser.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCheckCsrfProtection.mock.invocationCallOrder[0]
+    );
   });
 });

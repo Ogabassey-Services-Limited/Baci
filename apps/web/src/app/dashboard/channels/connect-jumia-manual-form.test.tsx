@@ -21,6 +21,30 @@ describe('getJumiaShopSelectionId', () => {
 });
 
 describe('ConnectJumiaManualForm', () => {
+  it('masks the self-authorization refresh token input', () => {
+    render(
+      <ConnectJumiaManualForm
+        clientId="client-id"
+        refreshToken="refresh-token"
+        discovering={false}
+        canResumeDiscovery={false}
+        connecting={false}
+        discoveredShops={[]}
+        selectedShopIds={new Set()}
+        onClientIdChange={vi.fn()}
+        onRefreshTokenChange={vi.fn()}
+        onDiscover={vi.fn()}
+        onConnectSelected={vi.fn()}
+        onToggleShop={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText('Refresh Token')).toHaveAttribute(
+      'type',
+      'password'
+    );
+  });
+
   it('allows retrying discovery from a saved handle without the rotated token', () => {
     render(
       <ConnectJumiaManualForm

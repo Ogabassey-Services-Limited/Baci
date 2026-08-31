@@ -10,6 +10,11 @@ import {
   ReadyToShipPackageSchema,
 } from '@/schemas/jumia/shared';
 
+const BASE64_LABEL_PATTERN =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const PDF_DATA_URL_PATTERN =
+  /^data:application\/pdf;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/i;
+
 /** Shared cancellation-reason shape used in cancel success/error items. */
 const JumiaCancellationReason = z.object({
   id: z.string(),
@@ -116,10 +121,10 @@ export const JumiaPrintLabelsResponseSchema = z
               .string()
               .refine(
                 (label) =>
-                  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-                    label
-                  ) || /^https?:\/\/[^\s]+$/.test(label),
-                'Label must be an HTTP(S) URL or base64-encoded content'
+                  BASE64_LABEL_PATTERN.test(label) ||
+                  PDF_DATA_URL_PATTERN.test(label) ||
+                  /^https?:\/\/[^\s]+$/.test(label),
+                'Label must be an HTTP(S) URL, PDF data URL, or base64-encoded content'
               ),
           })
         ),

@@ -33,17 +33,6 @@ export function createJumiaConnectPost(
 ) {
   return async function POST(request: NextRequest) {
     try {
-      const csrf = await checkCsrfProtection(request);
-      if (!csrf.valid) {
-        return (
-          csrf.response ??
-          NextResponse.json(
-            { error: 'CSRF validation failed' },
-            { status: 403 }
-          )
-        );
-      }
-
       const cookieStore = await cookies();
       const supabase = createClient(cookieStore);
       const { searchParams } = new URL(request.url);
@@ -63,6 +52,17 @@ export function createJumiaConnectPost(
           return NextResponse.redirect(loginUrl);
         }
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const csrf = await checkCsrfProtection(request);
+      if (!csrf.valid) {
+        return (
+          csrf.response ??
+          NextResponse.json(
+            { error: 'CSRF validation failed' },
+            { status: 403 }
+          )
+        );
       }
 
       const merchantContext = await getMerchantForApiRequest(supabase, user.id);
