@@ -62,7 +62,7 @@ jobs:
   vps-drain-readiness:
     if: github.ref == 'refs/heads/main'
     runs-on: baci-deploy
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
