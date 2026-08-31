@@ -12,34 +12,12 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(),
 }));
 
-const { authSessionStorage, getDefaultSupabaseAuthStorageKey } =
-  jest.requireActual<typeof import('./auth-session-storage')>(
-    './auth-session-storage'
-  );
+const { authSessionStorage } = jest.requireActual<
+  typeof import('./auth-session-storage')
+>('./auth-session-storage');
 const mockSecureStore = jest.requireMock<typeof import('expo-secure-store')>(
   'expo-secure-store'
 ) as jest.Mocked<typeof import('expo-secure-store')>;
-
-describe('auth session storage keys', () => {
-  it.each([
-    ['https://abc123.supabase.co', 'sb-abc123-auth-token'],
-    ['https://abc123.supabase.co/', 'sb-abc123-auth-token'],
-    ['https://abc123.supabase.co/auth/v1', 'sb-abc123-auth-token'],
-    ['https://abc123.supabase.co:443', 'sb-abc123-auth-token'],
-    [
-      'https://abc123.supabase.co/auth/v1?redirect_to=ogabassey://auth',
-      'sb-abc123-auth-token',
-    ],
-  ])('derives the Supabase default auth key from %s', (url, expected) => {
-    expect(getDefaultSupabaseAuthStorageKey(url)).toBe(expected);
-  });
-
-  it('throws a controlled error for invalid Supabase URLs', () => {
-    expect(() => getDefaultSupabaseAuthStorageKey('not-a-url')).toThrow(
-      '[Supabase] Invalid Supabase URL; cannot derive default auth storage key.'
-    );
-  });
-});
 
 describe('authSessionStorage', () => {
   beforeEach(() => {
@@ -174,6 +152,107 @@ describe('authSessionStorage', () => {
     );
   });
 
+  it('preserves rotated credentials when their SecureStore write exceeds the checkout deadline', async () => {
+    jest.useFakeTimers();
+    let completeWrite: (() => void) | undefined;
+    mockSecureStore.setItemAsync.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          completeWrite = resolve;
+        })
+    );
+
+    const write = authSessionStorage.setItem(
+      'rotated-auth-key',
+      'rotated-session-json',
+      Date.now() + 100
+    );
+    const rejection = expect(write).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(100);
+    await rejection;
+
+    completeWrite?.();
+    await jest.advanceTimersByTimeAsync(0);
+    mockSecureStore.getItemAsync.mockResolvedValue('rotated-session-json');
+
+    await expect(authSessionStorage.getItem('rotated-auth-key')).resolves.toBe(
+      'rotated-session-json'
+    );
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('reconciles rotated credentials when their timed-out SecureStore write later rejects', async () => {
+    jest.useFakeTimers();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          })
+      )
+      .mockResolvedValueOnce(undefined);
+
+    const write = authSessionStorage.setItem(
+      'rejected-rotation-key',
+      'rotated-session-json',
+      Date.now() + 100
+    );
+    const timeout = expect(write).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(100);
+    await timeout;
+
+    rejectWrite?.(new Error('late SecureStore failure'));
+    await jest.advanceTimersByTimeAsync(0);
+    mockSecureStore.getItemAsync.mockResolvedValue('rotated-session-json');
+
+    await expect(
+      authSessionStorage.getItem('rejected-rotation-key')
+    ).resolves.toBe('rotated-session-json');
+    expect(mockSecureStore.setItemAsync).toHaveBeenLastCalledWith(
+      'rejected-rotation-key',
+      'rotated-session-json'
+    );
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not loop when the corrective rotated-credential write also rejects', async () => {
+    jest.useFakeTimers();
+    let rejectWrite: ((error: Error) => void) | undefined;
+    mockSecureStore.setItemAsync
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectWrite = reject;
+          })
+      )
+      .mockRejectedValueOnce(new Error('corrective write unavailable'));
+
+    const write = authSessionStorage.setItem(
+      'failed-correction-key',
+      'rotated-session-json',
+      Date.now() + 100
+    );
+    const timeout = expect(write).rejects.toThrow(
+      'Supabase auth storage write timed out'
+    );
+    await jest.advanceTimersByTimeAsync(100);
+    await timeout;
+
+    rejectWrite?.(new Error('late SecureStore failure'));
+    await jest.advanceTimersByTimeAsync(0);
+
+    expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(2);
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      'Unable to reconcile the latest Supabase auth session state.',
+      expect.any(Error)
+    );
+  });
+
   it('restores a replacement session after a timed-out stale write completes', async () => {
     jest.useFakeTimers();
     let completeStaleWrite: (() => void) | undefined;
@@ -260,7 +339,6 @@ describe('authSessionStorage', () => {
         })
     );
     mockSecureStore.deleteItemAsync
-      .mockResolvedValueOnce(undefined)
       .mockResolvedValueOnce(undefined)
       .mockRejectedValue(new Error('delete correction unavailable'));
 

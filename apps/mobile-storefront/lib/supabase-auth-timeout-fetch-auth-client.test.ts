@@ -239,4 +239,52 @@ describe('Supabase Auth client refresh boundaries', () => {
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it('uses the checkout deadline while removing an expired rejected session', async () => {
+    jest.useFakeTimers();
+    const storedSession = session('stored-refresh-token', true);
+    const storage = {
+      getItem: jest.fn(async () => JSON.stringify(storedSession)),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>(
+      () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(
+            () =>
+              resolve(
+                Response.json(
+                  { code: 'refresh_token_not_found', message: 'Invalid token' },
+                  { status: 400 }
+                )
+              ),
+            80
+          );
+        })
+    );
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: { autoRefreshToken: false, persistSession: true, storage },
+        global: { fetch: createSupabaseAuthTimeoutFetch(fetchImpl, 100) },
+      }
+    );
+    const deadline = Date.now() + 100;
+
+    const refresh = client.auth.refreshSession({
+      bypass_failure_cache: true,
+      refresh_token: 'stored-refresh-token',
+      require_storage_match: true,
+      storage_deadline_at: deadline,
+    });
+    await jest.advanceTimersByTimeAsync(80);
+    await refresh;
+
+    expect(storage.removeItem).toHaveBeenCalledWith(
+      expect.any(String),
+      deadline
+    );
+  });
 });

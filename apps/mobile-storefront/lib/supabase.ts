@@ -13,10 +13,8 @@ import { createClient, processLock } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { registerAuthRefreshLifecycle } from './auth/auth-refresh-lifecycle';
-import {
-  authSessionStorage,
-  getDefaultSupabaseAuthStorageKey,
-} from './auth/auth-session-storage';
+import { authSessionStorage } from './auth/auth-session-storage';
+import { getDefaultSupabaseAuthStorageKey } from './auth/supabase-auth-storage-key';
 import { createLogger } from './logger';
 import { createSupabaseAuthTimeoutFetch } from './supabase-auth-timeout-fetch';
 

@@ -117,6 +117,25 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('recovers when the provider returns 408 after committing the refresh', async () => {
+    const recoveryResponse = Response.json({
+      access_token: 'recovered-token',
+      refresh_token: 'rotated-token',
+    });
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(null, { status: 408 }))
+      .mockResolvedValueOnce(recoveryResponse);
+    const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
+
+    await expect(
+      timedFetch(
+        'https://project.supabase.co/auth/v1/token?grant_type=refresh_token'
+      )
+    ).resolves.toBe(recoveryResponse);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('recovers when a successful refresh response has malformed JSON', async () => {
     const recoveryResponse = Response.json({
       access_token: 'recovered-token',

@@ -21,7 +21,10 @@ function authRefreshTimedOutResponse(): Response {
 }
 
 function isAmbiguousRefreshResponse(response: Response): boolean {
-  return response.status >= 500 && response.status <= 599;
+  return (
+    response.status === 408 ||
+    (response.status >= 500 && response.status <= 599)
+  );
 }
 
 function checkoutDeadline(

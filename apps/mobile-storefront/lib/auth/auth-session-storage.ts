@@ -9,12 +9,14 @@ type StorageIntent =
       operation?: Promise<void>;
       pending: boolean;
       revision: number;
+      retryAfterFailure?: boolean;
       type: 'delete';
     }
   | {
       operation?: Promise<void>;
       pending: boolean;
       revision: number;
+      retryAfterFailure?: boolean;
       type: 'set';
       value: string;
     };
@@ -109,7 +111,18 @@ function fenceLateMutation(
         void reconcileLatestStorageIntent(key);
       }
     },
-    () => undefined
+    () => {
+      const currentIntent = storageIntents.get(key);
+      if (
+        currentIntent?.revision === intent.revision &&
+        intent.retryAfterFailure
+      ) {
+        currentIntent.operation = undefined;
+        currentIntent.pending = true;
+        currentIntent.retryAfterFailure = false;
+        void reconcileLatestStorageIntent(key);
+      }
+    }
   );
 }
 
@@ -200,32 +213,6 @@ async function captureRollbackBaseline(
   }
 }
 
-function getSupabaseProjectRef(supabaseUrl: string): string {
-  let host: string;
-  try {
-    host = new URL(supabaseUrl).hostname;
-  } catch {
-    throw new Error(
-      '[Supabase] Invalid Supabase URL; cannot derive default auth storage key.'
-    );
-  }
-
-  const projectRef = host.split('.')[0];
-  if (!projectRef) {
-    throw new Error(
-      '[Supabase] Invalid Supabase URL; missing project ref for auth storage key.'
-    );
-  }
-
-  return projectRef;
-}
-
-export function getDefaultSupabaseAuthStorageKey(supabaseUrl: string): string {
-  const projectRef = getSupabaseProjectRef(supabaseUrl);
-
-  return `sb-${projectRef}-auth-token`;
-}
-
 export const authSessionStorage: DeadlineAwareStorage = {
   getItem: async (key: string, deadline?: number) => {
     try {
@@ -253,11 +240,16 @@ export const authSessionStorage: DeadlineAwareStorage = {
           );
         } catch (error) {
           if (storageIntents.get(key)?.revision === intent.revision) {
-            restorePreviousStorageIntent(
-              key,
-              baseline,
-              authStorageTimeout.isTimeout(error)
-            );
+            if (authStorageTimeout.isTimeout(error)) {
+              // The provider may already have rotated the one-time refresh
+              // token. Keep the new credentials as the logical intent while
+              // the original SecureStore write settles instead of restoring
+              // credentials that the provider may have consumed.
+              intent.pending = true;
+              intent.retryAfterFailure = true;
+            } else {
+              restorePreviousStorageIntent(key, baseline, false);
+            }
           }
           log.warn(
             'Unable to persist Supabase auth session in SecureStore.',
