@@ -219,4 +219,9 @@ export const EXPECTED_QUIZ_LIVE_PENDING_SOURCES = [
       'supabase/migrations/20260831120600_quiz_results_wakeup_player_access_v2.sql',
     sha256: '61e0d533d7b5955fb11d92ec49dc181ebeff394d7417514303ed169c9a2a409d',
   },
+  {
+    repositoryPath:
+      'supabase/migrations/20260831120700_quiz_test_publication_control_rls_v2.sql',
+    sha256: '76ed2c2e6f8fc8a027776e6896eb650c422dd45a8a406d892edd0ed2e0f983ba',
+  },
 ] as const;

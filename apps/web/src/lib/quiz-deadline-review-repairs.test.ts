@@ -29,6 +29,9 @@ const retryPendingHealthSql = [
 const wakeupAccessSql = readMigration(
   '20260831120600_quiz_results_wakeup_player_access_v2.sql'
 );
+const testPublicationControlRlsSql = readMigration(
+  '20260831120700_quiz_test_publication_control_rls_v2.sql'
+);
 
 describe('quiz deadline review repairs', () => {
   it('keeps test publication closed until serialized score repair completes', () => {
@@ -146,5 +149,12 @@ describe('quiz deadline review repairs', () => {
     expect(wakeupAccessSql).not.toMatch(
       /CREATE POLICY[\s\S]*?SELECT 1[\s\S]*?FROM public\.quiz_events/i
     );
+  });
+
+  it('enables deny-by-default RLS on the private test-publication gate', () => {
+    expect(testPublicationControlRlsSql).toMatch(
+      /ALTER TABLE private\.quiz_test_publication_control_v2[\s\S]*?ENABLE ROW LEVEL SECURITY/i
+    );
+    expect(testPublicationControlRlsSql).not.toMatch(/CREATE POLICY/i);
   });
 });
