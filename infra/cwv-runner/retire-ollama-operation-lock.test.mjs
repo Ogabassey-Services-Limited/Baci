@@ -11,9 +11,35 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 
 test('acquires one operation lock before both production scan and apply', async () => {
   const source = await readFile(script, 'utf8');
-  assert.match(source, /--scan\) root; retirement_lock; scan/);
-  assert.match(source, /--apply\) root; retirement_lock; apply/);
+  assert.match(source, /--scan\) root; retirement_prepare; scan/);
+  assert.match(source, /--apply\) root; retirement_prepare; apply/);
   assert.match(source, /flock=\/usr\/bin\/flock/);
+  assert.match(source, /exec 9>"\$lock"/);
+  assert.match(
+    source,
+    /retirement_prepare\(\) \{ init_temp_root; trap 'cleanup_temp' EXIT HUP INT TERM; retirement_helpers; retirement_lock; \}/
+  );
+});
+
+test('initializes cleanup-protected storage before helper loading and locking', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'baci-retire-prepare-'));
+  const events = join(directory, 'events');
+  try {
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      `. "$1"; EVENTS=$2; PREPARED=$3; root() { :; }; init_temp_root() { printf 'init\n' >>"$EVENTS"; TEMP_ROOT=$PREPARED; }; cleanup_temp() { :; }; retirement_helpers() { printf 'helpers:%s\n' "$TEMP_ROOT" >>"$EVENTS"; }; retirement_lock() { printf 'lock:%s\n' "$TEMP_ROOT" >>"$EVENTS"; }; scan() { printf 'scan:%s\n' "$TEMP_ROOT" >>"$EVENTS"; }; main --scan; cat "$EVENTS"`,
+      `${script.pathname}.source`,
+      script.pathname,
+      events,
+      directory,
+    ]);
+    assert.equal(
+      stdout,
+      `init\nhelpers:${directory}\nlock:${directory}\nscan:${directory}\n`
+    );
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('refuses a scan while apply holds the reviewed receipt lock', async (t) => {
@@ -37,7 +63,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
     'sh',
     [
       '-c',
-      `. "$1"; root() { :; }; apply() { : >"$2"; while [ ! -e "$3" ]; do sleep 0.05; done; }; main --apply`,
+      `. "$1"; root() { :; }; retirement_prepare() { retirement_lock; }; apply() { : >"$2"; while [ ! -e "$3" ]; do sleep 0.05; done; }; main --apply`,
       `${script.pathname}.source`,
       script.pathname,
       ready,
@@ -65,7 +91,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
         'sh',
         [
           '-c',
-          `. "$1"; root() { :; }; scan() { : >"$2"; }; main --scan`,
+          `. "$1"; root() { :; }; retirement_prepare() { retirement_lock; }; scan() { : >"$2"; }; main --scan`,
           `${script.pathname}.source`,
           script.pathname,
           scanMarker,

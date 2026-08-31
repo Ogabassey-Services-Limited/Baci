@@ -85,7 +85,7 @@ test('fails closed before any destructive preparation when a receipt publication
         'sh',
         [
           '-c',
-          '. "$1"; init_temp_root() { :; }; cleanup_temp() { :; }; main --apply',
+          '. "$1"; init_temp_root() { :; }; cleanup_temp() { :; }; retirement_helpers() { :; }; main --apply',
           `${script.pathname}.source`,
           script.pathname,
         ],
