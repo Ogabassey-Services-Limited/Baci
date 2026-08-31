@@ -15,7 +15,7 @@ const source = readFileSync(
 const mocks = vi.hoisted(() => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
-  getCachedCategoryPageShellData: vi.fn(),
+  getCachedCompareCategoryShell: vi.fn(),
   getPublicSupabaseClient: vi.fn(),
 }));
 
@@ -24,9 +24,12 @@ vi.mock('next/cache', () => ({
   cacheTag: (...args: unknown[]) => mocks.cacheTag(...args),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
-  getCachedCategoryPageShellData: (...args: unknown[]) =>
-    mocks.getCachedCategoryPageShellData(...args),
+vi.mock('@/lib/storefront-compare/get-cached-compare-category-shell', () => ({
+  getCachedCompareCategoryShell: (...args: unknown[]) =>
+    mocks.getCachedCompareCategoryShell(...args),
+}));
+
+vi.mock('@/lib/public-supabase-client', () => ({
   getPublicSupabaseClient: () => mocks.getPublicSupabaseClient(),
 }));
 
@@ -67,7 +70,7 @@ const categoryShell = {
 describe('getCachedPdpSemanticInventory', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.getCachedCategoryPageShellData.mockResolvedValue(categoryShell);
+    mocks.getCachedCompareCategoryShell.mockResolvedValue(categoryShell);
   });
 
   it('keeps the category-shared entry off the remote cache handler', () => {
@@ -112,7 +115,7 @@ describe('getCachedPdpSemanticInventory', () => {
       }),
     ]);
 
-    expect(mocks.getCachedCategoryPageShellData).toHaveBeenCalledWith(
+    expect(mocks.getCachedCompareCategoryShell).toHaveBeenCalledWith(
       'merchant-1',
       'laptops',
       'ogabassey'
@@ -135,7 +138,7 @@ describe('getCachedPdpSemanticInventory', () => {
   });
 
   it('preserves the legacy category fallback without broadening the result', async () => {
-    mocks.getCachedCategoryPageShellData.mockResolvedValueOnce({
+    mocks.getCachedCompareCategoryShell.mockResolvedValueOnce({
       fallbackName: 'Audio',
       isCollection: false,
       productScope: { categoryName: 'Audio', kind: 'legacy' as const },
@@ -174,7 +177,7 @@ describe('getCachedPdpSemanticInventory', () => {
   });
 
   it('does not hit Supabase for collection or inactive scopes', async () => {
-    mocks.getCachedCategoryPageShellData.mockResolvedValueOnce({
+    mocks.getCachedCompareCategoryShell.mockResolvedValueOnce({
       isCollection: true,
       productScope: { collectionSlug: 'new-arrivals', kind: 'collection' },
     });
@@ -200,7 +203,7 @@ describe('getCachedPdpSemanticInventory', () => {
       )
     ).resolves.toEqual([]);
 
-    expect(mocks.getCachedCategoryPageShellData).not.toHaveBeenCalled();
+    expect(mocks.getCachedCompareCategoryShell).not.toHaveBeenCalled();
     expect(mocks.cacheLife).not.toHaveBeenCalled();
     expect(mocks.cacheTag).not.toHaveBeenCalled();
     expect(from).not.toHaveBeenCalled();

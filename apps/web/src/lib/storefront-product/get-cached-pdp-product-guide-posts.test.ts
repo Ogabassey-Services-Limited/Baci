@@ -23,7 +23,7 @@ vi.mock('next/cache', () => ({
   cacheTag: (...args: unknown[]) => mocks.cacheTag(...args),
 }));
 
-vi.mock('@/lib/cached-data', () => ({
+vi.mock('@/lib/public-supabase-client', () => ({
   getPublicSupabaseClient: () => mocks.getPublicSupabaseClient(),
 }));
 

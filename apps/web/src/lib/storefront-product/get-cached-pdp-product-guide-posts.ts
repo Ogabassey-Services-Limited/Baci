@@ -1,5 +1,5 @@
 import { cacheLife, cacheTag } from 'next/cache';
-import { getPublicSupabaseClient } from '@/lib/cached-data';
+import { getPublicSupabaseClient } from '@/lib/public-supabase-client';
 import type { PublishedClusterPost } from '@/lib/storefront-content/content-cluster-types';
 
 const PDP_PRODUCT_GUIDE_LIMIT = 8;
