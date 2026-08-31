@@ -58,6 +58,17 @@ function attemptTimeout(timeoutMs: number, deadline?: number): number {
   );
 }
 
+function isRefreshSessionPayload(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as Record<string, unknown>;
+  return (
+    typeof payload.access_token === 'string' &&
+    payload.access_token.length > 0 &&
+    typeof payload.refresh_token === 'string' &&
+    payload.refresh_token.length > 0
+  );
+}
+
 async function fetchBufferedBeforeDeadline(
   fetchImpl: typeof fetch,
   input: RequestInfo | URL,
@@ -80,7 +91,10 @@ async function fetchBufferedBeforeDeadline(
     async (response) => {
       const bufferedResponse = response.clone();
       if (response.ok) {
-        await bufferedResponse.json();
+        const payload: unknown = await bufferedResponse.json();
+        if (!isRefreshSessionPayload(payload)) {
+          throw new Error('Invalid successful auth refresh response');
+        }
       } else {
         await bufferedResponse.arrayBuffer();
       }

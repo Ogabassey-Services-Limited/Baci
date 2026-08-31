@@ -60,7 +60,12 @@ describe('createSupabaseAuthTimeoutFetch', () => {
         () =>
           new Promise<Response>((resolve) => {
             releaseRecovery = () =>
-              resolve(Response.json({ access_token: 'recovered-token' }));
+              resolve(
+                Response.json({
+                  access_token: 'recovered-token',
+                  refresh_token: 'rotated-token',
+                })
+              );
           })
       );
     const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
@@ -160,6 +165,28 @@ describe('createSupabaseAuthTimeoutFetch', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
+  it('recovers when a successful refresh response omits rotated credentials', async () => {
+    const recovered = new Response(
+      JSON.stringify({
+        access_token: 'recovered-access-token',
+        refresh_token: 'recovered-refresh-token',
+      }),
+      { status: 200 }
+    );
+    const fetchImpl = jest
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+      .mockResolvedValueOnce(recovered);
+
+    const result = await createSupabaseAuthTimeoutFetch(fetchImpl)(
+      'https://example.supabase.co/auth/v1/token?grant_type=refresh_token',
+      { method: 'POST' }
+    );
+
+    expect(result).toBe(recovered);
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
   it('clamps both transport attempts to the checkout auth deadline', async () => {
     jest.useFakeTimers();
     const fetchImpl = pendingAbortAwareFetch();
@@ -209,7 +236,10 @@ describe('createSupabaseAuthTimeoutFetch', () => {
         if (input instanceof Request) requestBodies.push(await input.text());
         return requestBodies.length === 1
           ? new Response(null, { status: 503 })
-          : Response.json({ access_token: 'recovered-token' });
+          : Response.json({
+              access_token: 'recovered-token',
+              refresh_token: 'rotated-token',
+            });
       });
     const timedFetch = createSupabaseAuthTimeoutFetch(fetchImpl, 100);
     const request = new Request(
@@ -229,7 +259,10 @@ describe('createSupabaseAuthTimeoutFetch', () => {
 
   it('returns a successful refresh response before the deadline without aborting it', async () => {
     jest.useFakeTimers();
-    const response = Response.json({ access_token: 'fresh-token' });
+    const response = Response.json({
+      access_token: 'fresh-token',
+      refresh_token: 'rotated-token',
+    });
     let requestSignal: AbortSignal | undefined;
     const fetchImpl = jest.fn<typeof fetch>(async (_input, init) => {
       requestSignal = init?.signal ?? undefined;

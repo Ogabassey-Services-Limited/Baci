@@ -240,7 +240,7 @@ export const authSessionStorage: DeadlineAwareStorage = {
           );
         } catch (error) {
           if (storageIntents.get(key)?.revision === intent.revision) {
-            if (authStorageTimeout.isTimeout(error)) {
+            if (deadline !== undefined && authStorageTimeout.isTimeout(error)) {
               // The provider may already have rotated the one-time refresh
               // token. Keep the new credentials as the logical intent while
               // the original SecureStore write settles instead of restoring
@@ -248,7 +248,11 @@ export const authSessionStorage: DeadlineAwareStorage = {
               intent.pending = true;
               intent.retryAfterFailure = true;
             } else {
-              restorePreviousStorageIntent(key, baseline, false);
+              restorePreviousStorageIntent(
+                key,
+                baseline,
+                authStorageTimeout.isTimeout(error)
+              );
             }
           }
           log.warn(

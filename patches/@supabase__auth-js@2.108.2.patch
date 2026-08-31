@@ -19,7 +19,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739
      /**
       * Gets the session data from a URL string
 diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
-index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315debd7302705 100644
+index 9af56f25432ca2cf0761049df156cf763ae77a48..79715fbb5b3461dc0f5adf8c64ed7d93a9a11c44 100644
 --- a/dist/main/GoTrueClient.js
 +++ b/dist/main/GoTrueClient.js
 @@ -3132,15 +3132,23 @@ class GoTrueClient {
@@ -113,12 +113,13 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
          this._debug(debugName, 'begin');
          try {
              this.refreshingDeferred = new helpers_1.Deferred();
-@@ -4097,13 +4117,21 @@ class GoTrueClient {
+@@ -4097,15 +4117,25 @@ class GoTrueClient {
              // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
 -            const storedAtStart = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
 -            const { data, error } = await this._refreshAccessToken(refreshToken);
++            const epochBeforeRefresh = this._sessionRemovalEpoch;
 +            const storedAtStart = (await (0, helpers_1.getItemAsync)(storage, this.storageKey));
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
@@ -136,13 +137,19 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
 -            const storedAfter = (await (0, helpers_1.getItemAsync)(this.storage, this.storageKey));
 +            const storedAfter = (await (0, helpers_1.getItemAsync)(storage, this.storageKey));
              const storageChangedUnderUs = storedAtStart !== null &&
-                 (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
+-                (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
++                ((storedAfter === null && this._sessionRemovalEpoch !== epochBeforeRefresh) ||
++                    (storedAfter !== null && storedAfter.refresh_token !== storedAtStart.refresh_token));
              if (storageChangedUnderUs) {
-@@ -4129,10 +4157,10 @@ class GoTrueClient {
+                 this._debug(debugName, 'commit guard: storage changed since refresh started, discarding rotated tokens', {
+                     // Presence indicators only — never log refresh token fragments,
+@@ -4128,11 +4158,11 @@ class GoTrueClient {
+             // the save and re-check after; if it advanced, undo the write directly
              // (do NOT call `_removeSession` — that would emit a duplicate
              // SIGNED_OUT for the concurrent signOut that already fired one).
-             const epochBeforeSave = this._sessionRemovalEpoch;
+-            const epochBeforeSave = this._sessionRemovalEpoch;
 -            await this._saveSession(data.session);
++            const epochBeforeSave = epochBeforeRefresh;
 +            await this._saveSession(data.session, storage);
              if (this._sessionRemovalEpoch !== epochBeforeSave) {
                  this._debug(debugName, 'commit guard (post-save): _removeSession ran during _saveSession, undoing write');
@@ -151,7 +158,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
                  if (this.userStorage) {
                      await (0, helpers_1.removeItemAsync)(this.userStorage, this.storageKey + '-user');
                  }
-@@ -4166,13 +4194,13 @@ class GoTrueClient {
+@@ -4166,13 +4196,13 @@ class GoTrueClient {
                      // rejected — the session is genuinely dead. `__loadSession`
                      // mirrors this distinction on the read path so callers see the
                      // preserved session instead of `session: null`.
@@ -167,7 +174,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
                      }
                  }
                  // Cache the failure so serial callers (and the next auto-refresh
-@@ -4228,12 +4256,12 @@ class GoTrueClient {
+@@ -4228,12 +4258,12 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -182,7 +189,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4255,17 +4283,17 @@ class GoTrueClient {
+@@ -4255,17 +4285,17 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = (0, helpers_1.deepClone)(mainSessionData);
@@ -203,7 +210,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..ab4d4614971afea051c87dfbd8315deb
          // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
          // post-save check sees the increment whenever this method has started —
          // even if it hasn't finished. Pairs with the epoch check in
-@@ -4276,9 +4304,9 @@ class GoTrueClient {
+@@ -4276,9 +4306,9 @@ class GoTrueClient {
          // for a token that no longer exists. Synchronous, before any `await`.
          this.lastRefreshFailure = null;
          this.suppressGetSessionWarning = false;
@@ -250,7 +257,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739
      /**
       * Gets the session data from a URL string
 diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
-index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1b817c058 100644
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..65f48e0fdd9aea278c39afaadf156ab385c2fd8b 100644
 --- a/dist/module/GoTrueClient.js
 +++ b/dist/module/GoTrueClient.js
 @@ -3129,15 +3129,23 @@ class GoTrueClient {
@@ -344,12 +351,13 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
          this._debug(debugName, 'begin');
          try {
              this.refreshingDeferred = new Deferred();
-@@ -4094,13 +4114,21 @@ class GoTrueClient {
+@@ -4094,15 +4114,25 @@ class GoTrueClient {
              // refresh_token differs from the one they're hydrating; in both
              // cases the guard fires only when storage was *modified between
              // snapshots*, not when the input token disagrees with what's stored.
 -            const storedAtStart = (await getItemAsync(this.storage, this.storageKey));
 -            const { data, error } = await this._refreshAccessToken(refreshToken);
++            const epochBeforeRefresh = this._sessionRemovalEpoch;
 +            const storedAtStart = (await getItemAsync(storage, this.storageKey));
 +            if (requireStorageMatch && (storedAtStart === null || storedAtStart === void 0 ? void 0 : storedAtStart.refresh_token) !== refreshToken) {
 +                const discarded = {
@@ -367,13 +375,19 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
 -            const storedAfter = (await getItemAsync(this.storage, this.storageKey));
 +            const storedAfter = (await getItemAsync(storage, this.storageKey));
              const storageChangedUnderUs = storedAtStart !== null &&
-                 (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
+-                (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token);
++                ((storedAfter === null && this._sessionRemovalEpoch !== epochBeforeRefresh) ||
++                    (storedAfter !== null && storedAfter.refresh_token !== storedAtStart.refresh_token));
              if (storageChangedUnderUs) {
-@@ -4126,10 +4154,10 @@ class GoTrueClient {
+                 this._debug(debugName, 'commit guard: storage changed since refresh started, discarding rotated tokens', {
+                     // Presence indicators only — never log refresh token fragments,
+@@ -4125,11 +4155,11 @@ class GoTrueClient {
+             // the save and re-check after; if it advanced, undo the write directly
              // (do NOT call `_removeSession` — that would emit a duplicate
              // SIGNED_OUT for the concurrent signOut that already fired one).
-             const epochBeforeSave = this._sessionRemovalEpoch;
+-            const epochBeforeSave = this._sessionRemovalEpoch;
 -            await this._saveSession(data.session);
++            const epochBeforeSave = epochBeforeRefresh;
 +            await this._saveSession(data.session, storage);
              if (this._sessionRemovalEpoch !== epochBeforeSave) {
                  this._debug(debugName, 'commit guard (post-save): _removeSession ran during _saveSession, undoing write');
@@ -382,7 +396,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
                  if (this.userStorage) {
                      await removeItemAsync(this.userStorage, this.storageKey + '-user');
                  }
-@@ -4163,13 +4191,13 @@ class GoTrueClient {
+@@ -4163,13 +4193,13 @@ class GoTrueClient {
                      // rejected — the session is genuinely dead. `__loadSession`
                      // mirrors this distinction on the read path so callers see the
                      // preserved session instead of `session: null`.
@@ -398,7 +412,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
                      }
                  }
                  // Cache the failure so serial callers (and the next auto-refresh
-@@ -4225,12 +4253,12 @@ class GoTrueClient {
+@@ -4225,12 +4255,12 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -413,7 +427,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4252,17 +4280,17 @@ class GoTrueClient {
+@@ -4252,17 +4282,17 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = deepClone(mainSessionData);
@@ -434,7 +448,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..b34a1b5e85e19e4dd78780977f789da1
          // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
          // post-save check sees the increment whenever this method has started —
          // even if it hasn't finished. Pairs with the epoch check in
-@@ -4273,9 +4301,9 @@ class GoTrueClient {
+@@ -4273,9 +4303,9 @@ class GoTrueClient {
          // for a token that no longer exists. Synchronous, before any `await`.
          this.lastRefreshFailure = null;
          this.suppressGetSessionWarning = false;
@@ -461,7 +475,7 @@ index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f8420
          throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
-index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26ee976a56 100644
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6d6570af0 100644
 --- a/src/GoTrueClient.ts
 +++ b/src/GoTrueClient.ts
 @@ -3689,7 +3689,12 @@ export default class GoTrueClient {
@@ -615,11 +629,12 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
      this._debug(debugName, 'begin')
 
      try {
-@@ -4880,13 +4948,26 @@ export default class GoTrueClient {
+@@ -4880,16 +4948,31 @@ export default class GoTrueClient {
        // refresh_token differs from the one they're hydrating; in both
        // cases the guard fires only when storage was *modified between
        // snapshots*, not when the input token disagrees with what's stored.
 -      const storedAtStart = (await getItemAsync(this.storage, this.storageKey)) as Session | null
++      const epochBeforeRefresh = this._sessionRemovalEpoch
 +      const storedAtStart = (await getItemAsync(storage, this.storageKey)) as Session | null
 
 -      const { data, error } = await this._refreshAccessToken(refreshToken)
@@ -644,10 +659,18 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
 +      const storedAfter = (await getItemAsync(storage, this.storageKey)) as Session | null
        const storageChangedUnderUs =
          storedAtStart !== null &&
-         (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token)
-@@ -4920,14 +5001,14 @@ export default class GoTrueClient {
+-        (storedAfter === null || storedAfter.refresh_token !== storedAtStart.refresh_token)
++        ((storedAfter === null && this._sessionRemovalEpoch !== epochBeforeRefresh) ||
++          (storedAfter !== null && storedAfter.refresh_token !== storedAtStart.refresh_token))
+
+       if (storageChangedUnderUs) {
+         this._debug(
+@@ -4918,16 +5001,16 @@ export default class GoTrueClient {
+       // the save and re-check after; if it advanced, undo the write directly
+       // (do NOT call `_removeSession` — that would emit a duplicate
        // SIGNED_OUT for the concurrent signOut that already fired one).
-       const epochBeforeSave = this._sessionRemovalEpoch
+-      const epochBeforeSave = this._sessionRemovalEpoch
++      const epochBeforeSave = epochBeforeRefresh
 
 -      await this._saveSession(data.session)
 +      await this._saveSession(data.session, storage)
@@ -662,7 +685,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
          if (this.userStorage) {
            await removeItemAsync(this.userStorage, this.storageKey + '-user')
          }
-@@ -4967,7 +5048,7 @@ export default class GoTrueClient {
+@@ -4967,7 +5050,7 @@ export default class GoTrueClient {
            // rejected — the session is genuinely dead. `__loadSession`
            // mirrors this distinction on the read path so callers see the
            // preserved session instead of `session: null`.
@@ -671,7 +694,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
            const accessTokenStillValid = !!(
              storedNow?.expires_at && storedNow.expires_at * 1000 > Date.now()
            )
-@@ -4978,7 +5059,7 @@ export default class GoTrueClient {
+@@ -4978,7 +5061,7 @@ export default class GoTrueClient {
                'proactive refresh failed, access token still valid — preserving session'
              )
            } else {
@@ -680,7 +703,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
            }
          }
 
-@@ -5046,12 +5127,12 @@ export default class GoTrueClient {
+@@ -5046,12 +5129,12 @@ export default class GoTrueClient {
     * set currentSession and currentUser
     * process to _startAutoRefreshToken if possible
     */
@@ -695,7 +718,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
      // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
      const sessionToProcess = { ...session }
 
-@@ -5076,17 +5157,17 @@ export default class GoTrueClient {
+@@ -5076,17 +5159,17 @@ export default class GoTrueClient {
        delete mainSessionData.user // Remove user (real or proxy) before cloning for main storage
 
        const clonedMainSessionData = deepClone(mainSessionData)
@@ -716,7 +739,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..40356fc41a4b2484c7ac266495170a26
      // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
      // post-save check sees the increment whenever this method has started —
      // even if it hasn't finished. Pairs with the epoch check in
-@@ -5100,9 +5181,9 @@ export default class GoTrueClient {
+@@ -5100,9 +5183,9 @@ export default class GoTrueClient {
 
      this.suppressGetSessionWarning = false
 

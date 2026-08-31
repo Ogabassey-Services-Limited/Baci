@@ -74,7 +74,10 @@ export async function resolveCheckoutAuth(
     const { data, error } = await Promise.race([refresh, timeout.promise]);
     if (isAuthRefreshDiscardedError(error)) {
       const currentSession = await readCurrentSession?.();
-      if (currentSession?.user.id === storedSession.user.id) {
+      const sessionRotated =
+        currentSession?.access_token !== storedSession.access_token ||
+        currentSession?.refresh_token !== storedSession.refresh_token;
+      if (currentSession?.user.id === storedSession.user.id && sessionRotated) {
         log.warn(
           'Checkout session rotated during refresh; using the current session'
         );

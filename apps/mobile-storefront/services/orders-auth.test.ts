@@ -141,6 +141,32 @@ describe('resolveCheckoutAuth', () => {
     );
   });
 
+  it('does not treat an unchanged current session as a successful rotation', async () => {
+    const storedSession = session('captured-access-token');
+    const auth = {
+      refreshSession: jest.fn(async () => ({
+        data: { session: null },
+        error: new AuthRefreshDiscardedError(),
+      })),
+    };
+
+    await expect(
+      resolveCheckoutAuth(
+        auth,
+        storedSession,
+        undefined,
+        async () => storedSession
+      )
+    ).resolves.toEqual({
+      authorizationHeaders: {},
+      canValidateUser: false,
+      session: null,
+    });
+    expect(mockWarn).toHaveBeenCalledWith(
+      'Checkout session refresh was discarded; omitting stale session'
+    );
+  });
+
   it('omits authorization when the refreshed session belongs to another account', async () => {
     const refreshedSession = {
       ...session('user-b-token'),

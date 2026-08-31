@@ -240,6 +240,51 @@ describe('Supabase Auth client refresh boundaries', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it('preserves a rotated session when the post-refresh storage read returns no session near the deadline', async () => {
+    const storedSession = session('stored-refresh-token');
+    let providerCommitted = false;
+    const storage = {
+      getItem: jest.fn(async () =>
+        providerCommitted ? null : JSON.stringify(storedSession)
+      ),
+      removeItem: jest.fn(async () => undefined),
+      setItem: jest.fn(async () => undefined),
+    };
+    const fetchImpl = jest.fn<typeof fetch>(async () => {
+      providerCommitted = true;
+      return Response.json({
+        access_token: accessToken(Math.floor(Date.now() / 1000) + 3_600),
+        expires_in: 3_600,
+        refresh_token: 'rotated-refresh-token',
+        token_type: 'bearer',
+        user: { id: 'user-a' },
+      });
+    });
+    const client = createClient(
+      'https://project.supabase.co',
+      'publishable-key',
+      {
+        auth: { autoRefreshToken: false, persistSession: true, storage },
+        global: { fetch: fetchImpl },
+      }
+    );
+
+    const result = await client.auth.refreshSession({
+      bypass_failure_cache: true,
+      refresh_token: 'stored-refresh-token',
+      require_storage_match: true,
+      storage_deadline_at: Date.now() + 100,
+    });
+
+    expect(result.error).toBeNull();
+    expect(result.data.session?.refresh_token).toBe('rotated-refresh-token');
+    expect(storage.setItem).toHaveBeenCalled();
+    expect(storage.removeItem).not.toHaveBeenCalledWith(
+      'sb-project-auth-token',
+      expect.any(Number)
+    );
+  });
+
   it('uses the checkout deadline while removing an expired rejected session', async () => {
     jest.useFakeTimers();
     const storedSession = session('stored-refresh-token', true);
