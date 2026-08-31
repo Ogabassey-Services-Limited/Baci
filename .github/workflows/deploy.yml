@@ -129,7 +129,7 @@ jobs:
     concurrency:
       group: production-prebuilt-deploy
       cancel-in-progress: false
-    runs-on: baci-deploy
+    runs-on: ubuntu-24.04
     environment:
       name: production
       url: https://ogabassey.com
