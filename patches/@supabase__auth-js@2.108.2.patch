@@ -19,7 +19,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739
      /**
       * Gets the session data from a URL string
 diff --git a/dist/main/GoTrueClient.js b/dist/main/GoTrueClient.js
-index 9af56f25432ca2cf0761049df156cf763ae77a48..79715fbb5b3461dc0f5adf8c64ed7d93a9a11c44 100644
+index 9af56f25432ca2cf0761049df156cf763ae77a48..17b78b95bbf8a2a8a8d76a3dd62a992fda41080f 100644
 --- a/dist/main/GoTrueClient.js
 +++ b/dist/main/GoTrueClient.js
 @@ -3132,15 +3132,23 @@ class GoTrueClient {
@@ -174,7 +174,7 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..79715fbb5b3461dc0f5adf8c64ed7d93
                      }
                  }
                  // Cache the failure so serial callers (and the next auto-refresh
-@@ -4228,12 +4258,12 @@ class GoTrueClient {
+@@ -4228,12 +4258,11 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -185,11 +185,10 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..79715fbb5b3461dc0f5adf8c64ed7d93
          // so we can safely suppress the warning returned by future getSession calls
          this.suppressGetSessionWarning = true;
 -        await (0, helpers_1.removeItemAsync)(this.storage, `${this.storageKey}-code-verifier`);
-+        await (0, helpers_1.removeItemAsync)(storage, `${this.storageKey}-code-verifier`);
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4255,17 +4285,17 @@ class GoTrueClient {
+@@ -4255,17 +4284,21 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = (0, helpers_1.deepClone)(mainSessionData);
@@ -204,13 +203,17 @@ index 9af56f25432ca2cf0761049df156cf763ae77a48..79715fbb5b3461dc0f5adf8c64ed7d93
 -            await (0, helpers_1.setItemAsync)(this.storage, this.storageKey, clonedSession);
 +            await (0, helpers_1.setItemAsync)(storage, this.storageKey, clonedSession);
          }
++        // Persist provider-rotated credentials before best-effort PKCE cleanup. A
++        // checkout deadline can expire during storage cleanup, but must not discard
++        // a refresh token that the provider has already rotated.
++        await (0, helpers_1.removeItemAsync)(storage, `${this.storageKey}-code-verifier`);
      }
 -    async _removeSession() {
 +    async _removeSession(storage = this.storage) {
          // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
          // post-save check sees the increment whenever this method has started —
          // even if it hasn't finished. Pairs with the epoch check in
-@@ -4276,9 +4306,9 @@ class GoTrueClient {
+@@ -4276,9 +4309,9 @@ class GoTrueClient {
          // for a token that no longer exists. Synchronous, before any `await`.
          this.lastRefreshFailure = null;
          this.suppressGetSessionWarning = false;
@@ -257,7 +260,7 @@ index 5e2b19e6237548c849c2e9b2fb7386c9da66004c..54ba582a8a206dba97bafe63117e8739
      /**
       * Gets the session data from a URL string
 diff --git a/dist/module/GoTrueClient.js b/dist/module/GoTrueClient.js
-index 2ec11102fe38c88918cc7abc0d0e2f100938759a..65f48e0fdd9aea278c39afaadf156ab385c2fd8b 100644
+index 2ec11102fe38c88918cc7abc0d0e2f100938759a..78569e038ca7cc93d97dff9898e1cc9aef0f40d2 100644
 --- a/dist/module/GoTrueClient.js
 +++ b/dist/module/GoTrueClient.js
 @@ -3129,15 +3129,23 @@ class GoTrueClient {
@@ -412,7 +415,7 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..65f48e0fdd9aea278c39afaadf156ab3
                      }
                  }
                  // Cache the failure so serial callers (and the next auto-refresh
-@@ -4225,12 +4255,12 @@ class GoTrueClient {
+@@ -4225,12 +4255,11 @@ class GoTrueClient {
       * set currentSession and currentUser
       * process to _startAutoRefreshToken if possible
       */
@@ -423,11 +426,10 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..65f48e0fdd9aea278c39afaadf156ab3
          // so we can safely suppress the warning returned by future getSession calls
          this.suppressGetSessionWarning = true;
 -        await removeItemAsync(this.storage, `${this.storageKey}-code-verifier`);
-+        await removeItemAsync(storage, `${this.storageKey}-code-verifier`);
          // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
          const sessionToProcess = Object.assign({}, session);
          const userIsProxy = sessionToProcess.user && sessionToProcess.user.__isUserNotAvailableProxy === true;
-@@ -4252,17 +4282,17 @@ class GoTrueClient {
+@@ -4252,17 +4281,21 @@ class GoTrueClient {
              const mainSessionData = Object.assign({}, sessionToProcess);
              delete mainSessionData.user; // Remove user (real or proxy) before cloning for main storage
              const clonedMainSessionData = deepClone(mainSessionData);
@@ -442,13 +444,17 @@ index 2ec11102fe38c88918cc7abc0d0e2f100938759a..65f48e0fdd9aea278c39afaadf156ab3
 -            await setItemAsync(this.storage, this.storageKey, clonedSession);
 +            await setItemAsync(storage, this.storageKey, clonedSession);
          }
++        // Persist provider-rotated credentials before best-effort PKCE cleanup. A
++        // checkout deadline can expire during storage cleanup, but must not discard
++        // a refresh token that the provider has already rotated.
++        await removeItemAsync(storage, `${this.storageKey}-code-verifier`);
      }
 -    async _removeSession() {
 +    async _removeSession(storage = this.storage) {
          // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
          // post-save check sees the increment whenever this method has started —
          // even if it hasn't finished. Pairs with the epoch check in
-@@ -4273,9 +4303,9 @@ class GoTrueClient {
+@@ -4273,9 +4306,9 @@ class GoTrueClient {
          // for a token that no longer exists. Synchronous, before any `await`.
          this.lastRefreshFailure = null;
          this.suppressGetSessionWarning = false;
@@ -475,7 +481,7 @@ index 1e0b329acbdd79509a646b3251c327e5156249b1..cbee901ac4606a68709c7c75593f8420
          throw new AuthRetryableFetchError(_getErrorMessage(error), error.status);
      }
 diff --git a/src/GoTrueClient.ts b/src/GoTrueClient.ts
-index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6d6570af0 100644
+index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..5a034fa6bfe5f11b319d12a6c02cb5615d8f0acf 100644
 --- a/src/GoTrueClient.ts
 +++ b/src/GoTrueClient.ts
 @@ -3689,7 +3689,12 @@ export default class GoTrueClient {
@@ -703,7 +709,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6
            }
          }
 
-@@ -5046,12 +5129,12 @@ export default class GoTrueClient {
+@@ -5046,12 +5129,11 @@ export default class GoTrueClient {
     * set currentSession and currentUser
     * process to _startAutoRefreshToken if possible
     */
@@ -714,11 +720,10 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6
      // so we can safely suppress the warning returned by future getSession calls
      this.suppressGetSessionWarning = true
 -    await removeItemAsync(this.storage, `${this.storageKey}-code-verifier`)
-+    await removeItemAsync(storage, `${this.storageKey}-code-verifier`)
      // Create a shallow copy to work with, to avoid mutating the original session object if it's used elsewhere
      const sessionToProcess = { ...session }
 
-@@ -5076,17 +5159,17 @@ export default class GoTrueClient {
+@@ -5076,17 +5158,21 @@ export default class GoTrueClient {
        delete mainSessionData.user // Remove user (real or proxy) before cloning for main storage
 
        const clonedMainSessionData = deepClone(mainSessionData)
@@ -732,6 +737,10 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6
 -      await setItemAsync(this.storage, this.storageKey, clonedSession)
 +      await setItemAsync(storage, this.storageKey, clonedSession)
      }
++    // Persist provider-rotated credentials before best-effort PKCE cleanup. A
++    // checkout deadline can expire during storage cleanup, but must not discard
++    // a refresh token that the provider has already rotated.
++    await removeItemAsync(storage, `${this.storageKey}-code-verifier`)
    }
 
 -  private async _removeSession() {
@@ -739,7 +748,7 @@ index 9891653c2a4344bb4862d08a1dc33bbc83e873a4..05381eed52615b7b2a75601a08359fd6
      // Bump synchronously, BEFORE any `await`, so that `_callRefreshToken`'s
      // post-save check sees the increment whenever this method has started —
      // even if it hasn't finished. Pairs with the epoch check in
-@@ -5100,9 +5183,9 @@ export default class GoTrueClient {
+@@ -5100,9 +5186,9 @@ export default class GoTrueClient {
 
      this.suppressGetSessionWarning = false
 
