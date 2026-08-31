@@ -1,6 +1,6 @@
 # Ogabassey Codex Content Agents
 
-Last updated: 2026-05-17.
+Last updated: 2026-08-31.
 
 ## Runtime
 
@@ -32,9 +32,28 @@ existing daily cron keeps working.
 | `product_support` | buyer/support posts for latest catalog devices | `draft` |
 | `repair_support` | normal blog posts for repair intent, category `Repairs` | `draft` |
 
-All generated content stays in draft for merchant review. Repair-support
-articles use the normal `/blog/<post-slug>` route and link to `/repairs` and
-`/repair`; do not create `/repair/blog` or `/repairs/blog`.
+Generation still writes content as `draft` first. Normal product-support,
+comparison, and repair-support drafts may then enter the receipt-backed
+editorial release controller after the review window and release guards pass;
+Discover/news drafts remain human-review only. Repair-support articles use the
+normal `/blog/<post-slug>` route and link to `/repairs` and `/repair`; do not
+create `/repair/blog` or `/repairs/blog`.
+
+## Current release cadence
+
+The production VPS controller was verified on 2026-08-30. It runs five Lagos
+release slots per day (`09:00`, `11:00`, `13:00`, `15:00`, `17:00`) and claims at
+most one eligible draft per invocation. A 12-hour receipt window, semantic
+duplicate checks, product-state checks, preflight/publish guards, conditional
+database claims, and flock locks remain in force. The cadence is a ceiling,
+not a promise that five posts will publish: a slot can be empty when no draft
+passes every gate.
+
+The current generation crons are independently bounded: product-support
+coverage targets up to five guarded drafts per day, while Discover targets up
+to two review-only drafts per day. Track `eligible_count`,
+`scheduled_count`, and rejection reasons in the release audit before changing
+these limits.
 
 ## Product Links
 
@@ -79,6 +98,8 @@ before CDN upload.
 
 ## Cron Policy
 
-The daily news cron is active through the compatibility wrapper. Comparison,
-product-support, and repair-support crons should be added as commented entries
-first, then enabled only after manual dry-run review.
+The VPS uses the product-support coverage batch and Discover batch as the
+active generation lanes. Comparison authority lanes are deliberately narrower.
+Do not enable a new lane solely to fill a quota: run a dry run, inspect the
+candidate, receipt, preflight, duplicate report, and product links, then let
+the release controller decide when a normal draft is safe to schedule.

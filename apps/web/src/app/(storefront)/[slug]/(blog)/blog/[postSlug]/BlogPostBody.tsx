@@ -7,12 +7,11 @@ import { TableOfContents } from '@/components/blog/table-of-contents';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { removeDuplicateLegacyFeaturedImage } from '@/lib/blog-legacy-featured-image-dedupe';
 import { rewriteStorefrontContentHref } from '@/lib/storefront-content-link-rewriting';
 import { isDeadStorefrontContentHref } from '@/lib/storefront-content-link-targets';
-import { getStorefrontProductHref } from '@/lib/storefront-product-href';
+import { BlogRelatedProducts } from './BlogRelatedProducts';
 import { BlogVideoPanel } from './BlogVideoPanel';
 import { resolveContentLinks } from './blog-content-link-resolution';
 import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
@@ -20,6 +19,7 @@ import { buildBlogUrl, resolveBlogPostContent } from './blog-post-content';
 export interface BlogPostBodyProps {
   basePath: string;
   baseUrl: string;
+  currencySource?: { country?: string | null; payout_currency?: string | null };
   content: unknown;
   locale?: string;
   merchantId?: string;
@@ -43,6 +43,10 @@ export interface BlogPostBodyProps {
     category_slug?: string | null;
     id: string;
     name: string;
+    price?: number | null;
+    compare_at_price?: number | null;
+    manage_stock?: boolean | null;
+    stock?: number | null;
     slug?: string | null;
   }>;
   relatedPosts: Array<{
@@ -63,6 +67,7 @@ const EMPTY_RELATED_PRODUCTS: NonNullable<
 export async function BlogPostBody({
   basePath,
   baseUrl,
+  currencySource,
   content,
   locale,
   merchantId,
@@ -268,35 +273,11 @@ export async function BlogPostBody({
       )}
 
       {safeRelatedProducts.length > 0 && (
-        <section aria-labelledby="related-products-heading" className="mt-10">
-          <h2 id="related-products-heading" className="mb-4 text-2xl font-bold">
-            Popular Products Mentioned
-          </h2>
-          <ul className="grid gap-3 md:grid-cols-2">
-            {safeRelatedProducts.map((product) => {
-              const href = getStorefrontProductHref(
-                {
-                  id: product.id,
-                  name: product.name,
-                  slug: product.slug,
-                  category_slug: product.category_slug ?? undefined,
-                },
-                basePath
-              );
-
-              return (
-                <li key={product.id}>
-                  <HoverPrefetchLink
-                    href={href}
-                    className="block rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
-                  >
-                    {product.name}
-                  </HoverPrefetchLink>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+        <BlogRelatedProducts
+          basePath={basePath}
+          currencySource={currencySource}
+          products={safeRelatedProducts}
+        />
       )}
     </div>
   );

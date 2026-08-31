@@ -182,6 +182,9 @@ async function renderBlogPostContent({
         <BlogPostBody
           basePath={basePath}
           baseUrl={baseUrl}
+          currencySource={{
+            country: merchant.country,
+          }}
           content={content}
           locale={locale}
           // Draft preview must keep draft-to-draft links intact: the dead-link
