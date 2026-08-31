@@ -54,4 +54,25 @@ describe('BlogRelatedProducts', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
+
+  it('uses current stock when legacy stock is stale', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-3',
+            name: 'USB-C charger',
+            price: 20000,
+            manage_stock: true,
+            stock: 0,
+            stock_quantity: 4,
+            slug: 'usb-c-charger',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
+  });
 });

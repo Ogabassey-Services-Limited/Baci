@@ -1,5 +1,6 @@
 import type { Route } from 'next';
 import { HoverPrefetchLink } from '@/components/ui/hover-prefetch-link';
+import { getEffectiveStock } from '@/lib/product-stock';
 import { formatMerchantCurrency } from '@/lib/resolve-merchant-currency';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 
@@ -60,8 +61,7 @@ export function BlogRelatedProducts({
                   ) : null}
                 </span>
               </HoverPrefetchLink>
-              {product.manage_stock &&
-              (product.stock ?? product.stock_quantity) === 0 ? (
+              {product.manage_stock && getEffectiveStock(product) === 0 ? (
                 <span className="mt-1 block px-4 text-xs text-muted-foreground">
                   Currently unavailable
                 </span>
