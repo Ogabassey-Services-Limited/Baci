@@ -81,14 +81,23 @@ test('fails closed before any destructive preparation when a receipt publication
       ['id', 'stat'].map((name) => chmod(join(bin, name), 0o755))
     );
     await assert.rejects(
-      execFileAsync('sh', [script.pathname, '--apply'], {
-        env: {
-          ...process.env,
-          RETIRE_OLLAMA_INVENTORY: inventory,
-          RETIRE_OLLAMA_RECEIPT_DIR: receiptDir,
-          RETIRE_OLLAMA_TEST_BIN: bin,
-        },
-      }),
+      execFileAsync(
+        'sh',
+        [
+          '-c',
+          '. "$1"; init_temp_root() { :; }; cleanup_temp() { :; }; main --apply',
+          `${script.pathname}.source`,
+          script.pathname,
+        ],
+        {
+          env: {
+            ...process.env,
+            RETIRE_OLLAMA_INVENTORY: inventory,
+            RETIRE_OLLAMA_RECEIPT_DIR: receiptDir,
+            RETIRE_OLLAMA_TEST_BIN: bin,
+          },
+        }
+      ),
       (error) =>
         error.code === 65 && /partial receipt publication/.test(error.stderr)
     );

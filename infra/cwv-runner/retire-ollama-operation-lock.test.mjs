@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile, spawn } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -25,6 +25,7 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
   const directory = await mkdtemp(join(tmpdir(), 'baci-retire-lock-'));
   const lock = join(directory, 'operation.lock');
   const ready = join(directory, 'apply-ready');
+  const release = join(directory, 'apply-release');
   const scanMarker = join(directory, 'scan-ran');
   const environment = {
     ...process.env,
@@ -36,13 +37,18 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
     'sh',
     [
       '-c',
-      `. "$1"; root() { :; }; apply() { : >"$2"; sleep 10; }; main --apply`,
+      `. "$1"; root() { :; }; apply() { : >"$2"; while [ ! -e "$3" ]; do sleep 0.05; done; }; main --apply`,
       `${script.pathname}.source`,
       script.pathname,
       ready,
+      release,
     ],
     { env: environment, stdio: ['ignore', 'ignore', 'pipe'] }
   );
+  const applyClosed = new Promise((resolve, reject) => {
+    apply.once('error', reject);
+    apply.once('close', resolve);
+  });
 
   try {
     for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -72,8 +78,16 @@ test('refuses a scan while apply holds the reviewed receipt lock', async (t) => 
     );
     await assert.rejects(readFile(scanMarker));
   } finally {
-    apply.kill('SIGTERM');
-    await new Promise((resolve) => apply.once('close', resolve));
+    await writeFile(release, '');
+    await Promise.race([
+      applyClosed,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error('apply lock fixture did not exit')),
+          2000
+        )
+      ),
+    ]);
     await rm(directory, { recursive: true, force: true });
   }
 });
