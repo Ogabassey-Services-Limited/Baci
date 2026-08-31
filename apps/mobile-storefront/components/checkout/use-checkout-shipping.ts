@@ -24,7 +24,7 @@ import {
   loadShippingCities,
   loadShippingStates,
 } from './checkout-shipping-loaders';
-import { shouldShowCheckoutLocationPickers } from './should-show-checkout-location-pickers';
+import { getCheckoutLocationPickerVisibility } from './get-checkout-location-picker-visibility';
 import type {
   SavedDoorAddress,
   UseCheckoutShippingParams,
@@ -45,6 +45,7 @@ export function useCheckoutShipping({
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('door');
   const [shippingStates, setShippingStates] = useState<string[]>([]);
   const [shippingCities, setShippingCities] = useState<string[]>([]);
+  const shippingCitiesStateRef = useRef('');
   const [shippingQuotes, setShippingQuotes] = useState<ShippingQuote[]>([]);
   const [selectedQuoteId, setSelectedQuoteId] = useState('');
   const [resolvedQuoteKey, setResolvedQuoteKey] = useState('');
@@ -171,6 +172,7 @@ export function useCheckoutShipping({
   ) {
     setPrevCityRequest({ apiBaseUrl, watchedState });
     setShippingCities([]);
+    shippingCitiesStateRef.current = '';
     setIsLoadingCities(Boolean(watchedState));
     if (!watchedState) resetQuotes();
   }
@@ -195,7 +197,10 @@ export function useCheckoutShipping({
     const controller = new AbortController();
     loadShippingCities({
       apiBaseUrl,
-      onCitiesLoaded: (cities) => applyGoogleSuggestedCity(cities),
+      onCitiesLoaded: (cities) => {
+        shippingCitiesStateRef.current = watchedState;
+        applyGoogleSuggestedCity(cities);
+      },
       setIsLoadingCities,
       setShippingCities,
       signal: controller.signal,
@@ -258,6 +263,7 @@ export function useCheckoutShipping({
     shippingQuoteAbortRef,
     shippingStates,
     shippingCities,
+    shippingCitiesState: shippingCitiesStateRef.current,
     stationPickupQuote,
     watchedAddress,
     watchedCity,
@@ -287,13 +293,13 @@ export function useCheckoutShipping({
     shippingCities,
     shippingQuotes,
     shippingStates,
-    showLocationPickers: shouldShowCheckoutLocationPickers({
-      address: watchedAddress,
-      city: watchedCity,
-      hasCoordinates: Boolean(activeDeliveryCoordinates),
-      isPickupStation: deliveryMethod === 'pickup_station',
-      state: watchedState,
-    }),
+    showLocationPickers: getCheckoutLocationPickerVisibility(
+      watchedAddress,
+      watchedCity,
+      Boolean(activeDeliveryCoordinates),
+      deliveryMethod === 'pickup_station',
+      watchedState
+    ),
     showCityPicker,
     showStatePicker,
   };

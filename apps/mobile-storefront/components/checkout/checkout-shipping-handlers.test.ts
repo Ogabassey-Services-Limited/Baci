@@ -56,6 +56,7 @@ describe('createCheckoutShippingHandlers', () => {
         setDeliveryCoordinates,
         setValue,
         shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
         shippingStates: ['Katsina'],
       })
     ).handleDeliveryAddressSelect(
@@ -124,6 +125,7 @@ describe('createCheckoutShippingHandlers', () => {
         setShowCityPicker,
         setValue,
         shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
         shippingStates: ['Lagos'],
       })
     ).handleDeliveryAddressSelect(
@@ -160,6 +162,7 @@ describe('createCheckoutShippingHandlers', () => {
         googleSuggestedCityRef,
         setValue,
         shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
         shippingStates: ['Kano'],
       })
     ).handleDeliveryAddressSelect(
