@@ -228,9 +228,10 @@ describe('validatePublicProjectionSeoEntries', () => {
     const categories = [
       ...Array.from({ length: 80 }, (_, index) => ({
         id: `category-${index}`,
+        name: 'Category',
         slug: `category-${index}`,
       })),
-      { id: 'category-81', slug: 'category-81' },
+      { id: 'category-81', name: 'Z-category', slug: 'category-81' },
     ];
     const lateCategoryProducts = [
       {

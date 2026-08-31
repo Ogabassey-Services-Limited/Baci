@@ -1,5 +1,4 @@
 const RESERVED_CLEAN_BLOG_CATEGORY_SLUGS = new Set(['product']);
-const MIN_BLOG_CATEGORY_POSTS = 3;
 const BLOCKED_CATEGORY_VALUES = new Set([
   'gcrblw',
   'misc',
@@ -61,7 +60,6 @@ export function getPublicProjectionBlogSeoPaths(
 ): readonly string[] {
   const paths = new Set<string>();
   const categoryLabels = new Map<string, Set<string>>();
-  const categoryPostCounts = new Map<string, number>();
 
   for (const post of posts) {
     if (!isPublicProjectionBlogPost(post)) continue;
@@ -75,10 +73,6 @@ export function getPublicProjectionBlogSeoPaths(
       const labels = categoryLabels.get(categorySlug) ?? new Set<string>();
       labels.add(category);
       categoryLabels.set(categorySlug, labels);
-      categoryPostCounts.set(
-        categorySlug,
-        (categoryPostCounts.get(categorySlug) ?? 0) + 1
-      );
     }
 
     if (OGABASSEY_TENANT_IDENTIFIERS.has(merchant.slug.toLowerCase())) {
@@ -89,11 +83,7 @@ export function getPublicProjectionBlogSeoPaths(
   }
 
   for (const [categorySlug, labels] of categoryLabels)
-    if (
-      labels.size === 1 &&
-      (categoryPostCounts.get(categorySlug) ?? 0) >= MIN_BLOG_CATEGORY_POSTS
-    )
-      paths.add(`/blog/category/${categorySlug}`);
+    if (labels.size === 1) paths.add(`/blog/category/${categorySlug}`);
 
   return [...paths].sort();
 }

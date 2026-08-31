@@ -15,7 +15,9 @@ interface SeoProduct {
 
 interface SeoCategory {
   id: string;
+  parentId?: string | null;
   slug: string;
+  status?: string;
 }
 
 const BRAND_AUTHORITY_RULES = [
@@ -91,6 +93,32 @@ function getCategoryProducts(
   );
 }
 
+function getCategoryPageScopeIds(
+  categoryId: string,
+  categoriesBySlug: ReadonlyMap<string, SeoCategory>
+): ReadonlySet<string> {
+  return new Set([
+    categoryId,
+    ...[...categoriesBySlug.values()]
+      .filter(
+        (category) =>
+          category.parentId === categoryId &&
+          (category.status === undefined || category.status === 'active')
+      )
+      .map((category) => category.id),
+  ]);
+}
+
+function productBelongsToCategoryScope(
+  product: SeoProduct,
+  categoryScopeIds: ReadonlySet<string>
+): boolean {
+  return [
+    ...(product.categoryIds ?? []),
+    ...(product.primaryCategoryId ? [product.primaryCategoryId] : []),
+  ].some((categoryId) => categoryScopeIds.has(categoryId));
+}
+
 function getBrandAuthorityProducts(
   categoryId: string,
   products: readonly SeoProduct[],
@@ -162,8 +190,14 @@ function hasEligiblePriceBand(
   const minorUnitsPerMajorUnit = getMinorUnitsPerMajorUnit(currency);
   if (!category || !rule || minorUnitsPerMajorUnit === null) return false;
 
-  const bandProducts = getCategoryProducts(category.id, products).filter(
-    (product) => product.priceMinor <= rule.ceiling * minorUnitsPerMajorUnit
+  const categoryScopeIds = getCategoryPageScopeIds(
+    category.id,
+    categoriesBySlug
+  );
+  const bandProducts = products.filter(
+    (product) =>
+      productBelongsToCategoryScope(product, categoryScopeIds) &&
+      product.priceMinor <= rule.ceiling * minorUnitsPerMajorUnit
   );
   const brandKeys = new Set(
     bandProducts

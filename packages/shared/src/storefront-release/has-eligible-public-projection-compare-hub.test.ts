@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { hasEligiblePublicProjectionCompareHub } from './has-eligible-public-projection-compare-hub';
 
-const category = { id: 'category-1' };
+const category = { id: 'category-1', name: 'Phones' };
 
 describe('hasEligiblePublicProjectionCompareHub', () => {
   it('orders products by origin keys before applying the bounded window', () => {
@@ -50,6 +50,36 @@ describe('hasEligiblePublicProjectionCompareHub', () => {
             productKeySpecs: { camera: 48, screen: 6.7, storage: 256 },
           },
         ]
+      )
+    ).toBe(true);
+  });
+
+  it('orders categories by origin name before applying the category window', () => {
+    const categories = Array.from({ length: 80 }, (_, index) => ({
+      id: `category-${String(index).padStart(3, '0')}`,
+      name: `Category ${String(index).padStart(3, '0')}`,
+    }));
+    const eligibleCategory = {
+      id: 'category-eligible',
+      name: 'Aisle phones',
+    };
+    const eligibleProducts = [
+      {
+        categoryIds: [eligibleCategory.id],
+        id: 'eligible-a',
+        productKeySpecs: { camera: 12, screen: 6, storage: 128 },
+      },
+      {
+        categoryIds: [eligibleCategory.id],
+        id: 'eligible-b',
+        productKeySpecs: { camera: 48, screen: 6.7, storage: 256 },
+      },
+    ];
+
+    expect(
+      hasEligiblePublicProjectionCompareHub(
+        [...categories, eligibleCategory],
+        eligibleProducts
       )
     ).toBe(true);
   });

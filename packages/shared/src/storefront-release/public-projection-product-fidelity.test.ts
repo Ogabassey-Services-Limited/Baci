@@ -143,10 +143,20 @@ describe('StorefrontPublicProductSchema fidelity', () => {
     ).toBe(false);
   });
 
-  it('rejects product slugs owned by category-level static routes', () => {
+  it('allows a categoryless product to use a category-route word as its slug', () => {
     expect(
       StorefrontPublicProductSchema.safeParse({
         ...product,
+        slug: 'compare',
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects a reserved product slug when category PDP exposure would collide', () => {
+    expect(
+      StorefrontPublicProductSchema.safeParse({
+        ...product,
+        categoryIds: ['123e4567-e89b-42d3-a456-426614174099'],
         slug: 'compare',
       }).success
     ).toBe(false);

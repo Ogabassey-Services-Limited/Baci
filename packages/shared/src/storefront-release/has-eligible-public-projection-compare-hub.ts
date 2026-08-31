@@ -1,5 +1,6 @@
 interface CompareCategory {
   id: string;
+  name?: string;
 }
 
 interface CompareProduct {
@@ -46,7 +47,14 @@ export function hasEligiblePublicProjectionCompareHub(
   categories: readonly CompareCategory[],
   products: readonly CompareProduct[]
 ): boolean {
-  for (const category of categories.slice(0, COMPARE_HUB_CATEGORY_SCAN_LIMIT)) {
+  const orderedCategories = [...categories]
+    .sort(
+      (left, right) =>
+        (left.name ?? '').localeCompare(right.name ?? '') ||
+        left.id.localeCompare(right.id)
+    )
+    .slice(0, COMPARE_HUB_CATEGORY_SCAN_LIMIT);
+  for (const category of orderedCategories) {
     const categoryProducts = products
       .filter((product) =>
         [

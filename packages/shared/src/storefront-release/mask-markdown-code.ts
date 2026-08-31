@@ -3,6 +3,17 @@ function blankRange(chars: string[], start: number, end: number): void {
     if (chars[index] !== '\n' && chars[index] !== '\r') chars[index] = ' ';
 }
 
+function isEscapedByOddBackslashRun(content: string, index: number): boolean {
+  let backslashCount = 0;
+  for (
+    let cursor = index - 1;
+    cursor >= 0 && content[cursor] === '\\';
+    cursor -= 1
+  )
+    backslashCount += 1;
+  return backslashCount % 2 === 1;
+}
+
 function readMarkdownLineIndent(
   content: string,
   lineStart: number,
@@ -139,7 +150,7 @@ export function maskMarkdownCode(content: string): string {
         }
       }
     }
-    if (content[index] !== '`' || (index > 0 && content[index - 1] === '\\')) {
+    if (content[index] !== '`' || isEscapedByOddBackslashRun(content, index)) {
       index += 1;
       continue;
     }

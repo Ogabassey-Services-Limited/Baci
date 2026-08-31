@@ -82,4 +82,12 @@ describe('maskMarkdownCode', () => {
       '![x](https://example.test/x.png)'
     );
   });
+
+  it('treats a backtick after an even backslash run as a code opener', () => {
+    const markdown = 'before \\\\`code` ![x](https://example.test/x.png)';
+
+    const masked = maskMarkdownCode(markdown);
+    expect(masked).not.toContain('`code`');
+    expect(masked).toContain('![x](https://example.test/x.png)');
+  });
 });

@@ -9,12 +9,8 @@ const post = {
 };
 
 describe('getPublicProjectionBlogSeoPaths', () => {
-  it('uses live category slugs and requires three collision-free posts', () => {
-    const posts = [
-      { ...post, slug: 'one' },
-      { ...post, slug: 'two' },
-      { ...post, slug: 'three' },
-    ];
+  it('uses live category slugs for a single collision-free published post', () => {
+    const posts = [{ ...post, slug: 'one' }];
 
     expect(getPublicProjectionBlogSeoPaths(posts, merchant)).toEqual([
       '/blog/author/bassey-john',
@@ -22,24 +18,28 @@ describe('getPublicProjectionBlogSeoPaths', () => {
     ]);
     expect(
       getPublicProjectionBlogSeoPaths(
-        [...posts, { ...post, category: 'Mens Phones', slug: 'four' }],
+        [...posts, { ...post, category: 'Mens Phones', slug: 'two' }],
         merchant
       )
     ).not.toContain('/blog/category/mens-phones');
   });
 
   it('keeps author paths tenant-gated and canonical-name matched', () => {
-    expect(
-      getPublicProjectionBlogSeoPaths(
-        [{ ...post, slug: 'one' }, { ...post, authorName: 'Unknown', slug: 'two' }],
-        { slug: 'merchant' }
-      )
-    ).toEqual([]);
-    expect(
-      getPublicProjectionBlogSeoPaths(
-        [{ ...post, authorName: 'bassey john', slug: 'one' }],
-        merchant
-      )
-    ).toEqual([]);
+    const nonTenantPaths = getPublicProjectionBlogSeoPaths(
+      [
+        { ...post, slug: 'one' },
+        { ...post, authorName: 'Unknown', slug: 'two' },
+      ],
+      { slug: 'merchant' }
+    );
+    expect(nonTenantPaths).not.toContain('/blog/author/bassey-john');
+    expect(nonTenantPaths).toContain('/blog/category/mens-phones');
+
+    const mismatchedAuthorPaths = getPublicProjectionBlogSeoPaths(
+      [{ ...post, authorName: 'bassey john', slug: 'one' }],
+      merchant
+    );
+    expect(mismatchedAuthorPaths).not.toContain('/blog/author/bassey-john');
+    expect(mismatchedAuthorPaths).toContain('/blog/category/mens-phones');
   });
 });

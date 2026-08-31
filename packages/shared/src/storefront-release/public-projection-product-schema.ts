@@ -8,8 +8,8 @@ import { StorefrontPublicProductColorGalleriesSchema } from './public-projection
 import { StorefrontPublicProductSelectionFieldsSchema } from './public-projection-product-selection-fields-schema';
 import { StorefrontPublicProductSpecificationFieldsSchema } from './public-projection-product-specification-fields-schema';
 import { StorefrontPublicProductSubschemas } from './public-projection-product-subschemas';
-import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
 import { releaseSafeText } from './release-safe-text-schema';
+import { STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS } from './reserved-category-pdp-slugs';
 import { StorefrontSeoPathSchema } from './storefront-seo-path-schema';
 
 const {
@@ -28,11 +28,7 @@ export const StorefrontPublicProductSchema = z
       .string()
       .min(1)
       .max(160)
-      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-      .refine(
-        (slug) => !STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS.has(slug),
-        { message: 'Product slug is reserved by a category storefront route' }
-      ),
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     name: z.string().trim().min(1).max(240),
     brand: z.string().trim().min(1).max(160).nullable().optional(),
     sku: z.string().trim().min(1).max(128).nullable().optional(),
@@ -79,6 +75,22 @@ export const StorefrontPublicProductSchema = z
     conditionOffers: z.array(ProductConditionOfferSchema).max(16).optional(),
   })
   .superRefine((product, context) => {
+    const hasCategoryPdpExposure =
+      (product.categoryIds?.length ?? 0) > 0 ||
+      (product.primaryCategoryId !== null &&
+        product.primaryCategoryId !== undefined) ||
+      (product.canonicalPath !== undefined &&
+        product.canonicalPath !== null &&
+        !product.canonicalPath.startsWith('/products/'));
+    if (
+      STOREFRONT_RELEASE_RESERVED_CATEGORY_PDP_SLUGS.has(product.slug) &&
+      hasCategoryPdpExposure
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Product slug is reserved by a category storefront route',
+        path: ['slug'],
+      });
     if (
       product.compareAtPriceMinor !== null &&
       product.compareAtPriceMinor !== undefined &&
