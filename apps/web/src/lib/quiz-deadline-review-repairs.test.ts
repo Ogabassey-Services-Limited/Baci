@@ -26,6 +26,13 @@ const scorePublicationReadySql = readMigration(
 const scoreRepairQuiescenceSql = readMigration(
   '20260830203999_quiz_instant_score_repair_quiescence_gate_v2.sql'
 );
+const scoreRepairQuiescenceProofSql = readFileSync(
+  resolve(
+    migrationsDirectory,
+    'tests/quiz_score_repair_quiescence_gate_v2.sql'
+  ),
+  'utf8'
+);
 const deadlineControlRepairSql = [
   '20260831120000_quiz_instant_test_publication_retry_backoff_v2.sql',
   '20260831120100_quiz_instant_runtime_gate_commit_and_batch_v2.sql',
@@ -118,6 +125,9 @@ describe('quiz deadline review repairs', () => {
     );
     expect(scoreRepairQuiescenceSql).toContain(
       'quiz_score_repair_requires_quiescent_v2_events'
+    );
+    expect(scoreRepairQuiescenceProofSql).toMatch(
+      /rules_version, live_window_seconds[\s\S]*?'instant-v2', 120[\s\S]*?SET ends_at = starts_at \+ interval '30 seconds',\s*live_window_seconds = 30/i
     );
     expect(
       migrations.indexOf(
