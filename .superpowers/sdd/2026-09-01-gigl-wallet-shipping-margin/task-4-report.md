@@ -36,3 +36,7 @@ Head: `3feb822f6b` (`fix: make merchant DVA funding retry safe`). Assignment per
 ## Fix Round 3
 
 Assignment replay decisions now always call the locked service RPC; TypeScript performs payload shape parsing only. Runtime tests execute wallet balance and assignment-review handlers plus exact/excess/zero confirmation paths. Focused + legacy webhook run: 94 passing tests (15 Task 4-focused, 79 legacy). Final head is the Fix Round 3 commit below.
+
+## Coverage specialist pass
+
+Head: `666020270eec8033263bd9d19671e06d0eb921ab` (`test: cover merchant wallet DVA funding`). Replaced placeholder assertions with 59 executed behavioral cases across 6 owned files: wallet route (5), funding-account handlers (11), assignment/provisioning helper (14), verified credit helper (10), webhook assignment (10), and migration contract (6). Focused Task 4 run: 59 passing tests in 6 files. Web lint and typecheck passed; diff check passed. Existing webhook route suite was not run in this specialist pass. No runtime behavior or production state was changed.

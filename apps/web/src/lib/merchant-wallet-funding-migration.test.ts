@@ -18,6 +18,30 @@ describe('merchant wallet funding migration contract', () => {
     );
     expect(sql).toMatch(/status.*active.*pending.*disabled/s);
   });
+  it('derives owner-scoped RLS policies and grants', () => {
+    expect(sql).toMatch(/ENABLE ROW LEVEL SECURITY/);
+    expect(sql).toMatch(/auth\.uid\(\).*merchant_id/s);
+    expect(sql).toMatch(/CREATE POLICY merchant_wallet_account_owner/);
+    expect(sql).toMatch(/REVOKE .*INSERT.*UPDATE.*DELETE/s);
+  });
+  it('locks request and account rows for verified transitions', () => {
+    expect(sql).toMatch(
+      /merchant_wallet_funding_account_requests[\s\S]*FOR UPDATE/
+    );
+    expect(sql).toMatch(/merchant_wallet_payment_accounts[\s\S]*FOR UPDATE/);
+    expect(sql).toMatch(/reference.*unique|UNIQUE.*paystack/s);
+  });
+  it('preserves principal semantics in wallet transaction linkage', () => {
+    expect(sql).toMatch(/wallet_transactions/);
+    expect(sql).toMatch(/source_type.*merchant_wallet_topup/s);
+    expect(sql).toMatch(/available_balance.*\+/s);
+    expect(sql).toMatch(/total_earned/s);
+  });
+  it('enforces NGN and account status checks', () => {
+    expect(sql).toMatch(/currency.*NGN/s);
+    expect(sql).toMatch(/status.*active.*pending.*disabled/s);
+    expect(sql).toMatch(/account_number/);
+  });
   it('defines service-only assignment and idempotent credit RPCs', () => {
     expect(sql).toMatch(/persist_merchant_wallet_payment_account/);
     expect(sql).toMatch(/credit_merchant_wallet_funding/);
