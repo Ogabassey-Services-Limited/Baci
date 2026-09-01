@@ -171,8 +171,12 @@ describe('useOrderGiglShipping', () => {
       { wrapper }
     );
     await flushPromises();
-    const first = hook.current.startFunding();
-    const second = hook.current.startFunding();
+    let first!: Promise<void>;
+    let second!: Promise<void>;
+    act(() => {
+      first = hook.current.startFunding();
+      second = hook.current.startFunding();
+    });
     expect(api.getFundingAccount).toHaveBeenCalledOnce();
     resolveAccount(null);
     await act(async () => {
