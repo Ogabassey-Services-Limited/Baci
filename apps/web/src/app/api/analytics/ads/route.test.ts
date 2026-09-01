@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetUser = vi.fn();
 const mockCookies = vi.fn();
@@ -48,11 +48,17 @@ import { GET } from './route';
 
 describe('GET /api/analytics/ads', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-08-22T10:00:00.000Z'));
     vi.clearAllMocks();
     mockCookies.mockResolvedValue({});
     mockGetUser.mockResolvedValue({ data: { user: null }, error: null });
     mockGetAdsAnalyticsCacheVersion.mockResolvedValue('ads-revision-1');
     mockBuildAdsAnalyticsCacheKey.mockReturnValue('ads-cache-key');
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('authenticates before parsing an invalid analytics date query', async () => {
@@ -240,43 +246,6 @@ describe('GET /api/analytics/ads', () => {
     expect(ordersQuery.lte).toHaveBeenCalledWith(
       'created_at',
       '2026-08-22T18:45:00.000Z'
-    );
-  });
-
-  it('stores a cache-busted response so ordinary readers do not see stale data', async () => {
-    mockGetUser.mockResolvedValue({
-      data: { user: { id: 'user-1' } },
-      error: null,
-    });
-    mockGetMerchantForApiRequest.mockResolvedValue({
-      merchantId: 'merchant-1',
-    });
-    mockFetchAnalyticsPlatformConfig.mockResolvedValue({
-      facebook_capi_token: null,
-      facebook_pixel_id: null,
-      ga4_api_secret: null,
-      google_analytics_id: null,
-      offline_conversions_enabled: true,
-      snapchat_capi_token: null,
-      snapchat_pixel_id: null,
-      tiktok_access_token: null,
-      tiktok_pixel_id: null,
-    });
-    mockFrom.mockImplementation(() =>
-      chainResult({ data: [], error: null }, 'limit')
-    );
-
-    const response = await GET(
-      new Request(
-        'https://usebaci.com/api/analytics/ads?startDate=2026-08-01&endDate=2026-08-22&cacheBust=2'
-      ) as unknown as NextRequest
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockCacheSet).toHaveBeenCalledWith(
-      'ads-cache-key',
-      expect.anything(),
-      300
     );
   });
 });

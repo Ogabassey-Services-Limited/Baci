@@ -15,7 +15,7 @@ const FROZEN_EVENT_PIPELINE_BASE_SHA =
 // review-fix commits. Changed inherited routes use content receipts instead of
 // a baseline commit so the check remains valid after the squash.
 const FROZEN_EVENT_PIPELINE_AUTHORITY_BYTE_BASE_SHA =
-  'c0dd4d90ffcc3c1faa4f495f288f4b5f6c8e7eba';
+  'cc3557aa5556db17131b0b66f72087e10794791b';
 const FROZEN_PATH_INVENTORY_SHA256 =
   '8a0f0b5e61d39fe46144e0114a41c7e25a8501e756ce1b819cca5fb793c6d0dc';
 const explicitlyHashedAuthorityPaths = new Set([
