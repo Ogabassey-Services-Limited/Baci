@@ -142,3 +142,66 @@ export async function persistVerifiedMerchantWalletAssignment(
   if (error) throw error;
   return data;
 }
+
+export async function persistMerchantWalletAssignmentEvent(
+  supabase: SupabaseClient,
+  payload: Record<string, unknown>
+) {
+  const data =
+    payload.data && typeof payload.data === 'object'
+      ? (payload.data as Record<string, unknown>)
+      : {};
+  const metadata =
+    data.metadata && typeof data.metadata === 'object'
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+  const requestId =
+    typeof metadata.request_id === 'string' ? metadata.request_id : '';
+  const merchantId =
+    typeof metadata.merchant_id === 'string' ? metadata.merchant_id : '';
+  if (
+    metadata.source !== 'merchant_wallet_funding' ||
+    !requestId ||
+    !merchantId
+  )
+    return { kind: 'review' as const };
+  const account =
+    data.dedicated_account && typeof data.dedicated_account === 'object'
+      ? (data.dedicated_account as Record<string, unknown>)
+      : data;
+  const accountNumber =
+    typeof account.account_number === 'string' ? account.account_number : '';
+  const currency = typeof account.currency === 'string' ? account.currency : '';
+  if (!/^\d{10,20}$/.test(accountNumber) || currency !== 'NGN')
+    return { kind: 'review' as const };
+  const { data: pending, error } = await supabase
+    .from('merchant_wallet_funding_account_requests')
+    .select('id')
+    .eq('id', requestId)
+    .eq('merchant_id', merchantId)
+    .eq('status', 'pending');
+  if (error || !pending || pending.length !== 1)
+    return { kind: 'review' as const };
+  const bank =
+    account.bank && typeof account.bank === 'object'
+      ? (account.bank as Record<string, unknown>)
+      : {};
+  const customer =
+    account.customer && typeof account.customer === 'object'
+      ? (account.customer as Record<string, unknown>)
+      : {};
+  await persistVerifiedMerchantWalletAssignment(supabase, {
+    requestId,
+    merchantId,
+    accountNumber,
+    accountName:
+      typeof account.account_name === 'string' ? account.account_name : null,
+    bankName: typeof bank.name === 'string' ? bank.name : null,
+    currency,
+    providerAccountId: account.id ? String(account.id) : null,
+    providerCustomerCode: customer.customer_code
+      ? String(customer.customer_code)
+      : null,
+  });
+  return { kind: 'match' as const };
+}
