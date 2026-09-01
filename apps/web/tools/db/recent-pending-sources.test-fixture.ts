@@ -199,7 +199,7 @@ export const RECENT_PENDING_SOURCES = [
   {
     repositoryPath:
       'supabase/migrations/20260822100000_mark_reactivated_jumia_self_authorization_as_inserted.sql',
-    sha256: '76df6e5a16ecd22c612f2b42a4164ffd592bdc1bc3255eca6c419812e286c48a',
+    sha256: 'e4b0d916cd49b542c2e7a4f3060b756bcebc7e9b5332a230277afa667fcb25a8',
   },
   {
     repositoryPath:
