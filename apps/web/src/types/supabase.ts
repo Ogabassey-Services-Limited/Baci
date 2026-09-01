@@ -11943,6 +11943,60 @@ export type Database = {
         };
         Relationships: [];
       };
+      quiz_deadline_clock_health_v2: {
+        Row: {
+          consecutive_failures: number;
+          last_failure_at: string | null;
+          last_failure_count: number;
+          last_run_at: string;
+          last_success_at: string | null;
+          last_summary: Json;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          consecutive_failures?: number;
+          last_failure_at?: string | null;
+          last_failure_count?: number;
+          last_run_at: string;
+          last_success_at?: string | null;
+          last_summary?: Json;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          consecutive_failures?: number;
+          last_failure_at?: string | null;
+          last_failure_count?: number;
+          last_run_at?: string;
+          last_success_at?: string | null;
+          last_summary?: Json;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      quiz_runtime_control_v2: {
+        Row: {
+          production_approved: boolean;
+          production_phase: boolean;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          production_approved?: boolean;
+          production_phase?: boolean;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          production_approved?: boolean;
+          production_phase?: boolean;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       quiz_event_testers: {
         Row: {
           created_at: string;
@@ -19289,6 +19343,20 @@ export type Database = {
           processed_count: number;
           total_amount: number;
         }[];
+      };
+      process_due_quiz_deadlines_v2: {
+        Args: {
+          p_production_approved: boolean;
+          p_production_phase: boolean;
+        };
+        Returns: Json;
+      };
+      set_quiz_runtime_control_v2: {
+        Args: {
+          p_production_approved: boolean;
+          p_production_phase: boolean;
+        };
+        Returns: Json;
       };
       product_autocomplete:
         | {

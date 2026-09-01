@@ -1,6 +1,8 @@
 export const frozenEventPipelineAuthoritySources = {
   'apps/web/src/app/(platform)/onboarding/actions.ts':
     'ad902de74546a2ab71e1847b25076a3a3d6df711d0d5ea6229796bfe9bbb94d5',
+  'apps/web/src/lib/agentic/jwt-signing-material.ts':
+    '80d2271351155737a6f247671f8e0b428d7b20285df3db203235c49288c04d92',
 } as const;
 
 export const eventPipelineFrozenRoutes = {

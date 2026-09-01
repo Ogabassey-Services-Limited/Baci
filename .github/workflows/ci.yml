@@ -297,6 +297,17 @@ jobs:
           --sql-check supabase/migrations/tests/admin_order_transaction_discount_cleanup.sql
           --sql-check supabase/migrations/tests/persist_quiz_award_amount_snapshot.sql
           --sql-check supabase/tests/search_products_not_archived_nulls.sql
+          --sql-check supabase/migrations/tests/quiz_instant_deadline_publication_v2.sql
+          --sql-check supabase/migrations/tests/quiz_instant_deadline_runtime_gate_v2.sql
+          --sql-check supabase/migrations/tests/quiz_live_score_publication_gate_v2.sql
+          --sql-check supabase/migrations/tests/quiz_instant_live_award_retry_v2.sql
+          --sql-check supabase/migrations/tests/quiz_instant_score_repair_lock_order_v2.sql
+          --sql-check supabase/migrations/tests/quiz_instant_retry_pending_health_v2.sql
+          --sql-check supabase/migrations/tests/quiz_results_wakeup_player_access_v2.sql
+          --sql-check supabase/migrations/tests/quiz_test_publication_control_rls_v2.sql
+          --sql-check supabase/migrations/tests/quiz_cascade_score_consistency_v2.sql
+          --sql-check supabase/migrations/tests/quiz_runtime_gate_stale_health_v2.sql
+          --sql-check supabase/migrations/tests/quiz_score_repair_quiescence_gate_v2.sql
           --sql-check supabase/migrations/tests/public_shipping_sender_projection.sql
       - name: Run migration replay regression test
         run: pnpm --filter @baci/web exec vitest run src/lib/agentic/order-private-schema-usage-migration.test.ts
