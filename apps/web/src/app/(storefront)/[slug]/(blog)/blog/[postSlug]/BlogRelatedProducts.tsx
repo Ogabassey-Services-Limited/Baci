@@ -44,11 +44,18 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
     product.manage_stock !== undefined ||
     product.stock !== undefined ||
     product.stock_quantity !== undefined;
+  const hasDirectPurchasableVariant =
+    product.variants?.some((variant) => getEffectiveStock(variant) > 0) ===
+    true;
+  const hasDirectPurchasableOffer =
+    product.offers?.some((offer) => getEffectiveStock(offer) > 0) === true;
 
   return (
     product.manage_stock !== false &&
     hasInventorySignal &&
     getEffectiveStock(product) === 0 &&
+    !hasDirectPurchasableVariant &&
+    !hasDirectPurchasableOffer &&
     product.has_purchasable_condition_offer !== true &&
     product.has_purchasable_variant !== true &&
     (!product.has_condition_offers ||

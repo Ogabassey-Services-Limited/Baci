@@ -240,4 +240,24 @@ describe('BlogRelatedProducts', () => {
     expect(link).toHaveTextContent('₦175,000');
     expect(link).not.toHaveTextContent('₦150,000');
   });
+
+  it('does not show unavailable when a stocked child is supplied without summary flags', () => {
+    render(
+      <BlogRelatedProducts
+        basePath="/ogabassey"
+        products={[
+          {
+            id: 'product-direct-child',
+            name: 'Galaxy S25',
+            manage_stock: null,
+            stock: 0,
+            variants: [{ stock_quantity: 2 }],
+            slug: 'galaxy-s25',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
+  });
 });
