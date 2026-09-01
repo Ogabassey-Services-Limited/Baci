@@ -15,7 +15,7 @@ vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
 }));
 const { GET, POST } = await import('./route');
 const getHandler = GET as () => Promise<Response>;
-const postHandler = POST as (request: Request) => Promise<Response>;
+const postHandler = POST as unknown as (request: Request) => Promise<Response>;
 function ownerQuery(data: unknown, error: Error | null = null) {
   return {
     select: () => ({
@@ -153,7 +153,7 @@ describe('funding account handlers', () => {
   });
   it('uses only the regular server client', async () => {
     requestAccount.mockResolvedValue({ account: null, status: 'pending' });
-    await POST(req({ consent: true }));
+    await postHandler(req({ consent: true }));
     expect(
       (await import('@/lib/supabase/server')).createClient
     ).toHaveBeenCalled();

@@ -70,7 +70,7 @@ describe('GIGL shipping settlement retention', () => {
       settlementGateway: 'paystack',
       supabase,
       transaction: { ...transaction, platform_fee: 1_000 },
-      orderShippingFundingSource: source === 'null' ? null : source,
+      orderShippingFundingSource: source,
       orderShippingRetainedAmount: 11_000,
     })(context);
     expect(rpc).toHaveBeenCalledWith(
