@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
 import { isRuntimePlatform } from '@/config/runtime-platform';
+import type { useOrderGiglShipping } from '@/hooks/orders/useOrderGiglShipping';
 import { useTheme } from '@/hooks/useTheme';
 import type {
   ShipmentCompletionMode,
@@ -10,6 +11,7 @@ import type {
   ShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
 import { ShipmentFlowFooter } from './ShipmentFlowFooter';
+import { ShipmentFlowGiglPanel } from './ShipmentFlowGiglPanel';
 import { ShipmentFlowHeader } from './ShipmentFlowHeader';
 import { ShipmentFlowProgress } from './ShipmentFlowProgress';
 import { styles } from './ShipmentFlowSheet.styles';
@@ -30,6 +32,7 @@ interface ShipmentFlowSheetProps {
   canUseProvider: boolean;
   fulfillmentDetails: ShipmentFulfillmentDetails;
   fulfillmentItemIndex: number;
+  giglShipping?: ReturnType<typeof useOrderGiglShipping>;
   hasExistingFulfillment: boolean;
   isSubmitting: boolean;
   onClose: () => void;
@@ -58,6 +61,7 @@ export function ShipmentFlowSheet({
   canUseProvider,
   fulfillmentDetails,
   fulfillmentItemIndex,
+  giglShipping,
   hasExistingFulfillment,
   isSubmitting,
   onClose,
@@ -112,9 +116,7 @@ export function ShipmentFlowSheet({
       : step === 'method'
         ? selectedMode === 'self_fulfillment'
           ? 'Continue to Rider'
-          : providerLabel
-            ? `Book with ${providerLabel}`
-            : 'Use Shipping Provider'
+          : `Book with ${providerLabel || (giglShipping?.quote ? 'GIG Logistics' : 'Shipping Provider')}`
         : 'Mark Shipped';
 
   useEffect(() => {
@@ -208,6 +210,25 @@ export function ShipmentFlowSheet({
               {step === 'method' ? (
                 <ShipmentFlowMethodStep
                   canUseProvider={canUseProvider}
+                  giglPanel={
+                    canUseProvider || !giglShipping ? undefined : (
+                      <ShipmentFlowGiglPanel
+                        addressDraft={giglShipping.addressDraft}
+                        error={giglShipping.error}
+                        fundingAccount={giglShipping.fundingAccount}
+                        missingFields={giglShipping.missingFields}
+                        onAddressFieldChange={giglShipping.updateAddressField}
+                        onFundWallet={() => void giglShipping.startFunding()}
+                        onModeChange={() => onModeChange('provider')}
+                        onRetryQuote={() => void giglShipping.requestQuote()}
+                        onTransferred={giglShipping.startTransferPoll}
+                        quote={giglShipping.quote}
+                        selected={selectedMode === 'provider'}
+                        state={giglShipping.state}
+                        wallet={giglShipping.wallet}
+                      />
+                    )
+                  }
                   onModeChange={onModeChange}
                   providerLabel={providerLabel}
                   selectedMode={selectedMode}
@@ -227,6 +248,12 @@ export function ShipmentFlowSheet({
             <ShipmentFlowFooter
               colors={colors}
               isSubmitting={isSubmitting}
+              isPrimaryDisabled={
+                step === 'method' &&
+                selectedMode === 'provider' &&
+                !canUseProvider &&
+                !giglShipping?.wallet?.canBook
+              }
               onBack={handleBack}
               onPrimaryAction={handlePrimaryAction}
               primaryActionLabel={primaryActionLabel}

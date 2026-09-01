@@ -53,9 +53,17 @@ vi.mock('@/hooks/orders/useOrderAuditEvents', () => ({
   useOrderAuditEvents: () => auditEventsState.current,
 }));
 
+vi.mock('@/hooks/orders/useOrderGiglShipping', () => ({
+  useOrderGiglShipping: () => ({
+    quote: null,
+    wallet: null,
+  }),
+}));
+
 vi.mock('@/lib/order-shipment', () => ({
   orderRequiresFulfillment: vi.fn(() => false),
   getOrderFulfillmentIdentifierItems: vi.fn(() => []),
+  getOrderGiglInitialAddress: vi.fn(() => ({})),
   updateShipmentFulfillmentDetails: vi.fn((previous) => previous),
   formatShippingProviderName: vi.fn(() => null),
   canUseSelectedShippingProvider: vi.fn(() => false),

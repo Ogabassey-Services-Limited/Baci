@@ -18,6 +18,7 @@ import { createOrderDetailsReceiptActions } from '@/hooks/createOrderDetailsRece
 import { createOrderDetailsShipmentActions } from '@/hooks/createOrderDetailsShipmentActions';
 import { createOrderDetailsStatusActions } from '@/hooks/createOrderDetailsStatusActions';
 import { useOrderAuditEvents } from '@/hooks/orders/useOrderAuditEvents';
+import { useOrderGiglShipping } from '@/hooks/orders/useOrderGiglShipping';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrderDetailsBackHandler } from '@/hooks/useOrderDetailsBackHandler';
 import { useOrderDetailsStartupEffects } from '@/hooks/useOrderDetailsStartupEffects';
@@ -35,6 +36,7 @@ import {
   canUseSelectedShippingProvider,
   formatShippingProviderName,
   getOrderFulfillmentIdentifierItems,
+  getOrderGiglInitialAddress,
   orderRequiresFulfillment,
   updateShipmentFulfillmentDetails,
 } from '@/lib/order-shipment';
@@ -74,7 +76,21 @@ export function useOrderDetailsController() {
   const shipOnCreditMutation = useShipOnCredit();
   const sendReminderMutation = useSendReminder();
   const recordPaymentMutation = useRecordPayment();
+  const providerLabel = formatShippingProviderName(order?.shipping_provider);
+  const providerBookingAvailable = order
+    ? canUseSelectedShippingProvider(order)
+    : false;
   const uiState = useOrderDetailsUiState();
+  const giglShipping = useOrderGiglShipping({
+    enabled:
+      uiState.showShipmentFlow &&
+      uiState.shipmentFlowStep === 'method' &&
+      !providerBookingAvailable,
+    initialAddress: order ? getOrderGiglInitialAddress(order) : undefined,
+    orderId: orderId ?? '',
+  });
+  const effectiveProviderLabel =
+    providerLabel || (giglShipping.quote ? 'GIG Logistics' : null);
 
   const requiresShipmentDetails = orderRequiresFulfillment(
     order?.items,
@@ -84,11 +100,6 @@ export function useOrderDetailsController() {
     order?.items,
     merchant?.business_type
   );
-  const providerLabel = formatShippingProviderName(order?.shipping_provider);
-  const providerBookingAvailable = order
-    ? canUseSelectedShippingProvider(order)
-    : false;
-
   useOrderDetailsBackHandler({
     fulfillmentItemIndex: uiState.fulfillmentItemIndex,
     requiresShipmentDetails,
@@ -160,8 +171,9 @@ export function useOrderDetailsController() {
     merchantId: merchant?.id,
     order,
     pendingShipmentMode: uiState.pendingShipmentMode,
-    providerBookingAvailable,
-    providerLabel,
+    providerBookingAvailable:
+      providerBookingAvailable || Boolean(giglShipping.wallet?.canBook),
+    providerLabel: effectiveProviderLabel,
     queryClient,
     requiresShipmentDetails,
     riderPhone: uiState.riderPhone,
@@ -239,6 +251,7 @@ export function useOrderDetailsController() {
     formatAddress: formatOrderAddress,
     formatDate,
     formatPrice,
+    giglShipping,
     handleCall: contactActions.handleCall,
     handleEmail: contactActions.handleEmail,
     handlePaymentAmountChange: paymentActions.handlePaymentAmountChange,
@@ -267,7 +280,7 @@ export function useOrderDetailsController() {
       shipmentActions.proceedFromFulfillmentDetails,
     proceedFromShipmentMethod: shipmentActions.proceedFromShipmentMethod,
     providerBookingAvailable,
-    providerLabel,
+    providerLabel: effectiveProviderLabel,
     recordPaymentMutation,
     requiresShipmentDetails,
     shipOnCreditMutation,

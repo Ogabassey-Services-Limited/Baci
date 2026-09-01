@@ -76,3 +76,23 @@ export function getDispatchPhoneFromOrder(
 ): string {
   return order.self_fulfillment_data?.dispatchPhone?.trim() ?? '';
 }
+
+export function getOrderGiglInitialAddress(order: {
+  customer_phone?: string | null;
+  shipping_address?:
+    | { address?: string | null; city?: string | null; state?: string | null }
+    | string
+    | null;
+}) {
+  const address = order.shipping_address;
+  return {
+    ...(typeof address === 'string'
+      ? { address }
+      : {
+          ...(address?.address ? { address: address.address } : {}),
+          ...(address?.city ? { city: address.city } : {}),
+          ...(address?.state ? { state: address.state } : {}),
+        }),
+    ...(order.customer_phone ? { phone: order.customer_phone } : {}),
+  };
+}

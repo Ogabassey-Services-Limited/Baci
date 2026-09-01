@@ -5,6 +5,7 @@ import {
   formatShippingProviderName,
   getDispatchPhoneFromOrder,
   getInitialFulfillmentDetails,
+  getOrderGiglInitialAddress,
   orderRequiresFulfillment,
   shouldPersistFulfillmentDetails,
 } from '@/lib/order-shipment';
@@ -188,5 +189,18 @@ describe('order-shipment', () => {
         serialNumber: '',
       })
     ).toBe(true);
+  });
+
+  it('uses only persisted shipping fields for a manual-order GIG quote draft', () => {
+    expect(
+      getOrderGiglInitialAddress({
+        customer_phone: '08010000000',
+        shipping_address: {
+          address: '1 Allen Avenue',
+          city: null,
+          state: null,
+        },
+      })
+    ).toEqual({ address: '1 Allen Avenue', phone: '08010000000' });
   });
 });
