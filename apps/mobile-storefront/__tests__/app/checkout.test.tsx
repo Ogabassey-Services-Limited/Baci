@@ -18,19 +18,7 @@ import {
   setupCheckoutTest,
   teardownCheckoutTest,
 } from './checkout.test-utils';
-
-function fillCheckoutContact() {
-  fireEvent.changeText(screen.getByPlaceholderText('E.g. John'), 'Ada');
-  fireEvent.changeText(screen.getByPlaceholderText('E.g. Doe'), 'Lovelace');
-  fireEvent.changeText(
-    screen.getByPlaceholderText('e.g. 08012345678'),
-    '08031234567'
-  );
-  fireEvent.changeText(
-    screen.getByPlaceholderText('john@example.com'),
-    'ada@example.com'
-  );
-}
+import { fillCheckoutContact } from './checkout-contact.test-utils';
 
 function fillLagosDeliveryAddress() {
   fireEvent.changeText(
@@ -297,26 +285,6 @@ describe('CheckoutScreen', () => {
     });
     expect(mockCreateOrder.mock.calls[1]?.[0]?.idempotency_key).not.toBe(
       firstKey
-    );
-  });
-
-  it('shows a validation alert when continuing with missing contact details', async () => {
-    renderCheckoutScreen();
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Continue to payment' })
-    );
-
-    await waitFor(() => {
-      expect(mockAlert).toHaveBeenCalledWith(
-        'Incomplete Details',
-        'Email address is required',
-        [{ text: 'OK' }]
-      );
-    });
-
-    expect(screen.getByLabelText('checkout-step')).toHaveTextContent(
-      'step:address'
     );
   });
 

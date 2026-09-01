@@ -71,6 +71,7 @@ export function CheckoutStepContent({
           addressState.shipping.handleDeliveryAddressTextChange
         }
         onChangeAccountPassword={addressState.setAccountPassword}
+        onContactEmailSettled={addressState.settleContactEmail}
         onOpenCityPicker={() => addressState.shipping.setShowCityPicker(true)}
         onOpenNewAddressEditor={addressState.openNewAddressEditor}
         onOpenStatePicker={() => addressState.shipping.setShowStatePicker(true)}
@@ -113,6 +114,7 @@ export function CheckoutStepContent({
           addressState.savedAddresses.selectedSavedAddressId
         }
         shippingQuotes={addressState.shipping.shippingQuotes}
+        showLocationPickers={addressState.shipping.showLocationPickers}
         watchedCity={addressState.watchedCity}
         watchedEmail={addressState.watchedEmail}
         watchedState={addressState.watchedState}

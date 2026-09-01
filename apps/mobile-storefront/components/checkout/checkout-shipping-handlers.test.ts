@@ -55,33 +55,34 @@ describe('createCheckoutShippingHandlers', () => {
         googleSuggestedCityRef,
         setDeliveryCoordinates,
         setValue,
+        shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
         shippingStates: ['Katsina'],
       })
     ).handleDeliveryAddressSelect(
       {
-        city: 'Katsina',
+        city: 'Ikeja',
         country: 'Nigeria',
-        formattedAddress:
-          'Muhammad Dikko Road, Katsina 820101, Katsina, Nigeria',
-        latitude: 13.0000953,
-        longitude: 7.6020902,
-        route: 'Muhammad Dikko Road',
-        state: 'Katsina',
+        formattedAddress: '2 Olaide Tomori St, Ikeja, Lagos 101233, Nigeria',
+        latitude: 6.6018,
+        longitude: 3.3515,
+        route: 'Olaide Tomori St',
+        state: 'Lagos',
         streetNumber: '',
-        zip: '820101',
+        zip: '101233',
       },
       jest.fn()
     );
 
-    expect(setValue).toHaveBeenCalledWith('city', 'Katsina', {
+    expect(setValue).toHaveBeenCalledWith('city', 'Ikeja', {
       shouldValidate: true,
     });
-    expect(setValue).toHaveBeenCalledWith('state', 'Katsina', {
+    expect(setValue).toHaveBeenCalledWith('state', 'Lagos', {
       shouldValidate: true,
     });
     expect(setDeliveryCoordinates).toHaveBeenCalledWith({
-      latitude: 13.0000953,
-      longitude: 7.6020902,
+      latitude: 6.6018,
+      longitude: 3.3515,
     });
     expect(googleSuggestedCityRef.current).toBeNull();
   });
@@ -107,6 +108,82 @@ describe('createCheckoutShippingHandlers', () => {
     );
 
     expect(googleSuggestedCityRef.current).toBe('');
+  });
+
+  it('opens the city picker when Google collapses a Lagos locality into Lagos', () => {
+    const googleSuggestedCityRef = { current: null as string | null };
+    const setCitySearch = jest.fn();
+    const setShowCityPicker = jest.fn();
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+
+    createCheckoutShippingHandlers(
+      createParams({
+        googleSuggestedCityRef,
+        setCitySearch,
+        setShowCityPicker,
+        setValue,
+        shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
+        shippingStates: ['Lagos'],
+      })
+    ).handleDeliveryAddressSelect(
+      {
+        city: 'Lagos',
+        country: 'Nigeria',
+        formattedAddress: '2 Olaide Tomori St, Ikeja, Lagos, Nigeria',
+        latitude: 6.6018,
+        longitude: 3.3515,
+        route: 'Olaide Tomori St',
+        state: 'Lagos',
+        streetNumber: '2',
+        zip: '101233',
+      },
+      jest.fn()
+    );
+
+    expect(googleSuggestedCityRef.current).toBe('');
+    expect(setCitySearch).toHaveBeenCalledWith('');
+    expect(setShowCityPicker).toHaveBeenCalledWith(true);
+    expect(setValue).toHaveBeenCalledWith('city', '', {
+      shouldValidate: false,
+    });
+  });
+
+  it('keeps a state-name city when the loaded city list belongs to another state', () => {
+    const googleSuggestedCityRef = { current: null as string | null };
+    const setValue = jest.fn() as jest.MockedFunction<
+      UseFormSetValue<ShippingAddressInput>
+    >;
+
+    createCheckoutShippingHandlers(
+      createParams({
+        googleSuggestedCityRef,
+        setValue,
+        shippingCities: ['Ikeja'],
+        shippingCitiesState: 'Lagos',
+        shippingStates: ['Kano'],
+      })
+    ).handleDeliveryAddressSelect(
+      {
+        city: 'Kano',
+        country: 'Nigeria',
+        formattedAddress: 'Kano, Nigeria',
+        latitude: 12,
+        longitude: 8.5,
+        route: 'Kano',
+        state: 'Kano',
+        streetNumber: '',
+        zip: '',
+      },
+      jest.fn()
+    );
+
+    expect(setValue).toHaveBeenCalledWith('city', 'Kano', {
+      shouldValidate: true,
+    });
+    expect(googleSuggestedCityRef.current).toBeNull();
   });
 
   it('clears a stale Google city when the selected place has no state or city', () => {

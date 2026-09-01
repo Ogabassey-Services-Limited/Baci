@@ -31,6 +31,7 @@ import {
   CHECKOUT_MERCHANT_SLUG,
 } from './checkout-screen.constants';
 import { type AppliedDiscount, DiscountCodeInput } from './DiscountCodeInput';
+import { isCheckoutAddressContinueReady } from './is-checkout-address-continue-ready';
 import { getMerchantPickupLocation } from './merchant-pickup-location';
 import { useCheckoutAddressState } from './use-checkout-address-state';
 import { useCheckoutCryptoPayment } from './use-checkout-crypto-payment';
@@ -44,7 +45,6 @@ export function CheckoutScreenView() {
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
   const insets = useSafeAreaInsets();
-
   const { items, subtotal, clearCart } = useCartStore(
     useShallow((state) => ({
       items: state.items,
@@ -55,7 +55,6 @@ export function CheckoutScreenView() {
   const { customer, isAuthenticated, user } = useAuthStatus();
   const { data: merchant } = useMerchant();
   const merchantPickupLocation = getMerchantPickupLocation(merchant);
-
   const [step, setStep] = React.useState<CheckoutStep>('address');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [appliedDiscount, setAppliedDiscount] =
@@ -64,7 +63,6 @@ export function CheckoutScreenView() {
   const mobileCheckoutIdempotencyRef =
     useRef<MobileCheckoutIdempotencyState | null>(null);
   const animatedCtaArrowStyle = useCheckoutCtaAnimation(isProcessing);
-
   const addressState = useCheckoutAddressState({
     customer,
     isAuthenticated,
@@ -78,6 +76,7 @@ export function CheckoutScreenView() {
     saveDetails,
     savedAddresses: savedAddressState,
     shipping,
+    isAddressComplete,
     watchedCity,
     watchedState,
   } = addressState;
@@ -98,15 +97,12 @@ export function CheckoutScreenView() {
     setIsContactCollapsed,
     setIsDeliveryCollapsed,
   } = savedAddressState;
-
   const { handleBack } = useCheckoutNavigation({
     isOrderInFlight,
     setStep,
     step,
   });
-
   const assuranceFee = calculateCheckoutAssuranceFee(items);
-
   const paymentController = useCheckoutPaymentController({
     assuranceFee,
     customerId: customer?.id,
@@ -189,18 +185,14 @@ export function CheckoutScreenView() {
     setValue,
     step,
   });
-
   return (
     <AddressSuggestionsProvider>
-      {/* headerShown: false lives in the stack REGISTRATION
-          (RootStackScreens.tsx) — setting it here applied a frame late and
-          made the screen mount low, then jump up on iOS. */}
+      {/* Header registration keeps the screen from jumping on iOS. */}
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
         <PatternedBackground
           backgroundColor={colors.background}
           isDark={isDark}
         />
-
         <CheckoutHeader colors={colors} onBack={handleBack} />
 
         <AppKeyboardContainer
@@ -242,6 +234,21 @@ export function CheckoutScreenView() {
 
           <CheckoutBottomAction
             animatedCtaArrowStyle={animatedCtaArrowStyle}
+            canContinue={
+              step !== 'address'
+                ? step !== 'payment' || selectedPayment !== null
+                : isCheckoutAddressContinueReady({
+                    hasFreshShippingQuote:
+                      resolvedShippingQuoteContextKey ===
+                        currentShippingQuoteContextKey &&
+                      Boolean(selectedQuote),
+                    hasContactIdentity: addressState.hasContactIdentity,
+                    isAddressComplete,
+                    isLoadingQuotes,
+                    isPickupStation: deliveryMethod === 'pickup_station',
+                    requiresShippingQuote,
+                  })
+            }
             colors={colors}
             displayTotal={Math.max(
               0,

@@ -6,11 +6,14 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import { trackCheckoutRouteStarted } from '@/services/tiktok-checkout-route-tracking';
 import type { Customer } from '@/stores/auth-store';
 import type { CartItem } from '@/stores/cart-store';
+import { isCheckoutContactComplete } from './checkout-contact-readiness';
+import { isCheckoutAddressComplete } from './checkout-continue-readiness';
 import {
   CHECKOUT_API_BASE_URL,
   CHECKOUT_MERCHANT_ID,
   shippingAddressResolver,
 } from './checkout-screen.constants';
+import { shouldAutoCollapseCheckoutContact } from './should-auto-collapse-checkout-contact';
 import { useCheckoutSavedAddresses } from './use-checkout-saved-addresses';
 import { useCheckoutShipping } from './use-checkout-shipping';
 
@@ -30,6 +33,7 @@ export function useCheckoutAddressState({
   user,
 }: UseCheckoutAddressStateParams) {
   const hasTrackedStart = useRef(false);
+  const wasContactComplete = useRef(false);
   const [saveDetails, setSaveDetails] = useState(false);
   const [accountPassword, setAccountPassword] = useState('');
   const checkoutIdentity = deriveCheckoutIdentity({ customer, user });
@@ -37,6 +41,7 @@ export function useCheckoutAddressState({
   const checkoutFirstName = checkoutIdentity.firstName;
   const checkoutLastName = checkoutIdentity.lastName;
   const checkoutPhone = checkoutIdentity.phone;
+  const [settledContactEmail, setSettledContactEmail] = useState(checkoutEmail);
 
   const form = useForm<ShippingAddressInput>({
     resolver: shippingAddressResolver,
@@ -54,6 +59,7 @@ export function useCheckoutAddressState({
     shouldUnregister: false,
   });
   const { control, getValues, reset, setValue } = form;
+  const settledContactFields = form.formState.touchedFields;
   // useWatch instead of watch(): watch() returns interior-mutable values that
   // force React Compiler to skip memoizing this hook (incompatible-library).
   const watchedState = useWatch({ control, name: 'state' });
@@ -63,6 +69,15 @@ export function useCheckoutAddressState({
   const watchedFirstName = useWatch({ control, name: 'firstName' });
   const watchedLastName = useWatch({ control, name: 'lastName' });
   const watchedEmail = useWatch({ control, name: 'email' });
+  const isAddressComplete = isCheckoutAddressComplete({
+    email: watchedEmail,
+    firstName: watchedFirstName,
+    lastName: watchedLastName,
+    phone: watchedPhone,
+    address: watchedAddress,
+    city: watchedCity,
+    state: watchedState,
+  });
 
   const shipping = useCheckoutShipping({
     apiBaseUrl: CHECKOUT_API_BASE_URL,
@@ -77,17 +92,52 @@ export function useCheckoutAddressState({
     watchedPhone,
     watchedState,
   });
-  const hasContactIdentity = Boolean(
+  const hasInitialContactIdentity = Boolean(
     checkoutEmail && checkoutFirstName && checkoutLastName && checkoutPhone
   );
+  const isCurrentEmailSettled =
+    watchedEmail === settledContactEmail ||
+    (hasInitialContactIdentity && watchedEmail === checkoutEmail);
+  const isContactComplete =
+    isCurrentEmailSettled &&
+    isCheckoutContactComplete({
+      email: watchedEmail,
+      firstName: watchedFirstName,
+      lastName: watchedLastName,
+      phone: watchedPhone,
+    });
   const savedAddresses = useCheckoutSavedAddresses({
     customerId: customer?.id,
-    hasInitialContactIdentity: hasContactIdentity,
+    hasInitialContactIdentity,
     isAuthenticated,
     merchantId: CHECKOUT_MERCHANT_ID,
     setCommittedAddress: shipping.setCommittedAddress,
     setValue,
   });
+
+  useEffect(() => {
+    if (!isContactComplete) {
+      savedAddresses.setIsContactCollapsed(false);
+      return;
+    }
+
+    if (
+      shouldAutoCollapseCheckoutContact({
+        hasInitialContactIdentity,
+        isContactComplete,
+        touchedFields: settledContactFields,
+        wasContactComplete: wasContactComplete.current,
+      })
+    ) {
+      savedAddresses.setIsContactCollapsed(true);
+      wasContactComplete.current = true;
+    }
+  }, [
+    hasInitialContactIdentity,
+    isContactComplete,
+    savedAddresses.setIsContactCollapsed,
+    settledContactFields,
+  ]);
 
   useEffect(() => {
     if (!hasTrackedStart.current && items.length > 0) {
@@ -135,16 +185,21 @@ export function useCheckoutAddressState({
     }
     savedAddresses.openNewAddressEditor();
   };
+  const settleContactEmail = () => {
+    setSettledContactEmail(getValues('email'));
+  };
 
   return {
     accountPassword,
     currentContactSummary,
     currentDeliverySummary,
     form,
-    hasContactIdentity,
+    hasContactIdentity: isContactComplete,
+    isAddressComplete,
     openNewAddressEditor,
     saveDetails,
     savedAddresses,
+    settleContactEmail,
     setAccountPassword,
     setSaveDetails,
     shipping,

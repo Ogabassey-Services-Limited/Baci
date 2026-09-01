@@ -40,6 +40,7 @@ type CheckoutContactCardProps = {
   isCollapsed: boolean;
   isDark: boolean;
   onChangeAccountPassword: (value: string) => void;
+  onContactEmailSettled?: () => void;
   onToggleCollapsed: () => void;
   onToggleSaveDetails: () => void;
   phone?: string;
@@ -63,13 +64,13 @@ export function CheckoutContactCard({
   isCollapsed,
   isDark,
   onChangeAccountPassword,
+  onContactEmailSettled,
   onToggleCollapsed,
   onToggleSaveDetails,
   phone,
   saveDetails,
 }: CheckoutContactCardProps) {
-  const showCollapseAction =
-    isAuthenticated && (isCollapsed || hasContactIdentity);
+  const showCollapseAction = hasContactIdentity;
 
   return (
     <CollapsibleCheckoutCard
@@ -87,6 +88,7 @@ export function CheckoutContactCard({
           colors={colors}
           contactSummary={contactSummary}
           email={email}
+          isAuthenticated={isAuthenticated}
           phone={phone}
         />
       }
@@ -148,6 +150,9 @@ export function CheckoutContactCard({
           label=""
           name="email"
           placeholder="john@example.com"
+          onBlur={onContactEmailSettled}
+          onSubmitEditing={onContactEmailSettled}
+          returnKeyType="done"
           transformText={stripEmailWhitespace}
         />
 
@@ -169,10 +174,11 @@ function ContactSummary({
   colors,
   contactSummary,
   email,
+  isAuthenticated,
   phone,
 }: Pick<
   CheckoutContactCardProps,
-  'colors' | 'contactSummary' | 'email' | 'phone'
+  'colors' | 'contactSummary' | 'email' | 'isAuthenticated' | 'phone'
 >) {
   return (
     <View
@@ -203,7 +209,7 @@ function ContactSummary({
           <Text
             style={[styles.summaryMetaLabel, { color: colors.textSecondary }]}
           >
-            Signed in
+            {isAuthenticated ? 'Signed in' : 'Contact details'}
           </Text>
           <Text style={[styles.summaryTitle, { color: colors.text }]}>
             {contactSummary || 'Contact details'}
