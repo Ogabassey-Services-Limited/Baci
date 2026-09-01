@@ -4,9 +4,11 @@ const getUser = vi.fn();
 const from = vi.fn();
 const getAccount = vi.fn();
 const requestAccount = vi.fn();
+const checkCsrfProtection = vi.fn();
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(async () => ({ auth: { getUser }, from })),
 }));
+vi.mock('@/lib/csrf', () => ({ checkCsrfProtection }));
 vi.mock('@/lib/merchant-wallet-payment-accounts', () => ({
   getMerchantWalletAccount: getAccount,
   requestMerchantWalletAccount: requestAccount,
@@ -41,6 +43,7 @@ describe('funding account handlers', () => {
         email: 'merchant@example.com',
       })
     );
+    checkCsrfProtection.mockResolvedValue({ valid: true });
   });
   it('authenticates before parsing malformed JSON', async () => {
     getUser.mockResolvedValue({ data: { user: null } });
@@ -56,6 +59,38 @@ describe('funding account handlers', () => {
     );
     expect(r.status).toBe(400);
     expect(requestAccount).not.toHaveBeenCalled();
+  });
+  it('rejects invalid CSRF before merchant access, body parsing, or provider provisioning', async () => {
+    checkCsrfProtection.mockResolvedValue({
+      valid: false,
+      response: new Response(JSON.stringify({ error: 'Invalid CSRF token' }), {
+        status: 403,
+        headers: { 'content-type': 'application/json' },
+      }),
+    });
+    const r = await postHandler(
+      new Request('http://x', { method: 'POST', body: '{' })
+    );
+    expect(r.status).toBe(403);
+    expect(from).not.toHaveBeenCalled();
+    expect(requestAccount).not.toHaveBeenCalled();
+  });
+
+  it('keeps valid bearer mobile funding requests supported', async () => {
+    requestAccount.mockResolvedValue({ account: null, status: 'pending' });
+    const r = await postHandler(
+      new Request('http://x', {
+        method: 'POST',
+        body: JSON.stringify({ consent: true }),
+        headers: {
+          authorization: 'Bearer mobile-access-token',
+          'content-type': 'application/json',
+        },
+      })
+    );
+    expect(r.status).toBe(202);
+    expect(checkCsrfProtection).toHaveBeenCalledWith(expect.any(Request));
+    expect(requestAccount).toHaveBeenCalledTimes(1);
   });
   it.each([
     undefined,

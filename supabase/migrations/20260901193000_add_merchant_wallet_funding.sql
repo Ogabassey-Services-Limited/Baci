@@ -21,6 +21,7 @@ CREATE POLICY merchant_wallet_request_owner_insert ON public.merchant_wallet_fun
 CREATE POLICY merchant_wallet_account_owner ON public.merchant_wallet_payment_accounts FOR SELECT USING (EXISTS (SELECT 1 FROM public.merchants m WHERE m.id = merchant_id AND m.user_id = auth.uid()));
 REVOKE ALL ON TABLE public.merchant_wallet_payment_accounts FROM anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.merchant_wallet_payment_accounts FROM anon, authenticated;
+GRANT SELECT ON TABLE public.merchant_wallet_payment_accounts TO authenticated;
 CREATE OR REPLACE FUNCTION public.persist_merchant_wallet_payment_account(p_request_id uuid, p_merchant_id uuid, p_account_number text, p_account_name text, p_bank_name text, p_currency text, p_provider_account_id text DEFAULT NULL, p_provider_customer_code text DEFAULT NULL)
 RETURNS public.merchant_wallet_payment_accounts LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_row public.merchant_wallet_payment_accounts; v_request public.merchant_wallet_funding_account_requests; BEGIN
   IF coalesce((SELECT auth.role()), '') <> 'service_role' THEN RAISE EXCEPTION 'service_role_required' USING ERRCODE='42501'; END IF;
@@ -46,7 +47,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ BEGIN
   IF (SELECT auth.uid()) IS NULL OR NOT EXISTS (SELECT 1 FROM public.merchants WHERE id=p_merchant_id AND user_id=(SELECT auth.uid())) THEN RAISE EXCEPTION 'merchant_owner_required' USING ERRCODE='42501'; END IF;
   UPDATE public.merchant_wallet_funding_account_requests SET status='failed' WHERE id=p_request_id AND merchant_id=p_merchant_id AND status='pending';
 END; $$;
-REVOKE ALL ON FUNCTION public.fail_merchant_wallet_funding_request(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fail_merchant_wallet_funding_request(uuid,uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.fail_merchant_wallet_funding_request(uuid,uuid) TO authenticated;
 CREATE OR REPLACE FUNCTION public.credit_merchant_wallet_funding(p_merchant_id uuid,p_amount numeric,p_currency text,p_reference text,p_account_number text)
 RETURNS TABLE(new_balance numeric, first_credit boolean) LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$ DECLARE v_balance numeric; v_source_id uuid; v_account_id uuid; BEGIN

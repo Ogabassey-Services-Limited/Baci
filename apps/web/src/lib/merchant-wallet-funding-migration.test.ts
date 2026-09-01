@@ -23,6 +23,18 @@ describe('merchant wallet funding migration contract', () => {
     expect(sql).toMatch(/auth\.uid\(\).*merchant_id/s);
     expect(sql).toMatch(/CREATE POLICY merchant_wallet_account_owner/);
     expect(sql).toMatch(/REVOKE .*INSERT.*UPDATE.*DELETE/s);
+    expect(sql).toMatch(
+      /GRANT SELECT ON TABLE public\.merchant_wallet_payment_accounts TO authenticated/
+    );
+    expect(sql).toMatch(
+      /REVOKE ALL ON TABLE public\.merchant_wallet_payment_accounts FROM anon, authenticated/
+    );
+    expect(sql).not.toMatch(
+      /GRANT (?:INSERT|UPDATE|DELETE|ALL).*merchant_wallet_payment_accounts.*TO authenticated/i
+    );
+    expect(sql).toMatch(
+      /CREATE POLICY merchant_wallet_account_owner ON public\.merchant_wallet_payment_accounts FOR SELECT USING \(EXISTS/
+    );
   });
   it('locks request and account rows for verified transitions', () => {
     expect(sql).toMatch(
@@ -55,6 +67,21 @@ describe('merchant wallet funding migration contract', () => {
     expect(sql).toMatch(/merchant_wallet_account_mismatch/);
     expect(sql).toMatch(
       /REVOKE ALL ON FUNCTION public\.credit_merchant_wallet_funding/
+    );
+  });
+
+  it('revokes and grants the fail RPC using its declared two-argument signature', () => {
+    expect(sql).toMatch(
+      /CREATE OR REPLACE FUNCTION public\.fail_merchant_wallet_funding_request\(p_request_id uuid,p_merchant_id uuid\)/
+    );
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.fail_merchant_wallet_funding_request\(uuid,uuid\) FROM PUBLIC, anon, authenticated/
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.fail_merchant_wallet_funding_request\(uuid,uuid\) TO authenticated/
+    );
+    expect(sql).not.toMatch(
+      /REVOKE ALL ON FUNCTION public\.fail_merchant_wallet_funding_request\(uuid\)/
     );
   });
 });
