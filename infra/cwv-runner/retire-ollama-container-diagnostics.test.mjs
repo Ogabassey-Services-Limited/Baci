@@ -42,6 +42,7 @@ container_configuration() {
   printf '%s /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"\n' "$RETIRE_TEST_CONTAINER_ID"
 }
 container_configuration_network_mode() { :; }
+stopped_container_validate() { :; }
 container_bind_directory_consumers() {
   if [ "$RETIRE_TEST_FIND_MODE" = persistent ] || [ ! -e "$RETIRE_TEST_FIND_STATE" ]; then
     [ -e "$RETIRE_TEST_FIND_STATE" ] || : >"$RETIRE_TEST_FIND_STATE"
@@ -55,6 +56,8 @@ container_argument_consumers() { :; }
 container_option_argument_consumers() { :; }
 container_environment_consumers() { :; }
 container_healthcheck_consumers() { :; }
+load_temp_root_helper
+temp_root_required_bytes() { printf '1\n'; }
 init_temp_root
 trap cleanup_temp EXIT
 CANONICAL_DOCKER_SOCKET=/tmp/docker.sock
@@ -107,4 +110,39 @@ test('emits no diagnostic when the first bind-directory attempt succeeds on retr
 
   assert.equal(result.stdout, '');
   assert.equal(result.stderr, '');
+});
+
+test('preserves a stopped-container scanner failure status', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'baci-stopped-scanner-status-'));
+  const shell = String.raw`
+. "$1"
+SCRIPT_DIR=$(dirname "$1")
+RETIRE_OLLAMA_TMPDIR="$2"
+load_consumer_scanners
+load_temp_root_helper
+temp_root_required_bytes() { printf '1\n'; }
+init_temp_root
+trap cleanup_temp EXIT
+CANONICAL_DOCKER_SOCKET=/tmp/docker.sock
+docker() { case "$*" in *'inspect -f {{.Name}}'*) printf '/generic-api\n';; *'inspect -f {{json .State.Running}}'*) printf 'false\n';; *) return 2;; esac; }
+container_configuration() { printf '%s /generic-api /bin/true [] [] "" {} null [] {} {} {} [] "bridge"\n' "$RETIRE_TEST_CONTAINER_ID"; }
+container_configuration_network_mode() { :; }
+stopped_container_validate() { :; }
+container_bind_mount_consumers() { return 7; }
+container_argument_consumers() { :; }
+container_option_argument_consumers() { :; }
+container_environment_consumers() { :; }
+container_healthcheck_consumers() { :; }
+container_scan_bindings "$RETIRE_TEST_CONTAINER_ID" /generic-api "$RETIRE_TEST_CONTAINER_ID /generic-api /bin/true [] [] \"\" {} null [] {} {} {} [] \"bridge\""
+`;
+  try {
+    await assert.rejects(
+      execFileAsync('sh', ['-c', shell, 'stopped-status-test', script.pathname, root], {
+        env: { ...process.env, RETIRE_OLLAMA_TEST_BIN: '/usr/bin', RETIRE_OLLAMA_TEST_FSTYPE: 'apfs', RETIRE_TEST_CONTAINER_ID: containerId },
+      }),
+      (error) => error.code === 7
+    );
+  } finally {
+    await rm(root, { force: true, recursive: true });
+  }
 });

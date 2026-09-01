@@ -113,6 +113,16 @@ async function authorityFixture(directory) {
     await readFile(projectorAuth),
     { mode: 0o644 }
   );
+  await writeFile(
+    join(sourceDirectory, 'retire-ollama-running-container-validation.sh'),
+    await readFile(
+      new URL(
+        './retire-ollama-running-container-validation.sh',
+        import.meta.url
+      )
+    ),
+    { mode: 0o644 }
+  );
   await writeFile(join(receiptDirectory, 'manifest.json'), manifestBytes, {
     mode: 0o600,
   });

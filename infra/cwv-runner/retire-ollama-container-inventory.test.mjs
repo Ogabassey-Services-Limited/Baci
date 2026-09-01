@@ -16,6 +16,7 @@ const fixtureHelpers = [
   'retire-ollama-projector-auth.sh',
   'retire-ollama-running-archive.sh',
   'retire-ollama-running-container.sh',
+  'retire-ollama-running-container-validation.sh',
   'retire-ollama-temp-root.sh',
 ];
 const unprivileged = process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};

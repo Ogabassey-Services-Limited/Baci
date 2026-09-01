@@ -7,6 +7,10 @@ const shell = await readFile(
   new URL('./retire-ollama-running-container.sh', import.meta.url),
   'utf8'
 );
+const validation = await readFile(
+  new URL('./retire-ollama-running-container-validation.sh', import.meta.url),
+  'utf8'
+);
 const projectorAuth = await readFile(
   new URL('./retire-ollama-projector-auth.sh', import.meta.url),
   'utf8'
@@ -20,8 +24,14 @@ test('fails explicitly when a Docker fixture function is absent', async () => {
 });
 
 test('publishes a fixed image-projection phase for projector status two', () => {
-  assert.match(shell, /running_match_status=\$\?;[^\n]*image-projection 2/);
-  assert.match(shell, /image-projection\|inventory-refresh/);
+  assert.match(
+    validation,
+    /running_match_status=\$\?;[^\n]*image-projection 2/
+  );
+  assert.match(
+    shell,
+    /image-projection\|inventory-refresh/
+  );
 });
 
 test('binds projector execution to an O_NOFOLLOW identity snapshot', () => {
@@ -56,7 +66,7 @@ test('passes a validated caller deadline to projector execution', () => {
     /\[ "\$running_image_now" -lt "\$running_image_deadline" \]/
   );
   assert.match(
-    shell,
+    validation,
     /running_image_projection_started_at=\$\(running_container_now\)[\s\S]*running_image_projection_deadline=\$\(\(running_image_projection_started_at \+ RUNNING_CONTAINER_IMAGE_SAVE_TIMEOUT_SECONDS\)\)[\s\S]*running_container_image_matches_merged "\$running_image_save_first" "\$running_image_projection_deadline"/
   );
 });

@@ -24,6 +24,7 @@ const sealedHelpers = [
   'retire-ollama-consumers.sh',
   'retire-ollama-container-mounts.sh',
   'retire-ollama-running-container.sh',
+  'retire-ollama-running-container-validation.sh',
   'retire-ollama-running-archive.sh',
   'retire-ollama-consumer-closure.sh',
   'retire-ollama-process-files.sh',
@@ -84,7 +85,7 @@ async function receiptBin() {
   return directory;
 }
 
-test('rejects a receipt after a sealed running archive helper is modified', async () => {
+test('rejects a receipt after the sealed container validation helper is modified', async () => {
   const root = await mkdtemp(join(tmpdir(), 'baci-recovery-binding-'));
   const sealed = join(root, 'source', sourceSha);
   const receiptRoot = join(root, 'receipts');
@@ -118,6 +119,10 @@ test('rejects a receipt after a sealed running archive helper is modified', asyn
       receipt.sourceBinding.runningContainerSha256,
       /^[0-9a-f]{64}$/
     );
+    assert.match(
+      receipt.sourceBinding.runningContainerValidationSha256,
+      /^[0-9a-f]{64}$/
+    );
     assert.match(receipt.sourceBinding.consumerMountsSha256, /^[0-9a-f]{64}$/);
     assert.match(receipt.sourceBinding.runningArchiveSha256, /^[0-9a-f]{64}$/);
     const mismatchedSource = join(root, 'mismatched-source.json');
@@ -137,7 +142,7 @@ test('rejects a receipt after a sealed running archive helper is modified', asyn
       (error) => error.code === 1
     );
     await writeFile(
-      join(sealed, 'retire-ollama-running-archive.sh'),
+      join(sealed, 'retire-ollama-running-container-validation.sh'),
       '# helper drift\n',
       { flag: 'a' }
     );

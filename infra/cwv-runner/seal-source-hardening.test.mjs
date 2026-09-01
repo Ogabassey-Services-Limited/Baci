@@ -80,11 +80,11 @@ test('publishes without replacement and cleans only matching owned identities', 
   assert.match(source, /\?353/);
   assert.match(
     source,
-    /target_identity=\$\("\$STAT" -c '%d:%i' -- "\$target"\)/
+    /target_identity=\$\("\$STAT" -c '%d:%i' -- "\$projection"\)/
   );
   assert.match(
     source,
-    /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\)/
+    /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt_stage"\)/
   );
   assert.match(source, /owned_path_matches "\$path" "\$identity"/);
   assert.match(

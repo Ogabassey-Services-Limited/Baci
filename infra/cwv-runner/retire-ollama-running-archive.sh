@@ -8,6 +8,31 @@ RUNNING_CONTAINER_FILESYSTEM_SAVE_TIMEOUT_SECONDS=600
 
 running_container_now() { /bin/date +%s; }
 
+RUNNING_CONTAINER_ARCHIVE_WORKER=
+running_container_archive_signal() {
+  running_archive_signal_status=$1
+  trap - EXIT HUP INT TERM
+  if [ -n "${RUNNING_CONTAINER_ARCHIVE_WORKER:-}" ]; then
+    running_container_stop_workers "$RUNNING_CONTAINER_ARCHIVE_WORKER" || :
+    running_archive_signal_pid=$(running_container_worker_pid "$RUNNING_CONTAINER_ARCHIVE_WORKER" 2>/dev/null) || running_archive_signal_pid=''
+    [ -z "$running_archive_signal_pid" ] || wait "$running_archive_signal_pid" 2>/dev/null || :
+    RUNNING_CONTAINER_ARCHIVE_WORKER=
+  fi
+  cleanup_temp >/dev/null 2>&1 || :
+  exit "$running_archive_signal_status"
+}
+
+running_container_archive_with_signal_traps() {
+  running_archive_saved_traps=$(trap)
+  trap 'running_container_archive_signal 129' HUP
+  trap 'running_container_archive_signal 130' INT
+  trap 'running_container_archive_signal 143' TERM
+  "$@"; running_archive_operation_status=$?
+  trap - HUP INT TERM
+  [ -z "$running_archive_saved_traps" ] || eval "$running_archive_saved_traps"
+  return "$running_archive_operation_status"
+}
+
 running_container_worker_pid() {
   running_worker=$1
   case "$running_worker" in group:*) running_worker_pid=${running_worker#group:};; *) running_worker_pid=$running_worker;; esac
@@ -94,7 +119,7 @@ running_container_archive_docker() {
 }
 
 running_container_archive_group_start() {
-  running_start_kind=$1; running_start_id=$2; running_start_output=$3
+  RUNNING_CONTAINER_ARCHIVE_WORKER=; running_start_kind=$1; running_start_id=$2; running_start_output=$3
   running_container_archive_docker || return 2
   running_start_docker=$RUNNING_CONTAINER_DOCKER
   case "$running_start_kind" in
@@ -106,7 +131,7 @@ running_container_archive_group_start() {
   exec 3>"$running_start_ready" || { rm -f "$running_start_ready"; return 2; }
   (
     exec /usr/bin/perl -MPOSIX -MFcntl=O_WRONLY,O_NOFOLLOW -e '
-    my ($output, @command) = @ARGV;
+    my ($parent, $output, @command) = @ARGV; $parent =~ /^\d+$/ && $parent > 1 or exit 2;
     POSIX::getpgrp() == $$ and exit 2;
     my $session = POSIX::setsid();
     defined($session) && $session == $$ or exit 2;
@@ -115,31 +140,32 @@ running_container_archive_group_start() {
     $SIG{USR1} = sub { $released = 1 };
     syswrite($ready, "ready\n") == 6 or exit 2;
     close($ready) or exit 2;
-    sleep 1 until $released;
+    while (!$released) { getppid == $parent or exit 2; select undef, undef, undef, 0.01 }
     sysopen(STDOUT, $output, O_WRONLY | O_NOFOLLOW) or exit 2;
     my @output_stat = stat(STDOUT);
     @output_stat && -p _ or exit 2;
-    exec {$command[0]} @command;
-    exit 2;
-  ' "$running_start_output" "$@"
+    my $worker = fork(); defined $worker or exit 2; if (!$worker) { exec {$command[0]} @command; exit 2 }
+    while (1) { my $done = waitpid($worker, POSIX::WNOHANG()); exit($? >> 8) if $done == $worker; if (getppid != $parent) { local $SIG{TERM} = "IGNORE"; kill "TERM", -$$; waitpid($worker, 0); exit 2 } select undef, undef, undef, 0.01 }
+  ' "$$" "$running_start_output" "$@"
   ) 2>/dev/null &
   running_start_pid=$!
+  RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
   exec 3>&-
   running_start_attempt=0
   while [ "$running_start_attempt" -lt 100 ]; do
     running_start_pgid=$(/bin/ps -o pgid= -p "$running_start_pid" 2>/dev/null | /usr/bin/tr -d '[:space:]') || running_start_pgid=''
     if [ -s "$running_start_ready" ] && [ "$(cat "$running_start_ready" 2>/dev/null)" = ready ] && [ "$running_start_pgid" = "$running_start_pid" ]; then
-      /bin/kill -USR1 "$running_start_pid" 2>/dev/null || { /bin/kill -KILL "$running_start_pid" 2>/dev/null || :; wait "$running_start_pid" 2>/dev/null || :; rm -f "$running_start_ready"; return 2; }
+      /bin/kill -USR1 "$running_start_pid" 2>/dev/null || { /bin/kill -KILL "$running_start_pid" 2>/dev/null || :; wait "$running_start_pid" 2>/dev/null || :; RUNNING_CONTAINER_ARCHIVE_WORKER=; rm -f "$running_start_ready"; return 2; }
       rm -f "$running_start_ready"
-      RUNNING_CONTAINER_ARCHIVE_WORKER=group:$running_start_pid
       return 0
     fi
-    /bin/kill -0 "$running_start_pid" 2>/dev/null || { wait "$running_start_pid" 2>/dev/null || :; rm -f "$running_start_ready"; return 2; }
+    /bin/kill -0 "$running_start_pid" 2>/dev/null || { wait "$running_start_pid" 2>/dev/null || :; RUNNING_CONTAINER_ARCHIVE_WORKER=; rm -f "$running_start_ready"; return 2; }
     running_start_attempt=$((running_start_attempt + 1))
     /bin/sleep 0.01
   done
   /bin/kill -KILL "$running_start_pid" 2>/dev/null || :
   wait "$running_start_pid" 2>/dev/null || :
+  RUNNING_CONTAINER_ARCHIVE_WORKER=
   rm -f "$running_start_ready"
   return 2
 }
@@ -175,7 +201,7 @@ running_container_archive_hash_tool() {
   fi
 }
 
-running_container_archive_save_bounded() {
+running_container_archive_save_bounded_impl() {
   running_save_kind=$1; running_save_id=$2; running_save_output=$3; running_save_fifo=$4; running_save_status=$5; running_save_deadline=$6
   running_save_limit=$(running_container_archive_limit "$running_save_kind") || return 2
   rm -f "$running_save_output" "$running_save_fifo" "$running_save_status"
@@ -190,11 +216,14 @@ running_container_archive_save_bounded() {
   ' "$running_save_output" "$running_save_status" "$running_save_limit" <"$running_save_fifo" &
   running_save_reader_pid=$!
   running_container_wait_group "$running_save_deadline" "$running_save_reader_pid" "$running_save_worker" -- "$running_save_status"; running_save_group_status=$?
+  RUNNING_CONTAINER_ARCHIVE_WORKER=
   rm -f "$running_save_fifo"
   [ "$running_save_group_status" -eq 0 ] && [ "$(cat "$running_save_status" 2>/dev/null)" = 0 ] && [ -s "$running_save_output" ] || return 2
 }
 
-running_container_archive_hash_stream() {
+running_container_archive_save_bounded() { running_container_archive_with_signal_traps running_container_archive_save_bounded_impl "$@"; }
+
+running_container_archive_hash_stream_impl() {
   running_hash_kind=$1; running_hash_id=$2; running_hash_output=$3; running_hash_fifo=$4; running_hash_status_file=$5; running_hash_deadline=$6
   running_hash_limit=$(running_container_archive_limit "$running_hash_kind") || return 2
   running_hash_tool=$(running_container_archive_hash_tool) || return 2
@@ -217,9 +246,12 @@ running_container_archive_hash_stream() {
   ' "$running_hash_status_file" "$running_hash_limit" <"$running_hash_fifo" >"$running_hash_digest_fifo" 2>/dev/null &
   running_hash_reader_pid=$!
   running_container_wait_group "$running_hash_deadline" "$running_hash_reader_pid" "$running_hash_sum_pid" "$running_hash_worker" -- "$running_hash_status_file" "$running_hash_output"; running_hash_group_status=$?
+  RUNNING_CONTAINER_ARCHIVE_WORKER=
   rm -f "$running_hash_fifo" "$running_hash_digest_fifo"
   [ "$running_hash_group_status" -eq 0 ] && [ "$(cat "$running_hash_status_file" 2>/dev/null)" = 0 ] || return 2
   IFS=' ' read -r running_hash_value _ <"$running_hash_output" || return 2
   printf '%s\n' "$running_hash_value" | grep -Eq '^[0-9a-f]{64}$' || return 2
   printf '%s\n' "$running_hash_value"
 }
+
+running_container_archive_hash_stream() { running_container_archive_with_signal_traps running_container_archive_hash_stream_impl "$@"; }

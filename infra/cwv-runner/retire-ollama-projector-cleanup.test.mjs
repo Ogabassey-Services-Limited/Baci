@@ -187,10 +187,19 @@ test('does not remove an unverified replacement after quarantine validation fail
       name.startsWith('baci-projector-auth.fixture.cleanup.')
     );
     assert.ok(quarantine, 'post-move replacement should remain quarantined');
-    assert.equal(
-      await readFile(join(value.base, quarantine, 'attacker'), 'utf8'),
-      'attacker'
-    );
+    let attacker;
+    try {
+      attacker = await readFile(
+        join(value.base, quarantine, 'attacker'),
+        'utf8'
+      );
+    } catch {
+      attacker = await readFile(
+        join(value.base, quarantine, 'payload', 'attacker'),
+        'utf8'
+      );
+    }
+    assert.equal(attacker, 'attacker');
   } finally {
     await rm(value.base, { recursive: true, force: true });
   }
@@ -220,5 +229,31 @@ test('uses distinct quarantine names for repeated cleanup in one process', async
   } finally {
     await rm(first.base, { recursive: true, force: true });
     await rm(second.base, { recursive: true, force: true });
+  }
+});
+
+test('does not let a predictable cleanup sibling block quarantine', async () => {
+  const value = await fixture();
+  const script =
+    '. "$1"; running_projector_uid=1; RETIRE_OLLAMA_TEST_BIN="$5"; ' +
+    'running_projector_snapshot_base="$2"; running_projector_snapshot_dir="$3"; ' +
+    'running_projector_snapshot_identity="$4"; decoy="$3.cleanup.$$"; ' +
+    'mkdir "$decoy"; running_container_projector_snapshot_cleanup; ' +
+    '[ ! -e "$3" ] && [ -d "$decoy" ] && printf "%s\\n" "$decoy"';
+  try {
+    const { stdout } = await execFileAsync('sh', [
+      '-c',
+      script,
+      'sh',
+      helper.pathname,
+      value.base,
+      value.path,
+      value.identity,
+      value.statBin,
+    ]);
+    await assert.rejects(lstat(value.path), { code: 'ENOENT' });
+    await assert.doesNotReject(lstat(stdout.trim()));
+  } finally {
+    await rm(value.base, { recursive: true, force: true });
   }
 });

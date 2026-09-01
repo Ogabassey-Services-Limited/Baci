@@ -5,7 +5,6 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-
 import { createSourceArchive } from './source-archive.mjs';
 
 const path = new URL('./seal-source.sh', import.meta.url).pathname;
@@ -251,15 +250,13 @@ test('cleans up and exits with the received signal status', () => {
   assert.match(source, /trap 'signal TERM 143' TERM/);
 });
 test('rolls back owned publication before commit and preserves it after final fsync', () => {
-  assert.match(source, /tmp='' tmp_identity='' target='' receipt='' target_owned=false receipt_owned=false target_identity='' receipt_identity=''.*committed=false/);
+  assert.match(source, /tmp='' tmp_identity='' target='' receipt='' receipt_stage='' target_owned=false receipt_owned=false target_identity='' receipt_identity=''.*committed=false/);
   assert.match(source, /if \[\[ "\$committed" != true \]\]; then/);
   assert.match(source, /cleanup_owned_path "\$receipt" "\$receipt_identity"/);
   assert.match(source, /cleanup_owned_path "\$target" "\$target_identity"/);
-  assert.match(source, /atomic_noreplace_dir "\$projection" "\$target"/);
-  assert.match(source, /target_identity=\$\("\$STAT" -c '%d:%i' -- "\$target"\)/);
-  assert.match(source, /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\)/);
-  assert.match(source, /receipt_owned=true/);
-  assert.match(source, /"\$SYNC" -f "\$receipt"; "\$SYNC" -f "\$final_root"\ncommitted=true/);
+  assert.match(source, /trap cleanup EXIT[\s\S]*target_identity=\$\("\$STAT" -c '%d:%i' -- "\$projection"\)[\s\S]*target_owned=true[\s\S]*atomic_noreplace_dir "\$projection" "\$target"/);
+  assert.match(source, /trap cleanup EXIT[\s\S]*receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt_stage"\)[\s\S]*receipt_owned=true[\s\S]*copy_receipt_file[\s\S]*atomic_noreplace_dir "\$receipt_stage" "\$receipt"/);
+  assert.match(source, /"\$SYNC" -f "\$receipt_stage" \|\| fail 'receipt staging directory sync failed'[\s\S]*atomic_noreplace_dir "\$receipt_stage" "\$receipt"[\s\S]*"\$SYNC" -f "\$receipt_root" \|\| fail 'receipt root sync failed'; "\$SYNC" -f "\$final_root" \|\| fail 'sealed root sync failed'\ncommitted=true/);
 });
 test('binds the sealed tree rehash into the immutable receipt', () => {
   assert.match(source, /sealedTreeSha256/);
@@ -280,8 +277,9 @@ test('keeps manifest-derived file modes intact through final sealing and receipt
     /\$CHOWN" -R root:root -- "\$tree"; secure_tree_directories "\$tree"\ntree_digest=\$\(sha "\$actual"\)/
   );
   assert.match(source, /sealedTreeSha256/);
-  assert.match(source, /"\$CHOWN" -R root:root -- "\$target" "\$receipt"/);
-  assert.match(source, /secure_tree_directories "\$target"; "\$CHMOD" 0700 -- "\$receipt"/);
+  assert.match(source, /"\$CHOWN" -R root:root -- "\$target" "\$receipt_stage" \|\| fail 'sealed ownership hardening failed'/);
+  assert.match(source, /secure_tree_directories "\$target" \|\| fail 'sealed directory hardening failed'/);
+  assert.match(source, /"\$PERL" -MFile::Find[\s\S]*\$s\[4\]==0&&\$s\[5\]==0&&\(\$s\[2\]&0022\)==0[\s\S]*"\$target" \|\| fail 'sealed directory verification failed'/);
   assert.doesNotMatch(source, /\$CHMOD" -R 0700 -- "\$tree"|\$CHMOD" -R 0700 -- "\$target"/);
 });
 test('keeps the preflight schema disjoint from final merge sealing', () => {
@@ -295,6 +293,7 @@ test('keeps the preflight schema disjoint from final merge sealing', () => {
 test('rejects duplicate paths in both manifest arrays without weakening sorted order', () => {
   for (const pattern of [/\[ \$m\.entries\[\]\.path \] == \(\[ \$m\.entries\[\]\.path \] \| sort\)/, /\[ \$m\.sourceArchive\.entries\[\]\.path \] == \(\[ \$m\.sourceArchive\.entries\[\]\.path \] \| sort\)/, /manifest contains duplicate paths/, /\$m\.entries\[\]\?\.path\] \| unique \| length/, /\$m\.sourceArchive\.entries\[\]\?\.path\] \| unique \| length/]) assert.match(source, pattern);
 });
-test('records ownership only after destination identity is captured', () => {
-  for (const pattern of [/target_identity=\$\("\$STAT" -c '%d:%i' -- "\$target"\) \|\| fail 'sealed target identity unavailable'\ntarget_owned=true/, /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt"\) \|\| fail 'sealed receipt identity unavailable'\nreceipt_owned=true/]) assert.match(source, pattern);
+test('arms cleanup before publishing destinations', () => {
+  assert.match(source, /target_identity=\$\("\$STAT" -c '%d:%i' -- "\$projection"\) \|\| fail 'sealed target identity unavailable'; target_owned=true/);
+  assert.match(source, /receipt_identity=\$\("\$STAT" -c '%d:%i' -- "\$receipt_stage"\) \|\| fail 'sealed receipt identity unavailable'; receipt_owned=true/);
 });

@@ -103,3 +103,14 @@ test('permits digest overrides only in the unprivileged test harness', async () 
     overrides.RECOVERY_PROJECTOR_AUTH_SHA,
   ]);
 });
+
+test('rejects recovery when the loaded projector helper digest is stale', async () => {
+  await assert.rejects(
+    shell({
+      RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
+      RETIRE_OLLAMA_TEST_FAKE_UID: '65534',
+      PROJECTOR_AUTH_HELPER_SHA: '0'.repeat(64),
+    }),
+    (error) => error.code === 1
+  );
+});

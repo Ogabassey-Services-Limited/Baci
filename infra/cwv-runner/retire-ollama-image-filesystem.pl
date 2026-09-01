@@ -235,6 +235,8 @@ sub apply_layer {
     if ($value->{kind} eq 'opaque') { remove_children($state, $prefixes, $tree, $value->{parent}) }
     elsif ($value->{kind} eq 'path') { remove_path($state, $prefixes, $tree, $value->{path}, 1) }
   }
+  my (@pending_hardlinks, %pending_by_target);
+  my $settle_hardlinks = sub { my ($target_path) = @_; my @queue = ($target_path); while (@queue) { my $resolved_path = shift @queue; my $target = $state->{$resolved_path}; next unless $target && $target->{type} eq '0' && !$target->{pending}; for my $pending (@{delete($pending_by_target{$resolved_path}) // []}) { my ($path_name, $entry) = @$pending; next unless $state->{$path_name} && $state->{$path_name} == $entry; $entry->{direct} ||= $target->{direct}; delete $entry->{pending}; $entry->{type} = '0'; delete $entry->{link}; push @queue, $path_name } } };
   for my $item (@whiteouts) {
     my ($entry, $value) = @$item; next if $value;
     my $directory = $entry->{type} eq '5'; remove_path($state, $prefixes, $tree, $entry->{path}, !$directory);
@@ -243,18 +245,15 @@ sub apply_layer {
     my $link = $entry->{link};
     if ($entry->{type} eq '1') {
       phase('layer-hardlink');
-      $link = hardlink_path($link);
-      my $target = $state->{$link};
-      fail() unless $target && $target->{type} eq '0';
-      $direct ||= $target->{direct};
-      mark_prefixes($prefixes, $tree, $entry->{path}); $state->{$entry->{path}} = { direct => $direct, type => '0', link => undef };
-      fail() if keys(%$state) > $MAX_STATE;
-      next;
+      $link = hardlink_path($link); my $target = $state->{$link}; if ($target && $target->{type} eq '0' && !$target->{pending}) { $direct ||= $target->{direct}; mark_prefixes($prefixes, $tree, $entry->{path}); $state->{$entry->{path}} = { direct => $direct, type => '0', link => undef }; $settle_hardlinks->($entry->{path}); fail() if keys(%$state) > $MAX_STATE; next }
+      fail() if $target && !($target->{type} eq '1' && $target->{pending}); my $pending = { direct => $direct, type => '1', link => $link, pending => 1 }; mark_prefixes($prefixes, $tree, $entry->{path}); $state->{$entry->{path}} = $pending; my $pending_record = [$entry->{path}, $pending]; push @pending_hardlinks, $pending_record; push @{$pending_by_target{$link}}, $pending_record;
+      fail() if keys(%$state) > $MAX_STATE; next;
     }
     if ($entry->{type} eq '2') { phase('layer-symlink'); $direct ||= $link =~ $MARKER; $link = link_path($link, $entry->{path}) }
-    mark_prefixes($prefixes, $tree, $entry->{path}); $state->{$entry->{path}} = { direct => $direct, type => $entry->{type}, link => undef };
+    mark_prefixes($prefixes, $tree, $entry->{path}); $state->{$entry->{path}} = { direct => $direct, type => $entry->{type}, link => undef }; $settle_hardlinks->($entry->{path}) if $entry->{type} eq '0';
     fail() if keys(%$state) > $MAX_STATE;
   }
+  phase('layer-hardlink-resolve'); for my $pending (@pending_hardlinks) { my ($path_name, $entry) = @$pending; next unless $state->{$path_name} && $state->{$path_name} == $entry; fail() if $entry->{pending}; }
   phase('layer-state-return'); return (scalar @$entries, $source->{size});
 }
 sub resolved {

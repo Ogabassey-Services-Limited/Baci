@@ -17,7 +17,7 @@ async function runFixture(command) {
     await mkdir(bin);
     const socketFixturePrelude = `test() { if [ "$1" = -S ]; then case "$2" in /run/docker.sock|/var/run/docker.sock) return 0 ;; *) return 1 ;; esac; fi; /usr/bin/test "$@"; }; stat() { case "$*" in *"%u:%a"*"/run/docker.sock"|*"%u:%a"*"/var/run/docker.sock") printf '0:660\\n' ;; *"/run/docker.sock"|*"/var/run/docker.sock") printf '1:2:14000:0:999:660\\n' ;; *) /usr/bin/stat "$@" ;; esac; }; readlink() { if [ "$1" = -f ]; then path=$2; [ "$path" = -- ] && path=$3; case "$path" in /run/docker.sock|/var/run/docker.sock) printf '/run/docker.sock\\n' ;; *) /usr/bin/readlink "$@" ;; esac; else /usr/bin/readlink "$@"; fi; };`;
     const shellCommand = `. "$1"; SCRIPT_DIR=$(dirname "$1"); export RETIRE_OLLAMA_TMPDIR="$2"; RETIRE_OLLAMA_TEST_BIN="$3"; RETIRE_OLLAMA_TEST_FSTYPE=apfs; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; ${socketFixturePrelude} ${injectProjectionStub(command)}`;
-    await installDockerStub(bin, shellCommand);
+    await installDockerStub(bin, shellCommand, { wrapArchives: true });
     const { stdout } = await execFileAsync('sh', [
       '-c',
       shellCommand,
@@ -184,7 +184,7 @@ test('uses a separate bounded allowance for large live container filesystems', a
     "printf '%s' '0123456789'"
   );
   const output = await runFixture(
-    `${largeFilesystem} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; RUNNING_CONTAINER_IMAGE_MAX_BYTES=8; RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=16; running_container_validate generic-api /generic-api 'stable-config'`
+    `${largeFilesystem} *'image save ${imageId}'*) printf '%s' 'image';; *) return 2;; esac; }; load_consumer_scanners; RUNNING_CONTAINER_IMAGE_MAX_BYTES=8; RUNNING_CONTAINER_FILESYSTEM_MAX_BYTES=65536; running_container_validate generic-api /generic-api 'stable-config'`
   );
   assert.equal(output, '');
 });

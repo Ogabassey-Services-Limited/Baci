@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
+import { createSourceArchive } from './source-archive.mjs';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
@@ -20,13 +21,24 @@ const firstId = '1111111111111111'.repeat(4);
 const secondId = '2222222222222222'.repeat(4);
 const containerId = '0123456789abcdef'.repeat(4);
 
-test('re-enumerates stopped containers added after the initial inventory', async () => {
+test('re-enumerates stopped containers added after the initial inventory and inspects image and writable layers', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'baci-container-stability-'));
   const bin = join(directory, 'bin');
   const state = join(directory, 'state');
   const log = join(directory, 'docker.log');
+  const archive = join(directory, 'container.tar');
   try {
     await mkdir(bin);
+    await writeFile(
+      archive,
+      createSourceArchive([
+        {
+          bytes: Buffer.from('OLLAMA_HOST=http://127.0.0.1:11434\n'),
+          mode: '100644',
+          path: 'etc/runtime.conf',
+        },
+      ])
+    );
     await writeFile(
       join(bin, 'docker'),
       `#!/bin/sh
@@ -37,11 +49,13 @@ case "$*" in
   *'{{.Id}}'*${secondId}*) printf '${secondId} /second /bin/true [] ["OLLAMA_HOST=http://127.0.0.1:11434"] "" {} null [] {} {} {} [] "bridge"\\n' ;;
   *'{{.Name}}'*${firstId}*) printf '/first\\n' ;;
   *'{{.Name}}'*${secondId}*) printf '/second\\n' ;;
+  *'{{.Image}}'*) printf 'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\n' ;;
   *'{{json .Config.Env}}'*${firstId}*) printf '[]\\n' ;;
   *'{{json .Config.Env}}'*${secondId}*) printf '["OLLAMA_HOST=http://127.0.0.1:11434"]\\n' ;;
   *'{{json .Config.WorkingDir}}'*) printf '""\\n' ;;
   *'{{json .State.Running}}'*) printf 'false\\n' ;;
   *' cp ${firstId}:/bin/true '*|*' cp ${secondId}:/bin/true '*) for destination do :; done; printf '#!/bin/sh\\nexit 0\\n' >"$destination" ;;
+  *'image save '*|*'container export '*) /usr/bin/cat '${archive}' ;;
   *'{{json .Mounts}}'*) printf '[]\\n' ;;
 esac
 printf '%s\\n' "$*" >>'${log}'
@@ -49,13 +63,14 @@ printf '%s\\n' "$*" >>'${log}'
     );
     await Promise.all([
       chmod(join(bin, 'docker'), 0o755),
+      chmod(archive, 0o644),
       chmod(directory, 0o777),
     ]);
     const { stdout } = await execFileAsync(
       'sh',
       [
         '-c',
-        'sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:17:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+        'set -x; sha256sum() { /usr/bin/shasum -a 256 "$@"; }; stat() { printf "1:2:81a4:17:501:20:644\\n"; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_temp_root_helper; temp_root_required_bytes() { printf 1; }; init_temp_root; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
         'retire-ollama-container-stability-test',
         script.pathname,
       ],
@@ -113,7 +128,7 @@ esac
         'sh',
         [
           '-c',
-          'sha256sum_path=$(command -v sha256sum 2>/dev/null || command -v shasum 2>/dev/null) || exit 127; case "$sha256sum_path" in *shasum) sha256sum() { "$sha256sum_path" -a 256 "$@"; } ;; *) sha256sum() { "$sha256sum_path" "$@"; } ;; esac; stat() { case "$*" in *"%u:%a"*"/run/docker.sock"|*"%u:%a"*"/var/run/docker.sock") printf "0:660\\n" ;; *"/run/docker.sock"|*"/var/run/docker.sock") printf "1:2:14000:0:999:660\\n" ;; *) printf "1:2:81a4:17:501:20:644\\n" ;; esac; }; test() { if [ "$1" = -S ]; then case "$2" in /run/docker.sock|/var/run/docker.sock) return 0 ;; *) return 1 ;; esac; fi; /usr/bin/test "$@"; }; readlink() { if [ "$1" = -f ]; then path=$2; [ "$path" = -- ] && path=$3; if [ "$path" = /run/docker.sock ] || [ "$path" = /var/run/docker.sock ]; then printf "/run/docker.sock\\n"; else /usr/bin/readlink "$@"; fi; else /usr/bin/readlink "$@"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; scan_container_rows all',
+          'sha256sum_path=$(command -v sha256sum 2>/dev/null || command -v shasum 2>/dev/null) || exit 127; case "$sha256sum_path" in *shasum) sha256sum() { "$sha256sum_path" -a 256 "$@"; } ;; *) sha256sum() { "$sha256sum_path" "$@"; } ;; esac; stat() { case "$*" in *"%u:%a"*"/run/docker.sock"|*"%u:%a"*"/var/run/docker.sock") printf "0:660\\n" ;; *"/run/docker.sock"|*"/var/run/docker.sock") printf "1:2:14000:0:999:660\\n" ;; *) printf "1:2:81a4:17:501:20:644\\n" ;; esac; }; test() { if [ "$1" = -S ]; then case "$2" in /run/docker.sock|/var/run/docker.sock) return 0 ;; *) return 1 ;; esac; fi; /usr/bin/test "$@"; }; readlink() { if [ "$1" = -f ]; then path=$2; [ "$path" = -- ] && path=$3; if [ "$path" = /run/docker.sock ] || [ "$path" = /var/run/docker.sock ]; then printf "/run/docker.sock\\n"; else /usr/bin/readlink "$@"; fi; else /usr/bin/readlink "$@"; fi; }; findmnt() { printf "/ fixture apfs ro\\n"; }; . "$1"; SCRIPT_DIR=$(dirname "$1"); load_temp_root_helper; temp_root_required_bytes() { printf 1; }; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/run/docker.sock; scan_container_rows all',
           'retire-ollama-container-mount-order-test',
           script.pathname,
         ],
@@ -174,7 +189,7 @@ esac
         'sh',
         [
           '-c',
-          '. "$1"; SCRIPT_DIR=$(dirname "$1"); init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
+          '. "$1"; SCRIPT_DIR=$(dirname "$1"); temp_root_required_bytes() { printf 1; }; init_temp_root; trap cleanup_temp EXIT; CANONICAL_DOCKER_SOCKET=/tmp/docker.sock; scan_container_rows all',
           'retire-ollama-container-churn-test',
           script.pathname,
         ],

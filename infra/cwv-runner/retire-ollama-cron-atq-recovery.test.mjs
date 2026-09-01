@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import {
   chmod,
   chown,
+  copyFile,
   mkdir,
   mkdtemp,
   readFile,
@@ -20,6 +21,24 @@ const script = new URL('./retire-ollama.sh', import.meta.url);
 const childIdentity =
   process.getuid?.() === 0 ? { uid: 65534, gid: 65534 } : {};
 
+async function stageAtHelpers(directory) {
+  const staged = join(directory, 'helpers');
+  await mkdir(staged, { mode: 0o755 });
+  for (const name of [
+    'retire-ollama-at-quiescence.sh',
+    'retire-ollama-cron-inventory.sh',
+    'retire-ollama-source-loader.sh',
+  ]) {
+    const destination = join(staged, name);
+    await copyFile(new URL(`./${name}`, import.meta.url), destination);
+    await chmod(destination, 0o755);
+  }
+  if (childIdentity.uid !== undefined && childIdentity.gid !== undefined) {
+    await chown(staged, childIdentity.uid, childIdentity.gid);
+  }
+  return staged;
+}
+
 async function prepareReceiptDirectory(path) {
   await mkdir(path, { mode: 0o700 });
   if (childIdentity.uid !== undefined && childIdentity.gid !== undefined) {
@@ -34,6 +53,19 @@ async function prepareWritableFile(path, contents) {
   }
 }
 
+test('preflights every cron mutation surface before installing the crontab', async () => {
+  const source = await readFile(script, 'utf8');
+  const preflight = source.indexOf(
+    "revalidate_before install_crontab; cron_mutation_state >/dev/null || die 'cron mutation state scan failed'"
+  );
+  const install = source.indexOf('record_action install_crontab', preflight);
+  assert.ok(preflight >= 0, 'cron mutation preflight is missing');
+  assert.ok(
+    install > preflight,
+    'crontab installation precedes surface preflight'
+  );
+});
+
 test('rejects a mounted state while recovering an absent at scheduler before unmounting', async () => {
   const directory = await realpath(
     await mkdtemp(join(tmpdir(), 'baci-atq-absent-recovery-'))
@@ -43,6 +75,7 @@ test('rejects a mounted state while recovering an absent at scheduler before unm
   const atJobs = join(directory, 'atjobs');
   const mountState = join(directory, 'mount-state');
   const unmounted = join(directory, 'unmounted');
+  const staged = await stageAtHelpers(directory);
   await Promise.all([prepareReceiptDirectory(receiptDirectory), mkdir(atJobs)]);
   await Promise.all([
     writeFile(
@@ -83,10 +116,10 @@ reconcile_interrupted_at_quiescence`,
           env: {
             ...process.env,
             RETIRE_OLLAMA_TEST_BIN: '/usr/bin',
-            RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: new URL(
-              './retire-ollama-at-quiescence.sh',
-              import.meta.url
-            ).pathname,
+            RETIRE_OLLAMA_AT_QUIESCENCE_HELPER: join(
+              staged,
+              'retire-ollama-at-quiescence.sh'
+            ),
           },
         }
       ),

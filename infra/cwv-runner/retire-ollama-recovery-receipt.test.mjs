@@ -137,6 +137,7 @@ test('publishes a source-bound fixed-path receipt with all source digests', asyn
       'receiptsSha256',
       'runningArchiveSha256',
       'runningContainerSha256',
+      'runningContainerValidationSha256',
       'scriptSha256',
       'sourceSha',
       'tempRootSha256',

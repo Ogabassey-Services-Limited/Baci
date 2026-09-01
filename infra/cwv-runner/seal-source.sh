@@ -99,13 +99,13 @@ outer_signal() {
 
 cleanup_self_copy() { cleanup_owned_dir "$SELF_PARENT" "$self_parent_identity"; }
 
-tmp='' tmp_identity='' target='' receipt='' target_owned=false receipt_owned=false target_identity='' receipt_identity='' outer_self_copy_identity='' self_parent_identity='' committed=false
+tmp='' tmp_identity='' target='' receipt='' receipt_stage='' target_owned=false receipt_owned=false target_identity='' receipt_identity='' outer_self_copy_identity='' self_parent_identity='' committed=false
 owned_path_matches() { local path=$1 identity=$2; [[ -n "$identity" && ! -L "$path" && -d "$path" ]] || return 1; [[ "$($STAT -c '%d:%i' -- "$path" 2>/dev/null)" == "$identity" ]]; }
 cleanup_owned_dir() { local path=$1 identity=$2 quarantine; quarantine="${path}.cleanup.$$"; owned_path_matches "$path" "$identity" || return 0; atomic_noreplace_dir "$path" "$quarantine" || return 0; if owned_path_matches "$quarantine" "$identity"; then "$RM" -rf -- "$quarantine"; else atomic_noreplace_dir "$quarantine" "$path" || :; fi; }
 cleanup_owned_path() { local path=$1 identity=$2; cleanup_owned_dir "$path" "$identity"; }
 cleanup() {
   if [[ "$committed" != true ]]; then
-    if [[ "$receipt_owned" == true ]]; then cleanup_owned_path "$receipt" "$receipt_identity"; fi
+    if [[ "$receipt_owned" == true ]]; then cleanup_owned_path "$receipt" "$receipt_identity"; fi; if [[ -n "$receipt_stage" ]]; then cleanup_owned_path "$receipt_stage" "$receipt_identity"; fi
     if [[ "$target_owned" == true ]]; then cleanup_owned_path "$target" "$target_identity"; fi
   fi
   if [[ -n "$tmp" ]]; then cleanup_owned_dir "$tmp" "$tmp_identity"; fi
@@ -113,12 +113,12 @@ cleanup() {
 }
 
 copy_receipt_file() {
-  local source=$1 destination=$2 temporary; temporary=$("$MKTEMP" "$receipt/.tmp.XXXXXX") || fail 'receipt staging unavailable'; "$CP" --preserve=mode -- "$source" "$temporary" || fail 'receipt staging failed'; "$CHOWN" root:root -- "$temporary"; "$CHMOD" 0600 -- "$temporary"; "$SYNC" -f "$temporary" || fail 'receipt staging sync failed'; receipt_link "$temporary" "$destination"
+  local source=$1 destination=$2 temporary directory; directory=${destination%/*}; temporary=$("$MKTEMP" "$directory/.tmp.XXXXXX") || fail 'receipt staging unavailable'; "$CP" --preserve=mode -- "$source" "$temporary" || fail 'receipt staging failed'; "$CHOWN" root:root -- "$temporary"; "$CHMOD" 0600 -- "$temporary"; "$SYNC" -f "$temporary" || fail 'receipt staging sync failed'; receipt_link "$temporary" "$destination"
 }
 write_receipt_file() {
-  local destination=$1 value=$2 temporary; temporary=$("$MKTEMP" "$receipt/.tmp.XXXXXX") || fail 'receipt staging unavailable'; printf '%s\n' "$value" > "$temporary" || fail 'receipt staging write failed'; "$CHOWN" root:root -- "$temporary"; "$CHMOD" 0600 -- "$temporary"; "$SYNC" -f "$temporary" || fail 'receipt staging sync failed'; receipt_link "$temporary" "$destination"
+  local destination=$1 value=$2 temporary directory; directory=${destination%/*}; temporary=$("$MKTEMP" "$directory/.tmp.XXXXXX") || fail 'receipt staging unavailable'; printf '%s\n' "$value" > "$temporary" || fail 'receipt staging write failed'; "$CHOWN" root:root -- "$temporary"; "$CHMOD" 0600 -- "$temporary"; "$SYNC" -f "$temporary" || fail 'receipt staging sync failed'; receipt_link "$temporary" "$destination"
 }
-receipt_link() { local source=$1 destination=$2 identity; identity=$("$STAT" -c '%d:%i' -- "$source") || fail 'receipt staging identity unavailable'; "$LN" -T -- "$source" "$destination" || fail 'receipt destination already exists'; [[ "$($STAT -c '%d:%i' -- "$destination")" == "$identity" ]] || fail 'receipt destination identity changed'; regular "$destination"; "$RM" -f -- "$source" || fail 'receipt staging cleanup failed'; [[ "$($STAT -c '%d:%i' -- "$destination")" == "$identity" ]] || fail 'receipt destination identity changed'; "$SYNC" -f "$destination" || fail 'receipt publication sync failed'; "$SYNC" -f "$receipt" || fail 'receipt directory sync failed'; }
+receipt_link() { local source=$1 destination=$2 identity directory; directory=${destination%/*}; identity=$("$STAT" -c '%d:%i' -- "$source") || fail 'receipt staging identity unavailable'; "$LN" -T -- "$source" "$destination" || fail 'receipt destination already exists'; [[ "$($STAT -c '%d:%i' -- "$destination")" == "$identity" ]] || fail 'receipt destination identity changed'; regular "$destination"; "$RM" -f -- "$source" || fail 'receipt staging cleanup failed'; [[ "$($STAT -c '%d:%i' -- "$destination")" == "$identity" ]] || fail 'receipt destination identity changed'; "$SYNC" -f "$destination" || fail 'receipt publication sync failed'; "$SYNC" -f "$directory" || fail 'receipt directory sync failed'; }
 
 atomic_noreplace_dir() { "$PERL" -MConfig -e 'my($source,$destination)=@ARGV;my($syscall,$from_fd,$to_fd,$flags);if($^O eq "darwin"){$syscall=488;($from_fd,$to_fd,$flags)=(-2,-2,4)}elsif($^O eq "linux"){$syscall=$Config{archname}=~/^x86_64/?316:$Config{archname}=~/aarch64|riscv64/?276:$Config{archname}=~/^arm/?382:$Config{archname}=~/i[3-6]86/?353:0;($from_fd,$to_fd,$flags)=(-100,-100,1)}exit 64 unless $syscall;exit syscall($syscall,$from_fd,$source,$to_fd,$destination,$flags)==0?0:1;' -- "$1" "$2"; } # renameatx_np(2) RENAME_EXCL; Linux renameat2(2) RENAME_NOREPLACE
 
@@ -280,20 +280,20 @@ verify_tree "$tree" "$rows" "$actual"
 tree_digest=$(sha "$actual")
 hex "$tree_digest" || fail 'sealed tree digest mismatch'
 "$SYNC" -f "$root_manifest"; "$SYNC" -f "$root_archive"; "$SYNC" -f "$tree"
+target_identity=$("$STAT" -c '%d:%i' -- "$projection") || fail 'sealed target identity unavailable'; target_owned=true
 if atomic_noreplace_dir "$projection" "$target"; then :; else atomic_status=$?; case "$atomic_status" in 64) fail 'atomic no-replace publication unavailable';; *) fail 'sealed destination already exists';; esac; fi
 [[ ! -e "$projection" && ! -L "$projection" && -d "$target" && ! -L "$target" ]] || fail 'sealed destination already exists'
-target_identity=$("$STAT" -c '%d:%i' -- "$target") || fail 'sealed target identity unavailable'
-target_owned=true
-"$MKDIR" -m 0700 -- "$receipt" || fail 'sealed destination already exists'
-receipt_identity=$("$STAT" -c '%d:%i' -- "$receipt") || fail 'sealed receipt identity unavailable'
-receipt_owned=true
-copy_receipt_file "$root_manifest" "$receipt/manifest.json"
-write_receipt_file "$receipt/manifest.sha256" "$manifest_digest"
-write_receipt_file "$receipt/archive.sha256" "$archive_digest"
-write_receipt_file "$receipt/tree.sha256" "$tree_digest"
-write_receipt_file "$receipt/seal-receipt.json" "{\"archiveSha256\":\"$archive_digest\",\"manifestSha256\":\"$manifest_digest\",\"schemaVersion\":1,\"sealedTreeSha256\":\"$tree_digest\",\"sourceSha\":\"$source_sha\"}"
-"$CHOWN" -R root:root -- "$target" "$receipt"; secure_tree_directories "$target"; "$CHMOD" 0700 -- "$receipt"; "$CHMOD" 0600 -- "$receipt"/*
-"$SYNC" -f "$receipt/seal-receipt.json"; "$SYNC" -f "$receipt"; "$SYNC" -f "$final_root"
+receipt_stage="$receipt_root/.seal-receipt-${source_sha}-$$"
+"$MKDIR" -m 0700 -- "$receipt_stage" || fail 'sealed receipt staging directory unavailable'
+receipt_identity=$("$STAT" -c '%d:%i' -- "$receipt_stage") || fail 'sealed receipt identity unavailable'; receipt_owned=true
+copy_receipt_file "$root_manifest" "$receipt_stage/manifest.json"
+write_receipt_file "$receipt_stage/manifest.sha256" "$manifest_digest"
+write_receipt_file "$receipt_stage/archive.sha256" "$archive_digest"
+write_receipt_file "$receipt_stage/tree.sha256" "$tree_digest"
+write_receipt_file "$receipt_stage/seal-receipt.json" "{\"archiveSha256\":\"$archive_digest\",\"manifestSha256\":\"$manifest_digest\",\"schemaVersion\":1,\"sealedTreeSha256\":\"$tree_digest\",\"sourceSha\":\"$source_sha\"}"
+"$CHOWN" -R root:root -- "$target" "$receipt_stage" || fail 'sealed ownership hardening failed'; secure_tree_directories "$target" || fail 'sealed directory hardening failed'; "$CHMOD" 0700 -- "$receipt_stage" || fail 'receipt directory hardening failed'; "$CHMOD" 0600 -- "$receipt_stage"/* || fail 'receipt file hardening failed'; "$PERL" -MFile::Find -e 'find({no_chdir=>1,wanted=>sub{@s=lstat($_); exit 2 unless @s; return unless -d _; exit 2 unless $s[4]==0&&$s[5]==0&&($s[2]&0022)==0}},$ARGV[0])' "$target" || fail 'sealed directory verification failed'
+"$SYNC" -f "$receipt_stage/seal-receipt.json" || fail 'receipt staging sync failed'; "$SYNC" -f "$receipt_stage" || fail 'receipt staging directory sync failed'; if atomic_noreplace_dir "$receipt_stage" "$receipt"; then receipt_stage=''; else atomic_status=$?; case "$atomic_status" in 64) fail 'atomic no-replace publication unavailable';; *) fail 'sealed destination already exists';; esac; fi
+"$SYNC" -f "$receipt_root" || fail 'receipt root sync failed'; "$SYNC" -f "$final_root" || fail 'sealed root sync failed'
 committed=true
 cleanup
 trap - EXIT HUP INT TERM

@@ -49,16 +49,12 @@ running_container_projector_snapshot_cleanup() {
   case "$running_projector_cleanup_path" in "${running_projector_snapshot_base:-}"/baci-projector-auth.*) :;; *) return 0;; esac
   [ -n "$running_projector_cleanup_identity" ] && [ -d "$running_projector_cleanup_path" ] && [ ! -L "$running_projector_cleanup_path" ] || return 0
   [ "$(running_container_projector_stat -c '%d:%i' -- "$running_projector_cleanup_path" 2>/dev/null)" = "$running_projector_cleanup_identity" ] || return 0
-  running_projector_cleanup_sequence=${running_projector_cleanup_sequence:-0}
-  case "$running_projector_cleanup_sequence" in
-    ''|*[!0-9]*) running_projector_cleanup_sequence=0;;
-  esac
-  running_projector_cleanup_sequence=$((running_projector_cleanup_sequence + 1))
-  running_projector_cleanup_quarantine="${running_projector_cleanup_path}.cleanup.$$.${running_projector_cleanup_sequence}"
-  [ ! -e "$running_projector_cleanup_quarantine" ] && [ ! -L "$running_projector_cleanup_quarantine" ] || return 0
-  /bin/mv "$running_projector_cleanup_path" "$running_projector_cleanup_quarantine" 2>/dev/null || return 0
-  [ -d "$running_projector_cleanup_quarantine" ] && [ ! -L "$running_projector_cleanup_quarantine" ] || return 0
-  running_projector_cleanup_quarantine_identity=$(running_container_projector_stat -c '%d:%i' -- "$running_projector_cleanup_quarantine" 2>/dev/null) || return 0
+  running_projector_cleanup_quarantine=$(/usr/bin/mktemp -d "${running_projector_cleanup_path}.cleanup.XXXXXX") || return 0
+  /bin/chmod 700 "$running_projector_cleanup_quarantine" 2>/dev/null || { /bin/rmdir "$running_projector_cleanup_quarantine" 2>/dev/null || :; return 0; }
+  running_projector_cleanup_payload="$running_projector_cleanup_quarantine/payload"
+  /bin/mv "$running_projector_cleanup_path" "$running_projector_cleanup_payload" 2>/dev/null || { /bin/rmdir "$running_projector_cleanup_quarantine" 2>/dev/null || :; return 0; }
+  [ -d "$running_projector_cleanup_payload" ] && [ ! -L "$running_projector_cleanup_payload" ] || return 0
+  running_projector_cleanup_quarantine_identity=$(running_container_projector_stat -c '%d:%i' -- "$running_projector_cleanup_payload" 2>/dev/null) || return 0
   [ "$running_projector_cleanup_quarantine_identity" = "$running_projector_cleanup_identity" ] || return 0
   /bin/rm -rf -- "$running_projector_cleanup_quarantine" || :
 }

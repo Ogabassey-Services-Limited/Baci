@@ -95,6 +95,7 @@ test('derives the source identity from the sealed SHA directory', async () => {
       'retire-ollama-consumers.sh',
       'retire-ollama-container-mounts.sh',
       'retire-ollama-running-container.sh',
+      'retire-ollama-running-container-validation.sh',
       'retire-ollama-running-archive.sh',
       'retire-ollama-consumer-closure.sh',
       'retire-ollama-process-files.sh',

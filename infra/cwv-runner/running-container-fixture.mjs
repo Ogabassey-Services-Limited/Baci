@@ -60,14 +60,31 @@ function extractDockerFunction(command) {
   throw new Error('fixture docker function is incomplete');
 }
 
-export async function installDockerStub(bin, command) {
+export async function installDockerStub(bin, command, options = {}) {
   const body = extractDockerFunction(command);
   if (body === null) {
     throw new Error('fixture docker function is missing');
   }
+  const archiveWrapper = options.wrapArchives
+    ? [
+        'case " $* " in',
+        "  *' container export '*)",
+        '    archive_stage=$(mktemp -d "$RETIRE_OLLAMA_TMPDIR/fixture-archive.XXXXXX") || exit 2',
+        '    archive_capture="$archive_stage/fixture-archive"',
+        '    docker "$@" >"$archive_capture" || { status=$?; rm -rf "$archive_stage"; exit "$status"; }',
+        '    /usr/bin/touch -t 200001010000 "$archive_capture" || { rm -rf "$archive_stage"; exit 2; }',
+        '    COPYFILE_DISABLE=1 /usr/bin/tar --no-xattrs --format=ustar --blocking-factor=1 -cf - -C "$archive_stage" fixture-archive',
+        '    archive_status=$?',
+        '    rm -rf "$archive_stage"',
+        '    [ "$archive_status" -eq 0 ] || exit "$archive_status"',
+        '    exit 0',
+        '    ;;',
+        'esac',
+      ].join('\n')
+    : '';
   await writeFile(
     join(bin, 'docker'),
-    `#!/bin/sh\nif [ -z "\${RETIRE_OLLAMA_TMPDIR:-}" ]; then exit 2; fi\nsave_count="$RETIRE_OLLAMA_TMPDIR/save-count"\ndocker() {\n${body}\n}\ndocker "$@"\n`,
+    `#!/bin/sh\nif [ -z "\${RETIRE_OLLAMA_TMPDIR:-}" ]; then exit 2; fi\nsave_count="$RETIRE_OLLAMA_TMPDIR/save-count"\ndocker() {\n${body}\n}\n${archiveWrapper}\ndocker "$@"\n`,
     {
       mode: 0o755,
     }
