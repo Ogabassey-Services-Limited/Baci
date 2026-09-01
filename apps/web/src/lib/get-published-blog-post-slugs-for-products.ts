@@ -1,13 +1,12 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { isValidUuid } from '@/lib/sanitize-core';
+import { filterCategoryBlogPostRowsWithoutActiveLinks } from './filter-category-blog-post-rows';
 import { getBlogCategoryLookup } from './get-blog-category-lookup';
 
 const CATEGORY_FALLBACK_PAGE_SIZE = 256;
 const LINKED_POST_PAGE_SIZE = 256;
-// Keep the PostgREST `.in(...)` URL bounded even when a bulk import carries
-// the full 1,000-entry revalidation contract. The relationship query still
-// paginates every chunk, so this only limits request size—not coverage.
+// Keep the PostgREST `.in(...)` URL bounded; relationship reads still paginate.
 const LINKED_PRODUCT_ID_CHUNK_SIZE = 100;
 
 interface LinkedBlogPostRow {
@@ -26,16 +25,15 @@ interface LinkedBlogPostRow {
       }>
     | null;
 }
-
 interface BlogPostFields {
   category?: string | null;
   published_at?: string | null;
   slug?: string | null;
   status?: string | null;
 }
-
-interface CategoryBlogPostRow extends BlogPostFields {}
-
+interface CategoryBlogPostRow extends BlogPostFields {
+  id?: string | null;
+}
 function getBlogPostRow(value: LinkedBlogPostRow['blog_posts']): {
   published_at?: string | null;
   slug?: string | null;
@@ -57,7 +55,6 @@ function getPublishedBlogPostSlug(post: BlogPostFields | null | undefined) {
   const slug = post.slug.trim();
   return slug.length > 0 ? slug : null;
 }
-
 function getCanonicalCategoryPostRows(
   rows: readonly CategoryBlogPostRow[],
   canonicalCategorySlugs: readonly string[]
@@ -86,7 +83,7 @@ async function fetchCategoryFallbackRows(
     for (let page = 0; ; page += 1) {
       let query = supabase
         .from('blog_posts')
-        .select('slug, status, published_at, category')
+        .select('id, slug, status, published_at, category')
         .eq('merchant_id', merchantId)
         .eq('status', 'published');
 
@@ -253,7 +250,13 @@ export async function getPublishedBlogPostSlugsForProducts(
           { merchantId: normalizedMerchantId, error: exactError }
         );
       }
-      for (const post of exactRows) {
+      const exactRowsWithoutActiveLinks =
+        await filterCategoryBlogPostRowsWithoutActiveLinks(
+          supabase,
+          normalizedMerchantId,
+          exactRows
+        );
+      for (const post of exactRowsWithoutActiveLinks) {
         const slug = getPublishedBlogPostSlug(post);
         if (slug) slugs.add(slug);
       }
@@ -274,10 +277,13 @@ export async function getPublishedBlogPostSlugsForProducts(
             { merchantId: normalizedMerchantId, error: canonicalError }
           );
         }
-        for (const post of getCanonicalCategoryPostRows(
-          canonicalRows,
-          canonicalCategorySlugs
-        )) {
+        const canonicalRowsWithoutActiveLinks =
+          await filterCategoryBlogPostRowsWithoutActiveLinks(
+            supabase,
+            normalizedMerchantId,
+            getCanonicalCategoryPostRows(canonicalRows, canonicalCategorySlugs)
+          );
+        for (const post of canonicalRowsWithoutActiveLinks) {
           const slug = getPublishedBlogPostSlug(post);
           if (slug) slugs.add(slug);
         }

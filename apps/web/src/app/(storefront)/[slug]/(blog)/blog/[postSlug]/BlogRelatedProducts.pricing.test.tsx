@@ -102,6 +102,7 @@ describe('BlogRelatedProducts pricing', () => {
             price: 150000,
             manage_stock: null,
             stock: 0,
+            has_variants: true,
             variants: [{ price_override: 175000, stock_quantity: 2 }],
             slug: 'ipad-10',
           },
@@ -114,7 +115,7 @@ describe('BlogRelatedProducts pricing', () => {
     expect(link).not.toHaveTextContent('₦150,000');
   });
 
-  it('does not advertise an out-of-stock child variant price', () => {
+  it('advertises an unmanaged child price even when its quantity is zero', () => {
     render(
       <BlogRelatedProducts
         basePath="/ogabassey"
@@ -134,7 +135,7 @@ describe('BlogRelatedProducts pricing', () => {
     );
 
     const link = screen.getByRole('link', { name: /ipad 10/i });
-    expect(link).not.toHaveTextContent('₦175,000');
+    expect(link).toHaveTextContent('₦175,000');
     expect(link).not.toHaveTextContent('₦150,000');
   });
 });

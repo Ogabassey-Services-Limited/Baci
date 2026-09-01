@@ -1,23 +1,46 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockRevalidateProducts = vi.fn();
-
-vi.mock('@/lib/product-cache-revalidation', () => ({
-  productCacheRevalidation: {
-    revalidateProducts: (...args: unknown[]) => mockRevalidateProducts(...args),
-  },
+const { mockRevalidateTag } = vi.hoisted(() => ({
+  mockRevalidateTag: vi.fn(),
 }));
+
+vi.mock('next/cache', () => ({ revalidateTag: mockRevalidateTag }));
 
 import { expireProductBlogCache } from './expire-product-blog-cache';
 
 describe('expireProductBlogCache', () => {
-  it('hard-expires merchant products before edge purge without invalidating other merchants', () => {
+  beforeEach(() => {
+    mockRevalidateTag.mockReset();
+  });
+
+  it('hard-expires only merchant blog cache tags before edge purge', () => {
     expireProductBlogCache('merchant-1');
 
-    expect(mockRevalidateProducts).toHaveBeenCalledWith(
-      'merchant-1',
-      undefined,
-      { expireImmediately: true, feedScope: 'none' }
+    expect(mockRevalidateTag).toHaveBeenNthCalledWith(
+      1,
+      'products-merchant-1',
+      { expire: 0 }
     );
+    expect(mockRevalidateTag).toHaveBeenNthCalledWith(
+      2,
+      'merchant-id-merchant-1',
+      { expire: 0 }
+    );
+    expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not throw when a cache tag cannot be invalidated', () => {
+    mockRevalidateTag.mockImplementationOnce(() => {
+      throw new Error('cache unavailable');
+    });
+
+    expect(() => expireProductBlogCache('merchant-1')).not.toThrow();
+    expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
+  });
+
+  it('skips blank merchant identifiers', () => {
+    expireProductBlogCache('   ');
+
+    expect(mockRevalidateTag).not.toHaveBeenCalled();
   });
 });

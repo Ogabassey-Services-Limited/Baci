@@ -18,15 +18,9 @@ function formatRelatedProductPrice(
 ) {
   if (!currencySource) return null;
 
-  // Availability hydration treats a nullable legacy manage_stock value as
-  // managed (the safe PDP default). Match that contract when calculating the
-  // advertised range so an out-of-stock parent price cannot leak into a rail
-  // that is only purchasable through a stocked child.
-  const priceProduct =
-    product.manage_stock === null
-      ? { ...product, manage_stock: true as const }
-      : product;
-  const range = getProductPriceRange(priceProduct);
+  // The PDP treats null/false manage_stock as unlimited inventory. Pass the
+  // original policy through so variant and offer prices follow that contract.
+  const range = getProductPriceRange(product);
   if (range) {
     const min = formatMerchantCurrency(range.min, currencySource);
     return range.hasRange
@@ -60,7 +54,7 @@ function isRelatedProductUnavailable(product: BlogRelatedProduct) {
     product.has_purchasable_variant === false &&
     !hasDirectPurchasableVariant;
   const hasOutOfStockManagedParent =
-    product.manage_stock !== false &&
+    product.manage_stock === true &&
     hasInventorySignal &&
     getEffectiveStock(product) === 0;
 

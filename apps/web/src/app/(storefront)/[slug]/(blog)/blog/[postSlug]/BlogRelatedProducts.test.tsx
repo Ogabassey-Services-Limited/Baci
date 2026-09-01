@@ -76,7 +76,7 @@ describe('BlogRelatedProducts', () => {
     expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
 
-  it('treats null managed-stock values as managed when effective stock is zero', () => {
+  it('treats nullable managed-stock values as unlimited when effective stock is zero', () => {
     render(
       <BlogRelatedProducts
         basePath="/ogabassey"
@@ -92,7 +92,7 @@ describe('BlogRelatedProducts', () => {
       />
     );
 
-    expect(screen.getByText('Currently unavailable')).toBeInTheDocument();
+    expect(screen.queryByText('Currently unavailable')).not.toBeInTheDocument();
   });
 
   it('does not show unavailable when a stocked condition offer can be purchased', () => {

@@ -39,7 +39,7 @@ describe('getProductPriceRange inherited variant pricing', () => {
     });
   });
 
-  it('filters child stock independently of unmanaged parent stock', () => {
+  it('treats child quantities as informational for unmanaged parent stock', () => {
     const range = getProductPriceRange({
       name: 'iPad 10',
       has_variants: true,
@@ -49,6 +49,10 @@ describe('getProductPriceRange inherited variant pricing', () => {
       variants: [{ price_override: 175000, stock_quantity: 0 }],
     });
 
-    expect(range).toBeNull();
+    expect(range).toEqual({
+      min: 175000,
+      max: 175000,
+      hasRange: false,
+    });
   });
 });

@@ -138,4 +138,43 @@ describe('revalidateProductsReliable purge scope', () => {
       })
     );
   });
+
+  it('chunks oversized slug sets without repeating edge-purge inputs', async () => {
+    mockRevalidateProducts.mockImplementation(() => {
+      throw new Error('no store');
+    });
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    const products = [{ slug: 'representative-phone', category: 'Phones' }];
+    const productSlugs = Array.from(
+      { length: 10_001 },
+      (_, index) => `phone-${index}`
+    );
+
+    await revalidateProductsReliable('merchant-1', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      merchantSlug: 'ogabassey',
+      products,
+      nextProductSlugs: productSlugs,
+      purgeWholeStorefront: true,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(
+      (fetchImpl.mock.calls[0]?.[1] as RequestInit).body as string
+    ) as Record<string, unknown>;
+    const secondBody = JSON.parse(
+      (fetchImpl.mock.calls[1]?.[1] as RequestInit).body as string
+    ) as Record<string, unknown>;
+    expect(firstBody).toMatchObject({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+      products,
+      purgeWholeStorefront: true,
+    });
+    expect(firstBody.productSlugs).toHaveLength(10_000);
+    expect(secondBody).toEqual({
+      merchantId: 'merchant-1',
+      productSlugs: ['phone-10000'],
+    });
+  });
 });

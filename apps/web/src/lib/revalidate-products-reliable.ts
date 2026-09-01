@@ -40,6 +40,8 @@ interface RevalidateProductsReliableOptions {
   purgeWholeStorefront?: boolean;
 }
 
+const INTERNAL_REVALIDATION_PRODUCT_SLUG_LIMIT = 10_000;
+
 /**
  * Revalidate a merchant's product caches reliably from ANY execution context.
  *
@@ -168,34 +170,58 @@ export async function revalidateProductsReliable(
   }
 
   try {
-    const response = await (options.fetchImpl ?? fetch)(
-      new URL('/api/internal/revalidate-products', baseUrl),
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${secret}`,
-          'Content-Type': 'application/json',
-        },
-        // Forward `products` whenever available — even without a resolved
-        // merchantSlug — so the route can still bust the per-slug Next caches;
-        // the route gates only the Cloudflare purge on merchantSlug.
-        body: JSON.stringify({
-          merchantId,
-          ...(merchantSlug ? { merchantSlug } : {}),
-          ...(products && products.length > 0 ? { products } : {}),
-          ...(nextProductSlugs.length > 0
-            ? { productSlugs: nextProductSlugs }
-            : {}),
-          ...(purgeWholeStorefront ? { purgeWholeStorefront: true } : {}),
-        }),
-        signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
-      }
-    );
-    if (!response.ok) {
-      console.error(
-        'Internal product revalidation endpoint returned non-2xx; relying on cacheLife self-heal',
-        { merchantId, status: response.status }
+    const slugChunks: readonly (readonly string[] | undefined)[] =
+      nextProductSlugs.length > 0
+        ? Array.from(
+            {
+              length: Math.ceil(
+                nextProductSlugs.length /
+                  INTERNAL_REVALIDATION_PRODUCT_SLUG_LIMIT
+              ),
+            },
+            (_, index) =>
+              nextProductSlugs.slice(
+                index * INTERNAL_REVALIDATION_PRODUCT_SLUG_LIMIT,
+                (index + 1) * INTERNAL_REVALIDATION_PRODUCT_SLUG_LIMIT
+              )
+          )
+        : [undefined];
+
+    for (const [chunkIndex, productSlugChunk] of slugChunks.entries()) {
+      const response = await (options.fetchImpl ?? fetch)(
+        new URL('/api/internal/revalidate-products', baseUrl),
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${secret}`,
+            'Content-Type': 'application/json',
+          },
+          // The endpoint accepts at most 10,000 slugs. Keep products,
+          // merchantSlug, and the whole-storefront flag on the first request
+          // so follow-up chunks only perform the per-slug invalidation and do
+          // not repeat a potentially expensive edge purge.
+          body: JSON.stringify({
+            merchantId,
+            ...(chunkIndex === 0 && merchantSlug ? { merchantSlug } : {}),
+            ...(chunkIndex === 0 && products && products.length > 0
+              ? { products }
+              : {}),
+            ...(productSlugChunk && productSlugChunk.length > 0
+              ? { productSlugs: productSlugChunk }
+              : {}),
+            ...(chunkIndex === 0 && purgeWholeStorefront
+              ? { purgeWholeStorefront: true }
+              : {}),
+          }),
+          signal: AbortSignal.timeout(options.timeoutMs ?? 5000),
+        }
       );
+      if (!response.ok) {
+        console.error(
+          'Internal product revalidation endpoint returned non-2xx; relying on cacheLife self-heal',
+          { merchantId, status: response.status }
+        );
+      }
     }
   } catch (error) {
     console.error(
