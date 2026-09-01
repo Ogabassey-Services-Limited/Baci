@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { chown, mkdtemp, rm } from 'node:fs/promises';
+import { chown, copyFile, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -8,11 +8,26 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const script = new URL('./retire-ollama.sh', import.meta.url);
+const fixtureHelpers = [
+  'retire-ollama.sh',
+  'retire-ollama-consumer-closure.sh',
+  'retire-ollama-consumers.sh',
+  'retire-ollama-container-mounts.sh',
+  'retire-ollama-projector-auth.sh',
+  'retire-ollama-running-archive.sh',
+  'retire-ollama-running-container.sh',
+  'retire-ollama-temp-root.sh',
+];
 const unprivileged = process.getuid?.() === 0 ? { gid: 65534, uid: 65534 } : {};
 
 async function inventory(mode, limits = {}) {
   const directory = await mkdtemp(join(tmpdir(), 'baci-container-inventory-'));
   try {
+    await Promise.all(
+      fixtureHelpers.map((name) =>
+        copyFile(new URL(`./${name}`, import.meta.url), join(directory, name))
+      )
+    );
     if (unprivileged.uid !== undefined && unprivileged.gid !== undefined) {
       await chown(directory, unprivileged.uid, unprivileged.gid);
     }
@@ -43,7 +58,13 @@ cat "$output"
 `;
     return await execFileAsync(
       'sh',
-      ['-c', shell, 'container-inventory-test', script.pathname, directory],
+      [
+        '-c',
+        shell,
+        'container-inventory-test',
+        join(directory, 'retire-ollama.sh'),
+        directory,
+      ],
       {
         ...unprivileged,
         env: {
