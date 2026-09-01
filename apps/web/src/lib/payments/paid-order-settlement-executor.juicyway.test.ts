@@ -117,17 +117,14 @@ describe('buildSettlementExecutor for Juicyway', () => {
     );
   });
 
-  it.each([
-    'merchant_wallet',
-    null,
-  ] as const)('retains zero shipping for Juicyway %s funding', async (source) => {
+  it('retains zero shipping for Juicyway merchant-wallet funding', async () => {
     const { rpc, supabase } = createSupabase();
     await buildSettlementExecutor({
       externalGatewayReference: 'BAC-JUICY',
       settlementGateway: 'juicyway',
       supabase,
       transaction: { ...transaction, platform_fee: 100 },
-      orderShippingFundingSource: source,
+      orderShippingFundingSource: 'merchant_wallet',
       orderShippingRetainedAmount: 1_100,
     })(stepContext);
     expect(rpc).toHaveBeenCalledWith(
@@ -137,6 +134,48 @@ describe('buildSettlementExecutor for Juicyway', () => {
         p_metadata: expect.objectContaining({ retained_shipping_amount: 0 }),
       })
     );
+  });
+
+  it('preserves the legacy Juicyway settlement when funding source is null', async () => {
+    const { rpc, supabase } = createSupabase();
+    const result = await buildSettlementExecutor({
+      externalGatewayReference: 'BAC-JUICY',
+      settlementGateway: 'juicyway',
+      supabase,
+      transaction: { ...transaction, platform_fee: 100 },
+      orderShippingFundingSource: null,
+      orderShippingRetainedAmount: null,
+    })(stepContext);
+    expect(result).toEqual({
+      gateway_fee: 0,
+      gross_amount: 20_000,
+      platform_fee: 100,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.objectContaining({
+        p_platform_fee: 100,
+        p_metadata: expect.not.objectContaining({
+          commerce_platform_fee: expect.anything(),
+          retained_shipping_amount: expect.anything(),
+        }),
+      })
+    );
+  });
+
+  it('fails closed for Juicyway when a null funding source has positive retained shipping', async () => {
+    const { rpc, supabase } = createSupabase();
+    await expect(
+      buildSettlementExecutor({
+        externalGatewayReference: 'BAC-JUICY',
+        settlementGateway: 'juicyway',
+        supabase,
+        transaction: { ...transaction, platform_fee: 100 },
+        orderShippingFundingSource: null,
+        orderShippingRetainedAmount: 1_100,
+      })(stepContext)
+    ).rejects.toThrow('Invalid retained shipping snapshot');
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('blocks the Juicyway RPC when combined fees exceed gross', async () => {

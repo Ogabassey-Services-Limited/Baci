@@ -132,7 +132,19 @@ export function buildSettlementExecutor(args: {
     const normalizedGatewayFee = gatewayFeeKobo / KOBO_PER_NAIRA;
     const platformFee = platformFeeKobo / KOBO_PER_NAIRA;
     const hasEconomicsSnapshot =
-      validatedArgs.orderShippingFundingSource !== undefined;
+      validatedArgs.orderShippingFundingSource != null;
+    if (
+      !hasEconomicsSnapshot &&
+      validatedArgs.orderShippingRetainedAmount != null &&
+      toNumber(
+        validatedArgs.orderShippingRetainedAmount,
+        'retained shipping amount'
+      ) > 0
+    ) {
+      throw new Error(
+        'Invalid retained shipping snapshot: funding source is required for a positive retained amount'
+      );
+    }
     const retainedShippingAmount =
       validatedArgs.orderShippingFundingSource === 'customer_checkout'
         ? toNumber(
