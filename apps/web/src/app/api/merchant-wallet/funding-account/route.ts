@@ -1,4 +1,5 @@
-import { NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
+import { checkCsrfProtection } from '@/lib/csrf';
 import {
   getMerchantWalletAccount,
   requestMerchantWalletAccount,
@@ -6,7 +7,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { merchantWalletFundingConsentSchema } from '@/schemas/merchant-wallet-funding';
 
-async function ownerContext() {
+async function ownerContext(request?: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -15,6 +16,19 @@ async function ownerContext() {
     return {
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
     } as const;
+  if (request) {
+    const csrf = await checkCsrfProtection(request);
+    if (!csrf.valid) {
+      return {
+        response:
+          csrf.response ??
+          NextResponse.json(
+            { error: 'CSRF validation failed' },
+            { status: 403 }
+          ),
+      } as const;
+    }
+  }
   const { data: merchant, error } = await supabase
     .from('merchants')
     .select('id, business_name, email')
@@ -52,8 +66,8 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
-  const context = await ownerContext();
+export async function POST(request: NextRequest) {
+  const context = await ownerContext(request);
   if ('response' in context) return context.response;
   let body: unknown;
   try {

@@ -84,57 +84,53 @@ describe('GIGL shipping settlement retention', () => {
     );
   });
 
-  it.each([null, undefined] as const)(
-    'fails closed when %s funding source has positive retained shipping',
-    async (source) => {
-      const { rpc, supabase } = setup();
-      await expect(
-        buildSettlementExecutor({
-          externalGatewayReference: 'REF',
-          settlementGateway: 'paystack',
-          supabase,
-          transaction: { ...transaction, platform_fee: 1_000 },
-          ...(source === undefined
-            ? {}
-            : { orderShippingFundingSource: source }),
-          orderShippingRetainedAmount: 11_000,
-        })(context)
-      ).rejects.toThrow('Invalid retained shipping snapshot');
-      expect(rpc).not.toHaveBeenCalled();
-    }
-  );
-
-  it.each([null, undefined] as const)(
-    'preserves legacy settlement when %s funding source has no retained amount',
-    async (source) => {
-      const { rpc, supabase } = setup();
-      const result = await buildSettlementExecutor({
+  it.each([
+    null,
+    undefined,
+  ] as const)('fails closed when %s funding source has positive retained shipping', async (source) => {
+    const { rpc, supabase } = setup();
+    await expect(
+      buildSettlementExecutor({
         externalGatewayReference: 'REF',
         settlementGateway: 'paystack',
         supabase,
         transaction: { ...transaction, platform_fee: 1_000 },
-        ...(source === undefined
-          ? {}
-          : { orderShippingFundingSource: source }),
-        orderShippingRetainedAmount: source === null ? null : 0,
-      })(context);
-      expect(result).toEqual({
-        gateway_fee: 0,
-        gross_amount: 100_000,
-        platform_fee: 1_000,
-      });
-      expect(rpc).toHaveBeenCalledWith(
-        'record_merchant_settlement',
-        expect.objectContaining({
-          p_platform_fee: 1_000,
-          p_metadata: expect.not.objectContaining({
-            commerce_platform_fee: expect.anything(),
-            retained_shipping_amount: expect.anything(),
-          }),
-        })
-      );
-    }
-  );
+        ...(source === undefined ? {} : { orderShippingFundingSource: source }),
+        orderShippingRetainedAmount: 11_000,
+      })(context)
+    ).rejects.toThrow('Invalid retained shipping snapshot');
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    null,
+    undefined,
+  ] as const)('preserves legacy settlement when %s funding source has no retained amount', async (source) => {
+    const { rpc, supabase } = setup();
+    const result = await buildSettlementExecutor({
+      externalGatewayReference: 'REF',
+      settlementGateway: 'paystack',
+      supabase,
+      transaction: { ...transaction, platform_fee: 1_000 },
+      ...(source === undefined ? {} : { orderShippingFundingSource: source }),
+      orderShippingRetainedAmount: source === null ? null : 0,
+    })(context);
+    expect(result).toEqual({
+      gateway_fee: 0,
+      gross_amount: 100_000,
+      platform_fee: 1_000,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.objectContaining({
+        p_platform_fee: 1_000,
+        p_metadata: expect.not.objectContaining({
+          commerce_platform_fee: expect.anything(),
+          retained_shipping_amount: expect.anything(),
+        }),
+      })
+    );
+  });
 
   it('fails closed when retained shipping makes fees exceed verified gross', async () => {
     const { rpc, supabase } = setup();
