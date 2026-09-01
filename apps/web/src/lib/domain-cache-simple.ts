@@ -1,25 +1,20 @@
 /**
  * Custom domain lookup for edge middleware
  *
- * Strategy (2026 best practice):
- * 1. Read from Vercel Edge Config (~1ms, no DB query)
- * 2. Fall back to in-memory cache + DB query (for local dev or Edge Config outage)
+ * Strategy:
+ * 1. Read from Vercel Edge Config (global, low-latency mapping)
+ * 2. Fall back to in-memory cache + DB query during missing keys or outages
  *
- * Edge Config is synced via POST /api/edge-config/sync (triggered by DB webhook).
- * Keys: "slug_{merchantSlug}" -> custom domain string
- *
- * WHY THIS IS SAFE:
- * - Edge Config reads require no secrets (uses EDGE_CONFIG connection string)
- * - Domain mappings are inherently public data (DNS records are public)
- * - The DB fallback uses createAdminClient because middleware runs before auth,
- *   and RLS requires auth.uid() which doesn't exist for anonymous redirects.
- *   This is a read-only lookup - it cannot modify data.
+ * Edge Config is synced by the domain webhook through /api/edge-config/sync.
+ * Domain mappings are public routing data. The DB fallback is read-only and
+ * uses the admin client because middleware runs before an authenticated session.
  */
 
 import {
   getEdgeConfigDomainKey,
   getEdgeConfigSlugKey,
 } from '@/lib/edge-config-keys';
+import { BoundedTtlCache } from './bounded-ttl-cache';
 import { createAdminClient } from './supabase/admin';
 
 interface CacheEntry {
@@ -32,42 +27,66 @@ const domainCache = new Map<string, CacheEntry>();
 const CACHE_TTL = 300_000; // 5 minutes
 const MAX_CACHE_SIZE = 1000;
 
-/**
- * Look up a merchant's primary custom domain by slug.
- * Uses Edge Config first, falls back to cached DB query.
- */
+// Edge Config reads are billed/provider work even when they are very fast. Keep
+// successful mappings warm per instance for 60 seconds, with a bounded LRU to
+// reduce reads while limiting the stale-routing window after mapping changes.
+const EDGE_CONFIG_CACHE_TTL = 60_000;
+const MAX_EDGE_CONFIG_CACHE_SIZE = 1000;
+const edgeForwardCache = new BoundedTtlCache<string>(
+  EDGE_CONFIG_CACHE_TTL,
+  MAX_EDGE_CONFIG_CACHE_SIZE
+);
+const edgeReverseCache = new BoundedTtlCache<string>(
+  EDGE_CONFIG_CACHE_TTL,
+  MAX_EDGE_CONFIG_CACHE_SIZE
+);
+
+function normalizeSlug(slug: string): string {
+  return slug.trim().toLowerCase();
+}
+
+function normalizeDomain(domain: string): string {
+  return domain.trim().toLowerCase().replace(/\.+$/, '');
+}
+
+/** Look up a merchant's primary custom domain by slug. */
 export async function getCustomDomainForSlug(
   merchantSlug: string
 ): Promise<string | null> {
+  const normalizedSlug = normalizeSlug(merchantSlug);
   // 1. Try Edge Config (near-zero latency, no DB)
-  const edgeDomain = await readFromEdgeConfig(merchantSlug);
+  const edgeDomain = await readFromEdgeConfig(normalizedSlug);
   if (edgeDomain) {
     return edgeDomain;
   }
 
   // 2. Fall back to in-memory cache + DB.
   // This also covers stale/missing Edge Config keys.
-  return getFromCacheOrDb(merchantSlug);
+  return getFromCacheOrDb(normalizedSlug);
 }
 
-/**
- * Read from Vercel Edge Config.
- * Returns the domain string if present, otherwise undefined.
- */
+/** Read a domain mapping from Vercel Edge Config. */
 async function readFromEdgeConfig(
   merchantSlug: string
 ): Promise<string | undefined> {
+  const cached = edgeForwardCache.get(merchantSlug);
+  if (cached) return cached;
+
   try {
     const { get } = await import('@vercel/edge-config');
     const value = await get<string>(getEdgeConfigSlugKey(merchantSlug));
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
+    if (typeof value === 'string' && value.length > 0) {
+      edgeForwardCache.set(merchantSlug, value);
+      return value;
+    }
+    return undefined;
   } catch {
     // Edge Config not configured or unavailable - fall through to DB
     return undefined;
   }
 }
 
-/** In-memory cache with DB fallback */
+/** In-memory cache with DB fallback. */
 async function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
   const cached = domainCache.get(merchantSlug);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -90,16 +109,11 @@ async function getFromCacheOrDb(merchantSlug: string): Promise<string | null> {
   return customDomain;
 }
 
-/**
- * Drop the forward slug->custom-domain cache entry for `slug` (including a cached
- * NEGATIVE result). Called by the rename flow: a slug probed shortly BEFORE it
- * became a merchant's live slug can hold a cached `null` for up to CACHE_TTL, so
- * the new subdomain would fail to 301 to the merchant's custom domain (and
- * retired-alias redirects could land on {slug}.<root> instead) until it expires.
- * Cheap: a single Map delete.
- */
+/** Drop forward cache entries (including cached negative DB results) on rename. */
 export function invalidateForwardDomainCacheForSlug(slug: string): void {
-  domainCache.delete(slug);
+  const normalizedSlug = normalizeSlug(slug);
+  domainCache.delete(normalizedSlug);
+  edgeForwardCache.delete(normalizedSlug);
 }
 
 /**
@@ -114,45 +128,41 @@ interface ReverseCacheEntry {
 
 const reverseDomainCache = new Map<string, ReverseCacheEntry>();
 
-/**
- * Drop any reverse domain->slug cache entries that currently map to `slug`.
- * Called by the rename flow so a custom domain stops resolving to a retired slug
- * on THIS instance immediately. Other instances are corrected cross-instance by
- * the proxy's alias-aware fallback (a stale domain->oldSlug is followed to the
- * current slug via the alias table) plus the Edge Config resync. Cheap: the cache
- * is bounded to MAX_CACHE_SIZE entries.
- */
+/** Drop reverse domain->slug entries that map to a renamed slug. */
 export function invalidateReverseDomainCacheForSlug(slug: string): void {
+  const normalizedSlug = normalizeSlug(slug);
   for (const [domain, entry] of reverseDomainCache) {
-    if (entry.slug === slug) {
+    if (entry.slug === normalizedSlug) {
       reverseDomainCache.delete(domain);
     }
   }
+  edgeReverseCache.deleteWhere((value) => value === normalizedSlug);
 }
 
 export async function getSlugForCustomDomain(
   domain: string
 ): Promise<string | null> {
-  const cached = reverseDomainCache.get(domain);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.slug;
-  }
-
+  const normalizedDomain = normalizeDomain(domain);
   // 1. Try Edge Config reverse mapping (domain_* -> slug)
-  const edgeSlug = await readSlugFromEdgeConfig(domain);
+  const edgeSlug = await readSlugFromEdgeConfig(normalizedDomain);
   if (edgeSlug) {
     return edgeSlug;
   }
 
-  // 2. Fall back to DB
-  const slug = await fetchSlugForDomain(domain);
+  // 2. Fall back to the warm DB result, then the database. Edge Config must
+  // remain authoritative when a previously missing mapping becomes available.
+  const cached = reverseDomainCache.get(normalizedDomain);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.slug;
+  }
+  const slug = await fetchSlugForDomain(normalizedDomain);
 
   if (reverseDomainCache.size >= MAX_CACHE_SIZE) {
     const firstKey = reverseDomainCache.keys().next().value;
     if (firstKey) reverseDomainCache.delete(firstKey);
   }
 
-  reverseDomainCache.set(domain, {
+  reverseDomainCache.set(normalizedDomain, {
     slug,
     timestamp: Date.now(),
   });
@@ -163,10 +173,18 @@ export async function getSlugForCustomDomain(
 async function readSlugFromEdgeConfig(
   domain: string
 ): Promise<string | undefined> {
+  const cached = edgeReverseCache.get(domain);
+  if (cached) return cached;
+
   try {
     const { get } = await import('@vercel/edge-config');
     const value = await get<string>(getEdgeConfigDomainKey(domain));
-    return typeof value === 'string' && value.length > 0 ? value : undefined;
+    if (typeof value === 'string' && value.length > 0) {
+      const normalizedSlug = normalizeSlug(value);
+      edgeReverseCache.set(domain, normalizedSlug);
+      return normalizedSlug;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
