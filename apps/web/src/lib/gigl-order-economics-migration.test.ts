@@ -48,4 +48,18 @@ describe('GIGL order economics migration contract', () => {
       'BEFORE INSERT OR UPDATE OF selected_quote_id, shipping_funding_source'
     );
   });
+
+  it.each([
+    'IF NEW.selected_quote_id IS NULL THEN',
+    'IF NOT FOUND OR',
+    "upper(pg_catalog.btrim(COALESCE(v_provider, ''))) <> 'GIGL'",
+    "v_pricing_version IS DISTINCT FROM 'gigl_platform_margin_v1'",
+  ])('clears caller-supplied economics before ineligible return (%s)', (marker) => {
+    expect(migration).toContain(marker);
+    expect(migration).toContain('NEW.shipping_funding_source := NULL');
+    expect(migration).toContain('NEW.shipping_provider_cost := NULL');
+    expect(migration).toContain('NEW.shipping_platform_margin := NULL');
+    expect(migration).toContain('NEW.shipping_pricing_version := NULL');
+    expect(migration).toContain('NEW.shipping_platform_retained_amount := 0');
+  });
 });

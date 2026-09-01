@@ -91,4 +91,66 @@ describe('buildSettlementExecutor for Juicyway', () => {
       expect.objectContaining({ p_platform_fee: 1.5 })
     );
   });
+
+  it('retains customer checkout shipping once for Juicyway', async () => {
+    const { rpc, supabase } = createSupabase();
+    const result = await buildSettlementExecutor({
+      externalGatewayReference: 'BAC-JUICY',
+      settlementGateway: 'juicyway',
+      supabase,
+      transaction: { ...transaction, platform_fee: 100 },
+      orderShippingFundingSource: 'customer_checkout',
+      orderShippingRetainedAmount: 1_100,
+    })(stepContext);
+    expect(result).toMatchObject({
+      commerce_platform_fee: 100,
+      retained_shipping_amount: 1_100,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.objectContaining({
+        p_platform_fee: 1_200,
+        p_metadata: expect.objectContaining({
+          retained_shipping_amount: 1_100,
+        }),
+      })
+    );
+  });
+
+  it.each([
+    'merchant_wallet',
+    null,
+  ] as const)('retains zero shipping for Juicyway %s funding', async (source) => {
+    const { rpc, supabase } = createSupabase();
+    await buildSettlementExecutor({
+      externalGatewayReference: 'BAC-JUICY',
+      settlementGateway: 'juicyway',
+      supabase,
+      transaction: { ...transaction, platform_fee: 100 },
+      orderShippingFundingSource: source,
+      orderShippingRetainedAmount: 1_100,
+    })(stepContext);
+    expect(rpc).toHaveBeenCalledWith(
+      'record_merchant_settlement',
+      expect.objectContaining({
+        p_platform_fee: 100,
+        p_metadata: expect.objectContaining({ retained_shipping_amount: 0 }),
+      })
+    );
+  });
+
+  it('blocks the Juicyway RPC when combined fees exceed gross', async () => {
+    const { rpc, supabase } = createSupabase();
+    await expect(
+      buildSettlementExecutor({
+        externalGatewayReference: 'BAC-JUICY',
+        settlementGateway: 'juicyway',
+        supabase,
+        transaction: { ...transaction, amount: 100, platform_fee: 90 },
+        orderShippingFundingSource: 'customer_checkout',
+        orderShippingRetainedAmount: 20,
+      })(stepContext)
+    ).rejects.toThrow('Settlement fees exceed gross amount');
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

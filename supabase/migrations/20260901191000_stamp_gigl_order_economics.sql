@@ -30,9 +30,11 @@ BEGIN
   END IF;
 
   IF NEW.selected_quote_id IS NULL THEN
-    IF NEW.shipping_funding_source = 'merchant_wallet' THEN
-      NEW.shipping_platform_retained_amount := 0;
-    END IF;
+    NEW.shipping_funding_source := NULL;
+    NEW.shipping_provider_cost := NULL;
+    NEW.shipping_platform_margin := NULL;
+    NEW.shipping_pricing_version := NULL;
+    NEW.shipping_platform_retained_amount := 0;
     RETURN NEW;
   END IF;
 
@@ -48,6 +50,11 @@ BEGIN
   IF NOT FOUND OR pg_catalog.upper(pg_catalog.btrim(COALESCE(v_provider, ''))) <> 'GIGL'
      OR v_merchant_id IS DISTINCT FROM NEW.merchant_id
      OR v_pricing_version IS DISTINCT FROM 'gigl_platform_margin_v1' THEN
+    NEW.shipping_funding_source := NULL;
+    NEW.shipping_provider_cost := NULL;
+    NEW.shipping_platform_margin := NULL;
+    NEW.shipping_pricing_version := NULL;
+    NEW.shipping_platform_retained_amount := 0;
     RETURN NEW;
   END IF;
 
