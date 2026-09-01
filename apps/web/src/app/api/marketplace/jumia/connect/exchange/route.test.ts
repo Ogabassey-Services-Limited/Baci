@@ -48,6 +48,15 @@ vi.mock('@/env', () => ({
 
 vi.mock('@/lib/jumia/helpers', () => ({
   exchangeJumiaCode: (...args: unknown[]) => mockExchangeJumiaCode(...args),
+  JumiaApiError: class JumiaApiError extends Error {
+    status: number;
+    details?: unknown;
+    constructor(status: number, message: string, details?: unknown) {
+      super(`Jumia API Error (${status}): ${message}`);
+      this.status = status;
+      this.details = details;
+    }
+  },
   getJumiaRedirectUri: vi.fn(
     () => 'https://usebaci.com/api/marketplace/jumia/callback'
   ),
@@ -492,5 +501,26 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
         p_ticket_id: TICKET_ID,
       })
     );
+  });
+
+  it('does not log provider token-exchange details', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    const { JumiaApiError } = await import('@/lib/jumia/helpers');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockExchangeJumiaCode.mockRejectedValue(
+      new JumiaApiError(400, 'Token exchange failed', {
+        refresh_token: 'secret-refresh-token',
+      })
+    );
+
+    await POST(makeRequest({ code: 'bad-code', ticketId: TICKET_ID }));
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[Jumia Exchange] Token exchange failed:',
+      { message: 'Jumia API Error (400): Token exchange failed', status: 400 }
+    );
+    expect(errorSpy.mock.calls.flat()).not.toContain('secret-refresh-token');
+    errorSpy.mockRestore();
   });
 });

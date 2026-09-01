@@ -5,7 +5,6 @@
  * gives us a feed ID. A mapping becomes stock-syncable only after the feed
  * item is accepted and Jumia assigns a product ID.
  */
-
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -34,17 +33,17 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { jumiaFeedStatusQuerySchema } from '@/schemas/jumia-feed-status';
 import { AMBIGUOUS_JUMIA_EXPORT_ERROR } from '../export/mark-ambiguous-jumia-export';
+import { handleJumiaFeedLookupFailure } from './handle-jumia-feed-lookup-failure';
+import { handleJumiaFeedProcessingFailure } from './handle-jumia-feed-processing-failure';
 import { jumiaFeedReconciliation } from './jumia-feed-reconciliation';
 import { loadPendingFeedMappings } from './load-pending-feed-mappings';
 
 type PendingMapping = PendingFeedMapping;
-
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) {
     return (
@@ -52,7 +51,6 @@ export async function POST(request: NextRequest) {
       NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
     );
   }
-
   const parsedQuery = jumiaFeedStatusQuerySchema.safeParse({
     integrationId: new URL(request.url).searchParams.get('integrationId'),
   });
@@ -65,7 +63,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-
   const merchantId = await getMerchantIdForApiUser(auth.supabase);
   if (!merchantId) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
@@ -74,14 +71,12 @@ export async function POST(request: NextRequest) {
   if (!access || !hasPermission(access, 'integrations', 'manage')) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
-
   const featureGateResponse = await requireMerchantFeatureAccess(
     auth.supabase,
     merchantId,
     'marketplace_sync'
   );
   if (featureGateResponse) return featureGateResponse;
-
   let jumia: JumiaClient;
   try {
     jumia = await JumiaClient.forIntegration(
@@ -100,7 +95,6 @@ export async function POST(request: NextRequest) {
       { status: 502 }
     );
   }
-
   const { mappings, error: mappingsError } = await loadPendingFeedMappings(
     auth.supabase,
     merchantId,
@@ -118,7 +112,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-
   const pending = mappings as PendingMapping[];
   const manualResolutionRequired = pending
     .filter(
@@ -139,10 +132,14 @@ export async function POST(request: NextRequest) {
   }> = [];
   let updated = 0;
   let failed = 0;
-
   for (const feedId of feedIds) {
+    const mappingsForFeed = pending.filter(
+      (mapping) => mapping.last_feed_id === feedId
+    );
+    let feedLookupCompleted = false;
     try {
       const feed = await getFeedStatus(jumia, feedId);
+      feedLookupCompleted = true;
       feedResults.push({
         feedId,
         status: feed.status,
@@ -150,11 +147,7 @@ export async function POST(request: NextRequest) {
         failed: feed.failed,
       });
 
-      const mappingsForFeed = pending.filter(
-        (mapping) => mapping.last_feed_id === feedId
-      );
       const processedMappingIds = new Set<string>();
-
       if (
         feed.feedItems.length === 0 &&
         (feed.failed > 0 || isFailedFeedStatus(feed.status))
@@ -185,7 +178,6 @@ export async function POST(request: NextRequest) {
         if (!accepted && !rejected) continue;
 
         const acceptedWithoutProductId = accepted && !item.productSid;
-
         const update =
           accepted && !acceptedWithoutProductId
             ? {
@@ -195,16 +187,21 @@ export async function POST(request: NextRequest) {
                 sync_error: null,
                 last_synced_at: new Date().toISOString(),
               }
-            : {
-                sync_status: 'error',
-                sync_error:
-                  (acceptedWithoutProductId
-                    ? 'Jumia accepted this product feed without a product ID'
-                    : item.errorMessage) ??
-                  item.errors?.globalMessages?.join('; ') ??
-                  'Jumia rejected this product',
-                last_synced_at: new Date().toISOString(),
-              };
+            : acceptedWithoutProductId
+              ? {
+                  sync_status: 'pending',
+                  sync_error: AMBIGUOUS_JUMIA_EXPORT_ERROR,
+                  last_feed_id: null,
+                  last_synced_at: new Date().toISOString(),
+                }
+              : {
+                  sync_status: 'error',
+                  sync_error:
+                    item.errorMessage ??
+                    item.errors?.globalMessages?.join('; ') ??
+                    'Jumia rejected this product',
+                  last_synced_at: new Date().toISOString(),
+                };
         const { error: updateError } = await auth.supabase
           .from('jumia_product_mappings')
           .update(update)
@@ -221,9 +218,13 @@ export async function POST(request: NextRequest) {
           );
         }
         if (accepted && !acceptedWithoutProductId) updated++;
-        else failed++;
+        else if (acceptedWithoutProductId) {
+          manualResolutionRequired.push({
+            mappingId: mapping.id,
+            sellerSku: mapping.jumia_seller_sku,
+          });
+        } else failed++;
       }
-
       const unmatchedMappings = mappingsForFeed.filter(
         (mapping) => !processedMappingIds.has(mapping.id)
       );
@@ -239,7 +240,6 @@ export async function POST(request: NextRequest) {
         );
         failed += marked;
       }
-
       const { error: cursorError } = await auth.supabase
         .from('jumia_product_mappings')
         .update({ last_synced_at: new Date().toISOString() })
@@ -258,16 +258,25 @@ export async function POST(request: NextRequest) {
         );
       }
     } catch (error) {
-      if (error instanceof JumiaApiError) return jumiaErrorResponse(error);
-      logger.error({
-        message: 'Failed to read Jumia feed status',
-        error,
-        feed_id: feedId,
-      });
-      return NextResponse.json(
-        { error: 'Failed to read Jumia feed status' },
-        { status: 502 }
-      );
+      if (!feedLookupCompleted) {
+        const lookupFailure = await handleJumiaFeedLookupFailure({
+          error,
+          feedId,
+          mappingsForFeed,
+          merchantId,
+          supabase: auth.supabase,
+        });
+        if (lookupFailure.kind === 'response') return lookupFailure.response;
+        failed += lookupFailure.failed;
+        feedResults.push({
+          feedId,
+          status: lookupFailure.status,
+          completed: 0,
+          failed: lookupFailure.feedFailed,
+        });
+        continue;
+      }
+      return handleJumiaFeedProcessingFailure({ error, feedId });
     }
   }
 

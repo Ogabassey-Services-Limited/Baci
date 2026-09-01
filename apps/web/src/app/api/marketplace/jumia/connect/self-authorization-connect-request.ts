@@ -6,19 +6,18 @@ import { jumiaAuthorizationCrypto } from '@/lib/jumia/authorization-crypto';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
 import {
   claimJumiaSelfAuthorizationDiscovery,
-  consumeJumiaSelfAuthorizationDiscovery,
   createJumiaSelfAuthorizationDiscovery,
   preserveJumiaSelfAuthorizationDiscoveryAfterRotation,
-  releaseJumiaSelfAuthorizationDiscovery,
-  updateClaimedJumiaSelfAuthorizationDiscovery,
 } from '@/lib/jumia/self-authorization-discovery-store';
-import { logger } from '@/lib/logger';
 import type {
   jumiaSelfAuthorizationDiscoverySchema,
   jumiaSelfAuthorizationSelectionSchema,
 } from '@/schemas/jumia/self-authorization';
 import { claimJumiaDiscoveryCredentials } from './claim-jumia-discovery-credentials';
+import { cleanupJumiaSelectionDiscovery } from './cleanup-jumia-selection-discovery';
+import { setJumiaDiscoveryRecoveryHeader } from './jumia-discovery-recovery-response';
 import { loadExistingJumiaShopIdsOrResponse } from './load-existing-jumia-shop-ids';
+import { persistJumiaSelectionRotation } from './persist-jumia-selection-rotation';
 import { releaseJumiaDiscoveryClaim } from './release-jumia-discovery-claim';
 import { jumiaSelfAuthorizationHandler } from './self-authorization-handler';
 import { validateJumiaSelfAuthorizationForConnect } from './validate-jumia-self-authorization-for-connect';
@@ -203,6 +202,7 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
       )
     );
     const expectedRotationVersionRef: { current?: number } = {};
+    const recoveryDiscoveryIdRef: { current?: string } = {};
     try {
       const response = await jumiaSelfAuthorizationHandler.connect({
         credentials: {
@@ -224,12 +224,16 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
               credentialCiphertext,
               expectedRotationVersion,
             }) => {
-              expectedRotationVersionRef.current = expectedRotationVersion;
-              await updateClaimedJumiaSelfAuthorizationDiscovery(supabase, {
+              await persistJumiaSelectionRotation({
+                supabase,
                 discoveryId: body.discoveryId,
                 merchantId,
+                clientKeyHash,
                 claimToken: discoveryClaim.claimToken,
                 credentialCiphertext,
+                expectedRotationVersion,
+                expectedRotationVersionRef,
+                recoveryDiscoveryIdRef,
               });
             },
             submittedCredentials: credentials,
@@ -238,6 +242,10 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         encrypt: jumiaAuthorizationCrypto.encrypt,
         expectedRotationVersionRef,
       });
+      const discoveryComplete = setJumiaDiscoveryRecoveryHeader(
+        response,
+        recoveryDiscoveryIdRef.current
+      );
       if (!response.ok) {
         await releaseJumiaDiscoveryClaim({
           discoveryId: body.discoveryId,
@@ -247,32 +255,14 @@ export async function handleJumiaSelfAuthorizationConnectRequest(args: {
         });
         return response;
       }
-      try {
-        const discoveryComplete =
-          response.headers.get('x-jumia-discovery-complete') !== 'false';
-        if (discoveryComplete) {
-          await consumeJumiaSelfAuthorizationDiscovery(supabase, {
-            discoveryId: body.discoveryId,
-            merchantId,
-            clientKeyHash,
-            claimToken: discoveryClaim.claimToken,
-          });
-        } else {
-          await releaseJumiaSelfAuthorizationDiscovery(supabase, {
-            discoveryId: body.discoveryId,
-            merchantId,
-            claimToken: discoveryClaim.claimToken,
-          });
-        }
-      } catch (cleanupError) {
-        logger.warn({
-          message:
-            'Jumia self-authorization connect succeeded but discovery cleanup failed',
-          error: cleanupError,
-          discovery_id: body.discoveryId,
-          merchant_id: merchantId,
-        });
-      }
+      await cleanupJumiaSelectionDiscovery({
+        supabase,
+        discoveryId: body.discoveryId,
+        merchantId,
+        clientKeyHash,
+        claimToken: discoveryClaim.claimToken,
+        discoveryComplete,
+      });
       return response;
     } catch (error) {
       await releaseJumiaDiscoveryClaim({

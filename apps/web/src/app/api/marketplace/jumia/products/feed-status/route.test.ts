@@ -26,7 +26,14 @@ vi.mock('@/lib/merchant-feature-gates', () => ({
 }));
 vi.mock('@/lib/jumia/client', () => ({
   JumiaClient: { forIntegration: mocks.client },
-  JumiaApiError: class JumiaApiError extends Error {},
+  JumiaApiError: class JumiaApiError extends Error {
+    status: number;
+
+    constructor(status: number, message: string) {
+      super(message);
+      this.status = status;
+    }
+  },
   jumiaErrorResponse: vi.fn(() =>
     Response.json({ error: 'Jumia error' }, { status: 502 })
   ),
@@ -237,7 +244,7 @@ describe('Jumia feed status route', () => {
     );
   });
 
-  it('marks an accepted item without a product id as failed', async () => {
+  it('keeps an accepted item without a product id pending for manual resolution', async () => {
     const update = vi.fn();
     mocks.from.mockReturnValue({
       update: mappingUpdate(update),
@@ -277,12 +284,82 @@ describe('Jumia feed status route', () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       updated: 0,
-      failed: 1,
+      failed: 0,
+      pending: 1,
+      manualResolutionRequired: [
+        { mappingId: 'mapping-1', sellerSku: 'SKU-1' },
+      ],
     });
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
+        sync_status: 'pending',
+        sync_error: 'ambiguous_submission_requires_manual_resolution',
+        last_feed_id: null,
+      })
+    );
+  });
+
+  it('continues reconciling newer feeds after a feed lookup fails', async () => {
+    const update = vi.fn();
+    mocks.from.mockReturnValue({
+      update: mappingUpdate(update),
+    });
+    mocks.pendingMappings.mockResolvedValue({
+      mappings: [
+        {
+          id: 'mapping-missing',
+          last_feed_id: 'feed-missing',
+          jumia_seller_sku: 'SKU-MISSING',
+          last_synced_at: '2026-08-01T00:00:00Z',
+        },
+        {
+          id: 'mapping-current',
+          last_feed_id: 'feed-current',
+          jumia_seller_sku: 'SKU-CURRENT',
+          last_synced_at: '2026-08-02T00:00:00Z',
+        },
+      ],
+      error: null,
+    });
+    mocks.feed
+      .mockRejectedValueOnce(
+        new (await import('@/lib/jumia/client')).JumiaApiError(404, 'gone')
+      )
+      .mockResolvedValueOnce({
+        feedSid: 'feed-current',
+        status: 'COMPLETED',
+        feedType: 'ProductCreate',
+        feedSource: 'API',
+        total: 1,
+        completed: 1,
+        failed: 0,
+        createdBy: { sid: 'sid', name: 'API', email: 'api@example.com' },
+        feedItems: [
+          {
+            status: 'SUCCESS',
+            productSid: 'JUMIA-CURRENT',
+            sellerSKU: 'SKU-CURRENT',
+            createdAt: '2026-08-12T10:00:00Z',
+            updatedAt: '2026-08-12T10:00:00Z',
+          },
+        ],
+      });
+
+    const response = await POST(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.feed).toHaveBeenCalledTimes(2);
+    expect(body.feeds).toEqual([
+      expect.objectContaining({ feedId: 'feed-missing', status: 'NOT_FOUND' }),
+      expect.objectContaining({ feedId: 'feed-current', status: 'COMPLETED' }),
+    ]);
+    expect(body.updated).toBe(1);
+    expect(body.failed).toBe(1);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
         sync_status: 'error',
-        sync_error: 'Jumia accepted this product feed without a product ID',
+        sync_error: 'Jumia product feed was not found',
       })
     );
   });

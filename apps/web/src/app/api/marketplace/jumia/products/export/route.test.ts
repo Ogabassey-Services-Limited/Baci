@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockRequireMerchantFeatureAccess,
+  mockGetUserAccess,
+  mockHasPermission,
   mockMaybeSingle,
   mockVariantsResult,
   mockInsert,
@@ -16,6 +18,8 @@ const {
   mockCreateProduct,
 } = vi.hoisted(() => {
   const mockRequireMerchantFeatureAccess = vi.fn();
+  const mockGetUserAccess = vi.fn();
+  const mockHasPermission = vi.fn();
   const mockMaybeSingle = vi.fn();
   const mockVariantsResult = vi.fn();
   const mockInsert = vi.fn();
@@ -122,6 +126,8 @@ const {
   const mockCreateProduct = vi.fn();
   return {
     mockRequireMerchantFeatureAccess,
+    mockGetUserAccess,
+    mockHasPermission,
     mockMaybeSingle,
     mockVariantsResult,
     mockInsert,
@@ -145,6 +151,8 @@ vi.mock('@/lib/api-auth', () => ({
   getMerchantIdForApiUser: vi
     .fn()
     .mockResolvedValue('00000000-0000-4000-8000-000000000001'),
+  getUserAccess: (...args: unknown[]) => mockGetUserAccess(...args),
+  hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
 
 vi.mock('@/lib/merchant-feature-gates', () => ({
@@ -227,6 +235,8 @@ describe('Products Export POST', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockRequireMerchantFeatureAccess.mockReset();
+    mockGetUserAccess.mockReset();
+    mockHasPermission.mockReset();
     mockMaybeSingle.mockReset();
     mockVariantsResult.mockReset();
     mockInsert.mockReset();
@@ -234,6 +244,10 @@ describe('Products Export POST', () => {
     mockForIntegration.mockReset();
     mockCreateProduct.mockReset();
     mockRequireMerchantFeatureAccess.mockResolvedValue(null);
+    mockGetUserAccess.mockResolvedValue({
+      merchantId: '00000000-0000-4000-8000-000000000001',
+    });
+    mockHasPermission.mockReturnValue(true);
     mockOwnedProductResolution();
     mockInsert.mockResolvedValue({ error: null });
     mockMappingIn.mockImplementation((_column: string, values: unknown[]) =>
@@ -256,6 +270,16 @@ describe('Products Export POST', () => {
     });
     const res = await POST(makePostRequest(VALID_BODY));
     expect(res.status).toBe(403);
+  });
+
+  it('returns 403 before export lookups when integrations.manage is missing', async () => {
+    mockHasPermission.mockReturnValueOnce(false);
+
+    const res = await POST(makePostRequest(VALID_BODY));
+
+    expect(res.status).toBe(403);
+    expect(mockMaybeSingle).not.toHaveBeenCalled();
+    expect(mockForIntegration).not.toHaveBeenCalled();
   });
 
   it('returns 401 when unauthenticated', async () => {

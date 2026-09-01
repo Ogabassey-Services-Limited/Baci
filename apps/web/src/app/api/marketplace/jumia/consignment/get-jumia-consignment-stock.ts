@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { requireMerchantFeatureAccess } from '@/lib/merchant-feature-gates';
 import { createClient } from '@/lib/supabase/server';
 import { jumiaConsignmentGetQuerySchema } from '@/schemas/jumia/consignment-api';
+import { resolveJumiaConsignmentBusinessClientCode } from './resolve-jumia-consignment-business-client-code';
 
 export async function getJumiaConsignmentStock(
   request: NextRequest
@@ -77,9 +78,23 @@ export async function getJumiaConsignmentStock(
       merchantId,
       integrationId
     );
+    const resolvedBusinessClientCode =
+      resolveJumiaConsignmentBusinessClientCode(
+        jumiaClient.marketplaceKey,
+        businessClientCode
+      );
+    if (!resolvedBusinessClientCode.ok) {
+      return NextResponse.json(
+        {
+          error:
+            'businessClientCode does not match the selected Jumia marketplace',
+        },
+        { status: 400 }
+      );
+    }
     const stock = await getConsignmentStock(
       jumiaClient,
-      businessClientCode,
+      resolvedBusinessClientCode.businessClientCode,
       sku
     );
 

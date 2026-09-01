@@ -27,6 +27,7 @@ describe('ConnectJumiaDialog', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
   });
 
   it('renders the dialog title when open', () => {

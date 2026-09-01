@@ -157,6 +157,7 @@ const factoryExports: Readonly<Record<FactoryKind, readonly string[]>> = {
 };
 const serviceSentinels: Readonly<Record<string, string>> = {
   'apps/web/src/lib/ads/server-credential-client.ts': 'ads-credentials',
+  'apps/web/src/lib/jumia/server-credential-client.ts': 'jumia-credentials',
 };
 // biome-ignore format: exact construction allowlist preserves the 300-line verifier gate.
 const privilegedRouteAdminConstructors = ['apps/web/src/app/api/platform/events/platform-event-forwarding.ts'] as const;

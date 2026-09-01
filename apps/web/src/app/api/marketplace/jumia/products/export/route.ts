@@ -3,6 +3,8 @@ import { z } from 'zod';
 import {
   authenticateApiRequest,
   getMerchantIdForApiUser,
+  getUserAccess,
+  hasPermission,
 } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { JumiaClient } from '@/lib/jumia/client';
@@ -70,6 +72,11 @@ export async function POST(req: NextRequest) {
     }
 
     const supabase = auth.supabase;
+    const access = await getUserAccess(supabase);
+    if (!access || !hasPermission(access, 'integrations', 'manage')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const featureGateResponse = await requireMerchantFeatureAccess(
       supabase,
       merchantId,

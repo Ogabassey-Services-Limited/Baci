@@ -8,6 +8,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { formatJumiaOrderTimestamp } from '../_shared/jumia-order-timestamp.ts';
+import {
+  loadJumiaOrderSyncIntegrations,
+  type JumiaOrderSyncIntegration,
+} from './load-jumia-order-sync-integrations.ts';
 
 // Environment
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
@@ -33,9 +37,6 @@ if (!JUMIA_CLIENT_ID) {
 const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 const MAX_PAGES = 100;
 
-const INTEGRATION_COLUMNS =
-  'id, merchant_id, shop_id, access_token, refresh_token, token_expires_at, last_sync_at, sync_config';
-
 interface JumiaOrder {
   id: string;
   number: number;
@@ -57,20 +58,7 @@ interface JumiaOrder {
   };
 }
 
-interface MarketplaceIntegration {
-  id: string;
-  merchant_id: string;
-  shop_id: string;
-  access_token: string | null;
-  refresh_token: string;
-  token_expires_at: string | null;
-  last_sync_at: string | null;
-  sync_config: {
-    stock?: boolean;
-    products?: boolean;
-    orders?: boolean;
-  } | null;
-}
+type MarketplaceIntegration = JumiaOrderSyncIntegration;
 
 interface ProductMapping {
   id: string;
@@ -522,17 +510,8 @@ Deno.serve(async (req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
   try {
-    // Fetch all active Jumia integrations
-    const { data: integrations, error: intError } = await supabase
-      .from('marketplace_integrations')
-      .select(INTEGRATION_COLUMNS)
-      .eq('platform', 'jumia')
-      .eq('is_active', true)
-      .neq('connection_method', 'self_authorization');
-
-    if (intError) {
-      throw new Error(`Database error: ${intError.message}`);
-    }
+    // Fetch all active OAuth integrations through the focused loader.
+    const integrations = await loadJumiaOrderSyncIntegrations(supabase);
 
     if (!integrations || integrations.length === 0) {
       console.log('[Jumia Sync] No active integrations found');

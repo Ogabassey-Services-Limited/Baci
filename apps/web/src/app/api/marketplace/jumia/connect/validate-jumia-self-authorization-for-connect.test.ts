@@ -133,7 +133,7 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
     });
   });
 
-  it('claims the existing authorization before initial rediscovery validation', async () => {
+  it('claims the existing authorization but validates newly submitted credentials for initial reauthorization', async () => {
     vi.mocked(claimJumiaResumedAuthorization).mockResolvedValue({
       credentials: { clientId: 'client-1', refreshToken: 'fresh-refresh' },
       authorizationId: 'auth-1',
@@ -142,10 +142,7 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
     });
     vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
       async (submitted) => {
-        expect(submitted).toEqual({
-          clientId: 'client-1',
-          refreshToken: 'fresh-refresh',
-        });
+        expect(submitted).toEqual(credentials);
         return validated;
       }
     );
@@ -164,6 +161,9 @@ describe('validateJumiaSelfAuthorizationForConnect', () => {
         clientKeyHash: 'hash-1',
         merchantId: 'merchant-1',
       })
+    );
+    expect(releaseJumiaAuthorizationRefreshLease).toHaveBeenCalledWith(
+      expect.objectContaining({ leaseToken: 'lease-2' })
     );
   });
 

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ConnectJumiaManualForm } from './connect-jumia-manual-form';
+import { jumiaDiscoveryResumeStorage } from './jumia-discovery-resume-storage';
 import {
   connectJumiaShops,
   discoverJumiaShops,
@@ -30,12 +31,15 @@ export function ConnectJumiaDialog({
   onConnected,
 }: ConnectJumiaDialogProps) {
   const { toast } = useToast();
-  const [showManualForm, setShowManualForm] = useState(false);
+  const [resume] = useState(jumiaDiscoveryResumeStorage.read);
+  const [showManualForm, setShowManualForm] = useState(Boolean(resume));
   const [discovering, setDiscovering] = useState(false);
   const [connecting, setConnecting] = useState(false);
-  const [clientId, setClientId] = useState('');
+  const [clientId, setClientId] = useState(resume?.clientId ?? '');
   const [refreshToken, setRefreshToken] = useState('');
-  const [activeDiscoveryId, setActiveDiscoveryId] = useState('');
+  const [activeDiscoveryId, setActiveDiscoveryId] = useState(
+    resume?.discoveryId ?? ''
+  );
   const [discoveredShops, setDiscoveredShops] = useState<JumiaDiscoveredShop[]>(
     []
   );
@@ -49,12 +53,14 @@ export function ConnectJumiaDialog({
     setActiveDiscoveryId('');
     setDiscoveredShops([]);
     setSelectedShopIds(new Set());
+    jumiaDiscoveryResumeStorage.clear();
   };
 
   const clearDiscoveryState = () => {
     setActiveDiscoveryId('');
     setDiscoveredShops([]);
     setSelectedShopIds(new Set());
+    jumiaDiscoveryResumeStorage.clear();
   };
 
   const handleDiscover = async () => {
@@ -98,6 +104,7 @@ export function ConnectJumiaDialog({
 
     setDiscoveredShops(shops);
     setActiveDiscoveryId(result.discoveryId);
+    jumiaDiscoveryResumeStorage.write(clientId, result.discoveryId);
     // Require an explicit merchant choice for every destination returned by
     // discovery. Already-connected shops remain visibly checked and disabled
     // in the form, but new shops must never be connected implicitly.
@@ -134,12 +141,29 @@ export function ConnectJumiaDialog({
         // client ID so the merchant can finish the selection later.
         setRefreshToken('');
         setSelectedShopIds(new Set());
+        jumiaDiscoveryResumeStorage.write(
+          clientId,
+          result.discoveryId ?? activeDiscoveryId
+        );
+      }
+      if (result.discoveryId) {
+        setActiveDiscoveryId(result.discoveryId);
+        if (result.discoveryComplete !== true) {
+          jumiaDiscoveryResumeStorage.write(clientId, result.discoveryId);
+        }
       }
       setShowManualForm(false);
       onConnected();
       return;
     }
 
+    if (result.discoveryId && result.retryable) {
+      setActiveDiscoveryId(result.discoveryId);
+      jumiaDiscoveryResumeStorage.write(clientId, result.discoveryId);
+      setRefreshToken('');
+      setDiscoveredShops([]);
+      setSelectedShopIds(new Set());
+    }
     toast({
       title: 'Connection failed',
       description: result.error,

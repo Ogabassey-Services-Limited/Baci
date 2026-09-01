@@ -6,6 +6,7 @@ import {
   frozenEventPipelineAuthoritySources,
 } from '@/lib/events/event-pipeline-frozen-authority-sources';
 import { eventPipelineJumiaCredentialPaths } from '@/lib/events/event-pipeline-jumia-credential-paths';
+import { eventPipelineJumiaServicePaths } from '@/lib/events/event-pipeline-jumia-service-paths';
 import { eventPipelineLegacySdkImporters } from '@/lib/events/event-pipeline-legacy-sdk-importers';
 import {
   eventPipelineAdminAdjacentFunctions,
@@ -167,7 +168,10 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/app/api/orders/route.ts',
       'apps/web/src/lib/platform-admin-auth.ts',
     ],
-    servicePaths: eventPipelineAdsServicePaths,
+    servicePaths: [
+      ...eventPipelineAdsServicePaths,
+      ...eventPipelineJumiaServicePaths,
+    ],
     serviceImporters: [
       'apps/web/src/app/api/cron/drain-cache-invalidations/route.ts',
       'apps/web/src/app/api/cron/gigl-tracking-notifications/route.ts',
@@ -177,6 +181,7 @@ export const EVENT_PIPELINE_BOUNDARY = {
       'apps/web/src/lib/events/event-pipeline-service-role-test-client.ts',
       'apps/web/src/lib/ads/server-credential-client.ts',
       'apps/web/src/lib/ads/server-spend-client.ts',
+      'apps/web/src/lib/jumia/server-credential-client.ts',
       'apps/web/src/scripts/process-domain-events.ts',
       'apps/web/src/scripts/process-event-deliveries.ts',
     ],

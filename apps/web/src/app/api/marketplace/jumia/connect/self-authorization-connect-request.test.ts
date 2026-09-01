@@ -619,4 +619,91 @@ describe('handleJumiaSelfAuthorizationConnectRequest', () => {
     );
     expect(releaseJumiaSelfAuthorizationDiscovery).toHaveBeenCalled();
   });
+
+  it('returns a recovery discovery when selection rotation cannot update its claim', async () => {
+    vi.mocked(
+      updateClaimedJumiaSelfAuthorizationDiscovery
+    ).mockRejectedValueOnce(new Error('discovery update unavailable'));
+    vi.mocked(createJumiaSelfAuthorizationDiscovery).mockResolvedValueOnce(
+      'fallback-discovery'
+    );
+    vi.mocked(claimJumiaSelfAuthorizationDiscovery).mockResolvedValueOnce({
+      claimToken: 'claim-1',
+      credentialCiphertext: 'ciphertext',
+    });
+    vi.mocked(claimJumiaResumedAuthorization).mockResolvedValueOnce({
+      credentials: {
+        clientId: 'client-1',
+        refreshToken: 'refresh-1',
+      },
+      authorizationId: 'auth-1',
+      authorizationRotationVersion: 1,
+      leaseToken: 'lease-1',
+    });
+    vi.mocked(validateJumiaSelfAuthorization).mockImplementationOnce(
+      async (_credentials, options) => {
+        await options?.onCredentialsRotated?.({
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+        });
+        return {
+          credentials: {
+            clientId: 'client-1',
+            refreshToken: 'rotated-refresh',
+            accessToken: 'access-1',
+          },
+          accessTokenExpiresAt: '2026-03-27T10:00:00.000Z',
+          refreshTokenExpiresAt: '2026-04-27T10:00:00.000Z',
+          shops: [],
+        };
+      }
+    );
+    vi.mocked(jumiaSelfAuthorizationHandler.connect).mockImplementationOnce(
+      async (args) => {
+        await args.validate({
+          clientId: 'client-1',
+          refreshToken: 'refresh-1',
+        });
+        return NextResponse.json(
+          { error: 'Jumia connection failed' },
+          { status: 502 }
+        );
+      }
+    );
+
+    const supabase = buildSupabase() as { rpc: ReturnType<typeof vi.fn> };
+    supabase.rpc.mockResolvedValue({ data: 2, error: null });
+
+    const response = await handleJumiaSelfAuthorizationConnectRequest({
+      body: {
+        connectionType: 'self_authorization',
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        clientId: 'client-1',
+        selectedShopIds: ['shop-1'],
+      },
+      encryptionKey: 'a'.repeat(44),
+      merchantId: '00000000-0000-4000-8000-000000000001',
+      supabase: supabase as never,
+    });
+
+    expect(response.status).toBe(502);
+    expect(response.headers.get('x-jumia-discovery-id')).toBe(
+      'fallback-discovery'
+    );
+    expect(
+      preserveJumiaSelfAuthorizationDiscoveryAfterRotation
+    ).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        discoveryId: '00000000-0000-4000-8000-000000000099',
+        clientKeyHash: expect.any(String),
+        credentialCiphertext: 'ciphertext',
+      })
+    );
+  });
 });

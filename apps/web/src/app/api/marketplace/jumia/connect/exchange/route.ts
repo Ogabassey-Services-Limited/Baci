@@ -9,7 +9,11 @@ import {
   getMerchantIdForApiUser,
 } from '@/lib/api-auth';
 import { JumiaClient } from '@/lib/jumia/client';
-import { exchangeJumiaCode, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  exchangeJumiaCode,
+  getJumiaRedirectUri,
+  JumiaApiError,
+} from '@/lib/jumia/helpers';
 import {
   getActiveSelfAuthorizedJumiaShopIds,
   getJumiaOAuthShopIdsConflictingWithSelfAuthorization,
@@ -143,7 +147,19 @@ export async function POST(request: NextRequest) {
         redirectUri: jumiaRedirectUri,
       });
     } catch (exchangeError) {
-      console.error('[Jumia Exchange] Token exchange failed:', exchangeError);
+      const safeExchangeError =
+        exchangeError instanceof JumiaApiError
+          ? {
+              message: exchangeError.message,
+              status: exchangeError.status,
+            }
+          : exchangeError instanceof Error
+            ? { message: exchangeError.message }
+            : { message: String(exchangeError) };
+      console.error(
+        '[Jumia Exchange] Token exchange failed:',
+        safeExchangeError
+      );
       await releaseJumiaOAuthHandoffTicket(auth.supabase, {
         merchantId,
         ticketId,
@@ -292,7 +308,12 @@ export async function POST(request: NextRequest) {
       shops: newShopIds,
     });
   } catch (error) {
-    console.error('[Jumia Exchange] Unexpected error:', error);
+    console.error(
+      '[Jumia Exchange] Unexpected error:',
+      error instanceof Error
+        ? { message: error.message }
+        : { message: String(error) }
+    );
     return NextResponse.json({ error: 'Exchange failed' }, { status: 500 });
   }
 }

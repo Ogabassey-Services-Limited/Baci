@@ -4,7 +4,10 @@ import {
   JumiaSelfAuthorizationTokenResponseSchema,
   JumiaTokenResponseSchema,
 } from '@/schemas/jumia';
-import { acquireJumiaAuthorizationRefreshLease } from './jumia-authorization-refresh-lease';
+import {
+  acquireJumiaAuthorizationRefreshLease,
+  releaseJumiaAuthorizationRefreshLease,
+} from './jumia-authorization-refresh-lease';
 import { persistJumiaAuthorizationRotation } from './jumia-client-token-rotation';
 
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -122,6 +125,7 @@ async function refreshJumiaClientAccessTokenOnce(
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let refreshSucceeded = false;
 
   try {
     const response = await fetchWithThrottle(`${state.apiBase}/token`, {
@@ -136,11 +140,7 @@ async function refreshJumiaClientAccessTokenOnce(
     });
 
     if (!response.ok) {
-      throw new JumiaApiError(
-        response.status,
-        'Token refresh failed',
-        await response.text()
-      );
+      throw new JumiaApiError(response.status, 'Token refresh failed');
     }
 
     const tokenResponseSchema = state.authorizationId
@@ -172,7 +172,7 @@ async function refreshJumiaClientAccessTokenOnce(
           'Jumia did not return a rotated refresh token and expiry'
         );
       }
-      return persistJumiaAuthorizationRotation({
+      const persisted = await persistJumiaAuthorizationRotation({
         state,
         supabase,
         refreshLeaseToken,
@@ -182,6 +182,8 @@ async function refreshJumiaClientAccessTokenOnce(
           Date.now() + selfAuthorizationData.data.refresh_expires_in * 1000
         ),
       });
+      refreshSucceeded = true;
+      return persisted;
     }
 
     const { error: updateError } = await supabase
@@ -209,13 +211,31 @@ async function refreshJumiaClientAccessTokenOnce(
       refreshTokenExpiresAt,
     };
   } catch (error) {
+    let refreshError: unknown = error;
     if (
       (error instanceof Error || error instanceof DOMException) &&
       error.name === 'AbortError'
     ) {
-      throw new JumiaApiError(408, 'Token refresh request timed out');
+      refreshError = new JumiaApiError(408, 'Token refresh request timed out');
     }
-    throw error;
+    if (refreshLeaseToken && !refreshSucceeded && state.authorizationId) {
+      try {
+        await releaseJumiaAuthorizationRefreshLease({
+          authorizationId: state.authorizationId,
+          merchantId: state.merchantId,
+          leaseToken: refreshLeaseToken,
+          supabase,
+        });
+      } catch (releaseError) {
+        console.error(
+          '[Jumia Client] Failed to release refresh lease after refresh failure',
+          releaseError instanceof Error
+            ? releaseError.message
+            : String(releaseError)
+        );
+      }
+    }
+    throw refreshError;
   } finally {
     clearTimeout(timeout);
   }

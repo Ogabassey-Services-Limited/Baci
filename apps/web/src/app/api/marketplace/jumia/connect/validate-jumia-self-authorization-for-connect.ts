@@ -28,12 +28,18 @@ export async function validateJumiaSelfAuthorizationForConnect(args: {
     merchantId: args.merchantId,
     supabase: args.supabase,
   });
+  // A fresh, explicit credential submission is a reauthorization attempt and
+  // must not be replaced by an expired stored grant. Resumed discoveries have
+  // already committed to the stored authorization, so they use the leased
+  // winner while preserving refresh serialization for both paths.
   const submittedCredentials =
-    authorizationLease?.credentials ?? args.submittedCredentials;
+    args.discoveryId && authorizationLease
+      ? authorizationLease.credentials
+      : args.submittedCredentials;
 
   let credentialsRotated = false;
   try {
-    return await validateJumiaSelfAuthorization(submittedCredentials, {
+    const result = await validateJumiaSelfAuthorization(submittedCredentials, {
       onCredentialsRotated: async ({
         credentials,
         accessTokenExpiresAt,
@@ -68,6 +74,18 @@ export async function validateJumiaSelfAuthorizationForConnect(args: {
         await args.onCredentialsRotated(persisted);
       },
     });
+    // The normal self-authorization exchange rotates credentials and clears
+    // the lease through the lease-protected persistence RPC. Keep the lease
+    // lifecycle safe for providers/tests that return without rotating.
+    if (authorizationLease && !credentialsRotated) {
+      await releaseJumiaAuthorizationRefreshLease({
+        authorizationId: authorizationLease.authorizationId,
+        merchantId: args.merchantId,
+        leaseToken: authorizationLease.leaseToken,
+        supabase: args.supabase,
+      });
+    }
+    return result;
   } catch (error) {
     if (authorizationLease && !credentialsRotated) {
       try {

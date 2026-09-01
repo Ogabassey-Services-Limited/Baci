@@ -415,6 +415,48 @@ describe('Consignment POST', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ purchaseOrderNumber: 'PO-123' });
   });
+
+  it('rejects a business client code from another selected marketplace', async () => {
+    setupAuth();
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop1',
+      marketplaceKey: 'NG-RETAIL',
+    });
+    const body = {
+      integrationId: INT_ID,
+      businessClientCode: 'GH-RETAIL',
+      shippingDate: '2026-04-01',
+      products: [{ sku: 'SKU1', quantity: 10 }],
+    };
+
+    const res = await POST(makeJsonRequest('POST', body));
+
+    expect(res.status).toBe(400);
+    expect(mockCreateOrder).not.toHaveBeenCalled();
+  });
+
+  it('derives the provider business client code from the selected marketplace', async () => {
+    setupAuth();
+    mockForIntegration.mockResolvedValue({
+      shopId: 'shop1',
+      marketplaceKey: 'NG-RETAIL',
+    });
+    mockCreateOrder.mockResolvedValue({ purchaseOrderNumber: 'PO-123' });
+    const body = {
+      integrationId: INT_ID,
+      businessClientCode: 'NG-RETAIL',
+      shippingDate: '2026-04-01',
+      products: [{ sku: 'SKU1', quantity: 10 }],
+    };
+
+    const res = await POST(makeJsonRequest('POST', body));
+
+    expect(res.status).toBe(200);
+    expect(mockCreateOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ businessClientCode: 'NG-RETAIL' })
+    );
+  });
 });
 
 describe('Consignment PATCH', () => {

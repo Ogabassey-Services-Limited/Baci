@@ -193,7 +193,9 @@ describe('refreshJumiaClientAccessToken', () => {
   });
 
   it('fails closed when self-authorization refresh omits rotated credentials', async () => {
-    rpc.mockResolvedValueOnce({ data: 'lease-token', error: null });
+    rpc
+      .mockResolvedValueOnce({ data: 'lease-token', error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
     const fetchWithThrottle = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -229,6 +231,50 @@ describe('refreshJumiaClientAccessToken', () => {
     });
 
     expect(encrypt).not.toHaveBeenCalled();
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      'release_jumia_authorization_refresh_lease',
+      expect.objectContaining({
+        p_authorization_id: 'auth-1',
+        p_refresh_lease_token: 'lease-token',
+      })
+    );
+  });
+
+  it('does not retain provider error bodies and releases the lease on refresh failure', async () => {
+    rpc
+      .mockResolvedValueOnce({ data: 'lease-token', error: null })
+      .mockResolvedValueOnce({ data: true, error: null });
+    const fetchWithThrottle = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ refresh_token: 'secret-token' }), {
+        status: 401,
+      })
+    );
+
+    await expect(
+      refreshJumiaClientAccessToken(
+        {
+          integrationId: 'integration-1',
+          merchantId: 'merchant-1',
+          accessToken: 'stale-access',
+          refreshToken: 'refresh-token',
+          clientId: 'client-id',
+          authorizationId: 'auth-1',
+          authorizationRotationVersion: 1,
+          tokenExpiresAt: null,
+          refreshTokenExpiresAt: null,
+          supabase: { rpc } as never,
+          apiBase: 'https://api.jumia.test',
+        },
+        fetchWithThrottle
+      )
+    ).rejects.toMatchObject({
+      status: 401,
+      details: undefined,
+    });
+
+    expect(rpc).toHaveBeenLastCalledWith(
+      'release_jumia_authorization_refresh_lease',
+      expect.objectContaining({ p_refresh_lease_token: 'lease-token' })
+    );
   });
 });

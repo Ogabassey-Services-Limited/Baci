@@ -13,6 +13,7 @@ import {
   JumiaClient,
   jumiaErrorResponse,
 } from '@/lib/jumia/client';
+import { getJumiaManualOrderCacheKey } from '@/lib/jumia/get-jumia-manual-order-cache-key';
 import { getJumiaOrderQueryFilters } from '@/lib/jumia/order-query-filters';
 import { formatJumiaOrderTimestamp } from '@/lib/jumia/order-sync-mappers';
 import { getAllOrders, getOrderItems } from '@/lib/jumia/orders';
@@ -198,7 +199,9 @@ export async function POST(request: NextRequest) {
         jumia_order_id: order.id,
         jumia_order_number: String(order.number),
         jumia_shop_id: jumiaClient.shopId,
-        marketplace_key: jumiaClient.marketplaceKey,
+        marketplace_key: getJumiaManualOrderCacheKey(
+          jumiaClient.marketplaceKey
+        ),
         status: order.status,
         customer_name: sanitizedCustomerName,
         customer_phone: sanitizeText(customerPhone, 50),

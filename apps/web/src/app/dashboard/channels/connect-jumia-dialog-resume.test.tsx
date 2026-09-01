@@ -25,6 +25,7 @@ describe('ConnectJumiaDialog resumable discovery', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.sessionStorage.clear();
   });
 
   it('preserves the opaque discovery while clearing the refresh credential', async () => {
@@ -43,7 +44,7 @@ describe('ConnectJumiaDialog resumable discovery', () => {
     });
 
     const user = userEvent.setup();
-    const { rerender } = render(<ConnectJumiaDialog {...defaultProps} />);
+    const { unmount } = render(<ConnectJumiaDialog {...defaultProps} />);
 
     await user.click(
       screen.getByRole('button', { name: /enter refresh token/i })
@@ -56,13 +57,13 @@ describe('ConnectJumiaDialog resumable discovery', () => {
     });
 
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
-    rerender(<ConnectJumiaDialog {...defaultProps} open={false} />);
-    rerender(<ConnectJumiaDialog {...defaultProps} />);
-    await user.click(
-      screen.getByRole('button', { name: /enter refresh token/i })
-    );
+    unmount();
+    render(<ConnectJumiaDialog {...defaultProps} />);
 
-    expect(screen.getByText('Resumable Shop')).toBeInTheDocument();
+    expect(screen.getByLabelText(/client id/i)).toHaveValue('client-id');
+    expect(
+      screen.getByRole('button', { name: /discover shops/i })
+    ).toBeEnabled();
     expect(screen.getByLabelText(/refresh token/i)).toHaveValue('');
   });
 

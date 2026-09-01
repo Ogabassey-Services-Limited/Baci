@@ -2,6 +2,17 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { JumiaApiError } from '@/lib/jumia/jumia-api-error';
+import { createJumiaCredentialServiceClient } from '@/lib/jumia/server-credential-client';
+
+type JumiaCredentialRpcClient = {
+  rpc: (
+    functionName: 'load_jumia_authorization_credentials',
+    args: { p_authorization_id: string; p_merchant_id: string }
+  ) => Promise<{
+    data: unknown;
+    error: { code?: string | null; message: string } | null;
+  }>;
+};
 
 type JumiaAuthorizationGrantRow = {
   credential_ciphertext: string;
@@ -12,11 +23,13 @@ type JumiaAuthorizationGrantRow = {
 };
 
 export async function loadJumiaAuthorizationGrant(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   authorizationId: string,
   merchantId: string
 ): Promise<JumiaAuthorizationGrantRow> {
-  const { data, error } = await supabase.rpc(
+  const credentialClient =
+    createJumiaCredentialServiceClient() as unknown as JumiaCredentialRpcClient;
+  const { data, error } = await credentialClient.rpc(
     'load_jumia_authorization_credentials',
     {
       p_authorization_id: authorizationId,

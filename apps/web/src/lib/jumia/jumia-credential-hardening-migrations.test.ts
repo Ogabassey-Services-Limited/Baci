@@ -8,6 +8,23 @@ const migrationsRoot = path.resolve(
 );
 
 describe('Jumia credential hardening migrations', () => {
+  it('keeps credential-returning RPC access behind the server-only role', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260901100000_restrict_jumia_authorization_credential_rpc.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.load_jumia_authorization_credentials\(uuid, uuid\)[\s\S]*?FROM PUBLIC, anon, authenticated/i
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.load_jumia_authorization_credentials\(uuid, uuid\)[\s\S]*?TO service_role/i
+    );
+  });
+
   it('keeps credential columns out of direct authenticated reads', () => {
     const sql = readFileSync(
       path.join(
@@ -105,6 +122,41 @@ describe('Jumia credential hardening migrations', () => {
 
     expect(sql).toMatch(
       /UPDATE public\.marketplace_integrations[\s\S]*?WHERE integration\.id = p_integration_id[\s\S]*?IF EXISTS[\s\S]*?integration\.jumia_authorization_id = v_authorization_id/i
+    );
+  });
+
+  it('serializes the scheduled orphan sweep by shop and authorization', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260901110000_lock_jumia_orphan_sweep_authorizations.sql'
+      ),
+      'utf8'
+    );
+
+    const shopLock = sql.indexOf('btrim(v_candidate.shop_id), 0');
+    const authorizationLock = sql.indexOf("':authorization:' ||");
+    expect(shopLock).toBeGreaterThan(-1);
+    expect(authorizationLock).toBeGreaterThan(shopLock);
+    expect(sql).toMatch(
+      /REVOKE ALL ON FUNCTION public\.purge_orphaned_jumia_authorizations\(\)[\s\S]*?FROM PUBLIC, anon/i
+    );
+    expect(sql).toMatch(
+      /GRANT EXECUTE ON FUNCTION public\.purge_orphaned_jumia_authorizations\(\)[\s\S]*?TO service_role/i
+    );
+  });
+
+  it('drops the claimless discovery consume overload', () => {
+    const sql = readFileSync(
+      path.join(
+        migrationsRoot,
+        '20260901120000_drop_legacy_jumia_discovery_consume.sql'
+      ),
+      'utf8'
+    );
+
+    expect(sql).toMatch(
+      /DROP FUNCTION IF EXISTS public\.consume_jumia_self_authorization_discovery\(\s*uuid,\s*uuid,\s*text\s*\)/i
     );
   });
 });
