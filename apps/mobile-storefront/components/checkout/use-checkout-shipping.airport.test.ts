@@ -99,6 +99,28 @@ describe('useCheckoutShipping airport switching', () => {
     expect(setValue).toHaveBeenLastCalledWith('city', 'Lagos', {
       shouldValidate: true,
     });
+
+    setValue.mockClear();
+    act(() => {
+      result.current.handleDeliveryAddressSelect(
+        {
+          city: 'Lagos',
+          country: 'Nigeria',
+          formattedAddress: '3 Allen Avenue, Ikeja, Lagos, Nigeria',
+          latitude: 6.601,
+          longitude: 3.351,
+          route: 'Allen Avenue',
+          state: 'Lagos',
+          streetNumber: '3',
+          zip: '101233',
+        },
+        jest.fn()
+      );
+    });
+
+    expect(setValue).toHaveBeenCalledWith('city', 'Lagos', {
+      shouldValidate: true,
+    });
   });
 
   it('reuses resolved road quotes after switching to air and back', async () => {
